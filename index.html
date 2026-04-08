@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EGBC Member Availability</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs, setDoc, doc, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain: "egbc-worship-planner.firebaseapp.com",
+            projectId: "egbc-worship-planner",
+            storageBucket: "egbc-worship-planner.firebasestorage.app",
+            messagingSenderId: "199442060489",
+            appId: "1:199442060489:web:7eaf85a76334c753db6918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        let currentUser = null;
+        let availabilityData = {};
+        let displayedEvents = [];
+
+        async function loadLogo() {
+            try {
+                const logoRef = ref(storage, '1774936285076.png');
+                const url = await getDownloadURL(logoRef);
+                document.querySelectorAll('.egbc-logo').forEach(img => img.src = url);
+            } catch (error) {
+                console.error("Logo fetch failed:", error);
+            }
+        }
+        loadLogo();
+
+        window.loginMember = async () => {
+            const emailInput = document.getElementById('memberEmail').value.toLowerCase().trim();
+            const q = query(collection(db, "addressBook"), where("email", "==", emailInput));
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                alert("Email not found. Please ensure you are registered in the Address Book.");
+                return;
+            }
+
+            currentUser = { id: snap.docs[0].id, ...snap.docs[0].data() };
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('formSection').classList.remove('hidden');
+            document.getElementById('userName').innerText = currentUser.name;
+            loadResponses();
+        };
+
+        window.setStatus = async (eventId, dateKey, newStatus) => {
+            const docId = `${currentUser.id}_${eventId}`;
+            await setDoc(doc(db, "availability", docId), {
+                memberId: currentUser.id,
+                memberName: currentUser.name,
+                eventId: eventId,
+                dateKey: dateKey,
+                status: newStatus,
+                updatedAt: new Date()
+            });
+        };
+
+        window.submitAll = async () => {
+            const btn = document.getElementById('finalSubmitBtn');
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+
+            for (const ev of displayedEvents) {
+                if (!availabilityData[ev.id]) {
+                    await setStatus(ev.id, ev.date, 'avail');
+                }
+            }
+            
+            alert("Availability Submitted Successfully!");
+            location.reload();
+        };
+
+        function loadResponses() {
+            onSnapshot(query(collection(db, "availability"), where("memberId", "==", currentUser.id)), (snap) => {
+                availabilityData = {};
+                snap.forEach(d => { availabilityData[d.data().eventId] = d.data().status; });
+                renderDates();
+            });
+        }
+
+        async function renderDates() {
+            const q = query(collection(db, "events"), orderBy("date"));
+            const snap = await getDocs(q);
+            const container = document.getElementById('eventList');
+            container.innerHTML = '';
+            displayedEvents = [];
+
+            const grouped = {};
+            snap.forEach(d => {
+                const ev = d.data();
+                if (ev.archived === true) return;
+                const eventTeams = ev.teams || [];
+                const memberMarkers = currentUser.markers || [];
+                const isRelevant = eventTeams.length === 0 || eventTeams.some(t => memberMarkers.includes(t));
+                if (isRelevant) {
+                    const eventObj = { id: d.id, ...ev };
+                    displayedEvents.push(eventObj);
+                    const termKey = ev.termLabel || "Active Rota";
+                    if (!grouped[termKey]) grouped[termKey] = [];
+                    grouped[termKey].push(eventObj);
+                }
+            });
+
+            Object.keys(grouped).sort().forEach(term => {
+                let termHtml = `
+                    <div class="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div class="flex items-center gap-2 mb-4 px-1">
+                            <div class="h-1 w-8 bg-[#2c6999] rounded-full"></div>
+                            <h3 class="text-[11px] font-extrabold text-[#2c6999] uppercase tracking-[0.2em]">${term}</h3>
+                        </div>
+                        <div class="space-y-4">
+                `;
+                grouped[term].forEach(ev => {
+                    const status = availabilityData[ev.id] || 'avail'; 
+                    const dateDisplay = new Date(ev.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                    termHtml += `
+                        <div class="bg-white border border-gray-100 rounded-[24px] p-5 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 transition-all hover:shadow-md">
+                            <div class="text-center sm:text-left">
+                                <span class="text-[9px] font-black text-[#2c6999] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">${ev.type}</span>
+                                <div class="text-lg font-bold text-[#1a1a1a] mt-2">${dateDisplay}</div>
+                                <div class="text-[10px] font-semibold text-gray-400 mt-0.5">${ev.startTime || '08:00'} - ${ev.endTime || '11:30'}</div>
+                            </div>
+                            <div class="flex gap-2 w-full sm:w-auto">
+                                <button onclick="setStatus('${ev.id}', '${ev.date}', 'avail')" 
+                                    class="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-[10px] uppercase transition-all 
+                                    ${status === 'avail' ? 'bg-green-600 text-white' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
+                                    Available
+                                </button>
+                                <button onclick="setStatus('${ev.id}', '${ev.date}', 'not-avail')" 
+                                    class="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-[10px] uppercase transition-all 
+                                    ${status === 'not-avail' ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
+                                    Unavailable
+                                </button>
+                            </div>
+                        </div>`;
+                });
+                termHtml += `</div></div>`;
+                container.innerHTML += termHtml;
+            });
+            document.getElementById('actionButtons').classList.remove('hidden');
+        }
+    </script>
+    <style>
+        body { background-color: #fbfcff; font-family: 'Montserrat', sans-serif; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
+        .glass { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); }
+        input::placeholder { color: #cbd5e1; font-weight: 500; }
+        #userName { font-style: normal !important; color: #2c6999 !important; font-weight: 800; text-transform: uppercase; }
+    </style>
+</head>
+<body class="p-5 sm:p-10 lg:p-12 pb-32">
+    <div class="max-w-2xl mx-auto">
+        
+        <div id="loginSection" class="mt-16 sm:mt-24 text-center space-y-10 animate-in fade-in zoom-in duration-500">
+            <div class="space-y-4">
+                <img src="" alt="Logo" class="egbc-logo h-24 mx-auto object-contain">
+                <div class="text-center">
+                    <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.4em]">Esher Green Baptist Church</p>
+                    <h1 class="text-3xl font-black text-[#2c6999] tracking-tight uppercase mt-2">Availability Gather</h1>
+                </div>
+            </div>
+            
+            <div class="bg-white p-8 sm:p-12 rounded-[40px] shadow-xl border border-blue-50">
+                <div class="space-y-8">
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-center mb-3">Worship & AV Team Member Login</label>
+                        <input type="email" id="memberEmail" placeholder="your.email@esherchurch.org" 
+                            class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 text-center font-bold text-lg outline-none focus:border-blue-100 transition-all shadow-inner">
+                    </div>
+                    <button onclick="loginMember()" class="w-full bg-[#2c6999] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-[#23557d] transform active:scale-95 transition-all">
+                        Load My services
+                    </button>
+                </div>
+            </div>
+            
+            <p class="text-gray-300 text-[10px] font-medium uppercase tracking-wider">Leave the boxes unticked if you are Available.</p>
+        </div>
+
+        <div id="formSection" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <header class="flex justify-between items-start mb-12 border-b border-gray-100 pb-6">
+                <div>
+                    <img src="" alt="Logo" class="egbc-logo h-12 object-contain mb-3">
+                    <p class="text-[9px] font-black text-[#2c6999] uppercase tracking-[0.3em]">TEAM MEMBER</p>
+                    <h2 id="userName" class="text-2xl font-extrabold"></h2>
+                </div>
+                <button onclick="location.reload()" class="bg-gray-100 text-gray-400 p-3 rounded-full hover:bg-gray-200 transition-all shadow-sm">
+                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                </button>
+            </header>
+            
+            <div id="eventList"></div>
+
+            <div id="actionButtons" class="hidden fixed bottom-6 left-0 right-0 px-5 z-50">
+                <div class="max-w-2xl mx-auto glass p-5 rounded-[32px] shadow-2xl border border-blue-50 flex flex-col sm:flex-row gap-3">
+                    <button id="finalSubmitBtn" onclick="submitAll()" class="flex-1 bg-[#2c6999] text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:bg-[#23557d] transition-all transform active:scale-95">
+                        Confirm Rota Availability
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
