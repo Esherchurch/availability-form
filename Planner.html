@@ -8,6 +8,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, arrayUnion, arrayRemove, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -222,7 +225,6 @@
             const mainTo = "av@esherchurch.org";
             const subject = encodeURIComponent(`EGBC Availability: ${selectedTerm}`);
             
-            // PROFESSIONAL TEXT-ONLY BRANDING
             const body = encodeURIComponent(
                 "==========================================\n" +
                 "  ESHER GREEN BAPTIST CHURCH | WORSHIP & AV\n" +
@@ -260,27 +262,29 @@
             window.location.href = `mailto:${member.email}?subject=${subject}&body=${body}`;
         };
 
-        window.generatePDF = async (type, memberId) => {
+        // SHARED PDF BLOB GENERATOR - FIXED TO INCLUDE DESCRIPTION
+        const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
             const docRef = new jsPDF('l', 'mm', 'a4'); 
             const activeLogo = await getLogoBase64();
-            let termEvents = cachedEvents.filter(e => !e.archived);
-            if(termEvents.length === 0) return alert("No events found.");
+            let termEvents = specificEvents || cachedEvents.filter(e => !e.archived);
+            if(termEvents.length === 0) return null;
             let termTitle = termEvents[0].termLabel;
             let reportTitle = "";
+            
             if (type === 'individual') {
-                if (!memberId) return alert("Select a member.");
                 const member = addressBook.find(m => m.id === memberId);
                 reportTitle = `${member.name.toUpperCase()} - ${termTitle}`;
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === memberId));
             } else if (type === 'household') {
-                if (!memberId) return alert("Select a member.");
                 const member = addressBook.find(m => m.id === memberId);
                 const hIds = [memberId, ...(member.relatedTo || [])];
                 reportTitle = `HOUSEHOLD ROTA: ${member.name.toUpperCase()} - ${termTitle}`;
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
             } else { reportTitle = `FULL ROTA: ${termTitle}`; }
-            if (termEvents.length === 0) return alert("No assigned dates found.");
+            
+            if (termEvents.length === 0) return null;
+
             if (activeLogo) {
                 try { 
                     const props = docRef.getImageProperties(activeLogo);
@@ -289,17 +293,24 @@
                     docRef.addImage(activeLogo, 'PNG', 260, 10, fixedWidth, scaledHeight); 
                 } catch(e) {}
             }
+
             docRef.setFillColor(245, 248, 255); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(44, 105, 153); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
+
             const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
-            const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]];
+            // ADDED DESCRIPTION COLUMN TO HEADERS
+            const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase()), 'DESCRIPTION']];
+            
             const tableBody = termEvents.map(e => {
                 const dateObj = new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                 const row = [dateObj, e.type]; 
                 allRoles.forEach(role => row.push(e.assignments?.[role]?.name || "---"));
+                // ADDED DESCRIPTION TO ROW
+                row.push(e.description || "");
                 return row;
             });
+
             docRef.autoTable({
                 startY: 35, head: headers, body: tableBody, theme: 'plain',
                 headStyles: { fillColor: null, textColor: [255, 255, 255], fontSize: 7, halign: 'center', cellPadding: 4 },
@@ -315,7 +326,59 @@
                 didDrawCell: function(data) { if (data.section === 'body') { docRef.setDrawColor(230, 235, 245); docRef.setLineWidth(0.1); docRef.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height); } },
                 didDrawPage: function(data) { docRef.setDrawColor(44, 105, 153); docRef.setLineWidth(0.3); docRef.roundedRect(10, 35, 277, data.cursor.y - 35, 4, 4, 'D'); }
             });
-            docRef.save(`${reportTitle.replace(/\s+/g, '_')}.pdf`);
+            return docRef;
+        };
+
+        window.generatePDF = async (type, memberId) => {
+            const doc = await getPdfBlob(type, memberId);
+            if (!doc) return alert("No assigned dates found.");
+            const title = type === 'full' ? 'FULL_ROTA' : addressBook.find(m => m.id === memberId).name;
+            doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+        };
+
+        // NEW DISTRIBUTION BATCH LOGIC
+        window.prepareDistributionPackage = async () => {
+            const zip = new JSZip();
+            const activeEvents = cachedEvents.filter(e => !e.archived);
+            if (activeEvents.length === 0) return alert("No active events found.");
+            
+            // 1. Generate Full Master PDF
+            const fullDoc = await getPdfBlob('full', null, activeEvents);
+            if (fullDoc) zip.file("00_FULL_CHURCH_ROTA.pdf", fullDoc.output('blob'));
+
+            // 2. Identify all people who have at least one assignment
+            const assignedMemberIds = new Set();
+            activeEvents.forEach(e => {
+                Object.values(e.assignments || {}).forEach(a => { if (a.id) assignedMemberIds.add(a.id); });
+            });
+
+            // 3. Loop and generate PDFs for each folder
+            for (const mId of assignedMemberIds) {
+                const member = addressBook.find(m => m.id === mId);
+                if (!member) continue;
+                
+                const safeName = member.name.replace(/\s+/g, '_');
+                const folder = zip.folder(safeName);
+
+                // Individual PDF
+                const indDoc = await getPdfBlob('individual', mId, activeEvents);
+                if (indDoc) folder.file(`${safeName}_Individual.pdf`, indDoc.output('blob'));
+
+                // Household PDF
+                const houseDoc = await getPdfBlob('household', mId, activeEvents);
+                if (houseDoc) folder.file(`${safeName}_Household.pdf`, houseDoc.output('blob'));
+
+                // Copy of Full Rota
+                if (fullDoc) folder.file("Full_Church_Reference.pdf", fullDoc.output('blob'));
+            }
+
+            // 4. Create CSV for PowerShell
+            let csv = "Name,Email\n";
+            addressBook.forEach(u => { if(u.email) csv += `"${u.name}","${u.email}"\n`; });
+            zip.file("Distribution_List.csv", csv);
+
+            const content = await zip.generateAsync({type:"blob"});
+            saveAs(content, "EGBC_Rota_Distribution_Package.zip");
         };
 
         function renderPlanner() {
@@ -383,8 +446,8 @@
                             <div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="bg-white p-6 rounded-[3rem] border border-gray-100 shadow-md transition-all hover:bg-blue-50/50">
                                 <div class="flex justify-between items-center border-b border-gray-50 pb-3 mb-5"><div class="text-[10px] font-black text-[#2c6999] uppercase tracking-wider">Bucket</div><button onclick="toggleHideAssigned()" class="text-[9px] font-bold uppercase px-3 py-1.5 rounded-full transition-all ${hideAssigned ? 'bg-[#2c6999] text-white' : 'bg-gray-100 text-gray-400 border border-gray-100'}">Hide Assigned</button></div>
                                 <div class="space-y-6">
-                                    <div><div class="text-[9px] font-black text-green-500 uppercase mb-3 tracking-widest">Available</div><div class="flex flex-wrap gap-2.5">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name}')" title="Primary: ${(m.primaryInstruments || []).join(', ')}" class="px-3 py-1.5 bg-green-50 text-green-700 rounded-xl text-[10px] font-bold cursor-grab transition-all hover:scale-105 shadow-sm">${m.name}</div>`).join('')}</div></div>
-                                    <div><div class="text-[9px] font-black text-gray-400 uppercase mb-3 tracking-widest border-t border-gray-50 pt-3">Pending</div><div class="flex flex-wrap gap-2.5">${pending.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name}')" title="Primary: ${(m.primaryInstruments || []).join(', ')}" class="px-3 py-1.5 bg-gray-50 text-gray-400 rounded-xl text-[10px] font-bold cursor-grab hover:bg-gray-100 shadow-sm">${m.name}</div>`).join('')}</div></div>
+                                    <div><div class="text-[9px] font-black text-green-500 uppercase mb-3 tracking-widest">Available</div><div class="flex flex-wrap gap-2.5">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name}')" title="Primary: ${(m.primaryInstruments || []).join(', ')}\nSecondary: ${(m.secondaryInstruments || []).join(', ')}" class="px-3 py-1.5 bg-green-50 text-green-700 rounded-xl text-[10px] font-bold cursor-grab transition-all hover:scale-105 shadow-sm">${m.name}</div>`).join('')}</div></div>
+                                    <div><div class="text-[9px] font-black text-gray-400 uppercase mb-3 tracking-widest border-t border-gray-50 pt-3">Pending</div><div class="flex flex-wrap gap-2.5">${pending.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name}')" title="Primary: ${(m.primaryInstruments || []).join(', ')}\nSecondary: ${(m.secondaryInstruments || []).join(', ')}" class="px-3 py-1.5 bg-gray-50 text-gray-400 rounded-xl text-[10px] font-bold cursor-grab hover:bg-gray-100 shadow-sm">${m.name}</div>`).join('')}</div></div>
                                 </div>
                             </div>
                         </div>
@@ -406,7 +469,10 @@
                     <button onclick="generateTerm()" class="bg-[#2c6999]/10 text-[#2c6999] px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#2c6999]/20 transition-all">Populate Term</button>
                     <button onclick="addSingleLine()" class="bg-[#2c6999] text-white px-10 py-3 rounded-full font-black text-[10px] uppercase shadow-lg hover:scale-105 transition-all">+ Add Service</button>
                 </div>
-                <button onclick="gatherTermAvailability()" class="bg-[#2c6999] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase shadow-md hover:bg-[#23557d] transition-all">Gather Team Availability (Whole Term)</button>
+                <div class="flex gap-4">
+                    <button onclick="gatherTermAvailability()" class="bg-[#2c6999] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase shadow-md hover:bg-[#23557d] transition-all">Gather Team Availability (Whole Term)</button>
+                    <button onclick="prepareDistributionPackage()" class="bg-amber-500 text-white px-8 py-3 rounded-full font-black text-[10px] uppercase shadow-md hover:bg-amber-600 transition-all">🚀 SEND ALL PERSONAL ROTAS</button>
+                </div>
             </div>
             <div class="flex flex-col gap-4">
                 <div class="flex flex-wrap gap-5 bg-white p-4 rounded-[3.5rem] shadow-xl border border-gray-100 items-center">
