@@ -54,7 +54,8 @@
                         canvas.width = img.width; canvas.height = img.height;
                         const ctx = canvas.getContext("2d");
                         ctx.drawImage(img, 0, 0);
-                        logoBase64 = canvas.toDataURL("image/png");
+                        // QUALITY REDUCTION FOR FILE SIZE
+                        logoBase64 = canvas.toDataURL("image/jpeg", 0.6);
                         resolve(logoBase64);
                     };
                     img.onerror = () => resolve(null);
@@ -262,10 +263,9 @@
             window.location.href = `mailto:${member.email}?subject=${subject}&body=${body}`;
         };
 
-        // SHARED PDF BLOB GENERATOR - FIXED TO INCLUDE DESCRIPTION
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
-            const docRef = new jsPDF('l', 'mm', 'a4'); 
+            const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true }); 
             const activeLogo = await getLogoBase64();
             let termEvents = specificEvents || cachedEvents.filter(e => !e.archived);
             if(termEvents.length === 0) return null;
@@ -273,10 +273,12 @@
             let reportTitle = "";
             
             if (type === 'individual') {
+                if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 reportTitle = `${member.name.toUpperCase()} - ${termTitle}`;
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === memberId));
             } else if (type === 'household') {
+                if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 const hIds = [memberId, ...(member.relatedTo || [])];
                 reportTitle = `HOUSEHOLD ROTA: ${member.name.toUpperCase()} - ${termTitle}`;
@@ -290,27 +292,21 @@
                     const props = docRef.getImageProperties(activeLogo);
                     const fixedWidth = 25; 
                     const scaledHeight = (props.height * fixedWidth) / props.width;
-                    docRef.addImage(activeLogo, 'PNG', 260, 10, fixedWidth, scaledHeight); 
+                    docRef.addImage(activeLogo, 'JPEG', 260, 10, fixedWidth, scaledHeight, undefined, 'FAST'); 
                 } catch(e) {}
             }
-
             docRef.setFillColor(245, 248, 255); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(44, 105, 153); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
-
             const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
-            // ADDED DESCRIPTION COLUMN TO HEADERS
             const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase()), 'DESCRIPTION']];
-            
             const tableBody = termEvents.map(e => {
                 const dateObj = new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                 const row = [dateObj, e.type]; 
                 allRoles.forEach(role => row.push(e.assignments?.[role]?.name || "---"));
-                // ADDED DESCRIPTION TO ROW
                 row.push(e.description || "");
                 return row;
             });
-
             docRef.autoTable({
                 startY: 35, head: headers, body: tableBody, theme: 'plain',
                 headStyles: { fillColor: null, textColor: [255, 255, 255], fontSize: 7, halign: 'center', cellPadding: 4 },
@@ -332,51 +328,33 @@
         window.generatePDF = async (type, memberId) => {
             const doc = await getPdfBlob(type, memberId);
             if (!doc) return alert("No assigned dates found.");
-            const title = type === 'full' ? 'FULL_ROTA' : addressBook.find(m => m.id === memberId).name;
-            doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+            doc.save(`${type}_rota.pdf`);
         };
 
-        // NEW DISTRIBUTION BATCH LOGIC
         window.prepareDistributionPackage = async () => {
             const zip = new JSZip();
             const activeEvents = cachedEvents.filter(e => !e.archived);
             if (activeEvents.length === 0) return alert("No active events found.");
-            
-            // 1. Generate Full Master PDF
             const fullDoc = await getPdfBlob('full', null, activeEvents);
             if (fullDoc) zip.file("00_FULL_CHURCH_ROTA.pdf", fullDoc.output('blob'));
-
-            // 2. Identify all people who have at least one assignment
             const assignedMemberIds = new Set();
             activeEvents.forEach(e => {
                 Object.values(e.assignments || {}).forEach(a => { if (a.id) assignedMemberIds.add(a.id); });
             });
-
-            // 3. Loop and generate PDFs for each folder
             for (const mId of assignedMemberIds) {
                 const member = addressBook.find(m => m.id === mId);
                 if (!member) continue;
-                
                 const safeName = member.name.replace(/\s+/g, '_');
                 const folder = zip.folder(safeName);
-
-                // Individual PDF
                 const indDoc = await getPdfBlob('individual', mId, activeEvents);
                 if (indDoc) folder.file(`${safeName}_Individual.pdf`, indDoc.output('blob'));
-
-                // Household PDF
                 const houseDoc = await getPdfBlob('household', mId, activeEvents);
                 if (houseDoc) folder.file(`${safeName}_Household.pdf`, houseDoc.output('blob'));
-
-                // Copy of Full Rota
                 if (fullDoc) folder.file("Full_Church_Reference.pdf", fullDoc.output('blob'));
             }
-
-            // 4. Create CSV for PowerShell
             let csv = "Name,Email\n";
             addressBook.forEach(u => { if(u.email) csv += `"${u.name}","${u.email}"\n`; });
             zip.file("Distribution_List.csv", csv);
-
             const content = await zip.generateAsync({type:"blob"});
             saveAs(content, "EGBC_Rota_Distribution_Package.zip");
         };
