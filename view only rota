@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EGBC Live Rota - View & Download</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain: "egbc-worship-planner.firebaseapp.com",
+            projectId: "egbc-worship-planner",
+            storageBucket: "egbc-worship-planner.firebasestorage.app",
+            messagingSenderId: "199442060489",
+            appId: "1:199442060489:web:7eaf85a76334c753db6918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        let cachedEvents = [];
+        let addressBook = [];
+        let collapsedTerms = new Set();
+        let logoBase64 = null;
+
+        const getLogoBase64 = () => {
+            return new Promise(async (resolve) => {
+                if (logoBase64) return resolve(logoBase64);
+                try {
+                    const url = await getDownloadURL(ref(storage, '1774936285076.png'));
+                    const img = new Image();
+                    img.setAttribute('crossOrigin', 'anonymous');
+                    img.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = img.width; canvas.height = img.height;
+                        const ctx = canvas.getContext("2d");
+                        ctx.drawImage(img, 0, 0);
+                        logoBase64 = canvas.toDataURL("image/png");
+                        resolve(logoBase64);
+                    };
+                    img.src = url + "?c=" + new Date().getTime();
+                } catch (e) { resolve(null); }
+            });
+        };
+        getLogoBase64();
+
+        onSnapshot(collection(db, "addressBook"), (snap) => {
+            addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const select = document.getElementById('memberPdfSelect');
+            if (select) {
+                select.innerHTML = '<option value="">Select Member...</option>';
+                addressBook.sort((a,b) => a.name.localeCompare(b.name)).forEach(m => {
+                    select.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                });
+            }
+        });
+
+        onSnapshot(query(collection(db, "events"), orderBy("date")), (snap) => {
+            cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderRota();
+        });
+
+        window.toggleTermCollapse = (term) => {
+            collapsedTerms.has(term) ? collapsedTerms.delete(term) : collapsedTerms.add(term);
+            renderRota();
+        };
+
+        window.generatePDF = async (type, memberId) => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); 
+            const activeLogo = await getLogoBase64();
+            const today = new Date().toISOString().split('T')[0];
+            let termEvents = cachedEvents.filter(e => !e.archived && e.date >= today);
+            
+            if (type === 'individual') {
+                if (!memberId) return alert("Select your name first.");
+                const member = addressBook.find(m => m.id === memberId);
+                termEvents = termEvents.filter(e => {
+                    const isAssigned = Object.values(e.assignments || {}).some(a => a.id === memberId);
+                    const isInChoir = member.markers?.includes('Choir') && e.roles?.includes('Choir');
+                    return isAssigned || isInChoir;
+                });
+            } else if (type === 'household') {
+                if (!memberId) return alert("Select your name first.");
+                const member = addressBook.find(m => m.id === memberId);
+                const hIds = [memberId, ...(member.relatedTo || [])];
+                termEvents = termEvents.filter(e => {
+                    const isAssigned = Object.values(e.assignments || {}).some(a => hIds.includes(a.id));
+                    const houseMembers = addressBook.filter(m => hIds.includes(m.id));
+                    const choirRequirement = houseMembers.some(m => m.markers?.includes('Choir')) && e.roles?.includes('Choir');
+                    return isAssigned || choirRequirement;
+                });
+            }
+
+            if (termEvents.length === 0) return alert("No upcoming assigned dates found.");
+
+            if (activeLogo) {
+                const props = doc.getImageProperties(activeLogo);
+                doc.addImage(activeLogo, 'PNG', 260, 10, 25, (props.height * 25) / props.width); 
+            }
+            
+            doc.setFillColor(245, 248, 255); doc.roundedRect(12, 12, 230, 10, 4, 4, 'F');
+            doc.setTextColor(44, 105, 153); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
+            doc.text(`${type.toUpperCase()} ROTA`, 16, 19);
+
+            const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
+            const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]];
+            const tableBody = termEvents.map(e => {
+                const row = [new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), e.type]; 
+                allRoles.forEach(role => row.push(e.assignments?.[role]?.name || (role === 'Choir' && e.roles.includes('Choir') ? 'Choir Member' : '---')));
+                return row;
+            });
+
+            doc.autoTable({
+                startY: 35, head: headers, body: tableBody, theme: 'plain',
+                headStyles: { fillColor: [44, 105, 153], textColor: [255, 255, 255], fontSize: 7, halign: 'center' },
+                styles: { fontSize: 7.5, halign: 'center' },
+                margin: { horizontal: 10 },
+                didDrawPage: (data) => {
+                    doc.setDrawColor(44, 105, 153); doc.roundedRect(10, 35, 277, data.cursor.y - 35, 4, 4, 'D');
+                }
+            });
+            doc.save(`EGBC_${type}_rota.pdf`);
+        };
+
+        function renderRota() {
+            const container = document.getElementById('rotaContent');
+            container.innerHTML = '';
+            const grouped = {};
+            const today = new Date().toISOString().split('T')[0];
+
+            cachedEvents.forEach(ev => {
+                if(ev.archived || ev.date < today) return; 
+                const term = ev.termLabel || "Current Rota";
+                if (!grouped[term]) grouped[term] = [];
+                grouped[term].push(ev);
+            });
+
+            Object.keys(grouped).sort().forEach(term => {
+                const isCollapsed = collapsedTerms.has(term);
+                let termHtml = `
+                    <div class="mb-6">
+                        <div onclick="toggleTermCollapse('${term}')" class="flex justify-between items-center bg-[#2c6999] text-white px-6 py-3 rounded-t-2xl shadow-sm cursor-pointer">
+                            <h2 class="uppercase font-bold tracking-widest text-[11px] font-montserrat">${term}</h2>
+                            <span class="text-[9px] font-bold uppercase">${isCollapsed ? 'Show' : 'Hide'}</span>
+                        </div>
+                        <div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-3 border-x border-b border-gray-100 rounded-b-2xl shadow-sm">`;
+                
+                grouped[term].forEach(ev => {
+                    termHtml += `
+                        <div class="bg-slate-50 rounded-xl p-4 mb-3 border border-slate-100">
+                            <div class="flex flex-wrap items-center gap-3 mb-3 border-b border-slate-200/50 pb-2">
+                                <span class="bg-[#2c6999] text-white px-3 py-1 rounded-full font-bold text-[9px]">
+                                    ${new Date(ev.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                </span>
+                                <span class="text-[#2c6999] font-black text-[9px] uppercase">${ev.startTime || '08:00'}</span>
+                                <span class="text-slate-800 font-extrabold text-[11px] uppercase tracking-tight">${ev.type}</span>
+                                <span class="italic text-slate-400 text-[10px] flex-grow text-right">${ev.description || ''}</span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                ${ev.roles.map(role => {
+                                    const assigned = ev.assignments?.[role]?.name || (role === 'Choir' ? '<span class="text-blue-400">Choir Member</span>' : '---');
+                                    return `
+                                        <div class="bg-white p-2 border border-slate-100 rounded-lg shadow-sm">
+                                            <div class="text-[7px] font-black uppercase text-[#2c6999] opacity-50">${role}</div>
+                                            <div class="text-[10px] font-bold text-slate-700 truncate">${assigned}</div>
+                                        </div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                });
+                container.innerHTML += termHtml + `</div></div>`;
+            });
+        }
+    </script>
+</head>
+<body class="p-2 md:p-6 bg-[#f4f7fa] font-montserrat">
+    <div class="w-full mx-auto">
+        <header class="flex flex-wrap items-center justify-end gap-3 mb-6 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+            <span class="text-[9px] font-black uppercase text-gray-400 tracking-widest mr-auto ml-2">Download Your Rota</span>
+            <select id="memberPdfSelect" class="bg-slate-50 rounded-full px-4 py-2 text-[10px] font-bold uppercase border border-slate-100 outline-none"></select>
+            <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-[#2c6999] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Individual PDF</button>
+            <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-purple-600 text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Household PDF</button>
+        </header>
+
+        <div id="rotaContent">
+            <div class="flex justify-center py-20 text-slate-400 italic text-sm">Loading Rota...</div>
+        </div>
+    </div>
+</body>
+</html>
