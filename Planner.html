@@ -54,8 +54,7 @@
                         canvas.width = img.width; canvas.height = img.height;
                         const ctx = canvas.getContext("2d");
                         ctx.drawImage(img, 0, 0);
-                        // QUALITY REDUCTION FOR FILE SIZE
-                        logoBase64 = canvas.toDataURL("image/jpeg", 0.6);
+                        logoBase64 = canvas.toDataURL("image/png");
                         resolve(logoBase64);
                     };
                     img.onerror = () => resolve(null);
@@ -205,69 +204,13 @@
             }
         };
 
-        window.gatherTermAvailability = async () => {
-            const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel))];
-            if(terms.length === 0) return alert("No active terms found.");
-            const selectedTerm = prompt(`Gather availability for which term?\n\nOptions:\n${terms.join('\n')}`, terms[0]);
-            if(!selectedTerm) return;
-            
-            const relevantEmails = new Set();
-            const eventsInTerm = cachedEvents.filter(e => !e.archived && e.termLabel === selectedTerm);
-            eventsInTerm.forEach(ev => {
-                const eventTeams = ev.teams || [];
-                addressBook.forEach(m => {
-                    if(m.markers?.some(r => eventTeams.includes(r))) { relevantEmails.add(m.email); }
-                });
-            });
-            
-            const bccList = [...relevantEmails].join(';');
-            if(!bccList) return alert("No members found for this term.");
-
-            const mainTo = "av@esherchurch.org";
-            const subject = encodeURIComponent(`EGBC Availability: ${selectedTerm}`);
-            
-            const body = encodeURIComponent(
-                "==========================================\n" +
-                "  ESHER GREEN BAPTIST CHURCH | WORSHIP & AV\n" +
-                "==========================================\n\n" +
-                "Hi Team,\n\n" +
-                "It's time to gather availability for the upcoming " + selectedTerm + " term.\n\n" +
-                "PLEASE CLICK THE LINK BELOW TO PROVIDE YOUR DATES:\n" +
-                "👉 " + FORM_LINK + "\n\n" +
-                "------------------------------------------\n" +
-                "Instructions:\n" +
-                "1. Click the link above\n" +
-                "2. Select your name from the list\n" +
-                "3. Mark 'Available' or 'Not Available' for each Sunday\n" +
-                "4. Hit 'Submit Availability' at the bottom\n\n" +
-                "Thank you for serving!\n\n" +
-                "EGBC Worship & AV Team"
-            );
-
-            window.location.href = `mailto:${mainTo}?bcc=${bccList}&subject=${subject}&body=${body}`;
-        };
-
-        window.gatherIndividualAvailability = async (memberId) => {
-            if(!memberId) return alert("Select a member first.");
-            const member = addressBook.find(m => m.id === memberId);
-            const term = document.getElementById('termSelect').value || "Upcoming Term";
-            const subject = encodeURIComponent("EGBC Availability Request");
-            const body = encodeURIComponent(
-                "Hi " + member.name + ",\n\n" +
-                "Please provide your availability for " + term + " by clicking the link below:\n\n" +
-                "👉 " + FORM_LINK + "\n\n" +
-                "Thank you!\n\n" +
-                "EGBC Worship & AV Team"
-            );
-            
-            window.location.href = `mailto:${member.email}?subject=${subject}&body=${body}`;
-        };
-
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
-            const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true }); 
+            const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' }); 
             const activeLogo = await getLogoBase64();
-            let termEvents = specificEvents || cachedEvents.filter(e => !e.archived);
+            const today = new Date().toISOString().split('T')[0];
+            let termEvents = (specificEvents || cachedEvents).filter(e => !e.archived && e.date >= today);
+            
             if(termEvents.length === 0) return null;
             let termTitle = termEvents[0].termLabel;
             let reportTitle = "";
@@ -276,13 +219,25 @@
                 if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 reportTitle = `${member.name.toUpperCase()} - ${termTitle}`;
-                termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === memberId));
+                
+                // FIXED INDIVIDUAL FILTER: Checks if assigned OR if person is in Choir and Choir role exists
+                termEvents = termEvents.filter(e => {
+                    const isAssigned = Object.values(e.assignments || {}).some(a => a.id === memberId);
+                    const isInChoir = member.markers?.includes('Choir') && e.roles?.includes('Choir');
+                    return isAssigned || isInChoir;
+                });
             } else if (type === 'household') {
                 if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 const hIds = [memberId, ...(member.relatedTo || [])];
                 reportTitle = `HOUSEHOLD ROTA: ${member.name.toUpperCase()} - ${termTitle}`;
-                termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+                
+                termEvents = termEvents.filter(e => {
+                    const isAssigned = Object.values(e.assignments || {}).some(a => hIds.includes(a.id));
+                    const houseMembers = addressBook.filter(m => hIds.includes(m.id));
+                    const choirRequirement = houseMembers.some(m => m.markers?.includes('Choir')) && e.roles?.includes('Choir');
+                    return isAssigned || choirRequirement;
+                });
             } else { reportTitle = `FULL ROTA: ${termTitle}`; }
             
             if (termEvents.length === 0) return null;
@@ -292,7 +247,7 @@
                     const props = docRef.getImageProperties(activeLogo);
                     const fixedWidth = 25; 
                     const scaledHeight = (props.height * fixedWidth) / props.width;
-                    docRef.addImage(activeLogo, 'JPEG', 260, 10, fixedWidth, scaledHeight, undefined, 'FAST'); 
+                    docRef.addImage(activeLogo, 'PNG', 260, 10, fixedWidth, scaledHeight); 
                 } catch(e) {}
             }
             docRef.setFillColor(245, 248, 255); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
@@ -303,7 +258,12 @@
             const tableBody = termEvents.map(e => {
                 const dateObj = new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                 const row = [dateObj, e.type]; 
-                allRoles.forEach(role => row.push(e.assignments?.[role]?.name || "---"));
+                allRoles.forEach(role => {
+                    let val = e.assignments?.[role]?.name || "---";
+                    // If it's a choir member looking at a choir role, show "Choir"
+                    if (role === 'Choir' && val === "---" && e.roles?.includes('Choir')) { val = "Choir Member"; }
+                    row.push(val);
+                });
                 row.push(e.description || "");
                 return row;
             });
@@ -335,22 +295,54 @@
             const zip = new JSZip();
             const activeEvents = cachedEvents.filter(e => !e.archived);
             if (activeEvents.length === 0) return alert("No active events found.");
+            
             const fullDoc = await getPdfBlob('full', null, activeEvents);
             if (fullDoc) zip.file("00_FULL_CHURCH_ROTA.pdf", fullDoc.output('blob'));
-            const assignedMemberIds = new Set();
+
+            // IDENTIFY EVERYONE WHO NEEDS AN EMAIL (Assigned OR Choir Members when Choir is active)
+            const recipientIds = new Set();
             activeEvents.forEach(e => {
-                Object.values(e.assignments || {}).forEach(a => { if (a.id) assignedMemberIds.add(a.id); });
+                // Manually assigned people
+                Object.values(e.assignments || {}).forEach(a => { if (a.id) recipientIds.add(a.id); });
+                // Choir members for choir events
+                if (e.roles?.includes('Choir')) {
+                    addressBook.forEach(m => { if (m.markers?.includes('Choir')) recipientIds.add(m.id); });
+                }
             });
-            for (const mId of assignedMemberIds) {
+
+            for (const mId of recipientIds) {
                 const member = addressBook.find(m => m.id === mId);
                 if (!member) continue;
+                
                 const safeName = member.name.replace(/\s+/g, '_');
                 const folder = zip.folder(safeName);
+
                 const indDoc = await getPdfBlob('individual', mId, activeEvents);
                 if (indDoc) folder.file(`${safeName}_Individual.pdf`, indDoc.output('blob'));
+
                 const houseDoc = await getPdfBlob('household', mId, activeEvents);
                 if (houseDoc) folder.file(`${safeName}_Household.pdf`, houseDoc.output('blob'));
+
                 if (fullDoc) folder.file("Full_Church_Reference.pdf", fullDoc.output('blob'));
+                
+                // CALENDAR ICS DATA
+                const myEvents = activeEvents.filter(e => {
+                    const isAssigned = Object.values(e.assignments || {}).some(a => a.id === mId);
+                    const isChoirDate = member.markers?.includes('Choir') && e.roles?.includes('Choir');
+                    return isAssigned || isChoirDate;
+                });
+                
+                let ical = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
+                myEvents.forEach(ev => {
+                    const roleEntry = Object.entries(ev.assignments).find(([r, a]) => a.id === mId);
+                    let role = roleEntry ? roleEntry[0] : (member.markers?.includes('Choir') && ev.roles?.includes('Choir') ? "Choir" : "Serving");
+                    const dt = ev.date.replace(/-/g, '');
+                    ical += "BEGIN:VEVENT\nDTSTART:" + dt + "T080000\nDTEND:" + dt + "T113000\n";
+                    ical += "SUMMARY:Serving: " + role + " (" + ev.type + ")\n";
+                    ical += "DESCRIPTION:EGBC Rota. Notes: " + (ev.description || 'None') + "\nEND:VEVENT\n";
+                });
+                ical += "END:VCALENDAR";
+                folder.file("Calendar_Import.ics", ical);
             }
             let csv = "Name,Email\n";
             addressBook.forEach(u => { if(u.email) csv += `"${u.name}","${u.email}"\n`; });
