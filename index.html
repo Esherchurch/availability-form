@@ -27,6 +27,7 @@
         let currentUser = null;
         let availabilityData = {};
         let displayedEvents = [];
+        let loginMatches = [];
 
         async function loadLogo() {
             try {
@@ -41,6 +42,8 @@
 
         window.loginMember = async () => {
             const emailInput = document.getElementById('memberEmail').value.toLowerCase().trim();
+            if (!emailInput) return;
+
             const q = query(collection(db, "addressBook"), where("email", "==", emailInput));
             const snap = await getDocs(q);
 
@@ -49,12 +52,42 @@
                 return;
             }
 
-            currentUser = { id: snap.docs[0].id, ...snap.docs[0].data() };
+            loginMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            if (loginMatches.length === 1) {
+                proceedToForm(loginMatches[0]);
+            } else {
+                showHouseholdDropdown();
+            }
+        };
+
+        function showHouseholdDropdown() {
+            const loginBox = document.getElementById('loginBox');
+            const householdBox = document.getElementById('householdBox');
+            const select = document.getElementById('householdSelect');
+            
+            select.innerHTML = '<option value="" disabled selected>Select your name...</option>';
+            loginMatches.forEach(m => {
+                select.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+            });
+
+            loginBox.classList.add('hidden');
+            householdBox.classList.remove('hidden');
+        }
+
+        window.confirmHouseholdMember = () => {
+            const selectedId = document.getElementById('householdSelect').value;
+            const user = loginMatches.find(m => m.id === selectedId);
+            if (user) proceedToForm(user);
+        };
+
+        function proceedToForm(user) {
+            currentUser = user;
             document.getElementById('loginSection').classList.add('hidden');
             document.getElementById('formSection').classList.remove('hidden');
             document.getElementById('userName').innerText = currentUser.name;
             loadResponses();
-        };
+        }
 
         window.setStatus = async (eventId, dateKey, newStatus) => {
             const docId = `${currentUser.id}_${eventId}`;
@@ -136,12 +169,12 @@
                             <div class="flex gap-2 w-full sm:w-auto">
                                 <button onclick="setStatus('${ev.id}', '${ev.date}', 'avail')" 
                                     class="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-[10px] uppercase transition-all 
-                                    ${status === 'avail' ? 'bg-green-600 text-white' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
+                                    ${status === 'avail' ? 'bg-green-600 text-white shadow-lg shadow-green-100' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
                                     Available
                                 </button>
                                 <button onclick="setStatus('${ev.id}', '${ev.date}', 'not-avail')" 
                                     class="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-[10px] uppercase transition-all 
-                                    ${status === 'not-avail' ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
+                                    ${status === 'not-avail' ? 'bg-red-500 text-white shadow-lg shadow-red-100' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
                                     Unavailable
                                 </button>
                             </div>
@@ -158,6 +191,7 @@
         .glass { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); }
         input::placeholder { color: #cbd5e1; font-weight: 500; }
         #userName { font-style: normal !important; color: #2c6999 !important; font-weight: 800; text-transform: uppercase; }
+        .login-card { background: #ffffff; border-radius: 40px; box-shadow: 0 20px 50px -12px rgba(44, 105, 153, 0.12); border: 1px solid rgba(44, 105, 153, 0.05); }
     </style>
 </head>
 <body class="p-5 sm:p-10 lg:p-12 pb-32">
@@ -168,24 +202,36 @@
                 <img src="" alt="Logo" class="egbc-logo h-24 mx-auto object-contain">
                 <div class="text-center">
                     <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.4em]">Esher Green Baptist Church</p>
-                    <h1 class="text-3xl font-black text-[#2c6999] tracking-tight uppercase mt-2">Availability Gather</h1>
+                    <h1 class="text-3xl font-black text-[#2c6999] tracking-tight uppercase mt-2">Team Portal</h1>
                 </div>
             </div>
             
-            <div class="bg-white p-8 sm:p-12 rounded-[40px] shadow-xl border border-blue-50">
-                <div class="space-y-8">
+            <div class="login-card p-8 sm:p-12 max-w-md mx-auto">
+                <div id="loginBox" class="space-y-8">
                     <div class="space-y-2">
-                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-center mb-3">Worship & AV Team Member Login</label>
-                        <input type="email" id="memberEmail" placeholder="your.email@esherchurch.org" 
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-center mb-3">Worship & AV Member Login</label>
+                        <input type="email" id="memberEmail" placeholder="Enter your email" 
                             class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 text-center font-bold text-lg outline-none focus:border-blue-100 transition-all shadow-inner">
                     </div>
-                    <button onclick="loginMember()" class="w-full bg-[#2c6999] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-[#23557d] transform active:scale-95 transition-all">
-                        Load My services
+                    <button onclick="loginMember()" class="w-full bg-[#2c6999] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#23557d] transform active:scale-95 transition-all">
+                        Check My Services
+                    </button>
+                </div>
+
+                <div id="householdBox" class="hidden space-y-8 animate-in fade-in slide-in-from-top-2">
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-[#2c6999] uppercase tracking-widest text-center mb-3">Multiple Team Members Found</label>
+                        <div class="relative">
+                            <select id="householdSelect" class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 appearance-none text-center font-bold text-lg outline-none focus:border-blue-100 transition-all shadow-inner"></select>
+                        </div>
+                    </div>
+                    <button onclick="confirmHouseholdMember()" class="w-full bg-[#2c6999] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#23557d] transform active:scale-95 transition-all">
+                        Load Form for me
                     </button>
                 </div>
             </div>
             
-            <p class="text-gray-300 text-[10px] font-medium uppercase tracking-wider">Leave the boxes unticked if you are Available.</p>
+            <p class="text-gray-300 text-[10px] font-medium uppercase tracking-wider">Choices are saved instantly as you click.</p>
         </div>
 
         <div id="formSection" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
