@@ -161,9 +161,12 @@
                     const dateDisplay = new Date(ev.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
                     termHtml += `
                         <div class="bg-white border border-gray-100 rounded-[24px] p-5 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 transition-all hover:shadow-md">
-                            <div class="text-center sm:text-left">
+                            <div class="text-center sm:text-left flex-1">
                                 <span class="text-[9px] font-black text-[#2c6999] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">${ev.type}</span>
-                                <div class="text-lg font-bold text-[#1a1a1a] mt-2">${dateDisplay}</div>
+                                <div class="flex flex-col sm:flex-row sm:items-baseline gap-2 mt-2">
+                                    <div class="text-lg font-bold text-[#1a1a1a]">${dateDisplay}</div>
+                                    <div class="text-[12px] font-medium text-gray-400 italic">${ev.description || ''}</div>
+                                </div>
                                 <div class="text-[10px] font-semibold text-gray-400 mt-0.5">${ev.startTime || '08:00'} - ${ev.endTime || '11:30'}</div>
                             </div>
                             <div class="flex gap-2 w-full sm:w-auto">
