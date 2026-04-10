@@ -51,10 +51,13 @@
                     img.setAttribute('crossOrigin', 'anonymous');
                     img.onload = () => {
                         const canvas = document.createElement("canvas");
-                        canvas.width = img.width; canvas.height = img.height;
                         const ctx = canvas.getContext("2d");
-                        ctx.drawImage(img, 0, 0);
-                        logoBase64 = canvas.toDataURL("image/png");
+                        const maxWidth = 300;
+                        const scale = maxWidth / img.width;
+                        canvas.width = maxWidth;
+                        canvas.height = img.height * scale;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        logoBase64 = canvas.toDataURL("image/png", 0.7);
                         resolve(logoBase64);
                     };
                     img.onerror = () => resolve(null);
@@ -219,8 +222,6 @@
                 if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 reportTitle = `${member.name.toUpperCase()} - ${termTitle}`;
-                
-                // FIXED INDIVIDUAL FILTER: Checks if assigned OR if person is in Choir and Choir role exists
                 termEvents = termEvents.filter(e => {
                     const isAssigned = Object.values(e.assignments || {}).some(a => a.id === memberId);
                     const isInChoir = member.markers?.includes('Choir') && e.roles?.includes('Choir');
@@ -231,7 +232,6 @@
                 const member = addressBook.find(m => m.id === memberId);
                 const hIds = [memberId, ...(member.relatedTo || [])];
                 reportTitle = `HOUSEHOLD ROTA: ${member.name.toUpperCase()} - ${termTitle}`;
-                
                 termEvents = termEvents.filter(e => {
                     const isAssigned = Object.values(e.assignments || {}).some(a => hIds.includes(a.id));
                     const houseMembers = addressBook.filter(m => hIds.includes(m.id));
@@ -260,7 +260,6 @@
                 const row = [dateObj, e.type]; 
                 allRoles.forEach(role => {
                     let val = e.assignments?.[role]?.name || "---";
-                    // If it's a choir member looking at a choir role, show "Choir"
                     if (role === 'Choir' && val === "---" && e.roles?.includes('Choir')) { val = "Choir Member"; }
                     row.push(val);
                 });
@@ -295,43 +294,30 @@
             const zip = new JSZip();
             const activeEvents = cachedEvents.filter(e => !e.archived);
             if (activeEvents.length === 0) return alert("No active events found.");
-            
             const fullDoc = await getPdfBlob('full', null, activeEvents);
             if (fullDoc) zip.file("00_FULL_CHURCH_ROTA.pdf", fullDoc.output('blob'));
-
-            // IDENTIFY EVERYONE WHO NEEDS AN EMAIL (Assigned OR Choir Members when Choir is active)
             const recipientIds = new Set();
             activeEvents.forEach(e => {
-                // Manually assigned people
                 Object.values(e.assignments || {}).forEach(a => { if (a.id) recipientIds.add(a.id); });
-                // Choir members for choir events
                 if (e.roles?.includes('Choir')) {
                     addressBook.forEach(m => { if (m.markers?.includes('Choir')) recipientIds.add(m.id); });
                 }
             });
-
             for (const mId of recipientIds) {
                 const member = addressBook.find(m => m.id === mId);
                 if (!member) continue;
-                
                 const safeName = member.name.replace(/\s+/g, '_');
                 const folder = zip.folder(safeName);
-
                 const indDoc = await getPdfBlob('individual', mId, activeEvents);
                 if (indDoc) folder.file(`${safeName}_Individual.pdf`, indDoc.output('blob'));
-
                 const houseDoc = await getPdfBlob('household', mId, activeEvents);
                 if (houseDoc) folder.file(`${safeName}_Household.pdf`, houseDoc.output('blob'));
-
                 if (fullDoc) folder.file("Full_Church_Reference.pdf", fullDoc.output('blob'));
-                
-                // CALENDAR ICS DATA
                 const myEvents = activeEvents.filter(e => {
                     const isAssigned = Object.values(e.assignments || {}).some(a => a.id === mId);
                     const isChoirDate = member.markers?.includes('Choir') && e.roles?.includes('Choir');
                     return isAssigned || isChoirDate;
                 });
-                
                 let ical = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
                 myEvents.forEach(ev => {
                     const roleEntry = Object.entries(ev.assignments).find(([r, a]) => a.id === mId);
@@ -349,6 +335,24 @@
             zip.file("Distribution_List.csv", csv);
             const content = await zip.generateAsync({type:"blob"});
             saveAs(content, "EGBC_Rota_Distribution_Package.zip");
+        };
+
+        window.gatherTermAvailability = () => {
+            const term = document.getElementById('termSelect').value;
+            if(!term) return alert("Select Term");
+            const emails = addressBook.filter(m => m.email).map(m => m.email.trim()).join(';');
+            const subject = encodeURIComponent(`Action Required: Worship Team Availability [${term}]`);
+            const body = encodeURIComponent(`Hi Team,\n\nPlease update your availability for the upcoming ${term} term here:\nhttps://esherchurch.github.io/availability-form/availability-form.html`);
+            window.location.href = `mailto:?bcc=${emails}&subject=${subject}&body=${body}`;
+        };
+
+        window.gatherIndividualAvailability = (mId) => {
+            if(!mId) return alert("Select Member");
+            const member = addressBook.find(m => m.id === mId);
+            const term = document.getElementById('termSelect').value || "the upcoming term";
+            const subject = encodeURIComponent(`Action Required: Worship Team Availability [${term}]`);
+            const body = encodeURIComponent(`Hi ${member.name},\n\nPlease update your dates for ${term} here: https://esherchurch.github.io/availability-form/availability-form.html`);
+            window.location.href = `mailto:${member.email.trim()}?subject=${subject}&body=${body}`;
         };
 
         function renderPlanner() {
