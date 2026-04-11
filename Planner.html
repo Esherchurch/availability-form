@@ -51,13 +51,10 @@
                     img.setAttribute('crossOrigin', 'anonymous');
                     img.onload = () => {
                         const canvas = document.createElement("canvas");
+                        canvas.width = img.width; canvas.height = img.height;
                         const ctx = canvas.getContext("2d");
-                        const maxWidth = 300;
-                        const scale = maxWidth / img.width;
-                        canvas.width = maxWidth;
-                        canvas.height = img.height * scale;
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        logoBase64 = canvas.toDataURL("image/png", 0.7);
+                        ctx.drawImage(img, 0, 0);
+                        logoBase64 = canvas.toDataURL("image/jpeg", 0.6);
                         resolve(logoBase64);
                     };
                     img.onerror = () => resolve(null);
@@ -207,13 +204,174 @@
             }
         };
 
+        window.gatherTermAvailability = async () => {
+            const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel))];
+            if(terms.length === 0) return alert("No active terms found.");
+            const selectedTerm = prompt(`Gather availability for which term?\n\nOptions:\n${terms.join('\n')}`, terms[0]);
+            if(!selectedTerm) return;
+            
+            const relevantEmails = new Set();
+            const eventsInTerm = cachedEvents.filter(e => !e.archived && e.termLabel === selectedTerm);
+            eventsInTerm.forEach(ev => {
+                const eventTeams = ev.teams || [];
+                addressBook.forEach(m => {
+                    if(m.markers?.some(r => eventTeams.includes(r))) { relevantEmails.add(m.email); }
+                });
+            });
+            
+            const bccList = [...relevantEmails].join(';');
+            if(!bccList) return alert("No members found for this term.");
+
+            const mainTo = "av@esherchurch.org";
+            const subject = encodeURIComponent(`EGBC Availability: ${selectedTerm}`);
+            
+            const body = encodeURIComponent(
+                "==========================================\n" +
+                "  ESHER GREEN BAPTIST CHURCH | WORSHIP & AV\n" +
+                "==========================================\n\n" +
+                "Hi Team,\n\n" +
+                "It's time to gather availability for the upcoming " + selectedTerm + " term.\n\n" +
+                "PLEASE CLICK THE LINK BELOW TO PROVIDE YOUR DATES:\n" +
+                "👉 " + FORM_LINK + "\n\n" +
+                "------------------------------------------\n" +
+                "Instructions:\n" +
+                "1. Click the link above\n" +
+                "2. Select your name from the list\n" +
+                "3. Mark 'Available' or 'Not Available' for each Sunday\n" +
+                "4. Hit 'Submit Availability' at the bottom\n\n" +
+                "Thank you for serving!\n\n" +
+                "EGBC Worship & AV Team"
+            );
+
+            window.location.href = `mailto:${mainTo}?bcc=${bccList}&subject=${subject}&body=${body}`;
+        };
+
+        window.gatherIndividualAvailability = async (memberId) => {
+            if(!memberId) return alert("Select a member first.");
+            const member = addressBook.find(m => m.id === memberId);
+            const term = document.getElementById('termSelect').value || "Upcoming Term";
+            const subject = encodeURIComponent("EGBC Availability Request");
+            const body = encodeURIComponent(
+                "Hi " + member.name + ",\n\n" +
+                "Please provide your availability for " + term + " by clicking the link below:\n\n" +
+                "👉 " + FORM_LINK + "\n\n" +
+                "Thank you!\n\n" +
+                "EGBC Worship & AV Team"
+            );
+            
+            window.location.href = `mailto:${member.email}?subject=${subject}&body=${body}`;
+        };
+
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
-            const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' }); 
+
+            if (type === "wall") {
+                const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
+                const logo = await getLogoBase64();
+                const member = addressBook.find(m => m.id === memberId);
+                
+                let householdIds = [];
+                let displayTitle = "Household";
+                if (member) {
+                    const headId = member.householdId || member.id;
+                    const head = addressBook.find(m => m.id === headId);
+                    const rawName = head ? head.name : member.name;
+                    const surname = rawName.split(' ').pop();
+                    displayTitle = surname + " Family";
+                    householdIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+                }
+
+                const allTermEvents = (specificEvents || cachedEvents.filter(e => !e.archived)).sort((a, b) => new Date(a.date) - new Date(b.date));
+                if (allTermEvents.length === 0) return null;
+
+                const eventsByMonth = {};
+                allTermEvents.forEach(ev => {
+                    const d = new Date(ev.date);
+                    const key = d.toLocaleString("en-GB", { month: "long", year: "numeric" });
+                    if (!eventsByMonth[key]) eventsByMonth[key] = [];
+                    eventsByMonth[key].push(ev);
+                });
+
+                const sortedMonths = Object.keys(eventsByMonth).sort((a, b) => new Date(eventsByMonth[a][0].date) - new Date(eventsByMonth[b][0].date));
+
+                sortedMonths.forEach((month, idx) => {
+                    if (idx > 0) doc.addPage();
+                    if (logo) {
+                        const p = doc.getImageProperties(logo);
+                        const w = 50;
+                        const h = (p.height * w) / p.width;
+                        doc.addImage(logo, "JPEG", 40, 30, w, h);
+                    }
+                    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(44, 105, 153);
+                    doc.text(`${displayTitle} – Wall Planner`, 100, 50);
+                    doc.setFontSize(14); doc.setTextColor(100, 100, 100);
+                    doc.text(month, 100, 70);
+
+                    const firstDate = new Date(eventsByMonth[month][0].date);
+                    const yr = firstDate.getFullYear();
+                    const mth = firstDate.getMonth();
+                    const startDay = new Date(yr, mth, 1).getDay();
+                    const daysInM = new Date(yr, mth + 1, 0).getDate();
+                    const offset = startDay === 0 ? 6 : startDay - 1;
+
+                    const rows = [];
+                    let week = Array(7).fill(null);
+                    for (let i = 0; i < offset; i++) week[i] = { empty: true };
+                    for (let d = 1; d <= daysInM; d++) {
+                        const dateStr = `${yr}-${String(mth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        const dayEvents = eventsByMonth[month].filter(e => e.date === dateStr);
+                        const dayIdx = (d + offset - 1) % 7;
+                        week[dayIdx] = { day: d, events: dayEvents };
+                        if (dayIdx === 6 || d === daysInM) { rows.push(week); week = Array(7).fill(null); }
+                    }
+
+                    doc.autoTable({
+                        startY: 90,
+                        head: [["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]],
+                        body: rows.map(w => w.map(c => {
+                            if (!c || c.empty) return "";
+                            let cellData = `DAY:${c.day}`;
+                            c.events.forEach(ev => {
+                                const matches = [];
+                                if (ev.assignments) {
+                                    Object.entries(ev.assignments).forEach(([role, person]) => {
+                                        if (householdIds.includes(person.id)) matches.push(`${person.name.split(' ')[0]}: ${role}`);
+                                    });
+                                }
+                                if (matches.length > 0) cellData += `|S:${ev.type}|R:${matches.join(', ')}`;
+                            });
+                            return cellData;
+                        })),
+                        theme: 'grid',
+                        styles: { fontSize: 0.1, cellPadding: 4, minCellHeight: 65, valign: 'top', textColor: [255, 255, 255] },
+                        headStyles: { fillColor: [44, 105, 153], textColor: 255, halign: 'center', fontSize: 10 },
+                        columnStyles: { 0: { cellWidth: 108 }, 1: { cellWidth: 108 }, 2: { cellWidth: 108 }, 3: { cellWidth: 108 }, 4: { cellWidth: 108 }, 5: { cellWidth: 108 }, 6: { cellWidth: 108 } },
+                        didDrawCell: (data) => {
+                            if (data.section === 'body' && data.cell.raw !== "") {
+                                const segs = data.cell.raw.split('|');
+                                let yPos = data.cell.y + 12;
+                                segs.forEach(seg => {
+                                    if (seg.startsWith("DAY:")) {
+                                        doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(180, 180, 180);
+                                        doc.text(seg.replace("DAY:", ""), data.cell.x + 5, yPos); yPos += 12;
+                                    } else if (seg.startsWith("S:")) {
+                                        doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(44, 105, 153);
+                                        const l = doc.splitTextToSize(seg.replace("S:", ""), 100); doc.text(l, data.cell.x + 5, yPos); yPos += (l.length * 8) + 1;
+                                    } else if (seg.startsWith("R:")) {
+                                        doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(0, 0, 0);
+                                        const r = doc.splitTextToSize(seg.replace("R:", ""), 100); doc.text(r, data.cell.x + 5, yPos); yPos += (r.length * 8) + 4;
+                                    }
+                                });
+                            }
+                        }
+                    });
+                });
+                return doc;
+            }
+
+            const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true }); 
             const activeLogo = await getLogoBase64();
-            const today = new Date().toISOString().split('T')[0];
-            let termEvents = (specificEvents || cachedEvents).filter(e => !e.archived && e.date >= today);
-            
+            let termEvents = specificEvents || cachedEvents.filter(e => !e.archived);
             if(termEvents.length === 0) return null;
             let termTitle = termEvents[0].termLabel;
             let reportTitle = "";
@@ -222,22 +380,14 @@
                 if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 reportTitle = `${member.name.toUpperCase()} - ${termTitle}`;
-                termEvents = termEvents.filter(e => {
-                    const isAssigned = Object.values(e.assignments || {}).some(a => a.id === memberId);
-                    const isInChoir = member.markers?.includes('Choir') && e.roles?.includes('Choir');
-                    return isAssigned || isInChoir;
-                });
+                termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === memberId));
             } else if (type === 'household') {
                 if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
-                const hIds = [memberId, ...(member.relatedTo || [])];
+                const headId = member.householdId || member.id;
+                const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
                 reportTitle = `HOUSEHOLD ROTA: ${member.name.toUpperCase()} - ${termTitle}`;
-                termEvents = termEvents.filter(e => {
-                    const isAssigned = Object.values(e.assignments || {}).some(a => hIds.includes(a.id));
-                    const houseMembers = addressBook.filter(m => hIds.includes(m.id));
-                    const choirRequirement = houseMembers.some(m => m.markers?.includes('Choir')) && e.roles?.includes('Choir');
-                    return isAssigned || choirRequirement;
-                });
+                termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
             } else { reportTitle = `FULL ROTA: ${termTitle}`; }
             
             if (termEvents.length === 0) return null;
@@ -247,7 +397,7 @@
                     const props = docRef.getImageProperties(activeLogo);
                     const fixedWidth = 25; 
                     const scaledHeight = (props.height * fixedWidth) / props.width;
-                    docRef.addImage(activeLogo, 'PNG', 260, 10, fixedWidth, scaledHeight); 
+                    docRef.addImage(activeLogo, 'JPEG', 260, 10, fixedWidth, scaledHeight, undefined, 'FAST'); 
                 } catch(e) {}
             }
             docRef.setFillColor(245, 248, 255); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
@@ -258,11 +408,7 @@
             const tableBody = termEvents.map(e => {
                 const dateObj = new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                 const row = [dateObj, e.type]; 
-                allRoles.forEach(role => {
-                    let val = e.assignments?.[role]?.name || "---";
-                    if (role === 'Choir' && val === "---" && e.roles?.includes('Choir')) { val = "Choir Member"; }
-                    row.push(val);
-                });
+                allRoles.forEach(role => row.push(e.assignments?.[role]?.name || "---"));
                 row.push(e.description || "");
                 return row;
             });
@@ -284,6 +430,30 @@
             return docRef;
         };
 
+        const generateICal = (type, memberId, events) => {
+            let relevantEvents = [];
+            let hIds = [memberId];
+            if (type === 'individual') { relevantEvents = events.filter(e => Object.values(e.assignments || {}).some(a => a.id === memberId)); }
+            else {
+                const member = addressBook.find(m => m.id === memberId);
+                const headId = member?.householdId || memberId;
+                hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+                relevantEvents = events.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+            }
+            if (relevantEvents.length === 0) return null;
+            let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
+            relevantEvents.forEach(e => {
+                const start = e.date.replace(/-/g, '') + 'T' + (e.startTime || '0800').replace(':', '') + '00';
+                const end = e.date.replace(/-/g, '') + 'T' + (e.endTime || '1130').replace(':', '') + '00';
+                let summary = "";
+                if (type === 'individual') { summary = `EGBC: ${Object.entries(e.assignments || {}).find(([r, p]) => p.id === memberId)?.[0] || "Server"} (${e.type})`; }
+                else { summary = `EGBC Family Rota: ${Object.entries(e.assignments || {}).filter(([r, p]) => hIds.includes(p.id)).map(([r, p]) => `${p.name.split(' ')[0]} (${r})`).join(", ")}`; }
+                ics += `BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:${summary}\nDESCRIPTION:${e.description || ""}\nLOCATION:Esher Green Baptist Church\nEND:VEVENT\n`;
+            });
+            ics += "END:VCALENDAR";
+            return ics;
+        };
+
         window.generatePDF = async (type, memberId) => {
             const doc = await getPdfBlob(type, memberId);
             if (!doc) return alert("No assigned dates found.");
@@ -294,65 +464,39 @@
             const zip = new JSZip();
             const activeEvents = cachedEvents.filter(e => !e.archived);
             if (activeEvents.length === 0) return alert("No active events found.");
+            
             const fullDoc = await getPdfBlob('full', null, activeEvents);
             if (fullDoc) zip.file("00_FULL_CHURCH_ROTA.pdf", fullDoc.output('blob'));
-            const recipientIds = new Set();
-            activeEvents.forEach(e => {
-                Object.values(e.assignments || {}).forEach(a => { if (a.id) recipientIds.add(a.id); });
-                if (e.roles?.includes('Choir')) {
-                    addressBook.forEach(m => { if (m.markers?.includes('Choir')) recipientIds.add(m.id); });
-                }
-            });
-            for (const mId of recipientIds) {
+            
+            const assignedIds = new Set();
+            activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(a => { if (a.id) assignedIds.add(a.id); }));
+
+            let csv = "Name,Email\n";
+            for (const mId of assignedIds) {
                 const member = addressBook.find(m => m.id === mId);
                 if (!member) continue;
+                if (member.email) csv += `"${member.name}","${member.email}"\n`;
+
                 const safeName = member.name.replace(/\s+/g, '_');
                 const folder = zip.folder(safeName);
+                
                 const indDoc = await getPdfBlob('individual', mId, activeEvents);
                 if (indDoc) folder.file(`${safeName}_Individual.pdf`, indDoc.output('blob'));
                 const houseDoc = await getPdfBlob('household', mId, activeEvents);
                 if (houseDoc) folder.file(`${safeName}_Household.pdf`, houseDoc.output('blob'));
+                const wallDoc = await getPdfBlob('wall', mId, activeEvents);
+                if (wallDoc) folder.file(`${safeName}_Wall_Planner.pdf`, wallDoc.output('blob'));
+
+                const indIcal = generateICal('individual', mId, activeEvents);
+                if (indIcal) folder.file(`${safeName}_Individual_Calendar.ics`, indIcal);
+                const houseIcal = generateICal('household', mId, activeEvents);
+                if (houseIcal) folder.file(`${safeName}_Family_Calendar.ics`, houseIcal);
+                
                 if (fullDoc) folder.file("Full_Church_Reference.pdf", fullDoc.output('blob'));
-                const myEvents = activeEvents.filter(e => {
-                    const isAssigned = Object.values(e.assignments || {}).some(a => a.id === mId);
-                    const isChoirDate = member.markers?.includes('Choir') && e.roles?.includes('Choir');
-                    return isAssigned || isChoirDate;
-                });
-                let ical = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
-                myEvents.forEach(ev => {
-                    const roleEntry = Object.entries(ev.assignments).find(([r, a]) => a.id === mId);
-                    let role = roleEntry ? roleEntry[0] : (member.markers?.includes('Choir') && ev.roles?.includes('Choir') ? "Choir" : "Serving");
-                    const dt = ev.date.replace(/-/g, '');
-                    ical += "BEGIN:VEVENT\nDTSTART:" + dt + "T080000\nDTEND:" + dt + "T113000\n";
-                    ical += "SUMMARY:Serving: " + role + " (" + ev.type + ")\n";
-                    ical += "DESCRIPTION:EGBC Rota. Notes: " + (ev.description || 'None') + "\nEND:VEVENT\n";
-                });
-                ical += "END:VCALENDAR";
-                folder.file("Calendar_Import.ics", ical);
             }
-            let csv = "Name,Email\n";
-            addressBook.forEach(u => { if(u.email) csv += `"${u.name}","${u.email}"\n`; });
             zip.file("Distribution_List.csv", csv);
             const content = await zip.generateAsync({type:"blob"});
             saveAs(content, "EGBC_Rota_Distribution_Package.zip");
-        };
-
-        window.gatherTermAvailability = () => {
-            const term = document.getElementById('termSelect').value;
-            if(!term) return alert("Select Term");
-            const emails = addressBook.filter(m => m.email).map(m => m.email.trim()).join(';');
-            const subject = encodeURIComponent(`Action Required: Worship Team Availability [${term}]`);
-            const body = encodeURIComponent(`Hi Team,\n\nPlease update your availability for the upcoming ${term} term here:\nhttps://esherchurch.github.io/availability-form/availability-form.html`);
-            window.location.href = `mailto:?bcc=${emails}&subject=${subject}&body=${body}`;
-        };
-
-        window.gatherIndividualAvailability = (mId) => {
-            if(!mId) return alert("Select Member");
-            const member = addressBook.find(m => m.id === mId);
-            const term = document.getElementById('termSelect').value || "the upcoming term";
-            const subject = encodeURIComponent(`Action Required: Worship Team Availability [${term}]`);
-            const body = encodeURIComponent(`Hi ${member.name},\n\nPlease update your dates for ${term} here: https://esherchurch.github.io/availability-form/availability-form.html`);
-            window.location.href = `mailto:${member.email.trim()}?subject=${subject}&body=${body}`;
         };
 
         function renderPlanner() {
@@ -454,6 +598,7 @@
                     <select id="memberPdfSelect" class="bg-gray-50 rounded-full px-6 py-3 text-[10px] font-black uppercase outline-none border-none"></select>
                     <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-blue-50 text-blue-600 px-8 py-3 rounded-full font-black text-[9px] uppercase hover:bg-blue-100">Individual PDF</button>
                     <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-purple-50 text-purple-600 px-8 py-3 rounded-full font-black text-[9px] uppercase hover:bg-purple-100">Household PDF</button>
+                    <button onclick="generatePDF('wall', document.getElementById('memberPdfSelect').value)" class="bg-green-50 text-green-600 px-8 py-3 rounded-full font-black text-[9px] uppercase hover:bg-green-100">Wall Planner</button>
                 </div>
                 <button onclick="gatherIndividualAvailability(document.getElementById('memberPdfSelect').value)" class="bg-gray-100 text-[#2c6999] border border-[#2c6999]/20 px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-white transition-all">Gather Individual Availability (Whole Term)</button>
             </div>
