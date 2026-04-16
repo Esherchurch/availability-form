@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGBC Sunday Worship Planner</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSy...",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let worshipLeaderName = "";
+const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
+
+window.onload = () => {
+    Sortable.create(document.getElementById('service-order'), { animation: 150 });
+    setupDefaultOrder();
+};
+
+function setupDefaultOrder() {
+    addSong(); addSong(); addSong();
+    addItem("Welcome and Notices");
+    addSong();
+    addItem("Message");
+    addSong(); addSong(); addSong();
+}
+
+window.addSong = () => {
+    const container = document.getElementById('service-order');
+    const id = Math.random().toString(36).substr(2, 9);
+
+    const div = document.createElement('div');
+
+    div.className = "service-block song-block bg-white p-6 mb-4 rounded-[2rem] border border-gray-100 shadow-sm flex gap-4";
+
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+
+        <div class="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            <div class="relative">
+                <input oninput="searchSong(this,'${id}')" class="song-title bg-[#f8fafc] p-3 rounded-xl font-bold w-full" placeholder="Song title">
+                <div id="suggest-${id}" class="absolute bg-white shadow rounded w-full hidden z-50"></div>
+            </div>
+
+            <select class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
+                <option value="">Key</option>
+                ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+            </select>
+
+            <textarea class="song-note md:col-span-3 bg-[#f8fafc] p-3 rounded-xl"></textarea>
+
+        </div>
+
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+
+    container.appendChild(div);
+};
+
+window.searchSong = async (input, id) => {
+    const val = input.value;
+    const box = document.getElementById(`suggest-${id}`);
+
+    if (val.length < 2) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`https://egbc-song-search-a4g7b6fxdkgchrh7.westeurope-01.azurewebsites.net/api/searchSongs?q=${encodeURIComponent(val)}`);
+        const results = await res.json();
+
+        if (!results.length) {
+            box.innerHTML = `<div class="p-2 text-xs text-gray-400">No results</div>`;
+        } else {
+            box.innerHTML = results.map(s => `
+                <div onclick="selectSong('${s.title.replace(/'/g,"\\'")}', '', '${id}')"
+                class="p-2 hover:bg-gray-100 cursor-pointer text-xs">
+                ${s.title}
+                </div>
+            `).join('');
+        }
+
+        box.classList.remove('hidden');
+
+    } catch (err) {
+        box.innerHTML = `<div class="p-2 text-xs text-red-400">Search error</div>`;
+        box.classList.remove('hidden');
+    }
+};
+
+window.selectSong = (title, key, id) => {
+    const block = document.getElementById(`suggest-${id}`).closest('.song-block');
+
+    block.querySelector('.song-title').value = title;
+
+    document.getElementById(`suggest-${id}`).classList.add('hidden');
+};
+
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+
+    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+
+    document.getElementById('service-order').appendChild(div);
+};
+
+window.loadRota = async () => {
+    const date = document.getElementById('serviceDate').value;
+
+    const snap = await getDocs(collection(db, "events"));
+
+    let data = null;
+    snap.forEach(d => { if (d.data().date === date) data = d.data(); });
+
+    const teamBody = document.getElementById('teamBody');
+    teamBody.innerHTML = '';
+
+    if (data) {
+        document.getElementById('serviceType').value = data.type || "";
+        document.getElementById('serviceTypeNotes').value = data.description || "";
+
+        worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+        document.getElementById('leaderName').innerText = worshipLeaderName;
+
+        Object.entries(data.assignments || {}).forEach(([role, person]) => {
+            teamBody.innerHTML += `
+                <tr>
+                    <td>${role}</td>
+                    <td>${person.name}</td>
+                    <td>
+                        <textarea 
+                            class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"
+                            data-role="${role}"
+                            data-person="${person.name}"
+                        ></textarea>
+                    </td>
+                </tr>`;
+        });
+    }
+};
+
+window.saveSchedule = async () => {
+    const date = document.getElementById('serviceDate').value;
+
+    const blocks = document.querySelectorAll('.service-block');
+    const order = [];
+
+    blocks.forEach(b => {
+        if (b.classList.contains('song-block')) {
+            order.push({
+                type: "song",
+                title: b.querySelector('.song-title').value,
+                key: b.querySelector('.song-key').value,
+                notes: b.querySelector('.song-note').value
+            });
+        } else {
+            order.push({
+                type: "item",
+                title: b.querySelector('.item-title').value
+            });
+        }
+    });
+
+    await addDoc(collection(db, "services"), {
+        date,
+        worshipLeader: worshipLeaderName,
+        serviceType: document.getElementById('serviceType').value,
+        serviceNotes: document.getElementById('serviceTypeNotes').value,
+        order
+    });
+
+    alert("✅ Service saved");
+};
+</script>
+</head>
+
+<body class="p-8 bg-[#f7f9fb] font-montserrat">
+
+<div class="max-w-[1400px] mx-auto space-y-8">
+
+<div class="flex justify-between border-b pb-6">
+<div>
+<h1 class="text-4xl font-extrabold text-[#2c6999]">Service Planner</h1>
+<p>Leader: <span id="leaderName">None</span></p>
+</div>
+
+<div class="flex gap-4">
+<input type="date" id="serviceDate" onchange="loadRota()">
+<input id="serviceType">
+<input id="serviceTypeNotes">
+</div>
+</div>
+
+<textarea id="introBox" class="w-full h-20 bg-white p-4 rounded"></textarea>
+
+<div>
+<button onclick="addSong()">+ Song</button>
+<button onclick="addItem()">+ Item</button>
+<div id="service-order"></div>
+</div>
+
+<table class="w-full">
+<thead>
+<tr><th>Role</th><th>Name</th><th>Notes</th></tr>
+</thead>
+<tbody id="teamBody"></tbody>
+</table>
+
+<textarea id="outroBox" class="w-full h-20 bg-white p-4 rounded"></textarea>
+
+<button onclick="saveSchedule()">Save & Email</button>
+
+</div>
+</body>
+</html>
