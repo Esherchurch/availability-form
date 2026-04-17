@@ -96,7 +96,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSy...",
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
     authDomain: "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner"
 };
@@ -469,7 +469,7 @@ window.saveSchedule = async () => {
         date,
         worshipLeader: worshipLeaderName,
         serviceType: document.getElementById('serviceType').value,
-        serviceNotes: document.getElementById('serviceTypeNotesNotes').value,
+        serviceNotes: document.getElementById('serviceTypeNotes').value,
         order
     });
     alert("✅ Service saved");
@@ -482,7 +482,7 @@ window.emailSchedule = async () => {
     email += "==========================================\n\n";
 
     const date = document.getElementById('serviceDate').value;
-    email += "DATE: " + (date || "TBC") + "\n";
+    email += "DATE:   " + (date || "TBC") + "\n";
     email += "LEADER: " + (worshipLeaderName || "None") + "\n\n";
 
     email += "TEAM ROSTER\n";
@@ -542,9 +542,8 @@ window.emailSchedule = async () => {
     let recipientEmails = [];
     addressBook.forEach(person => {
         const nameMatched = currentTeamNames.includes(person.name?.trim());
-        // Checks for coreTeam, Core, or core being true OR "Yes"
-        const isCore = person.coreTeam === true || person.coreTeam === "Yes" || 
-                       person.Core === true || person.Core === "Yes";
+        // Updated to check for 'Core Team' marker in the markers array
+        const isCore = person.markers && person.markers.includes("Core Team");
         
         if ((nameMatched || isCore) && person.email) {
             recipientEmails.push(person.email);
