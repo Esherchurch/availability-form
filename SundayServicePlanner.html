@@ -112,19 +112,32 @@ const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A
 window.onload = () => {
     Sortable.create(document.getElementById('service-order'), { 
         animation: 150,
-        handle: '.drag-handle'
+        handle: '.drag-handle',
+        onEnd: function() {
+            updateSongNumbers();
+        }
     });
     setupDefaultOrder();
 };
 
 function setupDefaultOrder() {
-    addSong(); // This first one will be expanded by the function logic
+    addSong();
     addSong();
     addSong();
     addItem("Welcome and Notices");
     addSong();
     addItem("Message");
     addSong(); addSong(); addSong();
+}
+
+window.updateSongNumbers = () => {
+    const songs = document.querySelectorAll('.song-block');
+    songs.forEach((song, index) => {
+        const label = song.querySelector('.song-number');
+        if (label) {
+            label.innerText = "Song " + (index + 1);
+        }
+    });
 }
 
 window.toggleSong = (btn) => {
@@ -139,7 +152,6 @@ window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
     
-    // Logic for first song expanded, others collapsed
     const isFirst = container.querySelectorAll('.song-block').length === 0;
     const collapseClass = isFirst ? "" : "is-collapsed";
     const contentClass = isFirst ? "" : "hidden";
@@ -152,6 +164,7 @@ window.addSong = () => {
         <div class="flex gap-4 items-center mb-2">
             <div class="drag-handle">⠿</div>
             <button onclick="toggleSong(this)" class="collapse-btn text-[#2c6999] font-bold w-6">${arrow}</button>
+            <span class="song-number text-[10px] font-extrabold uppercase tracking-widest text-gray-400 min-w-[50px]">Song</span>
             <div class="relative flex-grow">
                 <input oninput="searchSong(this,'${id}')" class="song-title styled-input w-full" placeholder="Song title">
                 <div id="suggest-${id}" class="absolute bg-white shadow-xl rounded-xl w-full hidden z-50 mt-1 border border-gray-100 overflow-hidden"></div>
@@ -160,7 +173,7 @@ window.addSong = () => {
                 <option value="">Key</option>
                 ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
             </select>
-            <button onclick="this.parentElement.parentElement.remove()" class="text-gray-300 hover:text-red-500 text-2xl font-bold">&times;</button>
+            <button onclick="this.parentElement.parentElement.remove(); updateSongNumbers();" class="text-gray-300 hover:text-red-500 text-2xl font-bold">&times;</button>
         </div>
 
         <div class="song-content ml-14 space-y-4 ${contentClass}">
@@ -171,6 +184,7 @@ window.addSong = () => {
     `;
 
     container.appendChild(div);
+    updateSongNumbers();
     return id;
 };
 
@@ -256,7 +270,6 @@ window.selectSong = async (title, id) => {
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
     
-    // Clear containers
     document.getElementById(`keyinfo-${id}`).innerHTML = "";
     document.getElementById(`files-${id}`).innerHTML = "";
     
@@ -331,7 +344,8 @@ window.addItem = (val="") => {
     div.className = "service-block item-block bg-[#e2e8f0] p-4 mb-4 rounded-2xl flex gap-4 items-center border border-transparent hover:border-blue-200 transition-colors";
     div.innerHTML = `
         <div class="drag-handle">⠿</div>
-        <div class="w-6"></div> <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999] focus:outline-none text-lg" placeholder="Service Item Name...">
+        <div class="w-6"></div> 
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999] focus:outline-none text-lg" placeholder="Service Item Name...">
         <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
     `;
     document.getElementById('service-order').appendChild(div);
@@ -387,10 +401,16 @@ window.selectEvent = async () => {
                 last.querySelector('.song-note').value = item.notes;
                 showKeyInfo(id, item.title);
                 keyChanged(id);
+                
+                const content = last.querySelector('.song-content');
+                content.classList.remove('hidden');
+                last.classList.remove('is-collapsed');
+                last.querySelector('.collapse-btn').innerText = "▼";
             } else {
                 addItem(item.title);
             }
         });
+        updateSongNumbers();
     }
 };
 
