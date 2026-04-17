@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGBC Performance Mode</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSy...",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let currentLeader = "";
+let currentService = null;
+let currentDate = "";
+
+// 🔹 LOAD PERFORMANCE (UNCHANGED LOGIC)
+window.loadPerformance = async () => {
+
+    const date = document.getElementById('date').value;
+    if (!date) return;
+
+    currentDate = date;
+
+    const container = document.getElementById('content');
+    container.innerHTML = "Loading...";
+
+    const eventSnap = await getDocs(collection(db, "events"));
+
+    let rota = null;
+
+    eventSnap.forEach(doc => {
+        const ev = doc.data();
+        if (ev.date === date && ev.archived !== true) {
+            rota = ev;
+        }
+    });
+
+    if (!rota) {
+        container.innerHTML = "No rota found for this date";
+        return;
+    }
+
+    currentLeader = rota.assignments?.["Worship Leader"]?.name || "";
+
+    const serviceSnap = await getDocs(collection(db, "services"));
+
+    currentService = null;
+
+    serviceSnap.forEach(doc => {
+        const s = doc.data();
+        if (s.date === date) {
+            currentService = s;
+        }
+    });
+
+    if (!currentService) {
+        container.innerHTML = "No saved service order yet";
+        return;
+    }
+
+    const roleSelect = document.getElementById('role');
+    roleSelect.innerHTML = `<option value="">Instrument</option>`;
+
+    Object.keys(rota.assignments || {}).forEach(role => {
+        roleSelect.innerHTML += `<option value="${role}">${role}</option>`;
+    });
+
+    container.innerHTML = "";
+};
+
+// 🔥 NEW: FIND MOST RECENT NOTE
+function getLatestNote(allNotes, song, role) {
+
+    let latest = null;
+    let latestDate = null;
+
+    allNotes.forEach(n => {
+
+        if (
+            n.worshipLeader === currentLeader &&
+            n.role === role &&
+            n.songTitle === song &&
+            n.date !== currentDate // ignore today
+        ) {
+            const d = new Date(n.date);
+
+            if (!latestDate || d > latestDate) {
+                latestDate = d;
+                latest = n;
+            }
+        }
+    });
+
+    return latest;
+}
+
+// 🔹 LOAD SONGS WITH INTELLIGENCE
+window.loadSongsForRole = async () => {
+
+    const role = document.getElementById('role').value;
+    if (!role || !currentService) return;
+
+    const container = document.getElementById('content');
+    container.innerHTML = "Loading...";
+
+    const notesSnap = await getDocs(collection(db, "schedules"));
+
+    const allNotes = [];
+    const todayNotes = {};
+
+    notesSnap.forEach(doc => {
+        const d = doc.data();
+
+        allNotes.push(d);
+
+        if (d.role === role && d.songTitle && d.date === currentDate) {
+            todayNotes[d.songTitle] = {
+                notes: d.notes,
+                docId: doc.id
+            };
+        }
+    });
+
+    container.innerHTML = "";
+
+    currentService.order.forEach(item => {
+
+        if (item.type === "item") {
+            const div = document.createElement('div');
+            div.className = "text-center text-[#2c6999] font-extrabold text-lg py-2";
+            div.innerText = item.title;
+            container.appendChild(div);
+            return;
+        }
+
+        const today = todayNotes[item.title];
+        const last = getLatestNote(allNotes, item.title, role);
+
+        const div = document.createElement('div');
+        div.className = "bg-white p-4 rounded-2xl shadow mb-4";
+
+        div.innerHTML = `
+            <div onclick="this.nextElementSibling.classList.toggle('hidden')" 
+                 class="font-extrabold text-lg cursor-pointer text-[#2c6999]">
+                ${item.title} (${item.key || ""})
+            </div>
+
+            <div class="mt-3 hidden">
+
+                <textarea 
+                    class="w-full p-3 rounded-xl text-lg bg-[#f8fafc]"
+                    data-song="${item.title}"
+                    data-docid="${today ? today.docId : ""}"
+                >${today ? today.notes : (last ? last.notes : "")}</textarea>
+
+                <div class="flex gap-2 mt-2">
+                    <button onclick="saveNote('${item.title}')" 
+                        class="bg-[#2c6999] text-white px-4 py-2 rounded-lg text-sm">
+                        Save
+                    </button>
+
+                    <button onclick="importLast('${item.title}')" 
+                        class="bg-gray-200 px-4 py-2 rounded-lg text-sm">
+                        Import Last Notes
+                    </button>
+                </div>
+
+            </div>
+        `;
+
+        container.appendChild(div);
+    });
+};
+
+// 🔹 IMPORT LAST (NOW USES INTELLIGENCE)
+window.importLast = async (song) => {
+
+    const role = document.getElementById('role').value;
+
+    const snap = await getDocs(collection(db, "schedules"));
+
+    const allNotes = [];
+    snap.forEach(doc => allNotes.push(doc.data()));
+
+    const last = getLatestNote(allNotes, song, role);
+
+    if (!last) {
+        alert("No previous notes");
+        return;
+    }
+
+    document.querySelector(`[data-song="${song}"]`).value = last.notes;
+};
+
+// 🔹 SAVE (UNCHANGED)
+window.saveNote = async (song) => {
+
+    const role = document.getElementById('role').value;
+
+    const textarea = document.querySelector(`[data-song="${song}"]`);
+    const note = textarea.value;
+    const docId = textarea.dataset.docid;
+
+    if (!note) return;
+
+    if (docId) {
+        await updateDoc(doc(db, "schedules", docId), { notes: note });
+    } else {
+        const newDoc = await addDoc(collection(db, "schedules"), {
+            date: currentDate,
+            worshipLeader: currentLeader,
+            role,
+            songTitle: song,
+            notes: note
+        });
+
+        textarea.dataset.docid = newDoc.id;
+    }
+
+    alert("Saved");
+};
+</script>
+</head>
+
+<body class="p-6 bg-[#f4f7fa] font-montserrat">
+
+<div class="max-w-xl mx-auto space-y-6">
+
+<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
+
+<input type="date" id="date" class="p-3 rounded-xl w-full" onchange="loadPerformance()">
+
+<select id="role" class="p-3 rounded-xl w-full" onchange="loadSongsForRole()">
+<option value="">Instrument</option>
+</select>
+
+<div id="content"></div>
+
+</div>
+
+</body>
+</html>
