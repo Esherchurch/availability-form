@@ -143,6 +143,19 @@ async function suggestSongs() {
 async function selectSuggestion(title) {
     document.getElementById("title").value = title;
     document.getElementById("suggestions").innerHTML = "";
+
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const docRef = db.collection("songs").doc(docId);
+
+    const snap = await docRef.get();
+
+    if (snap.exists) {
+        const data = snap.data();
+
+        // ✅ AUTO-FILL YOUTUBE + CCLI
+        document.getElementById("youtube").value = data.youtube || "";
+        document.getElementById("ccli").value = data.ccli || "";
+    }
 }
 
 async function getYouTube(title) {
@@ -159,6 +172,8 @@ async function upload() {
     const title = document.getElementById("title").value.trim();
     const fileType = document.getElementById("fileType").value;
     const key = document.getElementById("key").value;
+    const youtube = document.getElementById("youtube").value;
+    const ccli = document.getElementById("ccli").value;
 
     if (!title || files.length === 0 || !fileType || !key) {
         alert("Add title, files, file type, and key");
@@ -183,13 +198,15 @@ async function upload() {
             name: file.name,
             url: url,
             type: fileType,
-            key: key   // ✅ THIS IS THE FIX
+            key: key
         });
     }
 
     await docRef.set({
         title,
         normalized: normalizeTitle(title),
+        youtube: youtube,
+        ccli: ccli,
         files: uploadedFiles
     });
 
