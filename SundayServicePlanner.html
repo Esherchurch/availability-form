@@ -330,6 +330,7 @@ window.selectEvent = async () => {
     if (index === "") return;
     const data = eventsForDay[index];
     document.getElementById('serviceType').value = data.type || "";
+    document.getElementById('serviceTypeNotes').value = data.description || "";
     worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
     document.getElementById('leaderName').innerText = worshipLeaderName;
     const teamBody = document.getElementById('teamBody');
@@ -362,17 +363,16 @@ window.saveSchedule = async () => {
             order.push({ type: "item", title: b.querySelector('.item-title').value });
         }
     });
-    await addDoc(collection(db, "services"), { date, worshipLeader: worshipLeaderName, order });
+    await addDoc(collection(db, "services"), { date, worshipLeader: worshipLeaderName, serviceType: document.getElementById('serviceType').value, serviceNotes: document.getElementById('serviceTypeNotes').value, order });
     alert("✅ Service saved");
 };
 
 window.emailSchedule = async () => {
     const date = document.getElementById('serviceDate').value || "TBC";
     
-    // 1. GENERATE RICH HTML CONTENT
     let htmlEmail = `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #f0f0f0; padding: 25px; background-color: #ffffff;">
-            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="height: 50px; margin-bottom: 20px;">
+            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="width: 150px; margin-bottom: 20px;">
             <h1 style="color: #2c6999; margin: 0; font-size: 26px; font-weight: 800;">Sunday Worship Plan</h1>
             <p style="text-transform: uppercase; font-weight: bold; color: #999; letter-spacing: 1px; font-size: 11px; margin-bottom: 30px;">${date} | Worship Leader: ${worshipLeaderName}</p>
             
@@ -434,15 +434,12 @@ window.emailSchedule = async () => {
 
     htmlEmail += `<p style="margin-top: 40px; font-size: 10px; color: #bbb; text-align: center;">Generated via EGBC Worship Planner</p></div>`;
 
-    // 2. CLIPBOARD MAGIC (RICH TEXT)
     const type = "text/html";
     const blob = new Blob([htmlEmail], { type });
     const dataTransfer = [new ClipboardItem({ [type]: blob })];
 
     try {
         await navigator.clipboard.write(dataTransfer);
-        
-        // 3. LAUNCH OUTLOOK WITH FILLED RECIPIENTS
         let recipients = [];
         addressBook.forEach(p => {
             if ((rosterNames.includes(p.name?.trim()) || (p.markers && p.markers.includes("Core Team"))) && p.email) {
@@ -450,11 +447,10 @@ window.emailSchedule = async () => {
             }
         });
         const to = [...new Set(recipients)].join(",");
-        
-        alert("Plan copied to clipboard!\n\nI'm launching Outlook now. Just click the email body and press Ctrl+V to paste your contemporary layout.");
+        alert("Plan copied to clipboard!\n\nI'm launching Outlook now. Click the body and press Ctrl+V.");
         window.location.href = `mailto:${to}?subject=${encodeURIComponent("Sunday Worship Plan: " + date)}`;
     } catch (e) {
-        alert("Error: Clipboard access denied. Please try again.");
+        alert("Error: Clipboard access denied.");
     }
 };
 </script>
@@ -478,6 +474,7 @@ window.emailSchedule = async () => {
             <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input text-sm">
             <select id="eventSelect" onchange="selectEvent()" class="styled-input text-sm"><option value="">Select Service...</option></select>
             <input id="serviceType" class="styled-input text-sm" placeholder="Service Type">
+            <input id="serviceTypeNotes" class="styled-input text-sm" placeholder="General Notes">
         </div>
     </div>
     <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
