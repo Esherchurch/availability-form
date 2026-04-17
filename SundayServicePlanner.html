@@ -120,6 +120,7 @@ window.onload = async () => {
     });
     setupDefaultOrder();
     
+    // LOAD EMAIL ADDRESSES
     const emailSnap = await getDocs(collection(db, "addressBook"));
     emailSnap.forEach(doc => {
         const data = doc.data();
@@ -469,7 +470,7 @@ window.saveSchedule = async () => {
     alert("✅ Service saved");
 };
 
-// EXPORT TO GLOBAL SCOPE SO IT IS VISIBLE TO THE BUTTON
+// EXPOSE TO GLOBAL SCOPE FOR THE BUTTON BRIDGE
 window.emailSchedule = async () => {
     let email = "";
     email += "WORSHIP SERVICE PLAN\n";
@@ -490,8 +491,7 @@ window.emailSchedule = async () => {
         if (b.classList.contains('song-block')) {
             const title = b.querySelector('.song-title').value;
             const key = b.querySelector('.song-key').value;
-            email += "\n" + songIndex + ". " + title + "\n";
-            email += "Key: " + (key || "N/A") + "\n";
+            email += "\n" + songIndex + ". " + title + " (" + (key || "N/A") + ")\n";
             const docId = title.toLowerCase().replace(/\s+/g, "-");
             const snap = await getDoc(doc(db, "songs", docId));
             if (snap.exists()) {
@@ -503,7 +503,7 @@ window.emailSchedule = async () => {
                     if (files.length) {
                         email += "Files:\n";
                         files.forEach(f => email += "- " + f.type + ": " + f.url + "\n");
-                    } else email += "Files: None for this key\n";
+                    }
                 }
             }
             songIndex++;
@@ -520,12 +520,12 @@ window.emailSchedule = async () => {
 </script>
 
 <script>
-    // This script runs in global scope, allowing it to "bridge" the button to the module
-    function triggerEmail() {
+    // FINAL BULLETPROOF BUTTON BRIDGE
+    function launchEmail() {
         if (window.emailSchedule) {
             window.emailSchedule();
         } else {
-            alert("Waiting for system to load... please try again in a moment.");
+            alert("System still loading. Please wait 1 second and try again.");
         }
     }
 </script>
@@ -593,7 +593,7 @@ window.emailSchedule = async () => {
 
     <div class="flex justify-center gap-6 pt-6 pb-12">
         <button onclick="saveSchedule()" class="btn-primary w-48 shadow-lg shadow-blue-200">Save Schedule</button>
-        <button onclick="triggerEmail()" class="btn-secondary w-48">Email Team</button>
+        <button onclick="launchEmail()" class="btn-secondary w-48">Email Team</button>
     </div>
 
 </div>
