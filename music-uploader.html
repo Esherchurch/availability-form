@@ -53,6 +53,15 @@ body { font-family: Arial; padding: 40px; }
 <option>A</option><option>Bb</option><option>B</option>
 </select><br><br>
 
+<!-- 🔥 FILE TYPE (UPDATED) -->
+<select id="fileType">
+<option value="">Select File Type</option>
+<option value="Lead Sheet">Lead Sheet</option>
+<option value="Chord Sheet">Chord Sheet</option>
+<option value="Lyrics">Lyrics</option>
+<option value="Bass Tabs">Bass Tabs</option>
+</select><br><br>
+
 <input id="youtube" placeholder="YouTube link"><br><br>
 <input id="ccli" placeholder="CCLI"><br><br>
 
@@ -68,7 +77,6 @@ body { font-family: Arial; padding: 40px; }
 
 <script>
 
-// 🔥 FIREBASE CONFIG (FIXED BUCKET)
 const firebaseConfig = {
     apiKey: "YOUR_KEY",
     authDomain: "egbc-worship-planner.firebaseapp.com",
@@ -86,7 +94,6 @@ let files = [];
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
-// CLICK select
 dropzone.addEventListener("click", () => fileInput.click());
 
 fileInput.addEventListener("change", (e) => {
@@ -94,20 +101,12 @@ fileInput.addEventListener("change", (e) => {
     renderFiles();
 });
 
-// DRAG events
 dropzone.addEventListener("dragover", e => {
     e.preventDefault();
-    dropzone.classList.add("dragover");
-});
-
-dropzone.addEventListener("dragleave", () => {
-    dropzone.classList.remove("dragover");
 });
 
 dropzone.addEventListener("drop", e => {
     e.preventDefault();
-    dropzone.classList.remove("dragover");
-
     files.push(...e.dataTransfer.files);
     renderFiles();
 });
@@ -117,18 +116,10 @@ function renderFiles() {
         files.map(f => `<li>${f.name}</li>`).join("");
 }
 
-// NORMALIZE
 function normalizeTitle(title) {
-    return title
-        .toLowerCase()
-        .replace(/,/g, "")
-        .replace(/ten thousand/g, "10000")
-        .replace(/[^a-z0-9 ]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
+    return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
 }
 
-// SUGGEST
 async function suggestSongs() {
     const input = document.getElementById("title").value;
     const norm = normalizeTitle(input);
@@ -150,100 +141,55 @@ async function suggestSongs() {
     `).join("");
 }
 
-// SELECT
 async function selectSuggestion(title) {
     document.getElementById("title").value = title;
     document.getElementById("suggestions").innerHTML = "";
-
-    const id = title.toLowerCase().replace(/\s+/g, "-");
-    const doc = await db.collection("songs").doc(id).get();
-
-    if (doc.exists) {
-        const data = doc.data();
-
-        document.getElementById("key").value = data.key || "";
-        document.getElementById("youtube").value = data.youtube || "";
-        document.getElementById("ccli").value = data.ccli || "";
-    }
 }
 
-// DISABLED YOUTUBE (so it doesn’t break upload)
+// Disabled YouTube auto
 async function getYouTube(title) {
     return "";
 }
 
-// CCLI MAP
 const CCLI_MAP = {
     "waymaker": "7115744",
     "10000 reasons": "6016351"
 };
 
-// UPLOAD
 async function upload() {
 
     const title = document.getElementById("title").value.trim();
-    let key = document.getElementById("key").value;
-    let youtube = document.getElementById("youtube").value.trim();
-    let ccli = document.getElementById("ccli").value.trim();
+    const fileType = document.getElementById("fileType").value;
 
-    if (!title || files.length === 0) {
-        alert("Add title and files");
+    if (!title || files.length === 0 || !fileType) {
+        alert("Add title, files, and file type");
         return;
     }
 
-    const normalized = normalizeTitle(title);
-
-    const snapshot = await db.collection("songs").get();
-
-    let existingDoc = null;
-
-    snapshot.forEach(doc => {
-        if (doc.data().normalized === normalized) {
-            existingDoc = doc;
-        }
-    });
-
-    const docId = existingDoc
-        ? existingDoc.id
-        : title.toLowerCase().replace(/\s+/g, "-");
-
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
     const docRef = db.collection("songs").doc(docId);
 
-    let existingData = {};
-
-    if (existingDoc) {
-        existingData = existingDoc.data();
-
-        key = existingData.key || key;
-        youtube = existingData.youtube || youtube;
-        ccli = existingData.ccli || ccli;
-    } else {
-        if (!youtube) youtube = await getYouTube(title);
-        if (!ccli) ccli = CCLI_MAP[normalized] || "";
-    }
-
-    const folder = docId;
+    let existing = await docRef.get();
+    let existingData = existing.exists ? existing.data() : {};
 
     let uploadedFiles = existingData.files || [];
 
     for (const file of files) {
-        const ref = storage.ref(`songs/${folder}/${file.name}`);
+        const ref = storage.ref(`songs/${docId}/${file.name}`);
         await ref.put(file);
 
         const url = await ref.getDownloadURL();
 
         uploadedFiles.push({
             name: file.name,
-            url: url
+            url: url,
+            type: fileType
         });
     }
 
     await docRef.set({
         title,
-        normalized,
-        key,
-        youtube,
-        ccli,
+        normalized: normalizeTitle(title),
         files: uploadedFiles
     });
 
