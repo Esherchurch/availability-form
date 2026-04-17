@@ -561,6 +561,13 @@ const to = addressBook.join(",");
 
 window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 };
+
+window.addEventListener("DOMContentLoaded", () => {
+const btn = document.querySelector('button[onclick="emailSchedule()"]');
+if (btn) {
+btn.onclick = emailSchedule;
+}
+});
 </script>
 </head>
 
