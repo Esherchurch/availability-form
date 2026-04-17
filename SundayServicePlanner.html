@@ -120,7 +120,6 @@ window.onload = async () => {
     });
     setupDefaultOrder();
     
-    // LOAD EMAIL ADDRESSES
     const emailSnap = await getDocs(collection(db, "addressBook"));
     emailSnap.forEach(doc => {
         const data = doc.data();
@@ -394,16 +393,13 @@ window.selectEvent = async () => {
     assignmentsArray.sort((a, b) => {
         const roleA = a[0];
         const roleB = b[0];
-
         const getRank = (role) => {
             if (priorityTop.includes(role)) return { group: 0, index: priorityTop.indexOf(role) };
             if (priorityBottom.includes(role)) return { group: 2, index: priorityBottom.indexOf(role) };
             return { group: 1, index: 0 };
         };
-
         const rankA = getRank(roleA);
         const rankB = getRank(roleB);
-
         if (rankA.group !== rankB.group) return rankA.group - rankB.group;
         return rankA.index - rankB.index;
     });
@@ -432,7 +428,6 @@ window.selectEvent = async () => {
                 last.querySelector('.song-note').value = item.notes;
                 showKeyInfo(id, item.title);
                 keyChanged(id);
-                
                 const content = last.querySelector('.song-content');
                 content.classList.remove('hidden');
                 last.classList.remove('is-collapsed');
@@ -474,107 +469,67 @@ window.saveSchedule = async () => {
     alert("✅ Service saved");
 };
 
-const emailSchedule = async () => {
-
-let email = "";
-
-email += "WORSHIP SERVICE PLAN\n";
-email += "====================\n\n";
-
-const date = document.getElementById('serviceDate').value;
-email += "Date: " + (date || "N/A") + "\n";
-email += "Leader: " + (worshipLeaderName || "None") + "\n\n";
-
-// TEAM
-email += "TEAM\n";
-email += "----\n";
-
-document.querySelectorAll('#teamBody tr').forEach(row => {
-    const role = row.children[0]?.innerText || "";
-    const name = row.children[1]?.innerText || "";
-    email += role + ": " + name + "\n";
-});
-
-email += "\n";
-
-// ORDER
-email += "ORDER OF SERVICE\n";
-email += "----------------\n";
-
-const blocks = document.querySelectorAll('.service-block');
-let songIndex = 1;
-
-for (const b of blocks) {
-
-    if (b.classList.contains('song-block')) {
-
-        const title = b.querySelector('.song-title').value;
-        const key = b.querySelector('.song-key').value;
-
-        email += "\n" + songIndex + ". " + title + "\n";
-        email += "Key: " + (key || "N/A") + "\n";
-
-        const docId = title.toLowerCase().replace(/\s+/g, "-");
-        const snap = await getDoc(doc(db, "songs", docId));
-
-        if (snap.exists()) {
-            const data = snap.data();
-
-            if (data.youtube) {
-                email += "YouTube: " + data.youtube + "\n";
-            }
-
-            if (data.ccli) {
-                email += "SongSelect: https://songselect.ccli.com/Songs/" + data.ccli + "\n";
-            }
-
-            // STRICT KEY MATCH (DO NOT CHANGE THIS LOGIC)
-            if (data.files && key) {
-                const files = data.files.filter(f => {
-                    if (!f.key) return false;
-                    return f.key.trim().toLowerCase() === key.trim().toLowerCase();
-                });
-
-                if (files.length) {
-                    email += "Files:\n";
-                    files.forEach(f => {
-                        email += "- " + f.type + ": " + f.url + "\n";
-                    });
-                } else {
-                    email += "Files: None for this key\n";
+// EXPORT TO GLOBAL SCOPE SO IT IS VISIBLE TO THE BUTTON
+window.emailSchedule = async () => {
+    let email = "";
+    email += "WORSHIP SERVICE PLAN\n";
+    email += "====================\n\n";
+    const date = document.getElementById('serviceDate').value;
+    email += "Date: " + (date || "N/A") + "\n";
+    email += "Leader: " + (worshipLeaderName || "None") + "\n\n";
+    email += "TEAM\n----\n";
+    document.querySelectorAll('#teamBody tr').forEach(row => {
+        const role = row.children[0]?.innerText || "";
+        const name = row.children[1]?.innerText || "";
+        email += role + ": " + name + "\n";
+    });
+    email += "\nORDER OF SERVICE\n----------------\n";
+    const blocks = document.querySelectorAll('.service-block');
+    let songIndex = 1;
+    for (const b of blocks) {
+        if (b.classList.contains('song-block')) {
+            const title = b.querySelector('.song-title').value;
+            const key = b.querySelector('.song-key').value;
+            email += "\n" + songIndex + ". " + title + "\n";
+            email += "Key: " + (key || "N/A") + "\n";
+            const docId = title.toLowerCase().replace(/\s+/g, "-");
+            const snap = await getDoc(doc(db, "songs", docId));
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.youtube) email += "YouTube: " + data.youtube + "\n";
+                if (data.ccli) email += "SongSelect: https://songselect.ccli.com/Songs/" + data.ccli + "\n";
+                if (data.files && key) {
+                    const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
+                    if (files.length) {
+                        email += "Files:\n";
+                        files.forEach(f => email += "- " + f.type + ": " + f.url + "\n");
+                    } else email += "Files: None for this key\n";
                 }
             }
+            songIndex++;
+        } else {
+            const item = b.querySelector('.item-title').value;
+            email += "\n- " + item + "\n";
         }
-
-        songIndex++;
-
-    } else {
-        const item = b.querySelector('.item-title').value;
-        email += "\n- " + item + "\n";
     }
-}
-
-// SEND EMAIL
-const subject = encodeURIComponent("Worship Service Plan");
-const body = encodeURIComponent(email);
-const to = addressBook.join(",");
-
-window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    const subject = encodeURIComponent("Worship Service Plan");
+    const body = encodeURIComponent(email);
+    const to = addressBook.join(",");
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 };
-
-// FORCE GLOBAL ACCESS
-window.emailSchedule = emailSchedule;
-
-window.addEventListener("DOMContentLoaded", () => {
-    const btn = document.querySelector('button[onclick="emailSchedule()"]');
-    if (btn) {
-        btn.onclick = (e) => {
-            e.preventDefault();
-            emailSchedule();
-        };
-    }
-});
 </script>
+
+<script>
+    // This script runs in global scope, allowing it to "bridge" the button to the module
+    function triggerEmail() {
+        if (window.emailSchedule) {
+            window.emailSchedule();
+        } else {
+            alert("Waiting for system to load... please try again in a moment.");
+        }
+    }
+</script>
+
 </head>
 
 <body class="p-4 md:p-12">
@@ -589,7 +544,6 @@ window.addEventListener("DOMContentLoaded", () => {
                 <p class="text-sm font-bold text-gray-400 uppercase tracking-widest mt-1">Leader: <span id="leaderName" class="text-[#2c6999]">None</span></p>
             </div>
         </div>
-
         <div class="grid grid-cols-2 gap-3 w-full md:w-auto">
             <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input text-sm">
             <select id="eventSelect" onchange="selectEvent()" class="styled-input text-sm">
@@ -613,7 +567,6 @@ window.addEventListener("DOMContentLoaded", () => {
                 <button onclick="addItem()" class="btn-secondary text-sm !py-2">+ Add Item</button>
             </div>
         </div>
-        
         <div id="service-order" class="space-y-2"></div>
     </div>
 
@@ -640,7 +593,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     <div class="flex justify-center gap-6 pt-6 pb-12">
         <button onclick="saveSchedule()" class="btn-primary w-48 shadow-lg shadow-blue-200">Save Schedule</button>
-        <button onclick="emailSchedule()" class="btn-secondary w-48">Email Team</button>
+        <button onclick="triggerEmail()" class="btn-secondary w-48">Email Team</button>
     </div>
 
 </div>
