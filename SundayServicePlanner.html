@@ -1,151 +1,314 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Song Planner</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGBC Sunday Worship Planner</title>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
-<style>
-body { font-family: Arial; padding: 40px; }
-
-#suggestions {
-    border: 1px solid #ddd;
-    max-width: 300px;
-}
-
-#suggestions div {
-    padding: 5px;
-    cursor: pointer;
-}
-
-#suggestions div:hover {
-    background: #f0f0f0;
-}
-
-.file-button {
-    display: inline-block;
-    margin: 5px;
-    padding: 6px 12px;
-    background: #2c6999;
-    color: white;
-    border-radius: 10px;
-    text-decoration: none;
-    font-size: 12px;
-}
-</style>
-</head>
-
-<body>
-
-<h2>Song Planner</h2>
-
-<input id="songInput" placeholder="Type song name..." oninput="suggestSongs()">
-<div id="suggestions"></div>
-
-<br><br>
-
-<div id="filesContainer"></div>
-
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "YOUR_KEY",
+    apiKey: "AIzaSy...",
     authDomain: "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner"
 };
 
-firebase.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-const db = firebase.firestore();
+let worshipLeaderName = "";
+let eventsForDay = [];
 
-// NORMALISE
-function normalizeTitle(title) {
-    return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
+
+window.onload = () => {
+    Sortable.create(document.getElementById('service-order'), { animation: 150 });
+    setupDefaultOrder();
+};
+
+function setupDefaultOrder() {
+    addSong(); addSong(); addSong();
+    addItem("Welcome and Notices");
+    addSong();
+    addItem("Message");
+    addSong(); addSong(); addSong();
 }
 
-// SUGGEST SONGS
-async function suggestSongs() {
+window.addSong = () => {
+    const container = document.getElementById('service-order');
+    const id = Math.random().toString(36).substr(2, 9);
 
-    const input = document.getElementById("songInput").value;
-    const norm = normalizeTitle(input);
+    const div = document.createElement('div');
 
-    if (norm.length < 2) return;
+    div.className = "service-block song-block bg-white p-6 mb-4 rounded-[2rem] border border-gray-100 shadow-sm flex gap-4";
 
-    const snapshot = await db.collection("songs").get();
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <div class="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="relative">
+                <input oninput="searchSong(this,'${id}')" class="song-title bg-[#f8fafc] p-3 rounded-xl font-bold w-full" placeholder="Song title">
+                <div id="suggest-${id}" class="absolute bg-white shadow rounded w-full hidden z-50"></div>
+            </div>
+            <select class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
+                <option value="">Key</option>
+                ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+            </select>
+            <textarea class="song-note md:col-span-3 bg-[#f8fafc] p-3 rounded-xl"></textarea>
 
-    const matches = snapshot.docs
-        .map(doc => doc.data())
-        .filter(song => song.normalized && song.normalized.includes(norm));
-
-    const box = document.getElementById("suggestions");
-
-    box.innerHTML = matches.map(s => `
-        <div onclick="selectSong('${s.title}')">
-            ${s.title}
+            <!-- FILE BUTTONS -->
+            <div class="md:col-span-3" id="files-${id}"></div>
         </div>
-    `).join("");
-}
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(div);
+};
 
-// SELECT SONG
-function selectSong(title) {
-    document.getElementById("songInput").value = title;
-    document.getElementById("suggestions").innerHTML = "";
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    document.getElementById('service-order').appendChild(div);
+};
 
-    loadFiles(title);
-}
+window.searchSong = async (input, id) => {
+    const val = input.value;
+    const box = document.getElementById(`suggest-${id}`);
 
-// LOAD FILES
-async function loadFiles(title) {
-
-    const container = document.getElementById("filesContainer");
-    container.innerHTML = "Loading...";
-
-    const id = title.toLowerCase().replace(/\s+/g, "-");
-
-    const doc = await db.collection("songs").doc(id).get();
-
-    if (!doc.exists) {
-        container.innerHTML = "No files found";
+    if (val.length < 2) {
+        box.classList.add('hidden');
         return;
     }
 
-    const files = doc.data().files || [];
+    try {
+        const res = await fetch(`https://egbc-song-search-a4g7b6fxdkgchrh7.westeurope-01.azurewebsites.net/api/searchSongs?q=${encodeURIComponent(val)}`);
+        const results = await res.json();
 
-    if (files.length === 0) {
-        container.innerHTML = "No files uploaded";
-        return;
+        box.innerHTML = results.map(s => `
+            <div onclick="selectSong('${s.title}','${id}')" class="p-2 hover:bg-gray-100 cursor-pointer text-xs">
+                ${s.title}
+            </div>
+        `).join('');
+
+        box.classList.remove('hidden');
+
+    } catch {
+        box.innerHTML = `<div class="p-2 text-xs text-red-400">Search error</div>`;
+        box.classList.remove('hidden');
     }
+};
 
-    // GROUP FILES BY TYPE
-    const grouped = {};
+window.selectSong = (title, id) => {
+    const block = document.getElementById(`suggest-${id}`).closest('.song-block');
+    block.querySelector('.song-title').value = title;
+    document.getElementById(`suggest-${id}`).classList.add('hidden');
 
-    files.forEach(file => {
-        if (!grouped[file.type]) grouped[file.type] = [];
-        grouped[file.type].push(file);
-    });
+    loadSongFiles(title, id);
+};
 
-    let html = "";
+// 🔥 LOAD FILES (SAFE ADDITION)
+async function loadSongFiles(title, id) {
 
-    Object.keys(grouped).forEach(type => {
+    const container = document.getElementById(`files-${id}`);
+    if (!container) return;
 
-        html += `<div><strong>${type}</strong><br>`;
+    try {
+        const docId = title.toLowerCase().replace(/\s+/g, "-");
+        const snap = await getDoc(doc(db, "songs", docId));
 
-        grouped[type].forEach(file => {
-            html += `
-                <a class="file-button" href="${file.url}" target="_blank">
-                    Open
-                </a>
-            `;
+        if (!snap.exists()) {
+            container.innerHTML = "";
+            return;
+        }
+
+        const files = snap.data().files || [];
+
+        const grouped = {};
+
+        files.forEach(f => {
+            if (!grouped[f.type]) grouped[f.type] = [];
+            grouped[f.type].push(f);
         });
 
-        html += `</div><br>`;
-    });
+        let html = "";
 
-    container.innerHTML = html;
+        Object.keys(grouped).forEach(type => {
+            html += `<div class="mt-2 text-xs font-bold">${type}</div>`;
+            grouped[type].forEach(file => {
+                html += `<a href="${file.url}" target="_blank"
+                    class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
+                    Open
+                </a>`;
+            });
+        });
+
+        container.innerHTML = html;
+
+    } catch {
+        container.innerHTML = "";
+    }
 }
 
-</script>
+window.loadRota = async () => {
+    const date = document.getElementById('serviceDate').value;
 
+    const snap = await getDocs(collection(db, "events"));
+
+    eventsForDay = [];
+
+    snap.forEach(d => {
+        const ev = d.data();
+        if (ev.date === date && ev.archived !== true) {
+            eventsForDay.push(ev);
+        }
+    });
+
+    const select = document.getElementById('eventSelect');
+    select.innerHTML = '<option value="">Select Service...</option>';
+
+    eventsForDay.forEach((ev, i) => {
+        select.innerHTML += `<option value="${i}">${ev.type}</option>`;
+    });
+
+    document.getElementById('serviceType').value = "";
+    document.getElementById('serviceTypeNotes').value = "";
+    document.getElementById('teamBody').innerHTML = "";
+};
+
+window.selectEvent = async () => {
+    const index = document.getElementById('eventSelect').value;
+    if (index === "") return;
+
+    const data = eventsForDay[index];
+
+    document.getElementById('serviceType').value = data.type || "";
+    document.getElementById('serviceTypeNotes').value = data.description || "";
+
+    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+    document.getElementById('leaderName').innerText = worshipLeaderName;
+
+    const teamBody = document.getElementById('teamBody');
+    teamBody.innerHTML = '';
+
+    Object.entries(data.assignments || {}).forEach(([role, person]) => {
+        teamBody.innerHTML += `
+            <tr>
+                <td>${role}</td>
+                <td>${person.name}</td>
+                <td><textarea class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"></textarea></td>
+            </tr>`;
+    });
+
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
+
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+
+        saved.order.forEach(item => {
+            if (item.type === "song") {
+                addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                last.querySelector('.song-key').value = item.key;
+                last.querySelector('.song-note').value = item.notes;
+
+                loadSongFiles(item.title, last.querySelector('[id^="files-"]').id.split('-')[1]);
+            } else {
+                addItem(item.title);
+            }
+        });
+    }
+};
+
+window.saveSchedule = async () => {
+    const date = document.getElementById('serviceDate').value;
+
+    const blocks = document.querySelectorAll('.service-block');
+    const order = [];
+
+    blocks.forEach(b => {
+        if (b.classList.contains('song-block')) {
+            order.push({
+                type: "song",
+                title: b.querySelector('.song-title').value,
+                key: b.querySelector('.song-key').value,
+                notes: b.querySelector('.song-note').value
+            });
+        } else {
+            order.push({
+                type: "item",
+                title: b.querySelector('.item-title').value
+            });
+        }
+    });
+
+    await addDoc(collection(db, "services"), {
+        date,
+        worshipLeader: worshipLeaderName,
+        serviceType: document.getElementById('serviceType').value,
+        serviceNotes: document.getElementById('serviceTypeNotes').value,
+        order
+    });
+
+    alert("✅ Service saved");
+};
+</script>
+</head>
+
+<body class="p-8 bg-[#f7f9fb] font-montserrat">
+
+<div class="max-w-[1400px] mx-auto space-y-8">
+
+<div class="flex justify-between border-b pb-6">
+<div>
+<h1 class="text-4xl font-extrabold text-[#2c6999]">Service Planner</h1>
+<p>Leader: <span id="leaderName">None</span></p>
+</div>
+
+<div class="flex gap-4">
+<input type="date" id="serviceDate" onchange="loadRota()">
+
+<select id="eventSelect" onchange="selectEvent()">
+<option>Select Service...</option>
+</select>
+
+<input id="serviceType" placeholder="Service Type">
+<input id="serviceTypeNotes" placeholder="Description">
+</div>
+</div>
+
+<textarea id="introBox" class="w-full h-20 bg-white p-4 rounded"></textarea>
+
+<div>
+<button onclick="addSong()">+ Song</button>
+<button onclick="addItem()">+ Item</button>
+<div id="service-order"></div>
+</div>
+
+<table class="w-full">
+<thead>
+<tr><th>Role</th><th>Name</th><th>Notes</th></tr>
+</thead>
+<tbody id="teamBody"></tbody>
+</table>
+
+<textarea id="outroBox" class="w-full h-20 bg-white p-4 rounded"></textarea>
+
+<button onclick="saveSchedule()">Save & Email</button>
+
+</div>
 </body>
 </html>
