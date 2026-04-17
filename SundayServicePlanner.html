@@ -60,7 +60,6 @@ window.addSong = () => {
                 <div id="suggest-${id}" class="absolute bg-white shadow rounded w-full hidden z-50"></div>
             </div>
 
-            <!-- ✅ ONLY CHANGE -->
             <select onchange="keyChanged('${id}')" class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
                 <option value="">Key</option>
                 ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
@@ -112,6 +111,9 @@ window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
+
+    // ✅ CLEAR FILES when selecting a new song (prevents auto-loading)
+    document.getElementById(`files-${id}`).innerHTML = "";
 };
 
 // =======================
@@ -124,9 +126,13 @@ window.keyChanged = async (id) => {
     const title = block.querySelector('.song-title').value;
     const key = block.querySelector('.song-key').value;
 
-    if (!title || !key) return;
-
     const container = document.getElementById(`files-${id}`);
+
+    // ✅ DO NOT LOAD ANYTHING unless BOTH exist
+    if (!title || !key) {
+        container.innerHTML = "";
+        return;
+    }
 
     const docId = title.toLowerCase().replace(/\s+/g, "-");
     const snap = await getDoc(doc(db, "songs", docId));
@@ -138,6 +144,7 @@ window.keyChanged = async (id) => {
 
     const allFiles = snap.data().files || [];
 
+    // ✅ STRICT MATCH ONLY (case-insensitive, trimmed)
     const selectedKey = key.trim().toLowerCase();
 
     const files = allFiles.filter(f => {
@@ -145,6 +152,7 @@ window.keyChanged = async (id) => {
         return f.key.trim().toLowerCase() === selectedKey;
     });
 
+    // ✅ NO FALLBACK — show message only
     if (files.length === 0) {
         container.innerHTML = `<div class="text-xs text-red-400">No files for this key</div>`;
         return;
