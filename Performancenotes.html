@@ -10,7 +10,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSy...",
@@ -25,7 +25,7 @@ let currentLeader = "";
 let currentService = null;
 let currentDate = "";
 
-// 🔹 LOAD PERFORMANCE (UNCHANGED LOGIC)
+// LOAD PERFORMANCE
 window.loadPerformance = async () => {
 
     const date = document.getElementById('date').value;
@@ -80,8 +80,8 @@ window.loadPerformance = async () => {
     container.innerHTML = "";
 };
 
-// 🔥 NEW: FIND MOST RECENT NOTE
-function getLatestNote(allNotes, song, role) {
+// KEY-AWARE NOTE FINDER
+function getLatestNote(allNotes, song, role, key) {
 
     let latest = null;
     let latestDate = null;
@@ -92,7 +92,8 @@ function getLatestNote(allNotes, song, role) {
             n.worshipLeader === currentLeader &&
             n.role === role &&
             n.songTitle === song &&
-            n.date !== currentDate // ignore today
+            n.key === key &&
+            n.date !== currentDate
         ) {
             const d = new Date(n.date);
 
@@ -106,7 +107,7 @@ function getLatestNote(allNotes, song, role) {
     return latest;
 }
 
-// 🔹 LOAD SONGS WITH INTELLIGENCE
+// LOAD SONGS
 window.loadSongsForRole = async () => {
 
     const role = document.getElementById('role').value;
@@ -125,8 +126,13 @@ window.loadSongsForRole = async () => {
 
         allNotes.push(d);
 
-        if (d.role === role && d.songTitle && d.date === currentDate) {
-            todayNotes[d.songTitle] = {
+        if (
+            d.role === role &&
+            d.songTitle &&
+            d.key &&
+            d.date === currentDate
+        ) {
+            todayNotes[`${d.songTitle}|${d.key}`] = {
                 notes: d.notes,
                 docId: doc.id
             };
@@ -135,18 +141,36 @@ window.loadSongsForRole = async () => {
 
     container.innerHTML = "";
 
-    currentService.order.forEach(item => {
+    for (const item of currentService.order) {
 
         if (item.type === "item") {
             const div = document.createElement('div');
             div.className = "text-center text-[#2c6999] font-extrabold text-lg py-2";
             div.innerText = item.title;
             container.appendChild(div);
-            return;
+            continue;
         }
 
-        const today = todayNotes[item.title];
-        const last = getLatestNote(allNotes, item.title, role);
+        const key = item.key || "";
+
+        const today = todayNotes[`${item.title}|${key}`];
+        const last = getLatestNote(allNotes, item.title, role, key);
+
+        // 🔥 LOAD SONG DATA
+        const docId = item.title.toLowerCase().replace(/\s+/g, "-");
+        const songSnap = await getDoc(doc(db, "songs", docId));
+
+        let youtube = "";
+        let files = [];
+
+        if (songSnap.exists()) {
+            const data = songSnap.data();
+            youtube = data.youtube || "";
+
+            files = (data.files || []).filter(f => 
+                f.key && f.key.toLowerCase() === key.toLowerCase()
+            );
+        }
 
         const div = document.createElement('div');
         div.className = "bg-white p-4 rounded-2xl shadow mb-4";
@@ -154,24 +178,36 @@ window.loadSongsForRole = async () => {
         div.innerHTML = `
             <div onclick="this.nextElementSibling.classList.toggle('hidden')" 
                  class="font-extrabold text-lg cursor-pointer text-[#2c6999]">
-                ${item.title} (${item.key || ""})
+                ${item.title} (${key})
             </div>
 
             <div class="mt-3 hidden">
 
+                ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600 text-sm">🎬 YouTube</a>` : ""}
+
+                <div class="mt-2">
+                    ${files.map(f => `
+                        <a href="${f.url}" target="_blank"
+                        class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
+                        ${f.type}
+                        </a>
+                    `).join("")}
+                </div>
+
                 <textarea 
-                    class="w-full p-3 rounded-xl text-lg bg-[#f8fafc]"
+                    class="w-full p-3 rounded-xl text-lg bg-[#f8fafc] mt-2"
                     data-song="${item.title}"
+                    data-key="${key}"
                     data-docid="${today ? today.docId : ""}"
                 >${today ? today.notes : (last ? last.notes : "")}</textarea>
 
                 <div class="flex gap-2 mt-2">
-                    <button onclick="saveNote('${item.title}')" 
+                    <button onclick="saveNote('${item.title}','${key}')" 
                         class="bg-[#2c6999] text-white px-4 py-2 rounded-lg text-sm">
                         Save
                     </button>
 
-                    <button onclick="importLast('${item.title}')" 
+                    <button onclick="importLast('${item.title}','${key}')" 
                         class="bg-gray-200 px-4 py-2 rounded-lg text-sm">
                         Import Last Notes
                     </button>
@@ -181,11 +217,11 @@ window.loadSongsForRole = async () => {
         `;
 
         container.appendChild(div);
-    });
+    }
 };
 
-// 🔹 IMPORT LAST (NOW USES INTELLIGENCE)
-window.importLast = async (song) => {
+// IMPORT LAST
+window.importLast = async (song, key) => {
 
     const role = document.getElementById('role').value;
 
@@ -194,22 +230,22 @@ window.importLast = async (song) => {
     const allNotes = [];
     snap.forEach(doc => allNotes.push(doc.data()));
 
-    const last = getLatestNote(allNotes, song, role);
+    const last = getLatestNote(allNotes, song, role, key);
 
     if (!last) {
         alert("No previous notes");
         return;
     }
 
-    document.querySelector(`[data-song="${song}"]`).value = last.notes;
+    document.querySelector(`[data-song="${song}"][data-key="${key}"]`).value = last.notes;
 };
 
-// 🔹 SAVE (UNCHANGED)
-window.saveNote = async (song) => {
+// SAVE NOTE (NOW SAVES KEY)
+window.saveNote = async (song, key) => {
 
     const role = document.getElementById('role').value;
 
-    const textarea = document.querySelector(`[data-song="${song}"]`);
+    const textarea = document.querySelector(`[data-song="${song}"][data-key="${key}"]`);
     const note = textarea.value;
     const docId = textarea.dataset.docid;
 
@@ -223,6 +259,7 @@ window.saveNote = async (song) => {
             worshipLeader: currentLeader,
             role,
             songTitle: song,
+            key: key,
             notes: note
         });
 
