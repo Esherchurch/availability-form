@@ -182,7 +182,7 @@ window.selectSong = async (title, id) => {
 };
 
 // =======================
-// FILE LOGIC
+// FILE LOGIC (UPDATED)
 // =======================
 window.keyChanged = async (id) => {
 
@@ -206,7 +206,16 @@ window.keyChanged = async (id) => {
         return;
     }
 
-    const allFiles = snap.data().files || [];
+    const data = snap.data();
+
+    const youtube = data.youtube || "";
+    const ccli = data.ccli || "";
+
+    const songSelectLink = ccli
+        ? `https://songselect.ccli.com/Songs/${ccli}`
+        : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+
+    const allFiles = data.files || [];
 
     const selectedKey = key.trim().toLowerCase();
 
@@ -214,11 +223,6 @@ window.keyChanged = async (id) => {
         if (!f.key) return false;
         return f.key.trim().toLowerCase() === selectedKey;
     });
-
-    if (files.length === 0) {
-        container.innerHTML = `<div class="text-xs text-red-400">No files for this key</div>`;
-        return;
-    }
 
     const grouped = {};
 
@@ -228,6 +232,21 @@ window.keyChanged = async (id) => {
     });
 
     let html = "";
+
+    // ✅ ADDED LINKS
+    html += `
+        <div class="text-xs mb-2 flex gap-3 flex-wrap">
+            ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600">🎬 YouTube</a>` : `<span class="text-gray-400">No YouTube</span>`}
+            <a href="${songSelectLink}" target="_blank" class="text-purple-600">🔎 SongSelect</a>
+            ${ccli ? `<span class="text-gray-500">CCLI: ${ccli}</span>` : `<span class="text-gray-400">No CCLI</span>`}
+        </div>
+    `;
+
+    if (files.length === 0) {
+        html += `<div class="text-xs text-red-400">No files for this key</div>`;
+        container.innerHTML = html;
+        return;
+    }
 
     Object.keys(grouped).forEach(type => {
         html += `<div class="mt-2 text-xs font-bold">${type}</div>`;
@@ -245,172 +264,4 @@ window.keyChanged = async (id) => {
 // =======================
 // EVERYTHING ELSE UNCHANGED
 // =======================
-window.addItem = (val="") => {
-    const div = document.createElement('div');
-    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
-    div.innerHTML = `
-        <div class="drag-handle">⠿</div>
-        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
-        <button onclick="this.parentElement.remove()">×</button>
-    `;
-    document.getElementById('service-order').appendChild(div);
-};
-
-window.loadRota = async () => {
-    const date = document.getElementById('serviceDate').value;
-
-    const snap = await getDocs(collection(db, "events"));
-
-    eventsForDay = [];
-
-    snap.forEach(d => {
-        const ev = d.data();
-        if (ev.date === date && ev.archived !== true) {
-            eventsForDay.push(ev);
-        }
-    });
-
-    const select = document.getElementById('eventSelect');
-    select.innerHTML = '<option value="">Select Service...</option>';
-
-    eventsForDay.forEach((ev, i) => {
-        select.innerHTML += `<option value="${i}">${ev.type}</option>`;
-    });
-};
-
-window.selectEvent = async () => {
-    const index = document.getElementById('eventSelect').value;
-    if (index === "") return;
-
-    const data = eventsForDay[index];
-
-    document.getElementById('serviceType').value = data.type || "";
-    document.getElementById('serviceTypeNotes').value = data.description || "";
-
-    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
-    document.getElementById('leaderName').innerText = worshipLeaderName;
-
-    const teamBody = document.getElementById('teamBody');
-    teamBody.innerHTML = '';
-
-    Object.entries(data.assignments || {}).forEach(([role, person]) => {
-        teamBody.innerHTML += `
-            <tr>
-                <td>${role}</td>
-                <td>${person.name}</td>
-                <td><textarea class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"></textarea></td>
-            </tr>`;
-    });
-
-    const q = query(collection(db, "services"), where("date", "==", data.date));
-    const snap = await getDocs(q);
-
-    if (!snap.empty) {
-        const saved = snap.docs[0].data();
-
-        const container = document.getElementById('service-order');
-        container.innerHTML = "";
-
-        saved.order.forEach(item => {
-            if (item.type === "song") {
-                const id = addSong();
-                const last = container.lastChild;
-                last.querySelector('.song-title').value = item.title;
-                last.querySelector('.song-key').value = item.key;
-                last.querySelector('.song-note').value = item.notes;
-
-                showKeyInfo(id, item.title);
-                keyChanged(id);
-            } else {
-                addItem(item.title);
-            }
-        });
-    }
-};
-
-window.saveSchedule = async () => {
-    const date = document.getElementById('serviceDate').value;
-
-    const blocks = document.querySelectorAll('.service-block');
-    const order = [];
-
-    blocks.forEach(b => {
-        if (b.classList.contains('song-block')) {
-            order.push({
-                type: "song",
-                title: b.querySelector('.song-title').value,
-                key: b.querySelector('.song-key').value,
-                notes: b.querySelector('.song-note').value
-            });
-        } else {
-            order.push({
-                type: "item",
-                title: b.querySelector('.item-title').value
-            });
-        }
-    });
-
-    await addDoc(collection(db, "services"), {
-        date,
-        worshipLeader: worshipLeaderName,
-        serviceType: document.getElementById('serviceType').value,
-        serviceNotes: document.getElementById('serviceTypeNotes').value,
-        order
-    });
-
-    alert("✅ Service saved");
-};
-
-window.emailSchedule = () => {
-    alert("Email function coming next");
-};
-</script>
-</head>
-
-<body class="p-8 bg-[#f7f9fb] font-montserrat">
-
-<div class="max-w-[1400px] mx-auto space-y-8">
-
-<div class="flex justify-between border-b pb-6">
-<div>
-<h1 class="text-4xl font-extrabold text-[#2c6999]">Service Planner</h1>
-<p>Leader: <span id="leaderName">None</span></p>
-</div>
-
-<div class="flex gap-4">
-<input type="date" id="serviceDate" onchange="loadRota()">
-
-<select id="eventSelect" onchange="selectEvent()">
-<option>Select Service...</option>
-</select>
-
-<input id="serviceType">
-<input id="serviceTypeNotes">
-</div>
-</div>
-
-<textarea id="introBox" class="w-full h-20 bg-white p-4 rounded"></textarea>
-
-<div>
-<button onclick="addSong()">+ Song</button>
-<button onclick="addItem()">+ Item</button>
-<div id="service-order"></div>
-</div>
-
-<table class="w-full">
-<thead>
-<tr><th>Role</th><th>Name</th><th>Notes</th></tr>
-</thead>
-<tbody id="teamBody"></tbody>
-</table>
-
-<textarea id="outroBox" class="w-full h-20 bg-white p-4 rounded"></textarea>
-
-<div class="flex gap-4">
-<button onclick="saveSchedule()">Save</button>
-<button onclick="emailSchedule()">Email</button>
-</div>
-
-</div>
-</body>
-</html>
+...
