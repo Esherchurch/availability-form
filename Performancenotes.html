@@ -25,7 +25,7 @@ let currentLeader = "";
 let currentService = null;
 let currentDate = "";
 
-// LOAD PERFORMANCE
+// 🔹 LOAD PERFORMANCE (UNCHANGED LOGIC)
 window.loadPerformance = async () => {
 
     const date = document.getElementById('date').value;
@@ -80,7 +80,7 @@ window.loadPerformance = async () => {
     container.innerHTML = "";
 };
 
-// KEY-AWARE NOTE FINDER
+// 🔥 KEY-AWARE NOTE FINDER (UNCHANGED)
 function getLatestNote(allNotes, song, role, key) {
 
     let latest = null;
@@ -107,7 +107,7 @@ function getLatestNote(allNotes, song, role, key) {
     return latest;
 }
 
-// LOAD SONGS
+// 🔹 LOAD SONGS WITH UI FIXES
 window.loadSongsForRole = async () => {
 
     const role = document.getElementById('role').value;
@@ -126,12 +126,7 @@ window.loadSongsForRole = async () => {
 
         allNotes.push(d);
 
-        if (
-            d.role === role &&
-            d.songTitle &&
-            d.key &&
-            d.date === currentDate
-        ) {
+        if (d.role === role && d.songTitle && d.key && d.date === currentDate) {
             todayNotes[`${d.songTitle}|${d.key}`] = {
                 notes: d.notes,
                 docId: doc.id
@@ -156,19 +151,20 @@ window.loadSongsForRole = async () => {
         const today = todayNotes[`${item.title}|${key}`];
         const last = getLatestNote(allNotes, item.title, role, key);
 
-        // 🔥 LOAD SONG DATA
         const docId = item.title.toLowerCase().replace(/\s+/g, "-");
         const songSnap = await getDoc(doc(db, "songs", docId));
 
         let youtube = "";
+        let ccli = "";
         let files = [];
 
         if (songSnap.exists()) {
             const data = songSnap.data();
             youtube = data.youtube || "";
+            ccli = data.ccli || "";
 
             files = (data.files || []).filter(f => 
-                f.key && f.key.toLowerCase() === key.toLowerCase()
+                f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase()
             );
         }
 
@@ -183,9 +179,20 @@ window.loadSongsForRole = async () => {
 
             <div class="mt-3 hidden">
 
-                ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600 text-sm">🎬 YouTube</a>` : ""}
+                <!-- ✅ ADDED: YouTube + CCLI + SongSelect -->
+                <div class="flex gap-3 flex-wrap text-sm mb-2">
+                    ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600">🎬 YouTube</a>` : `<span class="text-gray-400">No YouTube</span>`}
 
-                <div class="mt-2">
+                    <a href="https://songselect.ccli.com/search/results?search=${encodeURIComponent(item.title)}"
+                       target="_blank"
+                       class="text-purple-600">
+                       🔎 SongSelect
+                    </a>
+
+                    ${ccli ? `<span class="text-gray-500">CCLI: ${ccli}</span>` : `<span class="text-gray-400">No CCLI</span>`}
+                </div>
+
+                <div>
                     ${files.map(f => `
                         <a href="${f.url}" target="_blank"
                         class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
@@ -220,7 +227,7 @@ window.loadSongsForRole = async () => {
     }
 };
 
-// IMPORT LAST
+// 🔹 IMPORT LAST (UNCHANGED)
 window.importLast = async (song, key) => {
 
     const role = document.getElementById('role').value;
@@ -240,7 +247,7 @@ window.importLast = async (song, key) => {
     document.querySelector(`[data-song="${song}"][data-key="${key}"]`).value = last.notes;
 };
 
-// SAVE NOTE (NOW SAVES KEY)
+// 🔹 SAVE (UNCHANGED)
 window.saveNote = async (song, key) => {
 
     const role = document.getElementById('role').value;
