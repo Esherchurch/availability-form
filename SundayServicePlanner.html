@@ -120,12 +120,13 @@ window.onload = async () => {
     });
     setupDefaultOrder();
     
-    // LOAD EMAIL ADDRESSES
-    const emailSnap = await getDocs(collection(db, "addressBook"));
-    emailSnap.forEach(doc => {
-        const data = doc.data();
-        if (data.email) addressBook.push(data.email);
-    });
+    try {
+        const emailSnap = await getDocs(collection(db, "addressBook"));
+        emailSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.email) addressBook.push(data.email);
+        });
+    } catch (e) { console.error("Address book load failed", e); }
 };
 
 function setupDefaultOrder() {
@@ -197,8 +198,11 @@ window.addSong = () => {
 };
 
 async function showKeyInfo(id, title) {
+    if (!title) return; // SAFETY GATE
     const container = document.getElementById(`keyinfo-${id}`);
-    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const docId = title.toLowerCase().replace(/\s+/g, "-").trim();
+    if (!docId) return; // SAFETY GATE
+    
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) return;
     const files = snap.data().files || [];
@@ -296,11 +300,14 @@ window.keyChanged = async (id) => {
     const title = block.querySelector('.song-title').value;
     const key = block.querySelector('.song-key').value;
     const container = document.getElementById(`files-${id}`);
+    
     if (!title || !key) {
         container.innerHTML = "";
         return;
     }
-    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const docId = title.toLowerCase().replace(/\s+/g, "-").trim();
+    if (!docId) return; // SAFETY GATE
+
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) {
         container.innerHTML = "";
@@ -470,7 +477,6 @@ window.saveSchedule = async () => {
     alert("✅ Service saved");
 };
 
-// EXPOSE TO GLOBAL SCOPE FOR THE BUTTON BRIDGE
 window.emailSchedule = async () => {
     let email = "";
     email += "WORSHIP SERVICE PLAN\n";
@@ -492,17 +498,21 @@ window.emailSchedule = async () => {
             const title = b.querySelector('.song-title').value;
             const key = b.querySelector('.song-key').value;
             email += "\n" + songIndex + ". " + title + " (" + (key || "N/A") + ")\n";
-            const docId = title.toLowerCase().replace(/\s+/g, "-");
-            const snap = await getDoc(doc(db, "songs", docId));
-            if (snap.exists()) {
-                const data = snap.data();
-                if (data.youtube) email += "YouTube: " + data.youtube + "\n";
-                if (data.ccli) email += "SongSelect: https://songselect.ccli.com/Songs/" + data.ccli + "\n";
-                if (data.files && key) {
-                    const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
-                    if (files.length) {
-                        email += "Files:\n";
-                        files.forEach(f => email += "- " + f.type + ": " + f.url + "\n");
+            
+            const docId = title ? title.toLowerCase().replace(/\s+/g, "-").trim() : "";
+            
+            if (docId) {
+                const snap = await getDoc(doc(db, "songs", docId));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.youtube) email += "YouTube: " + data.youtube + "\n";
+                    if (data.ccli) email += "SongSelect: https://songselect.ccli.com/Songs/" + data.ccli + "\n";
+                    if (data.files && key) {
+                        const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
+                        if (files.length) {
+                            email += "Files:\n";
+                            files.forEach(f => email += "- " + f.type + ": " + f.url + "\n");
+                        }
                     }
                 }
             }
@@ -520,12 +530,11 @@ window.emailSchedule = async () => {
 </script>
 
 <script>
-    // FINAL BULLETPROOF BUTTON BRIDGE
     function launchEmail() {
         if (window.emailSchedule) {
             window.emailSchedule();
         } else {
-            alert("System still loading. Please wait 1 second and try again.");
+            alert("System still loading. Please try again in a moment.");
         }
     }
 </script>
