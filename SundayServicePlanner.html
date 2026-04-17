@@ -481,14 +481,17 @@ window.emailSchedule = async () => {
     const date = document.getElementById('serviceDate').value || "TBC";
     
     let htmlEmail = `
-        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #f0f0f0; padding: 25px; background-color: #ffffff;">
-            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="width: 150px; margin-bottom: 20px;">
-            <h1 style="color: #2c6999; margin: 0; font-size: 26px; font-weight: 800;">Sunday Worship Plan</h1>
-            <p style="text-transform: uppercase; font-weight: bold; color: #999; letter-spacing: 1px; font-size: 11px; margin-bottom: 30px;">${date} | Worship Leader: ${worshipLeaderName}</p>
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; border: 1px solid #e0e6ed; padding: 30px; background-color: #ffffff; margin: auto; border-radius: 12px;">
+            <div style="text-align: left; margin-bottom: 25px;">
+                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="width: 80px;">
+            </div>
             
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800;">Sunday Worship Plan</h1>
+            <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin-bottom: 30px;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
                 <thead>
-                    <tr><th colspan="2" style="text-align: left; border-bottom: 2px solid #2c6999; padding-bottom: 8px; color: #2c6999; text-transform: uppercase; font-size: 14px;">Service Team</th></tr>
+                    <tr><th colspan="2" style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px;">Service Team</th></tr>
                 </thead>
                 <tbody>
     `;
@@ -498,10 +501,23 @@ window.emailSchedule = async () => {
         const role = row.children[0]?.innerText || "";
         const name = row.children[1]?.innerText || "";
         if(name && name !== "None") rosterNames.push(name.trim());
-        htmlEmail += `<tr><td style="padding: 10px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #2c6999; width: 40%; font-size: 14px;">${role}</td><td style="padding: 10px 0; border-bottom: 1px solid #eee; font-size: 14px;">${name}</td></tr>`;
+        htmlEmail += `<tr><td style="padding: 12px 0; border-bottom: 1px solid #f0f4f8; font-weight: 700; color: #2c6999; width: 35%; font-size: 14px;">${role}</td><td style="padding: 12px 0; border-bottom: 1px solid #f0f4f8; font-size: 14px; color: #444;">${name}</td></tr>`;
     });
 
-    htmlEmail += `</tbody></table><h2 style="text-align: left; border-bottom: 2px solid #2c6999; padding-bottom: 8px; color: #2c6999; text-transform: uppercase; font-size: 14px; margin-bottom: 15px;">Order of Service</h2>`;
+    htmlEmail += `</tbody></table><h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin-bottom: 20px;">Order of Service</h2>`;
+
+    // Start Table for Songs/Items
+    htmlEmail += `
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <thead style="background-color: #f8fafc;">
+                <tr>
+                    <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;"># / Title</th>
+                    <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Key</th>
+                    <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Resources</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
     const blocks = document.querySelectorAll('.service-block');
     let songIdx = 1;
@@ -512,37 +528,56 @@ window.emailSchedule = async () => {
             const notes = b.querySelector('.song-note').value;
             if (!title) continue;
 
-            htmlEmail += `
-                <div style="padding: 15px 0; border-bottom: 1px solid #f9f9f9;">
-                    <div style="font-weight: 800; font-size: 15px; color: #333;">${songIdx}. ${title} <span style="color: #2c6999; font-weight: 400;">[Key: ${key || '?'}]</span></div>
-                    ${notes ? `<div style="font-style: italic; font-size: 12px; color: #777; margin-top: 4px;">Note: ${notes}</div>` : ''}
-            `;
-
             const docId = title.toLowerCase().replace(/\s+/g, "-");
             const snap = await getDoc(doc(db, "songs", docId));
+            let linksHtml = "";
+            let fileLinks = "";
+
             if (snap.exists()) {
                 const data = snap.data();
-                htmlEmail += `<div style="margin-top: 10px; font-size: 12px;">`;
-                if (data.youtube) htmlEmail += `<a href="${data.youtube}" style="color: #d9534f; text-decoration: none; font-weight: bold; margin-right: 15px;">YouTube Link</a>`;
-                if (data.ccli) htmlEmail += `<a href="https://songselect.ccli.com/Songs/${data.ccli}" style="color: #5bc0de; text-decoration: none; font-weight: bold;">SongSelect</a>`;
+                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #e11d48; text-decoration: none; font-weight: 700; font-size: 11px; margin-right: 8px;">YouTube</a>`;
+                const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+                linksHtml += `<a href="${sSelect}" style="color: #7c3aed; text-decoration: none; font-weight: 700; font-size: 11px;">SongSelect</a>`;
                 
                 if (data.files && key) {
                     const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
                     files.forEach(f => {
-                        htmlEmail += `<div style="margin-top: 6px; color: #666;">Download ${f.type}: <a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-weight: bold;">Click here</a></div>`;
+                        fileLinks += `<div style="margin-top: 4px;"><a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-size: 11px; font-weight: 600;">Download ${f.type}</a></div>`;
                     });
                 }
-                htmlEmail += `</div>`;
             }
-            htmlEmail += `</div>`;
+
+            htmlEmail += `
+                <tr>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">
+                        <div style="font-weight: 800; font-size: 14px; color: #1e293b;">${songIdx}. ${title}</div>
+                        ${notes ? `<div style="font-style: italic; font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;">${notes}</div>` : ''}
+                    </td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #2c6999; font-size: 14px;">
+                        ${key || '-'}
+                    </td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">
+                        <div style="margin-bottom: 5px;">${linksHtml}</div>
+                        ${fileLinks}
+                    </td>
+                </tr>
+            `;
             songIdx++;
         } else {
             const item = b.querySelector('.item-title').value;
-            if (item) htmlEmail += `<div style="padding: 12px; font-weight: bold; background: #f4f7f9; border-left: 4px solid #2c6999; margin: 15px 0; font-size: 13px; color: #2c6999;">${item.toUpperCase()}</div>`;
+            if (item) {
+                htmlEmail += `
+                    <tr>
+                        <td colspan="3" style="padding: 12px 10px; background-color: #f8fafc; border-left: 4px solid #2c6999; font-weight: 800; font-size: 12px; color: #2c6999; text-transform: uppercase; letter-spacing: 0.5px;">
+                            ${item}
+                        </td>
+                    </tr>
+                `;
+            }
         }
     }
 
-    htmlEmail += `<p style="margin-top: 40px; font-size: 10px; color: #bbb; text-align: center;">Generated via EGBC Worship Planner</p></div>`;
+    htmlEmail += `</tbody></table><p style="margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">Generated via EGBC Worship Planner</p></div>`;
 
     const type = "text/html";
     const blob = new Blob([htmlEmail], { type });
