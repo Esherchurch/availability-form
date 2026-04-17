@@ -68,12 +68,12 @@ body { font-family: Arial; padding: 40px; }
 
 <script>
 
-// 🔥 FIREBASE CONFIG (KEEP YOURS)
+// 🔥 FIREBASE CONFIG (FIXED BUCKET)
 const firebaseConfig = {
     apiKey: "YOUR_KEY",
     authDomain: "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner",
-    storageBucket: "egbc-worship-planner.appspot.com"
+    storageBucket: "egbc-worship-planner.firebasestorage.app"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -117,7 +117,7 @@ function renderFiles() {
         files.map(f => `<li>${f.name}</li>`).join("");
 }
 
-// 🔥 NORMALIZE TITLES
+// NORMALIZE
 function normalizeTitle(title) {
     return title
         .toLowerCase()
@@ -128,7 +128,7 @@ function normalizeTitle(title) {
         .trim();
 }
 
-// 🔥 SUGGEST EXISTING SONGS
+// SUGGEST
 async function suggestSongs() {
     const input = document.getElementById("title").value;
     const norm = normalizeTitle(input);
@@ -150,7 +150,7 @@ async function suggestSongs() {
     `).join("");
 }
 
-// 🔥 SELECT EXISTING SONG
+// SELECT
 async function selectSuggestion(title) {
     document.getElementById("title").value = title;
     document.getElementById("suggestions").innerHTML = "";
@@ -167,26 +167,18 @@ async function selectSuggestion(title) {
     }
 }
 
-// 🔥 YOUTUBE AUTO
+// DISABLED YOUTUBE (so it doesn’t break upload)
 async function getYouTube(title) {
-    try {
-        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(title + " worship")}&key=YOUR_YOUTUBE_API_KEY`);
-        const data = await res.json();
-
-        if (data.items && data.items.length > 0) {
-            return "https://www.youtube.com/watch?v=" + data.items[0].id.videoId;
-        }
-    } catch {}
     return "";
 }
 
-// 🔥 SIMPLE CCLI MAP
+// CCLI MAP
 const CCLI_MAP = {
     "waymaker": "7115744",
     "10000 reasons": "6016351"
 };
 
-// 🔥 UPLOAD
+// UPLOAD
 async function upload() {
 
     const title = document.getElementById("title").value.trim();
@@ -201,7 +193,6 @@ async function upload() {
 
     const normalized = normalizeTitle(title);
 
-    // 🔍 FIND EXISTING SONG
     const snapshot = await db.collection("songs").get();
 
     let existingDoc = null;
