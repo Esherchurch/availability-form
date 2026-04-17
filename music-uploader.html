@@ -53,7 +53,6 @@ body { font-family: Arial; padding: 40px; }
 <option>A</option><option>Bb</option><option>B</option>
 </select><br><br>
 
-<!-- 🔥 FILE TYPE (UPDATED) -->
 <select id="fileType">
 <option value="">Select File Type</option>
 <option value="Lead Sheet">Lead Sheet</option>
@@ -146,7 +145,6 @@ async function selectSuggestion(title) {
     document.getElementById("suggestions").innerHTML = "";
 }
 
-// Disabled YouTube auto
 async function getYouTube(title) {
     return "";
 }
@@ -160,9 +158,10 @@ async function upload() {
 
     const title = document.getElementById("title").value.trim();
     const fileType = document.getElementById("fileType").value;
+    const key = document.getElementById("key").value;
 
-    if (!title || files.length === 0 || !fileType) {
-        alert("Add title, files, and file type");
+    if (!title || files.length === 0 || !fileType || !key) {
+        alert("Add title, files, file type, and key");
         return;
     }
 
@@ -183,7 +182,8 @@ async function upload() {
         uploadedFiles.push({
             name: file.name,
             url: url,
-            type: fileType
+            type: fileType,
+            key: key   // ✅ THIS IS THE FIX
         });
     }
 
