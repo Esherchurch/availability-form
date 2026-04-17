@@ -514,8 +514,14 @@ window.emailSchedule = async () => {
     
     let htmlEmail = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; border: 1px solid #e0e6ed; padding: 30px; background-color: #ffffff; margin: auto; border-radius: 12px;">
-            <div style="text-align: left; margin-bottom: 20px; width: 80px;">
-                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="display: block; width: 80px !important; max-width: 80px !important; height: auto;">
+            <div style="text-align: left; margin-bottom: 20px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="60" style="border-collapse: collapse;">
+                    <tr>
+                        <td width="60" style="width: 60px;">
+                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="60" style="display: block; width: 60px !important; max-width: 60px !important; height: auto;">
+                        </td>
+                    </tr>
+                </table>
             </div>
             
             <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800;">Sunday Worship Plan</h1>
