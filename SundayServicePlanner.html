@@ -518,7 +518,7 @@ window.emailSchedule = async () => {
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
                     <tr>
                         <td align="center">
-                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="120" style="display: block; width: 120px !important; max-width: 120px !important; height: auto;">
+                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: block; height: 190px !important; width: auto;">
                         </td>
                     </tr>
                 </table>
@@ -556,9 +556,11 @@ window.emailSchedule = async () => {
     
     if (introText) {
         htmlEmail += `
-            <h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px;">Opening Remarks / Call to Worship</h3>
-            <div style="font-size: 14px; color: #444; margin-bottom: 20px; line-height: 1.6;">${introText.replace(/\n/g, '<br>')}</div>
-            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 30px;">
+            <div style="border-top: 2px solid #2c6999; padding-top: 20px; margin-top: 20px;">
+                <h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px; letter-spacing: 1px;">Opening Remarks / Call to Worship</h3>
+                <div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6;">${introText.replace(/\n/g, '<br>')}</div>
+            </div>
+            <div style="height: 15px; border-bottom: 1px solid #e2e8f0; margin-bottom: 25px;"></div>
         `;
     }
 
@@ -638,9 +640,11 @@ window.emailSchedule = async () => {
 
     if (outroText) {
         htmlEmail += `
-            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-top: 20px; margin-bottom: 30px;">
-            <h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px;">Closing Remarks / Blessing</h3>
-            <div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6;">${outroText.replace(/\n/g, '<br>')}</div>
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 20px;"></div>
+            <div style="border-bottom: 2px solid #2c6999; padding-bottom: 20px; margin-bottom: 20px;">
+                <h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px; letter-spacing: 1px;">Closing Remarks / Blessing</h3>
+                <div style="font-size: 14px; color: #444; line-height: 1.6;">${outroText.replace(/\n/g, '<br>')}</div>
+            </div>
         `;
     }
 
