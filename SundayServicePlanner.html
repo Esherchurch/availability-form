@@ -40,6 +40,9 @@ function setupDefaultOrder() {
     addSong(); addSong(); addSong();
 }
 
+// =======================
+// SONG BLOCK
+// =======================
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
@@ -51,12 +54,13 @@ window.addSong = () => {
     div.innerHTML = `
         <div class="drag-handle">⠿</div>
         <div class="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
+
             <div class="relative">
                 <input oninput="searchSong(this,'${id}')" class="song-title bg-[#f8fafc] p-3 rounded-xl font-bold w-full" placeholder="Song title">
                 <div id="suggest-${id}" class="absolute bg-white shadow rounded w-full hidden z-50"></div>
             </div>
 
-            <!-- ONLY CHANGE: onchange -->
+            <!-- ✅ ONLY CHANGE -->
             <select onchange="keyChanged('${id}')" class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
                 <option value="">Key</option>
                 ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
@@ -65,12 +69,17 @@ window.addSong = () => {
             <textarea class="song-note md:col-span-3 bg-[#f8fafc] p-3 rounded-xl"></textarea>
 
             <div class="md:col-span-3" id="files-${id}"></div>
+
         </div>
         <button onclick="this.parentElement.remove()">×</button>
     `;
+
     container.appendChild(div);
 };
 
+// =======================
+// SONG SEARCH
+// =======================
 window.searchSong = async (input, id) => {
     const val = input.value.toLowerCase();
     const box = document.getElementById(`suggest-${id}`);
@@ -96,13 +105,18 @@ window.searchSong = async (input, id) => {
     box.classList.remove('hidden');
 };
 
+// =======================
+// SELECT SONG
+// =======================
 window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
-    // ❌ REMOVED loadSongFiles here
 };
 
+// =======================
+// ✅ FILE LOGIC FIX (ONLY THIS SECTION CHANGED)
+// =======================
 window.keyChanged = async (id) => {
 
     const block = document.getElementById(`files-${id}`).closest('.song-block');
@@ -126,13 +140,14 @@ window.keyChanged = async (id) => {
 
     const selectedKey = key.trim().toLowerCase();
 
-    let files = allFiles.filter(f => {
+    const files = allFiles.filter(f => {
         if (!f.key) return false;
         return f.key.trim().toLowerCase() === selectedKey;
     });
 
     if (files.length === 0) {
-        files = allFiles;
+        container.innerHTML = `<div class="text-xs text-red-400">No files for this key</div>`;
+        return;
     }
 
     const grouped = {};
@@ -157,6 +172,9 @@ window.keyChanged = async (id) => {
     container.innerHTML = html;
 };
 
+// =======================
+// EVERYTHING ELSE BELOW UNCHANGED
+// =======================
 window.addItem = (val="") => {
     const div = document.createElement('div');
     div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
