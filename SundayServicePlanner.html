@@ -474,7 +474,7 @@ window.saveSchedule = async () => {
     alert("✅ Service saved");
 };
 
-window.emailSchedule = async () => {
+const emailSchedule = async () => {
 
 let email = "";
 
@@ -562,14 +562,16 @@ const to = addressBook.join(",");
 window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 };
 
-// EXPOSE TO WINDOW AND BIND TO BUTTON
+// FORCE GLOBAL ACCESS
 window.emailSchedule = emailSchedule;
 
 window.addEventListener("DOMContentLoaded", () => {
     const btn = document.querySelector('button[onclick="emailSchedule()"]');
     if (btn) {
-        btn.removeAttribute('onclick'); // Clear inline to prevent conflicts
-        btn.addEventListener('click', emailSchedule);
+        btn.onclick = (e) => {
+            e.preventDefault();
+            emailSchedule();
+        };
     }
 });
 </script>
