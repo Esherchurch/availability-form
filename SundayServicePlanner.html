@@ -27,11 +27,6 @@ let eventsForDay = [];
 
 const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
 
-// 🔥 NORMALISE TITLES (matches uploader + messy data)
-function normalizeTitle(title) {
-    return (title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
 window.onload = () => {
     Sortable.create(document.getElementById('service-order'), { animation: 150 });
     setupDefaultOrder();
@@ -78,7 +73,7 @@ window.addSong = () => {
     container.appendChild(div);
 };
 
-// 🔥 AUTO-FILL NOTES (ROBUST + WORKS WITH OLD DATA)
+// 🔥 SAFE NOTE FILL (ONLY EXACT MATCH — NO GUESSING)
 window.autoFillNotes = async (song) => {
 
     if (!song || !worshipLeaderName) return;
@@ -87,8 +82,6 @@ window.autoFillNotes = async (song) => {
 
     const allNotes = [];
     snap.forEach(doc => allNotes.push(doc.data()));
-
-    const normSong = normalizeTitle(song);
 
     document.querySelectorAll(".instr-note").forEach(box => {
 
@@ -101,15 +94,8 @@ window.autoFillNotes = async (song) => {
 
         allNotes.forEach(n => {
 
-            const stored = normalizeTitle(n.songTitle);
-
-            const match =
-                stored === normSong ||
-                stored.includes(normSong) ||
-                normSong.includes(stored);
-
             if (
-                match &&
+                n.songTitle === song &&
                 n.worshipLeader === worshipLeaderName &&
                 n.role === role
             ) {
@@ -128,13 +114,14 @@ window.autoFillNotes = async (song) => {
     });
 };
 
-// 🔥 SONG SELECT (TRIGGERS NOTES)
+// 🔥 ONLY HOOK INTO EXISTING FLOW (NO BREAKING CHANGES)
 window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
 
-    autoFillNotes(title);
+    // run AFTER selection (safe)
+    setTimeout(() => autoFillNotes(title), 100);
 };
 
 window.addItem = (val="") => {
