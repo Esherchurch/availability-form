@@ -74,6 +74,8 @@ window.addSong = () => {
     `;
 
     container.appendChild(div);
+
+    return id; // ✅ RETURN ID (needed for auto-load)
 };
 
 // =======================
@@ -112,12 +114,11 @@ window.selectSong = (title, id) => {
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
 
-    // ✅ CLEAR FILES when selecting a new song (prevents auto-loading)
     document.getElementById(`files-${id}`).innerHTML = "";
 };
 
 // =======================
-// ✅ FILE LOGIC FIX (ONLY THIS SECTION CHANGED)
+// FILE LOGIC
 // =======================
 window.keyChanged = async (id) => {
 
@@ -128,7 +129,6 @@ window.keyChanged = async (id) => {
 
     const container = document.getElementById(`files-${id}`);
 
-    // ✅ DO NOT LOAD ANYTHING unless BOTH exist
     if (!title || !key) {
         container.innerHTML = "";
         return;
@@ -144,7 +144,6 @@ window.keyChanged = async (id) => {
 
     const allFiles = snap.data().files || [];
 
-    // ✅ STRICT MATCH ONLY (case-insensitive, trimmed)
     const selectedKey = key.trim().toLowerCase();
 
     const files = allFiles.filter(f => {
@@ -152,7 +151,6 @@ window.keyChanged = async (id) => {
         return f.key.trim().toLowerCase() === selectedKey;
     });
 
-    // ✅ NO FALLBACK — show message only
     if (files.length === 0) {
         container.innerHTML = `<div class="text-xs text-red-400">No files for this key</div>`;
         return;
@@ -181,7 +179,7 @@ window.keyChanged = async (id) => {
 };
 
 // =======================
-// EVERYTHING ELSE BELOW UNCHANGED
+// EVERYTHING ELSE BELOW
 // =======================
 window.addItem = (val="") => {
     const div = document.createElement('div');
@@ -251,11 +249,13 @@ window.selectEvent = async () => {
 
         saved.order.forEach(item => {
             if (item.type === "song") {
-                addSong();
+                const id = addSong(); // ✅ capture ID
                 const last = container.lastChild;
                 last.querySelector('.song-title').value = item.title;
                 last.querySelector('.song-key').value = item.key;
                 last.querySelector('.song-note').value = item.notes;
+
+                keyChanged(id); // ✅ AUTO LOAD FILES
             } else {
                 addItem(item.title);
             }
