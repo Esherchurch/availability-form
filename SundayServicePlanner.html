@@ -40,6 +40,7 @@ function setupDefaultOrder() {
     addSong(); addSong(); addSong();
 }
 
+// 🔥 SONG BLOCK (UNCHANGED)
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
@@ -68,6 +69,7 @@ window.addSong = () => {
     container.appendChild(div);
 };
 
+// 🔥 SONG SEARCH (UNCHANGED — WORKING)
 window.searchSong = async (input, id) => {
     const val = input.value.toLowerCase();
     const box = document.getElementById(`suggest-${id}`);
@@ -93,6 +95,7 @@ window.searchSong = async (input, id) => {
     box.classList.remove('hidden');
 };
 
+// 🔥 SONG SELECT (UNCHANGED)
 window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
@@ -101,6 +104,7 @@ window.selectSong = (title, id) => {
     loadSongFiles(title, id);
 };
 
+// 🔥 LOAD FILES (UNCHANGED)
 async function loadSongFiles(title, id) {
 
     const container = document.getElementById(`files-${id}`);
@@ -136,6 +140,124 @@ async function loadSongFiles(title, id) {
     });
 
     container.innerHTML = html;
+}
+
+// 🔥 ADD ITEM (RESTORED)
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    document.getElementById('service-order').appendChild(div);
+};
+
+// 🔥 LOAD ROTA (RESTORED — WORKING VERSION)
+window.loadRota = async () => {
+    const date = document.getElementById('serviceDate').value;
+
+    const snap = await getDocs(collection(db, "events"));
+
+    eventsForDay = [];
+
+    snap.forEach(d => {
+        const ev = d.data();
+        if (ev.date === date && ev.archived !== true) {
+            eventsForDay.push(ev);
+        }
+    });
+
+    const select = document.getElementById('eventSelect');
+    select.innerHTML = '<option value="">Select Service...</option>';
+
+    eventsForDay.forEach((ev, i) => {
+        select.innerHTML += `<option value="${i}">${ev.type}</option>`;
+    });
+};
+
+// 🔥 SELECT EVENT (RESTORED + LOAD SAVED SERVICE)
+window.selectEvent = async () => {
+    const index = document.getElementById('eventSelect').value;
+    if (index === "") return;
+
+    const data = eventsForDay[index];
+
+    document.getElementById('serviceType').value = data.type || "";
+    document.getElementById('serviceTypeNotes').value = data.description || "";
+
+    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+    document.getElementById('leaderName').innerText = worshipLeaderName;
+
+    const teamBody = document.getElementById('teamBody');
+    teamBody.innerHTML = '';
+
+    Object.entries(data.assignments || {}).forEach(([role, person]) => {
+        teamBody.innerHTML += `
+            <tr>
+                <td>${role}</td>
+                <td>${person.name}</td>
+                <td><textarea class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"></textarea></td>
+            </tr>`;
+    });
+
+    // 🔥 LOAD SAVED SERVICE
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
+
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+
+        saved.order.forEach(item => {
+            if (item.type === "song") {
+                addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                last.querySelector('.song-key').value = item.key;
+                last.querySelector('.song-note').value = item.notes;
+            } else {
+                addItem(item.title);
+            }
+        });
+    }
+};
+
+// 🔥 SAVE SERVICE (RESTORED)
+window.saveSchedule = async () => {
+    const date = document.getElementById('serviceDate').value;
+
+    const blocks = document.querySelectorAll('.service-block');
+    const order = [];
+
+    blocks.forEach(b => {
+        if (b.classList.contains('song-block')) {
+            order.push({
+                type: "song",
+                title: b.querySelector('.song-title').value,
+                key: b.querySelector('.song-key').value,
+                notes: b.querySelector('.song-note').value
+            });
+        } else {
+            order.push({
+                type: "item",
+                title: b.querySelector('.item-title').value
+            });
+        }
+    });
+
+    await addDoc(collection(db, "services"), {
+        date,
+        worshipLeader: worshipLeaderName,
+        serviceType: document.getElementById('serviceType').value,
+        serviceNotes: document.getElementById('serviceTypeNotes').value,
+        order
+    });
+
+    alert("✅ Service saved");
 };
 </script>
 </head>
