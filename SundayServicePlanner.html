@@ -74,9 +74,62 @@ window.addSong = () => {
     `;
 
     container.appendChild(div);
-
-    return id; // ✅ RETURN ID (needed for auto-load)
+    return id;
 };
+
+// =======================
+// NEW: KEY INFO
+// =======================
+async function showKeyInfo(id, title) {
+    const container = document.getElementById(`files-${id}`);
+
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
+
+    if (!snap.exists()) return;
+
+    const files = snap.data().files || [];
+
+    const chordKeys = files
+        .filter(f => f.type === "Chord Sheet" && f.key)
+        .map(f => f.key);
+
+    const uniqueKeys = [...new Set(chordKeys)];
+
+    let available = uniqueKeys.sort().join(", ") || "None";
+    const missing = ALL_KEYS.filter(k => !uniqueKeys.includes(k)).join(", ");
+
+    container.innerHTML = `
+        <div class="text-xs mt-2">
+            <span class="text-green-600 font-bold">Available:</span> ${available}<br>
+            <span class="text-red-400">Missing:</span> ${missing}
+        </div>
+    `;
+}
+
+// =======================
+// NEW: PREFERRED KEY
+// =======================
+async function getPreferredKey(title, leader) {
+
+    const snap = await getDocs(collection(db, "services"));
+
+    let lastKey = "";
+
+    snap.forEach(doc => {
+        const data = doc.data();
+
+        if (data.worshipLeader !== leader) return;
+
+        (data.order || []).forEach(item => {
+            if (item.type === "song" && item.title === title) {
+                lastKey = item.key;
+            }
+        });
+    });
+
+    return lastKey;
+}
 
 // =======================
 // SONG SEARCH
@@ -107,14 +160,25 @@ window.searchSong = async (input, id) => {
 };
 
 // =======================
-// SELECT SONG
+// SELECT SONG (UPDATED)
 // =======================
-window.selectSong = (title, id) => {
+window.selectSong = async (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
 
     document.getElementById(`files-${id}`).innerHTML = "";
+
+    await showKeyInfo(id, title);
+
+    if (worshipLeaderName && worshipLeaderName !== "None") {
+        const preferred = await getPreferredKey(title, worshipLeaderName);
+
+        if (preferred) {
+            block.querySelector('.song-key').value = preferred;
+            keyChanged(id);
+        }
+    }
 };
 
 // =======================
@@ -179,7 +243,7 @@ window.keyChanged = async (id) => {
 };
 
 // =======================
-// EVERYTHING ELSE BELOW
+// EVERYTHING ELSE UNCHANGED
 // =======================
 window.addItem = (val="") => {
     const div = document.createElement('div');
@@ -249,13 +313,14 @@ window.selectEvent = async () => {
 
         saved.order.forEach(item => {
             if (item.type === "song") {
-                const id = addSong(); // ✅ capture ID
+                const id = addSong();
                 const last = container.lastChild;
                 last.querySelector('.song-title').value = item.title;
                 last.querySelector('.song-key').value = item.key;
                 last.querySelector('.song-note').value = item.notes;
 
-                keyChanged(id); // ✅ AUTO LOAD FILES
+                showKeyInfo(id, item.title);
+                keyChanged(id);
             } else {
                 addItem(item.title);
             }
