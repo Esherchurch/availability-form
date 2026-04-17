@@ -35,6 +35,17 @@ body { font-family: Arial; padding: 40px; }
 #suggestions div:hover {
     background: #f0f0f0;
 }
+
+table {
+    margin-top: 20px;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+td, th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
 </style>
 </head>
 
@@ -45,22 +56,6 @@ body { font-family: Arial; padding: 40px; }
 <input id="title" placeholder="Song Title" oninput="suggestSongs()"><br>
 <div id="suggestions"></div><br>
 
-<select id="key">
-<option value="">Key</option>
-<option>C</option><option>C#</option><option>D</option>
-<option>Eb</option><option>E</option><option>F</option>
-<option>F#</option><option>G</option><option>Ab</option>
-<option>A</option><option>Bb</option><option>B</option>
-</select><br><br>
-
-<select id="fileType">
-<option value="">Select File Type</option>
-<option value="Lead Sheet">Lead Sheet</option>
-<option value="Chord Sheet">Chord Sheet</option>
-<option value="Lyrics">Lyrics</option>
-<option value="Bass Tabs">Bass Tabs</option>
-</select><br><br>
-
 <input id="youtube" placeholder="YouTube link"><br><br>
 <input id="ccli" placeholder="CCLI"><br><br>
 
@@ -70,7 +65,16 @@ body { font-family: Arial; padding: 40px; }
 
 <input type="file" id="fileInput" multiple style="display:none">
 
-<ul id="fileList"></ul>
+<table id="fileTable">
+<thead>
+<tr>
+<th>File</th>
+<th>Type</th>
+<th>Key</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 
 <button onclick="upload()">Upload</button>
 
@@ -90,14 +94,15 @@ const db = firebase.firestore();
 
 let files = [];
 
+const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
+
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
 dropzone.addEventListener("click", () => fileInput.click());
 
 fileInput.addEventListener("change", (e) => {
-    files.push(...e.target.files);
-    renderFiles();
+    addFiles(e.target.files);
 });
 
 dropzone.addEventListener("dragover", e => {
@@ -106,15 +111,79 @@ dropzone.addEventListener("dragover", e => {
 
 dropzone.addEventListener("drop", e => {
     e.preventDefault();
-    files.push(...e.dataTransfer.files);
-    renderFiles();
+    addFiles(e.dataTransfer.files);
 });
 
-function renderFiles() {
-    document.getElementById("fileList").innerHTML =
-        files.map(f => `<li>${f.name}</li>`).join("");
+// =======================
+// ADD FILES
+// =======================
+function addFiles(newFiles) {
+    for (const file of newFiles) {
+        files.push({
+            file: file,
+            type: "",
+            key: detectKey(file.name)
+        });
+    }
+    renderFiles();
 }
 
+// =======================
+// SMART KEY DETECTION
+// =======================
+function detectKey(name) {
+    const lower = name.toLowerCase();
+
+    for (const key of ALL_KEYS) {
+        if (lower.includes(` ${key.toLowerCase()}`) || lower.includes(`(${key.toLowerCase()})`)) {
+            return key;
+        }
+    }
+
+    return "";
+}
+
+// =======================
+// RENDER TABLE
+// =======================
+function renderFiles() {
+    const tbody = document.querySelector("#fileTable tbody");
+
+    tbody.innerHTML = files.map((f, i) => `
+        <tr>
+            <td>${f.file.name}</td>
+
+            <td>
+                <select onchange="updateType(${i}, this.value)">
+                    <option value="">Type</option>
+                    <option ${f.type==="Lead Sheet"?"selected":""}>Lead Sheet</option>
+                    <option ${f.type==="Chord Sheet"?"selected":""}>Chord Sheet</option>
+                    <option ${f.type==="Lyrics"?"selected":""}>Lyrics</option>
+                    <option ${f.type==="Bass Tabs"?"selected":""}>Bass Tabs</option>
+                </select>
+            </td>
+
+            <td>
+                <select onchange="updateKey(${i}, this.value)">
+                    <option value="">Key</option>
+                    ${ALL_KEYS.map(k => `<option ${f.key===k?"selected":""}>${k}</option>`).join('')}
+                </select>
+            </td>
+        </tr>
+    `).join("");
+}
+
+function updateType(i, val) {
+    files[i].type = val;
+}
+
+function updateKey(i, val) {
+    files[i].key = val;
+}
+
+// =======================
+// SUGGEST SONGS
+// =======================
 function normalizeTitle(title) {
     return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
 }
@@ -141,9 +210,8 @@ async function suggestSongs() {
 }
 
 // =======================
-// 🔥 AUTO FILL LOGIC
+// SELECT SONG
 // =======================
-
 async function selectSuggestion(title) {
     document.getElementById("title").value = title;
     document.getElementById("suggestions").innerHTML = "";
@@ -155,84 +223,31 @@ async function selectSuggestion(title) {
 
     if (snap.exists) {
         const data = snap.data();
-
         document.getElementById("youtube").value = data.youtube || "";
         document.getElementById("ccli").value = data.ccli || "";
-    }
-
-    // ✅ If missing → auto fetch
-    autoFillMissing(title);
-}
-
-// =======================
-// 🎬 YOUTUBE AUTO FETCH
-// =======================
-
-async function getYouTube(title) {
-    try {
-        const query = encodeURIComponent(title + " worship");
-        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/results?search_query=${query}`);
-        return `https://www.youtube.com/results?search_query=${query}`;
-    } catch {
-        return "";
-    }
-}
-
-// =======================
-// 🎵 SMART CCLI MAP
-// =======================
-
-const CCLI_MAP = {
-    "waymaker": "7115744",
-    "10000 reasons": "6016351",
-    "goodness of god": "7117726",
-    "living hope": "7106807",
-    "oceans": "6428767"
-};
-
-function getCCLI(title) {
-    const norm = normalizeTitle(title);
-
-    for (const key in CCLI_MAP) {
-        if (norm.includes(key)) return CCLI_MAP[key];
-    }
-
-    return "";
-}
-
-// =======================
-// 🚀 AUTO FILL IF EMPTY
-// =======================
-
-async function autoFillMissing(title) {
-
-    const ytInput = document.getElementById("youtube");
-    const ccliInput = document.getElementById("ccli");
-
-    if (!ytInput.value) {
-        ytInput.value = await getYouTube(title);
-    }
-
-    if (!ccliInput.value) {
-        ccliInput.value = getCCLI(title);
     }
 }
 
 // =======================
 // UPLOAD
 // =======================
-
 async function upload() {
 
     const title = document.getElementById("title").value.trim();
-    const fileType = document.getElementById("fileType").value;
-    const key = document.getElementById("key").value;
     const youtube = document.getElementById("youtube").value;
     const ccli = document.getElementById("ccli").value;
 
-    if (!title || files.length === 0 || !fileType || !key) {
-        alert("Add title, files, file type, and key");
+    if (!title || files.length === 0) {
+        alert("Add title and files");
         return;
+    }
+
+    // validate all rows
+    for (const f of files) {
+        if (!f.type || !f.key) {
+            alert("Each file needs a type and key");
+            return;
+        }
     }
 
     const docId = title.toLowerCase().replace(/\s+/g, "-");
@@ -243,17 +258,17 @@ async function upload() {
 
     let uploadedFiles = existingData.files || [];
 
-    for (const file of files) {
-        const ref = storage.ref(`songs/${docId}/${file.name}`);
-        await ref.put(file);
+    for (const f of files) {
+        const ref = storage.ref(`songs/${docId}/${f.file.name}`);
+        await ref.put(f.file);
 
         const url = await ref.getDownloadURL();
 
         uploadedFiles.push({
-            name: file.name,
+            name: f.file.name,
             url: url,
-            type: fileType,
-            key: key
+            type: f.type,
+            key: f.key
         });
     }
 
