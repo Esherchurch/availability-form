@@ -132,10 +132,10 @@ async function getPreferredKey(title, leader) {
 }
 
 // =======================
-// SONG SEARCH
+// SONG SEARCH (UPDATED ONLY)
 // =======================
 window.searchSong = async (input, id) => {
-    const val = input.value.toLowerCase();
+    const val = input.value.toLowerCase().trim();
     const box = document.getElementById(`suggest-${id}`);
 
     if (val.length < 2) {
@@ -145,10 +145,48 @@ window.searchSong = async (input, id) => {
 
     const snap = await getDocs(collection(db, "songs"));
 
+    const words = val.split(" ");
+
     const matches = snap.docs
         .map(d => d.data())
-        .filter(song => song.title.toLowerCase().includes(val))
+        .filter(song => {
+
+            const title = (song.title || "").toLowerCase();
+            const normalized = (song.normalized || "").toLowerCase();
+            const lyrics = (song.lyrics || "").toLowerCase();
+
+            return words.every(w =>
+                title.includes(w) ||
+                normalized.includes(w) ||
+                lyrics.includes(w)
+            );
+        })
         .slice(0, 10);
+
+    if (matches.length === 0) {
+        box.innerHTML = `
+            <div class="p-2 text-xs text-red-400">
+                Not in library
+            </div>
+
+            <div class="p-2 text-xs flex gap-3 flex-wrap">
+                <a href="https://songselect.ccli.com/search/results?search=${encodeURIComponent(input.value)}" target="_blank" class="text-purple-600">
+                    🔎 SongSelect
+                </a>
+
+                <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(input.value)}" target="_blank" class="text-blue-600">
+                    ▶ YouTube
+                </a>
+
+                <div onclick="selectSong('${input.value}','${id}')"
+                     class="text-green-600 cursor-pointer">
+                     ➕ Add "${input.value}"
+                </div>
+            </div>
+        `;
+        box.classList.remove('hidden');
+        return;
+    }
 
     box.innerHTML = matches.map(s => `
         <div onclick="selectSong('${s.title}','${id}')" class="p-2 hover:bg-gray-100 cursor-pointer text-xs">
@@ -160,7 +198,7 @@ window.searchSong = async (input, id) => {
 };
 
 // =======================
-// SELECT SONG (UPDATED)
+// SELECT SONG (UNCHANGED)
 // =======================
 window.selectSong = async (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
@@ -182,7 +220,7 @@ window.selectSong = async (title, id) => {
 };
 
 // =======================
-// FILE LOGIC (UPDATED)
+// FILE LOGIC (UNCHANGED)
 // =======================
 window.keyChanged = async (id) => {
 
