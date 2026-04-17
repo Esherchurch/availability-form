@@ -562,11 +562,15 @@ const to = addressBook.join(",");
 window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 };
 
+// EXPOSE TO WINDOW AND BIND TO BUTTON
+window.emailSchedule = emailSchedule;
+
 window.addEventListener("DOMContentLoaded", () => {
-const btn = document.querySelector('button[onclick="emailSchedule()"]');
-if (btn) {
-btn.onclick = emailSchedule;
-}
+    const btn = document.querySelector('button[onclick="emailSchedule()"]');
+    if (btn) {
+        btn.removeAttribute('onclick'); // Clear inline to prevent conflicts
+        btn.addEventListener('click', emailSchedule);
+    }
 });
 </script>
 </head>
