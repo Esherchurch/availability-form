@@ -40,7 +40,6 @@ function setupDefaultOrder() {
     addSong(); addSong(); addSong();
 }
 
-// SONG BLOCK (UNCHANGED)
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
@@ -69,7 +68,6 @@ window.addSong = () => {
     container.appendChild(div);
 };
 
-// SONG SEARCH (UNCHANGED)
 window.searchSong = async (input, id) => {
     const val = input.value.toLowerCase();
     const box = document.getElementById(`suggest-${id}`);
@@ -95,7 +93,6 @@ window.searchSong = async (input, id) => {
     box.classList.remove('hidden');
 };
 
-// SELECT SONG (UNCHANGED)
 window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
@@ -104,7 +101,6 @@ window.selectSong = (title, id) => {
     loadSongFiles(title, id);
 };
 
-// LOAD FILES (UNCHANGED)
 async function loadSongFiles(title, id) {
     const container = document.getElementById(`files-${id}`);
     if (!container) return;
@@ -140,7 +136,6 @@ async function loadSongFiles(title, id) {
     container.innerHTML = html;
 };
 
-// ADD ITEM (UNCHANGED)
 window.addItem = (val="") => {
     const div = document.createElement('div');
     div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
@@ -152,7 +147,6 @@ window.addItem = (val="") => {
     document.getElementById('service-order').appendChild(div);
 };
 
-// 🔥 RESTORED: LOAD ROTA
 window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
 
@@ -175,7 +169,6 @@ window.loadRota = async () => {
     });
 };
 
-// 🔥 RESTORED: SELECT EVENT
 window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
@@ -199,9 +192,31 @@ window.selectEvent = async () => {
                 <td><textarea class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"></textarea></td>
             </tr>`;
     });
+
+    // 🔥 LOAD SAVED SERVICE
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
+
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+
+        saved.order.forEach(item => {
+            if (item.type === "song") {
+                addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                last.querySelector('.song-key').value = item.key;
+                last.querySelector('.song-note').value = item.notes;
+            } else {
+                addItem(item.title);
+            }
+        });
+    }
 };
 
-// SAVE (UNCHANGED)
 window.saveSchedule = async () => {
     const date = document.getElementById('serviceDate').value;
 
@@ -235,7 +250,6 @@ window.saveSchedule = async () => {
     alert("✅ Service saved");
 };
 
-// EMAIL (NEW ONLY)
 window.emailSchedule = () => {
     alert("Email function coming next");
 };
