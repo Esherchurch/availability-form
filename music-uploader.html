@@ -140,6 +140,10 @@ async function suggestSongs() {
     `).join("");
 }
 
+// =======================
+// 🔥 AUTO FILL LOGIC
+// =======================
+
 async function selectSuggestion(title) {
     document.getElementById("title").value = title;
     document.getElementById("suggestions").innerHTML = "";
@@ -152,20 +156,71 @@ async function selectSuggestion(title) {
     if (snap.exists) {
         const data = snap.data();
 
-        // ✅ AUTO-FILL YOUTUBE + CCLI
         document.getElementById("youtube").value = data.youtube || "";
         document.getElementById("ccli").value = data.ccli || "";
     }
+
+    // ✅ If missing → auto fetch
+    autoFillMissing(title);
 }
 
+// =======================
+// 🎬 YOUTUBE AUTO FETCH
+// =======================
+
 async function getYouTube(title) {
-    return "";
+    try {
+        const query = encodeURIComponent(title + " worship");
+        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/results?search_query=${query}`);
+        return `https://www.youtube.com/results?search_query=${query}`;
+    } catch {
+        return "";
+    }
 }
+
+// =======================
+// 🎵 SMART CCLI MAP
+// =======================
 
 const CCLI_MAP = {
     "waymaker": "7115744",
-    "10000 reasons": "6016351"
+    "10000 reasons": "6016351",
+    "goodness of god": "7117726",
+    "living hope": "7106807",
+    "oceans": "6428767"
 };
+
+function getCCLI(title) {
+    const norm = normalizeTitle(title);
+
+    for (const key in CCLI_MAP) {
+        if (norm.includes(key)) return CCLI_MAP[key];
+    }
+
+    return "";
+}
+
+// =======================
+// 🚀 AUTO FILL IF EMPTY
+// =======================
+
+async function autoFillMissing(title) {
+
+    const ytInput = document.getElementById("youtube");
+    const ccliInput = document.getElementById("ccli");
+
+    if (!ytInput.value) {
+        ytInput.value = await getYouTube(title);
+    }
+
+    if (!ccliInput.value) {
+        ccliInput.value = getCCLI(title);
+    }
+}
+
+// =======================
+// UPLOAD
+// =======================
 
 async function upload() {
 
