@@ -106,7 +106,7 @@ const db = getFirestore(app);
 
 let worshipLeaderName = "";
 let eventsForDay = [];
-let addressBook = [];
+let addressBook = []; // We will store full objects now to check core team status
 
 const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
 
@@ -124,7 +124,7 @@ window.onload = async () => {
         const emailSnap = await getDocs(collection(db, "addressBook"));
         emailSnap.forEach(doc => {
             const data = doc.data();
-            if (data.email) addressBook.push(data.email);
+            if (data.email) addressBook.push(data);
         });
     } catch (e) { console.error("Address book load failed", e); }
 };
@@ -198,10 +198,10 @@ window.addSong = () => {
 };
 
 async function showKeyInfo(id, title) {
-    if (!title) return; // SAFETY GATE
+    if (!title) return;
     const container = document.getElementById(`keyinfo-${id}`);
     const docId = title.toLowerCase().replace(/\s+/g, "-").trim();
-    if (!docId) return; // SAFETY GATE
+    if (!docId) return;
     
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) return;
@@ -306,7 +306,7 @@ window.keyChanged = async (id) => {
         return;
     }
     const docId = title.toLowerCase().replace(/\s+/g, "-").trim();
-    if (!docId) return; // SAFETY GATE
+    if (!docId) return;
 
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) {
@@ -479,39 +479,50 @@ window.saveSchedule = async () => {
 
 window.emailSchedule = async () => {
     let email = "";
-    email += "WORSHIP SERVICE PLAN\n";
-    email += "====================\n\n";
+    email += "------------------------------------------\n";
+    email += "       EGBC SUNDAY WORSHIP PLAN\n";
+    email += "------------------------------------------\n\n";
+
     const date = document.getElementById('serviceDate').value;
-    email += "Date: " + (date || "N/A") + "\n";
-    email += "Leader: " + (worshipLeaderName || "None") + "\n\n";
-    email += "TEAM\n----\n";
+    email += "DATE: " + (date || "Not Set") + "\n";
+    email += "LEADER: " + (worshipLeaderName || "None") + "\n\n";
+
+    email += "TEAM ASSIGNMENTS\n";
+    email += "----------------\n";
+    
+    let currentTeamNames = [];
     document.querySelectorAll('#teamBody tr').forEach(row => {
-        const role = row.children[0]?.innerText || "";
+        const role = (row.children[0]?.innerText || "").toUpperCase();
         const name = row.children[1]?.innerText || "";
-        email += role + ": " + name + "\n";
+        email += role.padEnd(16) + ": " + name + "\n";
+        if (name && name !== "None") currentTeamNames.push(name.trim());
     });
-    email += "\nORDER OF SERVICE\n----------------\n";
+
+    email += "\nORDER OF SERVICE\n";
+    email += "----------------\n";
     const blocks = document.querySelectorAll('.service-block');
     let songIndex = 1;
     for (const b of blocks) {
         if (b.classList.contains('song-block')) {
             const title = b.querySelector('.song-title').value;
             const key = b.querySelector('.song-key').value;
-            email += "\n" + songIndex + ". " + title + " (" + (key || "N/A") + ")\n";
+            const notes = b.querySelector('.song-note').value;
+
+            email += "\n" + songIndex + ". " + title.toUpperCase() + " [" + (key || "N/A") + "]\n";
+            if(notes) email += "   Note: " + notes + "\n";
             
             const docId = title ? title.toLowerCase().replace(/\s+/g, "-").trim() : "";
-            
             if (docId) {
                 const snap = await getDoc(doc(db, "songs", docId));
                 if (snap.exists()) {
                     const data = snap.data();
-                    if (data.youtube) email += "YouTube: " + data.youtube + "\n";
-                    if (data.ccli) email += "SongSelect: https://songselect.ccli.com/Songs/" + data.ccli + "\n";
+                    if (data.youtube) email += "   ▶ Video: " + data.youtube + "\n";
+                    if (data.ccli) email += "   🔎 SongSelect: https://songselect.ccli.com/Songs/" + data.ccli + "\n";
                     if (data.files && key) {
                         const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
                         if (files.length) {
-                            email += "Files:\n";
-                            files.forEach(f => email += "- " + f.type + ": " + f.url + "\n");
+                            email += "   📄 Files for " + key + ":\n";
+                            files.forEach(f => email += "      - " + f.type + ": " + f.url + "\n");
                         }
                     }
                 }
@@ -519,12 +530,29 @@ window.emailSchedule = async () => {
             songIndex++;
         } else {
             const item = b.querySelector('.item-title').value;
-            email += "\n- " + item + "\n";
+            email += "\n--- " + item.toUpperCase() + " ---\n";
         }
     }
-    const subject = encodeURIComponent("Worship Service Plan");
+    
+    email += "\n------------------------------------------\n";
+    email += "Generated by EGBC Worship Planner\n";
+
+    const subject = encodeURIComponent("Worship Service Plan: " + (date || ""));
     const body = encodeURIComponent(email);
-    const to = addressBook.join(",");
+    
+    // FILTER ADDRESS BOOK
+    // Use the name to match emails from address book + anyone marked 'coreTeam'
+    let recipientEmails = [];
+    addressBook.forEach(person => {
+        const isOnRoster = currentTeamNames.includes(person.name?.trim());
+        const isCoreTeam = person.coreTeam === true; // Matches 'coreTeam' field in Firestore
+        
+        if ((isOnRoster || isCoreTeam) && person.email) {
+            recipientEmails.push(person.email);
+        }
+    });
+
+    const to = [...new Set(recipientEmails)].join(","); // Remove duplicates
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 };
 </script>
