@@ -482,8 +482,8 @@ window.emailSchedule = async () => {
     
     let htmlEmail = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; border: 1px solid #e0e6ed; padding: 30px; background-color: #ffffff; margin: auto; border-radius: 12px;">
-            <div style="text-align: left; margin-bottom: 25px;">
-                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="width: 80px;">
+            <div style="text-align: left; margin-bottom: 20px;">
+                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="width: 80px; max-width: 80px; height: auto;">
             </div>
             
             <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800;">Sunday Worship Plan</h1>
@@ -506,12 +506,11 @@ window.emailSchedule = async () => {
 
     htmlEmail += `</tbody></table><h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin-bottom: 20px;">Order of Service</h2>`;
 
-    // Start Table for Songs/Items
     htmlEmail += `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
             <thead style="background-color: #f8fafc;">
                 <tr>
-                    <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;"># / Title</th>
+                    <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Title</th>
                     <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Key</th>
                     <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Resources</th>
                 </tr>
