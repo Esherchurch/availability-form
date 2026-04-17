@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Music Upload</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<style>
+body { font-family: Arial; padding: 40px; }
+
+.dropzone {
+    border: 3px dashed #ccc;
+    padding: 40px;
+    text-align: center;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.dropzone.dragover {
+    background: #e8f4ff;
+}
+
+#suggestions {
+    border: 1px solid #ddd;
+    max-width: 300px;
+}
+
+#suggestions div {
+    padding: 5px;
+    cursor: pointer;
+}
+
+#suggestions div:hover {
+    background: #f0f0f0;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Upload Song</h2>
+
+<input id="title" placeholder="Song Title" oninput="suggestSongs()"><br>
+<div id="suggestions"></div><br>
+
+<select id="key">
+<option value="">Key</option>
+<option>C</option><option>C#</option><option>D</option>
+<option>Eb</option><option>E</option><option>F</option>
+<option>F#</option><option>G</option><option>Ab</option>
+<option>A</option><option>Bb</option><option>B</option>
+</select><br><br>
+
+<input id="youtube" placeholder="YouTube link"><br><br>
+<input id="ccli" placeholder="CCLI"><br><br>
+
+<div class="dropzone" id="dropzone">
+    Drag & Drop OR Click to Select Files
+</div>
+
+<input type="file" id="fileInput" multiple style="display:none">
+
+<ul id="fileList"></ul>
+
+<button onclick="upload()">Upload</button>
+
+<script>
+
+// 🔥 FIREBASE CONFIG (KEEP YOURS)
+const firebaseConfig = {
+    apiKey: "YOUR_KEY",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.appspot.com"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const storage = firebase.storage();
+const db = firebase.firestore();
+
+let files = [];
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+// CLICK select
+dropzone.addEventListener("click", () => fileInput.click());
+
+fileInput.addEventListener("change", (e) => {
+    files.push(...e.target.files);
+    renderFiles();
+});
+
+// DRAG events
+dropzone.addEventListener("dragover", e => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+});
+
+dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("dragover");
+});
+
+dropzone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+
+    files.push(...e.dataTransfer.files);
+    renderFiles();
+});
+
+function renderFiles() {
+    document.getElementById("fileList").innerHTML =
+        files.map(f => `<li>${f.name}</li>`).join("");
+}
+
+// 🔥 NORMALIZE TITLES
+function normalizeTitle(title) {
+    return title
+        .toLowerCase()
+        .replace(/,/g, "")
+        .replace(/ten thousand/g, "10000")
+        .replace(/[^a-z0-9 ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+// 🔥 SUGGEST EXISTING SONGS
+async function suggestSongs() {
+    const input = document.getElementById("title").value;
+    const norm = normalizeTitle(input);
+
+    if (norm.length < 2) return;
+
+    const snapshot = await db.collection("songs").get();
+
+    const matches = snapshot.docs
+        .map(doc => doc.data())
+        .filter(song => song.normalized && song.normalized.includes(norm));
+
+    const box = document.getElementById("suggestions");
+
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSuggestion('${s.title}')">
+            ${s.title}
+        </div>
+    `).join("");
+}
+
+// 🔥 SELECT EXISTING SONG
+async function selectSuggestion(title) {
+    document.getElementById("title").value = title;
+    document.getElementById("suggestions").innerHTML = "";
+
+    const id = title.toLowerCase().replace(/\s+/g, "-");
+    const doc = await db.collection("songs").doc(id).get();
+
+    if (doc.exists) {
+        const data = doc.data();
+
+        document.getElementById("key").value = data.key || "";
+        document.getElementById("youtube").value = data.youtube || "";
+        document.getElementById("ccli").value = data.ccli || "";
+    }
+}
+
+// 🔥 YOUTUBE AUTO
+async function getYouTube(title) {
+    try {
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(title + " worship")}&key=YOUR_YOUTUBE_API_KEY`);
+        const data = await res.json();
+
+        if (data.items && data.items.length > 0) {
+            return "https://www.youtube.com/watch?v=" + data.items[0].id.videoId;
+        }
+    } catch {}
+    return "";
+}
+
+// 🔥 SIMPLE CCLI MAP
+const CCLI_MAP = {
+    "waymaker": "7115744",
+    "10000 reasons": "6016351"
+};
+
+// 🔥 UPLOAD
+async function upload() {
+
+    const title = document.getElementById("title").value.trim();
+    let key = document.getElementById("key").value;
+    let youtube = document.getElementById("youtube").value.trim();
+    let ccli = document.getElementById("ccli").value.trim();
+
+    if (!title || files.length === 0) {
+        alert("Add title and files");
+        return;
+    }
+
+    const normalized = normalizeTitle(title);
+
+    // 🔍 FIND EXISTING SONG
+    const snapshot = await db.collection("songs").get();
+
+    let existingDoc = null;
+
+    snapshot.forEach(doc => {
+        if (doc.data().normalized === normalized) {
+            existingDoc = doc;
+        }
+    });
+
+    const docId = existingDoc
+        ? existingDoc.id
+        : title.toLowerCase().replace(/\s+/g, "-");
+
+    const docRef = db.collection("songs").doc(docId);
+
+    let existingData = {};
+
+    if (existingDoc) {
+        existingData = existingDoc.data();
+
+        key = existingData.key || key;
+        youtube = existingData.youtube || youtube;
+        ccli = existingData.ccli || ccli;
+    } else {
+        if (!youtube) youtube = await getYouTube(title);
+        if (!ccli) ccli = CCLI_MAP[normalized] || "";
+    }
+
+    const folder = docId;
+
+    let uploadedFiles = existingData.files || [];
+
+    for (const file of files) {
+        const ref = storage.ref(`songs/${folder}/${file.name}`);
+        await ref.put(file);
+
+        const url = await ref.getDownloadURL();
+
+        uploadedFiles.push({
+            name: file.name,
+            url: url
+        });
+    }
+
+    await docRef.set({
+        title,
+        normalized,
+        key,
+        youtube,
+        ccli,
+        files: uploadedFiles
+    });
+
+    alert("Upload complete!");
+
+    files = [];
+    renderFiles();
+}
+
+</script>
+
+</body>
+</html>
