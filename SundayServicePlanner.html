@@ -40,7 +40,7 @@ function setupDefaultOrder() {
     addSong(); addSong(); addSong();
 }
 
-// ✅ KEEP YOUR ORIGINAL SONG BLOCK
+// ✅ ORIGINAL SONG BLOCK (UNCHANGED)
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
@@ -74,10 +74,40 @@ window.addSong = () => {
     container.appendChild(div);
 };
 
-// ✅ YOUR ORIGINAL LOOKUP MUST EXIST — DO NOT CHANGE IT
-// (leaving it exactly as you had it)
+// ✅ YOUR ORIGINAL LOOKUP FUNCTION (RESTORED)
+window.searchSong = async (input, id) => {
+    const val = input.value;
+    const box = document.getElementById(`suggest-${id}`);
 
-// 🔥 ADD THIS ONLY
+    if (val.length < 2) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`https://egbc-song-search-a4g7b6fxdkgchrh7.westeurope-01.azurewebsites.net/api/searchSongs?q=${encodeURIComponent(val)}`);
+        const results = await res.json();
+
+        if (!results.length) {
+            box.innerHTML = `<div class="p-2 text-xs text-gray-400">No results</div>`;
+        } else {
+            box.innerHTML = results.map(s => `
+                <div onclick="selectSong('${s.title.replace(/'/g,"\\'")}', '${id}')"
+                class="p-2 hover:bg-gray-100 cursor-pointer text-xs">
+                ${s.title}
+                </div>
+            `).join('');
+        }
+
+        box.classList.remove('hidden');
+
+    } catch (err) {
+        box.innerHTML = `<div class="p-2 text-xs text-red-400">Search error</div>`;
+        box.classList.remove('hidden');
+    }
+};
+
+// 🔥 SAFE NOTE FILL (EXACT MATCH ONLY — SAME AS YOUR WORKING SYSTEM)
 async function autoFillNotes(song) {
 
     if (!song || !worshipLeaderName) return;
@@ -118,13 +148,15 @@ async function autoFillNotes(song) {
     });
 }
 
-// 🔥 MODIFY THIS ONLY (DO NOT TOUCH ANYTHING ELSE)
+// ✅ ORIGINAL FLOW + SAFE HOOK
 window.selectSong = (title, id) => {
+
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
 
-    autoFillNotes(title); // ← SAFE ADD
+    // 🔥 DOES NOT INTERFERE WITH LOOKUP
+    setTimeout(() => autoFillNotes(title), 50);
 };
 
 window.addItem = (val="") => {
