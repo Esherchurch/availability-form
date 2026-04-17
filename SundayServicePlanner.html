@@ -378,7 +378,22 @@ window.selectEvent = async () => {
     document.getElementById('leaderName').innerText = worshipLeaderName;
     const teamBody = document.getElementById('teamBody');
     teamBody.innerHTML = '';
-    Object.entries(data.assignments || {}).forEach(([role, person]) => {
+    
+    // Sort assignments: Worship Leader, Keyboard, Guitar, then others
+    const priority = ["Worship Leader", "Keyboard", "Guitar"];
+    const assignmentsArray = Object.entries(data.assignments || {});
+    
+    assignmentsArray.sort((a, b) => {
+        const indexA = priority.indexOf(a[0]);
+        const indexB = priority.indexOf(b[0]);
+        
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return 0;
+    });
+
+    assignmentsArray.forEach(([role, person]) => {
         teamBody.innerHTML += `
             <tr>
                 <td class="w-1/4">${role}</td>
@@ -386,6 +401,7 @@ window.selectEvent = async () => {
                 <td><textarea class="instr-note styled-input w-full h-12" placeholder="Specific instructions..."></textarea></td>
             </tr>`;
     });
+    
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const snap = await getDocs(q);
     if (!snap.empty) {
