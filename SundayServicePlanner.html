@@ -9,8 +9,86 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
+<style>
+    body { font-family: 'Montserrat', sans-serif; background-color: #f0f4f8; }
+    
+    /* Input & Select Styling */
+    .styled-input {
+        background-color: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        color: #2c6999;
+        transition: all 0.2s;
+    }
+    .styled-input:focus {
+        outline: none;
+        border-color: #2c6999;
+        box-shadow: 0 0 0 3px rgba(44, 105, 153, 0.1);
+    }
+
+    /* Button Styling */
+    .btn-primary {
+        background-color: #2c6999;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s;
+    }
+    .btn-primary:hover { background-color: #1e4a6d; transform: translateY(-1px); }
+    
+    .btn-secondary {
+        background-color: #ffffff;
+        color: #2c6999;
+        border: 2px solid #2c6999;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        transition: all 0.2s;
+    }
+    .btn-secondary:hover { background-color: #f0f7ff; }
+
+    /* Drag Handle */
+    .drag-handle {
+        cursor: grab;
+        color: #cbd5e1;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Table Styling */
+    .rota-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 0.5rem;
+    }
+    .rota-table th {
+        text-align: left;
+        padding: 1rem;
+        color: #64748b;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .rota-table tr { background-color: white; }
+    .rota-table td {
+        padding: 1rem;
+        border-top: 1px solid #f1f5f9;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .rota-table tr td:first-child { border-left: 1px solid #f1f5f9; border-radius: 1rem 0 0 1rem; font-weight: 700; color: #2c6999; }
+    .rota-table tr td:last-child { border-right: 1px solid #f1f5f9; border-radius: 0 1rem 1rem 0; }
+
+    /* Custom Scrollbar for Textareas */
+    textarea { resize: none; }
+</style>
+
 <script type="module">
-/* 🔒 ALL YOUR ORIGINAL JS REMAINS EXACTLY UNCHANGED */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -29,7 +107,10 @@ let eventsForDay = [];
 const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
 
 window.onload = () => {
-    Sortable.create(document.getElementById('service-order'), { animation: 150 });
+    Sortable.create(document.getElementById('service-order'), { 
+        animation: 150,
+        handle: '.drag-handle'
+    });
     setupDefaultOrder();
 };
 
@@ -39,124 +120,354 @@ function setupDefaultOrder() {
     addSong();
     addItem("Message");
     addSong(); addSong(); addSong();
+}
+
+window.addSong = () => {
+    const container = document.getElementById('service-order');
+    const id = Math.random().toString(36).substr(2, 9);
+
+    const div = document.createElement('div');
+    div.className = "service-block song-block bg-white p-6 mb-4 rounded-[1.5rem] shadow-sm flex gap-4 border border-white hover:border-blue-100 transition-colors";
+
+    div.innerHTML = `
+        <div class="drag-handle self-start mt-2">⠿</div>
+        <div class="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="relative md:col-span-3">
+                <input oninput="searchSong(this,'${id}')" class="song-title styled-input w-full" placeholder="Song title">
+                <div id="suggest-${id}" class="absolute bg-white shadow-xl rounded-xl w-full hidden z-50 mt-1 border border-gray-100 overflow-hidden"></div>
+            </div>
+            <select onchange="keyChanged('${id}')" class="song-key styled-input">
+                <option value="">Key</option>
+                ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+            </select>
+            <textarea class="song-note md:col-span-4 styled-input h-20" placeholder="Notes for the band..."></textarea>
+            <div class="md:col-span-4" id="files-${id}"></div>
+        </div>
+        <button onclick="this.parentElement.remove()" class="self-start text-gray-300 hover:text-red-500 text-2xl font-bold">&times;</button>
+    `;
+
+    container.appendChild(div);
+    return id;
 };
 
-/* EVERYTHING ELSE JS UNCHANGED */
+async function showKeyInfo(id, title) {
+    const container = document.getElementById(`files-${id}`);
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
+    if (!snap.exists()) return;
+    const files = snap.data().files || [];
+    const chordKeys = files.filter(f => f.type === "Chord Sheet" && f.key).map(f => f.key);
+    const uniqueKeys = [...new Set(chordKeys)];
+    let available = uniqueKeys.sort().join(", ") || "None";
+    const missing = ALL_KEYS.filter(k => !uniqueKeys.includes(k)).join(", ");
+    container.innerHTML = `
+        <div class="text-[10px] mt-2 bg-gray-50 p-3 rounded-lg flex flex-col gap-1">
+            <div><span class="text-green-600 font-bold uppercase tracking-wider">Available:</span> <span class="text-gray-700">${available}</span></div>
+            <div><span class="text-red-400 font-bold uppercase tracking-wider">Missing:</span> <span class="text-gray-500">${missing}</span></div>
+        </div>
+    `;
+}
+
+async function getPreferredKey(title, leader) {
+    const snap = await getDocs(collection(db, "services"));
+    let lastKey = "";
+    snap.forEach(doc => {
+        const data = doc.data();
+        if (data.worshipLeader !== leader) return;
+        (data.order || []).forEach(item => {
+            if (item.type === "song" && item.title === title) {
+                lastKey = item.key;
+            }
+        });
+    });
+    return lastKey;
+}
+
+window.searchSong = async (input, id) => {
+    const val = input.value.toLowerCase().trim();
+    const box = document.getElementById(`suggest-${id}`);
+    if (val.length < 2) {
+        box.classList.add('hidden');
+        return;
+    }
+    const snap = await getDocs(collection(db, "songs"));
+    const words = val.split(" ");
+    const matches = snap.docs
+        .map(d => d.data())
+        .filter(song => {
+            const title = (song.title || "").toLowerCase();
+            const normalized = (song.normalized || "").toLowerCase();
+            const lyrics = (song.lyrics || "").toLowerCase();
+            return words.every(w =>
+                title.includes(w) ||
+                normalized.includes(w) ||
+                lyrics.includes(w)
+            );
+        })
+        .slice(0, 10);
+
+    if (matches.length === 0) {
+        const encoded = encodeURIComponent(input.value);
+        box.innerHTML = `
+            <div class="p-3 text-xs text-red-500 font-bold bg-red-50">Not in library</div>
+            <div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white">
+                <a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-purple-600 hover:underline">🔎 SongSelect</a>
+                <a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" class="text-blue-600 hover:underline">▶ YouTube</a>
+                <a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" target="_blank" class="text-green-600 hover:underline">➕ Upload Song</a>
+            </div>
+        `;
+        box.classList.remove('hidden');
+        return;
+    }
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSong('${s.title.replace(/'/g, "\\'")}','${id}')" class="p-3 hover:bg-blue-50 cursor-pointer text-sm font-semibold text-gray-700 border-b border-gray-50 last:border-0">
+            ${s.title}
+        </div>
+    `).join('');
+    box.classList.remove('hidden');
+};
+
+window.selectSong = async (title, id) => {
+    const block = document.getElementById(`suggest-${id}`).closest('.song-block');
+    block.querySelector('.song-title').value = title;
+    document.getElementById(`suggest-${id}`).classList.add('hidden');
+    document.getElementById(`files-${id}`).innerHTML = "";
+    await showKeyInfo(id, title);
+    if (worshipLeaderName && worshipLeaderName !== "None") {
+        const preferred = await getPreferredKey(title, worshipLeaderName);
+        if (preferred) {
+            block.querySelector('.song-key').value = preferred;
+            keyChanged(id);
+        }
+    }
+};
+
+window.keyChanged = async (id) => {
+    const block = document.getElementById(`files-${id}`).closest('.song-block');
+    const title = block.querySelector('.song-title').value;
+    const key = block.querySelector('.song-key').value;
+    const container = document.getElementById(`files-${id}`);
+    if (!title || !key) {
+        container.innerHTML = "";
+        return;
+    }
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
+    if (!snap.exists()) {
+        container.innerHTML = "";
+        return;
+    }
+    const data = snap.data();
+    const youtube = data.youtube || "";
+    const ccli = data.ccli || "";
+    const songSelectLink = ccli
+        ? `https://songselect.ccli.com/Songs/${ccli}`
+        : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+    const allFiles = data.files || [];
+    const selectedKey = key.trim().toLowerCase();
+    const files = allFiles.filter(f => {
+        if (!f.key) return false;
+        return f.key.trim().toLowerCase() === selectedKey;
+    });
+    const grouped = {};
+    files.forEach(f => {
+        if (!grouped[f.type]) grouped[f.type] = [];
+        grouped[f.type].push(f);
+    });
+
+    let html = `<div class="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">`;
+    html += `
+        <div class="text-[11px] mb-3 flex gap-4 flex-wrap font-bold">
+            ${youtube ? `<a href="${youtube}" target="_blank" class="text-red-600 hover:underline">🎬 YouTube Video</a>` : `<span class="text-gray-400">No YouTube</span>`}
+            <a href="${songSelectLink}" target="_blank" class="text-purple-600 hover:underline">🔎 SongSelect</a>
+            ${ccli ? `<span class="text-gray-500 ml-auto">CCLI: ${ccli}</span>` : `<span class="text-gray-400 ml-auto">No CCLI</span>`}
+        </div>
+    `;
+    if (files.length === 0) {
+        html += `<div class="text-xs text-amber-600 font-bold italic">No sheet music files found for key of ${key}</div>`;
+    } else {
+        Object.keys(grouped).forEach(type => {
+            html += `<div class="mt-2 text-[10px] text-[#2c6999] font-extrabold uppercase tracking-widest">${type}</div><div class="flex flex-wrap gap-2 mt-1">`;
+            grouped[type].forEach(file => {
+                html += `<a href="${file.url}" target="_blank" class="inline-block text-[11px] bg-[#2c6999] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm hover:bg-[#1e4a6d]">Open File</a>`;
+            });
+            html += `</div>`;
+        });
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+};
+
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+    div.className = "service-block item-block bg-[#e2e8f0] p-4 mb-4 rounded-2xl flex gap-4 items-center border border-transparent hover:border-blue-200 transition-colors";
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999] focus:outline-none text-lg" placeholder="Service Item Name...">
+        <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
+    `;
+    document.getElementById('service-order').appendChild(div);
+};
+
+window.loadRota = async () => {
+    const date = document.getElementById('serviceDate').value;
+    const snap = await getDocs(collection(db, "events"));
+    eventsForDay = [];
+    snap.forEach(d => {
+        const ev = d.data();
+        if (ev.date === date && ev.archived !== true) {
+            eventsForDay.push(ev);
+        }
+    });
+    const select = document.getElementById('eventSelect');
+    select.innerHTML = '<option value="">Select Service...</option>';
+    eventsForDay.forEach((ev, i) => {
+        select.innerHTML += `<option value="${i}">${ev.type}</option>`;
+    });
+};
+
+window.selectEvent = async () => {
+    const index = document.getElementById('eventSelect').value;
+    if (index === "") return;
+    const data = eventsForDay[index];
+    document.getElementById('serviceType').value = data.type || "";
+    document.getElementById('serviceTypeNotes').value = data.description || "";
+    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+    document.getElementById('leaderName').innerText = worshipLeaderName;
+    const teamBody = document.getElementById('teamBody');
+    teamBody.innerHTML = '';
+    Object.entries(data.assignments || {}).forEach(([role, person]) => {
+        teamBody.innerHTML += `
+            <tr>
+                <td class="w-1/4">${role}</td>
+                <td class="w-1/4">${person.name}</td>
+                <td><textarea class="instr-note styled-input w-full h-12" placeholder="Specific instructions..."></textarea></td>
+            </tr>`;
+    });
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+        saved.order.forEach(item => {
+            if (item.type === "song") {
+                const id = addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                last.querySelector('.song-key').value = item.key;
+                last.querySelector('.song-note').value = item.notes;
+                showKeyInfo(id, item.title);
+                keyChanged(id);
+            } else {
+                addItem(item.title);
+            }
+        });
+    }
+};
+
+window.saveSchedule = async () => {
+    const date = document.getElementById('serviceDate').value;
+    const blocks = document.querySelectorAll('.service-block');
+    const order = [];
+    blocks.forEach(b => {
+        if (b.classList.contains('song-block')) {
+            order.push({
+                type: "song",
+                title: b.querySelector('.song-title').value,
+                key: b.querySelector('.song-key').value,
+                notes: b.querySelector('.song-note').value
+            });
+        } else {
+            order.push({
+                type: "item",
+                title: b.querySelector('.item-title').value
+            });
+        }
+    });
+    await addDoc(collection(db, "services"), {
+        date,
+        worshipLeader: worshipLeaderName,
+        serviceType: document.getElementById('serviceType').value,
+        serviceNotes: document.getElementById('serviceTypeNotes').value,
+        order
+    });
+    alert("✅ Service saved");
+};
+
+window.emailSchedule = () => {
+    alert("Email function coming next");
+};
 </script>
 </head>
 
-<body class="bg-[#f4f7fb] font-montserrat text-[#1e293b]">
+<body class="p-4 md:p-12">
 
-<div class="max-w-[1400px] mx-auto p-6 space-y-8">
+<div class="max-w-[1200px] mx-auto space-y-10">
 
-<!-- HEADER -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 bg-white p-6 rounded-2xl shadow-sm">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+        <div class="flex items-center gap-6">
+            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" alt="Logo" class="h-16 w-auto">
+            <div>
+                <h1 class="text-3xl font-extrabold text-[#2c6999] tracking-tight">Worship Planner</h1>
+                <p class="text-sm font-bold text-gray-400 uppercase tracking-widest mt-1">Leader: <span id="leaderName" class="text-[#2c6999]">None</span></p>
+            </div>
+        </div>
 
-    <!-- LEFT -->
-    <div class="flex items-center gap-4">
-        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300"
-             class="w-16 h-16 object-contain">
-
-        <div>
-            <h1 class="text-3xl font-extrabold text-[#2c6999]">Service Planner</h1>
-            <p class="text-sm text-gray-500">
-                Leader: <span id="leaderName" class="font-semibold text-[#2c6999]">None</span>
-            </p>
+        <div class="grid grid-cols-2 gap-3 w-full md:w-auto">
+            <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input text-sm">
+            <select id="eventSelect" onchange="selectEvent()" class="styled-input text-sm">
+                <option value="">Select Service...</option>
+            </select>
+            <input id="serviceType" class="styled-input text-sm" placeholder="Service Type">
+            <input id="serviceTypeNotes" class="styled-input text-sm" placeholder="General Notes">
         </div>
     </div>
 
-    <!-- RIGHT (FIXED STYLE) -->
-    <div class="grid grid-cols-2 md:flex gap-3">
-
-        <input type="date" id="serviceDate"
-            onchange="loadRota()"
-            class="bg-[#f1f5f9] p-3 rounded-xl font-semibold w-full">
-
-        <select id="eventSelect"
-            onchange="selectEvent()"
-            class="bg-[#f1f5f9] p-3 rounded-xl font-semibold w-full">
-            <option>Select Service...</option>
-        </select>
-
-        <input id="serviceType"
-            placeholder="Service Type"
-            class="bg-[#f1f5f9] p-3 rounded-xl font-semibold w-full">
-
-        <input id="serviceTypeNotes"
-            placeholder="Service Notes"
-            class="bg-[#f1f5f9] p-3 rounded-xl font-semibold w-full">
+    <div class="space-y-2">
+        <label class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-gray-400 ml-4">Opening Remarks / Call to Worship</label>
+        <textarea id="introBox" class="w-full h-24 styled-input !bg-white" placeholder="Write any opening instructions or liturgy here..."></textarea>
     </div>
 
-</div>
+    <div class="space-y-6">
+        <div class="flex justify-between items-center px-4">
+            <h2 class="text-xl font-extrabold text-[#2c6999]">Order of Service</h2>
+            <div class="flex gap-2">
+                <button onclick="addSong()" class="btn-secondary text-sm !py-2">+ Add Song</button>
+                <button onclick="addItem()" class="btn-secondary text-sm !py-2">+ Add Item</button>
+            </div>
+        </div>
+        
+        <div id="service-order" class="space-y-2"></div>
+    </div>
 
-<!-- INTRO -->
-<textarea id="introBox"
-    placeholder="Intro notes..."
-    class="w-full h-24 bg-white p-4 rounded-2xl shadow-sm"></textarea>
-
-<!-- SERVICE ORDER -->
-<div class="bg-white p-6 rounded-2xl shadow-sm space-y-4">
-
-    <div class="flex justify-between items-center">
-        <h2 class="font-bold text-lg text-[#2c6999]">Service Order</h2>
-
-        <div class="flex gap-2">
-            <button onclick="addSong()"
-                class="bg-[#2c6999] text-white px-4 py-2 rounded-xl text-sm">
-                + Song
-            </button>
-
-            <button onclick="addItem()"
-                class="bg-gray-200 px-4 py-2 rounded-xl text-sm">
-                + Item
-            </button>
+    <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+        <h2 class="text-xl font-extrabold text-[#2c6999] mb-6">Service Team & Roles</h2>
+        <div class="overflow-x-auto">
+            <table class="rota-table">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Assigned Member</th>
+                        <th>Role Specific Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="teamBody">
+                    </tbody>
+            </table>
         </div>
     </div>
 
-    <div id="service-order"></div>
+    <div class="space-y-2">
+        <label class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-gray-400 ml-4">Closing Remarks / Blessing</label>
+        <textarea id="outroBox" class="w-full h-24 styled-input !bg-white" placeholder="Closing prayers, blessings or final notices..."></textarea>
+    </div>
+
+    <div class="flex justify-center gap-6 pt-6 pb-12">
+        <button onclick="saveSchedule()" class="btn-primary w-48 shadow-lg shadow-blue-200">Save Schedule</button>
+        <button onclick="emailSchedule()" class="btn-secondary w-48">Email Team</button>
+    </div>
 
 </div>
-
-<!-- TEAM -->
-<div class="bg-white p-6 rounded-2xl shadow-sm">
-
-    <h2 class="font-bold text-lg text-[#2c6999] mb-4">Team</h2>
-
-    <table class="w-full border-separate border-spacing-y-2 text-sm">
-        <thead>
-            <tr class="text-left text-gray-500">
-                <th>Role</th>
-                <th>Name</th>
-                <th>Notes</th>
-            </tr>
-        </thead>
-
-        <tbody id="teamBody"></tbody>
-    </table>
-
-</div>
-
-<!-- OUTRO -->
-<textarea id="outroBox"
-    placeholder="Outro notes..."
-    class="w-full h-24 bg-white p-4 rounded-2xl shadow-sm"></textarea>
-
-<!-- ACTIONS -->
-<div class="flex justify-end gap-3">
-
-    <button onclick="saveSchedule()"
-        class="bg-[#2c6999] text-white px-6 py-3 rounded-xl font-semibold shadow-sm">
-        Save
-    </button>
-
-    <button onclick="emailSchedule()"
-        class="bg-gray-200 px-6 py-3 rounded-xl font-semibold">
-        Email
-    </button>
-
-</div>
-
-</div>
-
 </body>
 </html>
