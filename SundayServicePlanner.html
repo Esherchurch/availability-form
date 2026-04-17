@@ -379,18 +379,27 @@ window.selectEvent = async () => {
     const teamBody = document.getElementById('teamBody');
     teamBody.innerHTML = '';
     
-    // Sort assignments: Worship Leader, Keyboard, Guitar, then others
-    const priority = ["Worship Leader", "Keyboard", "Guitar"];
+    // Sorting Priorities
+    const priorityTop = ["Worship Leader", "Keyboard", "Guitar"];
+    const priorityBottom = ["Sound", "Words", "Camera"];
     const assignmentsArray = Object.entries(data.assignments || {});
     
     assignmentsArray.sort((a, b) => {
-        const indexA = priority.indexOf(a[0]);
-        const indexB = priority.indexOf(b[0]);
-        
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        return 0;
+        const roleA = a[0];
+        const roleB = b[0];
+
+        // Helper to check if role is in a specific group
+        const getRank = (role) => {
+            if (priorityTop.includes(role)) return { group: 0, index: priorityTop.indexOf(role) };
+            if (priorityBottom.includes(role)) return { group: 2, index: priorityBottom.indexOf(role) };
+            return { group: 1, index: 0 }; // Everything else in middle
+        };
+
+        const rankA = getRank(roleA);
+        const rankB = getRank(roleB);
+
+        if (rankA.group !== rankB.group) return rankA.group - rankB.group;
+        return rankA.index - rankB.index;
     });
 
     assignmentsArray.forEach(([role, person]) => {
