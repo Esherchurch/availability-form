@@ -73,15 +73,29 @@ window.addSong = () => {
     container.appendChild(div);
 };
 
-// 🔥 SAFE NOTE FILL (ONLY EXACT MATCH — NO GUESSING)
-window.autoFillNotes = async (song) => {
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+
+    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+
+    document.getElementById('service-order').appendChild(div);
+};
+
+// 🔥 THIS IS THE ONLY NEW FUNCTION (SIMPLE + EXACT)
+async function autoFillNotes(song) {
 
     if (!song || !worshipLeaderName) return;
 
     const snap = await getDocs(collection(db, "schedules"));
 
-    const allNotes = [];
-    snap.forEach(doc => allNotes.push(doc.data()));
+    const notes = [];
+    snap.forEach(doc => notes.push(doc.data()));
 
     document.querySelectorAll(".instr-note").forEach(box => {
 
@@ -92,7 +106,7 @@ window.autoFillNotes = async (song) => {
         let latest = null;
         let latestDate = null;
 
-        allNotes.forEach(n => {
+        notes.forEach(n => {
 
             if (
                 n.songTitle === song &&
@@ -112,30 +126,15 @@ window.autoFillNotes = async (song) => {
             box.value = latest;
         }
     });
-};
+}
 
-// 🔥 ONLY HOOK INTO EXISTING FLOW (NO BREAKING CHANGES)
+// 🔥 THIS HOOK IS THE KEY (and ONLY change to flow)
 window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
 
-    // run AFTER selection (safe)
-    setTimeout(() => autoFillNotes(title), 100);
-};
-
-window.addItem = (val="") => {
-    const div = document.createElement('div');
-
-    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
-
-    div.innerHTML = `
-        <div class="drag-handle">⠿</div>
-        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
-        <button onclick="this.parentElement.remove()">×</button>
-    `;
-
-    document.getElementById('service-order').appendChild(div);
+    autoFillNotes(title); // ← safe trigger
 };
 
 window.loadRota = async () => {
