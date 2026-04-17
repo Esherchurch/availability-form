@@ -106,7 +106,7 @@ const db = getFirestore(app);
 
 let worshipLeaderName = "";
 let eventsForDay = [];
-let addressBook = []; // We will store full objects now to check core team status
+let addressBook = []; 
 
 const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
 
@@ -198,10 +198,9 @@ window.addSong = () => {
 };
 
 async function showKeyInfo(id, title) {
-    if (!title) return;
+    if (!title || title.trim() === "") return; // Safety Gate
     const container = document.getElementById(`keyinfo-${id}`);
     const docId = title.toLowerCase().replace(/\s+/g, "-").trim();
-    if (!docId) return;
     
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) return;
@@ -301,12 +300,11 @@ window.keyChanged = async (id) => {
     const key = block.querySelector('.song-key').value;
     const container = document.getElementById(`files-${id}`);
     
-    if (!title || !key) {
+    if (!title || title.trim() === "" || !key) { // Safety Gate
         container.innerHTML = "";
         return;
     }
     const docId = title.toLowerCase().replace(/\s+/g, "-").trim();
-    if (!docId) return;
 
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) {
@@ -512,7 +510,7 @@ window.emailSchedule = async () => {
             if(notes) email += "   Note: " + notes + "\n";
             
             const docId = title ? title.toLowerCase().replace(/\s+/g, "-").trim() : "";
-            if (docId) {
+            if (docId !== "") { // Safety Gate
                 const snap = await getDoc(doc(db, "songs", docId));
                 if (snap.exists()) {
                     const data = snap.data();
@@ -540,19 +538,18 @@ window.emailSchedule = async () => {
     const subject = encodeURIComponent("Worship Service Plan: " + (date || ""));
     const body = encodeURIComponent(email);
     
-    // FILTER ADDRESS BOOK
-    // Use the name to match emails from address book + anyone marked 'coreTeam'
+    // FILTER ADDRESS BOOK for rostered team + core team
     let recipientEmails = [];
     addressBook.forEach(person => {
         const isOnRoster = currentTeamNames.includes(person.name?.trim());
-        const isCoreTeam = person.coreTeam === true; // Matches 'coreTeam' field in Firestore
+        const isCoreTeam = person.coreTeam === true; 
         
         if ((isOnRoster || isCoreTeam) && person.email) {
             recipientEmails.push(person.email);
         }
     });
 
-    const to = [...new Set(recipientEmails)].join(","); // Remove duplicates
+    const to = [...new Set(recipientEmails)].join(","); 
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 };
 </script>
