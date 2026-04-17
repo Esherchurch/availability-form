@@ -11,7 +11,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSy...",
@@ -50,27 +50,31 @@ window.addSong = () => {
 
     div.innerHTML = `
         <div class="drag-handle">⠿</div>
-
         <div class="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
-
             <div class="relative">
                 <input oninput="searchSong(this,'${id}')" class="song-title bg-[#f8fafc] p-3 rounded-xl font-bold w-full" placeholder="Song title">
                 <div id="suggest-${id}" class="absolute bg-white shadow rounded w-full hidden z-50"></div>
             </div>
-
             <select class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
                 <option value="">Key</option>
                 ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
             </select>
-
             <textarea class="song-note md:col-span-3 bg-[#f8fafc] p-3 rounded-xl"></textarea>
-
         </div>
-
         <button onclick="this.parentElement.remove()">×</button>
     `;
-
     container.appendChild(div);
+};
+
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    document.getElementById('service-order').appendChild(div);
 };
 
 window.searchSong = async (input, id) => {
@@ -115,8 +119,6 @@ window.loadRota = async () => {
 
     snap.forEach(d => {
         const ev = d.data();
-
-        // ✅ IGNORE ARCHIVED EVENTS
         if (ev.date === date && ev.archived !== true) {
             eventsForDay.push(ev);
         }
@@ -134,7 +136,7 @@ window.loadRota = async () => {
     document.getElementById('teamBody').innerHTML = "";
 };
 
-window.selectEvent = () => {
+window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
 
@@ -154,25 +156,32 @@ window.selectEvent = () => {
             <tr>
                 <td>${role}</td>
                 <td>${person.name}</td>
-                <td>
-                    <textarea class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"></textarea>
-                </td>
+                <td><textarea class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"></textarea></td>
             </tr>`;
     });
-};
 
-window.addItem = (val="") => {
-    const div = document.createElement('div');
+    // 🔥 LOAD SAVED SERVICE
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
 
-    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
 
-    div.innerHTML = `
-        <div class="drag-handle">⠿</div>
-        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
-        <button onclick="this.parentElement.remove()">×</button>
-    `;
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
 
-    document.getElementById('service-order').appendChild(div);
+        saved.order.forEach(item => {
+            if (item.type === "song") {
+                addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                last.querySelector('.song-key').value = item.key;
+                last.querySelector('.song-note').value = item.notes;
+            } else {
+                addItem(item.title);
+            }
+        });
+    }
 };
 
 window.saveSchedule = async () => {
