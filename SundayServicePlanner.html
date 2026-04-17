@@ -132,7 +132,7 @@ async function getPreferredKey(title, leader) {
 }
 
 // =======================
-// SONG SEARCH (UPDATED ONLY)
+// SONG SEARCH (UPDATED)
 // =======================
 window.searchSong = async (input, id) => {
     const val = input.value.toLowerCase().trim();
@@ -164,24 +164,27 @@ window.searchSong = async (input, id) => {
         .slice(0, 10);
 
     if (matches.length === 0) {
+        const encoded = encodeURIComponent(input.value);
+
         box.innerHTML = `
             <div class="p-2 text-xs text-red-400">
                 Not in library
             </div>
 
             <div class="p-2 text-xs flex gap-3 flex-wrap">
-                <a href="https://songselect.ccli.com/search/results?search=${encodeURIComponent(input.value)}" target="_blank" class="text-purple-600">
+                <a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-purple-600">
                     🔎 SongSelect
                 </a>
 
-                <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(input.value)}" target="_blank" class="text-blue-600">
+                <a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" class="text-blue-600">
                     ▶ YouTube
                 </a>
 
-                <div onclick="selectSong('${input.value}','${id}')"
-                     class="text-green-600 cursor-pointer">
-                     ➕ Add "${input.value}"
-                </div>
+                <a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" 
+                   target="_blank"
+                   class="text-green-600">
+                   ➕ Upload Song
+                </a>
             </div>
         `;
         box.classList.remove('hidden');
