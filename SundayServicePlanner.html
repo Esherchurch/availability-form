@@ -514,22 +514,22 @@ window.emailSchedule = async () => {
     
     let htmlEmail = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; border: 1px solid #e0e6ed; padding: 30px; background-color: #ffffff; margin: auto; border-radius: 12px;">
-            <div style="text-align: left; margin-bottom: 20px;">
-                <table border="0" cellpadding="0" cellspacing="0" width="60" style="border-collapse: collapse;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
                     <tr>
-                        <td width="60" style="width: 60px;">
-                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="60" style="display: block; width: 60px !important; max-width: 60px !important; height: auto;">
+                        <td align="center">
+                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="120" style="display: block; width: 120px !important; max-width: 120px !important; height: auto;">
                         </td>
                     </tr>
                 </table>
             </div>
             
-            <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800;">Sunday Worship Plan</h1>
-            <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin-bottom: 20px;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
+            <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800; text-align: center;">Sunday Worship Plan</h1>
+            <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin-bottom: 25px; text-align: center;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
             
             ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin-bottom: 30px; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</div>` : ''}
 
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 35px;">
                 <thead>
                     <tr><th colspan="2" style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px;">Service Team</th></tr>
                 </thead>
@@ -555,7 +555,11 @@ window.emailSchedule = async () => {
     htmlEmail += `</tbody></table>`;
     
     if (introText) {
-        htmlEmail += `<h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px;">Opening Remarks / Call to Worship</h3><div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px;">${introText.replace(/\n/g, '<br>')}</div>`;
+        htmlEmail += `
+            <h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px;">Opening Remarks / Call to Worship</h3>
+            <div style="font-size: 14px; color: #444; margin-bottom: 20px; line-height: 1.6;">${introText.replace(/\n/g, '<br>')}</div>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 30px;">
+        `;
     }
 
     htmlEmail += `<h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin-bottom: 20px;">Order of Service</h2>`;
@@ -589,9 +593,7 @@ window.emailSchedule = async () => {
             if (snap.exists()) {
                 const data = snap.data();
                 if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #e11d48; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;">YouTube</a>`;
-                
                 const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-                
                 if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
                 linksHtml += `<a href="${sSelect}" style="color: #7c3aed; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;">SongSelect</a>`;
                 
@@ -635,7 +637,11 @@ window.emailSchedule = async () => {
     htmlEmail += `</tbody></table>`;
 
     if (outroText) {
-        htmlEmail += `<h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-top: 20px; margin-bottom: 10px;">Closing Remarks / Blessing</h3><div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6;">${outroText.replace(/\n/g, '<br>')}</div>`;
+        htmlEmail += `
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-top: 20px; margin-bottom: 30px;">
+            <h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px;">Closing Remarks / Blessing</h3>
+            <div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6;">${outroText.replace(/\n/g, '<br>')}</div>
+        `;
     }
 
     htmlEmail += `<p style="margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">Generated via EGBC Worship Planner</p></div>`;
