@@ -11,7 +11,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSy...",
@@ -40,7 +40,6 @@ function setupDefaultOrder() {
     addSong(); addSong(); addSong();
 }
 
-// ✅ ORIGINAL SONG BLOCK (UNCHANGED)
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
@@ -51,32 +50,26 @@ window.addSong = () => {
 
     div.innerHTML = `
         <div class="drag-handle">⠿</div>
-
         <div class="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
-
             <div class="relative">
                 <input oninput="searchSong(this,'${id}')" class="song-title bg-[#f8fafc] p-3 rounded-xl font-bold w-full" placeholder="Song title">
                 <div id="suggest-${id}" class="absolute bg-white shadow rounded w-full hidden z-50"></div>
             </div>
-
             <select class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
                 <option value="">Key</option>
                 ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
             </select>
-
             <textarea class="song-note md:col-span-3 bg-[#f8fafc] p-3 rounded-xl"></textarea>
 
+            <div class="md:col-span-3" id="files-${id}"></div>
         </div>
-
         <button onclick="this.parentElement.remove()">×</button>
     `;
-
     container.appendChild(div);
 };
 
-// ✅ YOUR ORIGINAL LOOKUP FUNCTION (RESTORED)
 window.searchSong = async (input, id) => {
-    const val = input.value;
+    const val = input.value.toLowerCase();
     const box = document.getElementById(`suggest-${id}`);
 
     if (val.length < 2) {
@@ -84,182 +77,65 @@ window.searchSong = async (input, id) => {
         return;
     }
 
-    try {
-        const res = await fetch(`https://egbc-song-search-a4g7b6fxdkgchrh7.westeurope-01.azurewebsites.net/api/searchSongs?q=${encodeURIComponent(val)}`);
-        const results = await res.json();
+    const snap = await getDocs(collection(db, "songs"));
 
-        if (!results.length) {
-            box.innerHTML = `<div class="p-2 text-xs text-gray-400">No results</div>`;
-        } else {
-            box.innerHTML = results.map(s => `
-                <div onclick="selectSong('${s.title.replace(/'/g,"\\'")}', '${id}')"
-                class="p-2 hover:bg-gray-100 cursor-pointer text-xs">
-                ${s.title}
-                </div>
-            `).join('');
-        }
+    const matches = snap.docs
+        .map(d => d.data())
+        .filter(song => song.title.toLowerCase().includes(val))
+        .slice(0, 10);
 
-        box.classList.remove('hidden');
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSong('${s.title}','${id}')" class="p-2 hover:bg-gray-100 cursor-pointer text-xs">
+            ${s.title}
+        </div>
+    `).join('');
 
-    } catch (err) {
-        box.innerHTML = `<div class="p-2 text-xs text-red-400">Search error</div>`;
-        box.classList.remove('hidden');
-    }
+    box.classList.remove('hidden');
 };
 
-// 🔥 SAFE NOTE FILL (EXACT MATCH ONLY — SAME AS YOUR WORKING SYSTEM)
-async function autoFillNotes(song) {
-
-    if (!song || !worshipLeaderName) return;
-
-    const snap = await getDocs(collection(db, "schedules"));
-
-    const notes = [];
-    snap.forEach(doc => notes.push(doc.data()));
-
-    document.querySelectorAll(".instr-note").forEach(box => {
-
-        if (box.value) return;
-
-        const role = box.dataset.role;
-
-        let latest = null;
-        let latestDate = null;
-
-        notes.forEach(n => {
-
-            if (
-                n.songTitle === song &&
-                n.worshipLeader === worshipLeaderName &&
-                n.role === role
-            ) {
-                const d = new Date(n.date);
-
-                if (!latestDate || d > latestDate) {
-                    latestDate = d;
-                    latest = n.notes;
-                }
-            }
-        });
-
-        if (latest) {
-            box.value = latest;
-        }
-    });
-}
-
-// ✅ ORIGINAL FLOW + SAFE HOOK
 window.selectSong = (title, id) => {
-
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
 
-    // 🔥 DOES NOT INTERFERE WITH LOOKUP
-    setTimeout(() => autoFillNotes(title), 50);
+    loadSongFiles(title, id);
 };
 
-window.addItem = (val="") => {
-    const div = document.createElement('div');
+async function loadSongFiles(title, id) {
 
-    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+    const container = document.getElementById(`files-${id}`);
+    if (!container) return;
 
-    div.innerHTML = `
-        <div class="drag-handle">⠿</div>
-        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
-        <button onclick="this.parentElement.remove()">×</button>
-    `;
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
 
-    document.getElementById('service-order').appendChild(div);
-};
+    if (!snap.exists()) {
+        container.innerHTML = "";
+        return;
+    }
 
-window.loadRota = async () => {
-    const date = document.getElementById('serviceDate').value;
+    const files = snap.data().files || [];
 
-    const snap = await getDocs(collection(db, "events"));
+    const grouped = {};
 
-    eventsForDay = [];
-
-    snap.forEach(d => {
-        const ev = d.data();
-        if (ev.date === date && ev.archived !== true) {
-            eventsForDay.push(ev);
-        }
+    files.forEach(f => {
+        if (!grouped[f.type]) grouped[f.type] = [];
+        grouped[f.type].push(f);
     });
 
-    const select = document.getElementById('eventSelect');
-    select.innerHTML = '<option value="">Select Service...</option>';
+    let html = "";
 
-    eventsForDay.forEach((ev, i) => {
-        select.innerHTML += `<option value="${i}">${ev.type}</option>`;
+    Object.keys(grouped).forEach(type => {
+        html += `<div class="mt-2 text-xs font-bold">${type}</div>`;
+        grouped[type].forEach(file => {
+            html += `<a href="${file.url}" target="_blank"
+                class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
+                Open
+            </a>`;
+        });
     });
 
-    document.getElementById('serviceType').value = "";
-    document.getElementById('serviceTypeNotes').value = "";
-    document.getElementById('teamBody').innerHTML = "";
-};
-
-window.selectEvent = async () => {
-    const index = document.getElementById('eventSelect').value;
-    if (index === "") return;
-
-    const data = eventsForDay[index];
-
-    document.getElementById('serviceType').value = data.type || "";
-    document.getElementById('serviceTypeNotes').value = data.description || "";
-
-    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
-    document.getElementById('leaderName').innerText = worshipLeaderName;
-
-    const teamBody = document.getElementById('teamBody');
-    teamBody.innerHTML = '';
-
-    Object.entries(data.assignments || {}).forEach(([role, person]) => {
-        teamBody.innerHTML += `
-            <tr>
-                <td>${role}</td>
-                <td>${person.name}</td>
-                <td>
-                    <textarea 
-                        class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"
-                        data-role="${role}"
-                    ></textarea>
-                </td>
-            </tr>`;
-    });
-};
-
-window.saveSchedule = async () => {
-    const date = document.getElementById('serviceDate').value;
-
-    const blocks = document.querySelectorAll('.service-block');
-    const order = [];
-
-    blocks.forEach(b => {
-        if (b.classList.contains('song-block')) {
-            order.push({
-                type: "song",
-                title: b.querySelector('.song-title').value,
-                key: b.querySelector('.song-key').value,
-                notes: b.querySelector('.song-note').value
-            });
-        } else {
-            order.push({
-                type: "item",
-                title: b.querySelector('.item-title').value
-            });
-        }
-    });
-
-    await addDoc(collection(db, "services"), {
-        date,
-        worshipLeader: worshipLeaderName,
-        serviceType: document.getElementById('serviceType').value,
-        serviceNotes: document.getElementById('serviceTypeNotes').value,
-        order
-    });
-
-    alert("✅ Service saved");
+    container.innerHTML = html;
 };
 </script>
 </head>
