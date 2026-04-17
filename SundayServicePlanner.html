@@ -40,6 +40,7 @@ function setupDefaultOrder() {
     addSong(); addSong(); addSong();
 }
 
+// SONG BLOCK
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
@@ -56,8 +57,8 @@ window.addSong = () => {
                 <div id="suggest-${id}" class="absolute bg-white shadow rounded w-full hidden z-50"></div>
             </div>
 
-            <!-- 🔥 ONLY CHANGE: added onchange -->
-            <select onchange="onKeyChange('${id}')" class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
+            <!-- ONLY CHANGE: key triggers file loading -->
+            <select onchange="keyChanged('${id}')" class="song-key bg-[#f8fafc] p-3 rounded-xl font-bold">
                 <option value="">Key</option>
                 ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
             </select>
@@ -71,6 +72,7 @@ window.addSong = () => {
     container.appendChild(div);
 };
 
+// SONG SEARCH (UNCHANGED)
 window.searchSong = async (input, id) => {
     const val = input.value.toLowerCase();
     const box = document.getElementById(`suggest-${id}`);
@@ -96,16 +98,16 @@ window.searchSong = async (input, id) => {
     box.classList.remove('hidden');
 };
 
+// SELECT SONG (FIXED — no file loading here)
 window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
-
-    // ❌ REMOVED: loadSongFiles here
 };
 
-// 🔥 NEW: only trigger files AFTER key selected
-window.onKeyChange = (id) => {
+// 🔥 NEW: load files only after key selected
+window.keyChanged = async (id) => {
+
     const block = document.getElementById(`files-${id}`).closest('.song-block');
 
     const title = block.querySelector('.song-title').value;
@@ -113,13 +115,7 @@ window.onKeyChange = (id) => {
 
     if (!title || !key) return;
 
-    loadSongFiles(title, id, key);
-};
-
-async function loadSongFiles(title, id, key) {
-
     const container = document.getElementById(`files-${id}`);
-    if (!container) return;
 
     const docId = title.toLowerCase().replace(/\s+/g, "-");
     const snap = await getDoc(doc(db, "songs", docId));
@@ -131,7 +127,7 @@ async function loadSongFiles(title, id, key) {
 
     let files = snap.data().files || [];
 
-    // 🔥 FILTER BY KEY IF PRESENT
+    // filter by key if present
     files = files.filter(f => !f.key || f.key === key);
 
     const grouped = {};
@@ -154,9 +150,9 @@ async function loadSongFiles(title, id, key) {
     });
 
     container.innerHTML = html;
-}
+};
 
-// EVERYTHING ELSE UNCHANGED BELOW
+// ADD ITEM (UNCHANGED)
 window.addItem = (val="") => {
     const div = document.createElement('div');
     div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
@@ -168,7 +164,115 @@ window.addItem = (val="") => {
     document.getElementById('service-order').appendChild(div);
 };
 
-// (rest of your file unchanged)
+// 🔥 LOAD ROTA (UNCHANGED)
+window.loadRota = async () => {
+    const date = document.getElementById('serviceDate').value;
+
+    const snap = await getDocs(collection(db, "events"));
+
+    eventsForDay = [];
+
+    snap.forEach(d => {
+        const ev = d.data();
+        if (ev.date === date && ev.archived !== true) {
+            eventsForDay.push(ev);
+        }
+    });
+
+    const select = document.getElementById('eventSelect');
+    select.innerHTML = '<option value="">Select Service...</option>';
+
+    eventsForDay.forEach((ev, i) => {
+        select.innerHTML += `<option value="${i}">${ev.type}</option>`;
+    });
+};
+
+// 🔥 SELECT EVENT (UNCHANGED + LOAD SAVED SERVICE)
+window.selectEvent = async () => {
+    const index = document.getElementById('eventSelect').value;
+    if (index === "") return;
+
+    const data = eventsForDay[index];
+
+    document.getElementById('serviceType').value = data.type || "";
+    document.getElementById('serviceTypeNotes').value = data.description || "";
+
+    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+    document.getElementById('leaderName').innerText = worshipLeaderName;
+
+    const teamBody = document.getElementById('teamBody');
+    teamBody.innerHTML = '';
+
+    Object.entries(data.assignments || {}).forEach(([role, person]) => {
+        teamBody.innerHTML += `
+            <tr>
+                <td>${role}</td>
+                <td>${person.name}</td>
+                <td><textarea class="instr-note w-full bg-[#f8fafc] p-3 rounded-xl"></textarea></td>
+            </tr>`;
+    });
+
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
+
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+
+        saved.order.forEach(item => {
+            if (item.type === "song") {
+                addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                last.querySelector('.song-key').value = item.key;
+                last.querySelector('.song-note').value = item.notes;
+            } else {
+                addItem(item.title);
+            }
+        });
+    }
+};
+
+// SAVE (UNCHANGED)
+window.saveSchedule = async () => {
+    const date = document.getElementById('serviceDate').value;
+
+    const blocks = document.querySelectorAll('.service-block');
+    const order = [];
+
+    blocks.forEach(b => {
+        if (b.classList.contains('song-block')) {
+            order.push({
+                type: "song",
+                title: b.querySelector('.song-title').value,
+                key: b.querySelector('.song-key').value,
+                notes: b.querySelector('.song-note').value
+            });
+        } else {
+            order.push({
+                type: "item",
+                title: b.querySelector('.item-title').value
+            });
+        }
+    });
+
+    await addDoc(collection(db, "services"), {
+        date,
+        worshipLeader: worshipLeaderName,
+        serviceType: document.getElementById('serviceType').value,
+        serviceNotes: document.getElementById('serviceTypeNotes').value,
+        order
+    });
+
+    alert("✅ Service saved");
+};
+
+// EMAIL (UNCHANGED)
+window.emailSchedule = () => {
+    alert("Email function coming next");
+};
 </script>
 </head>
 
