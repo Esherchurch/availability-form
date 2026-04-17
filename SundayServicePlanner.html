@@ -388,7 +388,6 @@ window.selectEvent = async () => {
     const teamBody = document.getElementById('teamBody');
     teamBody.innerHTML = '';
     
-    // Sorting Priorities
     const priorityTop = ["Worship Leader", "Keyboard", "Guitar"];
     const priorityBottom = ["Sound", "Words", "Camera"];
     const assignmentsArray = Object.entries(data.assignments || {});
@@ -396,16 +395,13 @@ window.selectEvent = async () => {
     assignmentsArray.sort((a, b) => {
         const roleA = a[0];
         const roleB = b[0];
-
         const getRank = (role) => {
             if (priorityTop.includes(role)) return { group: 0, index: priorityTop.indexOf(role) };
             if (priorityBottom.includes(role)) return { group: 2, index: priorityBottom.indexOf(role) };
             return { group: 1, index: 0 };
         };
-
         const rankA = getRank(roleA);
         const rankB = getRank(roleB);
-
         if (rankA.group !== rankB.group) return rankA.group - rankB.group;
         if (rankA.group === 1) return roleA.localeCompare(roleB);
         return rankA.index - rankB.index;
@@ -424,8 +420,26 @@ window.selectEvent = async () => {
     const snap = await getDocs(q);
     if (!snap.empty) {
         const saved = snap.docs[0].data();
+        
+        // Restore non-song fields
+        document.getElementById('introBox').value = saved.introText || "";
+        document.getElementById('outroBox').value = saved.outroText || "";
+        document.getElementById('serviceTypeNotes').value = saved.serviceNotes || "";
+
         const container = document.getElementById('service-order');
         container.innerHTML = "";
+        
+        // Restore role-specific notes if available
+        if (saved.roleNotes) {
+            const rows = document.querySelectorAll('#teamBody tr');
+            rows.forEach(row => {
+                const role = row.children[0].innerText;
+                if (saved.roleNotes[role]) {
+                    row.querySelector('.instr-note').value = saved.roleNotes[role];
+                }
+            });
+        }
+
         saved.order.forEach(item => {
             if (item.type === "song") {
                 const id = addSong();
@@ -450,6 +464,17 @@ window.selectEvent = async () => {
 
 window.saveSchedule = async () => {
     const date = document.getElementById('serviceDate').value;
+    const introText = document.getElementById('introBox').value;
+    const outroText = document.getElementById('outroBox').value;
+    const serviceNotes = document.getElementById('serviceTypeNotes').value;
+    
+    const roleNotes = {};
+    document.querySelectorAll('#teamBody tr').forEach(row => {
+        const role = row.children[0].innerText;
+        const note = row.querySelector('.instr-note').value;
+        if (note) roleNotes[role] = note;
+    });
+
     const blocks = document.querySelectorAll('.service-block');
     const order = [];
     blocks.forEach(b => {
@@ -467,28 +492,37 @@ window.saveSchedule = async () => {
             });
         }
     });
+
     await addDoc(collection(db, "services"), {
         date,
         worshipLeader: worshipLeaderName,
         serviceType: document.getElementById('serviceType').value,
-        serviceNotes: document.getElementById('serviceTypeNotes').value,
+        serviceNotes,
+        introText,
+        outroText,
+        roleNotes,
         order
     });
-    alert("✅ Service saved");
+    alert("✅ Service saved including all notes.");
 };
 
 window.emailSchedule = async () => {
     const date = document.getElementById('serviceDate').value || "TBC";
+    const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
+    const introText = document.getElementById('introBox').value || "";
+    const outroText = document.getElementById('outroBox').value || "";
     
     let htmlEmail = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; border: 1px solid #e0e6ed; padding: 30px; background-color: #ffffff; margin: auto; border-radius: 12px;">
-            <div style="text-align: left; margin-bottom: 20px;">
-                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="width: 80px; max-width: 80px; height: auto;">
+            <div style="text-align: left; margin-bottom: 20px; width: 80px;">
+                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="display: block; width: 80px !important; max-width: 80px !important; height: auto;">
             </div>
             
             <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800;">Sunday Worship Plan</h1>
-            <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin-bottom: 30px;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
+            <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin-bottom: 20px;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
             
+            ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin-bottom: 30px; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</div>` : ''}
+
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
                 <thead>
                     <tr><th colspan="2" style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px;">Service Team</th></tr>
@@ -500,11 +534,25 @@ window.emailSchedule = async () => {
     document.querySelectorAll('#teamBody tr').forEach(row => {
         const role = row.children[0]?.innerText || "";
         const name = row.children[1]?.innerText || "";
+        const note = row.querySelector('.instr-note').value;
         if(name && name !== "None") rosterNames.push(name.trim());
-        htmlEmail += `<tr><td style="padding: 12px 0; border-bottom: 1px solid #f0f4f8; font-weight: 700; color: #2c6999; width: 35%; font-size: 14px;">${role}</td><td style="padding: 12px 0; border-bottom: 1px solid #f0f4f8; font-size: 14px; color: #444;">${name}</td></tr>`;
+        htmlEmail += `
+            <tr>
+                <td style="padding: 12px 0; border-bottom: 1px solid #f0f4f8; font-weight: 700; color: #2c6999; width: 35%; font-size: 14px; vertical-align: top;">${role}</td>
+                <td style="padding: 12px 0; border-bottom: 1px solid #f0f4f8; font-size: 14px; color: #444; vertical-align: top;">
+                    <strong>${name}</strong>
+                    ${note ? `<br><span style="font-size: 12px; color: #666; font-style: italic;">Note: ${note}</span>` : ''}
+                </td>
+            </tr>`;
     });
 
-    htmlEmail += `</tbody></table><h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin-bottom: 20px;">Order of Service</h2>`;
+    htmlEmail += `</tbody></table>`;
+    
+    if (introText) {
+        htmlEmail += `<h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-bottom: 10px;">Opening Remarks / Call to Worship</h3><div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px;">${introText.replace(/\n/g, '<br>')}</div>`;
+    }
+
+    htmlEmail += `<h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin-bottom: 20px;">Order of Service</h2>`;
 
     htmlEmail += `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
@@ -534,14 +582,17 @@ window.emailSchedule = async () => {
 
             if (snap.exists()) {
                 const data = snap.data();
-                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #e11d48; text-decoration: none; font-weight: 700; font-size: 11px; margin-right: 8px;">YouTube</a>`;
+                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #e11d48; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;">YouTube</a>`;
+                
                 const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-                linksHtml += `<a href="${sSelect}" style="color: #7c3aed; text-decoration: none; font-weight: 700; font-size: 11px;">SongSelect</a>`;
+                
+                if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
+                linksHtml += `<a href="${sSelect}" style="color: #7c3aed; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;">SongSelect</a>`;
                 
                 if (data.files && key) {
                     const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
                     files.forEach(f => {
-                        fileLinks += `<div style="margin-top: 4px;"><a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-size: 11px; font-weight: 600;">Download ${f.type}</a></div>`;
+                        fileLinks += `<div style="margin-top: 6px;"><a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-size: 11px; font-weight: 600;">Download ${f.type}</a></div>`;
                     });
                 }
             }
@@ -575,8 +626,13 @@ window.emailSchedule = async () => {
             }
         }
     }
+    htmlEmail += `</tbody></table>`;
 
-    htmlEmail += `</tbody></table><p style="margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">Generated via EGBC Worship Planner</p></div>`;
+    if (outroText) {
+        htmlEmail += `<h3 style="color: #2c6999; text-transform: uppercase; font-size: 12px; margin-top: 20px; margin-bottom: 10px;">Closing Remarks / Blessing</h3><div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6;">${outroText.replace(/\n/g, '<br>')}</div>`;
+    }
+
+    htmlEmail += `<p style="margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">Generated via EGBC Worship Planner</p></div>`;
 
     const type = "text/html";
     const blob = new Blob([htmlEmail], { type });
