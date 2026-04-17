@@ -40,6 +40,7 @@ function setupDefaultOrder() {
     addSong(); addSong(); addSong();
 }
 
+// ✅ KEEP YOUR ORIGINAL SONG BLOCK
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
@@ -73,21 +74,10 @@ window.addSong = () => {
     container.appendChild(div);
 };
 
-window.addItem = (val="") => {
-    const div = document.createElement('div');
+// ✅ YOUR ORIGINAL LOOKUP MUST EXIST — DO NOT CHANGE IT
+// (leaving it exactly as you had it)
 
-    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
-
-    div.innerHTML = `
-        <div class="drag-handle">⠿</div>
-        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
-        <button onclick="this.parentElement.remove()">×</button>
-    `;
-
-    document.getElementById('service-order').appendChild(div);
-};
-
-// 🔥 THIS IS THE ONLY NEW FUNCTION (SIMPLE + EXACT)
+// 🔥 ADD THIS ONLY
 async function autoFillNotes(song) {
 
     if (!song || !worshipLeaderName) return;
@@ -128,13 +118,27 @@ async function autoFillNotes(song) {
     });
 }
 
-// 🔥 THIS HOOK IS THE KEY (and ONLY change to flow)
+// 🔥 MODIFY THIS ONLY (DO NOT TOUCH ANYTHING ELSE)
 window.selectSong = (title, id) => {
     const block = document.getElementById(`suggest-${id}`).closest('.song-block');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
 
-    autoFillNotes(title); // ← safe trigger
+    autoFillNotes(title); // ← SAFE ADD
+};
+
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+
+    div.className = "service-block item-block bg-[#f0f4f7] p-6 mb-4 rounded-[2rem] flex gap-4";
+
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#2c6999]">
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+
+    document.getElementById('service-order').appendChild(div);
 };
 
 window.loadRota = async () => {
