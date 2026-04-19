@@ -120,21 +120,26 @@
         };
 
         window.updateField = async (id, field, value) => { 
-            const updates = { [field]: value };
-            if (field === 'date') updates.termLabel = getTermLabel(value);
-            await updateDoc(doc(db, "events", id), updates); 
+            const ev = cachedEvents.find(e => e.id === id);
+            if(ev) ev[field] = value;
         };
 
         window.saveEdits = async (id) => {
             const ev = cachedEvents.find(e => e.id === id);
+            const descInput = document.querySelector(`input[data-desc-id="${id}"]`);
+            const dateInput = document.querySelector(`input[data-date-id="${id}"]`);
+            const startInput = document.querySelector(`input[data-start-id="${id}"]`);
+            const endInput = document.querySelector(`input[data-end-id="${id}"]`);
+            const typeSelect = document.querySelector(`select[data-type-id="${id}"]`);
+
             if (ev) {
                 const updates = {
-                    date: ev.date,
-                    startTime: ev.startTime || "08:00",
-                    endTime: ev.endTime || "11:30",
-                    type: ev.type,
-                    description: ev.description || "",
-                    termLabel: getTermLabel(ev.date)
+                    date: dateInput ? dateInput.value : ev.date,
+                    startTime: startInput ? startInput.value : (ev.startTime || "08:00"),
+                    endTime: endInput ? endInput.value : (ev.endTime || "11:30"),
+                    type: typeSelect ? typeSelect.value : ev.type,
+                    description: descInput ? descInput.value : (ev.description || ""),
+                    termLabel: getTermLabel(dateInput ? dateInput.value : ev.date)
                 };
                 await updateDoc(doc(db, "events", id), updates);
                 editingEventId = null;
@@ -570,17 +575,17 @@
             
             return `<div class="bg-[#f8fafc] border border-gray-100 rounded-[3rem] p-6 mb-8 shadow-sm">
                 <div class="flex flex-wrap items-center gap-4 mb-6 border-b border-gray-100 pb-5">
-                    <input type="date" value="${ev.date}" onfocus="startEditing('${ev.id}')" oninput="cachedEvents.find(e => e.id==='${ev.id}').date=this.value" class="bg-[#2c6999] text-white px-6 py-2 rounded-full font-bold text-xs shadow-md">
+                    <input type="date" value="${ev.date}" data-date-id="${ev.id}" onfocus="startEditing('${ev.id}')" oninput="updateField('${ev.id}', 'date', this.value)" class="bg-[#2c6999] text-white px-6 py-2 rounded-full font-bold text-xs shadow-md">
                     <div class="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-gray-100 shadow-sm">
                         <span class="text-[8px] font-black text-gray-300 uppercase">Start</span>
-                        <input type="time" value="${ev.startTime || '08:00'}" onfocus="startEditing('${ev.id}')" oninput="cachedEvents.find(e => e.id==='${ev.id}').startTime=this.value" class="text-xs font-bold text-[#2c6999] outline-none">
+                        <input type="time" value="${ev.startTime || '08:00'}" data-start-id="${ev.id}" onfocus="startEditing('${ev.id}')" oninput="updateField('${ev.id}', 'startTime', this.value)" class="text-xs font-bold text-[#2c6999] outline-none">
                         <span class="text-[8px] font-black text-gray-300 uppercase ml-2">End</span>
-                        <input type="time" value="${ev.endTime || '11:30'}" onfocus="startEditing('${ev.id}')" oninput="cachedEvents.find(e => e.id==='${ev.id}').endTime=this.value" class="text-xs font-bold text-[#2c6999] outline-none">
+                        <input type="time" value="${ev.endTime || '11:30'}" data-end-id="${ev.id}" onfocus="startEditing('${ev.id}')" oninput="updateField('${ev.id}', 'endTime', this.value)" class="text-xs font-bold text-[#2c6999] outline-none">
                     </div>
-                    <select onfocus="startEditing('${ev.id}')" onchange="cachedEvents.find(e => e.id==='${ev.id}').type=this.value" class="bg-white px-6 py-2 rounded-full font-bold text-[#2c6999] text-xs border border-gray-200 shadow-sm outline-none">
+                    <select data-type-id="${ev.id}" onfocus="startEditing('${ev.id}')" onchange="updateField('${ev.id}', 'type', this.value)" class="bg-white px-6 py-2 rounded-full font-bold text-[#2c6999] text-xs border border-gray-200 shadow-sm outline-none">
                         ${EVENT_TYPES.map(t => `<option value="${t}" ${ev.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
-                    <input type="text" value="${ev.description || ''}" placeholder="Description..." onfocus="startEditing('${ev.id}')" oninput="cachedEvents.find(e => e.id==='${ev.id}').description=this.value" class="flex-grow bg-white px-6 py-2 rounded-full text-xs font-medium border border-gray-200 shadow-sm outline-none placeholder-gray-300">
+                    <input type="text" value="${ev.description || ''}" data-desc-id="${ev.id}" placeholder="Description..." onfocus="startEditing('${ev.id}')" oninput="updateField('${ev.id}', 'description', this.value)" class="flex-grow bg-white px-6 py-2 rounded-full text-xs font-medium border border-gray-200 shadow-sm outline-none placeholder-gray-300">
                     <div class="flex gap-4 bg-white px-6 py-2 rounded-full border border-gray-100 shadow-sm">
                         ${["Core Team", "Worship Team", "AV Team", "Choir", "Youth Worship"].map(t => `<label class="text-[9px] font-bold uppercase flex items-center gap-1.5 cursor-pointer"><input type="checkbox" onchange="toggleTeam('${ev.id}', '${t}')" ${ev.teams?.includes(t) ? 'checked' : ''} class="w-4 h-4 accent-[#2c6999]"><span>${t.split(' ')[0]}</span></label>`).join('')}
                     </div>
