@@ -89,11 +89,12 @@
     .is-collapsed .collapse-btn {
         transform: rotate(-90deg);
     }
+    .highlight-yellow { background-color: #fef08a !important; }
 </style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
@@ -178,6 +179,7 @@ window.addSong = () => {
                 <input oninput="searchSong(this,'${id}')" class="song-title styled-input w-full" placeholder="Song title">
                 <div id="suggest-${id}" class="absolute bg-white shadow-xl rounded-xl w-full hidden z-50 mt-1 border border-gray-100 overflow-hidden"></div>
             </div>
+            <div id="serving-container-${id}" class="serving-display px-3 py-2 rounded-lg font-bold text-[#2c6999]"></div>
             <select onchange="keyChanged('${id}')" class="song-key styled-input w-32">
                 <option value="">Key</option>
                 ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
@@ -202,7 +204,8 @@ async function showKeyInfo(id, title) {
     const docId = title.toLowerCase().replace(/\s+/g, "-");
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) return;
-    const files = snap.data().files || [];
+    const data = snap.data();
+    const files = data.files || [];
     const chordKeys = files.filter(f => f.type === "Chord Sheet" && f.key).map(f => f.key);
     const uniqueKeys = [...new Set(chordKeys)];
     let available = uniqueKeys.sort().join(", ") || "None";
@@ -213,6 +216,24 @@ async function showKeyInfo(id, title) {
             <div><span class="text-red-400 font-bold uppercase tracking-wider">Missing:</span> <span class="text-gray-500">${missing}</span></div>
         </div>
     `;
+
+    // Process Serving Counts for Highlighting (Sunday Only)
+    const servingHistory = data.servingHistory || [];
+    const sundayHistory = servingHistory.filter(s => s.day && s.day.toLowerCase() === 'sunday');
+    
+    if (sundayHistory.length > 0) {
+        const counts = sundayHistory.map(s => s.count || 0);
+        const maxSunday = Math.max(...counts);
+        const display = document.getElementById(`serving-container-${id}`);
+        // Example: logic to show latest Sunday count or total
+        const latestSunday = sundayHistory[0].count; 
+        display.innerText = latestSunday;
+        if (latestSunday === maxSunday) {
+            display.classList.add('highlight-yellow');
+        } else {
+            display.classList.remove('highlight-yellow');
+        }
+    }
 }
 
 async function getPreferredKey(title, leader) {
@@ -421,7 +442,6 @@ window.selectEvent = async () => {
     if (!snap.empty) {
         const saved = snap.docs[0].data();
         
-        // Restore non-song fields
         document.getElementById('introBox').value = saved.introText || "";
         document.getElementById('outroBox').value = saved.outroText || "";
         document.getElementById('serviceTypeNotes').value = saved.serviceNotes || "";
@@ -429,7 +449,6 @@ window.selectEvent = async () => {
         const container = document.getElementById('service-order');
         container.innerHTML = "";
         
-        // Restore role-specific notes if available
         if (saved.roleNotes) {
             const rows = document.querySelectorAll('#teamBody tr');
             rows.forEach(row => {
@@ -493,7 +512,11 @@ window.saveSchedule = async () => {
         }
     });
 
-    await addDoc(collection(db, "services"), {
+    // Check for existing document to update or create new
+    const q = query(collection(db, "services"), where("date", "==", date));
+    const snap = await getDocs(q);
+    
+    const serviceData = {
         date,
         worshipLeader: worshipLeaderName,
         serviceType: document.getElementById('serviceType').value,
@@ -502,8 +525,15 @@ window.saveSchedule = async () => {
         outroText,
         roleNotes,
         order
-    });
-    alert("✅ Service saved including all notes.");
+    };
+
+    if (!snap.empty) {
+        await updateDoc(doc(db, "services", snap.docs[0].id), serviceData);
+    } else {
+        await addDoc(collection(db, "services"), serviceData);
+    }
+    
+    alert("✅ Service saved successfully.");
 };
 
 window.emailSchedule = async () => {
