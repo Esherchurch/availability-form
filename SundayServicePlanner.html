@@ -11,14 +11,16 @@
 
 <style>
 body { font-family: 'Montserrat', sans-serif; background-color: #f0f4f8; }
-.styled-input { background:#fff;border:2px solid #e2e8f0;border-radius:.75rem;padding:.75rem 1rem;font-weight:600;color:#2c6999;}
-.styled-input:focus {outline:none;border-color:#2c6999;box-shadow:0 0 0 3px rgba(44,105,153,.1);}
-.btn-primary {background:#2c6999;color:#fff;padding:.75rem 1.5rem;border-radius:.75rem;font-weight:700;}
-.btn-secondary {background:#fff;color:#2c6999;border:2px solid #2c6999;padding:.75rem 1.5rem;border-radius:.75rem;font-weight:700;}
-.drag-handle {cursor:grab;color:#cbd5e1;font-size:1.5rem;}
-.rota-table {width:100%;border-spacing:0 .5rem;}
-.rota-table td {padding:1rem;background:#fff;}
-textarea {resize:none;}
+.styled-input { background-color: #ffffff; border: 2px solid #e2e8f0; border-radius: 0.75rem; padding: 0.75rem 1rem; font-weight: 600; color: #2c6999; transition: all 0.2s; }
+.styled-input:focus { outline: none; border-color: #2c6999; box-shadow: 0 0 0 3px rgba(44, 105, 153, 0.1); }
+.btn-primary { background-color: #2c6999; color: white; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.btn-secondary { background-color: #ffffff; color: #2c6999; border: 2px solid #2c6999; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 700; }
+.drag-handle { cursor: grab; color: #cbd5e1; font-size: 1.5rem; display: flex; align-items: center; }
+.rota-table { width: 100%; border-collapse: separate; border-spacing: 0 0.5rem; }
+.rota-table th { text-align: left; padding: 1rem; color: #64748b; font-size: 0.875rem; text-transform: uppercase; }
+.rota-table tr { background-color: white; }
+.rota-table td { padding: 1rem; }
+textarea { resize: none; }
 </style>
 
 <script type="module">
@@ -26,7 +28,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp({
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    apiKey: "AIzaSy...",
     authDomain: "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner"
 });
@@ -34,17 +36,19 @@ const db = getFirestore(app);
 
 let worshipLeaderName = "";
 let eventsForDay = [];
+let addressBook = [];
 
-window.onload = () => {
-    Sortable.create(document.getElementById('service-order'), {
-        animation:150,
-        handle:'.drag-handle'
-    });
+window.onload = async () => {
+    Sortable.create(document.getElementById('service-order'), { animation:150, handle:'.drag-handle' });
+
+    const snap = await getDocs(collection(db,"addressBook"));
+    snap.forEach(d => addressBook.push(d.data()));
 };
 
 window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db,"events"));
+
     eventsForDay=[];
     snap.forEach(d=>{
         const ev=d.data();
@@ -66,7 +70,7 @@ window.selectEvent = async () => {
 
     document.getElementById('serviceType').value=data.type||"";
     document.getElementById('serviceTypeNotes').value=data.description||"";
-    document.getElementById('serviceTime').value=data.time||""; // ✅ FIX 1
+    document.getElementById('serviceTime').value=data.time||""; // ✅ FIX
 
     worshipLeaderName=data.assignments?.["Worship Leader"]?.name||"None";
     document.getElementById('leaderName').innerText=worshipLeaderName;
@@ -74,20 +78,18 @@ window.selectEvent = async () => {
     const teamBody=document.getElementById('teamBody');
     teamBody.innerHTML='';
 
-    // ✅ FIX 3 (multiple Others)
-    const rawAssignments=Object.entries(data.assignments||{});
-    const assignmentsArray=[];
-    let otherCount=1;
+    const rawAssignments = Object.entries(data.assignments || {});
+    const assignmentsArray = [];
+    let otherCount = 1;
 
-    rawAssignments.forEach(([role,person])=>{
-        if(role==="Other"){
-            assignmentsArray.push([`Other ${otherCount++}`,person]);
+    rawAssignments.forEach(([role, person]) => {
+        if (role === "Other") {
+            assignmentsArray.push([`Other ${otherCount++}`, person]);
         } else {
-            assignmentsArray.push([role,person]);
+            assignmentsArray.push([role, person]);
         }
     });
 
-    // ✅ FIX 4 (force singers)
     ["Singer 1","Singer 2","Singer 3"].forEach(role=>{
         if(!assignmentsArray.find(r=>r[0]===role)){
             assignmentsArray.push([role,{name:""}]);
@@ -98,12 +100,11 @@ window.selectEvent = async () => {
         teamBody.innerHTML+=`
         <tr>
             <td>${role}</td>
-            <td>${(person.name||"").replace(/'/g,"&#39;")}</td> <!-- ✅ FIX 2 -->
+            <td>${(person.name||"").replace(/'/g,"&#39;")}</td>
             <td><textarea class="instr-note styled-input w-full h-12"></textarea></td>
         </tr>`;
     });
 
-    // ✅ PRESERVE EXISTING DRAG SYSTEM
     if(window.initRoleDragDrop){
         window.initRoleDragDrop();
     }
@@ -111,11 +112,11 @@ window.selectEvent = async () => {
 
 window.saveSchedule = async () => {
     const date=document.getElementById('serviceDate').value;
-    const time=document.getElementById('serviceTime').value; // ✅ FIX 1
+    const time=document.getElementById('serviceTime').value; // ✅ FIX
 
     await addDoc(collection(db,"services"),{
         date,
-        time, // ✅ FIX 1
+        time, // ✅ FIX
         worshipLeader:worshipLeaderName,
         serviceType:document.getElementById('serviceType').value
     });
@@ -125,32 +126,24 @@ window.saveSchedule = async () => {
 </script>
 </head>
 
-<body class="p-6">
+<body class="p-4 md:p-12">
 
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-[1200px] mx-auto space-y-10">
 
-<div class="bg-white p-6 rounded-xl shadow">
-    <div class="grid grid-cols-2 gap-2">
-        <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input">
-        <input type="time" id="serviceTime" class="styled-input"> <!-- ✅ FIX 1 -->
-        <select id="eventSelect" onchange="selectEvent()" class="styled-input"></select>
-        <input id="serviceType" class="styled-input" placeholder="Service Type">
-        <input id="serviceTypeNotes" class="styled-input" placeholder="Notes">
-    </div>
+<div class="grid grid-cols-2 gap-3">
+    <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input">
+    <input type="time" id="serviceTime" class="styled-input"> <!-- ✅ FIX -->
+    <select id="eventSelect" onchange="selectEvent()" class="styled-input"></select>
+    <input id="serviceType" class="styled-input">
 </div>
 
-<div id="service-order"></div>
-
-<div class="bg-white p-6 rounded-xl shadow">
-    <h2 class="font-bold mb-4">Team</h2>
-    <table class="rota-table w-full">
+<div class="bg-white p-8 rounded">
+    <table class="rota-table">
         <tbody id="teamBody"></tbody>
     </table>
 </div>
 
-<div class="text-center">
-    <button onclick="saveSchedule()" class="btn-primary">Save</button>
-</div>
+<button onclick="saveSchedule()" class="btn-primary">Save</button>
 
 </div>
 
