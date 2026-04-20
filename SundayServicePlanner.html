@@ -541,22 +541,21 @@ window.emailSchedule = async () => {
     
     let htmlEmail = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; padding: 30px; background-color: #ffffff; margin: auto;">
-            <div style="text-align: center; margin-bottom: 30px;">
-                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
-                    <tr>
-                        <td align="center">
-                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: block; margin: 0 auto; height: 190px !important; width: auto;">
-                        </td>
-                    </tr>
-                </table>
-            </div>
+            
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+                <tr>
+                    <td align="center" style="padding-bottom: 30px;">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: block; height: 190px !important; width: auto;">
+                    </td>
+                </tr>
+            </table>
             
             <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800; text-align: center;">Sunday Worship Plan</h1>
             <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin-bottom: 25px; text-align: center;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
             
             ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin-bottom: 30px; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</div>` : ''}
 
-            ${introText ? `<div style="font-size: 14px; color: #444; margin-bottom: 25px; line-height: 1.6;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
+            ${introText ? `<div style="font-size: 14px; color: #444; margin: 0 0 25px 0; line-height: normal;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
 
             <h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin-bottom: 20px;">Order of Service</h2>
 
@@ -603,12 +602,10 @@ window.emailSchedule = async () => {
             htmlEmail += `
                 <tr>
                     <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">
-                        <div style="font-weight: 800; font-size: 14px; color: #1e293b;">${songIdx}. ${title}</div>
-                        ${notes ? `<div style="font-style: italic; font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;">${notes}</div>` : ''}
+                        <div style="font-weight: 800; font-size: 14px; color: #1e293b; margin: 0; line-height: normal;">${songIdx}. ${title}</div>
+                        ${notes ? `<div style="font-style: italic; font-size: 11px; color: #64748b; margin: 4px 0 0 0; line-height: normal;">${notes}</div>` : ''}
                     </td>
-                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #2c6999; font-size: 14px;">
-                        ${key || '-'}
-                    </td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #2c6999; font-size: 14px;">${key || '-'}</td>
                     <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">
                         <div style="margin-bottom: 5px;">${linksHtml}</div>
                         ${fileLinks}
@@ -633,12 +630,12 @@ window.emailSchedule = async () => {
 
     if (outroText) {
         htmlEmail += `
-            <div style="font-size: 14px; color: #444; margin-bottom: 30px; line-height: 1.6;">${outroText.replace(/\n/g, '<br>')}</div>
+            <div style="font-size: 14px; color: #444; margin: 0 0 30px 0; line-height: normal;">${outroText.replace(/\n/g, '<br>')}</div>
         `;
     }
 
     htmlEmail += `
-        <p style="font-size: 10pt; font-weight: 700; color: #2c6999; margin-bottom: 15px;">Our team for this Sunday is:</p>
+        <p style="font-size: 10.0pt; font-weight: 700; color: #2c6999; margin: 0 0 15px 0;">Our team for this Sunday is:</p>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 35px;">
             <tbody>
     `;
@@ -655,10 +652,10 @@ window.emailSchedule = async () => {
 
         htmlEmail += `
             <tr>
-                <td style="padding: 9pt 0; border-bottom: 1px solid #f0f4f8; font-weight: normal; color: ${roleColor}; width: 35%; font-size: 10pt; vertical-align: top;">${role}</td>
-                <td style="padding: 9pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10pt; color: #000; vertical-align: top;">
+                <td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-weight: normal; color: ${roleColor}; width: 35%; font-size: 10.0pt; vertical-align: top; line-height: normal;">${role}</td>
+                <td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; color: #000; vertical-align: top; line-height: normal;">
                     ${name}
-                    ${note ? `<br><span style="font-size: 9pt; color: #666; font-style: italic;">Note: ${note}</span>` : ''}
+                    ${note ? `<br><span style="font-size: 9.0pt; color: #666; font-style: italic;">Note: ${note}</span>` : ''}
                 </td>
             </tr>`;
     });
