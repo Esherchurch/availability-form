@@ -544,7 +544,7 @@ window.emailSchedule = async () => {
             
             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
                 <tr>
-                    <td align="center" style="padding-bottom: 25px;">
+                    <td align="center" style="text-align: center;">
                         <center>
                             <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: inline-block; height: 190px !important; width: auto;">
                         </center>
@@ -558,6 +558,8 @@ window.emailSchedule = async () => {
             ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin: 0 0 30px 0; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</div>` : ''}
 
             ${introText ? `<div style="font-size: 14px; color: #444; margin: 0 0 25px 0; mso-line-height-rule: exactly; line-height: 16px;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
+
+            <p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>
 
             <h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin: 0 0 20px 0;">Order of Service</h2>
 
@@ -631,19 +633,13 @@ window.emailSchedule = async () => {
     
     htmlEmail += `</tbody></table>`;
 
-    // Restore Spacer Table Rows for Vertical Gap
-    htmlEmail += `
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-            <tr><td height="20" style="font-size:1px; line-height:1px;">&nbsp;</td></tr>
-        </table>
-    `;
+    // Double Spacing
+    htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
 
     // Team section
     htmlEmail += `
-        <p style="font-size: 10.0pt; font-weight: 700; color: #2c6999; margin: 0; mso-line-height-rule: exactly; line-height: 12.0pt;">Our team for this Sunday is:</p>
-        
+        <p style="font-size: 10.0pt; font-weight: 700; color: #2C6999; margin: 0; mso-line-height-rule: exactly; line-height: 12.0pt;">Our team for this Sunday is:</p>
         <p style="margin:0; font-size:10pt;">&nbsp;</p>
-
         <table style="width: 100%; border-collapse: collapse; margin: 0;">
             <tbody>
     `;
@@ -655,26 +651,22 @@ window.emailSchedule = async () => {
         const note = row.querySelector('.instr-note').value;
         if(name && name !== "None") rosterNames.push(name.trim());
 
-        let roleColor = "#2c6999";
+        let roleColor = "#2C6999";
         if (role === "Sound") roleColor = "#3B7D23";
 
         htmlEmail += `
             <tr>
                 <td width="35%" style="width:35%; padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-weight: normal; color: ${roleColor}; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">${role}</td>
-                <td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; color: #000; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">
+                <td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; color: #000000; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">
                     ${name}
-                    ${note ? `<br><span style="font-size: 9.0pt; color: #666; font-style: italic;">Note: ${note}</span>` : ''}
+                    ${note ? `<br><span style="font-size: 9.0pt; color: #666666; font-style: italic;">Note: ${note}</span>` : ''}
                 </td>
             </tr>`;
     });
     htmlEmail += `</tbody></table>`;
 
-    // Final Spacer before Outro
-    htmlEmail += `
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-            <tr><td height="30" style="font-size:1px; line-height:1px;">&nbsp;</td></tr>
-        </table>
-    `;
+    // Double Spacing
+    htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
 
     // Outro Remarks at the bottom
     if (outroText) {
@@ -683,7 +675,7 @@ window.emailSchedule = async () => {
         `;
     }
 
-    htmlEmail += `<p style="margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center;">Generated via EGBC Worship Planner</p></div>`;
+    htmlEmail += `</div>`;
 
     const type = "text/html";
     const blob = new Blob([htmlEmail], { type });
