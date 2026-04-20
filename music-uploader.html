@@ -94,7 +94,10 @@ const db = firebase.firestore();
 
 let files = [];
 
-const ALL_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
+const ALL_KEYS = [
+    "C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B",
+    "Cm", "C#m", "Dbm", "Dm", "D#m", "Ebm", "Em", "Fm", "F#m", "Gbm", "Gm", "G#m", "Abm", "Am", "A#m", "Bbm", "Bm"
+];
 
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
@@ -166,7 +169,7 @@ function renderFiles() {
             <td>
                 <select onchange="updateKey(${i}, this.value)">
                     <option value="">Key</option>
-                    ${ALL_KEYS.map(k => `<option ${f.key===k?"selected":""}>${k}</option>`).join('')}
+                    ${ALL_KEYS.map(k => `<option ${f.key===k?"selected":""} value="${k}">${k}</option>`).join('')}
                 </select>
             </td>
         </tr>
@@ -198,7 +201,10 @@ async function suggestSongs() {
 
     const matches = snapshot.docs
         .map(doc => doc.data())
-        .filter(song => song.normalized && song.normalized.includes(norm));
+        .filter(song => {
+            const songNorm = song.normalized || normalizeTitle(song.title);
+            return songNorm.includes(norm);
+        });
 
     const box = document.getElementById("suggestions");
 
