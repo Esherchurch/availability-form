@@ -203,7 +203,7 @@ async function suggestSongs() {
     const snapshot = await db.collection("songs").get();
 
     const matches = snapshot.docs
-        .map(doc => doc.data())
+        .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter(song => {
             const songNorm = song.normalized || normalizeTitle(song.title);
             return songNorm.includes(norm);
@@ -212,7 +212,7 @@ async function suggestSongs() {
     const box = document.getElementById("suggestions");
 
     box.innerHTML = matches.map(s => `
-        <div onclick="selectSuggestion('${s.title.replace(/'/g, "\\'")}')">
+        <div onclick="selectSuggestion('${s.title.replace(/'/g, "\\'")}', '${s.id}')">
             ${s.title}
         </div>
     `).join("");
@@ -221,13 +221,12 @@ async function suggestSongs() {
 // =======================
 // SELECT SONG
 // =======================
-async function selectSuggestion(title) {
+async function selectSuggestion(title, id) {
     document.getElementById("title").value = title;
     document.getElementById("suggestions").innerHTML = "";
 
-    const docId = normalizeTitle(title).replace(/\s+/g, "-");
-    const docRef = db.collection("songs").doc(docId);
-
+    // Use the ID passed from the suggestion to ensure a perfect match
+    const docRef = db.collection("songs").doc(id);
     const snap = await docRef.get();
 
     if (snap.exists) {
@@ -259,6 +258,7 @@ async function upload() {
         }
     }
 
+    // Consistent docId generation
     const docId = normalizeTitle(title).replace(/\s+/g, "-");
     const docRef = db.collection("songs").doc(docId);
 
