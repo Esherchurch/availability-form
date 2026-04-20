@@ -18,14 +18,14 @@
         resize: none;
     }
 
-    /* PDF Overlay Styling */
+    /* PDF Overlay Styling - Full Screen */
     #pdf-overlay {
         display: none;
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
         background: black;
         z-index: 9999;
     }
@@ -41,11 +41,17 @@
         background: #2c6999;
         color: white;
         border: none;
-        padding: 10px 20px;
+        padding: 12px 24px;
         font-weight: bold;
         border-radius: 8px;
         cursor: pointer;
         z-index: 10000;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    /* Ensure minimized songs take up almost no space */
+    .hidden-section {
+        display: none !important;
     }
 </style>
 
@@ -66,13 +72,11 @@ let currentLeader = "";
 let currentService = null;
 let currentDate = "";
 
-// Auto-enlarge logic
 window.adjustHeight = (el) => {
     el.style.height = 'auto';
     el.style.height = el.scrollHeight + 'px';
 };
 
-// PDF Viewer logic
 window.openPDF = (url) => {
     const overlay = document.getElementById('pdf-overlay');
     const viewer = document.getElementById('pdf-viewer');
@@ -88,19 +92,15 @@ window.closePDF = () => {
 };
 
 window.loadPerformance = async () => {
-
     const date = document.getElementById('date').value;
     if (!date) return;
-
     currentDate = date;
 
     const container = document.getElementById('content');
     container.innerHTML = "Loading...";
 
     const eventSnap = await getDocs(collection(db, "events"));
-
     let rota = null;
-
     eventSnap.forEach(doc => {
         const ev = doc.data();
         if (ev.date === date && ev.archived !== true) {
@@ -116,9 +116,7 @@ window.loadPerformance = async () => {
     currentLeader = rota.assignments?.["Worship Leader"]?.name || "";
 
     const serviceSnap = await getDocs(collection(db, "services"));
-
     currentService = null;
-
     serviceSnap.forEach(doc => {
         const s = doc.data();
         if (s.date === date) {
@@ -133,7 +131,6 @@ window.loadPerformance = async () => {
 
     const roleSelect = document.getElementById('role');
     roleSelect.innerHTML = `<option value="">Instrument</option>`;
-
     Object.keys(rota.assignments || {}).forEach(role => {
         roleSelect.innerHTML += `<option value="${role}">${role}</option>`;
     });
@@ -142,12 +139,9 @@ window.loadPerformance = async () => {
 };
 
 function getLatestNote(allNotes, song, role, key) {
-
     let latest = null;
     let latestDate = null;
-
     allNotes.forEach(n => {
-
         if (
             n.worshipLeader === currentLeader &&
             n.role === role &&
@@ -156,19 +150,16 @@ function getLatestNote(allNotes, song, role, key) {
             n.date !== currentDate
         ) {
             const d = new Date(n.date);
-
             if (!latestDate || d > latestDate) {
                 latestDate = d;
                 latest = n;
             }
         }
     });
-
     return latest;
 }
 
 window.loadSongsForRole = async () => {
-
     const role = document.getElementById('role').value;
     if (!role || !currentService) return;
 
@@ -176,15 +167,12 @@ window.loadSongsForRole = async () => {
     container.innerHTML = "Loading...";
 
     const notesSnap = await getDocs(collection(db, "schedules"));
-
     const allNotes = [];
     const todayNotes = {};
 
     notesSnap.forEach(doc => {
         const d = doc.data();
-
         allNotes.push(d);
-
         if (d.role === role && d.songTitle && d.key && d.date === currentDate) {
             todayNotes[`${d.songTitle}|${d.key}`] = {
                 notes: d.notes,
@@ -196,7 +184,6 @@ window.loadSongsForRole = async () => {
     container.innerHTML = "";
 
     for (const item of currentService.order) {
-
         if (item.type === "item") {
             const div = document.createElement('div');
             div.className = "text-center text-[#2c6999] font-extrabold text-lg py-2";
@@ -206,7 +193,6 @@ window.loadSongsForRole = async () => {
         }
 
         const key = item.key || "";
-
         const today = todayNotes[`${item.title}|${key}`];
         const last = getLatestNote(allNotes, item.title, role, key);
 
@@ -221,7 +207,6 @@ window.loadSongsForRole = async () => {
             const data = songSnap.data();
             youtube = data.youtube || "";
             ccli = data.ccli || "";
-
             files = (data.files || []).filter(f => 
                 f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase()
             );
@@ -235,36 +220,32 @@ window.loadSongsForRole = async () => {
         div.className = "bg-white p-4 rounded-2xl shadow mb-4";
 
         div.innerHTML = `
-            <div onclick="this.nextElementSibling.classList.toggle('hidden')" 
+            <div onclick="this.nextElementSibling.classList.toggle('hidden-section')" 
                  class="font-extrabold text-lg cursor-pointer text-[#2c6999] flex justify-between items-center">
                 <span>${item.title} (${key})</span>
-                <span class="text-xs opacity-50">Minimize / Expand</span>
+                <span class="text-[10px] uppercase tracking-widest opacity-40">Minimize / Expand</span>
             </div>
 
             <div class="mt-3">
-
                 <div class="flex gap-3 flex-wrap text-sm mb-2">
                     ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600">🎬 YouTube</a>` : `<span class="text-gray-400">No YouTube</span>`}
-
-                    <a href="${songSelectLink}" target="_blank" class="text-purple-600">
-                        🔎 SongSelect
-                    </a>
-
+                    <a href="${songSelectLink}" target="_blank" class="text-purple-600">🔎 SongSelect</a>
                     ${ccli ? `<span class="text-gray-500">CCLI: ${ccli}</span>` : `<span class="text-gray-400">No CCLI</span>`}
                 </div>
 
-                <div>
+                <div class="mb-3 flex flex-wrap gap-2">
                     ${files.map(f => `
                         <button onclick="openPDF('${f.url}')"
-                        class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
-                        📄 ${f.type}
+                        class="inline-block text-xs font-bold bg-[#2c6999] text-white px-3 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition-colors">
+                        PDF: ${f.type}
                         </button>
                     `).join("")}
+                    ${files.length === 0 ? '<span class="text-xs text-gray-400 italic">No PDFs for this key</span>' : ''}
                 </div>
 
                 <textarea 
                     oninput="adjustHeight(this)"
-                    class="auto-expand w-full p-3 rounded-xl bg-[#f8fafc] mt-2 border-none"
+                    class="auto-expand w-full p-3 rounded-xl bg-[#f8fafc] border-none outline-none focus:ring-2 focus:ring-blue-200"
                     data-song="${item.title}"
                     data-key="${key}"
                     data-docid="${today ? today.docId : ""}"
@@ -272,36 +253,31 @@ window.loadSongsForRole = async () => {
 
                 <div class="flex gap-2 mt-2">
                     <button onclick="saveNote('${item.title}','${key}')" 
-                        class="bg-[#2c6999] text-white px-4 py-2 rounded-lg text-sm">
+                        class="bg-[#2c6999] text-white px-4 py-2 rounded-lg text-sm font-bold">
                         Save
                     </button>
-
                     <button onclick="importLast('${item.title}','${key}')" 
-                        class="bg-gray-200 px-4 py-2 rounded-lg text-sm">
+                        class="bg-gray-200 px-4 py-2 rounded-lg text-sm font-bold">
                         Import Last Notes
                     </button>
                 </div>
-
             </div>
         `;
 
         container.appendChild(div);
         
-        // Initial height adjustment for loaded notes
         const ta = div.querySelector('textarea');
-        if(ta) setTimeout(() => window.adjustHeight(ta), 10);
+        if(ta) {
+            setTimeout(() => window.adjustHeight(ta), 50);
+        }
     }
 };
 
 window.importLast = async (song, key) => {
-
     const role = document.getElementById('role').value;
-
     const snap = await getDocs(collection(db, "schedules"));
-
     const allNotes = [];
     snap.forEach(doc => allNotes.push(doc.data()));
-
     const last = getLatestNote(allNotes, song, role, key);
 
     if (!last) {
@@ -315,14 +291,10 @@ window.importLast = async (song, key) => {
 };
 
 window.saveNote = async (song, key) => {
-
     const role = document.getElementById('role').value;
-
     const textarea = document.querySelector(`[data-song="${song}"][data-key="${key}"]`);
     const note = textarea.value;
     const docId = textarea.dataset.docid;
-
-    if (!note) return;
 
     if (docId) {
         await updateDoc(doc(db, "schedules", docId), { notes: note });
@@ -335,10 +307,8 @@ window.saveNote = async (song, key) => {
             key: key,
             notes: note
         });
-
         textarea.dataset.docid = newDoc.id;
     }
-
     alert("Saved");
 };
 </script>
@@ -347,22 +317,17 @@ window.saveNote = async (song, key) => {
 <body class="p-6 bg-[#f4f7fa] font-montserrat">
 
 <div id="pdf-overlay">
-    <button id="close-pdf" onclick="closePDF()">Close PDF</button>
+    <button id="close-pdf" onclick="closePDF()">BACK TO MAIN</button>
     <iframe id="pdf-viewer" src=""></iframe>
 </div>
 
 <div class="max-w-xl mx-auto space-y-6">
-
-<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
-
-<input type="date" id="date" class="p-3 rounded-xl w-full" onchange="loadPerformance()">
-
-<select id="role" class="p-3 rounded-xl w-full" onchange="loadSongsForRole()">
-<option value="">Instrument</option>
-</select>
-
-<div id="content"></div>
-
+    <h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
+    <input type="date" id="date" class="p-3 rounded-xl w-full border-none shadow-sm" onchange="loadPerformance()">
+    <select id="role" class="p-3 rounded-xl w-full border-none shadow-sm" onchange="loadSongsForRole()">
+        <option value="">Instrument</option>
+    </select>
+    <div id="content"></div>
 </div>
 
 </body>
