@@ -10,19 +10,17 @@
 
 <style>
 textarea {
-    font-size: 14pt;
-    font-weight: bold;
+    font-size: 14pt !important;
+    font-weight: 700 !important;
     overflow: hidden;
     resize: none;
 }
 
-/* ultra minimise */
 .minimized {
     height: 32px;
     overflow: hidden;
 }
 
-/* PDF viewer */
 #pdfViewer {
     position: fixed;
     inset: 0;
@@ -49,7 +47,6 @@ let currentLeader = "";
 let currentService = null;
 let currentDate = "";
 
-// 🔑 consistent key
 const makeKey = (song, key) =>
     `${(song || "").trim().toLowerCase()}|${(key || "").trim().toLowerCase()}`;
 
@@ -134,7 +131,6 @@ window.loadSongsForRole = async () => {
     const container = document.getElementById('content');
     container.innerHTML = "Loading...";
 
-    // ✅ only get today notes
     const q = query(
         collection(db, "schedules"),
         where("date", "==", currentDate),
@@ -152,7 +148,6 @@ window.loadSongsForRole = async () => {
         };
     });
 
-    // still needed for "import last"
     const allSnap = await getDocs(collection(db, "schedules"));
     const allNotes = [];
     allSnap.forEach(doc => allNotes.push(doc.data()));
@@ -170,30 +165,22 @@ window.loadSongsForRole = async () => {
         }
 
         const key = item.key || "";
-
         const today = todayNotes[makeKey(item.title, key)];
         const last = getLatestNote(allNotes, item.title, role, key);
 
         const docId = item.title.toLowerCase().replace(/\s+/g, "-");
         const songSnap = await getDoc(doc(db, "songs", docId));
 
-        let youtube = "";
-        let ccli = "";
         let files = [];
 
         if (songSnap.exists()) {
             const data = songSnap.data();
-            youtube = data.youtube || "";
-            ccli = data.ccli || "";
 
+            // ✅ FIX: show files even if key slightly mismatched
             files = (data.files || []).filter(f =>
-                makeKey("", f.key) === makeKey("", key)
+                !f.key || makeKey("", f.key) === makeKey("", key)
             );
         }
-
-        const songSelectLink = ccli
-            ? `https://songselect.ccli.com/Songs/${ccli}`
-            : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(item.title)}`;
 
         const div = document.createElement('div');
         div.className = "bg-white p-4 rounded-2xl shadow mb-4";
@@ -208,21 +195,11 @@ window.loadSongsForRole = async () => {
 
             <div class="body mt-3 hidden">
 
-                <div class="flex gap-3 flex-wrap text-sm mb-2">
-                    ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600">🎬 YouTube</a>` : `<span class="text-gray-400">No YouTube</span>`}
-
-                    <a href="${songSelectLink}" target="_blank" class="text-purple-600">
-                       🔎 SongSelect
-                    </a>
-
-                    ${ccli ? `<span class="text-gray-500">CCLI: ${ccli}</span>` : `<span class="text-gray-400">No CCLI</span>`}
-                </div>
-
                 <div>
                     ${files.map(f => `
                         <button onclick="openPDF('${f.url}')"
                         class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
-                        ${f.type}
+                        ${f.type || 'PDF'}
                         </button>
                     `).join("")}
                 </div>
@@ -251,25 +228,37 @@ window.loadSongsForRole = async () => {
         `;
 
         container.appendChild(div);
+
+        setTimeout(() => {
+            const ta = div.querySelector("textarea");
+            if (ta) autoGrow(ta);
+        }, 0);
     }
 };
 
-// ✅ auto grow properly
 window.autoGrow = (el) => {
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
 };
 
-// ✅ minimise
 window.toggleMin = (btn) => {
     btn.closest('.bg-white').classList.toggle('minimized');
 };
 
-// ✅ PDF overlay
 window.openPDF = (url) => {
+
+    if (url.includes("drive.google.com")) {
+        const match = url.match(/\/d\/(.*?)\//);
+        if (match) {
+            url = `https://drive.google.com/file/d/${match[1]}/preview`;
+        }
+    }
+
     const viewer = document.getElementById("pdfViewer");
     viewer.innerHTML = `
-        <button onclick="closePDF()" style="position:absolute;top:10px;right:10px;background:black;color:white;padding:10px;z-index:10;">Close</button>
+        <button onclick="closePDF()" style="position:absolute;top:10px;right:10px;background:black;color:white;padding:12px;z-index:10;">
+        Close
+        </button>
         <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
     `;
     viewer.style.display = "block";
@@ -279,55 +268,6 @@ window.closePDF = () => {
     const viewer = document.getElementById("pdfViewer");
     viewer.style.display = "none";
     viewer.innerHTML = "";
-};
-
-window.importLast = async (song, key) => {
-
-    const role = document.getElementById('role').value;
-
-    const snap = await getDocs(collection(db, "schedules"));
-
-    const allNotes = [];
-    snap.forEach(doc => allNotes.push(doc.data()));
-
-    const last = getLatestNote(allNotes, song, role, key);
-
-    if (!last) {
-        alert("No previous notes");
-        return;
-    }
-
-    const el = document.querySelector(`[data-song="${song}"][data-key="${key}"]`);
-    el.value = last.notes;
-    autoGrow(el);
-};
-
-window.saveNote = async (song, key) => {
-
-    const role = document.getElementById('role').value;
-
-    const textarea = document.querySelector(`[data-song="${song}"][data-key="${key}"]`);
-    const note = textarea.value;
-    const docId = textarea.dataset.docid;
-
-    if (!note) return;
-
-    if (docId) {
-        await updateDoc(doc(db, "schedules", docId), { notes: note });
-    } else {
-        const newDoc = await addDoc(collection(db, "schedules"), {
-            date: currentDate,
-            worshipLeader: currentLeader,
-            role,
-            songTitle: song,
-            key: key,
-            notes: note
-        });
-
-        textarea.dataset.docid = newDoc.id;
-    }
-
-    alert("Saved");
 };
 </script>
 </head>
