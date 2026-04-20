@@ -27,12 +27,12 @@ body { font-family: Arial; padding: 40px; }
     max-width: 300px;
 }
 
-#suggestions div {
+.suggestion-item {
     padding: 5px;
     cursor: pointer;
 }
 
-#suggestions div:hover {
+.suggestion-item:hover {
     background: #f0f0f0;
 }
 
@@ -210,13 +210,18 @@ async function suggestSongs() {
         });
 
     const box = document.getElementById("suggestions");
+    box.innerHTML = "";
 
-    // Fix: Using data attributes or simple ID strings to avoid breaking the onclick handler
-    box.innerHTML = matches.map(s => `
-        <div onclick="selectSuggestion('${s.id}')">
-            ${s.title}
-        </div>
-    `).join("");
+    matches.forEach(s => {
+        const div = document.createElement("div");
+        div.className = "suggestion-item";
+        div.textContent = s.title;
+        // This avoids all quote/parentheses issues
+        div.addEventListener("click", () => {
+            selectSuggestion(s.id);
+        });
+        box.appendChild(div);
+    });
 }
 
 // =======================
