@@ -13,12 +13,16 @@ textarea {
     font-size: 14pt;
     font-weight: bold;
     overflow: hidden;
+    resize: none;
 }
-.minimal {
-    height: 26px !important;
+
+/* ultra minimise */
+.minimized {
+    height: 32px;
     overflow: hidden;
-    padding: 4px !important;
 }
+
+/* PDF viewer */
 #pdfViewer {
     position: fixed;
     inset: 0;
@@ -45,7 +49,7 @@ let currentLeader = "";
 let currentService = null;
 let currentDate = "";
 
-// 🔑 SINGLE SOURCE OF TRUTH KEY
+// 🔑 consistent key
 const makeKey = (song, key) =>
     `${(song || "").trim().toLowerCase()}|${(key || "").trim().toLowerCase()}`;
 
@@ -69,7 +73,7 @@ window.loadPerformance = async () => {
     });
 
     if (!rota) {
-        container.innerHTML = "No rota found";
+        container.innerHTML = "No rota found for this date";
         return;
     }
 
@@ -77,13 +81,15 @@ window.loadPerformance = async () => {
 
     const serviceSnap = await getDocs(collection(db, "services"));
 
+    currentService = null;
+
     serviceSnap.forEach(doc => {
         const s = doc.data();
         if (s.date === date) currentService = s;
     });
 
     if (!currentService) {
-        container.innerHTML = "No service order";
+        container.innerHTML = "No saved service order yet";
         return;
     }
 
@@ -97,6 +103,29 @@ window.loadPerformance = async () => {
     container.innerHTML = "";
 };
 
+function getLatestNote(allNotes, song, role, key) {
+
+    let latest = null;
+    let latestDate = null;
+
+    allNotes.forEach(n => {
+        if (
+            n.worshipLeader === currentLeader &&
+            n.role === role &&
+            makeKey(n.songTitle, n.key) === makeKey(song, key) &&
+            n.date !== currentDate
+        ) {
+            const d = new Date(n.date);
+            if (!latestDate || d > latestDate) {
+                latestDate = d;
+                latest = n;
+            }
+        }
+    });
+
+    return latest;
+}
+
 window.loadSongsForRole = async () => {
 
     const role = document.getElementById('role').value;
@@ -105,7 +134,7 @@ window.loadSongsForRole = async () => {
     const container = document.getElementById('content');
     container.innerHTML = "Loading...";
 
-    // 🔥 ONLY GET TODAY'S NOTES
+    // ✅ only get today notes
     const q = query(
         collection(db, "schedules"),
         where("date", "==", currentDate),
@@ -115,16 +144,18 @@ window.loadSongsForRole = async () => {
     const snap = await getDocs(q);
 
     const todayNotes = {};
-
     snap.forEach(docSnap => {
         const d = docSnap.data();
-        const k = makeKey(d.songTitle, d.key);
-
-        todayNotes[k] = {
+        todayNotes[makeKey(d.songTitle, d.key)] = {
             notes: d.notes,
             docId: docSnap.id
         };
     });
+
+    // still needed for "import last"
+    const allSnap = await getDocs(collection(db, "schedules"));
+    const allNotes = [];
+    allSnap.forEach(doc => allNotes.push(doc.data()));
 
     container.innerHTML = "";
 
@@ -132,60 +163,89 @@ window.loadSongsForRole = async () => {
 
         if (item.type === "item") {
             const div = document.createElement('div');
-            div.className = "text-center font-extrabold py-2";
+            div.className = "text-center text-[#2c6999] font-extrabold text-lg py-2";
             div.innerText = item.title;
             container.appendChild(div);
             continue;
         }
 
         const key = item.key || "";
-        const k = makeKey(item.title, key);
-        const today = todayNotes[k];
+
+        const today = todayNotes[makeKey(item.title, key)];
+        const last = getLatestNote(allNotes, item.title, role, key);
 
         const docId = item.title.toLowerCase().replace(/\s+/g, "-");
         const songSnap = await getDoc(doc(db, "songs", docId));
 
+        let youtube = "";
+        let ccli = "";
         let files = [];
 
         if (songSnap.exists()) {
             const data = songSnap.data();
+            youtube = data.youtube || "";
+            ccli = data.ccli || "";
+
             files = (data.files || []).filter(f =>
                 makeKey("", f.key) === makeKey("", key)
             );
         }
 
+        const songSelectLink = ccli
+            ? `https://songselect.ccli.com/Songs/${ccli}`
+            : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(item.title)}`;
+
         const div = document.createElement('div');
-        div.className = "bg-white p-4 rounded-xl shadow mb-3";
+        div.className = "bg-white p-4 rounded-2xl shadow mb-4";
 
         div.innerHTML = `
-            <div class="flex justify-between font-bold cursor-pointer">
+            <div class="flex justify-between items-center font-extrabold text-lg text-[#2c6999] cursor-pointer">
                 <span onclick="this.closest('.bg-white').querySelector('.body').classList.toggle('hidden')">
                     ${item.title} (${key})
                 </span>
-                <button onclick="mini(this)">_</button>
+                <button onclick="toggleMin(this)">_</button>
             </div>
 
-            <div class="body hidden mt-2">
+            <div class="body mt-3 hidden">
 
-                ${files.map(f => `
-                    <button onclick="openPDF('${f.url}')"
-                    class="bg-blue-600 text-white px-2 py-1 text-xs mr-1">
-                    PDF
-                    </button>
-                `).join("")}
+                <div class="flex gap-3 flex-wrap text-sm mb-2">
+                    ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600">🎬 YouTube</a>` : `<span class="text-gray-400">No YouTube</span>`}
 
-                <textarea
-                    oninput="grow(this)"
-                    class="w-full p-2 mt-2 bg-gray-100"
+                    <a href="${songSelectLink}" target="_blank" class="text-purple-600">
+                       🔎 SongSelect
+                    </a>
+
+                    ${ccli ? `<span class="text-gray-500">CCLI: ${ccli}</span>` : `<span class="text-gray-400">No CCLI</span>`}
+                </div>
+
+                <div>
+                    ${files.map(f => `
+                        <button onclick="openPDF('${f.url}')"
+                        class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
+                        ${f.type}
+                        </button>
+                    `).join("")}
+                </div>
+
+                <textarea 
+                    oninput="autoGrow(this)"
+                    class="w-full p-3 rounded-xl bg-[#f8fafc] mt-2"
                     data-song="${item.title}"
                     data-key="${key}"
                     data-docid="${today ? today.docId : ""}"
-                >${today ? today.notes : ""}</textarea>
+                >${today ? today.notes : (last ? last.notes : "")}</textarea>
 
-                <button onclick="saveNote('${item.title}','${key}')"
-                class="bg-green-600 text-white px-3 py-1 mt-2">
-                Save
-                </button>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="saveNote('${item.title}','${key}')" 
+                        class="bg-[#2c6999] text-white px-4 py-2 rounded-lg text-sm">
+                        Save
+                    </button>
+
+                    <button onclick="importLast('${item.title}','${key}')" 
+                        class="bg-gray-200 px-4 py-2 rounded-lg text-sm">
+                        Import Last Notes
+                    </button>
+                </div>
 
             </div>
         `;
@@ -194,20 +254,22 @@ window.loadSongsForRole = async () => {
     }
 };
 
-window.grow = (el) => {
+// ✅ auto grow properly
+window.autoGrow = (el) => {
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
 };
 
-window.mini = (btn) => {
-    const card = btn.closest('.bg-white');
-    card.classList.toggle("minimal");
+// ✅ minimise
+window.toggleMin = (btn) => {
+    btn.closest('.bg-white').classList.toggle('minimized');
 };
 
+// ✅ PDF overlay
 window.openPDF = (url) => {
     const viewer = document.getElementById("pdfViewer");
     viewer.innerHTML = `
-        <button onclick="closePDF()" style="position:absolute;top:10px;right:10px;background:black;color:white;padding:10px;">Close</button>
+        <button onclick="closePDF()" style="position:absolute;top:10px;right:10px;background:black;color:white;padding:10px;z-index:10;">Close</button>
         <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
     `;
     viewer.style.display = "block";
@@ -217,6 +279,27 @@ window.closePDF = () => {
     const viewer = document.getElementById("pdfViewer");
     viewer.style.display = "none";
     viewer.innerHTML = "";
+};
+
+window.importLast = async (song, key) => {
+
+    const role = document.getElementById('role').value;
+
+    const snap = await getDocs(collection(db, "schedules"));
+
+    const allNotes = [];
+    snap.forEach(doc => allNotes.push(doc.data()));
+
+    const last = getLatestNote(allNotes, song, role, key);
+
+    if (!last) {
+        alert("No previous notes");
+        return;
+    }
+
+    const el = document.querySelector(`[data-song="${song}"][data-key="${key}"]`);
+    el.value = last.notes;
+    autoGrow(el);
 };
 
 window.saveNote = async (song, key) => {
@@ -237,7 +320,7 @@ window.saveNote = async (song, key) => {
             worshipLeader: currentLeader,
             role,
             songTitle: song,
-            key,
+            key: key,
             notes: note
         });
 
@@ -249,14 +332,23 @@ window.saveNote = async (song, key) => {
 </script>
 </head>
 
-<body class="p-6 bg-gray-100">
+<body class="p-6 bg-[#f4f7fa] font-montserrat">
 
 <div id="pdfViewer"></div>
 
-<input type="date" id="date" onchange="loadPerformance()" class="w-full p-2 mb-2">
-<select id="role" onchange="loadSongsForRole()" class="w-full p-2 mb-4"></select>
+<div class="max-w-xl mx-auto space-y-6">
+
+<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
+
+<input type="date" id="date" class="p-3 rounded-xl w-full" onchange="loadPerformance()">
+
+<select id="role" class="p-3 rounded-xl w-full" onchange="loadSongsForRole()">
+<option value="">Instrument</option>
+</select>
 
 <div id="content"></div>
+
+</div>
 
 </body>
 </html>
