@@ -211,12 +211,12 @@ async function suggestSongs() {
 
     const box = document.getElementById("suggestions");
 
-    box.innerHTML = matches.map(s => {
-        // Use document ID to avoid issues with special characters in strings
-        return `<div onclick="selectSuggestion('${s.id}')">
+    // Fix: Using data attributes or simple ID strings to avoid breaking the onclick handler
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSuggestion('${s.id}')">
             ${s.title}
-        </div>`;
-    }).join("");
+        </div>
+    `).join("");
 }
 
 // =======================
