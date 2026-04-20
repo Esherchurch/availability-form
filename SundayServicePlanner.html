@@ -302,6 +302,10 @@ window.selectSong = async (title, id) => {
     document.getElementById(`files-${id}`).innerHTML = "";
     
     await showKeyInfo(id, title);
+    
+    // Auto-load links even if no key is selected yet
+    keyChanged(id);
+
     if (worshipLeaderName && worshipLeaderName !== "None") {
         const preferred = await getPreferredKey(title, worshipLeaderName);
         if (preferred) {
@@ -316,10 +320,12 @@ window.keyChanged = async (id) => {
     const title = block.querySelector('.song-title').value;
     const key = block.querySelector('.song-key').value;
     const container = document.getElementById(`files-${id}`);
-    if (!title || !key) {
+    
+    if (!title) {
         container.innerHTML = "";
         return;
     }
+    
     const docId = title.toLowerCase().replace(/\s+/g, "-");
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) {
@@ -332,12 +338,11 @@ window.keyChanged = async (id) => {
     const songSelectLink = ccli
         ? `https://songselect.ccli.com/Songs/${ccli}`
         : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+    
     const allFiles = data.files || [];
-    const selectedKey = key.trim().toLowerCase();
-    const files = allFiles.filter(f => {
-        if (!f.key) return false;
-        return f.key.trim().toLowerCase() === selectedKey;
-    });
+    const selectedKey = key ? key.trim().toLowerCase() : "";
+    const files = selectedKey ? allFiles.filter(f => f.key && f.key.trim().toLowerCase() === selectedKey) : [];
+    
     const grouped = {};
     files.forEach(f => {
         if (!grouped[f.type]) grouped[f.type] = [];
@@ -352,17 +357,23 @@ window.keyChanged = async (id) => {
             ${ccli ? `<span class="text-gray-500 ml-auto">CCLI: ${ccli}</span>` : `<span class="text-gray-400 ml-auto">No CCLI</span>`}
         </div>
     `;
-    if (files.length === 0) {
-        html += `<div class="text-xs text-amber-600 font-bold italic">No sheet music files found for key of ${key}</div>`;
-    } else {
-        Object.keys(grouped).forEach(type => {
-            html += `<div class="mt-2 text-[10px] text-[#2c6999] font-extrabold uppercase tracking-widest">${type}</div><div class="flex flex-wrap gap-2 mt-1">`;
-            grouped[type].forEach(file => {
-                html += `<a href="${file.url}" target="_blank" class="inline-block text-[11px] bg-[#2c6999] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm hover:bg-[#1e4a6d]">Open File</a>`;
+
+    if (key) {
+        if (files.length === 0) {
+            html += `<div class="text-xs text-amber-600 font-bold italic">No sheet music files found for key of ${key}</div>`;
+        } else {
+            Object.keys(grouped).forEach(type => {
+                html += `<div class="mt-2 text-[10px] text-[#2c6999] font-extrabold uppercase tracking-widest">${type}</div><div class="flex flex-wrap gap-2 mt-1">`;
+                grouped[type].forEach(file => {
+                    html += `<a href="${file.url}" target="_blank" class="inline-block text-[11px] bg-[#2c6999] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm hover:bg-[#1e4a6d]">Open File</a>`;
+                });
+                html += `</div>`;
             });
-            html += `</div>`;
-        });
+        }
+    } else {
+        html += `<div class="text-xs text-gray-500 italic">Select a key to see sheet music files</div>`;
     }
+
     html += `</div>`;
     container.innerHTML = html;
 };
