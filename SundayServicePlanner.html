@@ -540,37 +540,35 @@ window.emailSchedule = async () => {
     const outroText = document.getElementById('outroBox').value || "";
     
     let htmlEmail = `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; padding: 30px; background-color: #ffffff; margin: auto;">
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; padding: 30px; background-color: #ffffff; margin: auto;">
             
-            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td align="center">
-                        <center>
-                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: inline-block; height: 190px !important; width: auto;">
-                        </center>
+                        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: block; border: 0; outline: none; text-decoration: none;">
                     </td>
                 </tr>
             </table>
             
-            <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800; text-align: center; mso-line-height-rule: exactly; line-height: 28px;">Sunday Worship Plan</h1>
-            <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin: 5px 0 25px 0; text-align: center;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
+            <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800; text-align: center; mso-line-height-rule: exactly; line-height: 28px;"><font color="#2c6999">Sunday Worship Plan</font></h1>
+            <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin: 5px 0 25px 0; text-align: center;"><font color="#7f8c8d">${date} &bull; Worship Leader: ${worshipLeaderName}</font></p>
             
-            ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin: 0 0 0 0; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</div>` : ''}
+            ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin: 0; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><font color="#1e4a6d"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</font></div>` : ''}
 
             <p style="margin:0; font-size:10pt;">&nbsp;</p>
 
-            ${introText ? `<div style="font-size: 14px; color: #444; margin: 0 0 0 0; mso-line-height-rule: exactly; line-height: 16px;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
+            ${introText ? `<div style="font-size: 14px; color: #444444; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#444444">${introText.replace(/\n/g, '<br>')}</font></div>` : ''}
 
             <p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>
 
-            <h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin: 0 0 20px 0;">Order of Service</h2>
+            <h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin: 0 0 20px 0;"><font color="#2c6999">Order of Service</font></h2>
 
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
                 <thead style="background-color: #f8fafc;">
                     <tr>
-                        <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Title</th>
-                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Key</th>
-                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Resources</th>
+                        <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;"><font color="#64748b">Title</font></th>
+                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;"><font color="#64748b">Key</font></th>
+                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;"><font color="#64748b">Resources</font></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -592,15 +590,15 @@ window.emailSchedule = async () => {
 
             if (snap.exists()) {
                 const data = snap.data();
-                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #e11d48; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;">YouTube</a>`;
+                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #e11d48; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#e11d48">YouTube</font></a>`;
                 const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
                 if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
-                linksHtml += `<a href="${sSelect}" style="color: #7c3aed; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;">SongSelect</a>`;
+                linksHtml += `<a href="${sSelect}" style="color: #7c3aed; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#7c3aed">SongSelect</font></a>`;
                 
                 if (data.files && key) {
                     const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
                     files.forEach(f => {
-                        fileLinks += `<div style="margin-top: 6px;"><a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-size: 11px; font-weight: 600;">Download ${f.type}</a></div>`;
+                        fileLinks += `<div style="margin-top: 6px;"><a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-size: 11px; font-weight: 600;"><font color="#2c6999">Download ${f.type}</font></a></div>`;
                     });
                 }
             }
@@ -608,10 +606,10 @@ window.emailSchedule = async () => {
             htmlEmail += `
                 <tr>
                     <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">
-                        <p style="font-weight: 800; font-size: 14px; color: #1e293b; margin: 0; mso-line-height-rule: exactly; line-height: 16px;">${songIdx}. ${title}</p>
-                        ${notes ? `<p style="font-style: italic; font-size: 11px; color: #64748b; margin: 4px 0 0 0; mso-line-height-rule: exactly; line-height: 13px;">${notes}</p>` : ''}
+                        <p style="font-weight: 800; font-size: 14px; color: #1e293b; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#1e293b">${songIdx}. ${title}</font></p>
+                        ${notes ? `<p style="font-style: italic; font-size: 11px; color: #64748b; margin: 4px 0 0 0; mso-line-height-rule: exactly; line-height: 13px;"><font color="#64748b">${notes}</font></p>` : ''}
                     </td>
-                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #2c6999; font-size: 14px;">${key || '-'}</td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #2c6999; font-size: 14px;"><font color="#2c6999">${key || '-'}</font></td>
                     <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">
                         <div style="margin-bottom: 5px;">${linksHtml}</div>
                         ${fileLinks}
@@ -625,7 +623,7 @@ window.emailSchedule = async () => {
                 htmlEmail += `
                     <tr>
                         <td colspan="3" style="padding: 12px 10px; background-color: #f8fafc; border-left: 4px solid #2c6999; font-weight: 800; font-size: 12px; color: #2c6999; text-transform: uppercase; letter-spacing: 0.5px;">
-                            ${item}
+                            <font color="#2c6999">${item}</font>
                         </td>
                     </tr>
                 `;
@@ -635,12 +633,12 @@ window.emailSchedule = async () => {
     
     htmlEmail += `</tbody></table>`;
 
-    // Double Spacing before Team
+    // Double Spacing
     htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
 
     // Team section
     htmlEmail += `
-        <p style="font-size: 10.0pt; font-weight: 700; color: #2C6999; margin: 0; mso-line-height-rule: exactly; line-height: 12.0pt;">Our team for this Sunday is:</p>
+        <p style="font-size: 10.0pt; font-weight: 700; color: #2C6999; margin: 0; mso-line-height-rule: exactly; line-height: 12.0pt;"><font color="#2C6999">Our team for this Sunday is:</font></p>
         <p style="margin:0; font-size:10pt;">&nbsp;</p>
         <table style="width: 100%; border-collapse: collapse; margin: 0;">
             <tbody>
@@ -658,22 +656,24 @@ window.emailSchedule = async () => {
 
         htmlEmail += `
             <tr>
-                <td width="35%" style="width:35%; padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-weight: normal; color: ${roleColor}; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">${role}</td>
-                <td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; color: #000000; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">
-                    ${name}
-                    ${note ? `<br><span style="font-size: 9.0pt; color: #666666; font-style: italic;">Note: ${note}</span>` : ''}
+                <td width="35%" style="width:35%; padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-weight: normal; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">
+                    <font color="${roleColor}">${role}</font>
+                </td>
+                <td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">
+                    <font color="#000000">${name}</font>
+                    ${note ? `<br><font size="2" color="#666666"><i>Note: ${note}</i></font>` : ''}
                 </td>
             </tr>`;
     });
     htmlEmail += `</tbody></table>`;
 
-    // Double Spacing before Outro
+    // Double Spacing
     htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
 
     // Outro Remarks
     if (outroText) {
         htmlEmail += `
-            <div style="font-size: 14px; color: #444; margin: 0; mso-line-height-rule: exactly; line-height: 16px;">${outroText.replace(/\n/g, '<br>')}</div>
+            <div style="font-size: 14px; color: #444444; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#444444">${outroText.replace(/\n/g, '<br>')}</font></div>
         `;
     }
 
