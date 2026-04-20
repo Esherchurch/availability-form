@@ -188,14 +188,17 @@ function updateKey(i, val) {
 // SUGGEST SONGS
 // =======================
 function normalizeTitle(title) {
-    return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+    return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 }
 
 async function suggestSongs() {
     const input = document.getElementById("title").value;
     const norm = normalizeTitle(input);
 
-    if (norm.length < 2) return;
+    if (norm.length < 2) {
+        document.getElementById("suggestions").innerHTML = "";
+        return;
+    }
 
     const snapshot = await db.collection("songs").get();
 
@@ -209,7 +212,7 @@ async function suggestSongs() {
     const box = document.getElementById("suggestions");
 
     box.innerHTML = matches.map(s => `
-        <div onclick="selectSuggestion('${s.title}')">
+        <div onclick="selectSuggestion('${s.title.replace(/'/g, "\\'")}')">
             ${s.title}
         </div>
     `).join("");
@@ -222,7 +225,7 @@ async function selectSuggestion(title) {
     document.getElementById("title").value = title;
     document.getElementById("suggestions").innerHTML = "";
 
-    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const docId = normalizeTitle(title).replace(/\s+/g, "-");
     const docRef = db.collection("songs").doc(docId);
 
     const snap = await docRef.get();
@@ -256,7 +259,7 @@ async function upload() {
         }
     }
 
-    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const docId = normalizeTitle(title).replace(/\s+/g, "-");
     const docRef = db.collection("songs").doc(docId);
 
     let existing = await docRef.get();
