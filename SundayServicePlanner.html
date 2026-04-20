@@ -180,10 +180,20 @@ window.addSong = () => {
                 <div id="suggest-${id}" class="absolute bg-white shadow-xl rounded-xl w-full hidden z-50 mt-1 border border-gray-100 overflow-hidden"></div>
             </div>
             <div id="serving-container-${id}" class="serving-display px-3 py-2 rounded-lg font-bold text-[#2c6999]"></div>
-            <select onchange="keyChanged('${id}')" class="song-key styled-input w-32">
-                <option value="">Key</option>
-                ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
-            </select>
+            <div class="flex gap-1">
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 1</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 2</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 3</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+            </div>
             <button onclick="this.parentElement.parentElement.remove(); updateSongNumbers();" class="text-gray-300 hover:text-red-500 text-2xl font-bold">&times;</button>
         </div>
 
@@ -303,7 +313,6 @@ window.selectSong = async (title, id) => {
     
     await showKeyInfo(id, title);
     
-    // Auto-load links even if no key is selected yet
     keyChanged(id);
 
     if (worshipLeaderName && worshipLeaderName !== "None") {
@@ -318,7 +327,7 @@ window.selectSong = async (title, id) => {
 window.keyChanged = async (id) => {
     const block = document.getElementById(`files-${id}`).closest('.song-block');
     const title = block.querySelector('.song-title').value;
-    const key = block.querySelector('.song-key').value;
+    const keys = Array.from(block.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
     const container = document.getElementById(`files-${id}`);
     
     if (!title) {
@@ -340,15 +349,7 @@ window.keyChanged = async (id) => {
         : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
     
     const allFiles = data.files || [];
-    const selectedKey = key ? key.trim().toLowerCase() : "";
-    const files = selectedKey ? allFiles.filter(f => f.key && f.key.trim().toLowerCase() === selectedKey) : [];
     
-    const grouped = {};
-    files.forEach(f => {
-        if (!grouped[f.type]) grouped[f.type] = [];
-        grouped[f.type].push(f);
-    });
-
     let html = `<div class="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">`;
     html += `
         <div class="text-[11px] mb-3 flex gap-4 flex-wrap font-bold">
@@ -358,20 +359,33 @@ window.keyChanged = async (id) => {
         </div>
     `;
 
-    if (key) {
-        if (files.length === 0) {
-            html += `<div class="text-xs text-amber-600 font-bold italic">No sheet music files found for key of ${key}</div>`;
-        } else {
-            Object.keys(grouped).forEach(type => {
-                html += `<div class="mt-2 text-[10px] text-[#2c6999] font-extrabold uppercase tracking-widest">${type}</div><div class="flex flex-wrap gap-2 mt-1">`;
-                grouped[type].forEach(file => {
-                    html += `<a href="${file.url}" target="_blank" class="inline-block text-[11px] bg-[#2c6999] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm hover:bg-[#1e4a6d]">Open File</a>`;
+    if (keys.length > 0) {
+        keys.forEach(k => {
+            const selectedKey = k.trim().toLowerCase();
+            const files = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === selectedKey);
+            
+            html += `<div class="mb-4 last:mb-0"><div class="text-xs font-bold text-[#2c6999] border-b border-blue-200 mb-2">Key: ${k}</div>`;
+            
+            if (files.length === 0) {
+                html += `<div class="text-xs text-amber-600 italic">No files found for ${k}</div>`;
+            } else {
+                const grouped = {};
+                files.forEach(f => {
+                    if (!grouped[f.type]) grouped[f.type] = [];
+                    grouped[f.type].push(f);
                 });
-                html += `</div>`;
-            });
-        }
+                Object.keys(grouped).forEach(type => {
+                    html += `<div class="mt-2 text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">${type}</div><div class="flex flex-wrap gap-2 mt-1">`;
+                    grouped[type].forEach(file => {
+                        html += `<a href="${file.url}" target="_blank" class="inline-block text-[11px] bg-[#2c6999] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm hover:bg-[#1e4a6d]">Open File</a>`;
+                    });
+                    html += `</div>`;
+                });
+            }
+            html += `</div>`;
+        });
     } else {
-        html += `<div class="text-xs text-gray-500 italic">Select a key to see sheet music files</div>`;
+        html += `<div class="text-xs text-gray-500 italic">Select up to 3 keys to see sheet music files</div>`;
     }
 
     html += `</div>`;
@@ -473,7 +487,12 @@ window.selectEvent = async () => {
                 const id = addSong();
                 const last = container.lastChild;
                 last.querySelector('.song-title').value = item.title;
-                last.querySelector('.song-key').value = item.key;
+                const keyInputs = last.querySelectorAll('.song-key');
+                if (Array.isArray(item.keys)) {
+                    item.keys.forEach((k, idx) => { if(keyInputs[idx]) keyInputs[idx].value = k; });
+                } else {
+                    if(keyInputs[0]) keyInputs[0].value = item.key || "";
+                }
                 last.querySelector('.song-note').value = item.notes;
                 showKeyInfo(id, item.title);
                 keyChanged(id);
@@ -510,7 +529,7 @@ window.saveSchedule = async () => {
             order.push({
                 type: "song",
                 title: b.querySelector('.song-title').value,
-                key: b.querySelector('.song-key').value,
+                keys: Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== ""),
                 notes: b.querySelector('.song-note').value
             });
         } else {
@@ -553,12 +572,10 @@ window.emailSchedule = async () => {
     let htmlEmail = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 650px; padding: 30px; background-color: #ffffff; margin: auto;">
             
-            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                    <td align="center" style="text-align: center;">
-                        <center>
-                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: inline-block; height: 190px !important; width: auto;">
-                        </center>
+                    <td align="center">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: block; outline: none; border: 0;">
                     </td>
                 </tr>
             </table>
@@ -566,7 +583,7 @@ window.emailSchedule = async () => {
             <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800; text-align: center; mso-line-height-rule: exactly; line-height: 28px;"><font color="#2c6999">Sunday Worship Plan</font></h1>
             <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin: 5px 0 25px 0; text-align: center;"><font color="#7f8c8d">${date} &bull; Worship Leader: ${worshipLeaderName}</font></p>
             
-            ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin: 0 0 0 0; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><font color="#1e4a6d"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</font></div>` : ''}
+            ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin: 0; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><font color="#1e4a6d"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</font></div>` : ''}
 
             <p style="margin:0; font-size:10pt;">&nbsp;</p>
 
@@ -592,15 +609,15 @@ window.emailSchedule = async () => {
     for (const b of blocks) {
         if (b.classList.contains('song-block')) {
             const title = b.querySelector('.song-title').value;
-            const key = b.querySelector('.song-key').value;
+            const keys = Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
             const notes = b.querySelector('.song-note').value;
             if (!title) continue;
 
             const docId = title.toLowerCase().replace(/\s+/g, "-");
             const snap = await getDoc(doc(db, "songs", docId));
+            
+            let resourcesHtml = "";
             let linksHtml = "";
-            let fileLinks = "";
-
             if (snap.exists()) {
                 const data = snap.data();
                 if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #e11d48; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#e11d48">YouTube</font></a>`;
@@ -608,10 +625,17 @@ window.emailSchedule = async () => {
                 if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
                 linksHtml += `<a href="${sSelect}" style="color: #7c3aed; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#7c3aed">SongSelect</font></a>`;
                 
-                if (data.files && key) {
-                    const files = data.files.filter(f => f.key && f.key.trim().toLowerCase() === key.trim().toLowerCase());
-                    files.forEach(f => {
-                        fileLinks += `<div style="margin-top: 6px;"><a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-size: 11px; font-weight: 600;"><font color="#2c6999">Download ${f.type}</font></a></div>`;
+                resourcesHtml += `<div style="margin-bottom: 8px;">${linksHtml}</div>`;
+                
+                if (keys.length > 0) {
+                    keys.forEach(k => {
+                        const files = (data.files || []).filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
+                        if (files.length > 0) {
+                            resourcesHtml += `<div style="font-size: 10px; color: #2c6999; font-weight: bold; margin-top: 5px;">Key: ${k}</div>`;
+                            files.forEach(f => {
+                                resourcesHtml += `<div style="margin-top: 2px;"><a href="${f.url}" style="color: #2c6999; text-decoration: underline; font-size: 11px; font-weight: 600;"><font color="#2c6999">Download ${f.type}</font></a></div>`;
+                            });
+                        }
                     });
                 }
             }
@@ -622,10 +646,9 @@ window.emailSchedule = async () => {
                         <p style="font-weight: 800; font-size: 14px; color: #1e293b; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#1e293b">${songIdx}. ${title}</font></p>
                         ${notes ? `<p style="font-style: italic; font-size: 11px; color: #64748b; margin: 4px 0 0 0; mso-line-height-rule: exactly; line-height: 13px;"><font color="#64748b">${notes}</font></p>` : ''}
                     </td>
-                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #2c6999; font-size: 14px;"><font color="#2c6999">${key || '-'}</font></td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #2c6999; font-size: 14px;"><font color="#2c6999">${keys.join(', ') || '-'}</font></td>
                     <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">
-                        <div style="margin-bottom: 5px;">${linksHtml}</div>
-                        ${fileLinks}
+                        ${resourcesHtml}
                     </td>
                 </tr>
             `;
