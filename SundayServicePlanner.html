@@ -544,7 +544,7 @@ window.emailSchedule = async () => {
             
             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
                 <tr>
-                    <td align="center" style="text-align: center;">
+                    <td align="center">
                         <center>
                             <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: inline-block; height: 190px !important; width: auto;">
                         </center>
@@ -555,15 +555,17 @@ window.emailSchedule = async () => {
             <h1 style="color: #2c6999; margin: 0; font-size: 24px; font-weight: 800; text-align: center; mso-line-height-rule: exactly; line-height: 28px;">Sunday Worship Plan</h1>
             <p style="text-transform: uppercase; font-weight: 700; color: #7f8c8d; letter-spacing: 1.5px; font-size: 11px; margin: 5px 0 25px 0; text-align: center;">${date} &bull; Worship Leader: ${worshipLeaderName}</p>
             
-            ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin: 0 0 30px 0; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</div>` : ''}
+            ${serviceNotes ? `<div style="background-color: #f0f7ff; border-left: 4px solid #2c6999; padding: 15px; margin: 0 0 0 0; font-size: 13px; color: #1e4a6d; line-height: 1.5;"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</div>` : ''}
 
-            ${introText ? `<div style="font-size: 14px; color: #444; margin: 0 0 25px 0; mso-line-height-rule: exactly; line-height: 16px;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
+            <p style="margin:0; font-size:10pt;">&nbsp;</p>
+
+            ${introText ? `<div style="font-size: 14px; color: #444; margin: 0 0 0 0; mso-line-height-rule: exactly; line-height: 16px;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
 
             <p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>
 
             <h2 style="text-align: left; border-bottom: 3px solid #2c6999; padding-bottom: 10px; color: #2c6999; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin: 0 0 20px 0;">Order of Service</h2>
 
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
                 <thead style="background-color: #f8fafc;">
                     <tr>
                         <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Title</th>
@@ -633,7 +635,7 @@ window.emailSchedule = async () => {
     
     htmlEmail += `</tbody></table>`;
 
-    // Double Spacing
+    // Double Spacing before Team
     htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
 
     // Team section
@@ -665,10 +667,10 @@ window.emailSchedule = async () => {
     });
     htmlEmail += `</tbody></table>`;
 
-    // Double Spacing
+    // Double Spacing before Outro
     htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
 
-    // Outro Remarks at the bottom
+    // Outro Remarks
     if (outroText) {
         htmlEmail += `
             <div style="font-size: 14px; color: #444; margin: 0; mso-line-height-rule: exactly; line-height: 16px;">${outroText.replace(/\n/g, '<br>')}</div>
