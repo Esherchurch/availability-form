@@ -14,6 +14,8 @@ textarea {
     font-weight: 700 !important;
     overflow: hidden;
     resize: none;
+    min-height: 80px;
+    line-height: 1.4;
 }
 
 .minimized {
@@ -191,7 +193,7 @@ window.loadSongsForRole = async () => {
 
         div.innerHTML = `
             <div class="flex justify-between items-center font-extrabold text-lg text-[#2c6999] cursor-pointer">
-                <span onclick="this.closest('.bg-white').querySelector('.body').classList.toggle('hidden')">
+                <span onclick="toggleBody(this)">
                     ${item.title} (${key})
                 </span>
                 <button onclick="toggleMin(this)">_</button>
@@ -238,11 +240,16 @@ window.loadSongsForRole = async () => {
         `;
 
         container.appendChild(div);
+    }
+};
 
-        setTimeout(() => {
-            const ta = div.querySelector("textarea");
-            if (ta) autoGrow(ta);
-        }, 0);
+window.toggleBody = (el) => {
+    const body = el.closest('.bg-white').querySelector('.body');
+    body.classList.toggle('hidden');
+
+    if (!body.classList.contains('hidden')) {
+        const ta = body.querySelector('textarea');
+        if (ta) setTimeout(() => autoGrow(ta), 50);
     }
 };
 
@@ -282,11 +289,11 @@ window.closePDF = () => {
 </script>
 </head>
 
-<body class="p-6 bg-[#f4f7fa] font-montserrat">
+<body class="p-4 bg-[#f4f7fa] font-montserrat">
 
 <div id="pdfViewer"></div>
 
-<div class="max-w-xl mx-auto space-y-6">
+<div class="w-full mx-auto space-y-6">
 
 <h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
 
