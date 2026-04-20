@@ -211,26 +211,25 @@ async function suggestSongs() {
 
     const box = document.getElementById("suggestions");
 
-    box.innerHTML = matches.map(s => `
-        <div onclick="selectSuggestion('${s.title.replace(/'/g, "\\'")}', '${s.id}')">
+    box.innerHTML = matches.map(s => {
+        // Use document ID to avoid issues with special characters in strings
+        return `<div onclick="selectSuggestion('${s.id}')">
             ${s.title}
-        </div>
-    `).join("");
+        </div>`;
+    }).join("");
 }
 
 // =======================
 // SELECT SONG
 // =======================
-async function selectSuggestion(title, id) {
-    document.getElementById("title").value = title;
-    document.getElementById("suggestions").innerHTML = "";
-
-    // Use the ID passed from the suggestion to ensure a perfect match
+async function selectSuggestion(id) {
     const docRef = db.collection("songs").doc(id);
     const snap = await docRef.get();
 
     if (snap.exists) {
         const data = snap.data();
+        document.getElementById("title").value = data.title;
+        document.getElementById("suggestions").innerHTML = "";
         document.getElementById("youtube").value = data.youtube || "";
         document.getElementById("ccli").value = data.ccli || "";
     }
@@ -258,7 +257,6 @@ async function upload() {
         }
     }
 
-    // Consistent docId generation
     const docId = normalizeTitle(title).replace(/\s+/g, "-");
     const docRef = db.collection("songs").doc(docId);
 
