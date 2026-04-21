@@ -21,6 +21,7 @@ body { font-family: 'Montserrat', sans-serif; }
     display: flex;
     flex-direction: column;
     gap: 14px;
+    box-sizing: border-box;
 }
 
 /* BUTTONS */
@@ -50,6 +51,10 @@ body { font-family: 'Montserrat', sans-serif; }
    padding:10px 14px;
    font-size:14px;
  }
+ .screen {
+   padding: 12px 8px;
+   gap: 10px;
+ }
 }
 
 /* TEXTAREA (EDIT MODE FIX ONLY) */
@@ -59,35 +64,38 @@ textarea {
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 28px;
+    padding: 24px;
     border-radius: 16px;
-    overflow: hidden;
+    overflow-y: auto;
     resize: none;
     box-sizing: border-box;
-    line-height: 1.5;
+    line-height: 1.4;
     margin-top: 10px;
     margin-bottom: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 /* MOBILE TEXT */
 @media (max-width:768px){
  textarea {
    font-size:18pt;
-   padding:20px;
+   padding:16px;
  }
 }
 
-/* PERFORMANCE MODE UNCHANGED */
+/* PERFORMANCE MODE SCALE FIX */
 .performance textarea {
-    font-size: clamp(18pt, 4vw, 28pt);
-    height: auto;
-    max-height: 70vh;
+    font-size: clamp(14pt, 5vw, 24pt);
+    height: 100% !important;
+    max-height: none;
+    flex-grow: 1;
 }
 
 /* SMALL BOX */
 .smallbox {
-    font-size: 16px;
+    font-size: 14px;
     opacity: 0.9;
+    padding: 0 4px;
 }
 
 /* MENU */
@@ -177,6 +185,7 @@ const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
 window.autoGrow = (el)=>{
+ if(performance) return;
  el.style.height = "auto";
  el.style.height = el.scrollHeight + "px";
 };
@@ -306,10 +315,10 @@ async function showSong(i){
  appDiv().innerHTML=`
  <div class="screen ${performance?'performance':''}">
 
-  <div style="display:flex;justify-content:space-between;">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
    <button class="btn" onclick="toggleMenu()">☰</button>
-   <div>${s.title}</div>
-   <div>
+   <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
+   <div style="display:flex; gap:5px;">
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
@@ -319,15 +328,15 @@ async function showSong(i){
    ${performance ? "Edit Mode" : "Performance Mode"}
   </button>
 
-  <div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
    ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
-    <label>
+    <label style="font-size: 14px;">
      <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
      onchange="toggleKey('${k}',this.checked)"> ${k}
     </label>`).join("")}
   </div>
 
-  <div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
    ${files.map(f=>`
     <button class="btn" onclick="openPDF('${f.url}')">
      ${f.type} (${f.key})
@@ -340,9 +349,8 @@ async function showSong(i){
   ${!performance ? `
     <div class="smallbox"><b>Instrument Notes:</b><br>${roleNotes}</div>
     <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
+    <button class="btn" onclick="save('${s.title}')">Save</button>
   ` : ""}
-
-  <button class="btn" onclick="save('${s.title}')">Save</button>
 
  </div>`;
 
