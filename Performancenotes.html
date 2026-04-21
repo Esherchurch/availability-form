@@ -23,25 +23,6 @@ body { font-family: 'Montserrat', sans-serif; }
     gap: 14px;
 }
 
-/* TEXTAREA FIX */
-textarea {
-    width: 100%;
-    font-size: 24pt; /* bigger */
-    font-weight: 700;
-    background: #020617;
-    color: white;
-    padding: 16px;
-    border-radius: 16px;
-    line-height: 1.5;
-    overflow: hidden;
-    resize: none;
-    min-height: 120px;
-}
-
-.performance textarea {
-    font-size: 30pt;
-}
-
 /* BUTTONS */
 .btn {
     background:#2c6999;
@@ -59,7 +40,31 @@ textarea {
     font-weight:800;
 }
 
-/* MENU */
+/* TEXTAREA (UPDATED ONLY HERE) */
+textarea {
+    width: 100%;
+    font-size: 24pt;
+    font-weight: 700;
+    background: #020617;
+    color: white;
+    padding: 16px;
+    border-radius: 16px;
+    overflow: hidden;
+    resize: none;
+}
+
+.performance textarea {
+    font-size: 30pt;
+    height: 70vh;
+}
+
+/* SMALL BOX */
+.smallbox {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+/* MENU FIXED */
 #menu {
     position: fixed;
     left: 0;
@@ -95,7 +100,7 @@ textarea {
 }
 #overlay.show { display:block; }
 
-/* PDF */
+/* PDF TRUE FULLSCREEN */
 #pdfViewer {
     position: fixed;
     inset: 0;
@@ -145,7 +150,7 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
-/* ✅ AUTO GROW (NEW) */
+/* ✅ AUTO GROW ADDED */
 window.autoGrow = (el)=>{
  el.style.height = "auto";
  el.style.height = el.scrollHeight + "px";
@@ -320,8 +325,8 @@ async function showSong(i){
  </div>`;
 
  setTimeout(()=>{
-   const ta = document.getElementById("notes");
-   if(ta) autoGrow(ta);
+  const ta = document.getElementById("notes");
+  if(ta) autoGrow(ta);
  },50);
 }
 
@@ -339,7 +344,7 @@ window.toggleKey=(k,on)=>{
 window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
 window.prev = ()=>{ if(index>0) showSong(index-1); };
 
-/* PDF FULLSCREEN FIX */
+/* PDF FULLSCREEN (UPDATED ONLY HERE) */
 window.openPDF = (url)=>{
  if(url.includes("drive")){
   const m=url.match(/\/d\/(.*?)\//);
@@ -361,7 +366,7 @@ window.openPDF = (url)=>{
 window.closePDF = ()=>{
  const v=document.getElementById("pdfViewer");
  v.style.display="none";
- v.innerHTML="";
+
  if(document.fullscreenElement){
    document.exitFullscreen();
  }
