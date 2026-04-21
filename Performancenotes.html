@@ -84,9 +84,26 @@ textarea {
  }
 }
 
+/* TABLET/LARGE SCREEN UPSCALING */
+@media (min-width: 1024px) {
+  textarea {
+    font-size: 34pt;
+    padding: 60px 80px !important;
+    line-height: 1.7;
+  }
+  .nav-btn {
+    padding: 20px 30px;
+    font-size: 24px;
+  }
+  .btn {
+    font-size: 18px;
+    padding: 18px 24px;
+  }
+}
+
 /* PERFORMANCE MODE SCALE FIX */
 .performance textarea {
-    font-size: clamp(14pt, 5vw, 24pt);
+    font-size: clamp(18pt, 4.5vw, 38pt);
     height: 100% !important;
     max-height: none;
     flex-grow: 1;
@@ -120,6 +137,12 @@ textarea {
     font-size: 14px;
     opacity: 0.9;
     padding: 0 4px;
+}
+
+@media (min-width: 1024px) {
+    .smallbox {
+        font-size: 18px;
+    }
 }
 
 /* MENU */
@@ -437,7 +460,6 @@ window.openPDF = (url)=>{
  }
 
  const v=document.getElementById("pdfViewer");
- // Clear previous contents and destroy old iframe before building new one
  v.innerHTML = ""; 
  v.style.display="block";
 
@@ -468,7 +490,6 @@ window.openPDF = (url)=>{
 window.closePDF = ()=>{
  const v=document.getElementById("pdfViewer");
  v.style.display="none";
- // Explicitly destroy the iframe to free memory and reset the connection
  v.innerHTML=""; 
 };
 
