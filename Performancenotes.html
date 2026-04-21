@@ -90,15 +90,27 @@ textarea {
     height: 100% !important;
     max-height: none;
     flex-grow: 1;
-    padding: 40px !important;
+    padding: 30px !important;
 }
 
 .performance .hide-perf {
     display: none !important;
 }
 
-.performance .btn, .performance .nav-btn {
-    transform: scale(0.85);
+/* PERFORMANCE ROW CONSOLIDATION */
+.perf-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
+
+.performance .btn-sm {
+    padding: 8px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* SMALL BOX */
@@ -334,9 +346,17 @@ async function showSong(i){
    </div>
   </div>
 
-  <button class="btn" onclick="togglePerformance()">
-   ${performance ? "Edit Mode" : "Performance Mode"}
-  </button>
+  <div class="perf-row">
+    <button class="btn ${performance ? 'btn-sm' : ''}" onclick="togglePerformance()">
+     ${performance ? "Edit" : "Performance Mode"}
+    </button>
+
+    ${performance ? files.map(f=>`
+      <button class="btn btn-sm" onclick="openPDF('${f.url}')">
+       ${f.type} (${f.key})
+      </button>
+    `).join("") : ""}
+  </div>
 
   <div class="hide-perf" style="display:flex; gap:10px; flex-wrap:wrap;">
    ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
@@ -346,7 +366,7 @@ async function showSong(i){
     </label>`).join("")}
   </div>
 
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+  <div class="hide-perf" style="display:flex; gap:8px; flex-wrap:wrap;">
    ${files.map(f=>`
     <button class="btn" onclick="openPDF('${f.url}')">
      ${f.type} (${f.key})
@@ -391,8 +411,6 @@ window.openPDF = (url)=>{
   const m = url.match(/\/d\/(.*?)\//);
   if(m) {
     const fileId = m[1];
-    // The 'preview' link is treated as a web page, not a raw file stream.
-    // This makes it significantly harder for Android to intercept it as a PDF.
     finalUrl = `https://drive.google.com/file/d/${fileId}/preview?rm=minimal`;
   }
  }
