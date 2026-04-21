@@ -19,10 +19,7 @@ body { font-family: Arial; padding: 40px; }
     cursor: pointer;
 }
 
-button {
-    margin-top: 10px;
-    padding: 10px;
-}
+button { margin-top: 10px; padding: 10px; }
 
 #progress {
     margin-top:20px;
@@ -37,7 +34,7 @@ button {
 <h2>Smart Upload</h2>
 
 <div class="dropzone" id="dropzone">
-    Click or Drag Folder Here
+    Click or Drag Files Here
 </div>
 
 <input type="file" id="fileInput" multiple style="display:none">
@@ -70,10 +67,8 @@ const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 const progress = document.getElementById("progress");
 
-// CLICK
 dropzone.onclick = () => fileInput.click();
 
-// FILE SELECT
 fileInput.onchange = (e) => {
     files = Array.from(e.target.files);
     currentIndex = 0;
@@ -81,7 +76,6 @@ fileInput.onchange = (e) => {
     start();
 };
 
-// DRAG
 dropzone.addEventListener("dragover", e => e.preventDefault());
 dropzone.addEventListener("drop", e => {
     e.preventDefault();
@@ -102,7 +96,7 @@ function normalize(t) {
     return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
 }
 
-// MATCH SONGS
+// MATCH
 function findMatches(title) {
     const norm = normalize(title);
     return songsCache.filter(s => normalize(s.title).includes(norm)).slice(0,3);
@@ -117,61 +111,22 @@ async function extractPDFText(file) {
     return content.items.map(i => i.str).join(" ");
 }
 
-// KEY DETECTION (FIXED)
-function detectKeyAdvanced(text, filename, matches) {
-
+// KEY DETECTION
+function detectKey(text) {
     let match = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
     if (match) return match[1];
 
-    match = text.match(/Key of\s*([A-G][#b]?m?)/i);
-    if (match) return match[1];
-
-    match = text.match(/\(Key\s*([A-G][#b]?m?)\)/i);
-    if (match) return match[1];
-
     const chords = text.match(/\b[A-G](#|b)?m?\b/g);
-
     if (chords && chords.length > 5) {
         const count = {};
-        chords.forEach(c => count[c] = (count[c]||0)+1);
+        chords.forEach(c => count[c]=(count[c]||0)+1);
         return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];
     }
-
-    if (matches.length > 0 && matches[0].key) return matches[0].key;
 
     return "";
 }
 
-// MANUAL SEARCH
-async function manualSearch() {
-
-    const query = prompt("Search for song:");
-
-    if (!query) return null;
-
-    const norm = normalize(query);
-
-    const results = songsCache
-        .filter(s => normalize(s.title).includes(norm))
-        .slice(0,10);
-
-    if (results.length === 0) {
-        alert("No results");
-        return null;
-    }
-
-    let msg = "Select:\n";
-
-    results.forEach((r,i)=> {
-        msg += `${i+1}. ${r.title}\n`;
-    });
-
-    const choice = prompt(msg);
-
-    return results[choice-1] || null;
-}
-
-// SAVE / LOAD PROGRESS
+// SAVE / LOAD
 function saveProgress() {
     localStorage.setItem("uploadProgress", JSON.stringify({ currentIndex }));
 }
@@ -212,17 +167,20 @@ async function start() {
 
         const detectedTitle = text.split("\n")[0] || file.name.replace(".pdf","");
         const matches = findMatches(detectedTitle);
-        const detectedKey = detectKeyAdvanced(text, file.name, matches);
+        let detectedKey = detectKey(text);
 
-        let msg = `${file.name}\n\nDetected: ${detectedTitle}\nKey: ${detectedKey || "?"}\n\n`;
+        // 🔥 KEY EDIT STEP
+        let userKey = prompt(`Detected Key: ${detectedKey || "Unknown"}\nEnter correct key or press OK to keep:`);
 
-        if (matches.length > 0) {
-            matches.forEach((m,i)=> msg += `${i+1}. ${m.title}\n`);
-        } else {
-            msg += "No matches found\n";
+        if (userKey !== null && userKey.trim() !== "") {
+            detectedKey = userKey.trim();
         }
 
-        msg += "\n1 = use match\n2 = search manually\n0 = new\nCancel = pause";
+        let msg = `${file.name}\nDetected: ${detectedTitle}\nKey: ${detectedKey}\n\n`;
+
+        matches.forEach((m,i)=> msg += `${i+1}. ${m.title}\n`);
+
+        msg += "\nEnter number, 0 = new, Cancel = pause";
 
         let choice = prompt(msg);
 
@@ -231,14 +189,7 @@ async function start() {
             return;
         }
 
-        let chosen = null;
-
-        if (choice === "2") {
-            chosen = await manualSearch();
-        } else if (choice > 0 && matches[choice-1]) {
-            chosen = matches[choice-1];
-        }
-
+        let chosen = matches[choice-1];
         let title = chosen ? chosen.title : detectedTitle;
 
         const id = normalize(title).replace(/\s+/g,"-");
