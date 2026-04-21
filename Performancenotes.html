@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Performance Mode</title>
 
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-body { font-family:sans-serif; background:#f4f7fa; }
+body { font-family: 'Montserrat', sans-serif; background:#f4f7fa; }
 
 .screen {
     position:fixed;
@@ -16,6 +17,8 @@ body { font-family:sans-serif; background:#f4f7fa; }
     background:#0f172a;
     color:white;
     padding:20px;
+    display:flex;
+    flex-direction:column;
 }
 
 textarea {
@@ -25,12 +28,45 @@ textarea {
     background:#020617;
     color:white;
     padding:12px;
+    border-radius:12px;
+}
+
+.performance textarea {
+    font-size:26pt;
+    height:70vh;
+}
+
+.smallbox {
+    font-size:12px;
+    opacity:0.7;
+    margin-top:10px;
+}
+
+#menu {
+    position:fixed;
+    left:0;
+    top:0;
+    bottom:0;
+    width:260px;
+    background:#1e293b;
+    transform:translateX(-100%);
+    transition:0.3s;
+    z-index:1000;
+}
+#menu.open { transform:translateX(0); }
+
+#pdfViewer {
+    position:fixed;
+    inset:0;
+    background:black;
+    display:none;
+    z-index:2000;
 }
 </style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, addDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp({
  apiKey:"AIzaSy...",
@@ -38,16 +74,25 @@ const app = initializeApp({
  projectId:"egbc-worship-planner"
 });
 
-const db=getFirestore(app);
+const db = getFirestore(app);
 
-let eventsForDay=[];
-let songs=[];
+let eventsForDay = [];
+let selectedEvent = null;
+let songs = [];
+let index = 0;
+let currentRole = "";
+let currentDate = "";
+let currentLeader = "";
+let selectedKeys = [];
+let performance = false;
 
+// LOAD EVENTS
 window.loadRota = async () => {
- const date=document.getElementById('date').value;
- const snap=await getDocs(collection(db,"events"));
+ const date = document.getElementById('date').value;
 
- eventsForDay=[];
+ const snap = await getDocs(collection(db,"events"));
+ eventsForDay = [];
+
  snap.forEach(d=>{
   const ev=d.data();
   if(ev.date===date && ev.archived!==true){
@@ -56,74 +101,207 @@ window.loadRota = async () => {
  });
 
  const sel=document.getElementById('service');
- sel.innerHTML='<option>Select Service</option>';
+ sel.innerHTML='<option value="">Select Service</option>';
+
  eventsForDay.forEach((ev,i)=>{
   sel.innerHTML+=`<option value="${i}">${ev.type}</option>`;
  });
 };
 
+// SELECT SERVICE
+window.selectService = () => {
+ const i=document.getElementById('service').value;
+ if(i==="") return;
+
+ selectedEvent = eventsForDay[i];
+ currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
+
+ const roleSel=document.getElementById('role');
+ roleSel.innerHTML='<option value="">Instrument</option>';
+
+ Object.keys(selectedEvent.assignments || {}).forEach(r=>{
+  roleSel.innerHTML+=`<option>${r}</option>`;
+ });
+};
+
+// LOAD SERVICE
 window.loadService = async () => {
 
- const date=document.getElementById('date').value;
+ currentDate = date.value;
+ currentRole = role.value;
 
- const serv=await getDocs(collection(db,"services"));
-
- songs=[];
-
- serv.forEach(d=>{
-  const s=d.data();
-
-  if(s.date===date){
-
-   console.log("SERVICE FOUND:", s);
-
-   songs = (s.order || []).filter(x => x.type === "song");
-  }
- });
-
- // 🔴 DEBUG OUTPUT
- if(songs.length===0){
-  document.getElementById("app").innerHTML=`
-  <div class="p-6">
-    <h2 class="text-xl font-bold text-red-600">No songs found</h2>
-    <p>Possible reasons:</p>
-    <ul style="margin-top:10px;">
-      <li>- Service not saved</li>
-      <li>- Songs not marked as type "song"</li>
-      <li>- Date mismatch</li>
-    </ul>
-  </div>`;
+ if(!currentDate || !currentRole){
+  alert("Please select date, service and role");
   return;
  }
 
- // ✅ FORCE SHOW FIRST SONG
- const s=songs[0];
+ try{ await navigator.wakeLock.request('screen'); }catch(e){}
+
+ const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
+
+ if(snap.empty){
+  alert("No saved service found");
+  return;
+ }
+
+ const service = snap.docs[0].data();
+
+ songs = (service.order || []).filter(x=>x.type==="song");
+
+ if(songs.length===0){
+  alert("No songs in service");
+  return;
+ }
+
+ buildMenu();
+ showSong(0);
 
  document.getElementById("startScreen").style.display="none";
+};
 
- document.getElementById("app").innerHTML=`
- <div class="screen">
-   <h1>${s.title}</h1>
-   <textarea>${s.notes || ""}</textarea>
+// MENU
+function buildMenu(){
+ menu.innerHTML="";
+ songs.forEach((s,i)=>{
+  menu.innerHTML+=`<div onclick="showSong(${i});toggleMenu()" style="padding:12px;border-bottom:1px solid #334155">${s.title}</div>`;
+ });
+}
+
+window.toggleMenu = ()=>menu.classList.toggle("open");
+
+// PERFORMANCE MODE
+window.togglePerformance = ()=>{
+ performance = !performance;
+ showSong(index);
+};
+
+// SHOW SONG
+async function showSong(i){
+
+ index = i;
+ const s = songs[i];
+ selectedKeys = s.keys || [];
+
+ const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
+ const data = songDoc.exists()?songDoc.data():{};
+ const allFiles = data.files || [];
+
+ const files = allFiles.filter(f=>selectedKeys.includes(f.key));
+
+ // LAST NOTES
+ const all = await getDocs(collection(db,"schedules"));
+ let last = null;
+
+ all.forEach(d=>{
+  const n=d.data();
+  if(n.worshipLeader===currentLeader &&
+     n.role===currentRole &&
+     n.songTitle===s.title &&
+     n.date!==currentDate){
+   if(!last || new Date(n.date)>new Date(last.date)) last=n;
+  }
+ });
+
+ const yourNotes = s.notes || "";
+
+ app.innerHTML=`
+ <div class="screen ${performance?'performance':''}">
+
+  <div style="display:flex;justify-content:space-between;">
+   <button onclick="toggleMenu()">☰</button>
+   <div>${s.title}</div>
+   <div>
+    <button onclick="prev()">⬅</button>
+    <button onclick="next()">➡</button>
+   </div>
+  </div>
+
+  <button onclick="togglePerformance()">Toggle Performance Mode</button>
+
+  <div style="margin-top:10px;">
+   ${selectedKeys.map(k=>`
+    <label style="margin-right:10px;">
+     <input type="checkbox" checked onchange="toggleKey('${k}',this.checked)"> ${k}
+    </label>`).join("")}
+  </div>
+
+  <div>
+   ${files.map(f=>`
+    <button onclick="openPDF('${f.url}')" style="padding:12px;margin:5px;background:#22c55e;border-radius:10px;">
+    ${f.type} (${f.key})
+    </button>`).join("")}
+  </div>
+
+  <textarea id="notes">${yourNotes}</textarea>
+
+  ${!performance?`
+  <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
+  `:""}
+
+  <button onclick="save('${s.title}')">Save</button>
+
  </div>`;
+}
+
+// KEY FILTER
+window.toggleKey=(k,on)=>{
+ if(on){selectedKeys.push(k);} 
+ else{selectedKeys=selectedKeys.filter(x=>x!==k);}
+ showSong(index);
+};
+
+// NAV
+window.next=()=>{ if(index<songs.length-1) showSong(index+1); };
+window.prev=()=>{ if(index>0) showSong(index-1); };
+
+// PDF
+window.openPDF=(url)=>{
+ if(url.includes("drive")){
+  const m=url.match(/\/d\/(.*?)\//);
+  if(m) url=`https://drive.google.com/file/d/${m[1]}/preview`;
+ }
+ pdfViewer.innerHTML=`<button onclick="closePDF()">Close</button><iframe src="${url}" style="width:100%;height:100%"></iframe>`;
+ pdfViewer.style.display="block";
+};
+
+window.closePDF=()=>pdfViewer.style.display="none";
+
+// SAVE
+window.save=async(song)=>{
+ const txt=document.getElementById("notes").value;
+ await addDoc(collection(db,"schedules"),{
+  date:currentDate,
+  role:currentRole,
+  worshipLeader:currentLeader,
+  songTitle:song,
+  notes:txt
+ });
 };
 </script>
 </head>
 
 <body>
 
-<div id="startScreen" class="p-6 space-y-4">
-<h1 class="text-xl font-bold">Performance Mode</h1>
+<div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
+<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
 
-<input type="date" id="date" onchange="loadRota()" class="w-full p-3">
+<input type="date" id="date" onchange="loadRota()" class="w-full p-3 rounded-xl">
 
-<select id="service" class="w-full p-3"></select>
+<select id="service" onchange="selectService()" class="w-full p-3 rounded-xl">
+<option>Select Service</option>
+</select>
 
-<button onclick="loadService()" class="w-full bg-blue-600 text-white p-3">
+<select id="role" class="w-full p-3 rounded-xl">
+<option>Instrument</option>
+</select>
+
+<button onclick="loadService()" class="w-full bg-[#2c6999] text-white p-3 rounded-xl font-bold">
 Load Service
 </button>
 </div>
 
+<div id="menu"></div>
+<div id="pdfViewer"></div>
 <div id="app"></div>
 
 </body>
