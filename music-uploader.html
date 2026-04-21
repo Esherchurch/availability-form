@@ -6,8 +6,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-<!-- PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
 <style>
@@ -21,24 +19,6 @@ border-radius: 20px;
 cursor: pointer;
 }
 
-.dropzone.dragover {
-background: #e8f4ff;
-}
-
-#suggestions {
-border: 1px solid #ddd;
-max-width: 300px;
-}
-
-.suggestion-item {
-padding: 5px;
-cursor: pointer;
-}
-
-.suggestion-item:hover {
-background: #f0f0f0;
-}
-
 table {
 margin-top: 20px;
 border-collapse: collapse;
@@ -47,44 +27,48 @@ width: 100%;
 
 td, th {
 border: 1px solid #ddd;
-padding: 8px;
+padding: 6px;
+font-size: 12px;
 }
+
+.status-new { background:#d4edda; }
+.status-exists { background:#f8d7da; }
+.status-review { background:#fff3cd; }
+
 </style>
 </head>
 
 <body>
 
-<h2>Upload Song</h2>
+<h2>Upload Song (Original)</h2>
 
-<label>
-<input type="checkbox" id="smartMode">
-Smart Assist Mode
-</label><br><br>
-
-<input id="title" placeholder="Song Title" oninput="suggestSongs()"><br>
-<div id="suggestions"></div><br>
-
+<input id="title" placeholder="Song Title"><br><br>
 <input id="youtube" placeholder="YouTube link"><br><br>
 <input id="ccli" placeholder="CCLI"><br><br>
 
 <div class="dropzone" id="dropzone">
-Drag & Drop OR Click to Select Files
+Drag & Drop Files
 </div>
 
 <input type="file" id="fileInput" multiple style="display:none">
 
-<table id="fileTable">
+<h2>Batch Processing</h2>
+
+<button onclick="scanFiles()">Scan Files</button>
+<button onclick="processAll()">Process All</button>
+
+<table id="batchTable">
 <thead>
 <tr>
 <th>File</th>
-<th>Type</th>
+<th>Title</th>
 <th>Key</th>
+<th>Type</th>
+<th>Status</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
-
-<button onclick="upload()">Upload</button>
 
 <script>
 
@@ -96,246 +80,184 @@ storageBucket: "egbc-worship-planner.firebasestorage.app"
 };
 
 firebase.initializeApp(firebaseConfig);
-
 const storage = firebase.storage();
 const db = firebase.firestore();
 
-let files = [];
+let rawFiles = [];
+let rows = [];
+let songsCache = [];
 
-const ALL_KEYS = [
-"C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B",
-"Cm","C#m","Dbm","Dm","D#m","Ebm","Em","Fm","F#m","Gbm","Gm","G#m","Abm","Am","A#m","Bbm","Bm"
-];
+const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 
-const dropzone = document.getElementById("dropzone");
-const fileInput = document.getElementById("fileInput");
+document.getElementById("dropzone").onclick = () => fileInput.click();
 
-dropzone.addEventListener("click", () => fileInput.click());
+fileInput.onchange = (e)=> rawFiles = Array.from(e.target.files);
 
-fileInput.addEventListener("change", (e) => {
-addFiles(e.target.files);
-});
-
-dropzone.addEventListener("dragover", e => e.preventDefault());
-
-dropzone.addEventListener("drop", e => {
+dropzone.addEventListener("drop", e=>{
 e.preventDefault();
-addFiles(e.dataTransfer.files);
+rawFiles = Array.from(e.dataTransfer.files);
 });
 
-// =======================
-// PDF READ
-// =======================
-async function extractPDFText(file) {
-const buffer = await file.arrayBuffer();
-const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
-const page = await pdf.getPage(1);
-const content = await page.getTextContent();
-return content.items.map(i => i.str).join(" ");
+// ================= LOAD SONGS =================
+async function loadSongs() {
+const snap = await db.collection("songs").get();
+songsCache = snap.docs.map(d=>({id:d.id,...d.data()}));
 }
 
-// =======================
-// ADD FILES
-// =======================
-async function addFiles(newFiles) {
-
-for (const file of newFiles) {
-
-let detectedKey = detectKey(file.name);
-let detectedTitle = file.name.replace(".pdf","");
-
-if (document.getElementById("smartMode").checked && file.type === "application/pdf") {
-try {
-const text = await extractPDFText(file);
-
-// KEY detection
-let match = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
-if (match) detectedKey = match[1];
-
-// TITLE detection (very simple)
-let firstLine = text.split("\n")[0];
-if (firstLine.length > 3 && firstLine.length < 60) {
-detectedTitle = firstLine;
+// ================= NORMALIZE =================
+function normalize(t){
+return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
 }
 
-} catch(e) {}
+// ================= MATCH =================
+function findMatch(title){
+const norm = normalize(title);
+return songsCache.find(s=>normalize(s.title).includes(norm));
 }
 
-// auto fill title ONLY if empty
-if (!document.getElementById("title").value && detectedTitle) {
-document.getElementById("title").value = detectedTitle;
-suggestSongs();
-}
+// ================= KEY =================
+function detectKey(text,name){
+let m = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
+if(m) return m[1];
 
-files.push({
-file: file,
-type: "",
-key: detectedKey || ""
-});
+for(const k of ["A","B","C","D","E","F","G"]){
+if(name.includes(" "+k)) return k;
 }
-
-renderFiles();
-}
-
-// =======================
-// KEY FROM FILENAME
-// =======================
-function detectKey(name) {
-const lower = name.toLowerCase();
-
-for (const key of ALL_KEYS) {
-if (lower.includes(` ${key.toLowerCase()}`) || lower.includes(`(${key.toLowerCase()})`)) {
-return key;
-}
-}
-
 return "";
 }
 
-// =======================
-// RENDER
-// =======================
-function renderFiles() {
-const tbody = document.querySelector("#fileTable tbody");
+// ================= PDF =================
+async function readPDF(file){
+try{
+const buf = await file.arrayBuffer();
+const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+const page = await pdf.getPage(1);
+const txt = await page.getTextContent();
+return txt.items.map(i=>i.str).join(" ");
+}catch{
+return "";
+}
+}
 
-tbody.innerHTML = files.map((f, i) => `
-<tr>
-<td>${f.file.name}</td>
+// ================= SCAN =================
+async function scanFiles(){
+
+await loadSongs();
+rows = [];
+
+for(const file of rawFiles){
+
+let text = await readPDF(file);
+
+let title = file.name.replace(".pdf","");
+if(text){
+let line = text.split("\n")[0];
+if(line.length<60) title=line;
+}
+
+let match = findMatch(title);
+
+let key = detectKey(text,file.name);
+
+let status = "NEW";
+
+if(match){
+let exists = (match.files||[]).find(f=>f.key===key);
+if(exists) status="EXISTS";
+}
+
+if(!match) status="REVIEW";
+
+rows.push({
+file,
+title,
+key,
+type:"",
+match,
+status
+});
+}
+
+renderTable();
+}
+
+// ================= RENDER =================
+function renderTable(){
+
+const tbody = document.querySelector("#batchTable tbody");
+
+tbody.innerHTML = rows.map((r,i)=>`
+
+<tr class="status-${r.status.toLowerCase()}">
+
+<td>${r.file.name}</td>
 
 <td>
-<select onchange="updateType(${i}, this.value)">
+<input value="${r.title}" onchange="rows[${i}].title=this.value">
+</td>
+
+<td>
+<input value="${r.key}" onchange="rows[${i}].key=this.value">
+</td>
+
+<td>
+<select onchange="rows[${i}].type=this.value">
 <option value="">Type</option>
-<option ${f.type==="Lead Sheet"?"selected":""}>Lead Sheet</option>
-<option ${f.type==="Chord Sheet"?"selected":""}>Chord Sheet</option>
-<option ${f.type==="Lyrics"?"selected":""}>Lyrics</option>
-<option ${f.type==="Bass Tabs"?"selected":""}>Bass Tabs</option>
+${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
 </select>
 </td>
 
-<td>
-<select onchange="updateKey(${i}, this.value)">
-<option value="">Key</option>
-${ALL_KEYS.map(k => `<option ${f.key===k?"selected":""}>${k}</option>`).join('')}
-</select>
-</td>
+<td>${r.status}</td>
+
 </tr>
+
 `).join("");
 }
 
-function updateType(i, val) { files[i].type = val; }
-function updateKey(i, val) { files[i].key = val; }
+// ================= PROCESS =================
+async function processAll(){
 
-// =======================
-// NORMALIZE
-// =======================
-function normalizeTitle(title) {
-return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
-}
+for(const r of rows){
 
-// =======================
-// SUGGEST
-// =======================
-async function suggestSongs() {
-const input = document.getElementById("title").value;
-const norm = normalizeTitle(input);
+if(r.status==="EXISTS") continue;
 
-if (norm.length < 2) {
-document.getElementById("suggestions").innerHTML = "";
+if(!r.type || !r.key){
+alert("Missing type/key on "+r.file.name);
 return;
 }
 
-const snapshot = await db.collection("songs").get();
+let title = r.title;
+let id = normalize(title).replace(/\s+/g,"-");
 
-const matches = snapshot.docs
-.map(doc => ({ id: doc.id, ...doc.data() }))
-.filter(song => {
-const songNorm = song.normalized || normalizeTitle(song.title);
-return songNorm.includes(norm);
-});
+let docRef = db.collection("songs").doc(id);
+let snap = await docRef.get();
 
-const box = document.getElementById("suggestions");
-box.innerHTML = "";
+let data = snap.exists ? snap.data() : {};
 
-matches.forEach(s => {
-const div = document.createElement("div");
-div.className = "suggestion-item";
-div.textContent = s.title;
-div.addEventListener("click", () => selectSuggestion(s.id));
-box.appendChild(div);
-});
-}
+let files = data.files || [];
 
-// =======================
-// SELECT SONG
-// =======================
-async function selectSuggestion(id) {
-const docRef = db.collection("songs").doc(id);
-const snap = await docRef.get();
-
-if (snap.exists) {
-const data = snap.data();
-document.getElementById("title").value = data.title;
-document.getElementById("suggestions").innerHTML = "";
-document.getElementById("youtube").value = data.youtube || "";
-document.getElementById("ccli").value = data.ccli || "";
-}
-}
-
-// =======================
-// UPLOAD (UNCHANGED CORE)
-// =======================
-async function upload() {
-
-const title = document.getElementById("title").value.trim();
-const youtube = document.getElementById("youtube").value;
-const ccli = document.getElementById("ccli").value;
-
-if (!title || files.length === 0) {
-alert("Add title and files");
-return;
-}
-
-for (const f of files) {
-if (!f.type || !f.key) {
-alert("Each file needs a type and key");
-return;
-}
-}
-
-const docId = normalizeTitle(title).replace(/\s+/g, "-");
-const docRef = db.collection("songs").doc(docId);
-
-let existing = await docRef.get();
-let existingData = existing.exists ? existing.data() : {};
-
-let uploadedFiles = existingData.files || [];
-
-for (const f of files) {
-const ref = storage.ref(`songs/${docId}/${f.file.name}`);
-await ref.put(f.file);
-
+const ref = storage.ref(`songs/${id}/${r.file.name}`);
+await ref.put(r.file);
 const url = await ref.getDownloadURL();
 
-uploadedFiles.push({
-name: f.file.name,
-url: url,
-type: f.type,
-key: f.key
+files.push({
+name:r.file.name,
+url,
+type:r.type,
+key:r.key
 });
-}
 
 await docRef.set({
 title,
-normalized: normalizeTitle(title),
-youtube,
-ccli,
-files: uploadedFiles
-}, { merge: true });
+normalized: normalize(title),
+youtube: data.youtube || "",
+ccli: data.ccli || "",
+files
+},{merge:true});
 
-alert("Upload complete!");
+}
 
-files = [];
-renderFiles();
+alert("Done!");
 }
 
 </script>
