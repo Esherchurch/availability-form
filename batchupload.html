@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Importer (Accurate + Working)</title>
+<title>Batch Music Importer (With Suggestions)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -32,7 +32,14 @@ td, th { border: 1px solid #ddd; padding: 6px; }
 
 input, select { width: 100%; }
 
-button { margin: 2px; }
+button { margin: 2px; font-size: 11px; }
+
+.youtube-option {
+cursor:pointer;
+color:blue;
+text-decoration:underline;
+display:block;
+}
 </style>
 </head>
 
@@ -54,12 +61,13 @@ Drag folder OR click to select
 <thead>
 <tr>
 <th>File</th>
-<th>Detected Title</th>
+<th>Title</th>
 <th>Key</th>
 <th>Type</th>
 <th>Match</th>
 <th>YouTube</th>
 <th>CCLI</th>
+<th>Assist</th>
 <th>Status</th>
 <th>Action</th>
 </tr>
@@ -69,7 +77,7 @@ Drag folder OR click to select
 
 <script>
 
-// FIREBASE CONFIG
+// FIREBASE
 const firebaseConfig = {
 apiKey: "YOUR_KEY",
 authDomain: "egbc-worship-planner.firebaseapp.com",
@@ -93,36 +101,23 @@ const snap = await db.collection("songs").get();
 songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
-// CLEAN TITLE (CRITICAL FIX)
+// CLEAN TITLE
 function cleanTitle(name){
 
 let t = name.toLowerCase();
 
-// remove extension
 t = t.replace(".pdf","");
-
-// remove brackets
 t = t.replace(/\(.*?\)/g,"");
-
-// remove keywords
 t = t.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"");
-
-// remove "in key"
 t = t.replace(/\bin [a-g](#|b)?\b/g,"");
-
-// remove standalone keys
 t = t.replace(/\b[a-g](#|b)?\b/g,"");
-
-// remove extra chars
 t = t.replace(/[^a-z0-9 ]/g,"");
-
-// clean spaces
 t = t.replace(/\s+/g," ").trim();
 
 return t;
 }
 
-// MATCHING (WORD BASED)
+// MATCH
 function getMatches(title){
 
 const words = title.split(" ");
@@ -132,7 +127,6 @@ return songs.map(s => {
 const sWords = s.title.toLowerCase().split(" ");
 
 let overlap = words.filter(w => sWords.includes(w));
-
 let score = overlap.length / sWords.length;
 
 return {song:s, score};
@@ -152,16 +146,10 @@ fileInput.onchange = e => handleFiles(Array.from(e.target.files));
 
 dropzone.addEventListener("dragover", e=>{
 e.preventDefault();
-dropzone.classList.add("dragover");
-});
-
-dropzone.addEventListener("dragleave", ()=>{
-dropzone.classList.remove("dragover");
 });
 
 dropzone.addEventListener("drop", async e=>{
 e.preventDefault();
-dropzone.classList.remove("dragover");
 
 let files = [];
 
@@ -173,7 +161,7 @@ await traverse(entry, files);
 handleFiles(files);
 });
 
-// FOLDER TRAVERSAL
+// TRAVERSE
 async function traverse(entry, files){
 
 if(entry.isFile){
@@ -226,6 +214,7 @@ matches,
 match:matches[0]?.song || null,
 youtube:matches[0]?.song?.youtube || "",
 ccli:matches[0]?.song?.ccli || "",
+youtubeOptions:[],
 skip:false,
 force:false
 };
@@ -239,7 +228,9 @@ function getStatus(r){
 
 if(r.skip) return "SKIPPED";
 
-if(!r.match || !r.key || !r.type) return "REVIEW";
+if(!r.match) return "NEW";
+
+if(!r.key || !r.type) return "REVIEW";
 
 let dup = (r.match.files||[]).find(f =>
 f.key===r.key && f.type===r.type
@@ -248,6 +239,22 @@ f.key===r.key && f.type===r.type
 if(dup && !r.force) return "EXISTS";
 
 return "NEW";
+}
+
+// YOUTUBE SEARCH
+function searchYouTube(i){
+
+let query = encodeURIComponent(rows[i].title);
+
+fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&maxResults=3&type=video&key=YOUR_YOUTUBE_API_KEY`)
+.then(res=>res.json())
+.then(data=>{
+rows[i].youtubeOptions = data.items.map(v=>({
+title:v.snippet.title,
+url:`https://www.youtube.com/watch?v=${v.id.videoId}`
+}));
+render();
+});
 }
 
 // RENDER
@@ -284,6 +291,7 @@ ${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
 
 <td>
 <select>
+<option value="">New Song</option>
 ${r.matches.map(m=>`
 <option value="${m.song.id}" ${r.match?.id===m.song.id?"selected":""}>
 ${m.song.title}
@@ -291,20 +299,35 @@ ${m.song.title}
 </select>
 </td>
 
-<td><input value="${r.youtube}"></td>
+<td>
+<input value="${r.youtube}">
+<div>
+${r.youtubeOptions.map(v=>`
+<span class="youtube-option" onclick="selectYouTube(${i},'${v.url}')">${v.title}</span>
+`).join("")}
+</div>
+</td>
+
 <td><input value="${r.ccli}"></td>
+
+<td>
+${!r.match ? `
+<button onclick="searchYouTube(${i})">Find YouTube</button>
+<button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
+` : ""}
+</td>
 
 <td>${status}</td>
 
 <td>
-<button>Skip</button>
-<button>Force</button>
+<button onclick="rows[${i}].skip=true; render()">Skip</button>
+<button onclick="rows[${i}].force=true; render()">Force</button>
 </td>
 `;
 
 tbody.appendChild(tr);
 
-const inputs = tr.querySelectorAll("input, select, button");
+const inputs = tr.querySelectorAll("input, select");
 
 inputs[0].onchange = e => { r.title=e.target.value; render(); };
 inputs[1].onchange = e => { r.key=e.target.value; render(); };
@@ -312,20 +335,26 @@ inputs[2].onchange = e => { r.type=e.target.value; render(); };
 
 inputs[3].onchange = e => {
 let m = r.matches.find(x=>x.song.id===e.target.value);
-r.match = m.song;
-r.youtube = m.song.youtube || "";
-r.ccli = m.song.ccli || "";
+r.match = m ? m.song : null;
+if(r.match){
+r.youtube = r.match.youtube || "";
+r.ccli = r.match.ccli || "";
+}
 render();
 };
 
 inputs[4].onchange = e => { r.youtube=e.target.value; };
 inputs[5].onchange = e => { r.ccli=e.target.value; };
 
-inputs[6].onclick = () => { r.skip=true; render(); };
-inputs[7].onclick = () => { r.force=true; render(); };
-
 });
 
+}
+
+// SELECT YOUTUBE
+function selectYouTube(i,url){
+rows[i].youtube = url;
+rows[i].youtubeOptions = [];
+render();
 }
 
 // PROCESS
@@ -344,7 +373,7 @@ alert("Fix: "+r.file.name);
 return;
 }
 
-const id = r.match.id;
+let id = r.match ? r.match.id : r.title.replace(/\s+/g,"-");
 
 const ref = storage.ref(`songs/${id}/${r.file.name}`);
 await ref.put(r.file);
@@ -364,8 +393,8 @@ key:r.key
 });
 
 await docRef.set({
-title:r.match.title,
-normalized: r.match.title.toLowerCase(),
+title:r.title,
+normalized:r.title.toLowerCase(),
 youtube:r.youtube,
 ccli:r.ccli,
 files
