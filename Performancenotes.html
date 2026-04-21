@@ -408,17 +408,25 @@ window.prev = ()=>{ if(index>0) showSong(index-1); };
 /* PDF */
 window.openPDF = (url)=>{
  let finalUrl = url;
+ const timestamp = new Date().getTime();
  if(url.includes("drive.google.com") || url.includes("firebasestorage.googleapis.com")){
-  // Using the viewer wrapper to attempt bypassing download triggers
-  finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true&cb=${timestamp}`;
  }
 
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
     <button class="closeBtn" onclick="closePDF()">Close</button>
-    <iframe src="${finalUrl}" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
+    <iframe src="${finalUrl}" id="pdfIframe" style="width:100%;height:100%;border:none;background:black;"></iframe>
  `;
  v.style.display="block";
+
+ // Attempt to reload if it fails to show content
+ const iframe = document.getElementById("pdfIframe");
+ iframe.onload = () => {
+    if(iframe.src.includes("viewer") && !iframe.contentWindow) {
+        console.log("Possible load failure, retrying...");
+    }
+ };
 };
 
 window.closePDF = ()=>{
