@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Upload (Stable)</title>
+<title>Batch Upload (Stable Base)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -19,6 +19,10 @@ cursor: pointer;
 margin-bottom: 20px;
 }
 
+.dropzone.dragover {
+background: #e8f4ff;
+}
+
 table {
 border-collapse: collapse;
 width: 100%;
@@ -29,38 +33,26 @@ border: 1px solid #ddd;
 padding: 6px;
 font-size: 12px;
 }
-
-.status-new { background:#d4edda; }
-.status-exists { background:#f8d7da; }
-.status-review { background:#fff3cd; }
-
-input, select { width: 100%; }
 </style>
 </head>
 
 <body>
 
-<h2>Batch Upload (Safe Mode)</h2>
+<h2>Batch Upload</h2>
 
 <div class="dropzone" id="dropzone">
-Click to select files OR folder
+Click or Drag Files Here
 </div>
 
-<!-- IMPORTANT: supports folders -->
-<input type="file" id="fileInput" multiple webkitdirectory style="display:none">
+<input type="file" id="fileInput" multiple style="display:none">
 
 <div id="status"></div>
-
-<button onclick="processAll()">Process All (Manual)</button>
 
 <table id="table">
 <thead>
 <tr>
 <th>File</th>
-<th>Song</th>
-<th>Key</th>
-<th>Type</th>
-<th>Status</th>
+<th>Title</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -68,173 +60,59 @@ Click to select files OR folder
 
 <script>
 
-const firebaseConfig = {
-apiKey: "YOUR_KEY",
-authDomain: "egbc-worship-planner.firebaseapp.com",
-projectId: "egbc-worship-planner",
-storageBucket: "egbc-worship-planner.firebasestorage.app"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
-
-let rows = [];
-let songs = [];
-
-const ALL_KEYS = ["C","D","E","F","G","A","B","Bb","Eb","Ab"];
-const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
+let rawFiles = [];
 
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
-dropzone.onclick = () => fileInput.click();
-
-// ================= LOAD SONGS =================
-async function loadSongs(){
-const snap = await db.collection("songs").get();
-songs = snap.docs.map(d => ({id:d.id,...d.data()}));
-}
+// ================= CLICK =================
+dropzone.addEventListener("click", () => {
+fileInput.click();
+});
 
 // ================= FILE SELECT =================
-fileInput.onchange = async (e) => {
+fileInput.addEventListener("change", (e) => {
+handleFiles(e.target.files);
+});
 
-const files = Array.from(e.target.files);
+// ================= DRAG =================
+dropzone.addEventListener("dragover", (e) => {
+e.preventDefault();
+dropzone.classList.add("dragover");
+});
 
-if(files.length === 0){
-document.getElementById("status").innerText = "No files detected";
-return;
-}
+dropzone.addEventListener("dragleave", () => {
+dropzone.classList.remove("dragover");
+});
 
-document.getElementById("status").innerText = files.length + " files loaded";
+dropzone.addEventListener("drop", (e) => {
+e.preventDefault();
+dropzone.classList.remove("dragover");
+handleFiles(e.dataTransfer.files);
+});
 
-await loadSongs();
+// ================= HANDLE FILES =================
+function handleFiles(files){
 
-rows = files.map(f => ({
-file: f,
-title: f.name.replace(".pdf",""),
-key: "",
-type: "",
-match: null,
-status: "REVIEW"
-}));
+rawFiles = Array.from(files);
 
-render();
-};
+document.getElementById("status").innerText =
+rawFiles.length + " files loaded";
 
-// ================= MATCH =================
-function suggest(title){
-return songs.filter(s =>
-s.title.toLowerCase().includes(title.toLowerCase())
-).slice(0,5);
-}
-
-// ================= STATUS =================
-function updateStatus(r){
-
-if(!r.match || !r.key || !r.type){
-r.status = "REVIEW";
-return;
-}
-
-const dup = (r.match.files||[]).find(f =>
-f.key===r.key && f.type===r.type
-);
-
-r.status = dup ? "EXISTS" : "NEW";
+renderTable();
 }
 
 // ================= RENDER =================
-function render(){
+function renderTable(){
 
 const tbody = document.querySelector("#table tbody");
 
-tbody.innerHTML = rows.map((r,i)=>{
-
-updateStatus(r);
-
-return `
-<tr class="status-${r.status.toLowerCase()}">
-
-<td>${r.file.name}</td>
-
-<td>
-<input value="${r.title}" oninput="rows[${i}].title=this.value; render();">
-<div>
-${suggest(r.title).map(s=>`
-<div style="cursor:pointer;color:blue" onclick="
-rows[${i}].match=songs.find(x=>x.id==='${s.id}');
-rows[${i}].title='${s.title}';
-render();
-">${s.title}</div>
-`).join("")}
-</div>
-</td>
-
-<td>
-<select onchange="rows[${i}].key=this.value; render();">
-<option value="">Key</option>
-${ALL_KEYS.map(k=>`<option ${r.key===k?'selected':''}>${k}</option>`).join("")}
-</select>
-</td>
-
-<td>
-<select onchange="rows[${i}].type=this.value; render();">
-<option value="">Type</option>
-${TYPES.map(t=>`<option ${r.type===t?'selected':''}>${t}</option>`).join("")}
-</select>
-</td>
-
-<td>${r.status}</td>
-
+tbody.innerHTML = rawFiles.map(f => `
+<tr>
+<td>${f.name}</td>
+<td>${f.name.replace(".pdf","")}</td>
 </tr>
-`;
-}).join("");
-}
-
-// ================= PROCESS =================
-async function processAll(){
-
-if(!confirm("Are you sure you want to upload?")) return;
-
-for(const r of rows){
-
-if(r.status==="EXISTS") continue;
-
-if(r.status==="REVIEW"){
-alert("Fix: "+r.file.name);
-return;
-}
-
-const id = r.match ? r.match.id : r.title.toLowerCase().replace(/\s+/g,"-");
-
-const ref = storage.ref(`songs/${id}/${r.file.name}`);
-await ref.put(r.file);
-const url = await ref.getDownloadURL();
-
-const docRef = db.collection("songs").doc(id);
-const snap = await docRef.get();
-const data = snap.exists ? snap.data() : {};
-
-let files = data.files || [];
-
-files.push({
-name:r.file.name,
-url,
-type:r.type,
-key:r.key
-});
-
-await docRef.set({
-title:r.title,
-normalized:r.title.toLowerCase(),
-youtube:data.youtube || "",
-ccli:data.ccli || "",
-files
-},{merge:true});
-}
-
-alert("Upload complete");
+`).join("");
 }
 
 </script>
