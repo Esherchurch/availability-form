@@ -162,7 +162,7 @@ textarea {
 #pdfViewer {
     position: fixed;
     inset: 0;
-    background: black;
+    background: white;
     display: none;
     z-index: 9999;
 }
@@ -395,7 +395,7 @@ async function showSong(i){
     <button class="btn" onclick="openPDF('${f.url}')">
      ${f.type} (${f.key})
     </button>
-   `).join("")}
+    `).join("")}
   </div>
 
   <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
@@ -437,24 +437,39 @@ window.openPDF = (url)=>{
  }
 
  const v=document.getElementById("pdfViewer");
- v.innerHTML=`
-    <button class="closeBtn" onclick="closePDF()">Close</button>
-    <div id="loader" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-weight:bold;">Loading PDF...</div>
-    <iframe src="${finalUrl}" id="pdfIframe" style="width:100%;height:100%;border:none;background:black;display:none;"></iframe>
- `;
+ // Clear previous contents and destroy old iframe before building new one
+ v.innerHTML = ""; 
  v.style.display="block";
 
- const iframe = document.getElementById("pdfIframe");
+ const loader = document.createElement("div");
+ loader.id = "pdfLoader";
+ loader.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:black;font-weight:bold;";
+ loader.innerText = "Loading PDF...";
+ 
+ const closeBtn = document.createElement("button");
+ closeBtn.className = "closeBtn";
+ closeBtn.innerText = "Close";
+ closeBtn.onclick = closePDF;
+
+ const iframe = document.createElement("iframe");
+ iframe.id = "pdfIframe";
+ iframe.style.cssText = "width:100%;height:100%;border:none;background:white;display:none;";
+ iframe.src = finalUrl;
  iframe.onload = () => {
-    document.getElementById("loader").style.display = "none";
+    loader.style.display = "none";
     iframe.style.display = "block";
  };
+
+ v.appendChild(closeBtn);
+ v.appendChild(loader);
+ v.appendChild(iframe);
 };
 
 window.closePDF = ()=>{
  const v=document.getElementById("pdfViewer");
  v.style.display="none";
- v.innerHTML="";
+ // Explicitly destroy the iframe to free memory and reset the connection
+ v.innerHTML=""; 
 };
 
 /* SAVE */
