@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Music Upload</title>
+<title>Smart Music Upload</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -19,9 +19,14 @@ body { font-family: Arial; padding: 40px; }
     cursor: pointer;
 }
 
-#progressBox {
+button {
+    margin-top: 10px;
+    padding: 10px;
+}
+
+#progress {
     margin-top:20px;
-    padding:15px;
+    padding:10px;
     border:1px solid #ccc;
 }
 </style>
@@ -32,12 +37,15 @@ body { font-family: Arial; padding: 40px; }
 <h2>Smart Upload</h2>
 
 <div class="dropzone" id="dropzone">
-    Click or Drag Files Here
+    Click or Drag Folder Here
 </div>
 
 <input type="file" id="fileInput" multiple style="display:none">
 
-<div id="progressBox"></div>
+<button onclick="pauseProcess()">⏸ Pause</button>
+<button onclick="resumeProcess()">▶ Resume</button>
+
+<div id="progress"></div>
 
 <script>
 
@@ -49,23 +57,38 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const storage = firebase.storage();
 const db = firebase.firestore();
 
 let files = [];
 let songsCache = [];
+let currentIndex = 0;
+let paused = false;
 
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
-const progressBox = document.getElementById("progressBox");
+const progress = document.getElementById("progress");
 
+// CLICK
 dropzone.onclick = () => fileInput.click();
-fileInput.onchange = (e) => startProcess(e.target.files);
 
+// FILE SELECT
+fileInput.onchange = (e) => {
+    files = Array.from(e.target.files);
+    currentIndex = 0;
+    saveProgress();
+    start();
+};
+
+// DRAG
 dropzone.addEventListener("dragover", e => e.preventDefault());
 dropzone.addEventListener("drop", e => {
     e.preventDefault();
-    startProcess(e.dataTransfer.files);
+    files = Array.from(e.dataTransfer.files);
+    currentIndex = 0;
+    saveProgress();
+    start();
 });
 
 // LOAD SONGS
@@ -74,88 +97,170 @@ async function loadSongs() {
     songsCache = snap.docs.map(d => ({id:d.id, ...d.data()}));
 }
 
-// PDF TEXT
-async function extractPDFText(file) {
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
-
-    let text = "";
-    const page = await pdf.getPage(1);
-    const content = await page.getTextContent();
-    text = content.items.map(i => i.str).join(" ");
-
-    return text;
-}
-
 // NORMALIZE
 function normalize(t) {
     return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
 }
 
-// FIND MATCHES
+// MATCH SONGS
 function findMatches(title) {
     const norm = normalize(title);
     return songsCache.filter(s => normalize(s.title).includes(norm)).slice(0,3);
 }
 
-// MAIN PROCESS
-async function startProcess(fileList) {
+// PDF TEXT
+async function extractPDFText(file) {
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
+    const page = await pdf.getPage(1);
+    const content = await page.getTextContent();
+    return content.items.map(i => i.str).join(" ");
+}
+
+// KEY DETECTION (FIXED)
+function detectKeyAdvanced(text, filename, matches) {
+
+    let match = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
+    if (match) return match[1];
+
+    match = text.match(/Key of\s*([A-G][#b]?m?)/i);
+    if (match) return match[1];
+
+    match = text.match(/\(Key\s*([A-G][#b]?m?)\)/i);
+    if (match) return match[1];
+
+    const chords = text.match(/\b[A-G](#|b)?m?\b/g);
+
+    if (chords && chords.length > 5) {
+        const count = {};
+        chords.forEach(c => count[c] = (count[c]||0)+1);
+        return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];
+    }
+
+    if (matches.length > 0 && matches[0].key) return matches[0].key;
+
+    return "";
+}
+
+// MANUAL SEARCH
+async function manualSearch() {
+
+    const query = prompt("Search for song:");
+
+    if (!query) return null;
+
+    const norm = normalize(query);
+
+    const results = songsCache
+        .filter(s => normalize(s.title).includes(norm))
+        .slice(0,10);
+
+    if (results.length === 0) {
+        alert("No results");
+        return null;
+    }
+
+    let msg = "Select:\n";
+
+    results.forEach((r,i)=> {
+        msg += `${i+1}. ${r.title}\n`;
+    });
+
+    const choice = prompt(msg);
+
+    return results[choice-1] || null;
+}
+
+// SAVE / LOAD PROGRESS
+function saveProgress() {
+    localStorage.setItem("uploadProgress", JSON.stringify({ currentIndex }));
+}
+
+function loadProgress() {
+    const saved = JSON.parse(localStorage.getItem("uploadProgress"));
+    if (saved) currentIndex = saved.currentIndex || 0;
+}
+
+// PAUSE / RESUME
+function pauseProcess() {
+    paused = true;
+    saveProgress();
+    alert("Paused");
+}
+
+function resumeProcess() {
+    paused = false;
+    loadProgress();
+    start();
+}
+
+// MAIN LOOP
+async function start() {
 
     await loadSongs();
-    files = Array.from(fileList);
 
-    for (let i = 0; i < files.length; i++) {
+    for (; currentIndex < files.length; currentIndex++) {
 
-        const file = files[i];
-        progressBox.innerHTML = `Processing ${i+1} / ${files.length}<br>${file.name}`;
+        if (paused) return;
+
+        const file = files[currentIndex];
+
+        progress.innerHTML = `File ${currentIndex+1} / ${files.length}<br>${file.name}`;
 
         let text = "";
-        try {
-            text = await extractPDFText(file);
-        } catch {}
+        try { text = await extractPDFText(file); } catch {}
 
         const detectedTitle = text.split("\n")[0] || file.name.replace(".pdf","");
         const matches = findMatches(detectedTitle);
+        const detectedKey = detectKeyAdvanced(text, file.name, matches);
 
-        let suggestionText = `
-        <b>${file.name}</b><br>
-        Detected: ${detectedTitle}<br><br>
-        Matches:<br>
-        ${matches.map((m,i)=>`${i+1}. ${m.title}`).join("<br>")}
-        <br><br>
-        Enter match number or 0 for new:
-        `;
+        let msg = `${file.name}\n\nDetected: ${detectedTitle}\nKey: ${detectedKey || "?"}\n\n`;
 
-        let choice = prompt(suggestionText);
+        if (matches.length > 0) {
+            matches.forEach((m,i)=> msg += `${i+1}. ${m.title}\n`);
+        } else {
+            msg += "No matches found\n";
+        }
+
+        msg += "\n1 = use match\n2 = search manually\n0 = new\nCancel = pause";
+
+        let choice = prompt(msg);
+
+        if (choice === null) {
+            pauseProcess();
+            return;
+        }
 
         let chosen = null;
 
-        if (choice > 0 && matches[choice-1]) {
+        if (choice === "2") {
+            chosen = await manualSearch();
+        } else if (choice > 0 && matches[choice-1]) {
             chosen = matches[choice-1];
         }
 
         let title = chosen ? chosen.title : detectedTitle;
 
-        // UPLOAD
         const id = normalize(title).replace(/\s+/g,"-");
-        const ref = db.collection("songs").doc(id);
 
-        const sRef = storage.ref(`songs/${id}/${file.name}`);
-        await sRef.put(file);
-        const url = await sRef.getDownloadURL();
+        const ref = storage.ref(`songs/${id}/${file.name}`);
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
 
-        await ref.set({
+        await db.collection("songs").doc(id).set({
             title,
             normalized: normalize(title),
             files: firebase.firestore.FieldValue.arrayUnion({
                 name:file.name,
-                url:url
+                url,
+                key: detectedKey
             })
         }, {merge:true});
 
+        saveProgress();
     }
 
-    progressBox.innerHTML = "✅ All files processed!";
+    progress.innerHTML = "✅ Done!";
 }
 
 </script>
