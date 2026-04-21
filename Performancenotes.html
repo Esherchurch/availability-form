@@ -220,11 +220,31 @@ let currentLeader = "";
 let selectedKeys = [];
 let performance = false;
 let currentDocId = null;
+let wakeLock = null;
 
 const dateInput = () => document.getElementById('dateInput');
 const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
+
+/* WAKE LOCK LOGIC */
+const requestWakeLock = async () => {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('Wake Lock is active');
+    }
+  } catch (err) {
+    console.error(`${err.name}, ${err.message}`);
+  }
+};
+
+// Re-acquire lock if visibility changes (e.g. switching back to tab)
+document.addEventListener('visibilitychange', async () => {
+  if (wakeLock !== null && document.visibilityState === 'visible') {
+    await requestWakeLock();
+  }
+});
 
 window.goFull = () => {
     const docEl = document.documentElement;
@@ -232,6 +252,10 @@ window.goFull = () => {
     else if (docEl.mozRequestFullScreen) docEl.mozRequestFullScreen();
     else if (docEl.webkitRequestFullScreen) docEl.webkitRequestFullScreen();
     else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
+    
+    // Activate wake lock when going fullscreen
+    requestWakeLock();
+    document.getElementById("fsToggle").innerText = "[ Stay Awake Active ]";
 };
 
 window.autoGrow = (el)=>{
