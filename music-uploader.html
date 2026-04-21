@@ -10,7 +10,6 @@
 
 <style>
 body { font-family: Arial; padding: 40px; }
-
 .dropzone {
     border: 3px dashed #ccc;
     padding: 40px;
@@ -18,14 +17,7 @@ body { font-family: Arial; padding: 40px; }
     border-radius: 20px;
     cursor: pointer;
 }
-
-button { margin-top: 10px; padding: 10px; }
-
-#progress {
-    margin-top:20px;
-    padding:10px;
-    border:1px solid #ccc;
-}
+#progress { margin-top:20px; padding:10px; border:1px solid #ccc; }
 </style>
 </head>
 
@@ -54,7 +46,6 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-
 const storage = firebase.storage();
 const db = firebase.firestore();
 
@@ -96,7 +87,7 @@ function normalize(t) {
     return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
 }
 
-// MATCH
+// FIND MATCHES
 function findMatches(title) {
     const norm = normalize(title);
     return songsCache.filter(s => normalize(s.title).includes(norm)).slice(0,3);
@@ -124,6 +115,24 @@ function detectKey(text) {
     }
 
     return "";
+}
+
+// MANUAL SEARCH
+async function manualSearch() {
+    const query = prompt("Search song:");
+    if (!query) return null;
+
+    const norm = normalize(query);
+
+    const results = songsCache
+        .filter(s => normalize(s.title).includes(norm))
+        .slice(0,10);
+
+    let msg = "Select:\n";
+    results.forEach((r,i)=> msg += `${i+1}. ${r.title}\n`);
+
+    const choice = prompt(msg);
+    return results[choice-1] || null;
 }
 
 // SAVE / LOAD
@@ -159,7 +168,6 @@ async function start() {
         if (paused) return;
 
         const file = files[currentIndex];
-
         progress.innerHTML = `File ${currentIndex+1} / ${files.length}<br>${file.name}`;
 
         let text = "";
@@ -169,44 +177,71 @@ async function start() {
         const matches = findMatches(detectedTitle);
         let detectedKey = detectKey(text);
 
-        // 🔥 KEY EDIT STEP
-        let userKey = prompt(`Detected Key: ${detectedKey || "Unknown"}\nEnter correct key or press OK to keep:`);
-
+        // KEY CONFIRM
+        let userKey = prompt(`Detected Key: ${detectedKey || "Unknown"}\nEnter key or press OK:`);
         if (userKey !== null && userKey.trim() !== "") {
             detectedKey = userKey.trim();
         }
 
-        let msg = `${file.name}\nDetected: ${detectedTitle}\nKey: ${detectedKey}\n\n`;
+        // MATCH SELECTION
+        let msg = `${file.name}\nDetected: ${detectedTitle}\n\n`;
 
-        matches.forEach((m,i)=> msg += `${i+1}. ${m.title}\n`);
-
-        msg += "\nEnter number, 0 = new, Cancel = pause";
-
-        let choice = prompt(msg);
-
-        if (choice === null) {
-            pauseProcess();
-            return;
+        if (matches.length > 0) {
+            matches.forEach((m,i)=> msg += `${i+1}. ${m.title}\n`);
+        } else {
+            msg += "No matches found\n";
         }
 
-        let chosen = matches[choice-1];
-        let title = chosen ? chosen.title : detectedTitle;
+        msg += "\n1 = use match\n2 = search manually\n0 = new\nCancel = pause";
 
+        let choice = prompt(msg);
+        if (choice === null) return pauseProcess();
+
+        let chosen = null;
+
+        if (choice === "2") {
+            chosen = await manualSearch();
+        } else if (choice > 0 && matches[choice-1]) {
+            chosen = matches[choice-1];
+        }
+
+        let title = chosen ? chosen.title : detectedTitle;
         const id = normalize(title).replace(/\s+/g,"-");
+
+        const docRef = db.collection("songs").doc(id);
+        const snap = await docRef.get();
+        let existingFiles = snap.exists ? (snap.data().files || []) : [];
+
+        // 🔥 DUPLICATE KEY CHECK
+        const duplicate = existingFiles.find(f => f.key === detectedKey);
+
+        if (duplicate) {
+            let dupChoice = prompt(
+                `⚠ File already exists in key ${detectedKey}\n\n1 = Replace\n2 = Keep both\n3 = Skip`
+            );
+
+            if (dupChoice === "3") continue;
+
+            if (dupChoice === "1") {
+                existingFiles = existingFiles.filter(f => f.key !== detectedKey);
+            }
+        }
 
         const ref = storage.ref(`songs/${id}/${file.name}`);
         await ref.put(file);
         const url = await ref.getDownloadURL();
 
-        await db.collection("songs").doc(id).set({
+        existingFiles.push({
+            name:file.name,
+            url,
+            key: detectedKey
+        });
+
+        await docRef.set({
             title,
             normalized: normalize(title),
-            files: firebase.firestore.FieldValue.arrayUnion({
-                name:file.name,
-                url,
-                key: detectedKey
-            })
-        }, {merge:true});
+            files: existingFiles
+        });
 
         saveProgress();
     }
