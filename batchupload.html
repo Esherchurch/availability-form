@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Importer (Final Working + YouTube Helper)</title>
+<title>Batch Music Importer (Stable)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -90,39 +90,42 @@ const snap = await db.collection("songs").get();
 songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
-// KEY DETECTION
+// ===== DETECT KEY =====
 function detectKey(name){
-name = name.toLowerCase();
 
-let m = name.match(/\bin ([a-g](#|b)?m?)\b/);
+let lower = name.toLowerCase();
+
+let m = lower.match(/\bin ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
-m = name.match(/\bkey ([a-g](#|b)?m?)\b/);
+m = lower.match(/\bkey ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
-m = name.match(/\(([a-g](#|b)?m?)\)/);
+m = lower.match(/\(([a-g](#|b)?m?)\)/);
 if(m) return m[1].toUpperCase();
 
-m = name.match(/ ([a-g](#|b)?m?)\.pdf$/);
+m = lower.match(/ ([a-g](#|b)?m?)\.pdf$/);
 if(m) return m[1].toUpperCase();
 
 return "";
 }
 
-// TYPE DETECTION
+// ===== DETECT TYPE =====
 function detectType(name){
-name = name.toLowerCase();
 
-if(name.includes("chord")) return "Chord Sheet";
-if(name.includes("lead")) return "Lead Sheet";
-if(name.includes("lyric")) return "Lyrics";
-if(name.includes("bass")) return "Bass Tabs";
+let lower = name.toLowerCase();
+
+if(lower.includes("chord")) return "Chord Sheet";
+if(lower.includes("lead")) return "Lead Sheet";
+if(lower.includes("lyric")) return "Lyrics";
+if(lower.includes("bass")) return "Bass Tabs";
 
 return "";
 }
 
-// CLEAN TITLE
+// ===== CLEAN TITLE (FOR MATCHING ONLY) =====
 function cleanTitle(name){
+
 return name.toLowerCase()
 .replace(".pdf","")
 .replace(/\(.*?\)/g,"")
@@ -135,26 +138,31 @@ return name.toLowerCase()
 .trim();
 }
 
-// MATCH
+// ===== MATCH =====
 function getMatches(title){
+
 const words = title.split(" ");
 
 return songs.map(s => {
+
 const sWords = s.title.toLowerCase().split(" ");
+
 let overlap = words.filter(w => sWords.includes(w));
 let score = overlap.length / sWords.length;
+
 return {song:s, score};
+
 })
 .sort((a,b)=>b.score-a.score)
 .slice(0,5);
 }
 
-// YOUTUBE SEARCH
+// ===== YOUTUBE SEARCH =====
 function openYouTubeSearch(title){
 window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`, '_blank');
 }
 
-// FILE HANDLING
+// ===== FILE HANDLING =====
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
@@ -179,6 +187,7 @@ handleFiles(files);
 
 // TRAVERSE
 async function traverse(entry, files){
+
 if(entry.isFile){
 await new Promise(res=>{
 entry.file(f=>{
@@ -205,27 +214,28 @@ await read();
 }
 }
 
-// MAIN
+// ===== MAIN =====
 async function handleFiles(files){
 
 await loadSongs();
 
 rows = files.map(file=>{
 
-let key = detectKey(file.name);
-let type = detectType(file.name);
-let title = cleanTitle(file.name);
-let matches = getMatches(title);
+let detectedKey = detectKey(file.name);
+let detectedType = detectType(file.name);
+let rawTitle = cleanTitle(file.name);
+let matches = getMatches(rawTitle);
 
 return {
 file,
-title,
-key,
-type,
+rawTitle,
+title: file.name.replace(".pdf",""), // USER START POINT (keeps case)
+key: detectedKey,
+type: detectedType,
 matches,
-match:matches[0]?.song || null,
-youtube:matches[0]?.song?.youtube || "",
-ccli:matches[0]?.song?.ccli || "",
+match: matches[0]?.song || null,
+youtube: matches[0]?.song?.youtube || "",
+ccli: matches[0]?.song?.ccli || "",
 skip:false,
 force:false
 };
@@ -234,7 +244,7 @@ force:false
 render();
 }
 
-// STATUS
+// ===== STATUS =====
 function getStatus(r){
 
 if(r.skip) return "SKIPPED";
@@ -252,7 +262,7 @@ if(dup && !r.force) return "EXISTS";
 return "NEW";
 }
 
-// RENDER
+// ===== RENDER =====
 function render(){
 
 const tbody = document.getElementById("table");
@@ -314,7 +324,7 @@ tbody.appendChild(tr);
 
 const inputs = tr.querySelectorAll("input, select");
 
-inputs[0].onchange = e => { r.title=e.target.value; render(); };
+inputs[0].onchange = e => { r.title=e.target.value; };
 inputs[1].onchange = e => { r.key=e.target.value; render(); };
 inputs[2].onchange = e => { r.type=e.target.value; render(); };
 
@@ -337,7 +347,7 @@ inputs[5].onchange = e => { r.ccli=e.target.value; };
 
 }
 
-// PROCESS
+// ===== PROCESS =====
 async function processAll(){
 
 if(!confirm("Upload?")) return;
@@ -353,7 +363,10 @@ alert("Fix: "+r.file.name);
 return;
 }
 
-let id = r.match ? r.match.id : r.title.replace(/\s+/g,"-");
+// 🔥 CRITICAL FIX HERE
+let finalTitle = r.match ? r.match.title : r.title;
+
+let id = finalTitle.toLowerCase().replace(/\s+/g,"-");
 
 const ref = storage.ref(`songs/${id}/${r.file.name}`);
 await ref.put(r.file);
@@ -373,10 +386,10 @@ key:r.key
 });
 
 await docRef.set({
-title:r.title,
-normalized:r.title,
-youtube:r.youtube,
-ccli:r.ccli,
+title: finalTitle,                 // ✅ preserves correct case
+normalized: finalTitle.toLowerCase(),
+youtube: r.youtube,
+ccli: r.ccli,
 files
 },{merge:true});
 }
