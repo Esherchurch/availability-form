@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Upload (Stable Base)</title>
+<title>Music Upload</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
 <style>
-body { font-family: Arial; padding: 30px; }
+body { font-family: Arial; padding: 40px; }
 
 .dropzone {
 border: 3px dashed #ccc;
@@ -16,103 +16,295 @@ padding: 40px;
 text-align: center;
 border-radius: 20px;
 cursor: pointer;
-margin-bottom: 20px;
 }
 
 .dropzone.dragover {
 background: #e8f4ff;
 }
 
+#suggestions {
+border: 1px solid #ddd;
+max-width: 300px;
+}
+
+#suggestions div {
+.suggestion-item {
+padding: 5px;
+cursor: pointer;
+}
+
+#suggestions div:hover {
+.suggestion-item:hover {
+background: #f0f0f0;
+}
+
 table {
+margin-top: 20px;
 border-collapse: collapse;
 width: 100%;
 }
 
 td, th {
 border: 1px solid #ddd;
-padding: 6px;
-font-size: 12px;
+padding: 8px;
 }
 </style>
 </head>
 
 <body>
 
-<h2>Batch Upload</h2>
+<h2>Upload Song</h2>
+
+<input id="title" placeholder="Song Title" oninput="suggestSongs()"><br>
+<div id="suggestions"></div><br>
+
+<input id="youtube" placeholder="YouTube link"><br><br>
+<input id="ccli" placeholder="CCLI"><br><br>
 
 <div class="dropzone" id="dropzone">
-Click or Drag Files Here
+Drag & Drop OR Click to Select Files
 </div>
 
 <input type="file" id="fileInput" multiple style="display:none">
 
-<div id="status"></div>
-
-<table id="table">
+<table id="fileTable">
 <thead>
 <tr>
 <th>File</th>
-<th>Title</th>
+<th>Type</th>
+<th>Key</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 
+<button onclick="upload()">Upload</button>
+
 <script>
 
-let rawFiles = [];
+const firebaseConfig = {
+apiKey: "YOUR_KEY",
+authDomain: "egbc-worship-planner.firebaseapp.com",
+projectId: "egbc-worship-planner",
+storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const storage = firebase.storage();
+const db = firebase.firestore();
+
+let files = [];
+
+const ALL_KEYS = [
+"C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B",
+"Cm", "C#m", "Dbm", "Dm", "D#m", "Ebm", "Em", "Fm", "F#m", "Gbm", "Gm", "G#m", "Abm", "Am", "A#m", "Bbm", "Bm"
+];
 
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
-// ================= CLICK =================
-dropzone.addEventListener("click", () => {
-fileInput.click();
-});
+dropzone.addEventListener("click", () => fileInput.click());
 
-// ================= FILE SELECT =================
 fileInput.addEventListener("change", (e) => {
-handleFiles(e.target.files);
+addFiles(e.target.files);
 });
 
-// ================= DRAG =================
-dropzone.addEventListener("dragover", (e) => {
+dropzone.addEventListener("dragover", e => {
 e.preventDefault();
-dropzone.classList.add("dragover");
 });
 
-dropzone.addEventListener("dragleave", () => {
-dropzone.classList.remove("dragover");
-});
-
-dropzone.addEventListener("drop", (e) => {
+dropzone.addEventListener("drop", e => {
 e.preventDefault();
-dropzone.classList.remove("dragover");
-handleFiles(e.dataTransfer.files);
+addFiles(e.dataTransfer.files);
 });
 
-// ================= HANDLE FILES =================
-function handleFiles(files){
-
-rawFiles = Array.from(files);
-
-document.getElementById("status").innerText =
-rawFiles.length + " files loaded";
-
-renderTable();
+// =======================
+// ADD FILES
+// =======================
+function addFiles(newFiles) {
+for (const file of newFiles) {
+files.push({
+file: file,
+type: "",
+key: detectKey(file.name)
+});
+}
+renderFiles();
 }
 
-// ================= RENDER =================
-function renderTable(){
+// =======================
+// SMART KEY DETECTION
+// =======================
+function detectKey(name) {
+const lower = name.toLowerCase();
 
-const tbody = document.querySelector("#table tbody");
+for (const key of ALL_KEYS) {
+if (lower.includes(` ${key.toLowerCase()}`) || lower.includes(`(${key.toLowerCase()})`)) {
+return key;
+}
+}
 
-tbody.innerHTML = rawFiles.map(f => `
-<tr>
-<td>${f.name}</td>
-<td>${f.name.replace(".pdf","")}</td>
-</tr>
-`).join("");
+return "";
+}
+
+// =======================
+// RENDER TABLE
+// =======================
+function renderFiles() {
+const tbody = document.querySelector("#fileTable tbody");
+
+tbody.innerHTML = files.map((f, i) => `
+       <tr>
+           <td>${f.file.name}</td>
+
+           <td>
+               <select onchange="updateType(${i}, this.value)">
+                   <option value="">Type</option>
+                   <option ${f.type==="Lead Sheet"?"selected":""}>Lead Sheet</option>
+                   <option ${f.type==="Chord Sheet"?"selected":""}>Chord Sheet</option>
+                   <option ${f.type==="Lyrics"?"selected":""}>Lyrics</option>
+                   <option ${f.type==="Bass Tabs"?"selected":""}>Bass Tabs</option>
+               </select>
+           </td>
+
+           <td>
+               <select onchange="updateKey(${i}, this.value)">
+                   <option value="">Key</option>
+                   ${ALL_KEYS.map(k => `<option ${f.key===k?"selected":""} value="${k}">${k}</option>`).join('')}
+               </select>
+           </td>
+       </tr>
+   `).join("");
+}
+
+function updateType(i, val) {
+files[i].type = val;
+}
+
+function updateKey(i, val) {
+files[i].key = val;
+}
+
+// =======================
+// SUGGEST SONGS
+// =======================
+function normalizeTitle(title) {
+return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+async function suggestSongs() {
+const input = document.getElementById("title").value;
+const norm = normalizeTitle(input);
+
+if (norm.length < 2) {
+document.getElementById("suggestions").innerHTML = "";
+return;
+}
+
+const snapshot = await db.collection("songs").get();
+
+const matches = snapshot.docs
+.map(doc => ({ id: doc.id, ...doc.data() }))
+.filter(song => {
+const songNorm = song.normalized || normalizeTitle(song.title);
+return songNorm.includes(norm);
+});
+
+const box = document.getElementById("suggestions");
+
+    // Fix: Using data attributes or simple ID strings to avoid breaking the onclick handler
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSuggestion('${s.id}')">
+            ${s.title}
+        </div>
+    `).join("");
+    box.innerHTML = "";
+
+    matches.forEach(s => {
+        const div = document.createElement("div");
+        div.className = "suggestion-item";
+        div.textContent = s.title;
+        // This avoids all quote/parentheses issues
+        div.addEventListener("click", () => {
+            selectSuggestion(s.id);
+        });
+        box.appendChild(div);
+    });
+}
+
+// =======================
+// SELECT SONG
+// =======================
+async function selectSuggestion(id) {
+const docRef = db.collection("songs").doc(id);
+const snap = await docRef.get();
+
+if (snap.exists) {
+const data = snap.data();
+document.getElementById("title").value = data.title;
+document.getElementById("suggestions").innerHTML = "";
+document.getElementById("youtube").value = data.youtube || "";
+document.getElementById("ccli").value = data.ccli || "";
+}
+}
+
+// =======================
+// UPLOAD
+// =======================
+async function upload() {
+
+const title = document.getElementById("title").value.trim();
+const youtube = document.getElementById("youtube").value;
+const ccli = document.getElementById("ccli").value;
+
+if (!title || files.length === 0) {
+alert("Add title and files");
+return;
+}
+
+// validate all rows
+for (const f of files) {
+if (!f.type || !f.key) {
+alert("Each file needs a type and key");
+return;
+}
+}
+
+const docId = normalizeTitle(title).replace(/\s+/g, "-");
+const docRef = db.collection("songs").doc(docId);
+
+let existing = await docRef.get();
+let existingData = existing.exists ? existing.data() : {};
+
+let uploadedFiles = existingData.files || [];
+
+for (const f of files) {
+const ref = storage.ref(`songs/${docId}/${f.file.name}`);
+await ref.put(f.file);
+
+const url = await ref.getDownloadURL();
+
+uploadedFiles.push({
+name: f.file.name,
+url: url,
+type: f.type,
+key: f.key
+});
+}
+
+await docRef.set({
+title,
+normalized: normalizeTitle(title),
+youtube: youtube,
+ccli: ccli,
+files: uploadedFiles
+});
+
+alert("Upload complete!");
+
+files = [];
+renderFiles();
 }
 
 </script>
