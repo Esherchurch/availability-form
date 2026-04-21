@@ -29,7 +29,6 @@ textarea {
     color: white;
     padding: 12px;
     border-radius: 12px;
-    resize: none;
 }
 
 .performance textarea {
@@ -79,21 +78,28 @@ const db = getFirestore(app);
 
 let eventsForDay = [];
 let selectedEvent = null;
+let currentService = null;
 let songs = [];
 let index = 0;
 let currentRole = "";
 let currentDate = "";
 let currentLeader = "";
-let performance = false;
 let selectedKeys = [];
+let performance = false;
 let currentDocId = null;
+
+// DOM refs
+const dateInput = () => document.getElementById('dateInput');
+const serviceSelect = () => document.getElementById('serviceSelect');
+const roleSelect = () => document.getElementById('roleSelect');
+const appDiv = () => document.getElementById('app');
 
 // LOAD EVENTS
 window.loadRota = async () => {
- const date = dateInput.value;
+ const date = dateInput().value;
  const snap = await getDocs(collection(db,"events"));
- eventsForDay = [];
 
+ eventsForDay = [];
  snap.forEach(d=>{
   const ev=d.data();
   if(ev.date===date && ev.archived!==true){
@@ -101,31 +107,33 @@ window.loadRota = async () => {
   }
  });
 
- serviceSelect.innerHTML='<option value="">Select Service</option>';
+ serviceSelect().innerHTML='<option value="">Select Service</option>';
  eventsForDay.forEach((ev,i)=>{
-  serviceSelect.innerHTML+=`<option value="${i}">${ev.type}</option>`;
+  serviceSelect().innerHTML+=`<option value="${i}">${ev.type}</option>`;
  });
 };
 
 // SELECT SERVICE
 window.selectService = () => {
- const i=serviceSelect.value;
+ const i = serviceSelect().value;
  if(i==="") return;
 
  selectedEvent = eventsForDay[i];
  currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
 
- roleSelect.innerHTML='<option value="">Instrument</option>';
+ roleSelect().innerHTML='<option value="">Instrument</option>';
  Object.keys(selectedEvent.assignments || {}).forEach(r=>{
-  roleSelect.innerHTML+=`<option>${r}</option>`;
+  roleSelect().innerHTML+=`<option>${r}</option>`;
  });
 };
 
 // LOAD SERVICE
 window.loadService = async () => {
 
- currentDate = dateInput.value;
- currentRole = roleSelect.value;
+ try {
+
+ currentDate = dateInput().value;
+ currentRole = roleSelect().value;
 
  if(!currentDate || !currentRole){
   alert("Select date, service and role");
@@ -133,28 +141,41 @@ window.loadService = async () => {
  }
 
  const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
- if(snap.empty){ alert("No service found"); return; }
+ if(snap.empty){
+  appDiv().innerHTML="No service found";
+  return;
+ }
 
- const service = snap.docs[0].data();
+ currentService = snap.docs[0].data();
 
- songs = (service.order || []).filter(x=>x.type==="song");
+ songs = (currentService.order || []).filter(x=>x.type==="song");
+
+ if(songs.length===0){
+  appDiv().innerHTML="No songs found";
+  return;
+ }
 
  buildMenu();
  showSong(0);
 
- startScreen.style.display="none";
+ document.getElementById("startScreen").style.display="none";
+
+ } catch(e){
+  appDiv().innerHTML = "Error loading service: " + e.message;
+ }
 };
 
 // MENU
 function buildMenu(){
+ const menu = document.getElementById("menu");
  menu.innerHTML="";
  songs.forEach((s,i)=>{
   menu.innerHTML+=`<div onclick="showSong(${i});toggleMenu()" style="padding:12px;border-bottom:1px solid #334155">${s.title}</div>`;
  });
 }
-window.toggleMenu = ()=>menu.classList.toggle("open");
+window.toggleMenu = ()=>document.getElementById("menu").classList.toggle("open");
 
-// MODE
+// PERFORMANCE MODE
 window.togglePerformance = ()=>{
  performance = !performance;
  showSong(index);
@@ -163,19 +184,19 @@ window.togglePerformance = ()=>{
 // SHOW SONG
 async function showSong(i){
 
+ try {
+
  index = i;
  const s = songs[i];
  selectedKeys = s.keys || [];
- currentDocId = null;
 
- // SONG FILES
  const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
  const data = songDoc.exists()?songDoc.data():{};
  const allFiles = data.files || [];
  const files = allFiles.filter(f=>selectedKeys.includes(f.key));
 
- // CURRENT NOTES
  let yourNotes = s.notes || "";
+ currentDocId = null;
 
  const todaySnap = await getDocs(query(collection(db,"schedules"),
   where("date","==",currentDate),
@@ -189,7 +210,6 @@ async function showSong(i){
   }
  });
 
- // LAST NOTES
  const allSnap = await getDocs(collection(db,"schedules"));
  let last = null;
 
@@ -205,10 +225,9 @@ async function showSong(i){
   }
  });
 
- // ROLE NOTES
- const roleNotes = selectedEvent?.roleNotes?.[currentRole] || "";
+ const roleNotes = currentService?.roleNotes?.[currentRole] || "";
 
- app.innerHTML=`
+ appDiv().innerHTML=`
  <div class="screen ${performance?'performance':''}">
 
   <div style="display:flex;justify-content:space-between;">
@@ -224,16 +243,14 @@ async function showSong(i){
 
   <div>
    ${selectedKeys.map(k=>`
-    <label style="margin-right:10px;">
-     <input type="checkbox" checked onchange="toggleKey('${k}',this.checked)"> ${k}
-    </label>`).join("")}
+    <label><input type="checkbox" checked onchange="toggleKey('${k}',this.checked)"> ${k}</label>
+   `).join("")}
   </div>
 
   <div>
    ${files.map(f=>`
-    <button onclick="openPDF('${f.url}')" style="padding:10px;margin:5px;background:#22c55e;border-radius:8px;">
-    ${f.type} (${f.key})
-    </button>`).join("")}
+    <button onclick="openPDF('${f.url}')">${f.type} (${f.key})</button>
+   `).join("")}
   </div>
 
   <textarea id="notes">${yourNotes}</textarea>
@@ -246,18 +263,15 @@ async function showSong(i){
   <button onclick="save('${s.title}')">Save</button>
 
  </div>`;
+
+ } catch(e){
+  appDiv().innerHTML = "Error rendering song: " + e.message;
+ }
 }
 
-// KEY FILTER
-window.toggleKey = (k,on)=>{
- if(on){ selectedKeys.push(k); }
- else{ selectedKeys = selectedKeys.filter(x=>x!==k); }
- showSong(index);
-};
-
-// NAVIGATION
-window.next = ()=>{ if(index < songs.length-1) showSong(index+1); };
-window.prev = ()=>{ if(index > 0) showSong(index-1); };
+// NAV
+window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
+window.prev = ()=>{ if(index>0) showSong(index-1); };
 
 // PDF
 window.openPDF = (url)=>{
@@ -265,10 +279,11 @@ window.openPDF = (url)=>{
   const m=url.match(/\/d\/(.*?)\//);
   if(m) url=`https://drive.google.com/file/d/${m[1]}/preview`;
  }
- pdfViewer.innerHTML=`<button onclick="closePDF()">Close</button><iframe src="${url}" style="width:100%;height:100%"></iframe>`;
- pdfViewer.style.display="block";
+ const v=document.getElementById("pdfViewer");
+ v.innerHTML=`<button onclick="closePDF()">Close</button><iframe src="${url}" style="width:100%;height:100%"></iframe>`;
+ v.style.display="block";
 };
-window.closePDF = ()=>pdfViewer.style.display="none";
+window.closePDF = ()=>document.getElementById("pdfViewer").style.display="none";
 
 // SAVE
 window.save = async(song)=>{
