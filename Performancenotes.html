@@ -40,21 +40,44 @@ body { font-family: 'Montserrat', sans-serif; }
     font-weight:800;
 }
 
+/* MOBILE ONLY SCALE */
+@media (max-width:768px){
+ .btn {
+   padding:10px 12px;
+   font-size:14px;
+ }
+ .nav-btn {
+   padding:10px 14px;
+   font-size:14px;
+ }
+}
+
 /* TEXTAREA (EDIT MODE FIX ONLY) */
 textarea {
     width: 100%;
-    font-size: 26pt; /* increased ONLY here */
+    font-size: 26pt; /* bigger edit mode */
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 26px; /* increased padding */
+    padding: 28px; /* increased padding */
     border-radius: 16px;
     overflow: hidden;
     resize: none;
     box-sizing: border-box;
+    line-height: 1.5;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
-/* PERFORMANCE MODE (unchanged from your version) */
+/* MOBILE TEXT */
+@media (max-width:768px){
+ textarea {
+   font-size:18pt;
+   padding:18px;
+ }
+}
+
+/* PERFORMANCE MODE UNCHANGED */
 .performance textarea {
     font-size: 28pt;
     height: 70vh;
@@ -152,7 +175,6 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
-/* AUTO GROW */
 window.autoGrow = (el)=>{
  el.style.height = "auto";
  el.style.height = el.scrollHeight + "px";
@@ -177,7 +199,6 @@ window.loadRota = async () => {
  });
 };
 
-/* SELECT SERVICE */
 window.selectService = () => {
  const i = serviceSelect().value;
  if(i==="") return;
@@ -191,7 +212,6 @@ window.selectService = () => {
  });
 };
 
-/* LOAD SERVICE */
 window.loadService = async () => {
 
  currentDate = dateInput().value;
@@ -208,7 +228,6 @@ window.loadService = async () => {
  document.getElementById("startScreen").style.display="none";
 };
 
-/* MENU */
 function buildMenu(){
  const menu = document.getElementById("menu");
  menu.innerHTML="";
@@ -233,13 +252,11 @@ window.closeMenu = ()=>{
  document.getElementById("overlay").classList.remove("show");
 };
 
-/* PERFORMANCE MODE */
 window.togglePerformance = ()=>{
  performance = !performance;
  showSong(index);
 };
 
-/* SHOW SONG */
 async function showSong(i){
 
  index = i;
