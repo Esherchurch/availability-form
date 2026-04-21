@@ -3,309 +3,263 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EGBC Performance Mode</title>
+<title>Performance Mode</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-textarea {
-    font-size: 16pt !important;
-    font-weight: 700 !important;
-    overflow: hidden;
-    resize: none;
-    min-height: 80px;
-    line-height: 1.4;
+body { margin:0; font-family:sans-serif; }
+
+.screen {
+    position:fixed;
+    inset:0;
+    background:#0f172a;
+    color:white;
+    padding:20px;
+    display:flex;
+    flex-direction:column;
 }
 
-.minimized {
-    height: 34px;
-    overflow: hidden;
+textarea {
+    width:100%;
+    font-size:18pt;
+    font-weight:bold;
+    background:#020617;
+    color:white;
+    padding:12px;
+    border-radius:12px;
+    resize:none;
 }
+
+.performance textarea {
+    font-size:26pt;
+    height:70vh;
+}
+
+.smallbox {
+    font-size:12px;
+    opacity:0.7;
+    margin-top:10px;
+}
+
+button.pdf-btn {
+    padding:14px 18px;
+    margin:6px;
+    border-radius:12px;
+    font-weight:bold;
+    background:#22c55e;
+}
+
+#menu {
+    position:fixed;
+    left:0;
+    top:0;
+    bottom:0;
+    width:260px;
+    background:#1e293b;
+    transform:translateX(-100%);
+    transition:0.3s;
+    z-index:1000;
+}
+
+#menu.open { transform:translateX(0); }
 
 #pdfViewer {
-    position: fixed;
-    inset: 0;
-    background: white;
-    z-index: 9999;
-    display: none;
+    position:fixed;
+    inset:0;
+    background:black;
+    display:none;
+    z-index:2000;
 }
 </style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, addDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSy...",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner"
-};
+const app = initializeApp({
+ apiKey:"AIzaSy...",
+ authDomain:"egbc-worship-planner.firebaseapp.com",
+ projectId:"egbc-worship-planner"
+});
 
-const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-let currentLeader = "";
-let currentService = null;
-let currentDate = "";
+let songs=[],index=0,currentRole="",currentDate="",currentLeader="";
+let performance=false;
+let selectedKeys=[];
 
-const makeKey = (song, key) =>
-    `${(song || "").trim().toLowerCase()}|${(key || "").trim().toLowerCase()}`;
+window.start = async () => {
 
-window.loadPerformance = async () => {
+ currentDate=date.value;
+ currentRole=role.value;
 
-    const date = document.getElementById('date').value;
-    if (!date) return;
+ try{ await navigator.wakeLock.request('screen'); }catch(e){}
 
-    currentDate = date;
+ const ev=await getDocs(collection(db,"events"));
+ ev.forEach(d=>{
+  const e=d.data();
+  if(e.date===currentDate){
+   currentLeader=e.assignments?.["Worship Leader"]?.name||"";
+  }
+ });
 
-    const container = document.getElementById('content');
-    container.innerHTML = "Loading...";
+ const serv=await getDocs(collection(db,"services"));
+ serv.forEach(d=>{
+  const s=d.data();
+  if(s.date===currentDate){
+   songs=s.order.filter(x=>x.type==="song");
+  }
+ });
 
-    const eventSnap = await getDocs(collection(db, "events"));
-
-    let rota = null;
-
-    eventSnap.forEach(doc => {
-        const ev = doc.data();
-        if (ev.date === date && ev.archived !== true) rota = ev;
-    });
-
-    if (!rota) {
-        container.innerHTML = "No rota found for this date";
-        return;
-    }
-
-    currentLeader = rota.assignments?.["Worship Leader"]?.name || "";
-
-    const serviceSnap = await getDocs(collection(db, "services"));
-
-    currentService = null;
-
-    serviceSnap.forEach(doc => {
-        const s = doc.data();
-        if (s.date === date) currentService = s;
-    });
-
-    if (!currentService) {
-        container.innerHTML = "No saved service order yet";
-        return;
-    }
-
-    const roleSelect = document.getElementById('role');
-    roleSelect.innerHTML = `<option value="">Instrument</option>`;
-
-    Object.keys(rota.assignments || {}).forEach(role => {
-        roleSelect.innerHTML += `<option value="${role}">${role}</option>`;
-    });
-
-    container.innerHTML = "";
+ buildMenu();
+ showSong(0);
 };
 
-function getLatestNote(allNotes, song, role, key) {
-
-    let latest = null;
-    let latestDate = null;
-
-    allNotes.forEach(n => {
-        if (
-            n.worshipLeader === currentLeader &&
-            n.role === role &&
-            makeKey(n.songTitle, n.key) === makeKey(song, key) &&
-            n.date !== currentDate
-        ) {
-            const d = new Date(n.date);
-            if (!latestDate || d > latestDate) {
-                latestDate = d;
-                latest = n;
-            }
-        }
-    });
-
-    return latest;
+function buildMenu(){
+ menu.innerHTML="";
+ songs.forEach((s,i)=>{
+  menu.innerHTML+=`<div onclick="showSong(${i});toggleMenu()" style="padding:12px;border-bottom:1px solid #334155">${s.title}</div>`;
+ });
 }
 
-window.loadSongsForRole = async () => {
+window.toggleMenu=()=>menu.classList.toggle("open");
 
-    const role = document.getElementById('role').value;
-    if (!role || !currentService) return;
-
-    const container = document.getElementById('content');
-    container.innerHTML = "Loading...";
-
-    const q = query(
-        collection(db, "schedules"),
-        where("date", "==", currentDate),
-        where("role", "==", role)
-    );
-
-    const snap = await getDocs(q);
-
-    const todayNotes = {};
-    snap.forEach(docSnap => {
-        const d = docSnap.data();
-        todayNotes[makeKey(d.songTitle, d.key)] = {
-            notes: d.notes,
-            docId: docSnap.id
-        };
-    });
-
-    const allSnap = await getDocs(collection(db, "schedules"));
-    const allNotes = [];
-    allSnap.forEach(doc => allNotes.push(doc.data()));
-
-    container.innerHTML = "";
-
-    for (const item of currentService.order) {
-
-        if (item.type === "item") {
-            const div = document.createElement('div');
-            div.className = "text-center text-[#2c6999] font-extrabold text-lg py-2";
-            div.innerText = item.title;
-            container.appendChild(div);
-            continue;
-        }
-
-        const key = item.key || "";
-        const today = todayNotes[makeKey(item.title, key)];
-        const last = getLatestNote(allNotes, item.title, role, key);
-
-        const docId = item.title.toLowerCase().replace(/\s+/g, "-");
-        const songSnap = await getDoc(doc(db, "songs", docId));
-
-        let youtube = "";
-        let ccli = "";
-        let files = [];
-
-        if (songSnap.exists()) {
-            const data = songSnap.data();
-            youtube = data.youtube || "";
-            ccli = data.ccli || "";
-            files = data.files || [];
-        }
-
-        const songSelectLink = ccli
-            ? `https://songselect.ccli.com/Songs/${ccli}`
-            : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(item.title)}`;
-
-        const div = document.createElement('div');
-        div.className = "bg-white p-4 rounded-2xl shadow mb-4";
-
-        div.innerHTML = `
-            <div class="flex justify-between items-center font-extrabold text-lg text-[#2c6999] cursor-pointer">
-                <span onclick="toggleBody(this)">
-                    ${item.title} (${key})
-                </span>
-                <button onclick="toggleMin(this)">_</button>
-            </div>
-
-            <div class="body mt-3 hidden">
-
-                <div class="flex gap-3 flex-wrap text-sm mb-2">
-                    ${youtube ? `<a href="${youtube}" target="_blank" class="text-blue-600">🎬 YouTube</a>` : `<span class="text-gray-400">No YouTube</span>`}
-                    <a href="${songSelectLink}" target="_blank" class="text-purple-600">🔎 SongSelect</a>
-                    ${ccli ? `<span class="text-gray-500">CCLI: ${ccli}</span>` : `<span class="text-gray-400">No CCLI</span>`}
-                </div>
-
-                <div>
-                    ${files.map(f => `
-                        <button onclick="openPDF('${f.url}')"
-                        class="inline-block text-xs bg-[#2c6999] text-white px-2 py-1 rounded mr-1 mt-1">
-                        ${f.type || 'PDF'}
-                        </button>
-                    `).join("")}
-                </div>
-
-                <textarea 
-                    oninput="autoGrow(this)"
-                    class="w-full p-3 rounded-xl bg-[#f8fafc] mt-2"
-                    data-song="${item.title}"
-                    data-key="${key}"
-                    data-docid="${today ? today.docId : ""}"
-                >${today ? today.notes : (last ? last.notes : "")}</textarea>
-
-                <div class="flex gap-2 mt-2">
-                    <button onclick="saveNote('${item.title}','${key}')" 
-                        class="bg-[#2c6999] text-white px-4 py-2 rounded-lg text-sm">
-                        Save
-                    </button>
-
-                    <button onclick="importLast('${item.title}','${key}')" 
-                        class="bg-gray-200 px-4 py-2 rounded-lg text-sm">
-                        Import Last Notes
-                    </button>
-                </div>
-
-            </div>
-        `;
-
-        container.appendChild(div);
-    }
+window.togglePerformance=()=>{
+ performance=!performance;
+ showSong(index);
 };
 
-window.toggleBody = (el) => {
-    const body = el.closest('.bg-white').querySelector('.body');
-    body.classList.toggle('hidden');
+async function showSong(i){
 
-    if (!body.classList.contains('hidden')) {
-        const ta = body.querySelector('textarea');
-        if (ta) setTimeout(() => autoGrow(ta), 50);
-    }
+ index=i;
+ const s=songs[i];
+
+ selectedKeys = s.keys || [];
+
+ const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
+ const data = songDoc.exists()?songDoc.data():{};
+ const allFiles = data.files || [];
+
+ const files = allFiles.filter(f => selectedKeys.includes(f.key));
+
+ const snap = await getDocs(query(collection(db,"schedules"),
+  where("date","==",currentDate),
+  where("role","==",currentRole)));
+
+ let today=null;
+ snap.forEach(d=>{
+  const n=d.data();
+  if(n.songTitle===s.title){
+   today={...n,id:d.id};
+  }
+ });
+
+ const all=await getDocs(collection(db,"schedules"));
+ let last=null;
+
+ all.forEach(d=>{
+  const n=d.data();
+  if(n.worshipLeader===currentLeader &&
+     n.role===currentRole &&
+     n.songTitle===s.title &&
+     n.date!==currentDate){
+   if(!last||new Date(n.date)>new Date(last.date)) last=n;
+  }
+ });
+
+ let yourNotes = today ? today.notes : (s.notes || "");
+
+ app.innerHTML=`
+ <div class="screen ${performance?'performance':''}">
+
+  <div style="display:flex;justify-content:space-between;">
+   <button onclick="toggleMenu()">☰</button>
+   <div>${s.title}</div>
+   <div>
+    <button onclick="prev()">⬅</button>
+    <button onclick="next()">➡</button>
+   </div>
+  </div>
+
+  <button onclick="togglePerformance()">Toggle Performance Mode</button>
+
+  <div style="margin-top:10px;">
+  ${selectedKeys.map(k=>`
+   <label>
+    <input type="checkbox" checked onchange="toggleKey('${k}',this.checked)">
+    ${k}
+   </label>
+  `).join("")}
+  </div>
+
+  <div id="pdfs">
+   ${files.map(f=>`
+    <button class="pdf-btn" onclick="openPDF('${f.url}')">
+    ${f.type||'PDF'} (${f.key})
+    </button>
+   `).join("")}
+  </div>
+
+  <textarea id="notes">${yourNotes}</textarea>
+
+  ${!performance?`
+  <div class="smallbox"><b>Role Notes:</b><br></div>
+  <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
+  `:""}
+
+  <button onclick="save('${s.title}')">Save</button>
+
+ </div>`;
+}
+
+window.toggleKey=(k,on)=>{
+ if(on){
+  selectedKeys.push(k);
+ } else {
+  selectedKeys = selectedKeys.filter(x=>x!==k);
+ }
+ showSong(index);
 };
 
-window.autoGrow = (el) => {
-    el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
+window.next=()=>{ if(index<songs.length-1) showSong(index+1); };
+window.prev=()=>{ if(index>0) showSong(index-1); };
+
+window.openPDF=(url)=>{
+ if(url.includes("drive")){
+  const m=url.match(/\/d\/(.*?)\//);
+  if(m) url=`https://drive.google.com/file/d/${m[1]}/preview`;
+ }
+ pdfViewer.innerHTML=`<button onclick="closePDF()">Close</button><iframe src="${url}" style="width:100%;height:100%"></iframe>`;
+ pdfViewer.style.display="block";
 };
 
-window.toggleMin = (btn) => {
-    btn.closest('.bg-white').classList.toggle('minimized');
-};
+window.closePDF=()=>pdfViewer.style.display="none";
 
-window.openPDF = (url) => {
-
-    if (url.includes("drive.google.com")) {
-        const match = url.match(/\/d\/(.*?)\//);
-        if (match) {
-            url = `https://drive.google.com/file/d/${match[1]}/preview`;
-        }
-    }
-
-    const viewer = document.getElementById("pdfViewer");
-    viewer.innerHTML = `
-        <button onclick="closePDF()" style="position:absolute;top:10px;right:10px;background:black;color:white;padding:12px;">
-        Close
-        </button>
-        <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
-    `;
-    viewer.style.display = "block";
-};
-
-window.closePDF = () => {
-    const viewer = document.getElementById("pdfViewer");
-    viewer.style.display = "none";
-    viewer.innerHTML = "";
+window.save=async(song)=>{
+ const txt=document.getElementById("notes").value;
+ await addDoc(collection(db,"schedules"),{
+  date:currentDate,
+  role:currentRole,
+  worshipLeader:currentLeader,
+  songTitle:song,
+  notes:txt
+ });
 };
 </script>
 </head>
 
-<body class="p-4 bg-[#f4f7fa] font-montserrat">
+<body>
 
-<div id="pdfViewer"></div>
-
-<div class="w-full mx-auto space-y-6">
-
-<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
-
-<input type="date" id="date" class="p-3 rounded-xl w-full" onchange="loadPerformance()">
-
-<select id="role" class="p-3 rounded-xl w-full" onchange="loadSongsForRole()">
-<option value="">Instrument</option>
-</select>
-
-<div id="content"></div>
-
+<div style="padding:10px;">
+<input id="date" type="date">
+<select id="role"></select>
+<button onclick="start()">Start</button>
 </div>
+
+<div id="menu"></div>
+<div id="pdfViewer"></div>
+<div id="app"></div>
 
 </body>
 </html>
