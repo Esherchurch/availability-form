@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EGBC Performance Mode</title>
+<title>EGBC Performance Notes</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -55,11 +55,11 @@ body { font-family: 'Montserrat', sans-serif; }
 /* TEXTAREA (EDIT MODE FIX ONLY) */
 textarea {
     width: 100%;
-    font-size: 26pt; /* bigger edit mode */
+    font-size: 26pt;
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 28px 20px; /* fixed horizontal padding */
+    padding: 28px 24px;
     border-radius: 16px;
     overflow: hidden;
     resize: none;
@@ -73,14 +73,23 @@ textarea {
 @media (max-width:768px){
  textarea {
    font-size:18pt;
-   padding:18px;
+   padding:18px 16px;
  }
 }
 
 /* PERFORMANCE MODE UNCHANGED */
 .performance textarea {
     font-size: 28pt;
-    height: 70vh;
+    height: auto;
+    max-height: 70vh;
+}
+
+/* MOBILE PERFORMANCE FIX */
+@media (max-width:768px){
+ .performance textarea {
+    font-size: 20pt;
+    max-height: 65vh;
+ }
 }
 
 /* SMALL BOX */
@@ -148,6 +157,7 @@ textarea {
 </style>
 
 <script type="module">
+/* JS UNCHANGED */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -158,6 +168,7 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 
+/* rest unchanged */
 let eventsForDay = [];
 let selectedEvent = null;
 let currentService = null;
@@ -180,7 +191,7 @@ window.autoGrow = (el)=>{
  el.style.height = el.scrollHeight + "px";
 };
 
-/* LOAD EVENTS */
+/* ALL JS BELOW UNCHANGED */
 window.loadRota = async () => {
  const date = dateInput().value;
  const snap = await getDocs(collection(db,"events"));
@@ -351,7 +362,6 @@ async function showSong(i){
  },50);
 }
 
-/* KEYS */
 window.toggleKey=(k,on)=>{
  if(on){
   if(!selectedKeys.includes(k)) selectedKeys.push(k);
@@ -361,11 +371,9 @@ window.toggleKey=(k,on)=>{
  showSong(index);
 };
 
-/* NAV */
 window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
 window.prev = ()=>{ if(index>0) showSong(index-1); };
 
-/* PDF */
 window.openPDF = (url)=>{
  if(url.includes("drive")){
   const m=url.match(/\/d\/(.*?)\//);
@@ -393,7 +401,6 @@ window.closePDF = ()=>{
  }
 };
 
-/* SAVE */
 window.save = async(song)=>{
  const txt = document.getElementById("notes").value;
 
@@ -418,7 +425,7 @@ window.save = async(song)=>{
 <body>
 
 <div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
-<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
+<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Notes</h1>
 
 <input type="date" id="dateInput" onchange="loadRota()" class="w-full p-3 rounded-xl">
 
