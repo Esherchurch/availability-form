@@ -40,17 +40,18 @@ body { font-family: 'Montserrat', sans-serif; }
     font-weight:800;
 }
 
-/* TEXTAREA (UPDATED ONLY HERE) */
+/* TEXTAREA FIXED */
 textarea {
     width: 100%;
     font-size: 24pt;
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 16px;
+    padding: 18px;
     border-radius: 16px;
     overflow: hidden;
     resize: none;
+    box-sizing: border-box;
 }
 
 .performance textarea {
@@ -58,10 +59,10 @@ textarea {
     height: 70vh;
 }
 
-/* SMALL BOX */
+/* SMALL BOX (bigger text) */
 .smallbox {
-    font-size: 14px;
-    opacity: 0.8;
+    font-size: 16px;
+    opacity: 0.9;
 }
 
 /* MENU FIXED */
@@ -100,7 +101,7 @@ textarea {
 }
 #overlay.show { display:block; }
 
-/* PDF TRUE FULLSCREEN */
+/* PDF */
 #pdfViewer {
     position: fixed;
     inset: 0;
@@ -150,10 +151,10 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
-/* ✅ AUTO GROW ADDED */
+/* AUTO GROW FIXED */
 window.autoGrow = (el)=>{
  el.style.height = "auto";
- el.style.height = el.scrollHeight + "px";
+ el.style.height = (el.scrollHeight) + "px";
 };
 
 /* LOAD EVENTS */
@@ -295,7 +296,9 @@ async function showSong(i){
    </div>
   </div>
 
-  <button class="btn" onclick="togglePerformance()">Toggle Mode</button>
+  <button class="btn" onclick="togglePerformance()">
+   ${performance ? "Edit Mode" : "Performance Mode"}
+  </button>
 
   <div>
    ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
@@ -344,7 +347,7 @@ window.toggleKey=(k,on)=>{
 window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
 window.prev = ()=>{ if(index>0) showSong(index-1); };
 
-/* PDF FULLSCREEN (UPDATED ONLY HERE) */
+/* PDF FULLSCREEN */
 window.openPDF = (url)=>{
  if(url.includes("drive")){
   const m=url.match(/\/d\/(.*?)\//);
