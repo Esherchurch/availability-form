@@ -55,55 +55,56 @@ body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
    padding: 12px 8px;
    gap: 8px;
  }
-}
-
-/* TEXTAREA (EDIT MODE FIX ONLY) */
-textarea {
-    width: 100%;
-    font-size: 26pt;
-    font-weight: 700;
-    background: #020617;
-    color: white;
-    padding: 50px 60px !important; 
-    border-radius: 16px;
-    overflow-y: auto;
-    resize: none;
-    box-sizing: border-box;
-    line-height: 1.6;
-    margin-top: 10px;
-    margin-bottom: 10px;
-    border: 2px solid rgba(255,255,255,0.15);
-    display: block;
-}
-
-/* MOBILE TEXT */
-@media (max-width:768px){
  textarea {
-   font-size:18pt;
+   font-size:18pt !important;
    padding:35px 45px !important;
  }
 }
 
-/* TABLET/LARGE SCREEN UPSCALING */
-@media (min-width: 1024px) {
+/* TEXTAREA BASE */
+textarea {
+    width: 100%;
+    font-weight: 700;
+    background: #020617;
+    color: white;
+    border-radius: 16px;
+    overflow-y: auto;
+    resize: none;
+    box-sizing: border-box;
+    line-height: 1.5;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border: 2px solid rgba(255,255,255,0.15);
+    display: block;
+    /* Default for 10-inch tablets and larger */
+    font-size: 42pt; 
+    padding: 50px 60px !important;
+}
+
+/* TABLET/LARGE SCREEN UPSCALING (Aggressive for 10-inch) */
+@media (min-width: 900px) {
   textarea {
-    font-size: 34pt;
-    padding: 60px 80px !important;
-    line-height: 1.7;
+    font-size: 48pt;
+    padding: 70px 90px !important;
+    line-height: 1.6;
   }
   .nav-btn {
-    padding: 20px 30px;
-    font-size: 24px;
+    padding: 25px 40px;
+    font-size: 32px;
   }
   .btn {
-    font-size: 18px;
-    padding: 18px 24px;
+    font-size: 22px;
+    padding: 22px 30px;
+  }
+  .smallbox {
+    font-size: 24px !important;
   }
 }
 
 /* PERFORMANCE MODE SCALE FIX */
 .performance textarea {
-    font-size: clamp(18pt, 4.5vw, 38pt);
+    /* Clamps between a minimum of 22pt and a massive 55pt depending on width */
+    font-size: clamp(22pt, 6vw, 55pt) !important;
     height: 100% !important;
     max-height: none;
     flex-grow: 1;
@@ -126,8 +127,8 @@ textarea {
 }
 
 .performance .btn-sm {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 12px 18px;
+    font-size: 16px;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -139,19 +140,13 @@ textarea {
     padding: 0 4px;
 }
 
-@media (min-width: 1024px) {
-    .smallbox {
-        font-size: 18px;
-    }
-}
-
 /* MENU */
 #menu {
     position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 260px;
+    width: 320px;
     background: #2c6999;
     color: white;
     transform: translateX(-100%);
@@ -162,9 +157,10 @@ textarea {
 #menu.open { transform: translateX(0); }
 
 #menu div {
-    padding:16px;
+    padding:20px;
     border-bottom:1px solid rgba(255,255,255,0.2);
     font-weight:700;
+    font-size: 20px;
     cursor:pointer;
 }
 #menu div:hover {
@@ -418,7 +414,7 @@ async function showSong(i){
     <button class="btn" onclick="openPDF('${f.url}')">
      ${f.type} (${f.key})
     </button>
-    `).join("")}
+   `).join("")}
   </div>
 
   <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
