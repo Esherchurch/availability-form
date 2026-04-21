@@ -41,43 +41,45 @@ body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
     font-weight:800;
 }
 
-/* MOBILE VIEW (STRICT RESTORATION) */
+/* MOBILE VIEW (FORCED ORIGINAL SPECS) */
 @media (max-width:768px){
  .btn { padding:10px 12px; font-size:14px; }
  .nav-btn { padding:10px 14px; font-size:14px; }
  .screen { padding: 12px 8px; gap: 8px; }
+ /* EDIT MODE MOBILE */
  textarea {
    font-size: 18pt !important;
    padding: 35px 45px !important;
  }
+ /* PERFORMANCE MODE MOBILE */
  .performance textarea {
-   font-size: clamp(14pt, 5vw, 24pt) !important;
+   font-size: 22pt !important;
  }
 }
 
 /* TABLET/LARGE SCREEN (10-inch focus) */
 @media (min-width: 769px) {
-  /* Edit Mode: "Comfortably Larger" (Increased from original, but smaller than Performance) */
+  /* EDIT MODE TABLET */
   textarea {
-    font-size: 30pt !important; 
-    padding: 50px 70px !important;
+    font-size: 26pt !important; 
+    padding: 40px 60px !important;
     line-height: 1.5;
   }
-  /* Performance Mode: "Maximum Visibility" */
+  /* PERFORMANCE MODE TABLET */
   .performance textarea {
-    font-size: 44pt !important;
+    font-size: 38pt !important;
     padding: 40px 60px !important;
   }
   .nav-btn {
-    padding: 20px 35px;
-    font-size: 28px;
+    padding: 18px 30px;
+    font-size: 24px;
   }
   .btn {
-    font-size: 20px;
-    padding: 20px 28px;
+    font-size: 18px;
+    padding: 18px 24px;
   }
   .smallbox {
-    font-size: 20px !important;
+    font-size: 18px !important;
   }
 }
 
@@ -148,9 +150,6 @@ textarea {
     font-weight:700;
     font-size: 18px;
     cursor:pointer;
-}
-#menu div:hover {
-    background: rgba(255,255,255,0.2);
 }
 
 /* OVERLAY */
