@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>EGBC Performance Notes</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
@@ -57,7 +57,7 @@ body { font-family: 'Montserrat', sans-serif; }
  }
 }
 
-/* TEXTAREA (EDIT MODE FIX) */
+/* TEXTAREA (EDIT MODE FIX ONLY) */
 textarea {
     width: 100%;
     font-size: 26pt;
@@ -177,6 +177,20 @@ textarea {
     font-weight:bold;
     z-index:10001;
 }
+
+/* FULLSCREEN TOGGLE */
+#fsToggle {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    opacity: 0.3;
+    z-index: 10002;
+    background: #2c6999;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 10px;
+}
 </style>
 
 <script type="module">
@@ -184,9 +198,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp({
- apiKey:"AIzaSy...",
- authDomain:"egbc-worship-planner.firebaseapp.com",
- projectId:"egbc-worship-planner"
+ apiKey:"AIzaSy...",
+ authDomain:"egbc-worship-planner.firebaseapp.com",
+ projectId:"egbc-worship-planner"
 });
 const db = getFirestore(app);
 
@@ -207,150 +221,158 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
+window.goFull = () => {
+    const docEl = document.documentElement;
+    if (docEl.requestFullscreen) docEl.requestFullscreen();
+    else if (docEl.mozRequestFullScreen) docEl.mozRequestFullScreen();
+    else if (docEl.webkitRequestFullScreen) docEl.webkitRequestFullScreen();
+    else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
+};
+
 window.autoGrow = (el)=>{
- if(performance) return;
- el.style.height = "auto";
- el.style.height = el.scrollHeight + "px";
+ el.style.height = "auto";
+ el.style.height = el.scrollHeight + "px";
 };
 
 /* LOAD EVENTS */
 window.loadRota = async () => {
- const date = dateInput().value;
- const snap = await getDocs(collection(db,"events"));
+ const date = dateInput().value;
+ const snap = await getDocs(collection(db,"events"));
 
- eventsForDay = [];
- snap.forEach(d=>{
-  const ev=d.data();
-  if(ev.date===date && ev.archived!==true){
-   eventsForDay.push(ev);
-  }
- });
+ eventsForDay = [];
+ snap.forEach(d=>{
+  const ev=d.data();
+  if(ev.date===date && ev.archived!==true){
+   eventsForDay.push(ev);
+  }
+ });
 
- serviceSelect().innerHTML='<option value="">Select Service</option>';
- eventsForDay.forEach((ev,i)=>{
-  serviceSelect().innerHTML+=`<option value="${i}">${ev.type}</option>`;
- });
+ serviceSelect().innerHTML='<option value="">Select Service</option>';
+ eventsForDay.forEach((ev,i)=>{
+  serviceSelect().innerHTML+=`<option value="${i}">${ev.type}</option>`;
+ });
 };
 
 window.selectService = () => {
- const i = serviceSelect().value;
- if(i==="") return;
+ const i = serviceSelect().value;
+ if(i==="") return;
 
- selectedEvent = eventsForDay[i];
- currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
+ selectedEvent = eventsForDay[i];
+ currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
 
- roleSelect().innerHTML='<option value="">Instrument</option>';
- Object.keys(selectedEvent.assignments || {}).forEach(r=>{
-  roleSelect().innerHTML+=`<option>${r}</option>`;
- });
+ roleSelect().innerHTML='<option value="">Instrument</option>';
+ Object.keys(selectedEvent.assignments || {}).forEach(r=>{
+  roleSelect().innerHTML+=`<option>${r}</option>`;
+ });
 };
 
 window.loadService = async () => {
 
- currentDate = dateInput().value;
- currentRole = roleSelect().value;
+ currentDate = dateInput().value;
+ currentRole = roleSelect().value;
 
- const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
- currentService = snap.docs[0].data();
+ const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
+ currentService = snap.docs[0].data();
 
- songs = currentService.order.filter(x=>x.type==="song");
+ songs = currentService.order.filter(x=>x.type==="song");
 
- buildMenu();
- showSong(0);
+ buildMenu();
+ showSong(0);
 
- document.getElementById("startScreen").style.display="none";
+ document.getElementById("startScreen").style.display="none";
+ document.getElementById("fsToggle").style.display="block";
 };
 
 function buildMenu(){
- const menu = document.getElementById("menu");
- menu.innerHTML="";
- songs.forEach((s,i)=>{
-  const div=document.createElement("div");
-  div.innerText=s.title;
-  div.onclick=()=>{
-    showSong(i);
-    toggleMenu();
-  };
-  menu.appendChild(div);
- });
+ const menu = document.getElementById("menu");
+ menu.innerHTML="";
+ songs.forEach((s,i)=>{
+  const div=document.createElement("div");
+  div.innerText=s.title;
+  div.onclick=()=>{
+    showSong(i);
+    toggleMenu();
+  };
+  menu.appendChild(div);
+ });
 }
 
 window.toggleMenu = ()=>{
- document.getElementById("menu").classList.toggle("open");
- document.getElementById("overlay").classList.toggle("show");
+ document.getElementById("menu").classList.toggle("open");
+ document.getElementById("overlay").classList.toggle("show");
 };
 
 window.closeMenu = ()=>{
- document.getElementById("menu").classList.remove("open");
- document.getElementById("overlay").classList.remove("show");
+ document.getElementById("menu").classList.remove("open");
+ document.getElementById("overlay").classList.remove("show");
 };
 
 window.togglePerformance = ()=>{
- performance = !performance;
- showSong(index);
+ performance = !performance;
+ showSong(index);
 };
 
 async function showSong(i){
 
- index = i;
- const s = songs[i];
+ index = i;
+ const s = songs[i];
 
- selectedKeys = [...(s.keys || [])];
+ selectedKeys = [...(s.keys || [])];
 
- const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
- const data = songDoc.exists()?songDoc.data():{};
- const allFiles = data.files || [];
+ const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
+ const data = songDoc.exists()?songDoc.data():{};
+ const allFiles = data.files || [];
 
- const files = allFiles.filter(f=>selectedKeys.includes(f.key));
+ const files = allFiles.filter(f=>selectedKeys.includes(f.key));
 
- let yourNotes = s.notes || "";
- currentDocId = null;
+ let yourNotes = s.notes || "";
+ currentDocId = null;
 
- const todaySnap = await getDocs(query(collection(db,"schedules"),
-  where("date","==",currentDate),
-  where("role","==",currentRole)));
+ const todaySnap = await getDocs(query(collection(db,"schedules"),
+  where("date","==",currentDate),
+  where("role","==",currentRole)));
 
- todaySnap.forEach(d=>{
-  const n=d.data();
-  if(n.songTitle===s.title){
-   yourNotes = n.notes;
-   currentDocId = d.id;
-  }
- });
+ todaySnap.forEach(d=>{
+  const n=d.data();
+  if(n.songTitle===s.title){
+   yourNotes = n.notes;
+   currentDocId = d.id;
+  }
+ });
 
- const allSnap = await getDocs(collection(db,"schedules"));
- let last = null;
+ const allSnap = await getDocs(collection(db,"schedules"));
+ let last = null;
 
- allSnap.forEach(d=>{
-  const n=d.data();
-  if(n.worshipLeader===currentLeader &&
-     n.role===currentRole &&
-     n.songTitle===s.title &&
-     n.date!==currentDate){
-   if(!last || new Date(n.date)>new Date(last.date)){
-    last=n;
-   }
-  }
- });
+ allSnap.forEach(d=>{
+  const n=d.data();
+  if(n.worshipLeader===currentLeader &&
+     n.role===currentRole &&
+     n.songTitle===s.title &&
+     n.date!==currentDate){
+   if(!last || new Date(n.date)>new Date(last.date)){
+    last=n;
+   }
+  }
+ });
 
- const roleNotes = currentService?.roleNotes?.[currentRole] || "";
+ const roleNotes = currentService?.roleNotes?.[currentRole] || "";
 
- appDiv().innerHTML=`
- <div class="screen ${performance?'performance':''}">
+ appDiv().innerHTML=`
+ <div class="screen ${performance?'performance':''}">
 
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-   <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
-   <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
-   <div style="display:flex; gap:5px;">
-    <button class="nav-btn" onclick="prev()">⬅</button>
-    <button class="nav-btn" onclick="next()">➡</button>
-   </div>
-  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+   <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
+   <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
+   <div>
+    <button class="nav-btn" onclick="prev()">⬅</button>
+    <button class="nav-btn" onclick="next()">➡</button>
+   </div>
+  </div>
 
   <div class="perf-row">
-    <button class="btn ${performance ? 'btn-sm' : ''}" onclick="togglePerformance()">
-     ${performance ? "Edit" : "Performance Mode"}
-    </button>
+    <button class="btn ${performance ? 'btn-sm' : ''}" onclick="togglePerformance()">
+     ${performance ? "Edit" : "Performance Mode"}
+    </button>
 
     ${performance ? files.map(f=>`
       <button class="btn btn-sm" onclick="openPDF('${f.url}')">
@@ -359,46 +381,46 @@ async function showSong(i){
     `).join("") : ""}
   </div>
 
-  <div class="hide-perf" style="display:flex; gap:10px; flex-wrap:wrap;">
-   ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
-    <label style="font-size: 14px;">
-     <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
-     onchange="toggleKey('${k}',this.checked)"> ${k}
-    </label>`).join("")}
-  </div>
+  <div class="hide-perf">
+   ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
+    <label>
+     <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
+     onchange="toggleKey('${k}',this.checked)"> ${k}
+    </label>`).join("")}
+  </div>
 
-  <div class="hide-perf" style="display:flex; gap:8px; flex-wrap:wrap;">
-   ${files.map(f=>`
-    <button class="btn" onclick="openPDF('${f.url}')">
-     ${f.type} (${f.key})
-    </button>
-   `).join("")}
-  </div>
+  <div class="hide-perf">
+   ${files.map(f=>`
+    <button class="btn" onclick="openPDF('${f.url}')">
+     ${f.type} (${f.key})
+    </button>
+   `).join("")}
+  </div>
 
-  <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
+  <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
 
-  ${!performance ? `
-    <div class="smallbox"><b>Instrument Notes:</b><br>${roleNotes}</div>
-    <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
+  ${!performance ? `
+    <div class="smallbox"><b>Instrument Notes:</b><br>${roleNotes}</div>
+    <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
     <button class="btn" onclick="save('${s.title}')">Save</button>
-  ` : ""}
+  ` : ""}
 
- </div>`;
+ </div>`;
 
- setTimeout(()=>{
-  const ta = document.getElementById("notes");
-  if(ta) autoGrow(ta);
- },50);
+ setTimeout(()=>{
+  const ta = document.getElementById("notes");
+  if(ta) autoGrow(ta);
+ },50);
 }
 
 /* KEYS */
 window.toggleKey=(k,on)=>{
- if(on){
-  if(!selectedKeys.includes(k)) selectedKeys.push(k);
- } else {
-  selectedKeys = selectedKeys.filter(x=>x!==k);
- }
- showSong(index);
+ if(on){
+  if(!selectedKeys.includes(k)) selectedKeys.push(k);
+ } else {
+  selectedKeys = selectedKeys.filter(x=>x!==k);
+ }
+ showSong(index);
 };
 
 /* NAV */
@@ -419,40 +441,32 @@ window.openPDF = (url)=>{
     <iframe src="${finalUrl}" id="pdfIframe" style="width:100%;height:100%;border:none;background:black;"></iframe>
  `;
  v.style.display="block";
-
- // Attempt to reload if it fails to show content
- const iframe = document.getElementById("pdfIframe");
- iframe.onload = () => {
-    if(iframe.src.includes("viewer") && !iframe.contentWindow) {
-        console.log("Possible load failure, retrying...");
-    }
- };
 };
 
 window.closePDF = ()=>{
- const v=document.getElementById("pdfViewer");
- v.style.display="none";
+ const v=document.getElementById("pdfViewer");
+ v.style.display="none";
  v.innerHTML="";
 };
 
 /* SAVE */
 window.save = async(song)=>{
- const txt = document.getElementById("notes").value;
+ const txt = document.getElementById("notes").value;
 
- if(currentDocId){
-  await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
- } else {
-  const newDoc = await addDoc(collection(db,"schedules"),{
-   date: currentDate,
-   role: currentRole,
-   worshipLeader: currentLeader,
-   songTitle: song,
-   notes: txt
-  });
-  currentDocId = newDoc.id;
- }
+ if(currentDocId){
+  await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
+ } else {
+  const newDoc = await addDoc(collection(db,"schedules"),{
+   date: currentDate,
+   role: currentRole,
+   worshipLeader: currentLeader,
+   songTitle: song,
+   notes: txt
+  });
+  currentDocId = newDoc.id;
+ }
 
- alert("Saved");
+ alert("Saved");
 };
 </script>
 </head>
@@ -476,6 +490,8 @@ window.save = async(song)=>{
 Load Service
 </button>
 </div>
+
+<button id="fsToggle" style="display:none;" onclick="goFull()">[ Fullscreen ]</button>
 
 <div id="menu"></div>
 <div id="overlay" onclick="closeMenu()"></div>
