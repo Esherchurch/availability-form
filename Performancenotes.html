@@ -64,7 +64,7 @@ textarea {
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 45px 50px;
+    padding: 60px !important; /* Increased significantly to stop squashing */
     border-radius: 16px;
     overflow-y: auto;
     resize: none;
@@ -80,7 +80,7 @@ textarea {
 @media (max-width:768px){
  textarea {
    font-size:18pt;
-   padding:35px 40px;
+   padding:40px !important;
  }
 }
 
@@ -90,7 +90,7 @@ textarea {
     height: 100% !important;
     max-height: none;
     flex-grow: 1;
-    padding: 40px;
+    padding: 40px !important;
 }
 
 .performance .hide-perf {
@@ -389,13 +389,14 @@ window.prev = ()=>{ if(index>0) showSong(index-1); };
 window.openPDF = (url)=>{
  if(url.includes("drive.google.com")){
   const m=url.match(/\/d\/(.*?)\//);
-  if(m) url=`https://docs.google.com/viewer?url=https://drive.google.com/uc?id=${m[1]}&embedded=true`;
+  // Using the Google Drive Preview link specifically as it is most reliable for Android iFrames
+  if(m) url=`https://drive.google.com/file/d/${m[1]}/preview`;
  }
 
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
     <button class="closeBtn" onclick="closePDF()">Close</button>
-    <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
+    <iframe src="${url}" style="width:100%;height:100%;border:none;" type="application/pdf"></iframe>
  `;
  v.style.display="block";
 
