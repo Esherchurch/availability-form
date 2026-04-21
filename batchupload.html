@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Importer (With Suggestions)</title>
+<title>Batch Music Importer (Fixed New Song Flow)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -19,10 +19,7 @@ cursor: pointer;
 margin-bottom: 15px;
 }
 
-.dropzone.dragover { background: #e8f4ff; }
-
 table { border-collapse: collapse; width: 100%; font-size: 12px; }
-
 td, th { border: 1px solid #ddd; padding: 6px; }
 
 .status-new { background:#d4edda; }
@@ -31,15 +28,7 @@ td, th { border: 1px solid #ddd; padding: 6px; }
 .status-skipped { background:#e0e0e0; }
 
 input, select { width: 100%; }
-
-button { margin: 2px; font-size: 11px; }
-
-.youtube-option {
-cursor:pointer;
-color:blue;
-text-decoration:underline;
-display:block;
-}
+button { margin: 2px; }
 </style>
 </head>
 
@@ -67,7 +56,6 @@ Drag folder OR click to select
 <th>Match</th>
 <th>YouTube</th>
 <th>CCLI</th>
-<th>Assist</th>
 <th>Status</th>
 <th>Action</th>
 </tr>
@@ -103,18 +91,15 @@ songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 
 // CLEAN TITLE
 function cleanTitle(name){
-
-let t = name.toLowerCase();
-
-t = t.replace(".pdf","");
-t = t.replace(/\(.*?\)/g,"");
-t = t.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"");
-t = t.replace(/\bin [a-g](#|b)?\b/g,"");
-t = t.replace(/\b[a-g](#|b)?\b/g,"");
-t = t.replace(/[^a-z0-9 ]/g,"");
-t = t.replace(/\s+/g," ").trim();
-
-return t;
+return name.toLowerCase()
+.replace(".pdf","")
+.replace(/\(.*?\)/g,"")
+.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
+.replace(/\bin [a-g](#|b)?\b/g,"")
+.replace(/\b[a-g](#|b)?\b/g,"")
+.replace(/[^a-z0-9 ]/g,"")
+.replace(/\s+/g," ")
+.trim();
 }
 
 // MATCH
@@ -125,7 +110,6 @@ const words = title.split(" ");
 return songs.map(s => {
 
 const sWords = s.title.toLowerCase().split(" ");
-
 let overlap = words.filter(w => sWords.includes(w));
 let score = overlap.length / sWords.length;
 
@@ -144,9 +128,7 @@ dropzone.onclick = () => fileInput.click();
 
 fileInput.onchange = e => handleFiles(Array.from(e.target.files));
 
-dropzone.addEventListener("dragover", e=>{
-e.preventDefault();
-});
+dropzone.addEventListener("dragover", e=>e.preventDefault());
 
 dropzone.addEventListener("drop", async e=>{
 e.preventDefault();
@@ -167,9 +149,7 @@ async function traverse(entry, files){
 if(entry.isFile){
 await new Promise(res=>{
 entry.file(f=>{
-if(f.name.toLowerCase().endsWith(".pdf")){
-files.push(f);
-}
+if(f.name.endsWith(".pdf")) files.push(f);
 res();
 });
 });
@@ -195,26 +175,22 @@ await read();
 // MAIN
 async function handleFiles(files){
 
-document.getElementById("status").innerText =
-files.length + " PDF files loaded";
-
 await loadSongs();
 
 rows = files.map(file=>{
 
-let cleaned = cleanTitle(file.name);
-let matches = getMatches(cleaned);
+let title = cleanTitle(file.name);
+let matches = getMatches(title);
 
 return {
 file,
-title:cleaned,
+title,
 key:"",
 type:"",
 matches,
 match:matches[0]?.song || null,
 youtube:matches[0]?.song?.youtube || "",
 ccli:matches[0]?.song?.ccli || "",
-youtubeOptions:[],
 skip:false,
 force:false
 };
@@ -228,9 +204,9 @@ function getStatus(r){
 
 if(r.skip) return "SKIPPED";
 
-if(!r.match) return "NEW";
-
 if(!r.key || !r.type) return "REVIEW";
+
+if(!r.match) return "NEW";
 
 let dup = (r.match.files||[]).find(f =>
 f.key===r.key && f.type===r.type
@@ -239,22 +215,6 @@ f.key===r.key && f.type===r.type
 if(dup && !r.force) return "EXISTS";
 
 return "NEW";
-}
-
-// YOUTUBE SEARCH
-function searchYouTube(i){
-
-let query = encodeURIComponent(rows[i].title);
-
-fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&maxResults=3&type=video&key=YOUR_YOUTUBE_API_KEY`)
-.then(res=>res.json())
-.then(data=>{
-rows[i].youtubeOptions = data.items.map(v=>({
-title:v.snippet.title,
-url:`https://www.youtube.com/watch?v=${v.id.videoId}`
-}));
-render();
-});
 }
 
 // RENDER
@@ -291,7 +251,7 @@ ${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
 
 <td>
 <select>
-<option value="">New Song</option>
+<option value="">— New Song —</option>
 ${r.matches.map(m=>`
 <option value="${m.song.id}" ${r.match?.id===m.song.id?"selected":""}>
 ${m.song.title}
@@ -299,46 +259,33 @@ ${m.song.title}
 </select>
 </td>
 
-<td>
-<input value="${r.youtube}">
-<div>
-${r.youtubeOptions.map(v=>`
-<span class="youtube-option" onclick="selectYouTube(${i},'${v.url}')">${v.title}</span>
-`).join("")}
-</div>
-</td>
-
+<td><input value="${r.youtube}"></td>
 <td><input value="${r.ccli}"></td>
-
-<td>
-${!r.match ? `
-<button onclick="searchYouTube(${i})">Find YouTube</button>
-<button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
-` : ""}
-</td>
 
 <td>${status}</td>
 
 <td>
-<button onclick="rows[${i}].skip=true; render()">Skip</button>
-<button onclick="rows[${i}].force=true; render()">Force</button>
+<button>Skip</button>
+<button>Force</button>
 </td>
 `;
 
 tbody.appendChild(tr);
 
-const inputs = tr.querySelectorAll("input, select");
+const inputs = tr.querySelectorAll("input, select, button");
 
 inputs[0].onchange = e => { r.title=e.target.value; render(); };
 inputs[1].onchange = e => { r.key=e.target.value; render(); };
 inputs[2].onchange = e => { r.type=e.target.value; render(); };
 
 inputs[3].onchange = e => {
+if(!e.target.value){
+r.match = null;
+} else {
 let m = r.matches.find(x=>x.song.id===e.target.value);
-r.match = m ? m.song : null;
-if(r.match){
-r.youtube = r.match.youtube || "";
-r.ccli = r.match.ccli || "";
+r.match = m.song;
+r.youtube = m.song.youtube || "";
+r.ccli = m.song.ccli || "";
 }
 render();
 };
@@ -346,15 +293,11 @@ render();
 inputs[4].onchange = e => { r.youtube=e.target.value; };
 inputs[5].onchange = e => { r.ccli=e.target.value; };
 
+inputs[6].onclick = () => { r.skip=true; render(); };
+inputs[7].onclick = () => { r.force=true; render(); };
+
 });
 
-}
-
-// SELECT YOUTUBE
-function selectYouTube(i,url){
-rows[i].youtube = url;
-rows[i].youtubeOptions = [];
-render();
 }
 
 // PROCESS
@@ -394,7 +337,7 @@ key:r.key
 
 await docRef.set({
 title:r.title,
-normalized:r.title.toLowerCase(),
+normalized:r.title,
 youtube:r.youtube,
 ccli:r.ccli,
 files
