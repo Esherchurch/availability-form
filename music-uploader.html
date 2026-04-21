@@ -40,19 +40,13 @@ font-size: 12px;
 
 <body>
 
-<h2>Upload Song (Original)</h2>
-
-<input id="title" placeholder="Song Title"><br><br>
-<input id="youtube" placeholder="YouTube link"><br><br>
-<input id="ccli" placeholder="CCLI"><br><br>
+<h2>Batch Upload</h2>
 
 <div class="dropzone" id="dropzone">
 Drag & Drop Files
 </div>
 
 <input type="file" id="fileInput" multiple style="display:none">
-
-<h2>Batch Processing</h2>
 
 <button onclick="scanFiles()">Scan Files</button>
 <button onclick="processAll()">Process All</button>
@@ -89,17 +83,17 @@ let songsCache = [];
 
 const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 
-document.getElementById("dropzone").onclick = () => fileInput.click();
+dropzone.onclick = ()=> fileInput.click();
 
-fileInput.onchange = (e)=> rawFiles = Array.from(e.target.files);
+fileInput.onchange = e => rawFiles = Array.from(e.target.files);
 
 dropzone.addEventListener("drop", e=>{
 e.preventDefault();
 rawFiles = Array.from(e.dataTransfer.files);
 });
 
-// ================= LOAD SONGS =================
-async function loadSongs() {
+// ================= LOAD =================
+async function loadSongs(){
 const snap = await db.collection("songs").get();
 songsCache = snap.docs.map(d=>({id:d.id,...d.data()}));
 }
@@ -119,10 +113,6 @@ return songsCache.find(s=>normalize(s.title).includes(norm));
 function detectKey(text,name){
 let m = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
 if(m) return m[1];
-
-for(const k of ["A","B","C","D","E","F","G"]){
-if(name.includes(" "+k)) return k;
-}
 return "";
 }
 
@@ -139,6 +129,28 @@ return "";
 }
 }
 
+// ================= STATUS CHECK =================
+function updateStatus(row){
+
+if(!row.match){
+row.status = "REVIEW";
+return;
+}
+
+if(!row.key || !row.type){
+row.status = "REVIEW";
+return;
+}
+
+const existing = (row.match.files || []);
+
+const duplicate = existing.find(f =>
+f.key === row.key && f.type === row.type
+);
+
+row.status = duplicate ? "EXISTS" : "NEW";
+}
+
 // ================= SCAN =================
 async function scanFiles(){
 
@@ -150,32 +162,26 @@ for(const file of rawFiles){
 let text = await readPDF(file);
 
 let title = file.name.replace(".pdf","");
+
 if(text){
 let line = text.split("\n")[0];
 if(line.length<60) title=line;
 }
 
 let match = findMatch(title);
-
 let key = detectKey(text,file.name);
 
-let status = "NEW";
-
-if(match){
-let exists = (match.files||[]).find(f=>f.key===key);
-if(exists) status="EXISTS";
-}
-
-if(!match) status="REVIEW";
-
-rows.push({
+let row = {
 file,
 title,
 key,
 type:"",
 match,
-status
-});
+status:"REVIEW"
+};
+
+updateStatus(row);
+rows.push(row);
 }
 
 renderTable();
@@ -193,15 +199,28 @@ tbody.innerHTML = rows.map((r,i)=>`
 <td>${r.file.name}</td>
 
 <td>
-<input value="${r.title}" onchange="rows[${i}].title=this.value">
+<input value="${r.title}" onchange="
+rows[${i}].title=this.value;
+rows[${i}].match=findMatch(this.value);
+updateStatus(rows[${i}]);
+renderTable();
+">
 </td>
 
 <td>
-<input value="${r.key}" onchange="rows[${i}].key=this.value">
+<input value="${r.key}" onchange="
+rows[${i}].key=this.value;
+updateStatus(rows[${i}]);
+renderTable();
+">
 </td>
 
 <td>
-<select onchange="rows[${i}].type=this.value">
+<select onchange="
+rows[${i}].type=this.value;
+updateStatus(rows[${i}]);
+renderTable();
+">
 <option value="">Type</option>
 ${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
 </select>
@@ -221,19 +240,17 @@ for(const r of rows){
 
 if(r.status==="EXISTS") continue;
 
-if(!r.type || !r.key){
-alert("Missing type/key on "+r.file.name);
+if(r.status==="REVIEW"){
+alert("Fix row before upload: "+r.file.name);
 return;
 }
 
-let title = r.title;
-let id = normalize(title).replace(/\s+/g,"-");
+let id = normalize(r.title).replace(/\s+/g,"-");
 
 let docRef = db.collection("songs").doc(id);
 let snap = await docRef.get();
 
 let data = snap.exists ? snap.data() : {};
-
 let files = data.files || [];
 
 const ref = storage.ref(`songs/${id}/${r.file.name}`);
@@ -248,8 +265,8 @@ key:r.key
 });
 
 await docRef.set({
-title,
-normalized: normalize(title),
+title:r.title,
+normalized: normalize(r.title),
 youtube: data.youtube || "",
 ccli: data.ccli || "",
 files
