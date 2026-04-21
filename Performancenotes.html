@@ -11,6 +11,7 @@
 <style>
 body { font-family: 'Montserrat', sans-serif; }
 
+/* SCREEN */
 .screen {
     position: fixed;
     inset: 0;
@@ -22,14 +23,14 @@ body { font-family: 'Montserrat', sans-serif; }
     gap: 14px;
 }
 
-/* BIGGER + BETTER TEXTAREA */
+/* TEXTAREA FIX */
 textarea {
     width: 100%;
-    font-size: 24pt;
+    font-size: 24pt; /* bigger */
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 18px;
+    padding: 16px;
     border-radius: 16px;
     line-height: 1.5;
     overflow: hidden;
@@ -84,13 +85,20 @@ textarea {
     background: rgba(255,255,255,0.2);
 }
 
-/* PDF FULLSCREEN IMPROVED */
+/* OVERLAY */
+#overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    z-index: 900;
+}
+#overlay.show { display:block; }
+
+/* PDF */
 #pdfViewer {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     background: black;
     display: none;
     z-index: 9999;
@@ -102,7 +110,7 @@ textarea {
     right:10px;
     background:white;
     color:black;
-    padding:14px 18px;
+    padding:12px 16px;
     border-radius:10px;
     font-weight:bold;
     z-index:10000;
@@ -137,7 +145,7 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
-/* AUTO GROW TEXTAREA */
+/* ✅ AUTO GROW (NEW) */
 window.autoGrow = (el)=>{
  el.style.height = "auto";
  el.style.height = el.scrollHeight + "px";
@@ -178,6 +186,7 @@ window.selectService = () => {
 
 /* LOAD SERVICE */
 window.loadService = async () => {
+
  currentDate = dateInput().value;
  currentRole = roleSelect().value;
 
@@ -209,6 +218,18 @@ function buildMenu(){
 
 window.toggleMenu = ()=>{
  document.getElementById("menu").classList.toggle("open");
+ document.getElementById("overlay").classList.toggle("show");
+};
+
+window.closeMenu = ()=>{
+ document.getElementById("menu").classList.remove("open");
+ document.getElementById("overlay").classList.remove("show");
+};
+
+/* PERFORMANCE MODE */
+window.togglePerformance = ()=>{
+ performance = !performance;
+ showSong(index);
 };
 
 /* SHOW SONG */
@@ -216,6 +237,7 @@ async function showSong(i){
 
  index = i;
  const s = songs[i];
+
  selectedKeys = [...(s.keys || [])];
 
  const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
@@ -225,9 +247,39 @@ async function showSong(i){
  const files = allFiles.filter(f=>selectedKeys.includes(f.key));
 
  let yourNotes = s.notes || "";
+ currentDocId = null;
+
+ const todaySnap = await getDocs(query(collection(db,"schedules"),
+  where("date","==",currentDate),
+  where("role","==",currentRole)));
+
+ todaySnap.forEach(d=>{
+  const n=d.data();
+  if(n.songTitle===s.title){
+   yourNotes = n.notes;
+   currentDocId = d.id;
+  }
+ });
+
+ const allSnap = await getDocs(collection(db,"schedules"));
+ let last = null;
+
+ allSnap.forEach(d=>{
+  const n=d.data();
+  if(n.worshipLeader===currentLeader &&
+     n.role===currentRole &&
+     n.songTitle===s.title &&
+     n.date!==currentDate){
+   if(!last || new Date(n.date)>new Date(last.date)){
+    last=n;
+   }
+  }
+ });
+
+ const roleNotes = currentService?.roleNotes?.[currentRole] || "";
 
  appDiv().innerHTML=`
- <div class="screen">
+ <div class="screen ${performance?'performance':''}">
 
   <div style="display:flex;justify-content:space-between;">
    <button class="btn" onclick="toggleMenu()">☰</button>
@@ -238,22 +290,56 @@ async function showSong(i){
    </div>
   </div>
 
+  <button class="btn" onclick="togglePerformance()">Toggle Mode</button>
+
+  <div>
+   ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
+    <label>
+     <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
+     onchange="toggleKey('${k}',this.checked)"> ${k}
+    </label>`).join("")}
+  </div>
+
   <div>
    ${files.map(f=>`
-    <button class="btn" onclick="openPDF('${f.url}')">${f.type}</button>
+    <button class="btn" onclick="openPDF('${f.url}')">
+     ${f.type} (${f.key})
+    </button>
    `).join("")}
   </div>
 
   <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
 
+  ${!performance ? `
+    <div class="smallbox"><b>Instrument Notes:</b><br>${roleNotes}</div>
+    <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
+  ` : ""}
+
+  <button class="btn" onclick="save('${s.title}')">Save</button>
+
  </div>`;
 
  setTimeout(()=>{
-   autoGrow(document.getElementById("notes"));
+   const ta = document.getElementById("notes");
+   if(ta) autoGrow(ta);
  },50);
 }
 
-/* PDF FULLSCREEN */
+/* KEYS */
+window.toggleKey=(k,on)=>{
+ if(on){
+  if(!selectedKeys.includes(k)) selectedKeys.push(k);
+ } else {
+  selectedKeys = selectedKeys.filter(x=>x!==k);
+ }
+ showSong(index);
+};
+
+/* NAV */
+window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
+window.prev = ()=>{ if(index>0) showSong(index-1); };
+
+/* PDF FULLSCREEN FIX */
 window.openPDF = (url)=>{
  if(url.includes("drive")){
   const m=url.match(/\/d\/(.*?)\//);
@@ -261,16 +347,13 @@ window.openPDF = (url)=>{
  }
 
  const v=document.getElementById("pdfViewer");
-
  v.innerHTML=`
    <button class="closeBtn" onclick="closePDF()">Close</button>
-   <iframe src="${url}" style="width:100vw;height:100vh;border:none;"></iframe>
+   <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
  `;
-
  v.style.display="block";
 
- // attempt true fullscreen
- if (v.requestFullscreen) {
+ if(v.requestFullscreen){
    v.requestFullscreen();
  }
 };
@@ -279,9 +362,29 @@ window.closePDF = ()=>{
  const v=document.getElementById("pdfViewer");
  v.style.display="none";
  v.innerHTML="";
- if (document.fullscreenElement) {
+ if(document.fullscreenElement){
    document.exitFullscreen();
  }
+};
+
+/* SAVE */
+window.save = async(song)=>{
+ const txt = document.getElementById("notes").value;
+
+ if(currentDocId){
+  await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
+ } else {
+  const newDoc = await addDoc(collection(db,"schedules"),{
+   date: currentDate,
+   role: currentRole,
+   worshipLeader: currentLeader,
+   songTitle: song,
+   notes: txt
+  });
+  currentDocId = newDoc.id;
+ }
+
+ alert("Saved");
 };
 </script>
 </head>
@@ -289,13 +392,25 @@ window.closePDF = ()=>{
 <body>
 
 <div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
+<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
+
 <input type="date" id="dateInput" onchange="loadRota()" class="w-full p-3 rounded-xl">
-<select id="serviceSelect" onchange="selectService()" class="w-full p-3 rounded-xl"></select>
-<select id="roleSelect" class="w-full p-3 rounded-xl"></select>
-<button onclick="loadService()" class="w-full bg-[#2c6999] text-white p-3 rounded-xl">Load</button>
+
+<select id="serviceSelect" onchange="selectService()" class="w-full p-3 rounded-xl">
+<option>Select Service</option>
+</select>
+
+<select id="roleSelect" class="w-full p-3 rounded-xl">
+<option>Instrument</option>
+</select>
+
+<button onclick="loadService()" class="w-full bg-[#2c6999] text-white p-3 rounded-xl font-bold">
+Load Service
+</button>
 </div>
 
 <div id="menu"></div>
+<div id="overlay" onclick="closeMenu()"></div>
 <div id="pdfViewer"></div>
 <div id="app"></div>
 
