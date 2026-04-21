@@ -391,9 +391,8 @@ window.openPDF = (url)=>{
   const m = url.match(/\/d\/(.*?)\//);
   if(m) {
     const fileId = m[1];
-    // This specific format forces Google's JS viewer to render the PDF as an HTML container.
-    // This is the most effective way to prevent Android from hijacking the file.
-    finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent('https://drive.google.com/uc?id=' + fileId + '&export=download')}&embedded=true`;
+    // Using a hosted PDF.js viewer to FORCE internal rendering on Android.
+    finalUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent('https://drive.google.com/uc?id=' + fileId + '&export=download')}`;
   }
  }
 
