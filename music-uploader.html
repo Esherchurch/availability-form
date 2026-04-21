@@ -7,6 +7,9 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
+<!-- PDF READER -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
 <style>
 body { font-family: Arial; padding: 40px; }
 
@@ -95,69 +98,87 @@ const db = firebase.firestore();
 let files = [];
 
 const ALL_KEYS = [
-    "C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B",
-    "Cm", "C#m", "Dbm", "Dm", "D#m", "Ebm", "Em", "Fm", "F#m", "Gbm", "Gm", "G#m", "Abm", "Am", "A#m", "Bbm", "Bm"
+    "C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B",
+    "Cm","C#m","Dbm","Dm","D#m","Ebm","Em","Fm","F#m","Gbm","Gm","G#m","Abm","Am","A#m","Bbm","Bm"
 ];
 
-const dropzone = document.getElementById("dropzone");
-const fileInput = document.getElementById("fileInput");
+// PDF TEXT
+async function extractPDFText(file) {
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
 
-dropzone.addEventListener("click", () => fileInput.click());
+    let text = "";
 
-fileInput.addEventListener("change", (e) => {
-    addFiles(e.target.files);
-});
-
-dropzone.addEventListener("dragover", e => {
-    e.preventDefault();
-});
-
-dropzone.addEventListener("drop", e => {
-    e.preventDefault();
-    addFiles(e.dataTransfer.files);
-});
-
-// =======================
-// ADD FILES
-// =======================
-function addFiles(newFiles) {
-    for (const file of newFiles) {
-        files.push({
-            file: file,
-            type: "",
-            key: detectKey(file.name)
-        });
+    for (let i = 1; i <= Math.min(2, pdf.numPages); i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(i => i.str).join(" ") + "\n";
     }
+
+    return text;
+}
+
+// TITLE + KEY
+function extractTitle(text, filename) {
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 3);
+    if (lines.length > 0 && lines[0].length < 60) return lines[0];
+    return filename.replace(".pdf","");
+}
+
+function extractKey(text) {
+    const match = text.match(/Key[:\s]+([A-G][#b]?m?)/i);
+    return match ? match[1] : "";
+}
+
+// ADD FILES
+async function addFiles(newFiles) {
+
+    for (const file of newFiles) {
+
+        let title = "";
+        let key = "";
+
+        if (file.type === "application/pdf") {
+            try {
+                const text = await extractPDFText(file);
+                title = extractTitle(text, file.name);
+                key = extractKey(text);
+            } catch(e) {
+                console.log("PDF fail", e);
+            }
+        }
+
+        if (!key) key = detectKey(file.name);
+
+        if (title && !document.getElementById("title").value) {
+            document.getElementById("title").value = title;
+            suggestSongs();
+        }
+
+        files.push({ file, type:"", key });
+    }
+
     renderFiles();
 }
 
-// =======================
-// SMART KEY DETECTION
-// =======================
+// KEY FROM NAME
 function detectKey(name) {
     const lower = name.toLowerCase();
-
-    for (const key of ALL_KEYS) {
-        if (lower.includes(` ${key.toLowerCase()}`) || lower.includes(`(${key.toLowerCase()})`)) {
-            return key;
-        }
+    for (const k of ALL_KEYS) {
+        if (lower.includes(" "+k.toLowerCase()) || lower.includes("("+k.toLowerCase()+")")) return k;
     }
-
     return "";
 }
 
-// =======================
-// RENDER TABLE
-// =======================
+// RENDER
 function renderFiles() {
     const tbody = document.querySelector("#fileTable tbody");
 
-    tbody.innerHTML = files.map((f, i) => `
+    tbody.innerHTML = files.map((f,i)=>`
         <tr>
             <td>${f.file.name}</td>
-
             <td>
-                <select onchange="updateType(${i}, this.value)">
+                <select onchange="files[${i}].type=this.value">
                     <option value="">Type</option>
                     <option ${f.type==="Lead Sheet"?"selected":""}>Lead Sheet</option>
                     <option ${f.type==="Chord Sheet"?"selected":""}>Chord Sheet</option>
@@ -165,136 +186,97 @@ function renderFiles() {
                     <option ${f.type==="Bass Tabs"?"selected":""}>Bass Tabs</option>
                 </select>
             </td>
-
             <td>
-                <select onchange="updateKey(${i}, this.value)">
+                <select onchange="files[${i}].key=this.value">
                     <option value="">Key</option>
-                    ${ALL_KEYS.map(k => `<option ${f.key===k?"selected":""} value="${k}">${k}</option>`).join('')}
+                    ${ALL_KEYS.map(k=>`<option ${f.key===k?"selected":""}>${k}</option>`).join("")}
                 </select>
             </td>
         </tr>
     `).join("");
 }
 
-function updateType(i, val) {
-    files[i].type = val;
+// NORMALIZE
+function normalizeTitle(t) {
+    return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
 }
 
-function updateKey(i, val) {
-    files[i].key = val;
-}
-
-// =======================
-// SUGGEST SONGS
-// =======================
-function normalizeTitle(title) {
-    return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
-}
-
+// SUGGEST
 async function suggestSongs() {
-    const input = document.getElementById("title").value;
-    const norm = normalizeTitle(input);
+    const val = document.getElementById("title").value;
+    const norm = normalizeTitle(val);
 
-    if (norm.length < 2) {
-        document.getElementById("suggestions").innerHTML = "";
-        return;
-    }
+    if (norm.length < 2) return document.getElementById("suggestions").innerHTML="";
 
-    const snapshot = await db.collection("songs").get();
+    const snap = await db.collection("songs").get();
 
-    const matches = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(song => {
-            const songNorm = song.normalized || normalizeTitle(song.title);
-            return songNorm.includes(norm);
-        });
+    const matches = snap.docs.map(d=>({id:d.id,...d.data()}))
+        .filter(s => (s.normalized||normalizeTitle(s.title)).includes(norm));
 
     const box = document.getElementById("suggestions");
-    box.innerHTML = "";
+    box.innerHTML="";
 
-    matches.forEach(s => {
+    matches.forEach(s=>{
         const div = document.createElement("div");
-        div.className = "suggestion-item";
-        div.textContent = s.title;
-        // This avoids all quote/parentheses issues
-        div.addEventListener("click", () => {
-            selectSuggestion(s.id);
-        });
+        div.className="suggestion-item";
+        div.textContent = s.title + " ("+(s.key||"?")+")";
+        div.onclick = ()=>selectSuggestion(s.id);
         box.appendChild(div);
     });
 }
 
-// =======================
-// SELECT SONG
-// =======================
+// SELECT
 async function selectSuggestion(id) {
-    const docRef = db.collection("songs").doc(id);
-    const snap = await docRef.get();
+    const doc = await db.collection("songs").doc(id).get();
+    const d = doc.data();
 
-    if (snap.exists) {
-        const data = snap.data();
-        document.getElementById("title").value = data.title;
-        document.getElementById("suggestions").innerHTML = "";
-        document.getElementById("youtube").value = data.youtube || "";
-        document.getElementById("ccli").value = data.ccli || "";
-    }
+    document.getElementById("title").value = d.title;
+    document.getElementById("youtube").value = d.youtube||"";
+    document.getElementById("ccli").value = d.ccli||"";
+    document.getElementById("suggestions").innerHTML="";
 }
 
-// =======================
 // UPLOAD
-// =======================
 async function upload() {
 
     const title = document.getElementById("title").value.trim();
-    const youtube = document.getElementById("youtube").value;
-    const ccli = document.getElementById("ccli").value;
-
-    if (!title || files.length === 0) {
-        alert("Add title and files");
-        return;
-    }
-
-    // validate all rows
-    for (const f of files) {
-        if (!f.type || !f.key) {
-            alert("Each file needs a type and key");
-            return;
-        }
-    }
-
-    const docId = normalizeTitle(title).replace(/\s+/g, "-");
-    const docRef = db.collection("songs").doc(docId);
-
-    let existing = await docRef.get();
-    let existingData = existing.exists ? existing.data() : {};
-
-    let uploadedFiles = existingData.files || [];
+    if (!title || files.length===0) return alert("Add title and files");
 
     for (const f of files) {
-        const ref = storage.ref(`songs/${docId}/${f.file.name}`);
-        await ref.put(f.file);
+        if (!f.type || !f.key) return alert("Each file needs type + key");
+    }
 
-        const url = await ref.getDownloadURL();
+    const id = normalizeTitle(title).replace(/\s+/g,"-");
+    const ref = db.collection("songs").doc(id);
 
-        uploadedFiles.push({
-            name: f.file.name,
-            url: url,
-            type: f.type,
-            key: f.key
+    const snap = await ref.get();
+    let data = snap.exists ? snap.data() : {};
+    let uploaded = data.files || [];
+
+    for (const f of files) {
+        const sRef = storage.ref(`songs/${id}/${f.file.name}`);
+        await sRef.put(f.file);
+        const url = await sRef.getDownloadURL();
+
+        uploaded.push({
+            name:f.file.name,
+            url,
+            type:f.type,
+            key:f.key
         });
     }
 
-    await docRef.set({
+    await ref.set({
         title,
         normalized: normalizeTitle(title),
-        youtube: youtube,
-        ccli: ccli,
-        files: uploadedFiles
+        youtube: document.getElementById("youtube").value,
+        ccli: document.getElementById("ccli").value,
+        files: uploaded
     });
 
-    alert("Upload complete!");
+    alert("Upload complete");
 
-    files = [];
+    files=[];
     renderFiles();
 }
 
