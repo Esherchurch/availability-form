@@ -18,6 +18,12 @@ text-align: center;
 border-radius: 20px;
 cursor: pointer;
 margin-bottom: 20px;
+transition: 0.2s;
+}
+
+.dropzone.dragover {
+background: #e8f4ff;
+border-color: #2196f3;
 }
 
 table {
@@ -45,16 +51,18 @@ font-size: 12px;
 
 <body>
 
-<h2>Batch Upload (Multi Song)</h2>
+<h2>Batch Upload</h2>
 
 <div class="dropzone" id="dropzone">
-Drag & Drop Files
+Click or Drag Files Here
 </div>
 
 <input type="file" id="fileInput" multiple style="display:none">
 
 <button onclick="scanFiles()">Scan Files</button>
 <button onclick="processAll()">Process All</button>
+
+<div id="fileCount"></div>
 
 <table id="batchTable">
 <thead>
@@ -81,7 +89,6 @@ storageBucket: "egbc-worship-planner.firebasestorage.app"
 };
 
 firebase.initializeApp(firebaseConfig);
-
 const storage = firebase.storage();
 const db = firebase.firestore();
 
@@ -94,15 +101,31 @@ const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
-dropzone.onclick = ()=> fileInput.click();
+// ================= FIXED CLICK =================
+dropzone.onclick = () => fileInput.click();
 
-fileInput.onchange = e => rawFiles = Array.from(e.target.files);
+// ================= FIXED FILE SELECT =================
+fileInput.onchange = (e) => {
+rawFiles = Array.from(e.target.files);
+document.getElementById("fileCount").innerText = rawFiles.length + " files loaded";
+};
 
-dropzone.addEventListener("dragover", e => e.preventDefault());
-
-dropzone.addEventListener("drop", e=>{
+// ================= FIXED DRAG =================
+dropzone.addEventListener("dragover", (e) => {
 e.preventDefault();
+dropzone.classList.add("dragover");
+});
+
+dropzone.addEventListener("dragleave", () => {
+dropzone.classList.remove("dragover");
+});
+
+dropzone.addEventListener("drop", (e) => {
+e.preventDefault();
+dropzone.classList.remove("dragover");
+
 rawFiles = Array.from(e.dataTransfer.files);
+document.getElementById("fileCount").innerText = rawFiles.length + " files loaded";
 });
 
 // ================= LOAD SONGS =================
@@ -117,31 +140,22 @@ return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
 }
 
 // ================= MATCH =================
-function similarity(a,b){
-let longer = a.length > b.length ? a : b;
-let shorter = a.length > b.length ? b : a;
-let same = 0;
-
-for(let i=0;i<shorter.length;i++){
-if(longer.includes(shorter[i])) same++;
-}
-
-return same / longer.length;
-}
-
 function findBestMatch(title){
 const norm = normalize(title);
 
-let matches = songsCache.map(s=>{
-return {
-song:s,
-score: similarity(norm, normalize(s.title))
-};
-});
+let best = null;
+let bestScore = 0;
 
-matches.sort((a,b)=>b.score-a.score);
+for(const s of songsCache){
+let score = norm === normalize(s.title) ? 1 : normalize(s.title).includes(norm) ? 0.7 : 0;
 
-return matches[0].score > 0.5 ? matches[0].song : null;
+if(score > bestScore){
+best = s;
+bestScore = score;
+}
+}
+
+return best;
 }
 
 // ================= KEY =================
@@ -189,6 +203,11 @@ row.status = dup ? "EXISTS" : "NEW";
 // ================= SCAN =================
 async function scanFiles(){
 
+if(rawFiles.length === 0){
+alert("No files loaded");
+return;
+}
+
 await loadSongs();
 rows = [];
 
@@ -197,7 +216,6 @@ for(const file of rawFiles){
 let text = await readPDF(file);
 
 let title = file.name.replace(".pdf","");
-
 if(text){
 let l = text.split("\n")[0];
 if(l.length<60) title = l;
@@ -288,7 +306,7 @@ for(const r of rows){
 if(r.status==="EXISTS") continue;
 
 if(r.status==="REVIEW"){
-alert("Fix row before upload: " + r.file.name);
+alert("Fix row: " + r.file.name);
 return;
 }
 
