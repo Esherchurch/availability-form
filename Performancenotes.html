@@ -40,7 +40,7 @@ body { font-family: 'Montserrat', sans-serif; }
     font-weight:800;
 }
 
-/* TEXTAREA FIXED */
+/* TEXTAREA */
 textarea {
     width: 100%;
     font-size: 24pt;
@@ -54,18 +54,21 @@ textarea {
     box-sizing: border-box;
 }
 
+/* ✅ ONLY CHANGE */
 .performance textarea {
-    font-size: 30pt;
+    font-size: 34pt;
+    padding: 28px;
+    line-height: 1.6;
     height: 70vh;
 }
 
-/* SMALL BOX (bigger text) */
+/* SMALL BOX */
 .smallbox {
     font-size: 16px;
     opacity: 0.9;
 }
 
-/* MENU FIXED */
+/* MENU */
 #menu {
     position: fixed;
     left: 0;
@@ -151,10 +154,9 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
-/* AUTO GROW FIXED */
 window.autoGrow = (el)=>{
  el.style.height = "auto";
- el.style.height = (el.scrollHeight) + "px";
+ el.style.height = el.scrollHeight + "px";
 };
 
 /* LOAD EVENTS */
@@ -347,7 +349,7 @@ window.toggleKey=(k,on)=>{
 window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
 window.prev = ()=>{ if(index>0) showSong(index-1); };
 
-/* PDF FULLSCREEN */
+/* PDF */
 window.openPDF = (url)=>{
  if(url.includes("drive")){
   const m=url.match(/\/d\/(.*?)\//);
