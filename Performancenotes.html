@@ -64,7 +64,7 @@ textarea {
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 40px;
+    padding: 45px 50px;
     border-radius: 16px;
     overflow-y: auto;
     resize: none;
@@ -72,14 +72,15 @@ textarea {
     line-height: 1.6;
     margin-top: 10px;
     margin-bottom: 10px;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.15);
+    display: block;
 }
 
 /* MOBILE TEXT */
 @media (max-width:768px){
  textarea {
    font-size:18pt;
-   padding:30px;
+   padding:35px 40px;
  }
 }
 
@@ -89,7 +90,7 @@ textarea {
     height: 100% !important;
     max-height: none;
     flex-grow: 1;
-    padding: 30px;
+    padding: 40px;
 }
 
 .performance .hide-perf {
@@ -386,15 +387,15 @@ window.prev = ()=>{ if(index>0) showSong(index-1); };
 
 /* PDF */
 window.openPDF = (url)=>{
- if(url.includes("drive")){
+ if(url.includes("drive.google.com")){
   const m=url.match(/\/d\/(.*?)\//);
-  if(m) url=`https://drive.google.com/file/d/${m[1]}/preview`;
+  if(m) url=`https://docs.google.com/viewer?url=https://drive.google.com/uc?id=${m[1]}&embedded=true`;
  }
 
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
     <button class="closeBtn" onclick="closePDF()">Close</button>
-    <iframe src="${url}" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
+    <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
  `;
  v.style.display="block";
 
