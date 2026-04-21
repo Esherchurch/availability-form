@@ -386,18 +386,21 @@ window.prev = ()=>{ if(index>0) showSong(index-1); };
 
 /* PDF */
 window.openPDF = (url)=>{
+ let finalUrl = url;
  if(url.includes("drive.google.com")){
   const m = url.match(/\/d\/(.*?)\//);
   if(m) {
-    // This specific viewer format is the most reliable for Android in-browser rendering
-    url = `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent('https://drive.google.com/uc?id=' + m[1] + '&export=download')}`;
+    const fileId = m[1];
+    // This specific format forces Google's JS viewer to render the PDF as an HTML container.
+    // This is the most effective way to prevent Android from hijacking the file.
+    finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent('https://drive.google.com/uc?id=' + fileId + '&export=download')}&embedded=true`;
   }
  }
 
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
     <button class="closeBtn" onclick="closePDF()">Close</button>
-    <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
+    <iframe src="${finalUrl}" style="width:100%;height:100%;border:none;"></iframe>
  `;
  v.style.display="block";
 };
