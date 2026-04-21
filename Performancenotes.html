@@ -391,15 +391,16 @@ window.openPDF = (url)=>{
   const m = url.match(/\/d\/(.*?)\//);
   if(m) {
     const fileId = m[1];
-    // Using a hosted PDF.js viewer to FORCE internal rendering on Android.
-    finalUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent('https://drive.google.com/uc?id=' + fileId + '&export=download')}`;
+    // The 'preview' link is treated as a web page, not a raw file stream.
+    // This makes it significantly harder for Android to intercept it as a PDF.
+    finalUrl = `https://drive.google.com/file/d/${fileId}/preview?rm=minimal`;
   }
  }
 
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
     <button class="closeBtn" onclick="closePDF()">Close</button>
-    <iframe src="${finalUrl}" style="width:100%;height:100%;border:none;"></iframe>
+    <iframe src="${finalUrl}" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
  `;
  v.style.display="block";
 };
