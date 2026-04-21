@@ -412,8 +412,8 @@ window.openPDF = (url)=>{
   const m = url.match(/\/d\/(.*?)\//);
   if(m) {
     const fileId = m[1];
-    // Force a "preview" URL which is a web view rather than a direct PDF stream
-    finalUrl = `https://drive.google.com/file/d/${fileId}/preview?rm=minimal`;
+    // Force the browser to treat this as a web document, not a file stream
+    finalUrl = `https://drive.google.com/file/d/${fileId}/preview?usp=sharing`;
   }
  }
 
