@@ -43,18 +43,18 @@ body { font-family: 'Montserrat', sans-serif; }
 /* MOBILE ONLY SCALE */
 @media (max-width:768px){
  .btn {
-   padding:8px 10px;
-   font-size:13px;
+   padding:10px 12px;
+   font-size:14px;
  }
  .nav-btn {
-   padding:8px 10px;
-   font-size:13px;
+   padding:10px 14px;
+   font-size:14px;
  }
 }
 
 /* TEXTAREA (EDIT MODE FIX ONLY) */
 textarea {
-    width: calc(100% - 8px);
+    width: 100%;
     font-size: 26pt;
     font-weight: 700;
     background: #020617;
@@ -73,7 +73,7 @@ textarea {
 @media (max-width:768px){
  textarea {
    font-size:18pt;
-   padding:18px;
+   padding:20px;
  }
 }
 
@@ -375,8 +375,8 @@ window.openPDF = (url)=>{
 
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
-   <button class="closeBtn" onclick="closePDF()">Close</button>
-   <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
+    <button class="closeBtn" onclick="closePDF()">Close</button>
+    <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
  `;
  v.style.display="block";
 
