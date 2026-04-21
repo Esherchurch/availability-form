@@ -23,14 +23,6 @@ body { font-family: 'Montserrat', sans-serif; }
     gap: 14px;
 }
 
-/* HEADER */
-.topbar {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-}
-
 /* BUTTONS */
 .btn {
     background:#2c6999;
@@ -38,11 +30,6 @@ body { font-family: 'Montserrat', sans-serif; }
     padding:14px 18px;
     border-radius:14px;
     font-weight:700;
-    font-size:16px;
-}
-
-.btn-secondary {
-    background:#1e293b;
 }
 
 .nav-btn {
@@ -62,7 +49,6 @@ textarea {
     color: white;
     padding: 16px;
     border-radius: 16px;
-    line-height:1.4;
 }
 
 .performance textarea {
@@ -70,23 +56,21 @@ textarea {
     height: 70vh;
 }
 
-/* SMALL BOXES */
+/* SMALL BOX */
 .smallbox {
     font-size: 14px;
-    opacity: 0.75;
-    background:#020617;
-    padding:10px;
-    border-radius:12px;
+    opacity: 0.8;
 }
 
-/* MENU */
+/* MENU FIXED */
 #menu {
     position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
     width: 260px;
-    background: #1e293b;
+    background: #2c6999;
+    color: white;
     transform: translateX(-100%);
     transition: 0.3s;
     z-index: 1000;
@@ -96,8 +80,12 @@ textarea {
 
 #menu div {
     padding:16px;
-    border-bottom:1px solid #334155;
-    font-weight:600;
+    border-bottom:1px solid rgba(255,255,255,0.2);
+    font-weight:700;
+    cursor:pointer;
+}
+#menu div:hover {
+    background: rgba(255,255,255,0.2);
 }
 
 /* OVERLAY */
@@ -110,7 +98,7 @@ textarea {
 }
 #overlay.show { display:block; }
 
-/* PDF */
+/* PDF TRUE FULLSCREEN */
 #pdfViewer {
     position: fixed;
     inset: 0;
@@ -121,33 +109,18 @@ textarea {
 
 .closeBtn {
     position:absolute;
-    top:14px;
-    right:14px;
+    top:10px;
+    right:10px;
     background:white;
     color:black;
-    padding:14px 18px;
-    border-radius:12px;
+    padding:12px 16px;
+    border-radius:10px;
     font-weight:bold;
     z-index:10000;
-}
-
-/* KEY LABELS */
-.key-box {
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-}
-
-.key-box label {
-    background:#1e293b;
-    padding:10px 14px;
-    border-radius:10px;
-    font-size:14px;
 }
 </style>
 
 <script type="module">
-/* === YOUR ORIGINAL SCRIPT UNCHANGED === */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -211,46 +184,24 @@ window.selectService = () => {
 /* LOAD SERVICE */
 window.loadService = async () => {
 
- try {
-
  currentDate = dateInput().value;
  currentRole = roleSelect().value;
 
- if(!currentDate || !currentRole){
-  alert("Select date, service and role");
-  return;
- }
-
  const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
- if(snap.empty){
-  appDiv().innerHTML="No service found";
-  return;
- }
-
  currentService = snap.docs[0].data();
 
- songs = (currentService.order || []).filter(x=>x.type==="song");
-
- if(songs.length===0){
-  appDiv().innerHTML="No songs found";
-  return;
- }
+ songs = currentService.order.filter(x=>x.type==="song");
 
  buildMenu();
  showSong(0);
 
  document.getElementById("startScreen").style.display="none";
-
- } catch(e){
-  appDiv().innerHTML = "Error loading service: " + e.message;
- }
 };
 
 /* MENU */
 function buildMenu(){
  const menu = document.getElementById("menu");
  menu.innerHTML="";
-
  songs.forEach((s,i)=>{
   const div=document.createElement("div");
   div.innerText=s.title;
@@ -281,14 +232,11 @@ window.togglePerformance = ()=>{
 /* SHOW SONG */
 async function showSong(i){
 
- try {
-
  index = i;
  const s = songs[i];
 
- if(selectedKeys.length===0){
-  selectedKeys = [...(s.keys || [])];
- }
+ // ✅ FIX: always reset keys from planner
+ selectedKeys = [...(s.keys || [])];
 
  const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
  const data = songDoc.exists()?songDoc.data():{};
@@ -331,18 +279,18 @@ async function showSong(i){
  appDiv().innerHTML=`
  <div class="screen ${performance?'performance':''}">
 
-  <div class="topbar">
+  <div style="display:flex;justify-content:space-between;">
    <button class="btn" onclick="toggleMenu()">☰</button>
-   <div class="font-bold text-lg">${s.title}</div>
-   <div class="flex gap-2">
+   <div>${s.title}</div>
+   <div>
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
   </div>
 
-  <button class="btn-secondary btn" onclick="togglePerformance()">Toggle Performance Mode</button>
+  <button class="btn" onclick="togglePerformance()">Toggle Mode</button>
 
-  <div class="key-box">
+  <div>
    ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
     <label>
      <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
@@ -350,7 +298,7 @@ async function showSong(i){
     </label>`).join("")}
   </div>
 
-  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+  <div>
    ${files.map(f=>`
     <button class="btn" onclick="openPDF('${f.url}')">
      ${f.type} (${f.key})
@@ -368,10 +316,6 @@ async function showSong(i){
   <button class="btn" onclick="save('${s.title}')">Save</button>
 
  </div>`;
-
- } catch(e){
-  appDiv().innerHTML = "Error rendering song: " + e.message;
- }
 }
 
 /* KEYS */
@@ -388,7 +332,7 @@ window.toggleKey=(k,on)=>{
 window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
 window.prev = ()=>{ if(index>0) showSong(index-1); };
 
-/* PDF */
+/* PDF FULLSCREEN FIX */
 window.openPDF = (url)=>{
  if(url.includes("drive")){
   const m=url.match(/\/d\/(.*?)\//);
@@ -398,15 +342,13 @@ window.openPDF = (url)=>{
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
    <button class="closeBtn" onclick="closePDF()">Close</button>
-   <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:none;"></iframe>
+   <iframe src="${url}" style="position:fixed;top:0;left:0;width:100vw;height:100vh;border:none;"></iframe>
  `;
  v.style.display="block";
 };
 
 window.closePDF = ()=>{
- const v=document.getElementById("pdfViewer");
- v.style.display="none";
- v.innerHTML="";
+ document.getElementById("pdfViewer").style.display="none";
 };
 
 /* SAVE */
