@@ -19,7 +19,6 @@ body { font-family: 'Montserrat', sans-serif; }
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
 }
 
 textarea {
@@ -28,7 +27,7 @@ textarea {
     font-weight: bold;
     background: #020617;
     color: white;
-    padding: 14px;
+    padding: 12px;
     border-radius: 12px;
 }
 
@@ -40,6 +39,7 @@ textarea {
 .smallbox {
     font-size: 12px;
     opacity: 0.7;
+    margin-top: 10px;
 }
 
 #menu {
@@ -63,7 +63,7 @@ textarea {
     display: none;
     z-index: 900;
 }
-#overlay.show { display: block; }
+#overlay.show { display:block; }
 
 #pdfViewer {
     position: fixed;
@@ -71,6 +71,18 @@ textarea {
     background: black;
     display: none;
     z-index: 2000;
+}
+
+.closeBtn {
+    position:absolute;
+    top:12px;
+    right:12px;
+    background:white;
+    color:black;
+    padding:10px 14px;
+    border-radius:8px;
+    font-weight:bold;
+    z-index:2100;
 }
 </style>
 
@@ -85,11 +97,112 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 
-let currentService=null, songs=[], index=0;
-let currentRole="", currentDate="", currentLeader="";
-let selectedKeys=[], performance=false, currentDocId=null;
+let eventsForDay = [];
+let selectedEvent = null;
+let currentService = null;
+let songs = [];
+let index = 0;
+let currentRole = "";
+let currentDate = "";
+let currentLeader = "";
+let selectedKeys = [];
+let performance = false;
+let currentDocId = null;
 
-/* ---------- MENU ---------- */
+const dateInput = () => document.getElementById('dateInput');
+const serviceSelect = () => document.getElementById('serviceSelect');
+const roleSelect = () => document.getElementById('roleSelect');
+const appDiv = () => document.getElementById('app');
+
+/* LOAD EVENTS */
+window.loadRota = async () => {
+ const date = dateInput().value;
+ const snap = await getDocs(collection(db,"events"));
+
+ eventsForDay = [];
+ snap.forEach(d=>{
+  const ev=d.data();
+  if(ev.date===date && ev.archived!==true){
+   eventsForDay.push(ev);
+  }
+ });
+
+ serviceSelect().innerHTML='<option value="">Select Service</option>';
+ eventsForDay.forEach((ev,i)=>{
+  serviceSelect().innerHTML+=`<option value="${i}">${ev.type}</option>`;
+ });
+};
+
+/* SELECT SERVICE */
+window.selectService = () => {
+ const i = serviceSelect().value;
+ if(i==="") return;
+
+ selectedEvent = eventsForDay[i];
+ currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
+
+ roleSelect().innerHTML='<option value="">Instrument</option>';
+ Object.keys(selectedEvent.assignments || {}).forEach(r=>{
+  roleSelect().innerHTML+=`<option>${r}</option>`;
+ });
+};
+
+/* LOAD SERVICE */
+window.loadService = async () => {
+
+ try {
+
+ currentDate = dateInput().value;
+ currentRole = roleSelect().value;
+
+ if(!currentDate || !currentRole){
+  alert("Select date, service and role");
+  return;
+ }
+
+ const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
+ if(snap.empty){
+  appDiv().innerHTML="No service found";
+  return;
+ }
+
+ currentService = snap.docs[0].data();
+
+ songs = (currentService.order || []).filter(x=>x.type==="song");
+
+ if(songs.length===0){
+  appDiv().innerHTML="No songs found";
+  return;
+ }
+
+ buildMenu();
+ showSong(0);
+
+ document.getElementById("startScreen").style.display="none";
+
+ } catch(e){
+  appDiv().innerHTML = "Error loading service: " + e.message;
+ }
+};
+
+/* MENU */
+function buildMenu(){
+ const menu = document.getElementById("menu");
+ menu.innerHTML="";
+
+ songs.forEach((s,i)=>{
+  const div=document.createElement("div");
+  div.innerText=s.title;
+  div.style.padding="12px";
+  div.style.borderBottom="1px solid #334155";
+  div.onclick=()=>{
+    showSong(i);
+    toggleMenu();
+  };
+  menu.appendChild(div);
+ });
+}
+
 window.toggleMenu = ()=>{
  document.getElementById("menu").classList.toggle("open");
  document.getElementById("overlay").classList.toggle("show");
@@ -100,98 +213,65 @@ window.closeMenu = ()=>{
  document.getElementById("overlay").classList.remove("show");
 };
 
-/* ---------- LOAD ---------- */
-window.loadService = async ()=>{
-
- currentDate = document.getElementById("dateInput").value;
- currentRole = document.getElementById("roleSelect").value;
-
- const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
- currentService = snap.docs[0].data();
-
- songs = currentService.order.filter(x=>x.type==="song");
-
- buildMenu();
- showSong(0);
-
- document.getElementById("startScreen").style.display="none";
+/* PERFORMANCE MODE */
+window.togglePerformance = ()=>{
+ performance = !performance;
+ showSong(index);
 };
 
-/* ---------- MENU BUILD ---------- */
-function buildMenu(){
- const menu=document.getElementById("menu");
- menu.innerHTML="";
- songs.forEach((s,i)=>{
-  menu.innerHTML+=`<div data-i="${i}" class="menuItem" style="padding:14px;border-bottom:1px solid #334155">${s.title}</div>`;
- });
+/* SHOW SONG */
+async function showSong(i){
 
- // FIX: proper event binding
- document.querySelectorAll(".menuItem").forEach(el=>{
-  el.onclick = ()=>{
-    showSong(parseInt(el.dataset.i));
-    closeMenu();
-  };
- });
-}
+ try {
 
-/* ---------- SONG ---------- */
-window.showSong = async function(i){
+ index = i;
+ const s = songs[i];
 
- index=i;
- const s=songs[i];
-
- // ONLY reset keys first time
- if(!selectedKeys.length){
-  selectedKeys=[...(s.keys||[])];
+ if(selectedKeys.length===0){
+  selectedKeys = [...(s.keys || [])];
  }
 
- const songDoc=await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
- const data=songDoc.exists()?songDoc.data():{};
- const allFiles=data.files||[];
+ const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
+ const data = songDoc.exists()?songDoc.data():{};
+ const allFiles = data.files || [];
+ const files = allFiles.filter(f=>selectedKeys.includes(f.key));
 
- const files=allFiles.filter(f=>selectedKeys.includes(f.key));
+ let yourNotes = s.notes || "";
+ currentDocId = null;
 
- let yourNotes=s.notes||"";
- currentDocId=null;
-
- // TODAY NOTES
- const todaySnap=await getDocs(query(collection(db,"schedules"),
+ const todaySnap = await getDocs(query(collection(db,"schedules"),
   where("date","==",currentDate),
   where("role","==",currentRole)));
 
  todaySnap.forEach(d=>{
   const n=d.data();
   if(n.songTitle===s.title){
-   yourNotes=n.notes;
-   currentDocId=d.id;
+   yourNotes = n.notes;
+   currentDocId = d.id;
   }
  });
 
- // LAST NOTES FIXED
- const allSnap=await getDocs(collection(db,"schedules"));
- let last=null;
+ const allSnap = await getDocs(collection(db,"schedules"));
+ let last = null;
 
  allSnap.forEach(d=>{
   const n=d.data();
-
-  if(
-   n.worshipLeader===currentLeader &&
-   n.role===currentRole &&
-   n.songTitle===s.title &&
-   n.date !== currentDate
-  ){
-   if(!last || new Date(n.date) > new Date(last.date)){
+  if(n.worshipLeader===currentLeader &&
+     n.role===currentRole &&
+     n.songTitle===s.title &&
+     n.date!==currentDate){
+   if(!last || new Date(n.date)>new Date(last.date)){
     last=n;
    }
   }
  });
 
- const roleNotes = currentService.roleNotes?.[currentRole] || "";
+ const roleNotes = currentService?.roleNotes?.[currentRole] || "";
 
- document.getElementById("app").innerHTML=`
+ appDiv().innerHTML=`
  <div class="screen ${performance?'performance':''}">
 
-  <div class="flex justify-between">
+  <div style="display:flex;justify-content:space-between;">
    <button onclick="toggleMenu()">☰</button>
    <div>${s.title}</div>
    <div>
@@ -200,12 +280,13 @@ window.showSong = async function(i){
    </div>
   </div>
 
-  <button onclick="togglePerformance()">Toggle Mode</button>
+  <button onclick="togglePerformance()">Toggle Performance Mode</button>
 
   <div>
-   ${selectedKeys.map(k=>`
+   ${(s.keys || []).map(k=>`
     <label>
-     <input type="checkbox" checked onchange="toggleKey('${k}',this.checked)"> ${k}
+     <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
+     onchange="toggleKey('${k}',this.checked)"> ${k}
     </label>`).join("")}
   </div>
 
@@ -217,15 +298,21 @@ window.showSong = async function(i){
 
   <textarea id="notes">${yourNotes}</textarea>
 
-  <div class="smallbox"><b>Instrument Notes:</b><br>${roleNotes}</div>
-  <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
+  ${!performance ? `
+    <div class="smallbox"><b>Instrument Notes:</b><br>${roleNotes}</div>
+    <div class="smallbox"><b>Last Time:</b><br>${last?last.notes:""}</div>
+  ` : ""}
 
   <button onclick="save('${s.title}')">Save</button>
 
  </div>`;
-};
 
-/* ---------- KEY FIX ---------- */
+ } catch(e){
+  appDiv().innerHTML = "Error rendering song: " + e.message;
+ }
+}
+
+/* KEYS */
 window.toggleKey=(k,on)=>{
  if(on){
   if(!selectedKeys.includes(k)) selectedKeys.push(k);
@@ -235,38 +322,46 @@ window.toggleKey=(k,on)=>{
  showSong(index);
 };
 
-/* ---------- NAV ---------- */
-window.next=()=>{ if(index<songs.length-1) showSong(index+1); };
-window.prev=()=>{ if(index>0) showSong(index-1); };
+/* NAV */
+window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
+window.prev = ()=>{ if(index>0) showSong(index-1); };
 
-/* ---------- PDF ---------- */
-window.openPDF=(url)=>{
+/* PDF */
+window.openPDF = (url)=>{
  if(url.includes("drive")){
   const m=url.match(/\/d\/(.*?)\//);
   if(m) url=`https://drive.google.com/file/d/${m[1]}/preview`;
  }
 
  const v=document.getElementById("pdfViewer");
- v.innerHTML=`<button onclick="closePDF()">Close</button><iframe src="${url}" style="width:100%;height:100%"></iframe>`;
+ v.innerHTML=`
+   <button class="closeBtn" onclick="closePDF()">Close</button>
+   <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
+ `;
  v.style.display="block";
 };
 
-window.closePDF=()=>document.getElementById("pdfViewer").style.display="none";
+window.closePDF = ()=>{
+ const v=document.getElementById("pdfViewer");
+ v.style.display="none";
+ v.innerHTML="";
+};
 
-/* ---------- SAVE ---------- */
-window.save=async(song)=>{
- const txt=document.getElementById("notes").value;
+/* SAVE */
+window.save = async(song)=>{
+ const txt = document.getElementById("notes").value;
 
  if(currentDocId){
-  await updateDoc(doc(db,"schedules",currentDocId),{notes:txt});
+  await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
  } else {
-  await addDoc(collection(db,"schedules"),{
-   date:currentDate,
-   role:currentRole,
-   worshipLeader:currentLeader,
-   songTitle:song,
-   notes:txt
+  const newDoc = await addDoc(collection(db,"schedules"),{
+   date: currentDate,
+   role: currentRole,
+   worshipLeader: currentLeader,
+   songTitle: song,
+   notes: txt
   });
+  currentDocId = newDoc.id;
  }
 
  alert("Saved");
@@ -276,10 +371,22 @@ window.save=async(song)=>{
 
 <body>
 
-<div id="startScreen" class="p-6">
-<input type="date" id="dateInput">
-<select id="roleSelect"></select>
-<button onclick="loadService()">Load</button>
+<div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
+<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Mode</h1>
+
+<input type="date" id="dateInput" onchange="loadRota()" class="w-full p-3 rounded-xl">
+
+<select id="serviceSelect" onchange="selectService()" class="w-full p-3 rounded-xl">
+<option>Select Service</option>
+</select>
+
+<select id="roleSelect" class="w-full p-3 rounded-xl">
+<option>Instrument</option>
+</select>
+
+<button onclick="loadService()" class="w-full bg-[#2c6999] text-white p-3 rounded-xl font-bold">
+Load Service
+</button>
 </div>
 
 <div id="menu"></div>
