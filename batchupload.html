@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Importer (Fully Fixed)</title>
+<title>Batch Music Importer (Final Working + YouTube Helper)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -56,6 +56,7 @@ Drag folder OR click to select
 <th>Match</th>
 <th>YouTube</th>
 <th>CCLI</th>
+<th>Assist</th>
 <th>Status</th>
 <th>Action</th>
 </tr>
@@ -89,33 +90,27 @@ const snap = await db.collection("songs").get();
 songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
-// ===== FIXED KEY DETECTION =====
+// KEY DETECTION
 function detectKey(name){
-
 name = name.toLowerCase();
 
-// in D
 let m = name.match(/\bin ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
-// key D
 m = name.match(/\bkey ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
-// (D)
 m = name.match(/\(([a-g](#|b)?m?)\)/);
 if(m) return m[1].toUpperCase();
 
-// trailing D
 m = name.match(/ ([a-g](#|b)?m?)\.pdf$/);
 if(m) return m[1].toUpperCase();
 
 return "";
 }
 
-// ===== FIXED TYPE DETECTION =====
+// TYPE DETECTION
 function detectType(name){
-
 name = name.toLowerCase();
 
 if(name.includes("chord")) return "Chord Sheet";
@@ -126,51 +121,40 @@ if(name.includes("bass")) return "Bass Tabs";
 return "";
 }
 
-// ===== CLEAN TITLE (AFTER DETECTION) =====
+// CLEAN TITLE
 function cleanTitle(name){
-
-let t = name.toLowerCase();
-
-t = t.replace(".pdf","");
-
-// remove key phrases
-t = t.replace(/\bin [a-g](#|b)?m?\b/g,"");
-t = t.replace(/\bkey [a-g](#|b)?m?\b/g,"");
-t = t.replace(/\([a-g](#|b)?m?\)/g,"");
-
-// remove types
-t = t.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"");
-
-// remove stray keys
-t = t.replace(/\b[a-g](#|b)?m?\b/g,"");
-
-// clean
-t = t.replace(/[^a-z0-9 ]/g,"");
-t = t.replace(/\s+/g," ").trim();
-
-return t;
+return name.toLowerCase()
+.replace(".pdf","")
+.replace(/\(.*?\)/g,"")
+.replace(/\bin [a-g](#|b)?m?\b/g,"")
+.replace(/\bkey [a-g](#|b)?m?\b/g,"")
+.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
+.replace(/\b[a-g](#|b)?m?\b/g,"")
+.replace(/[^a-z0-9 ]/g,"")
+.replace(/\s+/g," ")
+.trim();
 }
 
-// ===== MATCH =====
+// MATCH
 function getMatches(title){
-
 const words = title.split(" ");
 
 return songs.map(s => {
-
 const sWords = s.title.toLowerCase().split(" ");
-
 let overlap = words.filter(w => sWords.includes(w));
 let score = overlap.length / sWords.length;
-
 return {song:s, score};
-
 })
 .sort((a,b)=>b.score-a.score)
 .slice(0,5);
 }
 
-// ===== FILE HANDLING =====
+// YOUTUBE SEARCH
+function openYouTubeSearch(title){
+window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`, '_blank');
+}
+
+// FILE HANDLING
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
@@ -193,9 +177,8 @@ await traverse(entry, files);
 handleFiles(files);
 });
 
-// ===== TRAVERSE =====
+// TRAVERSE
 async function traverse(entry, files){
-
 if(entry.isFile){
 await new Promise(res=>{
 entry.file(f=>{
@@ -222,7 +205,7 @@ await read();
 }
 }
 
-// ===== MAIN =====
+// MAIN
 async function handleFiles(files){
 
 await loadSongs();
@@ -251,7 +234,7 @@ force:false
 render();
 }
 
-// ===== STATUS =====
+// STATUS
 function getStatus(r){
 
 if(r.skip) return "SKIPPED";
@@ -269,7 +252,7 @@ if(dup && !r.force) return "EXISTS";
 return "NEW";
 }
 
-// ===== RENDER =====
+// RENDER
 function render(){
 
 const tbody = document.getElementById("table");
@@ -314,6 +297,11 @@ ${m.song.title}
 <td><input value="${r.youtube}"></td>
 <td><input value="${r.ccli}"></td>
 
+<td>
+<button onclick="openYouTubeSearch('${r.title}')">Find YouTube</button>
+<button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
+</td>
+
 <td>${status}</td>
 
 <td>
@@ -349,7 +337,7 @@ inputs[5].onchange = e => { r.ccli=e.target.value; };
 
 }
 
-// ===== PROCESS =====
+// PROCESS
 async function processAll(){
 
 if(!confirm("Upload?")) return;
