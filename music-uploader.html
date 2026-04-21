@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Music Upload</title>
+<title>Batch Music Upload</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
 <style>
-body { font-family: Arial; padding: 40px; }
+body { font-family: Arial; padding: 30px; }
 
 .dropzone {
 border: 3px dashed #ccc;
@@ -17,12 +17,13 @@ padding: 40px;
 text-align: center;
 border-radius: 20px;
 cursor: pointer;
+margin-bottom: 20px;
 }
 
 table {
-margin-top: 20px;
 border-collapse: collapse;
 width: 100%;
+margin-top: 20px;
 }
 
 td, th {
@@ -35,12 +36,16 @@ font-size: 12px;
 .status-exists { background:#f8d7da; }
 .status-review { background:#fff3cd; }
 
+input, select {
+width: 100%;
+font-size: 12px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>Batch Upload</h2>
+<h2>Batch Upload (Multi Song)</h2>
 
 <div class="dropzone" id="dropzone">
 Drag & Drop Files
@@ -55,9 +60,11 @@ Drag & Drop Files
 <thead>
 <tr>
 <th>File</th>
-<th>Title</th>
+<th>Song</th>
 <th>Key</th>
 <th>Type</th>
+<th>YouTube</th>
+<th>CCLI</th>
 <th>Status</th>
 </tr>
 </thead>
@@ -74,6 +81,7 @@ storageBucket: "egbc-worship-planner.firebasestorage.app"
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const storage = firebase.storage();
 const db = firebase.firestore();
 
@@ -83,16 +91,21 @@ let songsCache = [];
 
 const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
 dropzone.onclick = ()=> fileInput.click();
 
 fileInput.onchange = e => rawFiles = Array.from(e.target.files);
+
+dropzone.addEventListener("dragover", e => e.preventDefault());
 
 dropzone.addEventListener("drop", e=>{
 e.preventDefault();
 rawFiles = Array.from(e.dataTransfer.files);
 });
 
-// ================= LOAD =================
+// ================= LOAD SONGS =================
 async function loadSongs(){
 const snap = await db.collection("songs").get();
 songsCache = snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -104,9 +117,31 @@ return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
 }
 
 // ================= MATCH =================
-function findMatch(title){
+function similarity(a,b){
+let longer = a.length > b.length ? a : b;
+let shorter = a.length > b.length ? b : a;
+let same = 0;
+
+for(let i=0;i<shorter.length;i++){
+if(longer.includes(shorter[i])) same++;
+}
+
+return same / longer.length;
+}
+
+function findBestMatch(title){
 const norm = normalize(title);
-return songsCache.find(s=>normalize(s.title).includes(norm));
+
+let matches = songsCache.map(s=>{
+return {
+song:s,
+score: similarity(norm, normalize(s.title))
+};
+});
+
+matches.sort((a,b)=>b.score-a.score);
+
+return matches[0].score > 0.5 ? matches[0].song : null;
 }
 
 // ================= KEY =================
@@ -129,7 +164,7 @@ return "";
 }
 }
 
-// ================= STATUS CHECK =================
+// ================= STATUS =================
 function updateStatus(row){
 
 if(!row.match){
@@ -144,11 +179,11 @@ return;
 
 const existing = (row.match.files || []);
 
-const duplicate = existing.find(f =>
+const dup = existing.find(f =>
 f.key === row.key && f.type === row.type
 );
 
-row.status = duplicate ? "EXISTS" : "NEW";
+row.status = dup ? "EXISTS" : "NEW";
 }
 
 // ================= SCAN =================
@@ -164,11 +199,11 @@ let text = await readPDF(file);
 let title = file.name.replace(".pdf","");
 
 if(text){
-let line = text.split("\n")[0];
-if(line.length<60) title=line;
+let l = text.split("\n")[0];
+if(l.length<60) title = l;
 }
 
-let match = findMatch(title);
+let match = findBestMatch(title);
 let key = detectKey(text,file.name);
 
 let row = {
@@ -177,6 +212,8 @@ title,
 key,
 type:"",
 match,
+youtube: match?.youtube || "",
+ccli: match?.ccli || "",
 status:"REVIEW"
 };
 
@@ -201,7 +238,9 @@ tbody.innerHTML = rows.map((r,i)=>`
 <td>
 <input value="${r.title}" onchange="
 rows[${i}].title=this.value;
-rows[${i}].match=findMatch(this.value);
+rows[${i}].match=findBestMatch(this.value);
+rows[${i}].youtube=rows[${i}].match?.youtube || '';
+rows[${i}].ccli=rows[${i}].match?.ccli || '';
 updateStatus(rows[${i}]);
 renderTable();
 ">
@@ -226,6 +265,14 @@ ${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
 </select>
 </td>
 
+<td>
+<input value="${r.youtube}" onchange="rows[${i}].youtube=this.value">
+</td>
+
+<td>
+<input value="${r.ccli}" onchange="rows[${i}].ccli=this.value">
+</td>
+
 <td>${r.status}</td>
 
 </tr>
@@ -241,7 +288,7 @@ for(const r of rows){
 if(r.status==="EXISTS") continue;
 
 if(r.status==="REVIEW"){
-alert("Fix row before upload: "+r.file.name);
+alert("Fix row before upload: " + r.file.name);
 return;
 }
 
@@ -267,14 +314,14 @@ key:r.key
 await docRef.set({
 title:r.title,
 normalized: normalize(r.title),
-youtube: data.youtube || "",
-ccli: data.ccli || "",
+youtube: r.youtube || data.youtube || "",
+ccli: r.ccli || data.ccli || "",
 files
 },{merge:true});
 
 }
 
-alert("Done!");
+alert("Upload complete!");
 }
 
 </script>
