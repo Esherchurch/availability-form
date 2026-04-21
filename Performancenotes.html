@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>EGBC Performance Notes</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
@@ -90,7 +90,7 @@ textarea {
     height: 100% !important;
     max-height: none;
     flex-grow: 1;
-    padding: 30px !important;
+    padding: 40px !important;
 }
 
 .performance .hide-perf {
@@ -104,6 +104,7 @@ textarea {
     align-items: center;
     flex-wrap: nowrap;
     overflow-x: auto;
+    padding-bottom: 5px;
 }
 
 .performance .btn-sm {
@@ -411,6 +412,7 @@ window.openPDF = (url)=>{
   const m = url.match(/\/d\/(.*?)\//);
   if(m) {
     const fileId = m[1];
+    // Force a "preview" URL which is a web view rather than a direct PDF stream
     finalUrl = `https://drive.google.com/file/d/${fileId}/preview?rm=minimal`;
   }
  }
