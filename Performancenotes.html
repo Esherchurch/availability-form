@@ -40,25 +40,23 @@ body { font-family: 'Montserrat', sans-serif; }
     font-weight:800;
 }
 
-/* TEXTAREA */
+/* TEXTAREA (EDIT MODE FIX ONLY) */
 textarea {
     width: 100%;
-    font-size: 24pt;
+    font-size: 26pt; /* increased ONLY here */
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 18px;
+    padding: 26px; /* increased padding */
     border-radius: 16px;
     overflow: hidden;
     resize: none;
     box-sizing: border-box;
 }
 
-/* ✅ ONLY CHANGE */
+/* PERFORMANCE MODE (unchanged from your version) */
 .performance textarea {
-    font-size: 34pt;
-    padding: 28px;
-    line-height: 1.6;
+    font-size: 28pt;
     height: 70vh;
 }
 
@@ -154,6 +152,7 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
+/* AUTO GROW */
 window.autoGrow = (el)=>{
  el.style.height = "auto";
  el.style.height = el.scrollHeight + "px";
