@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Smart Batch Upload</title>
+<title>Batch Upload (Stable)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
 <style>
 body { font-family: Arial; padding: 30px; }
@@ -20,8 +19,16 @@ cursor: pointer;
 margin-bottom: 20px;
 }
 
-table { border-collapse: collapse; width: 100%; }
-td, th { border: 1px solid #ddd; padding: 6px; font-size: 12px; }
+table {
+border-collapse: collapse;
+width: 100%;
+}
+
+td, th {
+border: 1px solid #ddd;
+padding: 6px;
+font-size: 12px;
+}
 
 .status-new { background:#d4edda; }
 .status-exists { background:#f8d7da; }
@@ -33,12 +40,18 @@ input, select { width: 100%; }
 
 <body>
 
-<h2>Smart Batch Upload</h2>
+<h2>Batch Upload (Safe Mode)</h2>
 
-<div class="dropzone" id="dropzone">Drop Files Here</div>
-<input type="file" id="fileInput" multiple style="display:none">
+<div class="dropzone" id="dropzone">
+Click to select files OR folder
+</div>
 
-<button onclick="processAll()">Process All</button>
+<!-- IMPORTANT: supports folders -->
+<input type="file" id="fileInput" multiple webkitdirectory style="display:none">
+
+<div id="status"></div>
+
+<button onclick="processAll()">Process All (Manual)</button>
 
 <table id="table">
 <thead>
@@ -48,7 +61,6 @@ input, select { width: 100%; }
 <th>Key</th>
 <th>Type</th>
 <th>Status</th>
-<th>Action</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -70,7 +82,7 @@ const storage = firebase.storage();
 let rows = [];
 let songs = [];
 
-const ALL_KEYS = ["C","C#","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+const ALL_KEYS = ["C","D","E","F","G","A","B","Bb","Eb","Ab"];
 const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 
 const dropzone = document.getElementById("dropzone");
@@ -78,114 +90,56 @@ const fileInput = document.getElementById("fileInput");
 
 dropzone.onclick = () => fileInput.click();
 
-fileInput.onchange = async e => {
-await loadSongs();
-await addFiles(e.target.files);
-};
-
-dropzone.ondrop = async e => {
-e.preventDefault();
-await loadSongs();
-await addFiles(e.dataTransfer.files);
-};
-
-dropzone.ondragover = e => e.preventDefault();
-
 // ================= LOAD SONGS =================
 async function loadSongs(){
 const snap = await db.collection("songs").get();
 songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
-// ================= PDF READ =================
-async function readPDF(file){
-try{
-const buffer = await file.arrayBuffer();
-const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
-const page = await pdf.getPage(1);
-const content = await page.getTextContent();
-return content.items.map(i=>i.str).join(" ");
-}catch{
-return "";
-}
+// ================= FILE SELECT =================
+fileInput.onchange = async (e) => {
+
+const files = Array.from(e.target.files);
+
+if(files.length === 0){
+document.getElementById("status").innerText = "No files detected";
+return;
 }
 
-// ================= KEY DETECTION =================
-function detectKey(text){
+document.getElementById("status").innerText = files.length + " files loaded";
 
-let match = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
-if(match) return match[1];
+await loadSongs();
 
-// fallback chord count
-let chords = text.match(/\b[A-G](#|b)?m?\b/g);
-if(chords){
-let count = {};
-chords.forEach(c=>count[c]=(count[c]||0)+1);
-return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];
-}
+rows = files.map(f => ({
+file: f,
+title: f.name.replace(".pdf",""),
+key: "",
+type: "",
+match: null,
+status: "REVIEW"
+}));
 
-return "";
-}
-
-// ================= TYPE DETECTION =================
-function detectType(text){
-
-let chordMatches = text.match(/\b[A-G](#|b)?m?\b/g);
-
-if(chordMatches && chordMatches.length > 20){
-return "Chord Sheet";
-}
-
-if(text.includes("Verse") || text.includes("Chorus")){
-return "Lead Sheet";
-}
-
-return "";
-}
+render();
+};
 
 // ================= MATCH =================
 function suggest(title){
-return songs.filter(s=>s.title.toLowerCase().includes(title.toLowerCase())).slice(0,5);
-}
-
-// ================= ADD FILES =================
-async function addFiles(files){
-
-for(const file of files){
-
-let text = await readPDF(file);
-
-let key = detectKey(text);
-let type = detectType(text);
-
-rows.push({
-file,
-title: file.name.replace(".pdf",""),
-match:null,
-key,
-type,
-status:"REVIEW",
-skip:false
-});
-}
-
-render();
+return songs.filter(s =>
+s.title.toLowerCase().includes(title.toLowerCase())
+).slice(0,5);
 }
 
 // ================= STATUS =================
 function updateStatus(r){
 
-if(r.skip){
-r.status="SKIPPED";
-return;
-}
-
 if(!r.match || !r.key || !r.type){
-r.status="REVIEW";
+r.status = "REVIEW";
 return;
 }
 
-const dup = (r.match.files||[]).find(f=>f.key===r.key && f.type===r.type);
+const dup = (r.match.files||[]).find(f =>
+f.key===r.key && f.type===r.type
+);
 
 r.status = dup ? "EXISTS" : "NEW";
 }
@@ -208,7 +162,7 @@ return `
 <input value="${r.title}" oninput="rows[${i}].title=this.value; render();">
 <div>
 ${suggest(r.title).map(s=>`
-<div onclick="
+<div style="cursor:pointer;color:blue" onclick="
 rows[${i}].match=songs.find(x=>x.id==='${s.id}');
 rows[${i}].title='${s.title}';
 render();
@@ -233,10 +187,6 @@ ${TYPES.map(t=>`<option ${r.type===t?'selected':''}>${t}</option>`).join("")}
 
 <td>${r.status}</td>
 
-<td>
-${r.status==="EXISTS" ? `<button onclick="rows[${i}].skip=true; render()">Skip</button>` : ""}
-</td>
-
 </tr>
 `;
 }).join("");
@@ -245,9 +195,11 @@ ${r.status==="EXISTS" ? `<button onclick="rows[${i}].skip=true; render()">Skip</
 // ================= PROCESS =================
 async function processAll(){
 
+if(!confirm("Are you sure you want to upload?")) return;
+
 for(const r of rows){
 
-if(r.skip || r.status==="EXISTS") continue;
+if(r.status==="EXISTS") continue;
 
 if(r.status==="REVIEW"){
 alert("Fix: "+r.file.name);
@@ -282,7 +234,7 @@ files
 },{merge:true});
 }
 
-alert("Done");
+alert("Upload complete");
 }
 
 </script>
