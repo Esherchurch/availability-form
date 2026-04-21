@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Upload</title>
+<title>Smart Batch Upload</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -18,62 +18,37 @@ text-align: center;
 border-radius: 20px;
 cursor: pointer;
 margin-bottom: 20px;
-transition: 0.2s;
 }
 
-.dropzone.dragover {
-background: #e8f4ff;
-border-color: #2196f3;
-}
-
-table {
-border-collapse: collapse;
-width: 100%;
-margin-top: 20px;
-}
-
-td, th {
-border: 1px solid #ddd;
-padding: 6px;
-font-size: 12px;
-}
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #ddd; padding: 6px; font-size: 12px; }
 
 .status-new { background:#d4edda; }
 .status-exists { background:#f8d7da; }
 .status-review { background:#fff3cd; }
 
-input, select {
-width: 100%;
-font-size: 12px;
-}
+input, select { width: 100%; }
 </style>
 </head>
 
 <body>
 
-<h2>Batch Upload</h2>
+<h2>Smart Batch Upload</h2>
 
-<div class="dropzone" id="dropzone">
-Click or Drag Files Here
-</div>
-
+<div class="dropzone" id="dropzone">Drop Files Here</div>
 <input type="file" id="fileInput" multiple style="display:none">
 
-<button onclick="scanFiles()">Scan Files</button>
 <button onclick="processAll()">Process All</button>
 
-<div id="fileCount"></div>
-
-<table id="batchTable">
+<table id="table">
 <thead>
 <tr>
 <th>File</th>
 <th>Song</th>
 <th>Key</th>
 <th>Type</th>
-<th>YouTube</th>
-<th>CCLI</th>
 <th>Status</th>
+<th>Action</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -89,213 +64,182 @@ storageBucket: "egbc-worship-planner.firebasestorage.app"
 };
 
 firebase.initializeApp(firebaseConfig);
-const storage = firebase.storage();
 const db = firebase.firestore();
+const storage = firebase.storage();
 
-let rawFiles = [];
 let rows = [];
-let songsCache = [];
+let songs = [];
 
+const ALL_KEYS = ["C","C#","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
-// ================= FIXED CLICK =================
 dropzone.onclick = () => fileInput.click();
 
-// ================= FIXED FILE SELECT =================
-fileInput.onchange = (e) => {
-rawFiles = Array.from(e.target.files);
-document.getElementById("fileCount").innerText = rawFiles.length + " files loaded";
+fileInput.onchange = async e => {
+await loadSongs();
+await addFiles(e.target.files);
 };
 
-// ================= FIXED DRAG =================
-dropzone.addEventListener("dragover", (e) => {
+dropzone.ondrop = async e => {
 e.preventDefault();
-dropzone.classList.add("dragover");
-});
+await loadSongs();
+await addFiles(e.dataTransfer.files);
+};
 
-dropzone.addEventListener("dragleave", () => {
-dropzone.classList.remove("dragover");
-});
-
-dropzone.addEventListener("drop", (e) => {
-e.preventDefault();
-dropzone.classList.remove("dragover");
-
-rawFiles = Array.from(e.dataTransfer.files);
-document.getElementById("fileCount").innerText = rawFiles.length + " files loaded";
-});
+dropzone.ondragover = e => e.preventDefault();
 
 // ================= LOAD SONGS =================
 async function loadSongs(){
 const snap = await db.collection("songs").get();
-songsCache = snap.docs.map(d=>({id:d.id,...d.data()}));
+songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
-// ================= NORMALIZE =================
-function normalize(t){
-return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
-}
-
-// ================= MATCH =================
-function findBestMatch(title){
-const norm = normalize(title);
-
-let best = null;
-let bestScore = 0;
-
-for(const s of songsCache){
-let score = norm === normalize(s.title) ? 1 : normalize(s.title).includes(norm) ? 0.7 : 0;
-
-if(score > bestScore){
-best = s;
-bestScore = score;
-}
-}
-
-return best;
-}
-
-// ================= KEY =================
-function detectKey(text,name){
-let m = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
-if(m) return m[1];
-return "";
-}
-
-// ================= PDF =================
+// ================= PDF READ =================
 async function readPDF(file){
 try{
-const buf = await file.arrayBuffer();
-const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+const buffer = await file.arrayBuffer();
+const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
 const page = await pdf.getPage(1);
-const txt = await page.getTextContent();
-return txt.items.map(i=>i.str).join(" ");
+const content = await page.getTextContent();
+return content.items.map(i=>i.str).join(" ");
 }catch{
 return "";
 }
 }
 
-// ================= STATUS =================
-function updateStatus(row){
+// ================= KEY DETECTION =================
+function detectKey(text){
 
-if(!row.match){
-row.status = "REVIEW";
-return;
+let match = text.match(/Key\s*[:\-–—]\s*([A-G][#b]?m?)/i);
+if(match) return match[1];
+
+// fallback chord count
+let chords = text.match(/\b[A-G](#|b)?m?\b/g);
+if(chords){
+let count = {};
+chords.forEach(c=>count[c]=(count[c]||0)+1);
+return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];
 }
 
-if(!row.key || !row.type){
-row.status = "REVIEW";
-return;
+return "";
 }
 
-const existing = (row.match.files || []);
+// ================= TYPE DETECTION =================
+function detectType(text){
 
-const dup = existing.find(f =>
-f.key === row.key && f.type === row.type
-);
+let chordMatches = text.match(/\b[A-G](#|b)?m?\b/g);
 
-row.status = dup ? "EXISTS" : "NEW";
+if(chordMatches && chordMatches.length > 20){
+return "Chord Sheet";
 }
 
-// ================= SCAN =================
-async function scanFiles(){
-
-if(rawFiles.length === 0){
-alert("No files loaded");
-return;
+if(text.includes("Verse") || text.includes("Chorus")){
+return "Lead Sheet";
 }
 
-await loadSongs();
-rows = [];
+return "";
+}
 
-for(const file of rawFiles){
+// ================= MATCH =================
+function suggest(title){
+return songs.filter(s=>s.title.toLowerCase().includes(title.toLowerCase())).slice(0,5);
+}
+
+// ================= ADD FILES =================
+async function addFiles(files){
+
+for(const file of files){
 
 let text = await readPDF(file);
 
-let title = file.name.replace(".pdf","");
-if(text){
-let l = text.split("\n")[0];
-if(l.length<60) title = l;
-}
+let key = detectKey(text);
+let type = detectType(text);
 
-let match = findBestMatch(title);
-let key = detectKey(text,file.name);
-
-let row = {
+rows.push({
 file,
-title,
+title: file.name.replace(".pdf",""),
+match:null,
 key,
-type:"",
-match,
-youtube: match?.youtube || "",
-ccli: match?.ccli || "",
-status:"REVIEW"
-};
-
-updateStatus(row);
-rows.push(row);
+type,
+status:"REVIEW",
+skip:false
+});
 }
 
-renderTable();
+render();
+}
+
+// ================= STATUS =================
+function updateStatus(r){
+
+if(r.skip){
+r.status="SKIPPED";
+return;
+}
+
+if(!r.match || !r.key || !r.type){
+r.status="REVIEW";
+return;
+}
+
+const dup = (r.match.files||[]).find(f=>f.key===r.key && f.type===r.type);
+
+r.status = dup ? "EXISTS" : "NEW";
 }
 
 // ================= RENDER =================
-function renderTable(){
+function render(){
 
-const tbody = document.querySelector("#batchTable tbody");
+const tbody = document.querySelector("#table tbody");
 
-tbody.innerHTML = rows.map((r,i)=>`
+tbody.innerHTML = rows.map((r,i)=>{
 
+updateStatus(r);
+
+return `
 <tr class="status-${r.status.toLowerCase()}">
 
 <td>${r.file.name}</td>
 
 <td>
-<input value="${r.title}" onchange="
-rows[${i}].title=this.value;
-rows[${i}].match=findBestMatch(this.value);
-rows[${i}].youtube=rows[${i}].match?.youtube || '';
-rows[${i}].ccli=rows[${i}].match?.ccli || '';
-updateStatus(rows[${i}]);
-renderTable();
-">
+<input value="${r.title}" oninput="rows[${i}].title=this.value; render();">
+<div>
+${suggest(r.title).map(s=>`
+<div onclick="
+rows[${i}].match=songs.find(x=>x.id==='${s.id}');
+rows[${i}].title='${s.title}';
+render();
+">${s.title}</div>
+`).join("")}
+</div>
 </td>
 
 <td>
-<input value="${r.key}" onchange="
-rows[${i}].key=this.value;
-updateStatus(rows[${i}]);
-renderTable();
-">
-</td>
-
-<td>
-<select onchange="
-rows[${i}].type=this.value;
-updateStatus(rows[${i}]);
-renderTable();
-">
-<option value="">Type</option>
-${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
+<select onchange="rows[${i}].key=this.value; render();">
+<option value="">Key</option>
+${ALL_KEYS.map(k=>`<option ${r.key===k?'selected':''}>${k}</option>`).join("")}
 </select>
 </td>
 
 <td>
-<input value="${r.youtube}" onchange="rows[${i}].youtube=this.value">
-</td>
-
-<td>
-<input value="${r.ccli}" onchange="rows[${i}].ccli=this.value">
+<select onchange="rows[${i}].type=this.value; render();">
+<option value="">Type</option>
+${TYPES.map(t=>`<option ${r.type===t?'selected':''}>${t}</option>`).join("")}
+</select>
 </td>
 
 <td>${r.status}</td>
 
-</tr>
+<td>
+${r.status==="EXISTS" ? `<button onclick="rows[${i}].skip=true; render()">Skip</button>` : ""}
+</td>
 
-`).join("");
+</tr>
+`;
+}).join("");
 }
 
 // ================= PROCESS =================
@@ -303,24 +247,24 @@ async function processAll(){
 
 for(const r of rows){
 
-if(r.status==="EXISTS") continue;
+if(r.skip || r.status==="EXISTS") continue;
 
 if(r.status==="REVIEW"){
-alert("Fix row: " + r.file.name);
+alert("Fix: "+r.file.name);
 return;
 }
 
-let id = normalize(r.title).replace(/\s+/g,"-");
-
-let docRef = db.collection("songs").doc(id);
-let snap = await docRef.get();
-
-let data = snap.exists ? snap.data() : {};
-let files = data.files || [];
+const id = r.match ? r.match.id : r.title.toLowerCase().replace(/\s+/g,"-");
 
 const ref = storage.ref(`songs/${id}/${r.file.name}`);
 await ref.put(r.file);
 const url = await ref.getDownloadURL();
+
+const docRef = db.collection("songs").doc(id);
+const snap = await docRef.get();
+const data = snap.exists ? snap.data() : {};
+
+let files = data.files || [];
 
 files.push({
 name:r.file.name,
@@ -331,15 +275,14 @@ key:r.key
 
 await docRef.set({
 title:r.title,
-normalized: normalize(r.title),
-youtube: r.youtube || data.youtube || "",
-ccli: r.ccli || data.ccli || "",
+normalized:r.title.toLowerCase(),
+youtube:data.youtube || "",
+ccli:data.ccli || "",
 files
 },{merge:true});
-
 }
 
-alert("Upload complete!");
+alert("Done");
 }
 
 </script>
