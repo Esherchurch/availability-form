@@ -12,7 +12,7 @@
 <style>
 body { font-family: 'Montserrat', sans-serif; }
 
-/* MAIN SCREEN */
+/* MAIN */
 .screen {
     position: fixed;
     inset: 0;
@@ -21,10 +21,10 @@ body { font-family: 'Montserrat', sans-serif; }
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
-/* NOTES */
+/* TEXTAREA */
 textarea {
     width: 100%;
     font-size: 18pt;
@@ -36,6 +36,7 @@ textarea {
     resize: none;
 }
 
+/* PERFORMANCE MODE */
 .performance textarea {
     font-size: 26pt;
     height: 70vh;
@@ -58,10 +59,11 @@ textarea {
     transform: translateX(-100%);
     transition: 0.3s;
     z-index: 1000;
+    overflow-y: auto;
 }
 #menu.open { transform: translateX(0); }
 
-/* OVERLAY (for menu click outside) */
+/* OVERLAY */
 #overlay {
     position: fixed;
     inset: 0;
@@ -71,7 +73,7 @@ textarea {
 }
 #overlay.show { display: block; }
 
-/* PDF VIEWER */
+/* PDF */
 #pdfViewer {
     position: fixed;
     inset: 0;
@@ -88,8 +90,8 @@ textarea {
 
 .closeBtn {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 12px;
+    right: 12px;
     background: white;
     color: black;
     padding: 12px 16px;
@@ -120,58 +122,87 @@ window.toggleMenu = ()=>{
  document.getElementById("menu").classList.toggle("open");
  document.getElementById("overlay").classList.toggle("show");
 };
-
 window.closeMenu = ()=>{
  document.getElementById("menu").classList.remove("open");
  document.getElementById("overlay").classList.remove("show");
 };
 
-/* ---------- LOAD ---------- */
+/* ---------- LOAD EVENTS ---------- */
 window.loadRota = async ()=>{
- const date = dateInput.value;
+ const date = document.getElementById("dateInput").value;
+
  const snap = await getDocs(collection(db,"events"));
  eventsForDay=[];
 
  snap.forEach(d=>{
   const ev=d.data();
-  if(ev.date===date && ev.archived!==true) eventsForDay.push(ev);
+  if(ev.date===date && ev.archived!==true){
+   eventsForDay.push(ev);
+  }
  });
 
- serviceSelect.innerHTML='<option>Select Service</option>';
+ const serviceSelect=document.getElementById("serviceSelect");
+ serviceSelect.innerHTML='<option value="">Select Service</option>';
+
  eventsForDay.forEach((ev,i)=>{
   serviceSelect.innerHTML+=`<option value="${i}">${ev.type}</option>`;
  });
 };
 
+/* ---------- SELECT SERVICE ---------- */
 window.selectService = ()=>{
- const i=serviceSelect.value;
+ const i=document.getElementById("serviceSelect").value;
  if(i==="") return;
 
  selectedEvent = eventsForDay[i];
  currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
 
- roleSelect.innerHTML='<option>Instrument</option>';
- Object.keys(selectedEvent.assignments||{}).forEach(r=>{
+ const roleSelect=document.getElementById("roleSelect");
+ roleSelect.innerHTML='<option value="">Instrument</option>';
+
+ Object.keys(selectedEvent.assignments || {}).forEach(r=>{
   roleSelect.innerHTML+=`<option>${r}</option>`;
  });
 };
 
+/* ---------- LOAD SERVICE ---------- */
 window.loadService = async ()=>{
- currentDate=dateInput.value;
- currentRole=roleSelect.value;
 
- const snap=await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
- currentService=snap.docs[0].data();
+ currentDate = document.getElementById("dateInput").value;
+ currentRole = document.getElementById("roleSelect").value;
 
- songs=currentService.order.filter(x=>x.type==="song");
+ if(!currentDate || !currentRole){
+  alert("Select date, service and role");
+  return;
+ }
+
+ const snap = await getDocs(
+  query(collection(db,"services"), where("date","==",currentDate))
+ );
+
+ if(snap.empty){
+  document.getElementById("app").innerHTML="No service found";
+  return;
+ }
+
+ currentService = snap.docs[0].data();
+
+ songs = (currentService.order || []).filter(x=>x.type==="song");
+
+ if(songs.length===0){
+  document.getElementById("app").innerHTML="No songs in service";
+  return;
+ }
 
  buildMenu();
  showSong(0);
- startScreen.style.display="none";
+
+ document.getElementById("startScreen").style.display="none";
 };
 
 /* ---------- MENU BUILD ---------- */
 function buildMenu(){
+ const menu=document.getElementById("menu");
  menu.innerHTML="";
  songs.forEach((s,i)=>{
   menu.innerHTML+=`<div onclick="showSong(${i});closeMenu()" style="padding:14px;border-bottom:1px solid #334155">${s.title}</div>`;
@@ -189,7 +220,7 @@ async function showSong(i){
  const data=songDoc.exists()?songDoc.data():{};
  const allFiles=data.files||[];
 
- const filteredFiles=allFiles.filter(f=>selectedKeys.includes(f.key));
+ const files=allFiles.filter(f=>selectedKeys.includes(f.key));
 
  let yourNotes=s.notes||"";
  currentDocId=null;
@@ -206,9 +237,11 @@ async function showSong(i){
   }
  });
 
- const roleNotes=currentService.roleNotes?.[currentRole]||"";
+ const roleNotes = (currentService.roleNotes && currentService.roleNotes[currentRole])
+  ? currentService.roleNotes[currentRole]
+  : "";
 
- app.innerHTML=`
+ document.getElementById("app").innerHTML=`
  <div class="screen ${performance?'performance':''}">
 
   <div class="flex justify-between items-center">
@@ -230,7 +263,7 @@ async function showSong(i){
   </div>
 
   <div>
-   ${filteredFiles.map(f=>`
+   ${files.map(f=>`
     <button onclick="openPDF('${f.url}')"
     style="padding:12px;margin:6px;background:#22c55e;border-radius:10px;">
     ${f.type} (${f.key})
@@ -266,16 +299,18 @@ window.openPDF=(url)=>{
   if(m) url=`https://drive.google.com/file/d/${m[1]}/preview`;
  }
 
- pdfViewer.innerHTML=`
+ const viewer=document.getElementById("pdfViewer");
+ viewer.innerHTML=`
   <button class="closeBtn" onclick="closePDF()">Close</button>
   <iframe src="${url}"></iframe>
  `;
- pdfViewer.style.display="block";
+ viewer.style.display="block";
 };
 
 window.closePDF=()=>{
- pdfViewer.style.display="none";
- pdfViewer.innerHTML="";
+ const viewer=document.getElementById("pdfViewer");
+ viewer.style.display="none";
+ viewer.innerHTML="";
 };
 
 /* ---------- SAVE ---------- */
