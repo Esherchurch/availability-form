@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Importer (Working)</title>
+<title>Batch Music Importer (Accurate + Working)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -54,7 +54,7 @@ Drag folder OR click to select
 <thead>
 <tr>
 <th>File</th>
-<th>Title</th>
+<th>Detected Title</th>
 <th>Key</th>
 <th>Type</th>
 <th>Match</th>
@@ -69,11 +69,7 @@ Drag folder OR click to select
 
 <script>
 
-// PREVENT NAVIGATION
-window.addEventListener("dragover", e => e.preventDefault());
-window.addEventListener("drop", e => e.preventDefault());
-
-// FIREBASE
+// FIREBASE CONFIG
 const firebaseConfig = {
 apiKey: "YOUR_KEY",
 authDomain: "egbc-worship-planner.firebaseapp.com",
@@ -97,19 +93,51 @@ const snap = await db.collection("songs").get();
 songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
-// NORMALIZE
-function normalize(t){
-return t.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
+// CLEAN TITLE (CRITICAL FIX)
+function cleanTitle(name){
+
+let t = name.toLowerCase();
+
+// remove extension
+t = t.replace(".pdf","");
+
+// remove brackets
+t = t.replace(/\(.*?\)/g,"");
+
+// remove keywords
+t = t.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"");
+
+// remove "in key"
+t = t.replace(/\bin [a-g](#|b)?\b/g,"");
+
+// remove standalone keys
+t = t.replace(/\b[a-g](#|b)?\b/g,"");
+
+// remove extra chars
+t = t.replace(/[^a-z0-9 ]/g,"");
+
+// clean spaces
+t = t.replace(/\s+/g," ").trim();
+
+return t;
 }
 
-// SIMPLE MATCH
+// MATCHING (WORD BASED)
 function getMatches(title){
-const norm = normalize(title);
-return songs
-.map(s => ({
-song:s,
-score: normalize(s.title).includes(norm) ? 1 : 0
-}))
+
+const words = title.split(" ");
+
+return songs.map(s => {
+
+const sWords = s.title.toLowerCase().split(" ");
+
+let overlap = words.filter(w => sWords.includes(w));
+
+let score = overlap.length / sWords.length;
+
+return {song:s, score};
+
+})
 .sort((a,b)=>b.score-a.score)
 .slice(0,5);
 }
@@ -145,16 +173,16 @@ await traverse(entry, files);
 handleFiles(files);
 });
 
-// FIXED TRAVERSAL
+// FOLDER TRAVERSAL
 async function traverse(entry, files){
 
 if(entry.isFile){
-await new Promise(resolve=>{
-entry.file(file=>{
-if(file.name.toLowerCase().endsWith(".pdf")){
-files.push(file);
+await new Promise(res=>{
+entry.file(f=>{
+if(f.name.toLowerCase().endsWith(".pdf")){
+files.push(f);
 }
-resolve();
+res();
 });
 });
 }
@@ -162,17 +190,17 @@ resolve();
 if(entry.isDirectory){
 let reader = entry.createReader();
 
-let readEntries = async () => {
-let entries = await new Promise(res => reader.readEntries(res));
+let read = async () => {
+let entries = await new Promise(res=>reader.readEntries(res));
 if(entries.length){
-for(const e of entries){
+for(let e of entries){
 await traverse(e, files);
 }
-await readEntries();
+await read();
 }
 };
 
-await readEntries();
+await read();
 }
 }
 
@@ -185,11 +213,13 @@ files.length + " PDF files loaded";
 await loadSongs();
 
 rows = files.map(file=>{
-let matches = getMatches(file.name);
+
+let cleaned = cleanTitle(file.name);
+let matches = getMatches(cleaned);
 
 return {
 file,
-title:file.name.replace(".pdf",""),
+title:cleaned,
 key:"",
 type:"",
 matches,
@@ -279,8 +309,12 @@ const inputs = tr.querySelectorAll("input, select, button");
 inputs[0].onchange = e => { r.title=e.target.value; render(); };
 inputs[1].onchange = e => { r.key=e.target.value; render(); };
 inputs[2].onchange = e => { r.type=e.target.value; render(); };
+
 inputs[3].onchange = e => {
-r.match = r.matches.find(m=>m.song.id===e.target.value).song;
+let m = r.matches.find(x=>x.song.id===e.target.value);
+r.match = m.song;
+r.youtube = m.song.youtube || "";
+r.ccli = m.song.ccli || "";
 render();
 };
 
@@ -318,8 +352,8 @@ const url = await ref.getDownloadURL();
 
 const docRef = db.collection("songs").doc(id);
 const snap = await docRef.get();
-let data = snap.exists ? snap.data() : {};
 
+let data = snap.exists ? snap.data() : {};
 let files = data.files || [];
 
 files.push({
@@ -331,7 +365,7 @@ key:r.key
 
 await docRef.set({
 title:r.match.title,
-normalized: normalize(r.match.title),
+normalized: r.match.title.toLowerCase(),
 youtube:r.youtube,
 ccli:r.ccli,
 files
