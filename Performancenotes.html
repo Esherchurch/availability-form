@@ -53,7 +53,7 @@ body { font-family: 'Montserrat', sans-serif; }
  }
  .screen {
    padding: 12px 8px;
-   gap: 10px;
+   gap: 8px;
  }
 }
 
@@ -64,12 +64,12 @@ textarea {
     font-weight: 700;
     background: #020617;
     color: white;
-    padding: 24px;
+    padding: 35px;
     border-radius: 16px;
     overflow-y: auto;
     resize: none;
     box-sizing: border-box;
-    line-height: 1.4;
+    line-height: 1.5;
     margin-top: 10px;
     margin-bottom: 10px;
     border: 1px solid rgba(255,255,255,0.1);
@@ -79,7 +79,7 @@ textarea {
 @media (max-width:768px){
  textarea {
    font-size:18pt;
-   padding:16px;
+   padding:25px;
  }
 }
 
@@ -89,6 +89,15 @@ textarea {
     height: 100% !important;
     max-height: none;
     flex-grow: 1;
+    padding: 20px;
+}
+
+.performance .hide-perf {
+    display: none !important;
+}
+
+.performance .btn, .performance .nav-btn {
+    transform: scale(0.85);
 }
 
 /* SMALL BOX */
@@ -141,6 +150,7 @@ textarea {
     background: black;
     display: none;
     z-index: 9999;
+    -webkit-overflow-scrolling: touch;
 }
 
 .closeBtn {
@@ -316,7 +326,7 @@ async function showSong(i){
  <div class="screen ${performance?'performance':''}">
 
   <div style="display:flex;justify-content:space-between;align-items:center;">
-   <button class="btn" onclick="toggleMenu()">☰</button>
+   <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
    <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
    <div style="display:flex; gap:5px;">
     <button class="nav-btn" onclick="prev()">⬅</button>
@@ -328,7 +338,7 @@ async function showSong(i){
    ${performance ? "Edit Mode" : "Performance Mode"}
   </button>
 
-  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+  <div class="hide-perf" style="display:flex; gap:10px; flex-wrap:wrap;">
    ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
     <label style="font-size: 14px;">
      <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
@@ -384,7 +394,7 @@ window.openPDF = (url)=>{
  const v=document.getElementById("pdfViewer");
  v.innerHTML=`
     <button class="closeBtn" onclick="closePDF()">Close</button>
-    <iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>
+    <iframe src="${url}" style="width:100%;height:100%;border:none;" allow="autoplay"></iframe>
  `;
  v.style.display="block";
 
