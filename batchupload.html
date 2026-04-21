@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Importer (Stable)</title>
+<title>Batch Music Importer (Duplicates + YouTube Assist)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -90,79 +90,86 @@ const snap = await db.collection("songs").get();
 songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
-// ===== DETECT KEY =====
+// DETECT KEY
 function detectKey(name){
-
 let lower = name.toLowerCase();
 
 let m = lower.match(/\bin ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
-m = lower.match(/\bkey ([a-g](#|b)?m?)\b/);
-if(m) return m[1].toUpperCase();
-
 m = lower.match(/\(([a-g](#|b)?m?)\)/);
-if(m) return m[1].toUpperCase();
-
-m = lower.match(/ ([a-g](#|b)?m?)\.pdf$/);
 if(m) return m[1].toUpperCase();
 
 return "";
 }
 
-// ===== DETECT TYPE =====
+// DETECT TYPE
 function detectType(name){
-
 let lower = name.toLowerCase();
 
 if(lower.includes("chord")) return "Chord Sheet";
 if(lower.includes("lead")) return "Lead Sheet";
 if(lower.includes("lyric")) return "Lyrics";
-if(lower.includes("bass")) return "Bass Tabs";
 
 return "";
 }
 
-// ===== CLEAN TITLE (FOR MATCHING ONLY) =====
+// CLEAN TITLE
 function cleanTitle(name){
-
 return name.toLowerCase()
 .replace(".pdf","")
 .replace(/\(.*?\)/g,"")
+.replace(/\b(chord|lead|lyrics)\b/g,"")
 .replace(/\bin [a-g](#|b)?m?\b/g,"")
-.replace(/\bkey [a-g](#|b)?m?\b/g,"")
-.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
-.replace(/\b[a-g](#|b)?m?\b/g,"")
 .replace(/[^a-z0-9 ]/g,"")
 .replace(/\s+/g," ")
 .trim();
 }
 
-// ===== MATCH =====
+// MATCH
 function getMatches(title){
-
 const words = title.split(" ");
 
 return songs.map(s => {
-
 const sWords = s.title.toLowerCase().split(" ");
-
 let overlap = words.filter(w => sWords.includes(w));
 let score = overlap.length / sWords.length;
-
 return {song:s, score};
-
 })
 .sort((a,b)=>b.score-a.score)
 .slice(0,5);
 }
 
-// ===== YOUTUBE SEARCH =====
-function openYouTubeSearch(title){
-window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`, '_blank');
+// DUPLICATE CHECK
+function isDuplicate(r){
+
+if(!r.match) return false;
+if(!r.key || !r.type) return false;
+
+return (r.match.files || []).some(f =>
+f.key === r.key && f.type === r.type
+);
 }
 
-// ===== FILE HANDLING =====
+// YOUTUBE ASSIST (AUTO-FILL PROMPT)
+function youtubeAssist(i){
+
+let title = rows[i].title;
+
+// open search
+window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`, '_blank');
+
+// prompt paste
+setTimeout(() => {
+let url = prompt("Paste YouTube link here:");
+if(url){
+rows[i].youtube = url;
+render();
+}
+}, 500);
+}
+
+// FILE HANDLING
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
@@ -214,24 +221,23 @@ await read();
 }
 }
 
-// ===== MAIN =====
+// MAIN
 async function handleFiles(files){
 
 await loadSongs();
 
 rows = files.map(file=>{
 
-let detectedKey = detectKey(file.name);
-let detectedType = detectType(file.name);
+let key = detectKey(file.name);
+let type = detectType(file.name);
 let rawTitle = cleanTitle(file.name);
 let matches = getMatches(rawTitle);
 
 return {
 file,
-rawTitle,
-title: file.name.replace(".pdf",""), // USER START POINT (keeps case)
-key: detectedKey,
-type: detectedType,
+title: file.name.replace(".pdf",""),
+key,
+type,
 matches,
 match: matches[0]?.song || null,
 youtube: matches[0]?.song?.youtube || "",
@@ -244,25 +250,21 @@ force:false
 render();
 }
 
-// ===== STATUS =====
+// STATUS
 function getStatus(r){
 
 if(r.skip) return "SKIPPED";
 
 if(!r.key || !r.type) return "REVIEW";
 
+if(isDuplicate(r) && !r.force) return "EXISTS";
+
 if(!r.match) return "NEW";
-
-let dup = (r.match.files||[]).find(f =>
-f.key===r.key && f.type===r.type
-);
-
-if(dup && !r.force) return "EXISTS";
 
 return "NEW";
 }
 
-// ===== RENDER =====
+// RENDER
 function render(){
 
 const tbody = document.getElementById("table");
@@ -308,7 +310,7 @@ ${m.song.title}
 <td><input value="${r.ccli}"></td>
 
 <td>
-<button onclick="openYouTubeSearch('${r.title}')">Find YouTube</button>
+<button onclick="youtubeAssist(${i})">Find YouTube</button>
 <button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
 </td>
 
@@ -347,7 +349,7 @@ inputs[5].onchange = e => { r.ccli=e.target.value; };
 
 }
 
-// ===== PROCESS =====
+// PROCESS (unchanged)
 async function processAll(){
 
 if(!confirm("Upload?")) return;
@@ -363,7 +365,6 @@ alert("Fix: "+r.file.name);
 return;
 }
 
-// 🔥 CRITICAL FIX HERE
 let finalTitle = r.match ? r.match.title : r.title;
 
 let id = finalTitle.toLowerCase().replace(/\s+/g,"-");
@@ -386,7 +387,7 @@ key:r.key
 });
 
 await docRef.set({
-title: finalTitle,                 // ✅ preserves correct case
+title: finalTitle,
 normalized: finalTitle.toLowerCase(),
 youtube: r.youtube,
 ccli: r.ccli,
