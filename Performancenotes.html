@@ -408,13 +408,9 @@ window.prev = ()=>{ if(index>0) showSong(index-1); };
 /* PDF */
 window.openPDF = (url)=>{
  let finalUrl = url;
- if(url.includes("drive.google.com")){
-  const m = url.match(/\/d\/(.*?)\//);
-  if(m) {
-    const fileId = m[1];
-    // Force the browser to treat this as a web document, not a file stream
-    finalUrl = `https://drive.google.com/file/d/${fileId}/preview?usp=sharing`;
-  }
+ if(url.includes("drive.google.com") || url.includes("firebasestorage.googleapis.com")){
+  // Using the viewer wrapper to attempt bypassing download triggers
+  finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
  }
 
  const v=document.getElementById("pdfViewer");
