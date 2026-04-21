@@ -232,14 +232,12 @@ const requestWakeLock = async () => {
   try {
     if ('wakeLock' in navigator) {
       wakeLock = await navigator.wakeLock.request('screen');
-      console.log('Wake Lock is active');
     }
   } catch (err) {
     console.error(`${err.name}, ${err.message}`);
   }
 };
 
-// Re-acquire lock if visibility changes (e.g. switching back to tab)
 document.addEventListener('visibilitychange', async () => {
   if (wakeLock !== null && document.visibilityState === 'visible') {
     await requestWakeLock();
@@ -253,7 +251,6 @@ window.goFull = () => {
     else if (docEl.webkitRequestFullScreen) docEl.webkitRequestFullScreen();
     else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
     
-    // Activate wake lock when going fullscreen
     requestWakeLock();
     document.getElementById("fsToggle").innerText = "[ Stay Awake Active ]";
 };
@@ -442,12 +439,17 @@ async function showSong(i){
  },50);
 }
 
-/* KEYS */
+/* KEYS - RESTORED LOGIC */
 window.toggleKey=(k,on)=>{
  if(on){
   if(!selectedKeys.includes(k)) selectedKeys.push(k);
  } else {
   selectedKeys = selectedKeys.filter(x=>x!==k);
+ }
+ // This update is crucial for the tick boxes to actually work
+ const songIndex = songs.findIndex(s => s.title === songs[index].title);
+ if (songIndex !== -1) {
+    songs[songIndex].keys = selectedKeys;
  }
  showSong(index);
 };
