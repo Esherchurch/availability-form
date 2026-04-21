@@ -41,52 +41,32 @@ body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
     font-weight:800;
 }
 
-/* MOBILE ONLY SCALE */
+/* MOBILE VIEW (Restored to your "perfect" settings) */
 @media (max-width:768px){
- .btn {
-   padding:10px 12px;
-   font-size:14px;
- }
- .nav-btn {
-   padding:10px 14px;
-   font-size:14px;
- }
- .screen {
-   padding: 12px 8px;
-   gap: 8px;
- }
+ .btn { padding:10px 12px; font-size:14px; }
+ .nav-btn { padding:10px 14px; font-size:14px; }
+ .screen { padding: 12px 8px; gap: 8px; }
  textarea {
-   font-size:18pt !important;
-   padding:35px 45px !important;
+   font-size: 18pt !important;
+   padding: 35px 45px !important;
+ }
+ .performance textarea {
+   font-size: clamp(14pt, 5vw, 24pt) !important;
  }
 }
 
-/* TEXTAREA BASE */
-textarea {
-    width: 100%;
-    font-weight: 700;
-    background: #020617;
-    color: white;
-    border-radius: 16px;
-    overflow-y: auto;
-    resize: none;
-    box-sizing: border-box;
-    line-height: 1.5;
-    margin-top: 10px;
-    margin-bottom: 10px;
-    border: 2px solid rgba(255,255,255,0.15);
-    display: block;
-    /* Default for 10-inch tablets and larger */
-    font-size: 42pt; 
-    padding: 50px 60px !important;
-}
-
-/* TABLET/LARGE SCREEN UPSCALING (Aggressive for 10-inch) */
-@media (min-width: 900px) {
+/* TABLET/LARGE SCREEN (10-inch focus) */
+@media (min-width: 769px) {
+  /* Edit Mode Textarea */
   textarea {
-    font-size: 48pt;
+    font-size: 42pt !important; 
     padding: 70px 90px !important;
     line-height: 1.6;
+  }
+  /* Performance Mode Textarea */
+  .performance textarea {
+    font-size: 50pt !important;
+    padding: 60px 80px !important;
   }
   .nav-btn {
     padding: 25px 40px;
@@ -101,14 +81,20 @@ textarea {
   }
 }
 
-/* PERFORMANCE MODE SCALE FIX */
-.performance textarea {
-    /* Clamps between a minimum of 22pt and a massive 55pt depending on width */
-    font-size: clamp(22pt, 6vw, 55pt) !important;
-    height: 100% !important;
-    max-height: none;
-    flex-grow: 1;
-    padding: 40px !important;
+/* TEXTAREA BASE */
+textarea {
+    width: 100%;
+    font-weight: 700;
+    background: #020617;
+    color: white;
+    border-radius: 16px;
+    overflow-y: auto;
+    resize: none;
+    box-sizing: border-box;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border: 2px solid rgba(255,255,255,0.15);
+    display: block;
 }
 
 .performance .hide-perf {
@@ -460,7 +446,6 @@ window.openPDF = (url)=>{
  v.style.display="block";
 
  const loader = document.createElement("div");
- loader.id = "pdfLoader";
  loader.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:black;font-weight:bold;";
  loader.innerText = "Loading PDF...";
  
@@ -470,7 +455,6 @@ window.openPDF = (url)=>{
  closeBtn.onclick = closePDF;
 
  const iframe = document.createElement("iframe");
- iframe.id = "pdfIframe";
  iframe.style.cssText = "width:100%;height:100%;border:none;background:white;display:none;";
  iframe.src = finalUrl;
  iframe.onload = () => {
