@@ -296,6 +296,7 @@ const tbody = document.getElementById("table");
 tbody.innerHTML = "";
 let lastGroup = null;
 
+rows.sort((a,b)=> a.group.localeCompare(b.group));
 rows.forEach((r,i)=>{
 if(r.group !== lastGroup){
 let groupRow = document.createElement("tr");
@@ -351,7 +352,7 @@ ${m.song.title}
 </td>
 <td>${status}</td>
 <td>
-<button onclick="rows[${i}].skip=true; render()">Skip</button>
+<button onclick="rows[${i}].skip=!rows[${i}].skip; render()">${r.skip ? 'Undo' : 'Skip'}</button>
 <button onclick="rows[${i}].force=true; render()">Force</button>
 </td>
 `;
