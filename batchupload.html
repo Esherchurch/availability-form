@@ -112,18 +112,15 @@ return "low";
 function detectKey(name){
     let lower = name.toLowerCase().replace(".pdf", "");
 
-    // Prioritize longer strings (like Bb, C#) so "Bb" isn't caught as "B"
     const searchOrder = ["C#","Db","Eb","F#","Gb","Ab","Bb","C","D","E","F","G","A","B"];
 
     for (let k of searchOrder) {
-        // Look for the key as a standalone word or at the very end of the title
         let regex = new RegExp(`\\b${k.replace('#', '\\#')}\\b| ${k.replace('#', '\\#')}$`, 'i');
         if (regex.test(lower)) {
             return k;
         }
     }
     
-    // Fallback: If no standalone word found, just check if the string exists anywhere
     for (let k of searchOrder) {
         if (lower.includes(k.toLowerCase())) {
             return k;
@@ -184,6 +181,23 @@ r[field] = value;
 render();
 }
 // =================================
+
+// ===== ADDED: APPLY ALL =====
+function applyAllToGroup(index){
+let group = rows[index].group;
+let source = rows[index];
+
+rows.forEach(r=>{
+if(r.group === group){
+r.title = source.title;
+r.match = source.match;
+r.youtube = source.youtube;
+r.ccli = source.ccli;
+}
+});
+render();
+}
+// ===========================
 
 // YOUTUBE SEARCH
 function openYouTubeSearch(title){
@@ -308,6 +322,7 @@ ${r.group}
 <button onclick="applyToGroup(${i}, 'match')">Apply Match</button>
 <button onclick="applyToGroup(${i}, 'youtube')">Apply YouTube</button>
 <button onclick="applyToGroup(${i}, 'ccli')">Apply CCLI</button>
+<button onclick="applyAllToGroup(${i})">Apply All</button>
 `;
 groupRow.appendChild(td);
 tbody.appendChild(groupRow);
