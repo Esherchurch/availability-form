@@ -10,6 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -457,18 +458,34 @@
             });
             docRef.autoTable({
                 startY: 35, head: headers, body: tableBody, theme: 'plain',
-                headStyles: { fillColor: null, textColor: [255, 255, 255], fontSize: 7, halign: 'center', cellPadding: 4 },
-                styles: { fontSize: 7.5, cellPadding: 5, halign: 'center' },
-                columnStyles: { 0: { halign: 'left', fontStyle: 'bold' }, 1: { halign: 'left' } },
+                headStyles: { fillColor: null, textColor: [255, 255, 255], fontSize: 6, halign: 'center', cellPadding: 2 },
+                styles: { 
+                    fontSize: 6, 
+                    cellPadding: 3, 
+                    halign: 'center', 
+                    overflow: 'linebreak', // Prevents word splitting by using line breaks
+                    valign: 'middle' 
+                },
+                columnStyles: { 
+                    0: { halign: 'left', fontStyle: 'bold', cellWidth: 15 }, 
+                    1: { halign: 'left', cellWidth: 30 } 
+                },
                 margin: { horizontal: 10 },
                 willDrawCell: function(data) {
                     if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
-                        docRef.setFillColor(44, 105, 153); docRef.roundedRect(data.settings.margin.left, data.cell.y, 277, data.cell.height + 2, 4, 4, 'F');
+                        docRef.setFillColor(44, 105, 153); docRef.roundedRect(data.settings.margin.left, data.cell.y, 277, data.cell.height + 2, 2, 2, 'F');
                         docRef.rect(data.settings.margin.left, data.cell.y + 2, 277, data.cell.height, 'F');
                     }
                 },
-                didDrawCell: function(data) { if (data.section === 'body') { docRef.setDrawColor(230, 235, 245); docRef.setLineWidth(0.1); docRef.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height); } },
-                didDrawPage: function(data) { docRef.setDrawColor(44, 105, 153); docRef.setLineWidth(0.3); docRef.roundedRect(10, 35, 277, data.cursor.y - 35, 4, 4, 'D'); }
+                didDrawCell: function(data) { 
+                    if (data.section === 'body') { 
+                        docRef.setDrawColor(200, 200, 200); 
+                        docRef.setLineWidth(0.1); 
+                        // Draw line under every row
+                        docRef.line(data.settings.margin.left, data.cell.y + data.cell.height, 277 + data.settings.margin.left, data.cell.y + data.cell.height); 
+                    } 
+                },
+                didDrawPage: function(data) { docRef.setDrawColor(44, 105, 153); docRef.setLineWidth(0.3); docRef.roundedRect(10, 35, 277, data.cursor.y - 35, 2, 2, 'D'); }
             });
             return docRef;
         };
@@ -501,6 +518,48 @@
             const doc = await getPdfBlob(type, memberId);
             if (!doc) return alert("No assigned dates found.");
             doc.save(`${type}_rota.pdf`);
+        };
+
+        window.exportToExcel = () => {
+            const activeEvents = cachedEvents.filter(e => !e.archived && !e.draft).sort((a,b) => new Date(a.date) - new Date(b.date));
+            if (activeEvents.length === 0) return alert("No active events to export.");
+
+            const wb = XLSX.utils.book_new();
+            const eventsByMonth = {};
+
+            activeEvents.forEach(ev => {
+                const d = new Date(ev.date);
+                const monthName = d.toLocaleString('en-GB', { month: 'Long' });
+                if (!eventsByMonth[monthName]) eventsByMonth[monthName] = [];
+                eventsByMonth[monthName].push(ev);
+            });
+
+            Object.entries(eventsByMonth).forEach(([month, events]) => {
+                const allRoles = [...new Set(events.flatMap(e => e.roles || []))];
+                const data = events.map(e => {
+                    const row = {
+                        "Date": new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+                        "Service Type": e.type
+                    };
+                    allRoles.forEach(role => {
+                        row[role] = e.assignments?.[role]?.name || "---";
+                    });
+                    row["Notes"] = e.description || "";
+                    return row;
+                });
+
+                const ws = XLSX.utils.json_to_sheet(data);
+                
+                // Add Basic Column Widths
+                const colWidths = [{ wch: 10 }, { wch: 25 }];
+                allRoles.forEach(() => colWidths.push({ wch: 15 }));
+                colWidths.push({ wch: 30 });
+                ws['!cols'] = colWidths;
+
+                XLSX.utils.book_append_sheet(wb, ws, month);
+            });
+
+            XLSX.writeFile(wb, `EGBC_Rota_${activeEvents[0].termLabel}.xlsx`);
         };
 
         window.prepareDistributionPackage = async () => {
@@ -564,7 +623,6 @@
             const assignedIds = Object.values(ev.assignments || {}).map(a => a.id);
             const members = addressBook.filter(m => ev.teams?.some(t => m.markers?.includes(t)));
             
-            // Logic updated: Checking for 'unavailable' or 'not-avail' to match potential form responses
             const respondersAvail = members.filter(m => availability[ev.id]?.[m.id] === 'avail' && (!hideAssigned || !assignedIds.includes(m.id)));
             const declined = members.filter(m => (availability[ev.id]?.[m.id] === 'unavailable' || availability[ev.id]?.[m.id] === 'not-avail') && (!hideAssigned || !assignedIds.includes(m.id)));
             const pending = members.filter(m => !availability[ev.id]?.[m.id] && (!hideAssigned || !assignedIds.includes(m.id)));
@@ -649,6 +707,7 @@
             <div class="flex flex-col gap-4">
                 <div class="flex flex-wrap gap-5 bg-white p-4 rounded-[3.5rem] shadow-xl border border-gray-100 items-center">
                     <button onclick="generatePDF('full')" class="bg-gray-100 text-gray-600 px-8 py-3 rounded-full font-black text-[9px] uppercase hover:bg-gray-200">Full PDF</button>
+                    <button onclick="exportToExcel()" class="bg-emerald-100 text-emerald-700 px-8 py-3 rounded-full font-black text-[9px] uppercase hover:bg-emerald-200">Export Excel (By Month)</button>
                     <select id="memberPdfSelect" class="bg-gray-50 rounded-full px-6 py-3 text-[10px] font-black uppercase outline-none border-none"></select>
                     <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-blue-50 text-blue-600 px-8 py-3 rounded-full font-black text-[9px] uppercase hover:bg-blue-100">Individual PDF</button>
                     <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-purple-50 text-purple-600 px-8 py-3 rounded-full font-black text-[9px] uppercase hover:bg-purple-100">Household PDF</button>
