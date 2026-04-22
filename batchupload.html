@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Batch Music Importer (Add: Group + Confidence)</title>
+<title>Batch Music Importer (Final Working + YouTube Helper)</title>
+<title>Batch Music Importer (Stable)</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
@@ -27,14 +28,15 @@ td, th { border: 1px solid #ddd; padding: 6px; }
 .status-review { background:#fff3cd; }
 .status-skipped { background:#e0e0e0; }
 
-.conf-high { color: green; font-weight: bold; }
-.conf-medium { color: orange; font-weight: bold; }
-.conf-low { color: red; font-weight: bold; }
-
-.group-row { background:#f5f5f5; font-weight:bold; }
-
 input, select { width: 100%; }
 button { margin: 2px; }
+
+/* ===== ADDED ===== */
+.group-row { background:#f5f5f5; font-weight:bold; }
+.conf-high { color:green; font-weight:bold; }
+.conf-medium { color:orange; font-weight:bold; }
+.conf-low { color:red; font-weight:bold; }
+/* ================= */
 </style>
 </head>
 
@@ -48,6 +50,8 @@ Drag folder OR click to select
 
 <input type="file" id="fileInput" multiple webkitdirectory style="display:none">
 
+<div id="status"></div>
+
 <button onclick="processAll()">Upload</button>
 
 <table>
@@ -58,7 +62,7 @@ Drag folder OR click to select
 <th>Key</th>
 <th>Type</th>
 <th>Match</th>
-<th>Confidence</th>
+<th>Confidence</th> <!-- ADDED -->
 <th>YouTube</th>
 <th>CCLI</th>
 <th>Assist</th>
@@ -95,118 +99,193 @@ const snap = await db.collection("songs").get();
 songs = snap.docs.map(d => ({id:d.id,...d.data()}));
 }
 
+// ===== ADDED: CONFIDENCE =====
+function getConfidence(matches){
+if(!matches || matches.length === 0) return "low";
+let top = matches[0];
+if(top.score >= 0.7) return "high";
+if(top.score >= 0.4) return "medium";
+return "low";
+}
+// ============================
+
+// KEY DETECTION
+function detectKey(name){
+name = name.toLowerCase();
+
+let m = name.match(/\bin ([a-g](#|b)?m?)\b/);
+let lower = name.toLowerCase();
+
+let m = lower.match(/\bin ([a-g](#|b)?m?)\b/);
+if(m) return m[1].toUpperCase();
+
+m = name.match(/\bkey ([a-g](#|b)?m?)\b/);
+m = lower.match(/\bkey ([a-g](#|b)?m?)\b/);
+if(m) return m[1].toUpperCase();
+
+m = name.match(/\(([a-g](#|b)?m?)\)/);
+m = lower.match(/\(([a-g](#|b)?m?)\)/);
+if(m) return m[1].toUpperCase();
+
+m = name.match(/ ([a-g](#|b)?m?)\.pdf$/);
+m = lower.match(/ ([a-g](#|b)?m?)\.pdf$/);
+if(m) return m[1].toUpperCase();
+
+return "";
+}
+
+// TYPE DETECTION
+function detectType(name){
+name = name.toLowerCase();
+
+if(name.includes("chord")) return "Chord Sheet";
+if(name.includes("lead")) return "Lead Sheet";
+if(name.includes("lyric")) return "Lyrics";
+if(name.includes("bass")) return "Bass Tabs";
+let lower = name.toLowerCase();
+
+if(lower.includes("chord")) return "Chord Sheet";
+if(lower.includes("lead")) return "Lead Sheet";
+if(lower.includes("lyric")) return "Lyrics";
+if(lower.includes("bass")) return "Bass Tabs";
+
+return "";
+}
+
 // CLEAN TITLE
 function cleanTitle(name){
 return name.toLowerCase()
 .replace(".pdf","")
 .replace(/\(.*?\)/g,"")
-.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
 .replace(/\bin [a-g](#|b)?m?\b/g,"")
+.replace(/\bkey [a-g](#|b)?m?\b/g,"")
+.replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
+.replace(/\b[a-g](#|b)?m?\b/g,"")
 .replace(/[^a-z0-9 ]/g,"")
 .replace(/\s+/g," ")
 .trim();
 }
 
-// MATCH WITH CONFIDENCE
+// MATCH
 function getMatches(title){
-
 const words = title.split(" ");
-
-let results = songs.map(s => {
-
+return songs.map(s => {
 const sWords = s.title.toLowerCase().split(" ");
 let overlap = words.filter(w => sWords.includes(w));
 let score = overlap.length / sWords.length;
-
 return {song:s, score};
+})
+.sort((a,b)=>b.score-a.score)
+.slice(0,5);
+}
 
-}).sort((a,b)=>b.score-a.score);
+// ===== ADDED: APPLY TO GROUP =====
+function applyToGroup(index, field){
+let group = rows[index].group;
+let value = rows[index][field];
+rows.forEach(r=>{
+if(r.group === group){
+r[field] = value;
+}
+});
+render();
+}
+// =================================
 
-let top = results[0];
+// YOUTUBE SEARCH
+function openYouTubeSearch(title){
+window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`, '_blank');
+}
 
-let confidence = "low";
-if(top.score >= 0.7) confidence = "high";
-else if(top.score >= 0.4) confidence = "medium";
+// FILE HANDLING
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
 
-return {
-confidence,
-top,
-options: results.slice(0,5)
+dropzone.onclick = () => fileInput.click();
+
+fileInput.onchange = e => handleFiles(Array.from(e.target.files));
+
+dropzone.addEventListener("dragover", e=>e.preventDefault());
+
+dropzone.addEventListener("drop", async e=>{
+e.preventDefault();
+
+let files = [];
+
+for(let item of e.dataTransfer.items){
+let entry = item.webkitGetAsEntry();
+await traverse(entry, files);
+}
+
+handleFiles(files);
+});
+
+// TRAVERSE
+async function traverse(entry, files){
+
+if(entry.isFile){
+await new Promise(res=>{
+entry.file(f=>{
+if(f.name.endsWith(".pdf")) files.push(f);
+res();
+});
+});
+}
+
+if(entry.isDirectory){
+let reader = entry.createReader();
+
+let read = async () => {
+let entries = await new Promise(res=>reader.readEntries(res));
+if(entries.length){
+for(let e of entries){
+await traverse(e, files);
+}
+await read();
+}
 };
+
+await read();
+}
 }
 
-// DETECT KEY
-function detectKey(name){
-let m = name.toLowerCase().match(/\bin ([a-g](#|b)?m?)\b/);
-return m ? m[1].toUpperCase() : "";
-}
-
-// DETECT TYPE
-function detectType(name){
-let n = name.toLowerCase();
-if(n.includes("chord")) return "Chord Sheet";
-if(n.includes("lead")) return "Lead Sheet";
-if(n.includes("lyric")) return "Lyrics";
-if(n.includes("bass")) return "Bass Tabs";
-return "";
-}
-
-// DUPLICATE CHECK
-function isDuplicate(r){
-
-if(!r.match) return false;
-if(!r.key || !r.type) return false;
-
-return (r.match.files || []).some(f =>
-f.key === r.key && f.type === r.type
-);
-}
-
-// GROUP HELPER
-function getGroup(file){
-return file.webkitRelativePath.split("/")[0];
-}
-
-// HANDLE FILES
+// MAIN
 async function handleFiles(files){
 
 await loadSongs();
 
 rows = files.map(file=>{
 
-let group = getGroup(file);
-let rawTitle = cleanTitle(group);
-let matchData = getMatches(rawTitle);
+let key = detectKey(file.name);
+let type = detectType(file.name);
+let title = cleanTitle(file.name);
+let matches = getMatches(title);
+let detectedKey = detectKey(file.name);
+let detectedType = detectType(file.name);
+let rawTitle = cleanTitle(file.name);
+let matches = getMatches(rawTitle);
 
 return {
 file,
-group,
+title,
+key,
+type,
+rawTitle,
 title: file.name.replace(".pdf",""),
-key: detectKey(file.name),
-type: detectType(file.name),
-matches: matchData.options,
-match: matchData.confidence === "low" ? null : matchData.top.song,
-confidence: matchData.confidence,
-youtube: matchData.top.song?.youtube || "",
-ccli: matchData.top.song?.ccli || "",
+key: detectedKey,
+type: detectedType,
+matches,
+match:matches[0]?.song || null,
+youtube:matches[0]?.song?.youtube || "",
+ccli:matches[0]?.song?.ccli || "",
+match: matches[0]?.song || null,
+youtube: matches[0]?.song?.youtube || "",
+ccli: matches[0]?.song?.ccli || "",
+confidence: getConfidence(matches), /* ADDED */
+group: file.webkitRelativePath.split("/")[0], /* ADDED */
 skip:false,
 force:false
 };
-});
-
-render();
-}
-
-// APPLY TO GROUP
-function applyToGroup(index, field){
-
-let g = rows[index].group;
-let value = rows[index][field];
-
-rows.forEach(r=>{
-if(r.group === g){
-r[field] = value;
-}
 });
 
 render();
@@ -219,21 +298,15 @@ if(r.skip) return "SKIPPED";
 
 if(!r.key || !r.type) return "REVIEW";
 
-if(isDuplicate(r) && !r.force) return "EXISTS";
+if(!r.match) return "NEW";
+
+let dup = (r.match.files||[]).find(f =>
+f.key===r.key && f.type===r.type
+);
+
+if(dup && !r.force) return "EXISTS";
 
 return "NEW";
-}
-
-// YOUTUBE ASSIST
-function youtubeAssist(i){
-window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(rows[i].title)}`);
-setTimeout(()=>{
-let url = prompt("Paste YouTube link:");
-if(url){
-rows[i].youtube = url;
-render();
-}
-},500);
 }
 
 // RENDER
@@ -242,50 +315,61 @@ function render(){
 const tbody = document.getElementById("table");
 tbody.innerHTML = "";
 
+/* ===== ADDED GROUP TRACKING ===== */
 let lastGroup = null;
+/* ================================= */
 
 rows.forEach((r,i)=>{
 
+/* ===== ADDED GROUP HEADER ===== */
 if(r.group !== lastGroup){
-tbody.innerHTML += `
-<tr class="group-row">
-<td colspan="11">
+let groupRow = document.createElement("tr");
+groupRow.className = "group-row";
+
+let td = document.createElement("td");
+td.colSpan = 11;
+
+td.innerHTML = `
 ${r.group}
 <button onclick="applyToGroup(${i}, 'title')">Apply Title</button>
 <button onclick="applyToGroup(${i}, 'match')">Apply Match</button>
 <button onclick="applyToGroup(${i}, 'youtube')">Apply YouTube</button>
 <button onclick="applyToGroup(${i}, 'ccli')">Apply CCLI</button>
-</td>
-</tr>
 `;
+
+groupRow.appendChild(td);
+tbody.appendChild(groupRow);
+
 lastGroup = r.group;
 }
+/* ================================= */
 
 let status = getStatus(r);
 
-tbody.innerHTML += `
-<tr class="status-${status.toLowerCase()}">
+let tr = document.createElement("tr");
+tr.className = "status-"+status.toLowerCase();
 
+tr.innerHTML = `
 <td>${r.file.name}</td>
 
-<td><input value="${r.title}" onchange="rows[${i}].title=this.value"></td>
+<td><input value="${r.title}"></td>
 
 <td>
-<select onchange="rows[${i}].key=this.value">
+<select>
 <option value="">Key</option>
 ${KEYS.map(k=>`<option ${r.key===k?"selected":""}>${k}</option>`).join("")}
 </select>
 </td>
 
 <td>
-<select onchange="rows[${i}].type=this.value">
+<select>
 <option value="">Type</option>
 ${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
 </select>
 </td>
 
 <td>
-<select onchange="changeMatch(${i}, this.value)">
+<select>
 <option value="">— New Song —</option>
 ${r.matches.map(m=>`
 <option value="${m.song.id}" ${r.match?.id===m.song.id?"selected":""}>
@@ -294,13 +378,13 @@ ${m.song.title}
 </select>
 </td>
 
-<td class="conf-${r.confidence}">${r.confidence}</td>
+<td class="conf-${r.confidence}">${r.confidence}</td> <!-- ADDED -->
 
-<td><input value="${r.youtube}" onchange="rows[${i}].youtube=this.value"></td>
-<td><input value="${r.ccli}" onchange="rows[${i}].ccli=this.value"></td>
+<td><input value="${r.youtube}"></td>
+<td><input value="${r.ccli}"></td>
 
 <td>
-<button onclick="youtubeAssist(${i})">Find YouTube</button>
+<button onclick="openYouTubeSearch('${r.title}')">Find YouTube</button>
 <button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
 </td>
 
@@ -310,30 +394,37 @@ ${m.song.title}
 <button onclick="rows[${i}].skip=true; render()">Skip</button>
 <button onclick="rows[${i}].force=true; render()">Force</button>
 </td>
-
-</tr>
 `;
+
+tbody.appendChild(tr);
+
+const inputs = tr.querySelectorAll("input, select");
+
+inputs[0].onchange = e => { r.title=e.target.value; render(); };
+inputs[0].onchange = e => { r.title=e.target.value; };
+inputs[1].onchange = e => { r.key=e.target.value; render(); };
+inputs[2].onchange = e => { r.type=e.target.value; render(); };
+
+inputs[3].onchange = e => {
+if(!e.target.value){
+r.match = null;
+} else {
+let m = r.matches.find(x=>x.song.id===e.target.value);
+r.match = m.song;
+r.youtube = m.song.youtube || "";
+r.ccli = m.song.ccli || "";
+}
+render();
+};
+
+inputs[4].onchange = e => { r.youtube=e.target.value; };
+inputs[5].onchange = e => { r.ccli=e.target.value; };
+
 });
 
 }
 
-// CHANGE MATCH
-function changeMatch(i,id){
-
-if(!id){
-rows[i].match = null;
-return;
-}
-
-let m = rows[i].matches.find(x=>x.song.id===id);
-rows[i].match = m.song;
-rows[i].youtube = m.song.youtube || "";
-rows[i].ccli = m.song.ccli || "";
-
-render();
-}
-
-// PROCESS (UNCHANGED)
+// PROCESS
 async function processAll(){
 
 if(!confirm("Upload?")) return;
@@ -349,7 +440,9 @@ alert("Fix: "+r.file.name);
 return;
 }
 
+let id = r.match ? r.match.id : r.title.replace(/\s+/g,"-");
 let finalTitle = r.match ? r.match.title : r.title;
+
 let id = finalTitle.toLowerCase().replace(/\s+/g,"-");
 
 const ref = storage.ref(`songs/${id}/${r.file.name}`);
@@ -370,6 +463,10 @@ key:r.key
 });
 
 await docRef.set({
+title:r.title,
+normalized:r.title,
+youtube:r.youtube,
+ccli:r.ccli,
 title: finalTitle,
 normalized: finalTitle.toLowerCase(),
 youtube: r.youtube,
@@ -380,19 +477,6 @@ files
 
 alert("Upload complete");
 }
-
-// EVENTS
-const dropzone = document.getElementById("dropzone");
-const fileInput = document.getElementById("fileInput");
-
-dropzone.onclick = () => fileInput.click();
-fileInput.onchange = e => handleFiles(Array.from(e.target.files));
-
-dropzone.addEventListener("dragover", e=>e.preventDefault());
-dropzone.addEventListener("drop", e=>{
-e.preventDefault();
-handleFiles(Array.from(e.dataTransfer.files));
-});
 
 </script>
 
