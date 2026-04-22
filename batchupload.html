@@ -110,8 +110,9 @@ return "low";
 
 // KEY DETECTION
 function detectKey(name){
-let lower = name.toLowerCase();
+let lower = name.toLowerCase().replace(".pdf", "");
 
+// Try "in [Key]", "key [Key]", or "([Key])"
 let m = lower.match(/\bin ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
@@ -121,8 +122,10 @@ if(m) return m[1].toUpperCase();
 m = lower.match(/\(([a-g](#|b)?m?)\)/);
 if(m) return m[1].toUpperCase();
 
-m = lower.match(/ ([a-g](#|b)?m?)\.pdf$/);
-if(m) return m[1].toUpperCase();
+// Standalone key detection (e.g., "Song Name Bb")
+let keysPattern = new RegExp(`\\b(${KEYS.join('|')})m?\\b`, 'i');
+let match = lower.match(keysPattern);
+if(match) return match[1].toUpperCase();
 
 return "";
 }
@@ -242,11 +245,9 @@ return new Promise(async (resolve) => {
 
 // MAIN
 async function handleFiles(files){
-
 await loadSongs();
 
 rows = files.map(file=>{
-
 let detectedKey = detectKey(file.name);
 let detectedType = detectType(file.name);
 let rawTitle = cleanTitle(file.name);
@@ -262,8 +263,8 @@ matches,
 match: matches[0]?.song || null,
 youtube: matches[0]?.song?.youtube || "",
 ccli: matches[0]?.song?.ccli || "",
-confidence: getConfidence(matches), /* ADDED */
-group: file.webkitRelativePath ? file.webkitRelativePath.split("/")[0] : "Dropped Files", /* ADDED */
+confidence: getConfidence(matches),
+group: file.webkitRelativePath ? file.webkitRelativePath.split("/")[0] : "Dropped Files",
 skip:false,
 force:false
 };
@@ -274,11 +275,8 @@ render();
 
 // STATUS
 function getStatus(r){
-
 if(r.skip) return "SKIPPED";
-
 if(!r.key || !r.type) return "REVIEW";
-
 if(!r.match) return "NEW";
 
 let dup = (r.match.files||[]).find(f =>
@@ -286,30 +284,21 @@ f.key===r.key && f.type===r.type
 );
 
 if(dup && !r.force) return "EXISTS";
-
 return "NEW";
 }
 
 // RENDER
 function render(){
-
 const tbody = document.getElementById("table");
 tbody.innerHTML = "";
-
-/* ===== ADDED GROUP TRACKING ===== */
 let lastGroup = null;
-/* ================================= */
 
 rows.forEach((r,i)=>{
-
-/* ===== ADDED GROUP HEADER ===== */
 if(r.group !== lastGroup){
 let groupRow = document.createElement("tr");
 groupRow.className = "group-row";
-
 let td = document.createElement("td");
 td.colSpan = 11;
-
 td.innerHTML = `
 ${r.group}
 <button onclick="applyToGroup(${i}, 'title')">Apply Title</button>
@@ -317,38 +306,30 @@ ${r.group}
 <button onclick="applyToGroup(${i}, 'youtube')">Apply YouTube</button>
 <button onclick="applyToGroup(${i}, 'ccli')">Apply CCLI</button>
 `;
-
 groupRow.appendChild(td);
 tbody.appendChild(groupRow);
-
 lastGroup = r.group;
 }
-/* ================================= */
 
 let status = getStatus(r);
-
 let tr = document.createElement("tr");
 tr.className = "status-"+status.toLowerCase();
 
 tr.innerHTML = `
 <td>${r.file.name}</td>
-
 <td><input value="${r.title}"></td>
-
 <td>
 <select>
 <option value="">Key</option>
 ${KEYS.map(k=>`<option ${r.key===k?"selected":""}>${k}</option>`).join("")}
 </select>
 </td>
-
 <td>
 <select>
 <option value="">Type</option>
 ${TYPES.map(t=>`<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
 </select>
 </td>
-
 <td>
 <select>
 <option value="">— New Song —</option>
@@ -358,17 +339,14 @@ ${m.song.title}
 </option>`).join("")}
 </select>
 </td>
-
-<td class="conf-${r.confidence}">${r.confidence}</td> <td><input value="${r.youtube}"></td>
+<td class="conf-${r.confidence}">${r.confidence}</td>
+<td><input value="${r.youtube}"></td>
 <td><input value="${r.ccli}"></td>
-
 <td>
 <button onclick="openYouTubeSearch('${r.title}')">Find YouTube</button>
 <button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
 </td>
-
 <td>${status}</td>
-
 <td>
 <button onclick="rows[${i}].skip=true; render()">Skip</button>
 <button onclick="rows[${i}].force=true; render()">Force</button>
@@ -376,13 +354,11 @@ ${m.song.title}
 `;
 
 tbody.appendChild(tr);
-
 const inputs = tr.querySelectorAll("input, select");
 
 inputs[0].onchange = e => { r.title=e.target.value; render(); };
 inputs[1].onchange = e => { r.key=e.target.value; render(); };
 inputs[2].onchange = e => { r.type=e.target.value; render(); };
-
 inputs[3].onchange = e => {
 if(!e.target.value){
 r.match = null;
@@ -394,25 +370,18 @@ r.ccli = m.song.ccli || "";
 }
 render();
 };
-
 inputs[4].onchange = e => { r.youtube=e.target.value; };
 inputs[5].onchange = e => { r.ccli=e.target.value; };
-
 });
-
 }
 
 // PROCESS
 async function processAll(){
-
 if(!confirm("Upload?")) return;
 
 for(const r of rows){
-
 let status = getStatus(r);
-
 if(status==="SKIPPED" || status==="EXISTS") continue;
-
 if(status==="REVIEW"){
 alert("Fix: "+r.file.name);
 return;
@@ -446,11 +415,9 @@ ccli: r.ccli,
 files
 },{merge:true});
 }
-
 alert("Upload complete");
 }
 
 </script>
-
 </body>
 </html>
