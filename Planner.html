@@ -310,11 +310,8 @@
             window.location.href = `mailto:${member.email}?subject=${subject}&body=${body}`;
         };
 
-        // PDF GENERATION LOGIC - STRICTLY FIXING FONT AND WRAPPING
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
-            
-            // Wall planner logic remains as provided in your original
             if (type === "wall") {
                 const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
                 const logo = await getLogoBase64();
@@ -410,8 +407,6 @@
                 });
                 return doc;
             }
-
-            // FULL/INDIVIDUAL/HOUSEHOLD PDF LOGIC - APPLIED FIXES
             const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true }); 
             const activeLogo = await getLogoBase64();
             let termEvents = specificEvents || cachedEvents.filter(e => !e.archived && !e.draft);
@@ -429,7 +424,6 @@
                 reportTitle = `HOUSEHOLD ROTA: ${member.name.toUpperCase()} - ${termTitle}`;
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
             } else { reportTitle = `FULL ROTA: ${termTitle}`; }
-
             if (termEvents.length === 0) return null;
             if (activeLogo) {
                 try { 
@@ -439,9 +433,9 @@
                     docRef.addImage(activeLogo, 'JPEG', 260, 10, fixedWidth, scaledHeight, undefined, 'FAST'); 
                 } catch(e) {}
             }
+            docRef.setFillColor(245, 248, 255); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(44, 105, 153); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
-
             const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
             const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase()), 'DESCRIPTION']];
             const tableBody = termEvents.map(e => {
@@ -451,10 +445,8 @@
                 row.push(e.description || "");
                 return row;
             });
-
             docRef.autoTable({
                 startY: 35, head: headers, body: tableBody, theme: 'plain',
-                // FONT SIZE FIXED TO 6, LINEBREAK ENABLED
                 headStyles: { fillColor: [44, 105, 153], textColor: 255, fontSize: 6.5, halign: 'center', overflow: 'linebreak' },
                 styles: { fontSize: 6, cellPadding: 2, halign: 'center', overflow: 'linebreak' },
                 columnStyles: { 
@@ -462,7 +454,12 @@
                     1: { halign: 'left', cellWidth: 25 },
                     [allRoles.length + 2]: { halign: 'left', cellWidth: 'auto' }
                 },
-                margin: { horizontal: 10 }
+                margin: { horizontal: 10 },
+                willDrawCell: function(data) {
+                    if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
+                        docRef.setFillColor(44, 105, 153); docRef.roundedRect(data.settings.margin.left, data.cell.y, 277, data.cell.height + 2, 4, 4, 'F');
+                    }
+                }
             });
             return docRef;
         };
@@ -677,6 +674,8 @@
             });
             container.innerHTML = html;
         }
+        window.renderPlanner = renderPlanner;
+        window.renderAddressBook = renderAddressBook;
     </script>
 </head>
 <body class="bg-slate-50 font-['Montserrat'] text-slate-800">
