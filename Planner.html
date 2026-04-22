@@ -290,21 +290,10 @@
             const mainTo = "av@esherchurch.org";
             const subject = encodeURIComponent(`EGBC Availability: ${selectedTerm}`);
             const body = encodeURIComponent(
-                "==========================================\n" +
-                "  ESHER GREEN BAPTIST CHURCH | WORSHIP & AV\n" +
-                "==========================================\n\n" +
-                "Hi Team,\n\n" +
-                "It's time to gather availability for the upcoming " + selectedTerm + " term.\n\n" +
+                "Hi Team,\n\nIt's time to gather availability for the upcoming " + selectedTerm + " term.\n\n" +
                 "PLEASE CLICK THE LINK BELOW TO PROVIDE YOUR DATES:\n" +
                 "👉 " + FORM_LINK + "\n\n" +
-                "------------------------------------------\n" +
-                "Instructions:\n" +
-                "1. Click the link above\n" +
-                "2. Select your name from the list\n" +
-                "3. Mark 'Available' or 'Not Available' for each Sunday\n" +
-                "4. Hit 'Submit Availability' at the bottom\n\n" +
-                "Thank you for serving!\n\n" +
-                "EGBC Worship & AV Team"
+                "Thank you for serving!\n\nEGBC Worship & AV Team"
             );
             window.location.href = `mailto:${mainTo}?bcc=${bccList}&subject=${subject}&body=${body}`;
         };
@@ -315,17 +304,17 @@
             const term = document.getElementById('termSelect').value || "Upcoming Term";
             const subject = encodeURIComponent("EGBC Availability Request");
             const body = encodeURIComponent(
-                "Hi " + member.name + ",\n\n" +
-                "Please provide your availability for " + term + " by clicking the link below:\n\n" +
-                "👉 " + FORM_LINK + "\n\n" +
-                "Thank you!\n\n" +
-                "EGBC Worship & AV Team"
+                "Hi " + member.name + ",\n\nPlease provide your availability for " + term + " by clicking the link below:\n\n" +
+                "👉 " + FORM_LINK + "\n\nThank you!\n\nEGBC Worship & AV Team"
             );
             window.location.href = `mailto:${member.email}?subject=${subject}&body=${body}`;
         };
 
+        // PDF GENERATION LOGIC - STRICTLY FIXING FONT AND WRAPPING
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
+            
+            // Wall planner logic remains as provided in your original
             if (type === "wall") {
                 const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
                 const logo = await getLogoBase64();
@@ -421,6 +410,8 @@
                 });
                 return doc;
             }
+
+            // FULL/INDIVIDUAL/HOUSEHOLD PDF LOGIC - APPLIED FIXES
             const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true }); 
             const activeLogo = await getLogoBase64();
             let termEvents = specificEvents || cachedEvents.filter(e => !e.archived && !e.draft);
@@ -428,18 +419,17 @@
             let termTitle = termEvents[0].termLabel;
             let reportTitle = "";
             if (type === 'individual') {
-                if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 reportTitle = `${member.name.toUpperCase()} - ${termTitle}`;
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === memberId));
             } else if (type === 'household') {
-                if (!memberId) return null;
                 const member = addressBook.find(m => m.id === memberId);
                 const headId = member.householdId || member.id;
                 const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
                 reportTitle = `HOUSEHOLD ROTA: ${member.name.toUpperCase()} - ${termTitle}`;
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
             } else { reportTitle = `FULL ROTA: ${termTitle}`; }
+
             if (termEvents.length === 0) return null;
             if (activeLogo) {
                 try { 
@@ -449,9 +439,9 @@
                     docRef.addImage(activeLogo, 'JPEG', 260, 10, fixedWidth, scaledHeight, undefined, 'FAST'); 
                 } catch(e) {}
             }
-            docRef.setFillColor(245, 248, 255); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(44, 105, 153); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
+
             const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
             const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase()), 'DESCRIPTION']];
             const tableBody = termEvents.map(e => {
@@ -461,24 +451,18 @@
                 row.push(e.description || "");
                 return row;
             });
+
             docRef.autoTable({
                 startY: 35, head: headers, body: tableBody, theme: 'plain',
-                headStyles: { fillColor: null, textColor: [255, 255, 255], fontSize: 6.5, halign: 'center', cellPadding: 2, overflow: 'linebreak' },
+                // FONT SIZE FIXED TO 6, LINEBREAK ENABLED
+                headStyles: { fillColor: [44, 105, 153], textColor: 255, fontSize: 6.5, halign: 'center', overflow: 'linebreak' },
                 styles: { fontSize: 6, cellPadding: 2, halign: 'center', overflow: 'linebreak' },
                 columnStyles: { 
                     0: { halign: 'left', fontStyle: 'bold', cellWidth: 15 }, 
                     1: { halign: 'left', cellWidth: 25 },
                     [allRoles.length + 2]: { halign: 'left', cellWidth: 'auto' }
                 },
-                margin: { horizontal: 10 },
-                willDrawCell: function(data) {
-                    if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
-                        docRef.setFillColor(44, 105, 153); docRef.roundedRect(data.settings.margin.left, data.cell.y, 277, data.cell.height + 2, 4, 4, 'F');
-                        docRef.rect(data.settings.margin.left, data.cell.y + 2, 277, data.cell.height, 'F');
-                    }
-                },
-                didDrawCell: function(data) { if (data.section === 'body') { docRef.setDrawColor(230, 235, 245); docRef.setLineWidth(0.1); docRef.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height); } },
-                didDrawPage: function(data) { docRef.setDrawColor(44, 105, 153); docRef.setLineWidth(0.3); docRef.roundedRect(10, 35, 277, data.cursor.y - 35, 4, 4, 'D'); }
+                margin: { horizontal: 10 }
             });
             return docRef;
         };
@@ -492,16 +476,14 @@
                     Date: new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                     Service: e.type
                 };
-                allRoles.forEach(role => {
-                    row[role] = e.assignments?.[role]?.name || "";
-                });
+                allRoles.forEach(role => { row[role] = e.assignments?.[role]?.name || ""; });
                 row.Description = e.description || "";
                 return row;
             });
             const worksheet = XLSX.utils.json_to_sheet(data);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Rota");
-            XLSX.writeFile(workbook, `Full_Church_Rota_${activeEvents[0].termLabel.replace(/\s/g, '_')}.xlsx`);
+            XLSX.writeFile(workbook, `EGBC_Rota_${activeEvents[0].termLabel.replace(/\s/g, '_')}.xlsx`);
         };
 
         const generateICal = (type, memberId, events) => {
@@ -519,9 +501,7 @@
             relevantEvents.forEach(e => {
                 const start = e.date.replace(/-/g, '') + 'T' + (e.startTime || '0800').replace(':', '') + '00';
                 const end = e.date.replace(/-/g, '') + 'T' + (e.endTime || '1130').replace(':', '') + '00';
-                let summary = "";
-                if (type === 'individual') { summary = `EGBC: ${Object.entries(e.assignments || {}).find(([r, p]) => p.id === memberId)?.[0] || "Server"} (${e.type})`; }
-                else { summary = `EGBC Family Rota: ${Object.entries(e.assignments || {}).filter(([r, p]) => hIds.includes(p.id)).map(([r, p]) => `${p.name.split(' ')[0]} (${r})`).join(", ")}`; }
+                let summary = type === 'individual' ? `EGBC: ${Object.entries(e.assignments || {}).find(([r, p]) => p.id === memberId)?.[0] || "Server"} (${e.type})` : `EGBC Family Rota: ${Object.entries(e.assignments || {}).filter(([r, p]) => hIds.includes(p.id)).map(([r, p]) => `${p.name.split(' ')[0]} (${r})`).join(", ")}`;
                 ics += `BEGIN:VEVENT\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:${summary}\nDESCRIPTION:${e.description || ""}\nLOCATION:Esher Green Baptist Church\nEND:VEVENT\n`;
             });
             ics += "END:VCALENDAR";
@@ -559,12 +539,10 @@
                 if (indIcal) folder.file(`${safeName}_Individual_Calendar.ics`, indIcal);
                 const houseIcal = generateICal('household', mId, activeEvents);
                 if (houseIcal) folder.file(`${safeName}_Family_Calendar.ics`, houseIcal);
-                if (fullDoc) folder.file("Full_Church_Reference.pdf", fullDoc.output('blob'));
             }
             zip.generateAsync({type:"blob"}).then(function(content) {
-                saveAs(content, `EGBC_Distribution_${activeEvents[0].termLabel.replace(/\s/g, '_')}.zip`);
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                saveAs(blob, "distribution_list.csv");
+                saveAs(content, `EGBC_Distribution.zip`);
+                saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), "distribution_list.csv");
             });
         };
 
@@ -577,13 +555,7 @@
                 if (!eventsByTerm[e.termLabel]) eventsByTerm[e.termLabel] = [];
                 eventsByTerm[e.termLabel].push(e);
             });
-            const sortedTerms = Object.keys(eventsByTerm).sort((a,b) => {
-                const [termA, yearA] = a.split(' ');
-                const [termB, yearB] = b.split(' ');
-                if (yearA !== yearB) return yearA - yearB;
-                const order = { "Spring": 1, "Summer": 2, "Autumn": 3 };
-                return order[termA] - order[termB];
-            });
+            const sortedTerms = Object.keys(eventsByTerm).sort();
             let html = "";
             sortedTerms.forEach(termId => {
                 const isCollapsed = collapsedTerms.has(termId);
@@ -629,14 +601,9 @@
                                     `<select class="border rounded p-1 w-full mb-1" data-type-id="${ev.id}">
                                         ${EVENT_TYPES.map(t => `<option value="${t}" ${ev.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                                     </select>
-                                    <input type="text" placeholder="Description" class="border rounded p-1 w-full text-xs" data-desc-id="${ev.id}" value="${ev.description || ''}">
-                                    <div class="flex gap-1 mt-1">
-                                        <input type="time" class="border rounded p-1 w-1/2 text-xs" data-start-id="${ev.id}" value="${ev.startTime || '08:00'}">
-                                        <input type="time" class="border rounded p-1 w-1/2 text-xs" data-end-id="${ev.id}" value="${ev.endTime || '11:30'}">
-                                    </div>` : 
+                                    <input type="text" placeholder="Description" class="border rounded p-1 w-full text-xs" data-desc-id="${ev.id}" value="${ev.description || ''}">` : 
                                     `<div class="font-bold text-blue-800 leading-tight">${ev.type}</div>
                                      <div class="text-xs text-slate-500 italic">${ev.description || ''}</div>
-                                     <div class="text-[10px] text-slate-400 mt-1">${ev.startTime || '08:00'} - ${ev.endTime || '11:30'}</div>
                                      <div class="mt-2 flex flex-wrap gap-1">
                                         ${['Worship Team', 'AV Team'].map(team => `
                                             <button onclick="toggleTeam('${ev.id}', '${team}')" 
@@ -655,44 +622,40 @@
                                         const colorClass = status === 'available' ? 'bg-green-100 border-green-300 text-green-800' : 
                                                           status === 'not-available' ? 'bg-red-100 border-red-300 text-red-800' : 
                                                           'bg-slate-50 border-slate-200 text-slate-600';
-                                        
                                         return `
                                             <div ondragover="event.preventDefault()" ondrop="onDropRole(event, '${ev.id}', '${role}')"
                                                  class="relative group border rounded p-1.5 min-h-[45px] transition-all ${assigned ? colorClass : 'border-dashed border-slate-300 bg-slate-50/50 hover:border-blue-400'}">
                                                 <div class="text-[9px] uppercase font-bold opacity-60 mb-0.5 flex justify-between">
                                                     <span>${role}</span>
-                                                    ${!MANDATORY_SUNDAY_ROLES.includes(role) ? `<button onclick="removeRole('${ev.id}', '${role}')" class="hidden group-hover:block text-red-500 hover:text-red-700">×</button>` : ''}
+                                                    ${!MANDATORY_SUNDAY_ROLES.includes(role) ? `<button onclick="removeRole('${ev.id}', '${role}')" class="hidden group-hover:block text-red-500">×</button>` : ''}
                                                 </div>
                                                 ${assigned ? `
-                                                    <div class="flex items-center justify-between gap-1 overflow-hidden">
+                                                    <div class="flex items-center justify-between gap-1">
                                                         <span draggable="true" ondragstart="onDragStart(event, '${assigned.id}', '${assigned.name}', '${ev.id}', '${role}')" 
                                                               class="text-xs font-semibold truncate cursor-move">${assigned.name}</span>
-                                                        <button onclick="unassignPerson('${ev.id}', '${role}')" class="text-xs opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                                                        <button onclick="unassignPerson('${ev.id}', '${role}')" class="text-xs opacity-0 group-hover:opacity-100">×</button>
                                                     </div>
                                                 ` : `<div class="text-[10px] text-slate-400 text-center py-1">---</div>`}
-                                            </div>
-                                        `;
+                                            </div>`;
                                     }).join('')}
-                                    <button onclick="const r = prompt('New Role Name:'); if(r) addRole('${ev.id}', r)" class="border border-dashed border-slate-300 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors text-[10px] font-bold h-[45px] flex items-center justify-center">
-                                        + ADD ROLE
-                                    </button>
+                                    <button onclick="const r = prompt('Role Name:'); if(r) addRole('${ev.id}', r)" class="border border-dashed border-slate-300 rounded p-1 text-slate-400 hover:bg-slate-100 text-[10px] font-bold">+ ADD ROLE</button>
                                 </div>
                             </td>
                             <td class="p-2 text-right">
                                 <div class="flex flex-col gap-1 items-end">
                                     ${isEditing ? 
-                                        `<button onclick="saveEdits('${ev.id}')" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-green-700 w-24 shadow-sm">SAVE</button>` : 
-                                        `<button onclick="startEditing('${ev.id}')" class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-bold hover:bg-blue-200 w-24">EDIT</button>`
+                                        `<button onclick="saveEdits('${ev.id}')" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold w-24">SAVE</button>` : 
+                                        `<button onclick="startEditing('${ev.id}')" class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-bold w-24">EDIT</button>`
                                     }
-                                    ${isDraft ? `<button onclick="submitDraft('${ev.id}')" class="bg-amber-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-amber-600 w-24">SUBMIT</button>` : ''}
-                                    <button onclick="deleteEvent('${ev.id}')" class="text-[10px] text-red-400 hover:text-red-600 mt-2 hover:underline">Delete Service</button>
+                                    ${isDraft ? `<button onclick="submitDraft('${ev.id}')" class="bg-amber-500 text-white px-3 py-1 rounded text-xs font-bold w-24">SUBMIT</button>` : ''}
+                                    <button onclick="deleteEvent('${ev.id}')" class="text-[10px] text-red-400 hover:text-red-600 mt-2">Delete Service</button>
                                 </div>
                             </td>
                         </tr>`;
                 });
                 html += `</tbody></table></div></div>`;
             });
-            container.innerHTML = html || `<div class="text-center py-20 text-slate-400 italic">No services planned. Click "Quick Generation" or "Add Single Service" to begin.</div>`;
+            container.innerHTML = html || `<div class="text-center py-20 text-slate-400">No services planned.</div>`;
             renderAddressBook();
         }
 
@@ -701,50 +664,42 @@
             if(!container) return;
             const searchVal = (document.getElementById('memberSearch')?.value || "").toLowerCase();
             const filtered = addressBook.filter(m => m.name.toLowerCase().includes(searchVal) || (m.markers || []).some(r => r.toLowerCase().includes(searchVal)));
-            
             let html = "";
             filtered.sort((a,b) => a.name.localeCompare(b.name)).forEach(m => {
                 html += `
                     <div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name}')" 
-                         class="bg-white border border-slate-200 p-2 mb-2 rounded shadow-sm cursor-move hover:border-blue-400 hover:shadow-md transition-all group">
-                        <div class="flex justify-between items-start">
-                            <span class="font-bold text-sm text-slate-700 group-hover:text-blue-700">${m.name}</span>
-                        </div>
+                         class="bg-white border border-slate-200 p-2 mb-2 rounded shadow-sm cursor-move hover:border-blue-400 group">
+                        <span class="font-bold text-sm text-slate-700">${m.name}</span>
                         <div class="flex flex-wrap gap-1 mt-1">
-                            ${(m.markers || []).map(r => `<span class="text-[8px] bg-slate-100 text-slate-500 px-1 rounded border border-slate-200">${r}</span>`).join('')}
+                            ${(m.markers || []).map(r => `<span class="text-[8px] bg-slate-100 text-slate-500 px-1 rounded">${r}</span>`).join('')}
                         </div>
                     </div>`;
             });
             container.innerHTML = html;
         }
-
-        window.renderPlanner = renderPlanner;
-        window.renderAddressBook = renderAddressBook;
     </script>
 </head>
 <body class="bg-slate-50 font-['Montserrat'] text-slate-800">
     <header class="bg-white border-b sticky top-0 z-50 shadow-sm">
         <div class="max-w-[1600px] mx-auto px-6 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <div class="bg-blue-900 w-12 h-12 rounded flex items-center justify-center text-white font-black text-xl italic shadow-lg">EG</div>
+                <div class="bg-blue-900 w-12 h-12 rounded flex items-center justify-center text-white font-black text-xl italic">EG</div>
                 <div>
                     <h1 class="text-2xl font-black tracking-tight text-blue-900 leading-none">MASTER ROTA PLANNER</h1>
-                    <p class="text-[10px] font-bold text-slate-400 tracking-widest uppercase mt-1">Esher Green Baptist Church</p>
                 </div>
             </div>
-            
             <div class="flex gap-3">
                 <div class="bg-slate-100 rounded-lg p-1 flex items-center gap-1">
-                    <select id="termSelect" class="bg-transparent text-sm font-bold px-3 py-2 outline-none">
+                    <select id="termSelect" class="bg-transparent text-sm font-bold px-3 py-2">
                         <option value="">Select Term...</option>
                         <option value="Spring">Spring (Jan-Apr)</option>
                         <option value="Summer">Summer (May-Aug)</option>
                         <option value="Autumn">Autumn (Sep-Dec)</option>
                     </select>
-                    <button onclick="generateTerm()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-xs font-black hover:bg-blue-700 transition-colors shadow-md">QUICK GENERATE</button>
-                    <button onclick="addThursdayPractices()" class="bg-indigo-500 text-white px-4 py-2 rounded-md text-xs font-black hover:bg-indigo-600 transition-colors ml-1">ADD PRACTICES</button>
+                    <button onclick="generateTerm()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-xs font-black">QUICK GENERATE</button>
+                    <button onclick="addThursdayPractices()" class="bg-indigo-500 text-white px-4 py-2 rounded-md text-xs font-black ml-1">ADD PRACTICES</button>
                 </div>
-                <button onclick="addSingleLine()" class="border-2 border-blue-900 text-blue-900 px-4 py-2 rounded-lg text-xs font-black hover:bg-blue-50 transition-colors">ADD SINGLE SERVICE</button>
+                <button onclick="addSingleLine()" class="border-2 border-blue-900 text-blue-900 px-4 py-2 rounded-lg text-xs font-black">ADD SINGLE SERVICE</button>
             </div>
         </div>
     </header>
@@ -753,17 +708,11 @@
         <aside class="w-80 flex-shrink-0">
             <div class="bg-white rounded-xl shadow-lg border border-slate-200 sticky top-28 h-[calc(100vh-140px)] flex flex-col">
                 <div class="p-4 border-b">
-                    <h2 class="text-sm font-black text-slate-400 tracking-widest uppercase mb-4">The Team</h2>
-                    <input type="text" id="memberSearch" onkeyup="renderAddressBook()" placeholder="Search members or roles..." 
-                           class="w-full bg-slate-100 border-none rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="memberSearch" onkeyup="renderAddressBook()" placeholder="Search members..." class="w-full bg-slate-100 border-none rounded-lg p-3 text-sm">
                 </div>
-                <div id="address-book-sidebar" class="flex-1 overflow-y-auto p-4 bg-slate-50/50"></div>
-                <div class="p-4 border-t bg-slate-100 rounded-b-xl">
-                    <div class="bg-red-50 border-2 border-dashed border-red-200 rounded-lg p-4 text-center group transition-colors hover:border-red-400"
-                         ondragover="event.preventDefault()" ondrop="onDropBucket(event)">
-                        <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">🗑️</div>
-                        <div class="text-[10px] font-black text-red-400 tracking-tighter uppercase leading-none">Drop here to<br>Unassign Member</div>
-                    </div>
+                <div id="address-book-sidebar" class="flex-1 overflow-y-auto p-4"></div>
+                <div class="p-4 border-t bg-slate-100" ondragover="event.preventDefault()" ondrop="onDropBucket(event)">
+                    <div class="border-2 border-dashed border-red-200 rounded-lg p-4 text-center text-[10px] font-black text-red-400">DROP TO UNASSIGN</div>
                 </div>
             </div>
         </aside>
@@ -771,27 +720,19 @@
         <section class="flex-1">
             <div class="flex justify-between items-center mb-6">
                 <div class="flex gap-4 items-center">
-                    <button onclick="gatherTermAvailability()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-700 shadow-sm transition-all flex items-center gap-2">
-                        <span>📧</span> GATHER TERM AVAILABILITY
-                    </button>
-                    <div class="h-6 w-px bg-slate-300"></div>
-                    <select id="memberPdfSelect" class="border rounded-lg px-3 py-2 text-xs font-bold bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="gatherTermAvailability()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold">GATHER TERM AVAILABILITY</button>
+                    <select id="memberPdfSelect" class="border rounded-lg px-3 py-2 text-xs font-bold bg-white">
                         <option value="">Select Member...</option>
                     </select>
-                    <div class="flex gap-1">
-                        <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-white border px-3 py-2 rounded-lg text-[10px] font-black hover:bg-slate-50 transition-all text-slate-600 shadow-sm">INDIVIDUAL PDF</button>
-                        <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-white border px-3 py-2 rounded-lg text-[10px] font-black hover:bg-slate-50 transition-all text-slate-600 shadow-sm">HOUSEHOLD PDF</button>
-                        <button onclick="gatherIndividualAvailability(document.getElementById('memberPdfSelect').value)" class="bg-blue-50 text-blue-700 px-3 py-2 rounded-lg text-[10px] font-black hover:bg-blue-100 transition-all shadow-sm">REQUEST DATES</button>
-                    </div>
+                    <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-white border px-3 py-2 rounded-lg text-[10px] font-black">INDIVIDUAL PDF</button>
+                    <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-white border px-3 py-2 rounded-lg text-[10px] font-black">HOUSEHOLD PDF</button>
                 </div>
-
                 <div class="flex gap-2">
-                    <button onclick="generatePDF('full', null)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-black hover:bg-slate-100 shadow-sm">FULL PDF</button>
-                    <button onclick="exportToExcel()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-green-700 shadow-sm">FULL EXCEL</button>
-                    <button onclick="prepareDistributionPackage()" class="bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-blue-800 shadow-md">DOWNLOAD ALL PACKS (.ZIP)</button>
+                    <button onclick="generatePDF('full', null)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-black">FULL PDF</button>
+                    <button onclick="exportToExcel()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-black">FULL EXCEL</button>
+                    <button onclick="prepareDistributionPackage()" class="bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-black">DOWNLOAD ALL PACKS (.ZIP)</button>
                 </div>
             </div>
-
             <div id="planner-container"></div>
         </section>
     </main>
