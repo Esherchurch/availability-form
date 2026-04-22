@@ -130,12 +130,6 @@
 
             if (ev) {
                 const updates = {
-                    date: ev.date,
-                    startTime: ev.startTime || "08:00",
-                    endTime: ev.endTime || "11:30",
-                    type: ev.type,
-                    description: ev.description || "",
-                    termLabel: getTermLabel(ev.date),
                     date: dateInput ? dateInput.value : ev.date,
                     startTime: startInput ? startInput.value : (ev.startTime || "08:00"),
                     endTime: endInput ? endInput.value : (ev.endTime || "11:30"),
@@ -407,6 +401,7 @@
                 });
                 return doc;
             }
+
             const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true }); 
             const activeLogo = await getLogoBase64();
             let termEvents = (specificEvents || cachedEvents.filter(e => !e.archived && !e.draft)).sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -445,8 +440,7 @@
             const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
             const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase()), 'DESCRIPTION']];
             const tableBody = termEvents.map(e => {
-                const dateObj = new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-                const row = [dateObj, e.type]; 
+                const row = [new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), e.type]; 
                 allRoles.forEach(role => row.push(e.assignments?.[role]?.name || "---"));
                 row.push(e.description || "");
                 return row;
@@ -455,7 +449,7 @@
             docRef.autoTable({
                 startY: 35, head: headers, body: tableBody, theme: 'plain',
                 headStyles: { fillColor: null, textColor: [255, 255, 255], fontSize: 6, halign: 'center', cellPadding: 4 },
-                styles: { fontSize: 5.5, cellPadding: 2, halign: 'center', overflow: 'linebreak' }, // Wrapping Fix
+                styles: { fontSize: 5.5, cellPadding: 2, halign: 'center', overflow: 'linebreak' }, // FIX: wrapping & small font
                 columnStyles: { 0: { halign: 'left', fontStyle: 'bold' }, 1: { halign: 'left' } },
                 margin: { horizontal: 10 },
                 willDrawCell: function(data) {
