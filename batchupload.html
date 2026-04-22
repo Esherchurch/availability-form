@@ -89,7 +89,7 @@ const storage = firebase.storage();
 let songs = [];
 let rows = [];
 
-const KEYS = ["C","C#","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+const KEYS = ["C#","Db","Eb","F#","Gb","Ab","Bb","C","D","E","F","G","A","B"];
 const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 
 // LOAD SONGS
@@ -110,22 +110,21 @@ return "low";
 
 // KEY DETECTION
 function detectKey(name){
-let lower = name.toLowerCase().replace(".pdf", "");
+// Remove extension and lowercase for easier matching
+let cleanName = name.replace(/\.pdf$/i, "").toLowerCase();
 
-// Try "in [Key]", "key [Key]", or "([Key])"
-let m = lower.match(/\bin ([a-g](#|b)?m?)\b/);
-if(m) return m[1].toUpperCase();
+// 1. Check for explicit patterns first: "in Bb", "Key: Bb", "(Bb)"
+let explicit = cleanName.match(/(?:\bin\s+|key[:\s]\s?|\()([a-g][#b]?m?)\b/);
+if(explicit) return explicit[1].toUpperCase();
 
-m = lower.match(/\bkey ([a-g](#|b)?m?)\b/);
-if(m) return m[1].toUpperCase();
-
-m = lower.match(/\(([a-g](#|b)?m?)\)/);
-if(m) return m[1].toUpperCase();
-
-// Standalone key detection (e.g., "Song Name Bb")
-let keysPattern = new RegExp(`\\b(${KEYS.join('|')})m?\\b`, 'i');
-let match = lower.match(keysPattern);
-if(match) return match[1].toUpperCase();
+// 2. Search for any valid key signature in the filename
+// We sort KEYS to check longer strings (like Bb) before shorter ones (like B)
+for (let key of KEYS) {
+    let regex = new RegExp(`\\b${key.replace('#', '\\#')}m?\\b`, 'i');
+    if (regex.test(cleanName)) {
+        return key.toUpperCase();
+    }
+}
 
 return "";
 }
@@ -321,7 +320,7 @@ tr.innerHTML = `
 <td>
 <select>
 <option value="">Key</option>
-${KEYS.map(k=>`<option ${r.key===k?"selected":""}>${k}</option>`).join("")}
+${KEYS.sort().map(k=>`<option ${r.key===k?"selected":""}>${k}</option>`).join("")}
 </select>
 </td>
 <td>
