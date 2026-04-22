@@ -126,23 +126,6 @@
             renderPlanner();
         };
 
-        window.saveEdits = async (id) => {
-            const ev = cachedEvents.find(e => e.id === id);
-            if (ev) {
-                const updates = {
-                    date: ev.date,
-                    startTime: ev.startTime || "08:00",
-                    endTime: ev.endTime || "11:30",
-                    type: ev.type,
-                    description: ev.description || "",
-                    termLabel: getTermLabel(ev.date)
-                };
-                await updateDoc(doc(db, "events", id), updates);
-                editingEventId = null;
-                renderPlanner();
-            }
-        };
-
         window.submitDraft = async (id) => {
             await updateDoc(doc(db, "events", id), { draft: false });
         };
@@ -596,7 +579,6 @@
         }
 
         function generateEventHtml(ev, isDraft) {
-            const isEditing = editingEventId === ev.id;
             const assignedIds = Object.values(ev.assignments || {}).map(a => a.id);
             const members = addressBook.filter(m => ev.teams?.some(t => m.markers?.includes(t)));
             const respondersAvail = members.filter(m => availability[ev.id]?.[m.id] === 'avail' && (!hideAssigned || !assignedIds.includes(m.id)));
@@ -630,12 +612,12 @@
                             const assigned = ev.assignments?.[r] || null;
                             let overFreq = false;
                             if(assigned) {
-                                const memberProfile = addressBook.find(m => m.id === assigned.id);
-                                const limit = memberProfile?.maxFrequency || 99;
-                                const eventDate = new Date(ev.date);
+                                const mP = addressBook.find(m => m.id === assigned.id);
+                                const limit = mP?.maxFrequency || 99;
+                                const eD = new Date(ev.date);
                                 const count = cachedEvents.filter(e => {
                                     const d = new Date(e.date);
-                                    return d.getMonth() === eventDate.getMonth() && d.getFullYear() === eventDate.getFullYear() && Object.values(e.assignments || {}).some(a => a.id === assigned.id);
+                                    return e.type === 'Sunday Morning Worship' && d.getMonth() === eD.getMonth() && d.getFullYear() === eD.getFullYear() && Object.values(e.assignments || {}).some(a => a.id === assigned.id);
                                 }).length;
                                 if(count > limit) overFreq = true;
                             }
