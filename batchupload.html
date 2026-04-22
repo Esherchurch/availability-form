@@ -62,8 +62,7 @@ Drag folder OR click to select
 <th>Key</th>
 <th>Type</th>
 <th>Match</th>
-<th>Confidence</th> <!-- ADDED -->
-<th>YouTube</th>
+<th>Confidence</th> <th>YouTube</th>
 <th>CCLI</th>
 <th>Assist</th>
 <th>Status</th>
@@ -111,23 +110,17 @@ return "low";
 
 // KEY DETECTION
 function detectKey(name){
-name = name.toLowerCase();
-
-let m = name.match(/\bin ([a-g](#|b)?m?)\b/);
 let lower = name.toLowerCase();
 
 let m = lower.match(/\bin ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
-m = name.match(/\bkey ([a-g](#|b)?m?)\b/);
 m = lower.match(/\bkey ([a-g](#|b)?m?)\b/);
 if(m) return m[1].toUpperCase();
 
-m = name.match(/\(([a-g](#|b)?m?)\)/);
 m = lower.match(/\(([a-g](#|b)?m?)\)/);
 if(m) return m[1].toUpperCase();
 
-m = name.match(/ ([a-g](#|b)?m?)\.pdf$/);
 m = lower.match(/ ([a-g](#|b)?m?)\.pdf$/);
 if(m) return m[1].toUpperCase();
 
@@ -136,12 +129,6 @@ return "";
 
 // TYPE DETECTION
 function detectType(name){
-name = name.toLowerCase();
-
-if(name.includes("chord")) return "Chord Sheet";
-if(name.includes("lead")) return "Lead Sheet";
-if(name.includes("lyric")) return "Lyrics";
-if(name.includes("bass")) return "Bass Tabs";
 let lower = name.toLowerCase();
 
 if(lower.includes("chord")) return "Chord Sheet";
@@ -172,7 +159,7 @@ const words = title.split(" ");
 return songs.map(s => {
 const sWords = s.title.toLowerCase().split(" ");
 let overlap = words.filter(w => sWords.includes(w));
-let score = overlap.length / sWords.length;
+let score = sWords.length > 0 ? overlap.length / sWords.length : 0;
 return {song:s, score};
 })
 .sort((a,b)=>b.score-a.score)
@@ -211,41 +198,45 @@ dropzone.addEventListener("drop", async e=>{
 e.preventDefault();
 
 let files = [];
+let promises = [];
 
 for(let item of e.dataTransfer.items){
 let entry = item.webkitGetAsEntry();
-await traverse(entry, files);
+if (entry) {
+    promises.push(traverse(entry, files));
+}
 }
 
+await Promise.all(promises);
 handleFiles(files);
 });
 
 // TRAVERSE
 async function traverse(entry, files){
-
 if(entry.isFile){
-await new Promise(res=>{
+return new Promise(res=>{
 entry.file(f=>{
 if(f.name.endsWith(".pdf")) files.push(f);
 res();
 });
 });
-}
-
-if(entry.isDirectory){
+} else if(entry.isDirectory){
 let reader = entry.createReader();
-
-let read = async () => {
-let entries = await new Promise(res=>reader.readEntries(res));
-if(entries.length){
-for(let e of entries){
-await traverse(e, files);
-}
-await read();
-}
-};
-
-await read();
+return new Promise(async (resolve) => {
+    let readEntries = async () => {
+        reader.readEntries(async (entries) => {
+            if (entries.length > 0) {
+                for (let e of entries) {
+                    await traverse(e, files);
+                }
+                await readEntries();
+            } else {
+                resolve();
+            }
+        });
+    };
+    await readEntries();
+});
 }
 }
 
@@ -256,10 +247,6 @@ await loadSongs();
 
 rows = files.map(file=>{
 
-let key = detectKey(file.name);
-let type = detectType(file.name);
-let title = cleanTitle(file.name);
-let matches = getMatches(title);
 let detectedKey = detectKey(file.name);
 let detectedType = detectType(file.name);
 let rawTitle = cleanTitle(file.name);
@@ -267,22 +254,16 @@ let matches = getMatches(rawTitle);
 
 return {
 file,
-title,
-key,
-type,
 rawTitle,
 title: file.name.replace(".pdf",""),
 key: detectedKey,
 type: detectedType,
 matches,
-match:matches[0]?.song || null,
-youtube:matches[0]?.song?.youtube || "",
-ccli:matches[0]?.song?.ccli || "",
 match: matches[0]?.song || null,
 youtube: matches[0]?.song?.youtube || "",
 ccli: matches[0]?.song?.ccli || "",
 confidence: getConfidence(matches), /* ADDED */
-group: file.webkitRelativePath.split("/")[0], /* ADDED */
+group: file.webkitRelativePath ? file.webkitRelativePath.split("/")[0] : "Dropped Files", /* ADDED */
 skip:false,
 force:false
 };
@@ -378,9 +359,7 @@ ${m.song.title}
 </select>
 </td>
 
-<td class="conf-${r.confidence}">${r.confidence}</td> <!-- ADDED -->
-
-<td><input value="${r.youtube}"></td>
+<td class="conf-${r.confidence}">${r.confidence}</td> <td><input value="${r.youtube}"></td>
 <td><input value="${r.ccli}"></td>
 
 <td>
@@ -401,7 +380,6 @@ tbody.appendChild(tr);
 const inputs = tr.querySelectorAll("input, select");
 
 inputs[0].onchange = e => { r.title=e.target.value; render(); };
-inputs[0].onchange = e => { r.title=e.target.value; };
 inputs[1].onchange = e => { r.key=e.target.value; render(); };
 inputs[2].onchange = e => { r.type=e.target.value; render(); };
 
@@ -440,9 +418,7 @@ alert("Fix: "+r.file.name);
 return;
 }
 
-let id = r.match ? r.match.id : r.title.replace(/\s+/g,"-");
 let finalTitle = r.match ? r.match.title : r.title;
-
 let id = finalTitle.toLowerCase().replace(/\s+/g,"-");
 
 const ref = storage.ref(`songs/${id}/${r.file.name}`);
@@ -463,10 +439,6 @@ key:r.key
 });
 
 await docRef.set({
-title:r.title,
-normalized:r.title,
-youtube:r.youtube,
-ccli:r.ccli,
 title: finalTitle,
 normalized: finalTitle.toLowerCase(),
 youtube: r.youtube,
