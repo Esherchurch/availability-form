@@ -293,7 +293,6 @@ window.selectService = () => {
 };
 
 window.loadService = async () => {
-
  currentDate = dateInput().value;
  currentRole = roleSelect().value;
 
@@ -336,6 +335,17 @@ window.closeMenu = ()=>{
 window.togglePerformance = ()=>{
  performance = !performance;
  showSong(index);
+};
+
+/* FORCED EXTERNAL YT LAUNCHER */
+window.forceExternalYT = (url) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer external';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 };
 
 async function showSong(i){
@@ -391,7 +401,7 @@ async function showSong(i){
    <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
    <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
    <div style="display:flex; gap:8px; align-items:center;">
-    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="window.open('${youtubeUrl}', '_system'); window.location.href='${youtubeUrl}';" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
+    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="forceExternalYT('${youtubeUrl}')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
@@ -448,7 +458,6 @@ window.toggleKey=(k,on)=>{
  } else {
   selectedKeys = selectedKeys.filter(x=>x!==k);
  }
- // This update is crucial for the tick boxes to actually work
  const songIndex = songs.findIndex(s => s.title === songs[index].title);
  if (songIndex !== -1) {
     songs[songIndex].keys = selectedKeys;
