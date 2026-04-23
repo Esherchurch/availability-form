@@ -510,8 +510,22 @@
             Object.entries(eventsByMonth).forEach(([month, events]) => {
                 const allRoles = [...new Set(events.flatMap(e => e.roles || []))];
                 const data = events.map(e => {
-                    const row = { "Date": new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), "Service Type": e.type };
+                    const members = addressBook.filter(m => e.teams?.some(t => m.markers?.includes(t)));
+                    const availNames = members.filter(m => availability[e.id]?.[m.id] === 'avail').map(m => m.name).join(", ");
+                    const declNames = members.filter(m => (availability[e.id]?.[m.id] === 'unavailable' || availability[e.id]?.[m.id] === 'not-avail')).map(m => m.name).join(", ");
+                    const pendingNames = members.filter(m => !availability[e.id]?.[m.id]).map(m => m.name).join(", ");
+
+                    const row = { 
+                        "Date": new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), 
+                        "Service Type": e.type 
+                    };
+                    
                     allRoles.forEach(role => { row[role] = e.assignments?.[role]?.name || "---"; });
+                    
+                    row["Available"] = availNames || "None";
+                    row["Not Available"] = declNames || "None";
+                    row["Not Responded"] = pendingNames || "None";
+                    
                     row["Notes"] = e.description || "";
                     return row;
                 });
@@ -519,7 +533,12 @@
                 const ws = XLSX.utils.json_to_sheet(data);
                 const colWidths = [{ wch: 10 }, { wch: 25 }];
                 allRoles.forEach(() => colWidths.push({ wch: 15 }));
+                
                 colWidths.push({ wch: 30 });
+                colWidths.push({ wch: 30 });
+                colWidths.push({ wch: 30 });
+                colWidths.push({ wch: 30 });
+                
                 ws['!cols'] = colWidths;
                 XLSX.utils.book_append_sheet(wb, ws, month);
             });
