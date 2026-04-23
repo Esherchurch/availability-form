@@ -348,7 +348,10 @@ async function showSong(i){
  const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
  const data = songDoc.exists()?songDoc.data():{};
  const allFiles = data.files || [];
- const youtubeUrl = data.youtube || "";
+ 
+ // Modified to ensure URL is embeddable
+ let youtubeUrl = data.youtube || "";
+ if(youtubeUrl.includes("watch?v=")) youtubeUrl = youtubeUrl.replace("watch?v=", "embed/");
 
  const files = allFiles.filter(f=>selectedKeys.includes(f.key));
 
@@ -391,7 +394,7 @@ async function showSong(i){
    <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
    <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
    <div style="display:flex; gap:8px; align-items:center;">
-    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="window.open('${youtubeUrl}', '_blank')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
+    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="openPDF('${youtubeUrl}')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
@@ -474,7 +477,7 @@ window.openPDF = (url)=>{
 
  const loader = document.createElement("div");
  loader.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:black;font-weight:bold;";
- loader.innerText = "Loading PDF...";
+ loader.innerText = "Loading View...";
  
  const closeBtn = document.createElement("button");
  closeBtn.className = "closeBtn";
