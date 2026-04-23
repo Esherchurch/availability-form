@@ -293,6 +293,7 @@ window.selectService = () => {
 };
 
 window.loadService = async () => {
+
  currentDate = dateInput().value;
  currentRole = roleSelect().value;
 
@@ -337,9 +338,8 @@ window.togglePerformance = ()=>{
  showSong(index);
 };
 
-/* SCHEME METHOD YT LAUNCHER */
+/* INTERNAL SAFE PLAYER FOR WRAPPED APPS */
 window.forceExternalYT = (url) => {
-    // Extract video ID from URL
     let videoId = '';
     if (url.includes('v=')) {
         videoId = url.split('v=')[1].split('&')[0];
@@ -348,15 +348,24 @@ window.forceExternalYT = (url) => {
     }
     
     if (videoId) {
-        // Try direct YouTube app scheme first
-        window.location.href = 'youtube://' + videoId;
-        
-        // Fallback for system browser if scheme fails
-        setTimeout(() => {
-            window.open(url, '_system');
-        }, 500);
-    } else {
-        window.open(url, '_system');
+        const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        const v = document.getElementById("pdfViewer");
+        v.innerHTML = ""; 
+        v.style.display = "block";
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "closeBtn";
+        closeBtn.innerText = "Close Video";
+        closeBtn.onclick = closePDF;
+
+        const iframe = document.createElement("iframe");
+        iframe.style.cssText = "width:100%;height:100%;border:none;background:black;";
+        iframe.src = embedUrl;
+        iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+        iframe.allowFullscreen = true;
+
+        v.appendChild(closeBtn);
+        v.appendChild(iframe);
     }
 };
 
@@ -470,6 +479,7 @@ window.toggleKey=(k,on)=>{
  } else {
   selectedKeys = selectedKeys.filter(x=>x!==k);
  }
+ // This update is crucial for the tick boxes to actually work
  const songIndex = songs.findIndex(s => s.title === songs[index].title);
  if (songIndex !== -1) {
     songs[songIndex].keys = selectedKeys;
