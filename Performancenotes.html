@@ -337,15 +337,27 @@ window.togglePerformance = ()=>{
  showSong(index);
 };
 
-/* FORCED EXTERNAL YT LAUNCHER */
+/* SCHEME METHOD YT LAUNCHER */
 window.forceExternalYT = (url) => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer external';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Extract video ID from URL
+    let videoId = '';
+    if (url.includes('v=')) {
+        videoId = url.split('v=')[1].split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1];
+    }
+    
+    if (videoId) {
+        // Try direct YouTube app scheme first
+        window.location.href = 'youtube://' + videoId;
+        
+        // Fallback for system browser if scheme fails
+        setTimeout(() => {
+            window.open(url, '_system');
+        }, 500);
+    } else {
+        window.open(url, '_system');
+    }
 };
 
 async function showSong(i){
