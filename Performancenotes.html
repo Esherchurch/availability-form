@@ -227,6 +227,7 @@ const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
+/* WAKE LOCK LOGIC */
 const requestWakeLock = async () => {
   try {
     if ('wakeLock' in navigator) {
@@ -259,6 +260,7 @@ window.autoGrow = (el)=>{
  el.style.height = el.scrollHeight + "px";
 };
 
+/* LOAD EVENTS */
 window.loadRota = async () => {
  const date = dateInput().value;
  const snap = await getDocs(collection(db,"events"));
@@ -291,6 +293,7 @@ window.selectService = () => {
 };
 
 window.loadService = async () => {
+
  currentDate = dateInput().value;
  currentRole = roleSelect().value;
 
@@ -336,14 +339,16 @@ window.togglePerformance = ()=>{
 };
 
 async function showSong(i){
+
  index = i;
  const s = songs[i];
+
  selectedKeys = [...(s.keys || [])];
 
  const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
  const data = songDoc.exists()?songDoc.data():{};
  const allFiles = data.files || [];
- const youtubeUrl = data.youtube || ""; 
+ const youtubeUrl = data.youtube || "";
 
  const files = allFiles.filter(f=>selectedKeys.includes(f.key));
 
@@ -385,7 +390,8 @@ async function showSong(i){
   <div style="display:flex;justify-content:space-between;align-items:center;">
    <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
    <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
-   <div>
+   <div style="display:flex; gap:8px; align-items:center;">
+    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="window.open('${youtubeUrl}', '_system')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
@@ -412,7 +418,6 @@ async function showSong(i){
   </div>
 
   <div class="hide-perf">
-   ${youtubeUrl ? `<button class="btn" style="margin-bottom:10px;" onclick="window.open('${youtubeUrl}', '_system')">Watch on YouTube</button>` : ''}
    ${files.map(f=>`
     <button class="btn" onclick="openPDF('${f.url}')">
      ${f.type} (${f.key})
@@ -436,12 +441,14 @@ async function showSong(i){
  },50);
 }
 
+/* KEYS - RESTORED LOGIC */
 window.toggleKey=(k,on)=>{
  if(on){
   if(!selectedKeys.includes(k)) selectedKeys.push(k);
  } else {
   selectedKeys = selectedKeys.filter(x=>x!==k);
  }
+ // This update is crucial for the tick boxes to actually work
  const songIndex = songs.findIndex(s => s.title === songs[index].title);
  if (songIndex !== -1) {
     songs[songIndex].keys = selectedKeys;
@@ -449,25 +456,31 @@ window.toggleKey=(k,on)=>{
  showSong(index);
 };
 
+/* NAV */
 window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
 window.prev = ()=>{ if(index>0) showSong(index-1); };
 
+/* PDF */
 window.openPDF = (url)=>{
  let finalUrl = url;
  const timestamp = new Date().getTime();
  if(url.includes("drive.google.com") || url.includes("firebasestorage.googleapis.com")){
   finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true&cb=${timestamp}`;
  }
+
  const v=document.getElementById("pdfViewer");
  v.innerHTML = ""; 
  v.style.display="block";
+
  const loader = document.createElement("div");
  loader.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:black;font-weight:bold;";
  loader.innerText = "Loading PDF...";
+ 
  const closeBtn = document.createElement("button");
  closeBtn.className = "closeBtn";
  closeBtn.innerText = "Close";
  closeBtn.onclick = closePDF;
+
  const iframe = document.createElement("iframe");
  iframe.style.cssText = "width:100%;height:100%;border:none;background:white;display:none;";
  iframe.src = finalUrl;
@@ -475,6 +488,7 @@ window.openPDF = (url)=>{
     loader.style.display = "none";
     iframe.style.display = "block";
  };
+
  v.appendChild(closeBtn);
  v.appendChild(loader);
  v.appendChild(iframe);
@@ -486,8 +500,10 @@ window.closePDF = ()=>{
  v.innerHTML=""; 
 };
 
+/* SAVE */
 window.save = async(song)=>{
  const txt = document.getElementById("notes").value;
+
  if(currentDocId){
   await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
  } else {
@@ -500,29 +516,38 @@ window.save = async(song)=>{
   });
   currentDocId = newDoc.id;
  }
+
  alert("Saved");
 };
 </script>
 </head>
 
 <body>
+
 <div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
 <h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Notes</h1>
+
 <input type="date" id="dateInput" onchange="loadRota()" class="w-full p-3 rounded-xl">
+
 <select id="serviceSelect" onchange="selectService()" class="w-full p-3 rounded-xl">
 <option>Select Service</option>
 </select>
+
 <select id="roleSelect" class="w-full p-3 rounded-xl">
 <option>Instrument</option>
 </select>
+
 <button onclick="loadService()" class="w-full bg-[#2c6999] text-white p-3 rounded-xl font-bold">
 Load Service
 </button>
 </div>
+
 <button id="fsToggle" style="display:none;" onclick="goFull()">[ Fullscreen ]</button>
+
 <div id="menu"></div>
 <div id="overlay" onclick="closeMenu()"></div>
 <div id="pdfViewer"></div>
 <div id="app"></div>
+
 </body>
 </html>
