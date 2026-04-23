@@ -316,8 +316,8 @@ function buildMenu(){
   const div=document.createElement("div");
   div.innerText=s.title;
   div.onclick=()=>{
-    showSong(i);
-    toggleMenu();
+     showSong(i);
+     toggleMenu();
   };
   menu.appendChild(div);
  });
@@ -391,7 +391,7 @@ async function showSong(i){
    <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
    <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
    <div style="display:flex; gap:8px; align-items:center;">
-    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="window.open('${youtubeUrl}', '_system')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
+    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="window.open('${youtubeUrl}', '_system'); window.location.href='${youtubeUrl}';" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
