@@ -499,7 +499,6 @@
             
             const wb = XLSX.utils.book_new();
             const eventsByMonth = {};
-            const globalFreq = {}; // Track frequency across all selected events
 
             activeEvents.forEach(ev => {
                 const d = new Date(ev.date);
@@ -510,9 +509,9 @@
             
             Object.entries(eventsByMonth).forEach(([month, events]) => {
                 const allRoles = [...new Set(events.flatMap(e => e.roles || []))];
-                const monthFreq = {};
+                const servingCounts = {};
 
-                const data = events.map(e => {
+                const excelData = events.map(e => {
                     const members = addressBook.filter(m => e.teams?.some(t => m.markers?.includes(t)));
                     const availNames = members.filter(m => availability[e.id]?.[m.id] === 'avail').map(m => m.name).join(", ");
                     const declNames = members.filter(m => (availability[e.id]?.[m.id] === 'unavailable' || availability[e.id]?.[m.id] === 'not-avail')).map(m => m.name).join(", ");
@@ -524,11 +523,12 @@
                     };
                     
                     allRoles.forEach(role => { 
-                        const person = e.assignments?.[role]?.name || "---";
-                        row[role] = person;
-                        if (person !== "---") {
-                            monthFreq[person] = (monthFreq[person] || 0) + 1;
-                            globalFreq[person] = (globalFreq[person] || 0) + 1;
+                        const assignedName = e.assignments?.[role]?.name || "---";
+                        row[role] = assignedName;
+                        
+                        // Rule: Only count serving if Service Type is "Sunday Morning Worship"
+                        if (e.type === "Sunday Morning Worship" && assignedName !== "---") {
+                            servingCounts[assignedName] = (servingCounts[assignedName] || 0) + 1;
                         }
                     });
                     
@@ -539,32 +539,32 @@
                     return row;
                 });
                 
-                const ws = XLSX.utils.json_to_sheet(data);
+                // Convert main data to worksheet
+                const ws = XLSX.utils.json_to_sheet(excelData);
                 
-                // Pretty Widths
-                const colWidths = [{ wch: 10 }, { wch: 25 }];
-                allRoles.forEach(() => colWidths.push({ wch: 18 }));
-                colWidths.push({ wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 35 });
-                ws['!cols'] = colWidths;
-
-                XLSX.utils.book_append_sheet(wb, ws, month);
-
-                // Month Summary Sub-Sheet
-                const monthSumData = Object.entries(monthFreq)
+                // Create Summary Table (Sorted by Name)
+                const summaryArray = Object.entries(servingCounts)
                     .sort((a,b) => a[0].localeCompare(b[0]))
-                    .map(([name, count]) => ({ "Name": name, "Times Serving (This Month)": count }));
-                const wsSum = XLSX.utils.json_to_sheet(monthSumData);
-                wsSum['!cols'] = [{ wch: 25 }, { wch: 25 }];
-                XLSX.utils.book_append_sheet(wb, wsSum, `${month} Summary`);
-            });
+                    .map(([name, count]) => [name, count]);
+                
+                // Header for Summary
+                const summaryStartCol = allRoles.length + 7; // Gap after main data
+                XLSX.utils.sheet_add_aoa(ws, [["Name", "Times Serving (Sunday AM Only)"]], { origin: XLSX.utils.encode_col(summaryStartCol) + "1" });
+                XLSX.utils.sheet_add_aoa(ws, summaryArray, { origin: XLSX.utils.encode_col(summaryStartCol) + "2" });
 
-            // Master Summary Sheet
-            const globalSumData = Object.entries(globalFreq)
-                .sort((a,b) => a[0].localeCompare(b[0]))
-                .map(([name, count]) => ({ "Name": name, "Total Times Serving": count }));
-            const wsGlobal = XLSX.utils.json_to_sheet(globalSumData);
-            wsGlobal['!cols'] = [{ wch: 25 }, { wch: 25 }];
-            XLSX.utils.book_append_sheet(wb, wsGlobal, "Term Total Summary");
+                // Formatting Widths
+                const colWidths = [{ wch: 10 }, { wch: 22 }]; // Date, Service Type
+                allRoles.forEach(() => colWidths.push({ wch: 18 })); // Role Columns
+                colWidths.push({ wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 35 }); // Bucket & Notes
+                
+                // Spacer Columns and Summary Widths
+                colWidths[summaryStartCol - 1] = { wch: 5 }; // Spacer
+                colWidths[summaryStartCol] = { wch: 25 }; // Summary Name
+                colWidths[summaryStartCol + 1] = { wch: 28 }; // Summary Count
+                
+                ws['!cols'] = colWidths;
+                XLSX.utils.book_append_sheet(wb, ws, month);
+            });
             
             const filenameLabel = activeEvents[0].termLabel || "Export";
             XLSX.writeFile(wb, `EGBC_Rota_${filenameLabel}.xlsx`);
