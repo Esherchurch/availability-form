@@ -496,14 +496,17 @@
         window.exportToExcel = () => {
             const activeEvents = cachedEvents.filter(e => !e.archived && !e.draft).sort((a,b) => new Date(a.date) - new Date(b.date));
             if (activeEvents.length === 0) return alert("No active events to export.");
+            
             const wb = XLSX.utils.book_new();
             const eventsByMonth = {};
+            
             activeEvents.forEach(ev => {
                 const d = new Date(ev.date);
-                const monthName = d.toLocaleString('en-GB', { month: 'Long' });
+                const monthName = d.toLocaleString('en-GB', { month: 'long' });
                 if (!eventsByMonth[monthName]) eventsByMonth[monthName] = [];
                 eventsByMonth[monthName].push(ev);
             });
+            
             Object.entries(eventsByMonth).forEach(([month, events]) => {
                 const allRoles = [...new Set(events.flatMap(e => e.roles || []))];
                 const data = events.map(e => {
@@ -512,6 +515,7 @@
                     row["Notes"] = e.description || "";
                     return row;
                 });
+                
                 const ws = XLSX.utils.json_to_sheet(data);
                 const colWidths = [{ wch: 10 }, { wch: 25 }];
                 allRoles.forEach(() => colWidths.push({ wch: 15 }));
@@ -519,7 +523,9 @@
                 ws['!cols'] = colWidths;
                 XLSX.utils.book_append_sheet(wb, ws, month);
             });
-            XLSX.writeFile(wb, `EGBC_Rota_${activeEvents[0].termLabel}.xlsx`);
+            
+            const filenameLabel = activeEvents[0].termLabel || "Export";
+            XLSX.writeFile(wb, `EGBC_Rota_${filenameLabel}.xlsx`);
         };
 
         window.prepareDistributionPackage = async () => {
