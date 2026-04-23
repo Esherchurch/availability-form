@@ -348,6 +348,7 @@ async function showSong(i){
  const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
  const data = songDoc.exists()?songDoc.data():{};
  const allFiles = data.files || [];
+ const youtubeUrl = data.youtube || "";
 
  const files = allFiles.filter(f=>selectedKeys.includes(f.key));
 
@@ -389,7 +390,8 @@ async function showSong(i){
   <div style="display:flex;justify-content:space-between;align-items:center;">
    <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
    <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
-   <div>
+   <div style="display:flex; gap:8px; align-items:center;">
+    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="window.open('${youtubeUrl}', '_blank')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
