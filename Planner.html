@@ -30,7 +30,7 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        const OPTIONAL_ROLES = ['Sound', 'Words', 'Cameras', 'Violin', 'Congas', '2nd Guitar', '2nd Keys', 'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3', 'Choir'];
+        const OPTIONAL_ROLES = ['Sound', 'Words', 'Cameras', 'Violin', 'Congas', '2nd Guitar', '2nd Keys', 'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Choir', 'Other', 'Other 2', 'Other 3'];
         const MANDATORY_SUNDAY_ROLES = ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass", "Sound", "Words", "Cameras"];
         const EVENT_TYPES = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service', 'Midnight Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
         const AV_ROLES = ["Sound", "Words", "Cameras"];
@@ -268,7 +268,7 @@
 
                 Object.keys(eventsByMonth).sort((a, b) => new Date(eventsByMonth[a][0].date) - new Date(eventsByMonth[b][0].date)).forEach((month, idx) => {
                     if (idx > 0) wallDoc.addPage();
-                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 20, 100, 60); // Adjusted for correct scale
+                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 20, 60, 60); // Aspect ratio fixed
                     wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(22); wallDoc.setTextColor(61, 98, 99);
                     wallDoc.text("Family Wall Planner", 150, 50);
                     wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 150, 70);
@@ -323,7 +323,7 @@
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => type === 'individual' ? a.id === memberId : hIds.includes(a.id)));
             }
 
-            if (logo) docRef.addImage(logo, 'JPEG', 255, 10, 30, 20); // Fixed dimension aspect ratio
+            if (logo) docRef.addImage(logo, 'JPEG', 265, 10, 20, 20); // Aspect ratio fixed
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
@@ -444,9 +444,9 @@
                     <select onchange="updateField('${ev.id}', 'type', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">
                         ${EVENT_TYPES.map(t => `<option value="${t}" ${ev.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
-                    <textarea rows="1" onblur="updateField('${ev.id}', 'description', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-medium border border-[#d1dfdf] outline-none text-[#3d6263] shadow-inner">${ev.description || ''}</textarea>
+                    <textarea rows="1" onblur="updateField('${ev.id}', 'description', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263] shadow-inner placeholder:text-[#3d6263]/40">${ev.description || ''}</textarea>
                     <div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">
-                        ${["Core Team", "Worship Team", "AV Team"].map(t => `<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam('${ev.id}', '${t}')" ${ev.teams?.includes(t) ? 'checked' : ''} class="w-3.5 h-3.5 accent-[#3d6263]"><span>${t.split(' ')[0]}</span></label>`).join('')}
+                        ${["Core Team", "Worship Team", "AV Team", "Choir"].map(t => `<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam('${ev.id}', '${t}')" ${ev.teams?.includes(t) ? 'checked' : ''} class="w-3.5 h-3.5 accent-[#3d6263]"><span>${t.split(' ')[0]}</span></label>`).join('')}
                     </div>
                     ${!isSunday ? `<button onclick="autoFillPractice('${ev.id}')" class="bg-[#d1dfdf] text-[#3d6263] px-5 py-2 rounded-full font-black text-[10px] uppercase shadow-sm flex items-center gap-1 hover:bg-[#3d6263] hover:text-white transition-all"><svg ${iconStyles} viewBox="0 0 24 24" class="w-3 h-3"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Sync</button>` : ''}
                     <div class="flex items-center gap-4 relative">
