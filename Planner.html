@@ -268,10 +268,10 @@
 
                 Object.keys(eventsByMonth).sort((a, b) => new Date(eventsByMonth[a][0].date) - new Date(eventsByMonth[b][0].date)).forEach((month, idx) => {
                     if (idx > 0) wallDoc.addPage();
-                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 30, 30, 25);
+                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 20, 100, 60); // Adjusted for correct scale
                     wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(22); wallDoc.setTextColor(61, 98, 99);
-                    wallDoc.text("Family Wall Planner", 80, 50);
-                    wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 80, 70);
+                    wallDoc.text("Family Wall Planner", 150, 50);
+                    wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 150, 70);
 
                     const yr = new Date(eventsByMonth[month][0].date).getFullYear(), mth = new Date(eventsByMonth[month][0].date).getMonth();
                     const startDay = new Date(yr, mth, 1).getDay(), daysInM = new Date(yr, mth + 1, 0).getDate();
@@ -323,7 +323,7 @@
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => type === 'individual' ? a.id === memberId : hIds.includes(a.id)));
             }
 
-            if (logo) docRef.addImage(logo, 'JPEG', 260, 10, 30, 25);
+            if (logo) docRef.addImage(logo, 'JPEG', 255, 10, 30, 20); // Fixed dimension aspect ratio
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
