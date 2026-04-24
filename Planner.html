@@ -3,560 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EGBC Master Rota Planner</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, arrayUnion, arrayRemove, deleteField, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-            authDomain: "egbc-worship-planner.firebaseapp.com",
-            projectId: "egbc-worship-planner",
-            storageBucket: "egbc-worship-planner.firebasestorage.app",
-            messagingSenderId: "199442060489",
-            appId: "1:199442060489:web:7eaf85a76334c753db6918"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const storage = getStorage(app);
-
-        const OPTIONAL_ROLES = ['Sound', 'Words', 'Cameras', 'Violin', 'Congas', '2nd Guitar', '2nd Keys', 'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3', 'Choir'];
-        const MANDATORY_SUNDAY_ROLES = ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass", "Sound", "Words", "Cameras"];
-        const EVENT_TYPES = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service', 'Midnight Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
-        const AV_ROLES = ["Sound", "Words", "Cameras"];
-
-        let collapsedTerms = new Set();
-        let expandedEvents = new Set();
-        let openBuckets = new Set();
-        let cachedEvents = [];
-        let addressBook = [];
-        let availability = {};
-        let logoBase64 = null;
-        let hideAssigned = false;
-
-        const FORM_LINK = "https://esherchurch.github.io/availability-form/";
-
-        const getLogoBase64 = () => {
-            return new Promise(async (resolve) => {
-                if (logoBase64) return resolve(logoBase64);
-                try {
-                    const url = await getDownloadURL(ref(storage, '1774936285076.png'));
-                    const img = new Image();
-                    img.setAttribute('crossOrigin', 'anonymous');
-                    img.onload = () => {
-                        const canvas = document.createElement("canvas");
-                        canvas.width = img.width; canvas.height = img.height;
-                        const ctx = canvas.getContext("2d");
-                        ctx.drawImage(img, 0, 0);
-                        logoBase64 = canvas.toDataURL("image/jpeg", 1.0);
-                        resolve(logoBase64);
-                    };
-                    img.onerror = () => resolve(null);
-                    img.src = url + "?c=" + new Date().getTime();
-                } catch (e) { resolve(null); }
-            });
-        };
-        getLogoBase64();
-
-        function getTermLabel(dateString) {
-            const d = new Date(dateString);
-            const month = d.getMonth() + 1; 
-            const year = d.getFullYear();
-            let term = (month <= 4) ? "Spring" : (month <= 8) ? "Summer" : "Autumn";
-            return `${term} ${year}`;
-        }
-
-        onSnapshot(collection(db, "addressBook"), (snap) => {
-            addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const select = document.getElementById('memberPdfSelect');
-            if (select) {
-                const currentVal = select.value;
-                select.innerHTML = '<option value="">Select Member...</option>';
-                addressBook.sort((a,b) => a.name.localeCompare(b.name)).forEach(m => {
-                    select.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-                });
-                select.value = currentVal;
-            }
-            renderPlanner();
-        });
-
-        onSnapshot(collection(db, "availability"), (snap) => {
-            availability = {};
-            snap.forEach(d => {
-                const data = d.data();
-                if (!availability[data.eventId]) availability[data.eventId] = {};
-                availability[data.eventId][data.memberId] = data.status;
-            });
-            renderPlanner();
-        });
-
-        onSnapshot(query(collection(db, "events"), orderBy("date")), (snap) => {
-            cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderPlanner();
-        });
-
-        window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
-        window.toggleTermCollapse = (termId) => { collapsedTerms.has(termId) ? collapsedTerms.delete(termId) : collapsedTerms.add(termId); renderPlanner(); };
-        window.toggleEventExpand = (eventId) => { expandedEvents.has(eventId) ? expandedEvents.delete(eventId) : expandedEvents.add(eventId); renderPlanner(); };
-        window.toggleBucket = (eventId) => { openBuckets.has(eventId) ? openBuckets.delete(eventId) : openBuckets.add(eventId); renderPlanner(); };
-
-        window.updateField = async (id, field, value) => { 
-            const updates = { [field]: value };
-            if (field === 'date') updates.termLabel = getTermLabel(value);
-            await updateDoc(doc(db, "events", id), updates); 
-        };
-
-        window.toggleTeam = async (eventId, teamName) => {
-            const eventRef = doc(db, "events", eventId);
-            const eventSnap = await getDoc(eventRef);
-            if (!eventSnap.exists()) return;
-            const currentTeams = eventSnap.data().teams || [];
-            const newTeams = currentTeams.includes(teamName) ? currentTeams.filter(t => t !== teamName) : [...currentTeams, teamName];
-            await updateDoc(eventRef, { teams: newTeams });
-        };
-
-        window.addRole = async (eventId, roleName) => { 
-            if(!roleName) return; 
-            await updateDoc(doc(db, "events", eventId), { roles: arrayUnion(roleName) }); 
-        };
-        
-        window.removeRole = async (eventId, roleName) => {
-            if(confirm(`Remove role "${roleName}"?`)) {
-                const updates = { roles: arrayRemove(roleName) };
-                updates[`assignments.${roleName}`] = deleteField();
-                await updateDoc(doc(db, "events", eventId), updates);
-            }
-        };
-
-        window.assignPerson = async (eventId, role, personId, personName) => {
-            const updates = {};
-            updates[`assignments.${role}`] = { id: personId, name: personName };
-            await updateDoc(doc(db, "events", eventId), updates);
-        };
-
-        window.unassignPerson = async (eventId, role) => {
-            const updates = {};
-            updates[`assignments.${role}`] = deleteField();
-            await updateDoc(doc(db, "events", eventId), updates);
-        };
-
-        window.deleteEvent = async (eventId) => {
-            if(confirm("Permanently delete this service?")) await deleteDoc(doc(db, "events", eventId));
-        };
-
-        window.archiveTerm = async (termLabel) => {
-            if(confirm(`Archive all services in ${termLabel}?`)) {
-                const toArchive = cachedEvents.filter(e => e.termLabel === termLabel);
-                for (const ev of toArchive) { await updateDoc(doc(db, "events", ev.id), { archived: true }); }
-            }
-        };
-
-        window.onDragStart = (e, personId, personName, eventId = null, role = null) => {
-            e.dataTransfer.setData("personId", personId);
-            e.dataTransfer.setData("personName", personName);
-            if(eventId && role) { e.dataTransfer.setData("sourceEventId", eventId); e.dataTransfer.setData("sourceRole", role); }
-        };
-
-        window.onDropRole = async (e, eventId, role) => {
-            e.preventDefault();
-            const personId = e.dataTransfer.getData("personId");
-            const personName = e.dataTransfer.getData("personName");
-            const sourceEventId = e.dataTransfer.getData("sourceEventId");
-            const sourceRole = e.dataTransfer.getData("sourceRole");
-            if(sourceEventId === eventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
-            await assignPerson(eventId, role, personId, personName);
-        };
-
-        window.onDropBucket = async (e) => {
-            e.preventDefault();
-            const sourceEventId = e.dataTransfer.getData("sourceEventId");
-            const sourceRole = e.dataTransfer.getData("sourceRole");
-            if(sourceEventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
-        };
-
-        window.addSingleLine = async () => {
-            const dateStr = new Date().toISOString().split('T')[0];
-            await addDoc(collection(db, "events"), {
-                date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
-            });
-        };
-
-        window.generateTerm = async () => {
-            const term = document.getElementById('termSelect').value;
-            if(!term) return alert("Select a Term");
-            const year = new Date().getFullYear();
-            let curr = new Date(`${year}-${term === 'Spring' ? '01' : term === 'Summer' ? '05' : '09'}-01`);
-            let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
-            while (curr.getDay() !== 0) curr.setDate(curr.getDate() + 1);
-            while (curr <= end) {
-                const dateStr = curr.toISOString().split('T')[0];
-                await addDoc(collection(db, "events"), {
-                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                    teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
-                });
-                curr.setDate(curr.getDate() + 7);
-            }
-        };
-
-        window.addThursdayPractices = async () => {
-            const term = document.getElementById('termSelect').value;
-            if(!term) return alert("Select a Term");
-            const year = new Date().getFullYear();
-            let curr = new Date(`${year}-${term === 'Spring' ? '01' : term === 'Summer' ? '05' : '09'}-01`);
-            let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
-            while (curr.getDay() !== 4) curr.setDate(curr.getDate() + 1);
-            while (curr <= end) {
-                const dateStr = curr.toISOString().split('T')[0];
-                await addDoc(collection(db, "events"), {
-                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Team Practice", description: "Thursday Rehearsal",
-                    teams: ["Worship Team"], startTime: "19:30", endTime: "21:30", roles: ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass"], archived: false
-                });
-                curr.setDate(curr.getDate() + 7);
-            }
-        };
-
-        window.autoFillPractice = async (practiceId) => {
-            const practice = cachedEvents.find(e => e.id === practiceId);
-            if(!practice) return;
-            const practiceDate = new Date(practice.date);
-            const sundayService = cachedEvents.find(e => {
-                const eDate = new Date(e.date);
-                const diff = (eDate - practiceDate) / (1000 * 60 * 60 * 24);
-                return e.type === "Sunday Morning Worship" && diff > 0 && diff <= 3;
-            });
-            if(!sundayService) return alert("No matching Sunday Worship found.");
-            const updates = {};
-            practice.roles.forEach(role => {
-                const sundayPerson = sundayService.assignments?.[role];
-                if(sundayPerson && availability[practiceId]?.[sundayPerson.id] === 'avail') {
-                    updates[`assignments.${role}`] = { id: sundayPerson.id, name: sundayPerson.name };
-                }
-            });
-            if(Object.keys(updates).length > 0) await updateDoc(doc(db, "events", practiceId), updates);
-        };
-
-        const getPdfBlob = async (type, memberId, specificEvents = null) => {
-            const { jsPDF } = window.jspdf;
-            const logo = await getLogoBase64();
-            let termEvents = (specificEvents || cachedEvents.filter(e => !e.archived)).sort((a,b) => new Date(a.date) - new Date(b.date));
-            if(termEvents.length === 0) return null;
-
-            if (type === "wall") {
-                const wallDoc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
-                const member = addressBook.find(m => m.id === memberId);
-                const headId = member?.householdId || memberId;
-                const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
-                
-                const eventsByMonth = {};
-                termEvents.forEach(ev => {
-                    const d = new Date(ev.date);
-                    const key = d.toLocaleString("en-GB", { month: "long", year: "numeric" });
-                    if (!eventsByMonth[key]) eventsByMonth[key] = [];
-                    eventsByMonth[key].push(ev);
-                });
-
-                Object.keys(eventsByMonth).sort((a, b) => new Date(eventsByMonth[a][0].date) - new Date(eventsByMonth[b][0].date)).forEach((month, idx) => {
-                    if (idx > 0) wallDoc.addPage();
-                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 20, 100, 60);
-                    wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(22); wallDoc.setTextColor(61, 98, 99);
-                    wallDoc.text("Family Wall Planner", 150, 50);
-                    wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 150, 70);
-
-                    const yr = new Date(eventsByMonth[month][0].date).getFullYear(), mth = new Date(eventsByMonth[month][0].date).getMonth();
-                    const startDay = new Date(yr, mth, 1).getDay(), daysInM = new Date(yr, mth + 1, 0).getDate();
-                    const offset = startDay === 0 ? 6 : startDay - 1;
-                    const rows = []; let week = Array(7).fill(null);
-                    for (let i = 0; i < offset; i++) week[i] = { empty: true };
-                    for (let d = 1; d <= daysInM; d++) {
-                        const dateStr = `${yr}-${String(mth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                        const dayIdx = (d + offset - 1) % 7;
-                        week[dayIdx] = { day: d, events: eventsByMonth[month].filter(e => e.date === dateStr) };
-                        if (dayIdx === 6 || d === daysInM) { rows.push(week); week = Array(7).fill(null); }
-                    }
-
-                    wallDoc.autoTable({
-                        startY: 90, head: [["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]],
-                        body: rows.map(w => w.map(c => {
-                            if (!c || c.empty) return "";
-                            let cellData = `DAY:${c.day}`;
-                            c.events.forEach(ev => {
-                                const matches = Object.entries(ev.assignments || {}).filter(([r, p]) => hIds.includes(p.id)).map(([r, p]) => `${p.name.split(' ')[0]}: ${r}`);
-                                if (matches.length > 0) cellData += `|S:${ev.type}|R:${matches.join(', ')}`;
-                            });
-                            return cellData;
-                        })),
-                        theme: 'grid', styles: { fontSize: 0.1, cellPadding: 4, minCellHeight: 65, valign: 'top', textColor: [255, 255, 255] },
-                        headStyles: { fillColor: [61, 98, 99], textColor: 255, halign: 'center', fontSize: 10 },
-                        didDrawCell: (data) => {
-                            if (data.section === 'body' && data.cell.raw !== "") {
-                                const segs = data.cell.raw.split('|'); let yPos = data.cell.y + 12;
-                                segs.forEach(seg => {
-                                    if (seg.startsWith("DAY:")) { wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(10); wallDoc.setTextColor(180, 180, 180); wallDoc.text(seg.replace("DAY:", ""), data.cell.x + 5, yPos); yPos += 12; }
-                                    else if (seg.startsWith("S:")) { 
-                                        const matches = Object.entries(termEvents.find(e => e.date === `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`)?.assignments || {}).filter(([r, p]) => hIds.includes(p.id));
-                                        if (matches.length > 0) {
-                                            wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99); 
-                                            wallDoc.text(wallDoc.splitTextToSize(seg.replace("S:", ""), 100), data.cell.x + 5, yPos); 
-                                            yPos += 18; 
-                                        }
-                                    }
-                                    else if (seg.startsWith("R:")) { 
-                                        wallDoc.setFont("helvetica", "normal"); wallDoc.setFontSize(7); wallDoc.setTextColor(0, 0, 0); 
-                                        wallDoc.text(wallDoc.splitTextToSize(seg.replace("R:", ""), 100), data.cell.x + 5, yPos); 
-                                    }
-                                });
-                            }
-                        }
-                    });
-                });
-                return wallDoc;
-            }
-
-            const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true });
-            let reportTitle = "FULL ROTA";
-            if (type === 'individual' || type === 'household') {
-                const member = addressBook.find(m => m.id === memberId);
-                const headId = member?.householdId || memberId;
-                const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
-                reportTitle = type === 'individual' ? `${member.name.toUpperCase()} ROTA` : `HOUSEHOLD ROTA`;
-                termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => type === 'individual' ? a.id === memberId : hIds.includes(a.id)));
-            }
-
-            if (logo) docRef.addImage(logo, 'JPEG', 255, 10, 30, 20);
-            docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
-            docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
-            docRef.text(reportTitle, 16, 19);
-            const allRolesRaw = [...new Set(termEvents.flatMap(e => e.roles || []))];
-            const allRoles = [...allRolesRaw.filter(r => !AV_ROLES.includes(r)), ...allRolesRaw.filter(r => AV_ROLES.includes(r))];
-            docRef.autoTable({
-                startY: 35, head: [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]],
-                body: termEvents.map(e => [new Date(e.date).toLocaleDateString('en-GB'), e.type, ...allRoles.map(r => e.assignments?.[r]?.name || "---")]),
-                headStyles: { fillColor: [61, 98, 99] }, styles: { fontSize: 7 }
-            });
-            return docRef;
-        };
-
-        window.generatePDF = async (type, memberId) => {
-            const doc = await getPdfBlob(type, memberId);
-            if (!doc) return alert("No dates found.");
-            doc.save(`${type}_rota.pdf`);
-        };
-
-        window.exportToExcel = () => {
-            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
-            const wb = XLSX.utils.book_new();
-            const data = activeEvents.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, p.name])) }));
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Rota");
-            XLSX.writeFile(wb, "EGBC_Rota.xlsx");
-        };
-
-        window.prepareDistributionPackage = async () => {
-            const zip = new JSZip();
-            const activeEvents = cachedEvents.filter(e => !e.archived);
-            const csvRows = ["Name,Email"];
-            const fullDoc = await getPdfBlob('full', null, activeEvents);
-            const assignedIds = new Set();
-            activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
-            
-            for (const mId of assignedIds) {
-                const member = addressBook.find(m => m.id === mId);
-                if (!member) continue;
-                
-                const folderName = member.name.replace(/\s+/g, '_');
-                const headId = member.householdId || member.id;
-                const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
-                
-                csvRows.push(`"${member.name}","${member.email}"`);
-
-                const indDoc = await getPdfBlob('individual', mId, activeEvents);
-                if (indDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Rota.pdf`, indDoc.output('blob'));
-                
-                const hDoc = await getPdfBlob('household', mId, activeEvents);
-                if (hDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Household_Rota.pdf`, hDoc.output('blob'));
-                
-                const wDoc = await getPdfBlob('wall', mId, activeEvents);
-                if (wDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
-
-                if (fullDoc) zip.file(`${folderName}/00_FULL_CHURCH_ROTA.pdf`, fullDoc.output('blob'));
-
-                const personalEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
-                if (personalEvents.length > 0) {
-                    let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
-                    personalEvents.forEach(e => {
-                        const roles = Object.entries(e.assignments).filter(([r,p]) => p.id === mId).map(([r,p]) => r).join(", ");
-                        const date = e.date.replace(/-/g, "");
-                        ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
-                    });
-                    ics += "END:VCALENDAR";
-                    zip.file(`${folderName}/Individual_Import.ics`, ics);
-                }
-
-                const familyEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
-                if (familyEvents.length > 0) {
-                    let hIcs = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
-                    familyEvents.forEach(e => {
-                        const familyRoles = Object.entries(e.assignments).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(", ");
-                        const date = e.date.replace(/-/g, "");
-                        hIcs += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Family Serving: ${familyRoles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
-                    });
-                    hIcs += "END:VCALENDAR";
-                    zip.file(`${folderName}/Household_Import.ics`, hIcs);
-                }
-            }
-
-            zip.file("Distribution_List.csv", csvRows.join("\n"));
-            const content = await zip.generateAsync({type:"blob"});
-            saveAs(content, `EGBC_Rota_Distribution_Package_${new Date().toISOString().split('T')[0]}.zip`);
-        };
-
-        window.gatherTermAvailability = async () => {
-            const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel))];
-            const selectedTerm = prompt(`Gather availability for which term?\n\nOptions:\n${terms.join('\n')}`, terms[0]);
-            if(!selectedTerm) return;
-            const emails = new Set();
-            cachedEvents.filter(e => !e.archived && e.termLabel === selectedTerm).forEach(ev => {
-                addressBook.forEach(m => { if(m.markers?.some(r => ev.teams?.includes(r))) emails.add(m.email); });
-            });
-            window.location.href = `mailto:av@esherchurch.org?bcc=${[...emails].join(';')}&subject=Availability Request&body=Please click here: ${FORM_LINK}`;
-        };
-
-        function renderPlanner() {
-            const container = document.getElementById('eventList');
-            container.innerHTML = '';
-            const grouped = {};
-            cachedEvents.forEach(ev => {
-                if(ev.archived) return; 
-                const termKey = ev.termLabel || getTermLabel(ev.date);
-                if (!grouped[termKey]) grouped[termKey] = [];
-                grouped[termKey].push(ev);
-            });
-            Object.keys(grouped).sort().forEach(term => {
-                const isCollapsed = collapsedTerms.has(term);
-                let termHtml = `<div class="mb-12"><div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg"><button onclick="toggleTermCollapse('${term}')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">${term}</button><button onclick="archiveTerm('${term}')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button></div><div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">`;
-                const termEventsSorted = grouped[term].sort((a,b) => new Date(a.date) - new Date(b.date));
-                const byMonth = {};
-                termEventsSorted.forEach(ev => {
-                    const month = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-                    if(!byMonth[month]) byMonth[month] = [];
-                    byMonth[month].push(ev);
-                });
-                Object.keys(byMonth).forEach(month => {
-                    termHtml += `<div class="mb-10 pb-8"><h3 class="text-sm font-black uppercase text-[#3d6263] opacity-60 mb-6 tracking-[0.2em]">${month}</h3>`;
-                    const blocks = []; let current = [];
-                    byMonth[month].forEach(ev => { current.push(ev); if(ev.type === "Sunday Morning Worship") { blocks.push(current); current = []; } });
-                    if(current.length > 0) blocks.push(current);
-                    blocks.forEach((block, idx) => block.forEach(ev => { termHtml += generateEventHtml(ev, idx); }));
-                    const stats = {};
-                    byMonth[month].forEach(ev => {
-                        if(ev.type === 'Sunday Morning Worship' && ev.assignments) {
-                            const names = new Set(Object.values(ev.assignments).map(p => p.name));
-                            names.forEach(n => { if(n) stats[n] = (stats[n] || 0) + 1; });
-                        }
-                    });
-                    if(Object.keys(stats).length > 0) {
-                        termHtml += `<div class="mt-8 bg-[#f0f6f6] rounded-[2rem] p-8 border border-[#d1dfdf] shadow-sm"><div class="text-xs font-black uppercase text-[#3d6263] mb-6 tracking-widest text-center border-b border-[#d1dfdf] pb-4">Monthly Unique Serving Totals (Sundays)</div><div class="flex flex-wrap justify-center gap-4">${Object.entries(stats).sort((a,b) => a[0].localeCompare(b[0])).map(([n, c]) => `<div class="text-[12px] font-bold text-[#3d6263] bg-white px-5 py-2.5 rounded-full border border-[#d1dfdf] shadow-sm flex items-center gap-2"><span>${n}:</span><span class="font-black text-sm">${c}</span></div>`).join('')}</div></div>`;
-                    }
-                    termHtml += `</div>`;
-                });
-                container.innerHTML += termHtml + `</div></div>`;
-            });
-        }
-
-        function generateEventHtml(ev, blockIdx) {
-            const assignedIds = Object.values(ev.assignments || {}).map(a => a.id);
-            const members = addressBook.filter(m => ev.teams?.some(t => m.markers?.includes(t)));
-            const respondersAvail = members.filter(m => availability[ev.id]?.[m.id] === 'avail' && (!hideAssigned || !assignedIds.includes(m.id)));
-            const declined = members.filter(m => (availability[ev.id]?.[m.id] === 'unavailable' || availability[ev.id]?.[m.id] === 'not-avail') && (!hideAssigned || !assignedIds.includes(m.id)));
-            const pending = members.filter(m => !availability[ev.id]?.[m.id] && (!hideAssigned || !assignedIds.includes(m.id)));
-            const isSunday = ev.type === "Sunday Morning Worship";
-            const rowClass = !isSunday ? 'bg-slate-50 border-dashed border-[#d1dfdf]' : (blockIdx % 2 === 0 ? 'bg-white border-[#d1dfdf]' : 'bg-[#f0f6f6]/30 border-[#d1dfdf]');
-            const dateBg = !isSunday ? 'bg-[#d1dfdf]' : 'bg-[#3d6263]';
-            const sortedRoles = [...(ev.roles || []).filter(r => !AV_ROLES.includes(r)), ...(ev.roles || []).filter(r => AV_ROLES.includes(r))];
-            const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
-
-            return `<div class="${rowClass} border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">
-                <div class="flex flex-wrap items-center gap-4 overflow-visible">
-                    <button onclick="toggleEventExpand('${ev.id}')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">
-                        ${expandedEvents.has(ev.id) || isSunday ? `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M19.5 12h-15" /></svg>` : `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>`}
-                    </button>
-                    <input type="date" value="${ev.date}" onchange="updateField('${ev.id}', 'date', this.value)" class="${dateBg} ${!isSunday ? 'text-[#3d6263]' : 'text-white'} px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">
-                    <select onchange="updateField('${ev.id}', 'type', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">
-                        ${EVENT_TYPES.map(t => `<option value="${t}" ${ev.type === t ? 'selected' : ''}>${t}</option>`).join('')}
-                    </select>
-                    <textarea rows="1" onblur="updateField('${ev.id}', 'description', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">${ev.description || ''}</textarea>
-                    <div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">
-                        ${["Core Team", "Worship Team", "AV Team", "Choir"].map(t => `<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam('${ev.id}', '${t}')" ${ev.teams?.includes(t) ? 'checked' : ''} class="w-3.5 h-3.5 accent-[#3d6263]"><span>${t.split(' ')[0]}</span></label>`).join('')}
-                    </div>
-                    ${!isSunday ? `<button onclick="autoFillPractice('${ev.id}')" class="bg-[#d1dfdf] text-[#3d6263] px-5 py-2 rounded-full font-black text-[10px] uppercase shadow-sm flex items-center gap-1 hover:bg-[#3d6263] hover:text-white transition-all"><svg ${iconStyles} viewBox="0 0 24 24" class="w-3 h-3"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Sync</button>` : ''}
-                    <div class="flex items-center gap-4 relative">
-                        <button onclick="toggleBucket('${ev.id}')" class="w-11 h-11 rounded-full bg-white text-[#3d6263] flex items-center justify-center border border-[#d1dfdf] shadow-sm hover:scale-110 transition-all"><svg ${iconStyles} viewBox="0 0 24 24"><path d="M20.25 14.15v4.25c0 .414-.336.75-.75.75H4.5a.75.75 0 0 1-.75-.75v-4.25m16.5 0a3 3 0 0 0-3-3H7.012a3 3 0 0 0-3 3m16.5 0-2.25-6.108a4.835 4.835 0 0 0-3.6-3.392 48.359 48.359 0 0 0-5.325 0 4.835 4.835 0 0 0-3.6 3.392L3.75 14.15m6.5 2.15a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm6 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg></button>
-                        <button onclick="deleteEvent('${ev.id}')" class="text-[#d1dfdf] hover:text-red-500 transition-colors"><svg ${iconStyles} viewBox="0 0 24 24" class="w-6 h-6"><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>
-                    </div>
-                </div>
-                <div class="${expandedEvents.has(ev.id) || isSunday ? 'flex' : 'hidden'} mt-6 border-t border-[#f0f6f6] pt-6 flex-row gap-6 overflow-visible">
-                    <div class="flex flex-wrap gap-4 flex-grow">
-                        ${sortedRoles.map(r => { 
-                            const assigned = ev.assignments?.[r] || null;
-                            const isAV = AV_ROLES.includes(r);
-                            const isPending = assigned && !availability[ev.id]?.[assigned.id];
-                            const borderColor = isAV ? 'border-amber-400' : (assigned ? 'border-[#3d6263]' : 'border-[#d1dfdf]');
-                            const nameColor = isPending ? 'text-orange-500' : 'text-[#3d6263]';
-                            return `<div ondragover="event.preventDefault()" ondrop="onDropRole(event, '${ev.id}', '${r}')" class="bg-white border-2 ${assigned ? 'border-solid' : 'border-dashed'} ${borderColor} p-4 rounded-2xl min-w-[170px] group/role transition-all relative">
-                                <div class="text-[10px] font-black uppercase text-[#3d6263] opacity-40 mb-2 flex justify-between"><span>${r}</span><button onclick="removeRole('${ev.id}', '${r}')" class="invisible group-hover/role:visible text-red-400 hover:text-red-600"><svg ${iconStyles} viewBox="0 0 24 24" class="w-3.5 h-3.5"><path d="M6 18 18 6M6 6l12 12" /></svg></button></div>
-                                <div draggable="true" ondragstart="onDragStart(event, '${assigned?.id}', '${assigned?.name.replace(/'/g, "\\'")}', '${ev.id}', '${r}')" class="text-[13px] font-bold ${assigned ? nameColor + ' cursor-grab' : 'text-[#d1dfdf] italic'}">${assigned ? assigned.name : 'Unassigned'}</div>
-                            </div>`;
-                        }).join('')}
-                        <select onchange="addRole('${ev.id}', this.value); this.value='';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>${OPTIONAL_ROLES.map(opt => `<option value="${opt}">${opt}</option>`).join('')}</select>
-                    </div>
-                    ${openBuckets.has(ev.id) ? `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">
-                        <div class="max-h-[400px] overflow-y-auto space-y-6">
-                            <div><div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div><div class="flex flex-wrap gap-2">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
-                            <div><div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div><div class="flex flex-wrap gap-2">${declined.map(m => `<div class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200">${m.name}</div>`).join('')}</div></div>
-                            <div><div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div><div class="flex flex-wrap gap-2">${pending.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
-                        </div>
-                    </div>` : ''}
-                </div>
-            </div>`;
-        }
-    </script>
+    <title>Worship & AV Hub</title>
     <style>
-        .max-h-\[400px\]::-webkit-scrollbar { width: 6px; }
-        .max-h-\[400px\]::-webkit-scrollbar-thumb { background: #d1dfdf; border-radius: 10px; }
-        body { background-color: #f0f6f6; color: #3d6263; font-family: 'Montserrat', sans-serif; }
+        :root {
+            --pale-teal: #f0f6f6;
+            --border-teal: #d1dfdf;
+            --accent-teal: #3d6263;
+            --white: #ffffff;
+            --brand-green: #9bc34a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
+
+        /* SIDEBAR */
+        #sidebar { width: 70px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
+        #sidebar:hover { width: 280px; }
+        #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
+
+        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 280px; position: relative; }
+        
+        .nav-row { display: flex; align-items: center; height: 45px; color: #7a8c8c; cursor: pointer; border-left: 4px solid transparent; transition: 0.2s; }
+        .nav-row:hover { background: var(--pale-teal); color: var(--accent-teal); border-left-color: var(--brand-green); }
+        
+        .nav-icon { min-width: 70px; display: flex; justify-content: center; align-items: center; }
+        .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+        .nav-text { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
+        #sidebar:hover .nav-text { opacity: 1; }
+
+        .chevron { width: 40px; display: flex; justify-content: center; opacity: 0; transition: transform 0.3s, opacity 0.2s; }
+        #sidebar:hover .chevron { opacity: 0.5; }
+        .has-children.open > .nav-row .chevron { transform: rotate(180deg); }
+
+        /* ACCORDION ANIMATION */
+        .child-container { 
+            max-height: 0; 
+            overflow: hidden; 
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+            background: rgba(0,0,0,0.02); 
+        }
+        .has-children.open > .child-container { max-height: 500px; }
+
+        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
+        .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
+
+        .edit-trigger { display: none; padding: 0 10px; color: var(--border-teal); cursor: pointer; }
+        #sidebar:hover .admin-active .edit-trigger { display: block; }
+
+        /* ADMIN UI */
+        #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
+        .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
+        #admin-modal { display: none; position: fixed; inset: 0; background: rgba(61, 98, 99, 0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; padding: 30px; border-radius: 16px; width: 450px; max-height: 90vh; overflow-y: auto; }
+        .modal-content label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
+
+        header { height: 110px; background: var(--white); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-teal); }
+        #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
+        #app-viewport { flex-grow: 1; padding: 25px; display: flex; position: relative; }
+        #app-frame { width: 100%; height: 100%; border: 1px solid var(--border-teal); border-radius: 16px; background: var(--white); }
+        #landing-content { position: absolute; inset: 25px; background: var(--white); border-radius: 16px; padding: 50px; z-index: 5; border: 1px solid var(--border-teal); }
     </style>
 </head>
-<body class="p-8 lg:p-12">
-    <div class="max-w-[1900px] mx-auto">
-        <header class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-12 gap-10 border-b border-[#d1dfdf] pb-12">
-            <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
-                <select id="termSelect" class="bg-[#f0f6f6] rounded-full px-8 py-3 text-sm font-bold border border-[#d1dfdf] text-[#3d6263] outline-none"><option value="">Term</option><option value="Spring">Spring</option><option value="Summer">Summer</option><option value="Autumn">Autumn</option></select>
-                <button onclick="generateTerm()" class="bg-[#f0f6f6] text-[#3d6263] px-8 py-3 rounded-full font-black text-[11px] uppercase border border-[#d1dfdf]">Populate</button>
-                <button onclick="addThursdayPractices()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">Add Practices</button>
-                <button onclick="addSingleLine()" class="bg-[#3d6263] text-white px-10 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">+ Service</button>
-                <button onclick="gatherTermAvailability()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Gather Avail</button>
-                <button onclick="prepareDistributionPackage()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg hover:bg-black transition-all">🚀 SEND ALL ROTAS</button>
-            </div>
-            <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
-                <button onclick="generatePDF('full')" class="bg-[#f0f6f6] text-[#3d6263] px-6 py-3 rounded-full font-black text-[10px] uppercase border border-[#d1dfdf]">Full PDF</button>
-                <button onclick="exportToExcel()" class="bg-[#f0f6f6] text-[#3d6263] px-6 py-3 rounded-full font-black text-[10px] uppercase border border-[#d1dfdf]">Excel</button>
-                <select id="memberPdfSelect" class="bg-[#f0f6f6] rounded-full px-6 py-3 text-[11px] font-black uppercase outline-none min-w-[180px] text-[#3d6263] border border-[#d1dfdf]"></select>
-                <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Indiv</button>
-                <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Home</button>
-                <button onclick="generatePDF('wall', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Wall</button>
+<body>
+
+    <nav id="sidebar">
+        <div id="nav-list"></div>
+        <div id="admin-controls">
+            <button class="admin-btn" onclick="openModal()">+ Add Page / Sub</button>
+            <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">Reset System</button>
+        </div>
+    </nav>
+
+    <div id="main-container">
+        <header>
+            <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
+            <div style="text-align: right">
+                <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
+                <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship & AV Hub</div>
             </div>
         </header>
-        <div id="eventList"></div>
+        <main id="app-viewport">
+            <div id="landing-content">
+                <h2 style="font-weight: 300; font-size: 32px; color: var(--accent-teal); margin-bottom: 10px;">Dashboard</h2>
+                <p style="color: #7a8c8c;">Select a tool to begin.</p>
+            </div>
+            <iframe id="app-frame" style="display:none;" src=""></iframe>
+        </main>
     </div>
+
+    <div id="admin-modal">
+        <div class="modal-content">
+            <h3 id="modalTitle" style="color: var(--accent-teal);">Page Settings</h3>
+            <input type="hidden" id="editId">
+            <label>Name</label><input type="text" id="nodeName">
+            <label>Link (URL)</label><input type="text" id="nodeUrl">
+            <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
+            <label>Parent Item</label><select id="nodeParent"><option value="none">Top Level</option></select>
+            <label>Icon</label><select id="nodeIcon">
+                <option value="home">Home</option><option value="calendar">Calendar</option><option value="music">Music</option>
+                <option value="worship">Worship</option><option value="av">AV</option><option value="youth">Youth</option>
+                <option value="trouble">Tools</option><option value="training">Book</option><option value="social">Social</option>
+                <option value="core">Shield</option><option value="leader">Mic</option><option value="heart">Heart</option>
+            </select>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button id="deleteBtn" class="admin-btn" style="background:#f44336; display:none;" onclick="deletePage()">Delete</button>
+                <button class="admin-btn" style="background:#ccc" onclick="closeModal()">Cancel</button>
+                <button class="admin-btn" onclick="savePage()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'EGBC_FINAL_PORTAL_STORAGE';
+        const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+        
+        const ICONS = {
+            home: `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
+            calendar: `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
+            music: `<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
+            worship: `<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
+            av: `<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
+            youth: `<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
+            trouble: `<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
+            training: `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
+            social: `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
+            core: `<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+            leader: `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
+            heart: `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+        };
+
+        let menuItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
+            { id: 1, name: 'Dashboard', url: 'landing', icon: 'home', parent: 'none' },
+            { id: 2, name: 'Worship Planner', url: 'https://esherchurch.github.io/availability-form/Planner.html', icon: 'calendar', parent: 'none' },
+            { id: 3, name: 'Music Hub', url: 'https://esherchurch.github.io/availability-form/music-uploader.html', icon: 'music', parent: 'none' }
+        ];
+
+        function renderMenu() {
+            const list = document.getElementById('nav-list');
+            const parentSelect = document.getElementById('nodeParent');
+            list.innerHTML = '';
+            parentSelect.innerHTML = '<option value="none">Top Level</option>';
+
+            const buildTree = (parentId, level = 0) => {
+                const children = menuItems.filter(i => i.parent == parentId);
+                children.forEach(item => {
+                    const hasSubs = menuItems.some(i => i.parent == item.id);
+                    const wrapper = document.createElement('div');
+                    wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
+                    wrapper.dataset.id = item.id;
+
+                    wrapper.innerHTML = `
+                        <div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')">
+                            <div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div>
+                            <span class="nav-text">${item.name}</span>
+                            ${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}
+                            <div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">✎</div>
+                        </div>
+                        <div class="child-container" id="child-of-${item.id}"></div>
+                    `;
+                    
+                    const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
+                    targetContainer.appendChild(wrapper);
+                    if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
+                    buildTree(item.id, level + 1);
+                });
+            };
+            buildTree('none');
+            if(document.getElementById('admin-controls').style.display === 'block') list.classList.add('admin-active');
+        }
+
+        function handleItemClick(event, id, url, logo) {
+            const wrapper = event.currentTarget.parentElement;
+            
+            // IF it has children, toggle it and close others
+            if (wrapper.classList.contains('has-children')) {
+                const isOpening = !wrapper.classList.contains('open');
+                
+                // Close all other peer menus at the same level
+                const peers = wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children');
+                peers.forEach(p => p.classList.remove('open'));
+                
+                // Open this one if it was closed
+                if (isOpening) wrapper.classList.add('open');
+            }
+
+            // Navigate if there is a URL
+            if (url && url !== '#' && url !== 'landing') {
+                navigate(url, logo);
+            } else if (url === 'landing') {
+                showLanding(logo);
+            }
+        }
+
+        function navigate(url, logoUrl) {
+            const logoImg = document.getElementById('dept-logo');
+            logoImg.style.opacity = '0';
+            setTimeout(() => {
+                logoImg.src = logoUrl || DEFAULT_LOGO;
+                logoImg.style.opacity = '1';
+            }, 200);
+
+            document.getElementById('landing-content').style.display = 'none';
+            const frame = document.getElementById('app-frame');
+            frame.style.display = 'block';
+            frame.src = url;
+        }
+
+        function showLanding(logoUrl) {
+            const logoImg = document.getElementById('dept-logo');
+            logoImg.src = logoUrl || DEFAULT_LOGO;
+            document.getElementById('app-frame').style.display = 'none';
+            document.getElementById('landing-content').style.display = 'block';
+        }
+
+        // ADMIN LOGIC
+        let clickCount = 0;
+        function handleSecret() {
+            clickCount++;
+            if (clickCount >= 3) {
+                document.getElementById('admin-controls').style.display = 'block';
+                document.getElementById('secret-trigger').style.color = '#9bc34a';
+                renderMenu();
+            }
+        }
+
+        function openModal() { document.getElementById('admin-modal').style.display = 'flex'; }
+        function closeModal() { 
+            document.getElementById('admin-modal').style.display = 'none';
+            document.getElementById('editId').value = '';
+            document.getElementById('deleteBtn').style.display = 'none';
+        }
+
+        function openEdit(id) {
+            const item = menuItems.find(i => i.id == id);
+            document.getElementById('editId').value = id;
+            document.getElementById('nodeName').value = item.name;
+            document.getElementById('nodeUrl').value = item.url;
+            document.getElementById('nodeLogo').value = item.logo || '';
+            document.getElementById('nodeParent').value = item.parent;
+            document.getElementById('nodeIcon').value = item.icon;
+            document.getElementById('deleteBtn').style.display = 'block';
+            openModal();
+        }
+
+        function savePage() {
+            const id = document.getElementById('editId').value;
+            const data = {
+                id: id ? parseInt(id) : Date.now(),
+                name: document.getElementById('nodeName').value,
+                url: document.getElementById('nodeUrl').value,
+                logo: document.getElementById('nodeLogo').value,
+                parent: document.getElementById('nodeParent').value,
+                icon: document.getElementById('nodeIcon').value
+            };
+            if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
+            else menuItems.push(data);
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(menuItems));
+            renderMenu();
+            closeModal();
+        }
+
+        function deletePage() {
+            const id = document.getElementById('editId').value;
+            menuItems = menuItems.filter(i => i.id != id && i.parent != id);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(menuItems));
+            renderMenu();
+            closeModal();
+        }
+
+        function resetMenu() {
+            if(confirm("Factory Reset?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            }
+        }
+
+        renderMenu();
+    </script>
 </body>
 </html>
