@@ -76,10 +76,6 @@
             box-shadow: none;
         }
 
-        textarea {
-            border-radius: 1.5rem;
-        }
-
         button {
             background-color: #3d6263;
             color: white;
@@ -170,17 +166,23 @@
 </div>
 
 <script>
+// --- CONFIGURATION ---
 const firebaseConfig = {
     apiKey: "YOUR_KEY",
     authDomain: "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner"
 };
 
+// Replace with your Genius Access Token from https://genius.com/api-clients
+const GENIUS_ACCESS_TOKEN = "YOUR_GENIUS_TOKEN_HERE";
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 let currentDoc = null;
 let currentFiles = [];
+
+// --- LOGIC ---
 
 function getKeyOptionsHTML(selectedKey) {
     const keys = [
@@ -301,32 +303,43 @@ async function save() {
 
     document.getElementById("display-title").innerText = newTitle;
     alert("Song and File details saved successfully.");
-    loadSongs(); // Refresh list to reflect title change
+    loadSongs();
 }
 
 async function handleLyricsSearch(e) {
     if (e.key !== "Enter") return;
 
     const text = document.getElementById("lyricsSearch").value;
-    const res = await fetch("http://localhost:3000/lyrics?q=" + encodeURIComponent(text));
-    const data = await res.json();
+    if (!text) return;
 
-    if (!data.title) {
-        alert("No match found");
-        return;
-    }
+    try {
+        // Step 1: Search Genius API for the lyrics
+        const response = await fetch(`https://api.genius.com/search?q=${encodeURIComponent(text)}&access_token=${GENIUS_ACCESS_TOKEN}`);
+        const result = await response.json();
 
-    const norm = normalizeTitle(data.title);
-    const snapshot = await db.collection("songs")
-        .orderBy("normalized")
-        .startAt(norm)
-        .endAt(norm + "\uf8ff")
-        .get();
+        if (result.response.hits.length === 0) {
+            alert("No lyrics match found on the internet.");
+            return;
+        }
 
-    if (!snapshot.empty) {
-        openSong(snapshot.docs[0].id);
-    } else {
-        alert("Found online: " + data.title + " (not in your DB)");
+        // Get the title of the first match
+        const foundTitle = result.response.hits[0].result.title;
+        const norm = normalizeTitle(foundTitle);
+
+        // Step 2: Check if this title exists in your Firebase
+        const snapshot = await db.collection("songs")
+            .where("normalized", "==", norm)
+            .get();
+
+        if (!snapshot.empty) {
+            // Found a match in your DB! Open it.
+            openSong(snapshot.docs[0].id);
+        } else {
+            alert(`Found online: "${foundTitle}", but it's not in your database yet.`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error searching lyrics. Please check your Genius API token.");
     }
 }
 
