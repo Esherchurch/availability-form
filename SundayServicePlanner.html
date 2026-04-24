@@ -97,7 +97,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
@@ -343,6 +343,7 @@ window.selectSong = async (title, id) => {
     await showKeyInfo(id, title);
 
     if (worshipLeaderName && worshipLeaderName !== "None") {
+        // MATCH PREVIOUS KEYS
         const preferred = await getPreferredKey(title, worshipLeaderName);
         if (preferred) {
             const keyInputs = block.querySelectorAll('.song-key');
@@ -355,19 +356,26 @@ window.selectSong = async (title, id) => {
         
         keyChanged(id);
 
+        // MATCH PREVIOUS PERFORMANCE NOTES
+        // Client-side filtering to avoid composite index requirements
         if (!noteArea.value.trim()) {
             try {
-                // Fixed logic: Query 'schedules' collection based on performance notes app storage
-                const historyQuery = query(
-                    collection(db, "schedules"),
-                    where("worshipLeader", "==", worshipLeaderName),
-                    where("songTitle", "==", title),
-                    orderBy("date", "desc"),
-                    limit(1)
-                );
-                const historySnap = await getDocs(historyQuery);
-                if (!historySnap.empty) {
-                    noteArea.value = historySnap.docs[0].data().notes || "";
+                const historySnap = await getDocs(collection(db, "schedules"));
+                let lastNote = "";
+                let lastDate = "";
+                
+                historySnap.forEach(d => {
+                    const data = d.data();
+                    if (data.worshipLeader === worshipLeaderName && data.songTitle === title) {
+                        if (!lastDate || data.date > lastDate) {
+                            lastDate = data.date;
+                            lastNote = data.notes;
+                        }
+                    }
+                });
+
+                if (lastNote) {
+                    noteArea.value = lastNote;
                     autoFitTextAreas();
                 }
             } catch (e) { console.error("Error fetching song history:", e); }
@@ -474,23 +482,18 @@ window.loadRota = async () => {
     });
 };
 
+// SORTING LOGIC FOR TECH ROLES AT BOTTOM
 function sortAssignments(assignmentsArray) {
-    const priorityBottom = ["Sound", "Words", "Camera", "Cameras"];
-    
+    const techRoles = ["Sound", "Words", "Camera", "Cameras"];
     return assignmentsArray.sort((a, b) => {
         const roleA = a[0];
         const roleB = b[0];
-        
-        const isTechA = priorityBottom.includes(roleA);
-        const isTechB = priorityBottom.includes(roleB);
+        const isTechA = techRoles.includes(roleA);
+        const isTechB = techRoles.includes(roleB);
 
         if (isTechA && !isTechB) return 1;
         if (!isTechA && isTechB) return -1;
-        
-        if (isTechA && isTechB) {
-            return priorityBottom.indexOf(roleA) - priorityBottom.indexOf(roleB);
-        }
-        
+        if (isTechA && isTechB) return techRoles.indexOf(roleA) - techRoles.indexOf(roleB);
         return roleA.localeCompare(roleB);
     });
 }
@@ -742,12 +745,11 @@ window.emailSchedule = async () => {
     `;
 
     let rosterNames = [];
-    let rows = Array.from(document.querySelectorAll('#teamBody tr'));
-    
-    const rowsArray = rows.map(r => [r.children[0].innerText, r.children[1].innerText, r.querySelector('.instr-note').value]);
-    const sortedEmailRows = sortAssignments(rowsArray);
+    const teamRows = Array.from(document.querySelectorAll('#teamBody tr'));
+    const rowsForEmail = teamRows.map(r => [r.children[0].innerText, r.children[1].innerText, r.querySelector('.instr-note').value]);
+    const sortedForEmail = sortAssignments(rowsForEmail);
 
-    sortedEmailRows.forEach(([role, name, note]) => {
+    sortedForEmail.forEach(([role, name, note]) => {
         if(name && name !== "None") rosterNames.push(name.trim());
 
         let roleColor = "#3d6263";
