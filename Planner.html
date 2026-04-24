@@ -363,21 +363,34 @@
         window.prepareDistributionPackage = async () => {
             const zip = new JSZip();
             const activeEvents = cachedEvents.filter(e => !e.archived);
+            const csvRows = ["Name,Email"];
+
             const fullDoc = await getPdfBlob('full', null, activeEvents);
-            if (fullDoc) zip.file("00_FULL_ROTA.pdf", fullDoc.output('blob'));
             const assignedIds = new Set();
             activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
+            
             for (const mId of assignedIds) {
                 const member = addressBook.find(m => m.id === mId);
+                if (!member) continue;
+                
+                const folderName = member.name.replace(/\s+/g, '_');
+                csvRows.push(`"${member.name}","${member.email}"`);
+
                 const indDoc = await getPdfBlob('individual', mId, activeEvents);
-                if (indDoc) zip.file(`${member.name.replace(/\s+/g, '_')}_Rota.pdf`, indDoc.output('blob'));
+                if (indDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Rota.pdf`, indDoc.output('blob'));
+                
                 const hDoc = await getPdfBlob('household', mId, activeEvents);
-                if (hDoc) zip.file(`${member.name.replace(/\s+/g, '_')}_Household_Rota.pdf`, hDoc.output('blob'));
+                if (hDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Household_Rota.pdf`, hDoc.output('blob'));
+                
                 const wDoc = await getPdfBlob('wall', mId, activeEvents);
-                if (wDoc) zip.file(`${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
+                if (wDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
+
+                if (fullDoc) zip.file(`${folderName}/00_FULL_CHURCH_ROTA.pdf`, fullDoc.output('blob'));
             }
+
+            zip.file("Distribution_List.csv", csvRows.join("\n"));
             const content = await zip.generateAsync({type:"blob"});
-            saveAs(content, "EGBC_Rota_Package.zip");
+            saveAs(content, `EGBC_Rota_Distribution_Package_${new Date().toISOString().split('T')[0]}.zip`);
         };
 
         window.gatherTermAvailability = async () => {
