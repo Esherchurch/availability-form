@@ -58,7 +58,7 @@
                         canvas.width = img.width; canvas.height = img.height;
                         const ctx = canvas.getContext("2d");
                         ctx.drawImage(img, 0, 0);
-                        logoBase64 = canvas.toDataURL("image/jpeg", 0.6);
+                        logoBase64 = canvas.toDataURL("image/jpeg", 1.0);
                         resolve(logoBase64);
                     };
                     img.onerror = () => resolve(null);
@@ -152,6 +152,13 @@
 
         window.deleteEvent = async (eventId) => {
             if(confirm("Permanently delete this service?")) await deleteDoc(doc(db, "events", eventId));
+        };
+
+        window.archiveTerm = async (termLabel) => {
+            if(confirm(`Archive all services in ${termLabel}?`)) {
+                const toArchive = cachedEvents.filter(e => e.termLabel === termLabel);
+                for (const ev of toArchive) { await updateDoc(doc(db, "events", ev.id), { archived: true }); }
+            }
         };
 
         window.onDragStart = (e, personId, personName, eventId = null, role = null) => {
@@ -261,10 +268,10 @@
 
                 Object.keys(eventsByMonth).sort((a, b) => new Date(eventsByMonth[a][0].date) - new Date(eventsByMonth[b][0].date)).forEach((month, idx) => {
                     if (idx > 0) wallDoc.addPage();
-                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 30, 50, 50);
+                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 30, 80, 50);
                     wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(22); wallDoc.setTextColor(61, 98, 99);
-                    wallDoc.text("Family Wall Planner", 100, 50);
-                    wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 100, 70);
+                    wallDoc.text("Family Wall Planner", 130, 50);
+                    wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 130, 70);
 
                     const firstDate = new Date(eventsByMonth[month][0].date);
                     const yr = firstDate.getFullYear(), mth = firstDate.getMonth();
@@ -318,7 +325,7 @@
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => type === 'individual' ? a.id === memberId : hIds.includes(a.id)));
             }
 
-            if (logo) docRef.addImage(logo, 'JPEG', 260, 10, 25, 25);
+            if (logo) docRef.addImage(logo, 'JPEG', 255, 10, 30, 20);
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
@@ -326,7 +333,7 @@
             docRef.autoTable({
                 startY: 35, head: [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]],
                 body: termEvents.map(e => [new Date(e.date).toLocaleDateString('en-GB'), e.type, ...allRoles.map(r => e.assignments?.[r]?.name || "---")]),
-                headStyles: { fillColor: [61, 98, 99], borderRadius: 2 }, styles: { fontSize: 7 }
+                headStyles: { fillColor: [61, 98, 99] }, styles: { fontSize: 7 }
             });
             return docRef;
         };
@@ -388,7 +395,7 @@
             });
             Object.keys(grouped).sort().forEach(term => {
                 const isCollapsed = collapsedTerms.has(term);
-                let termHtml = `<div class="mb-12"><div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg"><button onclick="toggleTermCollapse('${term}')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">${term}</button></div><div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">`;
+                let termHtml = `<div class="mb-12"><div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg"><button onclick="toggleTermCollapse('${term}')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">${term}</button><button onclick="archiveTerm('${term}')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button></div><div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">`;
                 const termEventsSorted = grouped[term].sort((a,b) => new Date(a.date) - new Date(b.date));
                 const byMonth = {};
                 termEventsSorted.forEach(ev => {
@@ -435,11 +442,11 @@
                     <button onclick="toggleEventExpand('${ev.id}')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">
                         ${expandedEvents.has(ev.id) || isSunday ? `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M19.5 12h-15" /></svg>` : `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>`}
                     </button>
-                    <input type="date" value="${ev.date}" onchange="updateField('${ev.id}', 'date', this.value)" class="${dateBg} ${!isSunday ? 'text-[#3d6263]' : 'text-white'} px-4 py-2 rounded-full font-bold text-[11px] shadow-sm cursor-pointer">
+                    <input type="date" value="${ev.date}" onchange="updateField('${ev.id}', 'date', this.value)" class="${dateBg} ${!isSunday ? 'text-[#3d6263]' : 'text-white'} px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">
                     <select onchange="updateField('${ev.id}', 'type', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">
                         ${EVENT_TYPES.map(t => `<option value="${t}" ${ev.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
-                    <textarea rows="1" onblur="updateField('${ev.id}', 'description', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-medium border border-[#d1dfdf] outline-none resize-none overflow-hidden placeholder-[#d1dfdf] text-[#3d6263] shadow-inner">${ev.description || ''}</textarea>
+                    <textarea rows="1" onblur="updateField('${ev.id}', 'description', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-medium border border-[#d1dfdf] outline-none text-[#3d6263] shadow-inner">${ev.description || ''}</textarea>
                     <div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">
                         ${["Core Team", "Worship Team", "AV Team"].map(t => `<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam('${ev.id}', '${t}')" ${ev.teams?.includes(t) ? 'checked' : ''} class="w-3.5 h-3.5 accent-[#3d6263]"><span>${t.split(' ')[0]}</span></label>`).join('')}
                     </div>
@@ -504,4 +511,4 @@
         <div id="eventList"></div>
     </div>
 </body>
-</html>
+</html>```
