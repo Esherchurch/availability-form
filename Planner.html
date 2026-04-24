@@ -268,15 +268,13 @@
 
                 Object.keys(eventsByMonth).sort((a, b) => new Date(eventsByMonth[a][0].date) - new Date(eventsByMonth[b][0].date)).forEach((month, idx) => {
                     if (idx > 0) wallDoc.addPage();
-                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 30, 80, 50);
+                    if (logo) wallDoc.addImage(logo, "JPEG", 40, 30, 30, 25);
                     wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(22); wallDoc.setTextColor(61, 98, 99);
-                    wallDoc.text("Family Wall Planner", 130, 50);
-                    wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 130, 70);
+                    wallDoc.text("Family Wall Planner", 80, 50);
+                    wallDoc.setFontSize(14); wallDoc.setTextColor(100, 100, 100); wallDoc.text(month, 80, 70);
 
-                    const firstDate = new Date(eventsByMonth[month][0].date);
-                    const yr = firstDate.getFullYear(), mth = firstDate.getMonth();
-                    const startDay = new Date(yr, mth, 1).getDay();
-                    const daysInM = new Date(yr, mth + 1, 0).getDate();
+                    const yr = new Date(eventsByMonth[month][0].date).getFullYear(), mth = new Date(eventsByMonth[month][0].date).getMonth();
+                    const startDay = new Date(yr, mth, 1).getDay(), daysInM = new Date(yr, mth + 1, 0).getDate();
                     const offset = startDay === 0 ? 6 : startDay - 1;
                     const rows = []; let week = Array(7).fill(null);
                     for (let i = 0; i < offset; i++) week[i] = { empty: true };
@@ -325,7 +323,7 @@
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => type === 'individual' ? a.id === memberId : hIds.includes(a.id)));
             }
 
-            if (logo) docRef.addImage(logo, 'JPEG', 255, 10, 30, 20);
+            if (logo) docRef.addImage(logo, 'JPEG', 260, 10, 30, 25);
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
@@ -455,7 +453,7 @@
                         <button onclick="toggleBucket('${ev.id}')" class="w-11 h-11 rounded-full bg-white text-[#3d6263] flex items-center justify-center border border-[#d1dfdf] shadow-sm hover:scale-110 transition-all"><svg ${iconStyles} viewBox="0 0 24 24"><path d="M20.25 14.15v4.25c0 .414-.336.75-.75.75H4.5a.75.75 0 0 1-.75-.75v-4.25m16.5 0a3 3 0 0 0-3-3H7.012a3 3 0 0 0-3 3m16.5 0-2.25-6.108a4.835 4.835 0 0 0-3.6-3.392 48.359 48.359 0 0 0-5.325 0 4.835 4.835 0 0 0-3.6 3.392L3.75 14.15m6.5 2.15a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm6 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg></button>
                         ${openBuckets.has(ev.id) ? `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="absolute right-0 top-14 z-[1000] bg-white p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-2xl min-w-[340px]">
                             <div class="max-h-[400px] overflow-y-auto space-y-6">
-                                <div><div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div><div class="flex flex-wrap gap-2">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3.5 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
+                                <div><div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div><div class="flex flex-wrap gap-2">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
                                 <div><div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div><div class="flex flex-wrap gap-2">${declined.map(m => `<div class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200">${m.name}</div>`).join('')}</div></div>
                                 <div><div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div><div class="flex flex-wrap gap-2">${pending.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
                             </div>
@@ -511,4 +509,4 @@
         <div id="eventList"></div>
     </div>
 </body>
-</html>```
+</html>
