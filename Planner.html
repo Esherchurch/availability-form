@@ -373,6 +373,9 @@
                 if (!member) continue;
                 
                 const folderName = member.name.replace(/\s+/g, '_');
+                const headId = member.householdId || member.id;
+                const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+                
                 csvRows.push(`"${member.name}","${member.email}"`);
 
                 const indDoc = await getPdfBlob('individual', mId, activeEvents);
@@ -395,7 +398,19 @@
                         ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
                     });
                     ics += "END:VCALENDAR";
-                    zip.file(`${folderName}/Calendar_Import.ics`, ics);
+                    zip.file(`${folderName}/Individual_Import.ics`, ics);
+                }
+
+                const familyEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+                if (familyEvents.length > 0) {
+                    let hIcs = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
+                    familyEvents.forEach(e => {
+                        const familyRoles = Object.entries(e.assignments).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(", ");
+                        const date = e.date.replace(/-/g, "");
+                        hIcs += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Family Serving: ${familyRoles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
+                    });
+                    hIcs += "END:VCALENDAR";
+                    zip.file(`${folderName}/Household_Import.ics`, hIcs);
                 }
             }
 
