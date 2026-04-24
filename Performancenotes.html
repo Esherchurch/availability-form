@@ -196,6 +196,30 @@ textarea {
     border-radius: 5px;
     font-size: 10px;
 }
+
+/* TRANSLATION DROPDOWN */
+.translate-box {
+    position: relative;
+    display: inline-block;
+}
+.translate-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: #1e293b;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.translate-content div {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 14px;
+}
+.translate-content div:hover { background-color: #2c6999; }
+.translate-box:hover .translate-content { display: block; }
 </style>
 
 <script type="module">
@@ -260,6 +284,24 @@ window.autoGrow = (el)=>{
  el.style.height = el.scrollHeight + "px";
 };
 
+/* TRANSLATION LOGIC */
+window.translateNotes = async (targetLang) => {
+    const textarea = document.getElementById('notes');
+    const text = textarea.value;
+    if (!text) return;
+    
+    try {
+        const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`);
+        const data = await res.json();
+        let translatedText = "";
+        data[0].forEach(item => { if (item[0]) translatedText += item[0]; });
+        textarea.value = translatedText;
+        autoGrow(textarea);
+    } catch (e) {
+        console.error("Translation error", e);
+    }
+};
+
 /* LOAD EVENTS */
 window.loadRota = async () => {
  const date = dateInput().value;
@@ -316,8 +358,8 @@ function buildMenu(){
   const div=document.createElement("div");
   div.innerText=s.title;
   div.onclick=()=>{
-     showSong(i);
-     toggleMenu();
+      showSong(i);
+      toggleMenu();
   };
   menu.appendChild(div);
  });
@@ -423,6 +465,13 @@ async function showSong(i){
    <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
    <div style="display:flex; gap:8px; align-items:center;">
     ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="forceExternalYT('${youtubeUrl}')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
+    <div class="translate-box hide-perf">
+        <button class="nav-btn" style="background:#475569; padding: 10px 15px; font-size:14px;">A/あ</button>
+        <div class="translate-content">
+            <div onclick="translateNotes('es')">English → Spanish</div>
+            <div onclick="translateNotes('en')">Spanish → English</div>
+        </div>
+    </div>
     <button class="nav-btn" onclick="prev()">⬅</button>
     <button class="nav-btn" onclick="next()">➡</button>
    </div>
@@ -558,7 +607,10 @@ window.save = async(song)=>{
 <div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
 <h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Notes</h1>
 
-<input type="date" id="dateInput" onchange="loadRota()" class="w-full p-3 rounded-xl">
+<div class="relative">
+    <div id="dateLabel" style="position:absolute; left:12px; top:12px; color:#64748b; pointer-events:none;">Date</div>
+    <input type="date" id="dateInput" onfocus="document.getElementById('dateLabel').style.display='none'" onblur="if(!this.value)document.getElementById('dateLabel').style.display='block'" onchange="loadRota()" class="w-full p-3 rounded-xl">
+</div>
 
 <select id="serviceSelect" onchange="selectService()" class="w-full p-3 rounded-xl">
 <option>Select Service</option>
