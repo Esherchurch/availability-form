@@ -303,8 +303,18 @@
                                 const segs = data.cell.raw.split('|'); let yPos = data.cell.y + 12;
                                 segs.forEach(seg => {
                                     if (seg.startsWith("DAY:")) { wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(10); wallDoc.setTextColor(180, 180, 180); wallDoc.text(seg.replace("DAY:", ""), data.cell.x + 5, yPos); yPos += 12; }
-                                    else if (seg.startsWith("S:")) { wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99); wallDoc.text(wallDoc.splitTextToSize(seg.replace("S:", ""), 100), data.cell.x + 5, yPos); yPos += 18; }
-                                    else if (seg.startsWith("R:")) { wallDoc.setFont("helvetica", "normal"); wallDoc.setFontSize(7); wallDoc.setTextColor(0, 0, 0); wallDoc.text(wallDoc.splitTextToSize(seg.replace("R:", ""), 100), data.cell.x + 5, yPos); }
+                                    else if (seg.startsWith("S:")) { 
+                                        const matches = Object.entries(termEvents.find(e => e.date === `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`)?.assignments || {}).filter(([r, p]) => hIds.includes(p.id));
+                                        if (matches.length > 0) {
+                                            wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99); 
+                                            wallDoc.text(wallDoc.splitTextToSize(seg.replace("S:", ""), 100), data.cell.x + 5, yPos); 
+                                            yPos += 18; 
+                                        }
+                                    }
+                                    else if (seg.startsWith("R:")) { 
+                                        wallDoc.setFont("helvetica", "normal"); wallDoc.setFontSize(7); wallDoc.setTextColor(0, 0, 0); 
+                                        wallDoc.text(wallDoc.splitTextToSize(seg.replace("R:", ""), 100), data.cell.x + 5, yPos); 
+                                    }
                                 });
                             }
                         }
