@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Song Library</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        body { 
+            font-family: 'Montserrat', sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            margin: 0; 
+            color: #333; 
+            background-color: #f0f6f6;
+        }
+
+        #left {
+            width: 300px;
+            border-right: 1px solid #d1dfdf;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            margin: 15px;
+            border-radius: 2.5rem;
+            border: 1px solid #d1dfdf;
+        }
+
+        #right {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            margin: 15px 15px 15px 0;
+            border-radius: 2.5rem;
+            border: 1px solid #d1dfdf;
+        }
+
+        .song {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #d1dfdf;
+            transition: background 0.2s;
+            font-weight: 400;
+        }
+
+        .song:last-child {
+            border-bottom: none;
+        }
+
+        .song:hover {
+            background: #f0f6f6;
+        }
+
+        h2 { color: #3d6263; margin-top: 0; font-weight: 800; }
+        h3 { color: #3d6263; border-bottom: 1px solid #d1dfdf; padding-bottom: 10px; font-weight: 700; }
+
+        label { 
+            display: block; 
+            font-weight: 700; 
+            margin-bottom: 8px; 
+            color: #3d6263; 
+            padding-left: 5px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            border: 1px solid #d1dfdf;
+            border-radius: 9999px;
+            box-sizing: border-box;
+            font-family: 'Montserrat', sans-serif;
+            outline: none;
+            box-shadow: none;
+        }
+
+        textarea {
+            border-radius: 1.5rem;
+        }
+
+        button {
+            background-color: #3d6263;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .file-item {
+            background: #f0f6f6;
+            border: 1px solid #d1dfdf;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .file-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .file-row label {
+            margin-bottom: 0;
+            white-space: nowrap;
+            width: 100px;
+        }
+
+        .view-link {
+            display: inline-block;
+            margin-top: 5px;
+            color: #3d6263;
+            text-decoration: underline;
+            font-weight: 800;
+            padding-left: 5px;
+        }
+
+        #files-container {
+            margin-top: 20px;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f0f6f6; }
+        ::-webkit-scrollbar-thumb { background: #d1dfdf; border-radius: 10px; }
+    </style>
+</head>
+
+<body>
+
+<div id="left">
+    <label>Search Titles</label>
+    <input id="search" placeholder="Search songs..." oninput="searchSongs()">
+    <label>Search Lyrics</label>
+    <input id="lyricsSearch" placeholder="Find by lyrics..." onkeydown="handleLyricsSearch(event)">
+    <div id="list"></div>
+</div>
+
+<div id="right">
+    <h2 id="display-title">Select a Song</h2>
+
+    <div id="editor" style="display:none;">
+        <label>Song Title</label>
+        <input id="edit-title">
+
+        <label>YouTube Link</label>
+        <input id="youtube">
+
+        <label>CCLI Number</label>
+        <input id="ccli">
+
+        <h3>Associated Files</h3>
+        <div id="files-container"></div>
+
+        <button onclick="save()">Save Changes</button>
+    </div>
+</div>
+
+<script>
+const firebaseConfig = {
+    apiKey: "YOUR_KEY",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let currentDoc = null;
+let currentFiles = [];
+
+function getKeyOptionsHTML(selectedKey) {
+    const keys = [
+        { group: "Major Keys", list: ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"] },
+        { group: "Minor Keys", list: ["Cm", "C#m", "Dbm", "Dm", "D#m", "Ebm", "Em", "Fm", "F#m", "Gbm", "Gm", "G#m", "Abm", "Am", "A#m", "Bbm", "Bm"] }
+    ];
+
+    let options = '<option value="">Select Key</option>';
+    keys.forEach(category => {
+        options += `<optgroup label="${category.group}">`;
+        category.list.forEach(k => {
+            const isSelected = (k === selectedKey) ? 'selected' : '';
+            options += `<option value="${k}" ${isSelected}>${k}</option>`;
+        });
+        options += `</optgroup>`;
+    });
+    return options;
+}
+
+function normalizeTitle(title) {
+    return title.toLowerCase().trim();
+}
+
+async function loadSongs() {
+    const snapshot = await db.collection("songs").orderBy("normalized").get();
+    renderList(snapshot.docs);
+}
+
+function renderList(docs) {
+    const list = document.getElementById("list");
+    list.innerHTML = docs.map(doc => `
+        <div class="song" onclick="openSong('${doc.id.replace(/'/g, "\\'")}')">
+            ${doc.data().title}
+        </div>
+    `).join("");
+}
+
+async function searchSongs() {
+    const input = document.getElementById("search").value;
+    if (!input) {
+        loadSongs();
+        return;
+    }
+
+    const norm = normalizeTitle(input);
+
+    const snapshot = await db.collection("songs")
+        .orderBy("normalized")
+        .startAt(norm)
+        .endAt(norm + "\uf8ff")
+        .get();
+
+    renderList(snapshot.docs);
+}
+
+async function openSong(id) {
+    const doc = await db.collection("songs").doc(id).get();
+    const data = doc.data();
+
+    currentDoc = id;
+    currentFiles = data.files || [];
+
+    document.getElementById("editor").style.display = "block";
+    document.getElementById("display-title").innerText = data.title;
+    document.getElementById("edit-title").value = data.title;
+    document.getElementById("youtube").value = data.youtube || "";
+    document.getElementById("ccli").value = data.ccli || "";
+
+    renderFiles();
+}
+
+function renderFiles() {
+    const container = document.getElementById("files-container");
+    container.innerHTML = currentFiles.map((file, index) => `
+        <div class="file-item">
+            <div class="file-row">
+                <label>File Name</label>
+                <input type="text" value="${file.name}" onchange="updateFileMetadata(${index}, 'name', this.value)">
+            </div>
+            <div class="file-row">
+                <label>Key</label>
+                <select onchange="updateFileMetadata(${index}, 'key', this.value)">
+                    ${getKeyOptionsHTML(file.key)}
+                </select>
+            </div>
+            <div class="file-row">
+                <label>Type</label>
+                <select onchange="updateFileMetadata(${index}, 'type', this.value)">
+                    <option value="Chord Sheet" ${file.type === 'Chord Sheet' ? 'selected' : ''}>Chord Sheet</option>
+                    <option value="Lead Sheet" ${file.type === 'Lead Sheet' ? 'selected' : ''}>Lead Sheet</option>
+                    <option value="Sheet Music" ${file.type === 'Sheet Music' ? 'selected' : ''}>Sheet Music</option>
+                    <option value="Lyrics" ${file.type === 'Lyrics' ? 'selected' : ''}>Lyrics</option>
+                    <option value="Other" ${file.type === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+            </div>
+            <a href="${file.url}" target="_blank" class="view-link">View Physical File</a>
+        </div>
+    `).join("");
+}
+
+function updateFileMetadata(index, field, value) {
+    currentFiles[index][field] = value;
+}
+
+async function save() {
+    if (!currentDoc) return;
+
+    const newTitle = document.getElementById("edit-title").value;
+    const normalizedTitle = normalizeTitle(newTitle);
+
+    await db.collection("songs").doc(currentDoc).update({
+        title: newTitle,
+        normalized: normalizedTitle,
+        youtube: document.getElementById("youtube").value,
+        ccli: document.getElementById("ccli").value,
+        files: currentFiles
+    });
+
+    document.getElementById("display-title").innerText = newTitle;
+    alert("Song and File details saved successfully.");
+    loadSongs(); // Refresh list to reflect title change
+}
+
+async function handleLyricsSearch(e) {
+    if (e.key !== "Enter") return;
+
+    const text = document.getElementById("lyricsSearch").value;
+    const res = await fetch("http://localhost:3000/lyrics?q=" + encodeURIComponent(text));
+    const data = await res.json();
+
+    if (!data.title) {
+        alert("No match found");
+        return;
+    }
+
+    const norm = normalizeTitle(data.title);
+    const snapshot = await db.collection("songs")
+        .orderBy("normalized")
+        .startAt(norm)
+        .endAt(norm + "\uf8ff")
+        .get();
+
+    if (!snapshot.empty) {
+        openSong(snapshot.docs[0].id);
+    } else {
+        alert("Found online: " + data.title + " (not in your DB)");
+    }
+}
+
+loadSongs();
+</script>
+
+</body>
+</html>
