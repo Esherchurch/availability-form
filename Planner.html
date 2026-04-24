@@ -364,7 +364,6 @@
             const zip = new JSZip();
             const activeEvents = cachedEvents.filter(e => !e.archived);
             const csvRows = ["Name,Email"];
-
             const fullDoc = await getPdfBlob('full', null, activeEvents);
             const assignedIds = new Set();
             activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
@@ -386,6 +385,18 @@
                 if (wDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
 
                 if (fullDoc) zip.file(`${folderName}/00_FULL_CHURCH_ROTA.pdf`, fullDoc.output('blob'));
+
+                const personalEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
+                if (personalEvents.length > 0) {
+                    let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
+                    personalEvents.forEach(e => {
+                        const roles = Object.entries(e.assignments).filter(([r,p]) => p.id === mId).map(([r,p]) => r).join(", ");
+                        const date = e.date.replace(/-/g, "");
+                        ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
+                    });
+                    ics += "END:VCALENDAR";
+                    zip.file(`${folderName}/Calendar_Import.ics`, ics);
+                }
             }
 
             zip.file("Distribution_List.csv", csvRows.join("\n"));
