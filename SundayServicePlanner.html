@@ -97,7 +97,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
@@ -343,7 +343,6 @@ window.selectSong = async (title, id) => {
     await showKeyInfo(id, title);
 
     if (worshipLeaderName && worshipLeaderName !== "None") {
-        // MATCH PREVIOUS KEYS
         const preferred = await getPreferredKey(title, worshipLeaderName);
         if (preferred) {
             const keyInputs = block.querySelectorAll('.song-key');
@@ -356,8 +355,6 @@ window.selectSong = async (title, id) => {
         
         keyChanged(id);
 
-        // MATCH PREVIOUS PERFORMANCE NOTES
-        // Client-side filtering to avoid composite index requirements
         if (!noteArea.value.trim()) {
             try {
                 const historySnap = await getDocs(collection(db, "schedules"));
@@ -482,7 +479,6 @@ window.loadRota = async () => {
     });
 };
 
-// SORTING LOGIC FOR TECH ROLES AT BOTTOM
 function sortAssignments(assignmentsArray) {
     const techRoles = ["Sound", "Words", "Camera", "Cameras"];
     return assignmentsArray.sort((a, b) => {
@@ -502,7 +498,6 @@ window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
-    document.getElementById('serviceType').value = data.type || "";
     document.getElementById('serviceTypeNotes').value = data.description || "";
     worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
     document.getElementById('leaderName').innerText = worshipLeaderName;
@@ -610,7 +605,6 @@ window.saveSchedule = async () => {
     const serviceData = {
         date,
         worshipLeader: worshipLeaderName,
-        serviceType: document.getElementById('serviceType').value,
         serviceNotes,
         introText,
         outroText,
@@ -635,30 +629,13 @@ window.emailSchedule = async () => {
     
     let htmlEmail = `
         <div style="font-family: 'Montserrat', Arial, sans-serif; color: #3d6263; max-width: 650px; padding: 30px; background-color: #ffffff; margin: auto;">
-            
-            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
-                <tr>
-                    <td align="center" style="text-align: center;">
-                        <center>
-                            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="190" style="display: inline-block; height: 190px !important; width: auto;">
-                        </center>
-                    </td>
-                </tr>
-            </table>
-            
             <h1 style="color: #3d6263; margin: 0; font-size: 24px; font-weight: 800; text-align: center; mso-line-height-rule: exactly; line-height: 28px;"><font color="#3d6263">Sunday Worship Plan</font></h1>
             <p style="text-transform: uppercase; font-weight: 700; color: #3d6263; opacity: 0.6; letter-spacing: 1.5px; font-size: 11px; margin: 5px 0 25px 0; text-align: center;"><font color="#3d6263">${date} &bull; Worship Leader: ${worshipLeaderName}</font></p>
-            
             ${serviceNotes ? `<div style="background-color: #f0f6f6; border-left: 4px solid #3d6263; padding: 15px; margin: 0 0 0 0; font-size: 13px; color: #3d6263; line-height: 1.5;"><font color="#3d6263"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</font></div>` : ''}
-
             <p style="margin:0; font-size:10pt;">&nbsp;</p>
-
             ${introText ? `<div style="font-size: 14px; color: #3d6263; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#3d6263">${introText.replace(/\n/g, '<br>')}</font></div>` : ''}
-
             <p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>
-
             <h2 style="text-align: left; border-bottom: 3px solid #3d6263; padding-bottom: 10px; color: #3d6263; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin: 0 0 20px 0;"><font color="#3d6263">Order of Service</font></h2>
-
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
                 <thead style="background-color: #f0f6f6;">
                     <tr>
@@ -678,21 +655,17 @@ window.emailSchedule = async () => {
             const keys = Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
             const notes = b.querySelector('.song-note').value;
             if (!title) continue;
-
             const docId = title.toLowerCase().replace(/\s+/g, "-");
             const snap = await getDoc(doc(db, "songs", docId));
-            
             let resourcesHtml = "";
             let linksHtml = "";
             if (snap.exists()) {
                 const data = snap.data();
                 if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">YouTube</font></a>`;
                 const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-                if (linksHtml) linksHtml += `<span style="color: #d1dfdf; font-size: 11px;">&nbsp;|&nbsp;</span>`;
+                if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
                 linksHtml += `<a href="${sSelect}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">SongSelect</font></a>`;
-                
                 resourcesHtml += `<div style="margin-bottom: 8px;">${linksHtml}</div>`;
-                
                 if (keys.length > 0) {
                     keys.forEach(k => {
                         const files = (data.files || []).filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
@@ -705,7 +678,6 @@ window.emailSchedule = async () => {
                     });
                 }
             }
-
             htmlEmail += `
                 <tr>
                     <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">
@@ -713,9 +685,7 @@ window.emailSchedule = async () => {
                         ${notes ? `<p style="font-style: italic; font-size: 11px; color: #64748b; margin: 4px 0 0 0; mso-line-height-rule: exactly; line-height: 13px;"><font color="#64748b">${notes}</font></p>` : ''}
                     </td>
                     <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #3d6263; font-size: 14px;"><font color="#3d6263">${keys.join(', ') || '-'}</font></td>
-                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">
-                        ${resourcesHtml}
-                    </td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">${resourcesHtml}</td>
                 </tr>
             `;
             songIdx++;
@@ -724,7 +694,7 @@ window.emailSchedule = async () => {
             if (item) {
                 htmlEmail += `
                     <tr>
-                        <td colspan="3" style="padding: 12px 10px; background-color: #f0f6f6; border-left: 4px solid #3d6263; font-weight: 800; font-size: 12px; color: #3d6263; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <td colspan="3" style="padding: 12px 10px; background-color: #f8fafc; border-left: 4px solid #3d6263; font-weight: 800; font-size: 12px; color: #3d6263; text-transform: uppercase; letter-spacing: 0.5px;">
                             <font color="#3d6263">${item}</font>
                         </td>
                     </tr>
@@ -732,17 +702,8 @@ window.emailSchedule = async () => {
             }
         }
     }
-    
-    htmlEmail += `</tbody></table>`;
-
-    htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
-
-    htmlEmail += `
-        <p style="font-size: 10.0pt; font-weight: 700; color: #3d6263; margin: 0; mso-line-height-rule: exactly; line-height: 12.0pt;"><font color="#3d6263">Our team for this Sunday is:</font></p>
-        <p style="margin:0; font-size:10pt;">&nbsp;</p>
-        <table style="width: 100%; border-collapse: collapse; margin: 0;">
-            <tbody>
-    `;
+    htmlEmail += `</tbody></table><p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
+    htmlEmail += `<p style="font-size: 10.0pt; font-weight: 700; color: #3d6263; margin: 0; mso-line-height-rule: exactly; line-height: 12.0pt;"><font color="#3d6263">Our team for this Sunday is:</font></p><p style="margin:0; font-size:10pt;">&nbsp;</p><table style="width: 100%; border-collapse: collapse; margin: 0;"><tbody>`;
 
     let rosterNames = [];
     const teamRows = Array.from(document.querySelectorAll('#teamBody tr'));
@@ -751,45 +712,23 @@ window.emailSchedule = async () => {
 
     sortedForEmail.forEach(([role, name, note]) => {
         if(name && name !== "None") rosterNames.push(name.trim());
-
         let roleColor = "#3d6263";
         if (["Sound", "Words", "Camera", "Cameras"].includes(role)) roleColor = "#3B7D23";
-
-        htmlEmail += `
-            <tr>
-                <td width="35%" style="width:35%; padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-weight: normal; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">
-                    <font color="${roleColor}">${role}</font>
-                </td>
-                <td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;">
-                    <font color="#000000">${name}</font>
-                    ${note ? `<br><font size="2" color="#666666"><i>Note: ${note}</i></font>` : ''}
-                </td>
-            </tr>`;
+        htmlEmail += `<tr><td width="35%" style="width:35%; padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-weight: normal; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;"><font color="${roleColor}">${role}</font></td><td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; vertical-align: top; mso-line-height-rule: exactly; line-height: 12.0pt;"><font color="#000000">${name}</font>${note ? `<br><font size="2" color="#666666"><i>Note: ${note}</i></font>` : ''}</td></tr>`;
     });
-    htmlEmail += `</tbody></table>`;
-
-    htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
-
-    if (outroText) {
-        htmlEmail += `
-            <div style="font-size: 14px; color: #444444; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#444444">${outroText.replace(/\n/g, '<br>')}</font></div>
-        `;
-    }
-
+    htmlEmail += `</tbody></table><p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
+    if (outroText) htmlEmail += `<div style="font-size: 14px; color: #444444; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#444444">${outroText.replace(/\n/g, '<br>')}</font></div>`;
     htmlEmail += `</div>`;
 
     const type = "text/html";
     const blob = new Blob([htmlEmail], { type });
     const dataTransfer = [new ClipboardItem({ [type]: blob })];
-
     try {
         await navigator.clipboard.write(dataTransfer);
         let recipients = [];
         addressBook.forEach(p => {
             const isCore = p.markers && p.markers.includes("Core Team");
-            if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) {
-                recipients.push(p.email);
-            }
+            if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) recipients.push(p.email);
         });
         const to = [...new Set(recipients)].join(",");
         alert("Plan copied to clipboard!");
@@ -805,20 +744,18 @@ window.emailSchedule = async () => {
 
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[2rem] shadow-sm border border-[#d1dfdf]">
         <div class="flex items-center gap-6">
-            <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" alt="Logo" class="h-16 w-auto">
             <div>
                 <h1 class="text-3xl font-extrabold text-[#3d6263] tracking-tight">Worship Planner</h1>
                 <p class="text-sm font-bold text-[#3d6263] opacity-50 uppercase tracking-widest mt-1">Leader: <span id="leaderName" class="text-[#3d6263]">None</span></p>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 w-full md:w-auto">
-            <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input text-sm">
-            <select id="eventSelect" onchange="selectEvent()" class="styled-input text-sm">
+        <div class="flex gap-3 w-full md:w-auto overflow-x-auto">
+            <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input text-sm flex-1 md:min-w-[150px]">
+            <select id="eventSelect" onchange="selectEvent()" class="styled-input text-sm flex-1 md:min-w-[180px]">
                 <option value="">Select Service...</option>
             </select>
-            <input id="serviceType" class="styled-input text-sm" placeholder="Service Type">
-            <input id="serviceTypeNotes" class="styled-input text-sm" placeholder="General Notes">
+            <input id="serviceTypeNotes" class="styled-input text-sm flex-1 md:min-w-[200px]" placeholder="General Notes">
         </div>
     </div>
 
