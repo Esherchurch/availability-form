@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Worship & AV Hub</title>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         :root {
             --pale-teal: #f0f6f6;
@@ -18,7 +17,15 @@
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
 
         /* SIDEBAR */
-        #sidebar { width: 70px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
+        #sidebar { 
+            width: 70px; 
+            background: var(--white); 
+            border-right: 1px solid var(--border-teal); 
+            display: flex; 
+            flex-direction: column; 
+            transition: width 0.3s ease; 
+            z-index: 1000; 
+        }
         #sidebar:hover { width: 280px; }
         #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
 
@@ -32,23 +39,31 @@
         .nav-text { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
         #sidebar:hover .nav-text { opacity: 1; }
 
-        /* CHEVRON INDICATOR */
         .chevron { width: 40px; display: flex; justify-content: center; opacity: 0; transition: transform 0.3s, opacity 0.2s; }
         #sidebar:hover .chevron { opacity: 0.5; }
         .has-children.open > .nav-row .chevron { transform: rotate(180deg); }
 
-        /* COLLAPSIBLE CONTAINER */
-        .child-container { height: 0; overflow: hidden; transition: height 0.3s ease-out; background: rgba(0,0,0,0.02); }
-        .has-children.open > .child-container { height: auto; }
+        /* ACCORDION ANIMATION */
+        .child-container { 
+            max-height: 0; 
+            overflow: hidden; 
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+            background: rgba(0,0,0,0.02); 
+        }
+        .has-children.open > .child-container { max-height: 500px; }
 
-        /* NESTING STYLES */
+        /* When Sidebar is NOT hovered, force close all containers */
+        #sidebar:not(:hover) .open { border-left-color: transparent; }
+        #sidebar:not(:hover) .child-container { max-height: 0 !important; }
+        #sidebar:not(:hover) .chevron { transform: rotate(0) !important; }
+
         .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
         .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
 
         .edit-trigger { display: none; padding: 0 10px; color: var(--border-teal); cursor: pointer; }
         #sidebar:hover .admin-active .edit-trigger { display: block; }
 
-        /* ADMIN MODAL & UI - Consistent with previous */
+        /* ADMIN UI */
         #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
         .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
         #admin-modal { display: none; position: fixed; inset: 0; background: rgba(61, 98, 99, 0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
@@ -56,8 +71,6 @@
         .modal-content label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
         .modal-content input, .modal-content select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
 
-        /* HEADER & VIEWPORT */
-        #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; }
         header { height: 110px; background: var(--white); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-teal); }
         #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
         #app-viewport { flex-grow: 1; padding: 25px; display: flex; position: relative; }
@@ -67,7 +80,7 @@
 </head>
 <body>
 
-    <nav id="sidebar">
+    <nav id="sidebar" onmouseleave="closeAllMenus()">
         <div id="nav-list"></div>
         <div id="admin-controls">
             <button class="admin-btn" onclick="openModal()">+ Add Page / Sub</button>
@@ -149,7 +162,6 @@
                 const children = menuItems.filter(i => i.parent == parentId);
                 children.forEach(item => {
                     const hasSubs = menuItems.some(i => i.parent == item.id);
-                    
                     const wrapper = document.createElement('div');
                     wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
                     wrapper.dataset.id = item.id;
@@ -166,26 +178,32 @@
                     
                     const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
                     targetContainer.appendChild(wrapper);
-
                     if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
                     buildTree(item.id, level + 1);
                 });
             };
-
             buildTree('none');
-            
-            if(document.getElementById('admin-controls').style.display === 'block') {
-                list.classList.add('admin-active');
-            }
+        }
+
+        function closeAllMenus() {
+            const openMenus = document.querySelectorAll('.has-children.open');
+            openMenus.forEach(m => m.classList.remove('open'));
         }
 
         function handleItemClick(event, id, url, logo) {
             const wrapper = event.currentTarget.parentElement;
+            
             if (wrapper.classList.contains('has-children')) {
-                wrapper.classList.toggle('open');
+                const isOpening = !wrapper.classList.contains('open');
+                const peers = wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children');
+                peers.forEach(p => p.classList.remove('open'));
+                if (isOpening) wrapper.classList.add('open');
             }
-            if (url && url !== '#') {
+
+            if (url && url !== '#' && url !== 'landing') {
                 navigate(url, logo);
+            } else if (url === 'landing') {
+                showLanding(logo);
             }
         }
 
@@ -197,14 +215,17 @@
                 logoImg.style.opacity = '1';
             }, 200);
 
-            if (url === 'landing') {
-                document.getElementById('app-frame').style.display = 'none';
-                document.getElementById('landing-content').style.display = 'block';
-            } else {
-                document.getElementById('landing-content').style.display = 'none';
-                document.getElementById('app-frame').style.display = 'block';
-                document.getElementById('app-frame').src = url;
-            }
+            document.getElementById('landing-content').style.display = 'none';
+            const frame = document.getElementById('app-frame');
+            frame.style.display = 'block';
+            frame.src = url;
+        }
+
+        function showLanding(logoUrl) {
+            const logoImg = document.getElementById('dept-logo');
+            logoImg.src = logoUrl || DEFAULT_LOGO;
+            document.getElementById('app-frame').style.display = 'none';
+            document.getElementById('landing-content').style.display = 'block';
         }
 
         // ADMIN LOGIC
