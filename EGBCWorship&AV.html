@@ -168,7 +168,6 @@
         const urlParams = new URLSearchParams(window.location.search);
         const userRole = urlParams.get('role') || 'worship';
 
-        // THIS IS YOUR "BRAIN" SYNCED WITH YOUR HARD WORK
         let menuItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [{"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},{"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},{"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},{"id":1777068093291,"name":"Music Databases ","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},{"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},{"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},{"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},{"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},{"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},{"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},{"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},{"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},{"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}];
 
         function renderMenu() {
@@ -176,12 +175,6 @@
             const parentSelect = document.getElementById('nodeParent');
             list.innerHTML = '';
             parentSelect.innerHTML = '<option value="none">Top Level</option>';
-
-            if (userRole === 'core') {
-                document.getElementById('admin-controls').style.display = 'block';
-                document.getElementById('secret-trigger').style.color = '#9bc34a';
-                list.classList.add('admin-active');
-            }
 
             const buildTree = (parentId, level = 0) => {
                 const children = menuItems.filter(i => {
@@ -246,13 +239,27 @@
             document.getElementById('landing-content').style.display = 'block';
         }
 
+        // ADMIN CONTROLS - ONLY WORK IF USER IS 'CORE'
         let clickCount = 0;
         function handleSecret() {
+            if (userRole !== 'core') return; // Disable for everyone else
+
             clickCount++;
             if (clickCount >= 3) {
-                document.getElementById('admin-controls').style.display = 'block';
-                document.getElementById('secret-trigger').style.color = '#9bc34a';
-                document.getElementById('nav-list').classList.add('admin-active');
+                const isAdminVisible = document.getElementById('admin-controls').style.display === 'block';
+                
+                if (isAdminVisible) {
+                    // Hide admin tools
+                    document.getElementById('admin-controls').style.display = 'none';
+                    document.getElementById('secret-trigger').style.color = '#a0b0b0';
+                    document.getElementById('nav-list').classList.remove('admin-active');
+                    clickCount = 0;
+                } else {
+                    // Show admin tools
+                    document.getElementById('admin-controls').style.display = 'block';
+                    document.getElementById('secret-trigger').style.color = '#9bc34a';
+                    document.getElementById('nav-list').classList.add('admin-active');
+                }
                 renderMenu();
             }
         }
