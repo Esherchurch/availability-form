@@ -11,6 +11,7 @@
             --accent-teal: #3d6263;
             --white: #ffffff;
             --brand-green: #9bc34a;
+            --brand-blue: #0078d4; /* Added for standard address book blue look */
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -76,13 +77,13 @@
         #app-frame { 
             width: 100%; 
             height: 100%; 
-            border: none; /* REMOVED BORDERS */
+            border: none;
             background: var(--white);
         }
 
         #landing-content { 
             position: absolute; 
-            inset: 0; /* REMOVED PADDING/INSET */
+            inset: 0;
             background: var(--white); 
             padding: 60px; 
             z-index: 5; 
@@ -138,6 +139,11 @@
                 <option value="trouble">Tools</option><option value="training">Book</option><option value="social">Social</option>
                 <option value="core">Shield</option><option value="leader">Mic</option><option value="heart">Heart</option>
             </select>
+            <label>Access Level</label>
+            <select id="nodeRole">
+                <option value="worship">Team (Worship/AV)</option>
+                <option value="core">Core (Admin Only)</option>
+            </select>
             <div style="display:flex; gap:10px; margin-top:20px;">
                 <button id="deleteBtn" class="admin-btn" style="background:#f44336; display:none;" onclick="deletePage()">Delete</button>
                 <button class="admin-btn" style="background:#ccc" onclick="closeModal()">Cancel</button>
@@ -165,10 +171,14 @@
             heart: `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
         };
 
+        // HANDSHAKE SECURITY FILTER
+        const urlParams = new URLSearchParams(window.location.search);
+        const userRole = urlParams.get('role') || 'worship'; // Defaults to worship if no tag
+
         let menuItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
-            { id: 1, name: 'Dashboard', url: 'landing', icon: 'home', parent: 'none' },
-            { id: 2, name: 'Worship Planner', url: 'https://esherchurch.github.io/availability-form/Planner.html', icon: 'calendar', parent: 'none' },
-            { id: 3, name: 'Music Hub', url: 'https://esherchurch.github.io/availability-form/music-uploader.html', icon: 'music', parent: 'none' }
+            { id: 1, name: 'Dashboard', url: 'landing', icon: 'home', parent: 'none', role: 'worship' },
+            { id: 2, name: 'Worship Planner', url: 'https://esherchurch.github.io/availability-form/Planner.html', icon: 'calendar', parent: 'none', role: 'worship' },
+            { id: 3, name: 'Music Hub', url: 'https://esherchurch.github.io/availability-form/music-uploader.html', icon: 'music', parent: 'none', role: 'worship' }
         ];
 
         function renderMenu() {
@@ -177,8 +187,21 @@
             list.innerHTML = '';
             parentSelect.innerHTML = '<option value="none">Top Level</option>';
 
+            // AUTO-ADMIN TRIGGER IF ROLE IS CORE
+            if (userRole === 'core') {
+                document.getElementById('admin-controls').style.display = 'block';
+                document.getElementById('secret-trigger').style.color = '#9bc34a';
+                list.classList.add('admin-active');
+            }
+
             const buildTree = (parentId, level = 0) => {
-                const children = menuItems.filter(i => i.parent == parentId);
+                // FILTER THE LIST BASED ON THE ROLE
+                const children = menuItems.filter(i => {
+                    if (i.parent != parentId) return false;
+                    if (userRole === 'core') return true; // Core sees all
+                    return i.role === 'worship' || !i.role; // Worship sees worship items or unlabelled items
+                });
+
                 children.forEach(item => {
                     const hasSubs = menuItems.some(i => i.parent == item.id);
                     const wrapper = document.createElement('div');
@@ -202,7 +225,6 @@
                 });
             };
             buildTree('none');
-            if(document.getElementById('admin-controls').style.display === 'block') list.classList.add('admin-active');
         }
 
         function closeAllMenus() {
@@ -248,6 +270,7 @@
             if (clickCount >= 3) {
                 document.getElementById('admin-controls').style.display = 'block';
                 document.getElementById('secret-trigger').style.color = '#9bc34a';
+                document.getElementById('nav-list').classList.add('admin-active');
                 renderMenu();
             }
         }
@@ -263,6 +286,7 @@
             document.getElementById('nodeLogo').value = item.logo || '';
             document.getElementById('nodeParent').value = item.parent;
             document.getElementById('nodeIcon').value = item.icon;
+            document.getElementById('nodeRole').value = item.role || 'worship';
             document.getElementById('deleteBtn').style.display = 'block';
             openModal();
         }
@@ -275,7 +299,8 @@
                 url: document.getElementById('nodeUrl').value,
                 logo: document.getElementById('nodeLogo').value,
                 parent: document.getElementById('nodeParent').value,
-                icon: document.getElementById('nodeIcon').value
+                icon: document.getElementById('nodeIcon').value,
+                role: document.getElementById('nodeRole').value
             };
             if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
             else menuItems.push(data);
