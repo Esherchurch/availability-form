@@ -11,7 +11,6 @@
             --accent-teal: #3d6263;
             --white: #ffffff;
             --brand-green: #9bc34a;
-            --brand-blue: #0078d4; /* Added for standard address book blue look */
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,7 +43,7 @@
 
         /* ACCORDION */
         .child-container { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.02); }
-        .has-children.open > .child-container { max-height: 800px; }
+        .has-children.open > .child-container { max-height: 1200px; }
         #sidebar:not(:hover) .child-container { max-height: 0 !important; }
 
         .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
@@ -53,7 +52,7 @@
         .edit-trigger { display: none; padding: 0 10px; color: var(--border-teal); cursor: pointer; }
         #sidebar:hover .admin-active .edit-trigger { display: block; }
 
-        /* LAYOUT - NOW FULL SCREEN */
+        /* LAYOUT */
         #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; width: 100%; }
         header { 
             height: 110px; 
@@ -74,12 +73,7 @@
             overflow: hidden;
         }
         
-        #app-frame { 
-            width: 100%; 
-            height: 100%; 
-            border: none;
-            background: var(--white);
-        }
+        #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
 
         #landing-content { 
             position: absolute; 
@@ -171,15 +165,11 @@
             heart: `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
         };
 
-        // HANDSHAKE SECURITY FILTER
         const urlParams = new URLSearchParams(window.location.search);
-        const userRole = urlParams.get('role') || 'worship'; // Defaults to worship if no tag
+        const userRole = urlParams.get('role') || 'worship';
 
-        let menuItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
-            { id: 1, name: 'Dashboard', url: 'landing', icon: 'home', parent: 'none', role: 'worship' },
-            { id: 2, name: 'Worship Planner', url: 'https://esherchurch.github.io/availability-form/Planner.html', icon: 'calendar', parent: 'none', role: 'worship' },
-            { id: 3, name: 'Music Hub', url: 'https://esherchurch.github.io/availability-form/music-uploader.html', icon: 'music', parent: 'none', role: 'worship' }
-        ];
+        // THIS IS YOUR "BRAIN" SYNCED WITH YOUR HARD WORK
+        let menuItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [{"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},{"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},{"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},{"id":1777068093291,"name":"Music Databases ","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},{"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},{"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},{"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},{"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},{"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},{"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},{"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},{"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},{"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}];
 
         function renderMenu() {
             const list = document.getElementById('nav-list');
@@ -187,7 +177,6 @@
             list.innerHTML = '';
             parentSelect.innerHTML = '<option value="none">Top Level</option>';
 
-            // AUTO-ADMIN TRIGGER IF ROLE IS CORE
             if (userRole === 'core') {
                 document.getElementById('admin-controls').style.display = 'block';
                 document.getElementById('secret-trigger').style.color = '#9bc34a';
@@ -195,11 +184,10 @@
             }
 
             const buildTree = (parentId, level = 0) => {
-                // FILTER THE LIST BASED ON THE ROLE
                 const children = menuItems.filter(i => {
                     if (i.parent != parentId) return false;
-                    if (userRole === 'core') return true; // Core sees all
-                    return i.role === 'worship' || !i.role; // Worship sees worship items or unlabelled items
+                    if (userRole === 'core') return true;
+                    return i.role === 'worship' || !i.role;
                 });
 
                 children.forEach(item => {
@@ -240,16 +228,12 @@
                 peers.forEach(p => p.classList.remove('open'));
                 if (isOpening) wrapper.classList.add('open');
             }
-            if (url && url !== '#' && url !== 'landing') {
-                navigate(url, logo);
-            } else if (url === 'landing') {
-                showLanding(logo);
-            }
+            if (url && url !== '#' && url !== 'landing') navigate(url, logo);
+            else if (url === 'landing') showLanding(logo);
         }
 
         function navigate(url, logoUrl) {
-            const logoImg = document.getElementById('dept-logo');
-            logoImg.src = logoUrl || DEFAULT_LOGO;
+            document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
             document.getElementById('landing-content').style.display = 'none';
             const frame = document.getElementById('app-frame');
             frame.style.display = 'block';
@@ -257,13 +241,11 @@
         }
 
         function showLanding(logoUrl) {
-            const logoImg = document.getElementById('dept-logo');
-            logoImg.src = logoUrl || DEFAULT_LOGO;
+            document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
             document.getElementById('app-frame').style.display = 'none';
             document.getElementById('landing-content').style.display = 'block';
         }
 
-        // ADMIN
         let clickCount = 0;
         function handleSecret() {
             clickCount++;
