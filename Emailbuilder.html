@@ -10,15 +10,16 @@
         :root { --brand-blue: #3d6263; --brand-light: #a0b0b0; --border-light: #d1dfdf; }
         body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        #toolbar { background: #ffffff; padding: 10px 40px; display: flex; gap: 10px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
-        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+        #toolbar { background: #ffffff; padding: 10px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
+        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
         .btn:hover { background: #2c4849; }
         
         #compiler-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; justify-content: center; }
         #email-canvas { background: #ffffff; width: 700px; min-height: 850px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         
-        #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333333; line-height: 1.6; font-size: 16px; }
-        #editable-body img { cursor: pointer; max-width: 100%; height: auto; display: inline-block; }
+        #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333333; line-height: 1.6; font-size: 16px; border: 1px solid transparent; }
+        #editable-body img { cursor: pointer; max-width: 100%; height: auto; display: inline-block; border: 2px solid transparent; }
+        #editable-body img:focus { border: 2px solid var(--brand-blue); outline: none; }
         
         .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #eee; display: inline-block; margin-right: 5px; }
         
@@ -31,13 +32,13 @@
 
 <div id="loader">
     <div class="spinner"></div>
-    <h2 id="load-text">Compiling GIF...</h2>
-    <p>Please stay on this tab until complete.</p>
+    <h2 id="load-text">Compiling...</h2>
+    <p>Please wait.</p>
 </div>
 
 <div id="toolbar">
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('bold', false, null);">B</button>
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('italic', false, null);">I</button>
+    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('bold');">B</button>
+    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('italic');">I</button>
     
     <select onchange="document.execCommand('fontSize', false, this.value); this.value=''">
         <option value="">Font Size</option>
@@ -55,10 +56,14 @@
 
     <button class="btn" onclick="createGif()">Add GIF</button>
     <button class="btn" onclick="uploadImage()">Add Photo</button>
+    <button class="btn" onclick="triggerResize()" style="background:#8b4513;">Resize Selection</button>
     <button class="btn" onclick="insertSideLayout()">2-Col Layout</button>
+    
+    <div style="width: 1px; height: 20px; background: #ccc; margin: 0 5px;"></div>
     
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');">L</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');">C</button>
+    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');">R</button>
     
     <div style="flex-grow: 1;"></div>
     <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy for Outlook</button>
@@ -82,22 +87,36 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
-document.getElementById('editable-body').addEventListener('click', function(e) {
-    if (e.target.tagName === 'IMG') {
-        const val = prompt("Enter width (e.g. 300 or 100%):", e.target.getAttribute('width') || "300");
-        if (val) {
-            const cleanVal = val.replace('px', '');
-            e.target.setAttribute('width', cleanVal);
-            e.target.style.width = cleanVal.includes('%') ? cleanVal : cleanVal + "px";
+// SEPARATE RESIZE TRIGGER
+function triggerResize() {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const container = selection.getRangeAt(0).startContainer;
+        const img = (container.nodeType === 3) ? container.parentNode.querySelector('img') : selection.anchorNode.querySelector('img');
+        
+        // Alternative: find currently focused element if it's an image
+        const activeImg = document.activeElement.tagName === 'IMG' ? document.activeElement : document.querySelector('img:focus');
+        
+        const target = activeImg || document.querySelector('#editable-body img:hover');
+        
+        if (target) {
+            const val = prompt("Enter width (e.g. 300 or 100%):", target.getAttribute('width') || "300");
+            if (val) {
+                const cleanVal = val.replace('px', '');
+                target.setAttribute('width', cleanVal);
+                target.style.width = cleanVal.includes('%') ? cleanVal : cleanVal + "px";
+            }
+        } else {
+            alert("Please click on the image first to select it, then click Resize.");
         }
     }
-});
+}
 
 function insertSideLayout() {
     const html = `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:20px 0;">
                     <tr>
-                        <td width="50%" valign="top" style="padding:10px;">[Left Content]</td>
-                        <td width="50%" valign="top" style="padding:10px;">[Right Content]</td>
+                        <td width="50%" valign="top" style="padding:10px;">[Left]</td>
+                        <td width="50%" valign="top" style="padding:10px;">[Right]</td>
                     </tr>
                   </table><p></p>`;
     document.execCommand('insertHTML', false, html);
@@ -118,14 +137,14 @@ function createGif() {
         if (files.length < 2) return;
         toggleLoader(true, "Building GIF Animation...");
         
-        // Using a more conservative config to prevent browser hanging
+        // ULTRA-FAST LOW MEMORY SETTINGS
         gifshot.createGIF({
             images: files.map(f => URL.createObjectURL(f)),
             interval: 0.5,
-            gifWidth: 400,
-            gifHeight: 300,
-            numWorkers: 2, 
-            sampleInterval: 20 // Higher interval = faster processing
+            gifWidth: 200,      // Tiny width for maximum speed
+            gifHeight: 150,
+            numWorkers: 1,      // Single worker to prevent browser hang
+            sampleInterval: 50  // Very fast sampling
         }, (obj) => {
             if (!obj.error) processAndUpload(obj.image, "gif", true);
             else { alert("GIF Error: " + obj.error); toggleLoader(false); }
@@ -135,14 +154,14 @@ function createGif() {
 }
 
 async function processAndUpload(data, ext, isBase64 = false) {
-    toggleLoader(true, "Syncing to Hub...");
+    toggleLoader(true, "Saving to Cloud...");
     const ref = storage.ref(`email_assets/${Date.now()}.${ext}`);
     try {
         let blob = data;
         if(isBase64) { const res = await fetch(data); blob = await res.blob(); }
         await ref.put(blob);
         const url = await ref.getDownloadURL();
-        const imgHtml = `<img src="${url}" width="300" style="width:300px; height:auto; display:block; margin:10px 0;">`;
+        const imgHtml = `<img src="${url}" width="300" tabIndex="0" style="width:300px; height:auto; display:inline-block; margin:10px 0;">`;
         document.execCommand('insertHTML', false, imgHtml);
     } catch (err) { alert("Upload error"); }
     toggleLoader(false);
@@ -150,8 +169,6 @@ async function processAndUpload(data, ext, isBase64 = false) {
 
 async function compileAndLaunch() {
     const body = document.getElementById('editable-body').innerHTML;
-    
-    // Updated Header: Worship & AV Team
     const outlookHeader = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
         <tr>
             <td style="padding:20px 30px;">
@@ -168,7 +185,7 @@ async function compileAndLaunch() {
     const blob = new Blob([finalHtml], { type: "text/html" });
     const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
-    alert("Email Copied! Opening Outlook...");
+    alert("Email Copied!");
     window.location.href = "mailto:?subject=Update from the Worship & AV Team";
 }
 
