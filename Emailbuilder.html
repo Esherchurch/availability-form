@@ -243,7 +243,7 @@ async function compileAndLaunch() {
     const blob = new Blob([finalHtml], { type: "text/html" });
     const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
-    alert("Email HTML Copied!");
+    alert("Email HTML Copied! paste as source formatting");
 }
 </script>
 </body>
