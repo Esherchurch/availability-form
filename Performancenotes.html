@@ -352,6 +352,22 @@ window.selectService = () => {
  });
 };
 
+/* BACKGROUND CACHING LOGIC */
+window.cacheAllPDFs = async () => {
+    for (const song of songs) {
+        const songDoc = await getDoc(doc(db,"songs",song.title.toLowerCase().replace(/\s+/g,"-")));
+        if (songDoc.exists()) {
+            const data = songDoc.data();
+            const songKeys = song.keys || [];
+            const filesToCache = (data.files || []).filter(f => songKeys.includes(f.key));
+            filesToCache.forEach(f => {
+                const img = new Image();
+                img.src = f.url; 
+            });
+        }
+    }
+};
+
 window.loadService = async () => {
 
  currentDate = dateInput().value;
@@ -364,6 +380,7 @@ window.loadService = async () => {
 
  buildMenu();
  showSong(0);
+ window.cacheAllPDFs(); 
 
  document.getElementById("startScreen").style.display="none";
  document.getElementById("fsToggle").style.display="block";
