@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Worship & AV Hub | Email Compiler</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.4.5/gifshot.min.js"></script>
+
+    <style>
+        :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
+        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        #toolbar { background: #ffffff; padding: 15px 40px; display: flex; gap: 12px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; }
+        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        .btn:hover { background: #2c4849; }
+        
+        #compiler-window { flex-grow: 1; overflow-y: auto; padding: 40px; display: flex; justify-content: center; }
+        #email-canvas { background: #ffffff; width: 600px; min-height: 800px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        #editable-body { padding: 30px 40px; outline: none; min-height: 400px; color: #333333; line-height: 1.6; font-size: 16px; }
+        
+        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.9); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+<div id="loader"><h2 id="load-text">Processing Asset...</h2></div>
+
+<div id="export-header" style="height: 110px; background: #ffffff; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d1dfdf; font-family: 'Segoe UI', sans-serif;">
+    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="height: 85px; width: auto; margin-top:12px;">
+    <div style="text-align: right; margin-top:12px;">
+        <div style="font-size: 10px; color: #a0b0b0; text-transform: uppercase;">Secure Portal</div>
+        <div style="font-size: 12px; color: #3d6263; font-weight: 700;">Worship & AV Hub</div>
+    </div>
+</div>
+
+<div id="toolbar">
+    <button class="btn" onclick="document.execCommand('bold')">B</button>
+    <button class="btn" onclick="document.execCommand('italic')">I</button>
+    <button class="btn" onclick="createGif()">Create & Insert GIF</button>
+    <button class="btn" onclick="uploadImage()">Insert Picture</button>
+    <div style="flex-grow: 1;"></div>
+    <button class="btn" onclick="compileAndLaunch()">Launch Outlook & Copy</button>
+</div>
+
+<div id="compiler-window">
+    <div id="email-canvas">
+        <div id="editable-body" contenteditable="true">
+            <p>Click here to start your email...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// FIREBASE CONFIG (Extracted from your source)
+const firebaseConfig = {
+    apiKey: "YOUR_KEY",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const storage = firebase.storage();
+
+function toggleLoader(show, text = "Processing...") {
+    const l = document.getElementById('loader');
+    document.getElementById('load-text').innerText = text;
+    l.style.display = show ? 'flex' : 'none';
+}
+
+// Function for standard Image Upload
+function uploadImage() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (file) processAndUpload(file, file.name.split('.').pop());
+    };
+    input.click();
+}
+
+// GIF Generator
+function createGif() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length < 2) return alert("Select 2+ images");
+        toggleLoader(true, "Creating GIF...");
+        const images = files.map(f => URL.createObjectURL(f));
+        gifshot.createGIF({ images, interval: 0.5, gifWidth: 600, gifHeight: 400 }, (obj) => {
+            if (!obj.error) processAndUpload(obj.image, "gif", true);
+        });
+    };
+    input.click();
+}
+
+// Shared Upload Logic
+async function processAndUpload(data, ext, isBase64 = false) {
+    toggleLoader(true, "Uploading to Firebase...");
+    const ref = storage.ref(`email_assets/${Date.now()}.${ext}`);
+    try {
+        let blob = data;
+        if(isBase64) {
+            const res = await fetch(data);
+            blob = await res.blob();
+        }
+        await ref.put(blob);
+        const url = await ref.getDownloadURL();
+        const imgHtml = `<img src="${url}" style="width:100%; max-width:600px; display:block; margin:20px 0; border-radius:8px;">`;
+        document.execCommand('insertHTML', false, imgHtml);
+    } catch (err) { alert("Upload failed"); }
+    toggleLoader(false);
+}
+
+// Final Outlook Compiler
+async function compileAndLaunch() {
+    const body = document.getElementById('editable-body').innerHTML;
+    const header = document.getElementById('export-header').outerHTML;
+    
+    const fullHtml = `<html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="600" border="0" cellpadding="0" cellspacing="0"><tr><td>${header}</td></tr><tr><td style="padding:20px;font-family:'Segoe UI',sans-serif;">${body}</td></tr></table></td></tr></table></body></html>`;
+
+    const type = "text/html";
+    const blob = new Blob([fullHtml], { type });
+    const data = [new ClipboardItem({ [type]: blob })];
+
+    await navigator.clipboard.write(data);
+    alert("HTML Copied to Clipboard!");
+    window.location.href = "mailto:?subject=Worship & AV Update";
+}
+</script>
+</body>
+</html>
