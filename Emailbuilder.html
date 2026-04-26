@@ -10,62 +10,55 @@
         :root { --brand-blue: #3d6263; --brand-light: #a0b0b0; --border-light: #d1dfdf; }
         body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        #toolbar { background: #ffffff; padding: 10px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
-        .btn { background: var(--brand-blue); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+        #toolbar { background: #ffffff; padding: 10px 40px; display: flex; gap: 10px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
+        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
         .btn:hover { background: #2c4849; }
-        select { padding: 5px; border-radius: 4px; border: 1px solid var(--border-light); font-size: 12px; }
         
         #compiler-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; justify-content: center; }
-        #email-canvas { background: #ffffff; width: 600px; min-height: 850px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        #email-canvas { background: #ffffff; width: 700px; min-height: 850px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         
         #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333333; line-height: 1.6; font-size: 16px; }
-        #editable-body img { cursor: pointer; max-width: 100%; height: auto; display: inline-block; vertical-align: middle; }
+        #editable-body img { cursor: pointer; max-width: 100%; height: auto; display: inline-block; }
         
-        .color-dot { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid #eee; display: inline-block; margin-right: 5px; }
-        .color-dot:hover { border-color: #999; }
-
-        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.95); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
+        .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #eee; display: inline-block; margin-right: 5px; }
+        
+        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.98); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
         .spinner { width: 40px; height: 40px; border: 4px solid #fff; border-top: 4px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* Layout Table Helper */
-        .layout-table { border: 1px dashed #eee; margin: 10px 0; }
     </style>
 </head>
 <body>
 
 <div id="loader">
     <div class="spinner"></div>
-    <h2 id="load-text">Syncing...</h2>
+    <h2 id="load-text">Stitching...</h2>
+    <p>Large files take longer to process locally.</p>
 </div>
 
 <div id="toolbar">
-    <button class="btn" onclick="document.execCommand('bold')">B</button>
-    <button class="btn" onclick="document.execCommand('italic')">I</button>
+    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('bold', false, null);">B</button>
+    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('italic', false, null);">I</button>
     
     <select onchange="document.execCommand('fontSize', false, this.value); this.value=''">
-        <option value="">Size</option>
+        <option value="">Font Size</option>
         <option value="1">Small</option>
         <option value="3">Normal</option>
         <option value="5">Large</option>
-        <option value="7">Huge</option>
+        <option value="7">Extra Large</option>
     </select>
 
-    <div style="display:flex; align-items:center; margin: 0 10px; padding: 0 10px; border-left:1px solid #ddd; border-right:1px solid #ddd;">
-        <div class="color-dot" style="background:#3d6263;" title="Logo Green" onclick="document.execCommand('foreColor', false, '#3d6263')"></div>
-        <div class="color-dot" style="background:#a0b0b0;" title="Logo Grey" onclick="document.execCommand('foreColor', false, '#a0b0b0')"></div>
-        <div class="color-dot" style="background:#000000;" title="Black" onclick="document.execCommand('foreColor', false, '#000000')"></div>
+    <div style="display:flex; align-items:center; border-left:1px solid #ddd; padding-left:10px;">
+        <div class="color-dot" style="background:#3d6263;" onmousedown="event.preventDefault(); document.execCommand('foreColor', false, '#3d6263');"></div>
+        <div class="color-dot" style="background:#a0b0b0;" onmousedown="event.preventDefault(); document.execCommand('foreColor', false, '#a0b0b0');"></div>
+        <div class="color-dot" style="background:#000000;" onmousedown="event.preventDefault(); document.execCommand('foreColor', false, '#000000');"></div>
     </div>
 
     <button class="btn" onclick="createGif()">Add GIF</button>
     <button class="btn" onclick="uploadImage()">Add Photo</button>
-    <button class="btn" onclick="insertSideLayout()" style="background:#555;">Add Side Layout</button>
+    <button class="btn" onclick="insertSideLayout()">2-Col Layout</button>
     
-    <div style="width: 1px; height: 20px; background: #ccc; margin: 0 5px;"></div>
-    
-    <button class="btn" onclick="document.execCommand('justifyLeft')">L</button>
-    <button class="btn" onclick="document.execCommand('justifyCenter')">C</button>
-    <button class="btn" onclick="document.execCommand('justifyRight')">R</button>
+    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');">L</button>
+    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');">C</button>
     
     <div style="flex-grow: 1;"></div>
     <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy for Outlook</button>
@@ -74,13 +67,12 @@
 <div id="compiler-window">
     <div id="email-canvas">
         <div id="editable-body" contenteditable="true">
-            <p>Start your update here...</p>
+            <p>Start typing here...</p>
         </div>
     </div>
 </div>
 
 <script>
-// FIREBASE
 const firebaseConfig = {
     apiKey: "YOUR_KEY",
     authDomain: "egbc-worship-planner.firebaseapp.com",
@@ -90,23 +82,23 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
-// CLICK IMAGE TO RESIZE
+// RESIZE LOGIC - Now updates the 'width' attribute for Outlook
 document.getElementById('editable-body').addEventListener('click', function(e) {
     if (e.target.tagName === 'IMG') {
-        const val = prompt("Width (e.g. 250 or 100%):", e.target.style.width || "250px");
+        const val = prompt("Enter width (e.g. 300 or 100%):", e.target.getAttribute('width') || "300");
         if (val) {
-            e.target.style.width = val.includes('%') ? val : val + "px";
-            e.target.style.height = "auto";
+            const cleanVal = val.replace('px', '');
+            e.target.setAttribute('width', cleanVal);
+            e.target.style.width = cleanVal.includes('%') ? cleanVal : cleanVal + "px";
         }
     }
 });
 
 function insertSideLayout() {
-    // Inserts a table with two cells for side-by-side content
-    const html = `<table class="layout-table" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:15px 0;">
+    const html = `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:20px 0;">
                     <tr>
-                        <td width="50%" valign="top" style="padding-right:10px;">[Drop Left Content]</td>
-                        <td width="50%" valign="top" style="padding-left:10px;">[Drop Right Content]</td>
+                        <td width="50%" valign="top" style="padding:10px;">[Left Content]</td>
+                        <td width="50%" valign="top" style="padding:10px;">[Right Content]</td>
                     </tr>
                   </table><p></p>`;
     document.execCommand('insertHTML', false, html);
@@ -125,18 +117,18 @@ function createGif() {
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length < 2) return;
-        toggleLoader(true, "Creating GIF (Optimized)...");
+        toggleLoader(true, "Processing GIF...");
         
         gifshot.createGIF({
             images: files.map(f => URL.createObjectURL(f)),
-            interval: 0.6,
-            gifWidth: 400, // Reduced default size for massive speed boost
-            gifHeight: 300,
-            numWorkers: 4,
-            sampleInterval: 10
+            interval: 0.5,
+            gifWidth: 300, // Reduced resolution for speed
+            gifHeight: 225,
+            numWorkers: 2,
+            sampleInterval: 15 // Faster sampling
         }, (obj) => {
             if (!obj.error) processAndUpload(obj.image, "gif", true);
-            else { alert("Error: " + obj.error); toggleLoader(false); }
+            else { alert("GIF Error: " + obj.error); toggleLoader(false); }
         });
     };
     input.click();
@@ -150,23 +142,24 @@ async function processAndUpload(data, ext, isBase64 = false) {
         if(isBase64) { const res = await fetch(data); blob = await res.blob(); }
         await ref.put(blob);
         const url = await ref.getDownloadURL();
-        const imgHtml = `<img src="${url}" style="width:250px; height:auto; margin:5px;">`;
+        // Outlook requires the 'width' attribute to prevent "Huge Picture" issues
+        const imgHtml = `<img src="${url}" width="300" style="width:300px; height:auto; display:block; margin:10px 0;">`;
         document.execCommand('insertHTML', false, imgHtml);
-    } catch (err) { alert("Upload failed"); }
+    } catch (err) { alert("Upload error"); }
     toggleLoader(false);
 }
 
 async function compileAndLaunch() {
     const body = document.getElementById('editable-body').innerHTML;
-    const outlookHeader = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;"><tr><td style="padding:15px 30px;"><img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="100" style="display:block;"></td><td align="right" style="padding:15px 30px; font-family:'Segoe UI', Tahoma, sans-serif;"><div style="font-size:10px; color:#a0b0b0; text-transform:uppercase;">Secure Portal</div><div style="font-size:12px; color:#3d6263; font-weight:700;">Worship & AV Hub</div></td></tr></table>`;
+    const outlookHeader = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;"><tr><td style="padding:20px 30px;"><img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="120" style="display:block;"></td><td align="right" style="padding:20px 30px; font-family:'Segoe UI', Tahoma, sans-serif;"><div style="font-size:10px; color:#a0b0b0; text-transform:uppercase;">Secure Portal</div><div style="font-size:12px; color:#3d6263; font-weight:700;">Worship & AV Hub</div></td></tr></table>`;
 
-    const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="600" border="0" cellspacing="0" cellpadding="0"><tr><td>${outlookHeader}</td></tr><tr><td style="padding:30px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333;">${body}</td></tr></table></td></tr></table></body></html>`;
+    const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="700" border="0" cellspacing="0" cellpadding="0" style="width:700px;"><tr><td>${outlookHeader}</td></tr><tr><td style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.5;">${body}</td></tr></table></td></tr></table></body></html>`;
 
     const blob = new Blob([finalHtml], { type: "text/html" });
     const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
     alert("Email Copied! Opening Outlook...");
-    window.location.href = "mailto:?subject=Worship Update";
+    window.location.href = "mailto:?subject=Worship & AV Update";
 }
 
 function toggleLoader(s, t) { document.getElementById('loader').style.display = s ? 'flex' : 'none'; document.getElementById('load-text').innerText = t; }
