@@ -4,65 +4,62 @@
     <title>Worship & AV Team | Email Compiler</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <style>
-        :root { --brand-blue: #3d6263; --brand-light: #a0b0b0; --border-light: #d1dfdf; }
-        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
+        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        #toolbar { background: #ffffff; padding: 10px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
-        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+        #toolbar { background: #ffffff; padding: 12px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
+        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
         .btn:hover { background: #2c4849; }
+        select { padding: 6px; border-radius: 4px; border: 1px solid var(--border-light); font-size: 12px; background: #f9f9f9; }
         
-        #compiler-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; justify-content: center; }
-        #email-canvas { background: #ffffff; width: 700px; min-height: 850px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        #main-container { display: flex; flex-grow: 1; overflow: hidden; }
+        #compiler-window { flex-grow: 1; overflow-y: auto; padding: 30px; display: flex; justify-content: center; }
+        #email-canvas { background: #ffffff; width: 750px; min-height: 900px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         
-        #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333333; line-height: 1.6; font-size: 16px; border: 1px solid transparent; }
-        #editable-body img { cursor: pointer; max-width: 100%; height: auto; display: inline-block; border: 3px solid transparent; transition: border 0.2s; }
+        /* Address Book Sidebar */
+        #address-sidebar { width: 280px; background: #f0f4f7; border-left: 1px solid var(--border-light); padding: 20px; overflow-y: auto; }
+        .list-group { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
+        .list-title { font-[10px] font-extrabold text-[#2c6999] uppercase tracking-widest mb-3; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .list-item { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; font-weight: 600; color: #444; }
+
+        #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333; line-height: 1.6; font-size: 16px; }
+        #editable-body img { cursor: pointer; max-width: 100%; height: auto; display: inline-block; border: 3px solid transparent; }
         #editable-body img.selected-img { border: 3px solid #e67e22 !important; }
         
-        /* Helper for tables in editor */
-        .layout-table { border: 1px dashed #ddd; }
-        .layout-table td { border: 1px dashed #eee; min-height: 50px; }
-
         .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #eee; display: inline-block; margin-right: 5px; }
-        
-        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.98); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #fff; border-top: 4px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.95); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <div class="spinner"></div>
-    <h2 id="load-text">Processing...</h2>
-</div>
+<div id="loader"><h2>Syncing to Hub...</h2></div>
 
 <div id="toolbar">
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('bold');">B</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('italic');">I</button>
     
-    <select onchange="applyFontSize(this.value); this.value=''">
+    <select onchange="applyStyle('fontSize', this.value); this.value=''">
         <option value="">Text Size</option>
         <option value="12px">Small</option>
         <option value="16px">Normal</option>
-        <option value="20px">Large</option>
-        <option value="28px">Huge</option>
+        <option value="22px">Large</option>
+        <option value="32px">Huge</option>
     </select>
 
     <div style="display:flex; align-items:center; border-left:1px solid #ddd; padding-left:10px;">
-        <div class="color-dot" style="background:#3d6263;" onmousedown="event.preventDefault(); document.execCommand('foreColor', false, '#3d6263');"></div>
-        <div class="color-dot" style="background:#a0b0b0;" onmousedown="event.preventDefault(); document.execCommand('foreColor', false, '#a0b0b0');"></div>
-        <div class="color-dot" style="background:#000000;" onmousedown="event.preventDefault(); document.execCommand('foreColor', false, '#000000');"></div>
+        <div class="color-dot" style="background:#3d6263;" onmousedown="event.preventDefault(); applyStyle('color', '#3d6263');"></div>
+        <div class="color-dot" style="background:#a0b0b0;" onmousedown="event.preventDefault(); applyStyle('color', '#a0b0b0');"></div>
+        <div class="color-dot" style="background:#000000;" onmousedown="event.preventDefault(); applyStyle('color', '#000000');"></div>
     </div>
 
     <button class="btn" onclick="uploadImage()">Add Image / GIF</button>
-    <button class="btn" onclick="triggerResize()" style="background:#8b4513;">Resize Selection</button>
+    <button class="btn" onclick="triggerResize()" style="background:#8b4513;">Resize</button>
     
-    <div style="width: 1px; height: 20px; background: #ccc; margin: 0 5px;"></div>
-
     <select onchange="if(this.value) insertSideLayout(this.value); this.value=''">
-        <option value="">Add Side Layout</option>
+        <option value="">Side Layout</option>
         <option value="top">Top Aligned</option>
         <option value="middle">Middle Aligned</option>
         <option value="bottom">Bottom Aligned</option>
@@ -70,129 +67,164 @@
     
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');">L</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');">C</button>
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');">R</button>
     
     <div style="flex-grow: 1;"></div>
-    <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy for Outlook</button>
+    <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy Email HTML</button>
 </div>
 
-<div id="compiler-window">
-    <div id="email-canvas">
-        <div id="editable-body" contenteditable="true">
-            <p>Start your message here...</p>
+<div id="main-container">
+    <div id="compiler-window">
+        <div id="email-canvas">
+            <div id="editable-body" contenteditable="true">
+                <p>Start your team update here...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="address-sidebar">
+        <h3 class="font-extrabold text-[#2c6999] uppercase text-sm mb-4">Audience Select</h3>
+        
+        <div class="list-group">
+            <div class="list-title">Target Teams</div>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="AV Team"> AV Team</label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Worship Team"> Worship Team</label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Youth Worship"> Youth Team</label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Core Team"> Core Team</label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Everyone"> Everyone</label>
+        </div>
+
+        <button onclick="launchGroupEmail()" class="w-full bg-[#2c6999] text-white font-bold py-3 rounded-lg text-[10px] uppercase tracking-widest hover:bg-[#23557d] transition-all">
+            Open Outlook (Selected)
+        </button>
+        
+        <div id="member-count" class="text-[10px] text-gray-400 mt-4 font-bold uppercase text-center">
+            0 Members Selected
         </div>
     </div>
 </div>
 
 <script>
+// FIREBASE CONFIG (From your Address Book)
 const firebaseConfig = {
-    apiKey: "YOUR_KEY",
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
     authDomain: "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner",
     storageBucket: "egbc-worship-planner.firebasestorage.app"
 };
 firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 const storage = firebase.storage();
 
+let allMembers = [];
 let lastClickedImg = null;
 
-// High-fidelity font size application
-function applyFontSize(size) {
-    const span = document.createElement("span");
-    span.style.fontSize = size;
-    span.style.lineHeight = "1.2"; // Ensures text doesn't overlap
+// LOAD ADDRESS BOOK DATA
+db.collection("addressBook").onSnapshot(snap => {
+    allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+});
+
+// ROBUST STYLING (Spans for Outlook)
+function applyStyle(prop, val) {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
     const range = selection.getRangeAt(0);
-    span.textContent = selection.toString();
-    range.deleteContents();
+    const span = document.createElement("span");
+    if(prop === 'fontSize') span.style.fontSize = val;
+    if(prop === 'color') span.style.color = val;
+    
+    span.appendChild(range.extractContents());
     range.insertNode(span);
 }
 
-document.getElementById('editable-body').addEventListener('click', function(e) {
+// GROUP EMAIL LOGIC
+function launchGroupEmail() {
+    const activeTeams = Array.from(document.querySelectorAll('.team-filter:checked')).map(cb => cb.value);
+    let recipients = [];
+
+    if (activeTeams.includes("Everyone")) {
+        recipients = allMembers.map(m => m.email);
+    } else {
+        recipients = allMembers.filter(m => 
+            m.markers && m.markers.some(marker => activeTeams.includes(marker))
+        ).map(m => m.email);
+    }
+
+    const uniqueEmails = [...new Set(recipients)].filter(e => e);
+    document.getElementById('member-count').innerText = `${uniqueEmails.length} Members Selected`;
+    
+    if(uniqueEmails.length === 0) { alert("No members found for selected teams."); return; }
+    window.location.href = `mailto:?bcc=${uniqueEmails.join(',')}&subject=Worship & AV Team Update`;
+}
+
+// IMAGE HANDLING
+document.getElementById('editable-body').addEventListener('click', e => {
     if (e.target.tagName === 'IMG') {
         if (lastClickedImg) lastClickedImg.classList.remove('selected-img');
         lastClickedImg = e.target;
         lastClickedImg.classList.add('selected-img');
-    } else {
-        if (lastClickedImg) lastClickedImg.classList.remove('selected-img');
-        lastClickedImg = null;
     }
 });
 
 function triggerResize() {
-    if (lastClickedImg) {
-        const val = prompt("Enter width (e.g. 300 or 100%):", lastClickedImg.getAttribute('width') || "300");
-        if (val) {
-            const cleanVal = val.replace('px', '');
-            lastClickedImg.setAttribute('width', cleanVal);
-            lastClickedImg.style.width = cleanVal.includes('%') ? cleanVal : cleanVal + "px";
-        }
-    } else {
-        alert("Click an image first to highlight it orange, then click Resize.");
+    if (!lastClickedImg) return alert("Select an image first");
+    const val = prompt("Width (e.g. 400 or 100%):", lastClickedImg.getAttribute('width') || "300");
+    if (val) {
+        lastClickedImg.setAttribute('width', val.replace('px',''));
+        lastClickedImg.style.width = val.includes('%') ? val : val + "px";
     }
 }
 
 function insertSideLayout(align) {
-    const html = `<table class="layout-table" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:20px 0;">
-                    <tr>
-                        <td width="50%" valign="${align}" style="padding:10px;">[Left Content]</td>
-                        <td width="50%" valign="${align}" style="padding:10px;">[Right Content]</td>
-                    </tr>
-                  </table><p></p>`;
+    const html = `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:20px 0;">
+        <tr>
+            <td width="50%" valign="${align}" style="padding:15px; border: 1px dashed #eee;">[Left Content]</td>
+            <td width="50%" valign="${align}" style="padding:15px; border: 1px dashed #eee;">[Right Content]</td>
+        </tr>
+    </table><p></p>`;
     document.execCommand('insertHTML', false, html);
 }
 
 function uploadImage() {
     const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*,image/gif';
-    input.onchange = e => processAndUpload(e.target.files[0], e.target.files[0].name.split('.').pop());
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        document.getElementById('loader').style.display = 'flex';
+        const ref = storage.ref(`email_assets/${Date.now()}_${file.name}`);
+        ref.put(file).then(() => ref.getDownloadURL()).then(url => {
+            const imgHtml = `<img src="${url}" width="350" style="width:350px; height:auto; margin:15px 0;">`;
+            document.execCommand('insertHTML', false, imgHtml);
+            document.getElementById('loader').style.display = 'none';
+        });
+    };
     input.click();
-}
-
-async function processAndUpload(data, ext) {
-    toggleLoader(true, "Uploading to Hub...");
-    const ref = storage.ref(`email_assets/${Date.now()}.${ext}`);
-    try {
-        await ref.put(data);
-        const url = await ref.getDownloadURL();
-        const imgHtml = `<img src="${url}" width="300" style="width:300px; height:auto; display:inline-block; margin:10px 0;">`;
-        document.execCommand('insertHTML', false, imgHtml);
-    } catch (err) { alert("Upload error: " + err.message); }
-    toggleLoader(false);
 }
 
 async function compileAndLaunch() {
     const clone = document.getElementById('editable-body').cloneNode(true);
     clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
-    // Ensure all tables lose the dashed border for the final email
-    clone.querySelectorAll('table').forEach(tbl => tbl.style.border = "none");
-    clone.querySelectorAll('td').forEach(td => td.style.border = "none");
+    clone.querySelectorAll('table, td').forEach(el => el.style.border = "none");
     
-    const bodyContent = clone.innerHTML;
+    // Wider, Taller Header for Outlook
+    const outlookHeader = `
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
+            <tr>
+                <td style="padding:30px 40px; height:140px;">
+                    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="160" style="display:block;">
+                </td>
+                <td align="right" style="padding:30px 40px; font-family:'Segoe UI', Tahoma, sans-serif;">
+                    <div style="font-size: 16px; color: #3d6263; font-weight: 700; letter-spacing:1px;">Worship & AV Team</div>
+                </td>
+            </tr>
+        </table>`;
 
-    const outlookHeader = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
-        <tr>
-            <td style="padding:20px 30px;">
-                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="120" style="display:block;">
-            </td>
-            <td align="right" style="padding:20px 30px; font-family:'Segoe UI', Tahoma, sans-serif;">
-                <div style="font-size: 14px; color: #3d6263; font-weight: 700;">Worship & AV Team</div>
-            </td>
-        </tr>
-    </table>`;
+    const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="750" border="0" cellspacing="0" cellpadding="0" style="width:750px;"><tr><td>${outlookHeader}</td></tr><tr><td style="padding:50px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.6;">${clone.innerHTML}</td></tr></table></td></tr></table></body></html>`;
 
-    const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="700" border="0" cellspacing="0" cellpadding="0" style="width:700px;"><tr><td>${outlookHeader}</td></tr><tr><td class="mso-font" style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.5;">${bodyContent}</td></tr></table></td></tr></table></body></html>`;
-
-    const type = "text/html";
-    const blob = new Blob([finalHtml], { type });
-    const data = [new ClipboardItem({ [type]: blob })];
+    const blob = new Blob([finalHtml], { type: "text/html" });
+    const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
-    alert("Email Copied! Launching Outlook...");
-    window.location.href = "mailto:?subject=Update from the Worship & AV Team";
+    alert("HTML Copied! Now click your desired Target Audience to launch Outlook.");
 }
-
-function toggleLoader(s, t) { document.getElementById('loader').style.display = s ? 'flex' : 'none'; document.getElementById('load-text').innerText = t; }
 </script>
 </body>
 </html>
