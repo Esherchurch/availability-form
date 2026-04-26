@@ -20,6 +20,10 @@
         #editable-body img { cursor: pointer; max-width: 100%; height: auto; display: inline-block; border: 3px solid transparent; transition: border 0.2s; }
         #editable-body img.selected-img { border: 3px solid #e67e22 !important; }
         
+        /* Helper for tables in editor */
+        .layout-table { border: 1px dashed #ddd; }
+        .layout-table td { border: 1px dashed #eee; min-height: 50px; }
+
         .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #eee; display: inline-block; margin-right: 5px; }
         
         #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.98); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
@@ -31,19 +35,19 @@
 
 <div id="loader">
     <div class="spinner"></div>
-    <h2 id="load-text">Syncing...</h2>
+    <h2 id="load-text">Processing...</h2>
 </div>
 
 <div id="toolbar">
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('bold');">B</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('italic');">I</button>
     
-    <select onchange="document.execCommand('fontSize', false, this.value); this.value=''">
-        <option value="">Font Size</option>
-        <option value="1">Small</option>
-        <option value="3">Normal</option>
-        <option value="5">Large</option>
-        <option value="7">Extra Large</option>
+    <select onchange="applyFontSize(this.value); this.value=''">
+        <option value="">Text Size</option>
+        <option value="12px">Small</option>
+        <option value="16px">Normal</option>
+        <option value="20px">Large</option>
+        <option value="28px">Huge</option>
     </select>
 
     <div style="display:flex; align-items:center; border-left:1px solid #ddd; padding-left:10px;">
@@ -54,9 +58,15 @@
 
     <button class="btn" onclick="uploadImage()">Add Image / GIF</button>
     <button class="btn" onclick="triggerResize()" style="background:#8b4513;">Resize Selection</button>
-    <button class="btn" onclick="insertSideLayout()">2-Col Layout</button>
     
     <div style="width: 1px; height: 20px; background: #ccc; margin: 0 5px;"></div>
+
+    <select onchange="if(this.value) insertSideLayout(this.value); this.value=''">
+        <option value="">Add Side Layout</option>
+        <option value="top">Top Aligned</option>
+        <option value="middle">Middle Aligned</option>
+        <option value="bottom">Bottom Aligned</option>
+    </select>
     
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');">L</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');">C</button>
@@ -86,12 +96,22 @@ const storage = firebase.storage();
 
 let lastClickedImg = null;
 
-// Track the clicked image to ensure resizing works
+// High-fidelity font size application
+function applyFontSize(size) {
+    const span = document.createElement("span");
+    span.style.fontSize = size;
+    span.style.lineHeight = "1.2"; // Ensures text doesn't overlap
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    span.textContent = selection.toString();
+    range.deleteContents();
+    range.insertNode(span);
+}
+
 document.getElementById('editable-body').addEventListener('click', function(e) {
     if (e.target.tagName === 'IMG') {
-        // Remove highlight from previous
         if (lastClickedImg) lastClickedImg.classList.remove('selected-img');
-        
         lastClickedImg = e.target;
         lastClickedImg.classList.add('selected-img');
     } else {
@@ -109,15 +129,15 @@ function triggerResize() {
             lastClickedImg.style.width = cleanVal.includes('%') ? cleanVal : cleanVal + "px";
         }
     } else {
-        alert("Please click an image first to highlight it (it will show an orange border), then click Resize.");
+        alert("Click an image first to highlight it orange, then click Resize.");
     }
 }
 
-function insertSideLayout() {
-    const html = `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:20px 0;">
+function insertSideLayout(align) {
+    const html = `<table class="layout-table" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:20px 0;">
                     <tr>
-                        <td width="50%" valign="top" style="padding:10px;">[Left Content]</td>
-                        <td width="50%" valign="top" style="padding:10px;">[Right Content]</td>
+                        <td width="50%" valign="${align}" style="padding:10px;">[Left Content]</td>
+                        <td width="50%" valign="${align}" style="padding:10px;">[Right Content]</td>
                     </tr>
                   </table><p></p>`;
     document.execCommand('insertHTML', false, html);
@@ -136,7 +156,6 @@ async function processAndUpload(data, ext) {
     try {
         await ref.put(data);
         const url = await ref.getDownloadURL();
-        // Insert with tabindex so it can receive focus
         const imgHtml = `<img src="${url}" width="300" style="width:300px; height:auto; display:inline-block; margin:10px 0;">`;
         document.execCommand('insertHTML', false, imgHtml);
     } catch (err) { alert("Upload error: " + err.message); }
@@ -144,9 +163,12 @@ async function processAndUpload(data, ext) {
 }
 
 async function compileAndLaunch() {
-    // Remove the orange border from images before exporting
     const clone = document.getElementById('editable-body').cloneNode(true);
     clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
+    // Ensure all tables lose the dashed border for the final email
+    clone.querySelectorAll('table').forEach(tbl => tbl.style.border = "none");
+    clone.querySelectorAll('td').forEach(td => td.style.border = "none");
+    
     const bodyContent = clone.innerHTML;
 
     const outlookHeader = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
@@ -160,13 +182,13 @@ async function compileAndLaunch() {
         </tr>
     </table>`;
 
-    const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="700" border="0" cellspacing="0" cellpadding="0" style="width:700px;"><tr><td>${outlookHeader}</td></tr><tr><td style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.5;">${bodyContent}</td></tr></table></td></tr></table></body></html>`;
+    const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="700" border="0" cellspacing="0" cellpadding="0" style="width:700px;"><tr><td>${outlookHeader}</td></tr><tr><td class="mso-font" style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.5;">${bodyContent}</td></tr></table></td></tr></table></body></html>`;
 
     const type = "text/html";
     const blob = new Blob([finalHtml], { type });
     const data = [new ClipboardItem({ [type]: blob })];
     await navigator.clipboard.write(data);
-    alert("Email Copied! Opening Outlook...");
+    alert("Email Copied! Launching Outlook...");
     window.location.href = "mailto:?subject=Update from the Worship & AV Team";
 }
 
