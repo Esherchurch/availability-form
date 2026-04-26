@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Worship & AV Hub | Email Compiler</title>
+    <title>Worship & AV Team | Email Compiler</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.4.5/gifshot.min.js"></script>
@@ -31,8 +31,8 @@
 
 <div id="loader">
     <div class="spinner"></div>
-    <h2 id="load-text">Stitching...</h2>
-    <p>Large files take longer to process locally.</p>
+    <h2 id="load-text">Compiling GIF...</h2>
+    <p>Please stay on this tab until complete.</p>
 </div>
 
 <div id="toolbar">
@@ -67,7 +67,7 @@
 <div id="compiler-window">
     <div id="email-canvas">
         <div id="editable-body" contenteditable="true">
-            <p>Start typing here...</p>
+            <p>Start your message here...</p>
         </div>
     </div>
 </div>
@@ -82,7 +82,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
-// RESIZE LOGIC - Now updates the 'width' attribute for Outlook
 document.getElementById('editable-body').addEventListener('click', function(e) {
     if (e.target.tagName === 'IMG') {
         const val = prompt("Enter width (e.g. 300 or 100%):", e.target.getAttribute('width') || "300");
@@ -117,15 +116,16 @@ function createGif() {
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length < 2) return;
-        toggleLoader(true, "Processing GIF...");
+        toggleLoader(true, "Building GIF Animation...");
         
+        // Using a more conservative config to prevent browser hanging
         gifshot.createGIF({
             images: files.map(f => URL.createObjectURL(f)),
             interval: 0.5,
-            gifWidth: 300, // Reduced resolution for speed
-            gifHeight: 225,
-            numWorkers: 2,
-            sampleInterval: 15 // Faster sampling
+            gifWidth: 400,
+            gifHeight: 300,
+            numWorkers: 2, 
+            sampleInterval: 20 // Higher interval = faster processing
         }, (obj) => {
             if (!obj.error) processAndUpload(obj.image, "gif", true);
             else { alert("GIF Error: " + obj.error); toggleLoader(false); }
@@ -135,14 +135,13 @@ function createGif() {
 }
 
 async function processAndUpload(data, ext, isBase64 = false) {
-    toggleLoader(true, "Uploading...");
+    toggleLoader(true, "Syncing to Hub...");
     const ref = storage.ref(`email_assets/${Date.now()}.${ext}`);
     try {
         let blob = data;
         if(isBase64) { const res = await fetch(data); blob = await res.blob(); }
         await ref.put(blob);
         const url = await ref.getDownloadURL();
-        // Outlook requires the 'width' attribute to prevent "Huge Picture" issues
         const imgHtml = `<img src="${url}" width="300" style="width:300px; height:auto; display:block; margin:10px 0;">`;
         document.execCommand('insertHTML', false, imgHtml);
     } catch (err) { alert("Upload error"); }
@@ -151,7 +150,18 @@ async function processAndUpload(data, ext, isBase64 = false) {
 
 async function compileAndLaunch() {
     const body = document.getElementById('editable-body').innerHTML;
-    const outlookHeader = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;"><tr><td style="padding:20px 30px;"><img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="120" style="display:block;"></td><td align="right" style="padding:20px 30px; font-family:'Segoe UI', Tahoma, sans-serif;"><div style="font-size:10px; color:#a0b0b0; text-transform:uppercase;">Secure Portal</div><div style="font-size:12px; color:#3d6263; font-weight:700;">Worship & AV Hub</div></td></tr></table>`;
+    
+    // Updated Header: Worship & AV Team
+    const outlookHeader = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
+        <tr>
+            <td style="padding:20px 30px;">
+                <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="120" style="display:block;">
+            </td>
+            <td align="right" style="padding:20px 30px; font-family:'Segoe UI', Tahoma, sans-serif;">
+                <div style="font-size: 14px; color: #3d6263; font-weight: 700;">Worship & AV Team</div>
+            </td>
+        </tr>
+    </table>`;
 
     const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="700" border="0" cellspacing="0" cellpadding="0" style="width:700px;"><tr><td>${outlookHeader}</td></tr><tr><td style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.5;">${body}</td></tr></table></td></tr></table></body></html>`;
 
@@ -159,7 +169,7 @@ async function compileAndLaunch() {
     const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
     alert("Email Copied! Opening Outlook...");
-    window.location.href = "mailto:?subject=Worship & AV Update";
+    window.location.href = "mailto:?subject=Update from the Worship & AV Team";
 }
 
 function toggleLoader(s, t) { document.getElementById('loader').style.display = s ? 'flex' : 'none'; document.getElementById('load-text').innerText = t; }
