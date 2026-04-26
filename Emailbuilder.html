@@ -10,25 +10,29 @@
         :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
         body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        #toolbar { background: #ffffff; padding: 15px 40px; display: flex; gap: 12px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; }
-        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        #toolbar { background: #ffffff; padding: 10px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
+        .btn { background: var(--brand-blue); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; }
         .btn:hover { background: #2c4849; }
+        select { padding: 5px; border-radius: 4px; border: 1px solid var(--border-light); }
         
-        #compiler-window { flex-grow: 1; overflow-y: auto; padding: 40px; display: flex; justify-content: center; }
-        #email-canvas { background: #ffffff; width: 600px; min-height: 800px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        #editable-body { padding: 30px 40px; outline: none; min-height: 400px; color: #333333; line-height: 1.6; font-size: 16px; }
+        #compiler-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; justify-content: center; }
+        #email-canvas { background: #ffffff; width: 600px; min-height: 800px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; }
+        
+        /* This makes images clickable for resizing */
+        #editable-body { padding: 30px 40px; outline: none; min-height: 600px; color: #333333; line-height: 1.6; font-size: 16px; }
+        #editable-body img { cursor: nwse-resize; transition: outline 0.2s; border: 2px solid transparent; }
+        #editable-body img:hover { outline: 2px dashed var(--brand-blue); }
         
         #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.9); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
     </style>
 </head>
 <body>
 
-<div id="loader"><h2 id="load-text">Processing Asset...</h2></div>
+<div id="loader"><h2 id="load-text">Processing...</h2></div>
 
-<div id="export-header" style="height: 110px; background: #ffffff; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d1dfdf; font-family: 'Segoe UI', sans-serif;">
-    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="height: 85px; width: auto; margin-top:12px;">
-    <div style="text-align: right; margin-top:12px;">
-        <div style="font-size: 10px; color: #a0b0b0; text-transform: uppercase;">Secure Portal</div>
+<div id="ui-header" style="height: 80px; background: #ffffff; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d1dfdf;">
+    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" style="height: 50px; width: auto;">
+    <div style="text-align: right;">
         <div style="font-size: 12px; color: #3d6263; font-weight: 700;">Worship & AV Hub</div>
     </div>
 </div>
@@ -36,22 +40,33 @@
 <div id="toolbar">
     <button class="btn" onclick="document.execCommand('bold')">B</button>
     <button class="btn" onclick="document.execCommand('italic')">I</button>
-    <button class="btn" onclick="createGif()">Create & Insert GIF</button>
-    <button class="btn" onclick="uploadImage()">Insert Picture</button>
+    
+    <select onchange="document.execCommand('fontSize', false, this.value); this.value=''">
+        <option value="">Text Size</option>
+        <option value="1">Small</option>
+        <option value="3">Normal</option>
+        <option value="5">Large</option>
+        <option value="7">Huge</option>
+    </select>
+
+    <button class="btn" onclick="createGif()">Add GIF</button>
+    <button class="btn" onclick="uploadImage()">Add Photo</button>
+    <button class="btn" onclick="document.execCommand('justifyLeft')">Left</button>
+    <button class="btn" onclick="document.execCommand('justifyCenter')">Center</button>
+    
     <div style="flex-grow: 1;"></div>
-    <button class="btn" onclick="compileAndLaunch()">Launch Outlook & Copy</button>
+    <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy for Outlook</button>
 </div>
 
 <div id="compiler-window">
     <div id="email-canvas">
         <div id="editable-body" contenteditable="true">
-            <p>Click here to start your email...</p>
+            <p>Type message here...</p>
         </div>
     </div>
 </div>
 
 <script>
-// FIREBASE CONFIG (Extracted from your source)
 const firebaseConfig = {
     apiKey: "YOUR_KEY",
     authDomain: "egbc-worship-planner.firebaseapp.com",
@@ -61,75 +76,80 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
-function toggleLoader(show, text = "Processing...") {
-    const l = document.getElementById('loader');
-    document.getElementById('load-text').innerText = text;
-    l.style.display = show ? 'flex' : 'none';
-}
+// CLICK IMAGE TO RESIZE/MOVE
+document.getElementById('editable-body').addEventListener('click', function(e) {
+    if (e.target.tagName === 'IMG') {
+        const newWidth = prompt("Enter width in pixels (e.g. 300) or % (e.g. 50%):", e.target.style.width || e.target.width);
+        if (newWidth) {
+            e.target.style.width = newWidth;
+            e.target.style.height = "auto"; 
+        }
+    }
+});
 
-// Function for standard Image Upload
 function uploadImage() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (file) processAndUpload(file, file.name.split('.').pop());
-    };
+    input.onchange = e => processAndUpload(e.target.files[0], e.target.files[0].name.split('.').pop());
     input.click();
 }
 
-// GIF Generator
 function createGif() {
     const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = 'image/*';
+    input.type = 'file'; input.multiple = true; input.accept = 'image/*';
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
-        if (files.length < 2) return alert("Select 2+ images");
-        toggleLoader(true, "Creating GIF...");
-        const images = files.map(f => URL.createObjectURL(f));
-        gifshot.createGIF({ images, interval: 0.5, gifWidth: 600, gifHeight: 400 }, (obj) => {
+        toggleLoader(true, "Generating GIF...");
+        gifshot.createGIF({ images: files.map(f => URL.createObjectURL(f)), interval: 0.5, gifWidth: 600 }, (obj) => {
             if (!obj.error) processAndUpload(obj.image, "gif", true);
         });
     };
     input.click();
 }
 
-// Shared Upload Logic
 async function processAndUpload(data, ext, isBase64 = false) {
-    toggleLoader(true, "Uploading to Firebase...");
+    toggleLoader(true, "Uploading...");
     const ref = storage.ref(`email_assets/${Date.now()}.${ext}`);
     try {
         let blob = data;
-        if(isBase64) {
-            const res = await fetch(data);
-            blob = await res.blob();
-        }
+        if(isBase64) { const res = await fetch(data); blob = await res.blob(); }
         await ref.put(blob);
         const url = await ref.getDownloadURL();
-        const imgHtml = `<img src="${url}" style="width:100%; max-width:600px; display:block; margin:20px 0; border-radius:8px;">`;
+        // Inserted images are now given a default width and a class for detection
+        const imgHtml = `<img src="${url}" style="width:250px; height:auto; display:inline-block; margin:10px;">`;
         document.execCommand('insertHTML', false, imgHtml);
-    } catch (err) { alert("Upload failed"); }
+    } catch (err) { alert("Upload error"); }
     toggleLoader(false);
 }
 
-// Final Outlook Compiler
 async function compileAndLaunch() {
     const body = document.getElementById('editable-body').innerHTML;
-    const header = document.getElementById('export-header').outerHTML;
     
-    const fullHtml = `<html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="600" border="0" cellpadding="0" cellspacing="0"><tr><td>${header}</td></tr><tr><td style="padding:20px;font-family:'Segoe UI',sans-serif;">${body}</td></tr></table></td></tr></table></body></html>`;
+    // Header scaled down for the final email output
+    const emailHeader = `
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
+            <tr>
+                <td style="padding:15px 30px;">
+                    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="100" style="display:block;">
+                </td>
+                <td align="right" style="padding:15px 30px; font-family:'Segoe UI',sans-serif;">
+                    <div style="font-size:10px; color:#a0b0b0; text-transform:uppercase;">Secure Portal</div>
+                    <div style="font-size:12px; color:#3d6263; font-weight:700;">Worship & AV Hub</div>
+                </td>
+            </tr>
+        </table>`;
 
-    const type = "text/html";
-    const blob = new Blob([fullHtml], { type });
-    const data = [new ClipboardItem({ [type]: blob })];
+    const fullHtml = `<html><body style="margin:0;padding:0;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="600" border="0" cellspacing="0" cellpadding="0"><tr><td>${emailHeader}</td></tr><tr><td style="padding:20px; font-family:'Segoe UI',sans-serif;">${body}</td></tr></table></td></tr></table></body></html>`;
 
+    const blob = new Blob([fullHtml], { type: "text/html" });
+    const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
-    alert("HTML Copied to Clipboard!");
-    window.location.href = "mailto:?subject=Worship & AV Update";
+    alert("Copied! Paste into Outlook.");
+    window.location.href = "mailto:?subject=Hub Update";
 }
+
+function toggleLoader(s, t) { document.getElementById('loader').style.display = s ? 'flex' : 'none'; document.getElementById('load-text').innerText = t; }
 </script>
 </body>
 </html>
