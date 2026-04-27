@@ -370,7 +370,7 @@
                 };
 
                 MANDATORY_SUNDAY_ROLES.forEach(r => {
-                    const inst = r === "Keyboard" ? "Keys" : r;
+                    const inst = (r === "Keyboard") ? "Keys" : r;
                     tryAssign(r, inst, true);
                 });
 
@@ -379,7 +379,7 @@
                 });
 
                 MANDATORY_SUNDAY_ROLES.forEach(r => {
-                    const inst = r === "Keyboard" ? "Keys" : r;
+                    const inst = (r === "Keyboard") ? "Keys" : r;
                     tryAssign(r, inst, false);
                 });
 
@@ -815,7 +815,12 @@
     <div class="max-w-[1900px] mx-auto">
         <header class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-12 gap-10 border-b border-[#d1dfdf] pb-12">
             <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
-                <select id="termSelect" class="bg-[#f0f6f6] rounded-full px-8 py-3 text-sm font-bold border border-[#d1dfdf] text-[#3d6263] outline-none"><option value="">Term</option><option value="Spring">Spring</option><option value="Summer">Summer</option><option value="Autumn">Autumn</option></select>
+                <select id="termSelect" class="bg-[#f0f6f6] rounded-full px-8 py-3 text-sm font-bold border border-[#d1dfdf] text-[#3d6263] outline-none">
+                    <option value="">Term</option>
+                    <option value="Spring">Spring</option>
+                    <option value="Summer">Summer</option>
+                    <option value="Autumn">Autumn</option>
+                </select>
                 <button onclick="generateTerm()" class="bg-[#f0f6f6] text-[#3d6263] px-8 py-3 rounded-full font-black text-[11px] uppercase border border-[#d1dfdf]">Populate</button>
                 <button onclick="autoFillAllEvents()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">Auto-Populate</button>
                 <button onclick="addThursdayPractices()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">Add Practices</button>
