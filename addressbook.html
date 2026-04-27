@@ -1,389 +1,256 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Song Library - Quick View</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EGBC Address Book - Master Manager</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        const firebaseConfig = {
+            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain: "egbc-worship-planner.firebaseapp.com",
+            projectId: "egbc-worship-planner",
+            storageBucket: "egbc-worship-planner.firebasestorage.app",
+            messagingSenderId: "199442060489",
+            appId: "1:199442060489:web:7eaf85a76334c753db6918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const addressBookRef = collection(db, "addressBook");
+
+        let editingId = null;
+
+        // 1. DELETE - Now using Base64 for safety
+        window.deleteMember = async (id, encodedName) => {
+            const name = atob(encodedName);
+            if(confirm(`Remove ${name} permanently?`)) await deleteDoc(doc(db, "addressBook", id));
+        };
+
+        // 2. EDIT - Now using Base64 for safety
+        window.editMember = (id, encodedData) => {
+            const data = JSON.parse(atob(encodedData));
+            editingId = id;
+            document.getElementById('fullName').value = data.name;
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('freq').value = data.maxFrequency;
+            document.getElementById('relatedTo').value = data.householdId || '';
+            
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            if(data.markers) data.markers.forEach(m => { const el = document.querySelector(`.marker[value="${m}"]`); if(el) el.checked = true; });
+            if(data.primaryInstruments) data.primaryInstruments.forEach(i => { const el = document.querySelector(`.primary[value="${i}"]`); if(el) el.checked = true; });
+            if(data.secondaryInstruments) data.secondaryInstruments.forEach(i => { const el = document.querySelector(`.secondary[value="${i}"]`); if(el) el.checked = true; });
+
+            const btn = document.getElementById('saveBtn');
+            btn.innerText = "Update Member Details";
+            btn.classList.replace('bg-[#3d6263]', 'bg-[#9bc34a]');
+            window.scrollTo(0,0);
+        };
+
+        // 3. LIVE SYNC
+        onSnapshot(query(addressBookRef, orderBy("name")), (snapshot) => {
+            const select = document.getElementById('relatedTo');
+            const tableBody = document.getElementById('memberListBody');
+            select.innerHTML = '<option value="">None / New Household</option>';
+            tableBody.innerHTML = '';
+            
+            const allMembers = [];
+            snapshot.forEach((d) => allMembers.push({id: d.id, ...d.data()}));
+
+            allMembers.forEach((member) => {
+                const opt = document.createElement('option');
+                opt.value = member.id;
+                opt.text = member.name;
+                select.add(opt);
+
+                // Convert data and name to Base64 to handle apostrophes
+                const b64Data = btoa(JSON.stringify(member));
+                const b64Name = btoa(member.name);
+                
+                let householdDisplay = "—";
+                if (member.householdId) {
+                    const head = allMembers.find(m => m.id === member.householdId);
+                    if (head) householdDisplay = head.name + " Family";
+                }
+
+                const row = `
+                    <tr class="border-b border-[#d1dfdf] hover:bg-[#f0f6f6] transition-colors text-sm">
+                        <td class="p-4">
+                            <div class="font-bold text-[#3d6263]">${member.name}</div>
+                            <div class="text-[11px] text-[#3d6263] font-bold opacity-70">${member.email}</div>
+                        </td>
+                        <td class="p-4 text-xs font-bold text-gray-500">${householdDisplay}</td>
+                        <td class="p-4">
+                            <div class="text-[11px] text-[#3d6263] font-extrabold uppercase tracking-tighter">P: ${member.primaryInstruments ? member.primaryInstruments.join(', ') : ''}</div>
+                            <div class="text-[10px] text-gray-400 italic">S: ${member.secondaryInstruments ? member.secondaryInstruments.join(', ') : ''}</div>
+                        </td>
+                        <td class="p-4 text-center font-bold text-[#3d6263]">${member.maxFrequency}</td>
+                        <td class="p-4 text-right space-x-3">
+                            <button onclick="editMember('${member.id}', '${b64Data}')" class="text-[#3d6263] font-bold text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
+                            <button onclick="deleteMember('${member.id}', '${b64Name}')" class="text-red-300 hover:text-red-500 font-bold text-xl leading-none">×</button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        });
+
+        // 4. SAVE / UPDATE
+        window.saveMember = async () => {
+            const btn = document.getElementById('saveBtn');
+            const name = document.getElementById('fullName').value;
+            const email = document.getElementById('email').value;
+            if(!name || !email) { alert("Name and Email required"); return; }
+            btn.disabled = true;
+
+            const payload = {
+                name: name,
+                email: email.toLowerCase().trim(),
+                maxFrequency: document.getElementById('freq').value,
+                householdId: document.getElementById('relatedTo').value,
+                markers: Array.from(document.querySelectorAll('.marker:checked')).map(cb => cb.value),
+                primaryInstruments: Array.from(document.querySelectorAll('.primary:checked')).map(cb => cb.value),
+                secondaryInstruments: Array.from(document.querySelectorAll('.secondary:checked')).map(cb => cb.value)
+            };
+
+            try {
+                if(editingId) {
+                    await updateDoc(doc(db, "addressBook", editingId), payload);
+                    editingId = null;
+                } else {
+                    await addDoc(addressBookRef, { ...payload, createdAt: new Date() });
+                }
+                document.getElementById('fullName').value = '';
+                document.getElementById('email').value = '';
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                btn.innerText = "Add to Address Book";
+                btn.classList.remove('bg-[#9bc34a]');
+                btn.classList.add('bg-[#3d6263]');
+                btn.disabled = false;
+            } catch (e) { console.error(e); btn.disabled = false; }
+        };
+    </script>
     <style>
-        body { 
-            font-family: 'Montserrat', sans-serif; 
-            display: flex; 
-            height: 100vh; 
-            margin: 0; 
-            color: #3d6263; 
-            background-color: #f0f6f6;
+        body { background-color: #f0f6f6; font-family: 'Montserrat', sans-serif; color: #3d6263; }
+        .card { background: white; border-radius: 24px; border: 1px solid #d1dfdf; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .instr-grid { height: 160px; overflow-y: auto; border: 1px solid #d1dfdf; padding: 12px; border-radius: 12px; background: #fafbfc; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #3d6263; border-radius: 10px; }
+        .sticky-footer {
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(to top, white 80%, white 100%);
+            padding-top: 20px;
+            margin-top: 10px;
         }
-
-        #left {
-            width: 300px;
-            border-right: 1px solid #d1dfdf;
-            padding: 20px;
-            overflow-y: auto;
-            background-color: #ffffff;
-            margin: 15px;
-            border-radius: 2.5rem;
-            border: 1px solid #d1dfdf;
-        }
-
-        #right {
-            flex: 1;
-            padding: 30px;
-            overflow-y: auto;
-            background-color: #ffffff;
-            margin: 15px 15px 15px 0;
-            border-radius: 2.5rem;
-            border: 1px solid #d1dfdf;
-        }
-
-        .song {
-            padding: 12px 15px;
-            cursor: pointer;
-            border-bottom: 1px solid #d1dfdf;
-            transition: background 0.2s;
-            font-weight: 400;
-        }
-
-        .song:hover { background: #f0f6f6; }
-
-        h2 { color: #3d6263; margin-top: 0; font-weight: 800; }
-        
-        label { 
-            display: block; 
-            font-weight: 700; 
-            margin-bottom: 8px; 
-            color: #3d6263; 
-            padding-left: 5px;
-            margin-top: 15px;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 12px 20px;
-            margin-bottom: 5px;
-            border: 1px solid #d1dfdf;
-            border-radius: 9999px;
-            box-sizing: border-box;
-            font-family: 'Montserrat', sans-serif;
-            outline: none;
-            color: #3d6263;
-        }
-
-        .link-container {
-            margin-top: 5px;
-            margin-bottom: 20px;
-            padding-left: 10px;
-        }
-
-        .external-link {
-            display: inline-block;
-            color: #3d6263;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 14px;
-        }
-
-        .external-link:hover {
-            text-decoration: underline;
-            color: #9bc34a;
-        }
-
-        button {
-            background-color: #3d6263;
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 9999px;
-            cursor: pointer;
-            font-weight: 800;
-            text-transform: uppercase;
-            margin-top: 20px;
-        }
-
-        button:hover {
-            background-color: #9bc34a;
-        }
-
-        .delete-btn {
-            background-color: #b22222;
-            margin-left: 10px;
-        }
-
-        .delete-btn:hover {
-            background-color: #8b0000;
-        }
-
-        .status-msg {
-            font-size: 11px;
-            color: #9bc34a;
-            height: 15px;
-            font-weight: 700;
-            padding-left: 10px;
-        }
+        input:focus, select:focus { border-color: #9bc34a !FO; }
     </style>
 </head>
-
-<body>
-
-<div id="left">
-    <label>Search Titles</label>
-    <input id="search" placeholder="Search songs..." oninput="searchSongs()">
-    <label>Search Lyrics</label>
-    <input id="lyricsSearch" placeholder="Find by lyrics..." onkeydown="handleLyricsSearch(event)">
-    <div id="list"></div>
-</div>
-
-<div id="right">
-    <h2 id="display-title">Select a Song</h2>
-    <div id="editor" style="display:none;">
-        <label>Song Title</label>
-        <input id="edit-title">
+<body class="p-8 lg:p-12">
+    <div class="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-12">
         
-        <label>Artist</label>
-        <input id="artist" placeholder="Scanning for artist...">
-        <div id="artist-status" class="status-msg"></div>
+        <div class="xl:col-span-1 card p-8 h-[90vh] sticky top-12 flex flex-col">
+            <h1 class="text-3xl font-extrabold text-[#3d6263] tracking-tight uppercase mb-8 shrink-0">Member Entry</h1>
+            
+            <div class="space-y-6 overflow-y-auto pr-2 flex-grow">
+                <div>
+                    <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Full Name</label>
+                    <input type="text" id="fullName" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-bold outline-none focus:border-[#9bc34a]">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Email Address</label>
+                    <input type="email" id="email" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-bold outline-none focus:border-[#9bc34a]">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Max / Mo</label>
+                        <input type="number" id="freq" value="2" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-center font-bold outline-none focus:border-[#9bc34a]">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Household</label>
+                        <select id="relatedTo" class="w-full bg-[#f0f6f6] border border-[#d1dfdf] p-3 rounded-full text-xs font-bold text-[#3d6263] outline-none focus:border-[#9bc34a]">
+                            <option value="">None / New</option>
+                        </select>
+                    </div>
+                </div>
 
-        <label>YouTube Link</label>
-        <input id="youtube" onchange="smartScanArtist()" placeholder="Paste YouTube link here">
-        <div class="link-container" id="yt-link-box"></div>
-        
-        <label>CCLI Number</label>
-        <input id="ccli" placeholder="Enter CCLI Number">
-        <div class="link-container" id="ccli-link-box"></div>
+                <div class="space-y-4 pt-4 border-t border-[#d1dfdf]">
+                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Teams</label>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-bold text-gray-600">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Core Team"> CORE</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Worship Team"> WORSHIP</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="AV Team"> AV TEAM</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Choir"> CHOIR</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Youth Worship"> YOUTH</label>
+                    </div>
+                </div>
 
-        <label>Primary Instrument Role</label>
-        <select id="primary-role">
-            <option value="">Select Role...</option>
-            <option value="Worship Leader">Worship Leader</option>
-            <option value="Acoustic Guitar">Acoustic Guitar</option>
-            <option value="Electric Guitar">Electric Guitar</option>
-            <option value="Keys">Keys</option>
-            <option value="Bass">Bass</option>
-            <option value="Drums">Drums</option>
-            <option value="Vocals">Vocals</option>
-        </select>
+                <div class="space-y-4 pt-4 border-t border-[#d1dfdf]">
+                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Primary)</label>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Worship Leader"> Worship Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Sing"> Sing</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Guitar"> Guitar</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Keyboard"> Keyboard</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Drums"> Drums</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Bass"> Bass</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Congas"> Congas</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Percussion"> Percussion</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Violin"> Violin</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Trumpet"> Trumpet</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Synth"> Synth</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Electric Guitar"> Electric Guitar</label>
+                    </div>
+                </div>
 
-        <label>Secondary Instrument Role</label>
-        <select id="secondary-role">
-            <option value="">Select Role...</option>
-            <option value="Worship Leader">Worship Leader</option>
-            <option value="Acoustic Guitar">Acoustic Guitar</option>
-            <option value="Electric Guitar">Electric Guitar</option>
-            <option value="Keys">Keys</option>
-            <option value="Bass">Bass</option>
-            <option value="Drums">Drums</option>
-            <option value="Vocals">Vocals</option>
-        </select>
-        
-        <div style="display: flex; align-items: center;">
-            <button onclick="save()">Save Changes</button>
-            <button class="delete-btn" onclick="deleteSong()">Delete</button>
+                <div class="space-y-4 pt-4 border-t border-[#d1dfdf]">
+                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Secondary)</label>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Worship Leader"> Worship Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Sing"> Sing</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Guitar"> Guitar</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Keyboard"> Keyboard</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Drums"> Drums</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Bass"> Bass</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Congas"> Congas</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Percussion"> Percussion</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Violin"> Violin</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Trumpet"> Trumpet</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Synth"> Synth</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Electric Guitar"> Electric Guitar</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sticky-footer shrink-0">
+                <button id="saveBtn" onclick="saveMember()" class="w-full bg-[#3d6263] text-white font-extrabold py-4 rounded-full text-xs uppercase tracking-widest shadow-lg hover:bg-[#9bc34a] transition-all">
+                    Add to Address Book
+                </button>
+            </div>
         </div>
+
+        <div class="xl:col-span-3 card p-10">
+            <h2 class="text-3xl font-extrabold text-[#3d6263] tracking-tight uppercase mb-8 border-b border-[#d1dfdf] pb-8">Team Directory</h2>
+            <div class="table-container">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-[10px] uppercase font-extrabold text-gray-400 tracking-[0.2em] border-b border-[#d1dfdf]">
+                            <th class="pb-6">Member / Email</th>
+                            <th class="pb-6">Family</th>
+                            <th class="pb-6">Instruments</th>
+                            <th class="pb-6 text-center">Freq</th>
+                            <th class="pb-6"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="memberListBody"></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
-</div>
-
-<script>
-const firebaseConfig = {
-    apiKey: "YOUR_KEY",
-    authDomain: "egbc-worship-planner.firebaseapp.app",
-    projectId: "egbc-worship-planner"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-let currentDoc = null;
-
-function normalizeTitle(title) { return title.toLowerCase().trim(); }
-
-async function loadSongs() {
-    const snapshot = await db.collection("songs").orderBy("normalized").get();
-    renderList(snapshot.docs);
-}
-
-function renderList(docs) {
-    const list = document.getElementById("list");
-    list.innerHTML = docs.map(doc => `
-        <div class="song" onclick="openSong('${doc.id.replace(/'/g, "\\'")}')">
-            ${doc.data().title}
-        </div>
-    `).join("");
-}
-
-async function searchSongs() {
-    const input = document.getElementById("search").value;
-    if (!input) { loadSongs(); return; }
-    const norm = normalizeTitle(input);
-    const snapshot = await db.collection("songs")
-        .orderBy("normalized").startAt(norm).endAt(norm + "\uf8ff").get();
-    renderList(snapshot.docs);
-}
-
-async function openSong(id) {
-    const doc = await db.collection("songs").doc(id).get();
-    const data = doc.data();
-    currentDoc = id;
-    
-    document.getElementById("editor").style.display = "block";
-    document.getElementById("display-title").innerText = data.title;
-    document.getElementById("edit-title").value = data.title;
-    document.getElementById("artist").value = data.artist || "";
-    document.getElementById("primary-role").value = data.primaryRole || "";
-    document.getElementById("secondary-role").value = data.secondaryRole || "";
-    
-    const ytVal = data.youtube || "";
-    document.getElementById("youtube").value = ytVal;
-    updateYoutubeLink(ytVal);
-
-    const ccliVal = data.ccli || "";
-    document.getElementById("ccli").value = ccliVal;
-    updateCCLILink(ccliVal);
-
-    document.getElementById("artist-status").innerText = "";
-
-    if (!data.artist && ytVal) {
-        smartScanArtist();
-    }
-}
-
-function updateYoutubeLink(url) {
-    const box = document.getElementById("yt-link-box");
-    if (url && url.startsWith('http')) {
-        box.innerHTML = `<a href="${url}" target="_blank" class="external-link">▶ Watch on YouTube</a>`;
-    } else {
-        box.innerHTML = "";
-    }
-}
-
-function updateCCLILink(val) {
-    const box = document.getElementById("ccli-link-box");
-    if (val && val.trim() !== "") {
-        const cleanCCLI = val.replace(/\D/g, '');
-        box.innerHTML = `<a href="https://songselect.ccli.com/Songs/${cleanCCLI}" target="_blank" class="external-link">📄 View on CCLI SongSelect</a>`;
-    } else {
-        box.innerHTML = "";
-    }
-}
-
-document.getElementById("youtube").addEventListener("input", (e) => updateYoutubeLink(e.target.value));
-document.getElementById("ccli").addEventListener("input", (e) => updateCCLILink(e.target.value));
-
-async function smartScanArtist() {
-    const youtubeUrl = document.getElementById("youtube").value;
-    const songTitleFromDB = document.getElementById("edit-title").value;
-    const status = document.getElementById("artist-status");
-    
-    if (!youtubeUrl) return;
-    status.innerText = "Scanning YouTube...";
-
-    try {
-        const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(youtubeUrl)}`);
-        const data = await response.json();
-        
-        if (data.title) {
-            let videoTitle = data.title;
-            let artist = "";
-            const separators = [" - ", " | ", " // ", " — "];
-            let parts = [videoTitle];
-
-            for (let sep of separators) {
-                if (videoTitle.includes(sep)) {
-                    parts = videoTitle.split(sep);
-                    break;
-                }
-            }
-
-            if (parts.length > 1) {
-                const part1 = parts[0].trim();
-                const part2 = parts[1].trim();
-                if (part1.toLowerCase().includes(songTitleFromDB.toLowerCase())) {
-                    artist = part2;
-                } else {
-                    artist = part1;
-                }
-            } else {
-                const regex = new RegExp(songTitleFromDB.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi");
-                artist = videoTitle.replace(regex, "");
-            }
-
-            artist = artist.replace(/^\s*by\s+/i, "").replace(/\s+by\s*$/i, "").trim();
-            artist = artist.replace(/\(.*\)|\[.*\]/g, "")
-                           .replace(/lyrics|official video|live|video|audio|hd|4k/gi, "")
-                           .replace(/^[:\-\s\u2013\u2014]+|[:\-\s\u2013\u2014]+$/g, "")
-                           .trim();
-
-            if (!artist || artist.length < 2) {
-                artist = data.author_name.replace("- Topic", "").trim();
-            }
-
-            document.getElementById("artist").value = artist;
-            status.innerText = "Artist scanned!";
-            setTimeout(() => { status.innerText = ""; }, 3000);
-        }
-    } catch (e) {
-        status.innerText = "";
-    }
-}
-
-async function save() {
-    if (!currentDoc) return;
-    const newTitle = document.getElementById("edit-title").value;
-    await db.collection("songs").doc(currentDoc).update({
-        title: newTitle,
-        normalized: normalizeTitle(newTitle),
-        artist: document.getElementById("artist").value,
-        youtube: document.getElementById("youtube").value,
-        ccli: document.getElementById("ccli").value,
-        primaryRole: document.getElementById("primary-role").value,
-        secondaryRole: document.getElementById("secondary-role").value
-    });
-    document.getElementById("display-title").innerText = newTitle;
-    alert("Saved.");
-    loadSongs();
-}
-
-async function deleteSong() {
-    if (!currentDoc || !confirm("Delete this song?")) return;
-    await db.collection("songs").doc(currentDoc).delete();
-    document.getElementById("editor").style.display = "none";
-    currentDoc = null;
-    loadSongs();
-}
-
-async function handleLyricsSearch(e) {
-    if (e.key !== "Enter") return;
-    const text = document.getElementById("lyricsSearch").value;
-    if (!text) { loadSongs(); return; }
-
-    try {
-        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(text)}&entity=song&limit=5`);
-        const result = await response.json();
-        if (!result.results || result.results.length === 0) { alert("No matches."); return; }
-
-        const allSongsSnapshot = await db.collection("songs").get();
-        const allSongs = allSongsSnapshot.docs;
-        const matchingDocs = [];
-        const seenIds = new Set();
-
-        for (let item of result.results) {
-            const onlineTitle = normalizeTitle(item.trackName);
-            const onlineKeywords = onlineTitle.split(' ').filter(w => w.length > 3); 
-
-            allSongs.forEach(doc => {
-                const dbTitle = normalizeTitle(doc.data().title);
-                const isPhraseMatch = dbTitle.includes(onlineTitle) || onlineTitle.includes(dbTitle);
-                if (isPhraseMatch && !seenIds.has(doc.id)) {
-                    matchingDocs.push(doc);
-                    seenIds.add(doc.id);
-                }
-            });
-        }
-        renderList(matchingDocs);
-    } catch (err) { console.error(err); }
-}
-
-loadSongs();
-</script>
 </body>
 </html>
