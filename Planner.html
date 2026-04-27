@@ -121,7 +121,7 @@
             const eventSnap = await getDoc(eventRef);
             if (!eventSnap.exists()) return;
             const currentTeams = eventSnap.data().teams || [];
-            const newTeams = currentTeams.includes(teamName) ? currentTeams.filter(t => t !== teamName) : [...currentTeams, teamName];
+  0         const newTeams = currentTeams.includes(teamName) ? currentTeams.filter(t => t !== teamName) : [...currentTeams, teamName];
             await updateDoc(eventRef, { teams: newTeams });
         };
 
@@ -246,61 +246,64 @@
             if(Object.keys(updates).length > 0) await updateDoc(doc(db, "events", practiceId), updates);
         };
 
-        window.autoFillAllEvents = async () => {
-            if (!confirm("Automatically fill all services based on availability and instruments?")) return;
-            
-            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
-            const monthlyCounts = {};
+        // --- NEW AUTO FILL LOGIC ---
+        window.autoFillAllEvents = async () => {
+            if (!confirm("Automatically fill all services based on availability and instruments?")) return;
+            
+            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
+            const monthlyCounts = {};
 
-            for (const ev of activeEvents) {
-                const monthKey = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-                if (!monthlyCounts[monthKey]) monthlyCounts[monthKey] = {};
+            for (const ev of activeEvents) {
+                const monthKey = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+                if (!monthlyCounts[monthKey]) monthlyCounts[monthKey] = {};
 
-                const availableMembers = addressBook.filter(m => 
-                    availability[ev.id]?.[m.id] === 'avail' && 
-                    ev.teams?.some(t => m.markers?.includes(t))
-                );
+                // Get people marked 'avail' who are on the teams required for this event
+                const availableMembers = addressBook.filter(m => 
+                    availability[ev.id]?.[m.id] === 'avail' && 
+                    ev.teams?.some(t => m.markers?.includes(t))
+                );
 
-                // Specialist Priority: Sort so people with FEWER primary instruments are processed first
-                availableMembers.sort((a, b) => (a.primaryInstruments?.length || 0) - (b.primaryInstruments?.length || 0));
+                // Priority to Specialists: Sort so people with FEWER total primary instruments are assigned first
+                availableMembers.sort((a, b) => (a.primaryInstruments?.length || 0) - (b.primaryInstruments?.length || 0));
 
-                const updates = {};
-                const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
+                const updates = {};
+                const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
 
-                ev.roles.forEach(role => {
-                    if (ev.assignments?.[role]) return; // Skip if already filled
+                for (const role of ev.roles) {
+                    if (ev.assignments?.[role]) continue; // Already filled
 
-                    // Find someone for this role
-                    let chosen = availableMembers.find(m => {
-                        if (alreadyAssignedToday.has(m.id)) return false;
-                        const currentServed = monthlyCounts[monthKey][m.id] || 0;
-                        if (currentServed >= (parseInt(m.maxFrequency) || 2)) return false;
-                        return m.primaryInstruments?.includes(role);
-      0             });
+                    // Try Primary Instruments first
+                    let chosen = availableMembers.find(m => {
+                        if (alreadyAssignedToday.has(m.id)) return false;
+                        const currentServed = monthlyCounts[monthKey][m.id] || 0;
+                        if (currentServed >= (parseInt(m.maxFrequency) || 2)) return false;
+                        return m.primaryInstruments?.includes(role);
+                    });
 
-                    // Fallback to secondary
-                    if (!chosen) {
-                        chosen = availableMembers.find(m => {
-                            if (alreadyAssignedToday.has(m.id)) return false;
-                            const currentServed = monthlyCounts[monthKey][m.id] || 0;
-                            if (currentServed >= (parseInt(m.maxFrequency) || 2)) return false;
-                            return m.secondaryInstruments?.includes(role);
-                        });
-                    }
+                    // Fallback to Secondary Instruments
+                    if (!chosen) {
+                        chosen = availableMembers.find(m => {
+                            if (alreadyAssignedToday.has(m.id)) return false;
+                            const currentServed = monthlyCounts[monthKey][m.id] || 0;
+                            if (currentServed >= (parseInt(m.maxFrequency) || 2)) return false;
+                            return m.secondaryInstruments?.includes(role);
+                        });
+                    }
 
-                    if (chosen) {
-                        updates[`assignments.${role}`] = { id: chosen.id, name: chosen.name };
-                        alreadyAssignedToday.add(chosen.id);
-                        monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id] || 0) + 1;
-                    }
-                });
+                    if (chosen) {
+                        updates[`assignments.${role}`] = { id: chosen.id, name: chosen.name };
+                        alreadyAssignedToday.add(chosen.id);
+                        monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id] || 0) + 1;
+                    }
+                }
 
-                if (Object.keys(updates).length > 0) {
-                    await updateDoc(doc(db, "events", ev.id), updates);
-                }
-            }
-            alert("Auto-fill complete!");
-        };
+                if (Object.keys(updates).length > 0) {
+                    await updateDoc(doc(db, "events", ev.id), updates);
+                }
+            }
+            alert("Auto-fill complete!");
+        };
+        // --- END NEW LOGIC ---
 
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
@@ -601,7 +604,7 @@
                 <button onclick="addThursdayPractices()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">Add Practices</button>
                 <button onclick="addSingleLine()" class="bg-[#3d6263] text-white px-10 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">+ Service</button>
                 <button onclick="gatherTermAvailability()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Gather Avail</button>
-                <button onclick="autoFillAllEvents()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg hover:bg-black transition-all">🪄 AUTO-FILL ALL</button>
+                <button onclick="autoFillAllEvents()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">🪄 Auto-Fill Rota</button>
                 <button onclick="prepareDistributionPackage()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg hover:bg-black transition-all">🚀 SEND ALL ROTAS</button>
             </div>
             <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
@@ -614,6 +617,6 @@
             </div>
         </header>
         <div id="eventList"></div>
-        </div>
+    </div>
 </body>
 </html>
