@@ -266,7 +266,7 @@ async function showKeyInfo(id, title) {
         display.innerText = latestSunday;
         if (latestSunday === maxSunday) {
             display.classList.add('highlight-yellow');
-      00000000000000000000000000000000000000000000000000000} else {
+        } else {
             display.classList.remove('highlight-yellow');
         }
     }
@@ -394,7 +394,7 @@ window.keyChanged = async (id) => {
     }
     
     const docId = title.toLowerCase().replace(/\s+/g, "-");
-    const snap = await getDoc(doc(db, "songs", docId));
+   * snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) {
         container.innerHTML = "";
         return;
