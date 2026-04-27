@@ -47,7 +47,7 @@
         border: 2px solid #3d6263;
         padding: 0.75rem 1.5rem;
         border-radius: 9999px;
-        font-weight: 800;
+      000000000000000000000000000000000000000000000font-weight: 800;
         transition: all 0.2s;
     }
     .btn-secondary:hover { background-color: #ffffff; }
@@ -394,7 +394,7 @@ window.keyChanged = async (id) => {
     }
     
     const docId = title.toLowerCase().replace(/\s+/g, "-");
-   * snap = await getDoc(doc(db, "songs", docId));
+    const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) {
         container.innerHTML = "";
         return;
