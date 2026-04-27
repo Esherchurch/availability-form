@@ -284,21 +284,16 @@
 
                 const members = addressBook.filter(m => availability[ev.id]?.[m.id] === 'avail' && ev.teams?.some(t => m.markers?.includes(t)));
                 const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
-                const updates = { assignments: { ...(ev.assignments || {}) } };
-                const roles = [...(ev.roles || [])];
+                const currentRoles = [...(ev.roles || [])];
+                const assignments = { ...(ev.assignments || {}) };
 
-                // HELPER: Core Assignment Logic
                 const tryAssign = (roleName, instrumentName, isPrimaryOnly) => {
-                    if (updates.assignments[roleName]) return false;
+                    if (assignments[roleName]) return false;
 
                     let candidates = members.filter(m => {
                         if (alreadyAssignedToday.has(m.id)) return false;
                         if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) return false;
-                        
-                        const hasPrimary = m.primaryInstruments?.includes(instrumentName);
-                        const hasSecondary = m.secondaryInstruments?.includes(instrumentName);
-                        
-                        return isPrimaryOnly ? hasPrimary : (hasPrimary || hasSecondary);
+                        return isPrimaryOnly ? m.primaryInstruments?.includes(instrumentName) : (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName));
                     });
 
                     candidates.sort((a,b) => {
@@ -310,7 +305,7 @@
 
                     if (candidates.length > 0) {
                         const chosen = candidates[0];
-                        updates.assignments[roleName] = { id: chosen.id, name: chosen.name };
+                        assignments[roleName] = { id: chosen.id, name: chosen.name };
                         alreadyAssignedToday.add(chosen.id);
                         monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id] || 0) + 1;
                         return true;
@@ -318,46 +313,41 @@
                     return false;
                 };
 
-                // PASS 1: PRIMARY INSTRUMENTS ONLY (Mandatory roles + existing Singers)
-                roles.forEach(r => {
-                    let inst = r === "Keyboard" ? "Keys" : r;
-                    if (r.startsWith("Singer")) inst = "Sing";
-                    tryAssign(r, inst, true);
-                });
-
-                // PASS 2: SECONDARY INSTRUMENTS / FALLBACKS
-                roles.forEach(r => {
-                    let inst = r === "Keyboard" ? "Keys" : r;
-                    if (r.startsWith("Singer")) inst = "Sing";
-                    tryAssign(r, inst, false);
-                });
-
-                // PASS 3: DYNAMIC EXPANSION (Extra Singers)
-                let extraSingers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
-                extraSingers.sort((a,b) => (a.markers?.includes("Youth") ? 1 : 0) - (b.markers?.includes("Youth") ? 1 : 0));
+                // PASS 1: PRIMARY MANDATORY ROLES (David stays on Keys)
+                MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r === "Keyboard" ? "Keys" : r, true));
                 
-                for (const m of extraSingers) {
+                // PASS 2: PRIMARY SINGERS (Fill existing Singer 1/2/3 boxes)
+                currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", true));
+
+                // PASS 3: SECONDARY MANDATORY + SINGERS
+                MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r === "Keyboard" ? "Keys" : r, false));
+                currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", false));
+
+                // PASS 4: DYNAMIC SINGERS (Add more if available)
+                let remainingSingers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
+                remainingSingers.sort((a,b) => (a.markers?.includes("Youth") ? 1 : 0) - (b.markers?.includes("Youth") ? 1 : 0));
+                for (const m of remainingSingers) {
                     if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) continue;
                     let nextIdx = 1;
-                    while (roles.includes(`Singer ${nextIdx}`)) nextIdx++;
+                    while (currentRoles.includes(`Singer ${nextIdx}`)) nextIdx++;
                     const newRole = `Singer ${nextIdx}`;
-                    roles.push(newRole);
-                    updates.assignments[newRole] = { id: m.id, name: m.name };
+                    currentRoles.push(newRole);
+                    assignments[newRole] = { id: m.id, name: m.name };
                     alreadyAssignedToday.add(m.id);
                     monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
                 }
 
-                // PASS 4: DYNAMIC 2nd Guitar/Keys
+                // PASS 5: DYNAMIC 2nd Guitar/Keys
                 ["Guitar", "Keys"].forEach(inst => {
                     const roleName = `2nd ${inst === "Keys" ? "Keys" : "Guitar"}`;
-                    if (!roles.includes(roleName)) {
+                    if (!currentRoles.includes(roleName)) {
                         if (tryAssign(roleName, inst, true) || tryAssign(roleName, inst, false)) {
-                            roles.push(roleName);
+                            currentRoles.push(roleName);
                         }
                     }
                 });
 
-                await updateDoc(doc(db, "events", ev.id), { assignments: updates.assignments, roles: roles });
+                await updateDoc(doc(db, "events", ev.id), { assignments: assignments, roles: currentRoles });
             }
             alert("Auto-fill complete!");
         };
