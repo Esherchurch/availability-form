@@ -330,7 +330,7 @@
                     monthlyCounts[monthKey] = {};
                 }
 
-                const members = addressBook.filter(m => availability[ev.id]?.[m.id] === 'avail' && (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth"))));
+                const members = addressBook.filter(m => availability[ev.id]?.[m.id] === 'avail' && (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship"))));
                 const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
                 const currentRoles = [...(ev.roles || [])];
                 const assignments = { ...(ev.assignments || {}) };
@@ -351,8 +351,8 @@
                     });
 
                     candidates.sort((a,b) => {
-                        const aYouth = a.markers?.includes("Youth") ? 1 : 0;
-                        const bYouth = b.markers?.includes("Youth") ? 1 : 0;
+                        const aYouth = a.markers?.includes("Youth Worship") ? 1 : 0;
+                        const bYouth = b.markers?.includes("Youth Worship") ? 1 : 0;
                         if (aYouth !== bYouth) {
                             return aYouth - bYouth;
                         }
@@ -370,8 +370,7 @@
                 };
 
                 MANDATORY_SUNDAY_ROLES.forEach(r => {
-                    const inst = (r === "Keyboard") ? "Keys" : r;
-                    tryAssign(r, inst, true);
+                    tryAssign(r, r, true);
                 });
 
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => {
@@ -379,8 +378,7 @@
                 });
 
                 MANDATORY_SUNDAY_ROLES.forEach(r => {
-                    const inst = (r === "Keyboard") ? "Keys" : r;
-                    tryAssign(r, inst, false);
+                    tryAssign(r, r, false);
                 });
 
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => {
@@ -390,8 +388,8 @@
                 let potentialSingers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
                 
                 potentialSingers.sort((a,b) => {
-                    const aYouth = a.markers?.includes("Youth") ? 1 : 0;
-                    const bYouth = b.markers?.includes("Youth") ? 1 : 0;
+                    const aYouth = a.markers?.includes("Youth Worship") ? 1 : 0;
+                    const bYouth = b.markers?.includes("Youth Worship") ? 1 : 0;
                     return aYouth - bYouth;
                 });
 
@@ -410,8 +408,8 @@
                     monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
                 }
 
-                ["Guitar", "Keys"].forEach(inst => {
-                    const rName = `2nd ${inst === "Keys" ? "Keys" : "Guitar"}`;
+                ["Guitar", "Keyboard"].forEach(inst => {
+                    const rName = `2nd ${inst}`;
                     if (!currentRoles.includes(rName)) {
                         if (tryAssign(rName, inst, true) || tryAssign(rName, inst, false)) {
                             currentRoles.push(rName);
@@ -631,7 +629,7 @@
             const emails = new Set();
             cachedEvents.filter(e => !e.archived && e.termLabel === selectedTerm).forEach(ev => {
                 addressBook.forEach(m => { 
-                    if(m.markers?.some(r => ev.teams?.includes(r)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth"))) {
+                    if(m.markers?.some(r => ev.teams?.includes(r)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship"))) {
                         emails.add(m.email); 
                     }
                 });
@@ -719,7 +717,7 @@
 
         function generateEventHtml(ev, blockIdx) {
             const assignedIds = Object.values(ev.assignments || {}).map(a => a.id);
-            const members = addressBook.filter(m => (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth"))));
+            const members = addressBook.filter(m => (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship"))));
             const respondersAvail = members.filter(m => availability[ev.id]?.[m.id] === 'avail' && (!hideAssigned || !assignedIds.includes(m.id)));
             const declined = members.filter(m => (availability[ev.id]?.[m.id] === 'unavailable' || availability[ev.id]?.[m.id] === 'not-avail') && (!hideAssigned || !assignedIds.includes(m.id)));
             const pending = members.filter(m => !availability[ev.id]?.[m.id] && (!hideAssigned || !assignedIds.includes(m.id)));
