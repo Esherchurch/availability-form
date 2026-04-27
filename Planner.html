@@ -46,12 +46,6 @@
 
         const FORM_LINK = "https://esherchurch.github.io/availability-form/";
 
-        const toLocalISO = (date) => {
-            const offset = date.getTimezoneOffset();
-            const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
-            return adjustedDate.toISOString().split('T')[0];
-        };
-
         const getLogoBase64 = () => {
             return new Promise(async (resolve) => {
                 if (logoBase64) return resolve(logoBase64);
@@ -111,28 +105,10 @@
             renderPlanner();
         });
 
-        window.toggleHideAssigned = () => {
-            hideAssigned = !hideAssigned;
-            renderPlanner();
-        };
-
-        window.toggleTermCollapse = (termId) => {
-            if (collapsedTerms.has(termId)) collapsedTerms.delete(termId);
-            else collapsedTerms.add(termId);
-            renderPlanner();
-        };
-
-        window.toggleEventExpand = (eventId) => {
-            if (expandedEvents.has(eventId)) expandedEvents.delete(eventId);
-            else expandedEvents.add(eventId);
-            renderPlanner();
-        };
-
-        window.toggleBucket = (eventId) => {
-            if (openBuckets.has(eventId)) openBuckets.delete(eventId);
-            else openBuckets.add(eventId);
-            renderPlanner();
-        };
+        window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
+        window.toggleTermCollapse = (termId) => { collapsedTerms.has(termId) ? collapsedTerms.delete(termId) : collapsedTerms.add(termId); renderPlanner(); };
+        window.toggleEventExpand = (eventId) => { expandedEvents.has(eventId) ? expandedEvents.delete(eventId) : expandedEvents.add(eventId); renderPlanner(); };
+        window.toggleBucket = (eventId) => { openBuckets.has(eventId) ? openBuckets.delete(eventId) : openBuckets.add(eventId); renderPlanner(); };
 
         window.updateField = async (id, field, value) => { 
             const updates = { [field]: value };
@@ -188,10 +164,7 @@
         window.onDragStart = (e, personId, personName, eventId = null, role = null) => {
             e.dataTransfer.setData("personId", personId);
             e.dataTransfer.setData("personName", personName);
-            if(eventId && role) {
-                e.dataTransfer.setData("sourceEventId", eventId);
-                e.dataTransfer.setData("sourceRole", role);
-            }
+            if(eventId && role) { e.dataTransfer.setData("sourceEventId", eventId); e.dataTransfer.setData("sourceRole", role); }
         };
 
         window.onDropRole = async (e, eventId, role) => {
@@ -200,51 +173,22 @@
             const personName = e.dataTransfer.getData("personName");
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
-
-            if(sourceEventId === eventId && sourceRole) {
-                await unassignPerson(sourceEventId, sourceRole);
-            }
+            if(sourceEventId === eventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
             await assignPerson(eventId, role, personId, personName);
         };
 
-        window.onDropBucket = async (e, eventId, targetStatus = null) => {
+        window.onDropBucket = async (e) => {
             e.preventDefault();
-            const personId = e.dataTransfer.getData("personId");
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
-
-            if(sourceEventId && sourceRole) {
-                await unassignPerson(sourceEventId, sourceRole);
-            }
-
-            if(targetStatus && eventId && personId) {
-                const availQuery = query(collection(db, "availability"), where("eventId", "==", eventId), where("memberId", "==", personId));
-                const snap = await getDocs(availQuery);
-                
-                if (targetStatus === 'pending') {
-                    for (const d of snap.docs) { await deleteDoc(doc(db, "availability", d.id)); }
-                } else {
-                    if (!snap.empty) {
-                        await updateDoc(doc(db, "availability", snap.docs[0].id), { status: targetStatus });
-                    } else {
-                        await addDoc(collection(db, "availability"), { eventId, memberId: personId, status: targetStatus });
-                    }
-                }
-            }
+            if(sourceEventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
         };
 
         window.addSingleLine = async () => {
-            const dateStr = toLocalISO(new Date());
+            const dateStr = new Date().toISOString().split('T')[0];
             await addDoc(collection(db, "events"), {
-                date: dateStr,
-                termLabel: getTermLabel(dateStr),
-                type: "Sunday Morning Worship",
-                description: "",
-                teams: ["Worship Team", "AV Team"],
-                startTime: "08:00",
-                endTime: "11:30",
-                roles: MANDATORY_SUNDAY_ROLES,
-                archived: false
+                date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
+                teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
             });
         };
 
@@ -256,17 +200,10 @@
             let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
             while (curr.getDay() !== 0) curr.setDate(curr.getDate() + 1);
             while (curr <= end) {
-                const dateStr = toLocalISO(curr);
+                const dateStr = curr.toISOString().split('T')[0];
                 await addDoc(collection(db, "events"), {
-                    date: dateStr,
-                    termLabel: getTermLabel(dateStr),
-                    type: "Sunday Morning Worship",
-                    description: "",
-                    teams: ["Worship Team", "AV Team"],
-                    startTime: "08:00",
-                    endTime: "11:30",
-                    roles: MANDATORY_SUNDAY_ROLES,
-                    archived: false
+                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
+                    teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
                 });
                 curr.setDate(curr.getDate() + 7);
             }
@@ -280,24 +217,16 @@
             let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
             while (curr.getDay() !== 4) curr.setDate(curr.getDate() + 1);
             while (curr <= end) {
-                const dateStr = toLocalISO(curr);
+                const dateStr = curr.toISOString().split('T')[0];
                 await addDoc(collection(db, "events"), {
-                    date: dateStr,
-                    termLabel: getTermLabel(dateStr),
-                    type: "Sunday Team Practice",
-                    description: "Thursday Rehearsal",
-                    teams: ["Worship Team"],
-                    startTime: "19:30",
-                    endTime: "21:30",
-                    roles: ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass"],
-                    archived: false
+                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Team Practice", description: "Thursday Rehearsal",
+                    teams: ["Worship Team"], startTime: "19:30", endTime: "21:30", roles: ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass"], archived: false
                 });
                 curr.setDate(curr.getDate() + 7);
             }
         };
 
         window.autoFillPractice = async (practiceId) => {
-            if(!confirm("Fill this practice with Sunday's team?")) return;
             const practice = cachedEvents.find(e => e.id === practiceId);
             if(!practice) return;
             const practiceDate = new Date(practice.date);
@@ -355,15 +284,11 @@
                     return false;
                 };
 
-                // Pass 1: Primary Mandatory ( WL, Keys, Guitar, Drums, Bass, Sound, Words, Cameras )
                 MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r === "Keyboard" ? "Keys" : r, true));
-                // Pass 2: Primary Backing Singers (Existing slots)
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", true));
-                // Pass 3: Secondary Fallbacks
                 MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r === "Keyboard" ? "Keys" : r, false));
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", false));
                 
-                // Pass 4: Extra Singers Expansion
                 let singers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
                 singers.sort((a,b) => (a.markers?.includes("Youth") ? 1 : 0) - (b.markers?.includes("Youth") ? 1 : 0));
                 for (const m of singers) {
@@ -376,7 +301,6 @@
                     alreadyAssignedToday.add(m.id);
                     monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
                 }
-                // Pass 5: 2nd Guitar/Keys
                 ["Guitar", "Keys"].forEach(inst => {
                     const rName = `2nd ${inst === "Keys" ? "Keys" : "Guitar"}`;
                     if (!currentRoles.includes(rName)) {
@@ -446,8 +370,7 @@
                                 segs.forEach(seg => {
                                     if (seg.startsWith("DAY:")) { wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(10); wallDoc.setTextColor(180, 180, 180); wallDoc.text(seg.replace("DAY:", ""), data.cell.x + 5, yPos); yPos += 12; }
                                     else if (seg.startsWith("S:")) { 
-                                        const evDate = `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`;
-                                        const matches = Object.entries(termEvents.find(e => e.date === evDate)?.assignments || {}).filter(([r, p]) => hIds.includes(p.id));
+                                        const matches = Object.entries(termEvents.find(e => e.date === `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`)?.assignments || {}).filter(([r, p]) => hIds.includes(p.id));
                                         if (matches.length > 0) {
                                             wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99); 
                                             wallDoc.text(wallDoc.splitTextToSize(seg.replace("S:", ""), 100), data.cell.x + 5, yPos); 
@@ -480,11 +403,11 @@
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
-            const rolesRaw = [...new Set(termEvents.flatMap(e => e.roles || []))];
-            const sortedRoles = [...rolesRaw.filter(r => !AV_ROLES.includes(r)), ...rolesRaw.filter(r => AV_ROLES.includes(r))];
+            const allRolesRaw = [...new Set(termEvents.flatMap(e => e.roles || []))];
+            const allRoles = [...allRolesRaw.filter(r => !AV_ROLES.includes(r)), ...allRolesRaw.filter(r => AV_ROLES.includes(r))];
             docRef.autoTable({
-                startY: 35, head: [['DATE', 'SERVICE', ...sortedRoles.map(r => r.toUpperCase())]],
-                body: termEvents.map(e => [new Date(e.date).toLocaleDateString('en-GB'), e.type, ...sortedRoles.map(r => e.assignments?.[r]?.name || "---")]),
+                startY: 35, head: [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]],
+                body: termEvents.map(e => [new Date(e.date).toLocaleDateString('en-GB'), e.type, ...allRoles.map(r => e.assignments?.[r]?.name || "---")]),
                 headStyles: { fillColor: [61, 98, 99] }, styles: { fontSize: 7 }
             });
             return docRef;
@@ -497,63 +420,67 @@
         };
 
         window.exportToExcel = () => {
-            const active = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
+            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
             const wb = XLSX.utils.book_new();
-            const data = active.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, p.name])) }));
+            const data = activeEvents.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, p.name])) }));
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Rota");
             XLSX.writeFile(wb, "EGBC_Rota.xlsx");
         };
 
         window.prepareDistributionPackage = async () => {
             const zip = new JSZip();
-            const active = cachedEvents.filter(e => !e.archived);
+            const activeEvents = cachedEvents.filter(e => !e.archived);
             const csvRows = ["Name,Email"];
-            const fullDoc = await getPdfBlob('full', null, active);
+            const fullDoc = await getPdfBlob('full', null, activeEvents);
             const assignedIds = new Set();
-            active.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
+            activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
             
             for (const mId of assignedIds) {
                 const member = addressBook.find(m => m.id === mId);
                 if (!member) continue;
-                const folder = member.name.replace(/\s+/g, '_');
+                
+                const folderName = member.name.replace(/\s+/g, '_');
                 const headId = member.householdId || member.id;
                 const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
                 
                 csvRows.push(`"${member.name}","${member.email}"`);
 
-                const indDoc = await getPdfBlob('individual', mId, active);
-                if (indDoc) zip.file(`${folder}/${member.name.replace(/\s+/g, '_')}_Rota.pdf`, indDoc.output('blob'));
+                const indDoc = await getPdfBlob('individual', mId, activeEvents);
+                if (indDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Rota.pdf`, indDoc.output('blob'));
                 
-                const hDoc = await getPdfBlob('household', mId, active);
-                if (hDoc) zip.file(`${folder}/${member.name.replace(/\s+/g, '_')}_Household_Rota.pdf`, hDoc.output('blob'));
+                const hDoc = await getPdfBlob('household', mId, activeEvents);
+                if (hDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Household_Rota.pdf`, hDoc.output('blob'));
                 
-                const wDoc = await getPdfBlob('wall', mId, active);
-                if (wDoc) zip.file(`${folder}/${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
+                const wDoc = await getPdfBlob('wall', mId, activeEvents);
+                if (wDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
 
-                if (fullDoc) zip.file(`${folder}/00_FULL_CHURCH_ROTA.pdf`, fullDoc.output('blob'));
+                if (fullDoc) zip.file(`${folderName}/00_FULL_CHURCH_ROTA.pdf`, fullDoc.output('blob'));
 
-                const personal = active.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
-                if (personal.length > 0) {
+                const personalEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
+                if (personalEvents.length > 0) {
                     let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
-                    personal.forEach(e => {
+                    personalEvents.forEach(e => {
                         const roles = Object.entries(e.assignments).filter(([r,p]) => p.id === mId).map(([r,p]) => r).join(", ");
-                        ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${e.date.replace(/-/g, "")}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
+                        const date = e.date.replace(/-/g, "");
+                        ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
                     });
                     ics += "END:VCALENDAR";
-                    zip.file(`${folder}/Individual_Import.ics`, ics);
+                    zip.file(`${folderName}/Individual_Import.ics`, ics);
                 }
 
-                const family = active.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
-                if (family.length > 0) {
+                const familyEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+                if (familyEvents.length > 0) {
                     let hIcs = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
-                    family.forEach(e => {
-                        const roles = Object.entries(e.assignments).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(", ");
-                        hIcs += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${e.date.replace(/-/g, "")}\nSUMMARY:EGBC Family Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
+                    familyEvents.forEach(e => {
+                        const familyRoles = Object.entries(e.assignments).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(", ");
+                        const date = e.date.replace(/-/g, "");
+                        hIcs += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Family Serving: ${familyRoles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
                     });
                     hIcs += "END:VCALENDAR";
-                    zip.file(`${folder}/Household_Import.ics`, hIcs);
+                    zip.file(`${folderName}/Household_Import.ics`, hIcs);
                 }
             }
+
             zip.file("Distribution_List.csv", csvRows.join("\n"));
             const content = await zip.generateAsync({type:"blob"});
             saveAs(content, `EGBC_Rota_Distribution_Package_${new Date().toISOString().split('T')[0]}.zip`);
@@ -682,24 +609,24 @@
             html += '</select></div>';
             
             if (openBuckets.has(ev.id)) {
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">';
+                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">';
                 html += '<div class="max-h-[400px] overflow-y-auto space-y-6">';
                 
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'avail\'); event.stopPropagation();">';
+                html += '<div>';
                 html += '<div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div>';
-                html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
+                html += '<div class="flex flex-wrap gap-2">';
                 respondersAvail.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div>';
                 
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'not-avail\'); event.stopPropagation();">';
+                html += '<div>';
                 html += '<div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div>';
-                html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
-                declined.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200 cursor-grab">' + m.name + '</div>'; });
+                html += '<div class="flex flex-wrap gap-2">';
+                declined.forEach(m => { html += '<div class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200">' + m.name + '</div>'; });
                 html += '</div></div>';
                 
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'pending\'); event.stopPropagation();">';
+                html += '<div>';
                 html += '<div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div>';
-                html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
+                html += '<div class="flex flex-wrap gap-2">';
                 pending.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div></div></div>';
             }
