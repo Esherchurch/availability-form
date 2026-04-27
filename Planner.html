@@ -14,7 +14,7 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, arrayUnion, arrayRemove, deleteField, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, arrayUnion, arrayRemove, deleteField, getDoc, setDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
         const firebaseConfig = {
@@ -46,7 +46,6 @@
 
         const FORM_LINK = "https://esherchurch.github.io/availability-form/";
 
-        // HELPER: Prevents DST shifts (e.g., April Sundays turning into Saturdays)
         const toLocalISO = (date) => {
             const offset = date.getTimezoneOffset();
             const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -184,11 +183,34 @@
             await assignPerson(eventId, role, personId, personName);
         };
 
-        window.onDropBucket = async (e) => {
+        window.onDropBucket = async (e, eventId, targetStatus = null) => {
             e.preventDefault();
+            const personId = e.dataTransfer.getData("personId");
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
-            if(sourceEventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
+
+            // Handle unassigning from role if dragged to bucket
+            if(sourceEventId && sourceRole) { 
+                await unassignPerson(sourceEventId, sourceRole); 
+            }
+
+            // Handle status change if dropped on a specific bucket section
+            if(targetStatus && eventId && personId) {
+                const availQuery = query(collection(db, "availability"), where("eventId", "==", eventId), where("memberId", "==", personId));
+                const snap = await getDocs(availQuery);
+                
+                if (targetStatus === 'pending') {
+                    // Pending means removing the availability record
+                    for (const d of snap.docs) { await deleteDoc(doc(db, "availability", d.id)); }
+                } else {
+                    // Set to avail or unavailable
+                    if (!snap.empty) {
+                        await updateDoc(doc(db, "availability", snap.docs[0].id), { status: targetStatus });
+                    } else {
+                        await addDoc(collection(db, "availability"), { eventId, memberId: personId, status: targetStatus });
+                    }
+                }
+            }
         };
 
         window.addSingleLine = async () => {
@@ -265,22 +287,19 @@
                 const monthKey = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
                 if (!monthlyCounts[monthKey]) monthlyCounts[monthKey] = {};
 
-                // Find people available and on the required teams
                 const availableMembers = addressBook.filter(m => 
                     availability[ev.id]?.[m.id] === 'avail' && 
                     ev.teams?.some(t => m.markers?.includes(t))
                 );
 
-                // Priority: Specialists (fewer primary instruments) go first
                 availableMembers.sort((a, b) => (a.primaryInstruments?.length || 0) - (b.primaryInstruments?.length || 0));
 
                 const updates = {};
                 const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
 
                 for (const role of ev.roles) {
-                    if (ev.assignments?.[role]) continue; // Skip if manually filled
+                    if (ev.assignments?.[role]) continue; 
 
-                    // Try Primary Instruments
                     let chosen = availableMembers.find(m => {
                         if (alreadyAssignedToday.has(m.id)) return false;
                         const currentServed = monthlyCounts[monthKey][m.id] || 0;
@@ -288,7 +307,6 @@
                         return m.primaryInstruments?.includes(role);
                     });
 
-                    // Try Secondary Instruments
                     if (!chosen) {
                         chosen = availableMembers.find(m => {
                             if (alreadyAssignedToday.has(m.id)) return false;
@@ -585,11 +603,20 @@
                         }).join('')}
                         <select onchange="addRole('${ev.id}', this.value); this.value='';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>${OPTIONAL_ROLES.map(opt => `<option value="${opt}">${opt}</option>`).join('')}</select>
                     </div>
-                    ${openBuckets.has(ev.id) ? `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">
+                    ${openBuckets.has(ev.id) ? `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, '${ev.id}')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">
                         <div class="max-h-[400px] overflow-y-auto space-y-6">
-                            <div><div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div><div class="flex flex-wrap gap-2">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
-                            <div><div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div><div class="flex flex-wrap gap-2">${declined.map(m => `<div class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200">${m.name}</div>`).join('')}</div></div>
-                            <div><div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div><div class="flex flex-wrap gap-2">${pending.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
+                            <div ondragover="event.preventDefault()" ondrop="onDropBucket(event, '${ev.id}', 'avail'); event.stopPropagation();">
+                                <div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div>
+                                <div class="flex flex-wrap gap-2 min-h-[30px]">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">${m.name}</div>`).join('')}</div>
+                            </div>
+                            <div ondragover="event.preventDefault()" ondrop="onDropBucket(event, '${ev.id}', 'not-avail'); event.stopPropagation();">
+                                <div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div>
+                                <div class="flex flex-wrap gap-2 min-h-[30px]">${declined.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200 cursor-grab">${m.name}</div>`).join('')}</div>
+                            </div>
+                            <div ondragover="event.preventDefault()" ondrop="onDropBucket(event, '${ev.id}', 'pending'); event.stopPropagation();">
+                                <div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div>
+                                <div class="flex flex-wrap gap-2 min-h-[30px]">${pending.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">${m.name}</div>`).join('')}</div>
+                            </div>
                         </div>
                     </div>` : ''}
                 </div>
