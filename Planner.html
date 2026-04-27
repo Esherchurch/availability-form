@@ -46,6 +46,13 @@
 
         const FORM_LINK = "https://esherchurch.github.io/availability-form/";
 
+        // HELPER: Prevents DST shifts (e.g., April Sundays turning into Saturdays)
+        const toLocalISO = (date) => {
+            const offset = date.getTimezoneOffset();
+            const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+            return adjustedDate.toISOString().split('T')[0];
+        };
+
         const getLogoBase64 = () => {
             return new Promise(async (resolve) => {
                 if (logoBase64) return resolve(logoBase64);
@@ -185,7 +192,7 @@
         };
 
         window.addSingleLine = async () => {
-            const dateStr = new Date().toISOString().split('T')[0];
+            const dateStr = toLocalISO(new Date());
             await addDoc(collection(db, "events"), {
                 date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
                 teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
@@ -198,12 +205,9 @@
             const year = new Date().getFullYear();
             let curr = new Date(`${year}-${term === 'Spring' ? '01' : term === 'Summer' ? '05' : '09'}-01`);
             let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
-            
-            // CORRECTED: 0 is Sunday. Ensures we start on the first Sunday of the term.
             while (curr.getDay() !== 0) curr.setDate(curr.getDate() + 1);
-            
             while (curr <= end) {
-                const dateStr = curr.toISOString().split('T')[0];
+                const dateStr = toLocalISO(curr);
                 await addDoc(collection(db, "events"), {
                     date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
                     teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
@@ -218,12 +222,9 @@
             const year = new Date().getFullYear();
             let curr = new Date(`${year}-${term === 'Spring' ? '01' : term === 'Summer' ? '05' : '09'}-01`);
             let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
-            
-            // 4 is Thursday
             while (curr.getDay() !== 4) curr.setDate(curr.getDate() + 1);
-            
             while (curr <= end) {
-                const dateStr = curr.toISOString().split('T')[0];
+                const dateStr = toLocalISO(curr);
                 await addDoc(collection(db, "events"), {
                     date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Team Practice", description: "Thursday Rehearsal",
                     teams: ["Worship Team"], startTime: "19:30", endTime: "21:30", roles: ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass"], archived: false
@@ -233,6 +234,7 @@
         };
 
         window.autoFillPractice = async (practiceId) => {
+            if(!confirm("Fill this practice with Sunday's team?")) return;
             const practice = cachedEvents.find(e => e.id === practiceId);
             if(!practice) return;
             const practiceDate = new Date(practice.date);
@@ -256,7 +258,6 @@
         window.autoFillAllEvents = async () => {
             if (!confirm("Automatically fill services based on availability and instruments?")) return;
             
-            // Strictly filtering for Sunday Morning Worship only
             const activeEvents = cachedEvents.filter(e => !e.archived && e.type === "Sunday Morning Worship").sort((a,b) => new Date(a.date) - new Date(b.date));
             const monthlyCounts = {};
 
@@ -264,19 +265,22 @@
                 const monthKey = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
                 if (!monthlyCounts[monthKey]) monthlyCounts[monthKey] = {};
 
+                // Find people available and on the required teams
                 const availableMembers = addressBook.filter(m => 
                     availability[ev.id]?.[m.id] === 'avail' && 
                     ev.teams?.some(t => m.markers?.includes(t))
                 );
 
+                // Priority: Specialists (fewer primary instruments) go first
                 availableMembers.sort((a, b) => (a.primaryInstruments?.length || 0) - (b.primaryInstruments?.length || 0));
 
                 const updates = {};
                 const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
 
                 for (const role of ev.roles) {
-                    if (ev.assignments?.[role]) continue; 
+                    if (ev.assignments?.[role]) continue; // Skip if manually filled
 
+                    // Try Primary Instruments
                     let chosen = availableMembers.find(m => {
                         if (alreadyAssignedToday.has(m.id)) return false;
                         const currentServed = monthlyCounts[monthKey][m.id] || 0;
@@ -284,6 +288,7 @@
                         return m.primaryInstruments?.includes(role);
                     });
 
+                    // Try Secondary Instruments
                     if (!chosen) {
                         chosen = availableMembers.find(m => {
                             if (alreadyAssignedToday.has(m.id)) return false;
