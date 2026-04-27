@@ -80,6 +80,22 @@
             text-transform: uppercase;
         }
 
+        .delete-btn {
+            background-color: #b22222;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+
+        .status-msg {
+            font-size: 11px;
+            color: #5b8e8f;
+            margin-top: -15px;
+            margin-bottom: 15px;
+            height: 15px;
+            font-weight: 700;
+            padding-left: 10px;
+        }
+
         .file-item {
             background: #f0f6f6;
             border: 1px solid #d1dfdf;
@@ -118,13 +134,24 @@
     <div id="editor" style="display:none;">
         <label>Song Title</label>
         <input id="edit-title">
+        
+        <label>Artist</label>
+        <input id="artist" placeholder="Scanning for artist...">
+        <div id="artist-status" class="status-msg"></div>
+
         <label>YouTube Link</label>
-        <input id="youtube">
+        <input id="youtube" onchange="smartScanArtist()" placeholder="Paste YouTube link here">
+        
         <label>CCLI Number</label>
         <input id="ccli">
+        
         <h3>Associated Files</h3>
         <div id="files-container"></div>
-        <button onclick="save()">Save Changes</button>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button onclick="save()">Save All Changes</button>
+            <button class="delete-btn" onclick="deleteSong()">Delete Song</button>
+        </div>
     </div>
 </div>
 
@@ -190,9 +217,109 @@ async function openSong(id) {
     document.getElementById("editor").style.display = "block";
     document.getElementById("display-title").innerText = data.title;
     document.getElementById("edit-title").value = data.title;
+    document.getElementById("artist").value = data.artist || "";
     document.getElementById("youtube").value = data.youtube || "";
     document.getElementById("ccli").value = data.ccli || "";
+    document.getElementById("artist-status").innerText = "";
     renderFiles();
+
+    if (!data.artist && data.youtube) {
+        smartScanArtist();
+    }
+}
+
+async function smartScanArtist() {
+    const youtubeUrl = document.getElementById("youtube").value;
+    const songTitleFromDB = document.getElementById("edit-title").value;
+    const status = document.getElementById("artist-status");
+    
+    if (!youtubeUrl) return;
+
+    status.innerText = "Scanning YouTube...";
+
+    try {
+        const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(youtubeUrl)}`);
+        const data = await response.json();
+        
+        if (data.title) {
+            let videoTitle = data.title;
+            let artist = "";
+
+            // 1. Try common music video formats (Artist - Song)
+            const separators = [" - ", " | ", " // ", " — "];
+            let parts = [videoTitle];
+
+            for (let sep of separators) {
+                if (videoTitle.includes(sep)) {
+                    parts = videoTitle.split(sep);
+                    break;
+                }
+            }
+
+            if (parts.length > 1) {
+                const part1 = parts[0].trim();
+                const part2 = parts[1].trim();
+
+                // If one part is the song title, the other is the artist
+                if (part1.toLowerCase().includes(songTitleFromDB.toLowerCase())) {
+                    artist = part2;
+                } else {
+                    artist = part1;
+                }
+            } else {
+                // 2. If no separators, just remove the song title from the text
+                const regex = new RegExp(songTitleFromDB.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi");
+                artist = videoTitle.replace(regex, "");
+            }
+
+            // 3. New 'by' logic: Strip the word "by" if it's sitting at the start or end of the result
+            artist = artist.replace(/^\s*by\s+/i, "").replace(/\s+by\s*$/i, "").trim();
+
+            // 4. Final aggressive cleanup for (Official Video), [Live], etc.
+            artist = artist.replace(/\(.*\)|\[.*\]/g, "")
+                           .replace(/lyrics|official video|live|video|audio|hd|4k/gi, "")
+                           .replace(/^[:\-\s\u2013\u2014]+|[:\-\s\u2013\u2014]+$/g, "")
+                           .trim();
+
+            // 5. Fallback to channel name if extraction failed
+            if (!artist || artist.length < 2) {
+                artist = data.author_name.replace("- Topic", "").trim();
+            }
+
+            document.getElementById("artist").value = artist;
+            
+            if (currentDoc) {
+                await db.collection("songs").doc(currentDoc).update({
+                    artist: artist
+                });
+                status.innerText = "Artist auto-saved!";
+                setTimeout(() => { status.innerText = ""; }, 3000);
+            }
+        }
+    } catch (e) {
+        console.log("Auto-scan failed.");
+        status.innerText = "";
+    }
+}
+
+async function deleteSong() {
+    if (!currentDoc) return;
+    
+    const confirmDelete = confirm("Are you sure you want to permanently delete this song? This cannot be undone.");
+    if (!confirmDelete) return;
+
+    try {
+        await db.collection("songs").doc(currentDoc).delete();
+        alert("Song deleted successfully.");
+        
+        document.getElementById("editor").style.display = "none";
+        document.getElementById("display-title").innerText = "Select a Song";
+        currentDoc = null;
+        loadSongs();
+    } catch (err) {
+        console.error(err);
+        alert("Error deleting song.");
+    }
 }
 
 function renderFiles() {
@@ -223,12 +350,13 @@ async function save() {
     await db.collection("songs").doc(currentDoc).update({
         title: newTitle,
         normalized: normalizeTitle(newTitle),
+        artist: document.getElementById("artist").value,
         youtube: document.getElementById("youtube").value,
         ccli: document.getElementById("ccli").value,
         files: currentFiles
     });
     document.getElementById("display-title").innerText = newTitle;
-    alert("Saved successfully.");
+    alert("All changes saved.");
     loadSongs();
 }
 
@@ -254,16 +382,11 @@ async function handleLyricsSearch(e) {
 
         for (let item of result.results) {
             const onlineTitle = normalizeTitle(item.trackName);
-            // Ignore tiny common words for keyword matching
             const onlineKeywords = onlineTitle.split(' ').filter(w => w.length > 3); 
 
             allSongs.forEach(doc => {
                 const dbTitle = normalizeTitle(doc.data().title);
-                
-                // PHRASE MATCH: High priority (Does the DB title contain the whole phrase found online?)
                 const isPhraseMatch = dbTitle.includes(onlineTitle) || onlineTitle.includes(dbTitle);
-                
-                // KEYWORD MATCH: Only if the online title is long and matches significantly
                 const matchesMultipleKeywords = onlineKeywords.length > 0 && 
                                               onlineKeywords.filter(k => dbTitle.includes(k)).length >= Math.ceil(onlineKeywords.length / 2);
 
