@@ -204,11 +204,30 @@
         };
 
 
-        window.onDropBucket = async (e) => {
+        window.onDropBucket = async (e, eventId, targetStatus = null) => {
             e.preventDefault();
+            const personId = e.dataTransfer.getData("personId");
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
-            if(sourceEventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
+
+            if(sourceEventId && sourceRole) {
+                await unassignPerson(sourceEventId, sourceRole);
+            }
+
+            if(targetStatus && eventId && personId) {
+                const availQuery = query(collection(db, "availability"), where("eventId", "==", eventId), where("memberId", "==", personId));
+                const snap = await getDocs(availQuery);
+                
+                if (targetStatus === 'pending') {
+                    for (const d of snap.docs) { await deleteDoc(doc(db, "availability", d.id)); }
+                } else {
+                    if (!snap.empty) {
+                        await updateDoc(doc(db, "availability", snap.docs[0].id), { status: targetStatus });
+                    } else {
+                        await addDoc(collection(db, "availability"), { eventId, memberId: personId, status: targetStatus });
+                    }
+                }
+            }
         };
 
 
@@ -648,24 +667,24 @@
             html += '</select></div>';
             
             if (openBuckets.has(ev.id)) {
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">';
+                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">';
                 html += '<div class="max-h-[400px] overflow-y-auto space-y-6">';
                 
-                html += '<div>';
+                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'avail\'); event.stopPropagation();">';
                 html += '<div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div>';
-                html += '<div class="flex flex-wrap gap-2">';
+                html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
                 respondersAvail.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div>';
                 
-                html += '<div>';
+                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'not-avail\'); event.stopPropagation();">';
                 html += '<div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div>';
-                html += '<div class="flex flex-wrap gap-2">';
-                declined.forEach(m => { html += '<div class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200">' + m.name + '</div>'; });
+                html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
+                declined.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div>';
                 
-                html += '<div>';
+                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'pending\'); event.stopPropagation();">';
                 html += '<div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div>';
-                html += '<div class="flex flex-wrap gap-2">';
+                html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
                 pending.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div></div></div>';
             }
