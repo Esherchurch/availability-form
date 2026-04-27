@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Song Library - Quick View</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        body { 
+            font-family: 'Montserrat', sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            margin: 0; 
+            color: #3d6263; 
+            background-color: #f0f6f6;
+        }
+
+        #left {
+            width: 300px;
+            border-right: 1px solid #d1dfdf;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            margin: 15px;
+            border-radius: 2.5rem;
+            border: 1px solid #d1dfdf;
+        }
+
+        #right {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            margin: 15px 15px 15px 0;
+            border-radius: 2.5rem;
+            border: 1px solid #d1dfdf;
+        }
+
+        .song {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #d1dfdf;
+            transition: background 0.2s;
+            font-weight: 400;
+        }
+
+        .song:hover { background: #f0f6f6; }
+
+        h2 { color: #3d6263; margin-top: 0; font-weight: 800; }
+        
+        label { 
+            display: block; 
+            font-weight: 700; 
+            margin-bottom: 8px; 
+            color: #3d6263; 
+            padding-left: 5px;
+            margin-top: 15px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 20px;
+            margin-bottom: 5px;
+            border: 1px solid #d1dfdf;
+            border-radius: 9999px;
+            box-sizing: border-box;
+            font-family: 'Montserrat', sans-serif;
+            outline: none;
+            color: #3d6263;
+        }
+
+        .link-container {
+            margin-top: 5px;
+            margin-bottom: 20px;
+            padding-left: 10px;
+        }
+
+        .external-link {
+            display: inline-block;
+            color: #3d6263;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .external-link:hover {
+            text-decoration: underline;
+            color: #9bc34a;
+        }
+
+        button {
+            background-color: #3d6263;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #9bc34a;
+        }
+
+        .delete-btn {
+            background-color: #b22222;
+            margin-left: 10px;
+        }
+
+        .delete-btn:hover {
+            background-color: #8b0000;
+        }
+
+        .status-msg {
+            font-size: 11px;
+            color: #9bc34a;
+            height: 15px;
+            font-weight: 700;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="left">
+    <label>Search Titles</label>
+    <input id="search" placeholder="Search songs..." oninput="searchSongs()">
+    <label>Search Lyrics</label>
+    <input id="lyricsSearch" placeholder="Find by lyrics..." onkeydown="handleLyricsSearch(event)">
+    <div id="list"></div>
+</div>
+
+<div id="right">
+    <h2 id="display-title">Select a Song</h2>
+    <div id="editor" style="display:none;">
+        <label>Song Title</label>
+        <input id="edit-title">
+        
+        <label>Artist</label>
+        <input id="artist" placeholder="Scanning for artist...">
+        <div id="artist-status" class="status-msg"></div>
+
+        <label>YouTube Link</label>
+        <input id="youtube" onchange="smartScanArtist()" placeholder="Paste YouTube link here">
+        <div class="link-container" id="yt-link-box"></div>
+        
+        <label>CCLI Number</label>
+        <input id="ccli" placeholder="Enter CCLI Number">
+        <div class="link-container" id="ccli-link-box"></div>
+
+        <label>Primary Instrument Role</label>
+        <select id="primary-role">
+            <option value="">Select Role...</option>
+            <option value="Worship Leader">Worship Leader</option>
+            <option value="Acoustic Guitar">Acoustic Guitar</option>
+            <option value="Electric Guitar">Electric Guitar</option>
+            <option value="Keys">Keys</option>
+            <option value="Bass">Bass</option>
+            <option value="Drums">Drums</option>
+            <option value="Vocals">Vocals</option>
+        </select>
+
+        <label>Secondary Instrument Role</label>
+        <select id="secondary-role">
+            <option value="">Select Role...</option>
+            <option value="Worship Leader">Worship Leader</option>
+            <option value="Acoustic Guitar">Acoustic Guitar</option>
+            <option value="Electric Guitar">Electric Guitar</option>
+            <option value="Keys">Keys</option>
+            <option value="Bass">Bass</option>
+            <option value="Drums">Drums</option>
+            <option value="Vocals">Vocals</option>
+        </select>
+        
+        <div style="display: flex; align-items: center;">
+            <button onclick="save()">Save Changes</button>
+            <button class="delete-btn" onclick="deleteSong()">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const firebaseConfig = {
+    apiKey: "YOUR_KEY",
+    authDomain: "egbc-worship-planner.firebaseapp.app",
+    projectId: "egbc-worship-planner"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let currentDoc = null;
+
+function normalizeTitle(title) { return title.toLowerCase().trim(); }
+
+async function loadSongs() {
+    const snapshot = await db.collection("songs").orderBy("normalized").get();
+    renderList(snapshot.docs);
+}
+
+function renderList(docs) {
+    const list = document.getElementById("list");
+    list.innerHTML = docs.map(doc => `
+        <div class="song" onclick="openSong('${doc.id.replace(/'/g, "\\'")}')">
+            ${doc.data().title}
+        </div>
+    `).join("");
+}
+
+async function searchSongs() {
+    const input = document.getElementById("search").value;
+    if (!input) { loadSongs(); return; }
+    const norm = normalizeTitle(input);
+    const snapshot = await db.collection("songs")
+        .orderBy("normalized").startAt(norm).endAt(norm + "\uf8ff").get();
+    renderList(snapshot.docs);
+}
+
+async function openSong(id) {
+    const doc = await db.collection("songs").doc(id).get();
+    const data = doc.data();
+    currentDoc = id;
+    
+    document.getElementById("editor").style.display = "block";
+    document.getElementById("display-title").innerText = data.title;
+    document.getElementById("edit-title").value = data.title;
+    document.getElementById("artist").value = data.artist || "";
+    document.getElementById("primary-role").value = data.primaryRole || "";
+    document.getElementById("secondary-role").value = data.secondaryRole || "";
+    
+    const ytVal = data.youtube || "";
+    document.getElementById("youtube").value = ytVal;
+    updateYoutubeLink(ytVal);
+
+    const ccliVal = data.ccli || "";
+    document.getElementById("ccli").value = ccliVal;
+    updateCCLILink(ccliVal);
+
+    document.getElementById("artist-status").innerText = "";
+
+    if (!data.artist && ytVal) {
+        smartScanArtist();
+    }
+}
+
+function updateYoutubeLink(url) {
+    const box = document.getElementById("yt-link-box");
+    if (url && url.startsWith('http')) {
+        box.innerHTML = `<a href="${url}" target="_blank" class="external-link">▶ Watch on YouTube</a>`;
+    } else {
+        box.innerHTML = "";
+    }
+}
+
+function updateCCLILink(val) {
+    const box = document.getElementById("ccli-link-box");
+    if (val && val.trim() !== "") {
+        const cleanCCLI = val.replace(/\D/g, '');
+        box.innerHTML = `<a href="https://songselect.ccli.com/Songs/${cleanCCLI}" target="_blank" class="external-link">📄 View on CCLI SongSelect</a>`;
+    } else {
+        box.innerHTML = "";
+    }
+}
+
+document.getElementById("youtube").addEventListener("input", (e) => updateYoutubeLink(e.target.value));
+document.getElementById("ccli").addEventListener("input", (e) => updateCCLILink(e.target.value));
+
+async function smartScanArtist() {
+    const youtubeUrl = document.getElementById("youtube").value;
+    const songTitleFromDB = document.getElementById("edit-title").value;
+    const status = document.getElementById("artist-status");
+    
+    if (!youtubeUrl) return;
+    status.innerText = "Scanning YouTube...";
+
+    try {
+        const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(youtubeUrl)}`);
+        const data = await response.json();
+        
+        if (data.title) {
+            let videoTitle = data.title;
+            let artist = "";
+            const separators = [" - ", " | ", " // ", " — "];
+            let parts = [videoTitle];
+
+            for (let sep of separators) {
+                if (videoTitle.includes(sep)) {
+                    parts = videoTitle.split(sep);
+                    break;
+                }
+            }
+
+            if (parts.length > 1) {
+                const part1 = parts[0].trim();
+                const part2 = parts[1].trim();
+                if (part1.toLowerCase().includes(songTitleFromDB.toLowerCase())) {
+                    artist = part2;
+                } else {
+                    artist = part1;
+                }
+            } else {
+                const regex = new RegExp(songTitleFromDB.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi");
+                artist = videoTitle.replace(regex, "");
+            }
+
+            artist = artist.replace(/^\s*by\s+/i, "").replace(/\s+by\s*$/i, "").trim();
+            artist = artist.replace(/\(.*\)|\[.*\]/g, "")
+                           .replace(/lyrics|official video|live|video|audio|hd|4k/gi, "")
+                           .replace(/^[:\-\s\u2013\u2014]+|[:\-\s\u2013\u2014]+$/g, "")
+                           .trim();
+
+            if (!artist || artist.length < 2) {
+                artist = data.author_name.replace("- Topic", "").trim();
+            }
+
+            document.getElementById("artist").value = artist;
+            status.innerText = "Artist scanned!";
+            setTimeout(() => { status.innerText = ""; }, 3000);
+        }
+    } catch (e) {
+        status.innerText = "";
+    }
+}
+
+async function save() {
+    if (!currentDoc) return;
+    const newTitle = document.getElementById("edit-title").value;
+    await db.collection("songs").doc(currentDoc).update({
+        title: newTitle,
+        normalized: normalizeTitle(newTitle),
+        artist: document.getElementById("artist").value,
+        youtube: document.getElementById("youtube").value,
+        ccli: document.getElementById("ccli").value,
+        primaryRole: document.getElementById("primary-role").value,
+        secondaryRole: document.getElementById("secondary-role").value
+    });
+    document.getElementById("display-title").innerText = newTitle;
+    alert("Saved.");
+    loadSongs();
+}
+
+async function deleteSong() {
+    if (!currentDoc || !confirm("Delete this song?")) return;
+    await db.collection("songs").doc(currentDoc).delete();
+    document.getElementById("editor").style.display = "none";
+    currentDoc = null;
+    loadSongs();
+}
+
+async function handleLyricsSearch(e) {
+    if (e.key !== "Enter") return;
+    const text = document.getElementById("lyricsSearch").value;
+    if (!text) { loadSongs(); return; }
+
+    try {
+        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(text)}&entity=song&limit=5`);
+        const result = await response.json();
+        if (!result.results || result.results.length === 0) { alert("No matches."); return; }
+
+        const allSongsSnapshot = await db.collection("songs").get();
+        const allSongs = allSongsSnapshot.docs;
+        const matchingDocs = [];
+        const seenIds = new Set();
+
+        for (let item of result.results) {
+            const onlineTitle = normalizeTitle(item.trackName);
+            const onlineKeywords = onlineTitle.split(' ').filter(w => w.length > 3); 
+
+            allSongs.forEach(doc => {
+                const dbTitle = normalizeTitle(doc.data().title);
+                const isPhraseMatch = dbTitle.includes(onlineTitle) || onlineTitle.includes(dbTitle);
+                if (isPhraseMatch && !seenIds.has(doc.id)) {
+                    matchingDocs.push(doc);
+                    seenIds.add(doc.id);
+                }
+            });
+        }
+        renderList(matchingDocs);
+    } catch (err) { console.error(err); }
+}
+
+loadSongs();
+</script>
+</body>
+</html>
