@@ -111,10 +111,28 @@
             renderPlanner();
         });
 
-        window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
-        window.toggleTermCollapse = (termId) => { collapsedTerms.has(termId) ? collapsedTerms.delete(termId) : collapsedTerms.add(termId); renderPlanner(); };
-        window.toggleEventExpand = (eventId) => { expandedEvents.has(eventId) ? expandedEvents.delete(eventId) : expandedEvents.add(eventId); renderPlanner(); };
-        window.toggleBucket = (eventId) => { openBuckets.has(eventId) ? openBuckets.delete(eventId) : openBuckets.add(eventId); renderPlanner(); };
+        window.toggleHideAssigned = () => {
+            hideAssigned = !hideAssigned;
+            renderPlanner();
+        };
+
+        window.toggleTermCollapse = (termId) => {
+            if (collapsedTerms.has(termId)) collapsedTerms.delete(termId);
+            else collapsedTerms.add(termId);
+            renderPlanner();
+        };
+
+        window.toggleEventExpand = (eventId) => {
+            if (expandedEvents.has(eventId)) expandedEvents.delete(eventId);
+            else expandedEvents.add(eventId);
+            renderPlanner();
+        };
+
+        window.toggleBucket = (eventId) => {
+            if (openBuckets.has(eventId)) openBuckets.delete(eventId);
+            else openBuckets.add(eventId);
+            renderPlanner();
+        };
 
         window.updateField = async (id, field, value) => { 
             const updates = { [field]: value };
@@ -170,7 +188,10 @@
         window.onDragStart = (e, personId, personName, eventId = null, role = null) => {
             e.dataTransfer.setData("personId", personId);
             e.dataTransfer.setData("personName", personName);
-            if(eventId && role) { e.dataTransfer.setData("sourceEventId", eventId); e.dataTransfer.setData("sourceRole", role); }
+            if(eventId && role) {
+                e.dataTransfer.setData("sourceEventId", eventId);
+                e.dataTransfer.setData("sourceRole", role);
+            }
         };
 
         window.onDropRole = async (e, eventId, role) => {
@@ -179,7 +200,10 @@
             const personName = e.dataTransfer.getData("personName");
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
-            if(sourceEventId === eventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
+
+            if(sourceEventId === eventId && sourceRole) {
+                await unassignPerson(sourceEventId, sourceRole);
+            }
             await assignPerson(eventId, role, personId, personName);
         };
 
@@ -189,8 +213,8 @@
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
 
-            if(sourceEventId && sourceRole) { 
-                await unassignPerson(sourceEventId, sourceRole); 
+            if(sourceEventId && sourceRole) {
+                await unassignPerson(sourceEventId, sourceRole);
             }
 
             if(targetStatus && eventId && personId) {
@@ -212,8 +236,15 @@
         window.addSingleLine = async () => {
             const dateStr = toLocalISO(new Date());
             await addDoc(collection(db, "events"), {
-                date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
+                date: dateStr,
+                termLabel: getTermLabel(dateStr),
+                type: "Sunday Morning Worship",
+                description: "",
+                teams: ["Worship Team", "AV Team"],
+                startTime: "08:00",
+                endTime: "11:30",
+                roles: MANDATORY_SUNDAY_ROLES,
+                archived: false
             });
         };
 
@@ -227,8 +258,15 @@
             while (curr <= end) {
                 const dateStr = toLocalISO(curr);
                 await addDoc(collection(db, "events"), {
-                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                    teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
+                    date: dateStr,
+                    termLabel: getTermLabel(dateStr),
+                    type: "Sunday Morning Worship",
+                    description: "",
+                    teams: ["Worship Team", "AV Team"],
+                    startTime: "08:00",
+                    endTime: "11:30",
+                    roles: MANDATORY_SUNDAY_ROLES,
+                    archived: false
                 });
                 curr.setDate(curr.getDate() + 7);
             }
@@ -244,8 +282,15 @@
             while (curr <= end) {
                 const dateStr = toLocalISO(curr);
                 await addDoc(collection(db, "events"), {
-                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Team Practice", description: "Thursday Rehearsal",
-                    teams: ["Worship Team"], startTime: "19:30", endTime: "21:30", roles: ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass"], archived: false
+                    date: dateStr,
+                    termLabel: getTermLabel(dateStr),
+                    type: "Sunday Team Practice",
+                    description: "Thursday Rehearsal",
+                    teams: ["Worship Team"],
+                    startTime: "19:30",
+                    endTime: "21:30",
+                    roles: ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass"],
+                    archived: false
                 });
                 curr.setDate(curr.getDate() + 7);
             }
@@ -293,7 +338,12 @@
                     let candidates = members.filter(m => {
                         if (alreadyAssignedToday.has(m.id)) return false;
                         if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) return false;
-                        return isPrimaryOnly ? m.primaryInstruments?.includes(instrumentName) : (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName));
+                        
+                        const hasInst = isPrimaryOnly 
+                            ? m.primaryInstruments?.includes(instrumentName) 
+                            : (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName));
+                        
+                        return hasInst;
                     });
 
                     candidates.sort((a,b) => {
@@ -313,20 +363,21 @@
                     return false;
                 };
 
-                // PASS 1: PRIMARY MANDATORY ROLES (David stays on Keys)
+                // Pass 1: Primary Mandatory ( WL, Keys, Guitar, Drums, Bass, AV )
                 MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r === "Keyboard" ? "Keys" : r, true));
                 
-                // PASS 2: PRIMARY SINGERS (Fill existing Singer 1/2/3 boxes)
+                // Pass 2: Primary Backing Singers (Fill existing Singer 1/2/3 boxes)
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", true));
 
-                // PASS 3: SECONDARY MANDATORY + SINGERS
+                // Pass 3: Secondary Fallbacks
                 MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r === "Keyboard" ? "Keys" : r, false));
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", false));
 
-                // PASS 4: DYNAMIC SINGERS (Add more if available)
-                let remainingSingers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
-                remainingSingers.sort((a,b) => (a.markers?.includes("Youth") ? 1 : 0) - (b.markers?.includes("Youth") ? 1 : 0));
-                for (const m of remainingSingers) {
+                // Pass 4: Dynamic Extra Singers Expansion
+                let singers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
+                singers.sort((a,b) => (a.markers?.includes("Youth") ? 1 : 0) - (b.markers?.includes("Youth") ? 1 : 0));
+                
+                for (const m of singers) {
                     if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) continue;
                     let nextIdx = 1;
                     while (currentRoles.includes(`Singer ${nextIdx}`)) nextIdx++;
@@ -337,12 +388,12 @@
                     monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
                 }
 
-                // PASS 5: DYNAMIC 2nd Guitar/Keys
+                // Pass 5: 2nd Guitar/Keys
                 ["Guitar", "Keys"].forEach(inst => {
-                    const roleName = `2nd ${inst === "Keys" ? "Keys" : "Guitar"}`;
-                    if (!currentRoles.includes(roleName)) {
-                        if (tryAssign(roleName, inst, true) || tryAssign(roleName, inst, false)) {
-                            currentRoles.push(roleName);
+                    const rName = `2nd ${inst === "Keys" ? "Keys" : "Guitar"}`;
+                    if (!currentRoles.includes(rName)) {
+                        if (tryAssign(rName, inst, true) || tryAssign(rName, inst, false)) {
+                            currentRoles.push(rName);
                         }
                     }
                 });
@@ -410,7 +461,8 @@
                                 segs.forEach(seg => {
                                     if (seg.startsWith("DAY:")) { wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(10); wallDoc.setTextColor(180, 180, 180); wallDoc.text(seg.replace("DAY:", ""), data.cell.x + 5, yPos); yPos += 12; }
                                     else if (seg.startsWith("S:")) { 
-                                        const matches = Object.entries(termEvents.find(e => e.date === `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`)?.assignments || {}).filter(([r, p]) => hIds.includes(p.id));
+                                        const evDate = `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`;
+                                        const matches = Object.entries(termEvents.find(e => e.date === evDate)?.assignments || {}).filter(([r, p]) => hIds.includes(p.id));
                                         if (matches.length > 0) {
                                             wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99); 
                                             wallDoc.text(wallDoc.splitTextToSize(seg.replace("S:", ""), 100), data.cell.x + 5, yPos); 
@@ -443,11 +495,11 @@
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
-            const allRolesRaw = [...new Set(termEvents.flatMap(e => e.roles || []))];
-            const allRoles = [...allRolesRaw.filter(r => !AV_ROLES.includes(r)), ...allRolesRaw.filter(r => AV_ROLES.includes(r))];
+            const rolesRaw = [...new Set(termEvents.flatMap(e => e.roles || []))];
+            const sortedRoles = [...rolesRaw.filter(r => !AV_ROLES.includes(r)), ...rolesRaw.filter(r => AV_ROLES.includes(r))];
             docRef.autoTable({
-                startY: 35, head: [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]],
-                body: termEvents.map(e => [new Date(e.date).toLocaleDateString('en-GB'), e.type, ...allRoles.map(r => e.assignments?.[r]?.name || "---")]),
+                startY: 35, head: [['DATE', 'SERVICE', ...sortedRoles.map(r => r.toUpperCase())]],
+                body: termEvents.map(e => [new Date(e.date).toLocaleDateString('en-GB'), e.type, ...sortedRoles.map(r => e.assignments?.[r]?.name || "---")]),
                 headStyles: { fillColor: [61, 98, 99] }, styles: { fontSize: 7 }
             });
             return docRef;
@@ -460,67 +512,63 @@
         };
 
         window.exportToExcel = () => {
-            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
+            const active = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
             const wb = XLSX.utils.book_new();
-            const data = activeEvents.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, p.name])) }));
+            const data = active.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, p.name])) }));
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Rota");
             XLSX.writeFile(wb, "EGBC_Rota.xlsx");
         };
 
         window.prepareDistributionPackage = async () => {
             const zip = new JSZip();
-            const activeEvents = cachedEvents.filter(e => !e.archived);
+            const active = cachedEvents.filter(e => !e.archived);
             const csvRows = ["Name,Email"];
-            const fullDoc = await getPdfBlob('full', null, activeEvents);
+            const fullDoc = await getPdfBlob('full', null, active);
             const assignedIds = new Set();
-            activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
+            active.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
             
             for (const mId of assignedIds) {
                 const member = addressBook.find(m => m.id === mId);
                 if (!member) continue;
-                
-                const folderName = member.name.replace(/\s+/g, '_');
+                const folder = member.name.replace(/\s+/g, '_');
                 const headId = member.householdId || member.id;
                 const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
                 
                 csvRows.push(`"${member.name}","${member.email}"`);
 
-                const indDoc = await getPdfBlob('individual', mId, activeEvents);
-                if (indDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Rota.pdf`, indDoc.output('blob'));
+                const indDoc = await getPdfBlob('individual', mId, active);
+                if (indDoc) zip.file(`${folder}/${member.name.replace(/\s+/g, '_')}_Rota.pdf`, indDoc.output('blob'));
                 
-                const hDoc = await getPdfBlob('household', mId, activeEvents);
-                if (hDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Household_Rota.pdf`, hDoc.output('blob'));
+                const hDoc = await getPdfBlob('household', mId, active);
+                if (hDoc) zip.file(`${folder}/${member.name.replace(/\s+/g, '_')}_Household_Rota.pdf`, hDoc.output('blob'));
                 
-                const wDoc = await getPdfBlob('wall', mId, activeEvents);
-                if (wDoc) zip.file(`${folderName}/${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
+                const wDoc = await getPdfBlob('wall', mId, active);
+                if (wDoc) zip.file(`${folder}/${member.name.replace(/\s+/g, '_')}_Wall_Planner.pdf`, wDoc.output('blob'));
 
-                if (fullDoc) zip.file(`${folderName}/00_FULL_CHURCH_ROTA.pdf`, fullDoc.output('blob'));
+                if (fullDoc) zip.file(`${folder}/00_FULL_CHURCH_ROTA.pdf`, fullDoc.output('blob'));
 
-                const personalEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
-                if (personalEvents.length > 0) {
+                const personal = active.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
+                if (personal.length > 0) {
                     let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
-                    personalEvents.forEach(e => {
+                    personal.forEach(e => {
                         const roles = Object.entries(e.assignments).filter(([r,p]) => p.id === mId).map(([r,p]) => r).join(", ");
-                        const date = e.date.replace(/-/g, "");
-                        ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
+                        ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${e.date.replace(/-/g, "")}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
                     });
                     ics += "END:VCALENDAR";
-                    zip.file(`${folderName}/Individual_Import.ics`, ics);
+                    zip.file(`${folder}/Individual_Import.ics`, ics);
                 }
 
-                const familyEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
-                if (familyEvents.length > 0) {
+                const family = active.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+                if (family.length > 0) {
                     let hIcs = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
-                    familyEvents.forEach(e => {
-                        const familyRoles = Object.entries(e.assignments).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(", ");
-                        const date = e.date.replace(/-/g, "");
-                        hIcs += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Family Serving: ${familyRoles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
+                    family.forEach(e => {
+                        const roles = Object.entries(e.assignments).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(", ");
+                        hIcs += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${e.date.replace(/-/g, "")}\nSUMMARY:EGBC Family Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
                     });
                     hIcs += "END:VCALENDAR";
-                    zip.file(`${folderName}/Household_Import.ics`, hIcs);
+                    zip.file(`${folder}/Household_Import.ics`, hIcs);
                 }
             }
-
             zip.file("Distribution_List.csv", csvRows.join("\n"));
             const content = await zip.generateAsync({type:"blob"});
             saveAs(content, `EGBC_Rota_Distribution_Package_${new Date().toISOString().split('T')[0]}.zip`);
@@ -549,7 +597,14 @@
             });
             Object.keys(grouped).sort().forEach(term => {
                 const isCollapsed = collapsedTerms.has(term);
-                let termHtml = `<div class="mb-12"><div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg"><button onclick="toggleTermCollapse('${term}')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">${term}</button><button onclick="archiveTerm('${term}')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button></div><div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">`;
+                let html = `
+                <div class="mb-12">
+                    <div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg">
+                        <button onclick="toggleTermCollapse('${term}')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">${term}</button>
+                        <button onclick="archiveTerm('${term}')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button>
+                    </div>
+                    <div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">`;
+                
                 const termEventsSorted = grouped[term].sort((a,b) => new Date(a.date) - new Date(b.date));
                 const byMonth = {};
                 termEventsSorted.forEach(ev => {
@@ -557,12 +612,17 @@
                     if(!byMonth[month]) byMonth[month] = [];
                     byMonth[month].push(ev);
                 });
+
                 Object.keys(byMonth).forEach(month => {
-                    termHtml += `<div class="mb-10 pb-8"><h3 class="text-sm font-black uppercase text-[#3d6263] opacity-60 mb-6 tracking-[0.2em]">${month}</h3>`;
+                    html += `<div class="mb-10 pb-8"><h3 class="text-sm font-black uppercase text-[#3d6263] opacity-60 mb-6 tracking-[0.2em]">${month}</h3>`;
                     const blocks = []; let current = [];
-                    byMonth[month].forEach(ev => { current.push(ev); if(ev.type === "Sunday Morning Worship") { blocks.push(current); current = []; } });
+                    byMonth[month].forEach(ev => {
+                        current.push(ev);
+                        if(ev.type === "Sunday Morning Worship") { blocks.push(current); current = []; }
+                    });
                     if(current.length > 0) blocks.push(current);
-                    blocks.forEach((block, idx) => block.forEach(ev => { termHtml += generateEventHtml(ev, idx); }));
+                    blocks.forEach((block, idx) => block.forEach(ev => { html += generateEventHtml(ev, idx); }));
+                    
                     const stats = {};
                     byMonth[month].forEach(ev => {
                         if(ev.type === 'Sunday Morning Worship' && ev.assignments) {
@@ -571,11 +631,20 @@
                         }
                     });
                     if(Object.keys(stats).length > 0) {
-                        termHtml += `<div class="mt-8 bg-[#f0f6f6] rounded-[2rem] p-8 border border-[#d1dfdf] shadow-sm"><div class="text-xs font-black uppercase text-[#3d6263] mb-6 tracking-widest text-center border-b border-[#d1dfdf] pb-4">Monthly Unique Serving Totals (Sundays)</div><div class="flex flex-wrap justify-center gap-4">${Object.entries(stats).sort((a,b) => a[0].localeCompare(b[0])).map(([n, c]) => `<div class="text-[12px] font-bold text-[#3d6263] bg-white px-5 py-2.5 rounded-full border border-[#d1dfdf] shadow-sm flex items-center gap-2"><span>${n}:</span><span class="font-black text-sm">${c}</span></div>`).join('')}</div></div>`;
+                        html += `
+                        <div class="mt-8 bg-[#f0f6f6] rounded-[2rem] p-8 border border-[#d1dfdf] shadow-sm">
+                            <div class="text-xs font-black uppercase text-[#3d6263] mb-6 tracking-widest text-center border-b border-[#d1dfdf] pb-4">Monthly Unique Serving Totals (Sundays)</div>
+                            <div class="flex flex-wrap justify-center gap-4">
+                                ${Object.entries(stats).sort((a,b) => a[0].localeCompare(b[0])).map(([n, c]) => `
+                                <div class="text-[12px] font-bold text-[#3d6263] bg-white px-5 py-2.5 rounded-full border border-[#d1dfdf] shadow-sm flex items-center gap-2">
+                                    <span>${n}:</span><span class="font-black text-sm">${c}</span>
+                                </div>`).join('')}
+                            </div>
+                        </div>`;
                     }
-                    termHtml += `</div>`;
+                    html += `</div>`;
                 });
-                container.innerHTML += termHtml + `</div></div>`;
+                container.innerHTML += html + `</div></div>`;
             });
         }
 
@@ -591,7 +660,8 @@
             const sortedRoles = [...(ev.roles || []).filter(r => !AV_ROLES.includes(r)), ...(ev.roles || []).filter(r => AV_ROLES.includes(r))];
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
 
-            return `<div class="${rowClass} border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">
+            return `
+            <div class="${rowClass} border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">
                 <div class="flex flex-wrap items-center gap-4 overflow-visible">
                     <button onclick="toggleEventExpand('${ev.id}')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">
                         ${expandedEvents.has(ev.id) || isSunday ? `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M19.5 12h-15" /></svg>` : `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>`}
@@ -625,7 +695,8 @@
                         }).join('')}
                         <select onchange="addRole('${ev.id}', this.value); this.value='';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>${OPTIONAL_ROLES.map(opt => `<option value="${opt}">${opt}</option>`).join('')}</select>
                     </div>
-                    ${openBuckets.has(ev.id) ? `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, '${ev.id}')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">
+                    ${openBuckets.has(ev.id) ? `
+                    <div ondragover="event.preventDefault()" ondrop="onDropBucket(event, '${ev.id}')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">
                         <div class="max-h-[400px] overflow-y-auto space-y-6">
                             <div ondragover="event.preventDefault()" ondrop="onDropBucket(event, '${ev.id}', 'avail'); event.stopPropagation();">
                                 <div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div>
@@ -661,6 +732,7 @@
                 <button onclick="addThursdayPractices()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">Add Practices</button>
                 <button onclick="addSingleLine()" class="bg-[#3d6263] text-white px-10 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">+ Service</button>
                 <button onclick="gatherTermAvailability()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Gather Avail</button>
+                <button onclick="toggleHideAssigned()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Hide Assigned</button>
                 <button onclick="prepareDistributionPackage()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg hover:bg-black transition-all">🚀 SEND ALL ROTAS</button>
             </div>
             <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
