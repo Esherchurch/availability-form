@@ -292,35 +292,30 @@
                 const currentRoles = [...(ev.roles || [])];
                 const updates = {};
 
-                // INTERNAL FUNCTION: Find best member for a specific role/instrument
-                const findMemberForInstrument = (instrumentName, searchRole) => {
+                const findBestMember = (instrumentName, searchRole) => {
                     if (currentAssignments[searchRole] || updates[`assignments.${searchRole}`]) return;
 
-                    // A: Primary Matches (Specialists first)
-                    let primaryMatches = availableMembers.filter(m => 
+                    let matches = availableMembers.filter(m => 
                         !alreadyAssignedToday.has(m.id) && 
-                        m.primaryInstruments?.includes(instrumentName) &&
-                        (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
-                    );
-                    primaryMatches.sort((a,b) => (a.primaryInstruments?.length || 0) - (b.primaryInstruments?.length || 0));
-
-                    if (primaryMatches.length > 0) {
-                        const chosen = primaryMatches[0];
-                        updates[`assignments.${searchRole}`] = { id: chosen.id, name: chosen.name };
-                        alreadyAssignedToday.add(chosen.id);
-                        monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id] || 0) + 1;
-                        return true;
-                    }
-
-                    // B: Secondary Matches
-                    let secondaryMatches = availableMembers.filter(m => 
-                        !alreadyAssignedToday.has(m.id) && 
-                        m.secondaryInstruments?.includes(instrumentName) &&
+                        (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName)) &&
                         (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
                     );
 
-                    if (secondaryMatches.length > 0) {
-                        const chosen = secondaryMatches[0];
+                    // SORT RULES: Non-Youth > Youth, Primary > Secondary, Specialist > Multi
+                    matches.sort((a,b) => {
+                        const aYouth = a.markers?.includes("Youth") ? 1 : 0;
+                        const bYouth = b.markers?.includes("Youth") ? 1 : 0;
+                        if (aYouth !== bYouth) return aYouth - bYouth;
+
+                        const aPrimary = a.primaryInstruments?.includes(instrumentName) ? 0 : 1;
+                        const bPrimary = b.primaryInstruments?.includes(instrumentName) ? 0 : 1;
+                        if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+
+                        return (a.primaryInstruments?.length || 0) - (b.primaryInstruments?.length || 0);
+                    });
+
+                    if (matches.length > 0) {
+                        const chosen = matches[0];
                         updates[`assignments.${searchRole}`] = { id: chosen.id, name: chosen.name };
                         alreadyAssignedToday.add(chosen.id);
                         monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id] || 0) + 1;
@@ -329,32 +324,48 @@
                     return false;
                 };
 
-                // 1. Fill Mandatory Fixed Roles
-                currentRoles.forEach(role => findMemberForInstrument(role, role));
+                // Step 1: Fill EVERY empty role that currently exists in the event list (Mandatory + added Singer boxes)
+                currentRoles.forEach(role => {
+                    let inst = role;
+                    if (role.startsWith("Singer")) inst = "Sing";
+                    findBestMember(inst, role);
+                });
 
-                // 2. Add Dynamic Roles (Singers, 2nd Instruments)
-                // Start with Singers
-                for (let i = 1; i <= 3; i++) {
-                    const sRole = `Singer ${i}`;
-                    if (findMemberForInstrument('Sing', sRole)) {
-                        if (!currentRoles.includes(sRole)) {
-                            currentRoles.push(sRole);
-                            if (!updates.roles) updates.roles = arrayUnion(sRole);
-                        }
-                    }
+                // Step 2: Dynamically add more Singers if people with 'Sing' instrument are still available
+                const remainingSingers = availableMembers.filter(m => 
+                    !alreadyAssignedToday.has(m.id) && 
+                    (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")) &&
+                    (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
+                );
+
+                remainingSingers.sort((a,b) => {
+                    const aYouth = a.markers?.includes("Youth") ? 1 : 0;
+                    const bYouth = b.markers?.includes("Youth") ? 1 : 0;
+                    return aYouth - bYouth;
+                });
+
+                for (const m of remainingSingers) {
+                    let nextIdx = 1;
+                    while (currentRoles.includes(`Singer ${nextIdx}`)) { nextIdx++; }
+                    const newRole = `Singer ${nextIdx}`;
+                    
+                    currentRoles.push(newRole);
+                    if (!updates.roles) updates.roles = arrayUnion(...currentRoles);
+                    else updates.roles = arrayUnion(newRole);
+
+                    updates[`assignments.${newRole}`] = { id: m.id, name: m.name };
+                    alreadyAssignedToday.add(m.id);
+                    monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
                 }
 
-                // Look for 2nd Guitar/Keys from specialists
-                findMemberForInstrument('Guitar', '2nd Guitar');
+                // Step 3: Fill other dynamic instruments (2nd Guitar, etc)
+                findBestMember('Guitar', '2nd Guitar');
                 if (updates['assignments.2nd Guitar'] && !currentRoles.includes('2nd Guitar')) {
-                    currentRoles.push('2nd Guitar');
-                    if (!updates.roles) updates.roles = arrayUnion('2nd Guitar');
+                    updates.roles = arrayUnion('2nd Guitar');
                 }
-
-                findMemberForInstrument('Keys', '2nd Keys');
+                findBestMember('Keys', '2nd Keys');
                 if (updates['assignments.2nd Keys'] && !currentRoles.includes('2nd Keys')) {
-                    currentRoles.push('2nd Keys');
-                    if (!updates.roles) updates.roles = arrayUnion('2nd Keys');
+                    updates.roles = arrayUnion('2nd Keys');
                 }
 
                 if (Object.keys(updates).length > 0) {
