@@ -241,7 +241,7 @@ async function showKeyInfo(id, title) {
     const container = document.getElementById(`keyinfo-${id}`);
     const docId = title.toLowerCase().replace(/\s+/g, "-");
     const snap = await getDoc(doc(db, "songs", docId));
-    if (!snap.exists()) return;
+   if (!snap.exists()) return;
     const data = snap.data();
     const files = data.files || [];
     const chordKeys = files.filter(f => f.type === "Chord Sheet" && f.key).map(f => f.key);
@@ -301,7 +301,7 @@ window.searchSong = async (input, id) => {
         .filter(song => {
             const title = (song.title || "").toLowerCase();
             const normalized = (song.normalized || "").toLowerCase();
-            const lyrics = (song.lyrics || "").toLowerCase();
+  min-width          const lyrics = (song.lyrics || "").toLowerCase();
             return words.every(w =>
                 title.includes(w) ||
                 normalized.includes(w) ||
@@ -512,7 +512,7 @@ window.selectEvent = async () => {
             <tr>
                 <td class="w-1/4">${role}</td>
                 <td class="w-1/4">${person.name}</td>
-               <td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td>
+                <td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td>
             </tr>`;
     });
     
@@ -555,7 +555,7 @@ window.selectEvent = async () => {
                 
                 const content = last.querySelector('.song-content');
                 content.classList.remove('hidden');
-               last.classList.remove('is-collapsed');
+                last.classList.remove('is-collapsed');
                 last.querySelector('.collapse-btn').innerText = "▼";
             } else {
                 addItem(item.title);
