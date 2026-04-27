@@ -46,6 +46,14 @@
 
         const FORM_LINK = "https://esherchurch.github.io/availability-form/";
 
+
+        const toLocalISO = (date) => {
+            const offset = date.getTimezoneOffset();
+            const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+            return adjustedDate.toISOString().split('T')[0];
+        };
+
+
         const getLogoBase64 = () => {
             return new Promise(async (resolve) => {
                 if (logoBase64) return resolve(logoBase64);
@@ -68,6 +76,7 @@
         };
         getLogoBase64();
 
+
         function getTermLabel(dateString) {
             const d = new Date(dateString);
             const month = d.getMonth() + 1; 
@@ -75,6 +84,7 @@
             let term = (month <= 4) ? "Spring" : (month <= 8) ? "Summer" : "Autumn";
             return `${term} ${year}`;
         }
+
 
         onSnapshot(collection(db, "addressBook"), (snap) => {
             addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -90,6 +100,7 @@
             renderPlanner();
         });
 
+
         onSnapshot(collection(db, "availability"), (snap) => {
             availability = {};
             snap.forEach(d => {
@@ -100,21 +111,28 @@
             renderPlanner();
         });
 
+
         onSnapshot(query(collection(db, "events"), orderBy("date")), (snap) => {
             cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             renderPlanner();
         });
 
+
         window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
+
         window.toggleTermCollapse = (termId) => { collapsedTerms.has(termId) ? collapsedTerms.delete(termId) : collapsedTerms.add(termId); renderPlanner(); };
+
         window.toggleEventExpand = (eventId) => { expandedEvents.has(eventId) ? expandedEvents.delete(eventId) : expandedEvents.add(eventId); renderPlanner(); };
+
         window.toggleBucket = (eventId) => { openBuckets.has(eventId) ? openBuckets.delete(eventId) : openBuckets.add(eventId); renderPlanner(); };
+
 
         window.updateField = async (id, field, value) => { 
             const updates = { [field]: value };
             if (field === 'date') updates.termLabel = getTermLabel(value);
             await updateDoc(doc(db, "events", id), updates); 
         };
+
 
         window.toggleTeam = async (eventId, teamName) => {
             const eventRef = doc(db, "events", eventId);
@@ -125,11 +143,13 @@
             await updateDoc(eventRef, { teams: newTeams });
         };
 
+
         window.addRole = async (eventId, roleName) => { 
             if(!roleName) return; 
             await updateDoc(doc(db, "events", eventId), { roles: arrayUnion(roleName) }); 
         };
-        
+
+
         window.removeRole = async (eventId, roleName) => {
             if(confirm(`Remove role "${roleName}"?`)) {
                 const updates = { roles: arrayRemove(roleName) };
@@ -138,11 +158,13 @@
             }
         };
 
+
         window.assignPerson = async (eventId, role, personId, personName) => {
             const updates = {};
             updates[`assignments.${role}`] = { id: personId, name: personName };
             await updateDoc(doc(db, "events", eventId), updates);
         };
+
 
         window.unassignPerson = async (eventId, role) => {
             const updates = {};
@@ -150,9 +172,11 @@
             await updateDoc(doc(db, "events", eventId), updates);
         };
 
+
         window.deleteEvent = async (eventId) => {
             if(confirm("Permanently delete this service?")) await deleteDoc(doc(db, "events", eventId));
         };
+
 
         window.archiveTerm = async (termLabel) => {
             if(confirm(`Archive all services in ${termLabel}?`)) {
@@ -161,11 +185,13 @@
             }
         };
 
+
         window.onDragStart = (e, personId, personName, eventId = null, role = null) => {
             e.dataTransfer.setData("personId", personId);
             e.dataTransfer.setData("personName", personName);
             if(eventId && role) { e.dataTransfer.setData("sourceEventId", eventId); e.dataTransfer.setData("sourceRole", role); }
         };
+
 
         window.onDropRole = async (e, eventId, role) => {
             e.preventDefault();
@@ -177,12 +203,14 @@
             await assignPerson(eventId, role, personId, personName);
         };
 
+
         window.onDropBucket = async (e) => {
             e.preventDefault();
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
             if(sourceEventId && sourceRole) { await unassignPerson(sourceEventId, sourceRole); }
         };
+
 
         window.addSingleLine = async () => {
             const dateStr = new Date().toISOString().split('T')[0];
@@ -191,6 +219,7 @@
                 teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
             });
         };
+
 
         window.generateTerm = async () => {
             const term = document.getElementById('termSelect').value;
@@ -209,6 +238,7 @@
             }
         };
 
+
         window.addThursdayPractices = async () => {
             const term = document.getElementById('termSelect').value;
             if(!term) return alert("Select a Term");
@@ -225,6 +255,7 @@
                 curr.setDate(curr.getDate() + 7);
             }
         };
+
 
         window.autoFillPractice = async (practiceId) => {
             const practice = cachedEvents.find(e => e.id === practiceId);
@@ -245,6 +276,7 @@
             });
             if(Object.keys(updates).length > 0) await updateDoc(doc(db, "events", practiceId), updates);
         };
+
 
         window.autoFillAllEvents = async () => {
             if (!confirm("Automatically fill services?")) return;
@@ -288,7 +320,7 @@
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", true));
                 MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r === "Keyboard" ? "Keys" : r, false));
                 currentRoles.filter(r => r.startsWith("Singer")).forEach(r => tryAssign(r, "Sing", false));
-                
+
                 let singers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
                 singers.sort((a,b) => (a.markers?.includes("Youth") ? 1 : 0) - (b.markers?.includes("Youth") ? 1 : 0));
                 for (const m of singers) {
@@ -311,6 +343,7 @@
             }
             alert("Auto-fill complete!");
         };
+
 
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
@@ -413,11 +446,13 @@
             return docRef;
         };
 
+
         window.generatePDF = async (type, memberId) => {
             const doc = await getPdfBlob(type, memberId);
             if (!doc) return alert("No dates found.");
             doc.save(`${type}_rota.pdf`);
         };
+
 
         window.exportToExcel = () => {
             const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -426,6 +461,7 @@
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Rota");
             XLSX.writeFile(wb, "EGBC_Rota.xlsx");
         };
+
 
         window.prepareDistributionPackage = async () => {
             const zip = new JSZip();
@@ -460,7 +496,7 @@
                 if (personalEvents.length > 0) {
                     let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Rota//EN\n";
                     personalEvents.forEach(e => {
-                        const roles = Object.entries(e.assignments).filter(([r,p]) => p.id === mId).map(([r,p]) => r).join(", ");
+                        const roles = Object.entries(e.assignments).filter(([r,p]) => mId === p.id).map(([r,p]) => r).join(", ");
                         const date = e.date.replace(/-/g, "");
                         ics += `BEGIN:VEVENT\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description || ""}\nEND:VEVENT\n`;
                     });
@@ -486,6 +522,7 @@
             saveAs(content, `EGBC_Rota_Distribution_Package_${new Date().toISOString().split('T')[0]}.zip`);
         };
 
+
         window.gatherTermAvailability = async () => {
             const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel))];
             const selectedTerm = prompt(`Gather availability for which term?\n\nOptions:\n${terms.join('\n')}`, terms[0]);
@@ -496,6 +533,7 @@
             });
             window.location.href = `mailto:av@esherchurch.org?bcc=${[...emails].join(';')}&subject=Availability Request&body=Please click here: ${FORM_LINK}`;
         };
+
 
         function renderPlanner() {
             const container = document.getElementById('eventList');
@@ -509,13 +547,7 @@
             });
             Object.keys(grouped).sort().forEach(term => {
                 const isCollapsed = collapsedTerms.has(term);
-                let html = '<div class="mb-12">';
-                html += '<div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg">';
-                html += '<button onclick="toggleTermCollapse(\'' + term + '\')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">' + term + '</button>';
-                html += '<button onclick="archiveTerm(\'' + term + '\')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button>';
-                html += '</div>';
-                html += '<div class="' + (isCollapsed ? 'hidden' : 'block') + ' bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">';
-                
+                let termHtml = `<div class="mb-12"><div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg"><button onclick="toggleTermCollapse('${term}')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">${term}</button><button onclick="archiveTerm('${term}')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button></div><div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">`;
                 const termEventsSorted = grouped[term].sort((a,b) => new Date(a.date) - new Date(b.date));
                 const byMonth = {};
                 termEventsSorted.forEach(ev => {
@@ -523,17 +555,12 @@
                     if(!byMonth[month]) byMonth[month] = [];
                     byMonth[month].push(ev);
                 });
-
                 Object.keys(byMonth).forEach(month => {
-                    html += '<div class="mb-10 pb-8"><h3 class="text-sm font-black uppercase text-[#3d6263] opacity-60 mb-6 tracking-[0.2em]">' + month + '</h3>';
+                    termHtml += `<div class="mb-10 pb-8"><h3 class="text-sm font-black uppercase text-[#3d6263] opacity-60 mb-6 tracking-[0.2em]">${month}</h3>`;
                     const blocks = []; let current = [];
-                    byMonth[month].forEach(ev => {
-                        current.push(ev);
-                        if(ev.type === "Sunday Morning Worship") { blocks.push(current); current = []; }
-                    });
+                    byMonth[month].forEach(ev => { current.push(ev); if(ev.type === "Sunday Morning Worship") { blocks.push(current); current = []; } });
                     if(current.length > 0) blocks.push(current);
-                    blocks.forEach((block, idx) => block.forEach(ev => { html += generateEventHtml(ev, idx); }));
-                    
+                    blocks.forEach((block, idx) => block.forEach(ev => { termHtml += generateEventHtml(ev, idx); }));
                     const stats = {};
                     byMonth[month].forEach(ev => {
                         if(ev.type === 'Sunday Morning Worship' && ev.assignments) {
@@ -542,19 +569,14 @@
                         }
                     });
                     if(Object.keys(stats).length > 0) {
-                        html += '<div class="mt-8 bg-[#f0f6f6] rounded-[2rem] p-8 border border-[#d1dfdf] shadow-sm">';
-                        html += '<div class="text-xs font-black uppercase text-[#3d6263] mb-6 tracking-widest text-center border-b border-[#d1dfdf] pb-4">Monthly Unique Serving Totals (Sundays)</div>';
-                        html += '<div class="flex flex-wrap justify-center gap-4">';
-                        Object.entries(stats).sort((a,b) => a[0].localeCompare(b[0])).forEach(([n, c]) => {
-                            html += '<div class="text-[12px] font-bold text-[#3d6263] bg-white px-5 py-2.5 rounded-full border border-[#d1dfdf] shadow-sm flex items-center gap-2"><span>' + n + ':</span><span class="font-black text-sm">' + c + '</span></div>';
-                        });
-                        html += '</div></div>';
+                        termHtml += `<div class="mt-8 bg-[#f0f6f6] rounded-[2rem] p-8 border border-[#d1dfdf] shadow-sm"><div class="text-xs font-black uppercase text-[#3d6263] mb-6 tracking-widest text-center border-b border-[#d1dfdf] pb-4">Monthly Unique Serving Totals (Sundays)</div><div class="flex flex-wrap justify-center gap-4">${Object.entries(stats).sort((a,b) => a[0].localeCompare(b[0])).map(([n, c]) => `<div class="text-[12px] font-bold text-[#3d6263] bg-white px-5 py-2.5 rounded-full border border-[#d1dfdf] shadow-sm flex items-center gap-2"><span>${n}:</span><span class="font-black text-sm">${c}</span></div>`).join('')}</div></div>`;
                     }
-                    html += '</div>';
+                    termHtml += `</div>`;
                 });
-                container.innerHTML += html + '</div></div>';
+                container.innerHTML += termHtml + `</div></div>`;
             });
         }
+
 
         function generateEventHtml(ev, blockIdx) {
             const assignedIds = Object.values(ev.assignments || {}).map(a => a.id);
@@ -568,70 +590,49 @@
             const sortedRoles = [...(ev.roles || []).filter(r => !AV_ROLES.includes(r)), ...(ev.roles || []).filter(r => AV_ROLES.includes(r))];
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
 
-            let html = '<div class="' + rowClass + ' border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">';
-            html += '<div class="flex flex-wrap items-center gap-4 overflow-visible">';
-            html += '<button onclick="toggleEventExpand(\'' + ev.id + '\')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">';
-            html += (expandedEvents.has(ev.id) || isSunday ? '<svg ' + iconStyles + ' viewBox="0 0 24 24"><path d="M19.5 12h-15" /></svg>' : '<svg ' + iconStyles + ' viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>');
-            html += '</button>';
-            html += '<input type="date" value="' + ev.date + '" onchange="updateField(\'' + ev.id + '\', \'date\', this.value)" class="' + dateBg + ' ' + (!isSunday ? 'text-[#3d6263]' : 'text-white') + ' px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">';
-            html += '<select onchange="updateField(\'' + ev.id + '\', \'type\', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">';
-            EVENT_TYPES.forEach(t => { html += '<option value="' + t + '" ' + (ev.type === t ? 'selected' : '') + '>' + t + '</option>'; });
-            html += '</select>';
-            html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\', \'description\', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">' + (ev.description || '') + '</textarea>';
-            html += '<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
-            ["Core Team", "Worship Team", "AV Team", "Choir"].forEach(t => {
-                html += '<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t.split(' ')[0] + '</span></label>';
-            });
-            html += '</div>';
-            if (!isSunday) {
-                html += '<button onclick="autoFillPractice(\'' + ev.id + '\')" class="bg-[#d1dfdf] text-[#3d6263] px-5 py-2 rounded-full font-black text-[10px] uppercase shadow-sm flex items-center gap-1 hover:bg-[#3d6263] hover:text-white transition-all"><svg ' + iconStyles + ' viewBox="0 0 24 24" class="w-3 h-3"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Sync</button>';
-            }
-            html += '<div class="flex items-center gap-4 relative">';
-            html += '<button onclick="toggleBucket(\'' + ev.id + '\')" class="w-11 h-11 rounded-full bg-white text-[#3d6263] flex items-center justify-center border border-[#d1dfdf] shadow-sm hover:scale-110 transition-all"><svg ' + iconStyles + ' viewBox="0 0 24 24"><path d="M20.25 14.15v4.25c0 .414-.336.75-.75.75H4.5a.75.75 0 0 1-.75-.75v-4.25m16.5 0a3 3 0 0 0-3-3H7.012a3 3 0 0 0-3 3m16.5 0-2.25-6.108a4.835 4.835 0 0 0-3.6-3.392 48.359 48.359 0 0 0-5.325 0 4.835 4.835 0 0 0-3.6 3.392L3.75 14.15m6.5 2.15a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm6 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg></button>';
-            html += '<button onclick="deleteEvent(\'' + ev.id + '\')" class="text-[#d1dfdf] hover:text-red-500 transition-colors"><svg ' + iconStyles + ' viewBox="0 0 24 24" class="w-6 h-6"><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>';
-            html += '</div></div>';
-            
-            html += '<div class="' + (expandedEvents.has(ev.id) || isSunday ? 'flex' : 'hidden') + ' mt-6 border-t border-[#f0f6f6] pt-6 flex-row gap-6 overflow-visible">';
-            html += '<div class="flex flex-wrap gap-4 flex-grow">';
-            sortedRoles.forEach(r => {
-                const assigned = ev.assignments?.[r] || null;
-                const isAV = AV_ROLES.includes(r);
-                const isPending = assigned && !availability[ev.id]?.[assigned.id];
-                const borderColor = isAV ? 'border-amber-400' : (assigned ? 'border-[#3d6263]' : 'border-[#d1dfdf]');
-                const nameColor = isPending ? 'text-orange-500' : 'text-[#3d6263]';
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropRole(event, \'' + ev.id + '\', \'' + r + '\')" class="bg-white border-2 ' + (assigned ? 'border-solid' : 'border-dashed') + ' ' + borderColor + ' p-4 rounded-2xl min-w-[170px] group/role transition-all relative">';
-                html += '<div class="text-[10px] font-black uppercase text-[#3d6263] opacity-40 mb-2 flex justify-between"><span>' + r + '</span><button onclick="removeRole(\'' + ev.id + '\', \'' + r + '\')" class="invisible group-hover/role:visible text-red-400 hover:text-red-600"><svg ' + iconStyles + ' viewBox="0 0 24 24" class="w-3.5 h-3.5"><path d="M6 18 18 6M6 6l12 12" /></svg></button></div>';
-                html += '<div draggable="true" ondragstart="onDragStart(event, \'' + (assigned?.id || '') + '\', \'' + (assigned?.name.replace(/'/g, "\\'") || '') + '\', \'' + ev.id + '\', \'' + r + '\')" class="text-[13px] font-bold ' + (assigned ? nameColor + ' cursor-grab' : 'text-[#d1dfdf] italic') + '">' + (assigned ? assigned.name : 'Unassigned') + '</div>';
-                html += '</div>';
-            });
-            html += '<select onchange="addRole(\'' + ev.id + '\', this.value); this.value=\'\';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>';
-            OPTIONAL_ROLES.forEach(opt => { html += '<option value="' + opt + '">' + opt + '</option>'; });
-            html += '</select></div>';
-            
-            if (openBuckets.has(ev.id)) {
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">';
-                html += '<div class="max-h-[400px] overflow-y-auto space-y-6">';
-                
-                html += '<div>';
-                html += '<div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div>';
-                html += '<div class="flex flex-wrap gap-2">';
-                respondersAvail.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">' + m.name + '</div>'; });
-                html += '</div></div>';
-                
-                html += '<div>';
-                html += '<div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div>';
-                html += '<div class="flex flex-wrap gap-2">';
-                declined.forEach(m => { html += '<div class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200">' + m.name + '</div>'; });
-                html += '</div></div>';
-                
-                html += '<div>';
-                html += '<div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div>';
-                html += '<div class="flex flex-wrap gap-2">';
-                pending.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">' + m.name + '</div>'; });
-                html += '</div></div></div></div>';
-            }
-            html += '</div></div>';
-            return html;
+            return `<div class="${rowClass} border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">
+                <div class="flex flex-wrap items-center gap-4 overflow-visible">
+                    <button onclick="toggleEventExpand('${ev.id}')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">
+                        ${expandedEvents.has(ev.id) || isSunday ? `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M19.5 12h-15" /></svg>` : `<svg ${iconStyles} viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>`}
+                    </button>
+                    <input type="date" value="${ev.date}" onchange="updateField('${ev.id}', 'date', this.value)" class="${dateBg} ${!isSunday ? 'text-[#3d6263]' : 'text-white'} px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">
+                    <select onchange="updateField('${ev.id}', 'type', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">
+                        ${EVENT_TYPES.map(t => `<option value="${t}" ${ev.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                    </select>
+                    <textarea rows="1" onblur="updateField('${ev.id}', 'description', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">${ev.description || ''}</textarea>
+                    <div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">
+                        ${["Core Team", "Worship Team", "AV Team", "Choir", "Youth"].map(t => `<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam('${ev.id}', '${t}')" ${ev.teams?.includes(t) ? 'checked' : ''} class="w-3.5 h-3.5 accent-[#3d6263]"><span>${t}</span></label>`).join('')}
+                    </div>
+                    ${!isSunday ? `<button onclick="autoFillPractice('${ev.id}')" class="bg-[#d1dfdf] text-[#3d6263] px-5 py-2 rounded-full font-black text-[10px] uppercase shadow-sm flex items-center gap-1 hover:bg-[#3d6263] hover:text-white transition-all"><svg ${iconStyles} viewBox="0 0 24 24" class="w-3 h-3"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Sync</button>` : ''}
+                    <div class="flex items-center gap-4 relative">
+                        <button onclick="toggleBucket('${ev.id}')" class="w-11 h-11 rounded-full bg-white text-[#3d6263] flex items-center justify-center border border-[#d1dfdf] shadow-sm hover:scale-110 transition-all"><svg ${iconStyles} viewBox="0 0 24 24"><path d="M20.25 14.15v4.25c0 .414-.336.75-.75.75H4.5a.75.75 0 0 1-.75-.75v-4.25m16.5 0a3 3 0 0 0-3-3H7.012a3 3 0 0 0-3 3m16.5 0-2.25-6.108a4.835 4.835 0 0 0-3.6-3.392 48.359 48.359 0 0 0-5.325 0 4.835 4.835 0 0 0-3.6 3.392L3.75 14.15m6.5 2.15a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm6 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg></button>
+                        <button onclick="deleteEvent('${ev.id}')" class="text-[#d1dfdf] hover:text-red-500 transition-colors"><svg ${iconStyles} viewBox="0 0 24 24" class="w-6 h-6"><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>
+                    </div>
+                </div>
+                <div class="${expandedEvents.has(ev.id) || isSunday ? 'flex' : 'hidden'} mt-6 border-t border-[#f0f6f6] pt-6 flex-row gap-6 overflow-visible">
+                    <div class="flex flex-wrap gap-4 flex-grow">
+                        ${sortedRoles.map(r => { 
+                            const assigned = ev.assignments?.[r] || null;
+                            const isAV = AV_ROLES.includes(r);
+                            const isPending = assigned && !availability[ev.id]?.[assigned.id];
+                            const borderColor = isAV ? 'border-amber-400' : (assigned ? 'border-[#3d6263]' : 'border-[#d1dfdf]');
+                            const nameColor = isPending ? 'text-orange-500' : 'text-[#3d6263]';
+                            return `<div ondragover="event.preventDefault()" ondrop="onDropRole(event, '${ev.id}', '${r}')" class="bg-white border-2 ${assigned ? 'border-solid' : 'border-dashed'} ${borderColor} p-4 rounded-2xl min-w-[170px] group/role transition-all relative">
+                                <div class="text-[10px] font-black uppercase text-[#3d6263] opacity-40 mb-2 flex justify-between"><span>${r}</span><button onclick="removeRole('${ev.id}', '${r}')" class="invisible group-hover/role:visible text-red-400 hover:text-red-600"><svg ${iconStyles} viewBox="0 0 24 24" class="w-3.5 h-3.5"><path d="M6 18 18 6M6 6l12 12" /></svg></button></div>
+                                <div draggable="true" ondragstart="onDragStart(event, '${assigned?.id}', '${assigned?.name.replace(/'/g, "\\'")}', '${ev.id}', '${r}')" class="text-[13px] font-bold ${assigned ? nameColor + ' cursor-grab' : 'text-[#d1dfdf] italic'}">${assigned ? assigned.name : 'Unassigned'}</div>
+                            </div>`;
+                        }).join('')}
+                        <select onchange="addRole('${ev.id}', this.value); this.value='';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>${OPTIONAL_ROLES.map(opt => `<option value="${opt}">${opt}</option>`).join('')}</select>
+                    </div>
+                    ${openBuckets.has(ev.id) ? `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event)" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">
+                        <div class="max-h-[400px] overflow-y-auto space-y-6">
+                            <div><div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div><div class="flex flex-wrap gap-2">${respondersAvail.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
+                            <div><div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div><div class="flex flex-wrap gap-2">${declined.map(m => `<div class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200">${m.name}</div>`).join('')}</div></div>
+                            <div><div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div><div class="flex flex-wrap gap-2">${pending.map(m => `<div draggable="true" ondragstart="onDragStart(event, '${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">${m.name}</div>`).join('')}</div></div>
+                        </div>
+                    </div>` : ''}
+                </div>
+            </div>`;
         }
     </script>
     <style>
