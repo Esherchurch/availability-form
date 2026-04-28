@@ -69,6 +69,8 @@
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');">R</button>
     
     <div style="flex-grow: 1;"></div>
+    <button class="btn" onclick="saveDraft()" style="background: #5a7d7e;">Save Draft</button>
+    <button class="btn" onclick="loadDraft()" style="background: #5a7d7e;">Load Draft</button>
     <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy Email HTML</button>
 </div>
 
@@ -114,6 +116,22 @@ let lastClickedImg = null;
 db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 });
+
+function saveDraft() {
+    const content = document.getElementById('editable-body').innerHTML;
+    localStorage.setItem('email_compiler_draft', content);
+    alert("Draft saved to browser!");
+}
+
+function loadDraft() {
+    const saved = localStorage.getItem('email_compiler_draft');
+    if (saved) {
+        document.getElementById('editable-body').innerHTML = saved;
+        alert("Draft loaded!");
+    } else {
+        alert("No saved draft found.");
+    }
+}
 
 // FORCED STYLE INJECTION (Outlook Fix)
 // ONLY CHANGE: fontSize now uses <font> (paste-safe in Outlook). Color remains <span>.
