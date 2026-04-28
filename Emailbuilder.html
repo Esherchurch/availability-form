@@ -55,10 +55,6 @@
     </div>
 
     <button class="btn" onclick="uploadImage()">Add Photo</button>
-    
-    <button class="btn" onclick="saveDraft()" style="background: #27ae60;">Save Draft</button>
-    <button class="btn" onclick="loadDraft()" style="background: #2980b9;">Load Draft</button>
-    
     <button class="btn" onclick="triggerResize()" style="background:#8b4513;">Resize</button>
     
     <select onchange="if(this.value) insertSideLayout(this.value); this.value=''">
@@ -95,7 +91,12 @@
             <label class="list-item"><input type="checkbox" class="team-filter" value="Core Team"> Core Team</label>
             <label class="list-item"><input type="checkbox" class="team-filter" value="Everyone"> Everyone</label>
         </div>
+        
         <button onclick="launchGroupEmail()" class="btn" style="width:100%; padding: 12px 0;">Open Outlook</button>
+        
+        <button onclick="saveDraft()" class="btn" style="width:100%; padding: 10px 0; margin-top: 10px; background: #27ae60;">Save Draft</button>
+        <button onclick="loadDraft()" class="btn" style="width:100%; padding: 10px 0; margin-top: 5px; background: #2980b9;">Load Draft</button>
+        
         <div id="member-count" style="font-size: 10px; text-align: center; margin-top: 10px; color: #999;">0 Selected</div>
     </div>
 </div>
@@ -119,21 +120,20 @@ db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 });
 
-// DRAFT LOGIC
+// DRAFT FUNCTIONS
 function saveDraft() {
     const content = document.getElementById('editable-body').innerHTML;
-    localStorage.setItem('worship_email_draft', content);
-    alert("Draft saved to browser storage.");
+    localStorage.setItem('email_draft_store', content);
+    alert("Draft saved to browser storage!");
 }
 
 function loadDraft() {
-    const saved = localStorage.getItem('worship_email_draft');
+    const saved = localStorage.getItem('email_draft_store');
     if (saved) {
-        if(confirm("This will overwrite current content. Load draft?")) {
-            document.getElementById('editable-body').innerHTML = saved;
-        }
+        document.getElementById('editable-body').innerHTML = saved;
+        alert("Draft loaded!");
     } else {
-        alert("No saved draft found.");
+        alert("No draft found in this browser.");
     }
 }
 
