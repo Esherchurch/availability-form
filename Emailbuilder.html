@@ -94,8 +94,8 @@
         
         <button onclick="launchGroupEmail()" class="btn" style="width:100%; padding: 12px 0;">Open Outlook</button>
         
-        <button onclick="saveDraft()" class="btn" style="width:100%; padding: 10px 0; margin-top: 10px; background: #27ae60;">Save Draft</button>
-        <button onclick="loadDraft()" class="btn" style="width:100%; padding: 10px 0; margin-top: 5px; background: #2980b9;">Load Draft</button>
+        <button onclick="saveDraftToCloud()" class="btn" style="width:100%; padding: 10px 0; margin-top: 10px; background: #27ae60;">Save to Cloud</button>
+        <button onclick="loadDraftFromCloud()" class="btn" style="width:100%; padding: 10px 0; margin-top: 5px; background: #2980b9;">Load from Cloud</button>
         
         <div id="member-count" style="font-size: 10px; text-align: center; margin-top: 10px; color: #999;">0 Selected</div>
     </div>
@@ -120,21 +120,38 @@ db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 });
 
-// DRAFT FUNCTIONS
-function saveDraft() {
+// CLOUD DRAFT LOGIC
+async function saveDraftToCloud() {
     const content = document.getElementById('editable-body').innerHTML;
-    localStorage.setItem('email_draft_store', content);
-    alert("Draft saved to browser storage!");
+    document.getElementById('loader').style.display = 'flex';
+    try {
+        await db.collection("drafts").doc("currentEmail").set({
+            content: content,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert("Draft saved to Cloud! Your wife can now load it on her PC.");
+    } catch (e) {
+        console.error(e);
+        alert("Error saving to cloud.");
+    }
+    document.getElementById('loader').style.display = 'none';
 }
 
-function loadDraft() {
-    const saved = localStorage.getItem('email_draft_store');
-    if (saved) {
-        document.getElementById('editable-body').innerHTML = saved;
-        alert("Draft loaded!");
-    } else {
-        alert("No draft found in this browser.");
+async function loadDraftFromCloud() {
+    document.getElementById('loader').style.display = 'flex';
+    try {
+        const doc = await db.collection("drafts").doc("currentEmail").get();
+        if (doc.exists) {
+            document.getElementById('editable-body').innerHTML = doc.data().content;
+            alert("Draft loaded from Cloud!");
+        } else {
+            alert("No cloud draft found.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error loading from cloud.");
     }
+    document.getElementById('loader').style.display = 'none';
 }
 
 // FORCED STYLE INJECTION (Outlook Fix)
