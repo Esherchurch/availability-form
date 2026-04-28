@@ -55,6 +55,10 @@
     </div>
 
     <button class="btn" onclick="uploadImage()">Add Photo</button>
+    
+    <button class="btn" onclick="saveDraft()" style="background: #27ae60;">Save Draft</button>
+    <button class="btn" onclick="loadDraft()" style="background: #2980b9;">Load Draft</button>
+    
     <button class="btn" onclick="triggerResize()" style="background:#8b4513;">Resize</button>
     
     <select onchange="if(this.value) insertSideLayout(this.value); this.value=''">
@@ -69,8 +73,6 @@
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');">R</button>
     
     <div style="flex-grow: 1;"></div>
-    <button class="btn" onclick="saveDraft()" style="background: #5a7d7e;">Save Draft</button>
-    <button class="btn" onclick="loadDraft()" style="background: #5a7d7e;">Load Draft</button>
     <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy Email HTML</button>
 </div>
 
@@ -117,33 +119,31 @@ db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 });
 
+// DRAFT LOGIC
 function saveDraft() {
     const content = document.getElementById('editable-body').innerHTML;
-    localStorage.setItem('email_compiler_draft', content);
-    alert("Draft saved to browser!");
+    localStorage.setItem('worship_email_draft', content);
+    alert("Draft saved to browser storage.");
 }
 
 function loadDraft() {
-    const saved = localStorage.getItem('email_compiler_draft');
+    const saved = localStorage.getItem('worship_email_draft');
     if (saved) {
-        document.getElementById('editable-body').innerHTML = saved;
-        alert("Draft loaded!");
+        if(confirm("This will overwrite current content. Load draft?")) {
+            document.getElementById('editable-body').innerHTML = saved;
+        }
     } else {
         alert("No saved draft found.");
     }
 }
 
 // FORCED STYLE INJECTION (Outlook Fix)
-// ONLY CHANGE: fontSize now uses <font> (paste-safe in Outlook). Color remains <span>.
 function applyManualStyle(styleType, value) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.isCollapsed) return;
-
     const range = selection.getRangeAt(0);
 
-    // Map pt sizes to legacy HTML <font size="1..7"> that Outlook preserves on paste
     function ptToFontSize(pt) {
-        // Common mapping (approx): 1=8pt, 2=10pt, 3=12pt, 4=14pt, 5=18pt, 6=24pt, 7=36pt
         if (pt <= 9) return 1;
         if (pt <= 11) return 2;
         if (pt <= 13) return 3;
@@ -154,26 +154,19 @@ function applyManualStyle(styleType, value) {
     }
 
     let wrapper;
-
     if (styleType === 'fontSize') {
         const px = parseFloat(value);
         if (isNaN(px)) return;
-
-        // px -> pt (96dpi: 1px = 0.75pt)
         const pt = Math.round(px * 0.75);
-
         wrapper = document.createElement("font");
         wrapper.setAttribute("size", ptToFontSize(pt));
-        // keep an explicit pt too (Outlook respects this even when it normalises)
         wrapper.style.fontSize = pt + "pt";
-        // Outlook specifically needs line-height to keep huge text from overlapping
         wrapper.style.lineHeight = "1.2";
     }
 
     if (styleType === 'color') {
         wrapper = document.createElement("span");
         wrapper.style.color = value;
-        // keep your original behaviour: set line-height too
         wrapper.style.lineHeight = "1.2";
     }
 
