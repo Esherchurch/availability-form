@@ -8,20 +8,24 @@
 
     <style>
         :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
-        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        /* Changed height to min-height so the page can grow */
+        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
         
-        #toolbar { background: #ffffff; padding: 12px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; }
+        #toolbar { background: #ffffff; padding: 12px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; position: sticky; top: 0; }
         .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
         .btn:hover { background: #2c4849; }
         select { padding: 6px; border-radius: 4px; border: 1px solid var(--border-light); font-size: 12px; }
         
-        #main-container { display: flex; flex-grow: 1; overflow: hidden; }
-        #compiler-window { flex-grow: 1; overflow-y: auto; padding: 30px; display: flex; justify-content: center; }
-        #email-canvas { background: #ffffff; width: 750px; min-height: 900px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        /* Removed overflow:hidden to allow natural vertical expansion */
+        #main-container { display: flex; flex-grow: 1; }
+        #compiler-window { flex-grow: 1; padding: 30px; display: flex; justify-content: center; align-items: flex-start; }
         
-        #address-sidebar { width: 280px; background: #f0f4f7; border-left: 1px solid var(--border-light); padding: 20px; overflow-y: auto; }
+        /* Changed height to auto so it grows with the content */
+        #email-canvas { background: #ffffff; width: 750px; min-height: 900px; height: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 50px; }
+        
+        #address-sidebar { width: 280px; background: #f0f4f7; border-left: 1px solid var(--border-light); padding: 20px; position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
         .list-group { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .list-title { font-size: 10px; font-weight: 800; color: #2c6999; uppercase tracking-widest mb-3; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .list-title { font-size: 10px; font-weight: 800; color: #2c6999; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .list-item { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; font-weight: 600; }
 
         #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333; line-height: 1.6; font-size: 16px; }
@@ -120,7 +124,6 @@ db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 });
 
-// CLOUD DRAFT LOGIC
 async function saveDraftToCloud() {
     const content = document.getElementById('editable-body').innerHTML;
     document.getElementById('loader').style.display = 'flex';
@@ -129,7 +132,7 @@ async function saveDraftToCloud() {
             content: content,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        alert("Draft saved to Cloud! Your wife can now load it on her PC.");
+        alert("Draft saved to Cloud!");
     } catch (e) {
         console.error(e);
         alert("Error saving to cloud.");
@@ -154,7 +157,6 @@ async function loadDraftFromCloud() {
     document.getElementById('loader').style.display = 'none';
 }
 
-// FORCED STYLE INJECTION (Outlook Fix)
 function applyManualStyle(styleType, value) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.isCollapsed) return;
@@ -271,7 +273,7 @@ async function compileAndLaunch() {
     const blob = new Blob([finalHtml], { type: "text/html" });
     const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
-    alert("Email HTML Copied! paste as source formatting");
+    alert("Email HTML Copied!");
 }
 </script>
 </body>
