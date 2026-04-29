@@ -46,20 +46,25 @@
         let addressBook = [];
         let availability = {};
         let logoBase64 = null;
+        let logoNaturalWidth = 1;
+        let logoNaturalHeight = 1;
         let hideAssigned = false;
 
 
         const FORM_LINK = "https://esherchurch.github.io/availability-form/";
 
 
+        let logoLoadPromise = null;
         const getLogoBase64 = () => {
-            return new Promise(async (resolve) => {
-                if (logoBase64) return resolve(logoBase64);
+            if (logoLoadPromise) return logoLoadPromise;
+            logoLoadPromise = new Promise(async (resolve) => {
                 try {
                     const url = await getDownloadURL(ref(storage, '1774936285076.png'));
                     const img = new Image();
                     img.setAttribute('crossOrigin', 'anonymous');
                     img.onload = () => {
+                        logoNaturalWidth = img.naturalWidth;
+                        logoNaturalHeight = img.naturalHeight;
                         const canvas = document.createElement("canvas");
                         canvas.width = img.width; canvas.height = img.height;
                         const ctx = canvas.getContext("2d");
@@ -71,6 +76,7 @@
                     img.src = url + "?c=" + new Date().getTime();
                 } catch (e) { resolve(null); }
             });
+            return logoLoadPromise;
         };
         getLogoBase64();
 
@@ -453,7 +459,10 @@
                         wallDoc.addPage();
                     }
                     if (logo) {
-                        wallDoc.addImage(logo, "JPEG", 40, 20, 100, 60);
+                        // FIX: preserve logo aspect ratio
+                        const logoDisplayHeight = 60;
+                        const logoDisplayWidth = (logoNaturalWidth / logoNaturalHeight) * logoDisplayHeight;
+                        wallDoc.addImage(logo, "JPEG", 40, 20, logoDisplayWidth, logoDisplayHeight);
                     }
                     wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(22); wallDoc.setTextColor(61, 98, 99);
                     wallDoc.text("Family Wall Planner", 150, 50);
@@ -528,7 +537,10 @@
             }
 
             if (logo) {
-                docRef.addImage(logo, 'JPEG', 255, 10, 30, 20);
+                // FIX: preserve logo aspect ratio
+                const logoDisplayHeight = 20;
+                const logoDisplayWidth = (logoNaturalWidth / logoNaturalHeight) * logoDisplayHeight;
+                docRef.addImage(logo, 'JPEG', 255, 10, logoDisplayWidth, logoDisplayHeight);
             }
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
@@ -536,8 +548,13 @@
             const allRolesRaw = [...new Set(termEvents.flatMap(e => e.roles || []))];
             const allRoles = [...allRolesRaw.filter(r => !AV_ROLES.includes(r)), ...allRolesRaw.filter(r => AV_ROLES.includes(r))];
             docRef.autoTable({
-                startY: 35, head: [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]],
-                body: termEvents.map(e => [new Date(e.date).toLocaleDateString('en-GB'), e.type, ...allRoles.map(r => e.assignments?.[r]?.name || "---")]),
+                startY: 35, head: [['DATE', 'TIME', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]],
+                body: termEvents.map(e => [
+                    new Date(e.date).toLocaleDateString('en-GB'),
+                    (e.startTime || '') + (e.startTime && e.endTime ? '–' : '') + (e.endTime || ''),
+                    e.type,
+                    ...allRoles.map(r => e.assignments?.[r]?.name || "---")
+                ]),
                 headStyles: { fillColor: [61, 98, 99] }, styles: { fontSize: 7 }
             });
             return docRef;
@@ -638,6 +655,19 @@
         };
 
 
+        // Time options helper
+        function buildTimeOptions(selected) {
+            let opts = '';
+            for (let h = 0; h < 24; h++) {
+                for (let m = 0; m < 60; m += 15) {
+                    const val = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+                    opts += `<option value="${val}"${selected === val ? ' selected' : ''}>${val}</option>`;
+                }
+            }
+            return opts;
+        }
+
+
         function renderPlanner() {
             const container = document.getElementById('eventList');
             container.innerHTML = '';
@@ -727,12 +757,19 @@
             const sortedRoles = [...(ev.roles || []).filter(r => !AV_ROLES.includes(r)), ...(ev.roles || []).filter(r => AV_ROLES.includes(r))];
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
 
+            // FIX: build time dropdowns for startTime and endTime
+            const timeSelectStyle = 'bg-white border border-[#d1dfdf] text-[#3d6263] px-2 py-1 rounded-full font-bold text-[11px] outline-none';
+            const startTimeHtml = `<select onchange="updateField('${ev.id}', 'startTime', this.value)" class="${timeSelectStyle}">${buildTimeOptions(ev.startTime || '08:00')}</select>`;
+            const endTimeHtml = `<select onchange="updateField('${ev.id}', 'endTime', this.value)" class="${timeSelectStyle}">${buildTimeOptions(ev.endTime || '11:30')}</select>`;
+            const timeGroupHtml = `<div class="flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-[#d1dfdf] shadow-sm text-[10px] font-black text-[#3d6263] uppercase">${startTimeHtml}<span class="opacity-40">–</span>${endTimeHtml}</div>`;
+
             let html = '<div class="' + rowClass + ' border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">';
             html += '<div class="flex flex-wrap items-center gap-4 overflow-visible">';
             html += '<button onclick="toggleEventExpand(\'' + ev.id + '\')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">';
             html += (expandedEvents.has(ev.id) || isSunday ? '<svg ' + iconStyles + ' viewBox="0 0 24 24"><path d="M19.5 12h-15" /></svg>' : '<svg ' + iconStyles + ' viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>');
             html += '</button>';
             html += '<input type="date" value="' + ev.date + '" onchange="updateField(\'' + ev.id + '\', \'date\', this.value)" class="' + dateBg + ' ' + (!isSunday ? 'text-[#3d6263]' : 'text-white') + ' px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">';
+            html += timeGroupHtml;
             html += '<select onchange="updateField(\'' + ev.id + '\', \'type\', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">';
             EVENT_TYPES.forEach(t => { 
                 html += '<option value="' + t + '" ' + (ev.type === t ? 'selected' : '') + '>' + t + '</option>'; 
