@@ -83,6 +83,19 @@
             z-index: 5; 
         }
 
+        /* SYNC STATUS INDICATOR */
+        #sync-status {
+            font-size: 10px;
+            color: #a0b0b0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            transition: color 0.3s;
+        }
+        #sync-status.syncing { color: #f0a500; }
+        #sync-status.synced  { color: var(--brand-green); }
+        #sync-status.error   { color: #f44336; }
+
         /* ADMIN UI */
         #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
         .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
@@ -108,6 +121,7 @@
             <div style="text-align: right">
                 <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
                 <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship & AV Hub</div>
+                <div id="sync-status">Connecting…</div>
             </div>
         </header>
         <main id="app-viewport">
@@ -146,10 +160,94 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════
+         Firebase SDK  (v9 compat build — no bundler needed)
+    ════════════════════════════════════════════════════════════ -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <script>
-        const STORAGE_KEY = 'EGBC_FINAL_PORTAL_STORAGE';
+        // ─── FIREBASE CONFIG ──────────────────────────────────────────────────
+        // This uses your existing Firebase project (egbc-worship-planner).
+        // You need to fill in apiKey, authDomain and appId below.
+        // Find them at: Firebase Console → Project Settings → Your Apps → Config
+        const firebaseConfig = {
+            apiKey:            "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain:        "egbc-worship-planner.firebaseapp.com",
+            projectId:         "egbc-worship-planner",
+            storageBucket:     "egbc-worship-planner.firebasestorage.app",
+            appId:             "1:199442060489:web:7eaf85a76334c753db6918"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const MENU_DOC = db.collection('portal').doc('menuItems');
+
+        // ─── SYNC STATUS HELPER ───────────────────────────────────────────────
+        function setSyncStatus(state, text) {
+            const el = document.getElementById('sync-status');
+            el.className = state;
+            el.textContent = text;
+        }
+
+        // ─── DEFAULT MENU (first-run / factory reset only) ───────────────────
+        const DEFAULT_MENU = [
+            {"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
+            {"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},
+            {"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},
+            {"id":1777068093291,"name":"Music Databases","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},
+            {"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},
+            {"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},
+            {"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},
+            {"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},
+            {"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},
+            {"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},
+            {"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},
+            {"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},
+            {"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
+        ];
+
+        // ─── IN-MEMORY STATE ──────────────────────────────────────────────────
+        let menuItems = [];
+
+        // ─── LOAD FROM FIRESTORE ──────────────────────────────────────────────
+        async function loadMenu() {
+            setSyncStatus('syncing', 'Loading…');
+            try {
+                const snap = await MENU_DOC.get();
+                if (snap.exists && snap.data().items) {
+                    menuItems = snap.data().items;
+                } else {
+                    // First run — push defaults up to Firestore
+                    menuItems = DEFAULT_MENU;
+                    await MENU_DOC.set({ items: menuItems });
+                }
+                setSyncStatus('synced', '✓ Synced');
+                renderMenu();
+            } catch (err) {
+                console.error('Firestore load error:', err);
+                setSyncStatus('error', '⚠ Offline – changes won\'t save');
+                // Fall back to defaults so the page still works
+                menuItems = DEFAULT_MENU;
+                renderMenu();
+            }
+        }
+
+        // ─── SAVE TO FIRESTORE ────────────────────────────────────────────────
+        async function saveMenu() {
+            setSyncStatus('syncing', 'Saving…');
+            try {
+                await MENU_DOC.set({ items: menuItems });
+                setSyncStatus('synced', '✓ Saved & Synced');
+            } catch (err) {
+                console.error('Firestore save error:', err);
+                setSyncStatus('error', '⚠ Save failed');
+            }
+        }
+
+        // ─── ICONS ────────────────────────────────────────────────────────────
         const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
-        
+
         const ICONS = {
             home: `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
             calendar: `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
@@ -168,8 +266,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const userRole = urlParams.get('role') || 'worship';
 
-        let menuItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [{"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},{"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},{"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},{"id":1777068093291,"name":"Music Databases ","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},{"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},{"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},{"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},{"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},{"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},{"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},{"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},{"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},{"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}];
-
+        // ─── RENDER ───────────────────────────────────────────────────────────
         function renderMenu() {
             const list = document.getElementById('nav-list');
             const parentSelect = document.getElementById('nodeParent');
@@ -198,7 +295,7 @@
                         </div>
                         <div class="child-container" id="child-of-${item.id}"></div>
                     `;
-                    
+
                     const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
                     targetContainer.appendChild(wrapper);
                     if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
@@ -209,16 +306,14 @@
         }
 
         function closeAllMenus() {
-            const openMenus = document.querySelectorAll('.has-children.open');
-            openMenus.forEach(m => m.classList.remove('open'));
+            document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open'));
         }
 
         function handleItemClick(event, id, url, logo) {
             const wrapper = event.currentTarget.parentElement;
             if (wrapper.classList.contains('has-children')) {
                 const isOpening = !wrapper.classList.contains('open');
-                const peers = wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children');
-                peers.forEach(p => p.classList.remove('open'));
+                wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open'));
                 if (isOpening) wrapper.classList.add('open');
             }
             if (url && url !== '#' && url !== 'landing') navigate(url, logo);
@@ -239,23 +334,19 @@
             document.getElementById('landing-content').style.display = 'block';
         }
 
-        // ADMIN CONTROLS - ONLY WORK IF USER IS 'CORE'
+        // ─── ADMIN ────────────────────────────────────────────────────────────
         let clickCount = 0;
         function handleSecret() {
-            if (userRole !== 'core') return; // Disable for everyone else
-
+            if (userRole !== 'core') return;
             clickCount++;
             if (clickCount >= 3) {
                 const isAdminVisible = document.getElementById('admin-controls').style.display === 'block';
-                
                 if (isAdminVisible) {
-                    // Hide admin tools
                     document.getElementById('admin-controls').style.display = 'none';
                     document.getElementById('secret-trigger').style.color = '#a0b0b0';
                     document.getElementById('nav-list').classList.remove('admin-active');
                     clickCount = 0;
                 } else {
-                    // Show admin tools
                     document.getElementById('admin-controls').style.display = 'block';
                     document.getElementById('secret-trigger').style.color = '#9bc34a';
                     document.getElementById('nav-list').classList.add('admin-active');
@@ -264,7 +355,7 @@
             }
         }
 
-        function openModal() { document.getElementById('admin-modal').style.display = 'flex'; }
+        function openModal()  { document.getElementById('admin-modal').style.display = 'flex'; }
         function closeModal() { document.getElementById('admin-modal').style.display = 'none'; }
 
         function openEdit(id) {
@@ -280,7 +371,7 @@
             openModal();
         }
 
-        function savePage() {
+        async function savePage() {
             const id = document.getElementById('editId').value;
             const data = {
                 id: id ? parseInt(id) : Date.now(),
@@ -293,27 +384,29 @@
             };
             if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
             else menuItems.push(data);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(menuItems));
+            await saveMenu();   // ← writes to Firestore, not localStorage
             renderMenu();
             closeModal();
         }
 
-        function deletePage() {
+        async function deletePage() {
             const id = document.getElementById('editId').value;
             menuItems = menuItems.filter(i => i.id != id && i.parent != id);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(menuItems));
+            await saveMenu();   // ← writes to Firestore, not localStorage
             renderMenu();
             closeModal();
         }
 
-        function resetMenu() {
-            if(confirm("Factory Reset?")) {
-                localStorage.removeItem(STORAGE_KEY);
-                location.reload();
+        async function resetMenu() {
+            if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
+                menuItems = DEFAULT_MENU;
+                await saveMenu();
+                renderMenu();
             }
         }
 
-        renderMenu();
+        // ─── BOOT ─────────────────────────────────────────────────────────────
+        loadMenu();
     </script>
 </body>
 </html>
