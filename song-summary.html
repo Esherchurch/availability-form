@@ -47,6 +47,17 @@
     td.title { font-weight: 700; }
     td.ccli a { color: #3d6263; text-decoration: underline; font-weight: 700; }
     td.notes { font-style: italic; color: #5a8585; font-size: 12px; }
+    /* Service item divider rows */
+    tr.service-item td {
+        background: #f0f6f6;
+        border-left: 3px solid #3d6263;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #3d6263;
+        padding: 8px 16px;
+    }
     .footer {
         margin-top: 20px;
         font-size: 10px;
@@ -122,26 +133,35 @@ if (!date) {
             document.getElementById('content').innerHTML = `<div class="error">No song summary found for ${date}. Make sure the worship plan has been emailed (which saves the summary) for this date.</div>`;
         } else {
             const data = snap.data();
-            const songs = data.songs || [];
             const leader = data.worshipLeader || "—";
 
             document.getElementById('subline').textContent = `${date} · Worship Leader: ${leader}`;
             document.getElementById('footer').textContent = `EGBC Worship Planner · Printed ${new Date().toLocaleDateString()}`;
 
-            if (songs.length === 0) {
-                document.getElementById('content').innerHTML = `<div class="error">No songs found for this date.</div>`;
+            // Support both old format (songs array) and new format (items array)
+            const items = data.items || (data.songs || []).map(s => ({ type: "song", ...s }));
+
+            if (items.length === 0) {
+                document.getElementById('content').innerHTML = `<div class="error">No items found for this date.</div>`;
             } else {
-                const rows = songs.map(s => `
-                    <tr>
-                        <td class="num">${s.idx}</td>
-                        <td class="title">${s.title}</td>
-                        <td class="ccli">${s.ccli
-                            ? `<a href="https://songselect.ccli.com/Songs/${s.ccli}" target="_blank">${s.ccli}</a>`
-                            : '<span style="opacity:0.35;">—</span>'}</td>
-                        <td class="keys">${(s.keys && s.keys.length) ? s.keys.join(', ') : '—'}</td>
-                        <td class="notes">${s.notes || ''}</td>
-                    </tr>
-                `).join('');
+                const rows = items.map(item => {
+                    if (item.type === "item") {
+                        // Service item — single full-width divider row
+                        return `<tr class="service-item"><td colspan="5">${item.title}</td></tr>`;
+                    } else {
+                        // Song row
+                        return `
+                            <tr>
+                                <td class="num">${item.idx}</td>
+                                <td class="title">${item.title}</td>
+                                <td class="ccli">${item.ccli
+                                    ? `<a href="https://songselect.ccli.com/Songs/${item.ccli}" target="_blank">${item.ccli}</a>`
+                                    : '<span style="opacity:0.35;">—</span>'}</td>
+                                <td class="keys">${(item.keys && item.keys.length) ? item.keys.join(', ') : '—'}</td>
+                                <td class="notes">${item.notes || ''}</td>
+                            </tr>`;
+                    }
+                }).join('');
 
                 document.getElementById('content').innerHTML = `
                     <table>
