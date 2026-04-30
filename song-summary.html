@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Song Summary – EGBC</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Montserrat', Arial, sans-serif;
+        background: #f0f6f6;
+        color: #3d6263;
+        padding: 40px 24px;
+        min-height: 100vh;
+    }
+    .header { margin-bottom: 28px; }
+    h1 { font-size: 24px; font-weight: 800; color: #3d6263; margin-bottom: 4px; }
+    .sub {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        opacity: 0.55;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 2px 16px rgba(61,98,99,0.09);
+    }
+    thead tr { background: #3d6263; color: white; }
+    thead th {
+        padding: 13px 16px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 800;
+    }
+    tbody tr { border-bottom: 1px solid #e8f0f0; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 14px 16px; font-size: 13px; vertical-align: top; }
+    td.num { color: #aac4c4; font-weight: 800; font-size: 11px; width: 36px; }
+    td.title { font-weight: 700; }
+    td.ccli a { color: #3d6263; text-decoration: underline; font-weight: 700; }
+    td.notes { font-style: italic; color: #5a8585; font-size: 12px; }
+    .footer {
+        margin-top: 20px;
+        font-size: 10px;
+        opacity: 0.4;
+        text-align: right;
+    }
+    .loading {
+        text-align: center;
+        padding: 60px 20px;
+        font-size: 14px;
+        font-weight: 700;
+        opacity: 0.5;
+    }
+    .error {
+        background: #fff0f0;
+        border-left: 4px solid #e05555;
+        padding: 16px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #c03030;
+    }
+    @media print {
+        body { background: white; padding: 20px; }
+        table { box-shadow: none; }
+        .footer { display: none; }
+    }
+    @media (max-width: 600px) {
+        body { padding: 20px 12px; }
+        thead th, tbody td { padding: 10px 10px; }
+        td.ccli, td.keys { font-size: 11px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Song Summary</h1>
+    <p class="sub" id="subline">Loading...</p>
+</div>
+
+<div id="content"><div class="loading">Loading song list...</div></div>
+
+<p class="footer" id="footer"></p>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const params = new URLSearchParams(window.location.search);
+const date = params.get("date");
+
+if (!date) {
+    document.getElementById('subline').textContent = "No date specified";
+    document.getElementById('content').innerHTML = `<div class="error">No date provided in the URL. Link should look like: …/song-summary.html?date=2026-05-04</div>`;
+} else {
+    document.title = `Song Summary – ${date}`;
+
+    try {
+        const snap = await getDoc(doc(db, "songSummaries", date));
+
+        if (!snap.exists()) {
+            document.getElementById('subline').textContent = date;
+            document.getElementById('content').innerHTML = `<div class="error">No song summary found for ${date}. Make sure the worship plan has been emailed (which saves the summary) for this date.</div>`;
+        } else {
+            const data = snap.data();
+            const songs = data.songs || [];
+            const leader = data.worshipLeader || "—";
+
+            document.getElementById('subline').textContent = `${date} · Worship Leader: ${leader}`;
+            document.getElementById('footer').textContent = `EGBC Worship Planner · Printed ${new Date().toLocaleDateString()}`;
+
+            if (songs.length === 0) {
+                document.getElementById('content').innerHTML = `<div class="error">No songs found for this date.</div>`;
+            } else {
+                const rows = songs.map(s => `
+                    <tr>
+                        <td class="num">${s.idx}</td>
+                        <td class="title">${s.title}</td>
+                        <td class="ccli">${s.ccli
+                            ? `<a href="https://songselect.ccli.com/Songs/${s.ccli}" target="_blank">${s.ccli}</a>`
+                            : '<span style="opacity:0.35;">—</span>'}</td>
+                        <td class="keys">${(s.keys && s.keys.length) ? s.keys.join(', ') : '—'}</td>
+                        <td class="notes">${s.notes || ''}</td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('content').innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Song</th>
+                                <th>CCLI</th>
+                                <th>Key(s)</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                `;
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        document.getElementById('subline').textContent = date;
+        document.getElementById('content').innerHTML = `<div class="error">Error loading data: ${e.message}</div>`;
+    }
+}
+</script>
+</body>
+</html>
