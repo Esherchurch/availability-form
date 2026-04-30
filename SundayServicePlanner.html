@@ -645,7 +645,7 @@ window.saveSchedule = async () => {
 // ── NEW: Save song summary data to Firestore so the hosted summary page can read it ──
 async function saveSongSummaryToFirestore(date) {
     const blocks = document.querySelectorAll('.service-block');
-    const songs = [];
+    const items = [];
     let songIdx = 1;
     for (const b of blocks) {
         if (b.classList.contains('song-block')) {
@@ -657,15 +657,18 @@ async function saveSongSummaryToFirestore(date) {
             const snap = await getDoc(doc(db, "songs", docId));
             let ccli = "";
             if (snap.exists()) ccli = snap.data().ccli || "";
-            songs.push({ idx: songIdx, title, keys, notes, ccli });
+            items.push({ type: "song", idx: songIdx, title, keys, notes, ccli });
             songIdx++;
+        } else {
+            const title = b.querySelector('.item-title').value;
+            if (title) items.push({ type: "item", title });
         }
     }
     // Use the date as the document ID so the summary page can look it up directly
     await setDoc(doc(db, "songSummaries", date), {
         date,
         worshipLeader: worshipLeaderName,
-        songs,
+        items,
         updatedAt: new Date().toISOString()
     });
     return `https://esherchurch.github.io/availability-form/song-summary.html?date=${date}`;
