@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EGBC — AV Troubleshoot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #f0f6f6; color: #3d6263; font-family: 'Montserrat', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #d1dfdf; border-radius: 10px; }
+    #searchInput:focus { box-shadow: 0 0 0 3px rgba(61,98,99,0.15); outline: none; }
+    .result-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .result-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(61,98,99,0.12); }
+    .video-wrap { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 1rem; }
+    .video-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 1rem; }
+    .skeleton { background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 1rem; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .badge-video { background:#dbeafe; color:#1d4ed8; }
+    .badge-image { background:#dcfce7; color:#166534; }
+    .badge-note  { background:#fef9c3; color:#854d0e; }
+    .badge-clip  { background:#ede9fe; color:#5b21b6; }
+    .tab-btn.active { background:#3d6263; color:white; }
+    .tab-btn { transition: all 0.15s; }
+    mark { background:#fef08a; border-radius:2px; padding:0 2px; }
+    #assembledAnswer { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body class="p-6 lg:p-10 min-h-screen">
+<div class="max-w-6xl mx-auto">
+
+  <!-- HEADER -->
+  <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
+    <div>
+      <div class="text-[10px] font-black uppercase tracking-[0.3em] text-[#3d6263] opacity-50 mb-1">EGBC — AV Knowledge Base</div>
+      <h1 class="text-3xl font-black uppercase tracking-tight text-[#3d6263]">Troubleshoot</h1>
+      <p class="text-sm font-semibold text-[#3d6263] opacity-60 mt-1">Describe the problem and get instant help</p>
+    </div>
+    <div class="flex gap-3 items-center flex-wrap">
+      <!-- NAV -->
+      <nav class="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-[2rem] border border-[#d1dfdf] shadow-sm flex-wrap">
+        <div class="flex flex-col gap-1">
+          <span class="text-[9px] font-black uppercase tracking-widest px-4 text-[#3d6263]">AV Knowledge Base</span>
+          <div class="flex gap-1">
+            <span class="px-5 py-2 rounded-full font-black text-[10px] uppercase bg-[#3d6263] text-white">Troubleshoot</span>
+            <a href="EGBC-HowTo-AV.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263] hover:bg-[#f0f6f6] transition-all">How To</a>
+          </div>
+        </div>
+        <div class="hidden sm:block w-px bg-[#d1dfdf] mx-1 self-stretch"></div>
+        <div class="flex flex-col gap-1">
+          <span class="text-[9px] font-black uppercase tracking-widest px-4 text-[#3d6263] opacity-40">Worship Knowledge Base</span>
+          <div class="flex gap-1">
+            <a href="EGBC-Training-Worship.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263] hover:bg-[#f0f6f6] transition-all">Training</a>
+            <a href="EGBC-PlayThrough.html"      class="px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263] hover:bg-[#f0f6f6] transition-all">Play Through</a>
+          </div>
+        </div>
+      </nav>
+      <button onclick="toggleAdmin()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-6 py-2.5 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
+    </div>
+  </header>
+
+  <!-- SEARCH -->
+  <div class="bg-white rounded-[2rem] border border-[#d1dfdf] shadow-lg p-6 mb-8">
+    <div class="flex gap-3 items-center">
+      <div class="flex-grow relative">
+        <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" type="text" placeholder="Describe the problem… e.g. 'camera went black screen'"
+          class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[#3d6263] text-sm placeholder-[#3d6263]/40"
+          onkeydown="if(event.key==='Enter') doSearch()">
+      </div>
+      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Ask AI</button>
+      <button onclick="clearSearch()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <span class="text-[10px] font-black uppercase text-[#3d6263] opacity-40 self-center">Quick:</span>
+      <button onclick="quickSearch('no sound')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">No sound</button>
+      <button onclick="quickSearch('camera not working')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Camera not working</button>
+      <button onclick="quickSearch('black screen')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Black screen</button>
+      <button onclick="quickSearch('mic feedback')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Mic feedback</button>
+      <button onclick="quickSearch('projector')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Projector</button>
+    </div>
+  </div>
+
+  <!-- AI ANSWER -->
+  <div id="assembledAnswer" class="hidden mb-8"></div>
+
+  <!-- LOADING -->
+  <div id="loadingState" class="hidden mb-8">
+    <div class="bg-white rounded-[2rem] border border-[#d1dfdf] p-8">
+      <div class="flex items-center gap-4 mb-6">
+        <div class="w-8 h-8 rounded-full animate-spin" style="border:3px solid #d1dfdf; border-top-color:#3d6263;"></div>
+        <span class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest">Searching knowledge base...</span>
+      </div>
+      <div class="skeleton h-6 w-2/3 mb-3"></div>
+      <div class="skeleton h-4 w-full mb-2"></div>
+      <div class="skeleton h-4 w-4/5 mb-2"></div>
+      <div class="skeleton h-4 w-1/2"></div>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div id="adminPanel" class="hidden mb-8">
+    <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
+      <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
+        <h2 class="font-black uppercase text-[#3d6263] tracking-widest text-sm">⚙ Admin — Troubleshoot</h2>
+        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl leading-none">✕</button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
+          <h3 class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest">Add New Asset</h3>
+          <input id="adminTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none">
+          <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm text-[#3d6263] outline-none">
+            <option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option><option value="VideoClip">Video Clip</option>
+          </select>
+          <textarea id="adminContentURL" rows="2" placeholder="SharePoint embed URL or image URL" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none resize-none"></textarea>
+          <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none">
+          <textarea id="adminTranscript" rows="4" placeholder="Paste transcript from Stream (with timestamps)..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none resize-none"></textarea>
+          <div class="flex gap-3">
+            <button onclick="generateBullets()" class="flex-1 bg-[#f0f6f6] text-[#3d6263] border border-[#d1dfdf] py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">✨ Generate Bullets</button>
+            <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase shadow-md hover:bg-black transition-all">Publish</button>
+          </div>
+        </div>
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest mb-4">Generated How-To Bullets</h3>
+          <div id="bulletsPreview" class="text-sm text-[#3d6263] opacity-50 italic">Paste a transcript and click Generate Bullets...</div>
+          <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4">
+            <div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf; border-top-color:#3d6263;"></div>
+            <span class="text-[11px] font-bold uppercase text-[#3d6263] opacity-60">Generating with AI...</span>
+          </div>
+          <textarea id="adminBullets" rows="8" placeholder="AI bullets will appear here..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none resize-none"></textarea>
+        </div>
+      </div>
+      <div class="mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+        <h3 class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest mb-4">SharePoint Connection</h3>
+        <div class="flex gap-3 flex-wrap items-center">
+          <input id="spSiteUrl" type="text" value="https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none min-w-[280px]">
+          <button onclick="testConnection()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Test</button>
+          <span id="connectionStatus" class="text-[11px] font-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS + COUNT -->
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+    <div class="flex gap-2 bg-white p-1.5 rounded-full border border-[#d1dfdf] shadow-sm">
+      <button onclick="setTab('all')"       id="tab-all"       class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">All</button>
+      <button onclick="setTab('Video')"     id="tab-Video"     class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">Videos</button>
+      <button onclick="setTab('Image')"     id="tab-Image"     class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">Images</button>
+      <button onclick="setTab('Note')"      id="tab-Note"      class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">Notes</button>
+    </div>
+    <div id="resultCount" class="text-[11px] font-bold text-[#3d6263] opacity-50 uppercase tracking-widest"></div>
+  </div>
+
+  <!-- GRID -->
+  <div id="contentGrid" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3"></div>
+  <div id="emptyState" class="hidden text-center py-20">
+    <div class="text-5xl mb-4">🔍</div>
+    <div class="font-black uppercase text-[#3d6263] opacity-40 tracking-widest text-sm">No results found</div>
+    <div class="text-sm text-[#3d6263] opacity-30 mt-2">Try different keywords or browse all content</div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+  <div class="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
+    <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const SP_SITE   = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+const LIST_NAME = 'KB-Troubleshoot';
+const AI_MODEL  = 'claude-sonnet-4-20250514';
+const SP_API    = `${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$filter=Published eq 1&$top=500&$select=Title,AssetType,ContentURL,ThumbnailURL,Transcript,HowToBullets,Description,Tags,TimestampStart,TimestampEnd,ID`;
+
+let allAssets = [], currentTab = 'all', currentQuery = '';
+
+document.addEventListener('DOMContentLoaded', loadAssets);
+
+async function loadAssets() {
+  showSkeletons();
+  try {
+    const res = await fetch(SP_API, { headers: { 'Accept': 'application/json;odata=nometadata' } });
+    if (!res.ok) throw new Error(res.status);
+    allAssets = (await res.json()).value || [];
+  } catch {
+    allAssets = getDemoAssets();
+  }
+  renderGrid(allAssets);
+}
+
+function getDemoAssets() {
+  return [
+    { ID:1, Title:'Camera Black Screen Fix', AssetType:'Video', ContentURL:'', Tags:'camera,black screen,HDMI,display', Description:'Fix a black screen on the camera output', HowToBullets:'• Check HDMI cable connections at both ends\n• Verify camera is not in standby\n• Check switcher input channel\n• Try a different HDMI cable\n• Restart the camera', Transcript:'[00:00:10] Fixing the black screen issue...', TimestampStart:null },
+    { ID:2, Title:'No Sound from Main Speakers', AssetType:'Video', ContentURL:'', Tags:'sound,audio,speakers,no sound,mute', Description:'Troubleshoot no audio from the main PA', HowToBullets:'• Check master fader is not at zero\n• Verify main LR is unmuted\n• Check amplifier is powered on\n• Confirm speaker cables connected\n• Check DSP signal', Transcript:'[00:00:05] Troubleshooting no sound...', TimestampStart:null },
+    { ID:3, Title:'Mic Placement — Feedback Prevention', AssetType:'Image', ContentURL:'', Tags:'microphone,feedback,howling,positioning', Description:'Correct mic placement to avoid feedback on stage', HowToBullets:'• Keep mic behind the main speaker line\n• Angle away from monitor wedges\n• Reduce gain before increasing fader\n• Use high-pass filter on vocal channels', Transcript:'', TimestampStart:null },
+    { ID:4, Title:'Projector Not Displaying', AssetType:'Note', ContentURL:'', Tags:'projector,display,words,blank screen', Description:'Quick checklist for projector issues during a service', HowToBullets:'• Check projector power (green light)\n• Verify HDMI source selected\n• Check laptop is outputting to external display\n• Try Win+P to toggle display mode', Transcript:'', TimestampStart:null }
+  ];
+}
+
+function renderGrid(assets, highlight='') {
+  const filtered = currentTab==='all' ? assets : assets.filter(a=>a.AssetType===currentTab);
+  document.getElementById('resultCount').textContent = `${filtered.length} item${filtered.length!==1?'s':''}`;
+  const grid = document.getElementById('contentGrid');
+  const empty = document.getElementById('emptyState');
+  if (!filtered.length) { grid.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  grid.innerHTML = filtered.map(a=>cardHTML(a,highlight)).join('');
+}
+
+function cardHTML(a, highlight='') {
+  const icons = { Video:'▶', Image:'📷', Note:'📝', VideoClip:'✂️' };
+  const badges = { Video:'badge-video', Image:'badge-image', Note:'badge-note', VideoClip:'badge-clip' };
+  const bullets = (a.HowToBullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
+  const tags = (a.Tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,4);
+  const title = highlight ? hlText(a.Title, highlight) : a.Title;
+  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard(${a.ID})">
+    <div class="flex justify-between items-start mb-4">
+      <span class="text-xl">${icons[a.AssetType]||'📄'}</span>
+      <span class="${badges[a.AssetType]||'badge-note'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.AssetType}</span>
+    </div>
+    <h3 class="font-black text-[#3d6263] text-base mb-3 leading-snug">${title}</h3>
+    ${a.Description?`<p class="text-[12px] text-[#3d6263] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.Description}</p>`:''}
+    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px] text-[#3d6263]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.HowToBullets||'').split('\n').filter(b=>b.trim()).length>3?`<div class="text-[10px] font-bold text-[#3d6263] opacity-40 uppercase">+ more steps...</div>`:''}</div>`:''}
+    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] text-[#3d6263] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}
+  </div>`;
+}
+
+function openCard(id) {
+  const a = allAssets.find(x=>x.ID===id); if(!a) return;
+  const bullets = (a.HowToBullets||'').split('\n').filter(b=>b.trim());
+  const isVideo = a.AssetType==='Video'||a.AssetType==='VideoClip';
+  const hasURL = a.ContentURL && a.ContentURL.trim();
+  let src = '';
+  if (hasURL) { src = a.TimestampStart ? `${a.ContentURL}${a.ContentURL.includes('?')?'&':'?'}startTime=${a.TimestampStart}` : a.ContentURL; }
+  document.getElementById('modalContent').innerHTML = `
+    <div class="mb-2 text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-40">AV Troubleshoot</div>
+    <h2 class="font-black text-[#3d6263] text-2xl mb-6 leading-tight">${a.Title}</h2>
+    ${isVideo&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
+    ${a.AssetType==='Image'&&hasURL?`<img src="${a.ContentURL}" alt="${a.Title}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
+    ${a.Description?`<p class="text-sm text-[#3d6263] opacity-70 mb-6 leading-relaxed">${a.Description}</p>`:''}
+    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
+      <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-50 mb-4">How To Fix It</div>
+      <div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm text-[#3d6263] font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
+    </div>`:''}
+    ${a.Tags?`<div class="flex flex-wrap gap-2">${a.Tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}`;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal(e) { if (!e||e.target===document.getElementById('modal')) document.getElementById('modal').classList.add('hidden'); }
+
+async function doSearch() {
+  const query = document.getElementById('searchInput').value.trim(); if(!query) return;
+  currentQuery = query;
+  document.getElementById('loadingState').classList.remove('hidden');
+  document.getElementById('assembledAnswer').classList.add('hidden');
+  const context = allAssets.map(a=>`ID:${a.ID}|Title:${a.Title}|Type:${a.AssetType}|Tags:${a.Tags||''}|Desc:${a.Description||''}|Bullets:${a.HowToBullets||''}|Transcript:${(a.Transcript||'').substring(0,400)}`).join('\n');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:`You are an AV troubleshooting assistant for EGBC Church. Respond ONLY in JSON: {"summary":"...","steps":["..."],"relevantAssetIds":[1,2],"confidence":"high|medium|low"}`,messages:[{role:'user',content:`Problem: "${query}"\n\nAssets:\n${context}`}]})});
+    const data = await res.json();
+    const text = data.content?.map(c=>c.text||'').join('')||'';
+    let result; try { result=JSON.parse(text.replace(/```json|```/g,'').trim()); } catch { result={summary:text,steps:[],relevantAssetIds:[],confidence:'low'}; }
+    showAssembledAnswer(query, result);
+    renderGrid(allAssets, query);
+  } catch {
+    const matched = keywordSearch(query);
+    showFallbackAnswer(query, matched);
+    renderGrid(matched.length?matched:allAssets, query);
+  }
+  document.getElementById('loadingState').classList.add('hidden');
+}
+
+function showAssembledAnswer(query, result) {
+  const assets = (result.relevantAssetIds||[]).map(id=>allAssets.find(a=>a.ID===id)).filter(Boolean);
+  const cc = {high:'text-green-600 bg-green-50',medium:'text-amber-600 bg-amber-50',low:'text-red-500 bg-red-50'}[result.confidence]||'text-gray-500 bg-gray-50';
+  document.getElementById('assembledAnswer').innerHTML = `
+    <div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg">
+      <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
+        <div><div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-40 mb-1">AI Answer for</div><h2 class="font-black text-[#3d6263] text-xl">"${query}"</h2></div>
+        <span class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${cc}">${result.confidence||'medium'} confidence</span>
+      </div>
+      ${result.summary?`<p class="text-sm text-[#3d6263] opacity-80 leading-relaxed mb-6">${result.summary}</p>`:''}
+      ${result.steps?.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-50 mb-4">Suggested Steps</div><div class="space-y-3">${result.steps.map((s,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm text-[#3d6263] font-semibold leading-relaxed">${s}</span></div>`).join('')}</div></div>`:''}
+      ${assets.length?`<div><div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-50 mb-3">Relevant Resources</div><div class="flex flex-wrap gap-3">${assets.map(a=>`<button onclick="openCard(${a.ID})" class="bg-[#f0f6f6] text-[#3d6263] border border-[#d1dfdf] px-5 py-2.5 rounded-full font-bold text-[12px] flex items-center gap-2 hover:bg-[#3d6263] hover:text-white transition-all"><span>${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span><span>${a.Title}</span>${a.TimestampStart?`<span class="opacity-50 text-[10px]">${fmtTime(a.TimestampStart)}</span>`:''}</button>`).join('')}</div></div>`:''}
+    </div>`;
+  document.getElementById('assembledAnswer').classList.remove('hidden');
+}
+
+function showFallbackAnswer(query, matched) {
+  document.getElementById('assembledAnswer').innerHTML = `<div class="bg-[#fff8f0] border border-amber-200 rounded-[2rem] p-6"><div class="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2">Keyword Search</div><p class="text-sm text-amber-800 font-semibold">Found ${matched.length} result${matched.length!==1?'s':''} matching "<strong>${query}</strong>"</p></div>`;
+  document.getElementById('assembledAnswer').classList.remove('hidden');
+}
+
+function keywordSearch(q) { const words=q.toLowerCase().split(/\s+/); return allAssets.filter(a=>{ const h=`${a.Title} ${a.Tags} ${a.Description} ${a.HowToBullets} ${a.Transcript}`.toLowerCase(); return words.some(w=>h.includes(w)); }); }
+function quickSearch(t) { document.getElementById('searchInput').value=t; doSearch(); }
+function clearSearch() { document.getElementById('searchInput').value=''; currentQuery=''; document.getElementById('assembledAnswer').classList.add('hidden'); renderGrid(allAssets); }
+function setTab(t) { currentTab=t; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); document.getElementById(`tab-${t}`)?.classList.add('active'); renderGrid(allAssets,currentQuery); }
+function toggleAdmin() { document.getElementById('adminPanel').classList.toggle('hidden'); }
+
+async function generateBullets() {
+  const transcript=document.getElementById('adminTranscript').value.trim(); if(!transcript){alert('Paste a transcript first.');return;}
+  document.getElementById('bulletsPreview').classList.add('hidden'); document.getElementById('bulletsGenerating').classList.remove('hidden'); document.getElementById('adminBullets').classList.add('hidden');
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Generate clear AV troubleshooting how-to bullet points from a transcript. Return only bullet points starting with •, one per line. No preamble.',messages:[{role:'user',content:`Transcript:\n\n${transcript}`}]})});
+    const data=await res.json(); const bullets=data.content?.map(c=>c.text||'').join('')||'';
+    document.getElementById('adminBullets').value=bullets; document.getElementById('adminBullets').classList.remove('hidden');
+  } catch { alert('Could not generate bullets.'); }
+  document.getElementById('bulletsGenerating').classList.add('hidden');
+}
+
+async function publishAsset() {
+  const title=document.getElementById('adminTitle').value.trim(); const url=document.getElementById('adminContentURL').value.trim();
+  if(!title||!url){alert('Title and URL are required.');return;}
+  const spSite=document.getElementById('spSiteUrl').value.trim();
+  const payload={Title:title,AssetType:document.getElementById('adminAssetType').value,ContentURL:url,Tags:document.getElementById('adminTags').value.trim(),Transcript:document.getElementById('adminTranscript').value.trim(),HowToBullets:document.getElementById('adminBullets').value.trim(),Published:true,'__metadata':{'type':`SP.Data.KB_x002D_TroubleshootListItem`}};
+  try {
+    const dr=await fetch(`${spSite}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
+    const dd=await dr.json();
+    await fetch(`${spSite}/_api/lists/getbytitle('${LIST_NAME}')/items`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue},body:JSON.stringify(payload)});
+    alert('Published!'); loadAssets();
+  } catch(e){alert('Publish failed: '+e.message);}
+}
+
+async function testConnection() {
+  const spSite=document.getElementById('spSiteUrl').value.trim(); const s=document.getElementById('connectionStatus');
+  s.textContent='Testing...'; s.className='text-[11px] font-bold text-[#3d6263] opacity-60';
+  try { const r=await fetch(`${spSite}/_api/lists/getbytitle('${LIST_NAME}')`,{headers:{'Accept':'application/json;odata=nometadata'}}); s.textContent=r.ok?'✓ Connected':'✗ Failed'; s.className=r.ok?'text-[11px] font-bold text-green-600':'text-[11px] font-bold text-red-500'; } catch(e){s.textContent='✗ '+e.message;s.className='text-[11px] font-bold text-red-500';}
+}
+
+function showSkeletons() { document.getElementById('contentGrid').innerHTML=[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6 mb-2"></div><div class="skeleton h-4 w-2/3"></div></div>`).join(''); }
+function fmtTime(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+function hlText(text,q) { if(!q) return text; q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');}); return text; }
+</script>
+</body>
+</html>
