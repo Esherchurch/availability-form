@@ -94,10 +94,18 @@
           <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
             <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Item</h3>
 
-            <!-- STEP 1: Paste embed code — everything else auto-fills -->
-            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-2">
-              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Paste embed code from Stream</div>
-              <textarea id="adminContentURL" rows="3" placeholder="In Stream: open video → Share → Embed → copy all the code and paste here" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)"></textarea>
+            <!-- STEP 1: Pick file or paste embed code -->
+            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Select your file</div>
+              <button onclick="openFilePicker()" class="w-full bg-[#3d6263] text-white py-3 rounded-full font-black text-[11px] uppercase hover:bg-black transition-all flex items-center justify-center gap-2">
+                <span>📂</span> Browse SharePoint Files
+              </button>
+              <div class="flex items-center gap-3">
+                <div class="flex-1 h-px bg-[#d1dfdf]"></div>
+                <span class="text-[10px] font-black uppercase text-[#3d6263] opacity-40">or paste embed code</span>
+                <div class="flex-1 h-px bg-[#d1dfdf]"></div>
+              </div>
+              <textarea id="adminContentURL" rows="2" placeholder="Stream: Share → Embed → copy iframe code → paste here" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)"></textarea>
               <div id="pasteStatus" class="hidden text-[11px] font-black px-1"></div>
             </div>
 
@@ -388,54 +396,75 @@ function updateCatDropdowns(){['adminCategory','editCategory'].forEach(id=>{cons
 
 // FILE PICKER
 function openFilePicker(){
-  // Show the inline iframe picker overlay
   document.getElementById('filePickerOverlay').classList.remove('hidden');
-  const channelId = 'picker1';
+  const iframe = document.getElementById('filePickerFrame');
+  const spOrigin = new URL(SP_SITE).origin;
+
   const opts = {
     sdk: '8.0',
     entry: { sharePoint: { byPath: { web: SP_SITE, list: '/sites/EGBCWorshipandAV/KnowledgeBaseMedia' } } },
     authentication: {},
-    messaging: { origin: window.location.origin, channelId: channelId },
+    messaging: { origin: window.location.origin, channelId: 'egbcpicker' },
     typesAndSources: { mode: 'files', pivots: { oneDrive: false, recent: false } },
     selection: { mode: 'single' }
   };
-  const pickerUrl = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
-  const iframe = document.getElementById('filePickerFrame');
-  iframe.src = pickerUrl;
 
-  const handler = (e) => {
-    if (e.origin !== new URL(SP_SITE).origin) return;
+  // Load the picker
+  iframe.src = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
+
+  const handler = async (e) => {
+    // Accept messages from SharePoint origin only
+    if (e.origin !== spOrigin) return;
+
     let msg;
     try { msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
     if (!msg || !msg.type) return;
 
+    // Picker is ready — activate it
     if (msg.type === 'initialize') {
-      iframe.contentWindow.postMessage({ type: 'activate' }, e.origin);
+      iframe.contentWindow.postMessage(JSON.stringify({ type: 'activate' }), spOrigin);
       return;
     }
 
+    // User selected a file
     if (msg.type === 'submit') {
       const items = msg.items || [];
+      closeFilePicker();
+      window.removeEventListener('message', handler);
+
       if (items.length > 0) {
         const item = items[0];
         const uniqueId = item.sharePoint?.uniqueId || item.id || '';
-        const embedUrl = uniqueId
-          ? `${SP_SITE}/_layouts/15/embed.aspx?UniqueId=${uniqueId}`
-          : (item.webUrl || '');
-        document.getElementById('adminContentURL').value = embedUrl;
-        if (!document.getElementById('adminTitle').value) {
-          document.getElementById('adminTitle').value = (item.name || '').replace(/\.[^/.]+$/, '');
-        }
+        const driveItemId = item.sharePoint?.driveItemId || item.driveItemId || '';
+        const name = (item.name || item.sharePoint?.name || '').replace(/\.[^/.]+$/, '');
+
+        if (!uniqueId) { alert('Could not get file ID — please use the embed paste method instead.'); return; }
+
+        // Build embed URL
+        const embedUrl = `${SP_SITE}/_layouts/15/embed.aspx?UniqueId=${uniqueId}`;
+        window._extractedURL = embedUrl;
+
+        // Show the auto-filled section and set title
+        document.getElementById('autoFilledSection').classList.remove('hidden');
+        document.getElementById('adminTitle').value = name;
+        setStatus('pasteStatus', '✓ File selected — fetching transcript...', 'text-green-700 font-black');
+
+        // Now run the full auto-fill chain using the uniqueId
+        await autoFillFromUniqueId(uniqueId);
       }
-      closeFilePicker();
-      window.removeEventListener('message', handler);
       return;
     }
 
+    // Picker navigation — acknowledge
+    if (msg.type === 'page-load' || msg.type === 'navigate') {
+      try { iframe.contentWindow.postMessage(JSON.stringify({ type: 'ack', id: msg.id }), spOrigin); } catch(e){}
+      return;
+    }
+
+    // User cancelled
     if (msg.type === 'cancel' || msg.type === 'close') {
       closeFilePicker();
       window.removeEventListener('message', handler);
-      return;
     }
   };
 
@@ -445,10 +474,115 @@ function openFilePicker(){
 
 function closeFilePicker(){
   document.getElementById('filePickerOverlay').classList.add('hidden');
-  document.getElementById('filePickerFrame').src = '';
+  document.getElementById('filePickerFrame').src = 'about:blank';
   if (window._pickerHandler) {
     window.removeEventListener('message', window._pickerHandler);
     window._pickerHandler = null;
+  }
+}
+
+// Shared auto-fill function — used by both picker and embed paste
+async function autoFillFromUniqueId(uniqueId){
+  let transcript = '';
+  let serverRelUrl = '';
+
+  // Step 1: File properties — title, tags, transcript URI
+  try {
+    const fileRes = await fetch(
+      `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords,ServerRelativeUrl,StreamMedia_TranscriptUri,OData__MediaTranscriptUri`,
+      { headers: { 'Accept': 'application/json;odata=nometadata' } }
+    );
+    if(fileRes.ok){
+      const fdata = await fileRes.json();
+      serverRelUrl = fdata.ServerRelativeUrl || '';
+      const name = fdata.FileLeafRef || fdata.Title || '';
+      if(name && !document.getElementById('adminTitle').value){
+        document.getElementById('adminTitle').value = name.replace(/\.[^/.]+$/, '');
+      }
+      if(!document.getElementById('adminTags').value){
+        let tags = [];
+        if(fdata.TaxKeyword?.results) tags = fdata.TaxKeyword.results.map(k=>k.Label).filter(Boolean);
+        if(!tags.length && fdata.Keywords) tags = fdata.Keywords.split(/[,;]+/).map(t=>t.trim()).filter(Boolean);
+        if(tags.length) document.getElementById('adminTags').value = tags.join(', ');
+      }
+      const tUri = fdata.StreamMedia_TranscriptUri || fdata.OData__MediaTranscriptUri || '';
+      if(tUri){
+        try{
+          const tr = await fetch(tUri.startsWith('http') ? tUri : SP_SITE + tUri);
+          if(tr.ok) transcript = parseVTT(await tr.text());
+        } catch(e){}
+      }
+    }
+  } catch(e){}
+
+  // Step 2: v2.1 API with site ID
+  if(!transcript){
+    try{
+      const siteRes = await fetch(`${SP_SITE}/_api/site?$select=Id`, { headers: { 'Accept': 'application/json;odata=nometadata' } });
+      if(siteRes.ok){
+        const { Id: siteId } = await siteRes.json();
+        const v21Res = await fetch(`${SP_SITE}/_api/v2.1/sites/${siteId}/items/${uniqueId}/media/transcripts`, { headers: { 'Accept': 'application/json' } });
+        if(v21Res.ok){
+          const { value: items = [] } = await v21Res.json();
+          if(items.length){
+            const tUrl = items[0].transcriptContentUrl || items[0]['@microsoft.graph.downloadUrl'];
+            if(tUrl){ const vr = await fetch(tUrl); if(vr.ok) transcript = parseVTT(await vr.text()); }
+          }
+        }
+      }
+    } catch(e){}
+  }
+
+  // Step 3: SP Search
+  if(!transcript){
+    try{
+      const sr = await fetch(`${SP_SITE}/_api/search/query?querytext='UniqueId:${uniqueId}'&selectproperties='TranscriptContent'&rowlimit=1`, { headers: { 'Accept': 'application/json;odata=nometadata' } });
+      if(sr.ok){
+        const sd = await sr.json();
+        const rows = sd?.PrimaryQueryResult?.RelevantResults?.Table?.Rows || [];
+        if(rows.length){
+          const cell = (rows[0].Cells||[]).find(c=>c.Key==='TranscriptContent');
+          if(cell?.Value) transcript = cell.Value;
+        }
+      }
+    } catch(e){}
+  }
+
+  // Step 4: Direct .vtt file
+  if(!transcript && serverRelUrl){
+    try{
+      const base = serverRelUrl.replace(/\.[^/.]+$/, '');
+      const folder = serverRelUrl.substring(0, serverRelUrl.lastIndexOf('/'));
+      for(const vp of [`${folder}/Transcripts/${uniqueId}.vtt`, `${folder}/Transcripts/${uniqueId}_auto.vtt`, `${base}_auto.vtt`, `${base}.vtt`]){
+        try{
+          const vr = await fetch(`${SP_SITE}/_api/web/GetFileByServerRelativeUrl('${encodeURIComponent(vp)}')/$value`, { headers: { 'Accept': 'text/vtt,text/plain,*/*' } });
+          if(vr.ok){ transcript = parseVTT(await vr.text()); if(transcript) break; }
+        } catch(e){}
+      }
+    } catch(e){}
+  }
+
+  // Show result
+  if(transcript){
+    document.getElementById('adminTranscript').value = transcript;
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('transcriptStatus').classList.add('hidden');
+    setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
+    await generateBullets();
+    setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+  } else {
+    setStatus('transcriptStatus','Transcript could not be fetched automatically. In Stream: open video → Transcript tab → select all → copy → paste below. Bullets will then generate automatically.','text-amber-600 font-semibold');
+    document.getElementById('transcriptStatus').classList.remove('hidden');
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('adminTranscript').placeholder = 'Paste transcript here — Stream > video > Transcript tab > select all > copy > paste';
+    document.getElementById('adminTranscript').oninput = async function(){
+      if(this.value.trim().length > 50){
+        this.oninput = null;
+        setStatus('pasteStatus','Transcript added — generating bullets...','text-amber-600 font-black');
+        await generateBullets();
+        setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+      }
+    };
   }
 }
 
@@ -484,82 +618,149 @@ async function handleEmbedPaste(el){
     return;
   }
 
-  // Fetch transcript from SharePoint/Stream API
+  // Use shared auto-fill function
+  await autoFillFromUniqueId(uniqueId);
+}
+
+// Stub to prevent double-execution — autoFillFromUniqueId handles everything
+async function _transcriptFetchStub(){
+  // Fetch file properties and transcript from SharePoint/Stream
   setStatus('transcriptStatus','⏳ Fetching transcript from Stream...','text-amber-600');
+  let transcript = '';
+  let serverRelUrl = '';
+
+  // Step 1: Get file list item — title, tags, transcript URI
   try {
-    // Try Stream transcript API
-    const transcriptRes = await fetch(
-      `${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,
-      { headers: { 'Accept': 'application/json' } }
+    const fileRes = await fetch(
+      `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords,ServerRelativeUrl,StreamMedia_TranscriptUri,OData__MediaTranscriptUri`,
+      { headers: { 'Accept': 'application/json;odata=nometadata' } }
     );
-
-    let transcript = '';
-
-    if(transcriptRes.ok){
-      const tdata = await transcriptRes.json();
-      const transcriptUrl = tdata?.value?.[0]?.transcriptContentUrl;
-      if(transcriptUrl){
-        const vttRes = await fetch(transcriptUrl);
-        if(vttRes.ok){
-          const vttText = await vttRes.text();
-          transcript = parseVTT(vttText);
+    if(fileRes.ok){
+      const fdata = await fileRes.json();
+      serverRelUrl = fdata.ServerRelativeUrl || '';
+      const name = fdata.FileLeafRef || fdata.Title || '';
+      if(name && !document.getElementById('adminTitle').value){
+        document.getElementById('adminTitle').value = name.replace(/\.[^/.]+$/,'');
+      }
+      if(!document.getElementById('adminTags').value){
+        let tags = [];
+        if(fdata.TaxKeyword && fdata.TaxKeyword.results){
+          tags = fdata.TaxKeyword.results.map(k => k.Label).filter(Boolean);
         }
+        if(!tags.length && fdata.Keywords){
+          tags = fdata.Keywords.split(/[,;]+/).map(t=>t.trim()).filter(Boolean);
+        }
+        if(tags.length) document.getElementById('adminTags').value = tags.join(', ');
+      }
+      // If Stream stored a direct transcript URI, use it
+      const tUri = fdata.StreamMedia_TranscriptUri || fdata.OData__MediaTranscriptUri || '';
+      if(tUri){
+        try{
+          const tr = await fetch(tUri.startsWith('http') ? tUri : SP_SITE + tUri);
+          if(tr.ok){ transcript = parseVTT(await tr.text()); }
+        } catch(e){}
       }
     }
+  } catch(e) { /* non-critical */ }
 
-    // Fetch file properties — title, name, tags/keywords
-    try {
-      const fileRes = await fetch(
-        `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords`,
+  // Step 2: Try the SharePoint v2.1 API with site-relative approach
+  if(!transcript){
+    try{
+      // Get the site ID first
+      const siteRes = await fetch(`${SP_SITE}/_api/site?$select=Id`, 
+        { headers: { 'Accept': 'application/json;odata=nometadata' } });
+      if(siteRes.ok){
+        const siteData = await siteRes.json();
+        const siteId = siteData.Id;
+        // Get the web ID
+        const webRes = await fetch(`${SP_SITE}/_api/web?$select=Id`,
+          { headers: { 'Accept': 'application/json;odata=nometadata' } });
+        if(webRes.ok){
+          const webData = await webRes.json();
+          const webId = webData.Id;
+          // Now try v2.1 transcript endpoint with proper IDs
+          const v21Res = await fetch(
+            `${SP_SITE}/_api/v2.1/sites/${siteId}/items/${uniqueId}/media/transcripts`,
+            { headers: { 'Accept': 'application/json' } }
+          );
+          if(v21Res.ok){
+            const v21Data = await v21Res.json();
+            const items = v21Data?.value || [];
+            if(items.length){
+              const tUrl = items[0].transcriptContentUrl || items[0]['@microsoft.graph.downloadUrl'];
+              if(tUrl){
+                const vr = await fetch(tUrl);
+                if(vr.ok) transcript = parseVTT(await vr.text());
+              }
+            }
+          }
+        }
+      }
+    } catch(e){ /* try next */ }
+  }
+
+  // Step 3: Try SP Search API — indexes transcript content
+  if(!transcript){
+    try{
+      const searchRes = await fetch(
+        `${SP_SITE}/_api/search/query?querytext='UniqueId:${uniqueId}'&selectproperties='TranscriptContent,Title'&rowlimit=1`,
         { headers: { 'Accept': 'application/json;odata=nometadata' } }
       );
-      if(fileRes.ok){
-        const fdata = await fileRes.json();
-        // Auto-fill title if not already set
-        const name = fdata.FileLeafRef || fdata.Title || '';
-        if(name && !document.getElementById('adminTitle').value){
-          document.getElementById('adminTitle').value = name.replace(/\.[^/.]+$/,'');
-        }
-        // Auto-fill tags from SharePoint managed metadata keywords
-        if(!document.getElementById('adminTags').value){
-          let tags = [];
-          // Try TaxKeyword (managed metadata)
-          if(fdata.TaxKeyword && fdata.TaxKeyword.results){
-            tags = fdata.TaxKeyword.results.map(k => k.Label || k.TermGuid).filter(Boolean);
-          }
-          // Try Keywords (simple text keywords)
-          if(!tags.length && fdata.Keywords){
-            tags = fdata.Keywords.split(/[,;]+/).map(t=>t.trim()).filter(Boolean);
-          }
-          if(tags.length){
-            document.getElementById('adminTags').value = tags.join(', ');
-          }
+      if(searchRes.ok){
+        const sData = await searchRes.json();
+        const rows = sData?.PrimaryQueryResult?.RelevantResults?.Table?.Rows || [];
+        if(rows.length){
+          const cells = rows[0].Cells || [];
+          const tCell = cells.find(c => c.Key === 'TranscriptContent');
+          if(tCell && tCell.Value) transcript = tCell.Value;
         }
       }
-    } catch(tagErr) {
-      // Tags fetch failed silently — not critical
-    }
+    } catch(e){ /* try next */ }
+  }
 
-    if(!transcript){
-      // transcript already handled above
-    }
+  // Step 4: Try looking for the .vtt transcript file Stream auto-generates
+  if(!transcript && serverRelUrl){
+    try{
+      const baseName = serverRelUrl.replace(/\.[^/.]+$/, '');
+      const folderPath = serverRelUrl.substring(0, serverRelUrl.lastIndexOf('/'));
+      // Stream creates transcripts in a Transcripts subfolder or alongside the file
+      const vttPaths = [
+        `${folderPath}/Transcripts/${uniqueId}.vtt`,
+        `${folderPath}/Transcripts/${uniqueId}_auto.vtt`,
+        `${baseName}_auto.vtt`,
+        `${baseName}.vtt`,
+      ];
+      for(const vp of vttPaths){
+        try{
+          const vr = await fetch(`${SP_SITE}/_api/web/GetFileByServerRelativeUrl('${encodeURIComponent(vp)}')/$value`,
+            { headers: { 'Accept': 'text/vtt,text/plain,*/*' } });
+          if(vr.ok){ transcript = parseVTT(await vr.text()); if(transcript) break; }
+        } catch(e){ /* try next */ }
+      }
+    } catch(e){ /* non-critical */ }
+  }
 
-    if(transcript){
-      document.getElementById('adminTranscript').value = transcript;
-      document.getElementById('adminTranscript').classList.remove('hidden');
-      document.getElementById('transcriptStatus').classList.add('hidden');
-      setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
-      // Auto-generate bullets
-      await generateBullets();
-      setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
-    } else {
-      setStatus('transcriptStatus','Transcript not available yet — you can paste it manually below, or publish without it.','text-amber-600 font-semibold');
-      document.getElementById('transcriptStatus').classList.remove('hidden');
-      document.getElementById('adminTranscript').classList.remove('hidden');
-    }
-  } catch(err) {
-    setStatus('transcriptStatus','Could not fetch transcript automatically — paste it manually if needed.','text-amber-600 font-semibold');
+  // Show result
+  if(transcript){
+    document.getElementById('adminTranscript').value = transcript;
     document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('transcriptStatus').classList.add('hidden');
+    setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
+    await generateBullets();
+    setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+  } else {
+    setStatus('transcriptStatus','Paste the transcript from Stream below — open video in Stream, click Transcript tab, select all, copy, paste here. Bullets will generate automatically.','text-amber-600 font-semibold');
+    document.getElementById('transcriptStatus').classList.remove('hidden');
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('adminTranscript').placeholder = 'Paste transcript here — Stream > video > Transcript tab > select all > copy > paste';
+    document.getElementById('adminTranscript').oninput = async function(){
+      if(this.value.trim().length > 50){
+        this.oninput = null;
+        setStatus('pasteStatus','Transcript added — generating bullets...','text-amber-600 font-black');
+        await generateBullets();
+        setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+      }
+    };
   }
 }
 
