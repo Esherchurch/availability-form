@@ -7,44 +7,43 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background-color: #f0f6f6; color: #3d6263; font-family: 'Montserrat', sans-serif; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-thumb { background: #d1dfdf; border-radius: 10px; }
-    #searchInput:focus { box-shadow: 0 0 0 3px rgba(61,98,99,0.15); outline: none; }
-    .result-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-    .result-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(61,98,99,0.12); }
-    .video-wrap { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 1rem; }
-    .video-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 1rem; }
-    .skeleton { background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 1rem; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .badge-video { background:#dbeafe; color:#1d4ed8; }
-    .badge-image { background:#dcfce7; color:#166534; }
-    .badge-note  { background:#fef9c3; color:#854d0e; }
-    .badge-clip  { background:#ede9fe; color:#5b21b6; }
-    .tab-btn.active { background:#3d6263; color:white; }
-    .tab-btn { transition: all 0.15s; }
-    mark { background:#fef08a; border-radius:2px; padding:0 2px; }
-    #assembledAnswer { animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    body{background-color:#f0f6f6;color:#3d6263;font-family:'Montserrat',sans-serif}
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#d1dfdf;border-radius:10px}
+    #searchInput:focus{box-shadow:0 0 0 3px rgba(61,98,99,0.15);outline:none}
+    .result-card{transition:transform 0.15s ease,box-shadow 0.15s ease}
+    .result-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(61,98,99,0.12)}
+    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:1rem}
+    .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:1rem}
+    .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:1rem}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .tab-btn.active{background:#3d6263;color:white}
+    .tab-btn{transition:all 0.15s}
+    mark{background:#fef08a;border-radius:2px;padding:0 2px}
+    #assembledAnswer{animation:fadeIn 0.3s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .unpublished{opacity:0.5;border-style:dashed!important}
+    .admin-tab{display:block}
+    .admin-tab.hidden{display:none}
   </style>
 </head>
 <body class="p-6 lg:p-10 min-h-screen">
 <div class="max-w-6xl mx-auto">
 
-  <!-- HEADER -->
   <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
     <div>
-      <div class="text-[10px] font-black uppercase tracking-[0.3em] text-[#3d6263] opacity-50 mb-1">EGBC — Worship Knowledge Base</div>
-      <h1 class="text-3xl font-black uppercase tracking-tight text-[#3d6263]">Play Through</h1>
-      <p class="text-sm font-semibold text-[#3d6263] opacity-60 mt-1">Our arrangements — how we play it</p>
+      <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC — Worship Knowledge Base</div>
+      <h1 class="text-3xl font-black uppercase tracking-tight">Play Through</h1>
+      <p class="text-sm font-semibold opacity-60 mt-1">Our arrangements — how we play it</p>
     </div>
     <div class="flex gap-3 items-center flex-wrap">
-      <!-- NAV -->
       <nav class="flex flex-col gap-1 bg-white p-3 rounded-[2rem] border border-[#d1dfdf] shadow-sm">
-          <span class="text-[9px] font-black uppercase tracking-widest px-4 text-[#3d6263] opacity-50">Worship Knowledge Base</span>
-          <div class="flex gap-1"><a href="https://esherchurch.github.io/availability-form/EGBC-Training-Worship.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263] hover:bg-[#f0f6f6] transition-all">Training</a><span class="px-5 py-2 rounded-full font-black text-[10px] uppercase bg-[#3d6263] text-white">Play Through</span></div>
-        </nav>
-      <button onclick="toggleAdmin()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-6 py-2.5 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
+        <span class="text-[9px] font-black uppercase tracking-widest px-4 opacity-50">Worship Knowledge Base</span>
+        <div class="flex gap-1">
+          <a href="https://esherchurch.github.io/availability-form/EGBC-Training-Worship.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Training</a>
+          <span class="px-5 py-2 rounded-full font-black text-[10px] uppercase bg-[#3d6263] text-white">Play Through</span>
+        </div>
+      </nav>
+      <button onclick="toggleAdmin()" class="bg-white border border-[#d1dfdf] px-6 py-2.5 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
     </div>
   </header>
 
@@ -53,37 +52,26 @@
     <div class="flex gap-3 items-center">
       <div class="flex-grow relative">
         <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input id="searchInput" type="text" placeholder="Search a song or section… e.g. 'Sovereign intro in A'"
-          class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[#3d6263] text-sm placeholder-[#3d6263]/40"
-          onkeydown="if(event.key==='Enter') doSearch()">
+        <input id="searchInput" type="text" placeholder="Describe the problem… e.g. 'camera went black screen'" class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40" onkeydown="if(event.key==='Enter')doSearch()">
       </div>
       <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Ask AI</button>
-      <button onclick="clearSearch()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+      <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
-      <span class="text-[10px] font-black uppercase text-[#3d6263] opacity-40 self-center">Quick:</span>
-      <button onclick="quickSearch('Sovereign intro')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Sovereign intro</button>
-      <button onclick="quickSearch('Way Maker')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Way Maker</button>
-      <button onclick="quickSearch('songs in G')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Songs in G</button>
-      <button onclick="quickSearch('keyboard intro')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Keyboard intro</button>
-      <button onclick="quickSearch('guitar chorus')" class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Guitar chorus</button>
+      <span class="text-[10px] font-black uppercase opacity-40 self-center">Quick:</span>
+      <button onclick="quickSearch('Sovereign intro')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Sovereign intro</button>
+      <button onclick="quickSearch('Way Maker')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Way Maker</button>
+      <button onclick="quickSearch('songs in G')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Songs in G</button>
+      <button onclick="quickSearch('keyboard intro')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Keyboard intro</button>
+      <button onclick="quickSearch('guitar chorus')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Guitar chorus</button>
     </div>
   </div>
 
-  <!-- AI ANSWER -->
   <div id="assembledAnswer" class="hidden mb-8"></div>
-
-  <!-- LOADING -->
   <div id="loadingState" class="hidden mb-8">
-    <div class="bg-white rounded-[2rem] border border-[#d1dfdf] p-8">
-      <div class="flex items-center gap-4 mb-6">
-        <div class="w-8 h-8 rounded-full animate-spin" style="border:3px solid #d1dfdf; border-top-color:#3d6263;"></div>
-        <span class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest">Searching knowledge base...</span>
-      </div>
-      <div class="skeleton h-6 w-2/3 mb-3"></div>
-      <div class="skeleton h-4 w-full mb-2"></div>
-      <div class="skeleton h-4 w-4/5 mb-2"></div>
-      <div class="skeleton h-4 w-1/2"></div>
+    <div class="bg-white rounded-[2rem] border border-[#d1dfdf] p-8 flex items-center gap-4">
+      <div class="w-8 h-8 rounded-full animate-spin" style="border:3px solid #d1dfdf;border-top-color:#3d6263"></div>
+      <span class="font-black uppercase text-[11px] opacity-60 tracking-widest">Searching knowledge base...</span>
     </div>
   </div>
 
@@ -91,81 +79,97 @@
   <div id="adminPanel" class="hidden mb-8">
     <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
       <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
-        <h2 class="font-black uppercase text-[#3d6263] tracking-widest text-sm">⚙ Admin — Play Through</h2>
-        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl leading-none">✕</button>
+        <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — Play Through</h2>
+        <button onclick="closeAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl">✕</button>
       </div>
-      <div class="grid md:grid-cols-2 gap-6">
-        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
-          <h3 class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest">Add New Asset</h3>
-          <input id="adminTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none">
-          <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm text-[#3d6263] outline-none">
-            <option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option><option value="VideoClip">Video Clip</option>
-          </select>
-          <textarea id="adminContentURL" rows="2" placeholder="SharePoint embed URL or image URL" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none resize-none"></textarea>
-          <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none">
-          <textarea id="adminTranscript" rows="4" placeholder="Paste transcript from Stream (with timestamps)..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none resize-none"></textarea>
-          <div class="flex gap-3">
-            <button onclick="generateBullets()" class="flex-1 bg-[#f0f6f6] text-[#3d6263] border border-[#d1dfdf] py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">✨ Generate Bullets</button>
-            <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase shadow-md hover:bg-black transition-all">Publish</button>
+      <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
+        <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase">Add Content</button>
+        <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Categories</button>
+        <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Manage</button>
+      </div>
+
+      <!-- ADD CONTENT TAB -->
+      <div id="admin-content" class="admin-tab">
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Item</h3>
+            <input id="adminTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+              <option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option><option value="VideoClip">Video Clip</option>
+            </select>
+            <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+              <option value="">No category</option>
+            </select>
+            <div class="flex gap-2">
+              <input id="adminContentURL" type="text" placeholder="Click Browse to select file →" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" readonly>
+              <button onclick="openFilePicker()" class="bg-[#3d6263] text-white px-5 py-3 rounded-full font-black text-[10px] uppercase whitespace-nowrap hover:bg-black transition-all">📂 Browse</button>
+            </div>
+            <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <textarea id="adminTranscript" rows="3" placeholder="Paste transcript from Stream (with timestamps)..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <div class="flex gap-3">
+              <button onclick="generateBullets()" class="flex-1 bg-white border border-[#d1dfdf] py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">✨ Generate Bullets</button>
+              <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+            </div>
+          </div>
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">How-To Bullets Preview</h3>
+            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste a transcript and click Generate Bullets...</div>
+            <div id="bulletsGenerating" class="hidden items-center gap-3 mt-4">
+              <div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+              <span class="text-[11px] font-bold uppercase opacity-60">Generating...</span>
+            </div>
+            <textarea id="adminBullets" rows="10" class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
           </div>
         </div>
+      </div>
+
+      <!-- CATEGORIES TAB -->
+      <div id="admin-categories" class="admin-tab hidden">
         <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-          <h3 class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest mb-4">Generated How-To Bullets</h3>
-          <div id="bulletsPreview" class="text-sm text-[#3d6263] opacity-50 italic">Paste a transcript and click Generate Bullets...</div>
-          <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4">
-            <div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf; border-top-color:#3d6263;"></div>
-            <span class="text-[11px] font-bold uppercase text-[#3d6263] opacity-60">Generating with AI...</span>
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">Page Categories</h3>
+          <p class="text-[12px] opacity-60 mb-4">Categories are visual sections on this page only. Add as many as you like.</p>
+          <div class="flex gap-3 mb-6">
+            <input id="newCatName" type="text" placeholder="New category name e.g. Audio Issues" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
+            <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Add</button>
           </div>
-          <textarea id="adminBullets" rows="8" placeholder="AI bullets will appear here..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none resize-none"></textarea>
+          <div id="categoryList" class="space-y-2"></div>
         </div>
       </div>
-      <div class="mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-        <h3 class="font-black uppercase text-[11px] text-[#3d6263] opacity-60 tracking-widest mb-4">SharePoint Connection</h3>
-        <div class="flex gap-3 flex-wrap items-center">
-          <input id="spSiteUrl" type="text" value="https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm text-[#3d6263] outline-none min-w-[280px]">
-          <button onclick="testConnection()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Test</button>
-          <span id="connectionStatus" class="text-[11px] font-bold"></span>
+
+      <!-- MANAGE TAB -->
+      <div id="admin-manage" class="admin-tab hidden">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">All Content</h3>
+          <div id="manageList" class="space-y-2"></div>
+        </div>
+        <!-- EDIT FORM -->
+        <div id="editModal" class="hidden mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border-2 border-[#3d6263] space-y-3">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="font-black uppercase text-[11px] tracking-widest">Edit Item</h3>
+            <button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black">✕</button>
+          </div>
+          <input type="hidden" id="editId">
+          <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
+          <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <textarea id="editBullets" rows="6" placeholder="How-to bullets..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <textarea id="editDescription" rows="3" placeholder="Description..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Save Changes</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- TABS + COUNT -->
-  <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
-    <div class="flex gap-2 flex-wrap">
-      <div class="flex gap-1 bg-white p-1.5 rounded-full border border-[#d1dfdf] shadow-sm">
-        <button onclick="setTab('all')"       id="tab-all"       class="tab-btn active px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">All Songs</button>
-        <button onclick="setTab('Intro')"     id="tab-Intro"     class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">Intros</button>
-        <button onclick="setTab('Chorus')"    id="tab-Chorus"    class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">Chorus</button>
-        <button onclick="setTab('Full Song')" id="tab-Full_Song" class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase text-[#3d6263]">Full Songs</button>
-      </div>
-      <div class="flex gap-1 bg-white p-1.5 rounded-full border border-[#d1dfdf] shadow-sm flex-wrap items-center">
-        <span class="text-[9px] font-black uppercase text-[#3d6263] opacity-40 px-2">Key:</span>
-        <button onclick="setKeyFilter('A')"  id="key-A"   class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">A</button>
-        <button onclick="setKeyFilter('Bb')" id="key-Bb"  class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">B♭</button>
-        <button onclick="setKeyFilter('B')"  id="key-B"   class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">B</button>
-        <button onclick="setKeyFilter('C')"  id="key-C"   class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">C</button>
-        <button onclick="setKeyFilter('D')"  id="key-D"   class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">D</button>
-        <button onclick="setKeyFilter('E')"  id="key-E"   class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">E</button>
-        <button onclick="setKeyFilter('F')"  id="key-F"   class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">F</button>
-        <button onclick="setKeyFilter('G')"  id="key-G"   class="key-btn px-3 py-2 rounded-full font-black text-[10px] text-[#3d6263] hover:bg-[#f0f6f6] transition-all">G</button>
-        <button onclick="setKeyFilter(null)"  id="key-all" class="key-btn active px-3 py-2 rounded-full font-black text-[10px] bg-[#3d6263] text-white transition-all">All</button>
-      </div>
-    </div>
-    <div id="resultCount" class="text-[11px] font-bold text-[#3d6263] opacity-50 uppercase tracking-widest"></div>
-  </div>
-
-  <!-- GRID -->
-  <div id="contentGrid" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3"></div>
+  <!-- CONTENT -->
+  <div id="contentArea"></div>
   <div id="emptyState" class="hidden text-center py-20">
-    <div class="text-5xl mb-4">🔍</div>
-    <div class="font-black uppercase text-[#3d6263] opacity-40 tracking-widest text-sm">No results found</div>
-    <div class="text-sm text-[#3d6263] opacity-30 mt-2">Try different keywords or browse all content</div>
+    <div class="text-5xl mb-4">📭</div>
+    <div class="font-black uppercase opacity-40 tracking-widest text-sm">No content yet</div>
+    <div class="text-sm opacity-30 mt-2">Use the Admin panel to add videos, images and notes</div>
   </div>
-
 </div>
 
-<!-- MODAL -->
+<!-- VIEW MODAL -->
 <div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
   <div class="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
     <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
@@ -176,194 +180,295 @@
 <script>
 const SP_SITE   = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
 const LIST_NAME = 'KB-PlayThrough';
+const LIST_TYPE = 'SP.Data.KB_x002D_PlayThroughListItem';
 const AI_MODEL  = 'claude-sonnet-4-20250514';
-const SP_API    = `${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$filter=Published eq 1&$top=500&$select=Title,AssetType,ContentURL,ThumbnailURL,Transcript,HowToBullets,Description,Tags,TimestampStart,TimestampEnd,ID,SongTitle,OurKey,Instrument,SongSection,Tempo,DetectedChords,Difficulty`;
+const PW_HASH   = '77fff987f5deea670a55a6d756dfe78c1a5383dd67850401b9fde70d10a2f89b';
+const CAT_KEY   = 'egbc_cats_playthrough';
 
-let allAssets = [], currentTab = 'all', currentQuery = '';
+let allAssets  = [];
+let categories = JSON.parse(localStorage.getItem(CAT_KEY)||'[]');
+let currentQuery = '';
+let _manageItems = [];
 
-document.addEventListener('DOMContentLoaded', loadAssets);
+document.addEventListener('DOMContentLoaded',()=>{ loadAssets(); updateCatDropdowns(); });
 
-async function loadAssets() {
+// LOAD
+async function loadAssets(){
   showSkeletons();
-  try {
-    const res = await fetch(SP_API, { headers: { 'Accept': 'application/json;odata=nometadata' } });
-    if (!res.ok) throw new Error(res.status);
-    allAssets = (await res.json()).value || [];
-  } catch {
-    allAssets = getDemoAssets();
-  }
-  renderGrid(allAssets);
+  try{
+    const r=await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$filter=Published eq 1&$top=500&$select=Title,AssetType,ContentURL,Transcript,HowToBullets,Description,Tags,TimestampStart,ID,Category`,{headers:{'Accept':'application/json;odata=nometadata'}});
+    if(!r.ok)throw new Error(r.status);
+    allAssets=(await r.json()).value||[];
+  }catch{ allAssets=[]; }
+  renderContent(allAssets);
 }
 
-function getDemoAssets() {
-  return [
-    { ID:1, Title:'Sovereign — Full Song (A)', AssetType:'Video', ContentURL:'', Tags:'Sovereign,A major,full song,guitar', Description:'How we play Sovereign in A — full arrangement on guitar', SongTitle:'Sovereign', OurKey:'A', Instrument:'Guitar', SongSection:'Full Song', Tempo:72, DetectedChords:'A - E - F#m - D', HowToBullets:'• Intro: fingerpicked A chord pattern
-• Verse: strum pattern with emphasis on beat 2 and 4
-• Chorus: full strumming, capo 2 for brightness
-• Bridge: back to fingerpicked pattern
-• Return: slow build back into chorus', Transcript:'[00:00:06] This is how we play Sovereign in A... [00:00:18] Intro... [00:01:45] Verse 1... [00:03:20] Chorus... [00:05:10] Return...', TimestampStart:null },
-    { ID:2, Title:'Way Maker — Intro (G)', AssetType:'Video', ContentURL:'', Tags:'Way Maker,G major,intro,keyboard', Description:'The keyboard intro for Way Maker as we play it in G', SongTitle:'Way Maker', OurKey:'G', Instrument:'Keyboard', SongSection:'Intro', Tempo:68, DetectedChords:'G - D - Em - C', HowToBullets:'• Right hand plays the main riff melody
-• Left hand holds root notes on beats 1 and 3
-• Use a pad sound with gentle attack
-• Intro is 8 bars before vocals enter', Transcript:'[00:00:04] This is the intro for Way Maker in G... [00:00:12] Intro...', TimestampStart:null },
-    { ID:3, Title:'King of Kings — Chorus (E)', AssetType:'Video', ContentURL:'', Tags:'King of Kings,E major,chorus,guitar', Description:'How we play the King of Kings chorus in E', SongTitle:'King of Kings', OurKey:'E', Instrument:'Guitar', SongSection:'Chorus', Tempo:76, DetectedChords:'E - B - C#m - A', HowToBullets:'• Power chords on the chorus for impact
-• Drive the rhythm on all four beats
-• Palm mute the verses to contrast
-• Open up fully on final chorus', Transcript:'[00:00:05] King of Kings chorus in E...', TimestampStart:null }
-  ];
+async function loadAll(){
+  try{
+    const r=await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$top=500&$select=Title,AssetType,ContentURL,HowToBullets,Description,Tags,ID,Category,Published`,{headers:{'Accept':'application/json;odata=nometadata'}});
+    if(!r.ok)throw new Error(r.status);
+    return(await r.json()).value||[];
+  }catch{return[];}
 }
 
-function renderGrid(assets, highlight='') {
-  let filtered = currentTab==='all' ? assets : assets.filter(a=>a.SongSection===currentTab);
-  if(currentKey) filtered = filtered.filter(a=>a.OurKey===currentKey);
-  document.getElementById('resultCount').textContent = `${filtered.length} item${filtered.length!==1?'s':''}`;
-  const grid = document.getElementById('contentGrid');
-  const empty = document.getElementById('emptyState');
-  if (!filtered.length) { grid.innerHTML=''; empty.classList.remove('hidden'); return; }
+// RENDER CONTENT BY CATEGORY
+function renderContent(assets,highlight=''){
+  const area=document.getElementById('contentArea');
+  const empty=document.getElementById('emptyState');
+  if(!assets.length){area.innerHTML='';empty.classList.remove('hidden');return;}
   empty.classList.add('hidden');
-  grid.innerHTML = filtered.map(a=>cardHTML(a,highlight)).join('');
+  const grouped={};
+  const uncat=[];
+  assets.forEach(a=>{
+    const c=(a.Category||'').trim();
+    if(c&&categories.includes(c)){if(!grouped[c])grouped[c]=[];grouped[c].push(a);}
+    else uncat.push(a);
+  });
+  let html='';
+  categories.forEach(cat=>{
+    const items=grouped[cat]||[];
+    if(!items.length)return;
+    const sid='sec_'+safeid(cat);
+    html+=`<div class="mb-10">
+      <div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')">
+        <div class="w-1.5 h-6 bg-[#3d6263] rounded-full"></div>
+        <h2 class="font-black uppercase tracking-widest text-sm">${cat}</h2>
+        <span class="text-[10px] font-bold opacity-40">${items.length} item${items.length!==1?'s':''}</span>
+        <svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+      </div>
+      <div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div>
+    </div>`;
+  });
+  if(uncat.length){
+    const label=categories.length?'Uncategorised':'All Content';
+    const sid='sec_uncategorised';
+    html+=`<div class="mb-10">
+      <div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')">
+        <div class="w-1.5 h-6 bg-[#d1dfdf] rounded-full"></div>
+        <h2 class="font-black uppercase tracking-widest text-sm opacity-50">${label}</h2>
+        <span class="text-[10px] font-bold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span>
+        <svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+      </div>
+      <div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div>
+    </div>`;
+  }
+  area.innerHTML=html;
 }
 
-function cardHTML(a, highlight='') {
-  const icons = { Video:'▶', Image:'📷', Note:'📝', VideoClip:'✂️' };
-  const badges = { Video:'badge-video', Image:'badge-image', Note:'badge-note', VideoClip:'badge-clip' };
-  const bullets = (a.HowToBullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
-  const tags = (a.Tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,4);
-  const title = highlight ? hlText(a.Title, highlight) : a.Title;
+function toggleSec(id){
+  const el=document.getElementById(id);
+  const chv=document.getElementById('chv_'+id);
+  if(!el)return;
+  const hidden=el.classList.toggle('hidden');
+  if(chv)chv.style.transform=hidden?'rotate(-90deg)':'rotate(0deg)';
+}
+
+function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
+
+function cardHTML(a,highlight=''){
+  const icons={Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'};
+  const bc={Video:'bg-blue-50 text-blue-700',Image:'bg-green-50 text-green-700',Note:'bg-yellow-50 text-yellow-700',VideoClip:'bg-purple-50 text-purple-700'};
+  const bullets=(a.HowToBullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
+  const tags=(a.Tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
+  const title=highlight?hlText(a.Title||'',highlight):(a.Title||'');
   return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard(${a.ID})">
-    <div class="flex justify-between items-start mb-4">
-      <span class="text-xl">${icons[a.AssetType]||'📄'}</span>
-      <span class="${badges[a.AssetType]||'badge-note'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.AssetType}</span>
-    </div>
-    <h3 class="font-black text-[#3d6263] text-base mb-2 leading-snug">${title}</h3>
-    ${(a.OurKey||a.SongSection) ? `<div class="flex flex-wrap gap-1.5 mb-3">${a.OurKey?`<span class="bg-[#3d6263] text-white px-3 py-1 rounded-full text-[10px] font-black">Key: ${a.OurKey}</span>`:""}${a.SongSection?`<span class="bg-[#f0f6f6] text-[#3d6263] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${a.SongSection}</span>":""}${a.Instrument?`<span class="bg-[#f0f6f6] text-[#3d6263] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${a.Instrument}</span>":""}${a.DetectedChords?`<span class="bg-[#f0f6f6] text-[#3d6263] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf] font-mono">${a.DetectedChords}</span>":""}</div>` : ""}
-    ${a.Description?`<p class="text-[12px] text-[#3d6263] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.Description}</p>`:''}
-    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px] text-[#3d6263]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.HowToBullets||'').split('\n').filter(b=>b.trim()).length>3?`<div class="text-[10px] font-bold text-[#3d6263] opacity-40 uppercase">+ more steps...</div>`:''}</div>`:''}
-    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] text-[#3d6263] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}
+    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.AssetType]||'📄'}</span><span class="${bc[a.AssetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.AssetType}</span></div>
+    <h3 class="font-black text-base mb-3 leading-snug">${title}</h3>
+    ${a.Description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.Description}</p>`:''}
+    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.HowToBullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
+    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}
   </div>`;
 }
 
-function openCard(id) {
-  const a = allAssets.find(x=>x.ID===id); if(!a) return;
-  const bullets = (a.HowToBullets||'').split('\n').filter(b=>b.trim());
-  const isVideo = a.AssetType==='Video'||a.AssetType==='VideoClip';
-  const hasURL = a.ContentURL && a.ContentURL.trim();
-  let src = '';
-  if (hasURL) { src = a.TimestampStart ? `${a.ContentURL}${a.ContentURL.includes('?')?'&':'?'}startTime=${a.TimestampStart}` : a.ContentURL; }
-  document.getElementById('modalContent').innerHTML = `
-    <div class="mb-2 text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-40">Play Through</div>
-    <h2 class="font-black text-[#3d6263] text-2xl mb-6 leading-tight">${a.Title}</h2>
-    ${isVideo&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
+function openCard(id){
+  const a=allAssets.find(x=>x.ID===id);if(!a)return;
+  const bullets=(a.HowToBullets||'').split('\n').filter(b=>b.trim());
+  const isVid=a.AssetType==='Video'||a.AssetType==='VideoClip';
+  const hasURL=a.ContentURL&&a.ContentURL.trim();
+  const src=hasURL?(a.TimestampStart?`${a.ContentURL}${a.ContentURL.includes('?')?'&':'?'}startTime=${a.TimestampStart}`:a.ContentURL):'';
+  document.getElementById('modalContent').innerHTML=`
+    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">Play Through${a.Category?' — '+a.Category:''}</div>
+    <h2 class="font-black text-2xl mb-6 leading-tight">${a.Title}</h2>
+    ${isVid&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
     ${a.AssetType==='Image'&&hasURL?`<img src="${a.ContentURL}" alt="${a.Title}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
-    ${a.Description?`<p class="text-sm text-[#3d6263] opacity-70 mb-4 leading-relaxed">${a.Description}</p>`:''}
-    ${(a.OurKey||a.SongSection||a.DetectedChords||a.Tempo)?`<div class="flex flex-wrap gap-2 mb-6">${a.OurKey?`<span class="bg-[#3d6263] text-white px-4 py-2 rounded-full text-[11px] font-black">Key: ${a.OurKey}</span>":""}${a.SongSection?`<span class="bg-[#f0f6f6] text-[#3d6263] px-4 py-2 rounded-full text-[11px] font-bold border border-[#d1dfdf]">${a.SongSection}</span>":""}${a.Instrument?`<span class="bg-[#f0f6f6] text-[#3d6263] px-4 py-2 rounded-full text-[11px] font-bold border border-[#d1dfdf]">${a.Instrument}</span>":""}${a.Tempo?`<span class="bg-[#f0f6f6] text-[#3d6263] px-4 py-2 rounded-full text-[11px] font-bold border border-[#d1dfdf]">${a.Tempo} BPM</span>":""}${a.DetectedChords?`<span class="bg-[#f0f6f6] text-[#3d6263] px-4 py-2 rounded-full text-[11px] font-bold border border-[#d1dfdf] font-mono">Chords: ${a.DetectedChords}</span>":""}</div>`:''}
-    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
-      <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-50 mb-4">How To Do It</div>
-      <div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm text-[#3d6263] font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
-    </div>`:''}
-    ${a.Tags?`<div class="flex flex-wrap gap-2">${a.Tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] text-[#3d6263] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}`;
+    ${a.Description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${a.Description}</p>`:''}
+    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How We Play It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div></div>`:''}
+    ${a.Tags?`<div class="flex flex-wrap gap-2">${a.Tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}`;
   document.getElementById('modal').classList.remove('hidden');
 }
+function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
 
-function closeModal(e) { if (!e||e.target===document.getElementById('modal')) document.getElementById('modal').classList.add('hidden'); }
-
-async function doSearch() {
-  const query = document.getElementById('searchInput').value.trim(); if(!query) return;
-  currentQuery = query;
+// AI SEARCH
+async function doSearch(){
+  const query=document.getElementById('searchInput').value.trim();if(!query)return;
+  currentQuery=query;
   document.getElementById('loadingState').classList.remove('hidden');
   document.getElementById('assembledAnswer').classList.add('hidden');
-  const context = allAssets.map(a=>`ID:${a.ID}|Title:${a.Title}|Type:${a.AssetType}|Tags:${a.Tags||''}|Desc:${a.Description||''}|Bullets:${a.HowToBullets||''}|Transcript:${(a.Transcript||'').substring(0,400)}`).join('\n');
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:`You are a worship play-through assistant for EGBC Church helping musicians find how songs are arranged. Respond ONLY in JSON: {"summary":"...","steps":["..."],"relevantAssetIds":[1,2],"confidence":"high|medium|low"}`,messages:[{role:'user',content:`Song query: "${query}"\n\nAssets:\n${context}`}]})});
-    const data = await res.json();
-    const text = data.content?.map(c=>c.text||'').join('')||'';
-    let result; try { result=JSON.parse(text.replace(/```json|```/g,'').trim()); } catch { result={summary:text,steps:[],relevantAssetIds:[],confidence:'low'}; }
-    showAssembledAnswer(query, result);
-    renderGrid(allAssets, query);
-  } catch {
-    const matched = keywordSearch(query);
-    showFallbackAnswer(query, matched);
-    renderGrid(matched.length?matched:allAssets, query);
+  const ctx=allAssets.map(a=>`ID:${a.ID}|Title:${a.Title}|Tags:${a.Tags||''}|Desc:${a.Description||''}|Bullets:${(a.HowToBullets||'').substring(0,300)}`).join('\n');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Worship play-through assistant for EGBC Church helping musicians find how songs are arranged. Respond ONLY in JSON: {"summary":"...","steps":["..."],"relevantAssetIds":[1,2],"confidence":"high|medium|low"}',messages:[{role:'user',content:`Song query: "${query}"\n\nAssets:\n${ctx}`}]})});
+    const data=await res.json();
+    const text=data.content?.map(c=>c.text||'').join('')||'';
+    let result;try{result=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{result={summary:text,steps:[],relevantAssetIds:[],confidence:'low'};}
+    showAIAnswer(query,result);renderContent(allAssets,query);
+  }catch{
+    const m=kwSearch(query);showFallback(query,m);renderContent(m.length?m:allAssets,query);
   }
   document.getElementById('loadingState').classList.add('hidden');
 }
-
-function showAssembledAnswer(query, result) {
-  const assets = (result.relevantAssetIds||[]).map(id=>allAssets.find(a=>a.ID===id)).filter(Boolean);
-  const cc = {high:'text-green-600 bg-green-50',medium:'text-amber-600 bg-amber-50',low:'text-red-500 bg-red-50'}[result.confidence]||'text-gray-500 bg-gray-50';
-  document.getElementById('assembledAnswer').innerHTML = `
-    <div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg">
-      <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div><div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-40 mb-1">AI Answer for</div><h2 class="font-black text-[#3d6263] text-xl">"${query}"</h2></div>
-        <span class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${cc}">${result.confidence||'medium'} confidence</span>
-      </div>
-      ${result.summary?`<p class="text-sm text-[#3d6263] opacity-80 leading-relaxed mb-6">${result.summary}</p>`:''}
-      ${result.steps?.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-50 mb-4">Suggested Steps</div><div class="space-y-3">${result.steps.map((s,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm text-[#3d6263] font-semibold leading-relaxed">${s}</span></div>`).join('')}</div></div>`:''}
-      ${assets.length?`<div><div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-50 mb-3">Relevant Resources</div><div class="flex flex-wrap gap-3">${assets.map(a=>`<button onclick="openCard(${a.ID})" class="bg-[#f0f6f6] text-[#3d6263] border border-[#d1dfdf] px-5 py-2.5 rounded-full font-bold text-[12px] flex items-center gap-2 hover:bg-[#3d6263] hover:text-white transition-all"><span>${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span><span>${a.Title}</span>${a.TimestampStart?`<span class="opacity-50 text-[10px]">${fmtTime(a.TimestampStart)}</span>`:''}</button>`).join('')}</div></div>`:''}
-    </div>`;
+function showAIAnswer(query,r){
+  const assets=(r.relevantAssetIds||[]).map(id=>allAssets.find(a=>a.ID===id)).filter(Boolean);
+  const cc={high:'text-green-600 bg-green-50',medium:'text-amber-600 bg-amber-50',low:'text-red-500 bg-red-50'}[r.confidence]||'text-gray-500 bg-gray-50';
+  document.getElementById('assembledAnswer').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg">
+    <div class="flex items-start justify-between mb-6 flex-wrap gap-3"><div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">AI Answer for</div><h2 class="font-black text-xl">"${query}"</h2></div><span class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${cc}">${r.confidence||'medium'} confidence</span></div>
+    ${r.summary?`<p class="text-sm opacity-80 leading-relaxed mb-6">${r.summary}</p>`:''}
+    ${r.steps?.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Suggested Steps</div><div class="space-y-3">${r.steps.map((s,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${s}</span></div>`).join('')}</div></div>`:''}
+    ${assets.length?`<div><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Relevant Resources</div><div class="flex flex-wrap gap-3">${assets.map(a=>`<button onclick="openCard(${a.ID})" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2.5 rounded-full font-bold text-[12px] flex items-center gap-2 hover:bg-[#3d6263] hover:text-white transition-all"><span>${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span><span>${a.Title}</span>${a.TimestampStart?`<span class="opacity-50 text-[10px]">${fmtTime(a.TimestampStart)}</span>`:''}</button>`).join('')}</div></div>`:''}
+  </div>`;
   document.getElementById('assembledAnswer').classList.remove('hidden');
 }
+function showFallback(q,m){document.getElementById('assembledAnswer').innerHTML=`<div class="bg-[#fff8f0] border border-amber-200 rounded-[2rem] p-6"><div class="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2">Keyword Search</div><p class="text-sm text-amber-800 font-semibold">Found ${m.length} result${m.length!==1?'s':''} for "<strong>${q}</strong>"</p></div>`;document.getElementById('assembledAnswer').classList.remove('hidden');}
+function kwSearch(q){const w=q.toLowerCase().split(/\s+/);return allAssets.filter(a=>{const h=`${a.Title} ${a.Tags} ${a.Description} ${a.HowToBullets}`.toLowerCase();return w.some(x=>h.includes(x));});}
+function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
+function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('assembledAnswer').classList.add('hidden');renderContent(allAssets);}
 
-function showFallbackAnswer(query, matched) {
-  document.getElementById('assembledAnswer').innerHTML = `<div class="bg-[#fff8f0] border border-amber-200 rounded-[2rem] p-6"><div class="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2">Keyword Search</div><p class="text-sm text-amber-800 font-semibold">Found ${matched.length} result${matched.length!==1?'s':''} matching "<strong>${query}</strong>"</p></div>`;
-  document.getElementById('assembledAnswer').classList.remove('hidden');
+// ADMIN AUTH
+async function toggleAdmin(){
+  const panel=document.getElementById('adminPanel');
+  if(!panel.classList.contains('hidden')){closeAdmin();return;}
+  const pwd=prompt('Admin password:');if(!pwd)return;
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pwd));
+  const hex=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(hex===PW_HASH){panel.classList.remove('hidden');updateCatDropdowns();renderCategoryList();}
+  else alert('Incorrect password.');
+}
+function closeAdmin(){document.getElementById('adminPanel').classList.add('hidden');}
+
+// ADMIN TABS
+function showAdminTab(tab){
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));
+  document.querySelectorAll('[id^="atab-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('admin-'+tab).classList.remove('hidden');
+  document.getElementById('atab-'+tab).classList.add('active');
+  if(tab==='manage')renderManageList();
+  if(tab==='categories')renderCategoryList();
 }
 
-function keywordSearch(q) { const words=q.toLowerCase().split(/\s+/); return allAssets.filter(a=>{ const h=`${a.Title} ${a.Tags} ${a.Description} ${a.HowToBullets} ${a.Transcript}`.toLowerCase(); return words.some(w=>h.includes(w)); }); }
-function quickSearch(t) { document.getElementById('searchInput').value=t; doSearch(); }
-function clearSearch() { document.getElementById('searchInput').value=''; currentQuery=''; document.getElementById('assembledAnswer').classList.add('hidden'); renderGrid(allAssets); }
-function setTab(t) { currentTab=t; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); const el=document.getElementById('tab-'+t)||document.getElementById('tab-'+t.replace(' ','_')); el?.classList.add('active'); renderGrid(allAssets,currentQuery); }
-let currentKey=null;
-function setKeyFilter(k) { currentKey=k; document.querySelectorAll('.key-btn').forEach(b=>{b.classList.remove('active','bg-[#3d6263]','text-white');}); const id=k?('key-'+k):'key-all'; const el=document.getElementById(id); if(el){el.classList.add('active','bg-[#3d6263]','text-white');} renderGrid(allAssets,currentQuery); }
-async function toggleAdmin() {
-  const panel = document.getElementById('adminPanel');
-  if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
-  const pwd = prompt('Admin password:');
-  if (!pwd) return;
-  const msgBuffer = new TextEncoder().encode(pwd);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  if (hashHex === '77fff987f5deea670a55a6d756dfe78c1a5383dd67850401b9fde70d10a2f89b') {
-    panel.classList.remove('hidden');
-  } else {
-    alert('Incorrect password.');
-  }
+// CATEGORIES
+function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(allAssets,currentQuery);}
+function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
+function renameCategory(idx){const n=prompt('Rename to:',categories[idx]);if(!n||n===categories[idx])return;categories[idx]=n;saveCategories();}
+function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;categories.splice(idx,1);saveCategories();}
+function renderCategoryList(){
+  const l=document.getElementById('categoryList');if(!l)return;
+  if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${c}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 hover:border-red-400 transition-all">Delete</button></div>`).join('');
+}
+function updateCatDropdowns(){['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});}
+
+// FILE PICKER
+function openFilePicker(){
+  const opts={sdk:'8.0',entry:{sharePoint:{byPath:{web:SP_SITE,list:'/sites/EGBCWorshipandAV/KnowledgeBaseMedia'}}},authentication:{},messaging:{origin:window.location.origin,channelId:'27'},typesAndSources:{mode:'files',pivots:{oneDrive:false,recent:false}}};
+  const url=`${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
+  const pop=window.open(url,'picker','width=800,height=600,left='+(screen.width-800)/2+',top='+(screen.height-600)/2);
+  window.addEventListener('message',function h(e){
+    if(!e.data||!e.data.type)return;
+    if(e.data.type==='pickerResult'){
+      const f=e.data.items?.[0];
+      if(f){document.getElementById('adminContentURL').value=`${SP_SITE}/_layouts/15/embed.aspx?UniqueId=${f.id}`;if(!document.getElementById('adminTitle').value)document.getElementById('adminTitle').value=f.name.replace(/\.[^/.]+$/,'');}
+      pop.close();window.removeEventListener('message',h);
+    }
+    if(e.data.type==='pickerCancel'){pop.close();window.removeEventListener('message',h);}
+  });
 }
 
-async function generateBullets() {
-  const transcript=document.getElementById('adminTranscript').value.trim(); if(!transcript){alert('Paste a transcript first.');return;}
-  document.getElementById('bulletsPreview').classList.add('hidden'); document.getElementById('bulletsGenerating').classList.remove('hidden'); document.getElementById('adminBullets').classList.add('hidden');
-  try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Generate clear worship training bullet points from a transcript. Return only bullet points starting with •, one per line. No preamble.',messages:[{role:'user',content:`Transcript:\n\n${transcript}`}]})});
-    const data=await res.json(); const bullets=data.content?.map(c=>c.text||'').join('')||'';
-    document.getElementById('adminBullets').value=bullets; document.getElementById('adminBullets').classList.remove('hidden');
-  } catch { alert('Could not generate bullets.'); }
+// PUBLISH
+async function publishAsset(){
+  const title=document.getElementById('adminTitle').value.trim();
+  const url=document.getElementById('adminContentURL').value.trim();
+  if(!title||!url){alert('Title and file are required.');return;}
+  const payload={Title:title,AssetType:document.getElementById('adminAssetType').value,ContentURL:url,Category:document.getElementById('adminCategory').value,Tags:document.getElementById('adminTags').value.trim(),Transcript:document.getElementById('adminTranscript').value.trim(),HowToBullets:document.getElementById('adminBullets').value.trim(),Published:true,'__metadata':{'type':LIST_TYPE}};
+  try{
+    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
+    const dd=await dr.json();
+    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue},body:JSON.stringify(payload)});
+    alert('Published!');
+    ['adminTitle','adminContentURL','adminTags','adminTranscript'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('adminCategory').value='';
+    document.getElementById('adminBullets').classList.add('hidden');
+    document.getElementById('bulletsPreview').classList.remove('hidden');
+    document.getElementById('bulletsPreview').textContent='Paste a transcript and click Generate Bullets...';
+    loadAssets();
+  }catch(e){alert('Publish failed: '+e.message);}
+}
+
+// GENERATE BULLETS
+async function generateBullets(){
+  const t=document.getElementById('adminTranscript').value.trim();if(!t){alert('Paste a transcript first.');return;}
+  document.getElementById('bulletsPreview').classList.add('hidden');
+  document.getElementById('bulletsGenerating').classList.remove('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Generate clear play-through notes from a transcript, noting song sections and key musical details. Return only bullet points starting with •, one per line. No preamble.',messages:[{role:'user',content:`Transcript:\n\n${t}`}]})});
+    const data=await res.json();
+    document.getElementById('adminBullets').value=data.content?.map(c=>c.text||'').join('')||'';
+    document.getElementById('adminBullets').classList.remove('hidden');
+  }catch{alert('Could not generate bullets.');}
   document.getElementById('bulletsGenerating').classList.add('hidden');
 }
 
-async function publishAsset() {
-  const title=document.getElementById('adminTitle').value.trim(); const url=document.getElementById('adminContentURL').value.trim();
-  if(!title||!url){alert('Title and URL are required.');return;}
-  const spSite=document.getElementById('spSiteUrl').value.trim();
-  const payload={Title:title,AssetType:document.getElementById('adminAssetType').value,ContentURL:url,Tags:document.getElementById('adminTags').value.trim(),Transcript:document.getElementById('adminTranscript').value.trim(),HowToBullets:document.getElementById('adminBullets').value.trim(),Published:true,'__metadata':{'type':`SP.Data.KB_x002D_PlayThroughListItem`}};
-  try {
-    const dr=await fetch(`${spSite}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
+// MANAGE
+async function renderManageList(){
+  const list=document.getElementById('manageList');if(!list)return;
+  list.innerHTML='<div class="text-sm opacity-50 italic">Loading...</div>';
+  _manageItems=await loadAll();
+  if(!_manageItems.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
+  list.innerHTML=_manageItems.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.Published?'':'opacity-50 border-dashed'}">
+    <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span>
+    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${a.Title}</div><div class="text-[10px] opacity-50">${a.Category||'Uncategorised'} · ${a.AssetType} · ${a.Published?'Published':'Unpublished'}</div></div>
+    <div class="flex gap-2 flex-shrink-0">
+      <button onclick="editItem(${a.ID})" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
+      <button onclick="togglePublish(${a.ID},${a.Published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.Published?'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100':'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}">${a.Published?'Unpublish':'Publish'}</button>
+    </div>
+  </div>`).join('');
+}
+
+async function togglePublish(id,current){
+  try{
+    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
     const dd=await dr.json();
-    await fetch(`${spSite}/_api/lists/getbytitle('${LIST_NAME}')/items`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue},body:JSON.stringify(payload)});
-    alert('Published!'); loadAssets();
-  } catch(e){alert('Publish failed: '+e.message);}
+    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items(${id})`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue,'X-HTTP-Method':'MERGE','IF-MATCH':'*'},body:JSON.stringify({'Published':!current,'__metadata':{'type':LIST_TYPE}})});
+    renderManageList();loadAssets();
+  }catch(e){alert('Failed: '+e.message);}
 }
 
-async function testConnection() {
-  const spSite=document.getElementById('spSiteUrl').value.trim(); const s=document.getElementById('connectionStatus');
-  s.textContent='Testing...'; s.className='text-[11px] font-bold text-[#3d6263] opacity-60';
-  try { const r=await fetch(`${spSite}/_api/lists/getbytitle('${LIST_NAME}')`,{headers:{'Accept':'application/json;odata=nometadata'}}); s.textContent=r.ok?'✓ Connected':'✗ Failed'; s.className=r.ok?'text-[11px] font-bold text-green-600':'text-[11px] font-bold text-red-500'; } catch(e){s.textContent='✗ '+e.message;s.className='text-[11px] font-bold text-red-500';}
+function editItem(id){
+  const a=_manageItems.find(x=>x.ID===id);if(!a)return;
+  document.getElementById('editId').value=id;
+  document.getElementById('editTitle').value=a.Title||'';
+  document.getElementById('editTags').value=a.Tags||'';
+  document.getElementById('editBullets').value=a.HowToBullets||'';
+  document.getElementById('editDescription').value=a.Description||'';
+  updateCatDropdowns();
+  document.getElementById('editCategory').value=a.Category||'';
+  const em=document.getElementById('editModal');em.classList.remove('hidden');em.scrollIntoView({behavior:'smooth'});
+}
+function closeEdit(){document.getElementById('editModal').classList.add('hidden');}
+async function saveEdit(){
+  const id=document.getElementById('editId').value;
+  const payload={Title:document.getElementById('editTitle').value.trim(),Category:document.getElementById('editCategory').value,Tags:document.getElementById('editTags').value.trim(),HowToBullets:document.getElementById('editBullets').value.trim(),Description:document.getElementById('editDescription').value.trim(),'__metadata':{'type':LIST_TYPE}};
+  try{
+    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
+    const dd=await dr.json();
+    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items(${id})`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue,'X-HTTP-Method':'MERGE','IF-MATCH':'*'},body:JSON.stringify(payload)});
+    closeEdit();renderManageList();loadAssets();
+  }catch(e){alert('Save failed: '+e.message);}
 }
 
-function showSkeletons() { document.getElementById('contentGrid').innerHTML=[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6 mb-2"></div><div class="skeleton h-4 w-2/3"></div></div>`).join(''); }
-function fmtTime(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
-function hlText(text,q) { if(!q) return text; q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');}); return text; }
+// HELPERS
+function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
+function fmtTime(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
+function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');});return text;}
 </script>
 </body>
 </html>
