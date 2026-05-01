@@ -11,7 +11,7 @@
 
 <style>
     body { font-family: 'Montserrat', sans-serif; background-color: #f0f6f6; }
-    
+
     .styled-input {
         background-color: #ffffff;
         border: 1px solid #d1dfdf;
@@ -40,7 +40,7 @@
         transition: all 0.2s;
     }
     .btn-primary:hover { background-color: #2f4c4d; transform: translateY(-1px); }
-    
+
     .btn-secondary {
         background-color: #f0f6f6;
         color: #3d6263;
@@ -92,9 +92,34 @@
     .is-collapsed .collapse-btn {
         transform: rotate(-90deg);
     }
-    .highlight-yellow { background-color: #3d6263 !important; color: white !important; }
 
-    /* ── NEW: Email modal overlay ── */
+    /* ── Serve count badge ── */
+    .serve-count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2rem;
+        height: 2rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        padding: 0 0.5rem;
+        background-color: #e6f0f0;
+        color: #3d6263;
+        border: 1.5px solid #d1dfdf;
+        transition: all 0.2s;
+    }
+    .serve-count-badge.is-peak {
+        background-color: #3d6263;
+        color: #ffffff;
+        border-color: #3d6263;
+        box-shadow: 0 2px 8px rgba(61,98,99,0.3);
+    }
+    .serve-count-badge.hidden-badge {
+        visibility: hidden;
+    }
+
+    /* ── Email modal overlay ── */
     #emailModal {
         display: none;
         position: fixed;
@@ -114,6 +139,38 @@
         box-shadow: 0 20px 60px rgba(61,98,99,0.15);
         font-family: 'Montserrat', sans-serif;
     }
+
+    /* ── Help button ── */
+    #helpBtn {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 900;
+        width: 38px;
+        height: 38px;
+        border-radius: 9999px;
+        background: #ffffff;
+        border: 1.5px solid #d1dfdf;
+        color: #3d6263;
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        box-shadow: 0 2px 12px rgba(61,98,99,0.12);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+    #helpBtn:hover {
+        background: #3d6263;
+        color: #ffffff;
+        border-color: #3d6263;
+        box-shadow: 0 4px 16px rgba(61,98,99,0.25);
+        transform: translateY(-1px);
+    }
+    #helpBtn title { display: none; }
 </style>
 
 <script type="module">
@@ -210,7 +267,7 @@ window.toggleSong = (btn) => {
 window.addSong = () => {
     const container = document.getElementById('service-order');
     const id = Math.random().toString(36).substr(2, 9);
-    
+
     const isFirst = container.querySelectorAll('.song-block').length === 0;
     const collapseClass = isFirst ? "" : "is-collapsed";
     const contentClass = isFirst ? "" : "hidden";
@@ -228,7 +285,7 @@ window.addSong = () => {
                 <input oninput="searchSong(this,'${id}')" class="song-title styled-input w-full" placeholder="Song title">
                 <div id="suggest-${id}" class="absolute bg-white shadow-xl rounded-xl w-full hidden z-50 mt-1 border border-[#d1dfdf] overflow-hidden"></div>
             </div>
-            <div id="serving-container-${id}" class="serving-display px-3 py-2 rounded-lg font-bold text-[#3d6263]"></div>
+            <div id="serving-container-${id}" class="serve-count-badge hidden-badge" title="Number of Sundays this song has been used"></div>
             <div class="flex gap-1">
                 <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
                     <option value="">Key 1</option>
@@ -276,20 +333,32 @@ async function showKeyInfo(id, title) {
         </div>
     `;
 
+    // ── Serve count badge ──
+    // Reads servingHistory, finds Sunday entries, shows count and highlights if peak
     const servingHistory = data.servingHistory || [];
     const sundayHistory = servingHistory.filter(s => s.day && s.day.toLowerCase() === 'sunday');
-    
+    const display = document.getElementById(`serving-container-${id}`);
+
     if (sundayHistory.length > 0) {
         const counts = sundayHistory.map(s => s.count || 0);
         const maxSunday = Math.max(...counts);
-        const display = document.getElementById(`serving-container-${id}`);
-        const latestSunday = sundayHistory[0].count; 
-        display.innerText = latestSunday;
-        if (latestSunday === maxSunday) {
-            display.classList.add('highlight-yellow');
+        const latestCount = sundayHistory[0].count || 0;
+
+        display.innerText = latestCount;
+        display.classList.remove('hidden-badge');
+        display.title = latestCount === maxSunday
+            ? `Used ${latestCount} Sundays — highest ever, consider resting this song`
+            : `Used ${latestCount} Sundays`;
+
+        if (latestCount === maxSunday) {
+            display.classList.add('is-peak');
         } else {
-            display.classList.remove('highlight-yellow');
+            display.classList.remove('is-peak');
         }
+    } else {
+        display.innerText = "";
+        display.classList.add('hidden-badge');
+        display.classList.remove('is-peak');
     }
 }
 
@@ -357,10 +426,10 @@ window.selectSong = async (title, id) => {
     const noteArea = block.querySelector('.song-note');
     block.querySelector('.song-title').value = title;
     document.getElementById(`suggest-${id}`).classList.add('hidden');
-    
+
     document.getElementById(`keyinfo-${id}`).innerHTML = "";
     document.getElementById(`files-${id}`).innerHTML = "";
-    
+
     await showKeyInfo(id, title);
 
     if (worshipLeaderName && worshipLeaderName !== "None") {
@@ -373,7 +442,7 @@ window.selectSong = async (title, id) => {
                 if(keyInputs[0]) keyInputs[0].value = preferred;
             }
         }
-        
+
         keyChanged(id);
 
         if (!noteArea.value.trim()) {
@@ -381,7 +450,7 @@ window.selectSong = async (title, id) => {
                 const historySnap = await getDocs(collection(db, "schedules"));
                 let lastNote = "";
                 let lastDate = "";
-                
+
                 historySnap.forEach(d => {
                     const data = d.data();
                     if (data.worshipLeader === worshipLeaderName && data.songTitle === title) {
@@ -408,12 +477,12 @@ window.keyChanged = async (id) => {
     const title = block.querySelector('.song-title').value;
     const keys = Array.from(block.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
     const container = document.getElementById(`files-${id}`);
-    
+
     if (!title) {
         container.innerHTML = "";
         return;
     }
-    
+
     const docId = title.toLowerCase().replace(/\s+/g, "-");
     const snap = await getDoc(doc(db, "songs", docId));
     if (!snap.exists()) {
@@ -426,9 +495,9 @@ window.keyChanged = async (id) => {
     const songSelectLink = ccli
         ? `https://songselect.ccli.com/Songs/${ccli}`
         : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-    
+
     const allFiles = data.files || [];
-    
+
     let html = `<div class="mt-4 p-4 bg-[#f0f6f6] rounded-xl border border-[#d1dfdf]">`;
     html += `
         <div class="text-[11px] mb-3 flex gap-4 flex-wrap font-bold">
@@ -442,9 +511,9 @@ window.keyChanged = async (id) => {
         keys.forEach(k => {
             const selectedKey = k.trim().toLowerCase();
             const files = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === selectedKey);
-            
+
             html += `<div class="mb-4 last:mb-0"><div class="text-xs font-bold text-[#3d6263] border-b border-[#d1dfdf] mb-2">Key: ${k}</div>`;
-            
+
             if (files.length === 0) {
                 html += `<div class="text-xs text-[#3d6263] opacity-60 italic">No files found for ${k}</div>`;
             } else {
@@ -524,7 +593,7 @@ window.selectEvent = async () => {
     document.getElementById('leaderName').innerText = worshipLeaderName;
     const teamBody = document.getElementById('teamBody');
     teamBody.innerHTML = '';
-    
+
     let assignmentsArray = Object.entries(data.assignments || {});
     assignmentsArray = sortAssignments(assignmentsArray);
 
@@ -536,19 +605,19 @@ window.selectEvent = async () => {
                 <td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td>
             </tr>`;
     });
-    
+
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const snap = await getDocs(q);
     if (!snap.empty) {
         const saved = snap.docs[0].data();
-        
+
         document.getElementById('introBox').value = saved.introText || "";
         document.getElementById('outroBox').value = saved.outroText || "";
         document.getElementById('serviceTypeNotes').value = saved.serviceNotes || "";
 
         const container = document.getElementById('service-order');
         container.innerHTML = "";
-        
+
         if (saved.roleNotes) {
             const rows = document.querySelectorAll('#teamBody tr');
             rows.forEach(row => {
@@ -573,7 +642,7 @@ window.selectEvent = async () => {
                 last.querySelector('.song-note').value = item.notes;
                 showKeyInfo(id, item.title);
                 keyChanged(id);
-                
+
                 const content = last.querySelector('.song-content');
                 content.classList.remove('hidden');
                 last.classList.remove('is-collapsed');
@@ -594,7 +663,7 @@ window.saveSchedule = async () => {
     const introText = document.getElementById('introBox').value;
     const outroText = document.getElementById('outroBox').value;
     const serviceNotes = document.getElementById('serviceTypeNotes').value;
-    
+
     const roleNotes = {};
     document.querySelectorAll('#teamBody tr').forEach(row => {
         const role = row.children[0].innerText;
@@ -622,7 +691,7 @@ window.saveSchedule = async () => {
 
     const q = query(collection(db, "services"), where("date", "==", date));
     const snap = await getDocs(q);
-    
+
     const serviceData = {
         date,
         worshipLeader: worshipLeaderName,
@@ -638,11 +707,10 @@ window.saveSchedule = async () => {
     } else {
         await addDoc(collection(db, "services"), serviceData);
     }
-    
+
     alert("✅ Service saved successfully.");
 };
 
-// ── NEW: Save song summary data to Firestore so the hosted summary page can read it ──
 async function saveSongSummaryToFirestore(date) {
     const blocks = document.querySelectorAll('.service-block');
     const items = [];
@@ -664,7 +732,6 @@ async function saveSongSummaryToFirestore(date) {
             if (title) items.push({ type: "item", title });
         }
     }
-    // Use the date as the document ID so the summary page can look it up directly
     await setDoc(doc(db, "songSummaries", date), {
         date,
         worshipLeader: worshipLeaderName,
@@ -674,15 +741,12 @@ async function saveSongSummaryToFirestore(date) {
     return `https://esherchurch.github.io/availability-form/song-summary.html?date=${date}`;
 }
 
-// ── ORIGINAL emailSchedule — only additions are: saveSongSummaryToFirestore call
-//    and the summary link appended at the bottom of the email body ──
 window.emailSchedule = async () => {
     const date = document.getElementById('serviceDate').value || "TBC";
     const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
 
-    // ── NEW: Save summary to Firestore and get the shareable URL ──
     const summaryUrl = await saveSongSummaryToFirestore(date);
 
     let htmlEmail = `
@@ -787,7 +851,6 @@ window.emailSchedule = async () => {
     htmlEmail += `</tbody></table><p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
     if (outroText) htmlEmail += `<div style="font-size: 14px; color: #444444; margin: 0; mso-line-height-rule: exactly; line-height: 16px;"><font color="#444444">${outroText.replace(/\n/g, '<br>')}</font></div>`;
 
-    // ── NEW: Song summary link at the bottom of the email ──
     htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p>
 <div style="border-top: 1px solid #d1dfdf; padding-top: 14px; margin-top: 4px;">
     <p style="font-size: 10.0pt; font-weight: 700; color: #3d6263; margin: 0 0 6px 0; mso-line-height-rule: exactly; line-height: 12.0pt;"><font color="#3d6263"><strong>Projection / Song Summary:</strong></font></p>
@@ -802,7 +865,6 @@ window.emailSchedule = async () => {
         await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
     } catch (e) { /* clipboard may fail silently */ }
 
-    // ── Build recipient list — original logic unchanged ──
     let recipients = [];
     addressBook.forEach(p => {
         const isCore = p.markers && p.markers.includes("Core Team");
@@ -811,7 +873,6 @@ window.emailSchedule = async () => {
     const teamTo = [...new Set(recipients)].join(",");
     const subject = encodeURIComponent("Sunday Worship Plan: " + date);
 
-    // ── NEW: Populate individual dropdown and show modal ──
     const modal = document.getElementById('emailModal');
     const individualSelect = document.getElementById('modalIndividualSelect');
     individualSelect.innerHTML = '<option value="">— Pick a person —</option>';
@@ -847,7 +908,7 @@ window.emailSchedule = async () => {
 
 <body class="p-4 md:p-12">
 
-<!-- ── NEW: Modal for choosing email recipient ── -->
+<!-- Email modal -->
 <div id="emailModal">
     <div id="emailModalBox">
         <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Worship Plan</h2>
@@ -863,6 +924,13 @@ window.emailSchedule = async () => {
         </div>
     </div>
 </div>
+
+<!-- Discrete help button — fixed bottom right -->
+<a id="helpBtn"
+   href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html"
+   target="_blank"
+   rel="noopener"
+   aria-label="Open instructions">?</a>
 
 <div class="max-w-[1200px] mx-auto space-y-10">
 
@@ -885,7 +953,7 @@ window.emailSchedule = async () => {
 
     <div class="space-y-2">
         <label class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#3d6263] opacity-60 ml-4">Opening Remarks / Call to Worship</label>
-        <textarea id="introBox" class="w-full styled-input !bg-white" placeholder="Write any opening instructions or liturgy here..." rows="1"></textarea>
+        <textarea id="introBox" class="w-full styled-input !bg-white" placeholder="This text appears at the start of the team email, just below the service notes..." rows="1"></textarea>
     </div>
 
     <div class="space-y-6">
@@ -897,7 +965,7 @@ window.emailSchedule = async () => {
                 <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">songs database viewer</a>
             </div>
         </div>
-        
+
         <div id="service-order" class="space-y-2"></div>
     </div>
 
@@ -919,7 +987,7 @@ window.emailSchedule = async () => {
 
     <div class="space-y-2">
         <label class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#3d6263] opacity-60 ml-4">Closing Remarks / Blessing</label>
-        <textarea id="outroBox" class="w-full styled-input !bg-white" placeholder="Closing prayers, blessings or final notices..." rows="1"></textarea>
+        <textarea id="outroBox" class="w-full styled-input !bg-white" placeholder="This text appears at the end of the team email, after the team rota..." rows="1"></textarea>
     </div>
 
     <div class="flex justify-center gap-6 pt-6 pb-12">
