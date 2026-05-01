@@ -368,18 +368,69 @@ function updateCatDropdowns(){['adminCategory','editCategory'].forEach(id=>{cons
 
 // FILE PICKER
 function openFilePicker(){
-  const opts={sdk:'8.0',entry:{sharePoint:{byPath:{web:SP_SITE,list:'/sites/EGBCWorshipandAV/KnowledgeBaseMedia'}}},authentication:{},messaging:{origin:window.location.origin,channelId:'27'},typesAndSources:{mode:'files',pivots:{oneDrive:false,recent:false}}};
-  const url=`${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
-  const pop=window.open(url,'picker','width=800,height=600,left='+(screen.width-800)/2+',top='+(screen.height-600)/2);
-  window.addEventListener('message',function h(e){
-    if(!e.data||!e.data.type)return;
-    if(e.data.type==='pickerResult'){
-      const f=e.data.items?.[0];
-      if(f){document.getElementById('adminContentURL').value=`${SP_SITE}/_layouts/15/embed.aspx?UniqueId=${f.id}`;if(!document.getElementById('adminTitle').value)document.getElementById('adminTitle').value=f.name.replace(/\.[^/.]+$/,'');}
-      pop.close();window.removeEventListener('message',h);
+  const channelId = '27';
+  const opts = {
+    sdk: '8.0',
+    entry: { sharePoint: { byPath: { web: SP_SITE, list: '/sites/EGBCWorshipandAV/KnowledgeBaseMedia' } } },
+    authentication: {},
+    messaging: { origin: window.location.origin, channelId: channelId },
+    typesAndSources: { mode: 'files', pivots: { oneDrive: false, recent: false } },
+    selection: { mode: 'single' }
+  };
+  const pickerUrl = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
+  const pop = window.open(pickerUrl, 'picker', `width=800,height=600,left=${Math.round((screen.width-800)/2)},top=${Math.round((screen.height-600)/2)}`);
+
+  const handler = async (e) => {
+    if (!e.source || e.source !== pop) return;
+    const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+    if (!msg || !msg.type) return;
+
+    // Picker is ready — send init
+    if (msg.type === 'initialize') {
+      pop.postMessage({ type: 'activate' }, SP_SITE);
+      return;
     }
-    if(e.data.type==='pickerCancel'){pop.close();window.removeEventListener('message',h);}
-  });
+
+    // User clicked Select
+    if (msg.type === 'submit') {
+      const items = msg.items || [];
+      if (items.length > 0) {
+        const item = items[0];
+        // Build embed URL from the item's sharePoint fields
+        const uniqueId = item.sharePoint?.uniqueId || item.id || '';
+        const embedUrl = uniqueId
+          ? `${SP_SITE}/_layouts/15/embed.aspx?UniqueId=${uniqueId}`
+          : (item.webUrl || item.webDavUrl || '');
+        document.getElementById('adminContentURL').value = embedUrl;
+        if (!document.getElementById('adminTitle').value) {
+          document.getElementById('adminTitle').value = (item.name || '').replace(/\.[^/.]+$/, '');
+        }
+      }
+      pop.postMessage({ type: 'close' }, SP_SITE);
+      pop.close();
+      window.removeEventListener('message', handler);
+      return;
+    }
+
+    // User cancelled
+    if (msg.type === 'cancel' || msg.type === 'close') {
+      pop.close();
+      window.removeEventListener('message', handler);
+      return;
+    }
+
+    // Picker requesting a new page — relay it
+    if (msg.type === 'page-load' || msg.type === 'navigate') {
+      pop.postMessage({ type: 'ack', id: msg.id }, SP_SITE);
+    }
+  };
+
+  window.addEventListener('message', handler);
+
+  // Fallback: if popup closes without selecting, clean up listener
+  const pollClosed = setInterval(() => {
+    if (pop.closed) { clearInterval(pollClosed); window.removeEventListener('message', handler); }
+  }, 500);
 }
 
 // PUBLISH
