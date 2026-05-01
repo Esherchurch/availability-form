@@ -37,10 +37,29 @@ button { margin: 2px; }
 .conf-medium { color:orange; font-weight:bold; }
 .conf-low { color:red; font-weight:bold; }
 /* ================= */
+
+/* Instructions button */
+.instructions-btn {
+  position: fixed;
+  top: 15px;
+  right: 20px;
+  background: #4a90d9;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  z-index: 9999;
+}
+.instructions-btn:hover { background: #357abd; }
 </style>
 </head>
 
 <body>
+
+<a class="instructions-btn" href="https://esherchurch.github.io/availability-form/uploaderinstructions.html" target="_blank">📖 Instructions</a>
 
 <h2>Batch Music Importer</h2>
 
@@ -122,7 +141,7 @@ function detectKey(name){
             return k;
         }
     }
-    
+
     // Fallback: If no standalone word found, just check if the string exists anywhere
     for (let k of searchOrder) {
         if (lower.includes(k.toLowerCase())) {
