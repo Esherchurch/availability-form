@@ -396,9 +396,20 @@ function updateCatDropdowns(){['adminCategory','editCategory'].forEach(id=>{cons
 
 // FILE PICKER
 function openFilePicker(){
-  document.getElementById('filePickerOverlay').classList.remove('hidden');
-  const iframe = document.getElementById('filePickerFrame');
   const spOrigin = new URL(SP_SITE).origin;
+  const opts = {
+    sdk: '8.0',
+    entry: { sharePoint: { byPath: { web: SP_SITE, list: '/sites/EGBCWorshipandAV/KnowledgeBaseMedia' } } },
+    authentication: {},
+    messaging: { origin: window.location.origin, channelId: 'egbcpicker' },
+    typesAndSources: { mode: 'files', pivots: { oneDrive: false, recent: false } },
+    selection: { mode: 'single' }
+  };
+  const popUrl = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
+  const popup = window.open(popUrl, 'FilePicker', `width=900,height=600,left=${Math.round((screen.width-900)/2)},top=${Math.round((screen.height-600)/2)}`);
+  if(!popup){ alert('Popup was blocked — please allow popups for this site and try again.'); return; }
+  const spOrigin2 = spOrigin;
+  const iframe = { contentWindow: popup };
 
   const opts = {
     sdk: '8.0',
@@ -422,14 +433,14 @@ function openFilePicker(){
 
     // Picker is ready — activate it
     if (msg.type === 'initialize') {
-      iframe.contentWindow.postMessage(JSON.stringify({ type: 'activate' }), spOrigin);
+      popup.postMessage(JSON.stringify({ type: 'activate' }), spOrigin2);
       return;
     }
 
     // User selected a file
     if (msg.type === 'submit') {
       const items = msg.items || [];
-      closeFilePicker();
+      closeFilePicker(popup);
       window.removeEventListener('message', handler);
 
       if (items.length > 0) {
@@ -457,24 +468,26 @@ function openFilePicker(){
 
     // Picker navigation — acknowledge
     if (msg.type === 'page-load' || msg.type === 'navigate') {
-      try { iframe.contentWindow.postMessage(JSON.stringify({ type: 'ack', id: msg.id }), spOrigin); } catch(e){}
+      try { popup.postMessage(JSON.stringify({ type: 'ack', id: msg.id }), spOrigin2); } catch(e){}
       return;
     }
 
     // User cancelled
     if (msg.type === 'cancel' || msg.type === 'close') {
-      closeFilePicker();
+      closeFilePicker(popup);
       window.removeEventListener('message', handler);
     }
   };
 
   window.addEventListener('message', handler);
   window._pickerHandler = handler;
+
+  // Clean up if popup is closed manually
+  const poll = setInterval(()=>{ if(popup.closed){ clearInterval(poll); closeFilePicker(); } }, 500);
 }
 
-function closeFilePicker(){
-  document.getElementById('filePickerOverlay').classList.add('hidden');
-  document.getElementById('filePickerFrame').src = 'about:blank';
+function closeFilePicker(popup){
+  if(popup && !popup.closed) try{ popup.close(); }catch(e){}
   if (window._pickerHandler) {
     window.removeEventListener('message', window._pickerHandler);
     window._pickerHandler = null;
@@ -487,6 +500,7 @@ async function autoFillFromUniqueId(uniqueId){
   let serverRelUrl = '';
 
   // Step 1: File properties — title, tags, transcript URI
+  console.log('KB: Fetching file props for', uniqueId);
   try {
     const fileRes = await fetch(
       `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords,ServerRelativeUrl,StreamMedia_TranscriptUri,OData__MediaTranscriptUri`,
@@ -515,39 +529,43 @@ async function autoFillFromUniqueId(uniqueId){
     }
   } catch(e){}
 
-  // Step 2: v2.1 API with site ID
+  // Step 2: Stream transcript API with explicit credentials
+  console.log('KB: Step 1 result:', transcript ? 'FOUND' : 'not found. serverRelUrl='+serverRelUrl);
   if(!transcript){
     try{
-      const siteRes = await fetch(`${SP_SITE}/_api/site?$select=Id`, { headers: { 'Accept': 'application/json;odata=nometadata' } });
-      if(siteRes.ok){
-        const { Id: siteId } = await siteRes.json();
-        const v21Res = await fetch(`${SP_SITE}/_api/v2.1/sites/${siteId}/items/${uniqueId}/media/transcripts`, { headers: { 'Accept': 'application/json' } });
-        if(v21Res.ok){
-          const { value: items = [] } = await v21Res.json();
-          if(items.length){
-            const tUrl = items[0].transcriptContentUrl || items[0]['@microsoft.graph.downloadUrl'];
-            if(tUrl){ const vr = await fetch(tUrl); if(vr.ok) transcript = parseVTT(await vr.text()); }
-          }
+      const r = await fetch(`${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,
+        { headers: { 'Accept': 'application/json' }, credentials: 'include' });
+      console.log('KB: v2.1 transcript status:', r.status);
+      if(r.ok){
+        const data = await r.json();
+        const items = data?.value || [];
+        if(items.length){
+          const tUrl = items[0].transcriptContentUrl || items[0]['@microsoft.graph.downloadUrl'];
+          if(tUrl){ const vr = await fetch(tUrl, {credentials:'include'}); if(vr.ok) transcript = parseVTT(await vr.text()); }
         }
       }
-    } catch(e){}
+    } catch(e){ console.log('KB: Step 2 error:', e.message); }
   }
 
-  // Step 3: SP Search
+  // Step 3: Try basic file fetch with credentials to test session
+  console.log('KB: Step 2 result:', transcript ? 'FOUND' : 'not found');
   if(!transcript){
     try{
-      const sr = await fetch(`${SP_SITE}/_api/search/query?querytext='UniqueId:${uniqueId}'&selectproperties='TranscriptContent'&rowlimit=1`, { headers: { 'Accept': 'application/json;odata=nometadata' } });
-      if(sr.ok){
-        const sd = await sr.json();
-        const rows = sd?.PrimaryQueryResult?.RelevantResults?.Table?.Rows || [];
-        if(rows.length){
-          const cell = (rows[0].Cells||[]).find(c=>c.Key==='TranscriptContent');
-          if(cell?.Value) transcript = cell.Value;
+      const fr = await fetch(`${SP_SITE}/_api/web/GetFileById('${uniqueId}')?$select=Name,ServerRelativeUrl`,
+        { headers: { 'Accept': 'application/json;odata=nometadata' }, credentials: 'include' });
+      console.log('KB: Basic file fetch status:', fr.status);
+      if(fr.ok){
+        const fd = await fr.json();
+        console.log('KB: File found:', fd.Name, '| ServerRelUrl:', fd.ServerRelativeUrl);
+        serverRelUrl = fd.ServerRelativeUrl || serverRelUrl;
+        if(!document.getElementById('adminTitle').value && fd.Name){
+          document.getElementById('adminTitle').value = fd.Name.replace(/\.[^/.]+$/,'');
         }
       }
-    } catch(e){}
+    } catch(e){ console.log('KB: Step 3 error:', e.message); }
   }
 
+  console.log('KB: Step 3 transcript result:', transcript ? 'FOUND' : 'not found');
   // Step 4: Direct .vtt file
   if(!transcript && serverRelUrl){
     try{
@@ -562,6 +580,7 @@ async function autoFillFromUniqueId(uniqueId){
     } catch(e){}
   }
 
+  console.log('KB: Final transcript result:', transcript ? 'FOUND ('+transcript.length+' chars)' : 'NOT FOUND');
   // Show result
   if(transcript){
     document.getElementById('adminTranscript').value = transcript;
@@ -740,6 +759,7 @@ async function _transcriptFetchStub(){
     } catch(e){ /* non-critical */ }
   }
 
+  console.log('KB: Final transcript result:', transcript ? 'FOUND ('+transcript.length+' chars)' : 'NOT FOUND');
   // Show result
   if(transcript){
     document.getElementById('adminTranscript').value = transcript;
