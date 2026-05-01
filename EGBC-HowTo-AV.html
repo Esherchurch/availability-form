@@ -93,32 +93,52 @@
         <div class="grid md:grid-cols-2 gap-6">
           <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
             <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Item</h3>
-            <input id="adminTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-            <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
-              <option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option><option value="VideoClip">Video Clip</option>
-            </select>
-            <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
-              <option value="">No category</option>
-            </select>
-            <div class="space-y-1">
-              <textarea id="adminContentURL" rows="3" placeholder="Paste the embed code from Stream here…&#10;(Share → Embed → copy the full iframe code)" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" oninput="extractEmbedURL(this)"></textarea>
-              <div id="urlPreview" class="hidden text-[11px] text-green-700 font-bold px-2">✓ URL extracted</div>
+
+            <!-- STEP 1: Paste embed code — everything else auto-fills -->
+            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-2">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Paste embed code from Stream</div>
+              <textarea id="adminContentURL" rows="3" placeholder="In Stream: open video → Share → Embed → copy all the code and paste here" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)"></textarea>
+              <div id="pasteStatus" class="hidden text-[11px] font-black px-1"></div>
             </div>
-            <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-            <textarea id="adminTranscript" rows="3" placeholder="Paste transcript from Stream (with timestamps)..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
-            <div class="flex gap-3">
-              <button onclick="generateBullets()" class="flex-1 bg-white border border-[#d1dfdf] py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">✨ Generate Bullets</button>
-              <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+
+            <!-- STEP 2: Auto-filled fields (shown after paste) -->
+            <div id="autoFilledSection" class="hidden space-y-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60 pt-1">Step 2 — Review &amp; complete</div>
+              <div class="relative">
+                <input id="adminTitle" type="text" placeholder="Title (auto-filled)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+                <div id="titleLoader" class="hidden absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+              </div>
+              <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+                <option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option><option value="VideoClip">Video Clip</option>
+              </select>
+              <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+                <option value="">No category</option>
+              </select>
+              <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+
+              <!-- Transcript status -->
+              <div id="transcriptStatus" class="bg-white rounded-xl border border-[#d1dfdf] px-5 py-3 text-[12px] font-semibold opacity-60">
+                Fetching transcript from Stream...
+              </div>
+              <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+
+              <div class="flex gap-3 pt-1">
+                <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+                <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
+              </div>
             </div>
           </div>
+
+          <!-- RIGHT: Bullets preview -->
           <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">How-To Bullets Preview</h3>
-            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste a transcript and click Generate Bullets...</div>
-            <div id="bulletsGenerating" class="hidden items-center gap-3 mt-4">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">Auto-Generated How-To Bullets</h3>
+            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste your embed code — bullets will generate automatically once the transcript loads.</div>
+            <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4">
               <div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
-              <span class="text-[11px] font-bold uppercase opacity-60">Generating...</span>
+              <span class="text-[11px] font-bold uppercase opacity-60">Generating bullets with AI...</span>
             </div>
-            <textarea id="adminBullets" rows="10" class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <textarea id="adminBullets" rows="12" placeholder="Bullets will appear here for review..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <button id="regenBtn" onclick="generateBullets()" class="hidden mt-3 w-full bg-white border border-[#d1dfdf] py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">↺ Regenerate Bullets</button>
           </div>
         </div>
       </div>
@@ -432,64 +452,192 @@ function closeFilePicker(){
   }
 }
 
-// EXTRACT EMBED URL FROM IFRAME PASTE
-function extractEmbedURL(el){
+// ── EMBED PASTE HANDLER — full auto-fill chain ───────────────────────────────
+async function handleEmbedPaste(el){
   const val = el.value.trim();
   if(!val) return;
-  // If it looks like an iframe, extract the src
+
+  // Extract src URL from iframe code or use raw URL
   const srcMatch = val.match(/src=["']([^"']+)["']/);
-  if(srcMatch){
-    window._extractedURL = srcMatch[1];
-    document.getElementById('urlPreview').textContent = '✓ URL extracted: ' + srcMatch[1].substring(0,60) + '...';
-    document.getElementById('urlPreview').classList.remove('hidden');
-    // Try to extract title from title attribute
-    if(!document.getElementById('adminTitle').value){
-      const titleMatch = val.match(/title=["']([^"']+)["']/);
-      if(titleMatch) document.getElementById('adminTitle').value = titleMatch[1].replace(/\.[^/.]+$/,'');
-    }
-  } else if(val.startsWith('http')) {
-    // It's already a URL
-    window._extractedURL = val;
-    document.getElementById('urlPreview').textContent = '✓ URL ready';
-    document.getElementById('urlPreview').classList.remove('hidden');
-  } else {
-    window._extractedURL = null;
-    document.getElementById('urlPreview').classList.add('hidden');
+  const embedURL = srcMatch ? srcMatch[1] : (val.startsWith('http') ? val : null);
+  if(!embedURL){ setStatus('pasteStatus','✗ Could not read URL — paste the full embed code from Stream','text-red-500'); return; }
+
+  window._extractedURL = embedURL;
+
+  // Extract UniqueId from the URL
+  const uidMatch = embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
+  const uniqueId = uidMatch ? uidMatch[1] : null;
+
+  // Show auto-filled section
+  document.getElementById('autoFilledSection').classList.remove('hidden');
+  setStatus('pasteStatus','✓ Embed code recognised — fetching details...','text-green-700 font-black');
+
+  // Auto-fill title from iframe title attribute
+  const titleMatch = val.match(/title=["']([^"']+)["']/);
+  if(titleMatch && !document.getElementById('adminTitle').value){
+    document.getElementById('adminTitle').value = titleMatch[1].replace(/\.[^/.]+$/,'');
   }
+
+  if(!uniqueId){
+    setStatus('transcriptStatus','Could not extract video ID — please paste the transcript manually.','');
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    return;
+  }
+
+  // Fetch transcript from SharePoint/Stream API
+  setStatus('transcriptStatus','⏳ Fetching transcript from Stream...','text-amber-600');
+  try {
+    // Try Stream transcript API
+    const transcriptRes = await fetch(
+      `${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    let transcript = '';
+
+    if(transcriptRes.ok){
+      const tdata = await transcriptRes.json();
+      const transcriptUrl = tdata?.value?.[0]?.transcriptContentUrl;
+      if(transcriptUrl){
+        const vttRes = await fetch(transcriptUrl);
+        if(vttRes.ok){
+          const vttText = await vttRes.text();
+          transcript = parseVTT(vttText);
+        }
+      }
+    }
+
+    // Fetch file properties — title, name, tags/keywords
+    try {
+      const fileRes = await fetch(
+        `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords`,
+        { headers: { 'Accept': 'application/json;odata=nometadata' } }
+      );
+      if(fileRes.ok){
+        const fdata = await fileRes.json();
+        // Auto-fill title if not already set
+        const name = fdata.FileLeafRef || fdata.Title || '';
+        if(name && !document.getElementById('adminTitle').value){
+          document.getElementById('adminTitle').value = name.replace(/\.[^/.]+$/,'');
+        }
+        // Auto-fill tags from SharePoint managed metadata keywords
+        if(!document.getElementById('adminTags').value){
+          let tags = [];
+          // Try TaxKeyword (managed metadata)
+          if(fdata.TaxKeyword && fdata.TaxKeyword.results){
+            tags = fdata.TaxKeyword.results.map(k => k.Label || k.TermGuid).filter(Boolean);
+          }
+          // Try Keywords (simple text keywords)
+          if(!tags.length && fdata.Keywords){
+            tags = fdata.Keywords.split(/[,;]+/).map(t=>t.trim()).filter(Boolean);
+          }
+          if(tags.length){
+            document.getElementById('adminTags').value = tags.join(', ');
+          }
+        }
+      }
+    } catch(tagErr) {
+      // Tags fetch failed silently — not critical
+    }
+
+    if(!transcript){
+      // transcript already handled above
+    }
+
+    if(transcript){
+      document.getElementById('adminTranscript').value = transcript;
+      document.getElementById('adminTranscript').classList.remove('hidden');
+      document.getElementById('transcriptStatus').classList.add('hidden');
+      setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
+      // Auto-generate bullets
+      await generateBullets();
+      setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+    } else {
+      setStatus('transcriptStatus','Transcript not available yet — you can paste it manually below, or publish without it.','text-amber-600 font-semibold');
+      document.getElementById('transcriptStatus').classList.remove('hidden');
+      document.getElementById('adminTranscript').classList.remove('hidden');
+    }
+  } catch(err) {
+    setStatus('transcriptStatus','Could not fetch transcript automatically — paste it manually if needed.','text-amber-600 font-semibold');
+    document.getElementById('adminTranscript').classList.remove('hidden');
+  }
+}
+
+// Parse WebVTT transcript to plain text with timestamps
+function parseVTT(vtt){
+  const lines = vtt.split('\n');
+  const result = [];
+  let timestamp = '';
+  lines.forEach(line => {
+    line = line.trim();
+    if(line.includes(' --> ')){
+      const ts = line.split(' --> ')[0].trim();
+      // Convert HH:MM:SS.mmm to [HH:MM:SS]
+      timestamp = '[' + ts.substring(0,8) + ']';
+    } else if(line && !line.match(/^\d+$/) && !line.startsWith('WEBVTT') && !line.startsWith('NOTE')){
+      if(timestamp){ result.push(timestamp + ' ' + line); timestamp = ''; }
+      else { result.push(line); }
+    }
+  });
+  return result.join('\n');
+}
+
+function setStatus(id, msg, cls){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg;
+  el.className = cls + ' text-[11px] px-1 mt-1';
+  el.classList.remove('hidden');
+}
+
+function resetAdminForm(){
+  ['adminTitle','adminContentURL','adminTags','adminTranscript'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('adminCategory').value='';
+  document.getElementById('autoFilledSection').classList.add('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  document.getElementById('bulletsPreview').classList.remove('hidden');
+  document.getElementById('bulletsPreview').textContent='Paste your embed code — bullets will generate automatically once the transcript loads.';
+  setStatus('pasteStatus','','');
+  window._extractedURL = null;
 }
 
 // PUBLISH
 async function publishAsset(){
   const title=document.getElementById('adminTitle').value.trim();
   const url=window._extractedURL || document.getElementById('adminContentURL').value.trim();
-  if(!title||!url){alert('Title and file are required.');return;}
+  if(!title||!url){alert('Please paste an embed code first — title and URL are required.');return;}
   const payload={Title:title,AssetType:document.getElementById('adminAssetType').value,ContentURL:url,Category:document.getElementById('adminCategory').value,Tags:document.getElementById('adminTags').value.trim(),Transcript:document.getElementById('adminTranscript').value.trim(),HowToBullets:document.getElementById('adminBullets').value.trim(),Published:true,'__metadata':{'type':LIST_TYPE}};
   try{
     const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
     const dd=await dr.json();
     await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue},body:JSON.stringify(payload)});
-    alert('Published!');
-    ['adminTitle','adminContentURL','adminTags','adminTranscript'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('adminCategory').value='';
-    document.getElementById('adminBullets').classList.add('hidden');
-    document.getElementById('bulletsPreview').classList.remove('hidden');
-    document.getElementById('bulletsPreview').textContent='Paste a transcript and click Generate Bullets...';
+    alert('Published successfully!');
+    resetAdminForm();
     loadAssets();
   }catch(e){alert('Publish failed: '+e.message);}
 }
 
 // GENERATE BULLETS
 async function generateBullets(){
-  const t=document.getElementById('adminTranscript').value.trim();if(!t){alert('Paste a transcript first.');return;}
+  const t=document.getElementById('adminTranscript').value.trim();
+  if(!t){ document.getElementById('bulletsPreview').textContent='No transcript available — add one manually then regenerate.'; return; }
   document.getElementById('bulletsPreview').classList.add('hidden');
   document.getElementById('bulletsGenerating').classList.remove('hidden');
   document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Generate clear AV how-to bullet points from a transcript. Return only bullet points starting with •, one per line. No preamble.',messages:[{role:'user',content:`Transcript:\n\n${t}`}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Generate clear AV how-to guide bullet points from a transcript. Return only bullet points starting with •, one per line. No preamble.',messages:[{role:'user',content:`Transcript:
+
+${t}`}]})});
     const data=await res.json();
-    document.getElementById('adminBullets').value=data.content?.map(c=>c.text||'').join('')||'';
+    const bullets=data.content?.map(c=>c.text||'').join('')||'';
+    document.getElementById('adminBullets').value=bullets;
     document.getElementById('adminBullets').classList.remove('hidden');
-  }catch{alert('Could not generate bullets.');}
+    document.getElementById('regenBtn').classList.remove('hidden');
+  }catch{ document.getElementById('bulletsPreview').classList.remove('hidden'); document.getElementById('bulletsPreview').textContent='Could not generate bullets — check AI connection.'; }
   document.getElementById('bulletsGenerating').classList.add('hidden');
 }
 
