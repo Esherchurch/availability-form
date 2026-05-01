@@ -368,7 +368,9 @@ function updateCatDropdowns(){['adminCategory','editCategory'].forEach(id=>{cons
 
 // FILE PICKER
 function openFilePicker(){
-  const channelId = '27';
+  // Show the inline iframe picker overlay
+  document.getElementById('filePickerOverlay').classList.remove('hidden');
+  const channelId = 'picker1';
   const opts = {
     sdk: '8.0',
     entry: { sharePoint: { byPath: { web: SP_SITE, list: '/sites/EGBCWorshipandAV/KnowledgeBaseMedia' } } },
@@ -378,59 +380,56 @@ function openFilePicker(){
     selection: { mode: 'single' }
   };
   const pickerUrl = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
-  const pop = window.open(pickerUrl, 'picker', `width=800,height=600,left=${Math.round((screen.width-800)/2)},top=${Math.round((screen.height-600)/2)}`);
+  const iframe = document.getElementById('filePickerFrame');
+  iframe.src = pickerUrl;
 
-  const handler = async (e) => {
-    if (!e.source || e.source !== pop) return;
-    const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+  const handler = (e) => {
+    if (e.origin !== new URL(SP_SITE).origin) return;
+    let msg;
+    try { msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
     if (!msg || !msg.type) return;
 
-    // Picker is ready — send init
     if (msg.type === 'initialize') {
-      pop.postMessage({ type: 'activate' }, SP_SITE);
+      iframe.contentWindow.postMessage({ type: 'activate' }, e.origin);
       return;
     }
 
-    // User clicked Select
     if (msg.type === 'submit') {
       const items = msg.items || [];
       if (items.length > 0) {
         const item = items[0];
-        // Build embed URL from the item's sharePoint fields
         const uniqueId = item.sharePoint?.uniqueId || item.id || '';
         const embedUrl = uniqueId
           ? `${SP_SITE}/_layouts/15/embed.aspx?UniqueId=${uniqueId}`
-          : (item.webUrl || item.webDavUrl || '');
+          : (item.webUrl || '');
         document.getElementById('adminContentURL').value = embedUrl;
         if (!document.getElementById('adminTitle').value) {
           document.getElementById('adminTitle').value = (item.name || '').replace(/\.[^/.]+$/, '');
         }
       }
-      pop.postMessage({ type: 'close' }, SP_SITE);
-      pop.close();
+      closeFilePicker();
       window.removeEventListener('message', handler);
       return;
     }
 
-    // User cancelled
     if (msg.type === 'cancel' || msg.type === 'close') {
-      pop.close();
+      closeFilePicker();
       window.removeEventListener('message', handler);
       return;
-    }
-
-    // Picker requesting a new page — relay it
-    if (msg.type === 'page-load' || msg.type === 'navigate') {
-      pop.postMessage({ type: 'ack', id: msg.id }, SP_SITE);
     }
   };
 
   window.addEventListener('message', handler);
+  window._pickerHandler = handler;
+}
 
-  // Fallback: if popup closes without selecting, clean up listener
-  const pollClosed = setInterval(() => {
-    if (pop.closed) { clearInterval(pollClosed); window.removeEventListener('message', handler); }
-  }, 500);
+function closeFilePicker(){
+  document.getElementById('filePickerOverlay').classList.add('hidden');
+  document.getElementById('filePickerFrame').src = '';
+  if (window._pickerHandler) {
+    window.removeEventListener('message', window._pickerHandler);
+    window._pickerHandler = null;
+  }
 }
 
 // PUBLISH
