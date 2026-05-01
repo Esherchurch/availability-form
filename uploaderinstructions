@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Batch Music Importer — How to Use | Worship & AV Hub</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; background: #3d6263; font-family: 'Segoe UI', Arial, sans-serif; }
+
+  .site-header {
+    height: 90px; background: #ffffff; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #d1dfdf;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .tut-outer { background: #3d6263; padding: 32px 24px 48px; min-height: calc(100vh - 90px); }
+
+  .tut-inner {
+    background: #ffffff; border-radius: 14px; padding: 28px;
+    max-width: 720px; margin: 0 auto;
+  }
+
+  .tut-heading { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: #3d6263; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tut-subheading { margin: 0 0 22px; font-size: 13px; color: #7a9a9a; }
+
+  .progress-bar-bg { height: 5px; background: #d1dfdf; border-radius: 3px; margin-bottom: 1.5rem; }
+  .progress-bar-fill { height: 5px; background: #3d6263; border-radius: 3px; transition: width 0.35s ease; }
+
+  .step-badge {
+    display: inline-block; font-size: 12px; color: #3d6263;
+    background: #e6f0f0; border-radius: 20px; padding: 3px 11px; margin-bottom: 10px;
+  }
+  .step-title { font-size: 19px; font-weight: 700; color: #1a2e2e; margin: 0 0 8px; }
+  .step-desc { font-size: 15px; color: #4a6060; line-height: 1.75; margin: 0 0 1.25rem; }
+
+  .sim-area { border: 1px solid #d1dfdf; border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem; background: #fff; }
+  .sim-topbar { background: #f4f8f8; border-bottom: 1px solid #d1dfdf; padding: 10px 16px; font-size: 14px; font-weight: 700; color: #3d6263; }
+  .sim-body { padding: 16px; }
+
+  .highlight { outline: 2.5px solid #3d6263; border-radius: 6px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{ outline-color:#3d6263; } 50%{ outline-color:#7aa8a9; } }
+
+  .dropzone-sim {
+    border: 3px dashed #b0c8c8; border-radius: 10px; padding: 22px;
+    text-align: center; font-size: 14px; color: #7a9a9a; background: #f4f8f8;
+  }
+  .dropzone-sim.hl { border-color: #3d6263; background: #e6f0f0; color: #3d6263; }
+
+  .upload-btn-sim {
+    background: #f4f8f8; border: 1px solid #b0c8c8; border-radius: 8px;
+    padding: 7px 18px; font-size: 13px; color: #3d6263; display: inline-block;
+  }
+
+  .table-sim { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .table-sim th {
+    background: #f4f8f8; padding: 7px 8px; text-align: left;
+    font-weight: 700; font-size: 11px; color: #7a9a9a; border-bottom: 1px solid #d1dfdf;
+  }
+  .table-sim td { padding: 7px 8px; border-bottom: 1px solid #eee; color: #1a2e2e; font-size: 12px; }
+
+  .status-new { background: #d4edda; }
+  .status-exists { background: #f8d7da; }
+  .status-review { background: #fff3cd; }
+  .status-skipped { background: #e0e0e0; }
+
+  .group-row-sim { background: #f4f8f8; font-weight: 700; font-size: 12px; padding: 6px 8px; color: #3d6263; }
+  .conf-high { color: #1a7a1a; font-weight: 700; }
+  .conf-medium { color: #b86000; font-weight: 700; }
+  .conf-low { color: #c0392b; font-weight: 700; }
+
+  .tip-box {
+    background: #e6f0f0; border: 1px solid #a0c0c0; border-radius: 8px;
+    padding: 11px 15px; font-size: 13px; color: #2e5050; margin-bottom: 1.25rem;
+    line-height: 1.6;
+  }
+  .tip-box::before { content: "💡 "; }
+
+  .method-card { border: 1px solid #d1dfdf; border-radius: 8px; padding: 13px 15px; margin-bottom: 10px; background: #f4f8f8; }
+  .method-card.hl { border-color: #3d6263; background: #e6f0f0; }
+  .method-title { font-size: 13px; font-weight: 700; color: #1a2e2e; margin: 0 0 5px; }
+  .method-desc { font-size: 13px; color: #4a6060; margin: 0; line-height: 1.55; }
+
+  .badge-green { background: #d4edda; color: #155724; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge-red { background: #f8d7da; color: #721c24; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge-yellow { background: #fff3cd; color: #856404; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge-grey { background: #e0e0e0; color: #444; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+
+  .select-sim {
+    font-size: 12px; border: 1px solid #b0c8c8; border-radius: 4px;
+    padding: 2px 5px; background: #fff; color: #1a2e2e;
+  }
+  .action-btn-sim {
+    font-size: 11px; border: 1px solid #b0c8c8; border-radius: 4px;
+    padding: 2px 7px; background: #f4f8f8; color: #3d6263;
+    cursor: default; margin: 1px; display: inline-block;
+  }
+
+  .nav-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .nav-btn {
+    background: #fff; border: 1px solid #b0c8c8; border-radius: 8px;
+    padding: 9px 22px; font-size: 14px; cursor: pointer; color: #3d6263;
+    font-family: 'Segoe UI', Arial, sans-serif; font-weight: 600;
+  }
+  .nav-btn:hover { background: #f4f8f8; }
+  .nav-btn.primary { background: #3d6263; border-color: #3d6263; color: #fff; }
+  .nav-btn.primary:hover { background: #2e4e4f; }
+  .step-counter { font-size: 13px; color: #7a9a9a; }
+
+  .finish-box { text-align: center; padding: 2rem 0; }
+  .finish-box h2 { font-size: 24px; font-weight: 700; color: #3d6263; margin: 0 0 10px; }
+  .finish-box p { color: #4a6060; font-size: 15px; line-height: 1.7; margin: 0 0 1.25rem; }
+</style>
+</head>
+<body>
+
+<div class="site-header">
+  <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300"
+       style="height: 75px; width: auto; margin-top: 8px;" alt="Church logo">
+  <div style="text-align: right; margin-top: 8px;">
+    <div style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; letter-spacing: 0.05em;">Secure Portal</div>
+    <div style="font-size: 12px; color: #3d6263; font-weight: 700;">Worship & AV Hub</div>
+  </div>
+</div>
+
+<div class="tut-outer">
+  <div class="tut-inner">
+    <p class="tut-heading">Batch Music Importer — How to use</p>
+    <p class="tut-subheading">Follow the steps below to learn how to upload music files to the library.</p>
+
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog" style="width:12%"></div></div>
+
+    <div id="step-content"></div>
+
+    <div class="nav-row">
+      <button class="nav-btn" id="btn-prev" onclick="changeStep(-1)">← Back</button>
+      <span class="step-counter" id="step-ctr">Step 1 of 8</span>
+      <button class="nav-btn primary" id="btn-next" onclick="changeStep(1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const steps = [
+  {
+    badge: "Step 1 of 8 — Introduction",
+    title: "What does this tool do?",
+    desc: "The Batch Music Importer lets you add lots of music files to your church's song library all at once — instead of doing them one by one.<br><br>You bring in your PDF files (things like chord sheets, lead sheets, or lyric sheets), the tool has a go at figuring out what song each file belongs to, and then you check everything looks right before saving it all.",
+    tip: "Don't worry — nothing gets saved until you press the Upload button at the very end. You can check everything first.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Batch Music Importer</div>
+        <div class="sim-body" style="text-align:center;padding:28px 16px">
+          <p style="font-size:32px;margin:0 0 10px">🎵</p>
+          <p style="font-size:14px;color:#4a6060;margin:0">Add many PDF music files to your library in one go</p>
+          <div style="display:flex;justify-content:center;gap:28px;margin-top:20px;flex-wrap:wrap">
+            <div style="font-size:12px;color:#4a6060;text-align:center"><div style="font-size:22px">📂</div>Add files</div>
+            <div style="font-size:12px;color:#4a6060;text-align:center"><div style="font-size:22px">🔍</div>Review matches</div>
+            <div style="font-size:12px;color:#4a6060;text-align:center"><div style="font-size:22px">✏️</div>Fix anything wrong</div>
+            <div style="font-size:12px;color:#4a6060;text-align:center"><div style="font-size:22px">☁️</div>Upload</div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    badge: "Step 2 of 8 — Adding your files",
+    title: "How to add your PDF files",
+    desc: "There are two ways to get your files into the tool. You can drag and drop, or click to browse. Both work slightly differently depending on whether you have individual files or a whole folder.",
+    tip: "Not sure which to use? If all your music files are in one folder on your computer, dragging the whole folder is the quickest option.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Two ways to add files</div>
+        <div class="sim-body">
+          <div class="method-card hl">
+            <p class="method-title">Option 1 — Drag and drop (works for folders AND individual files)</p>
+            <p class="method-desc">Open File Explorer (Windows) or Finder (Mac), find your music files or folder, then drag them onto the dashed box. You can drop a whole folder, several individual files, or a mix of both.</p>
+          </div>
+          <div class="method-card">
+            <p class="method-title">Option 2 — Click to browse (folders only)</p>
+            <p class="method-desc">Click the dashed box and a window opens letting you choose a folder from your computer. Note: this only lets you pick a folder — not individual files. Use drag and drop if you want to add single files.</p>
+          </div>
+          <div class="dropzone-sim hl highlight" style="margin-top:14px">Drag folder OR click to select</div>
+        </div>
+      </div>`
+  },
+  {
+    badge: "Step 3 of 8 — What happens next",
+    title: "The tool reads your files automatically",
+    desc: "Once you've added your files, the tool gets to work straight away. It reads each file name and tries to figure out:<br><br>• <strong>The song title</strong> — e.g. \"Amazing Grace\"<br>• <strong>The key</strong> — e.g. G, D, Bb<br>• <strong>The type</strong> — e.g. Chord Sheet, Lead Sheet, Lyrics<br>• <strong>Whether the song already exists</strong> in your library<br><br>All of this appears in a table for you to check.",
+    tip: "The tool makes its best guess — but it's not always right! That's why you check everything before uploading.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">What the tool detects from the file name</div>
+        <div class="sim-body">
+          <table class="table-sim">
+            <thead><tr><th>File name</th><th>Title detected</th><th>Key</th><th>Type</th></tr></thead>
+            <tbody>
+              <tr class="status-new">
+                <td>Amazing Grace G Chord Sheet.pdf</td><td>Amazing Grace</td><td>G</td><td>Chord Sheet</td>
+              </tr>
+              <tr class="status-new">
+                <td>How Great Is Our God D Lead Sheet.pdf</td><td>How Great Is Our God</td><td>D</td><td>Lead Sheet</td>
+              </tr>
+              <tr class="status-review">
+                <td>mysong.pdf</td><td>mysong</td>
+                <td style="color:#c0392b;font-weight:700">—</td>
+                <td style="color:#c0392b;font-weight:700">—</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">The last file has no key or type in the name — it will need fixing (shown in yellow)</p>
+        </div>
+      </div>`
+  },
+  {
+    badge: "Step 4 of 8 — Row colours",
+    title: "What do the colours mean?",
+    desc: "Each row in the table is coloured to tell you what state that file is in. Think of it like a traffic light system — you want everything to be green before you upload.",
+    tip: "You don't have to fix every yellow or red row. You can also choose to skip files you don't want to upload right now.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Colour guide</div>
+        <div class="sim-body">
+          <table class="table-sim">
+            <thead><tr><th>Colour</th><th>What it means</th><th>What to do</th></tr></thead>
+            <tbody>
+              <tr class="status-new">
+                <td><span class="badge-green">Green</span></td>
+                <td>Ready to go — everything looks correct</td>
+                <td>Nothing needed, it will upload fine</td>
+              </tr>
+              <tr class="status-review">
+                <td><span class="badge-yellow">Yellow</span></td>
+                <td>Something is missing — usually the key or type</td>
+                <td>Fill in the missing fields before uploading</td>
+              </tr>
+              <tr class="status-exists">
+                <td><span class="badge-red">Red</span></td>
+                <td>This file already exists in the library</td>
+                <td>Skip it, or use Force if you want to replace it</td>
+              </tr>
+              <tr class="status-skipped">
+                <td><span class="badge-grey">Grey</span></td>
+                <td>You've chosen to skip this file</td>
+                <td>It won't be uploaded — click Undo to bring it back</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`
+  },
+  {
+    badge: "Step 5 of 8 — Fixing a row",
+    title: "How to fix or change a row",
+    desc: "Each row has fields you can change. If the tool got something wrong — like the wrong key, or the wrong type — just click on that field and update it. The row colour will update automatically once everything is filled in correctly.",
+    tip: "Click the title field to type a corrected name. Use the dropdowns for key and type — they show a list of options to choose from.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Editing a row — click any field to change it</div>
+        <div class="sim-body" style="overflow-x:auto">
+          <table class="table-sim">
+            <thead><tr><th>File</th><th>Title</th><th>Key</th><th>Type</th><th>Matches to</th></tr></thead>
+            <tbody>
+              <tr class="status-review">
+                <td>mysong.pdf</td>
+                <td><input class="select-sim highlight" style="width:110px" value="My Song"></td>
+                <td>
+                  <select class="select-sim highlight">
+                    <option>— pick key —</option><option>G</option><option>D</option><option>A</option>
+                  </select>
+                </td>
+                <td>
+                  <select class="select-sim">
+                    <option>Chord Sheet</option><option>Lead Sheet</option><option>Lyrics</option>
+                  </select>
+                </td>
+                <td>
+                  <select class="select-sim">
+                    <option>— New Song —</option><option>My Song</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">The highlighted fields need filling in. Once both have a value, the row turns green.</p>
+        </div>
+      </div>`
+  },
+  {
+    badge: "Step 6 of 8 — Song matching",
+    title: "Matching files to existing songs",
+    desc: "The \"Matches to\" column links your file to a song already in the library. The tool tries to find the right one automatically and gives it a confidence score.<br><br><strong>High (green)</strong> — very likely correct, no action needed<br><strong>Medium (orange)</strong> — worth a quick check<br><strong>Low (red)</strong> — probably wrong, please check manually<br><br>If the match is wrong, just click the dropdown and pick the correct song — or leave it as \"New Song\" if it's a brand new addition.",
+    tip: "If you see a low confidence score, click the dropdown and double-check the song name matches what you expect.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Confidence scores explained</div>
+        <div class="sim-body" style="overflow-x:auto">
+          <table class="table-sim">
+            <thead><tr><th>File</th><th>Matches to</th><th>Confidence</th><th>What to do</th></tr></thead>
+            <tbody>
+              <tr class="status-new">
+                <td>Amazing Grace G.pdf</td>
+                <td><select class="select-sim"><option>Amazing Grace</option></select></td>
+                <td class="conf-high">High</td>
+                <td style="font-size:11px;color:#7a9a9a">Looks good, leave it</td>
+              </tr>
+              <tr class="status-new">
+                <td>Great Is Thy D.pdf</td>
+                <td><select class="select-sim"><option>Great Is Thy Faithfulness</option></select></td>
+                <td class="conf-medium">Medium</td>
+                <td style="font-size:11px;color:#7a9a9a">Worth a quick check</td>
+              </tr>
+              <tr class="status-review">
+                <td>misc worship.pdf</td>
+                <td><select class="select-sim"><option>— New Song —</option></select></td>
+                <td class="conf-low">Low</td>
+                <td style="font-size:11px;color:#7a9a9a">Check and pick manually</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`
+  },
+  {
+    badge: "Step 7 of 8 — Helpful extras",
+    title: "YouTube, CCLI, groups and skipping",
+    desc: "A few more things you might need:<br><br><strong>YouTube & CCLI</strong> — you can add links here. The tool has buttons to open a YouTube or CCLI search in a new tab so you can find the right link and paste it in.<br><br><strong>Apply to group</strong> — if you have the same song in multiple keys, use these buttons to copy the title, match, YouTube, or CCLI across all of them at once.<br><br><strong>Skip</strong> — click this to leave a file out of the upload. Click Undo to bring it back.<br><br><strong>Force</strong> — only needed if a file already exists (red row) and you want to replace it anyway.",
+    tip: "The Apply buttons are a real time-saver. Set the match on one row, then click Apply Match to fill the same song across the whole group.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Group controls, YouTube & CCLI</div>
+        <div class="sim-body" style="overflow-x:auto">
+          <table class="table-sim">
+            <tbody>
+              <tr>
+                <td colspan="6" class="group-row-sim highlight">
+                  amazing grace &nbsp;
+                  <span class="action-btn-sim">Apply Title</span>
+                  <span class="action-btn-sim">Apply Match</span>
+                  <span class="action-btn-sim">Apply YouTube</span>
+                  <span class="action-btn-sim">Apply CCLI</span>
+                </td>
+              </tr>
+              <tr class="status-new">
+                <td>Amazing Grace G.pdf</td>
+                <td><input class="select-sim" style="width:70px" value="https://youtu.be/..."></td>
+                <td><input class="select-sim" style="width:55px" value="12345"></td>
+                <td><span class="action-btn-sim">Find YouTube</span><span class="action-btn-sim">Search CCLI</span></td>
+                <td><span class="action-btn-sim">Skip</span></td>
+                <td><span class="action-btn-sim">Force</span></td>
+              </tr>
+              <tr class="status-new">
+                <td>Amazing Grace D.pdf</td>
+                <td><input class="select-sim" style="width:70px" value=""></td>
+                <td><input class="select-sim" style="width:55px" value=""></td>
+                <td><span class="action-btn-sim">Find YouTube</span><span class="action-btn-sim">Search CCLI</span></td>
+                <td><span class="action-btn-sim">Skip</span></td>
+                <td><span class="action-btn-sim">Force</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">Click "Apply YouTube" to copy the link from the first row to all rows in the group</p>
+        </div>
+      </div>`
+  },
+  {
+    badge: "Step 8 of 8 — Uploading",
+    title: "When you're ready — press Upload",
+    desc: "Once you're happy with everything, press the <strong>Upload</strong> button at the top of the page. A message will pop up asking you to confirm — click OK to go ahead.<br><br>The tool will automatically skip any red (already exists) or grey (skipped) rows. If there are any yellow rows still unfixed, it will stop and tell you which file needs attention.<br><br>When it's done, you'll see an \"Upload complete\" message.",
+    tip: "Before uploading, do a quick scan — are there any yellow rows left? If so, either fix them or skip them.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Final checklist before uploading</div>
+        <div class="sim-body">
+          <table class="table-sim" style="margin-bottom:16px">
+            <thead><tr><th>File</th><th>Status</th><th>Will it upload?</th></tr></thead>
+            <tbody>
+              <tr class="status-new"><td>Amazing Grace G.pdf</td><td><span class="badge-green">Green — ready</span></td><td>Yes ✓</td></tr>
+              <tr class="status-exists"><td>Amazing Grace D.pdf</td><td><span class="badge-red">Red — already exists</span></td><td>No — skipped automatically</td></tr>
+              <tr class="status-skipped"><td>Old file.pdf</td><td><span class="badge-grey">Grey — skipped by you</span></td><td>No — skipped</td></tr>
+              <tr class="status-review"><td>mysong.pdf</td><td><span class="badge-yellow">Yellow — needs fixing</span></td><td>Will stop here and warn you</td></tr>
+            </tbody>
+          </table>
+          <div style="text-align:center">
+            <span class="upload-btn-sim highlight" style="font-size:14px;padding:10px 32px">Upload</span>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;text-align:center;margin:10px 0 0">A confirmation box will appear — click OK to start uploading</p>
+        </div>
+      </div>`
+  }
+];
+
+let current = 0;
+
+function render() {
+  const s = steps[current];
+  const pct = Math.round(((current + 1) / steps.length) * 100);
+  document.getElementById('prog').style.width = pct + '%';
+  document.getElementById('step-ctr').textContent = `Step ${current + 1} of ${steps.length}`;
+  document.getElementById('btn-prev').style.visibility = current === 0 ? 'hidden' : 'visible';
+  document.getElementById('btn-next').style.display = '';
+  document.getElementById('btn-prev').style.display = '';
+  document.getElementById('btn-next').textContent = current === steps.length - 1 ? 'Finish ✓' : 'Next →';
+
+  document.getElementById('step-content').innerHTML = `
+    <span class="step-badge">${s.badge}</span>
+    <p class="step-title">${s.title}</p>
+    <p class="step-desc">${s.desc}</p>
+    ${s.render()}
+    <div class="tip-box">${s.tip}</div>
+  `;
+}
+
+function changeStep(dir) {
+  if (current + dir < 0) return;
+  if (current + dir >= steps.length) {
+    document.getElementById('step-content').innerHTML = `
+      <div class="finish-box">
+        <h2>All done!</h2>
+        <p>You now know everything you need to use the Batch Music Importer.<br>If you ever get stuck, just come back and work through the steps again.</p>
+        <button class="nav-btn primary" onclick="current=0;render()">Start again from the beginning</button>
+      </div>
+      <div class="tip-box" style="margin-top:1.5rem">Remember: nothing is saved until you press Upload — so feel free to explore without worrying about making a mistake.</div>
+    `;
+    document.getElementById('btn-next').style.display = 'none';
+    document.getElementById('btn-prev').style.display = 'none';
+    document.getElementById('step-ctr').textContent = 'Complete';
+    document.getElementById('prog').style.width = '100%';
+    return;
+  }
+  current += dir;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
