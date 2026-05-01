@@ -100,9 +100,9 @@
             <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
               <option value="">No category</option>
             </select>
-            <div class="flex gap-2">
-              <input id="adminContentURL" type="text" placeholder="Click Browse to select file →" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" readonly>
-              <button onclick="openFilePicker()" class="bg-[#3d6263] text-white px-5 py-3 rounded-full font-black text-[10px] uppercase whitespace-nowrap hover:bg-black transition-all">📂 Browse</button>
+            <div class="space-y-1">
+              <textarea id="adminContentURL" rows="3" placeholder="Paste the embed code from Stream here…&#10;(Share → Embed → copy the full iframe code)" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" oninput="extractEmbedURL(this)"></textarea>
+              <div id="urlPreview" class="hidden text-[11px] text-green-700 font-bold px-2">✓ URL extracted</div>
             </div>
             <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
             <textarea id="adminTranscript" rows="3" placeholder="Paste transcript from Stream (with timestamps)..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
@@ -432,10 +432,36 @@ function closeFilePicker(){
   }
 }
 
+// EXTRACT EMBED URL FROM IFRAME PASTE
+function extractEmbedURL(el){
+  const val = el.value.trim();
+  if(!val) return;
+  // If it looks like an iframe, extract the src
+  const srcMatch = val.match(/src=["']([^"']+)["']/);
+  if(srcMatch){
+    window._extractedURL = srcMatch[1];
+    document.getElementById('urlPreview').textContent = '✓ URL extracted: ' + srcMatch[1].substring(0,60) + '...';
+    document.getElementById('urlPreview').classList.remove('hidden');
+    // Try to extract title from title attribute
+    if(!document.getElementById('adminTitle').value){
+      const titleMatch = val.match(/title=["']([^"']+)["']/);
+      if(titleMatch) document.getElementById('adminTitle').value = titleMatch[1].replace(/\.[^/.]+$/,'');
+    }
+  } else if(val.startsWith('http')) {
+    // It's already a URL
+    window._extractedURL = val;
+    document.getElementById('urlPreview').textContent = '✓ URL ready';
+    document.getElementById('urlPreview').classList.remove('hidden');
+  } else {
+    window._extractedURL = null;
+    document.getElementById('urlPreview').classList.add('hidden');
+  }
+}
+
 // PUBLISH
 async function publishAsset(){
   const title=document.getElementById('adminTitle').value.trim();
-  const url=document.getElementById('adminContentURL').value.trim();
+  const url=window._extractedURL || document.getElementById('adminContentURL').value.trim();
   if(!title||!url){alert('Title and file are required.');return;}
   const payload={Title:title,AssetType:document.getElementById('adminAssetType').value,ContentURL:url,Category:document.getElementById('adminCategory').value,Tags:document.getElementById('adminTags').value.trim(),Transcript:document.getElementById('adminTranscript').value.trim(),HowToBullets:document.getElementById('adminBullets').value.trim(),Published:true,'__metadata':{'type':LIST_TYPE}};
   try{
