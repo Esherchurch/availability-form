@@ -315,7 +315,21 @@ function clearSearch() { document.getElementById('searchInput').value=''; curren
 function setTab(t) { currentTab=t; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); const el=document.getElementById('tab-'+t)||document.getElementById('tab-'+t.replace(' ','_')); el?.classList.add('active'); renderGrid(allAssets,currentQuery); }
 let currentKey=null;
 function setKeyFilter(k) { currentKey=k; document.querySelectorAll('.key-btn').forEach(b=>{b.classList.remove('active','bg-[#3d6263]','text-white');}); const id=k?('key-'+k):'key-all'; const el=document.getElementById(id); if(el){el.classList.add('active','bg-[#3d6263]','text-white');} renderGrid(allAssets,currentQuery); }
-function toggleAdmin() { document.getElementById('adminPanel').classList.toggle('hidden'); }
+async function toggleAdmin() {
+  const panel = document.getElementById('adminPanel');
+  if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+  const pwd = prompt('Admin password:');
+  if (!pwd) return;
+  const msgBuffer = new TextEncoder().encode(pwd);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  if (hashHex === '77fff987f5deea670a55a6d756dfe78c1a5383dd67850401b9fde70d10a2f89b') {
+    panel.classList.remove('hidden');
+  } else {
+    alert('Incorrect password.');
+  }
+}
 
 async function generateBullets() {
   const transcript=document.getElementById('adminTranscript').value.trim(); if(!transcript){alert('Paste a transcript first.');return;}
