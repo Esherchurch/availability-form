@@ -514,9 +514,7 @@ function renderNews() {
 
     newsScrollPos = 0;
     track.style.transform = 'translateY(0)';
-
-    // Slight delay to let DOM paint before measuring
-    setTimeout(startNewsScroll, 400);
+    startNewsScroll();
 }
 
 function stopNewsScroll() {
@@ -529,27 +527,47 @@ function startNewsScroll() {
     const track   = document.getElementById('news-track');
     if (!wrapper || !track) return;
 
-    const wrapperH = wrapper.clientHeight;
-    const trackH   = track.scrollHeight;
+    function doScroll() {
+        const wrapperH = wrapper.clientHeight;
+        const trackH   = track.scrollHeight;
+        if (wrapperH < 10) return; // not laid out yet
+        if (trackH <= wrapperH) return; // everything fits, no scroll needed
 
-    // If all cards fit in the panel, no scrolling needed
-    if (trackH <= wrapperH) return;
+        // Remove any previously cloned duplicates before adding new ones
+        track.querySelectorAll('.news-card-clone').forEach(c => c.remove());
 
-    // Duplicate cards for seamless loop
-    const origCards = Array.from(track.children);
-    origCards.forEach(c => track.appendChild(c.cloneNode(true)));
+        // Duplicate original cards for seamless loop
+        Array.from(track.children).forEach(c => {
+            const clone = c.cloneNode(true);
+            clone.classList.add('news-card-clone');
+            track.appendChild(clone);
+        });
 
-    const halfH = track.scrollHeight / 2;
+        newsScrollPos = 0;
+        const halfH = track.scrollHeight / 2;
 
-    function step() {
-        if (!newsScrollPaused) {
-            newsScrollPos += NEWS_SCROLL_SPEED;
-            if (newsScrollPos >= halfH) newsScrollPos -= halfH; // seamless loop
-            track.style.transform = `translateY(-${newsScrollPos}px)`;
+        function step() {
+            if (!newsScrollPaused) {
+                newsScrollPos += NEWS_SCROLL_SPEED;
+                if (newsScrollPos >= halfH) newsScrollPos -= halfH;
+                track.style.transform = `translateY(-${newsScrollPos}px)`;
+            }
+            newsScrollRAF = requestAnimationFrame(step);
         }
         newsScrollRAF = requestAnimationFrame(step);
     }
-    newsScrollRAF = requestAnimationFrame(step);
+
+    // Use ResizeObserver to fire once the wrapper has a real height
+    const ro = new ResizeObserver((entries, obs) => {
+        const h = entries[0].contentRect.height;
+        if (h > 10) {
+            obs.disconnect();
+            doScroll();
+        }
+    });
+    ro.observe(wrapper);
+    // Also try immediately in case it's already laid out
+    doScroll();
 }
 
 // Pause on hover
@@ -581,30 +599,65 @@ async function saveHero() {
 }
 
 // ── PASTE ZONE HELPERS ────────────────────────────
-// Intercept paste on a contenteditable zone: prefer text/html from clipboard
+
+function cleanEmailHtml(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    // 1. Remove the help/instructions button link (the ? button from the email compiler)
+    div.querySelectorAll('a[href*="emailcompiler"], a[id="helpBtn"], a[aria-label*="instruction"]')
+       .forEach(el => el.remove());
+
+    // 2. Remove <meta>, <style>, <script>, <head> tags
+    div.querySelectorAll('meta, style, script, head, link').forEach(el => el.remove());
+
+    // 3. If there's an email-body div, extract just that
+    const emailBody = div.querySelector('.email-body');
+    if (emailBody) return emailBody.innerHTML;
+
+    // 4. If there's an email-inner td, extract that
+    const emailInner = div.querySelector('.email-inner, td.email-inner');
+    if (emailInner) return emailInner.innerHTML;
+
+    // 5. Strip outermost wrapper tables that are just layout (full-width centering tables)
+    //    Walk inward through single-cell tables until we hit real content
+    let node = div;
+    while (true) {
+        const tables = node.querySelectorAll(':scope > table, :scope > tbody > tr > td > table');
+        const children = Array.from(node.children).filter(c => c.tagName !== 'BR');
+        if (children.length === 1 && children[0].tagName === 'TABLE') {
+            const tds = children[0].querySelectorAll('td');
+            // If it's a single-cell wrapper table, unwrap it
+            if (tds.length <= 2) {
+                const inner = tds[tds.length - 1];
+                if (inner) { node = inner; continue; }
+            }
+        }
+        break;
+    }
+
+    return node === div ? div.innerHTML : node.innerHTML;
+}
+
 function setupPasteZone(zoneId) {
     const zone = document.getElementById(zoneId);
     if (!zone) return;
+    // Avoid adding duplicate listeners
+    if (zone._pasteReady) return;
+    zone._pasteReady = true;
     zone.addEventListener('paste', function(e) {
         e.preventDefault();
         const html = e.clipboardData.getData('text/html');
         if (html) {
-            // Insert the raw HTML from clipboard
-            const sel = window.getSelection();
-            if (sel.rangeCount) sel.deleteFromDocument();
-            const div = document.createElement('div');
-            div.innerHTML = html;
-            const frag = document.createDocumentFragment();
-            while (div.firstChild) frag.appendChild(div.firstChild);
-            const range = sel.getRangeAt(0);
-            range.insertNode(frag);
-            range.collapse(false);
-            sel.removeAllRanges();
-            sel.addRange(range);
+            const cleaned = cleanEmailHtml(html);
+            // Clear zone and insert cleaned HTML
+            zone.innerHTML = '';
+            const tmp = document.createElement('div');
+            tmp.innerHTML = cleaned;
+            while (tmp.firstChild) zone.appendChild(tmp.firstChild);
         } else {
-            // Fallback: plain text
             const text = e.clipboardData.getData('text/plain');
-            document.execCommand('insertText', false, text);
+            zone.innerText = text;
         }
     });
 }
