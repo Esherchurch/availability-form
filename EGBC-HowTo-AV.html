@@ -1,31 +1,26 @@
 <!DOCTYPE html>
-<!-- saved from url=(0054)file:///C:/Users/Martin/Downloads/EGBC-HowTo-AV_6.html -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EGBC — How To AV</title>
-  <link href="./EGBC — How To AV_files/css2" rel="stylesheet">
-  <script src="./EGBC — How To AV_files/saved_resource"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <style>
     body{background-color:#f0f6f6;color:#3d6263;font-family:'Montserrat',sans-serif}
     ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#d1dfdf;border-radius:10px}
-    #searchInput:focus{box-shadow:0 0 0 3px rgba(61,98,99,0.15);outline:none}
-    .result-card{transition:transform 0.15s ease,box-shadow 0.15s ease}
-    .result-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(61,98,99,0.12)}
+    .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(61,98,99,0.12)}
     .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:1rem}
     .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:1rem}
     .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:1rem}
     @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    .tab-btn.active{background:#3d6263;color:white}
-    .tab-btn{transition:all 0.15s}
-    mark{background:#fef08a;border-radius:2px;padding:0 2px}
-    #assembledAnswer{animation:fadeIn 0.3s ease}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    .unpublished{opacity:0.5;border-style:dashed!important}
-    .admin-tab{display:block}
+    .tab-btn.active{background:#3d6263;color:white}.tab-btn{transition:all 0.15s}
     .admin-tab.hidden{display:none}
+    mark{background:#fef08a;border-radius:2px;padding:0 2px}
   </style>
-<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.inset-0{inset:0px}.left-5{left:1.25rem}.right-4{right:1rem}.right-6{right:1.5rem}.top-1\/2{top:50%}.top-6{top:1.5rem}.z-50{z-index:50}.mx-auto{margin-left:auto;margin-right:auto}.mb-1{margin-bottom:0.25rem}.mb-10{margin-bottom:2.5rem}.mb-2{margin-bottom:0.5rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.mt-1{margin-top:0.25rem}.mt-2{margin-top:0.5rem}.mt-3{margin-top:0.75rem}.mt-4{margin-top:1rem}.mt-6{margin-top:1.5rem}.mb-3{margin-bottom:0.75rem}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-10{height:2.5rem}.h-4{height:1rem}.h-5{height:1.25rem}.h-8{height:2rem}.h-6{height:1.5rem}.max-h-\[90vh\]{max-height:90vh}.min-h-screen{min-height:100vh}.w-10{width:2.5rem}.w-4{width:1rem}.w-5{width:1.25rem}.w-8{width:2rem}.w-fit{width:-moz-fit-content;width:fit-content}.w-full{width:100%}.w-1\/3{width:33.333333%}.w-3\/4{width:75%}.w-5\/6{width:83.333333%}.max-w-3xl{max-width:48rem}.max-w-6xl{max-width:72rem}.flex-1{flex:1 1 0%}.flex-grow{flex-grow:1}.-translate-y-1\/2{--tw-translate-y:-50%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}@keyframes spin{to{transform:rotate(360deg)}}.animate-spin{animation:spin 1s linear infinite}.resize-none{resize:none}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:0.25rem}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.gap-5{gap:1.25rem}.space-y-2 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.5rem * var(--tw-space-y-reverse))}.space-y-3 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.75rem * var(--tw-space-y-reverse))}.self-center{align-self:center}.overflow-y-auto{overflow-y:auto}.whitespace-nowrap{white-space:nowrap}.rounded-2xl{border-radius:1rem}.rounded-\[1\.5rem\]{border-radius:1.5rem}.rounded-\[2rem\]{border-radius:2rem}.rounded-full{border-radius:9999px}.rounded-xl{border-radius:0.75rem}.border{border-width:1px}.border-2{border-width:2px}.border-b{border-bottom-width:1px}.border-\[\#3d6263\]{--tw-border-opacity:1;border-color:rgb(61 98 99 / var(--tw-border-opacity, 1))}.border-\[\#d1dfdf\]{--tw-border-opacity:1;border-color:rgb(209 223 223 / var(--tw-border-opacity, 1))}.bg-\[\#3d6263\]{--tw-bg-opacity:1;background-color:rgb(61 98 99 / var(--tw-bg-opacity, 1))}.bg-\[\#f0f6f6\]{--tw-bg-opacity:1;background-color:rgb(240 246 246 / var(--tw-bg-opacity, 1))}.bg-black\/40{background-color:rgb(0 0 0 / 0.4)}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.p-1\.5{padding:0.375rem}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-1{padding-left:0.25rem;padding-right:0.25rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.px-8{padding-left:2rem;padding-right:2rem}.py-1\.5{padding-top:0.375rem;padding-bottom:0.375rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-2\.5{padding-top:0.625rem;padding-bottom:0.625rem}.py-20{padding-top:5rem;padding-bottom:5rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-4{padding-top:1rem;padding-bottom:1rem}.pb-10{padding-bottom:2.5rem}.pb-6{padding-bottom:1.5rem}.pl-14{padding-left:3.5rem}.pr-6{padding-right:1.5rem}.pt-1{padding-top:0.25rem}.text-center{text-align:center}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-5xl{font-size:3rem;line-height:1}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-\[12px\]{font-size:12px}.text-\[9px\]{font-size:9px}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.font-black{font-weight:900}.font-bold{font-weight:700}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.italic{font-style:italic}.leading-relaxed{line-height:1.625}.tracking-\[0\.3em\]{letter-spacing:0.3em}.tracking-tight{letter-spacing:-0.025em}.tracking-widest{letter-spacing:0.1em}.text-\[\#3d6263\]{--tw-text-opacity:1;color:rgb(61 98 99 / var(--tw-text-opacity, 1))}.text-\[\#d1dfdf\]{--tw-text-opacity:1;color:rgb(209 223 223 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.placeholder-\[\#3d6263\]\/40::placeholder{color:rgb(61 98 99 / 0.4)}.opacity-30{opacity:0.3}.opacity-40{opacity:0.4}.opacity-50{opacity:0.5}.opacity-60{opacity:0.6}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgb(0 0 0 / 0.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.outline-none{outline:2px solid transparent;outline-offset:2px}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.hover\:bg-\[\#3d6263\]:hover{--tw-bg-opacity:1;background-color:rgb(61 98 99 / var(--tw-bg-opacity, 1))}.hover\:bg-\[\#f0f6f6\]:hover{--tw-bg-opacity:1;background-color:rgb(240 246 246 / var(--tw-bg-opacity, 1))}.hover\:bg-black:hover{--tw-bg-opacity:1;background-color:rgb(0 0 0 / var(--tw-bg-opacity, 1))}.hover\:text-\[\#3d6263\]:hover{--tw-text-opacity:1;color:rgb(61 98 99 / var(--tw-text-opacity, 1))}.hover\:text-white:hover{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}@media (min-width: 768px){.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}}@media (min-width: 1024px){.lg\:flex-row{flex-direction:row}.lg\:items-center{align-items:center}.lg\:p-10{padding:2.5rem}}@media (min-width: 1280px){.xl\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}}</style></head>
+</head>
 <body class="p-6 lg:p-10 min-h-screen">
 <div class="max-w-6xl mx-auto">
 
@@ -47,126 +42,93 @@
     </div>
   </header>
 
-  <!-- SEARCH -->
   <div class="bg-white rounded-[2rem] border border-[#d1dfdf] shadow-lg p-6 mb-8">
     <div class="flex gap-3 items-center">
       <div class="flex-grow relative">
-        <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
-        <input id="searchInput" type="text" placeholder="Describe the problem… e.g. &#39;camera went black screen&#39;" class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40" onkeydown="if(event.key===&#39;Enter&#39;)doSearch()">
+        <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" type="text" placeholder="What do you need help with? e.g. 'how do I set up the mixing desk'" class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40 outline-none" onkeydown="if(event.key==='Enter')doSearch()">
       </div>
-      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Ask AI</button>
+      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
       <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
       <span class="text-[10px] font-black uppercase opacity-40 self-center">Quick:</span>
-      <button onclick="quickSearch(&#39;set up the mixing desk&#39;)" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Set up mixing desk</button>
-      <button onclick="quickSearch(&#39;mic a choir&#39;)" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Mic a choir</button>
-      <button onclick="quickSearch(&#39;phantom power&#39;)" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Phantom power</button>
-      <button onclick="quickSearch(&#39;camera setup&#39;)" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Camera setup</button>
-      <button onclick="quickSearch(&#39;EQ settings&#39;)" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">EQ settings</button>
+      <button onclick="quickSearch('set up mixing desk')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Set up mixing desk</button>
+      <button onclick="quickSearch('mic a choir')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Mic a choir</button>
+      <button onclick="quickSearch('phantom power')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Phantom power</button>
+      <button onclick="quickSearch('camera setup')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Camera setup</button>
+      <button onclick="quickSearch('EQ settings')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">EQ settings</button>
     </div>
   </div>
 
-  <div id="assembledAnswer" class="hidden mb-8"></div>
-  <div id="loadingState" class="hidden mb-8">
-    <div class="bg-white rounded-[2rem] border border-[#d1dfdf] p-8 flex items-center gap-4">
-      <div class="w-8 h-8 rounded-full animate-spin" style="border:3px solid #d1dfdf;border-top-color:#3d6263"></div>
-      <span class="font-black uppercase text-[11px] opacity-60 tracking-widest">Searching knowledge base...</span>
-    </div>
-  </div>
+  <div id="searchResults" class="hidden mb-6"></div>
 
-  <!-- ADMIN PANEL -->
+  <!-- ADMIN -->
   <div id="adminPanel" class="hidden mb-8">
     <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
       <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
         <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — How To AV</h2>
-        <button onclick="closeAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl">✕</button>
+        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl">✕</button>
       </div>
       <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
-        <button onclick="showAdminTab(&#39;content&#39;)" id="atab-content" class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase">Add Content</button>
-        <button onclick="showAdminTab(&#39;categories&#39;)" id="atab-categories" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Categories</button>
-        <button onclick="showAdminTab(&#39;manage&#39;)" id="atab-manage" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Manage</button>
+        <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase">Add Content</button>
+        <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Categories</button>
+        <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Manage</button>
       </div>
 
-      <!-- ADD CONTENT TAB -->
       <div id="admin-content" class="admin-tab">
         <div class="grid md:grid-cols-2 gap-6">
           <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
             <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Item</h3>
-
-            <!-- STEP 1: Paste embed code -->
-            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
+            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-2">
               <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Paste embed code from Stream</div>
-              <div class="text-[11px] text-[#3d6263] opacity-60 leading-relaxed">In Stream: open the video → <strong>Share</strong> → <strong>Embed</strong> → copy the full iframe code → paste below</div>
-              <textarea id="adminContentURL" rows="3" placeholder="Paste iframe embed code here…" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)" onpaste="setTimeout(()=&gt;handleEmbedPaste(this),50)"></textarea>
+              <div class="text-[11px] text-[#3d6263] opacity-60">In Stream: open video → Share → Embed → copy full iframe code → paste below</div>
+              <textarea id="adminContentURL" rows="3" placeholder="Paste iframe embed code here…" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)" onpaste="setTimeout(()=>handleEmbedPaste(this),50)"></textarea>
               <div id="pasteStatus" class="hidden text-[11px] font-black px-1"></div>
             </div>
-
-            <!-- STEP 2: Auto-filled fields (shown after paste) -->
             <div id="autoFilledSection" class="hidden space-y-3">
               <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60 pt-1">Step 2 — Review &amp; complete</div>
-              <div class="relative">
-                <input id="adminTitle" type="text" placeholder="Title (auto-filled)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-                <div id="titleLoader" class="hidden absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
-              </div>
-              <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
-                <option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option><option value="VideoClip">Video Clip</option>
-              </select>
+              <input id="adminTitle" type="text" placeholder="Title (auto-filled from embed)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+              <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option></select>
               <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
               <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-
-              <!-- Transcript status -->
-              <div id="transcriptStatus" class="bg-white rounded-xl border border-[#d1dfdf] px-5 py-3 text-[12px] font-semibold opacity-60">
-                Fetching transcript from Stream...
-              </div>
-              <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
-
+              <div id="transcriptStatus" class="hidden text-[12px] font-semibold px-1"></div>
+              <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" placeholder="Paste transcript here (Stream > video > Transcript tab > select all > copy)"></textarea>
               <div class="flex gap-3 pt-1">
                 <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
                 <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
               </div>
             </div>
           </div>
-
-          <!-- RIGHT: Bullets preview -->
           <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">Auto-Generated How-To Bullets</h3>
-            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste your embed code — bullets will generate automatically once the transcript loads.</div>
-            <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4">
-              <div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
-              <span class="text-[11px] font-bold uppercase opacity-60">Generating bullets with AI...</span>
-            </div>
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">How-To Bullets</h3>
+            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste embed code — bullets will generate automatically from the transcript.</div>
+            <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4"><div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div><span class="text-[11px] font-bold uppercase opacity-60">Generating bullets...</span></div>
             <textarea id="adminBullets" rows="12" placeholder="Bullets will appear here for review..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
             <button id="regenBtn" onclick="generateBullets()" class="hidden mt-3 w-full bg-white border border-[#d1dfdf] py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">↺ Regenerate Bullets</button>
           </div>
         </div>
       </div>
 
-      <!-- CATEGORIES TAB -->
       <div id="admin-categories" class="admin-tab hidden">
         <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">Page Categories</h3>
-          <p class="text-[12px] opacity-60 mb-4">Categories are visual sections on this page only. Add as many as you like.</p>
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-2">Page Categories</h3>
+          <p class="text-[12px] opacity-60 mb-4">Visual sections on this page only — add as many as you like.</p>
           <div class="flex gap-3 mb-6">
-            <input id="newCatName" type="text" placeholder="New category name e.g. Audio Issues" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key===&#39;Enter&#39;)addCategory()">
+            <input id="newCatName" type="text" placeholder="New category name…" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
             <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Add</button>
           </div>
           <div id="categoryList" class="space-y-2"></div>
         </div>
       </div>
 
-      <!-- MANAGE TAB -->
       <div id="admin-manage" class="admin-tab hidden">
         <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
           <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">All Content</h3>
           <div id="manageList" class="space-y-2"></div>
         </div>
-        <!-- EDIT FORM -->
         <div id="editModal" class="hidden mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border-2 border-[#3d6263] space-y-3">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="font-black uppercase text-[11px] tracking-widest">Edit Item</h3>
-            <button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black">✕</button>
-          </div>
+          <div class="flex justify-between items-center mb-2"><h3 class="font-black uppercase text-[11px] tracking-widest">Edit Item</h3><button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black">✕</button></div>
           <input type="hidden" id="editId">
           <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
           <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
@@ -179,16 +141,14 @@
     </div>
   </div>
 
-  <!-- CONTENT -->
   <div id="contentArea"></div>
-  <div id="emptyState" class="text-center py-20">
+  <div id="emptyState" class="hidden text-center py-20">
     <div class="text-5xl mb-4">📭</div>
     <div class="font-black uppercase opacity-40 tracking-widest text-sm">No content yet</div>
     <div class="text-sm opacity-30 mt-2">Use the Admin panel to add videos, images and notes</div>
   </div>
 </div>
 
-<!-- VIEW MODAL -->
 <div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
   <div class="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
     <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
@@ -197,171 +157,100 @@
 </div>
 
 <script>
-const SP_SITE   = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
-const LIST_NAME = 'KB-HowTo-AV';
-const LIST_TYPE = 'SP.Data.KB_x002D_HowTo_x002D_AVListItem';
-const AI_MODEL  = 'claude-sonnet-4-20250514';
-const PW_HASH   = '77fff987f5deea670a55a6d756dfe78c1a5383dd67850401b9fde70d10a2f89b';
-const CAT_KEY   = 'egbc_cats_howto_av';
+const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+const COLLECTION='kb_howto_av';
+const CAT_KEY='egbc_cats_howto_av';
+const SP_SITE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+let allAssets=[],categories=JSON.parse(localStorage.getItem(CAT_KEY)||'[]'),currentQuery='';
 
-let allAssets  = [];
-let categories = JSON.parse(localStorage.getItem(CAT_KEY)||'[]');
-let currentQuery = '';
-let _manageItems = [];
+document.addEventListener('DOMContentLoaded',()=>{loadAssets();updateCatDropdowns();});
 
-document.addEventListener('DOMContentLoaded',()=>{ loadAssets(); updateCatDropdowns(); });
-
-// LOAD
 async function loadAssets(){
   showSkeletons();
   try{
-    const r=await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$filter=Published eq 1&$top=500&$select=Title,AssetType,ContentURL,Transcript,HowToBullets,Description,Tags,TimestampStart,ID,Category`,{headers:{'Accept':'application/json;odata=nometadata'}});
-    if(!r.ok)throw new Error(r.status);
-    allAssets=(await r.json()).value||[];
-  }catch{ allAssets=[]; }
+    const snap=await db.collection(COLLECTION).where('published','==',true).orderBy('createdAt','desc').get();
+    allAssets=snap.docs.map(d=>({id:d.id,...d.data()}));
+    console.log('KB: Loaded',allAssets.length,'assets');
+  }catch(e){console.log('KB load error:',e.message);allAssets=[];}
   renderContent(allAssets);
 }
 
 async function loadAll(){
-  try{
-    const r=await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$top=500&$select=Title,AssetType,ContentURL,HowToBullets,Description,Tags,ID,Category,Published`,{headers:{'Accept':'application/json;odata=nometadata'}});
-    if(!r.ok)throw new Error(r.status);
-    return(await r.json()).value||[];
-  }catch{return[];}
+  try{const snap=await db.collection(COLLECTION).orderBy('createdAt','desc').get();return snap.docs.map(d=>({id:d.id,...d.data()}));}
+  catch(e){return[];}
 }
 
-// RENDER CONTENT BY CATEGORY
 function renderContent(assets,highlight=''){
   const area=document.getElementById('contentArea');
   const empty=document.getElementById('emptyState');
   if(!assets.length){area.innerHTML='';empty.classList.remove('hidden');return;}
   empty.classList.add('hidden');
-  const grouped={};
-  const uncat=[];
-  assets.forEach(a=>{
-    const c=(a.Category||'').trim();
-    if(c&&categories.includes(c)){if(!grouped[c])grouped[c]=[];grouped[c].push(a);}
-    else uncat.push(a);
-  });
+  const grouped={},uncat=[];
+  assets.forEach(a=>{const c=(a.category||'').trim();if(c&&categories.includes(c)){if(!grouped[c])grouped[c]=[];grouped[c].push(a);}else uncat.push(a);});
   let html='';
   categories.forEach(cat=>{
-    const items=grouped[cat]||[];
-    if(!items.length)return;
+    const items=grouped[cat]||[];if(!items.length)return;
     const sid='sec_'+safeid(cat);
-    html+=`<div class="mb-10">
-      <div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')">
-        <div class="w-1.5 h-6 bg-[#3d6263] rounded-full"></div>
-        <h2 class="font-black uppercase tracking-widest text-sm">${cat}</h2>
-        <span class="text-[10px] font-bold opacity-40">${items.length} item${items.length!==1?'s':''}</span>
-        <svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
-      </div>
-      <div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div>
-    </div>`;
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#3d6263] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm">${cat}</h2><span class="text-[10px] font-bold opacity-40">${items.length} item${items.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
   });
   if(uncat.length){
-    const label=categories.length?'Uncategorised':'All Content';
-    const sid='sec_uncategorised';
-    html+=`<div class="mb-10">
-      <div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')">
-        <div class="w-1.5 h-6 bg-[#d1dfdf] rounded-full"></div>
-        <h2 class="font-black uppercase tracking-widest text-sm opacity-50">${label}</h2>
-        <span class="text-[10px] font-bold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span>
-        <svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
-      </div>
-      <div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div>
-    </div>`;
+    const label=categories.length?'Uncategorised':'All Content';const sid='sec_uncategorised';
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#d1dfdf] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm opacity-50">${label}</h2><span class="text-[10px] font-bold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
   }
   area.innerHTML=html;
 }
 
-function toggleSec(id){
-  const el=document.getElementById(id);
-  const chv=document.getElementById('chv_'+id);
-  if(!el)return;
-  const hidden=el.classList.toggle('hidden');
-  if(chv)chv.style.transform=hidden?'rotate(-90deg)':'rotate(0deg)';
-}
-
+function toggleSec(id){const el=document.getElementById(id);const chv=document.getElementById('chv_'+id);if(!el)return;const h=el.classList.toggle('hidden');if(chv)chv.style.transform=h?'rotate(-90deg)':'rotate(0deg)';}
 function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
 
 function cardHTML(a,highlight=''){
-  const icons={Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'};
-  const bc={Video:'bg-blue-50 text-blue-700',Image:'bg-green-50 text-green-700',Note:'bg-yellow-50 text-yellow-700',VideoClip:'bg-purple-50 text-purple-700'};
-  const bullets=(a.HowToBullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
-  const tags=(a.Tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
-  const title=highlight?hlText(a.Title||'',highlight):(a.Title||'');
-  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard(${a.ID})">
-    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.AssetType]||'📄'}</span><span class="${bc[a.AssetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.AssetType}</span></div>
+  const icons={Video:'▶',Image:'📷',Note:'📝'};
+  const colors={Video:'bg-blue-50 text-blue-700',Image:'bg-green-50 text-green-700',Note:'bg-yellow-50 text-yellow-700'};
+  const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
+  const tags=(a.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
+  const title=highlight?hlText(a.title||'',highlight):(a.title||'');
+  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}')">
+    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'📄'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.assetType||'Video'}</span></div>
     <h3 class="font-black text-base mb-3 leading-snug">${title}</h3>
-    ${a.Description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.Description}</p>`:''}
-    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.HowToBullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
+    ${a.description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.description}</p>`:''}
+    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.bullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
     ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}
   </div>`;
 }
 
 function openCard(id){
-  const a=allAssets.find(x=>x.ID===id);if(!a)return;
-  const bullets=(a.HowToBullets||'').split('\n').filter(b=>b.trim());
-  const isVid=a.AssetType==='Video'||a.AssetType==='VideoClip';
-  const hasURL=a.ContentURL&&a.ContentURL.trim();
-  const src=hasURL?(a.TimestampStart?`${a.ContentURL}${a.ContentURL.includes('?')?'&':'?'}startTime=${a.TimestampStart}`:a.ContentURL):'';
+  const a=allAssets.find(x=>x.id===id);if(!a)return;
+  const bullets=(a.bullets||'').split('\n').filter(b=>b.trim());
+  const hasURL=a.contentURL&&a.contentURL.trim();
+  const src=hasURL?(a.timestampStart?`${a.contentURL}${a.contentURL.includes('?')?'&':'?'}startTime=${a.timestampStart}`:a.contentURL):'';
   document.getElementById('modalContent').innerHTML=`
-    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">AV How To${a.Category?' — '+a.Category:''}</div>
-    <h2 class="font-black text-2xl mb-6 leading-tight">${a.Title}</h2>
-    ${isVid&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
-    ${a.AssetType==='Image'&&hasURL?`<img src="${a.ContentURL}" alt="${a.Title}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
-    ${a.Description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${a.Description}</p>`:''}
+    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">How To AV${a.category?' — '+a.category:''}</div>
+    <h2 class="font-black text-2xl mb-6 leading-tight">${a.title}</h2>
+    ${(a.assetType==='Video')&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
+    ${a.assetType==='Image'&&hasURL?`<img src="${a.contentURL}" alt="${a.title}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
+    ${a.description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${a.description}</p>`:''}
     ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How To Do It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div></div>`:''}
-    ${a.Tags?`<div class="flex flex-wrap gap-2">${a.Tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}`;
+    ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}`;
   document.getElementById('modal').classList.remove('hidden');
 }
+
 function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
 
-// AI SEARCH
-async function doSearch(){
+function doSearch(){
   const query=document.getElementById('searchInput').value.trim();if(!query)return;
   currentQuery=query;
-  document.getElementById('loadingState').classList.remove('hidden');
-  document.getElementById('assembledAnswer').classList.add('hidden');
-  const ctx=allAssets.map(a=>`ID:${a.ID}|Title:${a.Title}|Tags:${a.Tags||''}|Desc:${a.Description||''}|Bullets:${(a.HowToBullets||'').substring(0,300)}`).join('\n');
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'AV how-to assistant for EGBC Church. Respond ONLY in JSON: {"summary":"...","steps":["..."],"relevantAssetIds":[1,2],"confidence":"high|medium|low"}',messages:[{role:'user',content:`Question: "${query}"\n\nAssets:\n${ctx}`}]})});
-    const data=await res.json();
-    const text=data.content?.map(c=>c.text||'').join('')||'';
-    let result;try{result=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{result={summary:text,steps:[],relevantAssetIds:[],confidence:'low'};}
-    showAIAnswer(query,result);renderContent(allAssets,query);
-  }catch{
-    const m=kwSearch(query);showFallback(query,m);renderContent(m.length?m:allAssets,query);
-  }
-  document.getElementById('loadingState').classList.add('hidden');
+  const words=query.toLowerCase().split(/\s+/);
+  const matched=allAssets.filter(a=>{const h=`${a.title} ${a.tags} ${a.description} ${a.bullets} ${a.transcript}`.toLowerCase();return words.some(w=>h.includes(w));});
+  renderContent(matched.length?matched:allAssets,query);
+  document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 mb-4 text-sm font-semibold opacity-70">Found ${matched.length} result${matched.length!==1?'s':''} for "<strong>${query}</strong>"</div>`;
+  document.getElementById('searchResults').classList.remove('hidden');
 }
-function showAIAnswer(query,r){
-  const assets=(r.relevantAssetIds||[]).map(id=>allAssets.find(a=>a.ID===id)).filter(Boolean);
-  const cc={high:'text-green-600 bg-green-50',medium:'text-amber-600 bg-amber-50',low:'text-red-500 bg-red-50'}[r.confidence]||'text-gray-500 bg-gray-50';
-  document.getElementById('assembledAnswer').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg">
-    <div class="flex items-start justify-between mb-6 flex-wrap gap-3"><div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">AI Answer for</div><h2 class="font-black text-xl">"${query}"</h2></div><span class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${cc}">${r.confidence||'medium'} confidence</span></div>
-    ${r.summary?`<p class="text-sm opacity-80 leading-relaxed mb-6">${r.summary}</p>`:''}
-    ${r.steps?.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Suggested Steps</div><div class="space-y-3">${r.steps.map((s,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${s}</span></div>`).join('')}</div></div>`:''}
-    ${assets.length?`<div><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Relevant Resources</div><div class="flex flex-wrap gap-3">${assets.map(a=>`<button onclick="openCard(${a.ID})" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2.5 rounded-full font-bold text-[12px] flex items-center gap-2 hover:bg-[#3d6263] hover:text-white transition-all"><span>${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span><span>${a.Title}</span>${a.TimestampStart?`<span class="opacity-50 text-[10px]">${fmtTime(a.TimestampStart)}</span>`:''}</button>`).join('')}</div></div>`:''}
-  </div>`;
-  document.getElementById('assembledAnswer').classList.remove('hidden');
-}
-function showFallback(q,m){document.getElementById('assembledAnswer').innerHTML=`<div class="bg-[#fff8f0] border border-amber-200 rounded-[2rem] p-6"><div class="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2">Keyword Search</div><p class="text-sm text-amber-800 font-semibold">Found ${m.length} result${m.length!==1?'s':''} for "<strong>${q}</strong>"</p></div>`;document.getElementById('assembledAnswer').classList.remove('hidden');}
-function kwSearch(q){const w=q.toLowerCase().split(/\s+/);return allAssets.filter(a=>{const h=`${a.Title} ${a.Tags} ${a.Description} ${a.HowToBullets}`.toLowerCase();return w.some(x=>h.includes(x));});}
 function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
-function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('assembledAnswer').classList.add('hidden');renderContent(allAssets);}
+function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(allAssets);}
 
-// ADMIN AUTH
-function toggleAdmin(){
-  const panel=document.getElementById('adminPanel');
-  if(!panel.classList.contains('hidden')){closeAdmin();return;}
-  panel.classList.remove('hidden');
-  updateCatDropdowns();
-  renderCategoryList();
-}
-function closeAdmin(){document.getElementById('adminPanel').classList.add('hidden');}
-
-// ADMIN TABS
+function toggleAdmin(){document.getElementById('adminPanel').classList.toggle('hidden');updateCatDropdowns();renderCategoryList();}
 function showAdminTab(tab){
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));
   document.querySelectorAll('[id^="atab-"]').forEach(b=>b.classList.remove('active'));
@@ -371,7 +260,87 @@ function showAdminTab(tab){
   if(tab==='categories')renderCategoryList();
 }
 
-// CATEGORIES
+async function handleEmbedPaste(el){
+  const val=el.value.trim();if(!val)return;
+  const srcMatch=val.match(/src=["']([^"']+)["']/);
+  const embedURL=srcMatch?srcMatch[1]:(val.startsWith('http')?val:null);
+  if(!embedURL){setStatus('pasteStatus','✗ Paste the full iframe embed code from Stream','text-red-500 font-black');return;}
+  window._extractedURL=embedURL;
+  const titleMatch=val.match(/title=["']([^"']+)["']/);
+  if(titleMatch)document.getElementById('adminTitle').value=titleMatch[1].replace(/\.[^/.]+$/,'');
+  document.getElementById('autoFilledSection').classList.remove('hidden');
+  setStatus('pasteStatus','✓ Embed code recognised — fetching transcript...','text-green-700 font-black');
+  const uidMatch=embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
+  if(uidMatch)await fetchTranscript(uidMatch[1]);
+  else{setStatus('transcriptStatus','Paste transcript manually below if needed.','text-amber-600 font-semibold');document.getElementById('transcriptStatus').classList.remove('hidden');document.getElementById('adminTranscript').classList.remove('hidden');}
+}
+
+async function fetchTranscript(uniqueId){
+  try{
+    const r=await fetch(`${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,{headers:{'Accept':'application/json'},credentials:'include'});
+    if(r.ok){
+      const data=await r.json();const items=data?.value||[];
+      if(items.length){
+        const tUrl=items[0].transcriptContentUrl||items[0]['@microsoft.graph.downloadUrl'];
+        if(tUrl){const vr=await fetch(tUrl,{credentials:'include'});if(vr.ok){const t=parseVTT(await vr.text());if(t){onTranscriptLoaded(t);return;}}}
+      }
+    }
+  }catch(e){console.log('Transcript fetch:',e.message);}
+  setStatus('transcriptStatus','In Stream: open video → Transcript tab → select all → copy → paste below. Bullets will generate automatically.','text-amber-600 font-semibold');
+  document.getElementById('transcriptStatus').classList.remove('hidden');
+  document.getElementById('adminTranscript').classList.remove('hidden');
+  document.getElementById('adminTranscript').oninput=async function(){if(this.value.trim().length>50){this.oninput=null;await generateBullets();setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');}};
+}
+
+async function onTranscriptLoaded(transcript){
+  document.getElementById('adminTranscript').value=transcript;
+  document.getElementById('adminTranscript').classList.remove('hidden');
+  document.getElementById('transcriptStatus').classList.add('hidden');
+  setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
+  await generateBullets();
+  setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+}
+
+async function generateBullets(){
+  const transcript=document.getElementById('adminTranscript').value.trim();
+  if(!transcript)return;
+  document.getElementById('bulletsPreview').classList.add('hidden');
+  document.getElementById('bulletsGenerating').classList.remove('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  // Extract key instructional sentences from transcript
+  const lines=transcript.split('\n').map(l=>l.replace(/^\[[\d:]+\]\s*/,'').trim()).filter(l=>l.length>20&&!l.match(/^\d+:\d+$/));
+  const instructional=lines.filter(l=>/\b(press|click|select|go to|open|choose|set|turn|make sure|check|you need|you can|will|should|next|then|now|first|after|here|this)\b/i.test(l));
+  const source=instructional.length>=3?instructional:lines;
+  const bullets=source.slice(0,8).map(l=>'• '+l).join('\n');
+  document.getElementById('adminBullets').value=bullets||lines.slice(0,5).map(l=>'• '+l).join('\n');
+  document.getElementById('adminBullets').classList.remove('hidden');
+  document.getElementById('regenBtn').classList.remove('hidden');
+  document.getElementById('bulletsGenerating').classList.add('hidden');
+}
+
+async function publishAsset(){
+  const title=document.getElementById('adminTitle').value.trim();
+  const url=window._extractedURL||document.getElementById('adminContentURL').value.trim();
+  if(!title||!url){alert('Title and embed URL are required.');return;}
+  try{
+    await db.collection(COLLECTION).add({title,assetType:document.getElementById('adminAssetType').value,contentURL:url,category:document.getElementById('adminCategory').value,tags:document.getElementById('adminTags').value.trim(),transcript:document.getElementById('adminTranscript').value.trim(),bullets:document.getElementById('adminBullets').value.trim(),description:'',published:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    alert('Published!');resetAdminForm();loadAssets();
+  }catch(e){alert('Publish failed: '+e.message);}
+}
+
+function resetAdminForm(){
+  ['adminTitle','adminContentURL','adminTags','adminTranscript','adminBullets'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('adminCategory').value='';
+  document.getElementById('autoFilledSection').classList.add('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  document.getElementById('bulletsPreview').classList.remove('hidden');
+  document.getElementById('bulletsPreview').textContent='Paste embed code — bullets will generate automatically from the transcript.';
+  setStatus('pasteStatus','','');
+  window._extractedURL=null;
+}
+
 function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(allAssets,currentQuery);}
 function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
 function renameCategory(idx){const n=prompt('Rename to:',categories[idx]);if(!n||n===categories[idx])return;categories[idx]=n;saveCategories();}
@@ -379,295 +348,59 @@ function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;
 function renderCategoryList(){
   const l=document.getElementById('categoryList');if(!l)return;
   if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
-  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${c}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 hover:border-red-400 transition-all">Delete</button></div>`).join('');
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${c}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 transition-all">Delete</button></div>`).join('');
 }
-function updateCatDropdowns(){['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});}
-
-
-// Auto-fill from UniqueId extracted from embed code
-// HANDLE EMBED CODE PASTE
-async function handleEmbedPaste(el){
-  const val = el.value.trim();
-  if(!val) return;
-
-  // Extract src URL from iframe code or use raw URL
-  const srcMatch = val.match(/src=["']([^"']+)["']/);
-  const embedURL = srcMatch ? srcMatch[1] : (val.startsWith('http') ? val : null);
-  if(!embedURL){
-    setStatus('pasteStatus','✗ Could not read URL — paste the full iframe embed code from Stream','text-red-500 font-black');
-    return;
-  }
-
-  window._extractedURL = embedURL;
-
-  // Extract UniqueId from URL
-  const uidMatch = embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
-  const uniqueId = uidMatch ? uidMatch[1] : null;
-
-  // Show Step 2
-  document.getElementById('autoFilledSection').classList.remove('hidden');
-  setStatus('pasteStatus','✓ Embed code recognised — fetching details...','text-green-700 font-black');
-
-  // Auto-fill title from iframe title attribute
-  const titleMatch = val.match(/title=["']([^"']+)["']/);
-  if(titleMatch && !document.getElementById('adminTitle').value){
-    document.getElementById('adminTitle').value = titleMatch[1].replace(/\.[^/.]+$/,'');
-  }
-
-  if(!uniqueId){
-    setStatus('transcriptStatus','Could not extract video ID — paste transcript manually.','text-amber-600 font-semibold');
-    document.getElementById('adminTranscript').classList.remove('hidden');
-    return;
-  }
-
-  await autoFillFromUniqueId(uniqueId);
+function updateCatDropdowns(){
+  ['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});
 }
 
-async function autoFillFromUniqueId(uniqueId){
-  let transcript = '';
-  let serverRelUrl = '';
-  const CREDS = { credentials: 'include' };
-  const JSON_HDR = { headers: { 'Accept': 'application/json;odata=nometadata' }, ...CREDS };
-
-  console.log('KB: Auto-fill starting for', uniqueId);
-
-  // Step 1: File properties — title, tags, transcript URI
-  try {
-    const r = await fetch(
-      `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords,ServerRelativeUrl,StreamMedia_TranscriptUri,OData__MediaTranscriptUri`,
-      JSON_HDR
-    );
-    console.log('KB: File props status:', r.status);
-    if(r.ok){
-      const d = await r.json();
-      serverRelUrl = d.ServerRelativeUrl || '';
-      const name = d.FileLeafRef || d.Title || '';
-      if(name && !document.getElementById('adminTitle').value)
-        document.getElementById('adminTitle').value = name.replace(/\.[^/.]+$/, '');
-      if(!document.getElementById('adminTags').value){
-        let tags = [];
-        if(d.TaxKeyword?.results) tags = d.TaxKeyword.results.map(k=>k.Label).filter(Boolean);
-        if(!tags.length && d.Keywords) tags = d.Keywords.split(/[,;]+/).map(t=>t.trim()).filter(Boolean);
-        if(tags.length) document.getElementById('adminTags').value = tags.join(', ');
-      }
-      const tUri = d.StreamMedia_TranscriptUri || d.OData__MediaTranscriptUri || '';
-      console.log('KB: TranscriptUri field:', tUri || 'empty');
-      if(tUri){
-        const tr = await fetch(tUri.startsWith('http') ? tUri : SP_SITE + tUri, CREDS);
-        console.log('KB: Transcript URI fetch status:', tr.status);
-        if(tr.ok) transcript = parseVTT(await tr.text());
-      }
-    }
-  } catch(e){ console.log('KB: Step 1 error:', e.message); }
-
-  // Step 2: Stream v2.1 transcript API
-  console.log('KB: Step 1 transcript:', transcript ? 'FOUND (' + transcript.length + ' chars)' : 'not found');
-  if(!transcript){
-    try{
-      const r = await fetch(
-        `${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,
-        { headers: { 'Accept': 'application/json' }, ...CREDS }
-      );
-      console.log('KB: v2.1 status:', r.status);
-      if(r.ok){
-        const d = await r.json();
-        console.log('KB: v2.1 response:', JSON.stringify(d).substring(0, 200));
-        const items = d?.value || [];
-        if(items.length){
-          const tUrl = items[0].transcriptContentUrl || items[0]['@microsoft.graph.downloadUrl'];
-          console.log('KB: Transcript URL:', tUrl);
-          if(tUrl){
-            const vr = await fetch(tUrl, CREDS);
-            console.log('KB: VTT fetch status:', vr.status);
-            if(vr.ok) transcript = parseVTT(await vr.text());
-          }
-        }
-      }
-    } catch(e){ console.log('KB: Step 2 error:', e.message); }
-  }
-
-  // Step 3: Find .vtt file alongside the video
-  console.log('KB: Step 2 transcript:', transcript ? 'FOUND' : 'not found | serverRelUrl=' + serverRelUrl);
-  if(!transcript && serverRelUrl){
-    try{
-      const base = serverRelUrl.replace(/\.[^/.]+$/, '');
-      const folder = serverRelUrl.substring(0, serverRelUrl.lastIndexOf('/'));
-      const paths = [
-        `${folder}/Transcripts/${uniqueId}.vtt`,
-        `${folder}/Transcripts/${uniqueId}_auto.vtt`,
-        `${base}_auto.vtt`,
-        `${base}.vtt`,
-      ];
-      for(const vp of paths){
-        try{
-          const vr = await fetch(
-            `${SP_SITE}/_api/web/GetFileByServerRelativeUrl('${encodeURIComponent(vp)}')/$value`,
-            { headers: { 'Accept': 'text/vtt,text/plain,*/*' }, ...CREDS }
-          );
-          console.log('KB: VTT path', vp, 'status:', vr.status);
-          if(vr.ok){ transcript = parseVTT(await vr.text()); if(transcript) break; }
-        } catch(e){}
-      }
-    } catch(e){ console.log('KB: Step 3 error:', e.message); }
-  }
-
-  // Show result
-  console.log('KB: Final transcript:', transcript ? 'FOUND (' + transcript.length + ' chars)' : 'NOT FOUND');
-  if(transcript){
-    document.getElementById('adminTranscript').value = transcript;
-    document.getElementById('adminTranscript').classList.remove('hidden');
-    document.getElementById('transcriptStatus').classList.add('hidden');
-    setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
-    await generateBullets();
-    setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
-  } else {
-    setStatus('transcriptStatus',
-      'Transcript could not be fetched automatically. In Stream: open video → Transcript tab → select all → copy → paste below. Bullets will generate automatically.',
-      'text-amber-600 font-semibold');
-    document.getElementById('transcriptStatus').classList.remove('hidden');
-    document.getElementById('adminTranscript').classList.remove('hidden');
-    document.getElementById('adminTranscript').placeholder = 'Paste transcript here — Stream > video > Transcript tab > select all > copy > paste';
-    document.getElementById('adminTranscript').oninput = async function(){
-      if(this.value.trim().length > 50){
-        this.oninput = null;
-        setStatus('pasteStatus','Transcript added — generating bullets...','text-amber-600 font-black');
-        await generateBullets();
-        setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
-      }
-    };
-  }
-}
-// Parse WebVTT transcript to plain text with timestamps
-function parseVTT(vtt){
-  const lines = vtt.split('\n');
-  const result = [];
-  let timestamp = '';
-  lines.forEach(line => {
-    line = line.trim();
-    if(line.includes(' --> ')){
-      const ts = line.split(' --> ')[0].trim();
-      // Convert HH:MM:SS.mmm to [HH:MM:SS]
-      timestamp = '[' + ts.substring(0,8) + ']';
-    } else if(line && !line.match(/^\d+$/) && !line.startsWith('WEBVTT') && !line.startsWith('NOTE')){
-      if(timestamp){ result.push(timestamp + ' ' + line); timestamp = ''; }
-      else { result.push(line); }
-    }
-  });
-  return result.join('\n');
-}
-
-function setStatus(id, msg, cls){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.textContent = msg;
-  el.className = cls + ' text-[11px] px-1 mt-1';
-  el.classList.remove('hidden');
-}
-
-function resetAdminForm(){
-  ['adminTitle','adminContentURL','adminTags','adminTranscript'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.value='';
-  });
-  document.getElementById('adminCategory').value='';
-  document.getElementById('autoFilledSection').classList.add('hidden');
-  document.getElementById('adminBullets').classList.add('hidden');
-  document.getElementById('regenBtn').classList.add('hidden');
-  document.getElementById('bulletsPreview').classList.remove('hidden');
-  document.getElementById('bulletsPreview').textContent='Paste your embed code — bullets will generate automatically once the transcript loads.';
-  setStatus('pasteStatus','','');
-  window._extractedURL = null;
-}
-
-// PUBLISH
-async function publishAsset(){
-  const title=document.getElementById('adminTitle').value.trim();
-  const url=window._extractedURL || document.getElementById('adminContentURL').value.trim();
-  if(!title||!url){alert('Please paste an embed code first — title and URL are required.');return;}
-  const payload={Title:title,AssetType:document.getElementById('adminAssetType').value,ContentURL:url,Category:document.getElementById('adminCategory').value,Tags:document.getElementById('adminTags').value.trim(),Transcript:document.getElementById('adminTranscript').value.trim(),HowToBullets:document.getElementById('adminBullets').value.trim(),Published:true,'__metadata':{'type':LIST_TYPE}};
-  try{
-    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
-    const dd=await dr.json();
-    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue},body:JSON.stringify(payload)});
-    alert('Published successfully!');
-    resetAdminForm();
-    loadAssets();
-  }catch(e){alert('Publish failed: '+e.message);}
-}
-
-// GENERATE BULLETS
-async function generateBullets(){
-  const t=document.getElementById('adminTranscript').value.trim();
-  if(!t){ document.getElementById('bulletsPreview').textContent='No transcript available — add one manually then regenerate.'; return; }
-  document.getElementById('bulletsPreview').classList.add('hidden');
-  document.getElementById('bulletsGenerating').classList.remove('hidden');
-  document.getElementById('adminBullets').classList.add('hidden');
-  document.getElementById('regenBtn').classList.add('hidden');
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Generate clear AV how-to guide bullet points from a transcript. Return only bullet points starting with •, one per line. No preamble.',messages:[{role:'user',content:`Transcript:
-
-${t}`}]})});
-    const data=await res.json();
-    const bullets=data.content?.map(c=>c.text||'').join('')||'';
-    document.getElementById('adminBullets').value=bullets;
-    document.getElementById('adminBullets').classList.remove('hidden');
-    document.getElementById('regenBtn').classList.remove('hidden');
-  }catch{ document.getElementById('bulletsPreview').classList.remove('hidden'); document.getElementById('bulletsPreview').textContent='Could not generate bullets — check AI connection.'; }
-  document.getElementById('bulletsGenerating').classList.add('hidden');
-}
-
-// MANAGE
 async function renderManageList(){
   const list=document.getElementById('manageList');if(!list)return;
   list.innerHTML='<div class="text-sm opacity-50 italic">Loading...</div>';
-  _manageItems=await loadAll();
-  if(!_manageItems.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
-  list.innerHTML=_manageItems.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.Published?'':'opacity-50 border-dashed'}">
-    <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span>
-    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${a.Title}</div><div class="text-[10px] opacity-50">${a.Category||'Uncategorised'} · ${a.AssetType} · ${a.Published?'Published':'Unpublished'}</div></div>
+  const items=await loadAll();
+  if(!items.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
+  list.innerHTML=items.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
+    <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝'}[a.assetType]||'📄'}</span>
+    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${a.title}</div><div class="text-[10px] opacity-50">${a.category||'Uncategorised'} · ${a.assetType} · ${a.published?'Published':'Unpublished'}</div></div>
     <div class="flex gap-2 flex-shrink-0">
-      <button onclick="editItem(${a.ID})" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
-      <button onclick="togglePublish(${a.ID},${a.Published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.Published?'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100':'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}">${a.Published?'Unpublish':'Publish'}</button>
+      <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
+      <button onclick="togglePublish('${a.id}',${a.published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.published?'bg-amber-50 text-amber-700 border-amber-200':'bg-green-50 text-green-700 border-green-200'}">${a.published?'Unpublish':'Publish'}</button>
     </div>
   </div>`).join('');
+  window._manageItems=items;
 }
 
 async function togglePublish(id,current){
-  try{
-    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
-    const dd=await dr.json();
-    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items(${id})`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue,'X-HTTP-Method':'MERGE','IF-MATCH':'*'},body:JSON.stringify({'Published':!current,'__metadata':{'type':LIST_TYPE}})});
-    renderManageList();loadAssets();
-  }catch(e){alert('Failed: '+e.message);}
+  try{await db.collection(COLLECTION).doc(id).update({published:!current});renderManageList();loadAssets();}
+  catch(e){alert('Failed: '+e.message);}
 }
 
 function editItem(id){
-  const a=_manageItems.find(x=>x.ID===id);if(!a)return;
+  const a=(window._manageItems||[]).find(x=>x.id===id);if(!a)return;
   document.getElementById('editId').value=id;
-  document.getElementById('editTitle').value=a.Title||'';
-  document.getElementById('editTags').value=a.Tags||'';
-  document.getElementById('editBullets').value=a.HowToBullets||'';
-  document.getElementById('editDescription').value=a.Description||'';
+  document.getElementById('editTitle').value=a.title||'';
+  document.getElementById('editTags').value=a.tags||'';
+  document.getElementById('editBullets').value=a.bullets||'';
+  document.getElementById('editDescription').value=a.description||'';
   updateCatDropdowns();
-  document.getElementById('editCategory').value=a.Category||'';
+  document.getElementById('editCategory').value=a.category||'';
   const em=document.getElementById('editModal');em.classList.remove('hidden');em.scrollIntoView({behavior:'smooth'});
 }
 function closeEdit(){document.getElementById('editModal').classList.add('hidden');}
 async function saveEdit(){
   const id=document.getElementById('editId').value;
-  const payload={Title:document.getElementById('editTitle').value.trim(),Category:document.getElementById('editCategory').value,Tags:document.getElementById('editTags').value.trim(),HowToBullets:document.getElementById('editBullets').value.trim(),Description:document.getElementById('editDescription').value.trim(),'__metadata':{'type':LIST_TYPE}};
   try{
-    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
-    const dd=await dr.json();
-    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items(${id})`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue,'X-HTTP-Method':'MERGE','IF-MATCH':'*'},body:JSON.stringify(payload)});
+    await db.collection(COLLECTION).doc(id).update({title:document.getElementById('editTitle').value.trim(),category:document.getElementById('editCategory').value,tags:document.getElementById('editTags').value.trim(),bullets:document.getElementById('editBullets').value.trim(),description:document.getElementById('editDescription').value.trim()});
     closeEdit();renderManageList();loadAssets();
   }catch(e){alert('Save failed: '+e.message);}
 }
 
-// HELPERS
 function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
-function fmtTime(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
+
+function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
+
+function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
 function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');});return text;}
 </script>
-
-
-</body></html>
+</body>
+</html>
