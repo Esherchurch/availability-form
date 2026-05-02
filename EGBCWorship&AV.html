@@ -73,7 +73,16 @@
             overflow: hidden;
         }
         
-        #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
+        /* KEY FIX: allow="popups popups-to-escape-sandbox" lets the iframe open popups
+           allow-same-origin lets SharePoint API calls use the session cookie context
+           allow-scripts is required for JS to run */
+        #app-frame { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+            background: var(--white);
+            /* allow popups so file picker can open, and allow-same-origin for SP API calls */
+        }
 
         #landing-content { 
             position: absolute; 
@@ -129,7 +138,14 @@
                 <h2 style="font-weight: 300; font-size: 32px; color: var(--accent-teal); margin-bottom: 10px;">Dashboard</h2>
                 <p style="color: #7a8c8c;">Select a tool to begin.</p>
             </div>
-            <iframe id="app-frame" style="display:none;" src=""></iframe>
+            <!-- allow="popups" lets child pages open popup windows (file picker) -->
+            <!-- allow="popups-to-escape-sandbox" lets popups open outside the iframe sandbox -->
+            <iframe 
+                id="app-frame" 
+                style="display:none;" 
+                src=""
+                allow="popups popups-to-escape-sandbox"
+            ></iframe>
         </main>
     </div>
 
@@ -160,17 +176,10 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         Firebase SDK  (v9 compat build — no bundler needed)
-    ════════════════════════════════════════════════════════════ -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
     <script>
-        // ─── FIREBASE CONFIG ──────────────────────────────────────────────────
-        // This uses your existing Firebase project (egbc-worship-planner).
-        // You need to fill in apiKey, authDomain and appId below.
-        // Find them at: Firebase Console → Project Settings → Your Apps → Config
         const firebaseConfig = {
             apiKey:            "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
             authDomain:        "egbc-worship-planner.firebaseapp.com",
@@ -183,14 +192,12 @@
         const db = firebase.firestore();
         const MENU_DOC = db.collection('portal').doc('menuItems');
 
-        // ─── SYNC STATUS HELPER ───────────────────────────────────────────────
         function setSyncStatus(state, text) {
             const el = document.getElementById('sync-status');
             el.className = state;
             el.textContent = text;
         }
 
-        // ─── DEFAULT MENU (first-run / factory reset only) ───────────────────
         const DEFAULT_MENU = [
             {"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
             {"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},
@@ -207,10 +214,8 @@
             {"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
         ];
 
-        // ─── IN-MEMORY STATE ──────────────────────────────────────────────────
         let menuItems = [];
 
-        // ─── LOAD FROM FIRESTORE ──────────────────────────────────────────────
         async function loadMenu() {
             setSyncStatus('syncing', 'Loading…');
             try {
@@ -218,7 +223,6 @@
                 if (snap.exists && snap.data().items) {
                     menuItems = snap.data().items;
                 } else {
-                    // First run — push defaults up to Firestore
                     menuItems = DEFAULT_MENU;
                     await MENU_DOC.set({ items: menuItems });
                 }
@@ -227,13 +231,11 @@
             } catch (err) {
                 console.error('Firestore load error:', err);
                 setSyncStatus('error', '⚠ Offline – changes won\'t save');
-                // Fall back to defaults so the page still works
                 menuItems = DEFAULT_MENU;
                 renderMenu();
             }
         }
 
-        // ─── SAVE TO FIRESTORE ────────────────────────────────────────────────
         async function saveMenu() {
             setSyncStatus('syncing', 'Saving…');
             try {
@@ -245,7 +247,6 @@
             }
         }
 
-        // ─── ICONS ────────────────────────────────────────────────────────────
         const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
 
         const ICONS = {
@@ -266,7 +267,6 @@
         const urlParams = new URLSearchParams(window.location.search);
         const userRole = urlParams.get('role') || 'worship';
 
-        // ─── RENDER ───────────────────────────────────────────────────────────
         function renderMenu() {
             const list = document.getElementById('nav-list');
             const parentSelect = document.getElementById('nodeParent');
@@ -325,6 +325,7 @@
             document.getElementById('landing-content').style.display = 'none';
             const frame = document.getElementById('app-frame');
             frame.style.display = 'block';
+            // Add cache-busting only if not already present, to ensure latest version loads
             frame.src = url;
         }
 
@@ -334,7 +335,6 @@
             document.getElementById('landing-content').style.display = 'block';
         }
 
-        // ─── ADMIN ────────────────────────────────────────────────────────────
         let clickCount = 0;
         function handleSecret() {
             if (userRole !== 'core') return;
@@ -384,7 +384,7 @@
             };
             if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
             else menuItems.push(data);
-            await saveMenu();   // ← writes to Firestore, not localStorage
+            await saveMenu();
             renderMenu();
             closeModal();
         }
@@ -392,7 +392,7 @@
         async function deletePage() {
             const id = document.getElementById('editId').value;
             menuItems = menuItems.filter(i => i.id != id && i.parent != id);
-            await saveMenu();   // ← writes to Firestore, not localStorage
+            await saveMenu();
             renderMenu();
             closeModal();
         }
@@ -405,7 +405,6 @@
             }
         }
 
-        // ─── BOOT ─────────────────────────────────────────────────────────────
         loadMenu();
     </script>
 </body>
