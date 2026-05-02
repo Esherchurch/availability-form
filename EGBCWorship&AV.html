@@ -173,6 +173,22 @@
         .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase;
             background: none; border: none; cursor: pointer; color: #a0b0b0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
         .tab-btn.active { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
+        .paste-zone {
+            min-height: 200px; max-height: 340px; overflow-y: auto;
+            border: 2px dashed var(--border-teal); border-radius: 8px;
+            padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.6;
+            color: #444; outline: none; transition: border-color 0.2s;
+        }
+        .paste-zone:focus { border-color: var(--accent-teal); border-style: solid; }
+        .paste-zone:empty:before { content: attr(placeholder); color: #b0c0c0; pointer-events: none; }
+        .paste-zone img { max-width: 100%; border-radius: 6px; }
+        .source-textarea {
+            width: 100%; min-height: 200px; max-height: 340px; overflow-y: auto;
+            border: 2px solid var(--border-teal); border-radius: 8px;
+            padding: 12px; margin-top: 10px; font-family: monospace; font-size: 12px;
+            line-height: 1.5; color: #333; outline: none; resize: vertical;
+        }
+        .source-textarea:focus { border-color: var(--accent-teal); }
 
         /* ── MENU MODAL (kept in main-container for same overlay approach) ── */
         #menu-modal-overlay {
@@ -275,13 +291,12 @@
                 <div class="modal-box">
                     <h3>Edit Dashboard Content</h3>
                     <div class="tab-row">
-                        <button class="tab-btn active" id="body-tab-edit" onclick="switchBodyTab('edit')">HTML</button>
-                        <button class="tab-btn" id="body-tab-preview" onclick="switchBodyTab('preview')">Preview</button>
+                        <button class="tab-btn active" id="body-tab-paste" onclick="switchBodyTab('paste')">✦ Paste from email</button>
+                        <button class="tab-btn" id="body-tab-source" onclick="switchBodyTab('source')">Source HTML</button>
                     </div>
-                    <label>Content HTML</label>
-                    <textarea id="body-html" placeholder="Paste HTML from your email editor…"></textarea>
-                    <div id="body-preview-box" class="html-preview" style="display:none;"></div>
-                    <div style="font-size:11px; color:#a0b0b0; margin-top:6px;">You can paste HTML directly from an email editor. Images, headings and links are all supported.</div>
+                    <div id="body-paste-zone" contenteditable="true" class="paste-zone" placeholder="Click here, then paste from your email editor (Ctrl+V / Cmd+V)…"></div>
+                    <textarea id="body-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here…"></textarea>
+                    <div style="font-size:11px; color:#a0b0b0; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above — images and formatting are preserved.</div>
                     <div class="modal-btn-row">
                         <button class="modal-btn cancel" onclick="closeModal('body-modal')">Cancel</button>
                         <button class="modal-btn primary" onclick="saveBodyContent()">Save</button>
@@ -299,13 +314,12 @@
                     <label>Date label (optional)</label>
                     <input type="text" id="ne-date" placeholder="e.g. Sunday 4 May">
                     <div class="tab-row" style="margin-top:12px;">
-                        <button class="tab-btn active" id="news-tab-edit" onclick="switchNewsTab('edit')">HTML</button>
-                        <button class="tab-btn" id="news-tab-preview" onclick="switchNewsTab('preview')">Preview</button>
+                        <button class="tab-btn active" id="news-tab-paste" onclick="switchNewsTab('paste')">✦ Paste from email</button>
+                        <button class="tab-btn" id="news-tab-source" onclick="switchNewsTab('source')">Source HTML</button>
                     </div>
-                    <label>Body HTML</label>
-                    <textarea id="ne-body" placeholder="Paste HTML from your email editor…"></textarea>
-                    <div id="news-preview-box" class="html-preview" style="display:none;"></div>
-                    <div style="font-size:11px; color:#a0b0b0; margin-top:6px;">Paste HTML from your email editor — images, buttons and links all work.</div>
+                    <div id="ne-paste-zone" contenteditable="true" class="paste-zone" placeholder="Click here, then paste from your email editor (Ctrl+V / Cmd+V)…"></div>
+                    <textarea id="ne-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here…"></textarea>
+                    <div style="font-size:11px; color:#a0b0b0; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above — images and formatting are preserved.</div>
                     <div class="modal-btn-row">
                         <button class="modal-btn danger" id="ne-delete-btn" style="display:none;" onclick="deleteNewsItem()">Delete</button>
                         <button class="modal-btn cancel" onclick="closeModal('news-modal')">Cancel</button>
@@ -546,22 +560,76 @@ async function saveHero() {
     closeModal('hero-modal');
 }
 
+// ── PASTE ZONE HELPERS ────────────────────────────
+// Intercept paste on a contenteditable zone: prefer text/html from clipboard
+function setupPasteZone(zoneId) {
+    const zone = document.getElementById(zoneId);
+    if (!zone) return;
+    zone.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const html = e.clipboardData.getData('text/html');
+        if (html) {
+            // Insert the raw HTML from clipboard
+            const sel = window.getSelection();
+            if (sel.rangeCount) sel.deleteFromDocument();
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            const frag = document.createDocumentFragment();
+            while (div.firstChild) frag.appendChild(div.firstChild);
+            const range = sel.getRangeAt(0);
+            range.insertNode(frag);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } else {
+            // Fallback: plain text
+            const text = e.clipboardData.getData('text/plain');
+            document.execCommand('insertText', false, text);
+        }
+    });
+}
+
+// Get innerHTML from a paste zone (strip outer wrapper if needed)
+function getPasteZoneHtml(zoneId) {
+    return document.getElementById(zoneId).innerHTML;
+}
+
+// Set paste zone content from stored HTML
+function setPasteZoneHtml(zoneId, html) {
+    document.getElementById(zoneId).innerHTML = html || '';
+}
+
+// Sync paste zone <-> source textarea when switching tabs
+function syncPasteToSource(pasteId, sourceId) {
+    document.getElementById(sourceId).value = document.getElementById(pasteId).innerHTML;
+}
+function syncSourceToPaste(pasteId, sourceId) {
+    document.getElementById(pasteId).innerHTML = document.getElementById(sourceId).value;
+}
+
 // ── BODY EDITOR ──────────────────────────────────
 function openBodyEditor() {
-    document.getElementById('body-html').value = dashData.bodyHtml || '';
-    switchBodyTab('edit');
+    setupPasteZone('body-paste-zone');
+    setPasteZoneHtml('body-paste-zone', dashData.bodyHtml || '');
+    document.getElementById('body-source').value = dashData.bodyHtml || '';
+    switchBodyTab('paste');
     openModal('body-modal');
 }
 function switchBodyTab(tab) {
-    const isEdit = tab === 'edit';
-    document.getElementById('body-html').style.display          = isEdit ? '' : 'none';
-    document.getElementById('body-preview-box').style.display   = isEdit ? 'none' : '';
-    document.getElementById('body-tab-edit').classList.toggle('active', isEdit);
-    document.getElementById('body-tab-preview').classList.toggle('active', !isEdit);
-    if (!isEdit) document.getElementById('body-preview-box').innerHTML = document.getElementById('body-html').value;
+    const isPaste = tab === 'paste';
+    if (!isPaste) syncPasteToSource('body-paste-zone', 'body-source');
+    else          syncSourceToPaste('body-paste-zone', 'body-source');
+    document.getElementById('body-paste-zone').style.display = isPaste ? '' : 'none';
+    document.getElementById('body-source').style.display     = isPaste ? 'none' : '';
+    document.getElementById('body-tab-paste').classList.toggle('active', isPaste);
+    document.getElementById('body-tab-source').classList.toggle('active', !isPaste);
 }
 async function saveBodyContent() {
-    dashData.bodyHtml = document.getElementById('body-html').value;
+    // Whichever tab is active, collect the latest HTML
+    const isPaste = document.getElementById('body-paste-zone').style.display !== 'none';
+    dashData.bodyHtml = isPaste
+        ? getPasteZoneHtml('body-paste-zone')
+        : document.getElementById('body-source').value;
     await saveDashToDb();
     renderDashboard();
     closeModal('body-modal');
@@ -570,31 +638,38 @@ async function saveBodyContent() {
 // ── NEWS EDITOR ──────────────────────────────────
 function openNewsEditor(id) {
     const item = id ? (dashData.newsItems || []).find(n => n.id == id) : null;
-    document.getElementById('ne-id').value          = item ? item.id    : '';
-    document.getElementById('ne-title').value       = item ? item.title : '';
-    document.getElementById('ne-date').value        = item ? (item.date || '') : '';
-    document.getElementById('ne-body').value        = item ? item.body  : '';
+    setupPasteZone('ne-paste-zone');
+    document.getElementById('ne-id').value    = item ? item.id    : '';
+    document.getElementById('ne-title').value = item ? item.title : '';
+    document.getElementById('ne-date').value  = item ? (item.date || '') : '';
+    setPasteZoneHtml('ne-paste-zone', item ? item.body : '');
+    document.getElementById('ne-source').value = item ? item.body : '';
     document.getElementById('news-modal-title').textContent = item ? 'Edit News' : 'Add News';
     document.getElementById('ne-delete-btn').style.display  = item ? 'block' : 'none';
-    switchNewsTab('edit');
+    switchNewsTab('paste');
     openModal('news-modal');
 }
 function switchNewsTab(tab) {
-    const isEdit = tab === 'edit';
-    document.getElementById('ne-body').style.display            = isEdit ? '' : 'none';
-    document.getElementById('news-preview-box').style.display   = isEdit ? 'none' : '';
-    document.getElementById('news-tab-edit').classList.toggle('active', isEdit);
-    document.getElementById('news-tab-preview').classList.toggle('active', !isEdit);
-    if (!isEdit) document.getElementById('news-preview-box').innerHTML = document.getElementById('ne-body').value;
+    const isPaste = tab === 'paste';
+    if (!isPaste) syncPasteToSource('ne-paste-zone', 'ne-source');
+    else          syncSourceToPaste('ne-paste-zone', 'ne-source');
+    document.getElementById('ne-paste-zone').style.display = isPaste ? '' : 'none';
+    document.getElementById('ne-source').style.display     = isPaste ? 'none' : '';
+    document.getElementById('news-tab-paste').classList.toggle('active', isPaste);
+    document.getElementById('news-tab-source').classList.toggle('active', !isPaste);
 }
 async function saveNewsItem() {
     if (!dashData.newsItems) dashData.newsItems = [];
-    const id  = document.getElementById('ne-id').value;
+    const id = document.getElementById('ne-id').value;
+    const isPaste = document.getElementById('ne-paste-zone').style.display !== 'none';
+    const body = isPaste
+        ? getPasteZoneHtml('ne-paste-zone')
+        : document.getElementById('ne-source').value;
     const data = {
         id:    id || Date.now(),
         title: document.getElementById('ne-title').value,
         date:  document.getElementById('ne-date').value,
-        body:  document.getElementById('ne-body').value
+        body:  body
     };
     if (id) {
         const idx = dashData.newsItems.findIndex(n => n.id == id);
