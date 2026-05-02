@@ -7,98 +7,57 @@
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; padding: 0; background: #3d6263; font-family: 'Segoe UI', Arial, sans-serif; }
-
-  .site-header {
-    height: 90px; background: #ffffff; padding: 0 40px;
-    display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid #d1dfdf;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  }
-
+  .site-header { height: 90px; background: #ffffff; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d1dfdf; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
   .tut-outer { background: #3d6263; padding: 28px 20px 48px; min-height: calc(100vh - 90px); }
-  .tut-inner {
-    background: #ffffff; border-radius: 14px; padding: 28px;
-    max-width: 760px; margin: 0 auto;
-  }
-
+  .tut-inner { background: #ffffff; border-radius: 14px; padding: 28px; max-width: 760px; margin: 0 auto; }
   .chapter-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; }
-  .chapter-pill {
-    font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px;
-    cursor: pointer; border: 1.5px solid #d1dfdf; color: #7a9a9a; background: #f4f8f8;
-    transition: all 0.15s;
-  }
+  .chapter-pill { font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; cursor: pointer; border: 1.5px solid #d1dfdf; color: #7a9a9a; background: #f4f8f8; transition: all 0.15s; }
   .chapter-pill:hover { border-color: #3d6263; color: #3d6263; }
   .chapter-pill.active { background: #3d6263; color: #fff; border-color: #3d6263; }
-
   .tut-heading { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: #3d6263; letter-spacing: 0.06em; text-transform: uppercase; }
   .tut-subheading { margin: 0 0 18px; font-size: 13px; color: #7a9a9a; }
-
   .progress-bar-bg { height: 5px; background: #d1dfdf; border-radius: 3px; margin-bottom: 1.5rem; }
   .progress-bar-fill { height: 5px; background: #3d6263; border-radius: 3px; transition: width 0.35s ease; }
-
   .step-badge { display: inline-block; font-size: 12px; color: #3d6263; background: #e6f0f0; border-radius: 20px; padding: 3px 11px; margin-bottom: 10px; }
   .step-title { font-size: 19px; font-weight: 700; color: #1a2e2e; margin: 0 0 8px; }
   .step-desc { font-size: 15px; color: #4a6060; line-height: 1.75; margin: 0 0 1.25rem; }
-
   .sim-area { border: 1px solid #d1dfdf; border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem; background: #fff; }
   .sim-topbar { background: #f4f8f8; border-bottom: 1px solid #d1dfdf; padding: 10px 16px; font-size: 14px; font-weight: 700; color: #3d6263; }
   .sim-body { padding: 16px; }
-
   .highlight { outline: 2.5px solid #3d6263; border-radius: 6px; animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%,100%{ outline-color:#3d6263; } 50%{ outline-color:#7aa8a9; } }
-
   .tip-box { background: #e6f0f0; border: 1px solid #a0c0c0; border-radius: 8px; padding: 11px 15px; font-size: 13px; color: #2e5050; margin-bottom: 1.25rem; line-height: 1.6; }
-  .tip-box::before { content: "💡 "; }
-  .warn-box { background: #fff8e6; border: 1px solid #e0c060; border-radius: 8px; padding: 11px 15px; font-size: 13px; color: #7a5500; margin-bottom: 1.25rem; line-height: 1.6; }
-  .warn-box::before { content: "⚠️ "; }
+  .tip-box::before { content: "\1F4A1 "; }
   .admin-box { background: #f8f0ff; border: 1px solid #c8a0e0; border-radius: 8px; padding: 11px 15px; font-size: 13px; color: #5a2e80; margin-bottom: 1.25rem; line-height: 1.6; }
-  .admin-box::before { content: "🔧 "; }
-
+  .admin-box::before { content: "\1F527 "; }
   .nav-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
   .nav-btn { background: #fff; border: 1px solid #b0c8c8; border-radius: 8px; padding: 9px 22px; font-size: 14px; cursor: pointer; color: #3d6263; font-family: 'Segoe UI', Arial, sans-serif; font-weight: 600; }
   .nav-btn:hover { background: #f4f8f8; }
   .nav-btn.primary { background: #3d6263; border-color: #3d6263; color: #fff; }
   .nav-btn.primary:hover { background: #2e4e4f; }
   .step-counter { font-size: 13px; color: #7a9a9a; text-align: center; }
-
-  /* Sim UI shared */
   .sim-btn { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; cursor: default; }
   .sim-btn-teal { background: #3d6263; color: #fff; }
   .sim-btn-light { background: #f0f6f6; color: #3d6263; border: 1.5px solid #d1dfdf; }
   .sim-btn-dark { background: #1a2e2e; color: #fff; }
   .sim-pill { display: inline-block; background: #f4f8f8; border: 1px solid #d1dfdf; border-radius: 50px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: #3d6263; margin: 2px; }
-  .sim-tag { display: inline-block; background: #f0f6f6; border: 1px solid #d1dfdf; border-radius: 8px; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #3d6263; margin: 2px; }
   .sim-input { display: inline-block; background: #fff; border: 1px solid #d1dfdf; border-radius: 10px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: #3d6263; }
-
-  /* Role card */
   .role-card { display: inline-block; border: 2px dashed #d1dfdf; border-radius: 14px; padding: 10px 14px; min-width: 120px; margin: 4px; vertical-align: top; }
   .role-card.assigned { border-style: solid; border-color: #3d6263; }
   .role-card.av { border-color: #e8a000; }
   .role-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: #3d6263; opacity: 0.5; margin-bottom: 4px; }
   .role-name { font-size: 12px; font-weight: 700; color: #3d6263; }
   .role-name.unassigned { color: #d1dfdf; font-style: italic; }
-
-  /* Avail bucket */
   .bucket { border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; }
-  .bucket-label { font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; }
   .avail-chip { display: inline-block; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; margin: 2px; cursor: grab; }
-
-  /* Event row */
   .event-row { border: 1px solid #d1dfdf; border-radius: 14px; padding: 12px 16px; margin-bottom: 8px; background: #fff; }
-
-  /* Send UI mockup */
   .send-card { background: #fff; border: 1px solid #d1dfdf; border-radius: 14px; padding: 16px; margin-bottom: 10px; }
   .send-log { background: #1e2a2a; color: #a8d5b5; border-radius: 10px; padding: 12px 14px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.7; }
   .log-ok { color: #7ee8a2; }
   .log-inf { color: #8ecae6; }
-  .log-err { color: #ff8a8a; }
-
   .finish-box { text-align: center; padding: 2rem 0; }
   .finish-box h2 { font-size: 24px; font-weight: 700; color: #3d6263; margin: 0 0 10px; }
   .finish-box p { color: #4a6060; font-size: 15px; line-height: 1.7; margin: 0 0 1.25rem; }
-
-  .step-num { display: inline-block; background: #3d6263; color: #fff; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; text-align: center; line-height: 22px; margin-right: 6px; flex-shrink: 0; }
-  .step-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; font-size: 13px; color: #4a6060; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -114,24 +73,22 @@
 
 <div class="tut-outer">
   <div class="tut-inner">
-
     <p class="tut-heading">Master Rota Planner — How to use</p>
     <p class="tut-subheading">Click any chapter to jump ahead, or use Next to work through from the beginning.</p>
-
     <div class="chapter-nav" id="chapterNav"></div>
     <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog"></div></div>
     <div id="step-content"></div>
-
     <div class="nav-row">
-      <button class="nav-btn" id="btn-prev" onclick="changeStep(-1)">← Back</button>
+      <button class="nav-btn" id="btn-prev" onclick="changeStep(-1)">&#8592; Back</button>
       <span class="step-counter" id="step-ctr"></span>
-      <button class="nav-btn primary" id="btn-next" onclick="changeStep(1)">Next →</button>
+      <button class="nav-btn primary" id="btn-next" onclick="changeStep(1)">Next &#8594;</button>
     </div>
-
   </div>
 </div>
 
 <script>
+const ICON_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAH10lEQVR4nO3dz7EbxxEH4JHLgTACZSAl4CxEHZ2Aq+yTXeUEfBSVhROQMnAEykQ+0KwHkwCxAHZm+s/3nVnkYrr7h94FHt8YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwOm+2X0BzPHdD+9/P/vv/PXnD/qlGAVNbMaQP0s45KRoSUQa9qOEQnwKFFTGgb9HIMSjIEFUHPh7BMJ+CrBRx6G/RRjs4dAXM/T3CYN1HPQiBv9xgmA+BzyZwX+dIJjHwU5g6OcRBudymCcy+OsIgnM4xBMY/H0EwWsc3gsMfhyC4Dl/2H0BWRn+WNTjOVLzQRotPtvAcQ7qIIOfjyC4zy3AAYY/J3W7T0J+hQaqwzZwnQ3gBsNfi3peJxU/o1Hqsw28sQFcMPw9qPMbAfA/mqIX9f6o/SqkEeh8S9B6AzD8jNG7D9oGQOei86Wu/dAyALoWm6/r2BftAqBjkTmuW3+0efjRrbC8rsPDwRYbgOHnGR36pnwAdCgi81Tvn9IBUL14rFG5j8oGQOWisV7VfioZAFWLxV4V+6pcAFQsEnFU669yAQAcVyoAqqUzMVXqszIBUKkoxFel30oEQJVikEuFvksfABWKQF7Z+y91AGQ/fGrI3IepAwB4TdoAyJy61JO1H1MGQNbDpraMfZkuADIeMn1k6890AQCcJ1UAZEtXesrUp2kCINOhQpZ+TRMAwPlSBECWNIVLGfo2fABkOES4JXr/hg8AYJ7QARA9PeGIyH0cOgCAucIGQOTUhEdF7eeQARD1sOAVEfs6ZAAAa4T75YdHU/Jff/vr7EuBw/78938c/rORfunoH3dfwLO+ffdujDHGf377bet10NunPswq1C3AM/dI2QtAXs/2XqRnAWk3gEu2AVaq9KYTZgM4IxUrFYaYzuqxKFtAiQ3gkm2AGaq+uYTZAM5WtWCsV7mXQgTArHXo23fvShePuWb3T4TbgBABMJsQ4FFdemZ7AKxKQdsAR6zuk91bwPYAWE0IcEvH3tgaALvSzzbApd39sHMLaLcBXBICve0e/AhaB8AYmqArNf9oWwDsfvjxOQ3RQ9TA3zUP7TeAS1Gbg3Oo7ZcEwBUapRbBftuWAIi2/l+jaWrIVMMdc1Huh4HO5oeLcso0+Du5BThIQ+WhVsfZAB5gG4jN4D9u+QaQ4f7/Ho0WT5WarJ4PG8CTbAMxVBn8XTwDeJEG3MOnNOcQACfQjGs56/MsDYAK9/9fozHn6hK0K+fEBnCyLk26mjOdQwBMomHPIVDnEgATad7XOLv5BMACGvkxgnOdZQFQ/QHgPZr6GGf00ap5sQEspsGvE5B7+CbgBr5F+MbQ72UD2Kh783d//RHYADbruA0Y/DhsAEF0GYourzMLG0AglbcBgx/Tkg2g+0eAj6r2RLzSa1lpxdy4BQgs++BUC7KKBEBwWYco4zV3JACSyDJQWQOrKwGQSPThinxtXCcAEoo2aNGDidt8DJhUhI8MDX1+NoDkdg2h4a/BBlDAym3A4NdiAyhk9nAa/npsAMXM2AYMfl02gKLOGlrDX5sNoLBXtgGD34MNoIFHh9nw92EDaOLINmDw+7EBNHNryA1/TzaAhi63AYPfmw2gMcOPAIDGBAA0JgCgsSUB8OvPH75Z8e9AJSvmxgYAjQkAaEwAQGO+CHTD9+9//Pfua+Acv3z46U+7ryEqGwA0JgCgsWUB4KNAOG7VvNgAoDEBAI0JAGhMAEBjSwPAg0C4b+Wc2ACgMQEAjfkq8A2+PkoHyzcAzwHgttXz4RYAGhMA0JgAgMa2BIDnAPClHXPhU4Abvn//4192X0M0v3z46Z+7r4FzuQWAxrYFgNsAeLNrHmwA0JgAgMa2BoDbANg7BzYAaGx7ANgC6Gx3/28PAGCfEAGwOwVhhwh9HyIAgD18FfgGX3ulgzAbQIR1CFaJ0u9hAgBYL1QARElFmClSn4cKAGCtcAEQKR3hbNH6O1wAAOuEDIBoKQlniNjXIQNgjJiHBc+K2s9hAwCYL3QARE1NeETkPg4dAMBc4QMgcnrCPdH7N3wAjBH/EOGaDH2bIgCAOdIEQIY0hU+y9GuaABgjz6HSW6Y+TRUAwLnSJNWl7354//vua4BrMr37j5F0A8h2yPSQsS9TBsAYOQ+burL2Y9oAAF6XOgCypi61ZO7D1AEwRu7DJ7/s/Zc+AMbIXwRyqtB3JQJgjBrFII8q/VYmAMaoUxRiq9RnpQIAeEy5AKiUzsRTrb/KBcAY9YpEDBX7qmQAjFGzWOxTtZ/KBsAYdYvGWpX7qHQAjFG7eMxXvX/KB8AY9YvIHB36pvwL/Jz/S4B7Ogz+Jy02gEudisvjuvVHuwAYo1+ROaZjX7QMgDF6FpvbuvZD2wAYo2/R+X+d+6DtC/+ch4P9dB78T1pvAJc0Qy/q/ZEAuKApelDnNw7iBrcE9Rj8L9kAbtAstajndQ7lANtAXgb/62wAB2iinNTtPgf0INtAfAb/OAf1JEEQj8F/nFuAJ2m2WNTjOQ7tBLaBfQz+axzeiQTBOgb/HA5xAkEwj8E/l8OcTBi8ztDP42AXEQSPM/jzOeDFBMF9Bn8dB72RMHhj6Pdw6EF0DANDv58CBFUxEAx8PAqSRMZAMPDxKVBikULBsOekaEXNCAdDDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcNx/AWF7VaYoqCmuAAAAAElFTkSuQmCC";
+
 const chapters = [
   { label: "Overview" },
   { label: "Building the Rota" },
@@ -143,7 +100,7 @@ const chapters = [
 
 const steps = [
 
-  // ── CHAPTER 1: OVERVIEW ──
+  // CHAPTER 1: OVERVIEW
   {
     chapter: 0,
     badge: "Chapter 1 — Overview",
@@ -154,13 +111,13 @@ const steps = [
       <div class="sim-area">
         <div class="sim-topbar">Master Rota Planner — at a glance</div>
         <div class="sim-body" style="text-align:center;padding:24px 16px">
-          <p style="font-size:28px;margin:0 0 10px">📋</p>
+          <p style="font-size:28px;margin:0 0 10px">&#x1F4CB;</p>
           <p style="font-size:14px;color:#4a6060;margin:0 0 20px">Everything you need to manage the team rota in one place</p>
           <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
-            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">🗓️</div>Build the term</div>
-            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">✅</div>Gather availability</div>
-            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">🤖</div>Auto-assign roles</div>
-            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">📧</div>Send personalised rotas</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">&#x1F5D3;&#xFE0F;</div>Build the term</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">&#x2705;</div>Gather availability</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">&#x1F916;</div>Auto-assign roles</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">&#x1F4E7;</div>Send personalised rotas</div>
           </div>
         </div>
       </div>`
@@ -169,28 +126,28 @@ const steps = [
     chapter: 0,
     badge: "Chapter 1 — Overview",
     title: "The two toolbar panels",
-    desc: "At the top of the page are two groups of buttons. The <strong>left panel</strong> contains all the tools for building and managing the rota — creating services, auto-populating, and sending rotas. The <strong>right panel</strong> contains the export tools — generating PDFs and Excel files.<br><br>You'll use the left panel most of the time during planning.",
-    tip: "Don't worry about memorising all the buttons — this walkthrough covers each one in turn.",
+    desc: "At the top of the page are two groups of buttons. The <strong>left panel</strong> contains all the tools for building and managing the rota — creating services, auto-populating, and sending rotas. The <strong>right panel</strong> contains the export tools — generating PDFs and Excel files.<br><br>You&#8217;ll use the left panel most of the time during planning.",
+    tip: "Don&#8217;t worry about memorising all the buttons — this walkthrough covers each one in turn.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Top toolbar — two panels</div>
         <div class="sim-body">
           <div style="display:flex;gap:6px;flex-wrap:wrap;background:#f4f8f8;padding:12px;border-radius:12px;margin-bottom:10px">
             <span style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;opacity:0.5;width:100%;margin-bottom:4px">Left panel — planning tools</span>
-            <span class="sim-btn sim-btn-light">Term ▾</span>
+            <span class="sim-btn sim-btn-light">Term &#9660;</span>
             <span class="sim-btn sim-btn-light">Populate</span>
             <span class="sim-btn sim-btn-teal">Auto-Populate</span>
             <span class="sim-btn sim-btn-teal">Add Practices</span>
             <span class="sim-btn sim-btn-teal">+ Service</span>
             <span class="sim-btn sim-btn-light">Gather Avail</span>
             <span class="sim-btn sim-btn-light">Hide Assigned</span>
-            <span class="sim-btn sim-btn-dark highlight">🚀 Send All Rotas</span>
+            <span class="sim-btn sim-btn-dark highlight">&#x1F680; Send All Rotas</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;background:#f4f8f8;padding:12px;border-radius:12px">
             <span style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;opacity:0.5;width:100%;margin-bottom:4px">Right panel — exports</span>
             <span class="sim-btn sim-btn-light">Full PDF</span>
             <span class="sim-btn sim-btn-light">Excel</span>
-            <span class="sim-btn sim-btn-light" style="min-width:140px">Select Member ▾</span>
+            <span class="sim-btn sim-btn-light" style="min-width:140px">Select Member &#9660;</span>
             <span class="sim-btn sim-btn-teal">Indiv</span>
             <span class="sim-btn sim-btn-teal">Home</span>
             <span class="sim-btn sim-btn-teal">Wall</span>
@@ -199,7 +156,7 @@ const steps = [
       </div>`
   },
 
-  // ── CHAPTER 2: BUILDING THE ROTA ──
+  // CHAPTER 2: BUILDING THE ROTA
   {
     chapter: 1,
     badge: "Chapter 2 — Building the Rota",
@@ -211,16 +168,12 @@ const steps = [
         <div class="sim-topbar">Generating a term</div>
         <div class="sim-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <select class="sim-input highlight" style="min-width:120px">
-              <option>Autumn</option>
-              <option>Spring</option>
-              <option>Summer</option>
-            </select>
+            <select class="sim-input highlight" style="min-width:120px"><option>Autumn</option><option>Spring</option><option>Summer</option></select>
             <span class="sim-btn sim-btn-light highlight">Populate</span>
-            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← then click this</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">&#8592; then click this</span>
           </div>
           <div style="margin-top:14px;padding:10px 14px;background:#e6f0f0;border-radius:8px;font-size:12px;color:#3d6263;font-weight:700">
-            ✓ 13 Sunday Morning Worship services created for Autumn 2025
+            &#10003; 13 Sunday Morning Worship services created for Autumn 2025
           </div>
         </div>
       </div>`
@@ -229,29 +182,28 @@ const steps = [
     chapter: 1,
     badge: "Chapter 2 — Building the Rota",
     title: "Adding Thursday practices",
-    desc: "Once you've generated the Sundays, click <strong>Add Practices</strong> (with the same term still selected) to automatically add a Thursday evening rehearsal for every week in the term.<br><br>Each Thursday practice is set up with the worship roles (Worship Leader, Keyboard, Guitar, Drums, Bass) and the default rehearsal times of 7:30–9:30pm.",
-    tip: "Practices are linked to the following Sunday — the Sync button on each practice will copy across the same people who are assigned to that Sunday, so you don't have to assign them twice.",
+    desc: "Once you&#8217;ve generated the Sundays, click <strong>Add Practices</strong> (with the same term still selected) to automatically add a Thursday evening rehearsal for every week in the term.<br><br>Each Thursday practice is set up with the worship roles (Worship Leader, Keyboard, Guitar, Drums, Bass) and the default rehearsal times of 7:30&#8211;9:30pm.",
+    tip: "Practices are linked to the following Sunday &#8212; the Sync button on each practice will copy across the same people who are assigned to that Sunday, so you don&#8217;t have to assign them twice.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Adding Thursday practices</div>
         <div class="sim-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
             <span class="sim-btn sim-btn-teal highlight">Add Practices</span>
-            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← adds Thursdays for the selected term</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">&#8592; adds Thursdays for the selected term</span>
           </div>
           <div class="event-row" style="border-style:dashed;border-color:#d1dfdf;background:#f8fbfb">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <span style="background:#d1dfdf;color:#3d6263;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">Thu 2 Oct</span>
-              <span style="font-size:11px;color:#3d6263;font-weight:700">19:30–21:30</span>
+              <span style="font-size:11px;color:#3d6263;font-weight:700">19:30&#8211;21:30</span>
               <span style="font-size:11px;color:#3d6263;font-weight:700">Sunday Team Practice</span>
-              <span style="font-size:10px;color:#7a9a9a">Thursday Rehearsal</span>
-              <span class="sim-btn sim-btn-light" style="font-size:9px;padding:3px 10px;margin-left:auto">⟳ Sync</span>
+              <span class="sim-btn sim-btn-light" style="margin-left:auto;font-size:9px;padding:3px 10px">&#x21BB; Sync</span>
             </div>
           </div>
           <div class="event-row">
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="display:flex;gap:8px;align-items:center">
               <span style="background:#3d6263;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">Sun 5 Oct</span>
-              <span style="font-size:11px;color:#3d6263;font-weight:700">08:00–11:30</span>
+              <span style="font-size:11px;color:#3d6263;font-weight:700">08:00&#8211;11:30</span>
               <span style="font-size:11px;color:#3d6263;font-weight:700">Sunday Morning Worship</span>
             </div>
           </div>
@@ -262,25 +214,19 @@ const steps = [
     chapter: 1,
     badge: "Chapter 2 — Building the Rota",
     title: "Adding a single service or event",
-    desc: "To add a one-off service or special event — like a Carol Service, LOUD Worship, or a team meeting — click <strong>+ Service</strong>. A new row appears at the bottom of the current term with today's date and the type set to Sunday Morning Worship.<br><br>You can then:<br>• Change the <strong>date</strong> by clicking the date field<br>• Change the <strong>type</strong> using the dropdown (Carol Service, LOUD Worship, Team Meeting, etc.)<br>• Change the <strong>start and end times</strong> using the time dropdowns<br>• Add a <strong>note</strong> in the description box",
+    desc: "To add a one-off service or special event &#8212; like a Carol Service, LOUD Worship, or a team meeting &#8212; click <strong>+ Service</strong>. A new row appears at the bottom of the current term with today&#8217;s date and the type set to Sunday Morning Worship.<br><br>You can then:<br>&#8226; Change the <strong>date</strong> by clicking the date field<br>&#8226; Change the <strong>type</strong> using the dropdown (Carol Service, LOUD Worship, Team Meeting, etc.)<br>&#8226; Change the <strong>start and end times</strong> using the time dropdowns<br>&#8226; Add a <strong>note</strong> in the description box",
     tip: "Use the team checkboxes (Core Team, Worship Team, AV Team, Choir, Youth) to control which team members appear in the availability bucket for that event.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Adding and editing a single service</div>
         <div class="sim-body">
-          <div style="margin-bottom:12px;display:flex;gap:8px">
-            <span class="sim-btn sim-btn-teal highlight">+ Service</span>
-          </div>
+          <div style="margin-bottom:12px"><span class="sim-btn sim-btn-teal highlight">+ Service</span></div>
           <div class="event-row">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <input type="date" class="sim-input" value="2025-12-14" style="padding:4px 8px;">
-              <select class="sim-input" style="min-width:180px">
-                <option selected>Evening Carol Service</option>
-                <option>Sunday Morning Worship</option>
-                <option>LOUD Worship</option>
-              </select>
+              <select class="sim-input" style="min-width:180px"><option selected>Evening Carol Service</option><option>Sunday Morning Worship</option><option>LOUD Worship</option></select>
               <select class="sim-input" style="width:70px"><option>18:00</option></select>
-              <span style="font-size:11px;color:#3d6263;opacity:0.4">–</span>
+              <span style="font-size:11px;color:#3d6263;opacity:0.4">&#8211;</span>
               <select class="sim-input" style="width:70px"><option>20:00</option></select>
               <input class="sim-input" placeholder="Notes..." style="flex:1;min-width:100px;font-weight:400">
             </div>
@@ -298,35 +244,35 @@ const steps = [
     chapter: 1,
     badge: "Chapter 2 — Building the Rota",
     title: "Collapsing and archiving terms",
-    desc: "Each term has a teal header bar. Click the <strong>term name</strong> in the header to collapse or expand all the services in that term — useful for focusing on the current term without the others getting in the way.<br><br>Once a term is finished, click the <strong>Archive</strong> button in the header to hide all its services from the main view. Archived services are still stored — they just don't clutter the planner.",
+    desc: "Each term has a teal header bar. Click the <strong>term name</strong> in the header to collapse or expand all the services in that term &#8212; useful for focusing on the current term without the others getting in the way.<br><br>Once a term is finished, click the <strong>Archive</strong> button in the header to hide all its services from the main view. Archived services are still stored &#8212; they just don&#8217;t clutter the planner.",
     tip: "Archive old terms at the start of each new term to keep the planner clean and fast.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Term header — collapse and archive</div>
         <div class="sim-body" style="padding:0">
           <div style="background:#3d6263;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:8px 8px 0 0">
-            <button style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#fff;background:none;border:none;cursor:pointer" class="highlight">▼ &nbsp;Autumn 2025</button>
+            <button style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#fff;background:none;border:none;cursor:pointer" class="highlight">&#9660; &nbsp;Autumn 2025</button>
             <span class="sim-btn" style="background:rgba(255,255,255,0.2);color:#fff;font-size:10px;padding:4px 14px">Archive</span>
           </div>
-          <div style="padding:12px 16px;font-size:12px;color:#7a9a9a;font-style:italic">↑ Click the term name to collapse — click Archive when the term is complete</div>
+          <div style="padding:12px 16px;font-size:12px;color:#7a9a9a;font-style:italic">&#8593; Click the term name to collapse &#8212; click Archive when the term is complete</div>
         </div>
       </div>`
   },
 
-  // ── CHAPTER 3: AVAILABILITY ──
+  // CHAPTER 3: AVAILABILITY
   {
     chapter: 2,
     badge: "Chapter 3 — Availability",
     title: "Gathering availability from the team",
-    desc: "Before you can assign people, you need to know who is available. Click <strong>Gather Avail</strong> to send an availability request email to the whole team for a specific term.<br><br>A prompt asks which term you want to gather for. After you confirm, your email client opens with a pre-addressed email to all the relevant team members, containing a link to the availability form they fill in online.",
-    tip: "Only team members who are marked as being in the relevant teams (Worship Team, AV Team, etc.) for that term's events will be emailed — so you won't send it to people who aren't involved.",
+    desc: "Before you can assign people, you need to know who is available. Click <strong>Gather Avail</strong> to send an availability request to the whole team for a specific term.<br><br>A prompt asks which term you want to gather for. After you confirm, your email client opens with a pre-addressed email to all the relevant team members, containing a link to the availability form they fill in online.",
+    tip: "Only team members who are marked as being in the relevant teams for that term&#8217;s events will be emailed &#8212; so you won&#8217;t send it to people who aren&#8217;t involved.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Gathering availability</div>
         <div class="sim-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
             <span class="sim-btn sim-btn-light highlight">Gather Avail</span>
-            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← opens your email with the form link</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">&#8592; opens your email with the availability form link</span>
           </div>
           <div style="border:1px solid #d1dfdf;border-radius:10px;overflow:hidden;font-size:12px">
             <div style="background:#f4f8f8;padding:8px 14px;font-weight:700;color:#3d6263;font-size:11px">Email preview</div>
@@ -344,22 +290,19 @@ const steps = [
     chapter: 2,
     badge: "Chapter 3 — Availability",
     title: "The availability bucket",
-    desc: "Each service has a <strong>bucket icon</strong> (📥) on the right side of its row. Click it to open the availability panel for that service, which shows three sections:<br><br><strong style='color:#16a34a'>Available</strong> — people who said they can serve<br><strong style='color:#dc2626'>Declined</strong> — people who said they can't<br><strong style='color:#9ca3af'>Pending</strong> — people who haven't responded yet<br><br>You can drag people between the three sections to manually adjust their status.",
-    tip: "Orange names in the role cards mean that person hasn't responded to availability yet — they may have been assigned before responses came in. Worth checking before finalising.",
+    desc: "Each service has a <strong>bucket icon</strong> on the right side of its row. Click it to open the availability panel for that service, which shows three sections:<br><br><strong style='color:#16a34a'>Available</strong> &#8212; people who said they can serve<br><strong style='color:#dc2626'>Declined</strong> &#8212; people who said they can&#8217;t<br><strong style='color:#9ca3af'>Pending</strong> &#8212; people who haven&#8217;t responded yet<br><br>You can drag people between the three sections to manually adjust their status.",
+    tip: "Orange names in the role cards mean that person hasn&#8217;t responded to availability yet &#8212; worth checking before finalising the rota.",
     render: () => `
       <div class="sim-area">
-        <div class="sim-topbar">Availability bucket — click 📥 to open</div>
+        <div class="sim-topbar">Availability bucket</div>
         <div class="sim-body">
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div style="flex:1;min-width:200px">
               <div class="bucket" style="background:#f0fdf4;border:1px solid #bbf7d0">
                 <div class="bucket-label" style="color:#16a34a">Available</div>
-                <div>
-                  <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">Sarah</span>
-                  <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">James</span>
-                  <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">Ruth</span>
-                  <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">David</span>
-                </div>
+                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">Sarah</span>
+                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">James</span>
+                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">Ruth</span>
               </div>
               <div class="bucket" style="background:#fff1f2;border:1px solid #fecdd3">
                 <div class="bucket-label" style="color:#dc2626">Declined</div>
@@ -380,31 +323,29 @@ const steps = [
     chapter: 2,
     badge: "Chapter 3 — Availability",
     title: "Hide Assigned toggle",
-    desc: "The <strong>Hide Assigned</strong> button toggles whether people who have already been given a role appear in the availability buckets.<br><br>Turn it <strong>on</strong> when you're assigning roles — it clears the clutter and shows only the people still waiting to be placed.<br><br>Turn it <strong>off</strong> to see the full picture of who is available for that date, including people already assigned.",
-    tip: "Hide Assigned is really useful during the final check — if the Available bucket still has people in it after assigning, it means you have spare capacity for that service.",
+    desc: "The <strong>Hide Assigned</strong> button toggles whether people who have already been given a role appear in the availability buckets.<br><br>Turn it <strong>on</strong> when you&#8217;re assigning roles &#8212; it clears the clutter and shows only the people still waiting to be placed.<br><br>Turn it <strong>off</strong> to see the full picture of who is available for that date, including people already assigned.",
+    tip: "Hide Assigned is really useful during the final check &#8212; if the Available bucket still has people in it after assigning, it means you have spare capacity for that service.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Hide Assigned toggle</div>
         <div class="sim-body">
           <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
             <span class="sim-btn sim-btn-light highlight">Hide Assigned</span>
-            <span style="font-size:11px;color:#7a9a9a">← toggles on/off</span>
+            <span style="font-size:11px;color:#7a9a9a">&#8592; toggles on/off</span>
           </div>
           <div style="display:flex;gap:14px">
             <div style="flex:1">
-              <div style="font-size:10px;font-weight:700;color:#7a9a9a;text-transform:uppercase;margin-bottom:6px">Off — all available shown</div>
+              <div style="font-size:10px;font-weight:700;color:#7a9a9a;text-transform:uppercase;margin-bottom:6px">Off &#8212; all shown</div>
               <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px">
-                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;opacity:0.5">Sarah ✓</span>
-                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;opacity:0.5">James ✓</span>
+                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;opacity:0.5">Sarah &#10003;</span>
+                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;opacity:0.5">James &#10003;</span>
                 <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">Ruth</span>
-                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">David</span>
               </div>
             </div>
             <div style="flex:1">
-              <div style="font-size:10px;font-weight:700;color:#7a9a9a;text-transform:uppercase;margin-bottom:6px">On — only unassigned shown</div>
+              <div style="font-size:10px;font-weight:700;color:#7a9a9a;text-transform:uppercase;margin-bottom:6px">On &#8212; unassigned only</div>
               <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px">
                 <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">Ruth</span>
-                <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">David</span>
               </div>
             </div>
           </div>
@@ -412,20 +353,20 @@ const steps = [
       </div>`
   },
 
-  // ── CHAPTER 4: ASSIGNING PEOPLE ──
+  // CHAPTER 4: ASSIGNING
   {
     chapter: 3,
     badge: "Chapter 4 — Assigning People",
     title: "Auto-Populate — filling the rota automatically",
-    desc: "The <strong>Auto-Populate</strong> button is the fastest way to fill the rota. Click it and the system will go through every unarchived Sunday service and automatically assign available people to each role, based on:<br><br>• Whether they responded as available for that date<br>• What instruments they play (primary instruments first)<br>• How many times they've already served that month (respects their max frequency setting)<br>• Whether they've already been assigned elsewhere that day",
-    tip: "Auto-Populate is a great starting point — it doesn't replace your judgement. Always review the results and adjust manually where needed.",
+    desc: "The <strong>Auto-Populate</strong> button is the fastest way to fill the rota. Click it and the system will go through every unarchived Sunday service and automatically assign available people to each role, based on:<br><br>&#8226; Whether they responded as available for that date<br>&#8226; What instruments they play (primary instruments first)<br>&#8226; How many times they&#8217;ve already served that month<br>&#8226; Whether they&#8217;ve already been assigned elsewhere that day",
+    tip: "Auto-Populate is a great starting point &#8212; it doesn&#8217;t replace your judgement. Always review the results and adjust manually where needed.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Auto-Populate</div>
         <div class="sim-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
             <span class="sim-btn sim-btn-teal highlight">Auto-Populate</span>
-            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← fills all Sundays automatically</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">&#8592; fills all Sundays automatically</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
             <div class="role-card assigned"><div class="role-label">Worship Leader</div><div class="role-name">Sarah</div></div>
@@ -436,7 +377,7 @@ const steps = [
             <div class="role-card assigned av"><div class="role-label">Words</div><div class="role-name">Emma</div></div>
             <div class="role-card"><div class="role-label">Bass</div><div class="role-name unassigned">Unassigned</div></div>
           </div>
-          <p style="font-size:11px;color:#7a9a9a;margin:10px 0 0">AV roles appear with an amber border · Unassigned roles stay dashed</p>
+          <p style="font-size:11px;color:#7a9a9a;margin:10px 0 0">AV roles appear with an amber border &#183; Unassigned roles stay dashed</p>
         </div>
       </div>`
   },
@@ -444,8 +385,8 @@ const steps = [
     chapter: 3,
     badge: "Chapter 4 — Assigning People",
     title: "Drag and drop assignment",
-    desc: "You can manually assign or move anyone by dragging their name chip from the availability bucket onto a role card.<br><br>• Drag from the <strong>Available</strong> bucket onto any role card to assign them<br>• Drag from one <strong>role card to another</strong> to move them between roles on the same service<br>• Drag a name from a role card <strong>back to the bucket</strong> to unassign them<br><br>The planner updates instantly — no save button needed.",
-    tip: "If you drag someone who is already assigned on another role of the same service, they are automatically removed from the first role when dropped onto the new one.",
+    desc: "You can manually assign or move anyone by dragging their name chip from the availability bucket onto a role card.<br><br>&#8226; Drag from the <strong>Available</strong> bucket onto any role card to assign them<br>&#8226; Drag from one <strong>role card to another</strong> to move them between roles on the same service<br>&#8226; Drag a name from a role card <strong>back to the bucket</strong> to unassign them<br><br>The planner updates instantly &#8212; no save button needed.",
+    tip: "If you drag someone who is already assigned to another role on the same service, they are automatically removed from the first role when dropped onto the new one.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Drag and drop — assign from bucket to role</div>
@@ -453,17 +394,15 @@ const steps = [
           <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
             <div style="min-width:160px">
               <div style="font-size:10px;font-weight:800;color:#16a34a;text-transform:uppercase;margin-bottom:6px">Available</div>
-              <span class="avail-chip highlight" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-block;cursor:grab">⠿ &nbsp;Mark</span>
-              <span class="avail-chip" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-block">Anna</span>
+              <span class="avail-chip highlight" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-block;cursor:grab">&#8999; &nbsp;Mark</span>
             </div>
-            <div style="font-size:20px;color:#d1dfdf;padding-top:18px">→</div>
+            <div style="font-size:20px;color:#d1dfdf;padding-top:18px">&#8594;</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px">
               <div class="role-card" style="border-color:#3d6263;border-style:dashed">
                 <div class="role-label">Bass</div>
                 <div style="font-size:11px;color:#9ac0c0;font-style:italic">Drop here</div>
               </div>
               <div class="role-card assigned"><div class="role-label">Guitar</div><div class="role-name">James</div></div>
-              <div class="role-card assigned"><div class="role-label">Keyboard</div><div class="role-name">Ruth</div></div>
             </div>
           </div>
         </div>
@@ -473,30 +412,26 @@ const steps = [
     chapter: 3,
     badge: "Chapter 4 — Assigning People",
     title: "Adding and removing roles",
-    desc: "Each service starts with a default set of roles, but you can customise it:<br><br><strong>Add a role</strong> — use the <strong>+ Role</strong> dropdown at the end of the role cards to add optional roles like Singer 1, Violin, Choir, 2nd Guitar, and more.<br><br><strong>Remove a role</strong> — hover over any role card and a small × button appears in the top right corner. Click it to remove that role (you'll be asked to confirm).",
-    tip: "Removing a role also removes whoever is assigned to it — so only remove roles when you're sure they're not needed.",
+    desc: "Each service starts with a default set of roles, but you can customise it:<br><br><strong>Add a role</strong> &#8212; use the <strong>+ Role</strong> dropdown at the end of the role cards to add optional roles like Singer 1, Violin, Choir, 2nd Guitar, and more.<br><br><strong>Remove a role</strong> &#8212; hover over any role card and a small &#215; button appears in the top right corner. Click it to remove that role (you&#8217;ll be asked to confirm).",
+    tip: "Removing a role also removes whoever is assigned to it &#8212; so only remove roles when you&#8217;re sure they&#8217;re not needed.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Adding and removing roles</div>
         <div class="sim-body">
           <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-            <div class="role-card assigned" style="position:relative">
-              <div class="role-label" style="display:flex;justify-content:space-between">Guitar <span style="color:#f87171;font-weight:900;cursor:pointer">×</span></div>
+            <div class="role-card assigned">
+              <div class="role-label" style="display:flex;justify-content:space-between">Guitar <span style="color:#f87171;font-weight:900">&#215;</span></div>
               <div class="role-name">James</div>
             </div>
-            <div class="role-card assigned" style="position:relative">
-              <div class="role-label" style="display:flex;justify-content:space-between">Keyboard <span style="color:#f87171;font-weight:900;cursor:pointer">×</span></div>
+            <div class="role-card assigned">
+              <div class="role-label" style="display:flex;justify-content:space-between">Keyboard <span style="color:#f87171;font-weight:900">&#215;</span></div>
               <div class="role-name">Ruth</div>
             </div>
             <select class="sim-btn sim-btn-light highlight" style="min-width:100px;font-size:11px;border-radius:14px;padding:8px 14px">
-              <option>+ Role</option>
-              <option>Singer 1</option>
-              <option>Violin</option>
-              <option>2nd Guitar</option>
-              <option>Choir</option>
+              <option>+ Role</option><option>Singer 1</option><option>Violin</option><option>2nd Guitar</option>
             </select>
           </div>
-          <p style="font-size:11px;color:#7a9a9a;margin:10px 0 0">Hover a role card to see the × remove button · Use + Role to add optional roles</p>
+          <p style="font-size:11px;color:#7a9a9a;margin:10px 0 0">Hover a role card to see the &#215; remove button &#183; Use + Role to add optional roles</p>
         </div>
       </div>`
   },
@@ -504,8 +439,8 @@ const steps = [
     chapter: 3,
     badge: "Chapter 4 — Assigning People",
     title: "Syncing practices to Sunday",
-    desc: "Each Thursday practice row has a <strong>Sync</strong> button. Clicking it looks at the following Sunday's assignments and copies the same people into the practice — but only if they've marked themselves as available for the Thursday too.<br><br>This saves you assigning people to both the practice and the Sunday separately.",
-    tip: "Always run Sync after you've finished assigning the Sunday, not before — otherwise there's nothing to copy across.",
+    desc: "Each Thursday practice row has a <strong>Sync</strong> button. Clicking it looks at the following Sunday&#8217;s assignments and copies the same people into the practice &#8212; but only if they&#8217;ve marked themselves as available for the Thursday too.<br><br>This saves you assigning people to both the practice and the Sunday separately.",
+    tip: "Always run Sync after you&#8217;ve finished assigning the Sunday, not before &#8212; otherwise there&#8217;s nothing to copy across.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Sync practice from Sunday</div>
@@ -514,31 +449,30 @@ const steps = [
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <span style="background:#d1dfdf;color:#3d6263;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">Thu 2 Oct</span>
               <span style="font-size:11px;color:#3d6263;font-weight:700">Sunday Team Practice</span>
-              <span class="sim-btn sim-btn-light highlight" style="margin-left:auto;font-size:9px;padding:3px 10px">⟳ Sync</span>
+              <span class="sim-btn sim-btn-light highlight" style="margin-left:auto;font-size:9px;padding:3px 10px">&#x21BB; Sync</span>
             </div>
           </div>
           <div class="event-row">
-            <div style="display:flex;gap:8px;align-items:center">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
               <span style="background:#3d6263;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">Sun 5 Oct</span>
               <span style="font-size:11px;color:#3d6263;font-weight:700">Sunday Morning Worship</span>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
               <div class="role-card assigned" style="min-width:90px"><div class="role-label">W/L</div><div class="role-name" style="font-size:11px">Sarah</div></div>
               <div class="role-card assigned" style="min-width:90px"><div class="role-label">Guitar</div><div class="role-name" style="font-size:11px">James</div></div>
-              <div class="role-card assigned" style="min-width:90px"><div class="role-label">Keys</div><div class="role-name" style="font-size:11px">Ruth</div></div>
             </div>
           </div>
-          <p style="font-size:11px;color:#7a9a9a;margin:8px 0 0">Sync copies Sunday's assignments into Thursday — only if they're available for the Thursday too</p>
+          <p style="font-size:11px;color:#7a9a9a;margin:8px 0 0">Sync copies Sunday&#8217;s assignments into Thursday &#8212; only if they&#8217;re also available for that Thursday</p>
         </div>
       </div>`
   },
 
-  // ── CHAPTER 5: EXPORTS & PDFS ──
+  // CHAPTER 5: EXPORTS
   {
     chapter: 4,
     badge: "Chapter 5 — Exports & PDFs",
     title: "Exporting the full rota",
-    desc: "The right-hand toolbar panel has several export options:<br><br><strong>Full PDF</strong> — downloads a landscape PDF of the entire rota for all active (non-archived) services, showing all roles and names in a table.<br><br><strong>Excel</strong> — downloads an .xlsx spreadsheet of the same data, useful for sharing with others or keeping a record.",
+    desc: "The right-hand toolbar panel has several export options:<br><br><strong>Full PDF</strong> &#8212; downloads a landscape PDF of the entire rota for all active services, showing all roles and names in a table.<br><br><strong>Excel</strong> &#8212; downloads an .xlsx spreadsheet of the same data, useful for sharing with others or keeping a record.",
     tip: "The Full PDF is a great document to print and pin up for reference, or to share with church leadership.",
     render: () => `
       <div class="sim-area">
@@ -549,14 +483,14 @@ const steps = [
             <span class="sim-btn sim-btn-light">Excel</span>
           </div>
           <div style="border:1px solid #d1dfdf;border-radius:10px;overflow:hidden;font-size:11px">
-            <div style="background:#3d6263;color:#fff;padding:8px 14px;font-weight:700">FULL ROTA — Autumn 2025</div>
+            <div style="background:#3d6263;color:#fff;padding:8px 14px;font-weight:700">FULL ROTA &#8212; Autumn 2025</div>
             <table style="width:100%;border-collapse:collapse">
               <tr style="background:#f4f8f8">
-                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263;font-weight:800">DATE</th>
-                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263;font-weight:800">SERVICE</th>
-                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263;font-weight:800">W/LEADER</th>
-                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263;font-weight:800">GUITAR</th>
-                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263;font-weight:800">SOUND</th>
+                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263">DATE</th>
+                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263">SERVICE</th>
+                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263">W/LEADER</th>
+                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263">GUITAR</th>
+                <th style="padding:6px 10px;text-align:left;font-size:10px;color:#3d6263">SOUND</th>
               </tr>
               <tr style="border-top:1px solid #f0f0f0">
                 <td style="padding:6px 10px;font-weight:700;color:#3d6263">05/10/2025</td>
@@ -564,13 +498,6 @@ const steps = [
                 <td style="padding:6px 10px;color:#4a6060">Sarah</td>
                 <td style="padding:6px 10px;color:#4a6060">James</td>
                 <td style="padding:6px 10px;color:#4a6060">David</td>
-              </tr>
-              <tr style="border-top:1px solid #f0f0f0;background:#fafafa">
-                <td style="padding:6px 10px;font-weight:700;color:#3d6263">12/10/2025</td>
-                <td style="padding:6px 10px;color:#4a6060">Morning Worship</td>
-                <td style="padding:6px 10px;color:#4a6060">Anna</td>
-                <td style="padding:6px 10px;color:#4a6060">Mark</td>
-                <td style="padding:6px 10px;color:#4a6060">Emma</td>
               </tr>
             </table>
           </div>
@@ -581,100 +508,53 @@ const steps = [
     chapter: 4,
     badge: "Chapter 5 — Exports & PDFs",
     title: "Individual, household and wall planner PDFs",
-    desc: "You can also generate personalised PDFs for any individual team member. Use the <strong>Select Member</strong> dropdown to choose a person, then click one of the three buttons:<br><br><strong>Indiv</strong> — a PDF showing only that person's serving dates and roles.<br><br><strong>Home</strong> — a PDF showing serving dates for their whole household (useful for families where more than one person serves).<br><br><strong>Wall</strong> — a monthly calendar-style A4 wall planner, landscape, showing only their household's serving dates. Designed to print and stick on the fridge.",
-    tip: "These individual PDFs are also generated automatically as part of the Send All Rotas package — so you only need to use these buttons if you want to print or send a PDF for one specific person.",
+    desc: "You can generate personalised PDFs for any individual. Use the <strong>Select Member</strong> dropdown to choose a person, then click one of the three buttons:<br><br><strong>Indiv</strong> &#8212; a PDF showing only that person&#8217;s serving dates and roles.<br><br><strong>Home</strong> &#8212; a PDF showing serving dates for their whole household.<br><br><strong>Wall</strong> &#8212; a monthly calendar-style A4 wall planner, designed to print.",
+    tip: "These individual PDFs are also generated automatically as part of the Send All Rotas package &#8212; so you only need these buttons if you want to print or send a PDF for one specific person.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Individual PDF exports</div>
         <div class="sim-body">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select class="sim-input highlight" style="min-width:160px">
-              <option>Sarah Johnson</option>
-              <option>James Smith</option>
-            </select>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+            <select class="sim-input highlight" style="min-width:160px"><option>Sarah Johnson</option></select>
             <span class="sim-btn sim-btn-teal">Indiv</span>
             <span class="sim-btn sim-btn-teal">Home</span>
             <span class="sim-btn sim-btn-teal">Wall</span>
           </div>
-          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
-            <div style="flex:1;min-width:130px;border:1px solid #d1dfdf;border-radius:10px;padding:10px;text-align:center">
-              <div style="font-size:20px">📄</div>
-              <div style="font-size:11px;font-weight:700;color:#3d6263;margin-top:4px">Individual Rota</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px;border:1px solid #d1dfdf;border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:20px">&#x1F4C4;</div>
+              <div style="font-size:11px;font-weight:700;color:#3d6263;margin-top:4px">Individual</div>
               <div style="font-size:10px;color:#7a9a9a">Personal dates only</div>
             </div>
-            <div style="flex:1;min-width:130px;border:1px solid #d1dfdf;border-radius:10px;padding:10px;text-align:center">
-              <div style="font-size:20px">🏠</div>
-              <div style="font-size:11px;font-weight:700;color:#3d6263;margin-top:4px">Household Rota</div>
+            <div style="flex:1;min-width:120px;border:1px solid #d1dfdf;border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:20px">&#x1F3E0;</div>
+              <div style="font-size:11px;font-weight:700;color:#3d6263;margin-top:4px">Household</div>
               <div style="font-size:10px;color:#7a9a9a">Whole family</div>
             </div>
-            <div style="flex:1;min-width:130px;border:1px solid #d1dfdf;border-radius:10px;padding:10px;text-align:center">
-              <div style="font-size:20px">📅</div>
+            <div style="flex:1;min-width:120px;border:1px solid #d1dfdf;border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:20px">&#x1F4C5;</div>
               <div style="font-size:11px;font-weight:700;color:#3d6263;margin-top:4px">Wall Planner</div>
-              <div style="font-size:10px;color:#7a9a9a">Monthly calendar, printable</div>
+              <div style="font-size:10px;color:#7a9a9a">Monthly, printable</div>
             </div>
           </div>
         </div>
       </div>`
   },
 
-  // ── CHAPTER 6: SENDING ROTAS ──
+  // CHAPTER 6: SENDING ROTAS
   {
     chapter: 5,
     badge: "Chapter 6 — Sending Rotas",
-    title: "Overview: how sending works",
-    desc: "Sending personalised rotas to the whole team is a two-part process:<br><br><strong>Part 1 — in the browser:</strong> Click <strong>🚀 Send All Rotas</strong> in the rota planner. This generates all the PDFs and files for every team member and packages them into a ZIP file, which downloads to your computer automatically.<br><br><strong>Part 2 — on your desktop:</strong> Unzip the downloaded folder, then double-click the <strong>EGBC Rota Sender</strong> shortcut icon on your desktop. This opens a simple app in your browser where you compose and send the emails.",
-    tip: "The whole process takes a few minutes to prepare the package — wait for the download to finish before moving to Part 2.",
+    title: "Step 1: Generate the package",
+    desc: "When the rota is complete, click <strong>&#x1F680; Send All Rotas</strong> in the top toolbar. The planner builds a personalised folder for every assigned team member containing their individual rota PDF, household rota PDF, full church rota PDF, wall planner PDF, and calendar (.ics) files.<br><br>Everything is bundled into a single ZIP file which downloads automatically to your <strong>Downloads</strong> folder. This may take a minute or two to prepare &#8212; wait for the download to complete before moving on.",
+    tip: "Don&#8217;t close the browser tab while the package is being prepared.",
     render: () => `
       <div class="sim-area">
-        <div class="sim-topbar">Two-part sending process</div>
-        <div class="sim-body" style="padding:20px">
-          <div style="display:flex;flex-direction:column;gap:0">
-            <div style="display:flex;gap:14px;align-items:flex-start;padding-bottom:16px;border-bottom:2px dashed #d1dfdf">
-              <div style="background:#3d6263;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">1</div>
-              <div>
-                <div style="font-size:13px;font-weight:700;color:#1a2e2e;margin-bottom:4px">In the browser — generate the package</div>
-                <div style="font-size:12px;color:#4a6060">Click 🚀 Send All Rotas → ZIP file downloads</div>
-                <div style="margin-top:8px"><span class="sim-btn sim-btn-dark" style="font-size:11px">🚀 Send All Rotas</span></div>
-              </div>
-            </div>
-            <div style="display:flex;gap:14px;align-items:flex-start;padding-top:16px">
-              <div style="background:#3d6263;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">2</div>
-              <div>
-                <div style="font-size:13px;font-weight:700;color:#1a2e2e;margin-bottom:4px">On your desktop — send the emails</div>
-                <div style="font-size:12px;color:#4a6060">Unzip the folder → double-click the EGBC Rota Sender icon → compose and send</div>
-                <div style="margin-top:8px;background:#f4f8f8;border:1px solid #d1dfdf;border-radius:10px;padding:10px 14px;display:inline-flex;align-items:center;gap:10px">
-                  <div style="font-size:28px">📨</div>
-                  <div style="font-size:12px;font-weight:700;color:#3d6263">EGBC Rota Sender</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`
-  },
-  {
-    chapter: 5,
-    badge: "Chapter 6 — Sending Rotas",
-    title: "Part 1: Clicking Send All Rotas",
-    desc: "When the rota is complete and you're ready to distribute it, click the <strong>🚀 Send All Rotas</strong> button in the top-left toolbar panel.<br><br>The planner will now build a personalised package for every assigned team member. This includes:<br>• Their individual rota PDF<br>• Their household rota PDF<br>• The full church rota PDF<br>• A wall planner PDF<br>• A calendar (.ics) file for their personal dates<br>• A calendar (.ics) file for their household dates<br><br>All of this is bundled into a ZIP file which downloads automatically to your <strong>Downloads</strong> folder. This may take a minute or two.",
-    tip: "Don't close the browser tab while the package is being prepared — wait for the ZIP download to appear before doing anything else.",
-    render: () => `
-      <div class="sim-area">
-        <div class="sim-topbar">Step 1 — Click Send All Rotas</div>
+        <div class="sim-topbar">Click Send All Rotas</div>
         <div class="sim-body">
-          <div style="margin-bottom:14px">
-            <span class="sim-btn sim-btn-dark highlight" style="font-size:12px;padding:10px 22px">🚀 Send All Rotas</span>
-          </div>
-          <div style="font-size:12px;color:#4a6060;margin-bottom:12px">The planner builds a folder for each person containing:</div>
-          <div style="display:flex;flex-direction:column;gap:5px">
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a6060"><span style="color:#3d6263;font-weight:800">📄</span> Individual_Rota.pdf</div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a6060"><span style="color:#3d6263;font-weight:800">🏠</span> Household_Rota.pdf</div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a6060"><span style="color:#3d6263;font-weight:800">📋</span> Full_Church_Rota.pdf</div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a6060"><span style="color:#3d6263;font-weight:800">📅</span> Wall_Planner.pdf</div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a6060"><span style="color:#3d6263;font-weight:800">🗓️</span> Individual_Import.ics &amp; Household_Import.ics</div>
-          </div>
-          <div style="margin-top:12px;padding:8px 14px;background:#e6f0f0;border-radius:8px;font-size:12px;color:#3d6263;font-weight:700">
-            ↓ EGBC_Rota_Distribution_Package_2025-10-01.zip — downloading to your Downloads folder
+          <div style="margin-bottom:14px"><span class="sim-btn sim-btn-dark highlight" style="font-size:12px;padding:10px 22px">&#x1F680; Send All Rotas</span></div>
+          <div style="margin-top:4px;padding:10px 14px;background:#e6f0f0;border-radius:8px;font-size:12px;color:#3d6263;font-weight:700">
+            &#8595; EGBC_Rota_Distribution_Package_2025-10-01.zip downloading to your Downloads folder...
           </div>
         </div>
       </div>`
@@ -682,27 +562,27 @@ const steps = [
   {
     chapter: 5,
     badge: "Chapter 6 — Sending Rotas",
-    title: "Part 2: Unzip the downloaded folder",
-    desc: "Once the ZIP file has finished downloading, you need to unzip it before you can use it.<br><br>Go to your <strong>Downloads</strong> folder and find the file named something like <strong>EGBC_Rota_Distribution_Package_2025-10-01.zip</strong>.<br><br>Right-click the ZIP file and choose <strong>Extract All...</strong> (on Windows) — then click <strong>Extract</strong> in the popup that appears. This creates a new folder with the same name (without the .zip) in the same location.<br><br>You don't need to move or open the folder — the Rota Sender shortcut will find it automatically.",
-    tip: "The Rota Sender always looks for the most recently downloaded distribution package in your Downloads folder. As long as you extract it there, it will be picked up automatically.",
+    title: "Step 2: Unzip the downloaded folder",
+    desc: "Once the ZIP has finished downloading, go to your <strong>Downloads</strong> folder and find the file named <strong>EGBC_Rota_Distribution_Package_&#8230;.zip</strong>.<br><br>Right-click it and choose <strong>Extract All&#8230;</strong>, then click <strong>Extract</strong>. This creates a new unzipped folder with the same name in the same location.<br><br>You don&#8217;t need to move or open the folder &#8212; the Rota Sender will find it automatically.",
+    tip: "The Rota Sender always picks up the most recently downloaded distribution package in your Downloads folder, so just leave it there.",
     render: () => `
       <div class="sim-area">
-        <div class="sim-topbar">Unzipping the package in Downloads</div>
+        <div class="sim-topbar">Unzip in Downloads</div>
         <div class="sim-body">
           <div style="display:flex;flex-direction:column;gap:8px">
             <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff8e6;border:1px solid #e0c060;border-radius:10px">
-              <span style="font-size:22px">🗜️</span>
+              <span style="font-size:22px">&#x1F5DC;&#xFE0F;</span>
               <div>
                 <div style="font-size:12px;font-weight:700;color:#1a2e2e">EGBC_Rota_Distribution_Package_2025-10-01<strong>.zip</strong></div>
-                <div style="font-size:11px;color:#7a5500">Right-click → Extract All... → Extract</div>
+                <div style="font-size:11px;color:#7a5500">Right-click &#8594; Extract All&#8230; &#8594; Extract</div>
               </div>
             </div>
-            <div style="text-align:center;font-size:16px;color:#d1dfdf">↓</div>
+            <div style="text-align:center;font-size:16px;color:#d1dfdf">&#8595;</div>
             <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#e6f0f0;border:1px solid #a0c0c0;border-radius:10px">
-              <span style="font-size:22px">📁</span>
+              <span style="font-size:22px">&#x1F4C1;</span>
               <div>
                 <div style="font-size:12px;font-weight:700;color:#1a2e2e">EGBC_Rota_Distribution_Package_2025-10-01 <span style="color:#3d6263">(folder)</span></div>
-                <div style="font-size:11px;color:#3d6263">✓ Ready — the Rota Sender will find this automatically</div>
+                <div style="font-size:11px;color:#3d6263">&#10003; Ready &#8212; leave it in Downloads</div>
               </div>
             </div>
           </div>
@@ -712,114 +592,57 @@ const steps = [
   {
     chapter: 5,
     badge: "Chapter 6 — Sending Rotas",
-    title: "Part 2: Running the Rota Sender",
-    desc: "With the folder unzipped in your Downloads, double-click the <strong>EGBC Rota Sender</strong> icon on your desktop.<br><br>A black command window will flash open briefly — this is normal. It will automatically open the <strong>Rota Sender app</strong> in your browser, and Outlook will open in the background if it isn't already running.<br><br>The app shows the list of recipients (everyone in the distribution list from the package) and gives you a compose area to write the email that will be sent to them all.",
-    tip: "If you need this shortcut installed on your computer, contact admin — it needs to be set up once before you can use it.",
+    title: "Step 3: Run the Rota Sender",
+    desc: "Double-click the <strong>EGBC Rota Sender</strong> icon on your desktop. A black command window will flash open briefly &#8212; this is normal. Your browser will then open automatically with the Rota Sender app, and Outlook will launch in the background if it&#8217;s not already open.",
+    tip: "If the EGBC Rota Sender shortcut is not on your desktop, contact admin to have it installed.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Double-click the desktop shortcut</div>
         <div class="sim-body" style="text-align:center;padding:20px 16px">
-          <div style="display:inline-block;background:#f4f8f8;border:2px solid #d1dfdf;border-radius:16px;padding:20px 28px;margin-bottom:16px">
-            <div style="font-size:48px;margin-bottom:8px">📨</div>
+          <div style="display:inline-block;background:#f4f8f8;border:2px solid #d1dfdf;border-radius:16px;padding:20px 28px;margin-bottom:14px">
+            <img src="${ICON_SRC}" style="width:72px;height:72px;display:block;margin:0 auto 8px;" alt="EGBC Rota Sender icon">
             <div style="font-size:13px;font-weight:800;color:#3d6263">EGBC Rota Sender</div>
             <div style="font-size:10px;color:#7a9a9a;margin-top:2px">Double-click to run</div>
           </div>
-          <div style="font-size:12px;color:#4a6060;margin-bottom:10px">A command window flashes briefly, then your browser opens with the Rota Sender app</div>
-          <div class="admin-box" style="text-align:left;margin-bottom:0">If this shortcut is not on your desktop, contact admin to have it installed.</div>
+          <div style="font-size:12px;color:#4a6060">A command window flashes briefly, then your browser opens with the Rota Sender app</div>
         </div>
       </div>`
   },
   {
     chapter: 5,
     badge: "Chapter 6 — Sending Rotas",
-    title: "Part 2: Composing and previewing the email",
-    desc: "The Rota Sender app has three sections:<br><br><strong>Recipients</strong> — shows a chip for every person who will receive an email, pulled from the distribution list.<br><br><strong>Compose Email</strong> — four editable fields: Subject, Sign-off Name, Opening Message, and Closing Message. Edit these to personalise the email for this term.<br><br><strong>Preview</strong> — a live preview of the email as it will appear in the recipient's inbox (with their first name filled in). It updates automatically as you type — or click <strong>Refresh Preview</strong> to force an update.",
-    tip: "The opening and closing messages support line breaks — press Enter in the text box to start a new paragraph.",
+    title: "Step 4: Compose, preview and send",
+    desc: "The Rota Sender app shows three sections:<br><br><strong>Recipients</strong> &#8212; a chip for everyone who will receive an email.<br><br><strong>Compose Email</strong> &#8212; edit the Subject, Sign-off Name, Opening Message, and Closing Message. The preview below updates live as you type.<br><br>When you&#8217;re happy, send a <strong>test email</strong> to one person first using the dropdown in the Send section. Check your inbox to confirm it looks right, then click <strong>Send to All Recipients</strong> to send to everyone. A progress bar and log show each send in real time.<br><br>When the log shows <strong>Done</strong> at the bottom, all emails have been sent. You can close the browser tab and the command window.",
+    tip: "Don&#8217;t close the browser tab or command window while sending is in progress &#8212; wait for the Done message first.",
     render: () => `
       <div class="sim-area">
-        <div class="sim-topbar">Rota Sender — composing the email</div>
+        <div class="sim-topbar">Rota Sender app</div>
         <div class="sim-body">
           <div class="send-card" style="margin-bottom:8px">
             <div style="font-size:12px;font-weight:800;color:#3d6263;margin-bottom:8px">Recipients <span style="background:#3d6263;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px">14</span></div>
-            <div>
-              <span class="sim-pill">Sarah</span><span class="sim-pill">James</span><span class="sim-pill">Ruth</span><span class="sim-pill">David</span><span class="sim-pill">Emma</span><span class="sim-pill">Ben</span><span class="sim-pill">Anna</span><span style="font-size:11px;color:#7a9a9a"> + 7 more</span>
+            <span class="sim-pill">Sarah</span><span class="sim-pill">James</span><span class="sim-pill">Ruth</span><span class="sim-pill">David</span><span style="font-size:11px;color:#7a9a9a"> + 10 more</span>
+          </div>
+          <div class="send-card" style="margin-bottom:8px">
+            <div style="font-size:12px;font-weight:800;color:#3d6263;margin-bottom:8px">Compose Email</div>
+            <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+              <input class="sim-input" value="Your Worship &amp; AV Rota - EGBC" style="flex:1;min-width:160px;font-weight:400;font-size:11px">
+              <input class="sim-input" value="EGBC Worship &amp; AV Team" style="flex:1;min-width:120px;font-weight:400;font-size:11px">
             </div>
+            <textarea class="sim-input" style="width:100%;resize:none;min-height:36px;font-weight:400;font-size:11px;margin-bottom:0" readonly>Please find your rota attached for the upcoming term...</textarea>
           </div>
           <div class="send-card">
-            <div style="font-size:12px;font-weight:800;color:#3d6263;margin-bottom:10px">Compose Email</div>
-            <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-              <div style="flex:1;min-width:180px">
-                <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a9a9a;margin-bottom:3px">Subject</div>
-                <input class="sim-input highlight" value="Your Worship &amp; AV Rota - EGBC" style="width:100%;font-weight:400;font-size:12px">
-              </div>
-              <div style="flex:1;min-width:140px">
-                <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a9a9a;margin-bottom:3px">Sign-off Name</div>
-                <input class="sim-input" value="EGBC Worship &amp; AV Team" style="width:100%;font-weight:400;font-size:12px">
-              </div>
+            <div style="font-size:12px;font-weight:800;color:#3d6263;margin-bottom:10px">Send</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+              <select class="sim-input highlight" style="flex:1;min-width:160px;font-weight:400;font-size:11px"><option>Sarah Johnson</option></select>
+              <span class="sim-btn sim-btn-light" style="padding:6px 14px">Send Test</span>
+              <span class="sim-btn" style="background:#e05555;color:#fff;padding:6px 14px">Send to All</span>
             </div>
-            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a9a9a;margin-bottom:3px">Opening Message</div>
-            <textarea class="sim-input" style="width:100%;resize:none;min-height:48px;font-weight:400;font-size:12px;margin-bottom:8px" readonly>Please find your rota attached for the upcoming term. We are really grateful for your faithful service...</textarea>
-            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a9a9a;margin-bottom:3px">Closing Message</div>
-            <textarea class="sim-input" style="width:100%;resize:none;min-height:36px;font-weight:400;font-size:12px" readonly>If you have any questions or need to make changes, please do not hesitate to get in touch.</textarea>
-          </div>
-        </div>
-      </div>`
-  },
-  {
-    chapter: 5,
-    badge: "Chapter 6 — Sending Rotas",
-    title: "Part 2: Sending a test email first",
-    desc: "Before sending to everyone, it's a good idea to send a <strong>test email</strong> to yourself or one person to check everything looks right.<br><br>In the <strong>Send</strong> section, use the <strong>Send test to one person</strong> dropdown to pick a recipient, then click <strong>Send Test</strong>.<br><br>The test sends a real email with real attachments to that one person only. Check your inbox to confirm the email arrived, the PDFs are attached, and the message looks correct.",
-    tip: "Always send a test to yourself before sending to the whole team — it only takes a moment and catches any last-minute mistakes.",
-    render: () => `
-      <div class="sim-area">
-        <div class="sim-topbar">Send section — test email first</div>
-        <div class="sim-body">
-          <div class="send-card">
-            <div style="font-size:12px;font-weight:800;color:#3d6263;margin-bottom:12px">Send</div>
-            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
-              <div style="flex:1;min-width:180px">
-                <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a9a9a;margin-bottom:4px">Send test to one person</div>
-                <select class="sim-input highlight" style="width:100%;font-weight:400">
-                  <option>Sarah Johnson &lt;sarah@example.com&gt;</option>
-                  <option>James Smith &lt;james@example.com&gt;</option>
-                </select>
-              </div>
-              <span class="sim-btn sim-btn-light" style="padding:7px 18px">Send Test</span>
+            <div style="height:5px;background:#d1dfdf;border-radius:10px;overflow:hidden;margin-bottom:8px">
+              <div style="height:5px;background:#3d6263;border-radius:10px;width:60%"></div>
             </div>
-            <div class="send-log">
-<span class="log-inf">Sending test to Sarah Johnson...</span>
-<span class="log-ok">Sent to Sarah Johnson OK</span>
-</div>
-          </div>
-        </div>
-      </div>`
-  },
-  {
-    chapter: 5,
-    badge: "Chapter 6 — Sending Rotas",
-    title: "Part 2: Sending to the whole team",
-    desc: "Once you're happy with the test, click <strong>Send to All Recipients</strong>. You'll be asked to confirm, then the app will work through the list one person at a time — sending each person a personalised email with their own attachments via Outlook.<br><br>A progress bar shows how far through the list you are. The log panel at the bottom shows each send in real time — green for success, red if anything goes wrong.<br><br>When the log shows <strong>Done</strong> at the bottom, all emails have been sent. You can close the browser tab and the command window.",
-    tip: "Don't close the browser tab or the command window while sending is in progress — wait for the Done message.",
-    render: () => `
-      <div class="sim-area">
-        <div class="sim-topbar">Send to All Recipients</div>
-        <div class="sim-body">
-          <div class="send-card">
-            <div style="margin-bottom:10px">
-              <span class="sim-btn" style="background:#e05555;color:#fff;font-size:12px;padding:10px 22px">Send to All Recipients</span>
-            </div>
-            <div style="height:6px;background:#d1dfdf;border-radius:10px;overflow:hidden;margin-bottom:12px">
-              <div style="height:6px;background:#3d6263;border-radius:10px;width:65%;transition:width 0.4s"></div>
-            </div>
-            <div class="send-log">
-<span class="log-ok">Sent to Sarah Johnson OK</span>
+            <div class="send-log"><span class="log-ok">Sent to Sarah Johnson OK</span>
 <span class="log-ok">Sent to James Smith OK</span>
-<span class="log-ok">Sent to Ruth Davies OK</span>
-<span class="log-inf">Sending to David Chen...</span>
-<span style="color:#d1dfdf">Emma Wilson... (pending)</span>
-</div>
-            <div style="margin-top:10px;font-size:11px;color:#7a9a9a">Wait for "Done: X processed" before closing the window</div>
+<span class="log-inf">Sending to Ruth Davies...</span></div>
           </div>
         </div>
       </div>`
@@ -854,9 +677,8 @@ function render() {
   document.getElementById('btn-prev').style.visibility = current === 0 ? 'hidden' : 'visible';
   document.getElementById('btn-next').style.display = '';
   document.getElementById('btn-prev').style.display = '';
-  document.getElementById('btn-next').textContent = current === steps.length - 1 ? 'Finish ✓' : 'Next →';
+  document.getElementById('btn-next').textContent = current === steps.length - 1 ? 'Finish \u2713' : 'Next \u2192';
   buildChapterNav();
-
   document.getElementById('step-content').innerHTML = `
     <span class="step-badge">${s.badge}</span>
     <p class="step-title">${s.title}</p>
@@ -871,15 +693,15 @@ function changeStep(dir) {
   if (current + dir >= steps.length) {
     document.getElementById('step-content').innerHTML = `
       <div class="finish-box">
-        <h2>All done! 🎉</h2>
-        <p>You now know how to use the Master Rota Planner from start to finish — building the term, gathering availability, assigning people, and sending personalised rotas to the whole team.<br><br>Use the chapter buttons above to jump back to any section at any time.</p>
+        <h2>All done! &#x1F389;</h2>
+        <p>You now know how to use the Master Rota Planner from start to finish.</p>
         <button class="nav-btn primary" onclick="current=0;render()">Start again from the beginning</button>
       </div>
-      <div class="tip-box" style="margin-top:1.5rem">Remember: if you need the EGBC Rota Sender shortcut installed on your desktop, contact admin.</div>
+      <div class="tip-box" style="margin-top:1.5rem">If you need the EGBC Rota Sender shortcut installed on your desktop, contact admin.</div>
     `;
     document.getElementById('btn-next').style.display = 'none';
     document.getElementById('btn-prev').style.display = 'none';
-    document.getElementById('step-ctr').textContent = 'Complete ✓';
+    document.getElementById('step-ctr').textContent = 'Complete \u2713';
     document.getElementById('prog').style.width = '100%';
     buildChapterNav();
     return;
