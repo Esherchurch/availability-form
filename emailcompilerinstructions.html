@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Compiler — How to Use | Worship & AV Hub</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; background: #3d6263; font-family: 'Segoe UI', Arial, sans-serif; }
+
+  .site-header {
+    height: 90px; background: #ffffff; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #d1dfdf;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .tut-outer { background: #3d6263; padding: 28px 20px 48px; min-height: calc(100vh - 90px); }
+  .tut-inner {
+    background: #ffffff; border-radius: 14px; padding: 28px;
+    max-width: 760px; margin: 0 auto;
+  }
+
+  .chapter-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; }
+  .chapter-pill {
+    font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px;
+    cursor: pointer; border: 1.5px solid #d1dfdf; color: #7a9a9a; background: #f4f8f8;
+    transition: all 0.15s;
+  }
+  .chapter-pill:hover { border-color: #3d6263; color: #3d6263; }
+  .chapter-pill.active { background: #3d6263; color: #fff; border-color: #3d6263; }
+
+  .tut-heading { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: #3d6263; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tut-subheading { margin: 0 0 18px; font-size: 13px; color: #7a9a9a; }
+
+  .progress-bar-bg { height: 5px; background: #d1dfdf; border-radius: 3px; margin-bottom: 1.5rem; }
+  .progress-bar-fill { height: 5px; background: #3d6263; border-radius: 3px; transition: width 0.35s ease; }
+
+  .step-badge { display: inline-block; font-size: 12px; color: #3d6263; background: #e6f0f0; border-radius: 20px; padding: 3px 11px; margin-bottom: 10px; }
+  .step-title { font-size: 19px; font-weight: 700; color: #1a2e2e; margin: 0 0 8px; }
+  .step-desc { font-size: 15px; color: #4a6060; line-height: 1.75; margin: 0 0 1.25rem; }
+
+  .sim-area { border: 1px solid #d1dfdf; border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem; background: #fff; }
+  .sim-topbar { background: #f4f8f8; border-bottom: 1px solid #d1dfdf; padding: 10px 16px; font-size: 14px; font-weight: 700; color: #3d6263; }
+  .sim-body { padding: 16px; }
+
+  .highlight { outline: 2.5px solid #3d6263; border-radius: 6px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{ outline-color:#3d6263; } 50%{ outline-color:#7aa8a9; } }
+
+  .tip-box { background: #e6f0f0; border: 1px solid #a0c0c0; border-radius: 8px; padding: 11px 15px; font-size: 13px; color: #2e5050; margin-bottom: 1.25rem; line-height: 1.6; }
+  .tip-box::before { content: "💡 "; }
+
+  .nav-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .nav-btn { background: #fff; border: 1px solid #b0c8c8; border-radius: 8px; padding: 9px 22px; font-size: 14px; cursor: pointer; color: #3d6263; font-family: 'Segoe UI', Arial, sans-serif; font-weight: 600; }
+  .nav-btn:hover { background: #f4f8f8; }
+  .nav-btn.primary { background: #3d6263; border-color: #3d6263; color: #fff; }
+  .nav-btn.primary:hover { background: #2e4e4f; }
+  .step-counter { font-size: 13px; color: #7a9a9a; text-align: center; }
+
+  /* Sim UI components */
+  .sim-btn { display: inline-block; padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: default; color: #fff; background: #3d6263; margin: 2px; }
+  .sim-btn-orange { background: #e67e22; }
+  .sim-btn-green { background: #27ae60; }
+  .sim-btn-blue { background: #2980b9; }
+  .sim-btn-brown { background: #8b4513; }
+  .sim-btn-grey { background: #555; }
+  .sim-btn-red { background: #b22222; }
+  .sim-input { display: inline-block; background: #fff; border: 1px solid #d1dfdf; border-radius: 4px; padding: 5px 10px; font-size: 12px; color: #3d6263; font-weight: 600; }
+
+  /* Toolbar mockup */
+  .mock-toolbar { background: #fff; border: 1px solid #d1dfdf; border-radius: 8px; padding: 8px 12px; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+
+  /* Email canvas mockup */
+  .mock-canvas { border: 1px solid #d1dfdf; border-radius: 4px; background: #fff; padding: 16px; font-size: 13px; color: #333; line-height: 1.7; }
+  .mock-header { background: #fff; border-bottom: 1px solid #d1dfdf; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+
+  /* Sidebar mockup */
+  .mock-layout { display: flex; gap: 10px; }
+  .mock-sidebar { width: 150px; min-width: 150px; background: #f0f4f7; border: 1px solid #d1dfdf; border-radius: 8px; padding: 10px; font-size: 11px; }
+  .mock-sidebar-title { font-size: 9px; font-weight: 800; text-transform: uppercase; color: #2c6999; letter-spacing: 0.1em; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+  .mock-check-item { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font-weight: 600; color: #333; }
+
+  /* GIF modal mockup */
+  .mock-modal { background: #fff; border: 1px solid #d1dfdf; border-radius: 12px; padding: 16px; max-width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+  .mock-frame { width: 70px; height: 52px; background: #f0f6f6; border: 2px solid #d1dfdf; border-radius: 4px; display: inline-block; vertical-align: top; margin: 3px; font-size: 9px; text-align: center; line-height: 52px; color: #7a9a9a; font-weight: 700; }
+
+  /* Color dots */
+  .color-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-block; margin: 2px; border: 2px solid #eee; }
+
+  .finish-box { text-align: center; padding: 2rem 0; }
+  .finish-box h2 { font-size: 24px; font-weight: 700; color: #3d6263; margin: 0 0 10px; }
+  .finish-box p { color: #4a6060; font-size: 15px; line-height: 1.7; margin: 0 0 1.25rem; }
+</style>
+</head>
+<body>
+
+<div class="site-header">
+  <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300"
+       style="height:75px;width:auto;margin-top:8px;" alt="Church logo">
+  <div style="text-align:right;margin-top:8px;">
+    <div style="font-size:10px;color:#a0b0b0;text-transform:uppercase;letter-spacing:0.05em;">Secure Portal</div>
+    <div style="font-size:12px;color:#3d6263;font-weight:700;">Worship & AV Hub</div>
+  </div>
+</div>
+
+<div class="tut-outer">
+  <div class="tut-inner">
+
+    <p class="tut-heading">Email Compiler — How to use</p>
+    <p class="tut-subheading">Click any chapter to jump ahead, or use Next to work through from the beginning.</p>
+
+    <div class="chapter-nav" id="chapterNav"></div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog"></div></div>
+    <div id="step-content"></div>
+
+    <div class="nav-row">
+      <button class="nav-btn" id="btn-prev" onclick="changeStep(-1)">← Back</button>
+      <span class="step-counter" id="step-ctr"></span>
+      <button class="nav-btn primary" id="btn-next" onclick="changeStep(1)">Next →</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const chapters = [
+  { label: "Overview" },
+  { label: "Writing & Formatting" },
+  { label: "Images & GIFs" },
+  { label: "Layout" },
+  { label: "Mailing Lists" },
+  { label: "Sending" },
+];
+
+const steps = [
+
+  // ── CHAPTER 1: OVERVIEW ──
+  {
+    chapter: 0,
+    badge: "Chapter 1 — Overview",
+    title: "What is the Email Compiler?",
+    desc: "The Email Compiler is a visual email editor for writing and sending team updates to the Worship & AV team. You write and design your email on a white canvas — including text, photos, and even animated GIFs — then copy the finished HTML and paste it straight into Outlook.<br><br>Everything is saved in the cloud, so you can start a draft on one device and pick it up on another.",
+    tip: "The Email Compiler is for team newsletters and updates — not for the rota distribution emails, which are handled by the Rota Planner.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Email Compiler — at a glance</div>
+        <div class="sim-body" style="text-align:center;padding:24px 16px">
+          <p style="font-size:28px;margin:0 0 10px">✉️</p>
+          <p style="font-size:14px;color:#4a6060;margin:0 0 20px">Write and send team updates with photos, formatting and GIFs</p>
+          <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap">
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">✍️</div>Write & format</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">🖼️</div>Add photos & GIFs</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">👥</div>Pick your mailing list</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">📤</div>Copy & send in Outlook</div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 0,
+    badge: "Chapter 1 — Overview",
+    title: "The layout of the page",
+    desc: "The page has three main areas:<br><br><strong>Toolbar</strong> — the strip of buttons along the top for formatting, images, and copying the email.<br><br><strong>Email Canvas</strong> — the large white area in the middle where you write your email. What you see here is roughly how it will look in the recipient's inbox.<br><br><strong>Mailing List Sidebar</strong> — the panel on the right where you pick who to send the email to.",
+    tip: "The canvas is 750px wide — the standard width for a well-formatted HTML email. Don't worry about the size; it adapts automatically on mobile.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Page layout overview</div>
+        <div class="sim-body">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="background:#3d6263;color:#fff;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:700">
+              ← TOOLBAR — formatting, images, copy button
+            </div>
+            <div class="mock-layout">
+              <div style="flex:1;border:2px solid #3d6263;border-radius:6px;padding:12px;background:#fff;min-height:80px">
+                <div style="font-size:10px;font-weight:700;color:#3d6263;opacity:0.5;text-transform:uppercase;margin-bottom:6px">Email Canvas</div>
+                <div style="font-size:12px;color:#333">Your email content goes here — text, photos, layout...</div>
+              </div>
+              <div style="width:120px;min-width:120px;background:#f0f4f7;border:1px solid #d1dfdf;border-radius:6px;padding:10px">
+                <div style="font-size:9px;font-weight:800;color:#2c6999;text-transform:uppercase;margin-bottom:6px">Mailing Lists</div>
+                <div style="font-size:10px;font-weight:600;color:#333">Pick teams →<br>then Open Outlook</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 2: WRITING & FORMATTING ──
+  {
+    chapter: 1,
+    badge: "Chapter 2 — Writing & Formatting",
+    title: "Writing on the canvas",
+    desc: "Click anywhere on the white canvas and start typing. The canvas behaves like a simple word processor — you can click to position your cursor, select text, delete, and type freely.<br><br>Press <strong>Enter</strong> to start a new paragraph. The canvas will grow downwards as you add more content.",
+    tip: "Click at the very start of the canvas to position your cursor before you begin typing. If the placeholder text 'Start your team update here...' is in the way, just select it all and delete it.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">The email canvas — click and type</div>
+        <div class="sim-body">
+          <div class="mock-canvas" style="min-height:100px;cursor:text;border:2px dashed #d1dfdf;">
+            <p style="margin:0 0 8px;color:#333">Hi team,</p>
+            <p style="margin:0 0 8px;color:#333">Just a quick update ahead of Sunday — please make sure you&#8217;ve checked the schedule and let us know if you have any questions.</p>
+            <p style="margin:0;color:#aaa;font-style:italic">| cursor</p>
+          </div>
+          <p style="font-size:11px;color:#7a9a9a;margin:8px 0 0">Click anywhere on the canvas to position your cursor and start typing</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 1,
+    badge: "Chapter 2 — Writing & Formatting",
+    title: "Bold, italic and text alignment",
+    desc: "Select any text on the canvas first, then use the buttons in the toolbar to format it:<br><br><strong>B</strong> — makes the selected text bold<br><strong>I</strong> — makes it italic<br><strong>L / C / R</strong> — aligns the selected text left, centre, or right",
+    tip: "Select the text first, then click the button — just like in any word processor. If nothing is selected, the buttons won't do anything.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Formatting toolbar</div>
+        <div class="sim-body">
+          <div class="mock-toolbar">
+            <span class="sim-btn highlight">B</span>
+            <span class="sim-btn highlight">I</span>
+            <div style="width:1px;background:#ddd;height:22px;margin:0 4px"></div>
+            <span class="sim-btn highlight">L</span>
+            <span class="sim-btn highlight">C</span>
+            <span class="sim-btn highlight">R</span>
+          </div>
+          <div class="mock-canvas">
+            <p style="margin:0 0 6px"><strong>This text is bold</strong></p>
+            <p style="margin:0 0 6px;font-style:italic">This text is italic</p>
+            <p style="margin:0;text-align:center;color:#3d6263;font-weight:700">This text is centred</p>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 1,
+    badge: "Chapter 2 — Writing & Formatting",
+    title: "Text size and colour",
+    desc: "You can also change the size and colour of selected text:<br><br><strong>Text Size dropdown</strong> — choose Small, Normal, Large, or Huge. Select your text first, then pick a size from the dropdown.<br><br><strong>Colour dots</strong> — three coloured circles next to the size dropdown. Click one to apply that colour to your selected text:<br>&#8226; Teal — the brand colour, good for headings<br>&#8226; Grey — for secondary or quieter text<br>&#8226; Black — standard body text",
+    tip: "Use the teal colour for section headings to give the email a consistent branded look.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Text size and colour</div>
+        <div class="sim-body">
+          <div class="mock-toolbar">
+            <select class="sim-input highlight" style="font-size:11px">
+              <option>Text Size</option>
+              <option>Small</option>
+              <option selected>Normal</option>
+              <option>Large</option>
+              <option>Huge</option>
+            </select>
+            <div style="display:flex;align-items:center;gap:2px;border-left:1px solid #ddd;padding-left:8px">
+              <div class="color-dot highlight" style="background:#3d6263;" title="Teal"></div>
+              <div class="color-dot" style="background:#a0b0b0;" title="Grey"></div>
+              <div class="color-dot" style="background:#000000;" title="Black"></div>
+            </div>
+          </div>
+          <div class="mock-canvas">
+            <p style="margin:0 0 6px;font-size:22px;font-weight:700;color:#3d6263">Sunday Update</p>
+            <p style="margin:0 0 6px;font-size:16px;color:#333">Here is this week&#8217;s team information&#8230;</p>
+            <p style="margin:0;font-size:12px;color:#a0b0b0">Any questions, reply to this email.</p>
+          </div>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 3: IMAGES & GIFS ──
+  {
+    chapter: 2,
+    badge: "Chapter 3 — Images & GIFs",
+    title: "Adding a photo",
+    desc: "Click <strong>Add Photo</strong> in the toolbar to insert an image into the email.<br><br>A file picker opens — choose any image from your computer (JPG, PNG, etc.). The image is automatically uploaded to the cloud and inserted into the canvas at the cursor position, ready to be moved or resized.",
+    tip: "Position your cursor in the canvas where you want the image to appear before clicking Add Photo — it inserts at wherever your cursor is.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Adding a photo</div>
+        <div class="sim-body">
+          <div class="mock-toolbar" style="margin-bottom:12px">
+            <span class="sim-btn highlight">Add Photo</span>
+          </div>
+          <div class="mock-canvas">
+            <p style="margin:0 0 10px;color:#333">Here&#8217;s a photo from Sunday&#8217;s service:</p>
+            <div style="width:200px;height:120px;background:#f0f6f6;border:1px solid #d1dfdf;border-radius:4px;display:flex;align-items:center;justify-content:center">
+              <span style="font-size:28px">🖼️</span>
+            </div>
+            <p style="font-size:10px;color:#7a9a9a;margin:4px 0 0">Image inserted at cursor position — 350px wide by default</p>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 2,
+    badge: "Chapter 3 — Images & GIFs",
+    title: "Resizing an image",
+    desc: "After inserting an image, you can resize it:<br><br>1. <strong>Click the image</strong> on the canvas — it gets an orange border to show it's selected.<br>2. Click the <strong>Resize</strong> button in the toolbar.<br>3. A box appears asking for a new width — type a number in pixels (e.g. <strong>500</strong>) or a percentage (e.g. <strong>100%</strong>).<br>4. Press OK and the image resizes instantly.",
+    tip: "Use 100% width to make an image span the full width of the email — great for banner photos at the top of the email.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Selecting and resizing an image</div>
+        <div class="sim-body">
+          <div class="mock-toolbar" style="margin-bottom:12px">
+            <span class="sim-btn sim-btn-grey highlight">Resize</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← click after selecting an image</span>
+          </div>
+          <div class="mock-canvas">
+            <div style="width:220px;height:130px;background:#f0f6f6;border:3px solid #e67e22;border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative">
+              <span style="font-size:28px">🖼️</span>
+              <span style="position:absolute;top:4px;right:6px;font-size:9px;font-weight:700;color:#e67e22;background:#fff;padding:1px 5px;border-radius:4px">SELECTED</span>
+            </div>
+            <p style="font-size:11px;color:#7a9a9a;margin:8px 0 0">Orange border = selected. Then click Resize to change the width.</p>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 2,
+    badge: "Chapter 3 — Images & GIFs",
+    title: "Creating an animated GIF",
+    desc: "The Email Compiler has a built-in GIF maker. Click <strong>Make GIF</strong> in the toolbar to open it.<br><br>Inside the GIF maker:<br><br>1. Click <strong>+ Add Images</strong> to choose 2–8 photos from your computer — these become the frames of the animation.<br>2. Click a frame thumbnail to <strong>remove</strong> it if you change your mind.<br>3. Set the <strong>Delay</strong> (how long each frame shows, in milliseconds — 500ms is half a second).<br>4. Set the <strong>Width</strong> in pixels for the final GIF.<br>5. Click <strong>Generate &amp; Insert</strong> — the GIF is created, uploaded, and inserted into your email automatically.",
+    tip: "500ms delay is a good starting point. Use fewer frames (2–3) for a subtle effect, or more frames for a fuller animation.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">GIF Maker</div>
+        <div class="sim-body">
+          <div class="mock-toolbar" style="margin-bottom:12px">
+            <span class="sim-btn sim-btn-brown highlight">Make GIF</span>
+          </div>
+          <div class="mock-modal">
+            <div style="font-size:14px;font-weight:800;color:#3d6263;margin-bottom:10px">🎬 GIF Maker</div>
+            <div style="border:2px dashed #d1dfdf;border-radius:8px;padding:8px;margin-bottom:10px;display:flex;gap:4px;flex-wrap:wrap;min-height:60px;align-items:center">
+              <div class="mock-frame">Frame 1</div>
+              <div class="mock-frame">Frame 2</div>
+              <div class="mock-frame">Frame 3</div>
+              <span style="font-size:10px;color:#7a9a9a;font-style:italic;margin-left:4px">Click a frame to remove it</span>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <span class="sim-btn sim-btn-green" style="flex:1;text-align:center;font-size:10px">+ Add Images</span>
+              <span class="sim-btn sim-btn-red" style="font-size:10px">Clear All</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;font-size:11px">
+              <span style="font-weight:700;color:#3d6263;width:70px">Delay (ms)</span>
+              <input class="sim-input" value="500" style="width:80px;font-size:11px">
+              <span style="color:#999">per frame</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;font-size:11px">
+              <span style="font-weight:700;color:#3d6263;width:70px">Width (px)</span>
+              <input class="sim-input" value="400" style="width:80px;font-size:11px">
+            </div>
+            <span class="sim-btn sim-btn-green" style="display:block;text-align:center;font-size:11px;padding:8px">Generate &amp; Insert</span>
+          </div>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 4: LAYOUT ──
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Layout",
+    title: "Adding a two-column side layout",
+    desc: "The <strong>Side Layout</strong> dropdown inserts a two-column table into the email — useful for putting text on one side and a photo on the other.<br><br>The dropdown has three options: <strong>Top</strong>, <strong>Middle</strong>, and <strong>Bottom</strong> — these control how the content in each column aligns vertically relative to the other column.<br><br>After inserting, click inside either column placeholder and replace the <strong>[Left Content]</strong> or <strong>[Right Content]</strong> text with your own text or image.",
+    tip: "Top alignment works best when one column has a lot more content than the other. Middle alignment looks best when both columns are roughly the same height.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Side Layout — two-column table</div>
+        <div class="sim-body">
+          <div class="mock-toolbar" style="margin-bottom:12px">
+            <select class="sim-input highlight" style="font-size:11px">
+              <option>Side Layout</option>
+              <option selected>Top</option>
+              <option>Middle</option>
+              <option>Bottom</option>
+            </select>
+          </div>
+          <div class="mock-canvas">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <tr>
+                <td style="width:50%;padding:12px;border:1px dashed #d1dfdf;vertical-align:top;color:#7a9a9a;font-style:italic">
+                  [Left Content]<br><br>Replace with your text or image
+                </td>
+                <td style="width:50%;padding:12px;border:1px dashed #d1dfdf;vertical-align:top">
+                  <div style="width:100%;height:70px;background:#f0f6f6;border:1px solid #d1dfdf;border-radius:4px;display:flex;align-items:center;justify-content:center"><span style="font-size:20px">🖼️</span></div>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 5: MAILING LISTS ──
+  {
+    chapter: 4,
+    badge: "Chapter 5 — Mailing Lists",
+    title: "Choosing who to send to",
+    desc: "The sidebar on the right side of the page is where you choose your recipients. Tick one or more checkboxes to select a team:<br><br>&#8226; <strong>AV Team</strong> — Sound, Words, Cameras operators<br>&#8226; <strong>Worship Team</strong> — musicians and worship leaders<br>&#8226; <strong>Youth Team</strong> — youth worship members<br>&#8226; <strong>Core Team</strong> — core leadership members<br>&#8226; <strong>Choir</strong> — choir members<br>&#8226; <strong>Everyone</strong> — all members in the address book<br><br>You can tick more than one. The counter at the bottom of the sidebar updates to show how many people are selected.",
+    tip: "Tick only the teams relevant to your email. Sending a worship-specific update to the AV team as well might not always be necessary.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Mailing list sidebar</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:12px">
+            <div class="mock-sidebar">
+              <div class="mock-sidebar-title">Select Team</div>
+              <div class="mock-check-item"><input type="checkbox" checked> AV Team</div>
+              <div class="mock-check-item"><input type="checkbox" checked class="highlight"> Worship Team</div>
+              <div class="mock-check-item"><input type="checkbox"> Youth Team</div>
+              <div class="mock-check-item"><input type="checkbox"> Core Team</div>
+              <div class="mock-check-item"><input type="checkbox"> Choir</div>
+              <div class="mock-check-item"><input type="checkbox"> Everyone</div>
+              <div style="font-size:10px;text-align:center;color:#999;margin-top:8px;font-weight:600">18 Selected</div>
+            </div>
+            <div style="font-size:12px;color:#4a6060;flex:1;padding-top:4px">
+              Tick one or more teams. The counter at the bottom shows how many people will receive the email.
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 6: SENDING ──
+  {
+    chapter: 5,
+    badge: "Chapter 6 — Sending",
+    title: "Saving and loading a draft",
+    desc: "You can save your work at any time using the buttons at the bottom of the sidebar:<br><br><strong>Save to Cloud</strong> — saves the current canvas content to the cloud. There is one shared draft slot, so saving overwrites any previous saved draft.<br><br><strong>Load from Cloud</strong> — loads the most recently saved draft back into the canvas. Useful if you started writing on another device or want to pick up where you left off.",
+    tip: "Save to Cloud regularly as you work, especially if you have a lot of content or have uploaded images — it only takes a second.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Save and load a draft</div>
+        <div class="sim-body">
+          <div class="mock-sidebar" style="width:100%;max-width:200px">
+            <div class="mock-sidebar-title">Draft</div>
+            <span class="sim-btn sim-btn-green highlight" style="display:block;text-align:center;padding:8px;margin-bottom:6px;font-size:10px">Save to Cloud</span>
+            <span class="sim-btn sim-btn-blue" style="display:block;text-align:center;padding:8px;font-size:10px">Load from Cloud</span>
+          </div>
+          <p style="font-size:11px;color:#7a9a9a;margin:10px 0 0">One shared draft slot — saving always overwrites the previous save</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 5,
+    badge: "Chapter 6 — Sending",
+    title: "Copying the email HTML",
+    desc: "When your email looks exactly how you want it, click <strong>Copy Email HTML</strong> in the top-right of the toolbar.<br><br>The tool automatically adds the branded header (with the church logo) and wraps everything in a professional email layout. The finished HTML is then copied to your clipboard.<br><br>You&#8217;ll see a confirmation message: <em>&#8220;Email HTML Copied to clipboard!&#8221;</em>",
+    tip: "The final email includes a responsive wrapper so it looks good on mobile screens too — you don't need to do anything extra for that.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Copy Email HTML button</div>
+        <div class="sim-body">
+          <div class="mock-toolbar" style="justify-content:flex-end;margin-bottom:12px">
+            <span style="font-size:10px;color:#7a9a9a;margin-right:6px">← rest of toolbar</span>
+            <span class="sim-btn sim-btn-orange highlight" style="font-size:11px;padding:8px 16px">Copy Email HTML</span>
+          </div>
+          <div style="border:1px solid #d1dfdf;border-radius:8px;padding:14px;background:#f9fafb;font-size:12px;color:#4a6060">
+            <div style="font-weight:700;color:#3d6263;margin-bottom:8px">What gets copied:</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="color:#3d6263;font-weight:800">✓</span> Full branded HTML with church logo header</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="color:#3d6263;font-weight:800">✓</span> Your canvas content — text, images, layout</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="color:#3d6263;font-weight:800">✓</span> Mobile-responsive wrapper</div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="color:#3d6263;font-weight:800">✓</span> Ready to paste directly into Outlook</div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 5,
+    badge: "Chapter 6 — Sending",
+    title: "Opening Outlook and sending",
+    desc: "After copying the HTML, click <strong>Open Outlook</strong> at the top of the sidebar. This opens a new email in Outlook with the selected team members already added as BCC recipients and the subject line pre-filled.<br><br>In Outlook:<br>1. Click inside the email body<br>2. Click the <strong>Paste</strong> dropdown arrow (the small arrow beneath the Paste button on the Home tab)<br>3. Choose <strong>Paste Special&#8230;</strong> then select <strong>HTML Format</strong> — or look for <strong>Keep Source Formatting</strong><br>4. Check everything looks right, then press <strong>Send</strong>",
+    tip: "Do not use Ctrl + V on its own — Outlook will strip the formatting and replace it with its own plain styling. Always use Paste Special &gt; HTML Format to preserve the branded layout.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Open Outlook and paste</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+            <div>
+              <div class="mock-sidebar" style="margin-bottom:10px">
+                <div class="mock-sidebar-title">Send</div>
+                <span class="sim-btn highlight" style="display:block;text-align:center;padding:8px;font-size:10px;margin-bottom:4px">Open Outlook</span>
+                <div style="font-size:9px;text-align:center;color:#999;margin-top:4px">18 Selected</div>
+              </div>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <div style="border:1px solid #d1dfdf;border-radius:8px;overflow:hidden;font-size:11px">
+                <div style="background:#0078d4;color:#fff;padding:6px 12px;font-weight:700">New Message — Outlook</div>
+                <div style="padding:10px 12px">
+                  <div style="margin-bottom:4px"><span style="color:#7a9a9a;font-weight:700">BCC:</span> [18 team members]</div>
+                  <div style="margin-bottom:8px"><span style="color:#7a9a9a;font-weight:700">Subject:</span> Worship &amp; AV Team Update</div>
+                  <div style="border:1px solid #eee;border-radius:4px;padding:8px;background:#f9f9f9;font-size:11px;color:#7a9a9a;font-style:italic">
+                    Click here → Paste dropdown → Paste Special → HTML Format
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+
+];
+
+let current = 0;
+
+function buildChapterNav() {
+  const nav = document.getElementById('chapterNav');
+  nav.innerHTML = '';
+  chapters.forEach((ch, i) => {
+    const pill = document.createElement('button');
+    pill.className = 'chapter-pill' + (i === steps[current].chapter ? ' active' : '');
+    pill.textContent = ch.label;
+    pill.onclick = () => jumpToChapter(i);
+    nav.appendChild(pill);
+  });
+}
+
+function jumpToChapter(chIdx) {
+  const idx = steps.findIndex(s => s.chapter === chIdx);
+  if (idx !== -1) { current = idx; render(); }
+}
+
+function render() {
+  const s = steps[current];
+  const pct = Math.round(((current + 1) / steps.length) * 100);
+  document.getElementById('prog').style.width = pct + '%';
+  document.getElementById('step-ctr').textContent = `Step ${current + 1} of ${steps.length}`;
+  document.getElementById('btn-prev').style.visibility = current === 0 ? 'hidden' : 'visible';
+  document.getElementById('btn-next').style.display = '';
+  document.getElementById('btn-prev').style.display = '';
+  document.getElementById('btn-next').textContent = current === steps.length - 1 ? 'Finish ✓' : 'Next →';
+  buildChapterNav();
+
+  document.getElementById('step-content').innerHTML = `
+    <span class="step-badge">${s.badge}</span>
+    <p class="step-title">${s.title}</p>
+    <p class="step-desc">${s.desc}</p>
+    ${s.render()}
+    <div class="tip-box">${s.tip}</div>
+  `;
+}
+
+function changeStep(dir) {
+  if (current + dir < 0) return;
+  if (current + dir >= steps.length) {
+    document.getElementById('step-content').innerHTML = `
+      <div class="finish-box">
+        <h2>All done! 🎉</h2>
+        <p>You now know how to use the Email Compiler from start to finish.<br>Use the chapter buttons above to jump back to any section at any time.</p>
+        <button class="nav-btn primary" onclick="current=0;render()">Start again from the beginning</button>
+      </div>
+      <div class="tip-box" style="margin-top:1.5rem">Remember: Save to Cloud regularly so you don't lose your work — especially after uploading images or GIFs.</div>
+    `;
+    document.getElementById('btn-next').style.display = 'none';
+    document.getElementById('btn-prev').style.display = 'none';
+    document.getElementById('step-ctr').textContent = 'Complete ✓';
+    document.getElementById('prog').style.width = '100%';
+    buildChapterNav();
+    return;
+  }
+  current += dir;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
