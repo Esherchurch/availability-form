@@ -361,14 +361,12 @@ function quickSearch(t){document.getElementById('searchInput').value=t;doSearch(
 function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('assembledAnswer').classList.add('hidden');renderContent(allAssets);}
 
 // ADMIN AUTH
-async function toggleAdmin(){
+function toggleAdmin(){
   const panel=document.getElementById('adminPanel');
   if(!panel.classList.contains('hidden')){closeAdmin();return;}
-  const pwd=prompt('Admin password:');if(!pwd)return;
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pwd));
-  const hex=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  if(hex===PW_HASH){panel.classList.remove('hidden');updateCatDropdowns();renderCategoryList();}
-  else alert('Incorrect password.');
+  panel.classList.remove('hidden');
+  updateCatDropdowns();
+  renderCategoryList();
 }
 function closeAdmin(){document.getElementById('adminPanel').classList.add('hidden');}
 
@@ -408,24 +406,8 @@ function openFilePicker(){
   const popUrl = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
   const popup = window.open(popUrl, 'FilePicker', `width=900,height=600,left=${Math.round((screen.width-900)/2)},top=${Math.round((screen.height-600)/2)}`);
   if(!popup){ alert('Popup was blocked — please allow popups for this site and try again.'); return; }
-  const spOrigin2 = spOrigin;
-  const iframe = { contentWindow: popup };
-
-  const opts = {
-    sdk: '8.0',
-    entry: { sharePoint: { byPath: { web: SP_SITE, list: '/sites/EGBCWorshipandAV/KnowledgeBaseMedia' } } },
-    authentication: {},
-    messaging: { origin: window.location.origin, channelId: 'egbcpicker' },
-    typesAndSources: { mode: 'files', pivots: { oneDrive: false, recent: false } },
-    selection: { mode: 'single' }
-  };
-
-  // Load the picker
-  iframe.src = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
-
   const handler = async (e) => {
-    // Accept messages from SharePoint origin only
-    if (e.origin !== spOrigin) return;
+    if (e.origin !== new URL(SP_SITE).origin) return;
 
     let msg;
     try { msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
