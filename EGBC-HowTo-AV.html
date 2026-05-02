@@ -241,10 +241,64 @@ function closeModal(e){if(!e||e.target===document.getElementById('modal'))docume
 function doSearch(){
   const query=document.getElementById('searchInput').value.trim();if(!query)return;
   currentQuery=query;
-  const words=query.toLowerCase().split(/\s+/);
-  const matched=allAssets.filter(a=>{const h=`${a.title} ${a.tags} ${a.description} ${a.bullets} ${a.transcript}`.toLowerCase();return words.some(w=>h.includes(w));});
-  renderContent(matched.length?matched:allAssets,query);
-  document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 mb-4 text-sm font-semibold opacity-70">Found ${matched.length} result${matched.length!==1?'s':''} for "<strong>${query}</strong>"</div>`;
+
+  // Score each asset by relevance to query
+  const words=query.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+  const scored=allAssets.map(a=>{
+    const h=`${a.title} ${a.tags} ${a.description} ${a.bullets} ${a.transcript}`.toLowerCase();
+    let score=0;
+    words.forEach(w=>{
+      if((a.title||'').toLowerCase().includes(w)) score+=10;
+      if((a.tags||'').toLowerCase().includes(w)) score+=6;
+      if((a.bullets||'').toLowerCase().includes(w)) score+=4;
+      if((a.description||'').toLowerCase().includes(w)) score+=3;
+      if((a.transcript||'').toLowerCase().includes(w)) score+=1;
+    });
+    return{...a,_score:score};
+  }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
+
+  if(scored.length>0){
+    showAssembledAnswer(query,scored);
+    renderContent(scored,query);
+  } else {
+    document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 text-sm font-semibold opacity-70">No results found for "<strong>${query}</strong>" — showing all content</div>`;
+    document.getElementById('searchResults').classList.remove('hidden');
+    renderContent(allAssets);
+  }
+}
+
+function showAssembledAnswer(query,results){
+  const top=results.slice(0,4);
+
+  // Build step-by-step answer from top results
+  let steps='';
+  top.forEach((a,i)=>{
+    const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
+    steps+=`<div class="flex gap-4 items-start mb-4">
+      <span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span>
+      <div class="flex-1">
+        <div class="font-black text-sm text-[#3d6263] mb-1">${a.title}</div>
+        ${bullets.length?`<div class="text-[12px] opacity-70 space-y-1">${bullets.map(b=>`<div>• ${b.replace(/^[•\-\*]\s*/,'')}</div>`).join('')}</div>`:''}
+        <button onclick="openCard('${a.id}')" class="mt-2 bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-[#3d6263] hover:text-white transition-all">${{Video:'▶ Watch',Image:'📷 View',Note:'📝 Read'}[a.assetType]||'View'}</button>
+      </div>
+    </div>`;
+  });
+
+  const html=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg mb-8" id="assembledAnswer">
+    <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Best answer for</div>
+        <h2 class="font-black text-xl">"${query}"</h2>
+      </div>
+      <span class="text-[10px] font-black uppercase px-4 py-1.5 rounded-full bg-[#f0f6f6] border border-[#d1dfdf]">${results.length} resource${results.length!==1?'s':''} found</span>
+    </div>
+    <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Suggested steps</div>
+      ${steps}
+    </div>
+  </div>`;
+
+  document.getElementById('searchResults').innerHTML=html;
   document.getElementById('searchResults').classList.remove('hidden');
 }
 function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
