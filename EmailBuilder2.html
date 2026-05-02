@@ -5,8 +5,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <!-- GIF encoder library -->
-    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+    <!-- GIF encoder — pure JS, no web workers needed -->
+    <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
 
     <style>
         :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
@@ -393,11 +393,13 @@ function clearGifFrames() {
 async function generateGif() {
     if (gifFrames.length < 2) { alert("Please add at least 2 images."); return; }
 
-    const delay = parseInt(document.getElementById('gifDelay').value) || 500;
+    const delayMs = parseInt(document.getElementById('gifDelay').value) || 500;
     const targetWidth = parseInt(document.getElementById('gifWidth').value) || 400;
+    // GIF delay is in centiseconds (100ths of a second)
+    const delayCentiseconds = Math.round(delayMs / 10);
 
     document.getElementById('gifProgress').style.display = 'block';
-    document.getElementById('gifProgressFill').style.width = '0%';
+    document.getElementById('gifProgressFill').style.width = '10%';
 
     // Load all images
     const loadImg = src => new Promise(res => {
@@ -408,54 +410,98 @@ async function generateGif() {
 
     const imgs = await Promise.all(gifFrames.map(f => loadImg(f.dataUrl)));
 
-    // Calculate height based on first frame aspect ratio
-    const ratio = imgs[0].height / imgs[0].width;
+    // Use first frame aspect ratio for height
+    const ratio = imgs[0].naturalHeight / imgs[0].naturalWidth;
     const targetHeight = Math.round(targetWidth * ratio);
 
-    // Draw each frame to canvas
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth;
     canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
 
-    const gif = new GIF({
-        workers: 2,
-        quality: 10,
-        width: targetWidth,
-        height: targetHeight,
-        workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
-    });
+    // Build GIF using omggif
+    const buf = new Uint8Array(targetWidth * targetHeight * imgs.length * 5 + 1024);
+    const writer = new GifWriter(buf, targetWidth, targetHeight, { loop: 0 });
 
-    imgs.forEach(img => {
+    for (let i = 0; i < imgs.length; i++) {
         ctx.clearRect(0, 0, targetWidth, targetHeight);
-        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-        gif.addFrame(canvas, { copy: true, delay });
-    });
+        ctx.drawImage(imgs[i], 0, 0, targetWidth, targetHeight);
+        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
 
-    gif.on('progress', p => {
-        document.getElementById('gifProgressFill').style.width = Math.round(p * 100) + '%';
-    });
+        // Convert RGBA to palette + indexed pixels
+        const { palette, indexed } = rgbaToPaletteIndexed(imageData.data, targetWidth, targetHeight);
 
-    gif.on('finished', async blob => {
-        document.getElementById('gifProgress').style.display = 'none';
+        writer.addFrame(0, 0, targetWidth, targetHeight, indexed, {
+            palette,
+            delay: delayCentiseconds
+        });
 
-        // Upload GIF to Firebase Storage
-        document.getElementById('loader').style.display = 'flex';
-        document.getElementById('loaderMsg').textContent = 'Uploading GIF...';
-        try {
-            const ref = storage.ref(`email_assets/gif_${Date.now()}.gif`);
-            await ref.put(blob, { contentType: 'image/gif' });
-            const url = await ref.getDownloadURL();
-            document.execCommand('insertHTML', false, `<img src="${url}" width="${targetWidth}" style="width:${targetWidth}px; height:auto; margin:15px 0;">`);
-            closeGifModal();
-            clearGifFrames();
-        } catch(e) {
-            alert("Error uploading GIF: " + e.message);
+        document.getElementById('gifProgressFill').style.width = Math.round(((i + 1) / imgs.length) * 80) + '%';
+    }
+
+    const gifData = buf.slice(0, writer.end());
+    const blob = new Blob([gifData], { type: 'image/gif' });
+
+    document.getElementById('gifProgressFill').style.width = '90%';
+
+    // Upload to Firebase
+    document.getElementById('loader').style.display = 'flex';
+    document.getElementById('loaderMsg').textContent = 'Uploading GIF...';
+    document.getElementById('gifProgress').style.display = 'none';
+
+    try {
+        const ref = storage.ref(`email_assets/gif_${Date.now()}.gif`);
+        await ref.put(blob, { contentType: 'image/gif' });
+        const url = await ref.getDownloadURL();
+        document.execCommand('insertHTML', false,
+            `<img src="${url}" width="${targetWidth}" style="width:${targetWidth}px; height:auto; margin:15px 0;">`
+        );
+        closeGifModal();
+        clearGifFrames();
+    } catch(e) {
+        alert("Error uploading GIF: " + e.message);
+    }
+    document.getElementById('loader').style.display = 'none';
+}
+
+// Convert RGBA pixel data to a 256-colour palette + indexed array for omggif
+function rgbaToPaletteIndexed(data, w, h) {
+    const colorMap = new Map();
+    const indexed = new Uint8Array(w * h);
+    const palette = [];
+
+    for (let i = 0; i < w * h; i++) {
+        const r = data[i * 4];
+        const g = data[i * 4 + 1];
+        const b = data[i * 4 + 2];
+        // Reduce to 6-bit per channel for better palette fit
+        const key = ((r >> 2) << 16) | ((g >> 2) << 8) | (b >> 2);
+        if (!colorMap.has(key)) {
+            if (palette.length < 255) {
+                colorMap.set(key, palette.length);
+                palette.push((r >> 2) << 18 | (g >> 2) << 10 | (b >> 2) << 2);
+            } else {
+                // Find nearest colour in palette
+                let best = 0, bestDist = Infinity;
+                for (let j = 0; j < palette.length; j++) {
+                    const pr = (palette[j] >> 18) << 2;
+                    const pg = ((palette[j] >> 10) & 0x3f) << 2;
+                    const pb = ((palette[j] >> 2) & 0x3f) << 2;
+                    const d = (r-pr)**2 + (g-pg)**2 + (b-pb)**2;
+                    if (d < bestDist) { bestDist = d; best = j; }
+                }
+                colorMap.set(key, best);
+            }
         }
-        document.getElementById('loader').style.display = 'none';
-    });
+        indexed[i] = colorMap.get(key);
+    }
 
-    gif.render();
+    // Pad palette to power of 2 (min 2)
+    while (palette.length < 2 || (palette.length & (palette.length - 1)) !== 0) {
+        palette.push(0);
+    }
+
+    return { palette, indexed };
 }
 </script>
 <!-- Help button -->
