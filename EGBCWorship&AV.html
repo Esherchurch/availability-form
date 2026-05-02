@@ -274,7 +274,6 @@
                     <div id="news-track-wrapper">
                         <div id="news-track"></div>
                     </div>
-                    <div id="news-dots"></div>
                 </div>
 
             </div>
@@ -473,6 +472,7 @@ async function saveDashToDb() {
 
 // ── RENDER DASHBOARD ────────────────────────────
 function renderDashboard() {
+    stopNewsScroll();
     const h = dashData.hero || {};
     document.getElementById('hero-title').textContent    = h.title    || 'Welcome';
     document.getElementById('hero-subtitle').textContent = h.subtitle || '';
@@ -484,72 +484,90 @@ function renderDashboard() {
     renderNews();
 }
 
-// ── NEWS CARDS (rolling / paginated) ────────────
-let newsPage = 0;
-const NEWS_PER_PAGE = 3;
+// ── NEWS CARDS (continuous auto-scroll) ──────────
+let newsScrollRAF = null;
+let newsScrollPos = 0;
+let newsScrollPaused = false;
+const NEWS_SCROLL_SPEED = 0.5; // px per frame
 
 function renderNews() {
-    const items = (dashData.newsItems || []).slice().reverse(); // newest first
-    const track = document.getElementById('news-track');
-    const dots  = document.getElementById('news-dots');
+    const items = (dashData.newsItems || []).slice().reverse();
+    const track  = document.getElementById('news-track');
+    const dots   = document.getElementById('news-dots');
     track.innerHTML = '';
     dots.innerHTML  = '';
 
     if (!items.length) {
-        track.innerHTML = `<div style="padding:20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>`;
+        track.innerHTML = `<div style="padding:24px 20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>`;
+        stopNewsScroll();
         return;
     }
 
-    // Group into pages
-    const pages = [];
-    for (let i = 0; i < items.length; i += NEWS_PER_PAGE) pages.push(items.slice(i, i + NEWS_PER_PAGE));
-    newsPage = Math.min(newsPage, pages.length - 1);
+    function makeCard(item) {
+        const card = document.createElement('div');
+        card.className = 'news-card';
+        card.innerHTML = `
+            <div class="news-card-date">${item.date || ''}</div>
+            <div class="news-card-title">${item.title || ''}</div>
+            <div class="news-card-body">${item.body || ''}</div>
+            <button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">✎</button>
+        `;
+        return card;
+    }
 
-    pages.forEach((page, pi) => {
-        const pageDiv = document.createElement('div');
-        pageDiv.className = 'news-page';
-        pageDiv.style.cssText = 'flex-shrink:0; width:100%;';
-        page.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'news-card';
-            card.innerHTML = `
-                <div class="news-card-date">${item.date || ''}</div>
-                <div class="news-card-title">${item.title || ''}</div>
-                <div class="news-card-body">${item.body || ''}</div>
-                <button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">✎</button>
-            `;
-            pageDiv.appendChild(card);
-        });
-        track.appendChild(pageDiv);
+    // Render cards + a duplicate set so we can loop seamlessly
+    items.forEach(item => track.appendChild(makeCard(item)));
+    // Only duplicate if there's enough content to need scrolling
+    // (we check after layout; duplicates added in startNewsScroll)
 
-        // Dot
-        const dot = document.createElement('div');
-        dot.className = 'news-dot' + (pi === newsPage ? ' active' : '');
-        dot.onclick = () => goToNewsPage(pi);
-        dots.appendChild(dot);
-    });
+    newsScrollPos = 0;
+    track.style.transform = 'translateY(0)';
 
-    applyNewsPage();
+    // Slight delay to let DOM paint before measuring
+    setTimeout(startNewsScroll, 400);
 }
 
-function applyNewsPage() {
-    const pages = document.querySelectorAll('.news-page');
-    const dots  = document.querySelectorAll('.news-dot');
+function stopNewsScroll() {
+    if (newsScrollRAF) { cancelAnimationFrame(newsScrollRAF); newsScrollRAF = null; }
+}
+
+function startNewsScroll() {
+    stopNewsScroll();
     const wrapper = document.getElementById('news-track-wrapper');
-    const h = wrapper.clientHeight || 300;
-    document.getElementById('news-track').style.transform = `translateY(-${newsPage * h}px)`;
-    dots.forEach((d, i) => d.classList.toggle('active', i === newsPage));
+    const track   = document.getElementById('news-track');
+    if (!wrapper || !track) return;
+
+    const wrapperH = wrapper.clientHeight;
+    const trackH   = track.scrollHeight;
+
+    // If all cards fit in the panel, no scrolling needed
+    if (trackH <= wrapperH) return;
+
+    // Duplicate cards for seamless loop
+    const origCards = Array.from(track.children);
+    origCards.forEach(c => track.appendChild(c.cloneNode(true)));
+
+    const halfH = track.scrollHeight / 2;
+
+    function step() {
+        if (!newsScrollPaused) {
+            newsScrollPos += NEWS_SCROLL_SPEED;
+            if (newsScrollPos >= halfH) newsScrollPos -= halfH; // seamless loop
+            track.style.transform = `translateY(-${newsScrollPos}px)`;
+        }
+        newsScrollRAF = requestAnimationFrame(step);
+    }
+    newsScrollRAF = requestAnimationFrame(step);
 }
 
-function goToNewsPage(i) { newsPage = i; applyNewsPage(); }
-
-// Auto-advance news every 8 seconds
-setInterval(() => {
-    const pages = document.querySelectorAll('.news-page');
-    if (!pages.length) return;
-    newsPage = (newsPage + 1) % pages.length;
-    applyNewsPage();
-}, 8000);
+// Pause on hover
+document.addEventListener('DOMContentLoaded', () => {
+    const wrapper = document.getElementById('news-track-wrapper');
+    if (wrapper) {
+        wrapper.addEventListener('mouseenter', () => { newsScrollPaused = true; });
+        wrapper.addEventListener('mouseleave', () => { newsScrollPaused = false; });
+    }
+});
 
 // ── HERO EDITOR ──────────────────────────────────
 function openHeroEditor() {
