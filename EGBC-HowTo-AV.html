@@ -1,411 +1,905 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Worship & AV Hub</title>
-    <style>
-        :root {
-            --pale-teal: #f0f6f6;
-            --border-teal: #d1dfdf;
-            --accent-teal: #3d6263;
-            --white: #ffffff;
-            --brand-green: #9bc34a;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
-
-        /* SIDEBAR */
-        #sidebar { 
-            width: 70px; 
-            background: var(--white); 
-            border-right: 1px solid var(--border-teal); 
-            display: flex; 
-            flex-direction: column; 
-            transition: width 0.3s ease; 
-            z-index: 1000; 
-        }
-        #sidebar:hover { width: 280px; }
-        #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
-
-        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 280px; position: relative; }
-        .nav-row { display: flex; align-items: center; height: 45px; color: #7a8c8c; cursor: pointer; border-left: 4px solid transparent; transition: 0.2s; }
-        .nav-row:hover { background: var(--pale-teal); color: var(--accent-teal); border-left-color: var(--brand-green); }
-        .nav-icon { min-width: 70px; display: flex; justify-content: center; align-items: center; }
-        .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-        .nav-text { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
-        #sidebar:hover .nav-text { opacity: 1; }
-
-        .chevron { width: 40px; display: flex; justify-content: center; opacity: 0; transition: transform 0.3s, opacity 0.2s; }
-        #sidebar:hover .chevron { opacity: 0.5; }
-        .has-children.open > .nav-row .chevron { transform: rotate(180deg); }
-
-        /* ACCORDION */
-        .child-container { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.02); }
-        .has-children.open > .child-container { max-height: 1200px; }
-        #sidebar:not(:hover) .child-container { max-height: 0 !important; }
-
-        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
-        .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
-
-        .edit-trigger { display: none; padding: 0 10px; color: var(--border-teal); cursor: pointer; }
-        #sidebar:hover .admin-active .edit-trigger { display: block; }
-
-        /* LAYOUT */
-        #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; width: 100%; }
-        header { 
-            height: 110px; 
-            background: var(--white); 
-            padding: 0 40px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            border-bottom: 1px solid var(--border-teal);
-            flex-shrink: 0;
-        }
-        #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
-        
-        #app-viewport { 
-            flex-grow: 1; 
-            position: relative; 
-            background: var(--white);
-            overflow: hidden;
-        }
-        
-        /* KEY FIX: allow="popups popups-to-escape-sandbox" lets the iframe open popups
-           allow-same-origin lets SharePoint API calls use the session cookie context
-           allow-scripts is required for JS to run */
-        #app-frame { 
-            width: 100%; 
-            height: 100%; 
-            border: none; 
-            background: var(--white);
-            /* allow popups so file picker can open, and allow-same-origin for SP API calls */
-        }
-
-        #landing-content { 
-            position: absolute; 
-            inset: 0;
-            background: var(--white); 
-            padding: 60px; 
-            z-index: 5; 
-        }
-
-        /* SYNC STATUS INDICATOR */
-        #sync-status {
-            font-size: 10px;
-            color: #a0b0b0;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 4px;
-            transition: color 0.3s;
-        }
-        #sync-status.syncing { color: #f0a500; }
-        #sync-status.synced  { color: var(--brand-green); }
-        #sync-status.error   { color: #f44336; }
-
-        /* ADMIN UI */
-        #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
-        .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
-        #admin-modal { display: none; position: fixed; inset: 0; background: rgba(61, 98, 99, 0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 30px; border-radius: 16px; width: 450px; max-height: 90vh; overflow-y: auto; }
-        .modal-content label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
-        .modal-content input, .modal-content select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EGBC — How To AV</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body{background-color:#f0f6f6;color:#3d6263;font-family:'Montserrat',sans-serif}
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#d1dfdf;border-radius:10px}
+    #searchInput:focus{box-shadow:0 0 0 3px rgba(61,98,99,0.15);outline:none}
+    .result-card{transition:transform 0.15s ease,box-shadow 0.15s ease}
+    .result-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(61,98,99,0.12)}
+    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:1rem}
+    .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:1rem}
+    .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:1rem}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .tab-btn.active{background:#3d6263;color:white}
+    .tab-btn{transition:all 0.15s}
+    mark{background:#fef08a;border-radius:2px;padding:0 2px}
+    #assembledAnswer{animation:fadeIn 0.3s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .unpublished{opacity:0.5;border-style:dashed!important}
+    .admin-tab{display:block}
+    .admin-tab.hidden{display:none}
+  </style>
 </head>
-<body>
+<body class="p-6 lg:p-10 min-h-screen">
+<div class="max-w-6xl mx-auto">
 
-    <nav id="sidebar" onmouseleave="closeAllMenus()">
-        <div id="nav-list"></div>
-        <div id="admin-controls">
-            <button class="admin-btn" onclick="openModal()">+ Add Page / Sub</button>
-            <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">Reset System</button>
-        </div>
-    </nav>
-
-    <div id="main-container">
-        <header>
-            <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
-            <div style="text-align: right">
-                <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
-                <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship & AV Hub</div>
-                <div id="sync-status">Connecting…</div>
-            </div>
-        </header>
-        <main id="app-viewport">
-            <div id="landing-content">
-                <h2 style="font-weight: 300; font-size: 32px; color: var(--accent-teal); margin-bottom: 10px;">Dashboard</h2>
-                <p style="color: #7a8c8c;">Select a tool to begin.</p>
-            </div>
-            <!-- allow="popups" lets child pages open popup windows (file picker) -->
-            <!-- allow="popups-to-escape-sandbox" lets popups open outside the iframe sandbox -->
-            <iframe 
-                id="app-frame" 
-                style="display:none;" 
-                src=""
-                allow="popups popups-to-escape-sandbox"
-            ></iframe>
-        </main>
+  <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
+    <div>
+      <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC — AV Knowledge Base</div>
+      <h1 class="text-3xl font-black uppercase tracking-tight">How To AV</h1>
+      <p class="text-sm font-semibold opacity-60 mt-1">Step-by-step guides for AV tasks</p>
     </div>
-
-    <div id="admin-modal">
-        <div class="modal-content">
-            <h3 id="modalTitle" style="color: var(--accent-teal);">Page Settings</h3>
-            <input type="hidden" id="editId">
-            <label>Name</label><input type="text" id="nodeName">
-            <label>Link (URL)</label><input type="text" id="nodeUrl">
-            <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
-            <label>Parent Item</label><select id="nodeParent"><option value="none">Top Level</option></select>
-            <label>Icon</label><select id="nodeIcon">
-                <option value="home">Home</option><option value="calendar">Calendar</option><option value="music">Music</option>
-                <option value="worship">Worship</option><option value="av">AV</option><option value="youth">Youth</option>
-                <option value="trouble">Tools</option><option value="training">Book</option><option value="social">Social</option>
-                <option value="core">Shield</option><option value="leader">Mic</option><option value="heart">Heart</option>
-            </select>
-            <label>Access Level</label>
-            <select id="nodeRole">
-                <option value="worship">Team (Worship/AV)</option>
-                <option value="core">Core (Admin Only)</option>
-            </select>
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button id="deleteBtn" class="admin-btn" style="background:#f44336; display:none;" onclick="deletePage()">Delete</button>
-                <button class="admin-btn" style="background:#ccc" onclick="closeModal()">Cancel</button>
-                <button class="admin-btn" onclick="savePage()">Save</button>
-            </div>
+    <div class="flex gap-3 items-center flex-wrap">
+      <nav class="flex flex-col gap-1 bg-white p-3 rounded-[2rem] border border-[#d1dfdf] shadow-sm">
+        <span class="text-[9px] font-black uppercase tracking-widest px-4 opacity-50">AV Knowledge Base</span>
+        <div class="flex gap-1">
+          <a href="https://esherchurch.github.io/availability-form/EGBC-Troubleshoot-AV.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Troubleshoot</a>
+          <span class="px-5 py-2 rounded-full font-black text-[10px] uppercase bg-[#3d6263] text-white">How To</span>
         </div>
+      </nav>
+      <button onclick="toggleAdmin()" class="bg-white border border-[#d1dfdf] px-6 py-2.5 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
     </div>
+  </header>
 
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <!-- SEARCH -->
+  <div class="bg-white rounded-[2rem] border border-[#d1dfdf] shadow-lg p-6 mb-8">
+    <div class="flex gap-3 items-center">
+      <div class="flex-grow relative">
+        <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" type="text" placeholder="Describe the problem… e.g. 'camera went black screen'" class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40" onkeydown="if(event.key==='Enter')doSearch()">
+      </div>
+      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Ask AI</button>
+      <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <span class="text-[10px] font-black uppercase opacity-40 self-center">Quick:</span>
+      <button onclick="quickSearch('set up the mixing desk')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Set up mixing desk</button>
+      <button onclick="quickSearch('mic a choir')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Mic a choir</button>
+      <button onclick="quickSearch('phantom power')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Phantom power</button>
+      <button onclick="quickSearch('camera setup')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Camera setup</button>
+      <button onclick="quickSearch('EQ settings')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">EQ settings</button>
+    </div>
+  </div>
 
-    <script>
-        const firebaseConfig = {
-            apiKey:            "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-            authDomain:        "egbc-worship-planner.firebaseapp.com",
-            projectId:         "egbc-worship-planner",
-            storageBucket:     "egbc-worship-planner.firebasestorage.app",
-            appId:             "1:199442060489:web:7eaf85a76334c753db6918"
-        };
+  <div id="assembledAnswer" class="hidden mb-8"></div>
+  <div id="loadingState" class="hidden mb-8">
+    <div class="bg-white rounded-[2rem] border border-[#d1dfdf] p-8 flex items-center gap-4">
+      <div class="w-8 h-8 rounded-full animate-spin" style="border:3px solid #d1dfdf;border-top-color:#3d6263"></div>
+      <span class="font-black uppercase text-[11px] opacity-60 tracking-widest">Searching knowledge base...</span>
+    </div>
+  </div>
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const MENU_DOC = db.collection('portal').doc('menuItems');
+  <!-- ADMIN PANEL -->
+  <div id="adminPanel" class="hidden mb-8">
+    <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
+      <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
+        <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — How To AV</h2>
+        <button onclick="closeAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl">✕</button>
+      </div>
+      <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
+        <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase">Add Content</button>
+        <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Categories</button>
+        <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Manage</button>
+      </div>
 
-        function setSyncStatus(state, text) {
-            const el = document.getElementById('sync-status');
-            el.className = state;
-            el.textContent = text;
+      <!-- ADD CONTENT TAB -->
+      <div id="admin-content" class="admin-tab">
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Item</h3>
+
+            <!-- STEP 1: Pick file or paste embed code -->
+            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Select your file</div>
+              <button onclick="openFilePicker()" class="w-full bg-[#3d6263] text-white py-3 rounded-full font-black text-[11px] uppercase hover:bg-black transition-all flex items-center justify-center gap-2">
+                <span>📂</span> Browse SharePoint Files
+              </button>
+              <div class="flex items-center gap-3">
+                <div class="flex-1 h-px bg-[#d1dfdf]"></div>
+                <span class="text-[10px] font-black uppercase text-[#3d6263] opacity-40">or paste embed code</span>
+                <div class="flex-1 h-px bg-[#d1dfdf]"></div>
+              </div>
+              <textarea id="adminContentURL" rows="2" placeholder="Stream: Share → Embed → copy iframe code → paste here" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)"></textarea>
+              <div id="pasteStatus" class="hidden text-[11px] font-black px-1"></div>
+            </div>
+
+            <!-- STEP 2: Auto-filled fields (shown after paste) -->
+            <div id="autoFilledSection" class="hidden space-y-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60 pt-1">Step 2 — Review &amp; complete</div>
+              <div class="relative">
+                <input id="adminTitle" type="text" placeholder="Title (auto-filled)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+                <div id="titleLoader" class="hidden absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+              </div>
+              <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+                <option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option><option value="VideoClip">Video Clip</option>
+              </select>
+              <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+                <option value="">No category</option>
+              </select>
+              <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+
+              <!-- Transcript status -->
+              <div id="transcriptStatus" class="bg-white rounded-xl border border-[#d1dfdf] px-5 py-3 text-[12px] font-semibold opacity-60">
+                Fetching transcript from Stream...
+              </div>
+              <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+
+              <div class="flex gap-3 pt-1">
+                <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+                <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Bullets preview -->
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">Auto-Generated How-To Bullets</h3>
+            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste your embed code — bullets will generate automatically once the transcript loads.</div>
+            <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4">
+              <div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+              <span class="text-[11px] font-bold uppercase opacity-60">Generating bullets with AI...</span>
+            </div>
+            <textarea id="adminBullets" rows="12" placeholder="Bullets will appear here for review..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <button id="regenBtn" onclick="generateBullets()" class="hidden mt-3 w-full bg-white border border-[#d1dfdf] py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">↺ Regenerate Bullets</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATEGORIES TAB -->
+      <div id="admin-categories" class="admin-tab hidden">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">Page Categories</h3>
+          <p class="text-[12px] opacity-60 mb-4">Categories are visual sections on this page only. Add as many as you like.</p>
+          <div class="flex gap-3 mb-6">
+            <input id="newCatName" type="text" placeholder="New category name e.g. Audio Issues" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
+            <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Add</button>
+          </div>
+          <div id="categoryList" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <!-- MANAGE TAB -->
+      <div id="admin-manage" class="admin-tab hidden">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">All Content</h3>
+          <div id="manageList" class="space-y-2"></div>
+        </div>
+        <!-- EDIT FORM -->
+        <div id="editModal" class="hidden mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border-2 border-[#3d6263] space-y-3">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="font-black uppercase text-[11px] tracking-widest">Edit Item</h3>
+            <button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black">✕</button>
+          </div>
+          <input type="hidden" id="editId">
+          <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
+          <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <textarea id="editBullets" rows="6" placeholder="How-to bullets..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <textarea id="editDescription" rows="3" placeholder="Description..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="contentArea"></div>
+  <div id="emptyState" class="hidden text-center py-20">
+    <div class="text-5xl mb-4">📭</div>
+    <div class="font-black uppercase opacity-40 tracking-widest text-sm">No content yet</div>
+    <div class="text-sm opacity-30 mt-2">Use the Admin panel to add videos, images and notes</div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+  <div class="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
+    <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const SP_SITE   = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+const LIST_NAME = 'KB-HowTo-AV';
+const LIST_TYPE = 'SP.Data.KB_x002D_HowTo_x002D_AVListItem';
+const AI_MODEL  = 'claude-sonnet-4-20250514';
+const PW_HASH   = '77fff987f5deea670a55a6d756dfe78c1a5383dd67850401b9fde70d10a2f89b';
+const CAT_KEY   = 'egbc_cats_howto_av';
+
+let allAssets  = [];
+let categories = JSON.parse(localStorage.getItem(CAT_KEY)||'[]');
+let currentQuery = '';
+let _manageItems = [];
+
+document.addEventListener('DOMContentLoaded',()=>{ loadAssets(); updateCatDropdowns(); });
+
+// LOAD
+async function loadAssets(){
+  showSkeletons();
+  try{
+    const r=await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$filter=Published eq 1&$top=500&$select=Title,AssetType,ContentURL,Transcript,HowToBullets,Description,Tags,TimestampStart,ID,Category`,{headers:{'Accept':'application/json;odata=nometadata'}});
+    if(!r.ok)throw new Error(r.status);
+    allAssets=(await r.json()).value||[];
+  }catch{ allAssets=[]; }
+  renderContent(allAssets);
+}
+
+async function loadAll(){
+  try{
+    const r=await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$top=500&$select=Title,AssetType,ContentURL,HowToBullets,Description,Tags,ID,Category,Published`,{headers:{'Accept':'application/json;odata=nometadata'}});
+    if(!r.ok)throw new Error(r.status);
+    return(await r.json()).value||[];
+  }catch{return[];}
+}
+
+// RENDER CONTENT BY CATEGORY
+function renderContent(assets,highlight=''){
+  const area=document.getElementById('contentArea');
+  const empty=document.getElementById('emptyState');
+  if(!assets.length){area.innerHTML='';empty.classList.remove('hidden');return;}
+  empty.classList.add('hidden');
+  const grouped={};
+  const uncat=[];
+  assets.forEach(a=>{
+    const c=(a.Category||'').trim();
+    if(c&&categories.includes(c)){if(!grouped[c])grouped[c]=[];grouped[c].push(a);}
+    else uncat.push(a);
+  });
+  let html='';
+  categories.forEach(cat=>{
+    const items=grouped[cat]||[];
+    if(!items.length)return;
+    const sid='sec_'+safeid(cat);
+    html+=`<div class="mb-10">
+      <div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')">
+        <div class="w-1.5 h-6 bg-[#3d6263] rounded-full"></div>
+        <h2 class="font-black uppercase tracking-widest text-sm">${cat}</h2>
+        <span class="text-[10px] font-bold opacity-40">${items.length} item${items.length!==1?'s':''}</span>
+        <svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+      </div>
+      <div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div>
+    </div>`;
+  });
+  if(uncat.length){
+    const label=categories.length?'Uncategorised':'All Content';
+    const sid='sec_uncategorised';
+    html+=`<div class="mb-10">
+      <div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')">
+        <div class="w-1.5 h-6 bg-[#d1dfdf] rounded-full"></div>
+        <h2 class="font-black uppercase tracking-widest text-sm opacity-50">${label}</h2>
+        <span class="text-[10px] font-bold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span>
+        <svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+      </div>
+      <div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div>
+    </div>`;
+  }
+  area.innerHTML=html;
+}
+
+function toggleSec(id){
+  const el=document.getElementById(id);
+  const chv=document.getElementById('chv_'+id);
+  if(!el)return;
+  const hidden=el.classList.toggle('hidden');
+  if(chv)chv.style.transform=hidden?'rotate(-90deg)':'rotate(0deg)';
+}
+
+function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
+
+function cardHTML(a,highlight=''){
+  const icons={Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'};
+  const bc={Video:'bg-blue-50 text-blue-700',Image:'bg-green-50 text-green-700',Note:'bg-yellow-50 text-yellow-700',VideoClip:'bg-purple-50 text-purple-700'};
+  const bullets=(a.HowToBullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
+  const tags=(a.Tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
+  const title=highlight?hlText(a.Title||'',highlight):(a.Title||'');
+  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard(${a.ID})">
+    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.AssetType]||'📄'}</span><span class="${bc[a.AssetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.AssetType}</span></div>
+    <h3 class="font-black text-base mb-3 leading-snug">${title}</h3>
+    ${a.Description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.Description}</p>`:''}
+    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.HowToBullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
+    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}
+  </div>`;
+}
+
+function openCard(id){
+  const a=allAssets.find(x=>x.ID===id);if(!a)return;
+  const bullets=(a.HowToBullets||'').split('\n').filter(b=>b.trim());
+  const isVid=a.AssetType==='Video'||a.AssetType==='VideoClip';
+  const hasURL=a.ContentURL&&a.ContentURL.trim();
+  const src=hasURL?(a.TimestampStart?`${a.ContentURL}${a.ContentURL.includes('?')?'&':'?'}startTime=${a.TimestampStart}`:a.ContentURL):'';
+  document.getElementById('modalContent').innerHTML=`
+    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">AV How To${a.Category?' — '+a.Category:''}</div>
+    <h2 class="font-black text-2xl mb-6 leading-tight">${a.Title}</h2>
+    ${isVid&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
+    ${a.AssetType==='Image'&&hasURL?`<img src="${a.ContentURL}" alt="${a.Title}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
+    ${a.Description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${a.Description}</p>`:''}
+    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How To Do It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div></div>`:''}
+    ${a.Tags?`<div class="flex flex-wrap gap-2">${a.Tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}`;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
+
+// AI SEARCH
+async function doSearch(){
+  const query=document.getElementById('searchInput').value.trim();if(!query)return;
+  currentQuery=query;
+  document.getElementById('loadingState').classList.remove('hidden');
+  document.getElementById('assembledAnswer').classList.add('hidden');
+  const ctx=allAssets.map(a=>`ID:${a.ID}|Title:${a.Title}|Tags:${a.Tags||''}|Desc:${a.Description||''}|Bullets:${(a.HowToBullets||'').substring(0,300)}`).join('\n');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'AV how-to assistant for EGBC Church. Respond ONLY in JSON: {"summary":"...","steps":["..."],"relevantAssetIds":[1,2],"confidence":"high|medium|low"}',messages:[{role:'user',content:`Question: "${query}"\n\nAssets:\n${ctx}`}]})});
+    const data=await res.json();
+    const text=data.content?.map(c=>c.text||'').join('')||'';
+    let result;try{result=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{result={summary:text,steps:[],relevantAssetIds:[],confidence:'low'};}
+    showAIAnswer(query,result);renderContent(allAssets,query);
+  }catch{
+    const m=kwSearch(query);showFallback(query,m);renderContent(m.length?m:allAssets,query);
+  }
+  document.getElementById('loadingState').classList.add('hidden');
+}
+function showAIAnswer(query,r){
+  const assets=(r.relevantAssetIds||[]).map(id=>allAssets.find(a=>a.ID===id)).filter(Boolean);
+  const cc={high:'text-green-600 bg-green-50',medium:'text-amber-600 bg-amber-50',low:'text-red-500 bg-red-50'}[r.confidence]||'text-gray-500 bg-gray-50';
+  document.getElementById('assembledAnswer').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg">
+    <div class="flex items-start justify-between mb-6 flex-wrap gap-3"><div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">AI Answer for</div><h2 class="font-black text-xl">"${query}"</h2></div><span class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${cc}">${r.confidence||'medium'} confidence</span></div>
+    ${r.summary?`<p class="text-sm opacity-80 leading-relaxed mb-6">${r.summary}</p>`:''}
+    ${r.steps?.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Suggested Steps</div><div class="space-y-3">${r.steps.map((s,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${s}</span></div>`).join('')}</div></div>`:''}
+    ${assets.length?`<div><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Relevant Resources</div><div class="flex flex-wrap gap-3">${assets.map(a=>`<button onclick="openCard(${a.ID})" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2.5 rounded-full font-bold text-[12px] flex items-center gap-2 hover:bg-[#3d6263] hover:text-white transition-all"><span>${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span><span>${a.Title}</span>${a.TimestampStart?`<span class="opacity-50 text-[10px]">${fmtTime(a.TimestampStart)}</span>`:''}</button>`).join('')}</div></div>`:''}
+  </div>`;
+  document.getElementById('assembledAnswer').classList.remove('hidden');
+}
+function showFallback(q,m){document.getElementById('assembledAnswer').innerHTML=`<div class="bg-[#fff8f0] border border-amber-200 rounded-[2rem] p-6"><div class="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2">Keyword Search</div><p class="text-sm text-amber-800 font-semibold">Found ${m.length} result${m.length!==1?'s':''} for "<strong>${q}</strong>"</p></div>`;document.getElementById('assembledAnswer').classList.remove('hidden');}
+function kwSearch(q){const w=q.toLowerCase().split(/\s+/);return allAssets.filter(a=>{const h=`${a.Title} ${a.Tags} ${a.Description} ${a.HowToBullets}`.toLowerCase();return w.some(x=>h.includes(x));});}
+function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
+function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('assembledAnswer').classList.add('hidden');renderContent(allAssets);}
+
+// ADMIN AUTH
+function toggleAdmin(){
+  const panel=document.getElementById('adminPanel');
+  if(!panel.classList.contains('hidden')){closeAdmin();return;}
+  panel.classList.remove('hidden');
+  updateCatDropdowns();
+  renderCategoryList();
+}
+function closeAdmin(){document.getElementById('adminPanel').classList.add('hidden');}
+
+// ADMIN TABS
+function showAdminTab(tab){
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));
+  document.querySelectorAll('[id^="atab-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('admin-'+tab).classList.remove('hidden');
+  document.getElementById('atab-'+tab).classList.add('active');
+  if(tab==='manage')renderManageList();
+  if(tab==='categories')renderCategoryList();
+}
+
+// CATEGORIES
+function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(allAssets,currentQuery);}
+function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
+function renameCategory(idx){const n=prompt('Rename to:',categories[idx]);if(!n||n===categories[idx])return;categories[idx]=n;saveCategories();}
+function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;categories.splice(idx,1);saveCategories();}
+function renderCategoryList(){
+  const l=document.getElementById('categoryList');if(!l)return;
+  if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${c}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 hover:border-red-400 transition-all">Delete</button></div>`).join('');
+}
+function updateCatDropdowns(){['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});}
+
+// FILE PICKER
+function openFilePicker(){
+  const spOrigin = new URL(SP_SITE).origin;
+  // The origin must match exactly what the picker popup will postMessage back to
+  // Since this page is on GitHub, we use the GitHub origin
+  const myOrigin = 'https://esherchurch.github.io';
+  const opts = {
+    sdk: '8.0',
+    entry: { sharePoint: { byPath: { web: SP_SITE, list: '/sites/EGBCWorshipandAV/KnowledgeBaseMedia' } } },
+    authentication: {},
+    messaging: { origin: myOrigin, channelId: 'egbcpicker' },
+    typesAndSources: { mode: 'files', pivots: { oneDrive: false, recent: false } },
+    selection: { mode: 'single' }
+  };
+  const popUrl = `${SP_SITE}/_layouts/15/FilePicker.aspx?pickerSettings=${encodeURIComponent(JSON.stringify(opts))}`;
+  const popup = window.open(popUrl, 'FilePicker', `width=900,height=600,left=${Math.round((screen.width-900)/2)},top=${Math.round((screen.height-600)/2)}`);
+  if(!popup){ alert('Popup was blocked — please allow popups for this site and try again.'); return; }
+  const handler = async (e) => {
+    // Accept messages from SharePoint origin
+    if (e.origin !== spOrigin) return;
+
+    let msg;
+    try { msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+    if (!msg || !msg.type) return;
+
+    // Picker is ready — activate it
+    if (msg.type === 'initialize') {
+      popup.postMessage(JSON.stringify({ type: 'activate' }), spOrigin2);
+      return;
+    }
+
+    // User selected a file
+    if (msg.type === 'submit') {
+      const items = msg.items || [];
+      closeFilePicker(popup);
+      window.removeEventListener('message', handler);
+
+      if (items.length > 0) {
+        const item = items[0];
+        const uniqueId = item.sharePoint?.uniqueId || item.id || '';
+        const driveItemId = item.sharePoint?.driveItemId || item.driveItemId || '';
+        const name = (item.name || item.sharePoint?.name || '').replace(/\.[^/.]+$/, '');
+
+        if (!uniqueId) { alert('Could not get file ID — please use the embed paste method instead.'); return; }
+
+        // Build embed URL
+        const embedUrl = `${SP_SITE}/_layouts/15/embed.aspx?UniqueId=${uniqueId}`;
+        window._extractedURL = embedUrl;
+
+        // Show the auto-filled section and set title
+        document.getElementById('autoFilledSection').classList.remove('hidden');
+        document.getElementById('adminTitle').value = name;
+        setStatus('pasteStatus', '✓ File selected — fetching transcript...', 'text-green-700 font-black');
+
+        // Now run the full auto-fill chain using the uniqueId
+        await autoFillFromUniqueId(uniqueId);
+      }
+      return;
+    }
+
+    // Picker navigation — acknowledge
+    if (msg.type === 'page-load' || msg.type === 'navigate') {
+      try { popup.postMessage(JSON.stringify({ type: 'ack', id: msg.id }), spOrigin2); } catch(e){}
+      return;
+    }
+
+    // User cancelled
+    if (msg.type === 'cancel' || msg.type === 'close') {
+      closeFilePicker(popup);
+      window.removeEventListener('message', handler);
+    }
+  };
+
+  window.addEventListener('message', handler);
+  window._pickerHandler = handler;
+
+  // Clean up if popup is closed manually
+  const poll = setInterval(()=>{ if(popup.closed){ clearInterval(poll); closeFilePicker(); } }, 500);
+}
+
+function closeFilePicker(popup){
+  if(popup && !popup.closed) try{ popup.close(); }catch(e){}
+  if (window._pickerHandler) {
+    window.removeEventListener('message', window._pickerHandler);
+    window._pickerHandler = null;
+  }
+}
+
+// Shared auto-fill function — used by both picker and embed paste
+async function autoFillFromUniqueId(uniqueId){
+  let transcript = '';
+  let serverRelUrl = '';
+
+  // Step 1: File properties — title, tags, transcript URI
+  console.log('KB: Fetching file props for', uniqueId);
+  try {
+    const fileRes = await fetch(
+      `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords,ServerRelativeUrl,StreamMedia_TranscriptUri,OData__MediaTranscriptUri`,
+      { headers: { 'Accept': 'application/json;odata=nometadata' } }
+    );
+    if(fileRes.ok){
+      const fdata = await fileRes.json();
+      serverRelUrl = fdata.ServerRelativeUrl || '';
+      const name = fdata.FileLeafRef || fdata.Title || '';
+      if(name && !document.getElementById('adminTitle').value){
+        document.getElementById('adminTitle').value = name.replace(/\.[^/.]+$/, '');
+      }
+      if(!document.getElementById('adminTags').value){
+        let tags = [];
+        if(fdata.TaxKeyword?.results) tags = fdata.TaxKeyword.results.map(k=>k.Label).filter(Boolean);
+        if(!tags.length && fdata.Keywords) tags = fdata.Keywords.split(/[,;]+/).map(t=>t.trim()).filter(Boolean);
+        if(tags.length) document.getElementById('adminTags').value = tags.join(', ');
+      }
+      const tUri = fdata.StreamMedia_TranscriptUri || fdata.OData__MediaTranscriptUri || '';
+      if(tUri){
+        try{
+          const tr = await fetch(tUri.startsWith('http') ? tUri : SP_SITE + tUri);
+          if(tr.ok) transcript = parseVTT(await tr.text());
+        } catch(e){}
+      }
+    }
+  } catch(e){}
+
+  // Step 2: Stream transcript API with explicit credentials
+  console.log('KB: Step 1 result:', transcript ? 'FOUND' : 'not found. serverRelUrl='+serverRelUrl);
+  if(!transcript){
+    try{
+      const r = await fetch(`${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,
+        { headers: { 'Accept': 'application/json' }, credentials: 'include' });
+      console.log('KB: v2.1 transcript status:', r.status);
+      if(r.ok){
+        const data = await r.json();
+        const items = data?.value || [];
+        if(items.length){
+          const tUrl = items[0].transcriptContentUrl || items[0]['@microsoft.graph.downloadUrl'];
+          if(tUrl){ const vr = await fetch(tUrl, {credentials:'include'}); if(vr.ok) transcript = parseVTT(await vr.text()); }
         }
+      }
+    } catch(e){ console.log('KB: Step 2 error:', e.message); }
+  }
 
-        const DEFAULT_MENU = [
-            {"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
-            {"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},
-            {"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},
-            {"id":1777068093291,"name":"Music Databases","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},
-            {"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},
-            {"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},
-            {"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},
-            {"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},
-            {"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},
-            {"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},
-            {"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},
-            {"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},
-            {"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
-        ];
+  // Step 3: Try basic file fetch with credentials to test session
+  console.log('KB: Step 2 result:', transcript ? 'FOUND' : 'not found');
+  if(!transcript){
+    try{
+      const fr = await fetch(`${SP_SITE}/_api/web/GetFileById('${uniqueId}')?$select=Name,ServerRelativeUrl`,
+        { headers: { 'Accept': 'application/json;odata=nometadata' }, credentials: 'include' });
+      console.log('KB: Basic file fetch status:', fr.status);
+      if(fr.ok){
+        const fd = await fr.json();
+        console.log('KB: File found:', fd.Name, '| ServerRelUrl:', fd.ServerRelativeUrl);
+        serverRelUrl = fd.ServerRelativeUrl || serverRelUrl;
+        if(!document.getElementById('adminTitle').value && fd.Name){
+          document.getElementById('adminTitle').value = fd.Name.replace(/\.[^/.]+$/,'');
+        }
+      }
+    } catch(e){ console.log('KB: Step 3 error:', e.message); }
+  }
 
-        let menuItems = [];
+  console.log('KB: Step 3 transcript result:', transcript ? 'FOUND' : 'not found');
+  // Step 4: Direct .vtt file
+  if(!transcript && serverRelUrl){
+    try{
+      const base = serverRelUrl.replace(/\.[^/.]+$/, '');
+      const folder = serverRelUrl.substring(0, serverRelUrl.lastIndexOf('/'));
+      for(const vp of [`${folder}/Transcripts/${uniqueId}.vtt`, `${folder}/Transcripts/${uniqueId}_auto.vtt`, `${base}_auto.vtt`, `${base}.vtt`]){
+        try{
+          const vr = await fetch(`${SP_SITE}/_api/web/GetFileByServerRelativeUrl('${encodeURIComponent(vp)}')/$value`, { headers: { 'Accept': 'text/vtt,text/plain,*/*' } });
+          if(vr.ok){ transcript = parseVTT(await vr.text()); if(transcript) break; }
+        } catch(e){}
+      }
+    } catch(e){}
+  }
 
-        async function loadMenu() {
-            setSyncStatus('syncing', 'Loading…');
-            try {
-                const snap = await MENU_DOC.get();
-                if (snap.exists && snap.data().items) {
-                    menuItems = snap.data().items;
-                } else {
-                    menuItems = DEFAULT_MENU;
-                    await MENU_DOC.set({ items: menuItems });
-                }
-                setSyncStatus('synced', '✓ Synced');
-                renderMenu();
-            } catch (err) {
-                console.error('Firestore load error:', err);
-                setSyncStatus('error', '⚠ Offline – changes won\'t save');
-                menuItems = DEFAULT_MENU;
-                renderMenu();
+  console.log('KB: Final transcript result:', transcript ? 'FOUND ('+transcript.length+' chars)' : 'NOT FOUND');
+  // Show result
+  if(transcript){
+    document.getElementById('adminTranscript').value = transcript;
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('transcriptStatus').classList.add('hidden');
+    setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
+    await generateBullets();
+    setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+  } else {
+    setStatus('transcriptStatus','Transcript could not be fetched automatically. In Stream: open video → Transcript tab → select all → copy → paste below. Bullets will then generate automatically.','text-amber-600 font-semibold');
+    document.getElementById('transcriptStatus').classList.remove('hidden');
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('adminTranscript').placeholder = 'Paste transcript here — Stream > video > Transcript tab > select all > copy > paste';
+    document.getElementById('adminTranscript').oninput = async function(){
+      if(this.value.trim().length > 50){
+        this.oninput = null;
+        setStatus('pasteStatus','Transcript added — generating bullets...','text-amber-600 font-black');
+        await generateBullets();
+        setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+      }
+    };
+  }
+}
+
+// ── EMBED PASTE HANDLER — full auto-fill chain ───────────────────────────────
+async function handleEmbedPaste(el){
+  const val = el.value.trim();
+  if(!val) return;
+
+  // Extract src URL from iframe code or use raw URL
+  const srcMatch = val.match(/src=["']([^"']+)["']/);
+  const embedURL = srcMatch ? srcMatch[1] : (val.startsWith('http') ? val : null);
+  if(!embedURL){ setStatus('pasteStatus','✗ Could not read URL — paste the full embed code from Stream','text-red-500'); return; }
+
+  window._extractedURL = embedURL;
+
+  // Extract UniqueId from the URL
+  const uidMatch = embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
+  const uniqueId = uidMatch ? uidMatch[1] : null;
+
+  // Show auto-filled section
+  document.getElementById('autoFilledSection').classList.remove('hidden');
+  setStatus('pasteStatus','✓ Embed code recognised — fetching details...','text-green-700 font-black');
+
+  // Auto-fill title from iframe title attribute
+  const titleMatch = val.match(/title=["']([^"']+)["']/);
+  if(titleMatch && !document.getElementById('adminTitle').value){
+    document.getElementById('adminTitle').value = titleMatch[1].replace(/\.[^/.]+$/,'');
+  }
+
+  if(!uniqueId){
+    setStatus('transcriptStatus','Could not extract video ID — please paste the transcript manually.','');
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    return;
+  }
+
+  // Use shared auto-fill function
+  await autoFillFromUniqueId(uniqueId);
+}
+
+// Stub to prevent double-execution — autoFillFromUniqueId handles everything
+async function _transcriptFetchStub(){
+  // Fetch file properties and transcript from SharePoint/Stream
+  setStatus('transcriptStatus','⏳ Fetching transcript from Stream...','text-amber-600');
+  let transcript = '';
+  let serverRelUrl = '';
+
+  // Step 1: Get file list item — title, tags, transcript URI
+  try {
+    const fileRes = await fetch(
+      `${SP_SITE}/_api/web/GetFileById('${uniqueId}')/ListItemAllFields?$select=Title,FileLeafRef,TaxKeyword,Keywords,ServerRelativeUrl,StreamMedia_TranscriptUri,OData__MediaTranscriptUri`,
+      { headers: { 'Accept': 'application/json;odata=nometadata' } }
+    );
+    if(fileRes.ok){
+      const fdata = await fileRes.json();
+      serverRelUrl = fdata.ServerRelativeUrl || '';
+      const name = fdata.FileLeafRef || fdata.Title || '';
+      if(name && !document.getElementById('adminTitle').value){
+        document.getElementById('adminTitle').value = name.replace(/\.[^/.]+$/,'');
+      }
+      if(!document.getElementById('adminTags').value){
+        let tags = [];
+        if(fdata.TaxKeyword && fdata.TaxKeyword.results){
+          tags = fdata.TaxKeyword.results.map(k => k.Label).filter(Boolean);
+        }
+        if(!tags.length && fdata.Keywords){
+          tags = fdata.Keywords.split(/[,;]+/).map(t=>t.trim()).filter(Boolean);
+        }
+        if(tags.length) document.getElementById('adminTags').value = tags.join(', ');
+      }
+      // If Stream stored a direct transcript URI, use it
+      const tUri = fdata.StreamMedia_TranscriptUri || fdata.OData__MediaTranscriptUri || '';
+      if(tUri){
+        try{
+          const tr = await fetch(tUri.startsWith('http') ? tUri : SP_SITE + tUri);
+          if(tr.ok){ transcript = parseVTT(await tr.text()); }
+        } catch(e){}
+      }
+    }
+  } catch(e) { /* non-critical */ }
+
+  // Step 2: Try the SharePoint v2.1 API with site-relative approach
+  if(!transcript){
+    try{
+      // Get the site ID first
+      const siteRes = await fetch(`${SP_SITE}/_api/site?$select=Id`, 
+        { headers: { 'Accept': 'application/json;odata=nometadata' } });
+      if(siteRes.ok){
+        const siteData = await siteRes.json();
+        const siteId = siteData.Id;
+        // Get the web ID
+        const webRes = await fetch(`${SP_SITE}/_api/web?$select=Id`,
+          { headers: { 'Accept': 'application/json;odata=nometadata' } });
+        if(webRes.ok){
+          const webData = await webRes.json();
+          const webId = webData.Id;
+          // Now try v2.1 transcript endpoint with proper IDs
+          const v21Res = await fetch(
+            `${SP_SITE}/_api/v2.1/sites/${siteId}/items/${uniqueId}/media/transcripts`,
+            { headers: { 'Accept': 'application/json' } }
+          );
+          if(v21Res.ok){
+            const v21Data = await v21Res.json();
+            const items = v21Data?.value || [];
+            if(items.length){
+              const tUrl = items[0].transcriptContentUrl || items[0]['@microsoft.graph.downloadUrl'];
+              if(tUrl){
+                const vr = await fetch(tUrl);
+                if(vr.ok) transcript = parseVTT(await vr.text());
+              }
             }
+          }
         }
+      }
+    } catch(e){ /* try next */ }
+  }
 
-        async function saveMenu() {
-            setSyncStatus('syncing', 'Saving…');
-            try {
-                await MENU_DOC.set({ items: menuItems });
-                setSyncStatus('synced', '✓ Saved & Synced');
-            } catch (err) {
-                console.error('Firestore save error:', err);
-                setSyncStatus('error', '⚠ Save failed');
-            }
+  // Step 3: Try SP Search API — indexes transcript content
+  if(!transcript){
+    try{
+      const searchRes = await fetch(
+        `${SP_SITE}/_api/search/query?querytext='UniqueId:${uniqueId}'&selectproperties='TranscriptContent,Title'&rowlimit=1`,
+        { headers: { 'Accept': 'application/json;odata=nometadata' } }
+      );
+      if(searchRes.ok){
+        const sData = await searchRes.json();
+        const rows = sData?.PrimaryQueryResult?.RelevantResults?.Table?.Rows || [];
+        if(rows.length){
+          const cells = rows[0].Cells || [];
+          const tCell = cells.find(c => c.Key === 'TranscriptContent');
+          if(tCell && tCell.Value) transcript = tCell.Value;
         }
+      }
+    } catch(e){ /* try next */ }
+  }
 
-        const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+  // Step 4: Try looking for the .vtt transcript file Stream auto-generates
+  if(!transcript && serverRelUrl){
+    try{
+      const baseName = serverRelUrl.replace(/\.[^/.]+$/, '');
+      const folderPath = serverRelUrl.substring(0, serverRelUrl.lastIndexOf('/'));
+      // Stream creates transcripts in a Transcripts subfolder or alongside the file
+      const vttPaths = [
+        `${folderPath}/Transcripts/${uniqueId}.vtt`,
+        `${folderPath}/Transcripts/${uniqueId}_auto.vtt`,
+        `${baseName}_auto.vtt`,
+        `${baseName}.vtt`,
+      ];
+      for(const vp of vttPaths){
+        try{
+          const vr = await fetch(`${SP_SITE}/_api/web/GetFileByServerRelativeUrl('${encodeURIComponent(vp)}')/$value`,
+            { headers: { 'Accept': 'text/vtt,text/plain,*/*' } });
+          if(vr.ok){ transcript = parseVTT(await vr.text()); if(transcript) break; }
+        } catch(e){ /* try next */ }
+      }
+    } catch(e){ /* non-critical */ }
+  }
 
-        const ICONS = {
-            home: `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
-            calendar: `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
-            music: `<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
-            worship: `<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
-            av: `<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
-            youth: `<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
-            trouble: `<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
-            training: `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
-            social: `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
-            core: `<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
-            leader: `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
-            heart: `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
-        };
+  console.log('KB: Final transcript result:', transcript ? 'FOUND ('+transcript.length+' chars)' : 'NOT FOUND');
+  // Show result
+  if(transcript){
+    document.getElementById('adminTranscript').value = transcript;
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('transcriptStatus').classList.add('hidden');
+    setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
+    await generateBullets();
+    setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+  } else {
+    setStatus('transcriptStatus','Paste the transcript from Stream below — open video in Stream, click Transcript tab, select all, copy, paste here. Bullets will generate automatically.','text-amber-600 font-semibold');
+    document.getElementById('transcriptStatus').classList.remove('hidden');
+    document.getElementById('adminTranscript').classList.remove('hidden');
+    document.getElementById('adminTranscript').placeholder = 'Paste transcript here — Stream > video > Transcript tab > select all > copy > paste';
+    document.getElementById('adminTranscript').oninput = async function(){
+      if(this.value.trim().length > 50){
+        this.oninput = null;
+        setStatus('pasteStatus','Transcript added — generating bullets...','text-amber-600 font-black');
+        await generateBullets();
+        setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+      }
+    };
+  }
+}
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const userRole = urlParams.get('role') || 'worship';
+// Parse WebVTT transcript to plain text with timestamps
+function parseVTT(vtt){
+  const lines = vtt.split('\n');
+  const result = [];
+  let timestamp = '';
+  lines.forEach(line => {
+    line = line.trim();
+    if(line.includes(' --> ')){
+      const ts = line.split(' --> ')[0].trim();
+      // Convert HH:MM:SS.mmm to [HH:MM:SS]
+      timestamp = '[' + ts.substring(0,8) + ']';
+    } else if(line && !line.match(/^\d+$/) && !line.startsWith('WEBVTT') && !line.startsWith('NOTE')){
+      if(timestamp){ result.push(timestamp + ' ' + line); timestamp = ''; }
+      else { result.push(line); }
+    }
+  });
+  return result.join('\n');
+}
 
-        function renderMenu() {
-            const list = document.getElementById('nav-list');
-            const parentSelect = document.getElementById('nodeParent');
-            list.innerHTML = '';
-            parentSelect.innerHTML = '<option value="none">Top Level</option>';
+function setStatus(id, msg, cls){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg;
+  el.className = cls + ' text-[11px] px-1 mt-1';
+  el.classList.remove('hidden');
+}
 
-            const buildTree = (parentId, level = 0) => {
-                const children = menuItems.filter(i => {
-                    if (i.parent != parentId) return false;
-                    if (userRole === 'core') return true;
-                    return i.role === 'worship' || !i.role;
-                });
+function resetAdminForm(){
+  ['adminTitle','adminContentURL','adminTags','adminTranscript'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('adminCategory').value='';
+  document.getElementById('autoFilledSection').classList.add('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  document.getElementById('bulletsPreview').classList.remove('hidden');
+  document.getElementById('bulletsPreview').textContent='Paste your embed code — bullets will generate automatically once the transcript loads.';
+  setStatus('pasteStatus','','');
+  window._extractedURL = null;
+}
 
-                children.forEach(item => {
-                    const hasSubs = menuItems.some(i => i.parent == item.id);
-                    const wrapper = document.createElement('div');
-                    wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
-                    wrapper.dataset.id = item.id;
+// PUBLISH
+async function publishAsset(){
+  const title=document.getElementById('adminTitle').value.trim();
+  const url=window._extractedURL || document.getElementById('adminContentURL').value.trim();
+  if(!title||!url){alert('Please paste an embed code first — title and URL are required.');return;}
+  const payload={Title:title,AssetType:document.getElementById('adminAssetType').value,ContentURL:url,Category:document.getElementById('adminCategory').value,Tags:document.getElementById('adminTags').value.trim(),Transcript:document.getElementById('adminTranscript').value.trim(),HowToBullets:document.getElementById('adminBullets').value.trim(),Published:true,'__metadata':{'type':LIST_TYPE}};
+  try{
+    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
+    const dd=await dr.json();
+    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue},body:JSON.stringify(payload)});
+    alert('Published successfully!');
+    resetAdminForm();
+    loadAssets();
+  }catch(e){alert('Publish failed: '+e.message);}
+}
 
-                    wrapper.innerHTML = `
-                        <div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')">
-                            <div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div>
-                            <span class="nav-text">${item.name}</span>
-                            ${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}
-                            <div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">✎</div>
-                        </div>
-                        <div class="child-container" id="child-of-${item.id}"></div>
-                    `;
+// GENERATE BULLETS
+async function generateBullets(){
+  const t=document.getElementById('adminTranscript').value.trim();
+  if(!t){ document.getElementById('bulletsPreview').textContent='No transcript available — add one manually then regenerate.'; return; }
+  document.getElementById('bulletsPreview').classList.add('hidden');
+  document.getElementById('bulletsGenerating').classList.remove('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI_MODEL,max_tokens:1000,system:'Generate clear AV how-to guide bullet points from a transcript. Return only bullet points starting with •, one per line. No preamble.',messages:[{role:'user',content:`Transcript:
 
-                    const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
-                    targetContainer.appendChild(wrapper);
-                    if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
-                    buildTree(item.id, level + 1);
-                });
-            };
-            buildTree('none');
-        }
+${t}`}]})});
+    const data=await res.json();
+    const bullets=data.content?.map(c=>c.text||'').join('')||'';
+    document.getElementById('adminBullets').value=bullets;
+    document.getElementById('adminBullets').classList.remove('hidden');
+    document.getElementById('regenBtn').classList.remove('hidden');
+  }catch{ document.getElementById('bulletsPreview').classList.remove('hidden'); document.getElementById('bulletsPreview').textContent='Could not generate bullets — check AI connection.'; }
+  document.getElementById('bulletsGenerating').classList.add('hidden');
+}
 
-        function closeAllMenus() {
-            document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open'));
-        }
+// MANAGE
+async function renderManageList(){
+  const list=document.getElementById('manageList');if(!list)return;
+  list.innerHTML='<div class="text-sm opacity-50 italic">Loading...</div>';
+  _manageItems=await loadAll();
+  if(!_manageItems.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
+  list.innerHTML=_manageItems.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.Published?'':'opacity-50 border-dashed'}">
+    <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝',VideoClip:'✂️'}[a.AssetType]||'📄'}</span>
+    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${a.Title}</div><div class="text-[10px] opacity-50">${a.Category||'Uncategorised'} · ${a.AssetType} · ${a.Published?'Published':'Unpublished'}</div></div>
+    <div class="flex gap-2 flex-shrink-0">
+      <button onclick="editItem(${a.ID})" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
+      <button onclick="togglePublish(${a.ID},${a.Published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.Published?'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100':'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}">${a.Published?'Unpublish':'Publish'}</button>
+    </div>
+  </div>`).join('');
+}
 
-        function handleItemClick(event, id, url, logo) {
-            const wrapper = event.currentTarget.parentElement;
-            if (wrapper.classList.contains('has-children')) {
-                const isOpening = !wrapper.classList.contains('open');
-                wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open'));
-                if (isOpening) wrapper.classList.add('open');
-            }
-            if (url && url !== '#' && url !== 'landing') navigate(url, logo);
-            else if (url === 'landing') showLanding(logo);
-        }
+async function togglePublish(id,current){
+  try{
+    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
+    const dd=await dr.json();
+    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items(${id})`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue,'X-HTTP-Method':'MERGE','IF-MATCH':'*'},body:JSON.stringify({'Published':!current,'__metadata':{'type':LIST_TYPE}})});
+    renderManageList();loadAssets();
+  }catch(e){alert('Failed: '+e.message);}
+}
 
-        function navigate(url, logoUrl) {
-            document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
-            document.getElementById('landing-content').style.display = 'none';
-            const frame = document.getElementById('app-frame');
-            frame.style.display = 'block';
-            // Add cache-busting only if not already present, to ensure latest version loads
-            frame.src = url;
-        }
+function editItem(id){
+  const a=_manageItems.find(x=>x.ID===id);if(!a)return;
+  document.getElementById('editId').value=id;
+  document.getElementById('editTitle').value=a.Title||'';
+  document.getElementById('editTags').value=a.Tags||'';
+  document.getElementById('editBullets').value=a.HowToBullets||'';
+  document.getElementById('editDescription').value=a.Description||'';
+  updateCatDropdowns();
+  document.getElementById('editCategory').value=a.Category||'';
+  const em=document.getElementById('editModal');em.classList.remove('hidden');em.scrollIntoView({behavior:'smooth'});
+}
+function closeEdit(){document.getElementById('editModal').classList.add('hidden');}
+async function saveEdit(){
+  const id=document.getElementById('editId').value;
+  const payload={Title:document.getElementById('editTitle').value.trim(),Category:document.getElementById('editCategory').value,Tags:document.getElementById('editTags').value.trim(),HowToBullets:document.getElementById('editBullets').value.trim(),Description:document.getElementById('editDescription').value.trim(),'__metadata':{'type':LIST_TYPE}};
+  try{
+    const dr=await fetch(`${SP_SITE}/_api/contextinfo`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata'}});
+    const dd=await dr.json();
+    await fetch(`${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items(${id})`,{method:'POST',headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':dd.FormDigestValue,'X-HTTP-Method':'MERGE','IF-MATCH':'*'},body:JSON.stringify(payload)});
+    closeEdit();renderManageList();loadAssets();
+  }catch(e){alert('Save failed: '+e.message);}
+}
 
-        function showLanding(logoUrl) {
-            document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
-            document.getElementById('app-frame').style.display = 'none';
-            document.getElementById('landing-content').style.display = 'block';
-        }
-
-        let clickCount = 0;
-        function handleSecret() {
-            if (userRole !== 'core') return;
-            clickCount++;
-            if (clickCount >= 3) {
-                const isAdminVisible = document.getElementById('admin-controls').style.display === 'block';
-                if (isAdminVisible) {
-                    document.getElementById('admin-controls').style.display = 'none';
-                    document.getElementById('secret-trigger').style.color = '#a0b0b0';
-                    document.getElementById('nav-list').classList.remove('admin-active');
-                    clickCount = 0;
-                } else {
-                    document.getElementById('admin-controls').style.display = 'block';
-                    document.getElementById('secret-trigger').style.color = '#9bc34a';
-                    document.getElementById('nav-list').classList.add('admin-active');
-                }
-                renderMenu();
-            }
-        }
-
-        function openModal()  { document.getElementById('admin-modal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('admin-modal').style.display = 'none'; }
-
-        function openEdit(id) {
-            const item = menuItems.find(i => i.id == id);
-            document.getElementById('editId').value = id;
-            document.getElementById('nodeName').value = item.name;
-            document.getElementById('nodeUrl').value = item.url;
-            document.getElementById('nodeLogo').value = item.logo || '';
-            document.getElementById('nodeParent').value = item.parent;
-            document.getElementById('nodeIcon').value = item.icon;
-            document.getElementById('nodeRole').value = item.role || 'worship';
-            document.getElementById('deleteBtn').style.display = 'block';
-            openModal();
-        }
-
-        async function savePage() {
-            const id = document.getElementById('editId').value;
-            const data = {
-                id: id ? parseInt(id) : Date.now(),
-                name: document.getElementById('nodeName').value,
-                url: document.getElementById('nodeUrl').value,
-                logo: document.getElementById('nodeLogo').value,
-                parent: document.getElementById('nodeParent').value,
-                icon: document.getElementById('nodeIcon').value,
-                role: document.getElementById('nodeRole').value
-            };
-            if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
-            else menuItems.push(data);
-            await saveMenu();
-            renderMenu();
-            closeModal();
-        }
-
-        async function deletePage() {
-            const id = document.getElementById('editId').value;
-            menuItems = menuItems.filter(i => i.id != id && i.parent != id);
-            await saveMenu();
-            renderMenu();
-            closeModal();
-        }
-
-        async function resetMenu() {
-            if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
-                menuItems = DEFAULT_MENU;
-                await saveMenu();
-                renderMenu();
-            }
-        }
-
-        loadMenu();
-    </script>
+// HELPERS
+function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
+function fmtTime(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
+function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');});return text;}
+</script>
 </body>
 </html>
