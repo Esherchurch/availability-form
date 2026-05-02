@@ -5,45 +5,89 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- GIF encoder library -->
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 
     <style>
         :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
-        /* Changed height to min-height so the page can grow */
         body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
-        
         #toolbar { background: #ffffff; padding: 12px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; position: sticky; top: 0; }
         .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
         .btn:hover { background: #2c4849; }
         select { padding: 6px; border-radius: 4px; border: 1px solid var(--border-light); font-size: 12px; }
-        
-        /* Removed overflow:hidden to allow natural vertical expansion */
         #main-container { display: flex; flex-grow: 1; }
         #compiler-window { flex-grow: 1; padding: 30px; display: flex; justify-content: center; align-items: flex-start; }
-        
-        /* Changed height to auto so it grows with the content */
         #email-canvas { background: #ffffff; width: 750px; min-height: 900px; height: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 50px; }
-        
         #address-sidebar { width: 280px; background: #f0f4f7; border-left: 1px solid var(--border-light); padding: 20px; position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
         .list-group { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
         .list-title { font-size: 10px; font-weight: 800; color: #2c6999; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .list-item { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; font-weight: 600; }
-
         #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333; line-height: 1.6; font-size: 16px; }
         #editable-body img { cursor: pointer; max-width: 100%; height: auto; border: 3px solid transparent; }
         #editable-body img.selected-img { border: 3px solid #e67e22 !important; }
-        
         .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #eee; display: inline-block; margin-right: 5px; }
         #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.95); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+        #loader p { font-size: 14px; margin-top: 10px; opacity: 0.8; }
+
+        /* GIF Maker modal */
+        #gifModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; }
+        #gifModal.active { display: flex; }
+        #gifModalBox { background: white; border-radius: 16px; padding: 30px; width: 480px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        #gifModalBox h3 { color: #3d6263; font-weight: 800; margin: 0 0 16px 0; }
+        #gifFrameList { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; min-height: 60px; padding: 10px; border: 2px dashed #d1dfdf; border-radius: 8px; }
+        #gifFrameList img { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; border: 2px solid #d1dfdf; cursor: pointer; }
+        #gifFrameList img.selected-frame { border-color: #e67e22; }
+        #gifProgress { display: none; margin-top: 12px; }
+        #gifProgressBar { width: 100%; height: 8px; background: #f0f6f6; border-radius: 4px; overflow: hidden; }
+        #gifProgressFill { height: 100%; background: #3d6263; width: 0%; transition: width 0.2s; border-radius: 4px; }
+        .gif-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .gif-label { font-size: 11px; font-weight: 700; color: #3d6263; text-transform: uppercase; width: 80px; }
+        .gif-input { flex: 1; padding: 8px 12px; border: 1px solid #d1dfdf; border-radius: 8px; font-size: 13px; }
     </style>
 </head>
 <body>
 
-<div id="loader"><h2>Syncing to Hub...</h2></div>
+<div id="loader"><h2>Syncing to Hub...</h2><p id="loaderMsg">Please wait...</p></div>
+
+<!-- GIF Maker Modal -->
+<div id="gifModal">
+    <div id="gifModalBox">
+        <h3>🎬 GIF Maker</h3>
+        <p style="font-size:12px; color:#666; margin:0 0 12px 0;">Upload 2–8 images to create an animated GIF. Click a frame to remove it.</p>
+
+        <div id="gifFrameList"><span style="font-size:11px; color:#aaa; align-self:center;">No frames yet — add images below</span></div>
+
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <button class="btn" onclick="addGifFrames()" style="flex:1;">+ Add Images</button>
+            <button class="btn" onclick="clearGifFrames()" style="background:#b22222;">Clear All</button>
+        </div>
+
+        <div class="gif-row">
+            <span class="gif-label">Delay (ms)</span>
+            <input id="gifDelay" type="number" value="500" min="100" max="5000" step="100" class="gif-input" placeholder="500">
+            <span style="font-size:11px; color:#999;">per frame</span>
+        </div>
+        <div class="gif-row">
+            <span class="gif-label">Width (px)</span>
+            <input id="gifWidth" type="number" value="400" min="100" max="700" class="gif-input" placeholder="400">
+        </div>
+
+        <div id="gifProgress">
+            <p style="font-size:11px; color:#3d6263; font-weight:700; margin-bottom:6px;">Generating GIF...</p>
+            <div id="gifProgressBar"><div id="gifProgressFill"></div></div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:16px;">
+            <button class="btn" onclick="generateGif()" style="flex:1; background:#27ae60;">Generate & Insert</button>
+            <button class="btn" onclick="closeGifModal()" style="background:#aaa;">Cancel</button>
+        </div>
+    </div>
+</div>
 
 <div id="toolbar">
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('bold');">B</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('italic');">I</button>
-    
+
     <select id="sizeSelector" onchange="applyManualStyle('fontSize', this.value); this.value=''">
         <option value="">Text Size</option>
         <option value="12px">Small</option>
@@ -59,19 +103,20 @@
     </div>
 
     <button class="btn" onclick="uploadImage()">Add Photo</button>
-    <button class="btn" onclick="triggerResize()" style="background:#8b4513;">Resize</button>
-    
+    <button class="btn" onclick="openGifModal()" style="background:#8b4513;">Make GIF</button>
+    <button class="btn" onclick="triggerResize()" style="background:#555;">Resize</button>
+
     <select onchange="if(this.value) insertSideLayout(this.value); this.value=''">
         <option value="">Side Layout</option>
         <option value="top">Top</option>
         <option value="middle">Middle</option>
         <option value="bottom">Bottom</option>
     </select>
-    
+
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');">L</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');">C</button>
     <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');">R</button>
-    
+
     <div style="flex-grow: 1;"></div>
     <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy Email HTML</button>
 </div>
@@ -95,18 +140,15 @@
             <label class="list-item"><input type="checkbox" class="team-filter" value="Core Team"> Core Team</label>
             <label class="list-item"><input type="checkbox" class="team-filter" value="Everyone"> Everyone</label>
         </div>
-        
+
         <button onclick="launchGroupEmail()" class="btn" style="width:100%; padding: 12px 0;">Open Outlook</button>
-        
         <button onclick="saveDraftToCloud()" class="btn" style="width:100%; padding: 10px 0; margin-top: 10px; background: #27ae60;">Save to Cloud</button>
         <button onclick="loadDraftFromCloud()" class="btn" style="width:100%; padding: 10px 0; margin-top: 5px; background: #2980b9;">Load from Cloud</button>
-        
         <div id="member-count" style="font-size: 10px; text-align: center; margin-top: 10px; color: #999;">0 Selected</div>
     </div>
 </div>
 
 <script>
-// FIREBASE CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
     authDomain: "egbc-worship-planner.firebaseapp.com",
@@ -119,93 +161,78 @@ const storage = firebase.storage();
 
 let allMembers = [];
 let lastClickedImg = null;
+let gifFrames = []; // { dataUrl, img }
 
 db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 });
 
+// ── DRAFT ─────────────────────────────────────────────────────────────────
 async function saveDraftToCloud() {
     const content = document.getElementById('editable-body').innerHTML;
     document.getElementById('loader').style.display = 'flex';
+    document.getElementById('loaderMsg').textContent = 'Saving draft...';
     try {
-        await db.collection("drafts").doc("currentEmail").set({
-            content: content,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        await db.collection("drafts").doc("currentEmail").set({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
         alert("Draft saved to Cloud!");
-    } catch (e) {
-        console.error(e);
-        alert("Error saving to cloud.");
-    }
+    } catch (e) { alert("Error saving to cloud."); }
     document.getElementById('loader').style.display = 'none';
 }
 
 async function loadDraftFromCloud() {
     document.getElementById('loader').style.display = 'flex';
+    document.getElementById('loaderMsg').textContent = 'Loading draft...';
     try {
         const doc = await db.collection("drafts").doc("currentEmail").get();
-        if (doc.exists) {
-            document.getElementById('editable-body').innerHTML = doc.data().content;
-            alert("Draft loaded from Cloud!");
-        } else {
-            alert("No cloud draft found.");
-        }
-    } catch (e) {
-        console.error(e);
-        alert("Error loading from cloud.");
-    }
+        if (doc.exists) { document.getElementById('editable-body').innerHTML = doc.data().content; alert("Draft loaded!"); }
+        else { alert("No cloud draft found."); }
+    } catch (e) { alert("Error loading from cloud."); }
     document.getElementById('loader').style.display = 'none';
 }
 
+// ── TEXT STYLING ──────────────────────────────────────────────────────────
 function applyManualStyle(styleType, value) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.isCollapsed) return;
     const range = selection.getRangeAt(0);
-
     function ptToFontSize(pt) {
-        if (pt <= 9) return 1;
-        if (pt <= 11) return 2;
-        if (pt <= 13) return 3;
-        if (pt <= 16) return 4;
-        if (pt <= 21) return 5;
-        if (pt <= 29) return 6;
-        return 7;
+        if (pt <= 9) return 1; if (pt <= 11) return 2; if (pt <= 13) return 3;
+        if (pt <= 16) return 4; if (pt <= 21) return 5; if (pt <= 29) return 6; return 7;
     }
-
     let wrapper;
     if (styleType === 'fontSize') {
-        const px = parseFloat(value);
-        if (isNaN(px)) return;
+        const px = parseFloat(value); if (isNaN(px)) return;
         const pt = Math.round(px * 0.75);
         wrapper = document.createElement("font");
         wrapper.setAttribute("size", ptToFontSize(pt));
         wrapper.style.fontSize = pt + "pt";
         wrapper.style.lineHeight = "1.2";
     }
-
     if (styleType === 'color') {
         wrapper = document.createElement("span");
         wrapper.style.color = value;
         wrapper.style.lineHeight = "1.2";
     }
-
-    try {
-        wrapper.appendChild(range.extractContents());
-        range.insertNode(wrapper);
-    } catch(e) { console.error("Style apply error", e); }
+    try { wrapper.appendChild(range.extractContents()); range.insertNode(wrapper); } catch(e) {}
 }
 
+// ── EMAIL ─────────────────────────────────────────────────────────────────
 function launchGroupEmail() {
     const activeTeams = Array.from(document.querySelectorAll('.team-filter:checked')).map(cb => cb.value);
     let recipients = [];
     if (activeTeams.includes("Everyone")) {
         recipients = allMembers.map(m => m.email);
     } else {
-        recipients = allMembers.filter(m => m.markers && m.markers.some(r => activeTeams.includes(r))).map(m => m.email);
+        recipients = allMembers
+            .filter(m => m.markers && m.markers.some(r => activeTeams.includes(r)))
+            .map(m => m.email);
     }
     const unique = [...new Set(recipients)].filter(e => e);
     document.getElementById('member-count').innerText = `${unique.length} Selected`;
-    if(unique.length > 0) window.location.href = `mailto:?bcc=${unique.join(',')}&subject=Worship & AV Team Update`;
+    if (unique.length > 0) {
+        // FIX 1: Use semicolons as separator so Outlook recognises each address
+        window.location.href = `mailto:?bcc=${unique.join(';')}&subject=Worship & AV Team Update`;
+    }
 }
 
 document.getElementById('editable-body').addEventListener('click', e => {
@@ -241,10 +268,10 @@ function uploadImage() {
     input.onchange = e => {
         const file = e.target.files[0];
         document.getElementById('loader').style.display = 'flex';
+        document.getElementById('loaderMsg').textContent = 'Uploading image...';
         const ref = storage.ref(`email_assets/${Date.now()}_${file.name}`);
         ref.put(file).then(() => ref.getDownloadURL()).then(url => {
-            const imgHtml = `<img src="${url}" width="350" style="width:350px; height:auto; margin:15px 0;">`;
-            document.execCommand('insertHTML', false, imgHtml);
+            document.execCommand('insertHTML', false, `<img src="${url}" width="350" style="width:350px; height:auto; margin:15px 0;">`);
             document.getElementById('loader').style.display = 'none';
         });
     };
@@ -255,7 +282,7 @@ async function compileAndLaunch() {
     const clone = document.getElementById('editable-body').cloneNode(true);
     clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
     clone.querySelectorAll('table, td').forEach(el => el.style.border = "none");
-    
+
     const outlookHeader = `
         <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
             <tr>
@@ -263,17 +290,163 @@ async function compileAndLaunch() {
                     <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="180" style="display:block;">
                 </td>
                 <td align="right" style="padding:40px; font-family:'Segoe UI', sans-serif;">
-                    <div style="font-size: 18px; color: #3d6263; font-weight: 700;">Worship & AV Team</div>
+                    <div style="font-size: 18px; color: #3d6263; font-weight: 700;">Worship &amp; AV Team</div>
                 </td>
             </tr>
         </table>`;
 
-    const finalHtml = `<!DOCTYPE html><html><head></head><body style="margin:0;padding:0;background-color:#ffffff;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><table width="750" border="0" cellspacing="0" cellpadding="0" style="width:750px;"><tr><td>${outlookHeader}</td></tr><tr><td style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.6;">${clone.innerHTML}</td></tr></table></td></tr></table></body></html>`;
+    // FIX 2: Add responsive styles so mobile text stays readable
+    const responsiveStyles = `
+        <style type="text/css">
+            @media only screen and (max-width: 600px) {
+                .email-outer { width: 100% !important; }
+                .email-inner { width: 100% !important; padding: 20px !important; }
+                .email-body { font-size: 16px !important; line-height: 1.6 !important; }
+                img { max-width: 100% !important; height: auto !important; }
+            }
+        </style>`;
+
+    const finalHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+${responsiveStyles}
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;">
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+    <tr><td align="center">
+        <table class="email-outer" width="750" border="0" cellspacing="0" cellpadding="0" style="width:750px;">
+            <tr><td>${outlookHeader}</td></tr>
+            <tr><td class="email-inner" style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.6;">
+                <div class="email-body">${clone.innerHTML}</div>
+            </td></tr>
+        </table>
+    </td></tr>
+</table>
+</body>
+</html>`;
 
     const blob = new Blob([finalHtml], { type: "text/html" });
     const data = [new ClipboardItem({ "text/html": blob })];
     await navigator.clipboard.write(data);
-    alert("Email HTML Copied!");
+    alert("Email HTML Copied to clipboard!");
+}
+
+// ── GIF MAKER ─────────────────────────────────────────────────────────────
+function openGifModal() {
+    document.getElementById('gifModal').classList.add('active');
+}
+function closeGifModal() {
+    document.getElementById('gifModal').classList.remove('active');
+}
+
+function addGifFrames() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = e => {
+        const files = Array.from(e.target.files).slice(0, 8 - gifFrames.length);
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                gifFrames.push({ dataUrl: ev.target.result });
+                renderGifFrames();
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+    input.click();
+}
+
+function renderGifFrames() {
+    const list = document.getElementById('gifFrameList');
+    if (gifFrames.length === 0) {
+        list.innerHTML = '<span style="font-size:11px; color:#aaa; align-self:center;">No frames yet — add images below</span>';
+        return;
+    }
+    list.innerHTML = gifFrames.map((f, i) =>
+        `<img src="${f.dataUrl}" title="Click to remove" onclick="removeGifFrame(${i})">`
+    ).join('');
+}
+
+function removeGifFrame(idx) {
+    gifFrames.splice(idx, 1);
+    renderGifFrames();
+}
+
+function clearGifFrames() {
+    gifFrames = [];
+    renderGifFrames();
+}
+
+async function generateGif() {
+    if (gifFrames.length < 2) { alert("Please add at least 2 images."); return; }
+
+    const delay = parseInt(document.getElementById('gifDelay').value) || 500;
+    const targetWidth = parseInt(document.getElementById('gifWidth').value) || 400;
+
+    document.getElementById('gifProgress').style.display = 'block';
+    document.getElementById('gifProgressFill').style.width = '0%';
+
+    // Load all images
+    const loadImg = src => new Promise(res => {
+        const img = new Image();
+        img.onload = () => res(img);
+        img.src = src;
+    });
+
+    const imgs = await Promise.all(gifFrames.map(f => loadImg(f.dataUrl)));
+
+    // Calculate height based on first frame aspect ratio
+    const ratio = imgs[0].height / imgs[0].width;
+    const targetHeight = Math.round(targetWidth * ratio);
+
+    // Draw each frame to canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+
+    const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: targetWidth,
+        height: targetHeight,
+        workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
+    });
+
+    imgs.forEach(img => {
+        ctx.clearRect(0, 0, targetWidth, targetHeight);
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        gif.addFrame(canvas, { copy: true, delay });
+    });
+
+    gif.on('progress', p => {
+        document.getElementById('gifProgressFill').style.width = Math.round(p * 100) + '%';
+    });
+
+    gif.on('finished', async blob => {
+        document.getElementById('gifProgress').style.display = 'none';
+
+        // Upload GIF to Firebase Storage
+        document.getElementById('loader').style.display = 'flex';
+        document.getElementById('loaderMsg').textContent = 'Uploading GIF...';
+        try {
+            const ref = storage.ref(`email_assets/gif_${Date.now()}.gif`);
+            await ref.put(blob, { contentType: 'image/gif' });
+            const url = await ref.getDownloadURL();
+            document.execCommand('insertHTML', false, `<img src="${url}" width="${targetWidth}" style="width:${targetWidth}px; height:auto; margin:15px 0;">`);
+            closeGifModal();
+            clearGifFrames();
+        } catch(e) {
+            alert("Error uploading GIF: " + e.message);
+        }
+        document.getElementById('loader').style.display = 'none';
+    });
+
+    gif.render();
 }
 </script>
 </body>
