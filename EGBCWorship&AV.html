@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Worship & AV Hub</title>
+    <title>Worship &amp; AV Hub</title>
     <style>
         :root {
             --pale-teal: #f0f6f6;
@@ -12,100 +12,52 @@
             --white: #ffffff;
             --brand-green: #9bc34a;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
-
-        /* SIDEBAR */
-        #sidebar { 
-            width: 70px; 
-            background: var(--white); 
-            border-right: 1px solid var(--border-teal); 
-            display: flex; 
-            flex-direction: column; 
-            transition: width 0.3s ease; 
-            z-index: 1000; 
-        }
+        #sidebar { width: 70px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
         #sidebar:hover { width: 280px; }
         #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
-
         .nav-item-wrapper { display: flex; flex-direction: column; min-width: 280px; position: relative; }
-        .nav-row { display: flex; align-items: center; height: 45px; color: #7a8c8c; cursor: pointer; border-left: 4px solid transparent; transition: 0.2s; }
+        .nav-row { display: flex; align-items: center; height: 45px; color: #7a8c8c; cursor: pointer; border-left: 4px solid transparent; transition: color 0.2s, background 0.2s, border-color 0.2s, opacity 0.25s; }
         .nav-row:hover { background: var(--pale-teal); color: var(--accent-teal); border-left-color: var(--brand-green); }
         .nav-icon { min-width: 70px; display: flex; justify-content: center; align-items: center; }
         .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
         .nav-text { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
         #sidebar:hover .nav-text { opacity: 1; }
-
         .chevron { width: 40px; display: flex; justify-content: center; opacity: 0; transition: transform 0.3s, opacity 0.2s; }
         #sidebar:hover .chevron { opacity: 0.5; }
         .has-children.open > .nav-row .chevron { transform: rotate(180deg); }
-
-        /* ACCORDION */
         .child-container { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.02); }
         .has-children.open > .child-container { max-height: 1200px; }
         #sidebar:not(:hover) .child-container { max-height: 0 !important; }
-
         .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
         .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
-
         .edit-trigger { display: none; padding: 0 10px; color: var(--border-teal); cursor: pointer; }
         #sidebar:hover .admin-active .edit-trigger { display: block; }
 
-        /* LAYOUT */
+        /* FOCUS DIMMING — when a section is open, dim everything else */
+        #nav-list.has-open > .nav-item-wrapper {
+            opacity: 0.2;
+            transition: opacity 0.25s ease;
+        }
+        #nav-list.has-open > .nav-item-wrapper.open {
+            opacity: 1;
+        }
+        /* Restore normal opacity when sidebar is collapsed */
+        #sidebar:not(:hover) #nav-list.has-open > .nav-item-wrapper {
+            opacity: 1;
+        }
+
         #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; width: 100%; }
-        header { 
-            height: 110px; 
-            background: var(--white); 
-            padding: 0 40px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            border-bottom: 1px solid var(--border-teal);
-            flex-shrink: 0;
-        }
+        header { height: 110px; background: var(--white); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-teal); flex-shrink: 0; }
         #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
-        
-        #app-viewport { 
-            flex-grow: 1; 
-            position: relative; 
-            background: var(--white);
-            overflow: hidden;
-        }
-        
-        /* KEY FIX: allow="popups popups-to-escape-sandbox" lets the iframe open popups
-           allow-same-origin lets SharePoint API calls use the session cookie context
-           allow-scripts is required for JS to run */
-        #app-frame { 
-            width: 100%; 
-            height: 100%; 
-            border: none; 
-            background: var(--white);
-            /* allow popups so file picker can open, and allow-same-origin for SP API calls */
-        }
-
-        #landing-content { 
-            position: absolute; 
-            inset: 0;
-            background: var(--white); 
-            padding: 60px; 
-            z-index: 5; 
-        }
-
-        /* SYNC STATUS INDICATOR */
-        #sync-status {
-            font-size: 10px;
-            color: #a0b0b0;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 4px;
-            transition: color 0.3s;
-        }
+        #app-viewport { flex-grow: 1; position: relative; background: var(--white); overflow: hidden; }
+        #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
+        #landing-content { position: absolute; inset: 0; background: var(--white); padding: 60px; z-index: 5; }
+        #sync-status { font-size: 10px; color: #a0b0b0; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
         #sync-status.syncing { color: #f0a500; }
         #sync-status.synced  { color: var(--brand-green); }
         #sync-status.error   { color: #f44336; }
-
-        /* ADMIN UI */
         #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
         .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
         #admin-modal { display: none; position: fixed; inset: 0; background: rgba(61, 98, 99, 0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
@@ -115,7 +67,6 @@
     </style>
 </head>
 <body>
-
     <nav id="sidebar" onmouseleave="closeAllMenus()">
         <div id="nav-list"></div>
         <div id="admin-controls">
@@ -123,13 +74,12 @@
             <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">Reset System</button>
         </div>
     </nav>
-
     <div id="main-container">
         <header>
             <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
             <div style="text-align: right">
                 <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
-                <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship & AV Hub</div>
+                <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
                 <div id="sync-status">Connecting…</div>
             </div>
         </header>
@@ -138,17 +88,9 @@
                 <h2 style="font-weight: 300; font-size: 32px; color: var(--accent-teal); margin-bottom: 10px;">Dashboard</h2>
                 <p style="color: #7a8c8c;">Select a tool to begin.</p>
             </div>
-            <!-- allow="popups" lets child pages open popup windows (file picker) -->
-            <!-- allow="popups-to-escape-sandbox" lets popups open outside the iframe sandbox -->
-            <iframe 
-                id="app-frame" 
-                style="display:none;" 
-                src=""
-                allow="popups popups-to-escape-sandbox"
-            ></iframe>
+            <iframe id="app-frame" style="display:none;" src="" allow="popups popups-to-escape-sandbox"></iframe>
         </main>
     </div>
-
     <div id="admin-modal">
         <div class="modal-content">
             <h3 id="modalTitle" style="color: var(--accent-teal);">Page Settings</h3>
@@ -175,27 +117,23 @@
             </div>
         </div>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
     <script>
         const firebaseConfig = {
-            apiKey:            "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-            authDomain:        "egbc-worship-planner.firebaseapp.com",
-            projectId:         "egbc-worship-planner",
-            storageBucket:     "egbc-worship-planner.firebasestorage.app",
-            appId:             "1:199442060489:web:7eaf85a76334c753db6918"
+            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain: "egbc-worship-planner.firebaseapp.com",
+            projectId: "egbc-worship-planner",
+            storageBucket: "egbc-worship-planner.firebasestorage.app",
+            appId: "1:199442060489:web:7eaf85a76334c753db6918"
         };
-
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const MENU_DOC = db.collection('portal').doc('menuItems');
 
         function setSyncStatus(state, text) {
             const el = document.getElementById('sync-status');
-            el.className = state;
-            el.textContent = text;
+            el.className = state; el.textContent = text;
         }
 
         const DEFAULT_MENU = [
@@ -220,12 +158,8 @@
             setSyncStatus('syncing', 'Loading…');
             try {
                 const snap = await MENU_DOC.get();
-                if (snap.exists && snap.data().items) {
-                    menuItems = snap.data().items;
-                } else {
-                    menuItems = DEFAULT_MENU;
-                    await MENU_DOC.set({ items: menuItems });
-                }
+                if (snap.exists && snap.data().items) { menuItems = snap.data().items; }
+                else { menuItems = DEFAULT_MENU; await MENU_DOC.set({ items: menuItems }); }
                 setSyncStatus('synced', '✓ Synced');
                 renderMenu();
             } catch (err) {
@@ -238,13 +172,8 @@
 
         async function saveMenu() {
             setSyncStatus('syncing', 'Saving…');
-            try {
-                await MENU_DOC.set({ items: menuItems });
-                setSyncStatus('synced', '✓ Saved & Synced');
-            } catch (err) {
-                console.error('Firestore save error:', err);
-                setSyncStatus('error', '⚠ Save failed');
-            }
+            try { await MENU_DOC.set({ items: menuItems }); setSyncStatus('synced', '✓ Saved & Synced'); }
+            catch (err) { console.error('Firestore save error:', err); setSyncStatus('error', '⚠ Save failed'); }
         }
 
         const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
@@ -272,30 +201,26 @@
             const parentSelect = document.getElementById('nodeParent');
             list.innerHTML = '';
             parentSelect.innerHTML = '<option value="none">Top Level</option>';
-
             const buildTree = (parentId, level = 0) => {
                 const children = menuItems.filter(i => {
                     if (i.parent != parentId) return false;
                     if (userRole === 'core') return true;
                     return i.role === 'worship' || !i.role;
                 });
-
                 children.forEach(item => {
                     const hasSubs = menuItems.some(i => i.parent == item.id);
                     const wrapper = document.createElement('div');
                     wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
                     wrapper.dataset.id = item.id;
-
                     wrapper.innerHTML = `
                         <div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')">
                             <div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div>
                             <span class="nav-text">${item.name}</span>
                             ${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}
-                            <div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">✎</div>
+                            <div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">&#9998;</div>
                         </div>
                         <div class="child-container" id="child-of-${item.id}"></div>
                     `;
-
                     const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
                     targetContainer.appendChild(wrapper);
                     if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
@@ -305,8 +230,15 @@
             buildTree('none');
         }
 
+        function updateFocusState() {
+            const navList = document.getElementById('nav-list');
+            const anyOpen = navList.querySelector('.has-children.open');
+            navList.classList.toggle('has-open', !!anyOpen);
+        }
+
         function closeAllMenus() {
             document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open'));
+            updateFocusState();
         }
 
         function handleItemClick(event, id, url, logo) {
@@ -315,6 +247,7 @@
                 const isOpening = !wrapper.classList.contains('open');
                 wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open'));
                 if (isOpening) wrapper.classList.add('open');
+                updateFocusState();
             }
             if (url && url !== '#' && url !== 'landing') navigate(url, logo);
             else if (url === 'landing') showLanding(logo);
@@ -325,7 +258,6 @@
             document.getElementById('landing-content').style.display = 'none';
             const frame = document.getElementById('app-frame');
             frame.style.display = 'block';
-            // Add cache-busting only if not already present, to ensure latest version loads
             frame.src = url;
         }
 
@@ -384,24 +316,18 @@
             };
             if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
             else menuItems.push(data);
-            await saveMenu();
-            renderMenu();
-            closeModal();
+            await saveMenu(); renderMenu(); closeModal();
         }
 
         async function deletePage() {
             const id = document.getElementById('editId').value;
             menuItems = menuItems.filter(i => i.id != id && i.parent != id);
-            await saveMenu();
-            renderMenu();
-            closeModal();
+            await saveMenu(); renderMenu(); closeModal();
         }
 
         async function resetMenu() {
             if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
-                menuItems = DEFAULT_MENU;
-                await saveMenu();
-                renderMenu();
+                menuItems = DEFAULT_MENU; await saveMenu(); renderMenu();
             }
         }
 
