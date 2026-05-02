@@ -22,10 +22,7 @@
     max-width: 760px; margin: 0 auto;
   }
 
-  /* Chapter nav */
-  .chapter-nav {
-    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px;
-  }
+  .chapter-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; }
   .chapter-pill {
     font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px;
     cursor: pointer; border: 1.5px solid #d1dfdf; color: #7a9a9a; background: #f4f8f8;
@@ -63,7 +60,6 @@
   .nav-btn.primary:hover { background: #2e4e4f; }
   .step-counter { font-size: 13px; color: #7a9a9a; text-align: center; }
 
-  /* Sim UI components */
   .sim-btn-primary { display: inline-block; background: #3d6263; color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; cursor: default; }
   .sim-btn-secondary { display: inline-block; background: #f0f6f6; color: #3d6263; border: 2px solid #3d6263; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: default; }
   .sim-input { display: inline-block; background: #fff; border: 1px solid #d1dfdf; border-radius: 10px; padding: 7px 12px; font-size: 13px; font-weight: 700; color: #3d6263; }
@@ -73,10 +69,6 @@
   .sim-item-block { background: #f0f6f6; border: 1px solid #d1dfdf; border-radius: 10px; padding: 10px 16px; margin-bottom: 8px; font-weight: 700; font-size: 13px; color: #3d6263; display: flex; align-items: center; gap: 10px; }
   .drag-handle-sim { color: #d1dfdf; font-size: 18px; cursor: grab; }
   .song-num { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #3d6263; opacity: 0.5; }
-  .conf-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
-  .conf-green { background: #d4edda; color: #155724; }
-  .conf-orange { background: #fff3cd; color: #856404; }
-  .conf-red { background: #f8d7da; color: #721c24; }
   .conf-teal { background: #e6f0f0; color: #3d6263; }
   .rota-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 13px; }
   .rota-table th { text-align: left; padding: 8px 10px; color: #3d6263; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
@@ -89,8 +81,6 @@
   .finish-box { text-align: center; padding: 2rem 0; }
   .finish-box h2 { font-size: 24px; font-weight: 700; color: #3d6263; margin: 0 0 10px; }
   .finish-box p { color: #4a6060; font-size: 15px; line-height: 1.7; margin: 0 0 1.25rem; }
-
-  .chapter-divider { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #3d6263; opacity: 0.4; margin: 0 0 10px; }
 </style>
 </head>
 <body>
@@ -110,11 +100,8 @@
     <p class="tut-heading">Sunday Worship Planner — How to use</p>
     <p class="tut-subheading">Click any chapter to jump ahead, or use Next to work through from the beginning.</p>
 
-    <!-- Chapter pills -->
     <div class="chapter-nav" id="chapterNav"></div>
-
     <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog"></div></div>
-
     <div id="step-content"></div>
 
     <div class="nav-row">
@@ -128,12 +115,12 @@
 
 <script>
 const chapters = [
-  { label: "Overview", color: "#3d6263" },
-  { label: "Setup", color: "#3d6263" },
-  { label: "Order of Service", color: "#3d6263" },
-  { label: "Songs", color: "#3d6263" },
-  { label: "Team", color: "#3d6263" },
-  { label: "Saving & Emailing", color: "#3d6263" },
+  { label: "Overview" },
+  { label: "Setup" },
+  { label: "Order of Service" },
+  { label: "Songs" },
+  { label: "Team" },
+  { label: "Saving & Emailing" },
 ];
 
 const steps = [
@@ -247,31 +234,22 @@ const steps = [
         <div class="sim-topbar">Example order of service</div>
         <div class="sim-body">
           <div class="sim-song-block" style="display:flex;gap:10px;align-items:center">
-            <span class="drag-handle-sim">⠿</span>
-            <span class="song-num">Song 1</span>
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 1</span>
             <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">How Great Is Our God</span>
             <span class="sim-tag">G</span>
           </div>
           <div class="sim-song-block" style="display:flex;gap:10px;align-items:center">
-            <span class="drag-handle-sim">⠿</span>
-            <span class="song-num">Song 2</span>
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 2</span>
             <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">Amazing Grace</span>
             <span class="sim-tag">D</span>
           </div>
-          <div class="sim-item-block">
-            <span class="drag-handle-sim">⠿</span>
-            <span>Welcome and Notices</span>
-          </div>
+          <div class="sim-item-block"><span class="drag-handle-sim">⠿</span><span>Welcome and Notices</span></div>
           <div class="sim-song-block" style="display:flex;gap:10px;align-items:center">
-            <span class="drag-handle-sim">⠿</span>
-            <span class="song-num">Song 3</span>
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 3</span>
             <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">In Christ Alone</span>
             <span class="sim-tag">E</span>
           </div>
-          <div class="sim-item-block">
-            <span class="drag-handle-sim">⠿</span>
-            <span>Message</span>
-          </div>
+          <div class="sim-item-block"><span class="drag-handle-sim">⠿</span><span>Message</span></div>
         </div>
       </div>`
   },
@@ -290,8 +268,7 @@ const steps = [
             <span class="sim-btn-secondary">+ Add Item</span>
           </div>
           <div class="sim-song-block" style="display:flex;gap:10px;align-items:center;border:2px dashed #3d6263">
-            <span class="drag-handle-sim">⠿</span>
-            <span class="song-num">Song 4</span>
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 4</span>
             <input class="sim-input" placeholder="Song title" style="flex:1;min-width:120px">
             <span style="color:#d1dfdf;font-size:18px;font-weight:700">×</span>
           </div>
@@ -315,13 +292,9 @@ const steps = [
             <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">Amazing Grace</span>
             <span style="font-size:11px;color:#7a9a9a;font-style:italic">← being dragged</span>
           </div>
-          <div class="sim-item-block" style="opacity:0.4">
-            <span class="drag-handle-sim">⠿</span>
-            <span>Welcome and Notices</span>
-          </div>
+          <div class="sim-item-block" style="opacity:0.4"><span class="drag-handle-sim">⠿</span><span>Welcome and Notices</span></div>
           <div class="sim-song-block" style="display:flex;gap:10px;align-items:center;opacity:0.4">
-            <span class="drag-handle-sim">⠿</span>
-            <span class="song-num">Song 3</span>
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 3</span>
             <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">In Christ Alone</span>
           </div>
           <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">Grab the ⠿ handle and drag — song numbers update automatically</p>
@@ -361,8 +334,7 @@ const steps = [
         <div class="sim-body">
           <div class="sim-song-block">
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
-              <span class="drag-handle-sim">⠿</span>
-              <span class="song-num">Song 1</span>
+              <span class="drag-handle-sim">⠿</span><span class="song-num">Song 1</span>
               <div style="position:relative;flex:1">
                 <input class="sim-input highlight" value="how gr" style="width:100%">
                 <div style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #d1dfdf;border-radius:10px;margin-top:4px;z-index:10;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1)">
@@ -374,6 +346,47 @@ const steps = [
             </div>
           </div>
           <p style="font-size:12px;color:#7a9a9a;margin:50px 0 0">↑ Click a result to select that song</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Songs",
+    title: "The Songs Database Viewer",
+    desc: "The <strong>Songs Database Viewer</strong> button opens the full song library in a new tab. Use it to browse every song that's been added to the system and check details before you start planning.<br><br>The viewer has two ways to search:<br><br><strong>Search Titles</strong> — type any part of a title to filter the list.<br><br><strong>Search Lyrics</strong> — type a lyric phrase and press Enter to find songs by their words. Handy when you know the tune but can't remember the title!<br><br>Click any song in the left-hand list to see its full details on the right — including the artist, CCLI number, a direct link to CCLI SongSelect, and a link to watch it on YouTube.",
+    tip: "The Songs Database Viewer is also useful for quickly looking up a CCLI number, or for checking whether a song has been added to the library before trying to use it in the planner.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Songs Database Viewer — overview</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+            <span class="sim-btn-secondary highlight" style="font-size:11px;padding:6px 16px;cursor:pointer">Songs Database Viewer</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← opens in a new tab</span>
+          </div>
+          <div style="display:flex;border:1px solid #d1dfdf;border-radius:10px;overflow:hidden;font-size:12px;min-height:180px">
+            <div style="width:155px;min-width:155px;background:#fff;border-right:1px solid #d1dfdf;padding:10px;">
+              <div style="margin-bottom:6px">
+                <div style="font-size:9px;font-weight:700;color:#3d6263;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.08em">Search Titles</div>
+                <input class="sim-input" placeholder="Search songs..." style="width:100%;font-size:11px;padding:5px 8px;border-radius:9999px;">
+              </div>
+              <div style="margin-bottom:10px">
+                <div style="font-size:9px;font-weight:700;color:#3d6263;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.08em">Search Lyrics</div>
+                <input class="sim-input" placeholder="Find by lyrics..." style="width:100%;font-size:11px;padding:5px 8px;border-radius:9999px;">
+              </div>
+              <div style="padding:8px;font-size:11px;font-weight:700;color:#3d6263;border-bottom:1px solid #f0f0f0;background:#e6f0f0;border-radius:6px;margin-bottom:2px">Amazing Grace</div>
+              <div style="padding:8px;font-size:11px;font-weight:700;color:#3d6263;border-bottom:1px solid #f0f0f0;">Great Is Thy Faithfulness</div>
+              <div style="padding:8px;font-size:11px;font-weight:700;color:#3d6263;">How Great Is Our God</div>
+            </div>
+            <div style="flex:1;background:#fff;padding:14px;">
+              <div style="font-size:15px;font-weight:800;color:#3d6263;margin-bottom:12px">Amazing Grace</div>
+              <div style="font-size:9px;font-weight:700;color:#3d6263;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Artist</div>
+              <div style="font-size:12px;font-weight:700;color:#1a2e2e;background:#f4f8f8;border-radius:8px;padding:5px 10px;margin-bottom:8px">John Newton / Traditional</div>
+              <div style="font-size:9px;font-weight:700;color:#3d6263;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">CCLI Number</div>
+              <div style="font-size:12px;font-weight:700;color:#1a2e2e;background:#f4f8f8;border-radius:8px;padding:5px 10px;margin-bottom:6px">22025</div>
+              <a style="font-size:11px;font-weight:700;color:#007bff;display:block;margin-bottom:4px;text-decoration:underline">📄 View on CCLI SongSelect</a>
+              <a style="font-size:11px;font-weight:700;color:#007bff;display:block;text-decoration:underline">▶ Watch on YouTube</a>
+            </div>
+          </div>
         </div>
       </div>`
   },
@@ -479,7 +492,6 @@ const steps = [
               <span style="font-weight:700;color:#3d6263;flex:1">Amazing Grace</span>
               <span class="sim-tag">D</span>
             </div>
-            <!-- collapsed, no content shown -->
           </div>
           <p style="font-size:12px;color:#7a9a9a;margin:8px 0 0">Song 2 is collapsed — click ▶ to expand it</p>
         </div>
@@ -582,8 +594,8 @@ const steps = [
     chapter: 5,
     badge: "Chapter 6 — Saving & Emailing",
     title: "What the team receives",
-    desc: "The email sent to the team includes everything in the plan:<br><br>• The date and worship leader's name<br>• Any general service notes<br>• The full order of service with keys and links to sheet music<br>• YouTube and SongSelect links for each song<br>• The full team rota with any role-specific notes<br>• A link to a simplified song summary page (for the words/projection team)<br>• Your opening and closing remarks",
-    tip: "The words/projection team gets a special simplified song list link — it shows just the songs, CCLI numbers, and notes in a clean format.",
+    desc: "The email sent to the team includes everything in the plan:<br><br>• The date and worship leader's name<br>• Any general service notes<br>• The full order of service with keys and links to sheet music<br>• YouTube and SongSelect links for each song<br>• The full team rota with any role-specific notes<br>• Your opening and closing remarks",
+    tip: "The words/projection team gets a simplified song list — showing just the songs, CCLI numbers, keys, and notes in a clean format. They can access it via the Songs Database Viewer.",
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">What's included in the email</div>
@@ -595,10 +607,10 @@ const steps = [
               <p style="font-weight:700;color:#3d6263;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 8px">Order of Service</p>
               <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span style="font-weight:700;color:#1a2e2e">1. How Great Is Our God</span><span style="color:#3d6263;font-weight:700">G</span></div>
               <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span style="font-weight:700;color:#1a2e2e">2. Amazing Grace</span><span style="color:#3d6263;font-weight:700">D</span></div>
-              <div style="padding:6px 0;background:#f8fafc;padding-left:8px;border-left:3px solid #3d6263;font-weight:700;font-size:11px;text-transform:uppercase;color:#3d6263;margin-top:4px">Message</div>
+              <div style="padding:6px 0 6px 8px;border-left:3px solid #3d6263;font-weight:700;font-size:11px;text-transform:uppercase;color:#3d6263;margin-top:4px">Message</div>
             </div>
             <div style="padding:12px 14px;color:#4a6060;font-size:11px">
-              + Team rota &nbsp;·&nbsp; Role notes &nbsp;·&nbsp; Sheet music links &nbsp;·&nbsp; Song summary link
+              + Team rota &nbsp;·&nbsp; Role notes &nbsp;·&nbsp; Sheet music links &nbsp;·&nbsp; Opening & closing remarks
             </div>
           </div>
         </div>
@@ -609,7 +621,6 @@ const steps = [
 
 let current = 0;
 
-// Build chapter pills
 function buildChapterNav() {
   const nav = document.getElementById('chapterNav');
   nav.innerHTML = '';
