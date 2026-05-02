@@ -14,6 +14,8 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
+
+        /* ── SIDEBAR ── */
         #sidebar { width: 70px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
         #sidebar:hover { width: 280px; }
         #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
@@ -34,304 +36,762 @@
         .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
         .edit-trigger { display: none; padding: 0 10px; color: var(--border-teal); cursor: pointer; }
         #sidebar:hover .admin-active .edit-trigger { display: block; }
+        #nav-list.has-open > .nav-item-wrapper { opacity: 0.2; transition: opacity 0.25s ease; }
+        #nav-list.has-open > .nav-item-wrapper.open { opacity: 1; }
+        #sidebar:not(:hover) #nav-list.has-open > .nav-item-wrapper { opacity: 1; }
 
-        /* FOCUS DIMMING — when a section is open, dim everything else */
-        #nav-list.has-open > .nav-item-wrapper {
-            opacity: 0.2;
-            transition: opacity 0.25s ease;
-        }
-        #nav-list.has-open > .nav-item-wrapper.open {
-            opacity: 1;
-        }
-        /* Restore normal opacity when sidebar is collapsed */
-        #sidebar:not(:hover) #nav-list.has-open > .nav-item-wrapper {
-            opacity: 1;
-        }
-
+        /* ── MAIN ── */
         #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; width: 100%; }
         header { height: 110px; background: var(--white); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-teal); flex-shrink: 0; }
         #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
         #app-viewport { flex-grow: 1; position: relative; background: var(--white); overflow: hidden; }
         #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
-        #landing-content { position: absolute; inset: 0; background: var(--white); padding: 60px; z-index: 5; }
         #sync-status { font-size: 10px; color: #a0b0b0; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
         #sync-status.syncing { color: #f0a500; }
         #sync-status.synced  { color: var(--brand-green); }
         #sync-status.error   { color: #f44336; }
         #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
         .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
-        #admin-modal { display: none; position: fixed; inset: 0; background: rgba(61, 98, 99, 0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 30px; border-radius: 16px; width: 450px; max-height: 90vh; overflow-y: auto; }
-        .modal-content label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
-        .modal-content input, .modal-content select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
+
+        /* ── DASHBOARD LANDING ── */
+        #landing-content {
+            position: absolute; inset: 0; background: var(--pale-teal);
+            display: flex; flex-direction: column; overflow-y: auto; z-index: 5;
+        }
+        /* Hero banner */
+        #hero-section {
+            position: relative; min-height: 220px; background: var(--accent-teal);
+            display: flex; align-items: flex-end; padding: 30px 40px; overflow: hidden; flex-shrink: 0;
+        }
+        #hero-bg {
+            position: absolute; inset: 0; background-size: cover; background-position: center;
+            opacity: 0.35; transition: opacity 0.3s;
+        }
+        #hero-text { position: relative; z-index: 1; }
+        #hero-title { font-size: 36px; font-weight: 300; color: #fff; line-height: 1.2; }
+        #hero-subtitle { font-size: 15px; color: rgba(255,255,255,0.75); margin-top: 6px; }
+        #hero-edit-btn {
+            position: absolute; top: 16px; right: 16px; z-index: 2;
+            background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; cursor: pointer; display: none;
+        }
+
+        /* Two-column body */
+        #dashboard-body {
+            display: grid; grid-template-columns: 1fr 360px; gap: 0;
+            flex-grow: 1; min-height: 0;
+        }
+        #dashboard-main { padding: 30px 40px; overflow-y: auto; }
+        #dashboard-sidebar-panel {
+            border-left: 1px solid var(--border-teal); background: var(--white);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* Welcome/body content */
+        #body-content-area { color: #444; font-size: 15px; line-height: 1.7; }
+        #body-content-area h2 { font-size: 22px; font-weight: 400; color: var(--accent-teal); margin-bottom: 8px; }
+        #body-content-area p { margin-bottom: 12px; }
+        #body-content-area img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+        #body-edit-btn {
+            margin-bottom: 14px; background: none; color: var(--accent-teal);
+            border: 1px solid var(--border-teal); border-radius: 8px; padding: 5px 12px;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none;
+        }
+
+        /* ── NEWS PANEL ── */
+        #news-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px 12px; border-bottom: 1px solid var(--border-teal); flex-shrink: 0;
+        }
+        #news-header h3 { font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--accent-teal); }
+        #news-add-btn {
+            background: var(--brand-green); color: #fff; border: none; border-radius: 6px;
+            padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+            cursor: pointer; display: none;
+        }
+
+        /* Rolling cards track */
+        #news-track-wrapper { flex-grow: 1; overflow: hidden; position: relative; }
+        #news-track {
+            display: flex; flex-direction: column; gap: 0;
+            transition: transform 0.6s cubic-bezier(0.4,0,0.2,1);
+        }
+        .news-card {
+            border-bottom: 1px solid var(--border-teal); padding: 16px 20px;
+            background: var(--white); position: relative; flex-shrink: 0;
+        }
+        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+            color: #a0b0b0; margin-bottom: 4px; }
+        .news-card-title { font-size: 13px; font-weight: 700; color: var(--accent-teal); margin-bottom: 6px; }
+        .news-card-body { font-size: 13px; color: #555; line-height: 1.55; }
+        .news-card-body img { max-width: 100%; border-radius: 6px; margin: 6px 0; }
+        .news-card-body a { color: var(--accent-teal); }
+        .news-card-edit-btn {
+            position: absolute; top: 10px; right: 10px; background: none;
+            border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px;
+            font-size: 10px; color: #a0b0b0; cursor: pointer; display: none;
+        }
+        .admin-active .news-card-edit-btn { display: block; }
+
+        /* Dot nav */
+        #news-dots { display: flex; justify-content: center; gap: 6px; padding: 10px 0; flex-shrink: 0; }
+        .news-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-teal);
+            cursor: pointer; transition: background 0.2s; }
+        .news-dot.active { background: var(--accent-teal); }
+
+        /* ── MODALS (all fixed → changed to page-relative to avoid iframe collapse issue) ── */
+        .modal-overlay {
+            display: none; position: absolute; inset: 0;
+            background: rgba(61,98,99,0.45); z-index: 3000;
+            align-items: center; justify-content: center; backdrop-filter: blur(3px);
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: #fff; border-radius: 16px; padding: 28px; width: 520px;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+        }
+        .modal-box h3 { font-size: 17px; font-weight: 600; color: var(--accent-teal); margin-bottom: 18px; }
+        .modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase;
+            color: var(--accent-teal); margin: 12px 0 5px; }
+        .modal-box input, .modal-box select, .modal-box textarea {
+            width: 100%; padding: 10px; border: 2px solid var(--border-teal);
+            border-radius: 8px; outline: none; font-family: inherit; font-size: 13px;
+        }
+        .modal-box textarea { min-height: 180px; resize: vertical; font-size: 12px; font-family: monospace; }
+        .modal-btn-row { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .modal-btn.primary { background: var(--accent-teal); color: #fff; }
+        .modal-btn.danger  { background: #f44336; color: #fff; }
+        .modal-btn.cancel  { background: #e0e8e8; color: var(--accent-teal); }
+        .html-preview { border: 1px solid var(--border-teal); border-radius: 8px; padding: 12px;
+            font-size: 13px; line-height: 1.55; color: #444; margin-top: 8px; min-height: 80px; }
+        .html-preview img { max-width: 100%; border-radius: 6px; }
+        .tab-row { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid var(--border-teal); }
+        .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+            background: none; border: none; cursor: pointer; color: #a0b0b0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab-btn.active { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
+
+        /* ── MENU MODAL (kept in main-container for same overlay approach) ── */
+        #menu-modal-overlay {
+            display: none; position: absolute; inset: 0;
+            background: rgba(61,98,99,0.4); z-index: 2000;
+            align-items: center; justify-content: center; backdrop-filter: blur(4px);
+        }
+        #menu-modal-overlay.open { display: flex; }
+        .menu-modal-box {
+            background: white; padding: 30px; border-radius: 16px; width: 450px;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .menu-modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
+        .menu-modal-box input, .menu-modal-box select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
     </style>
 </head>
 <body>
-    <nav id="sidebar" onmouseleave="closeAllMenus()">
-        <div id="nav-list"></div>
-        <div id="admin-controls">
-            <button class="admin-btn" onclick="openModal()">+ Add Page / Sub</button>
-            <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">Reset System</button>
-        </div>
-    </nav>
-    <div id="main-container">
-        <header>
-            <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
-            <div style="text-align: right">
-                <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
-                <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
-                <div id="sync-status">Connecting…</div>
-            </div>
-        </header>
-        <main id="app-viewport">
-            <div id="landing-content">
-                <h2 style="font-weight: 300; font-size: 32px; color: var(--accent-teal); margin-bottom: 10px;">Dashboard</h2>
-                <p style="color: #7a8c8c;">Select a tool to begin.</p>
-            </div>
-            <iframe id="app-frame" style="display:none;" src="" allow="popups popups-to-escape-sandbox"></iframe>
-        </main>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<nav id="sidebar" onmouseleave="closeAllMenus()">
+    <div id="nav-list"></div>
+    <div id="admin-controls">
+        <button class="admin-btn" onclick="openMenuModal()">+ Add Page / Sub</button>
+        <button class="admin-btn" onclick="openDashboardEditor()" style="background:#5a8a8b;">✎ Edit Dashboard</button>
+        <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">Reset System</button>
     </div>
-    <div id="admin-modal">
-        <div class="modal-content">
-            <h3 id="modalTitle" style="color: var(--accent-teal);">Page Settings</h3>
-            <input type="hidden" id="editId">
-            <label>Name</label><input type="text" id="nodeName">
-            <label>Link (URL)</label><input type="text" id="nodeUrl">
-            <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
-            <label>Parent Item</label><select id="nodeParent"><option value="none">Top Level</option></select>
-            <label>Icon</label><select id="nodeIcon">
-                <option value="home">Home</option><option value="calendar">Calendar</option><option value="music">Music</option>
-                <option value="worship">Worship</option><option value="av">AV</option><option value="youth">Youth</option>
-                <option value="trouble">Tools</option><option value="training">Book</option><option value="social">Social</option>
-                <option value="core">Shield</option><option value="leader">Mic</option><option value="heart">Heart</option>
-            </select>
-            <label>Access Level</label>
-            <select id="nodeRole">
-                <option value="worship">Team (Worship/AV)</option>
-                <option value="core">Core (Admin Only)</option>
-            </select>
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button id="deleteBtn" class="admin-btn" style="background:#f44336; display:none;" onclick="deletePage()">Delete</button>
-                <button class="admin-btn" style="background:#ccc" onclick="closeModal()">Cancel</button>
-                <button class="admin-btn" onclick="savePage()">Save</button>
+</nav>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<div id="main-container">
+    <header>
+        <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
+        <div style="text-align: right">
+            <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
+            <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
+            <div id="sync-status">Connecting…</div>
+        </div>
+    </header>
+
+    <main id="app-viewport">
+
+        <!-- ── DASHBOARD ── -->
+        <div id="landing-content">
+
+            <!-- Hero -->
+            <div id="hero-section">
+                <div id="hero-bg"></div>
+                <div id="hero-text">
+                    <div id="hero-title">Welcome</div>
+                    <div id="hero-subtitle">Select a tool from the menu to get started.</div>
+                </div>
+                <button id="hero-edit-btn" onclick="openHeroEditor()">✎ Edit Banner</button>
+            </div>
+
+            <!-- Body + News sidebar -->
+            <div id="dashboard-body">
+
+                <!-- Left: welcome body -->
+                <div id="dashboard-main">
+                    <button id="body-edit-btn" onclick="openBodyEditor()">✎ Edit Content</button>
+                    <div id="body-content-area">
+                        <h2>Dashboard</h2>
+                        <p style="color:#7a8c8c;">Select a tool to begin.</p>
+                    </div>
+                </div>
+
+                <!-- Right: news panel -->
+                <div id="dashboard-sidebar-panel">
+                    <div id="news-header">
+                        <h3>Latest News</h3>
+                        <button id="news-add-btn" onclick="openNewsEditor(null)">+ Add</button>
+                    </div>
+                    <div id="news-track-wrapper">
+                        <div id="news-track"></div>
+                    </div>
+                    <div id="news-dots"></div>
+                </div>
+
+            </div>
+
+            <!-- ── HERO EDITOR MODAL ── -->
+            <div class="modal-overlay" id="hero-modal">
+                <div class="modal-box">
+                    <h3>Edit Banner</h3>
+                    <label>Title</label>
+                    <input type="text" id="he-title" placeholder="Welcome">
+                    <label>Subtitle</label>
+                    <input type="text" id="he-subtitle" placeholder="Short tagline…">
+                    <label>Background Image URL (optional)</label>
+                    <input type="text" id="he-img" placeholder="https://…">
+                    <div class="modal-btn-row">
+                        <button class="modal-btn cancel" onclick="closeModal('hero-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveHero()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── BODY EDITOR MODAL ── -->
+            <div class="modal-overlay" id="body-modal">
+                <div class="modal-box">
+                    <h3>Edit Dashboard Content</h3>
+                    <div class="tab-row">
+                        <button class="tab-btn active" id="body-tab-edit" onclick="switchBodyTab('edit')">HTML</button>
+                        <button class="tab-btn" id="body-tab-preview" onclick="switchBodyTab('preview')">Preview</button>
+                    </div>
+                    <label>Content HTML</label>
+                    <textarea id="body-html" placeholder="Paste HTML from your email editor…"></textarea>
+                    <div id="body-preview-box" class="html-preview" style="display:none;"></div>
+                    <div style="font-size:11px; color:#a0b0b0; margin-top:6px;">You can paste HTML directly from an email editor. Images, headings and links are all supported.</div>
+                    <div class="modal-btn-row">
+                        <button class="modal-btn cancel" onclick="closeModal('body-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveBodyContent()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── NEWS EDITOR MODAL ── -->
+            <div class="modal-overlay" id="news-modal">
+                <div class="modal-box">
+                    <h3 id="news-modal-title">Add News</h3>
+                    <input type="hidden" id="ne-id">
+                    <label>Headline</label>
+                    <input type="text" id="ne-title" placeholder="What's the news?">
+                    <label>Date label (optional)</label>
+                    <input type="text" id="ne-date" placeholder="e.g. Sunday 4 May">
+                    <div class="tab-row" style="margin-top:12px;">
+                        <button class="tab-btn active" id="news-tab-edit" onclick="switchNewsTab('edit')">HTML</button>
+                        <button class="tab-btn" id="news-tab-preview" onclick="switchNewsTab('preview')">Preview</button>
+                    </div>
+                    <label>Body HTML</label>
+                    <textarea id="ne-body" placeholder="Paste HTML from your email editor…"></textarea>
+                    <div id="news-preview-box" class="html-preview" style="display:none;"></div>
+                    <div style="font-size:11px; color:#a0b0b0; margin-top:6px;">Paste HTML from your email editor — images, buttons and links all work.</div>
+                    <div class="modal-btn-row">
+                        <button class="modal-btn danger" id="ne-delete-btn" style="display:none;" onclick="deleteNewsItem()">Delete</button>
+                        <button class="modal-btn cancel" onclick="closeModal('news-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveNewsItem()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── DASHBOARD SETTINGS MODAL ── -->
+            <div class="modal-overlay" id="dash-settings-modal">
+                <div class="modal-box">
+                    <h3>Dashboard Settings</h3>
+                    <p style="font-size:13px; color:#7a8c8c; margin-bottom:16px;">Quick access to all dashboard editors.</p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">✎ Edit Hero Banner</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">✎ Edit Main Content</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openNewsEditor(null)" style="background:var(--brand-green);">+ Add News Item</button>
+                    </div>
+                    <div class="modal-btn-row" style="margin-top:10px;">
+                        <button class="modal-btn cancel" onclick="closeModal('dash-settings-modal')">Close</button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end #landing-content -->
+
+        <!-- ── IFRAME for non-dashboard pages ── -->
+        <iframe id="app-frame" style="display:none;" src="" allow="popups popups-to-escape-sandbox"></iframe>
+
+        <!-- ── MENU MODAL ── -->
+        <div id="menu-modal-overlay">
+            <div class="menu-modal-box">
+                <h3 id="menuModalTitle" style="color: var(--accent-teal);">Page Settings</h3>
+                <input type="hidden" id="editId">
+                <label>Name</label><input type="text" id="nodeName">
+                <label>Link (URL)</label><input type="text" id="nodeUrl">
+                <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
+                <label>Parent Item</label><select id="nodeParent"><option value="none">Top Level</option></select>
+                <label>Icon</label><select id="nodeIcon">
+                    <option value="home">Home</option><option value="calendar">Calendar</option><option value="music">Music</option>
+                    <option value="worship">Worship</option><option value="av">AV</option><option value="youth">Youth</option>
+                    <option value="trouble">Tools</option><option value="training">Book</option><option value="social">Social</option>
+                    <option value="core">Shield</option><option value="leader">Mic</option><option value="heart">Heart</option>
+                </select>
+                <label>Access Level</label>
+                <select id="nodeRole">
+                    <option value="worship">Team (Worship/AV)</option>
+                    <option value="core">Core (Admin Only)</option>
+                </select>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button id="deleteBtn" class="admin-btn" style="background:#f44336; display:none;" onclick="deletePage()">Delete</button>
+                    <button class="admin-btn" style="background:#ccc" onclick="closeMenuModal()">Cancel</button>
+                    <button class="admin-btn" onclick="savePage()">Save</button>
+                </div>
             </div>
         </div>
-    </div>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-            authDomain: "egbc-worship-planner.firebaseapp.com",
-            projectId: "egbc-worship-planner",
-            storageBucket: "egbc-worship-planner.firebasestorage.app",
-            appId: "1:199442060489:web:7eaf85a76334c753db6918"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const MENU_DOC = db.collection('portal').doc('menuItems');
 
-        function setSyncStatus(state, text) {
-            const el = document.getElementById('sync-status');
-            el.className = state; el.textContent = text;
+    </main>
+</div>
+
+<!-- ═══════════════ FIREBASE ═══════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app",
+    appId: "1:199442060489:web:7eaf85a76334c753db6918"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const MENU_DOC      = db.collection('portal').doc('menuItems');
+const DASHBOARD_DOC = db.collection('portal').doc('dashboardContent');
+
+function setSyncStatus(state, text) {
+    const el = document.getElementById('sync-status');
+    el.className = state; el.textContent = text;
+}
+
+// ── DEFAULT DATA ────────────────────────────────
+const DEFAULT_MENU = [
+    {"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
+    {"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},
+    {"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},
+    {"id":1777068093291,"name":"Music Databases","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},
+    {"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},
+    {"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},
+    {"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},
+    {"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},
+    {"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},
+    {"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},
+    {"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},
+    {"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},
+    {"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
+];
+
+const DEFAULT_DASHBOARD = {
+    hero: { title: "Welcome", subtitle: "Select a tool from the menu to get started.", bgImage: "" },
+    bodyHtml: `<h2>Dashboard</h2><p style="color:#7a8c8c;">Select a tool to begin.</p>`,
+    newsItems: []
+};
+
+let menuItems = [];
+let dashData  = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD));
+
+// ── LOAD ────────────────────────────────────────
+async function loadAll() {
+    setSyncStatus('syncing', 'Loading…');
+    try {
+        const [menuSnap, dashSnap] = await Promise.all([MENU_DOC.get(), DASHBOARD_DOC.get()]);
+        menuItems = (menuSnap.exists && menuSnap.data().items) ? menuSnap.data().items : DEFAULT_MENU;
+        if (!menuSnap.exists) await MENU_DOC.set({ items: menuItems });
+        dashData  = (dashSnap.exists && dashSnap.data()) ? dashSnap.data() : DEFAULT_DASHBOARD;
+        if (!dashSnap.exists) await DASHBOARD_DOC.set(dashData);
+        setSyncStatus('synced', '✓ Synced');
+        renderMenu();
+        renderDashboard();
+    } catch (err) {
+        console.error(err);
+        setSyncStatus('error', '⚠ Offline – changes won\'t save');
+        menuItems = DEFAULT_MENU;
+        dashData  = DEFAULT_DASHBOARD;
+        renderMenu();
+        renderDashboard();
+    }
+}
+
+async function saveMenuToDb() {
+    setSyncStatus('syncing', 'Saving…');
+    try { await MENU_DOC.set({ items: menuItems }); setSyncStatus('synced', '✓ Saved'); }
+    catch (e) { setSyncStatus('error', '⚠ Save failed'); }
+}
+
+async function saveDashToDb() {
+    setSyncStatus('syncing', 'Saving…');
+    try { await DASHBOARD_DOC.set(dashData); setSyncStatus('synced', '✓ Saved'); }
+    catch (e) { setSyncStatus('error', '⚠ Save failed'); }
+}
+
+// ── RENDER DASHBOARD ────────────────────────────
+function renderDashboard() {
+    const h = dashData.hero || {};
+    document.getElementById('hero-title').textContent    = h.title    || 'Welcome';
+    document.getElementById('hero-subtitle').textContent = h.subtitle || '';
+    const bg = document.getElementById('hero-bg');
+    if (h.bgImage) { bg.style.backgroundImage = `url('${h.bgImage}')`; bg.style.opacity = '0.35'; }
+    else           { bg.style.backgroundImage = ''; bg.style.opacity = '0'; }
+
+    document.getElementById('body-content-area').innerHTML = dashData.bodyHtml || '';
+    renderNews();
+}
+
+// ── NEWS CARDS (rolling / paginated) ────────────
+let newsPage = 0;
+const NEWS_PER_PAGE = 3;
+
+function renderNews() {
+    const items = (dashData.newsItems || []).slice().reverse(); // newest first
+    const track = document.getElementById('news-track');
+    const dots  = document.getElementById('news-dots');
+    track.innerHTML = '';
+    dots.innerHTML  = '';
+
+    if (!items.length) {
+        track.innerHTML = `<div style="padding:20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>`;
+        return;
+    }
+
+    // Group into pages
+    const pages = [];
+    for (let i = 0; i < items.length; i += NEWS_PER_PAGE) pages.push(items.slice(i, i + NEWS_PER_PAGE));
+    newsPage = Math.min(newsPage, pages.length - 1);
+
+    pages.forEach((page, pi) => {
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'news-page';
+        pageDiv.style.cssText = 'flex-shrink:0; width:100%;';
+        page.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'news-card';
+            card.innerHTML = `
+                <div class="news-card-date">${item.date || ''}</div>
+                <div class="news-card-title">${item.title || ''}</div>
+                <div class="news-card-body">${item.body || ''}</div>
+                <button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">✎</button>
+            `;
+            pageDiv.appendChild(card);
+        });
+        track.appendChild(pageDiv);
+
+        // Dot
+        const dot = document.createElement('div');
+        dot.className = 'news-dot' + (pi === newsPage ? ' active' : '');
+        dot.onclick = () => goToNewsPage(pi);
+        dots.appendChild(dot);
+    });
+
+    applyNewsPage();
+}
+
+function applyNewsPage() {
+    const pages = document.querySelectorAll('.news-page');
+    const dots  = document.querySelectorAll('.news-dot');
+    const wrapper = document.getElementById('news-track-wrapper');
+    const h = wrapper.clientHeight || 300;
+    document.getElementById('news-track').style.transform = `translateY(-${newsPage * h}px)`;
+    dots.forEach((d, i) => d.classList.toggle('active', i === newsPage));
+}
+
+function goToNewsPage(i) { newsPage = i; applyNewsPage(); }
+
+// Auto-advance news every 8 seconds
+setInterval(() => {
+    const pages = document.querySelectorAll('.news-page');
+    if (!pages.length) return;
+    newsPage = (newsPage + 1) % pages.length;
+    applyNewsPage();
+}, 8000);
+
+// ── HERO EDITOR ──────────────────────────────────
+function openHeroEditor() {
+    const h = dashData.hero || {};
+    document.getElementById('he-title').value    = h.title    || '';
+    document.getElementById('he-subtitle').value = h.subtitle || '';
+    document.getElementById('he-img').value      = h.bgImage  || '';
+    openModal('hero-modal');
+}
+async function saveHero() {
+    dashData.hero = {
+        title:   document.getElementById('he-title').value,
+        subtitle: document.getElementById('he-subtitle').value,
+        bgImage: document.getElementById('he-img').value
+    };
+    await saveDashToDb();
+    renderDashboard();
+    closeModal('hero-modal');
+}
+
+// ── BODY EDITOR ──────────────────────────────────
+function openBodyEditor() {
+    document.getElementById('body-html').value = dashData.bodyHtml || '';
+    switchBodyTab('edit');
+    openModal('body-modal');
+}
+function switchBodyTab(tab) {
+    const isEdit = tab === 'edit';
+    document.getElementById('body-html').style.display          = isEdit ? '' : 'none';
+    document.getElementById('body-preview-box').style.display   = isEdit ? 'none' : '';
+    document.getElementById('body-tab-edit').classList.toggle('active', isEdit);
+    document.getElementById('body-tab-preview').classList.toggle('active', !isEdit);
+    if (!isEdit) document.getElementById('body-preview-box').innerHTML = document.getElementById('body-html').value;
+}
+async function saveBodyContent() {
+    dashData.bodyHtml = document.getElementById('body-html').value;
+    await saveDashToDb();
+    renderDashboard();
+    closeModal('body-modal');
+}
+
+// ── NEWS EDITOR ──────────────────────────────────
+function openNewsEditor(id) {
+    const item = id ? (dashData.newsItems || []).find(n => n.id == id) : null;
+    document.getElementById('ne-id').value          = item ? item.id    : '';
+    document.getElementById('ne-title').value       = item ? item.title : '';
+    document.getElementById('ne-date').value        = item ? (item.date || '') : '';
+    document.getElementById('ne-body').value        = item ? item.body  : '';
+    document.getElementById('news-modal-title').textContent = item ? 'Edit News' : 'Add News';
+    document.getElementById('ne-delete-btn').style.display  = item ? 'block' : 'none';
+    switchNewsTab('edit');
+    openModal('news-modal');
+}
+function switchNewsTab(tab) {
+    const isEdit = tab === 'edit';
+    document.getElementById('ne-body').style.display            = isEdit ? '' : 'none';
+    document.getElementById('news-preview-box').style.display   = isEdit ? 'none' : '';
+    document.getElementById('news-tab-edit').classList.toggle('active', isEdit);
+    document.getElementById('news-tab-preview').classList.toggle('active', !isEdit);
+    if (!isEdit) document.getElementById('news-preview-box').innerHTML = document.getElementById('ne-body').value;
+}
+async function saveNewsItem() {
+    if (!dashData.newsItems) dashData.newsItems = [];
+    const id  = document.getElementById('ne-id').value;
+    const data = {
+        id:    id || Date.now(),
+        title: document.getElementById('ne-title').value,
+        date:  document.getElementById('ne-date').value,
+        body:  document.getElementById('ne-body').value
+    };
+    if (id) {
+        const idx = dashData.newsItems.findIndex(n => n.id == id);
+        if (idx >= 0) dashData.newsItems[idx] = data; else dashData.newsItems.push(data);
+    } else { dashData.newsItems.push(data); }
+    await saveDashToDb();
+    newsPage = 0;
+    renderDashboard();
+    closeModal('news-modal');
+}
+async function deleteNewsItem() {
+    const id = document.getElementById('ne-id').value;
+    dashData.newsItems = (dashData.newsItems || []).filter(n => n.id != id);
+    await saveDashToDb();
+    newsPage = 0;
+    renderDashboard();
+    closeModal('news-modal');
+}
+
+// ── DASHBOARD EDITOR shortcut from admin panel ──
+function openDashboardEditor() { openModal('dash-settings-modal'); }
+
+// ── MODAL HELPERS ────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── MENU MODAL ───────────────────────────────────
+function openMenuModal()  { document.getElementById('menu-modal-overlay').classList.add('open'); }
+function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }
+
+// ── ICONS ────────────────────────────────────────
+const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+const ICONS = {
+    home: `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
+    calendar: `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
+    music: `<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
+    worship: `<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
+    av: `<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
+    youth: `<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
+    trouble: `<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
+    training: `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
+    social: `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
+    core: `<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    leader: `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
+    heart: `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+};
+
+const urlParams = new URLSearchParams(window.location.search);
+const userRole  = urlParams.get('role') || 'worship';
+
+// ── RENDER MENU ──────────────────────────────────
+function renderMenu() {
+    const list         = document.getElementById('nav-list');
+    const parentSelect = document.getElementById('nodeParent');
+    list.innerHTML = '';
+    parentSelect.innerHTML = '<option value="none">Top Level</option>';
+
+    const buildTree = (parentId, level = 0) => {
+        const children = menuItems.filter(i => {
+            if (i.parent != parentId) return false;
+            if (userRole === 'core') return true;
+            return i.role === 'worship' || !i.role;
+        });
+        children.forEach(item => {
+            const hasSubs = menuItems.some(i => i.parent == item.id);
+            const wrapper = document.createElement('div');
+            wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
+            wrapper.dataset.id = item.id;
+            wrapper.innerHTML = `
+                <div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')">
+                    <div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div>
+                    <span class="nav-text">${item.name}</span>
+                    ${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}
+                    <div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">&#9998;</div>
+                </div>
+                <div class="child-container" id="child-of-${item.id}"></div>
+            `;
+            const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
+            if (targetContainer) targetContainer.appendChild(wrapper);
+            if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
+            buildTree(item.id, level + 1);
+        });
+    };
+    buildTree('none');
+
+    // Show/hide admin UI on cards
+    if (document.getElementById('nav-list').classList.contains('admin-active')) {
+        document.getElementById('hero-edit-btn').style.display = 'block';
+        document.getElementById('body-edit-btn').style.display = 'block';
+        document.getElementById('news-add-btn').style.display  = 'block';
+    }
+}
+
+// ── FOCUS DIMMING ────────────────────────────────
+function updateFocusState() {
+    const navList = document.getElementById('nav-list');
+    const anyOpen = navList.querySelector('.has-children.open');
+    navList.classList.toggle('has-open', !!anyOpen);
+}
+function closeAllMenus() {
+    document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open'));
+    updateFocusState();
+}
+
+// ── NAVIGATION ───────────────────────────────────
+function handleItemClick(event, id, url, logo) {
+    const wrapper = event.currentTarget.parentElement;
+    if (wrapper.classList.contains('has-children')) {
+        const isOpening = !wrapper.classList.contains('open');
+        wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open'));
+        if (isOpening) wrapper.classList.add('open');
+        updateFocusState();
+    }
+    if (url && url !== '#' && url !== 'landing') navigate(url, logo);
+    else if (url === 'landing') showLanding(logo);
+}
+function navigate(url, logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('landing-content').style.display = 'none';
+    const frame = document.getElementById('app-frame');
+    frame.style.display = 'block';
+    frame.src = url;
+}
+function showLanding(logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('app-frame').style.display  = 'none';
+    document.getElementById('landing-content').style.display = 'flex';
+}
+
+// ── SECRET ADMIN TRIGGER ─────────────────────────
+let clickCount = 0;
+function handleSecret() {
+    if (userRole !== 'core') return;
+    clickCount++;
+    if (clickCount >= 3) {
+        const isAdminVisible = document.getElementById('admin-controls').style.display === 'block';
+        if (isAdminVisible) {
+            document.getElementById('admin-controls').style.display = 'none';
+            document.getElementById('secret-trigger').style.color   = '#a0b0b0';
+            document.getElementById('nav-list').classList.remove('admin-active');
+            document.getElementById('hero-edit-btn').style.display  = 'none';
+            document.getElementById('body-edit-btn').style.display  = 'none';
+            document.getElementById('news-add-btn').style.display   = 'none';
+            clickCount = 0;
+        } else {
+            document.getElementById('admin-controls').style.display = 'block';
+            document.getElementById('secret-trigger').style.color   = '#9bc34a';
+            document.getElementById('nav-list').classList.add('admin-active');
+            document.getElementById('hero-edit-btn').style.display  = 'block';
+            document.getElementById('body-edit-btn').style.display  = 'block';
+            document.getElementById('news-add-btn').style.display   = 'block';
         }
+        renderMenu();
+    }
+}
 
-        const DEFAULT_MENU = [
-            {"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
-            {"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},
-            {"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},
-            {"id":1777068093291,"name":"Music Databases","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},
-            {"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},
-            {"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},
-            {"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},
-            {"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},
-            {"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},
-            {"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},
-            {"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},
-            {"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},
-            {"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
-        ];
+// ── MENU PAGE CRUD ───────────────────────────────
+function openEdit(id) {
+    const item = menuItems.find(i => i.id == id);
+    document.getElementById('editId').value       = id;
+    document.getElementById('nodeName').value     = item.name;
+    document.getElementById('nodeUrl').value      = item.url;
+    document.getElementById('nodeLogo').value     = item.logo || '';
+    document.getElementById('nodeParent').value   = item.parent;
+    document.getElementById('nodeIcon').value     = item.icon;
+    document.getElementById('nodeRole').value     = item.role || 'worship';
+    document.getElementById('deleteBtn').style.display = 'block';
+    openMenuModal();
+}
+async function savePage() {
+    const id = document.getElementById('editId').value;
+    const data = {
+        id: id ? parseInt(id) : Date.now(),
+        name: document.getElementById('nodeName').value,
+        url: document.getElementById('nodeUrl').value,
+        logo: document.getElementById('nodeLogo').value,
+        parent: document.getElementById('nodeParent').value,
+        icon: document.getElementById('nodeIcon').value,
+        role: document.getElementById('nodeRole').value
+    };
+    if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
+    else menuItems.push(data);
+    await saveMenuToDb(); renderMenu(); closeMenuModal();
+}
+async function deletePage() {
+    const id = document.getElementById('editId').value;
+    menuItems = menuItems.filter(i => i.id != id && i.parent != id);
+    await saveMenuToDb(); renderMenu(); closeMenuModal();
+}
+async function resetMenu() {
+    if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
+        menuItems = DEFAULT_MENU; await saveMenuToDb(); renderMenu();
+    }
+}
 
-        let menuItems = [];
-
-        async function loadMenu() {
-            setSyncStatus('syncing', 'Loading…');
-            try {
-                const snap = await MENU_DOC.get();
-                if (snap.exists && snap.data().items) { menuItems = snap.data().items; }
-                else { menuItems = DEFAULT_MENU; await MENU_DOC.set({ items: menuItems }); }
-                setSyncStatus('synced', '✓ Synced');
-                renderMenu();
-            } catch (err) {
-                console.error('Firestore load error:', err);
-                setSyncStatus('error', '⚠ Offline – changes won\'t save');
-                menuItems = DEFAULT_MENU;
-                renderMenu();
-            }
-        }
-
-        async function saveMenu() {
-            setSyncStatus('syncing', 'Saving…');
-            try { await MENU_DOC.set({ items: menuItems }); setSyncStatus('synced', '✓ Saved & Synced'); }
-            catch (err) { console.error('Firestore save error:', err); setSyncStatus('error', '⚠ Save failed'); }
-        }
-
-        const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
-
-        const ICONS = {
-            home: `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
-            calendar: `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
-            music: `<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
-            worship: `<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
-            av: `<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
-            youth: `<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
-            trouble: `<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
-            training: `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
-            social: `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
-            core: `<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
-            leader: `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
-            heart: `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
-        };
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const userRole = urlParams.get('role') || 'worship';
-
-        function renderMenu() {
-            const list = document.getElementById('nav-list');
-            const parentSelect = document.getElementById('nodeParent');
-            list.innerHTML = '';
-            parentSelect.innerHTML = '<option value="none">Top Level</option>';
-            const buildTree = (parentId, level = 0) => {
-                const children = menuItems.filter(i => {
-                    if (i.parent != parentId) return false;
-                    if (userRole === 'core') return true;
-                    return i.role === 'worship' || !i.role;
-                });
-                children.forEach(item => {
-                    const hasSubs = menuItems.some(i => i.parent == item.id);
-                    const wrapper = document.createElement('div');
-                    wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
-                    wrapper.dataset.id = item.id;
-                    wrapper.innerHTML = `
-                        <div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')">
-                            <div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div>
-                            <span class="nav-text">${item.name}</span>
-                            ${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}
-                            <div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">&#9998;</div>
-                        </div>
-                        <div class="child-container" id="child-of-${item.id}"></div>
-                    `;
-                    const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
-                    targetContainer.appendChild(wrapper);
-                    if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
-                    buildTree(item.id, level + 1);
-                });
-            };
-            buildTree('none');
-        }
-
-        function updateFocusState() {
-            const navList = document.getElementById('nav-list');
-            const anyOpen = navList.querySelector('.has-children.open');
-            navList.classList.toggle('has-open', !!anyOpen);
-        }
-
-        function closeAllMenus() {
-            document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open'));
-            updateFocusState();
-        }
-
-        function handleItemClick(event, id, url, logo) {
-            const wrapper = event.currentTarget.parentElement;
-            if (wrapper.classList.contains('has-children')) {
-                const isOpening = !wrapper.classList.contains('open');
-                wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open'));
-                if (isOpening) wrapper.classList.add('open');
-                updateFocusState();
-            }
-            if (url && url !== '#' && url !== 'landing') navigate(url, logo);
-            else if (url === 'landing') showLanding(logo);
-        }
-
-        function navigate(url, logoUrl) {
-            document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
-            document.getElementById('landing-content').style.display = 'none';
-            const frame = document.getElementById('app-frame');
-            frame.style.display = 'block';
-            frame.src = url;
-        }
-
-        function showLanding(logoUrl) {
-            document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
-            document.getElementById('app-frame').style.display = 'none';
-            document.getElementById('landing-content').style.display = 'block';
-        }
-
-        let clickCount = 0;
-        function handleSecret() {
-            if (userRole !== 'core') return;
-            clickCount++;
-            if (clickCount >= 3) {
-                const isAdminVisible = document.getElementById('admin-controls').style.display === 'block';
-                if (isAdminVisible) {
-                    document.getElementById('admin-controls').style.display = 'none';
-                    document.getElementById('secret-trigger').style.color = '#a0b0b0';
-                    document.getElementById('nav-list').classList.remove('admin-active');
-                    clickCount = 0;
-                } else {
-                    document.getElementById('admin-controls').style.display = 'block';
-                    document.getElementById('secret-trigger').style.color = '#9bc34a';
-                    document.getElementById('nav-list').classList.add('admin-active');
-                }
-                renderMenu();
-            }
-        }
-
-        function openModal()  { document.getElementById('admin-modal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('admin-modal').style.display = 'none'; }
-
-        function openEdit(id) {
-            const item = menuItems.find(i => i.id == id);
-            document.getElementById('editId').value = id;
-            document.getElementById('nodeName').value = item.name;
-            document.getElementById('nodeUrl').value = item.url;
-            document.getElementById('nodeLogo').value = item.logo || '';
-            document.getElementById('nodeParent').value = item.parent;
-            document.getElementById('nodeIcon').value = item.icon;
-            document.getElementById('nodeRole').value = item.role || 'worship';
-            document.getElementById('deleteBtn').style.display = 'block';
-            openModal();
-        }
-
-        async function savePage() {
-            const id = document.getElementById('editId').value;
-            const data = {
-                id: id ? parseInt(id) : Date.now(),
-                name: document.getElementById('nodeName').value,
-                url: document.getElementById('nodeUrl').value,
-                logo: document.getElementById('nodeLogo').value,
-                parent: document.getElementById('nodeParent').value,
-                icon: document.getElementById('nodeIcon').value,
-                role: document.getElementById('nodeRole').value
-            };
-            if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
-            else menuItems.push(data);
-            await saveMenu(); renderMenu(); closeModal();
-        }
-
-        async function deletePage() {
-            const id = document.getElementById('editId').value;
-            menuItems = menuItems.filter(i => i.id != id && i.parent != id);
-            await saveMenu(); renderMenu(); closeModal();
-        }
-
-        async function resetMenu() {
-            if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
-                menuItems = DEFAULT_MENU; await saveMenu(); renderMenu();
-            }
-        }
-
-        loadMenu();
-    </script>
+// ── KICK OFF ─────────────────────────────────────
+loadAll();
+</script>
 </body>
 </html>
