@@ -145,12 +145,6 @@
         body.admin-mode #body-edit-btn { display: block; }
         body.admin-mode #news-add-btn  { display: block; }
 
-        /* Dot nav */
-        #news-dots { display: flex; justify-content: center; gap: 6px; padding: 10px 0; flex-shrink: 0; }
-        .news-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-teal);
-            cursor: pointer; transition: background 0.2s; }
-        .news-dot.active { background: var(--accent-teal); }
-
         /* ── MODALS (all fixed → changed to page-relative to avoid iframe collapse issue) ── */
         .modal-overlay {
             display: none; position: absolute; inset: 0;
@@ -493,9 +487,7 @@ const NEWS_SCROLL_SPEED = 0.5; // px per frame
 function renderNews() {
     const items = (dashData.newsItems || []).slice().reverse();
     const track  = document.getElementById('news-track');
-    const dots   = document.getElementById('news-dots');
     track.innerHTML = '';
-    dots.innerHTML  = '';
 
     if (!items.length) {
         track.innerHTML = `<div style="padding:24px 20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>`;
@@ -561,13 +553,13 @@ function startNewsScroll() {
 }
 
 // Pause on hover
-document.addEventListener('DOMContentLoaded', () => {
+(function() {
     const wrapper = document.getElementById('news-track-wrapper');
     if (wrapper) {
         wrapper.addEventListener('mouseenter', () => { newsScrollPaused = true; });
         wrapper.addEventListener('mouseleave', () => { newsScrollPaused = false; });
     }
-});
+})();
 
 // ── HERO EDITOR ──────────────────────────────────
 function openHeroEditor() {
