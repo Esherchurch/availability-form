@@ -133,7 +133,10 @@
             border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px;
             font-size: 10px; color: #a0b0b0; cursor: pointer; display: none;
         }
-        .admin-active .news-card-edit-btn { display: block; }
+        body.admin-mode .news-card-edit-btn { display: block; }
+        body.admin-mode #hero-edit-btn { display: block; }
+        body.admin-mode #body-edit-btn { display: block; }
+        body.admin-mode #news-add-btn  { display: block; }
 
         /* Dot nav */
         #news-dots { display: flex; justify-content: center; gap: 6px; padding: 10px 0; flex-shrink: 0; }
@@ -754,13 +757,6 @@ function renderMenu() {
         });
     };
     buildTree('none');
-
-    // Show/hide admin UI on cards
-    if (document.getElementById('nav-list').classList.contains('admin-active')) {
-        document.getElementById('hero-edit-btn').style.display = 'block';
-        document.getElementById('body-edit-btn').style.display = 'block';
-        document.getElementById('news-add-btn').style.display  = 'block';
-    }
 }
 
 // ── FOCUS DIMMING ────────────────────────────────
@@ -810,17 +806,13 @@ function handleSecret() {
             document.getElementById('admin-controls').style.display = 'none';
             document.getElementById('secret-trigger').style.color   = '#a0b0b0';
             document.getElementById('nav-list').classList.remove('admin-active');
-            document.getElementById('hero-edit-btn').style.display  = 'none';
-            document.getElementById('body-edit-btn').style.display  = 'none';
-            document.getElementById('news-add-btn').style.display   = 'none';
+            document.body.classList.remove('admin-mode');
             clickCount = 0;
         } else {
             document.getElementById('admin-controls').style.display = 'block';
             document.getElementById('secret-trigger').style.color   = '#9bc34a';
             document.getElementById('nav-list').classList.add('admin-active');
-            document.getElementById('hero-edit-btn').style.display  = 'block';
-            document.getElementById('body-edit-btn').style.display  = 'block';
-            document.getElementById('news-add-btn').style.display   = 'block';
+            document.body.classList.add('admin-mode');
         }
         renderMenu();
     }
