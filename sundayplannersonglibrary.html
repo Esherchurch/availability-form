@@ -38,17 +38,45 @@
         }
 
         .song {
-            padding: 12px 15px;
+            padding: 10px 15px;
             cursor: pointer;
-            border-bottom: 1px solid #d1dfdf;
+            border-bottom: 1px solid #f0f6f6;
             transition: background 0.2s;
-            font-weight: 400;
         }
 
-        .song:hover { background: #f0f6f6; }
+        .song:hover { background: #f0f6f6; border-radius: 1rem; }
+
+        .song-title-text {
+            font-weight: 600;
+            font-size: 14px;
+            color: #2c4a4a;
+        }
+
+        .song-stats {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+
+        .stat-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .stat-total { background: #e8f0f0; color: #3d6263; }
+        .stat-recent { background: #fff3e0; color: #e65100; }
+        .stat-recent.warning { background: #fde8e8; color: #b22222; }
+        .stat-last { background: #f0f6f6; color: #5b8e8f; }
+        .stat-never { background: #f5f5f5; color: #aaa; }
 
         h2 { color: #3d6263; margin-top: 0; font-weight: 800; }
-        
+
         label { 
             display: block; 
             font-weight: 700; 
@@ -83,9 +111,7 @@
             font-size: 14px;
         }
 
-        .external-link:hover {
-            text-decoration: underline;
-        }
+        .external-link:hover { text-decoration: underline; }
 
         button {
             background-color: #3d6263;
@@ -111,6 +137,48 @@
             font-weight: 700;
             padding-left: 10px;
         }
+
+        /* Usage stats panel */
+        .usage-panel {
+            background: #f0f6f6;
+            border: 1px solid #d1dfdf;
+            border-radius: 1.5rem;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .usage-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .usage-stat-number {
+            font-size: 24px;
+            font-weight: 800;
+            color: #3d6263;
+            line-height: 1;
+        }
+
+        .usage-stat-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #5b8e8f;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: center;
+        }
+
+        .usage-divider { width: 1px; height: 40px; background: #d1dfdf; }
+
+        .usage-last { font-size: 12px; font-weight: 700; color: #3d6263; }
+        .usage-last-label { font-size: 10px; color: #5b8e8f; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .usage-warning { font-size: 11px; font-weight: 700; color: #b22222; background: #fde8e8; padding: 4px 12px; border-radius: 9999px; }
     </style>
 </head>
 
@@ -127,9 +195,15 @@
 <div id="right">
     <h2 id="display-title">Select a Song</h2>
     <div id="editor" style="display:none;">
+
+        <!-- Usage Stats Panel -->
+        <div class="usage-panel" id="usage-panel">
+            <span style="font-size:11px; color:#5b8e8f; font-weight:700;">Loading usage stats...</span>
+        </div>
+
         <label>Song Title</label>
         <input id="edit-title">
-        
+
         <label>Artist</label>
         <input id="artist" placeholder="Scanning for artist...">
         <div id="artist-status" class="status-msg"></div>
@@ -137,11 +211,11 @@
         <label>YouTube Link</label>
         <input id="youtube" onchange="smartScanArtist()" placeholder="Paste YouTube link here">
         <div class="link-container" id="yt-link-box"></div>
-        
+
         <label>CCLI Number</label>
         <input id="ccli" placeholder="Enter CCLI Number">
         <div class="link-container" id="ccli-link-box"></div>
-        
+
         <div style="display: flex; align-items: center;">
             <button onclick="save()">Save Changes</button>
             <button class="delete-btn" onclick="deleteSong()">Delete</button>
@@ -151,8 +225,8 @@
 
 <script>
 const firebaseConfig = {
-    apiKey: "YOUR_KEY",
-    authDomain: "egbc-worship-planner.firebaseapp.app",
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner"
 };
 
@@ -160,21 +234,81 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 let currentDoc = null;
+let schedulesCache = null;
+
+async function getSchedulesCache() {
+    if (schedulesCache) return schedulesCache;
+    const snap = await db.collection("schedules").get();
+    schedulesCache = snap.docs.map(d => d.data());
+    return schedulesCache;
+}
+
+async function getSongUsageStats(songTitle) {
+    const schedules = await getSchedulesCache();
+    const title = songTitle.trim().toLowerCase();
+    const matches = schedules.filter(d => (d.songTitle || "").trim().toLowerCase() === title);
+    const totalCount = matches.length;
+
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const threeMonthStr = threeMonthsAgo.toISOString().split("T")[0];
+
+    const recentDates = [...new Set(
+        matches.filter(d => d.date && d.date >= threeMonthStr).map(d => d.date)
+    )];
+    const recentCount = recentDates.length;
+
+    const allDates = matches.map(d => d.date).filter(Boolean).sort();
+    const lastUsed = allDates.length > 0 ? allDates[allDates.length - 1] : null;
+
+    return { totalCount, recentCount, lastUsed };
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return null;
+    const [y, m, d] = dateStr.split("-");
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
 
 function normalizeTitle(title) { return title.toLowerCase().trim(); }
 
 async function loadSongs() {
     const snapshot = await db.collection("songs").orderBy("normalized").get();
+    getSchedulesCache(); // pre-load in background
     renderList(snapshot.docs);
 }
 
-function renderList(docs) {
+async function renderList(docs) {
     const list = document.getElementById("list");
     list.innerHTML = docs.map(doc => `
         <div class="song" onclick="openSong('${doc.id.replace(/'/g, "\\'")}')">
-            ${doc.data().title}
+            <div class="song-title-text">${doc.data().title}</div>
+            <div class="song-stats" id="stats-${doc.id}">
+                <span class="stat-badge stat-never">Loading...</span>
+            </div>
         </div>
     `).join("");
+
+    for (const doc of docs) {
+        const stats = await getSongUsageStats(doc.data().title);
+        const statsEl = document.getElementById(`stats-${doc.id}`);
+        if (!statsEl) continue;
+
+        if (stats.totalCount === 0) {
+            statsEl.innerHTML = `<span class="stat-badge stat-never">Never used</span>`;
+        } else {
+            let html = `<span class="stat-badge stat-total">✦ ${stats.totalCount} total</span>`;
+            if (stats.recentCount > 0) {
+                const cls = stats.recentCount >= 3 ? "stat-recent warning" : "stat-recent";
+                html += `<span class="stat-badge ${cls}">↺ ${stats.recentCount} recent</span>`;
+            }
+            if (stats.lastUsed) {
+                html += `<span class="stat-badge stat-last">Last: ${formatDate(stats.lastUsed)}</span>`;
+            }
+            statsEl.innerHTML = html;
+        }
+    }
 }
 
 async function searchSongs() {
@@ -190,12 +324,12 @@ async function openSong(id) {
     const doc = await db.collection("songs").doc(id).get();
     const data = doc.data();
     currentDoc = id;
-    
+
     document.getElementById("editor").style.display = "block";
     document.getElementById("display-title").innerText = data.title;
     document.getElementById("edit-title").value = data.title;
     document.getElementById("artist").value = data.artist || "";
-    
+
     const ytVal = data.youtube || "";
     document.getElementById("youtube").value = ytVal;
     updateYoutubeLink(ytVal);
@@ -205,10 +339,52 @@ async function openSong(id) {
     updateCCLILink(ccliVal);
 
     document.getElementById("artist-status").innerText = "";
+    renderUsagePanel(data.title);
 
     if (!data.artist && ytVal) {
         smartScanArtist();
     }
+}
+
+async function renderUsagePanel(songTitle) {
+    const panel = document.getElementById("usage-panel");
+    panel.innerHTML = `<span style="font-size:11px; color:#5b8e8f; font-weight:700;">Loading usage stats...</span>`;
+
+    const stats = await getSongUsageStats(songTitle);
+
+    if (stats.totalCount === 0) {
+        panel.innerHTML = `
+            <div class="usage-stat">
+                <span class="usage-stat-number">0</span>
+                <span class="usage-stat-label">Times Used</span>
+            </div>
+            <div class="usage-divider"></div>
+            <span style="font-size:12px; color:#aaa; font-weight:700;">This song hasn't been used yet</span>
+        `;
+        return;
+    }
+
+    const recentWarning = stats.recentCount >= 2
+        ? `<span class="usage-warning">⚠ Used ${stats.recentCount}x in last 3 months</span>`
+        : "";
+
+    panel.innerHTML = `
+        <div class="usage-stat">
+            <span class="usage-stat-number">${stats.totalCount}</span>
+            <span class="usage-stat-label">All Time</span>
+        </div>
+        <div class="usage-divider"></div>
+        <div class="usage-stat">
+            <span class="usage-stat-number" style="color: ${stats.recentCount >= 3 ? '#b22222' : stats.recentCount >= 1 ? '#e65100' : '#3d6263'}">${stats.recentCount}</span>
+            <span class="usage-stat-label">Last 3 Months</span>
+        </div>
+        <div class="usage-divider"></div>
+        <div class="usage-stat">
+            <span class="usage-last">${stats.lastUsed ? formatDate(stats.lastUsed) : "—"}</span>
+            <span class="usage-last-label">Last Used</span>
+        </div>
+        ${recentWarning ? `<div class="usage-divider"></div>${recentWarning}` : ""}
+    `;
 }
 
 function updateYoutubeLink(url) {
@@ -230,7 +406,6 @@ function updateCCLILink(val) {
     }
 }
 
-// Update links in real-time when user types
 document.getElementById("youtube").addEventListener("input", (e) => updateYoutubeLink(e.target.value));
 document.getElementById("ccli").addEventListener("input", (e) => updateCCLILink(e.target.value));
 
@@ -238,14 +413,14 @@ async function smartScanArtist() {
     const youtubeUrl = document.getElementById("youtube").value;
     const songTitleFromDB = document.getElementById("edit-title").value;
     const status = document.getElementById("artist-status");
-    
+
     if (!youtubeUrl) return;
     status.innerText = "Scanning YouTube...";
 
     try {
         const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(youtubeUrl)}`);
         const data = await response.json();
-        
+
         if (data.title) {
             let videoTitle = data.title;
             let artist = "";
@@ -331,8 +506,6 @@ async function handleLyricsSearch(e) {
 
         for (let item of result.results) {
             const onlineTitle = normalizeTitle(item.trackName);
-            const onlineKeywords = onlineTitle.split(' ').filter(w => w.length > 3); 
-
             allSongs.forEach(doc => {
                 const dbTitle = normalizeTitle(doc.data().title);
                 const isPhraseMatch = dbTitle.includes(onlineTitle) || onlineTitle.includes(dbTitle);
