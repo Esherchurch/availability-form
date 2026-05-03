@@ -58,22 +58,23 @@
             position: absolute; inset: 0; background: var(--pale-teal);
             display: flex; flex-direction: column; overflow-y: auto; z-index: 5;
         }
-        /* Hero banner */
+
+        /* Hero banner — slimmer */
         #hero-section {
-            position: relative; min-height: 220px; background: var(--accent-teal);
-            display: flex; align-items: flex-end; padding: 30px 40px; overflow: hidden; flex-shrink: 0;
+            position: relative; min-height: 140px; background: var(--accent-teal);
+            display: flex; align-items: flex-end; padding: 20px 40px; overflow: hidden; flex-shrink: 0;
         }
         #hero-bg {
-            position: absolute; inset: 0; background-size: cover; background-position: center;
+            position: absolute; inset: 0; background-size: cover; background-position: center 30%;
             opacity: 0.35; transition: opacity 0.3s;
         }
         #hero-text { position: relative; z-index: 1; }
-        #hero-title { font-size: 36px; font-weight: 300; color: #fff; line-height: 1.2; }
-        #hero-subtitle { font-size: 15px; color: rgba(255,255,255,0.75); margin-top: 6px; }
+        #hero-title { font-size: 28px; font-weight: 300; color: #fff; line-height: 1.2; }
+        #hero-subtitle { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 4px; }
         #hero-edit-btn {
-            position: absolute; top: 16px; right: 16px; z-index: 2;
+            position: absolute; top: 12px; right: 16px; z-index: 2;
             background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 700;
+            border-radius: 8px; padding: 5px 12px; font-size: 11px; font-weight: 700;
             text-transform: uppercase; cursor: pointer; display: none;
         }
 
@@ -111,101 +112,92 @@
             padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;
             cursor: pointer; display: none;
         }
-
-        /* Rolling cards track */
         #news-track-wrapper { flex-grow: 1; overflow: hidden; position: relative; min-width: 0; }
-        #news-track {
-            display: flex; flex-direction: column; gap: 0;
-            will-change: transform;
-        }
-        .news-card {
-            border-bottom: 1px solid var(--border-teal); padding: 16px 20px;
-            background: var(--white); position: relative; flex-shrink: 0;
-            min-width: 0; box-sizing: border-box;
-        }
-        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
-            color: #a0b0b0; margin-bottom: 4px; }
+        #news-track { display: flex; flex-direction: column; gap: 0; will-change: transform; }
+        .news-card { border-bottom: 1px solid var(--border-teal); padding: 16px 20px; background: var(--white); position: relative; flex-shrink: 0; min-width: 0; box-sizing: border-box; }
+        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #a0b0b0; margin-bottom: 4px; }
         .news-card-title { font-size: 13px; font-weight: 700; color: var(--accent-teal); margin-bottom: 6px; }
-        .news-card-body {
-            font-size: 13px; color: #555; line-height: 1.55;
-            overflow: hidden; word-break: break-word;
-        }
+        .news-card-body { font-size: 13px; color: #555; line-height: 1.55; overflow: hidden; word-break: break-word; }
         .news-card-body * { max-width: 100% !important; box-sizing: border-box; }
         .news-card-body img { max-width: 100% !important; width: auto; height: auto; border-radius: 6px; margin: 6px 0; display: block; }
         .news-card-body table { width: 100% !important; table-layout: fixed; }
         .news-card-body a { color: var(--accent-teal); }
-        .news-card-edit-btn {
-            position: absolute; top: 10px; right: 10px; background: none;
-            border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px;
-            font-size: 10px; color: #a0b0b0; cursor: pointer; display: none;
-        }
+        .news-card-edit-btn { position: absolute; top: 10px; right: 10px; background: none; border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #a0b0b0; cursor: pointer; display: none; }
         body.admin-mode .news-card-edit-btn { display: block; }
         body.admin-mode #hero-edit-btn { display: block; }
         body.admin-mode #body-edit-btn { display: block; }
         body.admin-mode #news-add-btn  { display: block; }
 
-        /* ── MODALS (all fixed → changed to page-relative to avoid iframe collapse issue) ── */
-        .modal-overlay {
-            display: none; position: absolute; inset: 0;
-            background: rgba(61,98,99,0.45); z-index: 3000;
-            align-items: center; justify-content: center; backdrop-filter: blur(3px);
-        }
+        /* ── MODALS ── */
+        .modal-overlay { display: none; position: absolute; inset: 0; background: rgba(61,98,99,0.45); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
         .modal-overlay.open { display: flex; }
-        .modal-box {
-            background: #fff; border-radius: 16px; padding: 28px; width: 520px;
-            max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.15);
-        }
+        .modal-box { background: #fff; border-radius: 16px; padding: 28px; width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.15); }
         .modal-box h3 { font-size: 17px; font-weight: 600; color: var(--accent-teal); margin-bottom: 18px; }
-        .modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase;
-            color: var(--accent-teal); margin: 12px 0 5px; }
-        .modal-box input, .modal-box select, .modal-box textarea {
-            width: 100%; padding: 10px; border: 2px solid var(--border-teal);
-            border-radius: 8px; outline: none; font-family: inherit; font-size: 13px;
-        }
+        .modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 12px 0 5px; }
+        .modal-box input, .modal-box select, .modal-box textarea { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; font-family: inherit; font-size: 13px; }
         .modal-box textarea { min-height: 180px; resize: vertical; font-size: 12px; font-family: monospace; }
         .modal-btn-row { display: flex; gap: 10px; margin-top: 20px; }
-        .modal-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer;
-            font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .modal-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 700; text-transform: uppercase; }
         .modal-btn.primary { background: var(--accent-teal); color: #fff; }
         .modal-btn.danger  { background: #f44336; color: #fff; }
         .modal-btn.cancel  { background: #e0e8e8; color: var(--accent-teal); }
-        .html-preview { border: 1px solid var(--border-teal); border-radius: 8px; padding: 12px;
-            font-size: 13px; line-height: 1.55; color: #444; margin-top: 8px; min-height: 80px; }
-        .html-preview img { max-width: 100%; border-radius: 6px; }
         .tab-row { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid var(--border-teal); }
-        .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase;
-            background: none; border: none; cursor: pointer; color: #a0b0b0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: #a0b0b0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
         .tab-btn.active { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
-        .paste-zone {
-            min-height: 200px; max-height: 340px; overflow-y: auto;
-            border: 2px dashed var(--border-teal); border-radius: 8px;
-            padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.6;
-            color: #444; outline: none; transition: border-color 0.2s;
+
+        /* ── RICH TEXT EDITOR ── */
+        .rte-toolbar {
+            display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px;
+            background: var(--pale-teal); border: 2px solid var(--border-teal);
+            border-bottom: none; border-radius: 8px 8px 0 0;
+            margin-top: 10px;
         }
+        .rte-btn {
+            padding: 4px 8px; background: white; border: 1px solid var(--border-teal);
+            border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 700;
+            color: var(--accent-teal); transition: all 0.15s; line-height: 1.4;
+        }
+        .rte-btn:hover { background: var(--accent-teal); color: white; border-color: var(--accent-teal); }
+        .rte-btn.active { background: var(--accent-teal); color: white; }
+        .rte-btn.separator { background: none; border: none; border-left: 1px solid var(--border-teal); padding: 0 2px; cursor: default; color: transparent; }
+        .rte-select { padding: 4px 6px; border: 1px solid var(--border-teal); border-radius: 4px; font-size: 11px; color: var(--accent-teal); background: white; cursor: pointer; outline: none; }
+        .rte-area {
+            width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto;
+            border: 2px solid var(--border-teal); border-radius: 0 0 8px 8px;
+            padding: 14px; font-family: 'Segoe UI', sans-serif; font-size: 14px;
+            line-height: 1.6; color: #444; outline: none;
+        }
+        .rte-area:focus { border-color: var(--accent-teal); }
+        .rte-area img { max-width: 100%; border-radius: 6px; cursor: pointer; }
+        .rte-area img.selected { outline: 3px solid var(--accent-teal); border-radius: 6px; }
+
+        /* Image resize controls */
+        #img-resize-bar {
+            display: none; align-items: center; gap: 10px; padding: 6px 10px;
+            background: var(--accent-teal); color: white; border-radius: 0 0 8px 8px;
+            font-size: 11px; font-weight: 700;
+        }
+        #img-resize-bar.visible { display: flex; }
+        #img-size-slider { flex-grow: 1; accent-color: white; }
+        #img-size-label { min-width: 40px; text-align: right; }
+        .source-textarea { width: 100%; min-height: 200px; max-height: 340px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 8px; padding: 12px; margin-top: 10px; font-family: monospace; font-size: 12px; line-height: 1.5; color: #333; outline: none; resize: vertical; }
+        .source-textarea:focus { border-color: var(--accent-teal); }
+        .paste-zone { min-height: 200px; max-height: 340px; overflow-y: auto; border: 2px dashed var(--border-teal); border-radius: 8px; padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.6; color: #444; outline: none; transition: border-color 0.2s; }
         .paste-zone:focus { border-color: var(--accent-teal); border-style: solid; }
         .paste-zone:empty:before { content: attr(placeholder); color: #b0c0c0; pointer-events: none; }
         .paste-zone img { max-width: 100%; border-radius: 6px; }
-        .source-textarea {
-            width: 100%; min-height: 200px; max-height: 340px; overflow-y: auto;
-            border: 2px solid var(--border-teal); border-radius: 8px;
-            padding: 12px; margin-top: 10px; font-family: monospace; font-size: 12px;
-            line-height: 1.5; color: #333; outline: none; resize: vertical;
-        }
-        .source-textarea:focus { border-color: var(--accent-teal); }
 
-        /* ── MENU MODAL (kept in main-container for same overlay approach) ── */
-        #menu-modal-overlay {
-            display: none; position: absolute; inset: 0;
-            background: rgba(61,98,99,0.4); z-index: 2000;
-            align-items: center; justify-content: center; backdrop-filter: blur(4px);
-        }
+        /* ── MENU MODAL ── */
+        #menu-modal-overlay { display: none; position: absolute; inset: 0; background: rgba(61,98,99,0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         #menu-modal-overlay.open { display: flex; }
-        .menu-modal-box {
-            background: white; padding: 30px; border-radius: 16px; width: 450px;
-            max-height: 90vh; overflow-y: auto;
-        }
+        .menu-modal-box { background: white; padding: 30px; border-radius: 16px; width: 450px; max-height: 90vh; overflow-y: auto; }
         .menu-modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
         .menu-modal-box input, .menu-modal-box select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
+
+        /* Image position slider in hero editor */
+        .range-row { display: flex; align-items: center; gap: 10px; }
+        .range-row input[type=range] { flex-grow: 1; accent-color: var(--accent-teal); }
+        .range-row span { min-width: 40px; font-size: 12px; color: var(--accent-teal); font-weight: 700; text-align: right; }
     </style>
 </head>
 <body>
@@ -236,7 +228,7 @@
         <!-- ── DASHBOARD ── -->
         <div id="landing-content">
 
-            <!-- Hero -->
+            <!-- Hero — slimmer -->
             <div id="hero-section">
                 <div id="hero-bg"></div>
                 <div id="hero-text">
@@ -248,8 +240,6 @@
 
             <!-- Body + News sidebar -->
             <div id="dashboard-body">
-
-                <!-- Left: welcome body -->
                 <div id="dashboard-main">
                     <button id="body-edit-btn" onclick="openBodyEditor()">✎ Edit Content</button>
                     <div id="body-content-area">
@@ -257,8 +247,6 @@
                         <p style="color:#7a8c8c;">Select a tool to begin.</p>
                     </div>
                 </div>
-
-                <!-- Right: news panel -->
                 <div id="dashboard-sidebar-panel">
                     <div id="news-header">
                         <h3>Latest News</h3>
@@ -268,7 +256,6 @@
                         <div id="news-track"></div>
                     </div>
                 </div>
-
             </div>
 
             <!-- ── HERO EDITOR MODAL ── -->
@@ -280,7 +267,13 @@
                     <label>Subtitle</label>
                     <input type="text" id="he-subtitle" placeholder="Short tagline…">
                     <label>Background Image URL (optional)</label>
-                    <input type="text" id="he-img" placeholder="https://…">
+                    <input type="text" id="he-img" placeholder="https://…" oninput="previewHeroBg()">
+                    <label>Image vertical position</label>
+                    <div class="range-row">
+                        <input type="range" id="he-pos" min="0" max="100" value="30" oninput="previewHeroPos(this.value)">
+                        <span id="he-pos-label">30%</span>
+                    </div>
+                    <div id="he-preview" style="height:80px;border-radius:8px;background:var(--accent-teal);margin-top:8px;background-size:cover;background-position:center 30%;opacity:0.8;transition:background-position 0.2s;"></div>
                     <div class="modal-btn-row">
                         <button class="modal-btn cancel" onclick="closeModal('hero-modal')">Cancel</button>
                         <button class="modal-btn primary" onclick="saveHero()">Save</button>
@@ -288,17 +281,65 @@
                 </div>
             </div>
 
-            <!-- ── BODY EDITOR MODAL ── -->
+            <!-- ── BODY EDITOR MODAL — RICH TEXT ── -->
             <div class="modal-overlay" id="body-modal">
                 <div class="modal-box">
                     <h3>Edit Dashboard Content</h3>
                     <div class="tab-row">
-                        <button class="tab-btn active" id="body-tab-paste" onclick="switchBodyTab('paste')">✦ Paste from email</button>
+                        <button class="tab-btn active" id="body-tab-rich" onclick="switchBodyTab('rich')">✦ Rich Editor</button>
                         <button class="tab-btn" id="body-tab-source" onclick="switchBodyTab('source')">Source HTML</button>
                     </div>
-                    <div id="body-paste-zone" contenteditable="true" class="paste-zone" placeholder="Click here, then paste from your email editor (Ctrl+V / Cmd+V)…"></div>
+
+                    <!-- Rich text toolbar -->
+                    <div id="rte-toolbar-wrap">
+                        <div class="rte-toolbar">
+                            <select class="rte-select" onchange="execCmd('formatBlock',this.value);this.value=''">
+                                <option value="">Format…</option>
+                                <option value="p">Paragraph</option>
+                                <option value="h2">Heading 2</option>
+                                <option value="h3">Heading 3</option>
+                                <option value="h4">Heading 4</option>
+                            </select>
+                            <select class="rte-select" id="font-size-sel" onchange="execCmd('fontSize',this.value);this.value=''">
+                                <option value="">Size…</option>
+                                <option value="1">Small</option>
+                                <option value="3">Normal</option>
+                                <option value="4">Large</option>
+                                <option value="5">X-Large</option>
+                                <option value="6">XX-Large</option>
+                            </select>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
+                            <button class="rte-btn" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
+                            <button class="rte-btn" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('justifyLeft')" title="Align left">⬅</button>
+                            <button class="rte-btn" onclick="execCmd('justifyCenter')" title="Centre">☰</button>
+                            <button class="rte-btn" onclick="execCmd('justifyRight')" title="Align right">➡</button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('insertUnorderedList')" title="Bullet list">• List</button>
+                            <button class="rte-btn" onclick="execCmd('insertOrderedList')" title="Numbered list">1. List</button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="insertLink()" title="Insert link">🔗</button>
+                            <button class="rte-btn" onclick="insertImageUrl()" title="Insert image by URL">🖼</button>
+                            <span class="rte-btn separator">|</span>
+                            <input type="color" id="rte-color" title="Text colour" style="width:28px;height:28px;padding:1px;border:1px solid var(--border-teal);border-radius:4px;cursor:pointer;" onchange="execCmd('foreColor',this.value)">
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('undo')" title="Undo">↩</button>
+                            <button class="rte-btn" onclick="execCmd('redo')" title="Redo">↪</button>
+                            <button class="rte-btn" onclick="execCmd('removeFormat')" title="Clear formatting" style="font-size:10px;">Clear</button>
+                        </div>
+                        <div id="rte-area" class="rte-area" contenteditable="true"></div>
+                        <!-- Image resize bar — shown when image is selected -->
+                        <div id="img-resize-bar">
+                            <span>Image size:</span>
+                            <input type="range" id="img-size-slider" min="5" max="100" value="100" oninput="resizeSelectedImg(this.value)">
+                            <span id="img-size-label">100%</span>
+                            <button onclick="deSelectImg()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:700;">Done</button>
+                        </div>
+                    </div>
+
                     <textarea id="body-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here…"></textarea>
-                    <div style="font-size:11px; color:#a0b0b0; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above — images and formatting are preserved.</div>
                     <div class="modal-btn-row">
                         <button class="modal-btn cancel" onclick="closeModal('body-modal')">Cancel</button>
                         <button class="modal-btn primary" onclick="saveBodyContent()">Save</button>
@@ -403,7 +444,6 @@ function setSyncStatus(state, text) {
     el.className = state; el.textContent = text;
 }
 
-// ── DEFAULT DATA ────────────────────────────────
 const DEFAULT_MENU = [
     {"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
     {"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},
@@ -421,7 +461,7 @@ const DEFAULT_MENU = [
 ];
 
 const DEFAULT_DASHBOARD = {
-    hero: { title: "Welcome", subtitle: "Select a tool from the menu to get started.", bgImage: "" },
+    hero: { title: "Welcome", subtitle: "Select a tool from the menu to get started.", bgImage: "", bgPosition: 30 },
     bodyHtml: `<h2>Dashboard</h2><p style="color:#7a8c8c;">Select a tool to begin.</p>`,
     newsItems: []
 };
@@ -429,7 +469,6 @@ const DEFAULT_DASHBOARD = {
 let menuItems = [];
 let dashData  = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD));
 
-// ── LOAD ────────────────────────────────────────
 async function loadAll() {
     setSyncStatus('syncing', 'Loading…');
     try {
@@ -470,115 +509,64 @@ function renderDashboard() {
     document.getElementById('hero-title').textContent    = h.title    || 'Welcome';
     document.getElementById('hero-subtitle').textContent = h.subtitle || '';
     const bg = document.getElementById('hero-bg');
-    if (h.bgImage) { bg.style.backgroundImage = `url('${h.bgImage}')`; bg.style.opacity = '0.35'; }
-    else           { bg.style.backgroundImage = ''; bg.style.opacity = '0'; }
-
+    const pos = h.bgPosition !== undefined ? h.bgPosition : 30;
+    if (h.bgImage) {
+        bg.style.backgroundImage    = `url('${h.bgImage}')`;
+        bg.style.backgroundPosition = `center ${pos}%`;
+        bg.style.opacity            = '0.35';
+    } else {
+        bg.style.backgroundImage = '';
+        bg.style.opacity = '0';
+    }
     document.getElementById('body-content-area').innerHTML = dashData.bodyHtml || '';
     renderNews();
 }
 
-// ── NEWS CARDS (continuous auto-scroll) ──────────
-let newsScrollRAF = null;
-let newsScrollPos = 0;
-let newsScrollPaused = false;
-const NEWS_SCROLL_SPEED = 0.5; // px per frame
+// ── NEWS ─────────────────────────────────────────
+let newsScrollRAF = null, newsScrollPos = 0, newsScrollPaused = false;
+const NEWS_SCROLL_SPEED = 0.5;
 
 function renderNews() {
     const items = (dashData.newsItems || []).slice().reverse();
     const track  = document.getElementById('news-track');
     track.innerHTML = '';
-
     if (!items.length) {
         track.innerHTML = `<div style="padding:24px 20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>`;
-        stopNewsScroll();
-        return;
+        stopNewsScroll(); return;
     }
-
     function makeCard(item) {
         const card = document.createElement('div');
         card.className = 'news-card';
-        card.innerHTML = `
-            <div class="news-card-date">${item.date || ''}</div>
-            <div class="news-card-title">${item.title || ''}</div>
-            <div class="news-card-body">${item.body || ''}</div>
-            <button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">✎</button>
-        `;
+        card.innerHTML = `<div class="news-card-date">${item.date||''}</div><div class="news-card-title">${item.title||''}</div><div class="news-card-body">${item.body||''}</div><button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">✎</button>`;
         return card;
     }
-
-    // Render cards + a duplicate set so we can loop seamlessly
     items.forEach(item => track.appendChild(makeCard(item)));
-    // Only duplicate if there's enough content to need scrolling
-    // (we check after layout; duplicates added in startNewsScroll)
-
-    newsScrollPos = 0;
-    track.style.transform = 'translateY(0)';
+    newsScrollPos = 0; track.style.transform = 'translateY(0)';
     startNewsScroll();
 }
-
-function stopNewsScroll() {
-    if (newsScrollRAF) { cancelAnimationFrame(newsScrollRAF); newsScrollRAF = null; }
-}
-
+function stopNewsScroll() { if (newsScrollRAF) { cancelAnimationFrame(newsScrollRAF); newsScrollRAF = null; } }
 function startNewsScroll() {
-    stopNewsScroll();
-    newsScrollPos = 0;
-
+    stopNewsScroll(); newsScrollPos = 0;
     const wrapper = document.getElementById('news-track-wrapper');
     const track   = document.getElementById('news-track');
     if (!wrapper || !track) return;
-
-    // Remove any previously cloned duplicates
     track.querySelectorAll('.news-card-clone').forEach(c => c.remove());
-
     function kick() {
-        const wrapperH = wrapper.clientHeight;
-        const trackH   = track.scrollHeight;
-        if (wrapperH < 10 || trackH < 10) return false; // not ready
-
-        if (trackH <= wrapperH) return true; // fits — no scroll needed
-
-        // Clone cards for seamless infinite loop
-        Array.from(track.children).forEach(c => {
-            const clone = c.cloneNode(true);
-            clone.classList.add('news-card-clone');
-            track.appendChild(clone);
-        });
-
+        const wrapperH = wrapper.clientHeight, trackH = track.scrollHeight;
+        if (wrapperH < 10 || trackH < 10) return false;
+        if (trackH <= wrapperH) return true;
+        Array.from(track.children).forEach(c => { const clone = c.cloneNode(true); clone.classList.add('news-card-clone'); track.appendChild(clone); });
         const halfH = track.scrollHeight / 2;
-
         function step() {
-            if (!newsScrollPaused) {
-                newsScrollPos += NEWS_SCROLL_SPEED;
-                if (newsScrollPos >= halfH) newsScrollPos = 0;
-                track.style.transform = `translateY(-${newsScrollPos}px)`;
-            }
+            if (!newsScrollPaused) { newsScrollPos += NEWS_SCROLL_SPEED; if (newsScrollPos >= halfH) newsScrollPos = 0; track.style.transform = `translateY(-${newsScrollPos}px)`; }
             newsScrollRAF = requestAnimationFrame(step);
         }
         newsScrollRAF = requestAnimationFrame(step);
         return true;
     }
-
-    // Try immediately; if the panel isn't laid out yet, wait for it
-    if (!kick()) {
-        const ro = new ResizeObserver((entries, obs) => {
-            if (entries[0].contentRect.height > 10) {
-                obs.disconnect();
-                kick();
-            }
-        });
-        ro.observe(wrapper);
-    }
+    if (!kick()) { const ro = new ResizeObserver((e,obs) => { if (e[0].contentRect.height > 10) { obs.disconnect(); kick(); } }); ro.observe(wrapper); }
 }
-
-// Pause on hover
-(function() {
-    const wrapper = document.getElementById('news-track-wrapper');
-    if (wrapper) {
-        wrapper.addEventListener('mouseenter', () => { newsScrollPaused = true; });
-        wrapper.addEventListener('mouseleave', () => { newsScrollPaused = false; });
-    }
-})();
+(function(){ const w = document.getElementById('news-track-wrapper'); if (w) { w.addEventListener('mouseenter', () => { newsScrollPaused = true; }); w.addEventListener('mouseleave', () => { newsScrollPaused = false; }); } })();
 
 // ── HERO EDITOR ──────────────────────────────────
 function openHeroEditor() {
@@ -586,130 +574,138 @@ function openHeroEditor() {
     document.getElementById('he-title').value    = h.title    || '';
     document.getElementById('he-subtitle').value = h.subtitle || '';
     document.getElementById('he-img').value      = h.bgImage  || '';
+    const pos = h.bgPosition !== undefined ? h.bgPosition : 30;
+    document.getElementById('he-pos').value      = pos;
+    document.getElementById('he-pos-label').textContent = pos + '%';
+    previewHeroBg();
     openModal('hero-modal');
+}
+function previewHeroBg() {
+    const url = document.getElementById('he-img').value;
+    const pos = document.getElementById('he-pos').value;
+    const prev = document.getElementById('he-preview');
+    if (url) { prev.style.backgroundImage = `url('${url}')`; prev.style.backgroundPosition = `center ${pos}%`; prev.style.opacity = '0.9'; }
+    else { prev.style.backgroundImage = ''; prev.style.backgroundColor = 'var(--accent-teal)'; }
+}
+function previewHeroPos(val) {
+    document.getElementById('he-pos-label').textContent = val + '%';
+    previewHeroBg();
 }
 async function saveHero() {
     dashData.hero = {
-        title:   document.getElementById('he-title').value,
-        subtitle: document.getElementById('he-subtitle').value,
-        bgImage: document.getElementById('he-img').value
+        title:      document.getElementById('he-title').value,
+        subtitle:   document.getElementById('he-subtitle').value,
+        bgImage:    document.getElementById('he-img').value,
+        bgPosition: parseInt(document.getElementById('he-pos').value)
     };
-    await saveDashToDb();
-    renderDashboard();
-    closeModal('hero-modal');
+    await saveDashToDb(); renderDashboard(); closeModal('hero-modal');
 }
 
-// ── PASTE ZONE HELPERS ────────────────────────────
+// ── RICH TEXT EDITOR ─────────────────────────────
+let _selectedImg = null;
 
-function cleanEmailHtml(html) {
-    const div = document.createElement('div');
-    div.innerHTML = html;
+function execCmd(cmd, val) {
+    document.getElementById('rte-area').focus();
+    document.execCommand(cmd, false, val || null);
+}
 
-    // 1. Remove the help/instructions button link (the ? button from the email compiler)
-    div.querySelectorAll('a[href*="emailcompiler"], a[id="helpBtn"], a[aria-label*="instruction"]')
-       .forEach(el => el.remove());
+function insertLink() {
+    const url = prompt('Link URL:', 'https://');
+    if (url) execCmd('createLink', url);
+}
 
-    // 2. Remove <meta>, <style>, <script>, <head> tags
-    div.querySelectorAll('meta, style, script, head, link').forEach(el => el.remove());
-
-    // 3. If there's an email-body div, extract just that
-    const emailBody = div.querySelector('.email-body');
-    if (emailBody) return emailBody.innerHTML;
-
-    // 4. If there's an email-inner td, extract that
-    const emailInner = div.querySelector('.email-inner, td.email-inner');
-    if (emailInner) return emailInner.innerHTML;
-
-    // 5. Strip outermost wrapper tables that are just layout (full-width centering tables)
-    //    Walk inward through single-cell tables until we hit real content
-    let node = div;
-    while (true) {
-        const tables = node.querySelectorAll(':scope > table, :scope > tbody > tr > td > table');
-        const children = Array.from(node.children).filter(c => c.tagName !== 'BR');
-        if (children.length === 1 && children[0].tagName === 'TABLE') {
-            const tds = children[0].querySelectorAll('td');
-            // If it's a single-cell wrapper table, unwrap it
-            if (tds.length <= 2) {
-                const inner = tds[tds.length - 1];
-                if (inner) { node = inner; continue; }
-            }
-        }
-        break;
+function insertImageUrl() {
+    const url = prompt('Image URL:', 'https://');
+    if (url) {
+        document.getElementById('rte-area').focus();
+        document.execCommand('insertHTML', false, `<img src="${url}" style="max-width:100%;border-radius:6px;" />`);
     }
-
-    return node === div ? div.innerHTML : node.innerHTML;
 }
 
+function resizeSelectedImg(pct) {
+    if (!_selectedImg) return;
+    _selectedImg.style.width = pct + '%';
+    _selectedImg.style.maxWidth = '100%';
+    document.getElementById('img-size-label').textContent = pct + '%';
+}
+
+function deSelectImg() {
+    if (_selectedImg) { _selectedImg.classList.remove('selected'); _selectedImg = null; }
+    document.getElementById('img-resize-bar').classList.remove('visible');
+}
+
+// Click on image in RTE to select it for resizing
+document.addEventListener('click', function(e) {
+    const rte = document.getElementById('rte-area');
+    if (!rte) return;
+    if (e.target.tagName === 'IMG' && rte.contains(e.target)) {
+        if (_selectedImg) _selectedImg.classList.remove('selected');
+        _selectedImg = e.target;
+        _selectedImg.classList.add('selected');
+        const currentPct = _selectedImg.style.width ? parseInt(_selectedImg.style.width) : 100;
+        document.getElementById('img-size-slider').value = currentPct;
+        document.getElementById('img-size-label').textContent = currentPct + '%';
+        document.getElementById('img-resize-bar').classList.add('visible');
+    } else if (!e.target.closest('#img-resize-bar')) {
+        deSelectImg();
+    }
+});
+
+function openBodyEditor() {
+    const rte = document.getElementById('rte-area');
+    rte.innerHTML = dashData.bodyHtml || '';
+    document.getElementById('body-source').value = dashData.bodyHtml || '';
+    switchBodyTab('rich');
+    openModal('body-modal');
+}
+
+function switchBodyTab(tab) {
+    const isRich = tab === 'rich';
+    if (!isRich) {
+        // sync RTE → source
+        document.getElementById('body-source').value = document.getElementById('rte-area').innerHTML;
+    } else {
+        // sync source → RTE
+        document.getElementById('rte-area').innerHTML = document.getElementById('body-source').value;
+    }
+    document.getElementById('rte-toolbar-wrap').style.display = isRich ? '' : 'none';
+    document.getElementById('body-source').style.display      = isRich ? 'none' : '';
+    document.getElementById('body-tab-rich').classList.toggle('active', isRich);
+    document.getElementById('body-tab-source').classList.toggle('active', !isRich);
+}
+
+async function saveBodyContent() {
+    const isRich = document.getElementById('rte-toolbar-wrap').style.display !== 'none';
+    dashData.bodyHtml = isRich
+        ? document.getElementById('rte-area').innerHTML
+        : document.getElementById('body-source').value;
+    await saveDashToDb(); renderDashboard(); closeModal('body-modal');
+}
+
+// ── NEWS EDITOR ──────────────────────────────────
 function setupPasteZone(zoneId) {
     const zone = document.getElementById(zoneId);
-    if (!zone) return;
-    // Avoid adding duplicate listeners
-    if (zone._pasteReady) return;
+    if (!zone || zone._pasteReady) return;
     zone._pasteReady = true;
     zone.addEventListener('paste', function(e) {
         e.preventDefault();
         const html = e.clipboardData.getData('text/html');
-        if (html) {
-            const cleaned = cleanEmailHtml(html);
-            // Clear zone and insert cleaned HTML
-            zone.innerHTML = '';
-            const tmp = document.createElement('div');
-            tmp.innerHTML = cleaned;
-            while (tmp.firstChild) zone.appendChild(tmp.firstChild);
-        } else {
-            const text = e.clipboardData.getData('text/plain');
-            zone.innerText = text;
-        }
+        if (html) { zone.innerHTML = ''; const tmp = document.createElement('div'); tmp.innerHTML = cleanEmailHtml(html); while (tmp.firstChild) zone.appendChild(tmp.firstChild); }
+        else { zone.innerText = e.clipboardData.getData('text/plain'); }
     });
 }
+function cleanEmailHtml(html) {
+    const div = document.createElement('div'); div.innerHTML = html;
+    div.querySelectorAll('meta, style, script, head, link').forEach(el => el.remove());
+    const emailBody = div.querySelector('.email-body'); if (emailBody) return emailBody.innerHTML;
+    const emailInner = div.querySelector('.email-inner, td.email-inner'); if (emailInner) return emailInner.innerHTML;
+    return div.innerHTML;
+}
+function getPasteZoneHtml(id) { return document.getElementById(id).innerHTML; }
+function setPasteZoneHtml(id, html) { document.getElementById(id).innerHTML = html || ''; }
+function syncPasteToSource(p, s) { document.getElementById(s).value = document.getElementById(p).innerHTML; }
+function syncSourceToPaste(p, s) { document.getElementById(p).innerHTML = document.getElementById(s).value; }
 
-// Get innerHTML from a paste zone (strip outer wrapper if needed)
-function getPasteZoneHtml(zoneId) {
-    return document.getElementById(zoneId).innerHTML;
-}
-
-// Set paste zone content from stored HTML
-function setPasteZoneHtml(zoneId, html) {
-    document.getElementById(zoneId).innerHTML = html || '';
-}
-
-// Sync paste zone <-> source textarea when switching tabs
-function syncPasteToSource(pasteId, sourceId) {
-    document.getElementById(sourceId).value = document.getElementById(pasteId).innerHTML;
-}
-function syncSourceToPaste(pasteId, sourceId) {
-    document.getElementById(pasteId).innerHTML = document.getElementById(sourceId).value;
-}
-
-// ── BODY EDITOR ──────────────────────────────────
-function openBodyEditor() {
-    setupPasteZone('body-paste-zone');
-    setPasteZoneHtml('body-paste-zone', dashData.bodyHtml || '');
-    document.getElementById('body-source').value = dashData.bodyHtml || '';
-    switchBodyTab('paste');
-    openModal('body-modal');
-}
-function switchBodyTab(tab) {
-    const isPaste = tab === 'paste';
-    if (!isPaste) syncPasteToSource('body-paste-zone', 'body-source');
-    else          syncSourceToPaste('body-paste-zone', 'body-source');
-    document.getElementById('body-paste-zone').style.display = isPaste ? '' : 'none';
-    document.getElementById('body-source').style.display     = isPaste ? 'none' : '';
-    document.getElementById('body-tab-paste').classList.toggle('active', isPaste);
-    document.getElementById('body-tab-source').classList.toggle('active', !isPaste);
-}
-async function saveBodyContent() {
-    // Whichever tab is active, collect the latest HTML
-    const isPaste = document.getElementById('body-paste-zone').style.display !== 'none';
-    dashData.bodyHtml = isPaste
-        ? getPasteZoneHtml('body-paste-zone')
-        : document.getElementById('body-source').value;
-    await saveDashToDb();
-    renderDashboard();
-    closeModal('body-modal');
-}
-
-// ── NEWS EDITOR ──────────────────────────────────
 function openNewsEditor(id) {
     const item = id ? (dashData.newsItems || []).find(n => n.id == id) : null;
     setupPasteZone('ne-paste-zone');
@@ -725,8 +721,7 @@ function openNewsEditor(id) {
 }
 function switchNewsTab(tab) {
     const isPaste = tab === 'paste';
-    if (!isPaste) syncPasteToSource('ne-paste-zone', 'ne-source');
-    else          syncSourceToPaste('ne-paste-zone', 'ne-source');
+    if (!isPaste) syncPasteToSource('ne-paste-zone', 'ne-source'); else syncSourceToPaste('ne-paste-zone', 'ne-source');
     document.getElementById('ne-paste-zone').style.display = isPaste ? '' : 'none';
     document.getElementById('ne-source').style.display     = isPaste ? 'none' : '';
     document.getElementById('news-tab-paste').classList.toggle('active', isPaste);
@@ -736,71 +731,48 @@ async function saveNewsItem() {
     if (!dashData.newsItems) dashData.newsItems = [];
     const id = document.getElementById('ne-id').value;
     const isPaste = document.getElementById('ne-paste-zone').style.display !== 'none';
-    const body = isPaste
-        ? getPasteZoneHtml('ne-paste-zone')
-        : document.getElementById('ne-source').value;
-    const data = {
-        id:    id || Date.now(),
-        title: document.getElementById('ne-title').value,
-        date:  document.getElementById('ne-date').value,
-        body:  body
-    };
-    if (id) {
-        const idx = dashData.newsItems.findIndex(n => n.id == id);
-        if (idx >= 0) dashData.newsItems[idx] = data; else dashData.newsItems.push(data);
-    } else { dashData.newsItems.push(data); }
-    await saveDashToDb();
-    newsPage = 0;
-    renderDashboard();
-    closeModal('news-modal');
+    const body = isPaste ? getPasteZoneHtml('ne-paste-zone') : document.getElementById('ne-source').value;
+    const data = { id: id || Date.now(), title: document.getElementById('ne-title').value, date: document.getElementById('ne-date').value, body };
+    if (id) { const idx = dashData.newsItems.findIndex(n => n.id == id); if (idx >= 0) dashData.newsItems[idx] = data; else dashData.newsItems.push(data); }
+    else { dashData.newsItems.push(data); }
+    await saveDashToDb(); renderDashboard(); closeModal('news-modal');
 }
 async function deleteNewsItem() {
     const id = document.getElementById('ne-id').value;
     dashData.newsItems = (dashData.newsItems || []).filter(n => n.id != id);
-    await saveDashToDb();
-    newsPage = 0;
-    renderDashboard();
-    closeModal('news-modal');
+    await saveDashToDb(); renderDashboard(); closeModal('news-modal');
 }
 
-// ── DASHBOARD EDITOR shortcut from admin panel ──
 function openDashboardEditor() { openModal('dash-settings-modal'); }
-
-// ── MODAL HELPERS ────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-// ── MENU MODAL ───────────────────────────────────
 function openMenuModal()  { document.getElementById('menu-modal-overlay').classList.add('open'); }
 function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }
 
 // ── ICONS ────────────────────────────────────────
 const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
 const ICONS = {
-    home: `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
-    calendar: `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
-    music: `<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
-    worship: `<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
-    av: `<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
-    youth: `<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
-    trouble: `<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
-    training: `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
-    social: `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
-    core: `<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
-    leader: `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
-    heart: `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+    home:`<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
+    calendar:`<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
+    music:`<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
+    worship:`<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
+    av:`<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
+    youth:`<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
+    trouble:`<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
+    training:`<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
+    social:`<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
+    core:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    leader:`<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
+    heart:`<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
 };
 
 const urlParams = new URLSearchParams(window.location.search);
 const userRole  = urlParams.get('role') || 'worship';
 
-// ── RENDER MENU ──────────────────────────────────
 function renderMenu() {
-    const list         = document.getElementById('nav-list');
+    const list = document.getElementById('nav-list');
     const parentSelect = document.getElementById('nodeParent');
-    list.innerHTML = '';
-    parentSelect.innerHTML = '<option value="none">Top Level</option>';
-
+    list.innerHTML = ''; parentSelect.innerHTML = '<option value="none">Top Level</option>';
     const buildTree = (parentId, level = 0) => {
         const children = menuItems.filter(i => {
             if (i.parent != parentId) return false;
@@ -812,15 +784,7 @@ function renderMenu() {
             const wrapper = document.createElement('div');
             wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
             wrapper.dataset.id = item.id;
-            wrapper.innerHTML = `
-                <div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')">
-                    <div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div>
-                    <span class="nav-text">${item.name}</span>
-                    ${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}
-                    <div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">&#9998;</div>
-                </div>
-                <div class="child-container" id="child-of-${item.id}"></div>
-            `;
+            wrapper.innerHTML = `<div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')"><div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div><span class="nav-text">${item.name}</span>${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}<div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">&#9998;</div></div><div class="child-container" id="child-of-${item.id}"></div>`;
             const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
             if (targetContainer) targetContainer.appendChild(wrapper);
             if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
@@ -830,91 +794,38 @@ function renderMenu() {
     buildTree('none');
 }
 
-// ── FOCUS DIMMING ────────────────────────────────
-function updateFocusState() {
-    const navList = document.getElementById('nav-list');
-    const anyOpen = navList.querySelector('.has-children.open');
-    navList.classList.toggle('has-open', !!anyOpen);
-}
-function closeAllMenus() {
-    document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open'));
-    updateFocusState();
-}
-
-// ── NAVIGATION ───────────────────────────────────
+function updateFocusState() { const navList = document.getElementById('nav-list'); const anyOpen = navList.querySelector('.has-children.open'); navList.classList.toggle('has-open', !!anyOpen); }
+function closeAllMenus() { document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open')); updateFocusState(); }
 function handleItemClick(event, id, url, logo) {
     const wrapper = event.currentTarget.parentElement;
-    if (wrapper.classList.contains('has-children')) {
-        const isOpening = !wrapper.classList.contains('open');
-        wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open'));
-        if (isOpening) wrapper.classList.add('open');
-        updateFocusState();
-    }
+    if (wrapper.classList.contains('has-children')) { const isOpening = !wrapper.classList.contains('open'); wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open')); if (isOpening) wrapper.classList.add('open'); updateFocusState(); }
     if (url && url !== '#' && url !== 'landing') navigate(url, logo);
     else if (url === 'landing') showLanding(logo);
 }
-function navigate(url, logoUrl) {
-    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
-    document.getElementById('landing-content').style.display = 'none';
-    const frame = document.getElementById('app-frame');
-    frame.style.display = 'block';
-    frame.src = url;
-}
-function showLanding(logoUrl) {
-    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
-    document.getElementById('app-frame').style.display  = 'none';
-    document.getElementById('landing-content').style.display = 'flex';
-}
+function navigate(url, logoUrl) { document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO; document.getElementById('landing-content').style.display = 'none'; const frame = document.getElementById('app-frame'); frame.style.display = 'block'; frame.src = url; }
+function showLanding(logoUrl) { document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO; document.getElementById('app-frame').style.display = 'none'; document.getElementById('landing-content').style.display = 'flex'; }
 
-// ── SECRET ADMIN TRIGGER ─────────────────────────
 let clickCount = 0;
 function handleSecret() {
     if (userRole !== 'core') return;
     clickCount++;
     if (clickCount >= 3) {
         const isAdminVisible = document.getElementById('admin-controls').style.display === 'block';
-        if (isAdminVisible) {
-            document.getElementById('admin-controls').style.display = 'none';
-            document.getElementById('secret-trigger').style.color   = '#a0b0b0';
-            document.getElementById('nav-list').classList.remove('admin-active');
-            document.body.classList.remove('admin-mode');
-            clickCount = 0;
-        } else {
-            document.getElementById('admin-controls').style.display = 'block';
-            document.getElementById('secret-trigger').style.color   = '#9bc34a';
-            document.getElementById('nav-list').classList.add('admin-active');
-            document.body.classList.add('admin-mode');
-        }
+        if (isAdminVisible) { document.getElementById('admin-controls').style.display = 'none'; document.getElementById('secret-trigger').style.color = '#a0b0b0'; document.getElementById('nav-list').classList.remove('admin-active'); document.body.classList.remove('admin-mode'); clickCount = 0; }
+        else { document.getElementById('admin-controls').style.display = 'block'; document.getElementById('secret-trigger').style.color = '#9bc34a'; document.getElementById('nav-list').classList.add('admin-active'); document.body.classList.add('admin-mode'); }
         renderMenu();
     }
 }
 
-// ── MENU PAGE CRUD ───────────────────────────────
 function openEdit(id) {
     const item = menuItems.find(i => i.id == id);
-    document.getElementById('editId').value       = id;
-    document.getElementById('nodeName').value     = item.name;
-    document.getElementById('nodeUrl').value      = item.url;
-    document.getElementById('nodeLogo').value     = item.logo || '';
-    document.getElementById('nodeParent').value   = item.parent;
-    document.getElementById('nodeIcon').value     = item.icon;
-    document.getElementById('nodeRole').value     = item.role || 'worship';
-    document.getElementById('deleteBtn').style.display = 'block';
+    document.getElementById('editId').value = id; document.getElementById('nodeName').value = item.name; document.getElementById('nodeUrl').value = item.url; document.getElementById('nodeLogo').value = item.logo || ''; document.getElementById('nodeParent').value = item.parent; document.getElementById('nodeIcon').value = item.icon; document.getElementById('nodeRole').value = item.role || 'worship'; document.getElementById('deleteBtn').style.display = 'block';
     openMenuModal();
 }
 async function savePage() {
     const id = document.getElementById('editId').value;
-    const data = {
-        id: id ? parseInt(id) : Date.now(),
-        name: document.getElementById('nodeName').value,
-        url: document.getElementById('nodeUrl').value,
-        logo: document.getElementById('nodeLogo').value,
-        parent: document.getElementById('nodeParent').value,
-        icon: document.getElementById('nodeIcon').value,
-        role: document.getElementById('nodeRole').value
-    };
-    if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data;
-    else menuItems.push(data);
+    const data = { id: id ? parseInt(id) : Date.now(), name: document.getElementById('nodeName').value, url: document.getElementById('nodeUrl').value, logo: document.getElementById('nodeLogo').value, parent: document.getElementById('nodeParent').value, icon: document.getElementById('nodeIcon').value, role: document.getElementById('nodeRole').value };
+    if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data; else menuItems.push(data);
     await saveMenuToDb(); renderMenu(); closeMenuModal();
 }
 async function deletePage() {
@@ -923,12 +834,9 @@ async function deletePage() {
     await saveMenuToDb(); renderMenu(); closeMenuModal();
 }
 async function resetMenu() {
-    if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
-        menuItems = DEFAULT_MENU; await saveMenuToDb(); renderMenu();
-    }
+    if (confirm("Factory Reset? This will restore the default menu for ALL users.")) { menuItems = DEFAULT_MENU; await saveMenuToDb(); renderMenu(); }
 }
 
-// ── KICK OFF ─────────────────────────────────────
 loadAll();
 </script>
 </body>
