@@ -21,6 +21,14 @@
     .admin-tab.hidden{display:none}
     mark{background:#fef08a;border-radius:2px;padding:0 2px}
     .jump-btn{transition:all 0.15s}.jump-btn:hover{background:#3d6263;color:white}
+    .drop-zone{border:2px dashed #d1dfdf;border-radius:1rem;padding:1.5rem;text-align:center;cursor:pointer;transition:all 0.2s}
+    .drop-zone:hover,.drop-zone.drag-over{border-color:#3d6263;background:#e8f4f4}
+    .drop-zone.analysing{border-color:#3d6263;background:#e8f4f4;cursor:wait}
+    .chord-section{background:white;border:1px solid #d1dfdf;border-radius:1rem;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem}
+    .chord-badge{background:#3d6263;color:white;border-radius:9999px;padding:0.2rem 0.75rem;font-size:10px;font-weight:900;white-space:nowrap}
+    .chord-value{font-family:monospace;font-size:12px;color:#3d6263;font-weight:700}
+    .analyse-progress{height:4px;background:#d1dfdf;border-radius:2px;overflow:hidden;margin-top:0.5rem}
+    .analyse-progress-bar{height:100%;background:#3d6263;border-radius:2px;transition:width 0.3s}
   </style>
 </head>
 <body class="p-6 lg:p-10 min-h-screen">
@@ -67,16 +75,14 @@
     </div>
   </div>
 
-  <!-- FILTERS: SECTION TABS + KEY BUTTONS -->
+  <!-- FILTERS -->
   <div class="flex flex-wrap gap-3 mb-8 items-center">
-    <!-- Section tabs -->
     <div class="flex gap-1 bg-white p-1.5 rounded-full border border-[#d1dfdf] shadow-sm">
       <button onclick="setSection('all')" id="sec-all" class="tab-btn active px-5 py-2 rounded-full font-black text-[10px] uppercase">All Songs</button>
       <button onclick="setSection('Intro')" id="sec-Intro" class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase">Intros</button>
       <button onclick="setSection('Chorus')" id="sec-Chorus" class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase">Chorus</button>
       <button onclick="setSection('Full Song')" id="sec-FullSong" class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase">Full Songs</button>
     </div>
-    <!-- Key filter -->
     <div class="flex gap-1 bg-white p-1.5 rounded-full border border-[#d1dfdf] shadow-sm flex-wrap items-center">
       <span class="text-[9px] font-black uppercase opacity-40 px-2">Key:</span>
       <button onclick="setKey('all')" id="key-all" class="key-btn active px-3 py-2 rounded-full font-black text-[10px]">All</button>
@@ -112,9 +118,9 @@
           <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
             <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Song / Section</h3>
 
+            <!-- STEP 1: Embed -->
             <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-2">
               <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Paste embed code from Stream</div>
-              <div class="text-[11px] text-[#3d6263] opacity-60">In Stream: open video → Share → Embed → copy full iframe code → paste below</div>
               <textarea id="adminContentURL" rows="3" placeholder="Paste iframe embed code here…"
                 class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none"
                 oninput="handleEmbedPaste(this)" onpaste="setTimeout(()=>handleEmbedPaste(this),50)"></textarea>
@@ -123,10 +129,7 @@
 
             <div id="autoFilledSection" class="hidden space-y-3">
               <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60 pt-1">Step 2 — Song details</div>
-
               <input id="adminTitle" type="text" placeholder="Title (auto-filled)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-
-              <!-- Song-specific fields -->
               <div class="grid grid-cols-2 gap-2">
                 <input id="adminSongTitle" type="text" placeholder="Song Title e.g. Sovereign" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
                 <select id="adminOurKey" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
@@ -145,9 +148,28 @@
                   <option>Guitar</option><option>Keyboard</option><option>Both</option>
                 </select>
               </div>
-
               <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
               <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+
+              <!-- STEP 3: Chord Detection -->
+              <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
+                <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 3 — Chord Detection</div>
+                <div class="text-[11px] text-[#3d6263] opacity-60">Drop your video/audio file here. Chords are detected locally — the file is never uploaded anywhere.</div>
+                <div id="adminDropZone" class="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleFileDrop(event,'admin')" onclick="document.getElementById('adminFileInput').click()">
+                  <div class="text-2xl mb-1">🎵</div>
+                  <div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div>
+                  <div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>
+                </div>
+                <input id="adminFileInput" type="file" accept="video/*,audio/*" class="hidden" onchange="handleFileSelect(event,'admin')">
+                <div id="adminAnalyseProgress" class="hidden">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-4 h-4 rounded-full animate-spin flex-shrink-0" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+                    <span id="adminAnalyseStatus" class="text-[11px] font-bold uppercase opacity-60">Analysing audio…</span>
+                  </div>
+                  <div class="analyse-progress"><div id="adminProgressBar" class="analyse-progress-bar" style="width:0%"></div></div>
+                </div>
+                <div id="adminChordsResult" class="hidden space-y-2"></div>
+              </div>
 
               <div id="transcriptStatus" class="hidden text-[12px] font-semibold px-1"></div>
               <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" placeholder="Paste transcript here — Stream > video > Transcript tab > select all > copy"></textarea>
@@ -204,7 +226,28 @@
           </div>
           <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
           <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-          <textarea id="editBullets" rows="6" placeholder="Play-through notes..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <textarea id="editBullets" rows="4" placeholder="Play-through notes..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+
+          <!-- CHORD DETECTION IN EDIT -->
+          <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
+            <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Add / Update Chord Detection</div>
+            <div class="text-[11px] text-[#3d6263] opacity-60">Drop the original video/audio file to detect chords per section. File is analysed locally and discarded.</div>
+            <div id="editDropZone" class="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleFileDrop(event,'edit')" onclick="document.getElementById('editFileInput').click()">
+              <div class="text-2xl mb-1">🎵</div>
+              <div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div>
+              <div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>
+            </div>
+            <input id="editFileInput" type="file" accept="video/*,audio/*" class="hidden" onchange="handleFileSelect(event,'edit')">
+            <div id="editAnalyseProgress" class="hidden">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-4 h-4 rounded-full animate-spin flex-shrink-0" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+                <span id="editAnalyseStatus" class="text-[11px] font-bold uppercase opacity-60">Analysing audio…</span>
+              </div>
+              <div class="analyse-progress"><div id="editProgressBar" class="analyse-progress-bar" style="width:0%"></div></div>
+            </div>
+            <div id="editChordsResult" class="hidden space-y-2"></div>
+          </div>
+
           <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Save Changes</button>
         </div>
       </div>
@@ -238,33 +281,29 @@ const SP_SITE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
 
 let allAssets=[],categories=JSON.parse(localStorage.getItem(CAT_KEY)||'[]'),currentQuery='',currentSection='all',currentKey='all';
 
+// Chord detection state
+let adminDetectedChords={};
+let editDetectedChords={};
+
 document.addEventListener('DOMContentLoaded',()=>{
   loadAssets().then(()=>{
-    // Read URL params and auto-filter
-    const params = new URLSearchParams(window.location.search);
-    const paramSong = params.get('song');
-    const paramKey  = params.get('key');
-    if(paramSong || paramKey){
-      // Set key filter
+    const params=new URLSearchParams(window.location.search);
+    const paramSong=params.get('song');
+    const paramKey=params.get('key');
+    if(paramSong||paramKey){
       if(paramKey){
-        currentKey = paramKey;
+        currentKey=paramKey;
         document.querySelectorAll('.key-btn').forEach(b=>b.classList.remove('active'));
-        const kb = document.getElementById('key-'+paramKey);
-        if(kb) kb.classList.add('active');
+        const kb=document.getElementById('key-'+paramKey);
+        if(kb)kb.classList.add('active');
       }
-      // Filter and show results
-      const filtered = allAssets.filter(a=>{
-        const songMatch = !paramSong || (a.songTitle||'').toLowerCase()===paramSong.toLowerCase() || (a.title||'').toLowerCase().includes(paramSong.toLowerCase());
-        const keyMatch  = !paramKey  || (a.ourKey||'').toLowerCase()===paramKey.toLowerCase();
-        return songMatch && keyMatch;
+      const filtered=allAssets.filter(a=>{
+        const songMatch=!paramSong||(a.songTitle||'').toLowerCase()===paramSong.toLowerCase()||(a.title||'').toLowerCase().includes(paramSong.toLowerCase());
+        const keyMatch=!paramKey||(a.ourKey||'').toLowerCase()===paramKey.toLowerCase();
+        return songMatch&&keyMatch;
       });
       if(filtered.length){
-        // Show a banner
-        document.getElementById('searchResults').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] px-6 py-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
-          <div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Showing play-throughs for</div>
-          <div class="font-black text-lg">${paramSong||''}${paramKey?' — Key: '+paramKey:''}</div></div>
-          <button onclick="clearSearch()" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Show All</button>
-        </div>`;
+        document.getElementById('searchResults').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] px-6 py-4 mb-6 flex items-center justify-between gap-4 flex-wrap"><div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Showing play-throughs for</div><div class="font-black text-lg">${paramSong||''}${paramKey?' — Key: '+paramKey:''}</div></div><button onclick="clearSearch()" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Show All</button></div>`;
         document.getElementById('searchResults').classList.remove('hidden');
         renderContent(filtered);
       }
@@ -278,7 +317,6 @@ async function loadAssets(){
   try{
     const snap=await db.collection(COLLECTION).where('published','==',true).orderBy('createdAt','desc').get();
     allAssets=snap.docs.map(d=>({id:d.id,...d.data()}));
-    console.log('KB: Loaded',allAssets.length,'songs');
   }catch(e){console.log('KB load error:',e.message);allAssets=[];}
   renderContent(allAssets);
   return allAssets;
@@ -291,8 +329,8 @@ async function loadAll(){
 
 function getFiltered(){
   let assets=allAssets;
-  if(currentSection!=='all') assets=assets.filter(a=>a.songSection===currentSection);
-  if(currentKey!=='all') assets=assets.filter(a=>a.ourKey===currentKey);
+  if(currentSection!=='all')assets=assets.filter(a=>a.songSection===currentSection);
+  if(currentKey!=='all')assets=assets.filter(a=>a.ourKey===currentKey);
   return assets;
 }
 
@@ -320,9 +358,10 @@ function toggleSec(id){const el=document.getElementById(id);const chv=document.g
 function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
 
 function cardHTML(a,highlight=''){
-  const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
-  const title=highlight?hlText(a.title||'',highlight):(a.title||'');
   const sections=a.sectionMarkers||[];
+  const chordsPerSection=a.chordsPerSection||{};
+  const hasSectionChords=Object.keys(chordsPerSection).length>0;
+  const title=highlight?hlText(a.title||'',highlight):(a.title||'');
   return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}')">
     <div class="flex justify-between items-start mb-3">
       <span class="text-xl">${{Guitar:'🎸',Keyboard:'🎹',Both:'🎸🎹'}[a.instrument]||'▶'}</span>
@@ -332,17 +371,17 @@ function cardHTML(a,highlight=''){
       </div>
     </div>
     <h3 class="font-black text-base mb-1 leading-snug">${title}</h3>
-    ${a.songTitle&&a.songTitle!==a.title?`<div class="text-[11px] opacity-50 mb-3">${a.songTitle}</div>`:''}
-    ${a.detectedChords?`<div class="font-mono text-[11px] text-[#3d6263] opacity-60 mb-3 bg-[#f0f6f6] px-3 py-1.5 rounded-lg inline-block">${a.detectedChords}</div>`:''}
-    ${sections.length?`<div class="flex flex-wrap gap-1.5 mb-3">${sections.slice(0,4).map(s=>`<button onclick="event.stopPropagation();openCardAtTime('${a.id}',${s.seconds})" class="jump-btn bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1"><span class="opacity-50">▶</span>${s.label} <span class="opacity-40">${fmtTime(s.seconds)}</span></button>`).join('')}</div>`:''}
-    ${bullets.length?`<div class="space-y-1.5">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}</div>`:''}
+    ${a.songTitle&&a.songTitle!==a.title?`<div class="text-[11px] opacity-50 mb-2">${a.songTitle}</div>`:''}
+    ${hasSectionChords?`<div class="space-y-1.5 mb-3">${Object.entries(chordsPerSection).slice(0,3).map(([sec,chords])=>`<div class="flex items-center gap-2"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`).join('')}</div>`:a.detectedChords?`<div class="font-mono text-[11px] text-[#3d6263] opacity-60 mb-3 bg-[#f0f6f6] px-3 py-1.5 rounded-lg inline-block">${a.detectedChords}</div>`:''}
+    ${sections.length?`<div class="flex flex-wrap gap-1.5">${sections.slice(0,4).map(s=>`<button onclick="event.stopPropagation();openCardAtTime('${a.id}',${s.seconds})" class="jump-btn bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1"><span class="opacity-50">▶</span>${s.label} <span class="opacity-40">${fmtTime(s.seconds)}</span></button>`).join('')}</div>`:''}
   </div>`;
 }
 
 function openCard(id,startTime=null){
   const a=allAssets.find(x=>x.id===id);if(!a)return;
-  const bullets=(a.bullets||'').split('\n').filter(b=>b.trim());
   const sections=a.sectionMarkers||[];
+  const chordsPerSection=a.chordsPerSection||{};
+  const hasSectionChords=Object.keys(chordsPerSection).length>0;
   const hasURL=a.contentURL&&a.contentURL.trim();
   let src='';
   if(hasURL){
@@ -357,34 +396,286 @@ function openCard(id,startTime=null){
       ${a.songSection?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.songSection}</span>`:''}
       ${a.instrument?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.instrument}</span>`:''}
       ${a.tempo?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.tempo} BPM</span>`:''}
-      ${a.detectedChords?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold font-mono">Chords: ${a.detectedChords}</span>`:''}
     </div>
     ${src?`<div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap"><iframe id="videoFrame" src="${src}" allowfullscreen></iframe></div>`:''}
     ${sections.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-4 border border-[#d1dfdf] mb-6">
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Jump to section</div>
       <div class="flex flex-wrap gap-2">${sections.map(s=>`<button onclick="jumpToTime(${s.seconds})" class="jump-btn bg-white border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold flex items-center gap-2"><span class="text-[#3d6263]">▶</span>${s.label}<span class="opacity-40 text-[10px]">${fmtTime(s.seconds)}</span></button>`).join('')}</div>
     </div>`:''}
-    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
+    ${hasSectionChords?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Chords by Section</div>
+      <div class="space-y-2">${Object.entries(chordsPerSection).map(([sec,chords])=>`<div class="chord-section"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`).join('')}</div>
+    </div>`:a.detectedChords?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Detected Chords</div><div class="font-mono font-bold">${a.detectedChords}</div></div>`:''}
+    ${(a.bullets||'').split('\n').filter(b=>b.trim()).length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How We Play It</div>
-      <div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
+      <div class="space-y-3">${(a.bullets||'').split('\n').filter(b=>b.trim()).map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
     </div>`:''}`;
   document.getElementById('modal').classList.remove('hidden');
 }
 
 function openCardAtTime(id,seconds){openCard(id,seconds);}
-
 function jumpToTime(seconds){
   const frame=document.getElementById('videoFrame');if(!frame)return;
-  const src=frame.src;
-  const base=src.split('?')[0];
-  const params=new URLSearchParams(src.includes('?')?src.split('?')[1]:'');
+  const base=frame.src.split('?')[0];
+  const params=new URLSearchParams(frame.src.includes('?')?frame.src.split('?')[1]:'');
   params.set('startTime',seconds);
   frame.src=base+'?'+params.toString();
 }
-
 function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
 
-// SECTION + KEY FILTERS
+// ─── CHORD DETECTION ───────────────────────────────────────────────────────
+// Uses Web Audio API + chromagram-based chord detection
+// No external library needed — pure browser Web Audio + FFT
+
+const CHORD_TEMPLATES = {
+  'C':  [1,0,0,0,1,0,0,1,0,0,0,0],
+  'C#': [0,1,0,0,0,1,0,0,1,0,0,0],
+  'D':  [0,0,1,0,0,0,1,0,0,1,0,0],
+  'Eb': [0,0,0,1,0,0,0,1,0,0,1,0],
+  'E':  [0,0,0,0,1,0,0,0,1,0,0,1],
+  'F':  [1,0,0,0,0,1,0,0,0,1,0,0],
+  'F#': [0,1,0,0,0,0,1,0,0,0,1,0],
+  'G':  [0,0,1,0,0,0,0,1,0,0,0,1],
+  'Ab': [1,0,0,1,0,0,0,0,1,0,0,0],
+  'A':  [0,1,0,0,1,0,0,0,0,1,0,0],
+  'Bb': [0,0,1,0,0,1,0,0,0,0,1,0],
+  'B':  [0,0,0,1,0,0,1,0,0,0,0,1],
+  'Cm': [1,0,0,1,0,0,0,1,0,0,0,0],
+  'C#m':[0,1,0,0,1,0,0,0,1,0,0,0],
+  'Dm': [0,0,1,0,0,1,0,0,0,1,0,0],
+  'Ebm':[0,0,0,1,0,0,1,0,0,0,1,0],
+  'Em': [0,0,0,0,1,0,0,1,0,0,0,1],
+  'Fm': [1,0,0,0,0,1,0,0,1,0,0,0],
+  'F#m':[0,1,0,0,0,0,1,0,0,1,0,0],
+  'Gm': [0,0,1,0,0,0,0,1,0,0,1,0],
+  'Abm':[1,0,0,1,0,0,0,0,1,0,0,0],
+  'Am': [0,1,0,0,1,0,0,0,0,1,0,0],
+  'Bbm':[0,0,1,0,0,1,0,0,0,0,1,0],
+  'Bm': [0,0,0,1,0,0,1,0,0,0,0,1],
+};
+
+function matchChord(chroma){
+  let best='',bestScore=-1;
+  for(const [name,tmpl] of Object.entries(CHORD_TEMPLATES)){
+    let score=0;
+    for(let i=0;i<12;i++) score+=chroma[i]*tmpl[i];
+    if(score>bestScore){bestScore=score;best=name;}
+  }
+  return best;
+}
+
+function computeChroma(freqData,sampleRate,fftSize){
+  const chroma=new Array(12).fill(0);
+  const nyquist=sampleRate/2;
+  const binHz=nyquist/(fftSize/2);
+  for(let i=1;i<fftSize/2;i++){
+    const freq=i*binHz;
+    if(freq<80||freq>2000)continue;
+    const midi=Math.round(12*(Math.log2(freq/440))+69);
+    const pc=((midi%12)+12)%12;
+    const amp=freqData[i]/255;
+    chroma[pc]+=amp*amp;
+  }
+  // Normalise
+  const mx=Math.max(...chroma)||1;
+  return chroma.map(v=>v/mx);
+}
+
+async function analyseAudio(file, context, sectionMarkers){
+  const arrayBuffer = await file.arrayBuffer();
+  const audioBuffer = await context.decodeAudioData(arrayBuffer);
+  const channelData = audioBuffer.getChannelData(0);
+  const sampleRate = audioBuffer.sampleRate;
+  const duration = audioBuffer.duration;
+
+  const fftSize = 4096;
+  const hopSize = fftSize / 2;
+  const frameCount = Math.floor((channelData.length - fftSize) / hopSize);
+
+  // Build offline context for FFT
+  const offlineCtx = new OfflineAudioContext(1, channelData.length, sampleRate);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = audioBuffer;
+
+  const analyser = offlineCtx.createAnalyser();
+  analyser.fftSize = fftSize;
+  source.connect(analyser);
+  analyser.connect(offlineCtx.destination);
+
+  // Process in chunks using Web Audio FFT via manual approach
+  // We'll use a sliding window approach on the raw PCM data
+  const chordTimeline = []; // [{time, chord}]
+
+  const windowSize = fftSize;
+  const step = Math.floor(sampleRate * 0.5); // analyse every 0.5 seconds
+
+  for(let offset = 0; offset + windowSize < channelData.length; offset += step){
+    const time = offset / sampleRate;
+
+    // Compute power spectrum manually via DFT on windowed segment
+    const window = channelData.slice(offset, offset + windowSize);
+
+    // Apply Hann window
+    const windowed = new Float32Array(windowSize);
+    for(let i=0;i<windowSize;i++){
+      windowed[i] = window[i] * 0.5*(1-Math.cos(2*Math.PI*i/(windowSize-1)));
+    }
+
+    // Compute chroma from frequency bins using simplified approach
+    // Map each PCM sample to chromagram via pitch class energy
+    const chroma = new Array(12).fill(0);
+    const nyquist = sampleRate / 2;
+
+    // Use 256-point DFT for speed (sufficient for chord detection)
+    const dftSize = 256;
+    const dftStep = Math.floor(windowSize / dftSize);
+    const re = new Float32Array(dftSize);
+    const im = new Float32Array(dftSize);
+
+    // Downsample
+    const downsampled = new Float32Array(dftSize);
+    for(let i=0;i<dftSize;i++) downsampled[i] = windowed[i*dftStep]||0;
+
+    // DFT
+    for(let k=0;k<dftSize/2;k++){
+      let r=0,img=0;
+      for(let n=0;n<dftSize;n++){
+        const angle = 2*Math.PI*k*n/dftSize;
+        r += downsampled[n]*Math.cos(angle);
+        img -= downsampled[n]*Math.sin(angle);
+      }
+      const freq = k * (sampleRate/dftStep) / dftSize;
+      const mag = Math.sqrt(r*r+img*img);
+      if(freq>=80&&freq<=2000){
+        const midi = Math.round(12*(Math.log2(freq/440))+69);
+        const pc = ((midi%12)+12)%12;
+        chroma[pc] += mag;
+      }
+    }
+
+    // Normalise chroma
+    const mx = Math.max(...chroma)||1;
+    const normChroma = chroma.map(v=>v/mx);
+    const chord = matchChord(normChroma);
+    chordTimeline.push({time, chord});
+  }
+
+  // Now group chords by section using sectionMarkers
+  // sectionMarkers: [{label, seconds}]
+  const result = {};
+
+  if(sectionMarkers && sectionMarkers.length > 0){
+    // Sort markers by time
+    const sorted = [...sectionMarkers].sort((a,b)=>a.seconds-b.seconds);
+    for(let i=0;i<sorted.length;i++){
+      const start = sorted[i].seconds;
+      const end = i+1 < sorted.length ? sorted[i+1].seconds : duration;
+      const label = sorted[i].label;
+
+      // Collect chords in this time window
+      const sectionChords = chordTimeline
+        .filter(c=>c.time>=start&&c.time<end)
+        .map(c=>c.chord);
+
+      // Deduplicate consecutive same chords and get unique sequence
+      const unique = [];
+      sectionChords.forEach(c=>{if(!unique.length||unique[unique.length-1]!==c)unique.push(c);});
+
+      // Count chord frequencies and pick top 4
+      const freq={};
+      sectionChords.forEach(c=>{freq[c]=(freq[c]||0)+1;});
+      const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]);
+
+      if(top.length) result[label] = top.join(' – ');
+    }
+  } else {
+    // No section markers — just give overall chord progression
+    const freq={};
+    chordTimeline.forEach(c=>{freq[c.chord]=(freq[c.chord]||0)+1;});
+    const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
+    if(top.length) result['Full Song'] = top.join(' – ');
+  }
+
+  return result;
+}
+
+function handleFileDrop(event, context){
+  event.preventDefault();
+  const zone = document.getElementById(context+'DropZone');
+  zone.classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if(file) processAudioFile(file, context);
+}
+
+function handleFileSelect(event, context){
+  const file = event.target.files[0];
+  if(file) processAudioFile(file, context);
+}
+
+async function processAudioFile(file, context){
+  const zone = document.getElementById(context+'DropZone');
+  const progress = document.getElementById(context+'AnalyseProgress');
+  const statusEl = document.getElementById(context+'AnalyseStatus');
+  const bar = document.getElementById(context+'ProgressBar');
+  const resultEl = document.getElementById(context+'ChordsResult');
+
+  zone.classList.add('analysing');
+  zone.innerHTML = `<div class="text-[11px] font-bold opacity-60">📁 ${file.name}</div>`;
+  progress.classList.remove('hidden');
+  resultEl.classList.add('hidden');
+
+  // Animate progress bar
+  let pct = 0;
+  const interval = setInterval(()=>{
+    pct = Math.min(pct + 2, 85);
+    bar.style.width = pct+'%';
+  }, 200);
+
+  try {
+    statusEl.textContent = 'Decoding audio…';
+    const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+    // Get current section markers depending on context
+    const markers = context === 'admin' ? (window._sectionMarkers||[]) : (window._editSectionMarkers||[]);
+
+    statusEl.textContent = 'Analysing chords per section…';
+    const chordsPerSection = await analyseAudio(file, audioCtx, markers);
+    audioCtx.close();
+
+    clearInterval(interval);
+    bar.style.width = '100%';
+
+    // Store result
+    if(context==='admin') adminDetectedChords = chordsPerSection;
+    else editDetectedChords = chordsPerSection;
+
+    // Display result
+    setTimeout(()=>{
+      progress.classList.add('hidden');
+      zone.classList.remove('analysing');
+      zone.innerHTML = `<div class="text-green-700 font-black text-[11px]">✓ Analysis complete</div><div class="text-[10px] opacity-50 mt-1">${file.name}</div>`;
+
+      if(Object.keys(chordsPerSection).length){
+        resultEl.innerHTML = Object.entries(chordsPerSection).map(([sec,chords])=>
+          `<div class="chord-section"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`
+        ).join('');
+        resultEl.classList.remove('hidden');
+      } else {
+        resultEl.innerHTML = '<div class="text-[11px] opacity-50 italic">No sections detected — chords saved as Full Song</div>';
+        resultEl.classList.remove('hidden');
+      }
+    }, 400);
+
+  } catch(e) {
+    clearInterval(interval);
+    progress.classList.add('hidden');
+    zone.classList.remove('analysing');
+    zone.innerHTML = `<div class="text-red-500 font-black text-[11px]">✗ Could not read file — try MP3 or WAV</div>`;
+    console.log('Audio analysis error:', e.message);
+  }
+}
+
+// ─── SECTION + KEY FILTERS ─────────────────────────────────────────────────
 function setSection(sec){
   currentSection=sec;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -398,14 +689,13 @@ function setKey(key){
   renderContent(getFiltered(),currentQuery);
 }
 
-// SEARCH
+// ─── SEARCH ────────────────────────────────────────────────────────────────
 function doSearch(){
   const query=document.getElementById('searchInput').value.trim();if(!query)return;
   currentQuery=query;
   const words=query.toLowerCase().split(/\s+/).filter(w=>w.length>1);
   let assets=getFiltered();
   const scored=assets.map(a=>{
-    const h=`${a.title} ${a.songTitle} ${a.tags} ${a.ourKey} ${a.songSection} ${a.bullets} ${a.transcript}`.toLowerCase();
     let score=0;
     words.forEach(w=>{
       if((a.songTitle||'').toLowerCase().includes(w)) score+=12;
@@ -414,6 +704,9 @@ function doSearch(){
       if((a.songSection||'').toLowerCase().includes(w)) score+=6;
       if((a.tags||'').toLowerCase().includes(w)) score+=4;
       if((a.bullets||'').toLowerCase().includes(w)) score+=2;
+      // Search chord data
+      const chordStr=Object.values(a.chordsPerSection||{}).join(' ')+(a.detectedChords||'');
+      if(chordStr.toLowerCase().includes(w)) score+=3;
     });
     return{...a,_score:score};
   }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
@@ -433,12 +726,12 @@ function showAssembledAnswer(query,results){
   let steps='';
   top.forEach((a,i)=>{
     const sections=a.sectionMarkers||[];
-    const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
+    const chordsPerSection=a.chordsPerSection||{};
     steps+=`<div class="flex gap-4 items-start mb-5">
       <span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span>
       <div class="flex-1">
         <div class="font-black text-sm mb-1">${a.title}${a.ourKey?` <span class="text-[#3d6263] opacity-60 font-bold">— Key: ${a.ourKey}</span>`:''}</div>
-        ${bullets.length?`<div class="text-[12px] opacity-70 space-y-1 mb-2">${bullets.map(b=>`<div>• ${b.replace(/^[•\-\*]\s*/,'')}</div>`).join('')}</div>`:''}
+        ${Object.keys(chordsPerSection).length?`<div class="space-y-1 mb-2">${Object.entries(chordsPerSection).slice(0,3).map(([sec,chords])=>`<div class="flex items-center gap-2"><span class="chord-badge">${sec}</span><span class="chord-value text-[11px]">${chords}</span></div>`).join('')}</div>`:''}
         <div class="flex flex-wrap gap-2">
           ${sections.slice(0,3).map(s=>`<button onclick="openCardAtTime('${a.id}',${s.seconds})" class="jump-btn bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1.5 hover:bg-[#3d6263] hover:text-white transition-all"><span>▶</span>${s.label} <span class="opacity-40">${fmtTime(s.seconds)}</span></button>`).join('')}
           ${!sections.length?`<button onclick="openCard('${a.id}')" class="jump-btn bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1.5 rounded-full text-[10px] font-bold hover:bg-[#3d6263] hover:text-white transition-all">▶ Watch</button>`:''}
@@ -459,7 +752,7 @@ function showAssembledAnswer(query,results){
 function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
 function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(getFiltered());}
 
-// ADMIN
+// ─── ADMIN ─────────────────────────────────────────────────────────────────
 function toggleAdmin(){document.getElementById('adminPanel').classList.toggle('hidden');updateCatDropdowns();renderCategoryList();}
 function showAdminTab(tab){
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));
@@ -470,7 +763,6 @@ function showAdminTab(tab){
   if(tab==='categories')renderCategoryList();
 }
 
-// EMBED PASTE
 async function handleEmbedPaste(el){
   const val=el.value.trim();if(!val)return;
   const srcMatch=val.match(/src=["']([^"']+)["']/);
@@ -481,7 +773,6 @@ async function handleEmbedPaste(el){
   if(titleMatch){
     const name=titleMatch[1].replace(/\.[^/.]+$/,'');
     document.getElementById('adminTitle').value=name;
-    // Try to extract song name from filename e.g. "Sovereign_A_intro"
     const parts=name.replace(/[_\-]/g,' ').split(' ');
     if(parts.length>0&&!document.getElementById('adminSongTitle').value)
       document.getElementById('adminSongTitle').value=parts[0];
@@ -507,19 +798,18 @@ async function fetchTranscript(uniqueId){
   setStatus('transcriptStatus','In Stream: Transcript tab → select all → copy → paste below. Notes will generate automatically.','text-amber-600 font-semibold');
   document.getElementById('transcriptStatus').classList.remove('hidden');
   document.getElementById('adminTranscript').classList.remove('hidden');
-  document.getElementById('adminTranscript').oninput=async function(){if(this.value.trim().length>50){this.oninput=null;await generateBullets();setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');}};
+  document.getElementById('adminTranscript').oninput=async function(){if(this.value.trim().length>50){this.oninput=null;await generateBullets();setStatus('pasteStatus','✓ Transcript loaded — now drop your video file for chord detection','text-green-700 font-black');}};
 }
 
 async function onTranscriptLoaded(transcript){
   document.getElementById('adminTranscript').value=transcript;
   document.getElementById('adminTranscript').classList.remove('hidden');
   document.getElementById('transcriptStatus').classList.add('hidden');
-  setStatus('pasteStatus','✓ Transcript loaded — generating notes...','text-green-700 font-black');
+  setStatus('pasteStatus','✓ Transcript loaded — generating section markers...','text-green-700 font-black');
   await generateBullets();
-  setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+  setStatus('pasteStatus','✓ Sections detected — now drop your video file below for chord detection','text-green-700 font-black');
 }
 
-// GENERATE PLAY-THROUGH NOTES + EXTRACT SECTION MARKERS
 async function generateBullets(){
   const transcript=document.getElementById('adminTranscript').value.trim();
   if(!transcript)return;
@@ -529,8 +819,7 @@ async function generateBullets(){
   document.getElementById('regenBtn').classList.add('hidden');
   document.getElementById('sectionMarkersPreview').classList.add('hidden');
 
-  // Extract section markers from transcript — player says "Intro", "Verse 1", "Chorus" etc
-  const SECTION_KEYWORDS = ['intro','verse','chorus','bridge','return','outro','pre-chorus','tag','instrumental'];
+  const SECTION_KEYWORDS=['intro','bridge','interlude','return','viva','outro','tag','instrumental'];
   const sectionMarkers=[];
   const lines=transcript.split('\n');
   lines.forEach(line=>{
@@ -541,13 +830,11 @@ async function generateBullets(){
     if(matched){
       const parts=tsMatch[1].split(':');
       const seconds=parseInt(parts[0])*3600+parseInt(parts[1])*60+parseInt(parts[2]);
-      // Capitalise label
       const label=line.replace(/\[[\d:]+\]\s*/,'').trim();
       sectionMarkers.push({label:label.charAt(0).toUpperCase()+label.slice(1),seconds});
     }
   });
 
-  // Extract song title/key/tempo from intro line e.g. "This is how we play Sovereign in A"
   const introLine=lines.slice(0,5).join(' ').toLowerCase();
   const keyMatch=introLine.match(/\bin\s+([a-g][b#]?)\b/i);
   if(keyMatch&&!document.getElementById('adminOurKey').value){
@@ -555,33 +842,30 @@ async function generateBullets(){
     document.getElementById('adminOurKey').value=key;
   }
 
-  // Generate play-through bullet notes
-  const cleanLines=lines.map(l=>l.replace(/^\[[\d:]+\]\s*/,'').trim()).filter(l=>l.length>15&&!l.match(/^\d+:\d+$/));
-  const instructional=cleanLines.filter(l=>/\b(press|play|use|strum|pick|hold|start|begin|here|this|now|then|next|after|return|back|into)\b/i.test(l));
-  const source=instructional.length>=3?instructional:cleanLines;
-  const bullets=source.slice(0,8).map(l=>'• '+l).join('\n');
-  document.getElementById('adminBullets').value=bullets;
+  document.getElementById('adminBullets').value='';
   document.getElementById('adminBullets').classList.remove('hidden');
 
-  // Show section markers preview
   if(sectionMarkers.length){
     document.getElementById('sectionMarkersPreview').innerHTML=`
-      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Detected sections</div>
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Detected sections — drop your video file below to get chords for each</div>
       <div class="flex flex-wrap gap-2">${sectionMarkers.map(s=>`<span class="bg-[#3d6263] text-white px-3 py-1.5 rounded-full text-[10px] font-bold">▶ ${s.label} ${fmtTime(s.seconds)}</span>`).join('')}</div>`;
     document.getElementById('sectionMarkersPreview').classList.remove('hidden');
   }
 
-  // Store for publish
   window._sectionMarkers=sectionMarkers;
   document.getElementById('regenBtn').classList.remove('hidden');
   document.getElementById('bulletsGenerating').classList.add('hidden');
 }
 
-// PUBLISH TO FIREBASE
 async function publishAsset(){
   const title=document.getElementById('adminTitle').value.trim();
   const url=window._extractedURL||document.getElementById('adminContentURL').value.trim();
   if(!title||!url){alert('Title and embed URL are required.');return;}
+
+  // Build detectedChords flat string from chordsPerSection
+  const chordsPerSection=adminDetectedChords||{};
+  const detectedChords=Object.entries(chordsPerSection).map(([s,c])=>`${s}: ${c}`).join(' | ');
+
   try{
     await db.collection(COLLECTION).add({
       title,
@@ -595,7 +879,8 @@ async function publishAsset(){
       transcript:document.getElementById('adminTranscript').value.trim(),
       bullets:document.getElementById('adminBullets').value.trim(),
       sectionMarkers:window._sectionMarkers||[],
-      detectedChords:'',
+      chordsPerSection,
+      detectedChords,
       tempo:null,
       description:'',
       published:true,
@@ -613,12 +898,15 @@ function resetAdminForm(){
   document.getElementById('regenBtn').classList.add('hidden');
   document.getElementById('sectionMarkersPreview').classList.add('hidden');
   document.getElementById('bulletsPreview').classList.remove('hidden');
-  document.getElementById('bulletsPreview').textContent='Paste embed code — section markers and play-through notes will generate automatically from the transcript.';
+  document.getElementById('bulletsPreview').textContent='Paste embed code — section markers will appear here, then drop your video for chord detection.';
+  document.getElementById('adminDropZone').innerHTML='<div class="text-2xl mb-1">🎵</div><div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div><div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
+  document.getElementById('adminAnalyseProgress').classList.add('hidden');
+  document.getElementById('adminChordsResult').classList.add('hidden');
   setStatus('pasteStatus','','');
-  window._extractedURL=null;window._sectionMarkers=[];
+  window._extractedURL=null;window._sectionMarkers=[];adminDetectedChords={};
 }
 
-// CATEGORIES
+// ─── CATEGORIES ────────────────────────────────────────────────────────────
 function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(getFiltered(),currentQuery);}
 function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
 function renameCategory(idx){const n=prompt('Rename to:',categories[idx]);if(!n||n===categories[idx])return;categories[idx]=n;saveCategories();}
@@ -632,7 +920,7 @@ function updateCatDropdowns(){
   ['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});
 }
 
-// MANAGE
+// ─── MANAGE ────────────────────────────────────────────────────────────────
 async function renderManageList(){
   const list=document.getElementById('manageList');if(!list)return;
   list.innerHTML='<div class="text-sm opacity-50 italic">Loading...</div>';
@@ -642,7 +930,7 @@ async function renderManageList(){
     <span class="text-lg">${{Guitar:'🎸',Keyboard:'🎹',Both:'🎸🎹'}[a.instrument]||'▶'}</span>
     <div class="flex-grow min-w-0">
       <div class="font-bold text-sm truncate">${a.title}</div>
-      <div class="text-[10px] opacity-50">${a.songSection||''} ${a.ourKey?'· Key: '+a.ourKey:''} · ${a.instrument||''} · ${a.published?'Published':'Unpublished'}</div>
+      <div class="text-[10px] opacity-50">${a.songSection||''} ${a.ourKey?'· Key: '+a.ourKey:''} · ${a.instrument||''} · ${Object.keys(a.chordsPerSection||{}).length?'Chords detected ✓':'No chords'} · ${a.published?'Published':'Unpublished'}</div>
     </div>
     <div class="flex gap-2 flex-shrink-0">
       <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
@@ -669,11 +957,35 @@ function editItem(id){
   document.getElementById('editOurKey').value=a.ourKey||'';
   document.getElementById('editSongSection').value=a.songSection||'';
   document.getElementById('editInstrument').value=a.instrument||'';
+
+  // Store section markers for chord detection context
+  window._editSectionMarkers=a.sectionMarkers||[];
+
+  // Show existing chords if any
+  const existingChords=a.chordsPerSection||{};
+  const resultEl=document.getElementById('editChordsResult');
+  if(Object.keys(existingChords).length){
+    editDetectedChords=existingChords;
+    resultEl.innerHTML='<div class="text-[10px] font-black uppercase opacity-50 mb-2">Current chords (drop file to update)</div>'+Object.entries(existingChords).map(([sec,chords])=>`<div class="chord-section"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`).join('');
+    resultEl.classList.remove('hidden');
+  } else {
+    editDetectedChords={};
+    resultEl.classList.add('hidden');
+  }
+
   const em=document.getElementById('editModal');em.classList.remove('hidden');em.scrollIntoView({behavior:'smooth'});
 }
-function closeEdit(){document.getElementById('editModal').classList.add('hidden');}
+
+function closeEdit(){
+  document.getElementById('editModal').classList.add('hidden');
+  editDetectedChords={};
+  document.getElementById('editDropZone').innerHTML='<div class="text-2xl mb-1">🎵</div><div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div><div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
+}
+
 async function saveEdit(){
   const id=document.getElementById('editId').value;
+  const chordsPerSection=editDetectedChords||{};
+  const detectedChords=Object.entries(chordsPerSection).map(([s,c])=>`${s}: ${c}`).join(' | ');
   try{
     await db.collection(COLLECTION).doc(id).update({
       title:document.getElementById('editTitle').value.trim(),
@@ -684,12 +996,14 @@ async function saveEdit(){
       ourKey:document.getElementById('editOurKey').value,
       songSection:document.getElementById('editSongSection').value,
       instrument:document.getElementById('editInstrument').value,
+      chordsPerSection,
+      detectedChords,
     });
     closeEdit();renderManageList();loadAssets();
   }catch(e){alert('Save failed: '+e.message);}
 }
 
-// HELPERS
+// ─── HELPERS ───────────────────────────────────────────────────────────────
 function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
 function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
 function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
