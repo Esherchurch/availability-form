@@ -425,7 +425,7 @@ function jumpToTime(seconds){
   const frame=document.getElementById('videoFrame');if(!frame)return;
   const base=window._currentVideoBaseURL||frame.src.split('?')[0];
   if(!base)return;
-  frame.src=base+'?startTime='+seconds+'&autoplay=1';
+  frame.src=base+'?startTime='+seconds;
 }
 function closeModal(e){
   if(!e||e.target===document.getElementById('modal')){
