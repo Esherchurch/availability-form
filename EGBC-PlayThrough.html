@@ -424,8 +424,13 @@ function openCardAtTime(id,seconds){openCard(id,seconds);}
 function jumpToTime(seconds){
   const wrap=document.getElementById('videoWrap');if(!wrap)return;
   const base=window._currentVideoBaseURL;if(!base)return;
-  // Replace the entire iframe to avoid Stream player errors on src change
-  wrap.innerHTML=`<iframe id="videoFrame" src="${base}?startTime=${seconds}" allowfullscreen></iframe>`;
+  // Show loading overlay while new iframe initialises
+  wrap.innerHTML=`
+    <div id="videoLoader" style="position:absolute;inset:0;background:#f0f6f6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:1rem;z-index:2">
+      <div style="width:32px;height:32px;border:3px solid #d1dfdf;border-top-color:#3d6263;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;opacity:0.5">Loading section...</div>
+    </div>
+    <iframe id="videoFrame" src="${base}?startTime=${seconds}" allowfullscreen style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity='1';const l=document.getElementById('videoLoader');if(l)l.remove()"></iframe>`;
 }
 function closeModal(e){
   if(!e||e.target===document.getElementById('modal')){
