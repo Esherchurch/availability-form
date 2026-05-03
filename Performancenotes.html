@@ -11,7 +11,6 @@
 <style>
 body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
 
-/* SCREEN */
 .screen {
     position: fixed;
     inset: 0;
@@ -24,7 +23,6 @@ body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
     box-sizing: border-box;
 }
 
-/* BUTTONS */
 .btn {
     background:#2c6999;
     color:white;
@@ -41,31 +39,25 @@ body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
     font-weight:800;
 }
 
-/* MOBILE VIEW (FORCED ORIGINAL SPECS) */
 @media (max-width:768px){
  .btn { padding:10px 12px; font-size:14px; }
  .nav-btn { padding:10px 14px; font-size:14px; }
  .screen { padding: 12px 8px; gap: 8px; }
- /* EDIT MODE MOBILE */
  textarea {
    font-size: 18pt !important;
    padding: 35px 45px !important;
  }
- /* PERFORMANCE MODE MOBILE */
  .performance textarea {
    font-size: 22pt !important;
  }
 }
 
-/* TABLET/LARGE SCREEN (10-inch focus) */
 @media (min-width: 769px) {
-  /* EDIT MODE TABLET */
   textarea {
     font-size: 26pt !important; 
     padding: 40px 60px !important;
     line-height: 1.5;
   }
-  /* PERFORMANCE MODE TABLET */
   .performance textarea {
     font-size: 38pt !important;
     padding: 40px 60px !important;
@@ -83,7 +75,6 @@ body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
   }
 }
 
-/* TEXTAREA BASE */
 textarea {
     width: 100%;
     font-weight: 700;
@@ -99,11 +90,92 @@ textarea {
     display: block;
 }
 
+/* Dictation active - pulse the textarea border */
+textarea.dictating {
+    border-color: #ef4444 !important;
+    animation: dictate-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dictate-pulse {
+    0%, 100% { border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    50% { border-color: #f87171; box-shadow: 0 0 0 6px rgba(239,68,68,0.2); }
+}
+
+/* Dictation button states */
+.btn-dictate {
+    background: #334155;
+    color: #94a3b8;
+    border: 2px solid #475569;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+.btn-dictate.listening {
+    background: #7f1d1d;
+    color: white;
+    border-color: #ef4444;
+    animation: btn-pulse 1.5s ease-in-out infinite;
+}
+.btn-dictate.listening::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(239,68,68,0.3) 0%, transparent 70%);
+    animation: ripple 1.5s ease-in-out infinite;
+}
+@keyframes btn-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    50% { box-shadow: 0 0 0 8px rgba(239,68,68,0.25); }
+}
+@keyframes ripple {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+/* Interim text preview */
+#dictate-preview {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(239,68,68,0.9);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    max-width: 80%;
+    text-align: center;
+    z-index: 500;
+    display: none;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Noise warning toast */
+#noise-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #78350f;
+    color: #fde68a;
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+    z-index: 600;
+    display: none;
+    text-align: center;
+    border: 1px solid #f59e0b;
+}
+
 .performance .hide-perf {
     display: none !important;
 }
 
-/* PERFORMANCE ROW CONSOLIDATION */
 .perf-row {
     display: flex;
     gap: 8px;
@@ -121,14 +193,12 @@ textarea {
     flex-shrink: 0;
 }
 
-/* SMALL BOX */
 .smallbox {
     font-size: 14px;
     opacity: 0.9;
     padding: 0 4px;
 }
 
-/* MENU */
 #menu {
     position: fixed;
     left: 0;
@@ -152,7 +222,6 @@ textarea {
     cursor:pointer;
 }
 
-/* OVERLAY */
 #overlay {
     position: fixed;
     inset: 0;
@@ -162,7 +231,6 @@ textarea {
 }
 #overlay.show { display:block; }
 
-/* PDF VIEWER */
 #pdfViewer {
     position: fixed;
     inset: 0;
@@ -183,7 +251,6 @@ textarea {
     z-index:10001;
 }
 
-/* FULLSCREEN TOGGLE */
 #fsToggle {
     position: fixed;
     bottom: 10px;
@@ -197,7 +264,6 @@ textarea {
     font-size: 10px;
 }
 
-/* TRANSLATION DROPDOWN */
 .translate-box {
     position: relative;
     display: inline-block;
@@ -228,7 +294,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp({
- apiKey:"AIzaSy...",
+ apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
  authDomain:"egbc-worship-planner.firebaseapp.com",
  projectId:"egbc-worship-planner"
 });
@@ -246,16 +312,186 @@ let selectedKeys = [];
 let performance = false;
 let currentDocId = null;
 let wakeLock = null;
-
-// Storage for original text to allow revert
 let originalData = { notes: "", inst: "", last: "" };
+
+// ── DICTATION STATE ──────────────────────────────────────────────────────────
+let recognition = null;
+let isDictating = false;
+let dictationBuffer = "";       // accumulates confirmed words this session
+let noiseWarningTimer = null;
+
+// Words that speech engines hallucinate when hearing music/noise
+// — common phantom words from drums, reverb, crowd, singing harmonics
+const NOISE_BLACKLIST = new Set([
+    "the","a","an","and","or","but","so","um","uh","hmm","hm","mm","like",
+    "you know","i mean","actually","basically","literally","right","okay","ok",
+    "yeah","yes","no","well","anyway","so yeah","huh","ah","oh","eh",
+    "thank you","thanks","bye","goodbye","welcome","hello","hi",
+    // Common music-triggered phantoms
+    "music","song","singing","play","playing","band","worship",
+    "lord","god","jesus","hallelujah","amen","praise",
+    // Single stray letters/numbers that are almost always noise
+]);
+
+// Minimum word count for a result to be treated as intentional speech
+const MIN_WORDS = 2;
+// Minimum confidence score (0–1). Below this we discard the result.
+// 0.6 is aggressive but appropriate for a noisy music environment.
+const MIN_CONFIDENCE = 0.55;
+// If a result is ONLY blacklisted words, discard it
+function isLikelyNoise(text) {
+    const words = text.toLowerCase().trim().split(/\s+/);
+    if (words.length < MIN_WORDS) return true;
+    const nonBlacklisted = words.filter(w => !NOISE_BLACKLIST.has(w));
+    // If >80% of words are blacklisted, treat as noise
+    if (nonBlacklisted.length / words.length < 0.2) return true;
+    return false;
+}
+
+function showNoiseWarning(text) {
+    const toast = document.getElementById('noise-toast');
+    if (!toast) return;
+    toast.innerText = `🔇 Filtered (noise): "${text.slice(0,40)}${text.length>40?'…':''}"`;
+    toast.style.display = 'block';
+    clearTimeout(noiseWarningTimer);
+    noiseWarningTimer = setTimeout(() => { toast.style.display = 'none'; }, 2500);
+}
+
+function updateDictatePreview(text) {
+    const el = document.getElementById('dictate-preview');
+    if (!el) return;
+    if (text) {
+        el.innerText = `🎤 ${text}`;
+        el.style.display = 'block';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+window.toggleDictation = () => {
+    if (isDictating) {
+        stopDictation();
+    } else {
+        startDictation();
+    }
+};
+
+function startDictation() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert("Speech recognition isn't supported in this browser. Try Chrome or Safari.");
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;       // keep listening until explicitly stopped
+    recognition.interimResults = true;   // show in-progress text as preview
+    recognition.lang = 'en-GB';          // British English for EGBC
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+        isDictating = true;
+        const btn = document.getElementById('dictate-btn');
+        const ta = document.getElementById('notes');
+        if (btn) { btn.classList.add('listening'); btn.innerText = '⏹ Stop'; }
+        if (ta) ta.classList.add('dictating');
+        dictationBuffer = "";
+    };
+
+    recognition.onresult = (event) => {
+        let interimText = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            const transcript = result[0].transcript.trim();
+            const confidence = result[0].confidence;
+
+            if (result.isFinal) {
+                // ── NOISE FILTERING ──────────────────────────────────────────
+                // 1. Confidence filter — discard if too uncertain
+                //    (confidence is 0 in some browsers even for good results,
+                //     so we only reject if it's explicitly low, not if it's 0)
+                if (confidence > 0 && confidence < MIN_CONFIDENCE) {
+                    showNoiseWarning(transcript);
+                    continue;
+                }
+                // 2. Content filter — discard if it looks like ambient noise
+                if (isLikelyNoise(transcript)) {
+                    showNoiseWarning(transcript);
+                    continue;
+                }
+                // ── ACCEPTED — append to notes ───────────────────────────────
+                dictationBuffer += (dictationBuffer ? " " : "") + transcript;
+                const ta = document.getElementById('notes');
+                if (ta) {
+                    const sep = ta.value && !ta.value.endsWith('\n') ? " " : "";
+                    ta.value += sep + transcript;
+                    window.autoGrow(ta);
+                }
+                updateDictatePreview("");
+            } else {
+                // Interim: show as live preview only, don't commit yet
+                interimText = transcript;
+            }
+        }
+
+        if (interimText) updateDictatePreview(interimText);
+    };
+
+    recognition.onerror = (event) => {
+        // "no-speech" and "audio-capture" are expected in noisy environments
+        if (event.error === 'no-speech') return; // just keep listening
+        if (event.error === 'aborted') return;   // we stopped it ourselves
+        // For other errors, show briefly but don't crash
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+            alert("Microphone permission denied. Please allow microphone access and try again.");
+            stopDictation();
+        }
+    };
+
+    recognition.onend = () => {
+        // Auto-restart if we're still supposed to be dictating
+        // (browser stops after silence/noise — we want continuous)
+        if (isDictating) {
+            try { recognition.start(); } catch(e) { /* already started */ }
+        } else {
+            updateDictatePreview("");
+            const btn = document.getElementById('dictate-btn');
+            const ta = document.getElementById('notes');
+            if (btn) { btn.classList.remove('listening'); btn.innerText = '🎤 Dictate'; }
+            if (ta) ta.classList.remove('dictating');
+        }
+    };
+
+    try {
+        recognition.start();
+    } catch(e) {
+        console.error('Could not start recognition:', e);
+    }
+}
+
+function stopDictation() {
+    isDictating = false;
+    if (recognition) {
+        try { recognition.stop(); } catch(e) {}
+        recognition = null;
+    }
+    updateDictatePreview("");
+    const btn = document.getElementById('dictate-btn');
+    const ta = document.getElementById('notes');
+    if (btn) { btn.classList.remove('listening'); btn.innerText = '🎤 Dictate'; }
+    if (ta) ta.classList.remove('dictating');
+    const toast = document.getElementById('noise-toast');
+    if (toast) toast.style.display = 'none';
+}
+// ── END DICTATION ────────────────────────────────────────────────────────────
 
 const dateInput = () => document.getElementById('dateInput');
 const serviceSelect = () => document.getElementById('serviceSelect');
 const roleSelect = () => document.getElementById('roleSelect');
 const appDiv = () => document.getElementById('app');
 
-/* WAKE LOCK LOGIC */
 const requestWakeLock = async () => {
   try {
     if ('wakeLock' in navigator) {
@@ -278,7 +514,6 @@ window.goFull = () => {
     else if (docEl.mozRequestFullScreen) docEl.mozRequestFullScreen();
     else if (docEl.webkitRequestFullScreen) docEl.webkitRequestFullScreen();
     else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
-
     requestWakeLock();
     document.getElementById("fsToggle").innerText = "[ Stay Awake Active ]";
 };
@@ -289,7 +524,6 @@ window.autoGrow = (el)=>{
  el.style.height = el.scrollHeight + "px";
 };
 
-/* TRANSLATION LOGIC - NOW TARGETS ALL THREE BOXES */
 window.translateAll = async (targetLang) => {
     const mainEl = document.getElementById('notes');
     const instEl = document.getElementById('instNotesText');
@@ -320,19 +554,15 @@ window.translateAll = async (targetLang) => {
     autoGrow(mainEl);
 };
 
-/* LOAD EVENTS */
 window.loadRota = async () => {
  const date = dateInput().value;
  const snap = await getDocs(collection(db,"events"));
-
  eventsForDay = [];
+ // Show all events for the date — archived flag only affects availability view
  snap.forEach(d=>{
   const ev=d.data();
-  if(ev.date===date && ev.archived!==true){
-   eventsForDay.push(ev);
-  }
+  if(ev.date===date){ eventsForDay.push(ev); }
  });
-
  serviceSelect().innerHTML='<option value="">Select Service</option>';
  eventsForDay.forEach((ev,i)=>{
   serviceSelect().innerHTML+=`<option value="${i}">${ev.type}</option>`;
@@ -342,17 +572,14 @@ window.loadRota = async () => {
 window.selectService = () => {
  const i = serviceSelect().value;
  if(i==="") return;
-
  selectedEvent = eventsForDay[i];
  currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
-
  roleSelect().innerHTML='<option value="">Instrument</option>';
  Object.keys(selectedEvent.assignments || {}).forEach(r=>{
   roleSelect().innerHTML+=`<option>${r}</option>`;
  });
 };
 
-/* BACKGROUND CACHING LOGIC */
 window.cacheAllPDFs = async () => {
     for (const song of songs) {
         const songDoc = await getDoc(doc(db,"songs",song.title.toLowerCase().replace(/\s+/g,"-")));
@@ -369,19 +596,14 @@ window.cacheAllPDFs = async () => {
 };
 
 window.loadService = async () => {
-
  currentDate = dateInput().value;
  currentRole = roleSelect().value;
-
  const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
  currentService = snap.docs[0].data();
-
  songs = currentService.order.filter(x=>x.type==="song");
-
  buildMenu();
  showSong(0);
  window.cacheAllPDFs(); 
-
  document.getElementById("startScreen").style.display="none";
  document.getElementById("fsToggle").style.display="block";
 };
@@ -392,10 +614,7 @@ function buildMenu(){
  songs.forEach((s,i)=>{
   const div=document.createElement("div");
   div.innerText=s.title;
-  div.onclick=()=>{
-      showSong(i);
-      toggleMenu();
-  };
+  div.onclick=()=>{ showSong(i); toggleMenu(); };
   menu.appendChild(div);
  });
 }
@@ -411,11 +630,12 @@ window.closeMenu = ()=>{
 };
 
 window.togglePerformance = ()=>{
+ // Stop dictation when switching modes
+ if (isDictating) stopDictation();
  performance = !performance;
  showSong(index);
 };
 
-/* INTERNAL SAFE PLAYER FOR WRAPPED APPS */
 window.forceExternalYT = (url) => {
     let videoId = '';
     if (url.includes('v=')) {
@@ -423,34 +643,31 @@ window.forceExternalYT = (url) => {
     } else if (url.includes('youtu.be/')) {
         videoId = url.split('youtu.be/')[1];
     }
-
     if (videoId) {
         const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
         const v = document.getElementById("pdfViewer");
         v.innerHTML = ""; 
         v.style.display = "block";
-
         const closeBtn = document.createElement("button");
         closeBtn.className = "closeBtn";
         closeBtn.innerText = "Close Video";
         closeBtn.onclick = closePDF;
-
         const iframe = document.createElement("iframe");
         iframe.style.cssText = "width:100%;height:100%;border:none;background:black;";
         iframe.src = embedUrl;
         iframe.allow = "autoplay; encrypted-media; picture-in-picture";
         iframe.allowFullscreen = true;
-
         v.appendChild(closeBtn);
         v.appendChild(iframe);
     }
 };
 
 async function showSong(i){
+ // Stop any active dictation when navigating songs
+ if (isDictating) stopDictation();
 
  index = i;
  const s = songs[i];
-
  selectedKeys = [...(s.keys || [])];
 
  const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
@@ -458,8 +675,6 @@ async function showSong(i){
  const allFiles = data.files || [];
  const youtubeUrl = data.youtube || "";
 
- // ── PLAYTHROUGH: query kb_playthrough collection, same as the Sunday planner ──
- // Only shown when the selected role is a keyboard role
  const isKeyboardRole = ["Keyboard", "Keys", "2nd Keys"].includes(currentRole);
  let playthroughMatches = [];
  if (isKeyboardRole && selectedKeys.length > 0) {
@@ -494,30 +709,22 @@ async function showSong(i){
 
  todaySnap.forEach(d=>{
   const n=d.data();
-  if(n.songTitle===s.title){
-   yourNotes = n.notes;
-   currentDocId = d.id;
-  }
+  if(n.songTitle===s.title){ yourNotes = n.notes; currentDocId = d.id; }
  });
 
  const allSnap = await getDocs(collection(db,"schedules"));
  let last = null;
-
  allSnap.forEach(d=>{
   const n=d.data();
   if(n.worshipLeader===currentLeader &&
      n.role===currentRole &&
      n.songTitle===s.title &&
      n.date!==currentDate){
-   if(!last || new Date(n.date)>new Date(last.date)){
-    last=n;
-   }
+   if(!last || new Date(n.date)>new Date(last.date)) last=n;
   }
  });
 
  const roleNotes = currentService?.roleNotes?.[currentRole] || "";
-
- // Capture for revert
  originalData = { notes: yourNotes, inst: roleNotes, last: last?last.notes:"" };
 
  appDiv().innerHTML=`
@@ -580,6 +787,10 @@ async function showSong(i){
   <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
 
   ${!performance ? `
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button id="dictate-btn" class="btn btn-dictate" onclick="toggleDictation()" style="font-size:14px; padding:10px 16px; flex-shrink:0;">🎤 Dictate</button>
+      <span style="font-size:11px; color:#475569; font-weight:700;">Tap to dictate notes — filtered for noisy environments</span>
+    </div>
     <div class="smallbox"><b>Instrument Notes:</b><br><span id="instNotesText">${roleNotes}</span></div>
     <div class="smallbox"><b>Last Time:</b><br><span id="lastNotesText">${last?last.notes:""}</span></div>
     <button class="btn" onclick="save('${s.title}')">Save</button>
@@ -593,53 +804,37 @@ async function showSong(i){
  },50);
 }
 
-/* KEYS - RESTORED LOGIC */
 window.toggleKey=(k,on)=>{
- if(on){
-  if(!selectedKeys.includes(k)) selectedKeys.push(k);
- } else {
-  selectedKeys = selectedKeys.filter(x=>x!==k);
- }
+ if(on){ if(!selectedKeys.includes(k)) selectedKeys.push(k); }
+ else { selectedKeys = selectedKeys.filter(x=>x!==k); }
  const songIndex = songs.findIndex(s => s.title === songs[index].title);
- if (songIndex !== -1) {
-    songs[songIndex].keys = selectedKeys;
- }
+ if (songIndex !== -1) songs[songIndex].keys = selectedKeys;
  showSong(index);
 };
 
-/* NAV */
 window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
 window.prev = ()=>{ if(index>0) showSong(index-1); };
 
-/* PDF */
 window.openPDF = (url)=>{
  let finalUrl = url;
  const timestamp = new Date().getTime();
  if(url.includes("drive.google.com") || url.includes("firebasestorage.googleapis.com")){
   finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true&cb=${timestamp}`;
  }
-
  const v=document.getElementById("pdfViewer");
  v.innerHTML = ""; 
  v.style.display="block";
-
  const loader = document.createElement("div");
  loader.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:black;font-weight:bold;";
  loader.innerText = "Loading PDF...";
-
  const closeBtn = document.createElement("button");
  closeBtn.className = "closeBtn";
  closeBtn.innerText = "Close";
  closeBtn.onclick = closePDF;
-
  const iframe = document.createElement("iframe");
  iframe.style.cssText = "width:100%;height:100%;border:none;background:white;display:none;";
  iframe.src = finalUrl;
- iframe.onload = () => {
-    loader.style.display = "none";
-    iframe.style.display = "block";
- };
-
+ iframe.onload = () => { loader.style.display = "none"; iframe.style.display = "block"; };
  v.appendChild(closeBtn);
  v.appendChild(loader);
  v.appendChild(iframe);
@@ -651,10 +846,10 @@ window.closePDF = ()=>{
  v.innerHTML=""; 
 };
 
-/* SAVE */
 window.save = async(song)=>{
+ // Stop dictation before saving
+ if (isDictating) stopDictation();
  const txt = document.getElementById("notes").value;
-
  if(currentDocId){
   await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
  } else {
@@ -667,13 +862,16 @@ window.save = async(song)=>{
   });
   currentDocId = newDoc.id;
  }
-
  alert("Saved");
 };
 </script>
 </head>
 
 <body>
+
+<!-- Dictation UI overlays (always in DOM, shown/hidden by JS) -->
+<div id="dictate-preview"></div>
+<div id="noise-toast"></div>
 
 <div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
 <h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Notes</h1>
