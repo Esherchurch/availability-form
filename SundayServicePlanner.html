@@ -325,8 +325,19 @@ window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
     eventsForDay = [];
-    // FIXED: removed "archived !== true" filter so past services remain accessible
-    snap.forEach(d => { const ev = d.data(); if (ev.date === date) { eventsForDay.push(ev); } });
+    // Deduplicate by type — keep only the most recent doc per service type
+    // (multiple docs can exist for the same date/type if the rota was updated)
+    const seen = {};
+    snap.forEach(d => {
+        const ev = d.data();
+        if (ev.date !== date) return;
+        const key = ev.type || "Unknown";
+        // Prefer non-archived, then just last-seen if all archived
+        if (!seen[key] || (!ev.archived && seen[key].archived)) {
+            seen[key] = { ...ev, _docData: d.data() };
+        }
+    });
+    eventsForDay = Object.values(seen);
     const select = document.getElementById('eventSelect');
     select.innerHTML = '<option value="">Select Service...</option>';
     eventsForDay.forEach((ev, i) => { select.innerHTML += `<option value="${i}">${ev.type}</option>`; });
