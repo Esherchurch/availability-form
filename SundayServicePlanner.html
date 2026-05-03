@@ -230,7 +230,6 @@ window.selectSong = async (title, id) => {
     } else { keyChanged(id); }
 };
 
-// ── NEW: Helper to look up Play Through videos matching a song + keys ──
 async function getPlayThroughLinks(title, keys) {
     if (!title || !keys || keys.length === 0) return [];
     try {
@@ -300,7 +299,6 @@ window.keyChanged = async (id) => {
     }
     html += `</div>`;
 
-    // ── NEW: Play Through links ──
     const ptMatches = await getPlayThroughLinks(title, keys);
     if (ptMatches.length > 0) {
         html += `<div class="mt-3 p-3 bg-[#f0f6f6] rounded-xl border border-dashed border-[#3d6263]">`;
@@ -327,7 +325,8 @@ window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
     eventsForDay = [];
-    snap.forEach(d => { const ev = d.data(); if (ev.date === date && ev.archived !== true) { eventsForDay.push(ev); } });
+    // FIXED: removed "archived !== true" filter so past services remain accessible
+    snap.forEach(d => { const ev = d.data(); if (ev.date === date) { eventsForDay.push(ev); } });
     const select = document.getElementById('eventSelect');
     select.innerHTML = '<option value="">Select Service...</option>';
     eventsForDay.forEach((ev, i) => { select.innerHTML += `<option value="${i}">${ev.type}</option>`; });
@@ -502,7 +501,6 @@ window.emailSchedule = async () => {
                 }
             }
 
-            // ── NEW: Play Through links in email ──
             const ptEmailMatches = await getPlayThroughLinks(title, keys);
             if (ptEmailMatches.length > 0) {
                 resourcesHtml += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #d1dfdf;">`;
