@@ -415,14 +415,16 @@ function openCard(id,startTime=null){
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How We Play It</div>
       <div class="space-y-3">${(a.bullets||'').split('\n').filter(b=>b.trim()).map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
     </div>`:''}`;
+  // Store base video URL for jumpToTime to use even after src is cleared
+  window._currentVideoBaseURL = src ? src.split('?')[0] : '';
   document.getElementById('modal').classList.remove('hidden');
 }
 
 function openCardAtTime(id,seconds){openCard(id,seconds);}
 function jumpToTime(seconds){
   const frame=document.getElementById('videoFrame');if(!frame)return;
-  // Strip any existing startTime and set the new one
-  const base=frame.src.split('?')[0];
+  const base=window._currentVideoBaseURL||frame.src.split('?')[0];
+  if(!base)return;
   frame.src=base+'?startTime='+seconds+'&autoplay=1';
 }
 function closeModal(e){
