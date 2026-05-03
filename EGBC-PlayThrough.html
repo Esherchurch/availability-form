@@ -150,6 +150,11 @@
               </div>
               <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
               <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+              <div class="bg-[#f0f6f6] rounded-2xl border border-[#d1dfdf] p-3 space-y-1">
+                <div class="text-[10px] font-black uppercase tracking-widest opacity-50">Direct video path (auto-generated)</div>
+                <input id="adminDirectURL" type="text" placeholder="Auto-filled from filename…" class="w-full px-4 py-2 rounded-full border border-[#d1dfdf] bg-white font-semibold text-xs outline-none">
+                <div class="text-[10px] opacity-40">Used for instant section seeking. Edit if filename differs.</div>
+              </div>
 
               <!-- STEP 3: Chord Detection -->
               <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
@@ -226,6 +231,10 @@
           </div>
           <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
           <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <div class="bg-[#f0f6f6] rounded-2xl border border-[#d1dfdf] p-3 space-y-1">
+            <div class="text-[10px] font-black uppercase tracking-widest opacity-50">Direct video path</div>
+            <input id="editDirectURL" type="text" placeholder="https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/filename.mp4" class="w-full px-4 py-2 rounded-full border border-[#d1dfdf] bg-white font-semibold text-xs outline-none">
+          </div>
           <textarea id="editBullets" rows="4" placeholder="Play-through notes..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
           <div>
             <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Transcript (used for section timestamps)</div>
@@ -402,7 +411,12 @@ function openCard(id,startTime=null){
       ${a.instrument?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.instrument}</span>`:''}
       ${a.tempo?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.tempo} BPM</span>`:''}
     </div>
-    ${src?`<div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap"><iframe id="videoFrame" src="${src}" allowfullscreen></iframe></div>`:''}
+    ${a.directURL?`
+    <div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap">
+      <video id="videoFrame" src="${a.directURL}${startTime?'#t='+startTime:''}" controls controlsList="nodownload" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:1rem;background:#000" crossorigin="use-credentials">
+        Your browser does not support HTML5 video.
+      </video>
+    </div>`:src?`<div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap"><iframe id="videoFrame" src="${src}" allowfullscreen></iframe></div>`:``}
     ${sections.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-4 border border-[#d1dfdf] mb-6">
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Jump to section</div>
       <div class="flex flex-wrap gap-2">${sections.map(s=>`<button onclick="jumpToTime(${s.seconds})" class="jump-btn bg-white border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold flex items-center gap-2"><span class="text-[#3d6263]">▶</span>${s.label}<span class="opacity-40 text-[10px]">${fmtTime(s.seconds)}</span></button>`).join('')}</div>
@@ -415,28 +429,33 @@ function openCard(id,startTime=null){
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How We Play It</div>
       <div class="space-y-3">${(a.bullets||'').split('\n').filter(b=>b.trim()).map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
     </div>`:''}`;
-  // Store base video URL for jumpToTime to use even after src is cleared
+  // Store base video URL for jump fallback
   window._currentVideoBaseURL = src ? src.split('?')[0] : '';
   document.getElementById('modal').classList.remove('hidden');
 }
 
 function openCardAtTime(id,seconds){openCard(id,seconds);}
 function jumpToTime(seconds){
-  const wrap=document.getElementById('videoWrap');if(!wrap)return;
-  const base=window._currentVideoBaseURL;if(!base)return;
-  // Show loading overlay while new iframe initialises
-  wrap.innerHTML=`
-    <div id="videoLoader" style="position:absolute;inset:0;background:#f0f6f6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:1rem;z-index:2">
-      <div style="width:32px;height:32px;border:3px solid #d1dfdf;border-top-color:#3d6263;border-radius:50%;animation:spin 0.8s linear infinite"></div>
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;opacity:0.5">Loading section...</div>
-    </div>
-    <iframe id="videoFrame" src="${base}?startTime=${seconds}" allowfullscreen style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity='1';const l=document.getElementById('videoLoader');if(l)l.remove()"></iframe>`;
+  const video=document.getElementById('videoFrame');if(!video)return;
+  if(video.tagName==='VIDEO'){
+    // Native HTML5 video — instant seek
+    video.currentTime=seconds;
+    video.play();
+  } else {
+    // Fallback iframe — replace with loading overlay
+    const wrap=document.getElementById('videoWrap');if(!wrap)return;
+    const base=window._currentVideoBaseURL;if(!base)return;
+    wrap.innerHTML=`<div style="position:absolute;inset:0;background:#f0f6f6;display:flex;align-items:center;justify-content:center;border-radius:1rem"><div style="width:28px;height:28px;border:3px solid #d1dfdf;border-top-color:#3d6263;border-radius:50%;animation:spin 0.8s linear infinite"></div></div><iframe id="videoFrame" src="${base}?startTime=${seconds}" allowfullscreen style="opacity:0;transition:opacity 0.4s" onload="this.style.opacity='1'"></iframe>`;
+  }
 }
 function closeModal(e){
   if(!e||e.target===document.getElementById('modal')){
     document.getElementById('modal').classList.add('hidden');
     const frame=document.getElementById('videoFrame');
-    if(frame) frame.src='';
+    if(frame){
+      if(frame.tagName==='VIDEO'){frame.pause();frame.src='';}
+      else frame.src='';
+    }
   }
 }
 
@@ -825,6 +844,12 @@ async function handleEmbedPaste(el){
   }
   document.getElementById('autoFilledSection').classList.remove('hidden');
   setStatus('pasteStatus','✓ Embed code recognised — fetching transcript...','text-green-700 font-black');
+  // Auto-generate direct file path from title
+  if(titleMatch){
+    const filename=titleMatch[1].trim();
+    const BASE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/';
+    document.getElementById('adminDirectURL').value=BASE+filename;
+  }
   const uidMatch=embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
   if(uidMatch)await fetchTranscript(uidMatch[1]);
   else{setStatus('transcriptStatus','Paste transcript manually below.','text-amber-600 font-semibold');document.getElementById('transcriptStatus').classList.remove('hidden');document.getElementById('adminTranscript').classList.remove('hidden');}
@@ -927,6 +952,7 @@ async function publishAsset(){
       instrument:document.getElementById('adminInstrument').value,
       category:document.getElementById('adminCategory').value,
       tags:document.getElementById('adminTags').value.trim(),
+      directURL:document.getElementById('adminDirectURL').value.trim(),
       transcript:document.getElementById('adminTranscript').value.trim(),
       bullets:document.getElementById('adminBullets').value.trim(),
       sectionMarkers:window._sectionMarkers||[],
@@ -1002,6 +1028,7 @@ function editItem(id){
   document.getElementById('editTitle').value=a.title||'';
   document.getElementById('editSongTitle').value=a.songTitle||'';
   document.getElementById('editTags').value=a.tags||'';
+  document.getElementById('editDirectURL').value=a.directURL||generateDirectURL(a.title||'');
   document.getElementById('editBullets').value=a.bullets||'';
   updateCatDropdowns();
   document.getElementById('editCategory').value=a.category||'';
@@ -1074,6 +1101,7 @@ async function saveEdit(){
       ourKey:document.getElementById('editOurKey').value,
       songSection:document.getElementById('editSongSection').value,
       instrument:document.getElementById('editInstrument').value,
+      directURL:document.getElementById('editDirectURL').value.trim(),
       transcript:document.getElementById('editTranscript').value.trim(),
       sectionMarkers:window._editSectionMarkers||[],
       chordsPerSection,
@@ -1084,6 +1112,13 @@ async function saveEdit(){
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
+const SP_VIDEO_BASE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/';
+function generateDirectURL(title){
+  if(!title)return'';
+  // Try to construct filename from title e.g. "Gratitude in F" → "Gratitude in F.mp4"
+  const name=title.replace(/\s*[-–]\s*(intro|verse|chorus|bridge|interlude|return|outro|full song).*/i,'').trim();
+  return SP_VIDEO_BASE+name+'.mp4';
+}
 function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
 function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
 function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
