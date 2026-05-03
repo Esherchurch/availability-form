@@ -421,12 +421,17 @@ function openCard(id,startTime=null){
 function openCardAtTime(id,seconds){openCard(id,seconds);}
 function jumpToTime(seconds){
   const frame=document.getElementById('videoFrame');if(!frame)return;
+  // Strip any existing startTime and set the new one
   const base=frame.src.split('?')[0];
-  const params=new URLSearchParams(frame.src.includes('?')?frame.src.split('?')[1]:'');
-  params.set('startTime',seconds);
-  frame.src=base+'?'+params.toString();
+  frame.src=base+'?startTime='+seconds+'&autoplay=1';
 }
-function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal')){
+    document.getElementById('modal').classList.add('hidden');
+    const frame=document.getElementById('videoFrame');
+    if(frame) frame.src='';
+  }
+}
 
 // ─── CHORD DETECTION ───────────────────────────────────────────────────────
 // Uses Web Audio API + chromagram-based chord detection
