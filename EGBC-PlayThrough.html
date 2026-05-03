@@ -21,6 +21,7 @@
     .admin-tab.hidden{display:none}
     mark{background:#fef08a;border-radius:2px;padding:0 2px}
     .jump-btn{transition:all 0.15s}.jump-btn:hover{background:#3d6263;color:white}
+    @keyframes spin{to{transform:rotate(360deg)}}
     .drop-zone{border:2px dashed #d1dfdf;border-radius:1rem;padding:1.5rem;text-align:center;cursor:pointer;transition:all 0.2s}
     .drop-zone:hover,.drop-zone.drag-over{border-color:#3d6263;background:#e8f4f4}
     .drop-zone.analysing{border-color:#3d6263;background:#e8f4f4;cursor:wait}
@@ -285,6 +286,24 @@
   </div>
 </div>
 
+<!-- SECTION JUMP MODAL - clean full screen video viewer -->
+<div id="jumpModal" class="hidden fixed inset-0 bg-black z-[60] flex flex-col">
+  <div class="flex items-center justify-between px-6 py-4 bg-black/80 backdrop-blur-sm flex-shrink-0">
+    <div>
+      <div id="jumpModalLabel" class="text-white font-black text-lg"></div>
+      <div id="jumpModalTime" class="text-white/50 text-[11px] font-bold uppercase tracking-widest"></div>
+    </div>
+    <button onclick="closeJumpModal()" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white font-black text-lg transition-all">✕</button>
+  </div>
+  <div class="flex-1 relative">
+    <div id="jumpLoader" class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black">
+      <div class="w-8 h-8 rounded-full" style="border:3px solid rgba(255,255,255,0.2);border-top-color:white;animation:spin 0.8s linear infinite"></div>
+      <div class="text-white/50 text-[11px] font-bold uppercase tracking-widest">Loading...</div>
+    </div>
+    <iframe id="jumpFrame" src="" allowfullscreen class="w-full h-full border-none" onload="document.getElementById('jumpLoader').style.display='none'"></iframe>
+  </div>
+</div>
+
 <script>
 const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060449:web:7eaf85a76334c753db6918"};
 firebase.initializeApp(firebaseConfig);
@@ -411,15 +430,10 @@ function openCard(id,startTime=null){
       ${a.instrument?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.instrument}</span>`:''}
       ${a.tempo?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.tempo} BPM</span>`:''}
     </div>
-    ${a.directURL?`
-    <div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap">
-      <video id="videoFrame" src="${a.directURL}${startTime?'#t='+startTime:''}" controls style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:1rem;background:#000">
-        Your browser does not support HTML5 video.
-      </video>
-    </div>`:src?`<div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap"><iframe id="videoFrame" src="${src}" allowfullscreen></iframe></div>`:``}
+    ${src?`<div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap"><iframe id="videoFrame" src="${src}" allowfullscreen></iframe></div>`:``}
     ${sections.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-4 border border-[#d1dfdf] mb-6">
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Jump to section</div>
-      <div class="flex flex-wrap gap-2">${sections.map(s=>`<button onclick="jumpToTime(${s.seconds})" class="jump-btn bg-white border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold flex items-center gap-2"><span class="text-[#3d6263]">▶</span>${s.label}<span class="opacity-40 text-[10px]">${fmtTime(s.seconds)}</span></button>`).join('')}</div>
+      <div class="flex flex-wrap gap-2">${sections.map(s=>`<button onclick="jumpToTime(${s.seconds},'${s.label}')" class="jump-btn bg-white border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold flex items-center gap-2"><span class="text-[#3d6263]">▶</span>${s.label}<span class="opacity-40 text-[10px]">${fmtTime(s.seconds)}</span></button>`).join('')}</div>
     </div>`:''}
     ${hasSectionChords?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Chords by Section</div>
@@ -429,33 +443,46 @@ function openCard(id,startTime=null){
       <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How We Play It</div>
       <div class="space-y-3">${(a.bullets||'').split('\n').filter(b=>b.trim()).map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
     </div>`:''}`;
-  // Store base video URL for jump fallback
   window._currentVideoBaseURL = src ? src.split('?')[0] : '';
+  window._currentDirectURL = a.directURL||'';
   document.getElementById('modal').classList.remove('hidden');
 }
 
 function openCardAtTime(id,seconds){openCard(id,seconds);}
-function jumpToTime(seconds){
-  const video=document.getElementById('videoFrame');if(!video)return;
-  if(video.tagName==='VIDEO'){
-    // Native HTML5 video — instant seek
-    video.currentTime=seconds;
-    video.play();
-  } else {
-    // Fallback iframe — replace with loading overlay
-    const wrap=document.getElementById('videoWrap');if(!wrap)return;
-    const base=window._currentVideoBaseURL;if(!base)return;
-    wrap.innerHTML=`<div style="position:absolute;inset:0;background:#f0f6f6;display:flex;align-items:center;justify-content:center;border-radius:1rem"><div style="width:28px;height:28px;border:3px solid #d1dfdf;border-top-color:#3d6263;border-radius:50%;animation:spin 0.8s linear infinite"></div></div><iframe id="videoFrame" src="${base}?startTime=${seconds}" allowfullscreen style="opacity:0;transition:opacity 0.4s" onload="this.style.opacity='1'"></iframe>`;
+function jumpToTime(seconds, label){
+  // Get the base embed URL and load fresh iframe at startTime
+  const base = window._currentVideoBaseURL;
+  if(!base) return;
+  
+  // Pause the main modal video
+  const mainFrame = document.getElementById('videoFrame');
+  if(mainFrame) mainFrame.src='';
+  
+  // Show jump modal with fresh iframe starting at correct time
+  document.getElementById('jumpModalLabel').textContent = label||'';
+  document.getElementById('jumpModalTime').textContent = fmtTime(seconds);
+  document.getElementById('jumpLoader').style.display='flex';
+  document.getElementById('jumpFrame').src = base+'?startTime='+seconds;
+  document.getElementById('jumpModal').classList.remove('hidden');
+  document.body.style.overflow='hidden';
+}
+
+function closeJumpModal(){
+  document.getElementById('jumpModal').classList.add('hidden');
+  document.getElementById('jumpFrame').src='';
+  document.body.style.overflow='';
+  // Reload main embed
+  const base = window._currentVideoBaseURL;
+  const wrap = document.getElementById('videoWrap');
+  if(base && wrap){
+    wrap.innerHTML=`<iframe id="videoFrame" src="${base}" allowfullscreen></iframe>`;
   }
 }
 function closeModal(e){
   if(!e||e.target===document.getElementById('modal')){
     document.getElementById('modal').classList.add('hidden');
     const frame=document.getElementById('videoFrame');
-    if(frame){
-      if(frame.tagName==='VIDEO'){frame.pause();frame.src='';}
-      else frame.src='';
-    }
+    if(frame) frame.src='';
   }
 }
 
