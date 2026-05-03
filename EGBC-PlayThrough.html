@@ -422,10 +422,10 @@ function openCard(id,startTime=null){
 
 function openCardAtTime(id,seconds){openCard(id,seconds);}
 function jumpToTime(seconds){
-  const frame=document.getElementById('videoFrame');if(!frame)return;
-  const base=window._currentVideoBaseURL||frame.src.split('?')[0];
-  if(!base)return;
-  frame.src=base+'?startTime='+seconds;
+  const wrap=document.getElementById('videoWrap');if(!wrap)return;
+  const base=window._currentVideoBaseURL;if(!base)return;
+  // Replace the entire iframe to avoid Stream player errors on src change
+  wrap.innerHTML=`<iframe id="videoFrame" src="${base}?startTime=${seconds}" allowfullscreen></iframe>`;
 }
 function closeModal(e){
   if(!e||e.target===document.getElementById('modal')){
