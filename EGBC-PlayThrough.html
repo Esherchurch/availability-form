@@ -565,31 +565,38 @@ async function analyseAudio(file, context, sectionMarkers){
   const result = {};
 
   if(sectionMarkers && sectionMarkers.length > 0){
-    // Sort markers by time
     const sorted = [...sectionMarkers].sort((a,b)=>a.seconds-b.seconds);
     for(let i=0;i<sorted.length;i++){
       const start = sorted[i].seconds;
       const end = i+1 < sorted.length ? sorted[i+1].seconds : duration;
       const label = sorted[i].label;
 
-      // Collect chords in this time window
+      // Get chords in this section in time order
       const sectionChords = chordTimeline
         .filter(c=>c.time>=start&&c.time<end)
         .map(c=>c.chord);
+      // Only analyse chords for specific sections — not verses/chorus
+      const labelLower = label.toLowerCase();
+      const shouldAnalyse = ['intro','bridge','interlude','return','viva','outro','tag','instrumental'].some(k=>labelLower.startsWith(k));
+      if(!sectionChords.length || !shouldAnalyse) continue;
 
-      // Deduplicate consecutive same chords and get unique sequence
-      const unique = [];
-      sectionChords.forEach(c=>{if(!unique.length||unique[unique.length-1]!==c)unique.push(c);});
+      // Deduplicate consecutive same chords to get ordered progression
+      const progression = [];
+      sectionChords.forEach(c=>{
+        if(!progression.length||progression[progression.length-1]!==c) progression.push(c);
+      });
 
-      // Count chord frequencies and pick top 4
+      // Keep top 4 by frequency, but in order of first appearance
       const freq={};
       sectionChords.forEach(c=>{freq[c]=(freq[c]||0)+1;});
-      const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]);
+      const top4 = new Set(Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]));
+      const final=[];
+      progression.forEach(c=>{if(top4.has(c)&&!final.includes(c))final.push(c);});
 
-      if(top.length) result[label] = top.join(' – ');
+      if(final.length) result[label] = final.join(' – ');
     }
   } else {
-    // No section markers — just give overall chord progression
+    // No section markers — overall chord progression
     const freq={};
     chordTimeline.forEach(c=>{freq[c.chord]=(freq[c.chord]||0)+1;});
     const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
@@ -819,19 +826,41 @@ async function generateBullets(){
   document.getElementById('regenBtn').classList.add('hidden');
   document.getElementById('sectionMarkersPreview').classList.add('hidden');
 
-  const SECTION_KEYWORDS=['intro','bridge','interlude','return','viva','outro','tag','instrumental'];
+  // Sections to detect — NO verses
+  // ALL sections detected for timestamps/jump buttons
+  const SECTION_KEYWORDS=['intro','verse','chorus','bridge','interlude','return','viva','outro','tag','instrumental'];
+  // Only THESE sections get chord analysis
+  const CHORD_SECTIONS=new Set(['intro','bridge','interlude','return','viva','outro','tag','instrumental']);
   const sectionMarkers=[];
   const lines=transcript.split('\n');
+
+  // Parse timestamp — handles both [00:00:02] and 00.00.02 formats
+  function parseTimestamp(line){
+    // Format: [HH:MM:SS] or [MM:SS]
+    const bracketMatch = line.match(/\[(\d{1,2}):(\d{2}):(\d{2})\]/) || line.match(/\[(\d{1,2}):(\d{2})\]/);
+    if(bracketMatch){
+      if(bracketMatch.length===4) return parseInt(bracketMatch[1])*3600+parseInt(bracketMatch[2])*60+parseInt(bracketMatch[3]);
+      return parseInt(bracketMatch[1])*60+parseInt(bracketMatch[2]);
+    }
+    // Format: HH.MM.SS or MM.SS at start of line
+    const dotMatch = line.match(/^(\d{2})\.(\d{2})\.(\d{2})/);
+    if(dotMatch) return parseInt(dotMatch[1])*3600+parseInt(dotMatch[2])*60+parseInt(dotMatch[3]);
+    return null;
+  }
+
+  // Strip timestamp from line to get label text
+  function stripTimestamp(line){
+    return line.replace(/^\[[\d:]+\]\s*/,'').replace(/^\d{2}\.\d{2}\.\d{2}\s*/,'').trim();
+  }
+
   lines.forEach(line=>{
-    const tsMatch=line.match(/\[(\d{2}:\d{2}:\d{2})\]/);
-    if(!tsMatch)return;
-    const text=line.replace(/\[[\d:]+\]\s*/,'').trim().toLowerCase();
-    const matched=SECTION_KEYWORDS.find(k=>text.includes(k)&&text.length<30);
+    const seconds = parseTimestamp(line);
+    if(seconds===null) return;
+    const text = stripTimestamp(line).toLowerCase();
+    const matched = SECTION_KEYWORDS.find(k=>text===k||text.startsWith(k+' ')||text===k);
     if(matched){
-      const parts=tsMatch[1].split(':');
-      const seconds=parseInt(parts[0])*3600+parseInt(parts[1])*60+parseInt(parts[2]);
-      const label=line.replace(/\[[\d:]+\]\s*/,'').trim();
-      sectionMarkers.push({label:label.charAt(0).toUpperCase()+label.slice(1),seconds});
+      const label = stripTimestamp(line);
+      sectionMarkers.push({label:label.charAt(0).toUpperCase()+label.slice(1), seconds});
     }
   });
 
