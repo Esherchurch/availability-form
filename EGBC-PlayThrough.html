@@ -764,6 +764,28 @@ function showAssembledAnswer(query,results){
 function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
 function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(getFiltered());}
 
+// ─── TIMESTAMP HELPERS (used by both add and edit forms) ──────────────────
+function parseTimestamp(line){
+  const clean = line.replace(/^[\s•\-\*]+/,'');
+  const bracketFull = clean.match(/^\[(\d{1,2}):(\d{2}):(\d{2})\]/);
+  if(bracketFull) return parseInt(bracketFull[1])*3600+parseInt(bracketFull[2])*60+parseInt(bracketFull[3]);
+  const bracketShort = clean.match(/^\[(\d{1,2}):(\d{2})\]/);
+  if(bracketShort) return parseInt(bracketShort[1])*60+parseInt(bracketShort[2]);
+  const dotFull = clean.match(/^(\d{2})\.(\d{2})\.(\d{2})/);
+  if(dotFull) return parseInt(dotFull[1])*3600+parseInt(dotFull[2])*60+parseInt(dotFull[3]);
+  const dotShort = clean.match(/^(\d{1,2})\.(\d{2})\s/);
+  if(dotShort) return parseInt(dotShort[1])*60+parseInt(dotShort[2]);
+  return null;
+}
+function stripTimestamp(line){
+  return line
+    .replace(/^[\s•\-\*]+/,'')
+    .replace(/^\[[\d:]+\]\s*/,'')
+    .replace(/^\d{2}\.\d{2}\.\d{2}\s*/,'')
+    .replace(/^\d{1,2}\.\d{2}\s/,'')
+    .trim();
+}
+
 // ─── ADMIN ─────────────────────────────────────────────────────────────────
 function toggleAdmin(){document.getElementById('adminPanel').classList.toggle('hidden');updateCatDropdowns();renderCategoryList();}
 function showAdminTab(tab){
@@ -837,29 +859,7 @@ async function generateBullets(){
   // Only THESE sections get chord analysis
   const CHORD_SECTIONS=new Set(['intro','bridge','interlude','return','viva','outro','tag','instrumental']);
 
-  // Parse timestamp from a line — handles [HH:MM:SS], [MM:SS], HH.MM.SS, with optional leading bullet/whitespace
-  function parseTimestamp(line){
-    const clean = line.replace(/^[\s•\-\*]+/,'');
-    const bracketFull = clean.match(/^\[(\d{1,2}):(\d{2}):(\d{2})\]/);
-    if(bracketFull) return parseInt(bracketFull[1])*3600+parseInt(bracketFull[2])*60+parseInt(bracketFull[3]);
-    const bracketShort = clean.match(/^\[(\d{1,2}):(\d{2})\]/);
-    if(bracketShort) return parseInt(bracketShort[1])*60+parseInt(bracketShort[2]);
-    const dotFull = clean.match(/^(\d{2})\.(\d{2})\.(\d{2})/);
-    if(dotFull) return parseInt(dotFull[1])*3600+parseInt(dotFull[2])*60+parseInt(dotFull[3]);
-    const dotShort = clean.match(/^(\d{1,2})\.(\d{2})\s/);
-    if(dotShort) return parseInt(dotShort[1])*60+parseInt(dotShort[2]);
-    return null;
-  }
 
-  // Strip timestamp and bullets from line to get label
-  function stripTimestamp(line){
-    return line
-      .replace(/^[\s•\-\*]+/,'')
-      .replace(/^\[[\d:]+\]\s*/,'')
-      .replace(/^\d{2}\.\d{2}\.\d{2}\s*/,'')
-      .replace(/^\d{1,2}\.\d{2}\s/,'')
-      .trim();
-  }
   const sectionMarkers=[];
   const lines=transcript.split('\n');
 
