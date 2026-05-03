@@ -236,7 +236,13 @@ function openCard(id){
   document.getElementById('modal').classList.remove('hidden');
 }
 
-function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
+// FIXED: clear iframe src before hiding to stop video/audio playback
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal')){
+    document.querySelectorAll('#modal iframe').forEach(f=>{f.src='';});
+    document.getElementById('modal').classList.add('hidden');
+  }
+}
 
 function doSearch(){
   const query=document.getElementById('searchInput').value.trim();if(!query)return;
@@ -362,7 +368,6 @@ async function generateBullets(){
   document.getElementById('bulletsGenerating').classList.remove('hidden');
   document.getElementById('adminBullets').classList.add('hidden');
   document.getElementById('regenBtn').classList.add('hidden');
-  // Extract key instructional sentences from transcript
   const lines=transcript.split('\n').map(l=>l.replace(/^\[[\d:]+\]\s*/,'').trim()).filter(l=>l.length>20&&!l.match(/^\d+:\d+$/));
   const instructional=lines.filter(l=>/\b(press|click|select|go to|open|choose|set|turn|make sure|check|you need|you can|will|should|next|then|now|first|after|here|this)\b/i.test(l));
   const source=instructional.length>=3?instructional:lines;
