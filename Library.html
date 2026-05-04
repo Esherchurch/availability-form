@@ -234,6 +234,124 @@
             font-weight: 700;
             padding: 4px 0;
         }
+
+        /* CCLI row: input + link button side by side */
+        .ccli-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .ccli-row input {
+            margin-bottom: 0;
+            flex: 1;
+        }
+
+        .ccli-link-btn {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: #e8f0f0;
+            color: #3d6263;
+            padding: 12px 18px;
+            border-radius: 9999px;
+            font-weight: 800;
+            font-size: 12px;
+            text-decoration: none;
+            text-transform: uppercase;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .ccli-link-btn:hover {
+            background-color: #d1dfdf;
+        }
+
+        .ccli-link-btn.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        /* YouTube field: hide the input, show a button instead */
+        .youtube-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .youtube-row input {
+            /* Keep it in DOM for saving, but hide it visually */
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+            height: 0;
+            margin: 0;
+            padding: 0;
+            border: 0;
+        }
+
+        .youtube-open-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #ff0000;
+            color: white;
+            padding: 12px 22px;
+            border-radius: 9999px;
+            font-weight: 800;
+            font-size: 12px;
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+
+        .youtube-open-btn:hover { background-color: #cc0000; }
+
+        .youtube-open-btn.disabled {
+            background-color: #ccc;
+            pointer-events: none;
+        }
+
+        .youtube-edit-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: #e8f0f0;
+            color: #3d6263;
+            padding: 12px 18px;
+            border-radius: 9999px;
+            font-weight: 800;
+            font-size: 12px;
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+
+        .youtube-edit-btn:hover { background-color: #d1dfdf; }
+
+        .youtube-input-row {
+            display: none;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .youtube-input-row.visible { display: flex; }
+
+        .youtube-input-row input {
+            flex: 1;
+            margin-bottom: 0;
+            position: static;
+            opacity: 1;
+            pointer-events: auto;
+            width: auto;
+            height: auto;
+        }
     </style>
 </head>
 
@@ -262,11 +380,27 @@
         <input id="artist" placeholder="Scanning for artist...">
         <div id="artist-status" class="status-msg"></div>
 
+        <!-- YouTube: shows button to open, plus an edit toggle -->
         <label>YouTube Link</label>
-        <input id="youtube" onchange="smartScanArtist()" placeholder="Paste YouTube link here">
+        <div class="youtube-row" id="youtube-btn-row">
+            <a id="youtube-open-btn" href="#" target="_blank" class="youtube-open-btn disabled">
+                ▶ Open on YouTube
+            </a>
+            <button type="button" class="youtube-edit-btn" onclick="toggleYoutubeEdit()">✎ Edit Link</button>
+        </div>
+        <div class="youtube-input-row" id="youtube-input-row">
+            <input id="youtube" onchange="smartScanArtist(); updateYoutubeButton();" placeholder="Paste YouTube link here">
+            <button type="button" class="youtube-edit-btn" onclick="toggleYoutubeEdit()">Done</button>
+        </div>
 
+        <!-- CCLI: number input + link button side by side -->
         <label>CCLI Number</label>
-        <input id="ccli">
+        <div class="ccli-row">
+            <input id="ccli" placeholder="e.g. 1234567" oninput="updateCcliLink()">
+            <a id="ccli-link" href="#" target="_blank" class="ccli-link-btn disabled">
+                🔗 Song Select
+            </a>
+        </div>
 
         <h3>Associated Files</h3>
         <div id="files-container"></div>
@@ -291,7 +425,6 @@ const db = firebase.firestore();
 let currentDoc = null;
 let currentFiles = [];
 
-// Cache all services once on load
 let servicesCache = null;
 
 async function getServicesCache() {
@@ -301,12 +434,10 @@ async function getServicesCache() {
     return servicesCache;
 }
 
-// Get usage stats by scanning services.order[] for matching song titles
 async function getSongUsageStats(songTitle) {
     const services = await getServicesCache();
     const title = songTitle.trim().toLowerCase();
 
-    // Collect all service dates where this song appears
     const matchingDates = [];
     services.forEach(service => {
         if (!service.date || !Array.isArray(service.order)) return;
@@ -316,17 +447,14 @@ async function getSongUsageStats(songTitle) {
         if (hasSong) matchingDates.push(service.date);
     });
 
-    // Deduplicate dates (a song could theoretically appear twice in one service)
     const uniqueDates = [...new Set(matchingDates)];
     const totalCount = uniqueDates.length;
 
-    // Last 3 months
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     const threeMonthStr = threeMonthsAgo.toISOString().split("T")[0];
     const recentCount = uniqueDates.filter(d => d >= threeMonthStr).length;
 
-    // Last used date
     const sortedDates = [...uniqueDates].sort();
     const lastUsed = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null;
 
@@ -360,7 +488,7 @@ function normalizeTitle(title) { return title.toLowerCase().trim(); }
 
 async function loadSongs() {
     const snapshot = await db.collection("songs").orderBy("normalized").get();
-    getServicesCache(); // pre-load in background
+    getServicesCache();
     renderList(snapshot.docs);
 }
 
@@ -384,16 +512,13 @@ async function renderList(docs) {
             statsEl.innerHTML = `<span class="stat-badge stat-never">Never used</span>`;
         } else {
             let html = `<span class="stat-badge stat-total">✦ ${stats.totalCount} total</span>`;
-
             if (stats.recentCount > 0) {
                 const cls = stats.recentCount >= 3 ? "stat-recent warning" : "stat-recent";
                 html += `<span class="stat-badge ${cls}">↺ ${stats.recentCount} recent</span>`;
             }
-
             if (stats.lastUsed) {
                 html += `<span class="stat-badge stat-last">Last: ${formatDate(stats.lastUsed)}</span>`;
             }
-
             statsEl.innerHTML = html;
         }
     }
@@ -420,11 +545,56 @@ async function openSong(id) {
     document.getElementById("youtube").value = data.youtube || "";
     document.getElementById("ccli").value = data.ccli || "";
     document.getElementById("artist-status").innerText = "";
+
+    // Hide youtube edit row when opening a song
+    document.getElementById("youtube-input-row").classList.remove("visible");
+
+    updateYoutubeButton();
+    updateCcliLink();
     renderFiles();
     renderUsagePanel(data.title);
 
     if (!data.artist && data.youtube) {
         smartScanArtist();
+    }
+}
+
+// Update the YouTube open button href and enabled state
+function updateYoutubeButton() {
+    const url = document.getElementById("youtube").value.trim();
+    const btn = document.getElementById("youtube-open-btn");
+    if (url) {
+        btn.href = url;
+        btn.classList.remove("disabled");
+    } else {
+        btn.href = "#";
+        btn.classList.add("disabled");
+    }
+}
+
+// Toggle youtube edit input row
+function toggleYoutubeEdit() {
+    const inputRow = document.getElementById("youtube-input-row");
+    const isVisible = inputRow.classList.contains("visible");
+    if (isVisible) {
+        inputRow.classList.remove("visible");
+        updateYoutubeButton();
+    } else {
+        inputRow.classList.add("visible");
+        document.getElementById("youtube").focus();
+    }
+}
+
+// Update the CCLI Song Select link
+function updateCcliLink() {
+    const ccli = document.getElementById("ccli").value.trim();
+    const link = document.getElementById("ccli-link");
+    if (ccli) {
+        link.href = `https://songselect.ccli.com/Songs/${ccli}`;
+        link.classList.remove("disabled");
+    } else {
+        link.href = "#";
+        link.classList.add("disabled");
     }
 }
 
@@ -535,10 +705,8 @@ async function smartScanArtist() {
 
 async function deleteSong() {
     if (!currentDoc) return;
-
     const confirmDelete = confirm("Are you sure you want to permanently delete this song? This cannot be undone.");
     if (!confirmDelete) return;
-
     try {
         await db.collection("songs").doc(currentDoc).delete();
         alert("Song deleted successfully.");
