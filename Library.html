@@ -164,7 +164,6 @@
             font-weight: 800;
         }
 
-        /* Usage summary panel shown when a song is opened */
         .usage-panel {
             background: #f0f6f6;
             border: 1px solid #d1dfdf;
@@ -252,7 +251,6 @@
     <h2 id="display-title">Select a Song</h2>
     <div id="editor" style="display:none;">
 
-        <!-- Usage Stats Panel -->
         <div class="usage-panel" id="usage-panel">
             <span id="stats-loading">Loading usage stats...</span>
         </div>
@@ -293,42 +291,44 @@ const db = firebase.firestore();
 let currentDoc = null;
 let currentFiles = [];
 
-// Cache all schedules once on load to avoid repeated reads
-let schedulesCache = null;
+// Cache all services once on load
+let servicesCache = null;
 
-async function getSchedulesCache() {
-    if (schedulesCache) return schedulesCache;
-    const snap = await db.collection("schedules").get();
-    schedulesCache = snap.docs.map(d => d.data());
-    return schedulesCache;
+async function getServicesCache() {
+    if (servicesCache) return servicesCache;
+    const snap = await db.collection("services").get();
+    servicesCache = snap.docs.map(d => d.data());
+    return servicesCache;
 }
 
-// Get usage stats for a song title from schedules
+// Get usage stats by scanning services.order[] for matching song titles
 async function getSongUsageStats(songTitle) {
-    const schedules = await getSchedulesCache();
+    const services = await getServicesCache();
     const title = songTitle.trim().toLowerCase();
 
-    // Filter to records matching this song
-    const matches = schedules.filter(d => {
-        const st = (d.songTitle || "").trim().toLowerCase();
-        return st === title;
+    // Collect all service dates where this song appears
+    const matchingDates = [];
+    services.forEach(service => {
+        if (!service.date || !Array.isArray(service.order)) return;
+        const hasSong = service.order.some(item =>
+            item.type === "song" && (item.title || "").trim().toLowerCase() === title
+        );
+        if (hasSong) matchingDates.push(service.date);
     });
 
-    const totalCount = matches.length;
+    // Deduplicate dates (a song could theoretically appear twice in one service)
+    const uniqueDates = [...new Set(matchingDates)];
+    const totalCount = uniqueDates.length;
 
     // Last 3 months
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    const threeMonthStr = threeMonthsAgo.toISOString().split("T")[0]; // "YYYY-MM-DD"
-
-    const recentMatches = matches.filter(d => d.date && d.date >= threeMonthStr);
-    // Deduplicate by date (same song may appear multiple times per service for different roles)
-    const recentDates = [...new Set(recentMatches.map(d => d.date))];
-    const recentCount = recentDates.length;
+    const threeMonthStr = threeMonthsAgo.toISOString().split("T")[0];
+    const recentCount = uniqueDates.filter(d => d >= threeMonthStr).length;
 
     // Last used date
-    const allDates = matches.map(d => d.date).filter(Boolean).sort();
-    const lastUsed = allDates.length > 0 ? allDates[allDates.length - 1] : null;
+    const sortedDates = [...uniqueDates].sort();
+    const lastUsed = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null;
 
     return { totalCount, recentCount, lastUsed };
 }
@@ -360,14 +360,12 @@ function normalizeTitle(title) { return title.toLowerCase().trim(); }
 
 async function loadSongs() {
     const snapshot = await db.collection("songs").orderBy("normalized").get();
-    // Pre-load schedules cache while songs are loading
-    getSchedulesCache();
+    getServicesCache(); // pre-load in background
     renderList(snapshot.docs);
 }
 
 async function renderList(docs) {
     const list = document.getElementById("list");
-    // Show song titles immediately, then populate stats
     list.innerHTML = docs.map(doc => `
         <div class="song" onclick="openSong('${doc.id.replace(/'/g, "\\'")}')">
             <div class="song-title-text">${doc.data().title}</div>
@@ -377,7 +375,6 @@ async function renderList(docs) {
         </div>
     `).join("");
 
-    // Populate stats for each song asynchronously
     for (const doc of docs) {
         const stats = await getSongUsageStats(doc.data().title);
         const statsEl = document.getElementById(`stats-${doc.id}`);
