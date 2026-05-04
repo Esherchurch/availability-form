@@ -4,182 +4,450 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Worship Suggestions Board</title>
-<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
+  /* ─── DESIGN TOKENS (from EGBC Worship Planner) ─── */
   :root {
-    --cork: #c4935a;
-    --cork-dark: #a67a40;
-    --pin-red: #c0392b;
+    --teal:        #3d6263;
+    --teal-dark:   #2f4c4d;
+    --teal-light:  #e6f0f0;
+    --border:      #d1dfdf;
+    --bg:          #f0f6f6;
+    --pin-red:     #c0392b;
+    --cork:        #c4935a;
+    --cork-dark:   #a67a40;
+    --font:        'Montserrat', sans-serif;
+    --font-hand:   'Caveat', cursive;
   }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Nunito', sans-serif; background: #2d1a00; min-height: 100vh; overflow: hidden; }
 
-  /* HEADER */
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ══════════════════════════════════
+     HEADER  — white card, teal text
+  ══════════════════════════════════ */
   header {
-    background: linear-gradient(135deg,#1a0a00 0%,#3d2200 50%,#1a0a00 100%);
-    border-bottom: 4px solid var(--cork-dark);
-    padding: 12px 24px;
-    display: flex; align-items: center; justify-content: space-between;
     position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-    box-shadow: 0 4px 20px rgba(0,0,0,.5);
-    height: 58px;
+    height: 64px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 12px rgba(61,98,99,.08);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px;
   }
-  .header-left { display:flex; align-items:center; gap:10px; }
-  .logo-icon { font-size:1.8rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
-  .header-title { font-family:'Caveat',cursive; font-size:1.7rem; font-weight:700; color:#fde68a; text-shadow:1px 2px 4px rgba(0,0,0,.6); line-height:1; }
-  .header-subtitle { font-size:.65rem; color:#d4a870; letter-spacing:.12em; text-transform:uppercase; margin-top:1px; }
-  .header-actions { display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
-  .btn { padding:7px 15px; border:none; border-radius:30px; cursor:pointer; font-family:'Nunito',sans-serif; font-weight:700; font-size:.78rem; transition:all .2s; display:flex; align-items:center; gap:5px; }
-  .btn:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.3); }
-  .btn:active { transform:translateY(0); }
-  .btn-primary  { background:#fde68a; color:#1a0a00; }
-  .btn-secondary{ background:rgba(255,255,255,.12); color:#fde68a; border:1px solid rgba(253,230,138,.3); }
-  .btn-admin    { background:var(--pin-red); color:white; }
-  .btn-danger   { background:#dc2626; color:white; }
-  .btn-sm       { padding:5px 11px; font-size:.74rem; }
-  .admin-badge  { background:var(--pin-red); color:white; font-size:.6rem; padding:2px 7px; border-radius:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 
-  /* PAGE TABS */
+  .header-left { display:flex; align-items:center; gap:12px; }
+  .logo-icon   { font-size:1.7rem; }
+
+  .header-title {
+    font-family: var(--font);
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--teal);
+    letter-spacing: -.01em;
+    line-height: 1;
+  }
+  .header-subtitle {
+    font-size: .6rem;
+    font-weight: 800;
+    color: var(--teal);
+    opacity: .5;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  .header-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  /* ══════════════════════════════════
+     BUTTONS  — pill, Montserrat 800
+  ══════════════════════════════════ */
+  .btn {
+    padding: 8px 20px;
+    border: none; border-radius: 9999px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-weight: 800;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    transition: all .2s;
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap;
+  }
+  .btn:hover  { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+
+  .btn-primary {
+    background: var(--teal); color: #ffffff;
+    box-shadow: 0 2px 8px rgba(61,98,99,.2);
+  }
+  .btn-primary:hover { background: var(--teal-dark); box-shadow: 0 4px 14px rgba(61,98,99,.3); }
+
+  .btn-secondary {
+    background: #ffffff; color: var(--teal);
+    border: 2px solid var(--teal);
+  }
+  .btn-secondary:hover { background: var(--bg); }
+
+  .btn-admin  { background: var(--pin-red); color: #ffffff; }
+  .btn-admin:hover { background: #a93226; }
+  .btn-danger { background: #dc2626; color: #ffffff; }
+  .btn-sm     { padding: 6px 14px; font-size: .7rem; }
+
+  .admin-badge {
+    background: var(--pin-red); color: #ffffff;
+    font-size: .58rem; font-weight: 800; letter-spacing: .1em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 9999px;
+  }
+
+  /* ══════════════════════════════════
+     PAGE TABS  — teal palette
+  ══════════════════════════════════ */
   .pages-bar {
-    position:fixed; top:58px; left:0; right:0; z-index:190;
-    background:#1a0a00; padding:0 24px;
-    display:flex; gap:4px; align-items:flex-end;
-    border-bottom:3px solid var(--cork-dark);
-    overflow-x:auto; scrollbar-width:thin; height:40px;
+    position: fixed; top: 64px; left: 0; right: 0; z-index: 190;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex; gap: 4px; align-items: flex-end;
+    overflow-x: auto; scrollbar-width: thin;
+    height: 42px;
   }
-  .page-tab { padding:7px 16px 5px; font-family:'Caveat',cursive; font-size:.98rem; font-weight:600; cursor:pointer; border-radius:8px 8px 0 0; border:2px solid transparent; border-bottom:none; color:#a67a40; transition:all .2s; white-space:nowrap; background:rgba(196,147,90,.1); position:relative; }
-  .page-tab:hover { color:#fde68a; background:rgba(196,147,90,.2); }
-  .page-tab.active { background:var(--cork); color:#1a0a00; border-color:var(--cork-dark); font-weight:700; }
-  .page-tab .tab-delete { position:absolute; top:4px; right:5px; font-size:.58rem; opacity:0; color:#c0392b; transition:opacity .2s; cursor:pointer; }
-  .page-tab:hover .tab-delete { opacity:1; }
-  .add-page-btn { padding:5px 11px; background:none; border:none; color:#d4a870; cursor:pointer; font-size:1.15rem; border-radius:6px; transition:all .2s; align-self:center; margin-bottom:2px; }
-  .add-page-btn:hover { color:#fde68a; transform:scale(1.2); }
 
-  /* FILTER BAR */
+  .page-tab {
+    padding: 7px 18px 6px;
+    font-family: var(--font);
+    font-size: .72rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .06em;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid transparent; border-bottom: none;
+    color: var(--teal); opacity: .5;
+    transition: all .2s; white-space: nowrap;
+    background: transparent; position: relative;
+  }
+  .page-tab:hover  { opacity: .8; background: var(--teal-light); }
+  .page-tab.active {
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--teal); opacity: 1;
+    font-weight: 800;
+  }
+  .page-tab .tab-delete {
+    position: absolute; top: 4px; right: 5px;
+    font-size: .55rem; opacity: 0; color: var(--pin-red);
+    transition: opacity .2s; cursor: pointer;
+  }
+  .page-tab:hover .tab-delete { opacity: 1; }
+
+  .add-page-btn {
+    padding: 5px 10px; background: none; border: none;
+    color: var(--teal); opacity: .5;
+    cursor: pointer; font-size: 1.1rem; border-radius: 6px;
+    transition: all .2s; align-self: center; margin-bottom: 2px;
+  }
+  .add-page-btn:hover { opacity: 1; transform: scale(1.2); }
+
+  /* ══════════════════════════════════
+     FILTER BAR  — teal chips
+  ══════════════════════════════════ */
   .filter-bar {
-    position:fixed; top:98px; left:0; right:0; z-index:180;
-    display:flex; gap:6px; padding:7px 20px;
-    background:rgba(26,10,0,.88); backdrop-filter:blur(6px);
-    border-bottom:1px solid rgba(196,147,90,.25);
-    overflow-x:auto; scrollbar-width:none; align-items:center; height:44px;
+    position: fixed; top: 106px; left: 0; right: 0; z-index: 180;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 24px;
+    display: flex; gap: 6px; align-items: center;
+    overflow-x: auto; scrollbar-width: none; height: 46px;
   }
-  .filter-bar::-webkit-scrollbar { display:none; }
-  .filter-chip { padding:4px 12px; border-radius:20px; border:2px solid rgba(0,0,0,.15); background:rgba(255,255,255,.15); font-size:.74rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; color:#1a0a00; transition:all .15s; display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; }
-  .filter-chip:hover { background:rgba(255,255,255,.35); }
-  .filter-chip.active { background:#1a0a00; color:#fde68a; border-color:#1a0a00; }
+  .filter-bar::-webkit-scrollbar { display: none; }
 
-  /* BOARD */
-  .board-outer { position:fixed; top:142px; left:0; right:0; bottom:0; overflow:auto; }
+  .filter-chip {
+    padding: 5px 14px;
+    border-radius: 9999px;
+    border: 1.5px solid var(--border);
+    background: #ffffff;
+    font-family: var(--font);
+    font-size: .7rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .05em;
+    cursor: pointer; color: var(--teal);
+    transition: all .15s; white-space: nowrap; flex-shrink: 0;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .filter-chip:hover  { background: var(--teal-light); border-color: var(--teal); }
+  .filter-chip.active { background: var(--teal); color: #ffffff; border-color: var(--teal); }
+
+  /* ══════════════════════════════════
+     CORK BOARD  (unchanged)
+  ══════════════════════════════════ */
+  .board-outer {
+    position: fixed; top: 152px; left: 0; right: 0; bottom: 0;
+    overflow: auto;
+  }
   .board-canvas {
-    position:relative; width:3200px; height:2400px;
+    position: relative; width: 3200px; height: 2400px;
     background:
       repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(0,0,0,.04) 6px,rgba(0,0,0,.04) 12px),
       linear-gradient(160deg,#c89050 0%,#b87d3a 25%,#c89050 50%,#a06a28 75%,#c89050 100%);
   }
   .board-canvas::before {
     content:''; position:absolute; inset:0; pointer-events:none;
-    background-image:radial-gradient(circle at 20% 30%,rgba(255,255,255,.04) 1px,transparent 1px),radial-gradient(circle at 60% 70%,rgba(0,0,0,.06) 1px,transparent 1px),radial-gradient(circle at 80% 20%,rgba(255,255,255,.03) 1px,transparent 1px);
+    background-image:
+      radial-gradient(circle at 20% 30%,rgba(255,255,255,.04) 1px,transparent 1px),
+      radial-gradient(circle at 60% 70%,rgba(0,0,0,.06) 1px,transparent 1px),
+      radial-gradient(circle at 80% 20%,rgba(255,255,255,.03) 1px,transparent 1px);
     background-size:8px 8px,12px 12px,6px 6px;
   }
 
-  /* STICKY NOTE */
+  /* ══════════════════════════════════
+     STICKY NOTES  (colours unchanged)
+  ══════════════════════════════════ */
   .note {
-    position:absolute; width:272px;
-    border-radius:2px 12px 12px 2px;
-    padding:32px 14px 13px;
-    box-shadow:4px 6px 18px rgba(0,0,0,.3),1px 2px 4px rgba(0,0,0,.2),inset 0 0 0 1px rgba(255,255,255,.2);
-    transition:box-shadow .2s, transform .15s;
-    user-select:none; word-break:break-word;
+    position: absolute; width: 272px;
+    border-radius: 2px 12px 12px 2px;
+    padding: 32px 14px 13px;
+    box-shadow: 4px 6px 18px rgba(0,0,0,.3),1px 2px 4px rgba(0,0,0,.2),inset 0 0 0 1px rgba(255,255,255,.2);
+    transition: box-shadow .2s, transform .15s;
+    user-select: none; word-break: break-word;
   }
   .note.is-dragging {
-    box-shadow:14px 22px 55px rgba(0,0,0,.58),inset 0 0 0 1px rgba(255,255,255,.3) !important;
-    transition:none !important;
-    z-index:900 !important;
-    cursor:grabbing !important;
-    transform:rotate(2deg) scale(1.04) !important;
+    box-shadow: 14px 22px 55px rgba(0,0,0,.58),inset 0 0 0 1px rgba(255,255,255,.3) !important;
+    transition: none !important; z-index: 900 !important;
+    cursor: grabbing !important;
+    transform: rotate(2deg) scale(1.04) !important;
   }
-  .note::before { content:''; position:absolute; top:0; left:0; width:0; height:0; border-style:solid; border-width:18px 18px 0 0; border-color:rgba(0,0,0,.15) transparent transparent transparent; }
+  .note::before {
+    content:''; position:absolute; top:0; left:0; width:0; height:0;
+    border-style:solid; border-width:18px 18px 0 0;
+    border-color:rgba(0,0,0,.15) transparent transparent transparent;
+  }
 
-  .note-song    { background:linear-gradient(160deg,#fef9c3,#fef08a); }
-  .note-event   { background:linear-gradient(160deg,#fce7f3,#fda4af); }
-  .note-av      { background:linear-gradient(160deg,#eff6ff,#93c5fd); }
-  .note-general { background:linear-gradient(160deg,#f0fdf4,#86efac); }
-  .note-prayer  { background:linear-gradient(160deg,#f5f3ff,#d8b4fe); }
-  .note-other   { background:linear-gradient(160deg,#fff7ed,#fdba74); }
+  /* Note colour variants — unchanged */
+  .note-song    { background: linear-gradient(160deg,#fef9c3,#fef08a); }
+  .note-event   { background: linear-gradient(160deg,#fce7f3,#fda4af); }
+  .note-av      { background: linear-gradient(160deg,#eff6ff,#93c5fd); }
+  .note-general { background: linear-gradient(160deg,#f0fdf4,#86efac); }
+  .note-prayer  { background: linear-gradient(160deg,#f5f3ff,#d8b4fe); }
+  .note-other   { background: linear-gradient(160deg,#fff7ed,#fdba74); }
 
-  /* DRAG HANDLE */
-  .note-topbar { position:absolute; top:0; left:0; right:0; padding:5px 10px 5px 20px; display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,.1); border-radius:0 10px 0 0; cursor:grab; }
-  .note-topbar:active { cursor:grabbing; }
-  .note-category { font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:rgba(0,0,0,.5); display:flex; align-items:center; gap:3px; }
+  /* Drag topbar */
+  .note-topbar {
+    position: absolute; top:0; left:0; right:0;
+    padding: 5px 10px 5px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(0,0,0,.1); border-radius: 0 10px 0 0;
+    cursor: grab;
+  }
+  .note-topbar:active { cursor: grabbing; }
+
+  .note-category {
+    font-family: var(--font);
+    font-size: .6rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: rgba(0,0,0,.5); display:flex; align-items:center; gap:3px;
+  }
   .note-actions { display:flex; gap:3px; opacity:0; transition:opacity .2s; }
-  .note:hover .note-actions { opacity:1; }
-  .note-action-btn { background:rgba(0,0,0,.12); border:none; border-radius:4px; padding:2px 5px; font-size:.67rem; cursor:pointer; color:rgba(0,0,0,.6); transition:all .15s; }
-  .note-action-btn:hover { background:rgba(0,0,0,.25); color:#000; }
-  .note-action-btn.delete:hover { background:#dc2626; color:white; }
+  .note:hover .note-actions { opacity: 1; }
+  .note-action-btn {
+    background: rgba(0,0,0,.12); border: none; border-radius: 4px;
+    padding: 2px 5px; font-size: .66rem; cursor: pointer;
+    color: rgba(0,0,0,.6); transition: all .15s;
+  }
+  .note-action-btn:hover         { background: rgba(0,0,0,.25); color: #000; }
+  .note-action-btn.delete:hover  { background: #dc2626; color: #fff; }
 
-  /* PIN */
-  .note-pin { position:absolute; top:-13px; left:50%; transform:translateX(-50%); width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 35%,#e74c3c,#8b0000); box-shadow:0 3px 8px rgba(0,0,0,.4),inset 0 1px 2px rgba(255,255,255,.3); z-index:5; cursor:grab; }
-  .note-pin::after { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); width:3px; height:10px; background:linear-gradient(#aaa,#666); border-radius:0 0 2px 2px; }
+  /* Pin */
+  .note-pin {
+    position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+    width: 20px; height: 20px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,#e74c3c,#8b0000);
+    box-shadow: 0 3px 8px rgba(0,0,0,.4),inset 0 1px 2px rgba(255,255,255,.3);
+    z-index: 5; cursor: grab;
+  }
+  .note-pin::after {
+    content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%);
+    width:3px; height:10px; background:linear-gradient(#aaa,#666);
+    border-radius:0 0 2px 2px;
+  }
 
-  .note-title { font-family:'Caveat',cursive; font-size:1.18rem; font-weight:700; color:#1a0a00; margin-bottom:6px; line-height:1.3; }
-  .note-body  { font-family:'Caveat',cursive; font-size:.93rem; color:#2d1a00; line-height:1.5; margin-bottom:8px; white-space:pre-wrap; }
+  .note-title { font-family:var(--font-hand); font-size:1.18rem; font-weight:700; color:#1a0a00; margin-bottom:6px; line-height:1.3; }
+  .note-body  { font-family:var(--font-hand); font-size:.93rem; color:#2d1a00; line-height:1.5; margin-bottom:8px; white-space:pre-wrap; }
   .note-image { width:100%; border-radius:6px; margin:6px 0; box-shadow:0 2px 6px rgba(0,0,0,.2); max-height:145px; object-fit:cover; }
-  .note-link  { display:inline-flex; align-items:center; gap:4px; font-size:.74rem; color:#1d4ed8; text-decoration:none; background:rgba(255,255,255,.4); padding:3px 7px; border-radius:12px; margin:3px 2px 3px 0; transition:background .15s; word-break:break-all; }
-  .note-link:hover { background:rgba(255,255,255,.7); }
+  .note-link  {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:.74rem; color: var(--teal); text-decoration:none;
+    background:rgba(255,255,255,.5); padding:3px 8px; border-radius:12px;
+    margin:3px 2px; transition:background .15s; word-break:break-all;
+    font-family:var(--font); font-weight:700;
+  }
+  .note-link:hover { background:rgba(255,255,255,.8); }
+
   .yt-player { width:100%; aspect-ratio:16/9; border-radius:8px; border:none; margin:6px 0; box-shadow:0 3px 10px rgba(0,0,0,.25); }
+
   .note-reactions { display:flex; gap:5px; margin-top:8px; flex-wrap:wrap; }
-  .reaction-btn { background:rgba(255,255,255,.45); border:1.5px solid rgba(0,0,0,.1); border-radius:20px; padding:3px 8px; cursor:pointer; font-size:.78rem; display:flex; align-items:center; gap:3px; transition:all .15s; font-family:'Nunito',sans-serif; font-weight:700; color:rgba(0,0,0,.6); }
-  .reaction-btn:hover { background:rgba(255,255,255,.75); transform:scale(1.1); }
-  .reaction-btn.active { background:rgba(255,255,255,.85); border-color:rgba(0,0,0,.25); color:#000; }
-  .note-meta { margin-top:7px; font-size:.65rem; color:rgba(0,0,0,.4); display:flex; justify-content:space-between; align-items:center; }
-  .note-author { font-weight:700; }
-  .archived-badge { font-size:.58rem; background:rgba(0,0,0,.15); color:rgba(0,0,0,.5); padding:2px 6px; border-radius:8px; text-transform:uppercase; letter-spacing:.08em; }
+  .reaction-btn {
+    background: rgba(255,255,255,.45);
+    border: 1.5px solid rgba(0,0,0,.1);
+    border-radius: 9999px; padding: 3px 9px;
+    cursor: pointer; font-size: .76rem;
+    display: flex; align-items: center; gap: 3px;
+    transition: all .15s;
+    font-family: var(--font); font-weight: 700; color: rgba(0,0,0,.6);
+  }
+  .reaction-btn:hover  { background:rgba(255,255,255,.75); transform:scale(1.1); }
+  .reaction-btn.active { background:rgba(255,255,255,.88); border-color:rgba(0,0,0,.25); color:#000; }
 
-  /* DRAG HINT */
-  .drag-hint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(26,10,0,.82); color:#fde68a; padding:8px 20px; border-radius:30px; font-size:.76rem; font-weight:700; pointer-events:none; opacity:1; transition:opacity .6s; z-index:300; }
-  .drag-hint.fade { opacity:0; }
+  .note-meta {
+    margin-top: 7px; font-size: .63rem; color: rgba(0,0,0,.4);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font); font-weight: 700;
+  }
+  .archived-badge {
+    font-size: .55rem; font-weight: 800;
+    background: rgba(0,0,0,.15); color: rgba(0,0,0,.5);
+    padding: 2px 6px; border-radius: 9999px;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
 
-  /* EMPTY */
-  .empty-board { position:absolute; top:200px; left:50%; transform:translateX(-50%); text-align:center; color:rgba(26,10,0,.5); }
-  .empty-board .empty-icon { font-size:3.5rem; margin-bottom:12px; }
-  .empty-board p { font-family:'Caveat',cursive; font-size:1.3rem; }
+  /* ══════════════════════════════════
+     DRAG HINT
+  ══════════════════════════════════ */
+  .drag-hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--teal); color: #ffffff;
+    padding: 8px 22px; border-radius: 9999px;
+    font-family: var(--font); font-size: .72rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .06em;
+    pointer-events: none; opacity: 1; transition: opacity .6s; z-index: 300;
+    box-shadow: 0 4px 14px rgba(61,98,99,.3);
+  }
+  .drag-hint.fade { opacity: 0; }
 
-  /* MODALS */
-  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:400; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
-  .modal-overlay.open { display:flex; }
-  .modal { background:#fffbf0; border-radius:16px; padding:26px; max-width:520px; width:90%; max-height:88vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,.5); position:relative; animation:modalIn .25s ease; }
-  @keyframes modalIn { from{opacity:0;transform:scale(.92) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
-  .modal-title { font-family:'Caveat',cursive; font-size:1.6rem; font-weight:700; color:#1a0a00; margin-bottom:16px; }
-  .modal-close { position:absolute; top:13px; right:13px; background:rgba(0,0,0,.08); border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-size:.88rem; transition:background .15s; }
-  .modal-close:hover { background:rgba(0,0,0,.18); }
-  .form-group { margin-bottom:13px; }
-  .form-label { display:block; font-size:.74rem; font-weight:700; color:#5a3800; margin-bottom:5px; text-transform:uppercase; letter-spacing:.06em; }
-  .form-input,.form-textarea,.form-select { width:100%; padding:9px 12px; border:2px solid #e0c080; border-radius:10px; font-family:'Nunito',sans-serif; font-size:.87rem; background:#fffef5; color:#1a0a00; transition:border-color .15s; outline:none; }
-  .form-input:focus,.form-textarea:focus,.form-select:focus { border-color:#a06a28; box-shadow:0 0 0 3px rgba(160,106,40,.15); }
-  .form-textarea { resize:vertical; min-height:78px; }
-  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .report-content { background:#f8f8f8; border:1px solid #ddd; border-radius:8px; padding:13px; font-size:.79rem; line-height:1.6; max-height:340px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; color:#333; }
+  /* ══════════════════════════════════
+     EMPTY STATE
+  ══════════════════════════════════ */
+  .empty-board {
+    position: absolute; top: 200px; left: 50%; transform: translateX(-50%);
+    text-align: center; color: rgba(0,0,0,.3);
+  }
+  .empty-board .empty-icon { font-size: 3.5rem; margin-bottom: 12px; }
+  .empty-board p {
+    font-family: var(--font); font-size: 1rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: rgba(0,0,0,.25);
+  }
 
-  .toast { position:fixed; bottom:26px; right:26px; background:#1a0a00; color:#fde68a; padding:11px 18px; border-radius:12px; font-weight:700; font-size:.82rem; z-index:600; box-shadow:0 6px 20px rgba(0,0,0,.4); animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards; }
+  /* ══════════════════════════════════
+     MODALS  — white card, teal accents
+  ══════════════════════════════════ */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.35); backdrop-filter: blur(4px);
+    z-index: 400; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: #ffffff; border-radius: 1.5rem;
+    padding: 28px 30px;
+    max-width: 520px; width: 90%; max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(61,98,99,.15);
+    position: relative; animation: modalIn .25s ease;
+    font-family: var(--font);
+  }
+  @keyframes modalIn {
+    from { opacity:0; transform:scale(.93) translateY(16px); }
+    to   { opacity:1; transform:scale(1)   translateY(0);    }
+  }
+
+  .modal-title {
+    font-size: 1.2rem; font-weight: 800; color: var(--teal);
+    margin-bottom: 18px; letter-spacing: -.01em;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 50%;
+    width: 30px; height: 30px; cursor: pointer; font-size: .85rem;
+    color: var(--teal); font-weight: 800; transition: all .15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { background: var(--teal); color: #fff; }
+
+  /* Form controls — match planner's .styled-input */
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    display: block; font-size: .65rem; font-weight: 800;
+    color: var(--teal); opacity: .6; margin-bottom: 5px;
+    text-transform: uppercase; letter-spacing: .12em;
+  }
+  .form-input, .form-textarea, .form-select {
+    width: 100%; padding: 10px 14px;
+    background: #ffffff; border: 1px solid var(--border); border-radius: .75rem;
+    font-family: var(--font); font-size: .85rem; font-weight: 700; color: var(--teal);
+    transition: all .2s; outline: none;
+  }
+  .form-input:focus, .form-textarea:focus, .form-select:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(61,98,99,.1);
+  }
+  .form-textarea { resize: vertical; min-height: 78px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Report output */
+  .report-content {
+    background: var(--bg); border: 1px solid var(--border); border-radius: .75rem;
+    padding: 14px; font-size: .78rem; line-height: 1.65;
+    max-height: 340px; overflow-y: auto;
+    white-space: pre-wrap; font-family: monospace; color: var(--teal);
+  }
+
+  /* Confirm modal action row */
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+
+  /* ══════════════════════════════════
+     TOAST  — teal
+  ══════════════════════════════════ */
+  .toast {
+    position: fixed; bottom: 26px; right: 26px;
+    background: var(--teal); color: #ffffff;
+    padding: 11px 20px; border-radius: 9999px;
+    font-family: var(--font); font-weight: 800; font-size: .75rem;
+    text-transform: uppercase; letter-spacing: .05em;
+    z-index: 600; box-shadow: 0 4px 16px rgba(61,98,99,.35);
+    animation: toastIn .3s ease, toastOut .3s ease 2.7s forwards;
+  }
   @keyframes toastIn  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
   @keyframes toastOut { from{opacity:1} to{opacity:0} }
-  ::-webkit-scrollbar { width:6px; height:6px; }
-  ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:rgba(160,106,40,.4); border-radius:3px; }
 
-  @media(max-width:600px) {
-    header{height:52px;padding:9px 13px;}
-    .header-title{font-size:1.3rem;}
-    .pages-bar{top:52px;height:36px;}
-    .filter-bar{top:88px;height:42px;}
-    .board-outer{top:130px;}
-    .form-row{grid-template-columns:1fr;}
-    .note{width:230px;}
+  /* ══════════════════════════════════
+     SCROLLBARS
+  ══════════════════════════════════ */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ══════════════════════════════════
+     RESPONSIVE
+  ══════════════════════════════════ */
+  @media (max-width: 600px) {
+    header { height: 54px; padding: 0 14px; }
+    .header-title { font-size: 1.05rem; }
+    .pages-bar { top: 54px; height: 36px; }
+    .filter-bar { top: 90px; height: 42px; }
+    .board-outer { top: 132px; }
+    .form-row { grid-template-columns: 1fr; }
+    .note { width: 230px; }
   }
 </style>
 </head>
 <body>
 
+<!-- ══════════ HEADER ══════════ -->
 <header>
   <div class="header-left">
     <div class="logo-icon">✝️</div>
@@ -197,36 +465,40 @@
   </div>
 </header>
 
+<!-- ══════════ PAGE TABS ══════════ -->
 <div class="pages-bar" id="pagesBar">
   <button class="add-page-btn" onclick="openAddPageModal()" title="Add new page">＋</button>
 </div>
 
+<!-- ══════════ FILTER BAR ══════════ -->
 <div class="filter-bar">
   <button class="filter-chip active" onclick="setFilter('all',this)">📌 All</button>
   <button class="filter-chip" onclick="setFilter('song',this)">🎵 Songs</button>
   <button class="filter-chip" onclick="setFilter('event',this)">📅 Events</button>
-  <button class="filter-chip" onclick="setFilter('av',this)">🎬 AV/Tech</button>
+  <button class="filter-chip" onclick="setFilter('av',this)">🎬 AV / Tech</button>
   <button class="filter-chip" onclick="setFilter('prayer',this)">🙏 Prayer</button>
   <button class="filter-chip" onclick="setFilter('general',this)">💡 General</button>
   <button class="filter-chip" onclick="setFilter('other',this)">📎 Other</button>
 </div>
 
+<!-- ══════════ CORK BOARD ══════════ -->
 <div class="board-outer" id="boardOuter">
   <div class="board-canvas" id="boardCanvas">
     <div id="emptyState" class="empty-board" style="display:none">
       <div class="empty-icon">📌</div>
-      <p>No notes here yet — be the first to add one!</p>
+      <p>No notes yet — add the first one!</p>
     </div>
   </div>
 </div>
 
-<div class="drag-hint" id="dragHint">📌 Drag notes by their pin or grey top bar</div>
+<div class="drag-hint" id="dragHint">📌 Drag notes by their pin or top bar</div>
 
-<!-- ADD/EDIT NOTE -->
+<!-- ══════════ ADD / EDIT NOTE MODAL ══════════ -->
 <div class="modal-overlay" id="noteModal">
   <div class="modal">
     <button class="modal-close" onclick="closeNoteModal()">✕</button>
-    <div class="modal-title" id="noteModalTitle">📝 New Suggestion</div>
+    <div class="modal-title" id="noteModalTitle">New Suggestion</div>
+
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Your Name</label>
@@ -244,6 +516,7 @@
         </select>
       </div>
     </div>
+
     <div class="form-group">
       <label class="form-label">Title</label>
       <input class="form-input" id="noteTitle" placeholder="Give your suggestion a title…">
@@ -252,33 +525,36 @@
       <label class="form-label">Details</label>
       <textarea class="form-textarea" id="noteBody" placeholder="Share your idea, thoughts, or details…"></textarea>
     </div>
+
     <div id="songFields">
       <div class="form-group">
-        <label class="form-label">🎵 YouTube Link (optional)</label>
+        <label class="form-label">YouTube Link (optional)</label>
         <input class="form-input" id="noteYtUrl" placeholder="https://www.youtube.com/watch?v=…">
       </div>
     </div>
+
     <div class="form-group">
-      <label class="form-label">🌐 Web Link (optional)</label>
+      <label class="form-label">Web Link (optional)</label>
       <input class="form-input" id="noteLink" placeholder="https://…">
-      <input class="form-input" id="noteLinkLabel" placeholder="Link label (e.g. 'Full lyrics')" style="margin-top:6px">
+      <input class="form-input" id="noteLinkLabel" placeholder="Link label (e.g. Full lyrics)" style="margin-top:6px">
     </div>
     <div class="form-group">
-      <label class="form-label">🖼️ Image URL (optional)</label>
+      <label class="form-label">Image URL (optional)</label>
       <input class="form-input" id="noteImgUrl" placeholder="https://… (direct image URL)">
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+
+    <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeNoteModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveNote()">📌 Pin It!</button>
     </div>
   </div>
 </div>
 
-<!-- ADD PAGE -->
+<!-- ══════════ ADD PAGE MODAL ══════════ -->
 <div class="modal-overlay" id="addPageModal">
   <div class="modal" style="max-width:400px">
     <button class="modal-close" onclick="closeModal('addPageModal')">✕</button>
-    <div class="modal-title">📄 New Page</div>
+    <div class="modal-title">New Page</div>
     <div class="form-group">
       <label class="form-label">Page Title</label>
       <input class="form-input" id="newPageTitle" placeholder="e.g. Easter Sunday Songs">
@@ -287,59 +563,62 @@
       <label class="form-label">Description (optional)</label>
       <input class="form-input" id="newPageDesc" placeholder="What are we collecting ideas on?">
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+    <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('addPageModal')">Cancel</button>
       <button class="btn btn-primary" onclick="addPage()">Create Page</button>
     </div>
   </div>
 </div>
 
-<!-- ADMIN LOGIN -->
+<!-- ══════════ ADMIN LOGIN MODAL ══════════ -->
 <div class="modal-overlay" id="adminModal">
   <div class="modal" style="max-width:340px">
     <button class="modal-close" onclick="closeModal('adminModal')">✕</button>
-    <div class="modal-title">🔐 Admin Login</div>
-    <p style="font-size:.8rem;color:#5a3800;margin-bottom:13px">Default PIN: <strong>1234</strong> — change in the source.</p>
+    <div class="modal-title">Admin Login</div>
+    <p style="font-size:.8rem;font-weight:700;color:var(--teal);opacity:.6;margin-bottom:14px">Default PIN: <strong style="opacity:1">1234</strong> — change in the source.</p>
     <div class="form-group">
       <label class="form-label">PIN</label>
       <input class="form-input" type="password" id="adminPin" placeholder="Enter admin PIN" onkeydown="if(event.key==='Enter')doAdminLogin()">
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
+    <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('adminModal')">Cancel</button>
       <button class="btn btn-admin" onclick="doAdminLogin()">Login</button>
     </div>
   </div>
 </div>
 
-<!-- REPORT -->
+<!-- ══════════ REPORT MODAL ══════════ -->
 <div class="modal-overlay" id="reportModal">
   <div class="modal" style="max-width:600px">
     <button class="modal-close" onclick="closeModal('reportModal')">✕</button>
-    <div class="modal-title">📋 Suggestions Report</div>
-    <div style="display:flex;gap:8px;margin-bottom:11px;flex-wrap:wrap">
+    <div class="modal-title">Suggestions Report</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <select class="form-select" id="reportPageSel" style="max-width:200px"><option value="all">All Pages</option></select>
-      <select class="form-select" id="reportCatSel" style="max-width:160px">
+      <select class="form-select" id="reportCatSel" style="max-width:170px">
         <option value="all">All Categories</option>
-        <option value="song">Songs</option><option value="event">Events</option>
-        <option value="av">AV/Tech</option><option value="prayer">Prayer</option>
-        <option value="general">General</option><option value="other">Other</option>
+        <option value="song">Songs</option>
+        <option value="event">Events</option>
+        <option value="av">AV / Tech</option>
+        <option value="prayer">Prayer</option>
+        <option value="general">General</option>
+        <option value="other">Other</option>
       </select>
       <button class="btn btn-primary btn-sm" onclick="generateReport()">Generate</button>
     </div>
-    <div class="report-content" id="reportContent">Click Generate to create report…</div>
-    <div style="display:flex;gap:8px;margin-top:11px;justify-content:flex-end">
+    <div class="report-content" id="reportContent">Click Generate to create the report…</div>
+    <div class="modal-actions">
       <button class="btn btn-secondary" onclick="copyReport()">📋 Copy</button>
       <button class="btn btn-primary" onclick="closeModal('reportModal')">Done</button>
     </div>
   </div>
 </div>
 
-<!-- CONFIRM -->
+<!-- ══════════ CONFIRM MODAL ══════════ -->
 <div class="modal-overlay" id="confirmModal">
-  <div class="modal" style="max-width:350px">
+  <div class="modal" style="max-width:360px">
     <div class="modal-title" id="confirmTitle">Confirm</div>
-    <p id="confirmMsg" style="font-size:.87rem;color:#5a3800;margin-bottom:17px"></p>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
+    <p id="confirmMsg" style="font-size:.85rem;font-weight:700;color:var(--teal);opacity:.75;margin-bottom:4px"></p>
+    <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('confirmModal')">Cancel</button>
       <button class="btn btn-danger" id="confirmOkBtn">Yes, proceed</button>
     </div>
@@ -350,28 +629,28 @@
 // ─────────────────────────────────────────
 //  CONFIG
 // ─────────────────────────────────────────
-const ADMIN_PIN = '1234';
+const ADMIN_PIN = '1234'; // ← change this
 
 const CAT_META = {
-  song:    {label:'Song',    emoji:'🎵', cls:'note-song'   },
-  event:   {label:'Event',   emoji:'📅', cls:'note-event'  },
-  av:      {label:'AV/Tech', emoji:'🎬', cls:'note-av'     },
-  prayer:  {label:'Prayer',  emoji:'🙏', cls:'note-prayer' },
-  general: {label:'General', emoji:'💡', cls:'note-general'},
-  other:   {label:'Other',   emoji:'📎', cls:'note-other'  },
+  song:    { label:'Song',    emoji:'🎵', cls:'note-song'    },
+  event:   { label:'Event',   emoji:'📅', cls:'note-event'   },
+  av:      { label:'AV/Tech', emoji:'🎬', cls:'note-av'      },
+  prayer:  { label:'Prayer',  emoji:'🙏', cls:'note-prayer'  },
+  general: { label:'General', emoji:'💡', cls:'note-general' },
+  other:   { label:'Other',   emoji:'📎', cls:'note-other'   },
 };
 const REACTIONS = [
-  {key:'love',    emoji:'❤️', label:'Love it'},
-  {key:'like',    emoji:'👍', label:'Like'},
-  {key:'dislike', emoji:'👎', label:'Not sure'},
-  {key:'pray',    emoji:'🙌', label:'Amen'},
+  { key:'love',    emoji:'❤️', label:'Love it'  },
+  { key:'like',    emoji:'👍', label:'Like'     },
+  { key:'dislike', emoji:'👎', label:'Not sure' },
+  { key:'pray',    emoji:'🙌', label:'Amen'     },
 ];
 
 // ─────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────
 let state = {
-  pages: [{id:'main', title:'General Board', desc:''}],
+  pages: [{ id:'main', title:'General Board', desc:'' }],
   notes: [],
   currentPage: 'main',
   currentFilter: 'all',
@@ -381,47 +660,32 @@ let state = {
 let isAdmin = false;
 
 function loadState() {
-  try { const s=localStorage.getItem('worshipBoard2'); if(s) state={...state,...JSON.parse(s)}; } catch(e){}
+  try { const s = localStorage.getItem('worshipBoard2'); if (s) state = { ...state, ...JSON.parse(s) }; } catch(e){}
 }
 function saveState() {
   localStorage.setItem('worshipBoard2', JSON.stringify(state));
 }
 
 // ─────────────────────────────────────────
-//  DRAG SYSTEM
+//  DRAG
 // ─────────────────────────────────────────
 let drag = null;
 
 function startDrag(el, noteId, e) {
   if (e.target.closest('button,a,iframe,select,input,textarea')) return;
-  e.preventDefault();
-  e.stopPropagation();
-
+  e.preventDefault(); e.stopPropagation();
   const note = state.notes.find(n => n.id === noteId);
   if (!note) return;
-
   const cx = e.touches ? e.touches[0].clientX : e.clientX;
   const cy = e.touches ? e.touches[0].clientY : e.clientY;
-
-  // Bring to front
   const z = maxZ() + 1;
-  note.zIndex = z;
-  el.style.zIndex = z;
-
-  drag = { noteId, el, ox: cx, oy: cy, nx: note.x||0, ny: note.y||0 };
+  note.zIndex = z; el.style.zIndex = z;
+  drag = { noteId, el, ox:cx, oy:cy, nx:note.x||0, ny:note.y||0 };
   el.classList.add('is-dragging');
 }
 
-document.addEventListener('mousemove', e => {
-  if (!drag) return;
-  const cx = e.clientX, cy = e.clientY;
-  move(cx, cy);
-});
-document.addEventListener('touchmove', e => {
-  if (!drag) return;
-  e.preventDefault();
-  move(e.touches[0].clientX, e.touches[0].clientY);
-}, {passive:false});
+document.addEventListener('mousemove', e => { if (!drag) return; move(e.clientX, e.clientY); });
+document.addEventListener('touchmove', e => { if (!drag) return; e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive:false });
 
 function move(cx, cy) {
   const canvas = document.getElementById('boardCanvas');
@@ -437,19 +701,13 @@ function endDrag() {
   if (!drag) return;
   drag.el.classList.remove('is-dragging');
   const note = state.notes.find(n => n.id === drag.noteId);
-  if (note) {
-    note.x = parseInt(drag.el.style.left) || 0;
-    note.y = parseInt(drag.el.style.top)  || 0;
-    saveState();
-  }
+  if (note) { note.x = parseInt(drag.el.style.left)||0; note.y = parseInt(drag.el.style.top)||0; saveState(); }
   drag = null;
 }
 document.addEventListener('mouseup',  endDrag);
 document.addEventListener('touchend', endDrag);
 
-function maxZ() {
-  return state.notes.reduce((m,n) => Math.max(m, n.zIndex||10), 10);
-}
+function maxZ() { return state.notes.reduce((m,n) => Math.max(m, n.zIndex||10), 10); }
 
 // ─────────────────────────────────────────
 //  PAGES
@@ -460,7 +718,7 @@ function renderPages() {
   const addBtn = bar.querySelector('.add-page-btn');
   state.pages.forEach(page => {
     const tab = document.createElement('button');
-    tab.className = 'page-tab' + (page.id===state.currentPage?' active':'');
+    tab.className = 'page-tab' + (page.id === state.currentPage ? ' active' : '');
     tab.textContent = page.title;
     if (page.id !== 'main' && isAdmin) {
       const d = document.createElement('span');
@@ -490,13 +748,13 @@ function addPage() {
   const title = document.getElementById('newPageTitle').value.trim();
   if (!title) { toast('Please enter a page title'); return; }
   const id = 'page_' + Date.now();
-  state.pages.push({id, title, desc: document.getElementById('newPageDesc').value.trim()});
+  state.pages.push({ id, title, desc: document.getElementById('newPageDesc').value.trim() });
   state.currentPage = id;
   saveState(); closeModal('addPageModal'); renderPages(); renderNotes(); toast('New page created!');
 }
 
 function confirmDeletePage(id) {
-  showConfirm('Delete Page','Delete this page and all its notes?',() => {
+  showConfirm('Delete Page', 'Delete this page and all its notes?', () => {
     state.pages = state.pages.filter(p => p.id !== id);
     state.notes = state.notes.filter(n => n.pageId !== id);
     if (state.currentPage === id) state.currentPage = 'main';
@@ -512,19 +770,18 @@ function renderNotes() {
   canvas.querySelectorAll('.note').forEach(e => e.remove());
 
   let notes = state.notes.filter(n => n.pageId === state.currentPage);
-  notes = state.showArchive ? notes.filter(n=>n.archived) : notes.filter(n=>!n.archived);
+  notes = state.showArchive ? notes.filter(n => n.archived) : notes.filter(n => !n.archived);
   if (state.currentFilter !== 'all') notes = notes.filter(n => n.cat === state.currentFilter);
-  notes.sort((a,b) => (a.zIndex||0)-(b.zIndex||0));
+  notes.sort((a,b) => (a.zIndex||0) - (b.zIndex||0));
 
   document.getElementById('emptyState').style.display = notes.length ? 'none' : '';
 
   let i = 0;
   notes.forEach(note => {
-    // Assign positions to notes that don't have them yet
     if (note.x == null) {
       const col = i % 5, row = Math.floor(i/5);
-      note.x = 60 + col*310 + (i*37%40)-20;
-      note.y = 60 + row*340 + (i*53%40)-20;
+      note.x = 60 + col*310 + (i*37%40) - 20;
+      note.y = 60 + row*340 + (i*53%40) - 20;
     }
     canvas.appendChild(buildNoteEl(note, i));
     i++;
@@ -539,19 +796,12 @@ function buildNoteEl(note, idx) {
   el.style.left   = (note.x||0) + 'px';
   el.style.top    = (note.y||0) + 'px';
   el.style.zIndex = note.zIndex || 10;
-
-  // Slight resting rotation if freshly placed
-  if (!note.rot && note.rot !== 0) note.rot = (idx*17%7)-3.5;
+  if (!note.rot && note.rot !== 0) note.rot = (idx*17%7) - 3.5;
   el.style.transform = `rotate(${note.rot}deg)`;
 
-  // Hover tilt
-  el.addEventListener('mouseenter', () => { if (!drag) el.style.transform='rotate(0deg) scale(1.02) translateY(-3px)'; });
-  el.addEventListener('mouseleave', () => { if (!drag) el.style.transform=`rotate(${note.rot}deg)`; });
-
-  // Bring to front on any click
-  el.addEventListener('mousedown', () => {
-    const z = maxZ()+1; note.zIndex=z; el.style.zIndex=z;
-  }, true);
+  el.addEventListener('mouseenter', () => { if (!drag) el.style.transform = 'rotate(0deg) scale(1.02) translateY(-3px)'; });
+  el.addEventListener('mouseleave', () => { if (!drag) el.style.transform = `rotate(${note.rot}deg)`; });
+  el.addEventListener('mousedown',  () => { const z=maxZ()+1; note.zIndex=z; el.style.zIndex=z; }, true);
 
   const actionsHtml = isAdmin ? `
     <div class="note-actions">
@@ -563,13 +813,16 @@ function buildNoteEl(note, idx) {
     </div>` : '';
 
   let ytHtml='', imgHtml='', linkHtml='';
-  if (note.ytUrl) { const id=extractYtId(note.ytUrl); if(id) ytHtml=`<iframe class="yt-player" src="https://www.youtube.com/embed/${id}?rel=0" allowfullscreen loading="lazy"></iframe>`; }
-  if (note.imgUrl)  imgHtml  = `<img class="note-image" src="${esc(note.imgUrl)}" alt="" onerror="this.style.display='none'">`;
-  if (note.link)    linkHtml = `<a class="note-link" href="${esc(note.link)}" target="_blank" rel="noopener">🔗 ${esc(note.linkLabel||note.link)}</a>`;
+  if (note.ytUrl) {
+    const id = extractYtId(note.ytUrl);
+    if (id) ytHtml = `<iframe class="yt-player" src="https://www.youtube.com/embed/${id}?rel=0" allowfullscreen loading="lazy"></iframe>`;
+  }
+  if (note.imgUrl) imgHtml  = `<img class="note-image" src="${esc(note.imgUrl)}" alt="" onerror="this.style.display='none'">`;
+  if (note.link)   linkHtml = `<a class="note-link" href="${esc(note.link)}" target="_blank" rel="noopener">🔗 ${esc(note.linkLabel||note.link)}</a>`;
 
   const mr = note.myReactions || {};
   const reactHtml = REACTIONS.map(r => {
-    const c = (note.reactions||{})[r.key]||0;
+    const c = (note.reactions||{})[r.key] || 0;
     return `<button class="reaction-btn${mr[r.key]?' active':''}" onclick="react('${note.id}','${r.key}')" title="${r.label}">${r.emoji}<span id="rc_${note.id}_${r.key}">${c||''}</span></button>`;
   }).join('');
 
@@ -586,17 +839,16 @@ function buildNoteEl(note, idx) {
     ${ytHtml}${imgHtml}${linkHtml}
     <div class="note-reactions">${reactHtml}</div>
     <div class="note-meta">
-      <span class="note-author">${esc(note.author||'Anonymous')}</span>
+      <span>${esc(note.author||'Anonymous')}</span>
       <span>${date}</span>
-      ${note.archived ? '<span class="archived-badge">Archived</span>':''}
+      ${note.archived ? '<span class="archived-badge">Archived</span>' : ''}
     </div>`;
 
-  // Attach drag to pin + topbar
   const topbar = el.querySelector('.note-topbar');
   const pin    = el.querySelector('.note-pin');
   [topbar, pin].forEach(h => {
     h.addEventListener('mousedown',  e => startDrag(el, note.id, e));
-    h.addEventListener('touchstart', e => startDrag(el, note.id, e), {passive:false});
+    h.addEventListener('touchstart', e => startDrag(el, note.id, e), { passive:false });
   });
 
   return el;
@@ -607,67 +859,66 @@ function buildNoteEl(note, idx) {
 // ─────────────────────────────────────────
 function openNoteModal(editId=null) {
   state.editingNoteId = editId;
-  document.getElementById('noteModalTitle').textContent = editId ? '✏️ Edit Note' : '📝 New Suggestion';
+  document.getElementById('noteModalTitle').textContent = editId ? 'Edit Note' : 'New Suggestion';
   if (editId) {
     const n = state.notes.find(n=>n.id===editId); if(!n) return;
-    document.getElementById('noteAuthor').value=n.author||'';
-    document.getElementById('noteCat').value=n.cat;
-    document.getElementById('noteTitle').value=n.title||'';
-    document.getElementById('noteBody').value=n.body||'';
-    document.getElementById('noteYtUrl').value=n.ytUrl||'';
-    document.getElementById('noteLink').value=n.link||'';
-    document.getElementById('noteLinkLabel').value=n.linkLabel||'';
-    document.getElementById('noteImgUrl').value=n.imgUrl||'';
+    document.getElementById('noteAuthor').value    = n.author    || '';
+    document.getElementById('noteCat').value       = n.cat;
+    document.getElementById('noteTitle').value     = n.title     || '';
+    document.getElementById('noteBody').value      = n.body      || '';
+    document.getElementById('noteYtUrl').value     = n.ytUrl     || '';
+    document.getElementById('noteLink').value      = n.link      || '';
+    document.getElementById('noteLinkLabel').value = n.linkLabel || '';
+    document.getElementById('noteImgUrl').value    = n.imgUrl    || '';
   } else {
-    ['noteAuthor','noteTitle','noteBody','noteYtUrl','noteLink','noteLinkLabel','noteImgUrl'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('noteCat').value='song';
+    ['noteAuthor','noteTitle','noteBody','noteYtUrl','noteLink','noteLinkLabel','noteImgUrl']
+      .forEach(id => document.getElementById(id).value = '');
+    document.getElementById('noteCat').value = 'song';
   }
-  onCatChange(); openModal('noteModal');
+  onCatChange();
+  openModal('noteModal');
 }
 
-function closeNoteModal() { closeModal('noteModal'); state.editingNoteId=null; }
-function onCatChange() { document.getElementById('songFields').style.display = document.getElementById('noteCat').value==='song' ? '' : 'none'; }
+function closeNoteModal() { closeModal('noteModal'); state.editingNoteId = null; }
+function onCatChange() {
+  document.getElementById('songFields').style.display =
+    document.getElementById('noteCat').value === 'song' ? '' : 'none';
+}
 
 function saveNote() {
-  const author=document.getElementById('noteAuthor').value.trim();
-  const cat=document.getElementById('noteCat').value;
-  const title=document.getElementById('noteTitle').value.trim();
-  const body=document.getElementById('noteBody').value.trim();
-  const ytUrl=document.getElementById('noteYtUrl').value.trim();
-  const link=document.getElementById('noteLink').value.trim();
-  const linkLabel=document.getElementById('noteLinkLabel').value.trim();
-  const imgUrl=document.getElementById('noteImgUrl').value.trim();
+  const f = id => document.getElementById(id).value.trim();
+  const author=f('noteAuthor'), cat=document.getElementById('noteCat').value,
+        title=f('noteTitle'), body=f('noteBody'), ytUrl=f('noteYtUrl'),
+        link=f('noteLink'), linkLabel=f('noteLinkLabel'), imgUrl=f('noteImgUrl');
   if (!title && !body) { toast('Please add a title or some details'); return; }
 
   if (state.editingNoteId) {
     const n = state.notes.find(n=>n.id===state.editingNoteId);
-    if (n) Object.assign(n,{author,cat,title,body,ytUrl,link,linkLabel,imgUrl});
+    if (n) Object.assign(n, {author,cat,title,body,ytUrl,link,linkLabel,imgUrl});
   } else {
     const existing = state.notes.filter(n=>n.pageId===state.currentPage&&!n.archived);
     const i = existing.length;
-    const col=i%5, row=Math.floor(i/5);
     state.notes.push({
       id:'n'+Date.now(), pageId:state.currentPage,
       author,cat,title,body,ytUrl,link,linkLabel,imgUrl,
       reactions:{}, myReactions:{}, createdAt:Date.now(), archived:false,
-      x: 60+col*310+(i*37%40)-20,
-      y: 60+row*340+(i*53%40)-20,
+      x: 60+(i%5)*310+(i*37%40)-20,
+      y: 60+Math.floor(i/5)*340+(i*53%40)-20,
       rot: (i*17%7)-3.5,
       zIndex: maxZ()+1,
     });
   }
   saveState(); closeNoteModal(); renderNotes();
-  toast(state.editingNoteId ? 'Note updated!' : '📌 Note pinned!');
+  toast(state.editingNoteId ? 'Note updated' : '📌 Note pinned!');
   state.editingNoteId = null;
 }
 
-function editNote(id)      { openNoteModal(id); }
+function editNote(id) { openNoteModal(id); }
 function archiveNote(id)   { const n=state.notes.find(n=>n.id===id); if(n){n.archived=true;  saveState();renderNotes();toast('Note archived 📦');} }
 function unarchiveNote(id) { const n=state.notes.find(n=>n.id===id); if(n){n.archived=false; saveState();renderNotes();toast('Note restored');} }
 function confirmDeleteNote(id) {
   showConfirm('Delete Note','Permanently delete this note?',()=>{
-    state.notes=state.notes.filter(n=>n.id!==id);
-    saveState();renderNotes();toast('Note deleted');
+    state.notes=state.notes.filter(n=>n.id!==id); saveState(); renderNotes(); toast('Note deleted');
   });
 }
 
@@ -679,23 +930,22 @@ function react(noteId, key) {
   n.reactions[key]   = Math.max(0,(n.reactions[key]||0)+(had?-1:1));
   n.myReactions[key] = !had;
   saveState();
-  const btn = document.querySelector(`#note_${noteId} .reaction-btn[onclick*="'${key}'"]`);
+  document.querySelector(`#note_${noteId} .reaction-btn[onclick*="'${key}'"]`)?.classList.toggle('active',!!n.myReactions[key]);
   const cnt = document.getElementById(`rc_${noteId}_${key}`);
-  if (btn) btn.classList.toggle('active',!!n.myReactions[key]);
   if (cnt) cnt.textContent = n.reactions[key]||'';
 }
 
 // ─────────────────────────────────────────
 //  FILTER / ARCHIVE
 // ─────────────────────────────────────────
-function setFilter(cat,el) {
-  state.currentFilter=cat;
+function setFilter(cat, el) {
+  state.currentFilter = cat;
   document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); renderNotes();
 }
 function toggleArchiveView() {
-  state.showArchive=!state.showArchive;
-  document.getElementById('archiveToggleBtn').textContent=state.showArchive?'📋 Board':'📦 Archive';
+  state.showArchive = !state.showArchive;
+  document.getElementById('archiveToggleBtn').textContent = state.showArchive ? '📋 Board' : '📦 Archive';
   renderNotes();
 }
 
@@ -704,22 +954,22 @@ function toggleArchiveView() {
 // ─────────────────────────────────────────
 function toggleAdmin() {
   if (isAdmin) {
-    isAdmin=false;
-    document.getElementById('adminBadge').style.display='none';
-    document.getElementById('adminBtn').textContent='🔐 Admin';
-    renderPages();renderNotes();toast('Logged out of admin');
+    isAdmin = false;
+    document.getElementById('adminBadge').style.display = 'none';
+    document.getElementById('adminBtn').textContent = '🔐 Admin';
+    renderPages(); renderNotes(); toast('Logged out');
   } else {
     openModal('adminModal');
-    setTimeout(()=>document.getElementById('adminPin').focus(),100);
+    setTimeout(() => document.getElementById('adminPin').focus(), 100);
   }
 }
 function doAdminLogin() {
-  if (document.getElementById('adminPin').value===ADMIN_PIN) {
-    isAdmin=true;
-    document.getElementById('adminBadge').style.display='inline';
-    document.getElementById('adminBtn').textContent='🔓 Logout';
-    document.getElementById('adminPin').value='';
-    closeModal('adminModal');renderPages();renderNotes();toast('Welcome, Admin! 🔓');
+  if (document.getElementById('adminPin').value === ADMIN_PIN) {
+    isAdmin = true;
+    document.getElementById('adminBadge').style.display = 'inline';
+    document.getElementById('adminBtn').textContent = '🔓 Logout';
+    document.getElementById('adminPin').value = '';
+    closeModal('adminModal'); renderPages(); renderNotes(); toast('Welcome, Admin 🔓');
   } else { toast('Incorrect PIN'); }
 }
 
@@ -727,58 +977,84 @@ function doAdminLogin() {
 //  REPORT
 // ─────────────────────────────────────────
 function openReportModal() {
-  const sel=document.getElementById('reportPageSel');
-  sel.innerHTML='<option value="all">All Pages</option>';
-  state.pages.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.title;sel.appendChild(o);});
+  const sel = document.getElementById('reportPageSel');
+  sel.innerHTML = '<option value="all">All Pages</option>';
+  state.pages.forEach(p => {
+    const o = document.createElement('option'); o.value=p.id; o.textContent=p.title; sel.appendChild(o);
+  });
   openModal('reportModal');
 }
+
 function generateReport() {
-  const pf=document.getElementById('reportPageSel').value;
-  const cf=document.getElementById('reportCatSel').value;
-  let notes=state.notes.filter(n=>!n.archived);
-  if(pf!=='all') notes=notes.filter(n=>n.pageId===pf);
-  if(cf!=='all') notes=notes.filter(n=>n.cat===cf);
+  const pf = document.getElementById('reportPageSel').value;
+  const cf = document.getElementById('reportCatSel').value;
+  let notes = state.notes.filter(n => !n.archived);
+  if (pf!=='all') notes = notes.filter(n=>n.pageId===pf);
+  if (cf!=='all') notes = notes.filter(n=>n.cat===cf);
   notes.sort((a,b)=>b.createdAt-a.createdAt);
-  const ptitle=pf==='all'?'All Pages':(state.pages.find(p=>p.id===pf)||{}).title||'';
-  const clabel=cf==='all'?'All Categories':(CAT_META[cf]||{}).label||cf;
-  const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  let r=`WORSHIP SUGGESTIONS REPORT\n${'='.repeat(50)}\nGenerated: ${date}\nPage: ${ptitle} | Category: ${clabel}\nTotal: ${notes.length}\n${'='.repeat(50)}\n\n`;
-  if(!notes.length){r+='No suggestions found.\n';}else{
-    const g={};notes.forEach(n=>{(g[n.cat]=g[n.cat]||[]).push(n);});
-    Object.entries(g).forEach(([cat,ns])=>{
-      const m=CAT_META[cat]||{label:cat,emoji:'📎'};
-      r+=`${m.emoji} ${m.label.toUpperCase()} (${ns.length})\n${'-'.repeat(40)}\n`;
-      ns.forEach(n=>{
-        const d=new Date(n.createdAt).toLocaleDateString('en-GB');
-        r+=`• ${n.title||'(No title)'}${n.author?' — '+n.author:''} [${d}]\n`;
-        if(n.body)  r+=`  ${n.body.replace(/\n/g,'\n  ')}\n`;
-        if(n.ytUrl) r+=`  YouTube: ${n.ytUrl}\n`;
-        if(n.link)  r+=`  Link: ${n.linkLabel||n.link} — ${n.link}\n`;
-        const rxs=REACTIONS.filter(rx=>(n.reactions||{})[rx.key]>0).map(rx=>`${rx.emoji}×${n.reactions[rx.key]}`);
-        if(rxs.length) r+=`  Reactions: ${rxs.join('  ')}\n`;
-        r+='\n';
+
+  const ptitle = pf==='all' ? 'All Pages' : (state.pages.find(p=>p.id===pf)||{}).title||'';
+  const clabel = cf==='all' ? 'All Categories' : (CAT_META[cf]||{}).label||cf;
+  const date   = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+
+  let r = `WORSHIP SUGGESTIONS REPORT\n${'='.repeat(50)}\nGenerated: ${date}\nPage: ${ptitle} | Category: ${clabel}\nTotal: ${notes.length}\n${'='.repeat(50)}\n\n`;
+
+  if (!notes.length) {
+    r += 'No suggestions found for the selected filters.\n';
+  } else {
+    const g = {};
+    notes.forEach(n => { (g[n.cat]=g[n.cat]||[]).push(n); });
+    Object.entries(g).forEach(([cat,ns]) => {
+      const m = CAT_META[cat]||{label:cat,emoji:'📎'};
+      r += `${m.emoji} ${m.label.toUpperCase()} (${ns.length})\n${'-'.repeat(40)}\n`;
+      ns.forEach(n => {
+        const d = new Date(n.createdAt).toLocaleDateString('en-GB');
+        r += `• ${n.title||'(No title)'}${n.author?' — '+n.author:''} [${d}]\n`;
+        if (n.body)  r += `  ${n.body.replace(/\n/g,'\n  ')}\n`;
+        if (n.ytUrl) r += `  YouTube: ${n.ytUrl}\n`;
+        if (n.link)  r += `  Link: ${n.linkLabel||n.link} — ${n.link}\n`;
+        const rxs = REACTIONS.filter(rx=>(n.reactions||{})[rx.key]>0).map(rx=>`${rx.emoji}×${n.reactions[rx.key]}`);
+        if (rxs.length) r += `  Reactions: ${rxs.join('  ')}\n`;
+        r += '\n';
       });
     });
   }
-  r+=`${'='.repeat(50)}\nEnd of report — Worship Suggestions Board\n`;
-  document.getElementById('reportContent').textContent=r;
+  r += `${'='.repeat(50)}\nEnd of report — Worship Suggestions Board\n`;
+  document.getElementById('reportContent').textContent = r;
 }
-function copyReport(){
+
+function copyReport() {
   navigator.clipboard.writeText(document.getElementById('reportContent').textContent)
-    .then(()=>toast('Copied to clipboard!'))
-    .catch(()=>toast('Select the text and copy manually'));
+    .then(() => toast('Copied to clipboard!'))
+    .catch(() => toast('Select the text above and copy manually'));
 }
 
 // ─────────────────────────────────────────
 //  HELPERS
 // ─────────────────────────────────────────
-function extractYtId(url){if(!url)return null;const m=url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);return m?m[1]:null;}
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3100);}
-function showConfirm(title,msg,onOk){document.getElementById('confirmTitle').textContent=title;document.getElementById('confirmMsg').textContent=msg;document.getElementById('confirmOkBtn').onclick=()=>{closeModal('confirmModal');onOk();};openModal('confirmModal');}
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+function extractYtId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function toast(msg) {
+  const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 3100);
+}
+function showConfirm(title, msg, onOk) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent   = msg;
+  document.getElementById('confirmOkBtn').onclick = () => { closeModal('confirmModal'); onOk(); };
+  openModal('confirmModal');
+}
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target===o) o.classList.remove('open'); })
+);
 
 // ─────────────────────────────────────────
 //  SEED DATA
@@ -786,10 +1062,10 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 function seedData() {
   if (state.notes.length > 0) return;
   state.notes = [
-    {id:'s1',pageId:'main',cat:'song',   author:'Sarah',      title:'Way Maker',                   body:'This song has been really moving our congregation. Would love to sing this in our next service.',ytUrl:'https://www.youtube.com/watch?v=c9Qbq-IrcVs',link:'',linkLabel:'',imgUrl:'',reactions:{love:3,like:5,dislike:0,pray:2},myReactions:{},createdAt:Date.now()-172800000,archived:false,x:60, y:60, rot:-1.5,zIndex:10},
-    {id:'s2',pageId:'main',cat:'event',  author:'Pastor Mike', title:'Easter Sunrise Service',      body:'Suggestion to hold an outdoor sunrise service this Easter. Start at 6:30am at the park.',ytUrl:'',link:'',linkLabel:'',imgUrl:'',reactions:{love:7,like:4,dislike:1,pray:5},myReactions:{},createdAt:Date.now()-86400000, archived:false,x:390,y:80, rot:1.2, zIndex:11},
-    {id:'s3',pageId:'main',cat:'av',     author:'Tom',         title:'New Screen for Side Stage',   body:'The side screens are hard to read from the back rows. Could we look at upgrading?',ytUrl:'',link:'https://www.example.com/screens',linkLabel:'Screen options',imgUrl:'',reactions:{love:2,like:6,dislike:2,pray:0},myReactions:{},createdAt:Date.now()-259200000,archived:false,x:720,y:55, rot:-0.8,zIndex:12},
-    {id:'s4',pageId:'main',cat:'general',author:'Jenny',       title:'Welcome Banner',              body:'Could we have welcoming signage near the entrance for first-time visitors? Something warm and inviting.',ytUrl:'',link:'',linkLabel:'',imgUrl:'',reactions:{love:4,like:3,dislike:0,pray:1},myReactions:{},createdAt:Date.now()-345600000,archived:false,x:150,y:380,rot:1.0, zIndex:13},
+    { id:'s1', pageId:'main', cat:'song',    author:'Sarah',       title:'Way Maker',                  body:'This song has been really moving our congregation. Would love to sing this in our next service.', ytUrl:'https://www.youtube.com/watch?v=c9Qbq-IrcVs', link:'', linkLabel:'', imgUrl:'', reactions:{love:3,like:5,dislike:0,pray:2}, myReactions:{}, createdAt:Date.now()-172800000, archived:false, x:60,  y:60,  rot:-1.5, zIndex:10 },
+    { id:'s2', pageId:'main', cat:'event',   author:'Pastor Mike', title:'Easter Sunrise Service',     body:'Suggestion to hold an outdoor sunrise service this Easter. Start at 6:30am at the park.', ytUrl:'', link:'', linkLabel:'', imgUrl:'', reactions:{love:7,like:4,dislike:1,pray:5}, myReactions:{}, createdAt:Date.now()-86400000,  archived:false, x:390, y:80,  rot:1.2,  zIndex:11 },
+    { id:'s3', pageId:'main', cat:'av',      author:'Tom',         title:'New Screen for Side Stage',  body:'The side screens are hard to read from the back rows. Could we look at upgrading?', ytUrl:'', link:'https://www.example.com/screens', linkLabel:'Screen options', imgUrl:'', reactions:{love:2,like:6,dislike:2,pray:0}, myReactions:{}, createdAt:Date.now()-259200000, archived:false, x:720, y:55,  rot:-0.8, zIndex:12 },
+    { id:'s4', pageId:'main', cat:'general', author:'Jenny',       title:'Welcome Banner',             body:'Could we have welcoming signage near the entrance for first-time visitors? Something warm and inviting.', ytUrl:'', link:'', linkLabel:'', imgUrl:'', reactions:{love:4,like:3,dislike:0,pray:1}, myReactions:{}, createdAt:Date.now()-345600000, archived:false, x:150, y:390, rot:1.0,  zIndex:13 },
   ];
   saveState();
 }
@@ -802,10 +1078,9 @@ seedData();
 renderPages();
 renderNotes();
 
-// Show drag hint briefly
+// Drag hint — fade after 3.5s
 setTimeout(() => {
   const h = document.getElementById('dragHint');
-  h.classList.remove('fade');
   setTimeout(() => h.classList.add('fade'), 3500);
 }, 800);
 </script>
