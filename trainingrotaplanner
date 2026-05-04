@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EGBC Master Rota Planner — TRAINING</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        body { background-color:#f0f6f6; color:#3d6263; font-family:'Montserrat',sans-serif; }
+        .max-h-\[400px\]::-webkit-scrollbar { width:6px; }
+        .max-h-\[400px\]::-webkit-scrollbar-thumb { background:#d1dfdf; border-radius:10px; }
+
+        /* ── Training banner ── */
+        #training-banner {
+            position:sticky; top:0; z-index:900;
+            background:linear-gradient(90deg,#92400e,#b45309,#92400e);
+            background-size:200% 100%; animation:tsh 3s ease-in-out infinite;
+            color:white; font-family:'Montserrat',sans-serif; font-weight:800;
+            font-size:13px; letter-spacing:0.08em; text-transform:uppercase;
+            padding:10px 20px; display:flex; align-items:center;
+            justify-content:space-between; gap:12px;
+            box-shadow:0 2px 12px rgba(146,64,14,0.4);
+        }
+        @keyframes tsh { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+        .tpill { background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); border-radius:9999px; padding:2px 10px; font-size:10px; }
+        #exit-btn { background:white; color:#92400e; border:none; border-radius:9999px; padding:6px 16px; font-family:'Montserrat',sans-serif; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex-shrink:0; transition:all 0.2s; }
+        #exit-btn:hover { background:#fef3c7; }
+
+        /* ── Toast ── */
+        #training-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#92400e; color:white; padding:10px 22px; border-radius:9999px; font-family:'Montserrat',sans-serif; font-weight:800; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; z-index:2000; display:none; border:2px dashed #fbbf24; pointer-events:none; box-shadow:0 4px 20px rgba(146,64,14,0.4); }
+
+        /* ── Generic modal backdrop ── */
+        .t-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1500; align-items:center; justify-content:center; }
+        .t-modal.show { display:flex; }
+        .t-modal-box { background:white; border-radius:1.5rem; padding:2rem; max-width:680px; width:94%; max-height:92vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3); font-family:'Montserrat',sans-serif; }
+
+        /* ── Sender UI (mirrors PowerShell HTML page) ── */
+        #senderModal .t-modal-box { max-width:780px; padding:0; border-radius:1.5rem; overflow:hidden; }
+        #senderInner { font-family:"Segoe UI",Arial,sans-serif; background:#f0f6f6; color:#3d6263; padding:28px; }
+        #senderInner h1 { font-size:20px; font-weight:800; margin-bottom:2px; }
+        #senderInner .sub { font-size:12px; opacity:.6; margin-bottom:22px; }
+        #senderInner .card { background:white; border-radius:16px; border:1px solid #d1dfdf; padding:22px; margin-bottom:16px; box-shadow:0 2px 8px rgba(61,98,99,.07); }
+        #senderInner label { display:block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; opacity:.7; }
+        #senderInner input, #senderInner textarea, #senderInner select { width:100%; border:1.5px solid #d1dfdf; border-radius:10px; padding:9px 13px; font-size:13px; color:#3d6263; outline:none; font-family:inherit; background:white; }
+        #senderInner textarea { resize:vertical; min-height:72px; }
+        #senderInner .row { display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+        #senderInner .col { flex:1; min-width:200px; }
+        #senderInner .s-btn { padding:10px 22px; border-radius:50px; border:none; font-weight:800; font-size:11px; text-transform:uppercase; cursor:pointer; transition:all .2s; font-family:inherit; }
+        #senderInner .btn-teal { background:#3d6263; color:white; }
+        #senderInner .btn-teal:hover { background:#2a4748; }
+        #senderInner .btn-grey { background:#d1dfdf; color:#3d6263; }
+        #senderInner .btn-grey:hover { background:#b8cece; }
+        #senderInner .btn-red { background:#e05555; color:white; }
+        #senderInner .btn-red:hover { background:#c43d3d; }
+        #senderInner .s-btn:disabled { opacity:.4; cursor:not-allowed; }
+        #senderInner .chips { display:flex; flex-wrap:wrap; gap:6px; }
+        #senderInner .chip { background:white; border:1px solid #d1dfdf; border-radius:50px; padding:4px 13px; font-size:11px; font-weight:700; }
+        #senderInner .preview-box { border:1.5px solid #d1dfdf; border-radius:12px; overflow:hidden; margin-top:10px; }
+        #senderInner .preview-box iframe { width:100%; height:380px; border:none; display:block; }
+        #senderInner .s-log { background:#1e2a2a; color:#a8d5b5; border-radius:12px; padding:16px; font-family:"Courier New",monospace; font-size:12px; min-height:90px; max-height:200px; overflow-y:auto; margin-top:14px; white-space:pre-wrap; }
+        #senderInner .s-log .ok  { color:#7ee8a2; }
+        #senderInner .s-log .err { color:#ff8a8a; }
+        #senderInner .s-log .inf { color:#8ecae6; }
+        #senderInner .s-progress { height:6px; background:#d1dfdf; border-radius:10px; overflow:hidden; margin-top:10px; display:none; }
+        #senderInner .s-bar { height:100%; background:#3d6263; border-radius:10px; width:0%; transition:width .4s; }
+        #senderInner .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+        #senderInner h2 { font-size:14px; font-weight:800; margin-bottom:14px; }
+        #senderInner .badge { background:#3d6263; color:white; border-radius:50px; padding:2px 10px; font-size:11px; font-weight:800; margin-left:8px; }
+        #senderInner .training-warn { background:#fef3c7; border:2px dashed #f59e0b; padding:10px 14px; border-radius:10px; margin-bottom:16px; font-size:11px; font-weight:800; color:#92400e; text-transform:uppercase; letter-spacing:0.06em; font-family:'Montserrat',sans-serif; }
+        .sender-header { background:#3d6263; padding:18px 28px; display:flex; justify-content:space-between; align-items:center; }
+        .sender-header h1 { color:white; font-size:18px; font-weight:800; font-family:'Montserrat',sans-serif; margin:0; }
+        .sender-close { background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:white; border-radius:9999px; padding:5px 14px; font-size:11px; font-weight:800; font-family:'Montserrat',sans-serif; text-transform:uppercase; cursor:pointer; letter-spacing:0.06em; }
+        .sender-close:hover { background:rgba(255,255,255,0.35); }
+
+        /* ── Email preview modal (simple) ── */
+        #emailPreviewModal .t-modal-box { max-width:600px; }
+        .ep-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#3d6263; opacity:0.5; margin-bottom:3px; }
+        .ep-field { background:#f0f6f6; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:700; color:#3d6263; margin-bottom:10px; word-break:break-all; }
+    </style>
+
+    <script type="module">
+        // ═══════════════════════════════════════════════════════════════════════════
+        // TRAINING MODE — EGBC Master Rota Planner
+        //
+        // Firebase READS only — addDoc/updateDoc/setDoc/deleteDoc NOT imported
+        // All mutations → sessionStorage
+        // Availability: ~20% globally pending, 80% random per-service avail/not-avail
+        // "Send All Rotas" → faithful replica of PowerShell sender UI (simulated sends)
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, getDoc, getDocs, doc, where }
+                                    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL }
+                                    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain:"egbc-worship-planner.firebaseapp.com",
+            projectId:"egbc-worship-planner",
+            storageBucket:"egbc-worship-planner.firebasestorage.app",
+            messagingSenderId:"199442060489",
+            appId:"1:199442060489:web:7eaf85a76334c753db6918"
+        };
+        const app=initializeApp(firebaseConfig);
+        const db=getFirestore(app);
+        const storage=getStorage(app);
+
+        const OPTIONAL_ROLES        = ['Sound','Words','Cameras','Violin','Congas','2nd Guitar','2nd Keys','Electric Guitar','Oboe','Trumpet','Cahon','Singer 1','Singer 2','Singer 3','Other','Other 2','Other 3','Choir'];
+        const MANDATORY_SUNDAY_ROLES= ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
+        const EVENT_TYPES           = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
+        const AV_ROLES              = ["Sound","Words","Cameras"];
+        const FORM_LINK             = "https://esherchurch.github.io/availability-form/";
+        const LOGO_URL              = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media";
+        const TS_KEY                = "EGBC_TR";
+
+        // ── Session state ──────────────────────────────────────────────────────────
+        function loadTS() { try { return JSON.parse(sessionStorage.getItem(TS_KEY)||'null')||{}; } catch(e) { return {}; } }
+        function saveTS() {
+            try { sessionStorage.setItem(TS_KEY,JSON.stringify({ trainingEvents, trainingAvailability, pendingMembers:[...pendingMemberIds] })); }
+            catch(e) { showToast("⚠️ Session storage full"); }
+        }
+        const _s=loadTS();
+        let trainingEvents       = _s.trainingEvents       || null;
+        let trainingAvailability = _s.trainingAvailability || {};
+        let pendingMemberIds     = new Set(_s.pendingMembers||[]);
+        let availabilitySimulated= pendingMemberIds.size>0;
+
+        let firebaseEvents=[], addressBook=[];
+        let collapsedTerms=new Set(), expandedEvents=new Set(), openBuckets=new Set();
+        let hideAssigned=false;
+        let logoBase64=null, logoNaturalWidth=1, logoNaturalHeight=1;
+
+        const getCachedEvents = ()=> trainingEvents!==null ? trainingEvents : firebaseEvents;
+        const getAvailability = ()=> trainingAvailability;
+
+        function ensureTrainingEvents() {
+            if (trainingEvents===null) { trainingEvents=JSON.parse(JSON.stringify(firebaseEvents)); saveTS(); }
+        }
+        function getTermLabel(ds) {
+            const m=new Date(ds).getMonth()+1, y=new Date(ds).getFullYear();
+            return `${m<=4?'Spring':m<=8?'Summer':'Autumn'} ${y}`;
+        }
+        function showToast(msg) {
+            const t=document.getElementById('training-toast'); if(!t) return;
+            t.innerText=msg; t.style.display='block';
+            clearTimeout(window._tt); window._tt=setTimeout(()=>{t.style.display='none';},3000);
+        }
+        function buildTimeOptions(sel) {
+            let o='';
+            for(let h=0;h<24;h++) for(let m=0;m<60;m+=15){
+                const v=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+                o+=`<option value="${v}"${sel===v?' selected':''}>${v}</option>`;
+            }
+            return o;
+        }
+
+        // ── Exit ───────────────────────────────────────────────────────────────────
+        window.exitTraining=()=>{
+            if(!confirm("Exit training mode? All practice data will be cleared.")) return;
+            try{sessionStorage.clear();}catch(e){}
+            try{localStorage.clear();}catch(e){}
+            document.open();
+            document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f6f6;margin:0;}</style></head><body><div style="text-align:center;color:#3d6263;"><h2 style="font-weight:800;">Training session ended.</h2><p style="font-size:14px;opacity:0.6;">All practice data has been cleared.</p></div></body></html>`);
+            document.close();
+        };
+
+        // ── Logo ───────────────────────────────────────────────────────────────────
+        let _lp=null;
+        const getLogoBase64=()=>{
+            if(_lp) return _lp;
+            _lp=new Promise(async resolve=>{
+                try {
+                    const url=await getDownloadURL(ref(storage,'1774936285076.png'));
+                    const img=new Image(); img.setAttribute('crossOrigin','anonymous');
+                    img.onload=()=>{
+                        logoNaturalWidth=img.naturalWidth; logoNaturalHeight=img.naturalHeight;
+                        const c=document.createElement("canvas"); c.width=img.width; c.height=img.height;
+                        c.getContext("2d").drawImage(img,0,0);
+                        logoBase64=c.toDataURL("image/jpeg",1.0); resolve(logoBase64);
+                    };
+                    img.onerror=()=>resolve(null); img.src=url+"?c="+Date.now();
+                } catch(e){resolve(null);}
+            });
+            return _lp;
+        };
+        getLogoBase64();
+
+        // ── Firebase listeners (read only) ─────────────────────────────────────────
+        onSnapshot(collection(db,"addressBook"),snap=>{
+            addressBook=snap.docs.map(d=>({id:d.id,...d.data()}));
+            const sel=document.getElementById('memberPdfSelect');
+            if(sel){
+                const cv=sel.value; sel.innerHTML='<option value="">Select Member...</option>';
+                [...addressBook].sort((a,b)=>a.name.localeCompare(b.name)).forEach(m=>{
+                    sel.innerHTML+=`<option value="${m.id}">${m.name}</option>`;
+                });
+                sel.value=cv;
+            }
+            renderPlanner();
+        });
+        onSnapshot(query(collection(db,"events"),orderBy("date")),snap=>{
+            firebaseEvents=snap.docs.map(d=>({id:d.id,...d.data()}));
+            renderPlanner();
+        });
+
+        // ── Availability simulation ────────────────────────────────────────────────
+        window.gatherTermAvailability=()=>{
+            ensureTrainingEvents();
+            const active=getCachedEvents().filter(e=>!e.archived);
+            if(active.length===0){ showToast("No active events to simulate"); return; }
+
+            // ~20% globally pending — never responded, so no entry on any service
+            pendingMemberIds=new Set();
+            addressBook.forEach(m=>{ if(Math.random()<0.20) pendingMemberIds.add(m.id); });
+
+            // Remaining 80%: random PER SERVICE — avail/not-avail varies by date
+            trainingAvailability={};
+            active.forEach(ev=>{
+                trainingAvailability[ev.id]={};
+                addressBook.forEach(m=>{
+                    if(pendingMemberIds.has(m.id)) return;
+                    trainingAvailability[ev.id][m.id]=Math.random()<0.70?'avail':'not-avail';
+                });
+            });
+            availabilitySimulated=true;
+            saveTS();
+            renderPlanner();
+            const pc=pendingMemberIds.size, tc=addressBook.length;
+            showToast(`✅ Availability simulated — ${pc} of ${tc} pending`);
+
+            // Show the availability form email preview modal
+            openAvailEmailModal(tc, pc);
+        };
+
+        function openAvailEmailModal(total, pending) {
+            const bcc=addressBook.map(m=>m.email).filter(Boolean).join('; ');
+            document.getElementById('ep-to').innerText='av@esherchurch.org';
+            document.getElementById('ep-bcc').innerText=bcc.length>400?bcc.substr(0,400)+'…':bcc;
+            document.getElementById('ep-subject').innerText='Availability Request';
+            document.getElementById('ep-body').innerText=`Hi everyone,\n\nPlease submit your availability for the upcoming term by clicking the link below:\n\n${FORM_LINK}\n\nThank you!\nEGBC Worship & AV Team`;
+            document.getElementById('ep-note').innerText=`TRAINING: In the live system this email goes to all ${total} team members.\n\nSimulated result: ${total-pending} members responded (random per service — avail/unavailable varies by date), ${pending} members did not respond (shown as Pending on all services, as in real life).`;
+            document.getElementById('emailPreviewModal').classList.add('show');
+        }
+        window.closeEmailPreview=()=>document.getElementById('emailPreviewModal').classList.remove('show');
+
+        // ── SEND ALL ROTAS — faithful replica of PowerShell sender UI ─────────────
+        window.prepareDistributionPackage=async()=>{
+            const active=getCachedEvents().filter(e=>!e.archived);
+            const assignedIds=new Set();
+            active.forEach(e=>Object.values(e.assignments||{}).forEach(a=>assignedIds.add(a.id)));
+            const recipients=[...assignedIds].map(id=>{
+                const m=addressBook.find(x=>x.id===id);
+                return m?{Name:m.name,Email:m.email||`${m.name.replace(/\s/g,'_').toLowerCase()}@egbc.org`}:null;
+            }).filter(Boolean);
+
+            if(recipients.length===0){
+                showToast("No assigned team members yet — fill the rota first");
+                return;
+            }
+
+            // Build the sender UI
+            const box=document.getElementById('senderInner');
+            box.innerHTML=buildSenderUI(recipients);
+            document.getElementById('senderModal').classList.add('show');
+
+            // Wire up sender UI events after render
+            setTimeout(()=>{
+                senderRefreshPreview();
+                ['s-intro','s-closing','s-signoff','s-subject'].forEach(id=>{
+                    const el=document.getElementById(id);
+                    if(el) el.addEventListener('input',senderRefreshPreview);
+                });
+            },100);
+        };
+
+        function buildSenderUI(recipients) {
+            const chips=recipients.map(r=>`<span class="chip">${r.Name}</span>`).join('');
+            const testOpts=recipients.map(r=>`<option value="${r.Email}">${r.Name} &lt;${r.Email}&gt;</option>`).join('');
+            return `
+            <div class="training-warn">⚠️ Training mode — emails are simulated. Nothing will actually be sent.</div>
+            <div class="card">
+                <h2>Recipients <span class="badge" id="s-recCount">${recipients.length}</span></h2>
+                <div class="chips">${chips}</div>
+            </div>
+            <div class="card">
+                <h2>Compose Email</h2>
+                <div class="row">
+                    <div class="col"><label>Subject</label><input id="s-subject" value="Your Worship &amp; AV Rota - EGBC"></div>
+                    <div class="col"><label>Sign-off Name</label><input id="s-signoff" value="EGBC Worship &amp; AV Team"></div>
+                </div>
+                <div class="row"><div class="col"><label>Opening Message</label>
+                    <textarea id="s-intro" rows="3">Please find your rota attached for the upcoming term. We are really grateful for your faithful service and look forward to worshipping together with you.</textarea>
+                </div></div>
+                <div class="row"><div class="col"><label>Closing Message</label>
+                    <textarea id="s-closing" rows="2">If you have any questions or need to make changes, please do not hesitate to get in touch.</textarea>
+                </div></div>
+                <label>Preview</label>
+                <div class="preview-box"><iframe id="s-preview" title="Preview"></iframe></div>
+                <div style="margin-top:10px"><button class="s-btn btn-grey" onclick="senderRefreshPreview()">Refresh Preview</button></div>
+            </div>
+            <div class="card">
+                <h2>Send</h2>
+                <div class="row" style="margin-bottom:14px">
+                    <div class="col"><label>Send test to one person</label><select id="s-testSel">${testOpts}</select></div>
+                    <div style="display:flex;align-items:flex-end"><button class="s-btn btn-grey" onclick="senderSendTest()">Send Test</button></div>
+                </div>
+                <div class="actions">
+                    <button class="s-btn btn-red" id="s-sendAllBtn" onclick="senderSendAll(${recipients.length})">Send to All Recipients</button>
+                </div>
+                <div class="s-progress" id="s-prog"><div class="s-bar" id="s-bar"></div></div>
+                <div class="s-log" id="s-log">Ready. Edit your message above then send a test first.
+</div>
+            </div>`;
+        }
+
+        window.closeSenderModal=()=>document.getElementById('senderModal').classList.remove('show');
+
+        window.senderRefreshPreview=()=>{
+            const frame=document.getElementById('s-preview'); if(!frame) return;
+            frame.srcdoc=buildSenderEmailHtml('FirstName');
+        };
+
+        function buildSenderEmailHtml(firstName) {
+            const intro   =(document.getElementById('s-intro')  ?.value||'').replace(/\n/g,'<br>');
+            const closing =(document.getElementById('s-closing') ?.value||'').replace(/\n/g,'<br>');
+            const signoff = document.getElementById('s-signoff') ?.value||'EGBC Worship & AV Team';
+            let h='';
+            h+='<!DOCTYPE html><html><head><meta charset="UTF-8"></head>';
+            h+='<body style="margin:0;padding:0;background-color:#f0f6f6;">';
+            h+='<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0f6f6">';
+            h+='<tr><td align="center" style="padding:40px 20px;">';
+            h+='<table width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border:1px solid #d1dfdf;">';
+            // Header
+            h+=`<tr><td bgcolor="#3d6263" style="padding:28px 40px;"><img src="${LOGO_URL}" alt="EGBC" height="52" style="display:block;border:0;height:52px;"></td></tr>`;
+            h+='<tr><td bgcolor="#d1dfdf" style="height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>';
+            h+='<tr><td bgcolor="#ffffff" style="height:8px;font-size:0;">&nbsp;</td></tr>';
+            // Greeting
+            h+=`<tr><td bgcolor="#ffffff" style="padding:32px 40px 0 40px;"><p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:24px;font-weight:bold;color:#3d6263;">Hi ${firstName},</p><p style="margin:0 0 28px 0;font-family:Arial,sans-serif;font-size:15px;line-height:26px;color:#444444;">${intro}</p></td></tr>`;
+            // What's attached box
+            h+='<tr><td bgcolor="#ffffff" style="padding:0 40px 20px 40px;">';
+            h+='<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>';
+            h+='<td width="4" bgcolor="#3d6263" style="font-size:0;">&nbsp;</td>';
+            h+='<td bgcolor="#f7fafa" style="padding:20px 24px;border:1px solid #e0eaea;border-left:none;">';
+            h+='<p style="margin:0 0 12px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;color:#3d6263;">What&rsquo;s attached</p>';
+            h+='<table cellpadding="0" cellspacing="0" border="0">';
+            h+='<tr><td style="padding:4px 0;font-family:Arial,sans-serif;font-size:14px;color:#444;"><b style="color:#3d6263;">&#9679;</b>&nbsp;&nbsp;<b>Individual Rota</b> &mdash; your personal serving dates</td></tr>';
+            h+='<tr><td style="padding:4px 0;font-family:Arial,sans-serif;font-size:14px;color:#444;"><b style="color:#3d6263;">&#9679;</b>&nbsp;&nbsp;<b>Household Rota</b> &mdash; everyone in your household</td></tr>';
+            h+='<tr><td style="padding:4px 0;font-family:Arial,sans-serif;font-size:14px;color:#444;"><b style="color:#3d6263;">&#9679;</b>&nbsp;&nbsp;<b>Full Church Rota</b> &mdash; the complete team overview</td></tr>';
+            h+='<tr><td style="padding:4px 0;font-family:Arial,sans-serif;font-size:14px;color:#444;"><b style="color:#3d6263;">&#9679;</b>&nbsp;&nbsp;<b>Wall Planner</b> &mdash; monthly calendar to print</td></tr>';
+            h+='</table></td></tr></table></td></tr>';
+            // Calendar box
+            h+='<tr><td bgcolor="#ffffff" style="padding:0 40px 28px 40px;">';
+            h+='<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>';
+            h+='<td width="4" bgcolor="#3d6263" style="font-size:0;">&nbsp;</td>';
+            h+='<td bgcolor="#f7fafa" style="padding:20px 24px;border:1px solid #e0eaea;border-left:none;">';
+            h+='<p style="margin:0 0 8px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;color:#3d6263;">Add to your calendar</p>';
+            h+='<p style="margin:0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#444;">Open the <b>.ics</b> file on your phone or computer to automatically sync your serving dates.</p>';
+            h+='</td></tr></table></td></tr>';
+            // Closing
+            h+=`<tr><td bgcolor="#ffffff" style="padding:0 40px 36px 40px;"><p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:15px;line-height:26px;color:#444444;">${closing}</p><p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:15px;color:#666;">With thanks,</p><p style="margin:0;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:#3d6263;">${signoff}</p></td></tr>`;
+            // Footer
+            h+='<tr><td bgcolor="#3d6263" style="padding:18px 40px;text-align:center;"><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;letter-spacing:0.5px;">Esher Green Baptist Church &bull; Worship &amp; AV</p></td></tr>';
+            h+='</table></td></tr></table></body></html>';
+            return h;
+        }
+
+        // Simulated send — delays and log output to feel realistic
+        window.senderSendTest=async()=>{
+            const sel=document.getElementById('s-testSel'); if(!sel) return;
+            const email=sel.value;
+            const name=sel.options[sel.selectedIndex]?.text.split(' <')[0]||'Unknown';
+            senderLog(`Sending test to ${name}...`,'inf');
+            await delay(600+Math.random()*600);
+            senderLog(`✓ Sent to ${name} OK`,'ok');
+            senderLog('(Training: no email was actually sent)','inf');
+        };
+
+        window.senderSendAll=async(total)=>{
+            if(!confirm(`Send to all ${total} recipients? (Training — nothing will actually be sent)`)) return;
+            const btn=document.getElementById('s-sendAllBtn'); if(btn) btn.disabled=true;
+            const prog=document.getElementById('s-prog'); if(prog) prog.style.display='block';
+            const bar=document.getElementById('s-bar');
+            // Rebuild recipient list from chips
+            const active=getCachedEvents().filter(e=>!e.archived);
+            const assignedIds=new Set();
+            active.forEach(e=>Object.values(e.assignments||{}).forEach(a=>assignedIds.add(a.id)));
+            const recipients=[...assignedIds].map(id=>{
+                const m=addressBook.find(x=>x.id===id);
+                return m?{Name:m.name,Email:m.email||''}:null;
+            }).filter(Boolean);
+
+            let done=0;
+            for(const r of recipients){
+                senderLog(`Sending to ${r.Name}...`,'inf');
+                // Simulate realistic send time (300–900ms per person)
+                await delay(300+Math.random()*600);
+                // 95% success rate to make it feel real
+                if(Math.random()<0.95){
+                    senderLog(`✓ Sent to ${r.Name} OK`,'ok');
+                } else {
+                    senderLog(`✗ Failed for ${r.Name}: Simulated error (retry in live system)`,'err');
+                }
+                done++;
+                if(bar) bar.style.width=Math.round((done/recipients.length)*100)+'%';
+            }
+            senderLog(`--- Done: ${done} processed (Training — nothing was actually sent) ---`,'ok');
+            if(btn) btn.disabled=false;
+        };
+
+        function senderLog(msg,type){
+            const el=document.getElementById('s-log'); if(!el) return;
+            const sp=document.createElement('span');
+            if(type) sp.className=type;
+            sp.textContent=msg+'\n';
+            el.appendChild(sp);
+            el.scrollTop=el.scrollHeight;
+        }
+
+        function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+        // ── Mutations → sessionStorage ─────────────────────────────────────────────
+        window.updateField=(id,field,value)=>{ ensureTrainingEvents(); const ev=trainingEvents.find(e=>e.id===id); if(!ev) return; ev[field]=value; if(field==='date') ev.termLabel=getTermLabel(value); saveTS(); renderPlanner(); showToast("✏️ Updated (training only)"); };
+        window.toggleTeam=(eid,team)=>{ ensureTrainingEvents(); const ev=trainingEvents.find(e=>e.id===eid); if(!ev) return; if(!ev.teams) ev.teams=[]; ev.teams=ev.teams.includes(team)?ev.teams.filter(t=>t!==team):[...ev.teams,team]; saveTS(); renderPlanner(); };
+        window.addRole=(eid,role)=>{ if(!role) return; ensureTrainingEvents(); const ev=trainingEvents.find(e=>e.id===eid); if(!ev) return; if(!ev.roles) ev.roles=[]; if(!ev.roles.includes(role)) ev.roles.push(role); saveTS(); renderPlanner(); showToast("➕ Role added (training only)"); };
+        window.removeRole=(eid,role)=>{ if(!confirm(`Remove role "${role}"?`)) return; ensureTrainingEvents(); const ev=trainingEvents.find(e=>e.id===eid); if(!ev) return; ev.roles=(ev.roles||[]).filter(r=>r!==role); if(ev.assignments) delete ev.assignments[role]; saveTS(); renderPlanner(); };
+        window.assignPerson=(eid,role,pid,pname)=>{ ensureTrainingEvents(); const ev=trainingEvents.find(e=>e.id===eid); if(!ev) return; if(!ev.assignments) ev.assignments={}; ev.assignments[role]={id:pid,name:pname}; saveTS(); renderPlanner(); showToast("👤 Assigned (training only)"); };
+        window.unassignPerson=(eid,role)=>{ ensureTrainingEvents(); const ev=trainingEvents.find(e=>e.id===eid); if(!ev||!ev.assignments) return; delete ev.assignments[role]; saveTS(); renderPlanner(); };
+        window.deleteEvent=(eid)=>{ if(!confirm("Delete this service? (Training only)")) return; ensureTrainingEvents(); trainingEvents=trainingEvents.filter(e=>e.id!==eid); saveTS(); renderPlanner(); showToast("🗑️ Deleted (training only)"); };
+        window.archiveTerm=(termLabel)=>{ if(!confirm(`Archive ${termLabel}? (Training only)`)) return; ensureTrainingEvents(); trainingEvents.forEach(ev=>{if(ev.termLabel===termLabel) ev.archived=true;}); saveTS(); renderPlanner(); showToast("📦 Archived (training only)"); };
+        window.toggleHideAssigned=()=>{ hideAssigned=!hideAssigned; renderPlanner(); };
+        window.toggleTermCollapse=t=>{ collapsedTerms.has(t)?collapsedTerms.delete(t):collapsedTerms.add(t); renderPlanner(); };
+        window.toggleEventExpand=id=>{ expandedEvents.has(id)?expandedEvents.delete(id):expandedEvents.add(id); renderPlanner(); };
+        window.toggleBucket=id=>{ openBuckets.has(id)?openBuckets.delete(id):openBuckets.add(id); renderPlanner(); };
+
+        window.addSingleLine=()=>{ ensureTrainingEvents(); const ds=new Date().toISOString().split('T')[0]; trainingEvents.push({id:'tr-'+Math.random().toString(36).substr(2,9),date:ds,termLabel:getTermLabel(ds),type:"Sunday Morning Worship",description:"",teams:["Worship Team","AV Team"],startTime:"08:00",endTime:"11:30",roles:[...MANDATORY_SUNDAY_ROLES],assignments:{},archived:false}); saveTS(); renderPlanner(); showToast("➕ Service added (training only)"); };
+
+        window.generateTerm=()=>{
+            const term=document.getElementById('termSelect').value; if(!term) return alert("Select a Term");
+            ensureTrainingEvents();
+            const y=new Date().getFullYear();
+            let curr=new Date(`${y}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
+            let end=new Date(`${y}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
+            while(curr.getDay()!==0) curr.setDate(curr.getDate()+1);
+            while(curr<=end){ const ds=curr.toISOString().split('T')[0]; trainingEvents.push({id:'tr-'+Math.random().toString(36).substr(2,9),date:ds,termLabel:getTermLabel(ds),type:"Sunday Morning Worship",description:"",teams:["Worship Team","AV Team"],startTime:"08:00",endTime:"11:30",roles:[...MANDATORY_SUNDAY_ROLES],assignments:{},archived:false}); curr.setDate(curr.getDate()+7); }
+            saveTS(); renderPlanner(); showToast("📅 Term populated (training only)");
+        };
+
+        window.addThursdayPractices=()=>{
+            const term=document.getElementById('termSelect').value; if(!term) return alert("Select a Term");
+            ensureTrainingEvents();
+            const y=new Date().getFullYear();
+            let curr=new Date(`${y}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
+            let end=new Date(`${y}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
+            while(curr.getDay()!==4) curr.setDate(curr.getDate()+1);
+            while(curr<=end){ const ds=curr.toISOString().split('T')[0]; trainingEvents.push({id:'tr-'+Math.random().toString(36).substr(2,9),date:ds,termLabel:getTermLabel(ds),type:"Sunday Team Practice",description:"Thursday Rehearsal",teams:["Worship Team"],startTime:"19:30",endTime:"21:30",roles:["Worship Leader","Keyboard","Guitar","Drums","Bass"],assignments:{},archived:false}); curr.setDate(curr.getDate()+7); }
+            saveTS(); renderPlanner(); showToast("🎸 Practices added (training only)");
+        };
+
+        window.autoFillPractice=(pid)=>{
+            ensureTrainingEvents();
+            const avail=getAvailability(), all=getCachedEvents();
+            const practice=all.find(e=>e.id===pid); if(!practice) return;
+            const pd=new Date(practice.date);
+            const sunday=all.find(e=>{ const diff=(new Date(e.date)-pd)/(1000*60*60*24); return e.type==="Sunday Morning Worship"&&diff>0&&diff<=3; });
+            if(!sunday) return alert("No matching Sunday Worship found.");
+            const ev=trainingEvents.find(e=>e.id===pid); if(!ev) return;
+            if(!ev.assignments) ev.assignments={};
+            (practice.roles||[]).forEach(r=>{ const sp=sunday.assignments?.[r]; if(sp&&avail[pid]?.[sp.id]==='avail') ev.assignments[r]={id:sp.id,name:sp.name}; });
+            saveTS(); renderPlanner(); showToast("🔄 Practice synced (training only)");
+        };
+
+        window.autoFillAllEvents=async()=>{
+            if(!availabilitySimulated) return alert("Click 'Gather Availability' first to simulate responses.");
+            if(!confirm("Auto-fill services? (Training only — won't affect live system)")) return;
+            ensureTrainingEvents();
+            const avail=getAvailability();
+            const active=trainingEvents.filter(e=>!e.archived&&e.type==="Sunday Morning Worship").sort((a,b)=>new Date(a.date)-new Date(b.date));
+            const mc={};
+            for(const ev of active){
+                const mk=new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'});
+                if(!mc[mk]) mc[mk]={};
+                const members=addressBook.filter(m=>ev.teams?.some(t=>m.markers?.includes(t))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship")));
+                const today=new Set(Object.values(ev.assignments||{}).map(a=>a.id));
+                const roles=[...(ev.roles||[])];
+                const asgn={...(ev.assignments||{})};
+                const tryAssign=(rName,inst,primaryOnly)=>{
+                    if(asgn[rName]) return false;
+                    let cands=members.filter(m=>{ if(today.has(m.id)||avail[ev.id]?.[m.id]!=='avail') return false; if((mc[mk][m.id]||0)>=(parseInt(m.maxFrequency)||2)) return false; return primaryOnly?m.primaryInstruments?.includes(inst):(m.primaryInstruments?.includes(inst)||m.secondaryInstruments?.includes(inst)); });
+                    cands.sort((a,b)=>{ const ay=a.markers?.includes("Youth Worship")?1:0,by=b.markers?.includes("Youth Worship")?1:0; if(ay!==by) return ay-by; return (a.primaryInstruments?.length||0)-(b.primaryInstruments?.length||0); });
+                    if(cands.length>0){ const c=cands[0]; asgn[rName]={id:c.id,name:c.name}; today.add(c.id); mc[mk][c.id]=(mc[mk][c.id]||0)+1; return true; }
+                    return false;
+                };
+                MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,true));
+                roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",true));
+                MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,false));
+                roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",false));
+                let singers=members.filter(m=>!today.has(m.id)&&(m.primaryInstruments?.includes("Sing")||m.secondaryInstruments?.includes("Sing"))&&avail[ev.id]?.[m.id]==='avail');
+                singers.sort((a,b)=>(a.markers?.includes("Youth Worship")?1:0)-(b.markers?.includes("Youth Worship")?1:0));
+                for(const m of singers){ if((mc[mk][m.id]||0)>=(parseInt(m.maxFrequency)||2)) continue; let ni=1; while(roles.includes(`Singer ${ni}`)) ni++; const nr=`Singer ${ni}`; roles.push(nr); asgn[nr]={id:m.id,name:m.name}; today.add(m.id); mc[mk][m.id]=(mc[mk][m.id]||0)+1; }
+                ["Guitar","Keyboard"].forEach(inst=>{ const rn=`2nd ${inst}`; if(!roles.includes(rn)){if(tryAssign(rn,inst,true)||tryAssign(rn,inst,false)) roles.push(rn);} });
+                ev.assignments=asgn; ev.roles=roles;
+            }
+            saveTS(); renderPlanner(); showToast("✅ Auto-fill complete (training only)");
+        };
+
+        // ── Drag and drop ──────────────────────────────────────────────────────────
+        window.onDragStart=(e,pid,pname,eid=null,role=null)=>{ e.dataTransfer.setData("personId",pid); e.dataTransfer.setData("personName",pname); if(eid&&role){e.dataTransfer.setData("sourceEventId",eid);e.dataTransfer.setData("sourceRole",role);} };
+        window.onDropRole=(e,eid,role)=>{ e.preventDefault(); const pid=e.dataTransfer.getData("personId"),pname=e.dataTransfer.getData("personName"); const seid=e.dataTransfer.getData("sourceEventId"),srole=e.dataTransfer.getData("sourceRole"); if(seid===eid&&srole) window.unassignPerson(seid,srole); window.assignPerson(eid,role,pid,pname); };
+        window.onDropBucket=(e,eid,ts=null)=>{ e.preventDefault(); const pid=e.dataTransfer.getData("personId"); const seid=e.dataTransfer.getData("sourceEventId"),srole=e.dataTransfer.getData("sourceRole"); if(seid&&srole) window.unassignPerson(seid,srole); if(ts&&eid&&pid){ ensureTrainingEvents(); if(!trainingAvailability[eid]) trainingAvailability[eid]={}; if(ts==='pending'){delete trainingAvailability[eid][pid];}else{trainingAvailability[eid][pid]=ts;} saveTS(); renderPlanner(); } };
+
+        // ── PDF / Excel ────────────────────────────────────────────────────────────
+        const getPdfBlob=async(type,memberId,specificEvents=null)=>{
+            const {jsPDF}=window.jspdf; const logo=await getLogoBase64();
+            let te=(specificEvents||getCachedEvents().filter(e=>!e.archived)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+            if(te.length===0) return null;
+            if(type==="wall"){
+                const wd=new jsPDF({orientation:"landscape",unit:"pt",format:"A4"});
+                const member=addressBook.find(m=>m.id===memberId); const hid=member?.householdId||memberId;
+                const hIds=addressBook.filter(m=>m.id===hid||m.householdId===hid).map(m=>m.id);
+                const ebm={};
+                te.forEach(ev=>{const k=new Date(ev.date).toLocaleString("en-GB",{month:"long",year:"numeric"});if(!ebm[k])ebm[k]=[];ebm[k].push(ev);});
+                Object.keys(ebm).sort((a,b)=>new Date(ebm[a][0].date)-new Date(ebm[b][0].date)).forEach((month,idx)=>{
+                    if(idx>0) wd.addPage();
+                    if(logo){const lh=60;wd.addImage(logo,"JPEG",40,20,(logoNaturalWidth/logoNaturalHeight)*lh,lh);}
+                    wd.setFont("helvetica","bold");wd.setFontSize(22);wd.setTextColor(61,98,99);wd.text("Family Wall Planner",150,50);
+                    wd.setFontSize(14);wd.setTextColor(100,100,100);wd.text(month,150,70);
+                    const yr=new Date(ebm[month][0].date).getFullYear(),mth=new Date(ebm[month][0].date).getMonth();
+                    const sd=new Date(yr,mth,1).getDay(),dim=new Date(yr,mth+1,0).getDate();
+                    const off=sd===0?6:sd-1; const rows=[]; let wk=Array(7).fill(null);
+                    for(let i=0;i<off;i++) wk[i]={empty:true};
+                    for(let d=1;d<=dim;d++){const ds=`${yr}-${String(mth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const di=(d+off-1)%7;wk[di]={day:d,events:ebm[month].filter(e=>e.date===ds)};if(di===6||d===dim){rows.push(wk);wk=Array(7).fill(null);}}
+                    wd.autoTable({startY:90,head:[["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]],body:rows.map(w=>w.map(c=>{if(!c||c.empty)return"";let cd=`DAY:${c.day}`;c.events.forEach(ev=>{const mx=Object.entries(ev.assignments||{}).filter(([r,p])=>hIds.includes(p.id)).map(([r,p])=>`${p.name.split(' ')[0]}: ${r}`);if(mx.length>0)cd+=`|S:${ev.type}|R:${mx.join(', ')}`;});return cd;})),theme:'grid',styles:{fontSize:0.1,cellPadding:4,minCellHeight:65,valign:'top',textColor:[255,255,255]},headStyles:{fillColor:[61,98,99],textColor:255,halign:'center',fontSize:10},didDrawCell:(data)=>{if(data.section==='body'&&data.cell.raw!==""){const segs=data.cell.raw.split('|');let yp=data.cell.y+12;segs.forEach(seg=>{if(seg.startsWith("DAY:")){wd.setFont("helvetica","bold");wd.setFontSize(10);wd.setTextColor(180,180,180);wd.text(seg.replace("DAY:",""),data.cell.x+5,yp);yp+=12;}else if(seg.startsWith("S:")){const dk=`${yr}-${String(mth+1).padStart(2,'0')}-${String(data.cell.raw.split('|')[0].replace("DAY:","")).padStart(2,'0')}`;const mx=Object.entries(te.find(e=>e.date===dk)?.assignments||{}).filter(([r,p])=>hIds.includes(p.id));if(mx.length>0){wd.setFont("helvetica","bold");wd.setFontSize(7);wd.setTextColor(61,98,99);wd.text(wd.splitTextToSize(seg.replace("S:",""),100),data.cell.x+5,yp);yp+=18;}}else if(seg.startsWith("R:")){wd.setFont("helvetica","normal");wd.setFontSize(7);wd.setTextColor(0,0,0);wd.text(wd.splitTextToSize(seg.replace("R:",""),100),data.cell.x+5,yp);}});}}});
+                });
+                return wd;
+            }
+            const dr=new jsPDF({orientation:'l',unit:'mm',format:'a4',compress:true}); let title="FULL ROTA";
+            if(type==='individual'||type==='household'){const member=addressBook.find(m=>m.id===memberId);const hid=member?.householdId||memberId;const hIds=addressBook.filter(m=>m.id===hid||m.householdId===hid).map(m=>m.id);title=type==='individual'?`${member.name.toUpperCase()} ROTA`:`HOUSEHOLD ROTA`;te=te.filter(e=>Object.values(e.assignments||{}).some(a=>type==='individual'?a.id===memberId:hIds.includes(a.id)));}
+            if(logo){const lh=20;dr.addImage(logo,'JPEG',255,10,(logoNaturalWidth/logoNaturalHeight)*lh,lh);}
+            dr.setFillColor(240,246,246);dr.roundedRect(12,12,230,10,4,4,'F');dr.setTextColor(61,98,99);dr.setFont("helvetica","bold");dr.setFontSize(18);dr.text(title,16,19);
+            const arr=[...new Set(te.flatMap(e=>e.roles||[]))];
+            const allRoles=[...arr.filter(r=>!AV_ROLES.includes(r)),...arr.filter(r=>AV_ROLES.includes(r))];
+            dr.autoTable({startY:35,head:[['DATE','TIME','SERVICE',...allRoles.map(r=>r.toUpperCase())]],body:te.map(e=>[new Date(e.date).toLocaleDateString('en-GB'),(e.startTime||'')+(e.startTime&&e.endTime?'–':'')+(e.endTime||''),e.type,...allRoles.map(r=>e.assignments?.[r]?.name||"---")]),headStyles:{fillColor:[61,98,99]},styles:{fontSize:7}});
+            return dr;
+        };
+        window.generatePDF=async(type,memberId)=>{ const d=await getPdfBlob(type,memberId); if(!d) return alert("No dates found."); d.save(`${type}_rota_TRAINING.pdf`); };
+        window.exportToExcel=()=>{ const active=getCachedEvents().filter(e=>!e.archived).sort((a,b)=>new Date(a.date)-new Date(b.date)); const wb=XLSX.utils.book_new(); const data=active.map(e=>({Date:e.date,Type:e.type,...Object.fromEntries(Object.entries(e.assignments||{}).map(([r,p])=>[r,p.name]))})); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),"Rota"); XLSX.writeFile(wb,"EGBC_Rota_TRAINING.xlsx"); };
+
+        // ── Render ─────────────────────────────────────────────────────────────────
+        function renderPlanner(){
+            const container=document.getElementById('eventList'); container.innerHTML='';
+            const events=getCachedEvents(), avail=getAvailability(), grouped={};
+            events.forEach(ev=>{ if(ev.archived) return; const tk=ev.termLabel||getTermLabel(ev.date); if(!grouped[tk]) grouped[tk]=[]; grouped[tk].push(ev); });
+            if(Object.keys(grouped).length===0){ container.innerHTML=`<div class="text-center py-20 text-[#3d6263] opacity-40 font-bold text-lg">No events yet — use the controls above to populate a term or add a service.</div>`; return; }
+            Object.keys(grouped).sort().forEach(term=>{
+                const isC=collapsedTerms.has(term);
+                let h='<div class="mb-12">';
+                h+=`<div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg"><button onclick="toggleTermCollapse('${term}')" class="uppercase font-bold tracking-widest flex items-center gap-2">${term}</button><button onclick="archiveTerm('${term}')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button></div>`;
+                h+=`<div class="${isC?'hidden':'block'} bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">`;
+                const sorted=grouped[term].sort((a,b)=>new Date(a.date)-new Date(b.date));
+                const bm={};
+                sorted.forEach(ev=>{const mo=new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'});if(!bm[mo])bm[mo]=[];bm[mo].push(ev);});
+                Object.keys(bm).forEach(month=>{
+                    h+=`<div class="mb-10 pb-8"><h3 class="text-sm font-black uppercase text-[#3d6263] opacity-60 mb-6 tracking-[0.2em]">${month}</h3>`;
+                    const blocks=[]; let cur=[];
+                    bm[month].forEach(ev=>{cur.push(ev);if(ev.type==="Sunday Morning Worship"){blocks.push(cur);cur=[];}});
+                    if(cur.length>0) blocks.push(cur);
+                    blocks.forEach((block,idx)=>{ block.forEach(ev=>{ h+=generateEventHtml(ev,idx,avail); }); });
+                    const stats={};
+                    bm[month].forEach(ev=>{if(ev.type==='Sunday Morning Worship'&&ev.assignments){const ns=new Set(Object.values(ev.assignments).map(p=>p.name));ns.forEach(n=>{if(n) stats[n]=(stats[n]||0)+1;});}});
+                    if(Object.keys(stats).length>0){
+                        h+=`<div class="mt-8 bg-[#f0f6f6] rounded-[2rem] p-8 border border-[#d1dfdf] shadow-sm"><div class="text-xs font-black uppercase text-[#3d6263] mb-6 tracking-widest text-center border-b border-[#d1dfdf] pb-4">Monthly Unique Serving Totals (Sundays)</div><div class="flex flex-wrap justify-center gap-4">`;
+                        Object.entries(stats).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([n,c])=>{ h+=`<div class="text-[12px] font-bold text-[#3d6263] bg-white px-5 py-2.5 rounded-full border border-[#d1dfdf] shadow-sm flex items-center gap-2"><span>${n}:</span><span class="font-black text-sm">${c}</span></div>`; });
+                        h+=`</div></div>`;
+                    }
+                    h+=`</div>`;
+                });
+                container.innerHTML+=h+'</div></div>';
+            });
+        }
+
+        function generateEventHtml(ev,blockIdx,avail){
+            const assignedIds=Object.values(ev.assignments||{}).map(a=>a.id);
+            const members=addressBook.filter(m=>ev.teams?.some(t=>m.markers?.includes(t))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship")));
+            const respondersAvail=members.filter(m=>avail[ev.id]?.[m.id]==='avail'&&(!hideAssigned||!assignedIds.includes(m.id)));
+            const declined=members.filter(m=>(avail[ev.id]?.[m.id]==='unavailable'||avail[ev.id]?.[m.id]==='not-avail')&&(!hideAssigned||!assignedIds.includes(m.id)));
+            const pending=members.filter(m=>!avail[ev.id]?.[m.id]&&(!hideAssigned||!assignedIds.includes(m.id)));
+            const isSunday=ev.type==="Sunday Morning Worship";
+            const rowClass=!isSunday?'bg-slate-50 border-dashed border-[#d1dfdf]':(blockIdx%2===0?'bg-white border-[#d1dfdf]':'bg-[#f0f6f6]/30 border-[#d1dfdf]');
+            const dateBg=!isSunday?'bg-[#d1dfdf]':'bg-[#3d6263]';
+            const sortedRoles=[...(ev.roles||[]).filter(r=>!AV_ROLES.includes(r)),...(ev.roles||[]).filter(r=>AV_ROLES.includes(r))];
+            const is='width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
+            const tss='bg-white border border-[#d1dfdf] text-[#3d6263] px-2 py-1 rounded-full font-bold text-[11px] outline-none';
+            let h=`<div class="${rowClass} border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">`;
+            h+=`<div class="flex flex-wrap items-center gap-4 overflow-visible">`;
+            h+=`<button onclick="toggleEventExpand('${ev.id}')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">${expandedEvents.has(ev.id)||isSunday?`<svg ${is} viewBox="0 0 24 24"><path d="M19.5 12h-15"/></svg>`:`<svg ${is} viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15"/></svg>`}</button>`;
+            h+=`<input type="date" value="${ev.date}" onchange="updateField('${ev.id}','date',this.value)" class="${dateBg} ${!isSunday?'text-[#3d6263]':'text-white'} px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">`;
+            h+=`<div class="flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-[#d1dfdf] shadow-sm text-[10px] font-black text-[#3d6263] uppercase"><select onchange="updateField('${ev.id}','startTime',this.value)" class="${tss}">${buildTimeOptions(ev.startTime||'08:00')}</select><span class="opacity-40">–</span><select onchange="updateField('${ev.id}','endTime',this.value)" class="${tss}">${buildTimeOptions(ev.endTime||'11:30')}</select></div>`;
+            h+=`<select onchange="updateField('${ev.id}','type',this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">`;
+            EVENT_TYPES.forEach(t=>{h+=`<option value="${t}" ${ev.type===t?'selected':''}>${t}</option>`;});
+            h+=`</select>`;
+            h+=`<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">${ev.description||''}</textarea>`;
+            h+=`<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">`;
+            ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t=>{h+=`<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} class="w-3.5 h-3.5 accent-[#3d6263]"><span>${t}</span></label>`;});
+            h+=`</div>`;
+            if(!isSunday) h+=`<button onclick="autoFillPractice('${ev.id}')" class="bg-[#d1dfdf] text-[#3d6263] px-5 py-2 rounded-full font-black text-[10px] uppercase shadow-sm flex items-center gap-1 hover:bg-[#3d6263] hover:text-white transition-all"><svg ${is} viewBox="0 0 24 24" class="w-3 h-3"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>Sync</button>`;
+            h+=`<div class="flex items-center gap-4 relative"><button onclick="toggleBucket('${ev.id}')" class="w-11 h-11 rounded-full bg-white text-[#3d6263] flex items-center justify-center border border-[#d1dfdf] shadow-sm hover:scale-110 transition-all"><svg ${is} viewBox="0 0 24 24"><path d="M20.25 14.15v4.25c0 .414-.336.75-.75.75H4.5a.75.75 0 0 1-.75-.75v-4.25m16.5 0a3 3 0 0 0-3-3H7.012a3 3 0 0 0-3 3m16.5 0-2.25-6.108a4.835 4.835 0 0 0-3.6-3.392 48.359 48.359 0 0 0-5.325 0 4.835 4.835 0 0 0-3.6 3.392L3.75 14.15m6.5 2.15a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm6 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg></button>`;
+            h+=`<button onclick="deleteEvent('${ev.id}')" class="text-[#d1dfdf] hover:text-red-500 transition-colors"><svg ${is} viewBox="0 0 24 24" class="w-6 h-6"><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg></button></div></div>`;
+            h+=`<div class="${expandedEvents.has(ev.id)||isSunday?'flex':'hidden'} mt-6 border-t border-[#f0f6f6] pt-6 flex-row gap-6 overflow-visible"><div class="flex flex-wrap gap-4 flex-grow">`;
+            sortedRoles.forEach(r=>{
+                const assigned=ev.assignments?.[r]||null;
+                const isAV=AV_ROLES.includes(r);
+                const isPending=assigned&&!avail[ev.id]?.[assigned.id];
+                const bc=isAV?'border-amber-400':(assigned?'border-[#3d6263]':'border-[#d1dfdf]');
+                const nc=isPending?'text-orange-500':'text-[#3d6263]';
+                h+=`<div ondragover="event.preventDefault()" ondrop="onDropRole(event,'${ev.id}','${r}')" class="bg-white border-2 ${assigned?'border-solid':'border-dashed'} ${bc} p-4 rounded-2xl min-w-[170px] group/role transition-all relative">`;
+                h+=`<div class="text-[10px] font-black uppercase text-[#3d6263] opacity-40 mb-2 flex justify-between"><span>${r}</span><button onclick="removeRole('${ev.id}','${r}')" class="invisible group-hover/role:visible text-red-400 hover:text-red-600"><svg ${is} viewBox="0 0 24 24" class="w-3.5 h-3.5"><path d="M6 18 18 6M6 6l12 12"/></svg></button></div>`;
+                h+=`<div draggable="true" ondragstart="onDragStart(event,'${assigned?.id||''}','${(assigned?.name||'').replace(/'/g,"\\'")}','${ev.id}','${r}')" class="text-[13px] font-bold ${assigned?nc+' cursor-grab':'text-[#d1dfdf] italic'}">${assigned?assigned.name:'Unassigned'}</div></div>`;
+            });
+            h+=`<select onchange="addRole('${ev.id}',this.value);this.value='';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>`;
+            OPTIONAL_ROLES.forEach(opt=>{h+=`<option value="${opt}">${opt}</option>`;});
+            h+=`</select></div>`;
+            if(openBuckets.has(ev.id)){
+                h+=`<div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]"><div class="max-h-[400px] overflow-y-auto space-y-6">`;
+                h+=`<div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}','avail');event.stopPropagation();"><div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div><div class="flex flex-wrap gap-2 min-h-[30px]">`;
+                respondersAvail.forEach(m=>{h+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}'')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">${m.name}</div>`;});
+                h+=`</div></div><div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}','not-avail');event.stopPropagation();"><div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div><div class="flex flex-wrap gap-2 min-h-[30px]">`;
+                declined.forEach(m=>{h+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}'')" class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200 cursor-grab">${m.name}</div>`;});
+                h+=`</div></div><div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}','pending');event.stopPropagation();"><div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div><div class="flex flex-wrap gap-2 min-h-[30px]">`;
+                pending.forEach(m=>{h+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}'')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">${m.name}</div>`;});
+                h+=`</div></div></div></div>`;
+            }
+            h+=`</div></div>`; return h;
+        }
+    </script>
+</head>
+<body class="p-0">
+
+<!-- Training banner -->
+<div id="training-banner">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span>🎓 Training Mode</span>
+        <span class="tpill">Read-only Firebase</span>
+        <span class="tpill">No saves to live system</span>
+        <span class="tpill">Availability simulated</span>
+    </div>
+    <button id="exit-btn" onclick="exitTraining()">✕ Exit Training</button>
+</div>
+
+<div id="training-toast"></div>
+
+<!-- Availability email preview modal -->
+<div id="emailPreviewModal" class="t-modal">
+    <div class="t-modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h2 style="font-size:16px;font-weight:800;color:#3d6263;">📧 Availability Request Email Preview</h2>
+            <button onclick="closeEmailPreview()" style="background:#f0f6f6;border:none;border-radius:9999px;padding:6px 14px;font-weight:800;font-size:11px;color:#3d6263;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;font-family:'Montserrat',sans-serif;">Close</button>
+        </div>
+        <div style="background:#fef3c7;border:2px dashed #f59e0b;padding:10px 14px;border-radius:10px;margin-bottom:1rem;font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;font-family:'Montserrat',sans-serif;">⚠️ Training mode — this email is NOT sent. Preview only.</div>
+        <div id="ep-note" style="background:#f0f6f6;border-radius:10px;padding:10px 14px;margin-bottom:1rem;font-size:12px;font-weight:700;color:#3d6263;line-height:1.6;white-space:pre-wrap;font-family:'Montserrat',sans-serif;"></div>
+        <div class="ep-label">To</div><div id="ep-to" class="ep-field"></div>
+        <div class="ep-label">BCC</div><div id="ep-bcc" class="ep-field" style="max-height:80px;overflow-y:auto;"></div>
+        <div class="ep-label">Subject</div><div id="ep-subject" class="ep-field"></div>
+        <div class="ep-label">Body</div><div id="ep-body" class="ep-field" style="white-space:pre-wrap;line-height:1.6;"></div>
+        <button onclick="closeEmailPreview()" style="width:100%;background:#3d6263;color:white;border:none;border-radius:9999px;padding:12px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;cursor:pointer;margin-top:0.5rem;">Got it</button>
+    </div>
+</div>
+
+<!-- Rota Sender modal — faithful replica of PowerShell UI -->
+<div id="senderModal" class="t-modal">
+    <div class="t-modal-box" style="max-width:780px;padding:0;overflow:hidden;">
+        <div class="sender-header">
+            <h1>🚀 EGBC Rota Sender</h1>
+            <button class="sender-close" onclick="closeSenderModal()">✕ Close</button>
+        </div>
+        <div id="senderInner" style="font-family:'Segoe UI',Arial,sans-serif;background:#f0f6f6;color:#3d6263;padding:24px;max-height:82vh;overflow-y:auto;"></div>
+    </div>
+</div>
+
+<div class="p-8 lg:p-12">
+<div class="max-w-[1900px] mx-auto">
+    <header class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-12 gap-10 border-b border-[#d1dfdf] pb-12">
+        <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#fbbf24] items-center">
+            <select id="termSelect" class="bg-[#f0f6f6] rounded-full px-8 py-3 text-sm font-bold border border-[#d1dfdf] text-[#3d6263] outline-none">
+                <option value="">Term</option>
+                <option value="Spring">Spring</option>
+                <option value="Summer">Summer</option>
+                <option value="Autumn">Autumn</option>
+            </select>
+            <button onclick="generateTerm()" class="bg-[#f0f6f6] text-[#3d6263] px-8 py-3 rounded-full font-black text-[11px] uppercase border border-[#d1dfdf]">Populate</button>
+            <button onclick="autoFillAllEvents()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">Auto-Populate</button>
+            <button onclick="addThursdayPractices()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">Add Practices</button>
+            <button onclick="addSingleLine()" class="bg-[#3d6263] text-white px-10 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">+ Service</button>
+            <button onclick="gatherTermAvailability()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Gather Avail</button>
+            <button onclick="toggleHideAssigned()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Hide Assigned</button>
+            <button onclick="prepareDistributionPackage()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg hover:bg-black transition-all">🚀 SEND ALL ROTAS</button>
+        </div>
+        <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
+            <button onclick="generatePDF('full')" class="bg-[#f0f6f6] text-[#3d6263] px-6 py-3 rounded-full font-black text-[10px] uppercase border border-[#d1dfdf]">Full PDF</button>
+            <button onclick="exportToExcel()" class="bg-[#f0f6f6] text-[#3d6263] px-6 py-3 rounded-full font-black text-[10px] uppercase border border-[#d1dfdf]">Excel</button>
+            <select id="memberPdfSelect" class="bg-[#f0f6f6] rounded-full px-6 py-3 text-[11px] font-black uppercase outline-none min-w-[180px] text-[#3d6263] border border-[#d1dfdf]"></select>
+            <button onclick="generatePDF('individual',document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Indiv</button>
+            <button onclick="generatePDF('household',document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Home</button>
+            <button onclick="generatePDF('wall',document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Wall</button>
+        </div>
+    </header>
+    <div id="eventList"></div>
+</div>
+</div>
+
+<a href="https://esherchurch.github.io/availability-form/rotaplannerinstructions.html"
+   target="_blank" rel="noopener noreferrer" title="How to use the planner"
+   style="font-family:'Montserrat',sans-serif;"
+   class="fixed bottom-6 right-6 w-9 h-9 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-black text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">?</a>
+
+</body>
+</html>
