@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Batch Music Importer — TRAINING</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+body { font-family: Arial; padding: 0; margin: 0; background: #f0f6f6; }
+
+/* ── Training banner ── */
+#training-banner {
+    position: sticky; top: 0; z-index: 900;
+    background: linear-gradient(90deg, #92400e, #b45309, #92400e);
+    background-size: 200% 100%; animation: tsh 3s ease-in-out infinite;
+    color: white; font-family: Arial, sans-serif; font-weight: 800;
+    font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 10px 20px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px;
+    box-shadow: 0 2px 12px rgba(146,64,14,0.4);
+}
+@keyframes tsh { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+.tpill { background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); border-radius:9999px; padding:2px 10px; font-size:10px; }
+#exit-btn { background:white; color:#92400e; border:none; border-radius:9999px; padding:6px 16px; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex-shrink:0; }
+#exit-btn:hover { background:#fef3c7; }
+
+#main { padding: 20px; }
+
+.dropzone {
+    border: 3px dashed #ccc;
+    padding: 30px;
+    text-align: center;
+    border-radius: 15px;
+    cursor: pointer;
+    margin-bottom: 15px;
+    background: white;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+td, th { border: 1px solid #ddd; padding: 6px; }
+
+.status-new { background:#d4edda; }
+.status-exists { background:#f8d7da; }
+.status-review { background:#fff3cd; }
+.status-skipped { background:#e0e0e0; }
+
+input, select { width: 100%; }
+button { margin: 2px; }
+
+.group-row { background:#f5f5f5; font-weight:bold; }
+.conf-high { color:green; font-weight:bold; }
+.conf-medium { color:orange; font-weight:bold; }
+.conf-low { color:red; font-weight:bold; }
+
+/* Toast */
+#training-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #92400e; color: white; padding: 10px 22px; border-radius: 9999px;
+    font-weight: 800; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    z-index: 2000; display: none; border: 2px dashed #fbbf24; pointer-events: none;
+    box-shadow: 0 4px 20px rgba(146,64,14,0.4);
+}
+
+/* Help button */
+#helpBtn {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    width: 38px; height: 38px; border-radius: 9999px;
+    background: #ffffff; border: 1.5px solid #d1dfdf; color: #3d6263;
+    font-weight: 800; font-size: 15px; cursor: pointer;
+    box-shadow: 0 2px 12px rgba(61,98,99,0.12); transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; text-decoration: none;
+}
+#helpBtn:hover { background:#3d6263; color:#ffffff; border-color:#3d6263; }
+
+.library-link {
+    display: inline-block;
+    margin-bottom: 15px;
+    background: #3d6263;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 9999px;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+.library-link:hover { background: #2a4748; }
+
+.upload-btn {
+    background: #92400e;
+    color: white;
+    padding: 10px 24px;
+    border: 2px dashed #fbbf24;
+    border-radius: 9999px;
+    font-weight: 800;
+    font-size: 12px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+.upload-btn:hover { background: #78350f; }
+</style>
+</head>
+
+<body>
+
+<div id="training-banner">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span>🎓 Training Mode</span>
+        <span class="tpill">Read-only Firebase</span>
+        <span class="tpill">Uploads saved to browser only</span>
+    </div>
+    <button id="exit-btn" onclick="exitTraining()">✕ Exit Training</button>
+</div>
+
+<div id="main">
+
+<a href="egbc-song-library-training.html" class="library-link">→ View Training Song Library</a>
+
+<h2>Batch Music Importer — Training</h2>
+
+<div class="dropzone" id="dropzone">
+    Drag folder OR click to select PDF files
+</div>
+
+<input type="file" id="fileInput" multiple webkitdirectory style="display:none">
+
+<div id="status"></div>
+
+<button class="upload-btn" onclick="processAll()">💾 Upload (Training Only)</button>
+
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Title</th>
+<th>Key</th>
+<th>Type</th>
+<th>Match</th>
+<th>Confidence</th>
+<th>YouTube</th>
+<th>CCLI</th>
+<th>Assist</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+
+</div>
+
+<div id="training-toast"></div>
+
+<a id="helpBtn"
+   href="https://esherchurch.github.io/availability-form/uploaderinstructions.html"
+   target="_blank" rel="noopener" aria-label="Open instructions">?</a>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// TRAINING MODE — Batch Music Importer
+//
+// Firebase: READ ONLY — loads existing songs for matching
+// Uploads: saved to sessionStorage under EGBC_TR_SONGS key
+//          shared with the training Song Library page
+// Nothing written to Firebase Storage or Firestore
+// ═══════════════════════════════════════════════════════════════════════════
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const TS_SONGS_KEY = "EGBC_TR_SONGS"; // shared with library page
+
+let songs = [];
+let rows = [];
+
+const KEYS = ["C","Cm","C#","C#m","Db","Dbm","D","Dm","Eb","Ebm","E","Em","F","Fm","F#","F#m","Gb","Gbm","G","Gm","Ab","Abm","A","Am","Bb","Bbm","B","Bm"];
+const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
+
+// ── Training session storage helpers ──────────────────────────────────────
+function loadTrainingSongs() {
+    try { return JSON.parse(sessionStorage.getItem(TS_SONGS_KEY) || '[]'); }
+    catch(e) { return []; }
+}
+function saveTrainingSongs(list) {
+    try { sessionStorage.setItem(TS_SONGS_KEY, JSON.stringify(list)); }
+    catch(e) { showToast("⚠️ Session storage full"); }
+}
+
+function showToast(msg) {
+    const t = document.getElementById('training-toast');
+    t.innerText = msg; t.style.display = 'block';
+    clearTimeout(window._tt);
+    window._tt = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function exitTraining() {
+    if (!confirm("Exit training mode? All practice uploads will be cleared.")) return;
+    try { sessionStorage.clear(); } catch(e) {}
+    document.open();
+    document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f6f6;margin:0;}</style></head><body><div style="text-align:center;color:#3d6263;"><h2 style="font-weight:800;">Training session ended.</h2><p style="font-size:14px;opacity:0.6;">All practice data has been cleared.</p></div></body></html>`);
+    document.close();
+}
+
+// ── Song matching helpers (identical to live) ─────────────────────────────
+function getConfidence(matches) {
+    if (!matches || matches.length === 0) return "low";
+    let top = matches[0];
+    if (top.score >= 0.7) return "high";
+    if (top.score >= 0.4) return "medium";
+    return "low";
+}
+
+function detectKey(name) {
+    let lower = name.toLowerCase().replace(".pdf","");
+    const searchOrder = ["C#","Db","Eb","F#","Gb","Ab","Bb","C","D","E","F","G","A","B"];
+    for (let k of searchOrder) {
+        let regex = new RegExp(`\\b${k.replace('#','\\#')}\\b| ${k.replace('#','\\#')}$`,'i');
+        if (regex.test(lower)) return k;
+    }
+    for (let k of searchOrder) {
+        if (lower.includes(k.toLowerCase())) return k;
+    }
+    return "";
+}
+
+function detectType(name) {
+    let lower = name.toLowerCase();
+    if (lower.includes("chord")) return "Chord Sheet";
+    if (lower.includes("lead"))  return "Lead Sheet";
+    if (lower.includes("lyric")) return "Lyrics";
+    if (lower.includes("bass"))  return "Bass Tabs";
+    return "";
+}
+
+function cleanTitle(name) {
+    return name.toLowerCase()
+        .replace(".pdf","")
+        .replace(/\(.*?\)/g,"")
+        .replace(/\bin [a-g](#|b)?m?\b/g,"")
+        .replace(/\bkey [a-g](#|b)?m?\b/g,"")
+        .replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
+        .replace(/\b[a-g](#|b)?m?\b/g,"")
+        .replace(/[^a-z0-9 ]/g,"")
+        .replace(/\s+/g," ")
+        .trim();
+}
+
+function getMatches(title) {
+    const words = title.split(" ");
+    return songs.map(s => {
+        const sWords = s.title.toLowerCase().split(" ");
+        let overlap = words.filter(w => sWords.includes(w));
+        let score = sWords.length > 0 ? overlap.length / sWords.length : 0;
+        return { song: s, score };
+    })
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 5);
+}
+
+function applyToGroup(index, field) {
+    let group = rows[index].group;
+    let value = rows[index][field];
+    rows.forEach(r => { if (r.group === group) r[field] = value; });
+    render();
+}
+
+function openYouTubeSearch(title) {
+    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`, '_blank');
+}
+
+// ── File handling ──────────────────────────────────────────────────────────
+const dropzone  = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+dropzone.onclick = () => fileInput.click();
+fileInput.onchange = e => handleFiles(Array.from(e.target.files));
+dropzone.addEventListener("dragover", e => e.preventDefault());
+dropzone.addEventListener("drop", async e => {
+    e.preventDefault();
+    let files = [], promises = [];
+    for (let item of e.dataTransfer.items) {
+        let entry = item.webkitGetAsEntry();
+        if (entry) promises.push(traverse(entry, files));
+    }
+    await Promise.all(promises);
+    handleFiles(files);
+});
+
+async function traverse(entry, files) {
+    if (entry.isFile) {
+        return new Promise(res => {
+            entry.file(f => { if (f.name.endsWith(".pdf")) files.push(f); res(); });
+        });
+    } else if (entry.isDirectory) {
+        let reader = entry.createReader();
+        return new Promise(async resolve => {
+            let readEntries = async () => {
+                reader.readEntries(async entries => {
+                    if (entries.length > 0) {
+                        for (let e of entries) await traverse(e, files);
+                        await readEntries();
+                    } else resolve();
+                });
+            };
+            await readEntries();
+        });
+    }
+}
+
+async function loadSongs() {
+    const snap = await db.collection("songs").get();
+    songs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Also merge in any training songs already uploaded this session
+    const trainingSongs = loadTrainingSongs();
+    trainingSongs.forEach(ts => {
+        if (!songs.find(s => s.id === ts.id)) songs.push(ts);
+    });
+}
+
+async function handleFiles(files) {
+    document.getElementById("status").innerText = "Loading song library for matching...";
+    await loadSongs();
+    document.getElementById("status").innerText = `${files.length} files loaded. Review below then click Upload.`;
+    rows = files.map(file => {
+        let detectedKey  = detectKey(file.name);
+        let detectedType = detectType(file.name);
+        let rawTitle     = cleanTitle(file.name);
+        let matches      = getMatches(rawTitle);
+        return {
+            file, rawTitle,
+            title:      file.name.replace(".pdf",""),
+            key:        detectedKey,
+            type:       detectedType,
+            matches,
+            match:      matches[0]?.song || null,
+            youtube:    matches[0]?.song?.youtube || "",
+            ccli:       matches[0]?.song?.ccli    || "",
+            confidence: getConfidence(matches),
+            group:      cleanTitle(file.name),
+            skip: false, force: false
+        };
+    });
+    render();
+}
+
+function getStatus(r) {
+    if (r.skip) return "SKIPPED";
+    if (!r.key || !r.type) return "REVIEW";
+    if (!r.match) return "NEW";
+    // Check training songs too
+    const allSongs = [...songs, ...loadTrainingSongs()];
+    let existing = allSongs.find(s => s.id === r.match.id || s.title === r.match.title);
+    let dup = (existing?.files || []).find(f => f.key === r.key && f.type === r.type);
+    if (dup && !r.force) return "EXISTS";
+    return "NEW";
+}
+
+function render() {
+    const tbody = document.getElementById("table");
+    tbody.innerHTML = "";
+    let lastGroup = null;
+    rows.sort((a,b) => a.group.localeCompare(b.group));
+    rows.forEach((r, i) => {
+        if (r.group !== lastGroup) {
+            let groupRow = document.createElement("tr");
+            groupRow.className = "group-row";
+            let td = document.createElement("td");
+            td.colSpan = 11;
+            td.innerHTML = `${r.group}
+                <button onclick="applyToGroup(${i},'title')">Apply Title</button>
+                <button onclick="applyToGroup(${i},'match')">Apply Match</button>
+                <button onclick="applyToGroup(${i},'youtube')">Apply YouTube</button>
+                <button onclick="applyToGroup(${i},'ccli')">Apply CCLI</button>`;
+            groupRow.appendChild(td);
+            tbody.appendChild(groupRow);
+            lastGroup = r.group;
+        }
+
+        let status = getStatus(r);
+        let tr = document.createElement("tr");
+        tr.className = "status-" + status.toLowerCase();
+        tr.innerHTML = `
+            <td>${r.file.name}</td>
+            <td><input value="${r.title}"></td>
+            <td>
+                <select>
+                    <option value="">Key</option>
+                    ${KEYS.map(k => `<option ${r.key===k?"selected":""}>${k}</option>`).join("")}
+                </select>
+            </td>
+            <td>
+                <select>
+                    <option value="">Type</option>
+                    ${TYPES.map(t => `<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
+                </select>
+            </td>
+            <td>
+                <select>
+                    <option value="">— New Song —</option>
+                    ${r.matches.map(m => `<option value="${m.song.id}" ${r.match?.id===m.song.id?"selected":""}>${m.song.title}</option>`).join("")}
+                </select>
+            </td>
+            <td class="conf-${r.confidence}">${r.confidence}</td>
+            <td><input value="${r.youtube}"></td>
+            <td><input value="${r.ccli}"></td>
+            <td>
+                <button onclick="openYouTubeSearch('${r.title.replace(/'/g,"\\'")}')">Find YouTube</button>
+                <button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
+            </td>
+            <td>${status}</td>
+            <td>
+                <button onclick="rows[${i}].skip=!rows[${i}].skip;render()">${r.skip?'Undo':'Skip'}</button>
+                <button onclick="rows[${i}].force=true;render()">Force</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+
+        const inputs = tr.querySelectorAll("input, select");
+        inputs[0].onchange = e => { r.title = e.target.value; render(); };
+        inputs[1].onchange = e => { r.key   = e.target.value; render(); };
+        inputs[2].onchange = e => { r.type  = e.target.value; render(); };
+        inputs[3].onchange = e => {
+            if (!e.target.value) { r.match = null; }
+            else {
+                let m = r.matches.find(x => x.song.id === e.target.value);
+                r.match = m.song;
+                r.youtube = m.song.youtube || "";
+                r.ccli    = m.song.ccli    || "";
+            }
+            render();
+        };
+        inputs[4].onchange = e => { r.youtube = e.target.value; };
+        inputs[5].onchange = e => { r.ccli    = e.target.value; };
+    });
+}
+
+// ── TRAINING UPLOAD: sessionStorage only, no Firebase writes ──────────────
+async function processAll() {
+    if (!confirm("Upload to training session? (Nothing will be written to the live system)")) return;
+
+    let trainingSongs = loadTrainingSongs();
+    let uploadCount = 0;
+    let skipCount   = 0;
+
+    for (const r of rows) {
+        let status = getStatus(r);
+        if (status === "SKIPPED" || status === "EXISTS") { skipCount++; continue; }
+        if (status === "REVIEW") { alert("Please fix missing key/type for: " + r.file.name); return; }
+
+        // Determine the song title and ID
+        let finalTitle = r.match ? r.match.title : r.title;
+        let id = finalTitle.toLowerCase().replace(/\s+/g,"-");
+
+        // Build a fake URL so the library can display it
+        // We use a blob URL from the actual file so it's viewable in this session
+        let fakeUrl = "";
+        try {
+            fakeUrl = URL.createObjectURL(r.file);
+        } catch(e) {
+            fakeUrl = "#training-file-not-viewable";
+        }
+
+        // Find or create the song entry in training storage
+        let existing = trainingSongs.find(s => s.id === id);
+        if (!existing) {
+            // Check if it exists in real Firebase songs
+            const realSong = songs.find(s => s.id === id || s.title === finalTitle);
+            if (realSong) {
+                // Copy real song into training and add file
+                existing = JSON.parse(JSON.stringify(realSong));
+                existing._trainingOverride = true;
+                trainingSongs.push(existing);
+            } else {
+                // Brand new song
+                existing = {
+                    id,
+                    title: finalTitle,
+                    normalized: finalTitle.toLowerCase(),
+                    youtube: r.youtube,
+                    ccli: r.ccli,
+                    files: [],
+                    _trainingNew: true,
+                    _trainingOverride: true
+                };
+                trainingSongs.push(existing);
+            }
+        }
+
+        // Add the file entry
+        if (!existing.files) existing.files = [];
+        existing.files.push({
+            name: r.file.name,
+            url: fakeUrl,
+            type: r.type,
+            key: r.key,
+            _training: true
+        });
+
+        // Update youtube/ccli if provided
+        if (r.youtube) existing.youtube = r.youtube;
+        if (r.ccli)    existing.ccli    = r.ccli;
+
+        uploadCount++;
+    }
+
+    saveTrainingSongs(trainingSongs);
+
+    showToast(`✅ ${uploadCount} file(s) uploaded to training session`);
+    document.getElementById("status").innerText = `Training upload complete — ${uploadCount} uploaded, ${skipCount} skipped. Open the Training Song Library to see them.`;
+
+    // Re-render to show updated statuses
+    await loadSongs();
+    render();
+}
+</script>
+</body>
+</html>
