@@ -176,7 +176,7 @@
     <div id="admin-controls">
         <button class="admin-btn" onclick="openMenuModal()">+ Add Page / Sub</button>
         <button class="admin-btn" onclick="openDashboardEditor()" style="background:var(--accent-mid);">✎ Edit Dashboard</button>
-        <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">Reset Training Menu</button>
+        <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">↺ Reset to Default Links</button>
     </div>
 </nav>
 
@@ -184,6 +184,12 @@
 <div id="main-container">
     <header>
         <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media&token=048b453f-2339-4ddd-9c6e-b86aaf33ede2">
+        <a href="https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV"
+           style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);color:white;text-decoration:none;border-radius:9999px;padding:7px 16px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;transition:all 0.2s;flex-shrink:0;"
+           onmouseover="this.style.background='rgba(255,255,255,0.28)'"
+           onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+            ← Hub Home
+        </a>
         <div class="header-right">
             <div class="training-badge">🎓 Training Environment</div>
             <div class="portal-name">Worship &amp; AV Training Hub</div>
@@ -380,13 +386,12 @@ function setSyncStatus(state, text) {
 const DEFAULT_MENU = [
     { id: 1, name: "Dashboard", url: "landing", icon: "home", parent: "none", logo: "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media&token=048b453f-2339-4ddd-9c6e-b86aaf33ede2", role: "worship" },
     { id: 2, name: "Worship Planning", url: "", icon: "worship", parent: "none", logo: "", role: "worship" },
-    { id: 3, name: "Service Planner", url: "egbc-worship-planner-training.html", icon: "calendar", parent: "2", logo: "", role: "worship" },
-    { id: 4, name: "Performance Notes", url: "egbc-performance-notes.html", icon: "music", parent: "2", logo: "", role: "worship" },
+    { id: 3, name: "Service Planner", url: "https://esherchurch.github.io/availability-form/training%20Sunday%20planner.html", icon: "calendar", parent: "2", logo: "", role: "worship" },
     { id: 5, name: "Rota", url: "", icon: "calendar", parent: "none", logo: "", role: "worship" },
-    { id: 6, name: "Rota Planner", url: "egbc-rota-planner-training.html", icon: "calendar", parent: "5", logo: "", role: "worship" },
+    { id: 6, name: "Rota Planner", url: "https://esherchurch.github.io/availability-form/trainingrotaplanner.html", icon: "calendar", parent: "5", logo: "", role: "worship" },
     { id: 7, name: "Music", url: "", icon: "music", parent: "none", logo: "", role: "worship" },
-    { id: 8, name: "Music Importer", url: "egbc-music-importer-training.html", icon: "music", parent: "7", logo: "", role: "worship" },
-    { id: 9, name: "Song Library", url: "egbc-song-library-training.html", icon: "music", parent: "7", logo: "", role: "worship" }
+    { id: 8, name: "Music Importer", url: "https://esherchurch.github.io/availability-form/trainingbatchimporter.html", icon: "music", parent: "7", logo: "", role: "worship" },
+    { id: 9, name: "Song Library", url: "https://esherchurch.github.io/availability-form/trainingmusicdatabase.html", icon: "music", parent: "7", logo: "", role: "worship" }
 ];
 
 const DEFAULT_DASHBOARD = {
@@ -543,8 +548,8 @@ const ICONS = {
     heart:`<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
 };
 
-const urlParams = new URLSearchParams(window.location.search);
-const userRole  = urlParams.get('role') || 'worship';
+// Training hub — admin always available, no role gating needed
+const userRole = 'core';
 
 function renderMenu() {
     const list = document.getElementById('nav-list');
@@ -598,7 +603,6 @@ function showLanding(logoUrl) {
 
 let clickCount = 0;
 function handleSecret() {
-    if (userRole !== 'core') return;
     clickCount++;
     if (clickCount >= 3) {
         const isVisible = document.getElementById('admin-controls').style.display === 'block';
