@@ -317,33 +317,25 @@ let originalData = { notes: "", inst: "", last: "" };
 // ── DICTATION STATE ──────────────────────────────────────────────────────────
 let recognition = null;
 let isDictating = false;
-let dictationBuffer = "";       // accumulates confirmed words this session
+let dictationBuffer = "";
 let noiseWarningTimer = null;
 
-// Words that speech engines hallucinate when hearing music/noise
-// — common phantom words from drums, reverb, crowd, singing harmonics
 const NOISE_BLACKLIST = new Set([
     "the","a","an","and","or","but","so","um","uh","hmm","hm","mm","like",
     "you know","i mean","actually","basically","literally","right","okay","ok",
     "yeah","yes","no","well","anyway","so yeah","huh","ah","oh","eh",
     "thank you","thanks","bye","goodbye","welcome","hello","hi",
-    // Common music-triggered phantoms
     "music","song","singing","play","playing","band","worship",
     "lord","god","jesus","hallelujah","amen","praise",
-    // Single stray letters/numbers that are almost always noise
 ]);
 
-// Minimum word count for a result to be treated as intentional speech
 const MIN_WORDS = 2;
-// Minimum confidence score (0–1). Below this we discard the result.
-// 0.6 is aggressive but appropriate for a noisy music environment.
 const MIN_CONFIDENCE = 0.55;
-// If a result is ONLY blacklisted words, discard it
+
 function isLikelyNoise(text) {
     const words = text.toLowerCase().trim().split(/\s+/);
     if (words.length < MIN_WORDS) return true;
     const nonBlacklisted = words.filter(w => !NOISE_BLACKLIST.has(w));
-    // If >80% of words are blacklisted, treat as noise
     if (nonBlacklisted.length / words.length < 0.2) return true;
     return false;
 }
@@ -384,9 +376,9 @@ function startDictation() {
     }
 
     recognition = new SpeechRecognition();
-    recognition.continuous = true;       // keep listening until explicitly stopped
-    recognition.interimResults = true;   // show in-progress text as preview
-    recognition.lang = 'en-GB';          // British English for EGBC
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-GB';
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
@@ -407,20 +399,14 @@ function startDictation() {
             const confidence = result[0].confidence;
 
             if (result.isFinal) {
-                // ── NOISE FILTERING ──────────────────────────────────────────
-                // 1. Confidence filter — discard if too uncertain
-                //    (confidence is 0 in some browsers even for good results,
-                //     so we only reject if it's explicitly low, not if it's 0)
                 if (confidence > 0 && confidence < MIN_CONFIDENCE) {
                     showNoiseWarning(transcript);
                     continue;
                 }
-                // 2. Content filter — discard if it looks like ambient noise
                 if (isLikelyNoise(transcript)) {
                     showNoiseWarning(transcript);
                     continue;
                 }
-                // ── ACCEPTED — append to notes ───────────────────────────────
                 dictationBuffer += (dictationBuffer ? " " : "") + transcript;
                 const ta = document.getElementById('notes');
                 if (ta) {
@@ -430,7 +416,6 @@ function startDictation() {
                 }
                 updateDictatePreview("");
             } else {
-                // Interim: show as live preview only, don't commit yet
                 interimText = transcript;
             }
         }
@@ -439,10 +424,8 @@ function startDictation() {
     };
 
     recognition.onerror = (event) => {
-        // "no-speech" and "audio-capture" are expected in noisy environments
-        if (event.error === 'no-speech') return; // just keep listening
-        if (event.error === 'aborted') return;   // we stopped it ourselves
-        // For other errors, show briefly but don't crash
+        if (event.error === 'no-speech') return;
+        if (event.error === 'aborted') return;
         console.warn('Speech recognition error:', event.error);
         if (event.error === 'not-allowed') {
             alert("Microphone permission denied. Please allow microphone access and try again.");
@@ -451,10 +434,8 @@ function startDictation() {
     };
 
     recognition.onend = () => {
-        // Auto-restart if we're still supposed to be dictating
-        // (browser stops after silence/noise — we want continuous)
         if (isDictating) {
-            try { recognition.start(); } catch(e) { /* already started */ }
+            try { recognition.start(); } catch(e) {}
         } else {
             updateDictatePreview("");
             const btn = document.getElementById('dictate-btn');
@@ -554,14 +535,14 @@ window.translateAll = async (targetLang) => {
     autoGrow(mainEl);
 };
 
+// FIX: filter out archived events so only the live service shows
 window.loadRota = async () => {
  const date = dateInput().value;
  const snap = await getDocs(collection(db,"events"));
  eventsForDay = [];
- // Show all events for the date — archived flag only affects availability view
  snap.forEach(d=>{
   const ev=d.data();
-  if(ev.date===date){ eventsForDay.push(ev); }
+  if(ev.date===date && !ev.archived){ eventsForDay.push(ev); }
  });
  serviceSelect().innerHTML='<option value="">Select Service</option>';
  eventsForDay.forEach((ev,i)=>{
@@ -630,7 +611,6 @@ window.closeMenu = ()=>{
 };
 
 window.togglePerformance = ()=>{
- // Stop dictation when switching modes
  if (isDictating) stopDictation();
  performance = !performance;
  showSong(index);
@@ -662,8 +642,17 @@ window.forceExternalYT = (url) => {
     }
 };
 
+// NEW: append last time notes into the main notes textarea
+window.appendLastNotes = () => {
+    const lastText = document.getElementById('lastNotesText')?.innerText;
+    const ta = document.getElementById('notes');
+    if (!lastText || !ta) return;
+    const sep = ta.value && !ta.value.endsWith('\n') ? '\n' : '';
+    ta.value += sep + lastText;
+    autoGrow(ta);
+};
+
 async function showSong(i){
- // Stop any active dictation when navigating songs
  if (isDictating) stopDictation();
 
  index = i;
@@ -792,7 +781,10 @@ async function showSong(i){
       <span style="font-size:11px; color:#475569; font-weight:700;">Tap to dictate notes — filtered for noisy environments</span>
     </div>
     <div class="smallbox"><b>Instrument Notes:</b><br><span id="instNotesText">${roleNotes}</span></div>
-    <div class="smallbox"><b>Last Time:</b><br><span id="lastNotesText">${last?last.notes:""}</span></div>
+    <div class="smallbox" style="display:flex; align-items:flex-start; gap:8px;">
+      <div style="flex:1;"><b>Last Time:</b><br><span id="lastNotesText">${last?last.notes:""}</span></div>
+      ${last && last.notes ? `<button class="btn" onclick="appendLastNotes()" style="font-size:12px; padding:8px 12px; flex-shrink:0; background:#334155; border-radius:10px;">⬆ Append</button>` : ""}
+    </div>
     <button class="btn" onclick="save('${s.title}')">Save</button>
   ` : ""}
 
@@ -847,7 +839,6 @@ window.closePDF = ()=>{
 };
 
 window.save = async(song)=>{
- // Stop dictation before saving
  if (isDictating) stopDictation();
  const txt = document.getElementById("notes").value;
  if(currentDocId){
