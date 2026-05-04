@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Song Library — TRAINING</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+            background-color: #f0f6f6;
+        }
+
+        /* ── Training banner ── */
+        #training-banner {
+            position: sticky; top: 0; z-index: 900; flex-shrink: 0;
+            background: linear-gradient(90deg, #92400e, #b45309, #92400e);
+            background-size: 200% 100%; animation: tsh 3s ease-in-out infinite;
+            color: white; font-family: 'Montserrat', sans-serif; font-weight: 800;
+            font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 10px 20px; display: flex; align-items: center;
+            justify-content: space-between; gap: 12px;
+            box-shadow: 0 2px 12px rgba(146,64,14,0.4);
+        }
+        @keyframes tsh { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+        .tpill { background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); border-radius:9999px; padding:2px 10px; font-size:10px; }
+        #exit-btn { background:white; color:#92400e; border:none; border-radius:9999px; padding:6px 16px; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex-shrink:0; }
+        #exit-btn:hover { background:#fef3c7; }
+
+        #content-area {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #left {
+            width: 340px;
+            border-right: 1px solid #d1dfdf;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            margin: 15px;
+            border-radius: 2.5rem;
+            border: 1px solid #d1dfdf;
+        }
+
+        #right {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            margin: 15px 15px 15px 0;
+            border-radius: 2.5rem;
+            border: 1px solid #d1dfdf;
+        }
+
+        .song {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f6f6;
+            transition: background 0.2s;
+        }
+        .song:hover { background: #f0f6f6; border-radius: 1rem; }
+        .song-title-text { font-weight: 600; font-size: 14px; color: #2c4a4a; }
+
+        /* Training badge on song items */
+        .song-training-badge {
+            display: inline-block;
+            font-size: 9px; font-weight: 800; text-transform: uppercase;
+            background: #fef3c7; color: #92400e; border: 1px solid #fbbf24;
+            border-radius: 9999px; padding: 1px 8px; margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .song-stats { display:flex; gap:8px; margin-top:4px; flex-wrap:wrap; }
+        .stat-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:9999px; display:inline-flex; align-items:center; gap:3px; }
+        .stat-total  { background:#e8f0f0; color:#3d6263; }
+        .stat-recent { background:#fff3e0; color:#e65100; }
+        .stat-recent.warning { background:#fde8e8; color:#b22222; }
+        .stat-last   { background:#f0f6f6; color:#5b8e8f; }
+        .stat-never  { background:#f5f5f5; color:#aaa; }
+        .stat-training { background:#fef3c7; color:#92400e; }
+
+        h2 { color:#3d6263; margin-top:0; font-weight:800; }
+        h3 { color:#3d6263; border-bottom:1px solid #d1dfdf; padding-bottom:10px; font-weight:700; }
+
+        label { display:block; font-weight:700; margin-bottom:8px; color:#3d6263; padding-left:5px; }
+
+        input, textarea, select {
+            width: 100%; padding: 12px 20px; margin-bottom: 20px;
+            border: 1px solid #d1dfdf; border-radius: 9999px;
+            box-sizing: border-box; font-family:'Montserrat',sans-serif; outline:none;
+        }
+
+        button {
+            background-color: #3d6263; color:white; padding:12px 25px;
+            border:none; border-radius:9999px; cursor:pointer;
+            font-weight:800; text-transform:uppercase;
+        }
+
+        .save-training-btn {
+            background: #92400e; border: 2px dashed #fbbf24;
+        }
+        .save-training-btn:hover { background: #78350f; }
+
+        .delete-btn { background-color:#b22222; margin-top:20px; font-size:12px; }
+
+        .status-msg { font-size:11px; color:#5b8e8f; margin-top:-15px; margin-bottom:15px; height:15px; font-weight:700; padding-left:10px; }
+
+        .file-item {
+            background:#f0f6f6; border:1px solid #d1dfdf; padding:20px;
+            margin-bottom:15px; border-radius:2.5rem;
+            display:flex; flex-direction:column; gap:10px;
+        }
+        .file-item.training-file {
+            background: #fef9ec; border-color: #fbbf24;
+        }
+
+        .file-row { display:flex; gap:15px; align-items:center; }
+        .file-row label { margin-bottom:0; width:100px; }
+        .view-link { display:inline-block; color:#3d6263; text-decoration:underline; font-weight:800; }
+
+        .usage-panel {
+            background:#f0f6f6; border:1px solid #d1dfdf; border-radius:1.5rem;
+            padding:16px 20px; margin-bottom:24px;
+            display:flex; gap:20px; flex-wrap:wrap; align-items:center;
+        }
+        .usage-stat { display:flex; flex-direction:column; align-items:center; gap:2px; }
+        .usage-stat-number { font-size:24px; font-weight:800; color:#3d6263; line-height:1; }
+        .usage-stat-label { font-size:10px; font-weight:700; color:#5b8e8f; text-transform:uppercase; letter-spacing:0.05em; text-align:center; }
+        .usage-divider { width:1px; height:40px; background:#d1dfdf; }
+        .usage-last { font-size:12px; font-weight:700; color:#3d6263; }
+        .usage-last-label { font-size:10px; color:#5b8e8f; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+        .usage-warning { font-size:11px; font-weight:700; color:#b22222; background:#fde8e8; padding:4px 12px; border-radius:9999px; }
+        #stats-loading { font-size:11px; color:#5b8e8f; font-weight:700; padding:4px 0; }
+
+        /* Training notice in editor */
+        .training-notice {
+            background: #fef3c7; border: 2px dashed #f59e0b; border-radius: 1rem;
+            padding: 10px 16px; margin-bottom: 20px;
+            font-size: 11px; font-weight: 800; color: #92400e;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+
+        /* Importer link */
+        .importer-link {
+            display: inline-block; margin-bottom: 15px;
+            background: #3d6263; color: white; padding: 8px 20px;
+            border-radius: 9999px; text-decoration: none;
+            font-weight: 800; font-size: 12px; text-transform: uppercase;
+        }
+        .importer-link:hover { background: #2a4748; }
+
+        /* Toast */
+        #training-toast {
+            position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+            background:#92400e; color:white; padding:10px 22px; border-radius:9999px;
+            font-weight:800; font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+            z-index:2000; display:none; border:2px dashed #fbbf24; pointer-events:none;
+        }
+
+        /* Help button */
+        #helpBtn {
+            position:fixed; bottom:24px; right:24px; z-index:9999;
+            width:38px; height:38px; border-radius:9999px;
+            background:#ffffff; border:1.5px solid #d1dfdf; color:#3d6263;
+            font-weight:800; font-size:15px; cursor:pointer;
+            box-shadow:0 2px 12px rgba(61,98,99,0.12); transition:all 0.2s;
+            display:flex; align-items:center; justify-content:center; text-decoration:none;
+        }
+        #helpBtn:hover { background:#3d6263; color:#ffffff; border-color:#3d6263; }
+    </style>
+</head>
+
+<body>
+
+<div id="training-banner">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span>🎓 Training Mode</span>
+        <span class="tpill">Real songs loaded</span>
+        <span class="tpill">Training uploads shown in gold</span>
+        <span class="tpill">No writes to live system</span>
+    </div>
+    <button id="exit-btn" onclick="exitTraining()">✕ Exit Training</button>
+</div>
+
+<div id="content-area">
+
+<div id="left">
+    <a href="egbc-music-importer-training.html" class="importer-link">← Back to Importer</a>
+    <label>Search Titles</label>
+    <input id="search" placeholder="Search songs..." oninput="searchSongs()">
+    <label>Search Lyrics</label>
+    <input id="lyricsSearch" placeholder="Find by lyrics..." onkeydown="handleLyricsSearch(event)">
+    <div id="list"></div>
+</div>
+
+<div id="right">
+    <h2 id="display-title">Select a Song</h2>
+    <div id="editor" style="display:none;">
+
+        <div class="usage-panel" id="usage-panel">
+            <span id="stats-loading">Loading usage stats...</span>
+        </div>
+
+        <div id="training-song-notice" class="training-notice" style="display:none;">
+            🎓 This song was added during this training session. Changes are saved to your browser only — nothing goes to the live library.
+        </div>
+
+        <label>Song Title</label>
+        <input id="edit-title">
+
+        <label>Artist</label>
+        <input id="artist" placeholder="Scanning for artist...">
+        <div id="artist-status" class="status-msg"></div>
+
+        <label>YouTube Link</label>
+        <input id="youtube" onchange="smartScanArtist()" placeholder="Paste YouTube link here">
+
+        <label>CCLI Number</label>
+        <input id="ccli">
+
+        <h3>Associated Files</h3>
+        <div id="files-container"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <button class="save-training-btn" onclick="save()">💾 Save Changes (Training Only)</button>
+            <button class="delete-btn" onclick="deleteSong()">Delete Song (Training Only)</button>
+        </div>
+    </div>
+</div>
+
+</div><!-- end content-area -->
+
+<div id="training-toast"></div>
+
+<a id="helpBtn"
+   href="https://esherchurch.github.io/availability-form/uploaderinstructions.html"
+   target="_blank" rel="noopener" aria-label="Open instructions">?</a>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// TRAINING MODE — Song Library
+//
+// Loads real songs from Firebase (read only)
+// Merges training uploads from sessionStorage (EGBC_TR_SONGS)
+// Training-added songs shown with gold highlight
+// Save/delete goes to sessionStorage only — no Firebase writes
+// ═══════════════════════════════════════════════════════════════════════════
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const TS_SONGS_KEY = "EGBC_TR_SONGS";
+
+let currentDoc    = null;
+let currentFiles  = [];
+let currentIsTraining = false;
+let schedulesCache = null;
+let allDocsCache   = []; // merged real + training
+
+function loadTrainingSongs() {
+    try { return JSON.parse(sessionStorage.getItem(TS_SONGS_KEY) || '[]'); }
+    catch(e) { return []; }
+}
+function saveTrainingSongs(list) {
+    try { sessionStorage.setItem(TS_SONGS_KEY, JSON.stringify(list)); }
+    catch(e) { showToast("⚠️ Session storage full"); }
+}
+
+function showToast(msg) {
+    const t = document.getElementById('training-toast');
+    t.innerText = msg; t.style.display = 'block';
+    clearTimeout(window._tt);
+    window._tt = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function exitTraining() {
+    if (!confirm("Exit training mode? All practice data will be cleared.")) return;
+    try { sessionStorage.clear(); } catch(e) {}
+    document.open();
+    document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f6f6;margin:0;}</style></head><body><div style="text-align:center;color:#3d6263;"><h2 style="font-weight:800;">Training session ended.</h2><p style="font-size:14px;opacity:0.6;">All practice data has been cleared.</p></div></body></html>`);
+    document.close();
+}
+
+async function getSchedulesCache() {
+    if (schedulesCache) return schedulesCache;
+    const snap = await db.collection("schedules").get();
+    schedulesCache = snap.docs.map(d => d.data());
+    return schedulesCache;
+}
+
+async function getSongUsageStats(songTitle) {
+    const schedules = await getSchedulesCache();
+    const title = songTitle.trim().toLowerCase();
+    const matches = schedules.filter(d => (d.songTitle||"").trim().toLowerCase() === title);
+    const totalCount = matches.length;
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const threeMonthStr = threeMonthsAgo.toISOString().split("T")[0];
+    const recentDates = [...new Set(matches.filter(d => d.date && d.date >= threeMonthStr).map(d => d.date))];
+    const recentCount = recentDates.length;
+    const allDates = matches.map(d => d.date).filter(Boolean).sort();
+    const lastUsed = allDates.length > 0 ? allDates[allDates.length-1] : null;
+    return { totalCount, recentCount, lastUsed };
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return null;
+    const [y, m, d] = dateStr.split("-");
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
+function getKeyOptionsHTML(selectedKey) {
+    const keys = [
+        { group:"Major Keys", list:["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"] },
+        { group:"Minor Keys", list:["Cm","C#m","Dbm","Dm","D#m","Ebm","Em","Fm","F#m","Gbm","Gm","G#m","Abm","Am","A#m","Bbm","Bm"] }
+    ];
+    let options = '<option value="">Select Key</option>';
+    keys.forEach(cat => {
+        options += `<optgroup label="${cat.group}">`;
+        cat.list.forEach(k => { options += `<option value="${k}" ${k===selectedKey?'selected':''}>${k}</option>`; });
+        options += `</optgroup>`;
+    });
+    return options;
+}
+
+function normalizeTitle(title) { return title.toLowerCase().trim(); }
+
+// ── Build merged doc list: real Firebase + training uploads ────────────────
+async function buildAllDocs() {
+    const snap = await db.collection("songs").orderBy("normalized").get();
+    const realDocs = snap.docs.map(d => ({ _id: d.id, _source: 'firebase', ...d.data() }));
+
+    const trainingSongs = loadTrainingSongs();
+
+    // Merge: for songs that exist in both, training overrides real
+    const merged = [...realDocs];
+    trainingSongs.forEach(ts => {
+        const idx = merged.findIndex(s => s._id === ts.id || normalizeTitle(s.title||'') === normalizeTitle(ts.title||''));
+        if (idx >= 0) {
+            // Override with training version
+            merged[idx] = { ...merged[idx], ...ts, _id: merged[idx]._id, _source: 'training-override', _trainingOverride: true };
+        } else {
+            // New song added in training
+            merged.push({ ...ts, _id: ts.id, _source: 'training-new', _trainingNew: true });
+        }
+    });
+
+    allDocsCache = merged.sort((a,b) => normalizeTitle(a.title||'').localeCompare(normalizeTitle(b.title||'')));
+    return allDocsCache;
+}
+
+async function loadSongs() {
+    getSchedulesCache(); // pre-load
+    const docs = await buildAllDocs();
+    renderList(docs);
+}
+
+async function renderList(docs) {
+    const list = document.getElementById("list");
+    list.innerHTML = docs.map(doc => {
+        const isTraining = doc._trainingNew || doc._trainingOverride;
+        const badge = isTraining ? `<span class="song-training-badge">Training</span>` : '';
+        return `
+        <div class="song" onclick="openSong('${(doc._id||'').replace(/'/g,"\\'")}')">
+            <div class="song-title-text">${doc.title||''}${badge}</div>
+            <div class="song-stats" id="stats-${doc._id}">
+                <span class="stat-badge stat-never">Loading...</span>
+            </div>
+        </div>`;
+    }).join("");
+
+    // Populate stats async
+    for (const doc of docs) {
+        const stats = await getSongUsageStats(doc.title||'');
+        const statsEl = document.getElementById(`stats-${doc._id}`);
+        if (!statsEl) continue;
+        const isTraining = doc._trainingNew || doc._trainingOverride;
+        if (isTraining) {
+            statsEl.innerHTML = `<span class="stat-badge stat-training">🎓 Training upload</span>`;
+            continue;
+        }
+        if (stats.totalCount === 0) {
+            statsEl.innerHTML = `<span class="stat-badge stat-never">Never used</span>`;
+        } else {
+            let html = `<span class="stat-badge stat-total">✦ ${stats.totalCount} total</span>`;
+            if (stats.recentCount > 0) {
+                const cls = stats.recentCount >= 3 ? "stat-recent warning" : "stat-recent";
+                html += `<span class="stat-badge ${cls}">↺ ${stats.recentCount} recent</span>`;
+            }
+            if (stats.lastUsed) {
+                html += `<span class="stat-badge stat-last">Last: ${formatDate(stats.lastUsed)}</span>`;
+            }
+            statsEl.innerHTML = html;
+        }
+    }
+}
+
+async function searchSongs() {
+    const input = document.getElementById("search").value;
+    if (!input) { loadSongs(); return; }
+    const norm = normalizeTitle(input);
+    const docs = allDocsCache.length ? allDocsCache : await buildAllDocs();
+    const filtered = docs.filter(d => normalizeTitle(d.title||'').includes(norm));
+    renderList(filtered);
+}
+
+async function openSong(id) {
+    const docs = allDocsCache.length ? allDocsCache : await buildAllDocs();
+    const doc = docs.find(d => d._id === id);
+    if (!doc) return;
+
+    currentDoc = id;
+    currentIsTraining = !!(doc._trainingNew || doc._trainingOverride);
+    currentFiles = JSON.parse(JSON.stringify(doc.files || []));
+
+    document.getElementById("editor").style.display = "block";
+    document.getElementById("display-title").innerText = doc.title || '';
+    document.getElementById("edit-title").value  = doc.title  || '';
+    document.getElementById("artist").value      = doc.artist || '';
+    document.getElementById("youtube").value     = doc.youtube|| '';
+    document.getElementById("ccli").value        = doc.ccli   || '';
+    document.getElementById("artist-status").innerText = "";
+
+    // Show/hide training notice
+    document.getElementById("training-song-notice").style.display = currentIsTraining ? 'block' : 'none';
+
+    renderFiles();
+    renderUsagePanel(doc.title||'');
+
+    if (!doc.artist && doc.youtube) smartScanArtist();
+}
+
+async function renderUsagePanel(songTitle) {
+    const panel = document.getElementById("usage-panel");
+    panel.innerHTML = `<span id="stats-loading">Loading usage stats...</span>`;
+    const stats = await getSongUsageStats(songTitle);
+    if (stats.totalCount === 0) {
+        panel.innerHTML = `
+            <div class="usage-stat">
+                <span class="usage-stat-number">0</span>
+                <span class="usage-stat-label">Times Used</span>
+            </div>
+            <div class="usage-divider"></div>
+            <span style="font-size:12px;color:#aaa;font-weight:700;">This song hasn't been used yet</span>`;
+        return;
+    }
+    const recentWarning = stats.recentCount >= 2
+        ? `<span class="usage-warning">⚠ Used ${stats.recentCount}x in last 3 months</span>` : "";
+    panel.innerHTML = `
+        <div class="usage-stat">
+            <span class="usage-stat-number">${stats.totalCount}</span>
+            <span class="usage-stat-label">All Time</span>
+        </div>
+        <div class="usage-divider"></div>
+        <div class="usage-stat">
+            <span class="usage-stat-number" style="color:${stats.recentCount>=3?'#b22222':stats.recentCount>=1?'#e65100':'#3d6263'}">${stats.recentCount}</span>
+            <span class="usage-stat-label">Last 3 Months</span>
+        </div>
+        <div class="usage-divider"></div>
+        <div class="usage-stat">
+            <span class="usage-last">${stats.lastUsed?formatDate(stats.lastUsed):"—"}</span>
+            <span class="usage-last-label">Last Used</span>
+        </div>
+        ${recentWarning?`<div class="usage-divider"></div>${recentWarning}`:""}`;
+}
+
+async function smartScanArtist() {
+    const youtubeUrl = document.getElementById("youtube").value;
+    const songTitle  = document.getElementById("edit-title").value;
+    const status     = document.getElementById("artist-status");
+    if (!youtubeUrl) return;
+    status.innerText = "Scanning YouTube...";
+    try {
+        const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(youtubeUrl)}`);
+        const data = await response.json();
+        if (data.title) {
+            let videoTitle = data.title, artist = "";
+            const separators = [" - "," | "," // "," — "];
+            let parts = [videoTitle];
+            for (let sep of separators) {
+                if (videoTitle.includes(sep)) { parts = videoTitle.split(sep); break; }
+            }
+            if (parts.length > 1) {
+                const p1 = parts[0].trim(), p2 = parts[1].trim();
+                artist = p1.toLowerCase().includes(songTitle.toLowerCase()) ? p2 : p1;
+            } else {
+                artist = videoTitle.replace(new RegExp(songTitle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),"");
+            }
+            artist = artist.replace(/^\s*by\s+/i,"").replace(/\s+by\s*$/i,"").trim()
+                           .replace(/\(.*\)|\[.*\]/g,"")
+                           .replace(/lyrics|official video|live|video|audio|hd|4k/gi,"")
+                           .replace(/^[:\-\s\u2013\u2014]+|[:\-\s\u2013\u2014]+$/g,"").trim();
+            if (!artist || artist.length < 2) artist = data.author_name.replace("- Topic","").trim();
+            document.getElementById("artist").value = artist;
+            // Save to training session if it's a training song
+            if (currentDoc && currentIsTraining) {
+                const ts = loadTrainingSongs();
+                const s = ts.find(x => x.id === currentDoc);
+                if (s) { s.artist = artist; saveTrainingSongs(ts); }
+            }
+            status.innerText = "Artist auto-saved!";
+            setTimeout(() => { status.innerText = ""; }, 3000);
+        }
+    } catch(e) {
+        console.log("Auto-scan failed."); status.innerText = "";
+    }
+}
+
+function deleteSong() {
+    if (!currentDoc) return;
+    if (!confirm("Remove this song from your training session? (Training only — won't affect live library)")) return;
+    const ts = loadTrainingSongs();
+    const filtered = ts.filter(s => s.id !== currentDoc);
+    saveTrainingSongs(filtered);
+    document.getElementById("editor").style.display = "none";
+    document.getElementById("display-title").innerText = "Select a Song";
+    currentDoc = null;
+    showToast("🗑️ Removed from training session");
+    loadSongs();
+}
+
+function renderFiles() {
+    const container = document.getElementById("files-container");
+    container.innerHTML = currentFiles.map((file, index) => {
+        const isTrainingFile = !!file._training;
+        const fileClass = isTrainingFile ? 'file-item training-file' : 'file-item';
+        const trainingLabel = isTrainingFile ? `<div style="font-size:10px;font-weight:800;color:#92400e;text-transform:uppercase;margin-bottom:4px;">🎓 Training upload</div>` : '';
+        return `
+        <div class="${fileClass}">
+            ${trainingLabel}
+            <div class="file-row"><label>File Name</label><input type="text" value="${file.name||''}" onchange="updateFileMetadata(${index},'name',this.value)"></div>
+            <div class="file-row"><label>Key</label><select onchange="updateFileMetadata(${index},'key',this.value)">${getKeyOptionsHTML(file.key)}</select></div>
+            <div class="file-row"><label>Type</label>
+                <select onchange="updateFileMetadata(${index},'type',this.value)">
+                    <option value="Chord Sheet"  ${file.type==='Chord Sheet' ?'selected':''}>Chord Sheet</option>
+                    <option value="Lead Sheet"   ${file.type==='Lead Sheet'  ?'selected':''}>Lead Sheet</option>
+                    <option value="Sheet Music"  ${file.type==='Sheet Music' ?'selected':''}>Sheet Music</option>
+                    <option value="Lyrics"       ${file.type==='Lyrics'      ?'selected':''}>Lyrics</option>
+                    <option value="Other"        ${file.type==='Other'       ?'selected':''}>Other</option>
+                </select>
+            </div>
+            ${file.url && file.url !== '#training-file-not-viewable'
+                ? `<a href="${file.url}" target="_blank" class="view-link">View File ${isTrainingFile?'(training session only)':''}</a>`
+                : `<span style="font-size:11px;color:#aaa;font-style:italic;">File viewable in the same browser session only</span>`
+            }
+        </div>`;
+    }).join("");
+}
+
+function updateFileMetadata(index, field, value) { currentFiles[index][field] = value; }
+
+// ── SAVE: training songs go to sessionStorage, real songs show read-only notice ──
+async function save() {
+    if (!currentDoc) return;
+    const newTitle = document.getElementById("edit-title").value;
+
+    if (!currentIsTraining) {
+        // For real Firebase songs, we only allow editing training-added files
+        // Core metadata is read-only in training
+        showToast("ℹ️ Real song data is read-only in training — only training-uploaded files can be edited");
+        return;
+    }
+
+    // Update training song in sessionStorage
+    const ts = loadTrainingSongs();
+    let s = ts.find(x => x.id === currentDoc);
+    if (!s) {
+        // Was a real song with training files added — create override
+        s = { id: currentDoc, _trainingOverride: true };
+        ts.push(s);
+    }
+    s.title      = newTitle;
+    s.normalized = normalizeTitle(newTitle);
+    s.artist     = document.getElementById("artist").value;
+    s.youtube    = document.getElementById("youtube").value;
+    s.ccli       = document.getElementById("ccli").value;
+    s.files      = currentFiles;
+
+    saveTrainingSongs(ts);
+    document.getElementById("display-title").innerText = newTitle;
+    showToast("💾 Saved to training session");
+    loadSongs();
+}
+
+async function handleLyricsSearch(e) {
+    if (e.key !== "Enter") return;
+    const text = document.getElementById("lyricsSearch").value;
+    if (!text) { loadSongs(); return; }
+    try {
+        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(text)}&entity=song&limit=5`);
+        const result   = await response.json();
+        if (!result.results || result.results.length === 0) { alert("No matches found online."); return; }
+        const docs = allDocsCache.length ? allDocsCache : await buildAllDocs();
+        const matchingDocs = [];
+        const seenIds = new Set();
+        for (let item of result.results) {
+            const onlineTitle    = normalizeTitle(item.trackName);
+            const onlineKeywords = onlineTitle.split(' ').filter(w => w.length > 3);
+            docs.forEach(doc => {
+                const dbTitle = normalizeTitle(doc.title||'');
+                const isPhraseMatch = dbTitle.includes(onlineTitle) || onlineTitle.includes(dbTitle);
+                const matchesMulti  = onlineKeywords.length > 0 && onlineKeywords.filter(k => dbTitle.includes(k)).length >= Math.ceil(onlineKeywords.length / 2);
+                if ((isPhraseMatch || matchesMulti) && !seenIds.has(doc._id)) {
+                    matchingDocs.push(doc); seenIds.add(doc._id);
+                }
+            });
+        }
+        if (matchingDocs.length > 0) {
+            renderList(matchingDocs);
+            if (matchingDocs.length === 1) openSong(matchingDocs[0]._id);
+            else alert(`Found ${matchingDocs.length} potential matches.`);
+        } else {
+            alert(`Found "${result.results[0].trackName}" online, but no similar title in your library.`);
+        }
+    } catch(err) {
+        console.error(err); alert("Search failed. Check your internet connection.");
+    }
+}
+
+loadSongs();
+</script>
+</body>
+</html>
