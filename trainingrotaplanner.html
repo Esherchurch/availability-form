@@ -118,7 +118,7 @@
         const EVENT_TYPES           = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
         const AV_ROLES              = ["Sound","Words","Cameras"];
         const FORM_LINK             = "https://esherchurch.github.io/availability-form/";
-        const LOGO_URL              = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media";
+        const LOGO_URL              = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media";
         const TS_KEY                = "EGBC_TR";
 
         // ── Session state ──────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@
             if(_lp) return _lp;
             _lp=new Promise(async resolve=>{
                 try {
-                    const url=await getDownloadURL(ref(storage,'1774936285076.png'));
+                    const url=await getDownloadURL(ref(storage,'1777880144841.png'));
                     const img=new Image(); img.setAttribute('crossOrigin','anonymous');
                     img.onload=()=>{
                         logoNaturalWidth=img.naturalWidth; logoNaturalHeight=img.naturalHeight;
