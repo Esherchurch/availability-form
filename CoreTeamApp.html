@@ -511,31 +511,64 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   <!-- ══ SERVICE DETAIL ══ -->
   <div id="screen-service-detail" class="screen">
     <div class="section-pad">
+
       <!-- Service info card -->
       <div class="card" id="service-info-card"></div>
 
+      <!-- Intro box -->
+      <div class="card">
+        <div class="card-label">Opening Remarks</div>
+        <textarea class="form-textarea" id="service-intro" placeholder="Opening words, welcome message, prayer points... (appears at start of team email)" oninput="autoGrow(this)" rows="2"></textarea>
+      </div>
+
       <!-- Order of service -->
       <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;gap:8px;flex-wrap:wrap;">
           <div class="card-label" style="margin-bottom:0;">Order of Service</div>
-          <button class="btn btn-primary btn-sm" onclick="openAddItemModal()">+ Add Item</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-sm" onclick="openSongModal()">+ Song</button>
+            <button class="btn btn-secondary btn-sm" onclick="openItemModal()">+ Item</button>
+            <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank"
+              style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:8px;background:var(--bg);border:1.5px solid var(--border);font-size:11px;font-weight:800;color:var(--teal);text-decoration:none;white-space:nowrap;">
+              📚 Songs DB
+            </a>
+          </div>
         </div>
         <div class="order-list" id="order-list"></div>
         <div id="order-empty" class="empty-state" style="display:none;">
-          <div class="empty-state-icon">📋</div>
-          <div class="empty-state-text">No items yet — add your first</div>
+          <div class="empty-state-icon">🎵</div>
+          <div class="empty-state-text">No items yet — add a song or item</div>
         </div>
       </div>
 
-      <!-- Notes -->
+      <!-- Rota section -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-label" style="margin-bottom:0;">Service Team</div>
+          <div style="font-size:11px;font-weight:700;color:var(--teal);opacity:0.5;" id="rota-link-note">Loaded from rota</div>
+        </div>
+        <div id="service-rota-table" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+
+      <!-- Service notes -->
       <div class="card">
         <div class="card-label">Service Notes</div>
-        <textarea class="form-textarea" id="service-notes" placeholder="Any notes for this service..." oninput="autoGrow(this)" rows="3"></textarea>
-        <div style="margin-top:8px;display:flex;gap:8px;">
-          <button class="btn btn-primary btn-full" onclick="saveService()">Save Service</button>
-          <button class="btn btn-red btn-sm" onclick="archiveService()">Archive</button>
-        </div>
+        <textarea class="form-textarea" id="service-notes" placeholder="General notes for this service..." oninput="autoGrow(this)" rows="2"></textarea>
       </div>
+
+      <!-- Outro box -->
+      <div class="card">
+        <div class="card-label">Closing Remarks</div>
+        <textarea class="form-textarea" id="service-outro" placeholder="Closing prayer, blessing, notices... (appears at end of team email)" oninput="autoGrow(this)" rows="2"></textarea>
+      </div>
+
+      <!-- Action buttons -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-full" onclick="saveService()" style="flex:2;">💾 Save Service</button>
+        <button class="btn btn-blue btn-sm" onclick="emailTeam()" style="flex:1;">📧 Email Team</button>
+        <button class="btn btn-red btn-sm" onclick="archiveService()">Archive</button>
+      </div>
+
     </div>
   </div>
 
@@ -634,53 +667,105 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   </div>
 </div>
 
-<!-- ══ ADD ORDER ITEM MODAL ══ -->
+<!-- ══ SONG EDITOR SHEET (full screen, keyboard-safe) ══ -->
+<div class="modal-overlay" id="modal-song" style="align-items:stretch;">
+  <div style="background:var(--white);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">
+
+    <!-- Song editor header -->
+    <div style="padding:12px 16px;background:var(--teal);display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <button onclick="closeSongModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+      <div style="flex:1;font-size:15px;font-weight:800;color:white;" id="song-modal-title">Add Song</div>
+      <button onclick="saveSongItem()" style="background:white;border:none;color:var(--teal);padding:8px 16px;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;text-transform:uppercase;">Save</button>
+    </div>
+
+    <!-- Scrollable song editor body -->
+    <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;">
+
+      <!-- Title search -->
+      <div class="form-field song-search-wrap">
+        <label class="form-label">Song Title</label>
+        <input class="form-input" id="song-title" placeholder="Type to search songs..." oninput="onSongTitleInput()" autocomplete="off">
+        <div id="song-title-suggestions" class="song-suggestions" style="display:none;"></div>
+      </div>
+
+      <!-- Key selector -->
+      <div class="form-field">
+        <label class="form-label">Key (up to 3)</label>
+        <div class="key-chips" id="song-key-chips">
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Ab" onchange="toggleSongKey(this)"> Ab</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="A" onchange="toggleSongKey(this)"> A</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Bb" onchange="toggleSongKey(this)"> Bb</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="B" onchange="toggleSongKey(this)"> B</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="C" onchange="toggleSongKey(this)"> C</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="C#" onchange="toggleSongKey(this)"> C#</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="D" onchange="toggleSongKey(this)"> D</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Eb" onchange="toggleSongKey(this)"> Eb</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="E" onchange="toggleSongKey(this)"> E</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="F" onchange="toggleSongKey(this)"> F</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="F#" onchange="toggleSongKey(this)"> F#</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="G" onchange="toggleSongKey(this)"> G</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="G#" onchange="toggleSongKey(this)"> G#</label>
+        </div>
+      </div>
+
+      <!-- Song notes -->
+      <div class="form-field">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="song-notes" placeholder="Key changes, capo, special instructions..." rows="3"></textarea>
+      </div>
+
+      <!-- Song info (loaded from Firebase) -->
+      <div id="song-info-panel"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD NON-SONG ITEM MODAL ══ -->
 <div class="modal-overlay" id="modal-add-item">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title" id="add-item-title">Add Item</div>
+    <div class="modal-title" id="item-modal-title">Add Item</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div class="form-field">
         <label class="form-label">Type</label>
-        <select class="form-select" id="item-type" onchange="onItemTypeChange()">
-          <option value="song">🎵 Song</option>
+        <select class="form-select" id="item-type">
           <option value="prayer">🙏 Prayer</option>
           <option value="reading">📖 Reading</option>
           <option value="announcement">📢 Announcement</option>
           <option value="other">📌 Other</option>
         </select>
       </div>
-      <div class="form-field song-search-wrap" id="item-title-wrap">
-        <label class="form-label">Title</label>
-        <input class="form-input" id="item-title" placeholder="e.g. Way Maker" oninput="onItemTitleInput()" autocomplete="off">
-        <div id="song-suggestions" class="song-suggestions" style="display:none;"></div>
-      </div>
-      <div class="form-field" id="item-keys-wrap">
-        <label class="form-label">Key(s)</label>
-        <div class="key-chips" id="item-key-chips">
-          <label class="key-chip"><input type="checkbox" style="display:none" value="Ab" onchange="toggleItemKey(this)"> Ab</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="A" onchange="toggleItemKey(this)"> A</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="Bb" onchange="toggleItemKey(this)"> Bb</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="B" onchange="toggleItemKey(this)"> B</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="C" onchange="toggleItemKey(this)"> C</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="C#" onchange="toggleItemKey(this)"> C#</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="D" onchange="toggleItemKey(this)"> D</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="Eb" onchange="toggleItemKey(this)"> Eb</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="E" onchange="toggleItemKey(this)"> E</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="F" onchange="toggleItemKey(this)"> F</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="F#" onchange="toggleItemKey(this)"> F#</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="G" onchange="toggleItemKey(this)"> G</label>
-          <label class="key-chip"><input type="checkbox" style="display:none" value="G#" onchange="toggleItemKey(this)"> G#</label>
-        </div>
-      </div>
       <div class="form-field">
-        <label class="form-label">Notes (optional)</label>
-        <textarea class="form-textarea" id="item-notes" placeholder="Any notes for this item..." rows="2"></textarea>
+        <label class="form-label">Title / Description</label>
+        <input class="form-input" id="item-title" placeholder="e.g. Opening Prayer, Notices...">
       </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-secondary btn-full" onclick="closeModal('modal-add-item')">Cancel</button>
-        <button class="btn btn-primary btn-full" id="item-save-btn" onclick="saveOrderItem()">Add Item</button>
+        <button class="btn btn-primary btn-full" id="item-save-btn" onclick="saveOrderItem()">Add</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EMAIL TEAM MODAL ══ -->
+<div class="modal-overlay" id="modal-email-team">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📧 Email Team</div>
+    <p style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;">The full worship plan will be copied to your clipboard and your email app will open.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-primary btn-full" onclick="emailWholeTeam()">Email Whole Team</button>
+      <div style="border-top:1px solid var(--border);padding-top:10px;">
+        <div class="form-label" style="margin-bottom:8px;">Or email one person:</div>
+        <select class="form-select" id="email-one-person" style="margin-bottom:8px;">
+          <option value="">— Pick a person —</option>
+        </select>
+        <button class="btn btn-secondary btn-full" onclick="emailOnePerson()">Email This Person</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-email-team')">Cancel</button>
     </div>
   </div>
 </div>
@@ -790,9 +875,10 @@ let currentSection  = 'home';
 let screenStack     = ['home'];
 let allSongs        = [];
 let allMembers      = [];
-let currentService  = null; // { id, ...data }
+let currentService  = null;
 let currentRotaEvent = null;
 let editingItemIndex = null;
+let editingSongIndex = null;
 let activeDraftId   = null;
 let currentUser     = localStorage.getItem('egbc_planner_user') || '';
 const MAX_DRAFTS    = 10;
@@ -965,7 +1051,8 @@ async function loadServiceList() {
 function renderServiceList() {
   const q = $('service-search').value.toLowerCase();
   const list = (window._services || []).filter(s =>
-    !q || (s.date||'').includes(q) || (s.type||'').toLowerCase().includes(q)
+    !q || (s.date||'').includes(q) || (s.type||'').toLowerCase().includes(q) ||
+    (s.worshipLeader||'').toLowerCase().includes(q)
   );
   if (!list.length) {
     $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗓</div><div class="empty-state-text">No services yet — tap + to create one</div></div>';
@@ -984,13 +1071,10 @@ function renderServiceList() {
 
 function openNewServiceModal() {
   loadMembers();
-  // Default date to next Sunday
   const today = new Date();
-  const day = today.getDay();
-  const diff = (7 - day) % 7 || 7;
-  const nextSunday = new Date(today);
-  nextSunday.setDate(today.getDate() + diff);
-  $('new-service-date').value = nextSunday.toISOString().split('T')[0];
+  const diff = (7 - today.getDay()) % 7 || 7;
+  const next = new Date(today); next.setDate(today.getDate() + diff);
+  $('new-service-date').value = next.toISOString().split('T')[0];
   $('new-service-type').value = '';
   populateLeaderDropdown();
   openModal('modal-new-service');
@@ -1000,22 +1084,23 @@ async function createService() {
   const date   = $('new-service-date').value;
   const type   = $('new-service-type').value.trim();
   const leader = $('new-service-leader').value;
-  if (!date)   { toast('Please select a date'); return; }
-  if (!type)   { toast('Please enter a service type'); return; }
+  if (!date) { toast('Please select a date'); return; }
+  if (!type) { toast('Please enter a service type'); return; }
   loader(true, 'Creating service...');
   try {
     const ref = await db.collection('services').add({
       date, type, worshipLeader: leader,
-      order: [], notes: '', archived: false,
+      order: [], notes: '', introText: '', outroText: '',
+      roleNotes: {}, archived: false,
       createdAt: TS(), updatedAt: TS()
     });
     closeModal('modal-new-service');
     toast('Service created!');
-    currentService = { id: ref.id, date, type, worshipLeader: leader, order: [], notes: '' };
+    currentService = { id: ref.id, date, type, worshipLeader: leader, order: [], notes: '', introText: '', outroText: '', roleNotes: {} };
+    // Try to auto-load rota for this date
+    await loadRotaForService(date);
     openSection('service-detail');
-  } catch(e) {
-    toast('Error creating service');
-  }
+  } catch(e) { toast('Error creating service'); }
   loader(false);
 }
 
@@ -1024,9 +1109,23 @@ async function openServiceDetail(id) {
   try {
     const doc = await db.collection('services').doc(id).get();
     currentService = { id, ...doc.data() };
+    // Try to load rota assignments for this date
+    await loadRotaForService(currentService.date);
     openSection('service-detail');
   } catch(e) { toast('Could not load service'); }
   loader(false);
+}
+
+// Load rota assignments for a given date to populate the service team table
+async function loadRotaForService(date) {
+  try {
+    const snap = await db.collection('events').where('date','==',date).get();
+    if (!snap.empty) {
+      currentService._rotaAssignments = snap.docs[0].data().assignments || {};
+    } else {
+      currentService._rotaAssignments = {};
+    }
+  } catch(e) { currentService._rotaAssignments = {}; }
 }
 
 function renderServiceDetail() {
@@ -1034,199 +1133,372 @@ function renderServiceDetail() {
   const s = currentService;
   $('header-title').textContent = fmtShortDate(s.date);
 
+  // Info card
   $('service-info-card').innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-size:16px;font-weight:800;color:var(--teal);">${s.type || 'Service'}</div>
-          <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(s.date)}</div>
-        </div>
-        <button class="btn btn-secondary btn-sm" onclick="openEditServiceMeta()">Edit</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--teal);">${s.type || 'Service'}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(s.date)}</div>
       </div>
-      ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;align-self:flex-start;">🎸 ${s.worshipLeader}</div>` : ''}
-    </div>`;
+      <button class="btn btn-secondary btn-sm" onclick="openEditServiceMeta()">Edit</button>
+    </div>
+    ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;margin-top:10px;">🎸 ${s.worshipLeader}</div>` : ''}`;
 
+  // Populate fields
+  $('service-intro').value = s.introText || '';
   $('service-notes').value = s.notes || '';
-  setTimeout(() => autoGrow($('service-notes')), 50);
+  $('service-outro').value = s.outroText || '';
+  setTimeout(() => {
+    [$('service-intro'), $('service-notes'), $('service-outro')].forEach(el => { if(el) autoGrow(el); });
+  }, 50);
+
   renderOrderList();
+  renderServiceRotaTable();
+}
+
+function renderServiceRotaTable() {
+  const assignments = currentService._rotaAssignments || {};
+  const roleNotes   = currentService.roleNotes || {};
+  const table = $('service-rota-table');
+
+  if (!Object.keys(assignments).length) {
+    table.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.5;font-style:italic;text-align:center;padding:8px;">No rota found for this date — add in Rota Planner</div>';
+    return;
+  }
+
+  table.innerHTML = Object.entries(assignments).map(([role, person]) => `
+    <div class="rota-assignment-row" style="flex-wrap:wrap;gap:6px;">
+      <div class="rota-role-label" style="width:auto;min-width:100px;">${role}</div>
+      <div style="flex:1;font-size:13px;font-weight:700;color:var(--teal);">${person?.name || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
+      <input style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-family:var(--font);font-size:11px;font-weight:700;color:var(--teal);background:var(--bg);"
+        placeholder="Role notes..." value="${(roleNotes[role]||'').replace(/"/g,'&quot;')}"
+        oninput="setRoleNote('${role}',this.value)">
+    </div>`).join('');
+}
+
+function setRoleNote(role, val) {
+  if (!currentService.roleNotes) currentService.roleNotes = {};
+  currentService.roleNotes[role] = val;
 }
 
 function renderOrderList() {
   const order = currentService?.order || [];
-  const list = $('order-list');
+  const list  = $('order-list');
   const empty = $('order-empty');
-
-  if (!order.length) {
-    list.innerHTML = '';
-    empty.style.display = 'flex';
-    return;
-  }
+  if (!order.length) { list.innerHTML = ''; empty.style.display = 'flex'; return; }
   empty.style.display = 'none';
 
-  const typeLabels = { song:'Song', prayer:'Prayer', reading:'Reading', announcement:'Announcement', other:'Other' };
-  list.innerHTML = order.map((item, i) => `
-    <div class="order-item" draggable="true" data-index="${i}"
-      ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
-      ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
+  const typeLabels = { song:'🎵 Song', prayer:'🙏 Prayer', reading:'📖 Reading', announcement:'📢', other:'📌' };
+  list.innerHTML = order.map((item, i) => {
+    const useBadge = item.type === 'song' && item._useCount > 0
+      ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:9999px;background:${item._useCount >= 4 ? 'var(--teal)' : 'var(--teal-light)'};color:${item._useCount >= 4 ? 'white' : 'var(--teal)'};">${item._useCount}×</span>`
+      : '';
+    return `<div class="order-item" draggable="true" data-index="${i}"
+        ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
+        ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
       <div class="order-drag-handle">⠿</div>
-      <span class="order-item-type type-${item.type||'other'}">${typeLabels[item.type]||'Other'}</span>
-      <div class="order-item-title">${item.title||'—'}</div>
+      <span class="order-item-type type-${item.type||'other'}">${typeLabels[item.type]||'📌'}</span>
+      <div class="order-item-title" onclick="${item.type==='song' ? `editSongItem(${i})` : `editOrderItem(${i})`}" style="cursor:pointer;">${item.title||'—'}</div>
+      ${useBadge}
       ${item.keys?.length ? `<span class="order-item-key">${item.keys.join(', ')}</span>` : ''}
-      <button class="order-item-delete" onclick="editOrderItem(${i})">✏️</button>
       <button class="order-item-delete" onclick="deleteOrderItem(${i})">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // Drag to reorder
 let dragSrcIndex = null;
-function dragStart(e, i) { dragSrcIndex = i; e.currentTarget.classList.add('dragging'); }
-function dragOver(e, i)  { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-function dragEnd(e)      { e.currentTarget.classList.remove('dragging'); document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over')); }
-function dragDrop(e, i)  {
+function dragStart(e,i) { dragSrcIndex=i; e.currentTarget.classList.add('dragging'); }
+function dragOver(e,i)  { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dragEnd(e)     { e.currentTarget.classList.remove('dragging'); document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over')); }
+function dragDrop(e,i)  {
   e.preventDefault();
-  if (dragSrcIndex === null || dragSrcIndex === i) return;
-  const order = currentService.order;
-  const [moved] = order.splice(dragSrcIndex, 1);
-  order.splice(i, 0, moved);
+  if (dragSrcIndex===null || dragSrcIndex===i) return;
+  const [moved] = currentService.order.splice(dragSrcIndex,1);
+  currentService.order.splice(i,0,moved);
   renderOrderList();
 }
 
-async function openAddItemModal() {
+// ── SONG MODAL ─────────────────────────────────────────────────────────────
+
+async function openSongModal(editIdx=null) {
   await ensureSongs();
-  editingItemIndex = null;
-  $('add-item-title').textContent = 'Add Item';
-  $('item-save-btn').textContent = 'Add Item';
-  $('item-type').value = 'song';
-  $('item-title').value = '';
-  $('item-notes').value = '';
-  $('song-suggestions').style.display = 'none';
-  // Reset key chips
-  document.querySelectorAll('#item-key-chips input').forEach(cb => {
-    cb.checked = false;
-    cb.closest('.key-chip').classList.remove('selected');
-  });
-  onItemTypeChange();
+  editingSongIndex = editIdx;
+  $('song-modal-title').textContent = editIdx !== null ? 'Edit Song' : 'Add Song';
+  $('song-title-suggestions').style.display = 'none';
+  $('song-info-panel').innerHTML = '';
+
+  if (editIdx !== null) {
+    const item = currentService.order[editIdx];
+    $('song-title').value = item.title || '';
+    $('song-notes').value = item.notes || '';
+    document.querySelectorAll('#song-key-chips input').forEach(cb => {
+      const on = (item.keys||[]).includes(cb.value);
+      cb.checked = on; cb.closest('.key-chip').classList.toggle('selected',on);
+    });
+    // Load song info
+    await loadSongInfoPanel(item.title, item.keys||[]);
+  } else {
+    $('song-title').value = '';
+    $('song-notes').value = '';
+    document.querySelectorAll('#song-key-chips input').forEach(cb => {
+      cb.checked=false; cb.closest('.key-chip').classList.remove('selected');
+    });
+  }
+  openModal('modal-song');
+  setTimeout(() => $('song-title').focus(), 300);
+}
+
+function editSongItem(i) { openSongModal(i); }
+
+function closeSongModal() { closeModal('modal-song'); }
+
+function toggleSongKey(cb) {
+  // Max 3 keys
+  const checked = document.querySelectorAll('#song-key-chips input:checked');
+  if (checked.length > 3) { cb.checked = false; toast('Max 3 keys'); return; }
+  cb.closest('.key-chip').classList.toggle('selected', cb.checked);
+  // Refresh song info panel
+  const title = $('song-title').value.trim();
+  const keys  = Array.from(document.querySelectorAll('#song-key-chips input:checked')).map(c=>c.value);
+  if (title) loadSongInfoPanel(title, keys);
+}
+
+let songTitleTimer = null;
+function onSongTitleInput() {
+  const q = $('song-title').value.trim().toLowerCase();
+  clearTimeout(songTitleTimer);
+  $('song-title-suggestions').style.display = 'none';
+  if (q.length < 2) return;
+  songTitleTimer = setTimeout(() => {
+    const matches = allSongs.filter(s => (s.normalized||s.title||'').toLowerCase().includes(q)).slice(0,6);
+    if (!matches.length) return;
+    $('song-title-suggestions').innerHTML = matches.map(s =>
+      `<div class="song-suggestion-item" onclick="selectSongFromSearch('${s.title.replace(/'/g,"\\'")}','${s.id}')">${s.title}</div>`
+    ).join('');
+    $('song-title-suggestions').style.display = 'block';
+  }, 200);
+}
+
+async function selectSongFromSearch(title, id) {
+  $('song-title').value = title;
+  $('song-title-suggestions').style.display = 'none';
+  // Auto-select available keys
+  const song = allSongs.find(s => s.id === id || s.title === title);
+  if (song?.files) {
+    const keys = [...new Set(song.files.map(f=>f.key).filter(Boolean))];
+    document.querySelectorAll('#song-key-chips input').forEach(cb => {
+      const on = keys.slice(0,3).includes(cb.value);
+      cb.checked = on; cb.closest('.key-chip').classList.toggle('selected',on);
+    });
+    await loadSongInfoPanel(title, keys.slice(0,3));
+  } else {
+    await loadSongInfoPanel(title, []);
+  }
+}
+
+async function loadSongInfoPanel(title, keys) {
+  const panel = $('song-info-panel');
+  if (!title) { panel.innerHTML = ''; return; }
+  panel.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:700;">Loading song info...</div>';
+
+  try {
+    const id  = title.toLowerCase().replace(/\s+/g,'-');
+    const doc = await db.collection('songs').doc(id).get();
+    const data = doc.exists ? doc.data() : {};
+    const allFiles = data.files || [];
+    const youtube  = data.youtube || '';
+    const ccli     = data.ccli    || '';
+    const songSelectLink = ccli
+      ? `https://songselect.ccli.com/Songs/${ccli}`
+      : `https://songselect.ccli.com/search/results?SearchText=${encodeURIComponent(title)}`;
+
+    // Use count from services collection
+    let useCount = 0;
+    try {
+      const svcSnap = await db.collection('services').get();
+      svcSnap.docs.forEach(d => {
+        const svcData = d.data();
+        if (d.id !== currentService?.id && (svcData.order||[]).some(i=>i.type==='song'&&i.title===title)) useCount++;
+      });
+    } catch(e){}
+
+    let html = `<div class="card" style="background:var(--bg);">`;
+
+    // Use count badge
+    if (useCount > 0) {
+      const urgent = useCount >= 4;
+      html += `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:9999px;background:${urgent?'var(--teal)':'var(--teal-light)'};color:${urgent?'white':'var(--teal)'};font-size:11px;font-weight:800;margin-bottom:10px;">
+        Used ${useCount} time${useCount!==1?'s':''}${urgent?' — consider resting this song':''}
+      </div>`;
+    }
+
+    // Links row
+    html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      ${youtube ? `<a href="${youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:#ff0000;color:white;font-size:11px;font-weight:800;text-decoration:none;">▶ YouTube</a>` : ''}
+      <a href="${songSelectLink}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:var(--teal-light);color:var(--teal);font-size:11px;font-weight:800;text-decoration:none;border:1px solid var(--border);">🔎 SongSelect${ccli?` · CCLI ${ccli}`:''}</a>
+    </div>`;
+
+    // Sheet music files by key
+    if (keys.length > 0 && allFiles.length > 0) {
+      keys.forEach(k => {
+        const files = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
+        html += `<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px;">Key: ${k}</div>`;
+        if (!files.length) {
+          html += `<div style="font-size:12px;color:var(--teal);opacity:0.4;font-style:italic;">No files for ${k}</div>`;
+        } else {
+          const grouped = {};
+          files.forEach(f => { if(!grouped[f.type]) grouped[f.type]=[]; grouped[f.type].push(f); });
+          Object.entries(grouped).forEach(([type, fs]) => {
+            html += `<div style="font-size:9px;font-weight:800;color:var(--teal);opacity:0.4;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">${type}</div>`;
+            html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">`;
+            fs.forEach(file => {
+              html += `<a href="${file.url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:var(--teal);color:white;font-size:11px;font-weight:800;text-decoration:none;">Open File</a>`;
+            });
+            html += `</div>`;
+          });
+        }
+        html += `</div>`;
+      });
+    } else if (keys.length === 0) {
+      html += `<div style="font-size:12px;color:var(--teal);opacity:0.4;font-style:italic;">Select a key to see sheet music files</div>`;
+    }
+
+    // Play-through links
+    try {
+      const ptSnap = await db.collection('kb_playthrough').where('published','==',true).get();
+      const ptMatches = [];
+      ptSnap.docs.forEach(d => {
+        const pt = d.data();
+        const ptTitle = (pt.songTitle||pt.title||'').toLowerCase().trim();
+        const norm = title.toLowerCase().trim();
+        if (!(ptTitle===norm||ptTitle.includes(norm)||norm.includes(ptTitle))) return;
+        if (!keys.some(k => (pt.ourKey||'').toLowerCase()===k.toLowerCase())) return;
+        ptMatches.push(pt);
+      });
+      if (ptMatches.length) {
+        html += `<div style="margin-top:10px;padding:10px;background:var(--white);border-radius:10px;border:1px dashed var(--teal);">
+          <div style="font-size:9px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">▶ Play Through Videos</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+        ptMatches.forEach(pt => {
+          const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+          const lbl = pt.instrument ? `${pt.ourKey} (${pt.instrument})` : pt.ourKey;
+          html += `<a href="${url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:#7c3aed;color:white;font-size:11px;font-weight:800;text-decoration:none;">▶ ${lbl}</a>`;
+        });
+        html += `</div></div>`;
+      }
+    } catch(e){}
+
+    html += '</div>';
+    panel.innerHTML = html;
+  } catch(e) {
+    panel.innerHTML = '<div style="font-size:12px;color:var(--teal);opacity:0.4;">Could not load song details</div>';
+  }
+}
+
+async function saveSongItem() {
+  const title = $('song-title').value.trim();
+  if (!title) { toast('Please enter a song title'); return; }
+  const keys  = Array.from(document.querySelectorAll('#song-key-chips input:checked')).map(cb=>cb.value);
+  const notes = $('song-notes').value.trim();
+
+  // Get use count for badge
+  let useCount = 0;
+  try {
+    const svcSnap = await db.collection('services').get();
+    svcSnap.docs.forEach(d => {
+      if (d.id !== currentService?.id && (d.data().order||[]).some(i=>i.type==='song'&&i.title===title)) useCount++;
+    });
+  } catch(e){}
+
+  const item = { type:'song', title, keys, notes, _useCount: useCount };
+  if (editingSongIndex !== null) {
+    currentService.order[editingSongIndex] = item;
+  } else {
+    currentService.order.push(item);
+  }
+  closeSongModal();
+  renderOrderList();
+}
+
+// ── NON-SONG ITEM MODAL ────────────────────────────────────────────────────
+
+function openItemModal(editIdx=null) {
+  editingItemIndex = editIdx;
+  $('item-modal-title').textContent = editIdx!==null ? 'Edit Item' : 'Add Item';
+  $('item-save-btn').textContent = editIdx!==null ? 'Save' : 'Add';
+  if (editIdx!==null) {
+    const item = currentService.order[editIdx];
+    $('item-type').value  = item.type || 'prayer';
+    $('item-title').value = item.title || '';
+  } else {
+    $('item-type').value  = 'prayer';
+    $('item-title').value = '';
+  }
   openModal('modal-add-item');
 }
 
 function editOrderItem(i) {
-  editingItemIndex = i;
-  const item = currentService.order[i];
-  $('add-item-title').textContent = 'Edit Item';
-  $('item-save-btn').textContent = 'Save Changes';
-  $('item-type').value = item.type || 'song';
-  $('item-title').value = item.title || '';
-  $('item-notes').value = item.notes || '';
-  $('song-suggestions').style.display = 'none';
-  // Set key chips
-  document.querySelectorAll('#item-key-chips input').forEach(cb => {
-    const on = (item.keys || []).includes(cb.value);
-    cb.checked = on;
-    cb.closest('.key-chip').classList.toggle('selected', on);
-  });
-  onItemTypeChange();
-  openModal('modal-add-item');
-}
-
-function onItemTypeChange() {
-  const type = $('item-type').value;
-  const keysWrap = $('item-keys-wrap');
-  keysWrap.style.display = type === 'song' ? 'flex' : 'none';
-}
-
-function toggleItemKey(cb) {
-  cb.closest('.key-chip').classList.toggle('selected', cb.checked);
-}
-
-let songSearchTimer = null;
-function onItemTitleInput() {
-  const q = $('item-title').value.trim().toLowerCase();
-  clearTimeout(songSearchTimer);
-  if ($('item-type').value !== 'song' || q.length < 2) {
-    $('song-suggestions').style.display = 'none';
-    return;
-  }
-  songSearchTimer = setTimeout(() => {
-    const matches = allSongs.filter(s => (s.normalized||s.title||'').toLowerCase().includes(q)).slice(0, 6);
-    if (!matches.length) { $('song-suggestions').style.display = 'none'; return; }
-    $('song-suggestions').innerHTML = matches.map(s =>
-      `<div class="song-suggestion-item" onclick="selectSong('${s.title.replace(/'/g,"\\'")}')">${s.title}</div>`
-    ).join('');
-    $('song-suggestions').style.display = 'block';
-  }, 250);
-}
-
-function selectSong(title) {
-  $('item-title').value = title;
-  $('song-suggestions').style.display = 'none';
-  // Auto-fill available keys
-  const song = allSongs.find(s => s.title === title);
-  if (song?.files) {
-    const keys = [...new Set(song.files.map(f => f.key).filter(Boolean))];
-    document.querySelectorAll('#item-key-chips input').forEach(cb => {
-      const on = keys.includes(cb.value);
-      cb.checked = on;
-      cb.closest('.key-chip').classList.toggle('selected', on);
-    });
-  }
+  if (currentService.order[i].type === 'song') { editSongItem(i); return; }
+  openItemModal(i);
 }
 
 function saveOrderItem() {
-  const title = $('item-title').value.trim();
   const type  = $('item-type').value;
-  const notes = $('item-notes').value.trim();
-  const keys  = Array.from(document.querySelectorAll('#item-key-chips input:checked')).map(cb => cb.value);
+  const title = $('item-title').value.trim();
   if (!title) { toast('Please enter a title'); return; }
-
-  const item = { type, title, notes, ...(type === 'song' ? { keys } : {}) };
-
+  const item = { type, title };
   if (editingItemIndex !== null) {
     currentService.order[editingItemIndex] = item;
   } else {
     currentService.order.push(item);
   }
-
   closeModal('modal-add-item');
   renderOrderList();
 }
 
 function deleteOrderItem(i) {
   confirm_('Remove Item', `Remove "${currentService.order[i].title}" from the order?`, () => {
-    currentService.order.splice(i, 1);
-    renderOrderList();
+    currentService.order.splice(i,1); renderOrderList();
   });
 }
 
 async function saveService() {
   if (!currentService?.id) return;
   loader(true, 'Saving service...');
-  currentService.notes = $('service-notes').value;
+  currentService.notes     = $('service-notes').value;
+  currentService.introText = $('service-intro').value;
+  currentService.outroText = $('service-outro').value;
+  // Strip runtime-only fields before saving
+  const orderToSave = currentService.order.map(item => {
+    const { _useCount, ...rest } = item;
+    return rest;
+  });
   try {
     await db.collection('services').doc(currentService.id).update({
-      order: currentService.order,
-      notes: currentService.notes,
-      type:  currentService.type,
-      date:  currentService.date,
+      order: orderToSave, notes: currentService.notes,
+      introText: currentService.introText, outroText: currentService.outroText,
+      roleNotes: currentService.roleNotes || {},
+      type: currentService.type, date: currentService.date,
       worshipLeader: currentService.worshipLeader || '',
       updatedAt: TS()
     });
     toast('✓ Service saved');
-    // Refresh list cache
     if (window._services) {
-      const idx = window._services.findIndex(s => s.id === currentService.id);
-      if (idx !== -1) window._services[idx] = { ...currentService };
+      const idx = window._services.findIndex(s=>s.id===currentService.id);
+      if (idx!==-1) window._services[idx] = { ...currentService };
     }
   } catch(e) { toast('Error saving service'); }
   loader(false);
 }
 
 function archiveService() {
-  confirm_('Archive Service', 'Archive this service? It will be hidden from the list.', async () => {
+  confirm_('Archive Service','Archive this service? It will be hidden from the list.', async () => {
     loader(true);
     try {
-      await db.collection('services').doc(currentService.id).update({ archived: true });
+      await db.collection('services').doc(currentService.id).update({ archived:true });
       toast('Service archived');
-      window._services = (window._services||[]).filter(s => s.id !== currentService.id);
+      window._services = (window._services||[]).filter(s=>s.id!==currentService.id);
       goBack();
     } catch(e) { toast('Error archiving'); }
     loader(false);
@@ -1234,35 +1506,107 @@ function archiveService() {
 }
 
 function openEditServiceMeta() {
-  // Open new service modal pre-filled for editing
   loadMembers();
-  $('new-service-date').value  = currentService.date || '';
-  $('new-service-type').value  = currentService.type || '';
-  setTimeout(() => {
+  $('new-service-date').value  = currentService.date||'';
+  $('new-service-type').value  = currentService.type||'';
+  setTimeout(()=>{
     populateLeaderDropdown();
-    $('new-service-leader').value = currentService.worshipLeader || '';
-  }, 100);
-  // Change button to "Save Changes"
+    $('new-service-leader').value = currentService.worshipLeader||'';
+  },100);
   const btn = document.querySelector('#modal-new-service .btn-primary');
-  btn.textContent = 'Save Changes';
-  btn.onclick = saveServiceMeta;
+  btn.textContent='Save Changes'; btn.onclick=saveServiceMeta;
   openModal('modal-new-service');
 }
 
 async function saveServiceMeta() {
-  const date   = $('new-service-date').value;
-  const type   = $('new-service-type').value.trim();
-  const leader = $('new-service-leader').value;
-  if (!date || !type) { toast('Please fill in date and type'); return; }
-  currentService.date = date;
-  currentService.type = type;
-  currentService.worshipLeader = leader;
+  const date=  $('new-service-date').value;
+  const type=  $('new-service-type').value.trim();
+  const leader=$('new-service-leader').value;
+  if (!date||!type) { toast('Please fill in date and type'); return; }
+  currentService.date=date; currentService.type=type; currentService.worshipLeader=leader;
   closeModal('modal-new-service');
-  // Reset button
   const btn = document.querySelector('#modal-new-service .btn-primary');
-  btn.textContent = 'Create';
-  btn.onclick = createService;
+  btn.textContent='Create'; btn.onclick=createService;
   renderServiceDetail();
+}
+
+// ── EMAIL TEAM ─────────────────────────────────────────────────────────────
+async function emailTeam() {
+  // Populate person dropdown
+  const sel = $('email-one-person');
+  sel.innerHTML = '<option value="">— Pick a person —</option>' +
+    allMembers.filter(m=>m.email).map(m=>`<option value="${m.email}">${m.name} (${m.email})</option>`).join('');
+  openModal('modal-email-team');
+}
+
+function buildServicePlanText() {
+  const s = currentService;
+  const assignments = s._rotaAssignments || {};
+  const roleNotes   = s.roleNotes || {};
+  let plan = '';
+
+  plan += `WORSHIP PLAN — ${fmtShortDate(s.date)}\n`;
+  plan += `Service: ${s.type||''}\n`;
+  plan += `Worship Leader: ${s.worshipLeader||''}\n\n`;
+
+  if (s.introText) plan += `${s.introText}\n\n`;
+  if (s.notes)     plan += `Service Notes: ${s.notes}\n\n`;
+
+  plan += `ORDER OF SERVICE\n${'─'.repeat(40)}\n`;
+  (s.order||[]).forEach((item,i) => {
+    if (item.type==='song') {
+      plan += `${i+1}. 🎵 ${item.title}`;
+      if (item.keys?.length) plan += ` — Key: ${item.keys.join(', ')}`;
+      plan += '\n';
+      if (item.notes) plan += `   Notes: ${item.notes}\n`;
+    } else {
+      const emoji = {prayer:'🙏',reading:'📖',announcement:'📢',other:'📌'}[item.type]||'📌';
+      plan += `${i+1}. ${emoji} ${item.title}\n`;
+    }
+  });
+
+  if (Object.keys(assignments).length) {
+    plan += `\nSERVICE TEAM\n${'─'.repeat(40)}\n`;
+    Object.entries(assignments).forEach(([role, person]) => {
+      plan += `${role}: ${person?.name||'—'}`;
+      if (roleNotes[role]) plan += ` — ${roleNotes[role]}`;
+      plan += '\n';
+    });
+  }
+
+  if (s.outroText) plan += `\n${s.outroText}\n`;
+
+  return plan;
+}
+
+async function emailWholeTeam() {
+  const plan = buildServicePlanText();
+  try {
+    await navigator.clipboard.writeText(plan);
+    toast('Plan copied to clipboard ✓');
+  } catch(e) {}
+
+  // Get all team emails from rota + core team
+  const rotaNames = Object.values(currentService._rotaAssignments||{}).map(a=>a?.name).filter(Boolean);
+  const emails = [...new Set(
+    allMembers
+      .filter(m => rotaNames.includes(m.name) || (m.markers||[]).includes('Core Team'))
+      .map(m=>m.email).filter(Boolean)
+  )];
+
+  closeModal('modal-email-team');
+  const subject = encodeURIComponent(`Worship Plan — ${fmtShortDate(currentService.date)}`);
+  window.location.href = `mailto:?bcc=${emails.join(';')}&subject=${subject}`;
+}
+
+function emailOnePerson() {
+  const email = $('email-one-person').value;
+  if (!email) { toast('Please select a person'); return; }
+  const plan = buildServicePlanText();
+  try { navigator.clipboard.writeText(plan); } catch(e) {}
+  closeModal('modal-email-team');
+  const subject = encodeURIComponent(`Worship Plan — ${fmtShortDate(currentService.date)}`);
+  window.location.href = `mailto:${email}?subject=${subject}`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
