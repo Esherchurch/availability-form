@@ -3,228 +3,591 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Performance">
+<meta name="theme-color" content="#3d6263">
 <title>EGBC Performance Notes</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
 <style>
-body { font-family: 'Montserrat', sans-serif; background: #0f172a; margin: 0; }
-
-.screen {
-    position: fixed;
-    inset: 0;
-    background: #0f172a;
-    color: white;
-    padding: 18px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    box-sizing: border-box;
+:root {
+  --teal:       #3d6263;
+  --teal-dark:  #2f4c4d;
+  --teal-light: #e6f0f0;
+  --border:     #d1dfdf;
+  --bg:         #f0f6f6;
+  --white:      #ffffff;
+  --font:       'Montserrat', sans-serif;
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.btn {
-    background:#2c6999;
-    color:white;
-    padding:14px 18px;
-    border-radius:14px;
-    font-weight:700;
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow: hidden;
 }
 
-.nav-btn {
-    background:#2c6999;
-    padding:14px 20px;
-    border-radius:14px;
-    font-size:18px;
-    font-weight:800;
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--teal);
+  color: white;
+  padding: 10px 22px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 9000;
+  display: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(61,98,99,0.3);
+  pointer-events: none;
 }
 
-@media (max-width:768px){
- .btn { padding:10px 12px; font-size:14px; }
- .nav-btn { padding:10px 14px; font-size:14px; }
- .screen { padding: 12px 8px; gap: 8px; }
- textarea {
-   font-size: 18pt !important;
-   padding: 35px 45px !important;
- }
- .performance textarea {
-   font-size: 22pt !important;
- }
+/* ══ START SCREEN ══ */
+#startScreen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-top: var(--safe-top);
+  padding-bottom: calc(var(--safe-bottom) + 20px);
 }
 
-@media (min-width: 769px) {
-  textarea {
-    font-size: 26pt !important; 
-    padding: 40px 60px !important;
-    line-height: 1.5;
-  }
-  .performance textarea {
-    font-size: 38pt !important;
-    padding: 40px 60px !important;
-  }
-  .nav-btn {
-    padding: 18px 30px;
-    font-size: 24px;
-  }
-  .btn {
-    font-size: 18px;
-    padding: 18px 24px;
-  }
-  .smallbox {
-    font-size: 18px !important;
-  }
+.start-hero {
+  background: var(--teal);
+  padding: 36px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 
-textarea {
-    width: 100%;
-    font-weight: 700;
-    background: #020617;
-    color: white;
-    border-radius: 16px;
-    overflow-y: auto;
-    resize: none;
-    box-sizing: border-box;
-    margin-top: 10px;
-    margin-bottom: 10px;
-    border: 2px solid rgba(255,255,255,0.15);
-    display: block;
+.start-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255,255,255,0.3);
 }
 
-.performance .hide-perf {
-    display: none !important;
+.start-hero-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: white;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-align: center;
 }
 
-.perf-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 5px;
-    width: 100%;
+.start-hero-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-align: center;
 }
 
-.performance .btn-sm {
-    padding: 10px 15px;
-    font-size: 14px;
-    white-space: nowrap;
-    flex-shrink: 0;
+.start-form {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
 }
 
-.smallbox {
-    font-size: 14px;
-    opacity: 0.9;
-    padding: 0 4px;
+.start-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.6;
+  margin-bottom: 6px;
+  display: block;
 }
 
+.start-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--teal);
+  background: var(--white);
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.2s;
+}
+.start-input:focus { border-color: var(--teal); }
+
+.btn-load {
+  width: 100%;
+  padding: 16px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-load:active { transform: scale(0.98); background: var(--teal-dark); }
+.btn-load:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ══ SONG SCREEN ══ */
+#songScreen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  flex-direction: column;
+  padding-top: var(--safe-top);
+}
+
+.song-topbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 58px;
+}
+
+.topbar-menu-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--teal);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+}
+
+.song-title-bar {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.song-title-main {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.song-counter {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.4;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+.topbar-nav { display: flex; gap: 6px; flex-shrink: 0; }
+
+.nav-arrow {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.nav-arrow:active { transform: scale(0.93); background: var(--teal-dark); }
+.nav-arrow:disabled { opacity: 0.25; cursor: default; }
+
+.song-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 12px calc(var(--safe-bottom) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: transform 0.1s, opacity 0.15s;
+  white-space: nowrap;
+}
+.action-btn:active { transform: scale(0.95); }
+
+.btn-perf-toggle { background: var(--teal); color: white; }
+.btn-perf-toggle.active { background: #7c3aed; }
+.btn-yt     { background: #ff0000; color: white; }
+.btn-pt     { background: #7c3aed; color: white; }
+.btn-file   { background: var(--teal-light); color: var(--teal); border: 1.5px solid var(--border); }
+.btn-trans  { background: var(--bg); color: var(--teal); border: 1.5px solid var(--border); }
+
+.key-section {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+.section-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
+
+.key-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.key-chip {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.key-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
+
+.notes-section {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.notes-section:focus-within { border-color: var(--teal); }
+
+.notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px 16px;
+  font-family: var(--font);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--teal);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  line-height: 1.6;
+  display: block;
+}
+
+.perf-mode .notes-textarea {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  min-height: 220px;
+  padding: 20px !important;
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .notes-textarea { font-size: 24px !important; }
+  .perf-mode .notes-textarea { font-size: 40px !important; }
+}
+
+.info-box {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+.info-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.info-box-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.5;
+}
+
+.info-box-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal);
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
+.btn-append {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btn-append.has-notes  { background: var(--teal); color: white; }
+.btn-append.no-notes   { background: var(--bg); color: #94a3b8; cursor: not-allowed; border: 1px solid var(--border); }
+
+.btn-save {
+  width: 100%;
+  padding: 15px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-save:active { transform: scale(0.98); background: var(--teal-dark); }
+.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.translate-wrap { position: relative; }
+.translate-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(61,98,99,0.15);
+  z-index: 100;
+  min-width: 180px;
+}
+.translate-wrap.open .translate-menu { display: block; }
+.translate-item {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg);
+}
+.translate-item:last-child { border-bottom: none; }
+.translate-item:hover { background: var(--bg); }
+
+/* ══ MENU ══ */
 #menu {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 280px;
-    background: #2c6999;
-    color: white;
-    transform: translateX(-100%);
-    transition: 0.3s;
-    z-index: 1000;
-    overflow-y: auto;
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: 300px;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 4px 0 24px rgba(61,98,99,0.12);
+  padding-top: var(--safe-top);
 }
 #menu.open { transform: translateX(0); }
 
-#menu div {
-    padding:18px;
-    border-bottom:1px solid rgba(255,255,255,0.2);
-    font-weight:700;
-    font-size: 18px;
-    cursor:pointer;
+.menu-header {
+  background: var(--teal);
+  padding: 20px 20px 16px;
+  color: white;
 }
+.menu-header-title { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
+.menu-header-sub   { font-size: 10px; font-weight: 700; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.1em; }
+
+.menu-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.1s;
+}
+.menu-item:hover { background: var(--bg); }
+.menu-item.active { background: var(--teal-light); font-weight: 800; }
+
+.menu-item-num {
+  width: 26px;
+  height: 26px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.menu-item.active .menu-item-num { background: var(--teal); color: white; }
 
 #overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    display: none;
-    z-index: 900;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: none;
+  z-index: 900;
+  backdrop-filter: blur(2px);
 }
-#overlay.show { display:block; }
+#overlay.show { display: block; }
 
+/* ══ PDF VIEWER ══ */
 #pdfViewer {
-    position: fixed;
-    inset: 0;
-    background: white;
-    display: none;
-    z-index: 9999;
+  position: fixed;
+  inset: 0;
+  background: white;
+  display: none;
+  z-index: 9999;
 }
 
-.closeBtn {
-    position:absolute;
-    top:10px;
-    left:10px;
-    background:#ef4444;
-    color:white;
-    padding:12px 20px;
-    border-radius:10px;
-    font-weight:bold;
-    z-index:10001;
+.close-viewer-btn {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  left: 12px;
+  background: #ef4444;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  z-index: 10001;
 }
 
+/* ══ FULLSCREEN ══ */
 #fsToggle {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    opacity: 0.3;
-    z-index: 10002;
-    background: #2c6999;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 10px;
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 10px);
+  right: 12px;
+  opacity: 0.2;
+  z-index: 800;
+  background: var(--teal);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  display: none;
 }
 
-.translate-box {
-    position: relative;
-    display: inline-block;
+/* Performance mode pill */
+.perf-pill {
+  display: none;
+  position: fixed;
+  top: calc(var(--safe-top) + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7c3aed;
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  z-index: 500;
+  pointer-events: none;
 }
-.translate-content {
-    display: none;
-    position: absolute;
-    right: 0;
-    background-color: #1e293b;
-    min-width: 180px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.4);
-    z-index: 10;
-    border-radius: 8px;
-    overflow: hidden;
-}
-.translate-content div {
-    padding: 12px 16px;
-    cursor: pointer;
-    font-size: 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-.translate-content div:hover { background-color: #2c6999; }
-.translate-box:hover .translate-content { display: block; }
 
-.btn-append {
-    font-size:12px;
-    padding:8px 12px;
-    flex-shrink:0;
-    border-radius:10px;
-    font-weight:700;
-    transition: all 0.2s;
+/* Shimmer skeleton */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
-.btn-append.has-notes {
-    background:#334155;
-    color:white;
-    cursor:pointer;
+.skel {
+  background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
 }
-.btn-append.no-notes {
-    background:#1e293b;
-    color:#475569;
-    cursor:not-allowed;
-    border: 1px solid #334155;
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.fade-in { animation: fadeIn 0.2s ease; }
 </style>
 
 <script type="module">
@@ -232,443 +595,530 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp({
- apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
- authDomain:"egbc-worship-planner.firebaseapp.com",
- projectId:"egbc-worship-planner"
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner"
 });
 const db = getFirestore(app);
 
-let eventsForDay = [];
-let selectedEvent = null;
-let currentService = null;
-let songs = [];
-let index = 0;
-let currentRole = "";
-let currentDate = "";
-let currentLeader = "";
-let selectedKeys = [];
-let performance = false;
-let currentDocId = null;
-let wakeLock = null;
-let originalData = { notes: "", inst: "", last: "" };
+let eventsForDay = [], selectedEvent = null, currentService = null;
+let songs = [], index = 0, currentRole = "", currentDate = "", currentLeader = "";
+let selectedKeys = [], performanceMode = false, currentDocId = null;
+let wakeLock = null, originalData = { notes:"", inst:"", last:"" }, currentSongData = {};
 
-const dateInput = () => document.getElementById('dateInput');
-const serviceSelect = () => document.getElementById('serviceSelect');
-const roleSelect = () => document.getElementById('roleSelect');
-const appDiv = () => document.getElementById('app');
+// ── UTILS ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function toast(msg, dur = 2200) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._tt);
+  window._tt = setTimeout(() => { t.style.display = 'none'; }, dur);
+}
 
 const requestWakeLock = async () => {
-  try {
-    if ('wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-    }
-  } catch (err) {
-    console.error(`${err.name}, ${err.message}`);
-  }
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
 };
-
 document.addEventListener('visibilitychange', async () => {
-  if (wakeLock !== null && document.visibilityState === 'visible') {
-    await requestWakeLock();
-  }
+  if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock();
 });
 
 window.goFull = () => {
-    const docEl = document.documentElement;
-    if (docEl.requestFullscreen) docEl.requestFullscreen();
-    else if (docEl.mozRequestFullScreen) docEl.mozRequestFullScreen();
-    else if (docEl.webkitRequestFullScreen) docEl.webkitRequestFullScreen();
-    else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
-    requestWakeLock();
-    document.getElementById("fsToggle").innerText = "[ Stay Awake Active ]";
+  const d = document.documentElement;
+  (d.requestFullscreen||d.mozRequestFullScreen||d.webkitRequestFullScreen||d.msRequestFullscreen).call(d);
+  requestWakeLock();
+  $('fsToggle').textContent = '☀ Active';
 };
 
-window.autoGrow = (el)=>{
- if(!el) return;
- el.style.height = "auto";
- el.style.height = el.scrollHeight + "px";
+window.autoGrow = el => {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 };
 
-window.translateAll = async (targetLang) => {
-    const mainEl = document.getElementById('notes');
-    const instEl = document.getElementById('instNotesText');
-    const lastEl = document.getElementById('lastNotesText');
-
-    if(targetLang === 'revert') {
-        if(mainEl) mainEl.value = originalData.notes;
-        if(instEl) instEl.innerText = originalData.inst;
-        if(lastEl) lastEl.innerText = originalData.last;
-        autoGrow(mainEl);
-        return;
-    }
-
-    const translateChunk = async (text) => {
-        if(!text || text.trim() === "") return "";
-        try {
-            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`);
-            const data = await res.json();
-            let result = "";
-            data[0].forEach(item => { if (item[0]) result += item[0]; });
-            return result;
-        } catch (e) { return text; }
-    };
-
-    if(mainEl) mainEl.value = await translateChunk(mainEl.value);
-    if(instEl) instEl.innerText = await translateChunk(instEl.innerText);
-    if(lastEl) lastEl.innerText = await translateChunk(lastEl.innerText);
-    autoGrow(mainEl);
-};
-
+// ── START SCREEN ──────────────────────────────────────────────────────────
 window.loadRota = async () => {
- const date = dateInput().value;
- const snap = await getDocs(collection(db,"events"));
- eventsForDay = [];
- snap.forEach(d=>{
-  const ev=d.data();
-  if(ev.date===date && !ev.archived){ eventsForDay.push(ev); }
- });
- serviceSelect().innerHTML='<option value="">Select Service</option>';
- eventsForDay.forEach((ev,i)=>{
-  serviceSelect().innerHTML+=`<option value="${i}">${ev.type}</option>`;
- });
+  const date = $('dateInput').value;
+  if (!date) return;
+  const snap = await getDocs(collection(db, "events"));
+  eventsForDay = [];
+  snap.forEach(d => {
+    const ev = d.data();
+    if (ev.date === date && !ev.archived) eventsForDay.push(ev);
+  });
+
+  const svcSelect = $('serviceSelect');
+  svcSelect.innerHTML = '<option value="">Select Service</option>';
+  eventsForDay.forEach((ev, i) => {
+    svcSelect.innerHTML += `<option value="${i}">${ev.type}</option>`;
+  });
+
+  if (eventsForDay.length === 0) {
+    toast('No services found for that date');
+    svcSelect.style.display = 'none';
+    $('roleSelect').style.display = 'none';
+    return;
+  }
+
+  svcSelect.style.display = 'block';
+
+  if (eventsForDay.length === 1) {
+    svcSelect.value = "0";
+    selectService();
+  }
 };
 
 window.selectService = () => {
- const i = serviceSelect().value;
- if(i==="") return;
- selectedEvent = eventsForDay[i];
- currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
- roleSelect().innerHTML='<option value="">Instrument</option>';
- Object.keys(selectedEvent.assignments || {}).forEach(r=>{
-  roleSelect().innerHTML+=`<option>${r}</option>`;
- });
-};
-
-window.cacheAllPDFs = async () => {
-    for (const song of songs) {
-        const songDoc = await getDoc(doc(db,"songs",song.title.toLowerCase().replace(/\s+/g,"-")));
-        if (songDoc.exists()) {
-            const data = songDoc.data();
-            const songKeys = song.keys || [];
-            const filesToCache = (data.files || []).filter(f => songKeys.includes(f.key));
-            filesToCache.forEach(f => {
-                const img = new Image();
-                img.src = f.url; 
-            });
-        }
-    }
+  const i = $('serviceSelect').value;
+  if (i === "") return;
+  selectedEvent = eventsForDay[i];
+  currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
+  const roleSelect = $('roleSelect');
+  roleSelect.innerHTML = '<option value="">Choose your instrument…</option>';
+  Object.keys(selectedEvent.assignments || {}).forEach(r => {
+    roleSelect.innerHTML += `<option>${r}</option>`;
+  });
+  roleSelect.style.display = 'block';
 };
 
 window.loadService = async () => {
- currentDate = dateInput().value;
- currentRole = roleSelect().value;
- const snap = await getDocs(query(collection(db,"services"), where("date","==",currentDate)));
- currentService = snap.docs[0].data();
- songs = currentService.order.filter(x=>x.type==="song");
- buildMenu();
- showSong(0);
- window.cacheAllPDFs(); 
- document.getElementById("startScreen").style.display="none";
- document.getElementById("fsToggle").style.display="block";
-};
+  const btn = $('loadBtn');
+  currentDate = $('dateInput').value;
+  currentRole = $('roleSelect').value;
 
-function buildMenu(){
- const menu = document.getElementById("menu");
- menu.innerHTML="";
- songs.forEach((s,i)=>{
-  const div=document.createElement("div");
-  div.innerText=s.title;
-  div.onclick=()=>{ showSong(i); toggleMenu(); };
-  menu.appendChild(div);
- });
-}
+  if (!currentDate) { toast('Please pick a date first'); return; }
+  if (!currentRole || currentRole === '') { toast('Please choose your instrument'); return; }
 
-window.toggleMenu = ()=>{
- document.getElementById("menu").classList.toggle("open");
- document.getElementById("overlay").classList.toggle("show");
-};
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
 
-window.closeMenu = ()=>{
- document.getElementById("menu").classList.remove("open");
- document.getElementById("overlay").classList.remove("show");
-};
-
-window.togglePerformance = ()=>{
- performance = !performance;
- showSong(index);
-};
-
-window.forceExternalYT = (url) => {
-    let videoId = '';
-    if (url.includes('v=')) {
-        videoId = url.split('v=')[1].split('&')[0];
-    } else if (url.includes('youtu.be/')) {
-        videoId = url.split('youtu.be/')[1];
-    }
-    if (videoId) {
-        const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        const v = document.getElementById("pdfViewer");
-        v.innerHTML = ""; 
-        v.style.display = "block";
-        const closeBtn = document.createElement("button");
-        closeBtn.className = "closeBtn";
-        closeBtn.innerText = "Close Video";
-        closeBtn.onclick = closePDF;
-        const iframe = document.createElement("iframe");
-        iframe.style.cssText = "width:100%;height:100%;border:none;background:black;";
-        iframe.src = embedUrl;
-        iframe.allow = "autoplay; encrypted-media; picture-in-picture";
-        iframe.allowFullscreen = true;
-        v.appendChild(closeBtn);
-        v.appendChild(iframe);
-    }
-};
-
-window.appendLastNotes = () => {
-    const lastText = document.getElementById('lastNotesText')?.innerText;
-    const ta = document.getElementById('notes');
-    if (!lastText || !lastText.trim() || !ta) return;
-    const sep = ta.value && !ta.value.endsWith('\n') ? '\n' : '';
-    ta.value += sep + lastText;
-    autoGrow(ta);
-};
-
-async function showSong(i){
- index = i;
- const s = songs[i];
- selectedKeys = [...(s.keys || [])];
-
- const songDoc = await getDoc(doc(db,"songs",s.title.toLowerCase().replace(/\s+/g,"-")));
- const data = songDoc.exists()?songDoc.data():{};
- const allFiles = data.files || [];
- const youtubeUrl = data.youtube || "";
-
- const isKeyboardRole = ["Keyboard", "Keys", "2nd Keys"].includes(currentRole);
- let playthroughMatches = [];
- if (isKeyboardRole && selectedKeys.length > 0) {
-   try {
-     const ptSnap = await getDocs(collection(db, "kb_playthrough"));
-     const seen = new Set();
-     ptSnap.forEach(ptDoc => {
-       const pt = ptDoc.data();
-       if (!pt.published) return;
-       const ptSong = (pt.songTitle || pt.title || '').toLowerCase().trim();
-       const titleNorm = s.title.toLowerCase().trim();
-       const songMatch = ptSong === titleNorm || ptSong.includes(titleNorm) || titleNorm.includes(ptSong);
-       if (!songMatch) return;
-       selectedKeys.forEach(k => {
-         if ((pt.ourKey || '').toLowerCase() === k.toLowerCase()) {
-           const uid = ptDoc.id + k;
-           if (!seen.has(uid)) { seen.add(uid); playthroughMatches.push({ ...pt }); }
-         }
-       });
-     });
-   } catch(e) { console.log('PT lookup:', e.message); }
- }
-
- const files = allFiles.filter(f=>selectedKeys.includes(f.key));
-
- let yourNotes = s.notes || "";
- currentDocId = null;
-
- const todaySnap = await getDocs(query(collection(db,"schedules"),
-  where("date","==",currentDate),
-  where("role","==",currentRole)));
-
- todaySnap.forEach(d=>{
-  const n=d.data();
-  if(n.songTitle===s.title){ yourNotes = n.notes; currentDocId = d.id; }
- });
-
- const allSnap = await getDocs(collection(db,"schedules"));
- let last = null;
- allSnap.forEach(d=>{
-  const n=d.data();
-  if(n.worshipLeader===currentLeader &&
-     n.role===currentRole &&
-     n.songTitle===s.title &&
-     n.date!==currentDate){
-   if(!last || new Date(n.date)>new Date(last.date)) last=n;
+  try {
+    const snap = await getDocs(query(collection(db, "services"), where("date", "==", currentDate)));
+    if (snap.empty) { toast('No service plan found for that date'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
+    currentService = snap.docs[0].data();
+    songs = currentService.order.filter(x => x.type === "song");
+    if (!songs.length) { toast('No songs in this service'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
+    buildMenu();
+    $('startScreen').style.display = 'none';
+    $('songScreen').style.display = 'flex';
+    $('fsToggle').style.display = 'block';
+    await showSong(0);
+    window.cacheAllPDFs();
+  } catch(e) {
+    toast('Could not load — check your connection');
+    btn.disabled = false;
+    btn.textContent = 'Load Service';
   }
- });
+};
 
- const roleNotes = currentService?.roleNotes?.[currentRole] || "";
- const lastNotes = last ? last.notes : "";
- originalData = { notes: yourNotes, inst: roleNotes, last: lastNotes };
-
- const hasLastNotes = !!(lastNotes && lastNotes.trim());
-
- appDiv().innerHTML=`
- <div class="screen ${performance?'performance':''}">
-
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-   <button class="btn hide-perf" onclick="toggleMenu()">☰</button>
-   <div style="font-weight:800; font-size:1.1rem; text-align:center; flex:1;">${s.title}</div>
-   <div style="display:flex; gap:8px; align-items:center;">
-    ${youtubeUrl ? `<button class="nav-btn hide-perf" onclick="forceExternalYT('${youtubeUrl}')" style="background:#ff0000; padding: 10px 15px;">YT</button>` : ''}
-
-    ${playthroughMatches.map(pt => {
-      const ptUrl = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle || pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
-      const label = pt.instrument ? `▶ ${pt.ourKey} (${pt.instrument})` : `▶ ${pt.ourKey}`;
-      return `<button class="nav-btn hide-perf" onclick="openPDF('${ptUrl}')" style="background:#7c3aed; padding: 10px 15px; font-size:12px;">${label}</button>`;
-    }).join('')}
-    
-    <div class="translate-box hide-perf">
-        <button class="nav-btn" style="background:#475569; padding: 10px 15px; font-size:14px;">A/ES</button>
-        <div class="translate-content">
-            <div onclick="translateAll('es')">English → Spanish</div>
-            <div onclick="translateAll('en')">Spanish → English</div>
-            <div onclick="translateAll('revert')" style="background:#334155">Original Text</div>
-        </div>
-    </div>
-
-    <button class="nav-btn" onclick="prev()">⬅</button>
-    <button class="nav-btn" onclick="next()">➡</button>
-   </div>
-  </div>
-
-  <div class="perf-row">
-    <button class="btn ${performance ? 'btn-sm' : ''}" onclick="togglePerformance()">
-     ${performance ? "Edit" : "Performance Mode"}
-    </button>
-
-    ${performance ? files.map(f=>`
-      <button class="btn btn-sm" onclick="openPDF('${f.url}')">
-       ${f.type} (${f.key})
-      </button>
-    `).join("") : ""}
-  </div>
-
-  <div class="hide-perf">
-   ${[...new Set(allFiles.map(f=>f.key).filter(Boolean))].map(k=>`
-    <label>
-     <input type="checkbox" ${selectedKeys.includes(k)?"checked":""}
-     onchange="toggleKey('${k}',this.checked)"> ${k}
-    </label>`).join("")}
-  </div>
-
-  <div class="hide-perf">
-   ${files.map(f=>`
-    <button class="btn" onclick="openPDF('${f.url}')">
-     ${f.type} (${f.key})
-    </button>
-   `).join("")}
-  </div>
-
-  <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
-
-  ${!performance ? `
-    <div class="smallbox"><b>Instrument Notes:</b><br><span id="instNotesText">${roleNotes}</span></div>
-    <div class="smallbox" style="display:flex; align-items:flex-start; gap:8px;">
-      <div style="flex:1;"><b>Last Time:</b><br><span id="lastNotesText">${lastNotes}</span></div>
-      <button 
-        class="btn btn-append ${hasLastNotes ? 'has-notes' : 'no-notes'}" 
-        onclick="${hasLastNotes ? 'appendLastNotes()' : ''}"
-        title="${hasLastNotes ? 'Append last time notes' : 'No previous notes'}">
-        ⬆ Append
-      </button>
-    </div>
-    <button class="btn" onclick="save('${s.title}')">Save</button>
-  ` : ""}
-
- </div>`;
-
- setTimeout(()=>{
-  const ta = document.getElementById("notes");
-  if(ta) autoGrow(ta);
- },50);
+// ── MENU ──────────────────────────────────────────────────────────────────
+function buildMenu() {
+  const menu = $('menu');
+  menu.innerHTML = `<div class="menu-header">
+    <div class="menu-header-title">Song List</div>
+    <div class="menu-header-sub">${songs.length} songs · ${currentDate}</div>
+  </div>`;
+  songs.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'menu-item' + (i === index ? ' active' : '');
+    div.id = `mi-${i}`;
+    div.innerHTML = `<span class="menu-item-num">${i+1}</span>${s.title}`;
+    div.onclick = () => { showSong(i); toggleMenu(); };
+    menu.appendChild(div);
+  });
 }
 
-window.toggleKey=(k,on)=>{
- if(on){ if(!selectedKeys.includes(k)) selectedKeys.push(k); }
- else { selectedKeys = selectedKeys.filter(x=>x!==k); }
- const songIndex = songs.findIndex(s => s.title === songs[index].title);
- if (songIndex !== -1) songs[songIndex].keys = selectedKeys;
- showSong(index);
-};
-
-window.next = ()=>{ if(index<songs.length-1) showSong(index+1); };
-window.prev = ()=>{ if(index>0) showSong(index-1); };
-
-window.openPDF = (url)=>{
- let finalUrl = url;
- const timestamp = new Date().getTime();
- if(url.includes("drive.google.com") || url.includes("firebasestorage.googleapis.com")){
-  finalUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true&cb=${timestamp}`;
- }
- const v=document.getElementById("pdfViewer");
- v.innerHTML = ""; 
- v.style.display="block";
- const loader = document.createElement("div");
- loader.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:black;font-weight:bold;";
- loader.innerText = "Loading PDF...";
- const closeBtn = document.createElement("button");
- closeBtn.className = "closeBtn";
- closeBtn.innerText = "Close";
- closeBtn.onclick = closePDF;
- const iframe = document.createElement("iframe");
- iframe.style.cssText = "width:100%;height:100%;border:none;background:white;display:none;";
- iframe.src = finalUrl;
- iframe.onload = () => { loader.style.display = "none"; iframe.style.display = "block"; };
- v.appendChild(closeBtn);
- v.appendChild(loader);
- v.appendChild(iframe);
-};
-
-window.closePDF = ()=>{
- const v=document.getElementById("pdfViewer");
- v.style.display="none";
- v.innerHTML=""; 
-};
-
-window.save = async(song)=>{
- const txt = document.getElementById("notes").value;
- if(currentDocId){
-  await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
- } else {
-  const newDoc = await addDoc(collection(db,"schedules"),{
-   date: currentDate,
-   role: currentRole,
-   worshipLeader: currentLeader,
-   songTitle: song,
-   notes: txt
+function updateMenuActive() {
+  document.querySelectorAll('.menu-item').forEach((el, i) => {
+    el.classList.toggle('active', i === index);
+    const num = el.querySelector('.menu-item-num');
+    if (num) num.style.background = i === index ? 'var(--teal)' : '';
+    if (num) num.style.color = i === index ? 'white' : '';
   });
-  currentDocId = newDoc.id;
- }
- alert("Saved");
+}
+
+window.toggleMenu = () => { $('menu').classList.toggle('open'); $('overlay').classList.toggle('show'); };
+window.closeMenu  = () => { $('menu').classList.remove('open'); $('overlay').classList.remove('show'); };
+
+// ── SHOW SONG ─────────────────────────────────────────────────────────────
+async function showSong(i) {
+  index = i;
+  const s = songs[i];
+  selectedKeys = [...(s.keys || [])];
+
+  // Immediate topbar update
+  $('songTitleMain').textContent = s.title;
+  $('songCounter').textContent = `${i+1} of ${songs.length}`;
+  $('prevBtn').disabled = i === 0;
+  $('nextBtn').disabled = i === songs.length - 1;
+  updateMenuActive();
+
+  // Skeleton
+  $('songContent').innerHTML = `
+    <div style="display:flex;gap:8px;">
+      <div class="skel" style="height:40px;flex:1;"></div>
+      <div class="skel" style="height:40px;width:90px;"></div>
+    </div>
+    <div class="skel" style="height:130px;"></div>
+    <div class="skel" style="height:60px;"></div>`;
+
+  // Fetch data
+  const songDoc = await getDoc(doc(db, "songs", s.title.toLowerCase().replace(/\s+/g, "-")));
+  const data = songDoc.exists() ? songDoc.data() : {};
+  const allFiles = data.files || [];
+  const youtubeUrl = data.youtube || "";
+
+  // Playthrough (keyboard roles)
+  const isKB = ["Keyboard","Keys","2nd Keys"].includes(currentRole);
+  let ptMatches = [];
+  if (isKB && selectedKeys.length) {
+    try {
+      const ptSnap = await getDocs(collection(db, "kb_playthrough"));
+      const seen = new Set();
+      ptSnap.forEach(ptDoc => {
+        const pt = ptDoc.data();
+        if (!pt.published) return;
+        const ptSong = (pt.songTitle||pt.title||'').toLowerCase().trim();
+        const titleNorm = s.title.toLowerCase().trim();
+        if (!(ptSong===titleNorm||ptSong.includes(titleNorm)||titleNorm.includes(ptSong))) return;
+        selectedKeys.forEach(k => {
+          if ((pt.ourKey||'').toLowerCase()===k.toLowerCase()) {
+            const uid = ptDoc.id+k;
+            if (!seen.has(uid)) { seen.add(uid); ptMatches.push({...pt}); }
+          }
+        });
+      });
+    } catch(e) {}
+  }
+
+  // Today's notes
+  let yourNotes = s.notes || "";
+  currentDocId = null;
+  const todaySnap = await getDocs(query(collection(db,"schedules"),
+    where("date","==",currentDate), where("role","==",currentRole)));
+  todaySnap.forEach(d => {
+    const n = d.data();
+    if (n.songTitle === s.title) { yourNotes = n.notes; currentDocId = d.id; }
+  });
+
+  // Last time notes
+  const allSnap = await getDocs(collection(db,"schedules"));
+  let last = null;
+  allSnap.forEach(d => {
+    const n = d.data();
+    if (n.worshipLeader===currentLeader && n.role===currentRole &&
+        n.songTitle===s.title && n.date!==currentDate) {
+      if (!last || new Date(n.date)>new Date(last.date)) last = n;
+    }
+  });
+
+  const roleNotes = currentService?.roleNotes?.[currentRole] || "";
+  const lastNotes = last ? last.notes : "";
+  originalData = { notes: yourNotes, inst: roleNotes, last: lastNotes };
+  currentSongData = { allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes };
+
+  renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes);
+}
+
+function renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes) {
+  const files = allFiles.filter(f => selectedKeys.includes(f.key));
+  const hasLast = !!(lastNotes && lastNotes.trim());
+  const pm = performanceMode;
+
+  // Perf pill
+  const pill = document.querySelector('.perf-pill');
+  if (pill) pill.style.display = pm ? 'block' : 'none';
+
+  // Resource buttons row
+  let row1 = `<button class="action-btn btn-perf-toggle ${pm?'active':''}" onclick="togglePerformance()">
+    ${pm ? '✎ Edit Mode' : '🎵 Performance Mode'}
+  </button>`;
+
+  if (!pm) {
+    if (youtubeUrl) row1 += `<button class="action-btn btn-yt" onclick="forceExternalYT('${youtubeUrl}')">▶ YouTube</button>`;
+    ptMatches.forEach(pt => {
+      const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+      const lbl = pt.instrument ? `▶ ${pt.ourKey} (${pt.instrument})` : `▶ ${pt.ourKey}`;
+      row1 += `<button class="action-btn btn-pt" onclick="openPDF('${url}')">${lbl}</button>`;
+    });
+    row1 += `<div class="translate-wrap" id="tw">
+      <button class="action-btn btn-trans" onclick="$('tw').classList.toggle('open')">A/ES ▾</button>
+      <div class="translate-menu">
+        <div class="translate-item" onclick="translateAll('es');$('tw').classList.remove('open')">English → Spanish</div>
+        <div class="translate-item" onclick="translateAll('en');$('tw').classList.remove('open')">Spanish → English</div>
+        <div class="translate-item" onclick="translateAll('revert');$('tw').classList.remove('open')">↩ Original</div>
+      </div>
+    </div>`;
+  }
+
+  // Files row
+  let filesRow = '';
+  if (files.length) {
+    filesRow = `<div class="action-row fade-in">${files.map(f =>
+      `<button class="action-btn btn-file" onclick="openPDF('${f.url}')">${f.type} · ${f.key}</button>`
+    ).join('')}</div>`;
+  }
+
+  // Key selector (edit mode only)
+  let keysHtml = '';
+  if (!pm && allFiles.length) {
+    const allKeys = [...new Set(allFiles.map(f=>f.key).filter(Boolean))];
+    keysHtml = `<div class="key-section fade-in">
+      <div class="section-label">Select Keys for Sheet Music</div>
+      <div class="key-chips">
+        ${allKeys.map(k => `
+          <label class="key-chip ${selectedKeys.includes(k)?'selected':''}">
+            <input type="checkbox" style="display:none" ${selectedKeys.includes(k)?'checked':''}
+              onchange="toggleKey('${k}',this.checked)">
+            ${k}
+          </label>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Info boxes (edit mode only)
+  let infoHtml = '';
+  if (!pm) {
+    if (roleNotes) {
+      infoHtml += `<div class="info-box fade-in">
+        <div class="info-box-label">Instrument Notes</div>
+        <div class="info-box-text" id="instNotesText">${roleNotes}</div>
+      </div>`;
+    }
+    infoHtml += `<div class="info-box fade-in">
+      <div class="info-box-header">
+        <div class="info-box-label">Last Time You Played This</div>
+        <button class="btn-append ${hasLast?'has-notes':'no-notes'}"
+          onclick="${hasLast?'appendLastNotes()':''}"
+          title="${hasLast?'Append to your notes':'No previous notes'}">
+          ⬆ Append
+        </button>
+      </div>
+      <div class="info-box-text" id="lastNotesText">${
+        lastNotes || '<span style="opacity:0.4;font-style:italic;font-size:12px;">Nothing saved from previous times</span>'
+      }</div>
+    </div>`;
+  }
+
+  $('songContent').innerHTML = `
+    <div class="${pm?'perf-mode':''} fade-in" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="action-row">${row1}</div>
+      ${filesRow}
+      ${keysHtml}
+      <div class="notes-section">
+        <textarea id="notes" class="notes-textarea ${pm?'perf-mode':''}"
+          placeholder="Your notes for this song…"
+          oninput="autoGrow(this)">${yourNotes}</textarea>
+      </div>
+      ${infoHtml}
+      ${!pm ? `<button class="btn-save fade-in" id="saveBtn" onclick="save('${s.title}')">Save Notes</button>` : ''}
+    </div>`;
+
+  setTimeout(() => {
+    const ta = $('notes');
+    if (ta) autoGrow(ta);
+  }, 50);
+}
+
+// ── TOGGLE PERFORMANCE MODE ───────────────────────────────────────────────
+window.togglePerformance = () => {
+  performanceMode = !performanceMode;
+  const cur = $('notes')?.value ?? currentSongData.yourNotes;
+  renderContent(songs[index], currentSongData.allFiles, currentSongData.youtubeUrl,
+    currentSongData.ptMatches, currentSongData.roleNotes, currentSongData.lastNotes, cur);
+};
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+window.next = () => { if (index < songs.length-1) showSong(index+1); };
+window.prev = () => { if (index > 0) showSong(index-1); };
+
+window.toggleKey = (k, on) => {
+  if (on) { if (!selectedKeys.includes(k)) selectedKeys.push(k); }
+  else selectedKeys = selectedKeys.filter(x => x !== k);
+  const si = songs.findIndex(s => s.title === songs[index].title);
+  if (si !== -1) songs[si].keys = selectedKeys;
+  showSong(index);
+};
+
+// ── TRANSLATE ─────────────────────────────────────────────────────────────
+window.translateAll = async lang => {
+  const mainEl = $('notes'), instEl = $('instNotesText'), lastEl = $('lastNotesText');
+  if (lang === 'revert') {
+    if (mainEl) { mainEl.value = originalData.notes; autoGrow(mainEl); }
+    if (instEl) instEl.innerText = originalData.inst;
+    if (lastEl) lastEl.innerText = originalData.last;
+    return;
+  }
+  toast('Translating…', 5000);
+  const chunk = async text => {
+    if (!text?.trim()) return "";
+    try {
+      const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`);
+      const d = await r.json();
+      return d[0].map(i=>i[0]||'').join('');
+    } catch { return text; }
+  };
+  if (mainEl) { mainEl.value = await chunk(mainEl.value); autoGrow(mainEl); }
+  if (instEl) instEl.innerText = await chunk(instEl.innerText);
+  if (lastEl) lastEl.innerText = await chunk(lastEl.innerText);
+  toast('Translated ✓');
+};
+
+// ── APPEND LAST NOTES ─────────────────────────────────────────────────────
+window.appendLastNotes = () => {
+  const last = $('lastNotesText')?.innerText;
+  const ta = $('notes');
+  if (!last?.trim() || !ta) return;
+  const sep = ta.value && !ta.value.endsWith('\n') ? '\n' : '';
+  ta.value += sep + last;
+  autoGrow(ta);
+  ta.focus();
+};
+
+// ── SAVE ──────────────────────────────────────────────────────────────────
+window.save = async song => {
+  const btn = $('saveBtn');
+  const txt = $('notes')?.value || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    if (currentDocId) {
+      await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
+    } else {
+      const nd = await addDoc(collection(db,"schedules"), {
+        date: currentDate, role: currentRole,
+        worshipLeader: currentLeader, songTitle: song, notes: txt
+      });
+      currentDocId = nd.id;
+    }
+    toast('✓ Notes saved');
+  } catch(e) {
+    toast('Save failed — check connection');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Save Notes'; }
+};
+
+// ── PDF / VIDEO ───────────────────────────────────────────────────────────
+window.openPDF = url => {
+  let final = url;
+  if (url.includes("drive.google.com")||url.includes("firebasestorage.googleapis.com")) {
+    final = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true&cb=${Date.now()}`;
+  }
+  const v = $('pdfViewer');
+  v.innerHTML = '';
+  v.style.display = 'block';
+
+  const loader = document.createElement('div');
+  loader.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--teal);font-weight:800;font-family:Montserrat,sans-serif;font-size:14px;';
+  loader.textContent = 'Loading…';
+
+  const close = document.createElement('button');
+  close.className = 'close-viewer-btn';
+  close.textContent = '✕ Close';
+  close.onclick = closePDF;
+
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'width:100%;height:100%;border:none;background:white;display:none;';
+  iframe.src = final;
+  iframe.onload = () => { loader.style.display='none'; iframe.style.display='block'; };
+
+  v.appendChild(close); v.appendChild(loader); v.appendChild(iframe);
+};
+
+window.forceExternalYT = url => {
+  const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (!m) return;
+  const v = $('pdfViewer');
+  v.innerHTML = '';
+  v.style.display = 'block';
+  const close = document.createElement('button');
+  close.className = 'close-viewer-btn';
+  close.textContent = '✕ Close';
+  close.onclick = closePDF;
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'width:100%;height:100%;border:none;background:black;';
+  iframe.src = `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0`;
+  iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+  iframe.allowFullscreen = true;
+  v.appendChild(close); v.appendChild(iframe);
+};
+
+window.closePDF = () => { const v=$('pdfViewer'); v.style.display='none'; v.innerHTML=''; };
+
+// ── CACHE ─────────────────────────────────────────────────────────────────
+window.cacheAllPDFs = async () => {
+  for (const song of songs) {
+    const sd = await getDoc(doc(db,"songs",song.title.toLowerCase().replace(/\s+/g,"-")));
+    if (sd.exists()) {
+      (sd.data().files||[]).filter(f=>(song.keys||[]).includes(f.key)).forEach(f=>{
+        const img = new Image(); img.src = f.url;
+      });
+    }
+  }
 };
 </script>
 </head>
-
 <body>
 
-<div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
-<h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Notes</h1>
+<div id="toast"></div>
+<div class="perf-pill">Performance Mode</div>
 
-<div class="relative">
-    <div id="dateLabel" style="position:absolute; left:12px; top:12px; color:#64748b; pointer-events:none;">Date</div>
-    <input type="date" id="dateInput" onfocus="document.getElementById('dateLabel').style.display='none'" onblur="if(!this.value)document.getElementById('dateLabel').style.display='block'" onchange="loadRota()" class="w-full p-3 rounded-xl">
+<!-- ══ START SCREEN ══ -->
+<div id="startScreen">
+  <div class="start-hero">
+    <img class="start-logo"
+      src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
+      alt="EGBC" onerror="this.style.display='none'">
+    <div class="start-hero-title">Performance Notes</div>
+    <div class="start-hero-sub">EGBC Worship &amp; AV</div>
+  </div>
+
+  <div class="start-form">
+    <div>
+      <label class="start-label">Date</label>
+      <input type="date" id="dateInput" class="start-input" onchange="loadRota()">
+    </div>
+    <div>
+      <label class="start-label">Service</label>
+      <select id="serviceSelect" class="start-input" onchange="selectService()" style="display:none;">
+        <option value="">Select Service</option>
+      </select>
+    </div>
+    <div>
+      <label class="start-label">Your Instrument / Role</label>
+      <select id="roleSelect" class="start-input" style="display:none;">
+        <option value="">Choose your instrument…</option>
+      </select>
+    </div>
+    <button id="loadBtn" class="btn-load" onclick="loadService()">Load Service</button>
+  </div>
 </div>
 
-<select id="serviceSelect" onchange="selectService()" class="w-full p-3 rounded-xl">
-<option>Select Service</option>
-</select>
-
-<select id="roleSelect" class="w-full p-3 rounded-xl">
-<option>Instrument</option>
-</select>
-
-<button onclick="loadService()" class="w-full bg-[#2c6999] text-white p-3 rounded-xl font-bold">
-Load Service
-</button>
+<!-- ══ SONG SCREEN ══ -->
+<div id="songScreen">
+  <div class="song-topbar">
+    <button class="topbar-menu-btn" onclick="toggleMenu()">☰</button>
+    <div class="song-title-bar">
+      <div class="song-title-main" id="songTitleMain">—</div>
+      <div class="song-counter" id="songCounter">—</div>
+    </div>
+    <div class="topbar-nav">
+      <button class="nav-arrow" id="prevBtn" onclick="prev()" disabled>‹</button>
+      <button class="nav-arrow" id="nextBtn" onclick="next()" disabled>›</button>
+    </div>
+  </div>
+  <div class="song-content" id="songContent"></div>
 </div>
 
-<button id="fsToggle" style="display:none;" onclick="goFull()">[ Fullscreen ]</button>
-
+<!-- ══ SLIDE MENU ══ -->
 <div id="menu"></div>
 <div id="overlay" onclick="closeMenu()"></div>
+
+<!-- ══ PDF VIEWER ══ -->
 <div id="pdfViewer"></div>
-<div id="app"></div>
+
+<!-- ══ FULLSCREEN ══ -->
+<button id="fsToggle" onclick="goFull()">☀ Stay Awake</button>
 
 </body>
 </html>
