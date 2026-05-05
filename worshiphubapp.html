@@ -1066,17 +1066,19 @@ body {
 }
 
 .kb-modal-video {
+  position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  padding-bottom: 56.25%;
+  height: 0;
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 14px;
   background: var(--bg);
-  position: relative;
 }
 .kb-modal-video iframe {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   border: none;
@@ -2232,13 +2234,7 @@ function openKbCard(id, context) {
       ${asset.songSection ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.songSection}</span>` : ''}
       ${asset.instrument ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>` : ''}
     </div>
-    ${src ? `
-      <a href="${src}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:10px;background:var(--teal);color:white;border-radius:12px;padding:16px;margin-bottom:14px;text-decoration:none;font-family:var(--font);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.05em;">
-        <span style="font-size:20px;">▶</span> Watch Video
-      </a>
-      <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;font-weight:700;color:var(--teal);opacity:0.7;text-align:center;line-height:1.4;">
-        Opens in your browser — sign in with your Microsoft account if prompted
-      </div>` : ''}
+    ${src ? `<div class="kb-modal-video"><iframe src="${src}" allowfullscreen allow="autoplay; encrypted-media"></iframe></div>` : ''}
     ${sections.length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div>
@@ -2258,9 +2254,9 @@ function openKbCard(id, context) {
 
 function closeKbModal() {
   document.getElementById('kb-modal').classList.remove('open');
-  // Stop video
+  // Clear iframe src to stop video playback
   const frame = document.querySelector('#kb-modal-content iframe');
-  if (frame) frame.src = frame.src;
+  if (frame) frame.src = '';
 }
 
 // ── SONG LIBRARY ──────────────────────────────────────────────────────────
@@ -2742,6 +2738,68 @@ function fmtTime(s) {
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 loadNews();
+
+// Silently pre-warm the SharePoint/Microsoft session so videos work in the app.
+// Creates a hidden iframe pointing to the SP site — if a session exists it loads
+// silently; if not, we detect the sign-in redirect and show a prompt.
+(function warmSharePointSession() {
+  const SP = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+  const frame = document.createElement('iframe');
+  frame.src = SP;
+  frame.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+  frame.id = 'sp-warmup';
+
+  frame.onload = () => {
+    // If redirected to login page, the src will have changed to login.microsoftonline.com
+    try {
+      const landed = frame.contentWindow?.location?.href || '';
+      if (landed.includes('login.microsoftonline') || landed.includes('login.live')) {
+        // Session expired — show a sign-in prompt
+        showSPSignInBanner();
+      }
+    } catch(e) {
+      // Cross-origin means SP loaded fine (good) — can't read the URL due to CORS
+    }
+    // Remove the warmup frame after 10 seconds
+    setTimeout(() => frame.remove(), 10000);
+  };
+
+  document.body.appendChild(frame);
+})();
+
+function showSPSignInBanner() {
+  const banner = document.createElement('div');
+  banner.id = 'sp-signin-banner';
+  banner.style.cssText = `
+    position:fixed; bottom:calc(var(--safe-bottom) + 80px); left:12px; right:12px;
+    background:var(--teal); color:white; border-radius:16px; padding:14px 16px;
+    z-index:700; box-shadow:0 4px 20px rgba(61,98,99,0.4);
+    font-family:var(--font); cursor:pointer;
+    display:flex; align-items:center; gap:12px;
+  `;
+  banner.innerHTML = `
+    <span style="font-size:22px;">🔐</span>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:800;margin-bottom:2px;">Sign in to Microsoft</div>
+      <div style="font-size:11px;opacity:0.75;">Required to watch training videos</div>
+    </div>
+    <span style="font-size:18px;opacity:0.6;">›</span>
+  `;
+  banner.onclick = () => {
+    // Open SP in a new tab so the user can sign in with full browser cookies
+    window.open('https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV', '_blank');
+    banner.remove();
+  };
+  // Close button
+  const x = document.createElement('button');
+  x.textContent = '✕';
+  x.style.cssText = 'position:absolute;top:8px;right:10px;background:none;border:none;color:white;opacity:0.5;font-size:14px;cursor:pointer;font-family:var(--font);font-weight:800;';
+  x.onclick = e => { e.stopPropagation(); banner.remove(); };
+  banner.appendChild(x);
+  document.body.appendChild(banner);
+  // Auto-dismiss after 12 seconds
+  setTimeout(() => { if (banner.parentNode) banner.remove(); }, 12000);
+}
 
 // Auto-show tour on first visit to home
 if (!localStorage.getItem('egbc_hub_toured_home')) {
