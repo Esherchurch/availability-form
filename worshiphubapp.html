@@ -1822,6 +1822,8 @@ function jumpToRotaDate(date) {
   }
   toast('Date not found in rota');
 }
+
+function downloadICS(type) {
   const memberId = document.getElementById('rota-member-select').value;
   if (!memberId) { toast('Please select your name first'); return; }
   const member = rotaAddressBook.find(m => m.id === memberId);
