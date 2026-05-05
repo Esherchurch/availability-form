@@ -1621,11 +1621,11 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 <div id="tour-overlay">
   <div class="tour-backdrop" onclick="endTour()"></div>
   <div class="tour-highlight" id="tour-highlight"></div>
-  <div class="tour-tooltip" id="tour-tooltip">
+  <div class="tour-tooltip" id="tour-tooltip" onclick="event.stopPropagation()">
     <div class="tour-tooltip-title" id="tour-title"></div>
     <div class="tour-tooltip-text" id="tour-text"></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.7;margin-bottom:10px;cursor:pointer;">
-      <input type="checkbox" id="tour-dont-show" style="width:14px;height:14px;accent-color:white;">
+    <label style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.7;margin-bottom:10px;cursor:pointer;" onclick="event.stopPropagation()">
+      <input type="checkbox" id="tour-dont-show" style="width:14px;height:14px;accent-color:white;" onclick="event.stopPropagation()">
       Don't show this again
     </label>
     <div class="tour-btn-row">
