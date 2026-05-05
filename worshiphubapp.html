@@ -253,6 +253,7 @@ body {
 .tile-av { border-top: 3px solid #ef4444; }
 .tile-upload { border-top: 3px solid var(--green); }
 .tile-library { border-top: 3px solid #2c6999; }
+.tile-news    { border-top: 3px solid #ef4444; }
 
 /* ── SECTION SCREENS ── */
 .section-screen {
@@ -1326,7 +1327,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
   <button id="back-btn" onclick="goBack()">←</button>
 
   <div id="header-title">Worship Hub</div>
-  <button id="header-help" onclick="startTour()" title="Help">?</button>
+  <button id="header-help" onclick="startTour(true)" title="Help">?</button>
 </div>
 
 <!-- MAIN CONTENT -->
@@ -1382,13 +1383,12 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
         <div class="tile-desc">Browse & find sheet music</div>
         <div class="tile-arrow">›</div>
       </div>
-    </div>
-
-    <!-- News Feed -->
-    <div class="tiles-heading">Latest News</div>
-    <div class="home-news" id="news-section" style="margin:0 12px 20px;">
-      <div class="news-items-list" id="news-list">
-        <div class="news-empty">Loading news...</div>
+      <div class="tile tile-news" onclick="openSection('news')" id="tile-news">
+        <div class="tile-icon">📣</div>
+        <div class="tile-name">Latest News</div>
+        <div class="tile-desc">Team updates & announcements</div>
+        <div class="tile-arrow">›</div>
+        <div id="news-badge" style="display:none;position:absolute;top:12px;right:12px;background:#ef4444;color:white;font-size:10px;font-weight:800;min-width:20px;height:20px;border-radius:9999px;display:none;align-items:center;justify-content:center;padding:0 5px;"></div>
       </div>
     </div>
   </div>
@@ -1558,6 +1558,13 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
     <div id="song-detail-panel" style="display:none;"></div>
   </div>
 
+  <!-- NEWS SECTION -->
+  <div id="section-news" class="section-screen">
+    <div id="news-full-list" style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+      <div class="loading-state">Loading news...</div>
+    </div>
+  </div>
+
 </div><!-- end app-content -->
 
 <!-- KB DETAIL MODAL -->
@@ -1617,8 +1624,12 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
   <div class="tour-tooltip" id="tour-tooltip">
     <div class="tour-tooltip-title" id="tour-title"></div>
     <div class="tour-tooltip-text" id="tour-text"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.7;margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="tour-dont-show" style="width:14px;height:14px;accent-color:white;">
+      Don't show this again
+    </label>
     <div class="tour-btn-row">
-      <button class="tour-skip" onclick="endTour()">Skip tour</button>
+      <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>
       <button class="tour-next" onclick="nextTourStep()">Next →</button>
     </div>
@@ -1680,7 +1691,8 @@ function openSection(name) {
 
   const titles = {
     rota: 'Rota', board: 'Notice Board', worship: 'Worship Resources',
-    av: 'AV Help', upload: 'Music Uploader', library: 'Song Library'
+    av: 'AV Help', upload: 'Music Uploader', library: 'Song Library',
+    news: 'Latest News'
   };
   document.getElementById('header-title').textContent = titles[name] || 'Worship Hub';
   document.getElementById('back-btn').classList.add('visible');
@@ -1693,6 +1705,7 @@ function openSection(name) {
   if (name === 'av' && troubleshootAssets.length === 0 && howtoAssets.length === 0) loadAvAssets();
   if (name === 'upload' && allSongs.length === 0) loadSongs();
   if (name === 'library' && allSongs.length === 0) loadSongs();
+  if (name === 'news') renderNewsSection();
 }
 
 function goBack() {
@@ -1716,22 +1729,57 @@ async function loadNews() {
   try {
     const snap = await db.collection('portal').doc('dashboardContent').get();
     const data = snap.exists ? snap.data() : {};
-    const items = (data.newsItems || []).slice().reverse().slice(0, 5);
-    const list = document.getElementById('news-list');
-    if (!items.length) {
-      list.innerHTML = '<div class="news-empty">No news yet.</div>';
-      return;
+    const items = (data.newsItems || []).slice().reverse();
+
+    // Work out unread count — compare latest item id to last seen id
+    const lastSeen = localStorage.getItem('egbc_news_last_seen');
+    const unread = lastSeen
+      ? items.filter(i => String(i.id) > String(lastSeen)).length
+      : items.length;
+
+    // Show badge on tile
+    const badge = document.getElementById('news-badge');
+    if (badge) {
+      if (unread > 0) {
+        badge.textContent = unread > 9 ? '9+' : unread;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
     }
-    list.innerHTML = items.map(item => `
-      <div class="news-item">
-        ${item.date ? `<div class="news-item-date">${item.date}</div>` : ''}
-        <div class="news-item-title">${item.title || ''}</div>
-        <div class="news-item-body">${item.body || ''}</div>
-      </div>
-    `).join('');
+
+    // Store items for the news section
+    window._newsItems = items;
   } catch(e) {
-    document.getElementById('news-list').innerHTML = '<div class="news-empty">Could not load news.</div>';
+    window._newsItems = [];
   }
+}
+
+function renderNewsSection() {
+  const items = window._newsItems || [];
+  const list = document.getElementById('news-full-list');
+
+  // Mark all as read — store the latest item id
+  if (items.length) {
+    const latestId = items[0].id;
+    localStorage.setItem('egbc_news_last_seen', String(latestId));
+    // Clear badge
+    const badge = document.getElementById('news-badge');
+    if (badge) badge.style.display = 'none';
+  }
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📣</div><div class="empty-state-text">No news yet</div></div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => `
+    <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;">
+      ${item.date ? `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#a0b0b0;margin-bottom:5px;">${item.date}</div>` : ''}
+      <div style="font-size:15px;font-weight:800;color:var(--teal);margin-bottom:8px;line-height:1.3;">${item.title || ''}</div>
+      <div style="font-size:13px;color:#555;line-height:1.6;">${item.body || ''}</div>
+    </div>
+  `).join('');
 }
 
 // ── ROTA ──────────────────────────────────────────────────────────────────
@@ -2526,11 +2574,16 @@ const TOUR_STEPS = {
   ],
 };
 
-function startTour() {
+function startTour(force) {
   const section = currentSection === 'home' ? 'home' : currentSection;
+  // If permanently dismissed for this section, only show if explicitly triggered via ? button
+  if (!force && localStorage.getItem('egbc_hub_toured_' + section) === 'permanent') return;
   const steps = TOUR_STEPS[section];
   if (!steps || !steps.length) { toast('No tour for this screen'); return; }
   tourStepIndex = 0;
+  // Reset the checkbox
+  const cb = document.getElementById('tour-dont-show');
+  if (cb) cb.checked = false;
   showTourStep(steps);
 }
 
@@ -2581,6 +2634,10 @@ function nextTourStep() {
 }
 
 function endTour() {
+  const dontShow = document.getElementById('tour-dont-show');
+  if (dontShow && dontShow.checked) {
+    localStorage.setItem('egbc_hub_toured_' + (currentSection === 'home' ? 'home' : currentSection), 'permanent');
+  }
   document.getElementById('tour-overlay').classList.remove('active');
 }
 
@@ -2612,11 +2669,11 @@ function fmtTime(s) {
 // ── INIT ──────────────────────────────────────────────────────────────────
 loadNews();
 
-// Check if first visit - show tour
-if (!localStorage.getItem('egbc_hub_toured')) {
+// Auto-show tour on first visit to home
+if (!localStorage.getItem('egbc_hub_toured_home')) {
   setTimeout(() => {
-    startTour();
-    localStorage.setItem('egbc_hub_toured', '1');
+    startTour(false);
+    localStorage.setItem('egbc_hub_toured_home', '1');
   }, 800);
 }
 </script>
