@@ -1042,10 +1042,59 @@ async function loadServiceList() {
   try {
     const snap = await db.collection('services').orderBy('date', 'desc').get();
     window._services = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.archived);
+
+    // Detect duplicates — flag services sharing the same date
+    const dateCounts = {};
+    window._services.forEach(s => { dateCounts[s.date] = (dateCounts[s.date]||0) + 1; });
+    window._services.forEach(s => { s._isDuplicate = dateCounts[s.date] > 1; });
+
     renderServiceList();
+
+    // Show deduplicate button if any duplicates exist
+    const hasDupes = Object.values(dateCounts).some(c => c > 1);
+    if (hasDupes) {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'margin:0 12px 8px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;';
+      bar.innerHTML = `<div style="flex:1;font-size:12px;font-weight:700;color:#991b1b;">⚠ Duplicate services found for some dates</div>
+        <button onclick="deduplicateServices()" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:8px;font-family:var(--font);font-size:11px;font-weight:800;cursor:pointer;">Fix</button>`;
+      $('service-list').insertAdjacentElement('beforebegin', bar);
+    }
   } catch(e) {
     $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-text">Could not load services</div></div>';
   }
+}
+
+async function deduplicateServices() {
+  // For each date with duplicates, keep the one with the most content and delete the rest
+  confirm_('Fix Duplicates', 'This will merge duplicate services, keeping the one with the most songs. Continue?', async () => {
+    loader(true, 'Fixing duplicates...');
+    try {
+      const snap = await db.collection('services').get();
+      const byDate = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.archived) return;
+        if (!byDate[data.date]) byDate[data.date] = [];
+        byDate[data.date].push({ id: d.id, ...data });
+      });
+
+      for (const [date, services] of Object.entries(byDate)) {
+        if (services.length <= 1) continue;
+        // Keep the one with the most order items
+        services.sort((a,b) => (b.order||[]).length - (a.order||[]).length);
+        const keep = services[0];
+        // Delete the rest
+        for (let i = 1; i < services.length; i++) {
+          await db.collection('services').doc(services[i].id).delete();
+        }
+      }
+      toast('Duplicates fixed ✓');
+      // Remove the warning bar
+      document.querySelectorAll('[style*="fef2f2"]').forEach(el => el.remove());
+      await loadServiceList();
+    } catch(e) { toast('Error: ' + e.message); }
+    loader(false);
+  });
 }
 
 function renderServiceList() {
@@ -1061,7 +1110,7 @@ function renderServiceList() {
   $('service-list').innerHTML = list.map(s => `
     <div class="service-card fade-in" onclick="openServiceDetail('${s.id}')">
       <div class="service-card-info">
-        <div class="service-card-date">${fmtShortDate(s.date)}</div>
+        <div class="service-card-date">${fmtShortDate(s.date)}${s._isDuplicate ? ' <span style="color:#ef4444;font-size:9px;">● DUPLICATE</span>' : ''}</div>
         <div class="service-card-title">${s.type || 'Service'}</div>
         <div class="service-card-meta">${(s.order||[]).filter(i=>i.type==='song').length} songs · ${s.worshipLeader || 'No leader set'}</div>
       </div>
@@ -1088,19 +1137,34 @@ async function createService() {
   if (!type) { toast('Please enter a service type'); return; }
   loader(true, 'Creating service...');
   try {
-    const ref = await db.collection('services').add({
-      date, type, worshipLeader: leader,
-      order: [], notes: '', introText: '', outroText: '',
-      roleNotes: {}, archived: false,
-      createdAt: TS(), updatedAt: TS()
-    });
+    // Check if a service already exists for this date
+    const existing = await db.collection('services').where('date','==',date).get();
+    let serviceId;
+
+    if (!existing.empty) {
+      // Update the existing one rather than creating a duplicate
+      serviceId = existing.docs[0].id;
+      await db.collection('services').doc(serviceId).update({
+        type, worshipLeader: leader, archived: false, updatedAt: TS()
+      });
+      currentService = { id: serviceId, ...existing.docs[0].data(), type, worshipLeader: leader };
+      toast('Service updated ✓');
+    } else {
+      const ref = await db.collection('services').add({
+        date, type, worshipLeader: leader,
+        order: [], notes: '', introText: '', outroText: '',
+        roleNotes: {}, archived: false,
+        createdAt: TS(), updatedAt: TS()
+      });
+      serviceId = ref.id;
+      currentService = { id: serviceId, date, type, worshipLeader: leader, order: [], notes: '', introText: '', outroText: '', roleNotes: {} };
+      toast('Service created!');
+    }
+
     closeModal('modal-new-service');
-    toast('Service created!');
-    currentService = { id: ref.id, date, type, worshipLeader: leader, order: [], notes: '', introText: '', outroText: '', roleNotes: {} };
-    // Try to auto-load rota for this date
     await loadRotaForService(date);
     openSection('service-detail');
-  } catch(e) { toast('Error creating service'); }
+  } catch(e) { toast('Error: ' + e.message); }
   loader(false);
 }
 
@@ -1144,16 +1208,18 @@ function renderServiceDetail() {
     </div>
     ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;margin-top:10px;">🎸 ${s.worshipLeader}</div>` : ''}`;
 
-  // Populate fields
-  $('service-intro').value = s.introText || '';
-  $('service-notes').value = s.notes || '';
-  $('service-outro').value = s.outroText || '';
-  setTimeout(() => {
-    [$('service-intro'), $('service-notes'), $('service-outro')].forEach(el => { if(el) autoGrow(el); });
-  }, 50);
-
   renderOrderList();
   renderServiceRotaTable();
+
+  // Populate text fields after a tick so the screen is visible and autoGrow works
+  setTimeout(() => {
+    const intro = $('service-intro');
+    const notes = $('service-notes');
+    const outro = $('service-outro');
+    if (intro) { intro.value = s.introText || ''; autoGrow(intro); }
+    if (notes) { notes.value = s.notes     || ''; autoGrow(notes); }
+    if (outro) { outro.value = s.outroText || ''; autoGrow(outro); }
+  }, 100);
 }
 
 function renderServiceRotaTable() {
