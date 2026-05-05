@@ -1066,13 +1066,13 @@ body {
 }
 
 .kb-modal-video {
-  position: relative;
-  padding-bottom: 56.25%;
-  height: 0;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 14px;
   background: var(--bg);
+  position: relative;
 }
 .kb-modal-video iframe {
   position: absolute;
@@ -1211,13 +1211,18 @@ body {
   z-index: 900;
   pointer-events: none;
 }
-#tour-overlay.active { display: block; }
+#tour-overlay.active {
+  display: block;
+  pointer-events: none;
+}
 
 .tour-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(0,0,0,0.5);
   pointer-events: all;
+  z-index: 0;
+  cursor: pointer;
 }
 
 .tour-tooltip {
@@ -1226,10 +1231,11 @@ body {
   color: white;
   border-radius: 16px;
   padding: 16px;
-  max-width: 280px;
+  max-width: calc(100vw - 40px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
   pointer-events: all;
-  z-index: 1;
+  z-index: 3;
+  cursor: default;
 }
 
 .tour-tooltip-title {
@@ -1538,15 +1544,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
         <!-- File slots (up to 4) -->
         <div id="upload-file-slots">
-          <div class="form-field">
-            <label>PDF File (1 of up to 4)</label>
-            <div class="upload-file-area">
-              <div class="upload-file-icon">📄</div>
-              <div class="upload-file-text">Tap to select PDF</div>
-              <div class="upload-file-name" id="upload-file-name-0"></div>
-              <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
-            </div>
-          </div>
+          <!-- File slots rendered when section opens -->
         </div>
 
         <button class="btn-upload" id="upload-more-btn" onclick="addUploadSlot()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">+ Add Another File</button>
@@ -1632,13 +1630,15 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 <div id="tour-overlay">
   <div class="tour-backdrop" onclick="endTour()"></div>
   <div class="tour-highlight" id="tour-highlight"></div>
-  <div class="tour-tooltip" id="tour-tooltip" onclick="event.stopPropagation()">
+  <div class="tour-tooltip" id="tour-tooltip">
     <div class="tour-tooltip-title" id="tour-title"></div>
     <div class="tour-tooltip-text" id="tour-text"></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.7;margin-bottom:10px;cursor:pointer;" onclick="event.stopPropagation()">
-      <input type="checkbox" id="tour-dont-show" style="width:14px;height:14px;accent-color:white;" onclick="event.stopPropagation()">
-      Don't show this again
-    </label>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.8;margin-bottom:12px;position:relative;z-index:10;">
+      <input type="checkbox" id="tour-dont-show"
+        style="width:18px;height:18px;accent-color:white;cursor:pointer;flex-shrink:0;"
+        onchange="this.blur()">
+      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+    </div>
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>
@@ -1715,6 +1715,7 @@ function openSection(name) {
   if (name === 'worship' && worshipAssets.length === 0 && trainingAssets.length === 0) loadWorshipAssets();
   if (name === 'av' && troubleshootAssets.length === 0 && howtoAssets.length === 0) loadAvAssets();
   if (name === 'upload' && allSongs.length === 0) loadSongs();
+  if (name === 'upload') initUploadSlots();
   if (name === 'library' && allSongs.length === 0) loadSongs();
   if (name === 'news') renderNewsSection();
 
@@ -2230,7 +2231,7 @@ function openKbCard(id, context) {
       ${asset.songSection ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.songSection}</span>` : ''}
       ${asset.instrument ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>` : ''}
     </div>
-    ${src ? `<div class="kb-modal-video"><iframe src="${src}" allowfullscreen allow="autoplay; encrypted-media"></iframe></div>` : ''}
+    ${src ? `<div class="kb-modal-video"><iframe src="${src}" allowfullscreen></iframe></div>` : ''}
     ${sections.length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div>
@@ -2360,6 +2361,23 @@ window.goBack = function() {
   }
   _origGoBack();
 };
+
+function initUploadSlots() {
+  // Only init once
+  if (document.getElementById('upload-file-input-0')) return;
+  document.getElementById('upload-file-slots').innerHTML = `
+    <div class="form-field">
+      <label>PDF File (1 of up to 4)</label>
+      <div class="upload-file-area">
+        <div class="upload-file-icon">📄</div>
+        <div class="upload-file-text">Tap to select PDF</div>
+        <div class="upload-file-name" id="upload-file-name-0"></div>
+        <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
+      </div>
+    </div>`;
+  uploadSlots = 1;
+  uploadFiles = {};
+}
 
 // ── MUSIC UPLOADER ────────────────────────────────────────────────────────
 let uploadSlots = 1;
