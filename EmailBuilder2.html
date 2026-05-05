@@ -5,7 +5,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <!-- GIF encoder — pure JS, no web workers needed -->
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
 
     <style>
@@ -43,25 +42,73 @@
         .gif-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
         .gif-label { font-size: 11px; font-weight: 700; color: #3d6263; text-transform: uppercase; width: 80px; }
         .gif-input { flex: 1; padding: 8px 12px; border: 1px solid #d1dfdf; border-radius: 8px; font-size: 13px; }
+
+        /* Drafts modal */
+        #draftsModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; }
+        #draftsModal.active { display: flex; }
+        #draftsModalBox { background: white; border-radius: 16px; padding: 30px; width: 560px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        #draftsModalBox h3 { color: #3d6263; font-weight: 800; margin: 0 0 6px 0; }
+        .draft-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #f8fafc; display: flex; align-items: center; gap: 12px; }
+        .draft-card:hover { border-color: #3d6263; background: #f0f6f6; }
+        .draft-info { flex: 1; min-width: 0; }
+        .draft-name { font-weight: 800; font-size: 14px; color: #1e293b; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .draft-meta { font-size: 11px; color: #64748b; line-height: 1.5; }
+        .draft-meta span { display: inline-block; margin-right: 8px; }
+        .draft-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .btn-load { background: #2c6999; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+        .btn-load:hover { background: #1d4e7a; }
+        .btn-del { background: #fee2e2; color: #b91c1c; border: none; padding: 7px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .btn-del:hover { background: #fca5a5; }
+        .draft-empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 30px 0; }
+        .draft-slot-count { font-size: 11px; color: #94a3b8; margin-bottom: 16px; }
+
+        /* Who are you modal */
+        #whoModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 3000; align-items: center; justify-content: center; }
+        #whoModal.active { display: flex; }
+        #whoModalBox { background: white; border-radius: 16px; padding: 36px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; }
+        #whoModalBox h3 { color: #3d6263; font-weight: 800; margin: 0 0 8px 0; font-size: 20px; }
+        #whoModalBox p { color: #64748b; font-size: 13px; margin: 0 0 20px 0; }
+        #whoInput { width: 100%; box-sizing: border-box; padding: 12px 16px; border: 2px solid #d1dfdf; border-radius: 10px; font-size: 15px; font-weight: 600; margin-bottom: 16px; outline: none; }
+        #whoInput:focus { border-color: #3d6263; }
     </style>
 </head>
 <body>
 
 <div id="loader"><h2>Syncing to Hub...</h2><p id="loaderMsg">Please wait...</p></div>
 
+<!-- Who Are You modal -->
+<div id="whoModal">
+    <div id="whoModalBox">
+        <h3>👋 Who are you?</h3>
+        <p>Your name will be saved alongside any drafts you create or edit.</p>
+        <input id="whoInput" type="text" placeholder="Your first name..." maxlength="30" />
+        <button class="btn" style="width:100%; padding:12px; font-size:13px;" onclick="saveWhoAndContinue()">Let's go</button>
+    </div>
+</div>
+
+<!-- Drafts Modal -->
+<div id="draftsModal">
+    <div id="draftsModalBox">
+        <h3>📂 Saved Drafts</h3>
+        <div class="draft-slot-count" id="draftSlotCount"></div>
+        <div id="draftsList"></div>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+            <button class="btn" style="flex:1; padding:11px; font-size:12px; background:#27ae60;" onclick="saveNewDraft()">💾 Save Current as New Draft</button>
+            <button class="btn" style="padding:11px; background:#aaa;" onclick="closeDraftsModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- GIF Maker Modal -->
 <div id="gifModal">
     <div id="gifModalBox">
         <h3>🎬 GIF Maker</h3>
         <p style="font-size:12px; color:#666; margin:0 0 12px 0;">Upload 2–8 images to create an animated GIF. Click a frame to remove it.</p>
-
         <div id="gifFrameList"><span style="font-size:11px; color:#aaa; align-self:center;">No frames yet — add images below</span></div>
-
         <div style="display:flex; gap:8px; margin-bottom:16px;">
             <button class="btn" onclick="addGifFrames()" style="flex:1;">+ Add Images</button>
             <button class="btn" onclick="clearGifFrames()" style="background:#b22222;">Clear All</button>
         </div>
-
         <div class="gif-row">
             <span class="gif-label">Delay (ms)</span>
             <input id="gifDelay" type="number" value="500" min="100" max="5000" step="100" class="gif-input" placeholder="500">
@@ -71,12 +118,10 @@
             <span class="gif-label">Width (px)</span>
             <input id="gifWidth" type="number" value="400" min="100" max="700" class="gif-input" placeholder="400">
         </div>
-
         <div id="gifProgress">
             <p style="font-size:11px; color:#3d6263; font-weight:700; margin-bottom:6px;">Generating GIF...</p>
             <div id="gifProgressBar"><div id="gifProgressFill"></div></div>
         </div>
-
         <div style="display:flex; gap:8px; margin-top:16px;">
             <button class="btn" onclick="generateGif()" style="flex:1; background:#27ae60;">Generate & Insert</button>
             <button class="btn" onclick="closeGifModal()" style="background:#aaa;">Cancel</button>
@@ -143,9 +188,21 @@
         </div>
 
         <button onclick="launchGroupEmail()" class="btn" style="width:100%; padding: 12px 0;">Open Outlook</button>
-        <button onclick="saveDraftToCloud()" class="btn" style="width:100%; padding: 10px 0; margin-top: 10px; background: #27ae60;">Save to Cloud</button>
-        <button onclick="loadDraftFromCloud()" class="btn" style="width:100%; padding: 10px 0; margin-top: 5px; background: #2980b9;">Load from Cloud</button>
+
+        <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:16px;">
+            <div style="font-size:10px; font-weight:800; color:#2c6999; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px;">Drafts</div>
+            <button onclick="openDraftsModal()" class="btn" style="width:100%; padding: 11px 0; background: #2c6999;">📂 Open Drafts</button>
+        </div>
+
+        <div id="current-draft-info" style="display:none; margin-top:12px; background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0; font-size:11px; color:#64748b; line-height:1.7;">
+        </div>
+
         <div id="member-count" style="font-size: 10px; text-align: center; margin-top: 10px; color: #999;">0 Selected</div>
+
+        <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px; font-size:11px; color:#94a3b8; text-align:center;">
+            Editing as: <span id="currentUserLabel" style="font-weight:700; color:#3d6263;">—</span>
+            <br><a href="#" onclick="changeUser()" style="color:#94a3b8; font-size:10px;">change</a>
+        </div>
     </div>
 </div>
 
@@ -160,35 +217,212 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
 
+const MAX_DRAFTS = 10;
 let allMembers = [];
 let lastClickedImg = null;
-let gifFrames = []; // { dataUrl, img }
+let gifFrames = [];
+let currentUser = "";
+let activeDraftId = null; // the draft currently loaded in the editor
 
 db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 });
 
-// ── DRAFT ─────────────────────────────────────────────────────────────────
-async function saveDraftToCloud() {
+// ── WHO ARE YOU ────────────────────────────────────────────────────────────
+function initUser() {
+    const stored = localStorage.getItem('egbc_email_user');
+    if (stored) {
+        currentUser = stored;
+        document.getElementById('currentUserLabel').textContent = currentUser;
+    } else {
+        document.getElementById('whoModal').classList.add('active');
+        setTimeout(() => document.getElementById('whoInput').focus(), 100);
+    }
+}
+
+function saveWhoAndContinue() {
+    const name = document.getElementById('whoInput').value.trim();
+    if (!name) return;
+    currentUser = name;
+    localStorage.setItem('egbc_email_user', name);
+    document.getElementById('currentUserLabel').textContent = name;
+    document.getElementById('whoModal').classList.remove('active');
+}
+
+function changeUser() {
+    localStorage.removeItem('egbc_email_user');
+    document.getElementById('whoInput').value = currentUser;
+    document.getElementById('whoModal').classList.add('active');
+    setTimeout(() => document.getElementById('whoInput').focus(), 100);
+}
+
+document.getElementById('whoInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveWhoAndContinue();
+});
+
+// ── DRAFTS ─────────────────────────────────────────────────────────────────
+function formatDate(ts) {
+    if (!ts) return '—';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+        + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+
+async function openDraftsModal() {
+    document.getElementById('draftsModal').classList.add('active');
+    await renderDraftsList();
+}
+
+function closeDraftsModal() {
+    document.getElementById('draftsModal').classList.remove('active');
+}
+
+async function renderDraftsList() {
+    const list = document.getElementById('draftsList');
+    list.innerHTML = '<div style="color:#94a3b8; font-size:12px; padding:10px 0;">Loading...</div>';
+
+    try {
+        const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS).get();
+        const count = snap.docs.length;
+        document.getElementById('draftSlotCount').textContent = `${count} of ${MAX_DRAFTS} slots used`;
+
+        if (count === 0) {
+            list.innerHTML = '<div class="draft-empty">No saved drafts yet.</div>';
+            return;
+        }
+
+        list.innerHTML = snap.docs.map(d => {
+            const data = d.data();
+            const isActive = d.id === activeDraftId;
+            return `
+            <div class="draft-card" style="${isActive ? 'border-color:#3d6263; background:#f0f6f6;' : ''}">
+                <div class="draft-info">
+                    <div class="draft-name">${data.name || 'Untitled Draft'} ${isActive ? '<span style="font-size:10px; background:#3d6263; color:white; padding:2px 7px; border-radius:20px; margin-left:4px;">LOADED</span>' : ''}</div>
+                    <div class="draft-meta">
+                        <span>✏️ Created by <b>${data.createdBy || '?'}</b> on ${formatDate(data.createdAt)}</span><br>
+                        <span>🔄 Last edited by <b>${data.updatedBy || '?'}</b> on ${formatDate(data.updatedAt)}</span>
+                    </div>
+                </div>
+                <div class="draft-actions">
+                    <button class="btn-load" onclick="loadDraft('${d.id}')">Load</button>
+                    <button class="btn-del" onclick="deleteDraft('${d.id}', '${(data.name||'this draft').replace(/'/g,"\\'")}')">🗑</button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        list.innerHTML = '<div class="draft-empty">Error loading drafts.</div>';
+    }
+}
+
+async function saveNewDraft() {
+    if (!currentUser) { document.getElementById('whoModal').classList.add('active'); return; }
+
+    // Check slot count
+    const countSnap = await db.collection("emailDrafts").get();
+    if (countSnap.size >= MAX_DRAFTS) {
+        alert(`You've reached the maximum of ${MAX_DRAFTS} saved drafts. Please delete one before saving a new one.`);
+        return;
+    }
+
+    const name = prompt("Name this draft:", "Team Update");
+    if (!name) return;
+
     const content = document.getElementById('editable-body').innerHTML;
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+
     document.getElementById('loader').style.display = 'flex';
     document.getElementById('loaderMsg').textContent = 'Saving draft...';
+
     try {
-        await db.collection("drafts").doc("currentEmail").set({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        alert("Draft saved to Cloud!");
-    } catch (e) { alert("Error saving to cloud."); }
+        const ref = await db.collection("emailDrafts").add({
+            name,
+            content,
+            createdBy: currentUser,
+            createdAt: now,
+            updatedBy: currentUser,
+            updatedAt: now
+        });
+        activeDraftId = ref.id;
+        updateCurrentDraftInfo(name, currentUser, currentUser);
+        await renderDraftsList();
+        alert(`"${name}" saved!`);
+    } catch(e) {
+        alert("Error saving draft.");
+    }
     document.getElementById('loader').style.display = 'none';
 }
 
-async function loadDraftFromCloud() {
+async function loadDraft(id) {
     document.getElementById('loader').style.display = 'flex';
     document.getElementById('loaderMsg').textContent = 'Loading draft...';
     try {
-        const doc = await db.collection("drafts").doc("currentEmail").get();
-        if (doc.exists) { document.getElementById('editable-body').innerHTML = doc.data().content; alert("Draft loaded!"); }
-        else { alert("No cloud draft found."); }
-    } catch (e) { alert("Error loading from cloud."); }
+        const d = await db.collection("emailDrafts").doc(id).get();
+        if (d.exists) {
+            const data = d.data();
+            document.getElementById('editable-body').innerHTML = data.content;
+            activeDraftId = id;
+            updateCurrentDraftInfo(data.name, data.createdBy, data.updatedBy, data.createdAt, data.updatedAt);
+            closeDraftsModal();
+        }
+    } catch(e) {
+        alert("Error loading draft.");
+    }
     document.getElementById('loader').style.display = 'none';
+}
+
+async function overwriteActiveDraft() {
+    if (!activeDraftId) { await saveNewDraft(); return; }
+    if (!currentUser) { document.getElementById('whoModal').classList.add('active'); return; }
+
+    const content = document.getElementById('editable-body').innerHTML;
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+
+    document.getElementById('loader').style.display = 'flex';
+    document.getElementById('loaderMsg').textContent = 'Saving draft...';
+
+    try {
+        // Get current draft name & createdBy to preserve them
+        const existing = await db.collection("emailDrafts").doc(activeDraftId).get();
+        const existingData = existing.data();
+
+        await db.collection("emailDrafts").doc(activeDraftId).update({
+            content,
+            updatedBy: currentUser,
+            updatedAt: now
+        });
+
+        updateCurrentDraftInfo(existingData.name, existingData.createdBy, currentUser, existingData.createdAt);
+        alert(`Draft updated!`);
+    } catch(e) {
+        alert("Error saving draft.");
+    }
+    document.getElementById('loader').style.display = 'none';
+}
+
+async function deleteDraft(id, name) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+        await db.collection("emailDrafts").doc(id).delete();
+        if (activeDraftId === id) {
+            activeDraftId = null;
+            document.getElementById('current-draft-info').style.display = 'none';
+        }
+        await renderDraftsList();
+    } catch(e) {
+        alert("Error deleting draft.");
+    }
+}
+
+function updateCurrentDraftInfo(name, createdBy, updatedBy, createdAt, updatedAt) {
+    const el = document.getElementById('current-draft-info');
+    let html = `<div style="font-weight:800; color:#1e293b; margin-bottom:4px; font-size:12px;">${name || 'Draft'}</div>`;
+    html += `<div>✏️ Created by <b>${createdBy || '?'}</b></div>`;
+    if (createdAt) html += `<div style="color:#94a3b8; font-size:10px;">${formatDate(createdAt)}</div>`;
+    html += `<div style="margin-top:4px;">🔄 Last edited by <b>${updatedBy || '?'}</b></div>`;
+    if (updatedAt) html += `<div style="color:#94a3b8; font-size:10px;">${formatDate(updatedAt)}</div>`;
+    html += `<button onclick="overwriteActiveDraft()" class="btn" style="width:100%; margin-top:10px; padding:9px; font-size:11px; background:#27ae60;">💾 Save Changes</button>`;
+    el.innerHTML = html;
+    el.style.display = 'block';
 }
 
 // ── TEXT STYLING ──────────────────────────────────────────────────────────
@@ -231,7 +465,6 @@ function launchGroupEmail() {
     const unique = [...new Set(recipients)].filter(e => e);
     document.getElementById('member-count').innerText = `${unique.length} Selected`;
     if (unique.length > 0) {
-        // FIX 1: Use semicolons as separator so Outlook recognises each address
         window.location.href = `mailto:?bcc=${unique.join(';')}&subject=Worship & AV Team Update`;
     }
 }
@@ -296,7 +529,6 @@ async function compileAndLaunch() {
             </tr>
         </table>`;
 
-    // FIX 2: Add responsive styles so mobile text stays readable
     const responsiveStyles = `
         <style type="text/css">
             @media only screen and (max-width: 600px) {
@@ -325,14 +557,6 @@ ${responsiveStyles}
         </table>
     </td></tr>
 </table>
-<!-- Help button -->
-<a id="helpBtn"
-   href="https://esherchurch.github.io/availability-form/emailcompilerinstructions.html"
-   target="_blank"
-   rel="noopener"
-   aria-label="Open instructions"
-   style="position:fixed; bottom:24px; right:24px; z-index:900; width:38px; height:38px; border-radius:9999px; background:#ffffff; border:1.5px solid #d1dfdf; color:#3d6263; font-family:'Segoe UI',sans-serif; font-weight:800; font-size:15px; box-shadow:0 2px 12px rgba(61,98,99,0.12); transition:all 0.2s; display:flex; align-items:center; justify-content:center; text-decoration:none;">?</a>
-
 </body>
 </html>`;
 
@@ -343,26 +567,17 @@ ${responsiveStyles}
 }
 
 // ── GIF MAKER ─────────────────────────────────────────────────────────────
-function openGifModal() {
-    document.getElementById('gifModal').classList.add('active');
-}
-function closeGifModal() {
-    document.getElementById('gifModal').classList.remove('active');
-}
+function openGifModal() { document.getElementById('gifModal').classList.add('active'); }
+function closeGifModal() { document.getElementById('gifModal').classList.remove('active'); }
 
 function addGifFrames() {
     const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = true;
+    input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
     input.onchange = e => {
         const files = Array.from(e.target.files).slice(0, 8 - gifFrames.length);
         files.forEach(file => {
             const reader = new FileReader();
-            reader.onload = ev => {
-                gifFrames.push({ dataUrl: ev.target.result });
-                renderGifFrames();
-            };
+            reader.onload = ev => { gifFrames.push({ dataUrl: ev.target.result }); renderGifFrames(); };
             reader.readAsDataURL(file);
         });
     };
@@ -380,46 +595,26 @@ function renderGifFrames() {
     ).join('');
 }
 
-function removeGifFrame(idx) {
-    gifFrames.splice(idx, 1);
-    renderGifFrames();
-}
-
-function clearGifFrames() {
-    gifFrames = [];
-    renderGifFrames();
-}
+function removeGifFrame(idx) { gifFrames.splice(idx, 1); renderGifFrames(); }
+function clearGifFrames() { gifFrames = []; renderGifFrames(); }
 
 async function generateGif() {
     if (gifFrames.length < 2) { alert("Please add at least 2 images."); return; }
-
     const delayMs = parseInt(document.getElementById('gifDelay').value) || 500;
     const targetWidth = parseInt(document.getElementById('gifWidth').value) || 400;
-    // GIF delay is in centiseconds (100ths of a second)
     const delayCentiseconds = Math.round(delayMs / 10);
 
     document.getElementById('gifProgress').style.display = 'block';
     document.getElementById('gifProgressFill').style.width = '10%';
 
-    // Load all images
-    const loadImg = src => new Promise(res => {
-        const img = new Image();
-        img.onload = () => res(img);
-        img.src = src;
-    });
-
+    const loadImg = src => new Promise(res => { const img = new Image(); img.onload = () => res(img); img.src = src; });
     const imgs = await Promise.all(gifFrames.map(f => loadImg(f.dataUrl)));
-
-    // Use first frame aspect ratio for height
     const ratio = imgs[0].naturalHeight / imgs[0].naturalWidth;
     const targetHeight = Math.round(targetWidth * ratio);
 
     const canvas = document.createElement('canvas');
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
+    canvas.width = targetWidth; canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
-
-    // Build GIF using omggif
     const buf = new Uint8Array(targetWidth * targetHeight * imgs.length * 5 + 1024);
     const writer = new GifWriter(buf, targetWidth, targetHeight, { loop: 0 });
 
@@ -427,24 +622,15 @@ async function generateGif() {
         ctx.clearRect(0, 0, targetWidth, targetHeight);
         ctx.drawImage(imgs[i], 0, 0, targetWidth, targetHeight);
         const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-
-        // Convert RGBA to palette + indexed pixels
         const { palette, indexed } = rgbaToPaletteIndexed(imageData.data, targetWidth, targetHeight);
-
-        writer.addFrame(0, 0, targetWidth, targetHeight, indexed, {
-            palette,
-            delay: delayCentiseconds
-        });
-
+        writer.addFrame(0, 0, targetWidth, targetHeight, indexed, { palette, delay: delayCentiseconds });
         document.getElementById('gifProgressFill').style.width = Math.round(((i + 1) / imgs.length) * 80) + '%';
     }
 
     const gifData = buf.slice(0, writer.end());
     const blob = new Blob([gifData], { type: 'image/gif' });
-
     document.getElementById('gifProgressFill').style.width = '90%';
 
-    // Upload to Firebase
     document.getElementById('loader').style.display = 'flex';
     document.getElementById('loaderMsg').textContent = 'Uploading GIF...';
     document.getElementById('gifProgress').style.display = 'none';
@@ -453,9 +639,7 @@ async function generateGif() {
         const ref = storage.ref(`email_assets/gif_${Date.now()}.gif`);
         await ref.put(blob, { contentType: 'image/gif' });
         const url = await ref.getDownloadURL();
-        document.execCommand('insertHTML', false,
-            `<img src="${url}" width="${targetWidth}" style="width:${targetWidth}px; height:auto; margin:15px 0;">`
-        );
+        document.execCommand('insertHTML', false, `<img src="${url}" width="${targetWidth}" style="width:${targetWidth}px; height:auto; margin:15px 0;">`);
         closeGifModal();
         clearGifFrames();
     } catch(e) {
@@ -464,29 +648,21 @@ async function generateGif() {
     document.getElementById('loader').style.display = 'none';
 }
 
-// Convert RGBA pixel data to a 256-colour palette + indexed array for omggif
 function rgbaToPaletteIndexed(data, w, h) {
     const colorMap = new Map();
     const indexed = new Uint8Array(w * h);
     const palette = [];
-
     for (let i = 0; i < w * h; i++) {
-        const r = data[i * 4];
-        const g = data[i * 4 + 1];
-        const b = data[i * 4 + 2];
-        // Reduce to 6-bit per channel for better palette fit
+        const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
         const key = ((r >> 2) << 16) | ((g >> 2) << 8) | (b >> 2);
         if (!colorMap.has(key)) {
             if (palette.length < 255) {
                 colorMap.set(key, palette.length);
                 palette.push((r >> 2) << 18 | (g >> 2) << 10 | (b >> 2) << 2);
             } else {
-                // Find nearest colour in palette
                 let best = 0, bestDist = Infinity;
                 for (let j = 0; j < palette.length; j++) {
-                    const pr = (palette[j] >> 18) << 2;
-                    const pg = ((palette[j] >> 10) & 0x3f) << 2;
-                    const pb = ((palette[j] >> 2) & 0x3f) << 2;
+                    const pr = (palette[j] >> 18) << 2, pg = ((palette[j] >> 10) & 0x3f) << 2, pb = ((palette[j] >> 2) & 0x3f) << 2;
                     const d = (r-pr)**2 + (g-pg)**2 + (b-pb)**2;
                     if (d < bestDist) { bestDist = d; best = j; }
                 }
@@ -495,22 +671,18 @@ function rgbaToPaletteIndexed(data, w, h) {
         }
         indexed[i] = colorMap.get(key);
     }
-
-    // Pad palette to power of 2 (min 2)
-    while (palette.length < 2 || (palette.length & (palette.length - 1)) !== 0) {
-        palette.push(0);
-    }
-
+    while (palette.length < 2 || (palette.length & (palette.length - 1)) !== 0) palette.push(0);
     return { palette, indexed };
 }
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+initUser();
 </script>
-<!-- Help button -->
+
 <a id="helpBtn"
    href="https://esherchurch.github.io/availability-form/emailcompilerinstructions.html"
-   target="_blank"
-   rel="noopener"
-   aria-label="Open instructions"
-   style="position:fixed; bottom:24px; right:24px; z-index:900; width:38px; height:38px; border-radius:9999px; background:#ffffff; border:1.5px solid #d1dfdf; color:#3d6263; font-family:'Segoe UI',sans-serif; font-weight:800; font-size:15px; box-shadow:0 2px 12px rgba(61,98,99,0.12); transition:all 0.2s; display:flex; align-items:center; justify-content:center; text-decoration:none;">?</a>
+   target="_blank" rel="noopener" aria-label="Open instructions"
+   style="position:fixed; bottom:24px; right:24px; z-index:900; width:38px; height:38px; border-radius:9999px; background:#ffffff; border:1.5px solid #d1dfdf; color:#3d6263; font-family:'Segoe UI',sans-serif; font-weight:800; font-size:15px; box-shadow:0 2px 12px rgba(61,98,99,0.12); display:flex; align-items:center; justify-content:center; text-decoration:none;">?</a>
 
 </body>
 </html>
