@@ -90,88 +90,6 @@ textarea {
     display: block;
 }
 
-/* Dictation active - pulse the textarea border */
-textarea.dictating {
-    border-color: #ef4444 !important;
-    animation: dictate-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes dictate-pulse {
-    0%, 100% { border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-    50% { border-color: #f87171; box-shadow: 0 0 0 6px rgba(239,68,68,0.2); }
-}
-
-/* Dictation button states */
-.btn-dictate {
-    background: #334155;
-    color: #94a3b8;
-    border: 2px solid #475569;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-}
-.btn-dictate.listening {
-    background: #7f1d1d;
-    color: white;
-    border-color: #ef4444;
-    animation: btn-pulse 1.5s ease-in-out infinite;
-}
-.btn-dictate.listening::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle, rgba(239,68,68,0.3) 0%, transparent 70%);
-    animation: ripple 1.5s ease-in-out infinite;
-}
-@keyframes btn-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-    50% { box-shadow: 0 0 0 8px rgba(239,68,68,0.25); }
-}
-@keyframes ripple {
-    0% { transform: scale(0.8); opacity: 1; }
-    100% { transform: scale(2); opacity: 0; }
-}
-
-/* Interim text preview */
-#dictate-preview {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(239,68,68,0.9);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 700;
-    max-width: 80%;
-    text-align: center;
-    z-index: 500;
-    display: none;
-    pointer-events: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Noise warning toast */
-#noise-toast {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #78350f;
-    color: #fde68a;
-    padding: 10px 18px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 800;
-    z-index: 600;
-    display: none;
-    text-align: center;
-    border: 1px solid #f59e0b;
-}
-
 .performance .hide-perf {
     display: none !important;
 }
@@ -287,6 +205,26 @@ textarea.dictating {
 }
 .translate-content div:hover { background-color: #2c6999; }
 .translate-box:hover .translate-content { display: block; }
+
+.btn-append {
+    font-size:12px;
+    padding:8px 12px;
+    flex-shrink:0;
+    border-radius:10px;
+    font-weight:700;
+    transition: all 0.2s;
+}
+.btn-append.has-notes {
+    background:#334155;
+    color:white;
+    cursor:pointer;
+}
+.btn-append.no-notes {
+    background:#1e293b;
+    color:#475569;
+    cursor:not-allowed;
+    border: 1px solid #334155;
+}
 </style>
 
 <script type="module">
@@ -313,160 +251,6 @@ let performance = false;
 let currentDocId = null;
 let wakeLock = null;
 let originalData = { notes: "", inst: "", last: "" };
-
-// ── DICTATION STATE ──────────────────────────────────────────────────────────
-let recognition = null;
-let isDictating = false;
-let dictationBuffer = "";
-let noiseWarningTimer = null;
-
-const NOISE_BLACKLIST = new Set([
-    "the","a","an","and","or","but","so","um","uh","hmm","hm","mm","like",
-    "you know","i mean","actually","basically","literally","right","okay","ok",
-    "yeah","yes","no","well","anyway","so yeah","huh","ah","oh","eh",
-    "thank you","thanks","bye","goodbye","welcome","hello","hi",
-    "music","song","singing","play","playing","band","worship",
-    "lord","god","jesus","hallelujah","amen","praise",
-]);
-
-const MIN_WORDS = 2;
-const MIN_CONFIDENCE = 0.55;
-
-function isLikelyNoise(text) {
-    const words = text.toLowerCase().trim().split(/\s+/);
-    if (words.length < MIN_WORDS) return true;
-    const nonBlacklisted = words.filter(w => !NOISE_BLACKLIST.has(w));
-    if (nonBlacklisted.length / words.length < 0.2) return true;
-    return false;
-}
-
-function showNoiseWarning(text) {
-    const toast = document.getElementById('noise-toast');
-    if (!toast) return;
-    toast.innerText = `🔇 Filtered (noise): "${text.slice(0,40)}${text.length>40?'…':''}"`;
-    toast.style.display = 'block';
-    clearTimeout(noiseWarningTimer);
-    noiseWarningTimer = setTimeout(() => { toast.style.display = 'none'; }, 2500);
-}
-
-function updateDictatePreview(text) {
-    const el = document.getElementById('dictate-preview');
-    if (!el) return;
-    if (text) {
-        el.innerText = `🎤 ${text}`;
-        el.style.display = 'block';
-    } else {
-        el.style.display = 'none';
-    }
-}
-
-window.toggleDictation = () => {
-    if (isDictating) {
-        stopDictation();
-    } else {
-        startDictation();
-    }
-};
-
-function startDictation() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        alert("Speech recognition isn't supported in this browser. Try Chrome or Safari.");
-        return;
-    }
-
-    recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-GB';
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-        isDictating = true;
-        const btn = document.getElementById('dictate-btn');
-        const ta = document.getElementById('notes');
-        if (btn) { btn.classList.add('listening'); btn.innerText = '⏹ Stop'; }
-        if (ta) ta.classList.add('dictating');
-        dictationBuffer = "";
-    };
-
-    recognition.onresult = (event) => {
-        let interimText = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const result = event.results[i];
-            const transcript = result[0].transcript.trim();
-            const confidence = result[0].confidence;
-
-            if (result.isFinal) {
-                if (confidence > 0 && confidence < MIN_CONFIDENCE) {
-                    showNoiseWarning(transcript);
-                    continue;
-                }
-                if (isLikelyNoise(transcript)) {
-                    showNoiseWarning(transcript);
-                    continue;
-                }
-                dictationBuffer += (dictationBuffer ? " " : "") + transcript;
-                const ta = document.getElementById('notes');
-                if (ta) {
-                    const sep = ta.value && !ta.value.endsWith('\n') ? " " : "";
-                    ta.value += sep + transcript;
-                    window.autoGrow(ta);
-                }
-                updateDictatePreview("");
-            } else {
-                interimText = transcript;
-            }
-        }
-
-        if (interimText) updateDictatePreview(interimText);
-    };
-
-    recognition.onerror = (event) => {
-        if (event.error === 'no-speech') return;
-        if (event.error === 'aborted') return;
-        console.warn('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-            alert("Microphone permission denied. Please allow microphone access and try again.");
-            stopDictation();
-        }
-    };
-
-    recognition.onend = () => {
-        if (isDictating) {
-            try { recognition.start(); } catch(e) {}
-        } else {
-            updateDictatePreview("");
-            const btn = document.getElementById('dictate-btn');
-            const ta = document.getElementById('notes');
-            if (btn) { btn.classList.remove('listening'); btn.innerText = '🎤 Dictate'; }
-            if (ta) ta.classList.remove('dictating');
-        }
-    };
-
-    try {
-        recognition.start();
-    } catch(e) {
-        console.error('Could not start recognition:', e);
-    }
-}
-
-function stopDictation() {
-    isDictating = false;
-    if (recognition) {
-        try { recognition.stop(); } catch(e) {}
-        recognition = null;
-    }
-    updateDictatePreview("");
-    const btn = document.getElementById('dictate-btn');
-    const ta = document.getElementById('notes');
-    if (btn) { btn.classList.remove('listening'); btn.innerText = '🎤 Dictate'; }
-    if (ta) ta.classList.remove('dictating');
-    const toast = document.getElementById('noise-toast');
-    if (toast) toast.style.display = 'none';
-}
-// ── END DICTATION ────────────────────────────────────────────────────────────
 
 const dateInput = () => document.getElementById('dateInput');
 const serviceSelect = () => document.getElementById('serviceSelect');
@@ -535,7 +319,6 @@ window.translateAll = async (targetLang) => {
     autoGrow(mainEl);
 };
 
-// FIX: filter out archived events so only the live service shows
 window.loadRota = async () => {
  const date = dateInput().value;
  const snap = await getDocs(collection(db,"events"));
@@ -611,7 +394,6 @@ window.closeMenu = ()=>{
 };
 
 window.togglePerformance = ()=>{
- if (isDictating) stopDictation();
  performance = !performance;
  showSong(index);
 };
@@ -642,19 +424,16 @@ window.forceExternalYT = (url) => {
     }
 };
 
-// NEW: append last time notes into the main notes textarea
 window.appendLastNotes = () => {
     const lastText = document.getElementById('lastNotesText')?.innerText;
     const ta = document.getElementById('notes');
-    if (!lastText || !ta) return;
+    if (!lastText || !lastText.trim() || !ta) return;
     const sep = ta.value && !ta.value.endsWith('\n') ? '\n' : '';
     ta.value += sep + lastText;
     autoGrow(ta);
 };
 
 async function showSong(i){
- if (isDictating) stopDictation();
-
  index = i;
  const s = songs[i];
  selectedKeys = [...(s.keys || [])];
@@ -714,7 +493,10 @@ async function showSong(i){
  });
 
  const roleNotes = currentService?.roleNotes?.[currentRole] || "";
- originalData = { notes: yourNotes, inst: roleNotes, last: last?last.notes:"" };
+ const lastNotes = last ? last.notes : "";
+ originalData = { notes: yourNotes, inst: roleNotes, last: lastNotes };
+
+ const hasLastNotes = !!(lastNotes && lastNotes.trim());
 
  appDiv().innerHTML=`
  <div class="screen ${performance?'performance':''}">
@@ -776,14 +558,15 @@ async function showSong(i){
   <textarea id="notes" oninput="autoGrow(this)">${yourNotes}</textarea>
 
   ${!performance ? `
-    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-      <button id="dictate-btn" class="btn btn-dictate" onclick="toggleDictation()" style="font-size:14px; padding:10px 16px; flex-shrink:0;">🎤 Dictate</button>
-      <span style="font-size:11px; color:#475569; font-weight:700;">Tap to dictate notes — filtered for noisy environments</span>
-    </div>
     <div class="smallbox"><b>Instrument Notes:</b><br><span id="instNotesText">${roleNotes}</span></div>
     <div class="smallbox" style="display:flex; align-items:flex-start; gap:8px;">
-      <div style="flex:1;"><b>Last Time:</b><br><span id="lastNotesText">${last?last.notes:""}</span></div>
-      ${last && last.notes ? `<button class="btn" onclick="appendLastNotes()" style="font-size:12px; padding:8px 12px; flex-shrink:0; background:#334155; border-radius:10px;">⬆ Append</button>` : ""}
+      <div style="flex:1;"><b>Last Time:</b><br><span id="lastNotesText">${lastNotes}</span></div>
+      <button 
+        class="btn btn-append ${hasLastNotes ? 'has-notes' : 'no-notes'}" 
+        onclick="${hasLastNotes ? 'appendLastNotes()' : ''}"
+        title="${hasLastNotes ? 'Append last time notes' : 'No previous notes'}">
+        ⬆ Append
+      </button>
     </div>
     <button class="btn" onclick="save('${s.title}')">Save</button>
   ` : ""}
@@ -839,7 +622,6 @@ window.closePDF = ()=>{
 };
 
 window.save = async(song)=>{
- if (isDictating) stopDictation();
  const txt = document.getElementById("notes").value;
  if(currentDocId){
   await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
@@ -859,10 +641,6 @@ window.save = async(song)=>{
 </head>
 
 <body>
-
-<!-- Dictation UI overlays (always in DOM, shown/hidden by JS) -->
-<div id="dictate-preview"></div>
-<div id="noise-toast"></div>
 
 <div id="startScreen" class="max-w-xl mx-auto p-6 space-y-4">
 <h1 class="text-2xl font-extrabold text-[#2c6999]">Performance Notes</h1>
