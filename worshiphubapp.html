@@ -1,0 +1,2486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Worship Hub">
+<meta name="theme-color" content="#3d6263">
+<title>Worship Hub</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+<style>
+:root {
+  --teal: #3d6263;
+  --teal-dark: #2f4c4d;
+  --teal-light: #e6f0f0;
+  --border: #d1dfdf;
+  --bg: #f0f6f6;
+  --white: #ffffff;
+  --green: #9bc34a;
+  --font: 'Montserrat', sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+#app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: calc(var(--safe-top) + 10px) 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
+}
+
+#back-btn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--teal);
+  font-size: 18px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+}
+#back-btn.visible { display: flex; }
+
+#header-logo {
+  height: 36px;
+  width: auto;
+}
+
+#header-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
+#header-help {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--teal);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── MAIN CONTENT AREA ── */
+#app-content {
+  padding-top: calc(var(--safe-top) + 70px);
+  padding-bottom: calc(var(--safe-bottom) + 20px);
+  min-height: 100vh;
+}
+
+/* ── HOME SCREEN ── */
+#home-screen { display: block; }
+
+.home-news {
+  margin: 0 12px 16px;
+  background: var(--white);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.news-header-bar {
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.news-header-bar h3 {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+}
+
+.news-items-list { padding: 0; }
+
+.news-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--bg);
+}
+.news-item:last-child { border-bottom: none; }
+
+.news-item-date {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #a0b0b0;
+  margin-bottom: 3px;
+}
+
+.news-item-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.news-item-body {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-item-body img { max-width: 100%; border-radius: 8px; margin: 4px 0; }
+.news-item-body a { color: var(--teal); }
+
+.news-empty {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #a0b0b0;
+  font-weight: 600;
+}
+
+/* ── TILES ── */
+.tiles-heading {
+  padding: 0 16px 10px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--teal);
+  opacity: 0.5;
+}
+
+.tiles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 12px 20px;
+}
+
+.tile {
+  background: var(--white);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tile:active { transform: scale(0.97); }
+
+.tile-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.tile-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1.2;
+}
+
+.tile-desc {
+  font-size: 10px;
+  color: var(--teal);
+  opacity: 0.5;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tile-arrow {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  font-size: 16px;
+  color: var(--teal);
+  opacity: 0.2;
+}
+
+.tile-rota { border-top: 3px solid var(--teal); }
+.tile-board { border-top: 3px solid #f59e0b; }
+.tile-worship { border-top: 3px solid #8b5cf6; }
+.tile-av { border-top: 3px solid #ef4444; }
+.tile-upload { border-top: 3px solid var(--green); }
+.tile-library { border-top: 3px solid #2c6999; }
+
+/* ── SECTION SCREENS ── */
+.section-screen {
+  display: none;
+  padding: 0 0 20px;
+}
+.section-screen.active { display: block; }
+
+/* ── SECTION: ROTA ── */
+.rota-term {
+  margin: 12px 12px 0;
+  background: var(--white);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.rota-term-header {
+  background: var(--teal);
+  color: var(--white);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.rota-term-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.rota-term-toggle {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.rota-event {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--bg);
+}
+.rota-event:last-child { border-bottom: none; }
+
+.rota-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.rota-date-badge {
+  background: var(--teal);
+  color: var(--white);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.rota-type {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rota-time {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.5;
+}
+
+.rota-roles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.rota-role-card {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.rota-role-label {
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 2px;
+}
+
+.rota-role-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rota-ics-bar {
+  margin: 12px;
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rota-ics-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.rota-ics-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+}
+
+.rota-ics-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-ics {
+  flex: 1;
+  padding: 11px;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  letter-spacing: 0.05em;
+}
+
+.btn-ics-individual { background: var(--teal); color: var(--white); }
+.btn-ics-household { background: var(--green); color: var(--white); }
+
+/* ── SECTION: SUGGESTIONS BOARD ── */
+.board-filters {
+  display: flex;
+  gap: 8px;
+  padding: 12px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.board-filters::-webkit-scrollbar { display: none; }
+
+.filter-pill {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.filter-pill.active { background: var(--teal); color: var(--white); border-color: var(--teal); }
+
+.board-pages {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.board-pages::-webkit-scrollbar { display: none; }
+
+.page-pill {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+}
+.page-pill.active { background: var(--teal); color: var(--white); border-color: var(--teal); }
+
+.board-add-btn {
+  margin: 12px 12px 0;
+  width: calc(100% - 24px);
+  padding: 13px;
+  background: var(--teal);
+  color: var(--white);
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.notes-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-card {
+  border-radius: 16px;
+  padding: 14px;
+  position: relative;
+}
+
+.note-card-song    { background: linear-gradient(135deg, #fef9c3, #fef08a); }
+.note-card-event   { background: linear-gradient(135deg, #fce7f3, #fda4af); }
+.note-card-av      { background: linear-gradient(135deg, #eff6ff, #93c5fd); }
+.note-card-general { background: linear-gradient(135deg, #f0fdf4, #86efac); }
+.note-card-prayer  { background: linear-gradient(135deg, #f5f3ff, #d8b4fe); }
+.note-card-other   { background: linear-gradient(135deg, #fff7ed, #fdba74); }
+
+.note-card-cat {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(0,0,0,0.4);
+  margin-bottom: 5px;
+}
+
+.note-card-title {
+  font-family: 'Caveat', cursive;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a0a00;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.note-card-body {
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  color: #2d1a00;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.note-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-card-meta {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(0,0,0,0.4);
+}
+
+.note-reactions {
+  display: flex;
+  gap: 5px;
+}
+
+.reaction-btn {
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 9999px;
+  padding: 3px 9px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font);
+  font-weight: 700;
+  color: rgba(0,0,0,0.6);
+}
+.reaction-btn.active { background: rgba(255,255,255,0.85); }
+
+/* ── SECTION: KNOWLEDGE BASE (Worship + AV) ── */
+.kb-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 12px 0;
+}
+
+.kb-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.kb-tab.active { background: var(--teal); color: var(--white); border-color: var(--teal); }
+
+.kb-search-box {
+  margin: 10px 12px 0;
+  position: relative;
+}
+
+.kb-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--white);
+  outline: none;
+}
+.kb-search-input:focus { border-color: var(--teal); }
+
+.kb-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--teal);
+  opacity: 0.4;
+  font-size: 16px;
+}
+
+.kb-quick-tags {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.kb-quick-tags::-webkit-scrollbar { display: none; }
+
+.kb-quick-tag {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+}
+
+.kb-cards {
+  padding: 10px 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kb-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.kb-card:active { transform: scale(0.98); }
+
+.kb-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.kb-card-type {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 9999px;
+}
+
+.kb-card-type-video { background: #eff6ff; color: #1d4ed8; }
+.kb-card-type-note  { background: #fefce8; color: #854d0e; }
+.kb-card-type-image { background: #f0fdf4; color: #166534; }
+
+.kb-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+
+.kb-card-bullets {
+  font-size: 11px;
+  color: var(--teal);
+  opacity: 0.6;
+  line-height: 1.5;
+}
+
+.kb-section-label {
+  padding: 14px 12px 4px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kb-section-label::before {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── SECTION: SONG LIBRARY ── */
+.library-search {
+  margin: 12px 12px 0;
+  position: relative;
+}
+
+.library-search input {
+  width: 100%;
+  padding: 13px 16px 13px 42px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--white);
+  outline: none;
+}
+.library-search input:focus { border-color: var(--teal); }
+
+.library-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--teal);
+  opacity: 0.4;
+  font-size: 16px;
+}
+
+.song-list { padding: 10px 12px 0; }
+
+.song-item {
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.song-item:active { transform: scale(0.98); }
+
+.song-item-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 4px;
+}
+
+.song-item-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.song-meta-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--bg);
+  color: var(--teal);
+  border: 1px solid var(--border);
+}
+
+/* Song detail */
+.song-detail { padding: 12px; }
+
+.song-detail-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.song-detail-links {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.song-detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.song-link-youtube { background: #ff0000; color: white; }
+.song-link-ccli    { background: var(--teal); color: white; }
+
+.song-detail-files { margin-top: 8px; }
+
+.song-files-heading {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.song-file-card {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.song-file-info { flex: 1; min-width: 0; }
+
+.song-file-key {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+}
+
+.song-file-type {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.6;
+}
+
+.song-file-open {
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ── SECTION: MUSIC UPLOADER ── */
+.uploader-wrap {
+  padding: 12px;
+}
+
+.uploader-info {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.uploader-info-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 6px;
+}
+
+.uploader-info-text {
+  font-size: 12px;
+  color: var(--teal);
+  opacity: 0.6;
+  line-height: 1.5;
+}
+
+.upload-form {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-field label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+}
+.form-input:focus { border-color: var(--teal); background: var(--white); }
+
+.form-select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+}
+
+.upload-file-area {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg);
+}
+.upload-file-area:active { border-color: var(--teal); background: var(--teal-light); }
+
+.upload-file-icon { font-size: 28px; margin-bottom: 8px; }
+
+.upload-file-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.6;
+}
+
+.upload-file-name {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.btn-upload {
+  width: 100%;
+  padding: 14px;
+  background: var(--teal);
+  color: var(--white);
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.btn-upload:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.upload-progress {
+  display: none;
+  background: var(--bg);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 8px;
+}
+.upload-progress-bar {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 8px;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.upload-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal);
+  text-align: center;
+  min-height: 16px;
+}
+
+/* ── MODAL (KB detail) ── */
+#kb-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 500;
+  align-items: flex-end;
+  justify-content: center;
+}
+#kb-modal.open { display: flex; }
+
+.kb-modal-box {
+  background: var(--white);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px 16px calc(var(--safe-bottom) + 20px);
+}
+
+.kb-modal-close {
+  float: right;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kb-modal-breadcrumb {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.4;
+  margin-bottom: 6px;
+}
+
+.kb-modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 14px;
+  line-height: 1.2;
+  clear: both;
+}
+
+.kb-modal-video {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  background: var(--bg);
+}
+.kb-modal-video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.kb-modal-steps {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.kb-modal-steps-title {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+
+.kb-modal-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.kb-modal-step:last-child { margin-bottom: 0; }
+
+.kb-step-num {
+  width: 24px;
+  height: 24px;
+  background: var(--teal);
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kb-step-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal);
+  line-height: 1.4;
+  padding-top: 2px;
+}
+
+/* ── ADD NOTE MODAL ── */
+#add-note-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 500;
+  align-items: flex-end;
+}
+#add-note-modal.open { display: flex; }
+
+.add-note-box {
+  background: var(--white);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  padding: 20px 16px calc(var(--safe-bottom) + 20px);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.add-note-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 16px;
+}
+
+.add-note-form { display: flex; flex-direction: column; gap: 12px; }
+
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.add-note-textarea {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+  resize: none;
+  min-height: 80px;
+}
+
+.add-note-btn-row { display: flex; gap: 8px; }
+
+.btn-cancel {
+  flex: 1;
+  padding: 13px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+}
+
+.btn-pin {
+  flex: 2;
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  background: var(--teal);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--white);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+/* ── ONBOARDING TOUR ── */
+#tour-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+#tour-overlay.active { display: block; }
+
+.tour-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  pointer-events: all;
+}
+
+.tour-tooltip {
+  position: absolute;
+  background: var(--teal);
+  color: white;
+  border-radius: 16px;
+  padding: 16px;
+  max-width: 280px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  pointer-events: all;
+  z-index: 1;
+}
+
+.tour-tooltip-title {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.tour-tooltip-text {
+  font-size: 12px;
+  opacity: 0.85;
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.tour-btn-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tour-skip {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.6;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: white;
+  padding: 0;
+}
+
+.tour-next {
+  background: white;
+  color: var(--teal);
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tour-step-count {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+/* ── HIGHLIGHT BOX ── */
+.tour-highlight {
+  position: absolute;
+  border-radius: 12px;
+  box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3);
+  pointer-events: none;
+  z-index: 2;
+  transition: all 0.3s;
+}
+
+/* ── SHARED UTILS ── */
+.skeleton {
+  background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.loading-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--teal);
+  opacity: 0.4;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+.empty-state-icon { font-size: 40px; margin-bottom: 10px; }
+.empty-state-text { font-size: 13px; font-weight: 700; color: var(--teal); opacity: 0.4; }
+
+mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeIn 0.2s ease; }
+
+/* Caveat for sticky notes */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="app-header">
+  <button id="back-btn" onclick="goBack()">←</button>
+  <img id="header-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" onerror="this.src='https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300'">
+  <div id="header-title">Worship Hub</div>
+  <button id="header-help" onclick="startTour()" title="Help">?</button>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="app-content">
+
+  <!-- HOME SCREEN -->
+  <div id="home-screen">
+    <!-- News Feed -->
+    <div class="home-news" id="news-section">
+      <div class="news-header-bar">
+        <h3>Latest News</h3>
+      </div>
+      <div class="news-items-list" id="news-list">
+        <div class="news-empty">Loading news...</div>
+      </div>
+    </div>
+
+    <!-- Tool Tiles -->
+    <div class="tiles-heading">Tools</div>
+    <div class="tiles-grid" id="tiles-grid">
+      <div class="tile tile-rota" onclick="openSection('rota')">
+        <div class="tile-icon">📋</div>
+        <div class="tile-name">Rota</div>
+        <div class="tile-desc">View serving schedule & download</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-board" onclick="openSection('board')">
+        <div class="tile-icon">📌</div>
+        <div class="tile-name">Notice Board</div>
+        <div class="tile-desc">Suggestions & ideas from the team</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-worship" onclick="openSection('worship')">
+        <div class="tile-icon">🎸</div>
+        <div class="tile-name">Worship Resources</div>
+        <div class="tile-desc">Play-through videos & training</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-av" onclick="openSection('av')">
+        <div class="tile-icon">🔧</div>
+        <div class="tile-name">AV Help</div>
+        <div class="tile-desc">Troubleshoot & how-to guides</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-upload" onclick="openSection('upload')">
+        <div class="tile-icon">🎵</div>
+        <div class="tile-name">Music Uploader</div>
+        <div class="tile-desc">Add sheet music to the library</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-library" onclick="openSection('library')">
+        <div class="tile-icon">📚</div>
+        <div class="tile-name">Song Library</div>
+        <div class="tile-desc">Browse & find sheet music</div>
+        <div class="tile-arrow">›</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROTA SECTION -->
+  <div id="section-rota" class="section-screen">
+    <div class="rota-ics-bar">
+      <div class="rota-ics-title">📥 Download My Rota</div>
+      <select class="rota-ics-select" id="rota-member-select">
+        <option value="">Select your name...</option>
+      </select>
+      <div class="rota-ics-buttons">
+        <button class="btn-ics btn-ics-individual" onclick="downloadICS('individual')">My Rota (.ics)</button>
+        <button class="btn-ics btn-ics-household" onclick="downloadICS('household')">Family Rota (.ics)</button>
+      </div>
+    </div>
+    <div id="rota-content"><div class="loading-state">Loading rota...</div></div>
+  </div>
+
+  <!-- BOARD SECTION -->
+  <div id="section-board" class="section-screen">
+    <div class="board-pages" id="board-pages"></div>
+    <div class="board-filters" id="board-filters">
+      <button class="filter-pill active" onclick="setBoardFilter('all',this)">📌 All</button>
+      <button class="filter-pill" onclick="setBoardFilter('song',this)">🎵 Songs</button>
+      <button class="filter-pill" onclick="setBoardFilter('event',this)">📅 Events</button>
+      <button class="filter-pill" onclick="setBoardFilter('av',this)">🎬 AV</button>
+      <button class="filter-pill" onclick="setBoardFilter('prayer',this)">🙏 Prayer</button>
+      <button class="filter-pill" onclick="setBoardFilter('general',this)">💡 General</button>
+      <button class="filter-pill" onclick="setBoardFilter('other',this)">📎 Other</button>
+    </div>
+    <button class="board-add-btn" onclick="openAddNote()">✏️ Add a Suggestion</button>
+    <div class="notes-list" id="notes-list"></div>
+  </div>
+
+  <!-- WORSHIP RESOURCES SECTION -->
+  <div id="section-worship" class="section-screen">
+    <div class="kb-tabs">
+      <button class="kb-tab active" id="tab-playthrough" onclick="switchKbTab('playthrough')">▶ Play Through</button>
+      <button class="kb-tab" id="tab-training" onclick="switchKbTab('training')">📖 Training</button>
+    </div>
+    <div class="kb-search-box">
+      <span class="kb-search-icon">🔍</span>
+      <input class="kb-search-input" id="worship-search" placeholder="Search songs, topics..." oninput="doKbSearch('worship')">
+    </div>
+    <div class="kb-quick-tags" id="worship-quick-tags">
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','Sovereign')">Sovereign</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','Way Maker')">Way Maker</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','vocal warm up')">Vocal warm up</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','guitar')">Guitar</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','keyboard')">Keyboard</span>
+    </div>
+
+    <!-- Key filter for playthrough -->
+    <div id="key-filter-row" style="display:flex; gap:6px; padding:8px 12px 0; overflow-x:auto; scrollbar-width:none;">
+      <button class="kb-quick-tag" style="background:var(--teal);color:white;" id="key-all" onclick="setKbKey('all')">All Keys</button>
+      <button class="kb-quick-tag" id="key-A" onclick="setKbKey('A')">A</button>
+      <button class="kb-quick-tag" id="key-Bb" onclick="setKbKey('Bb')">B♭</button>
+      <button class="kb-quick-tag" id="key-B" onclick="setKbKey('B')">B</button>
+      <button class="kb-quick-tag" id="key-C" onclick="setKbKey('C')">C</button>
+      <button class="kb-quick-tag" id="key-D" onclick="setKbKey('D')">D</button>
+      <button class="kb-quick-tag" id="key-E" onclick="setKbKey('E')">E</button>
+      <button class="kb-quick-tag" id="key-F" onclick="setKbKey('F')">F</button>
+      <button class="kb-quick-tag" id="key-G" onclick="setKbKey('G')">G</button>
+    </div>
+
+    <div class="kb-cards" id="worship-cards"><div class="loading-state">Loading...</div></div>
+  </div>
+
+  <!-- AV HELP SECTION -->
+  <div id="section-av" class="section-screen">
+    <div class="kb-tabs">
+      <button class="kb-tab active" id="tab-troubleshoot" onclick="switchAvTab('troubleshoot')">🔧 Troubleshoot</button>
+      <button class="kb-tab" id="tab-howto" onclick="switchAvTab('howto')">📋 How To</button>
+    </div>
+    <div class="kb-search-box">
+      <span class="kb-search-icon">🔍</span>
+      <input class="kb-search-input" id="av-search" placeholder="Describe the problem or task..." oninput="doKbSearch('av')">
+    </div>
+    <div class="kb-quick-tags">
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','no sound')">No sound</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','camera')">Camera</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','black screen')">Black screen</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','mic feedback')">Mic feedback</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','mixing desk')">Mixing desk</span>
+    </div>
+    <div class="kb-cards" id="av-cards"><div class="loading-state">Loading...</div></div>
+  </div>
+
+  <!-- MUSIC UPLOADER SECTION -->
+  <div id="section-upload" class="section-screen">
+    <div class="uploader-wrap">
+      <div class="uploader-info">
+        <div class="uploader-info-title">Upload Sheet Music</div>
+        <div class="uploader-info-text">Add PDF sheet music to the song library. Upload up to 4 files at once. Files are matched to existing songs automatically.</div>
+      </div>
+
+      <div class="upload-form">
+        <div class="form-field">
+          <label>Song Title</label>
+          <input class="form-input" id="upload-song-title" type="text" placeholder="e.g. Way Maker">
+        </div>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label>Key</label>
+            <select class="form-select" id="upload-key">
+              <option value="">Select Key</option>
+              <optgroup label="Major">
+                <option>C</option><option>C#</option><option>Db</option><option>D</option>
+                <option>Eb</option><option>E</option><option>F</option><option>F#</option>
+                <option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option>
+              </optgroup>
+              <optgroup label="Minor">
+                <option>Cm</option><option>Dm</option><option>Em</option><option>Fm</option>
+                <option>Gm</option><option>Am</option><option>Bm</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Type</label>
+            <select class="form-select" id="upload-type">
+              <option value="">Select Type</option>
+              <option>Chord Sheet</option>
+              <option>Lead Sheet</option>
+              <option>Lyrics</option>
+              <option>Bass Tabs</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- File slots (up to 4) -->
+        <div id="upload-file-slots">
+          <div class="form-field">
+            <label>PDF File (1 of up to 4)</label>
+            <div class="upload-file-area" onclick="document.getElementById('upload-file-input-0').click()">
+              <div class="upload-file-icon">📄</div>
+              <div class="upload-file-text">Tap to select PDF</div>
+              <div class="upload-file-name" id="upload-file-name-0"></div>
+            </div>
+            <input type="file" id="upload-file-input-0" accept=".pdf" style="display:none" onchange="fileSelected(0,this)">
+          </div>
+        </div>
+
+        <button class="btn-upload" id="upload-more-btn" onclick="addUploadSlot()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">+ Add Another File</button>
+
+        <div class="upload-progress" id="upload-progress"><div class="upload-progress-bar" id="upload-progress-bar"></div></div>
+        <div class="upload-status" id="upload-status"></div>
+
+        <button class="btn-upload" id="upload-submit-btn" onclick="submitUpload()">Upload to Library</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SONG LIBRARY SECTION -->
+  <div id="section-library" class="section-screen">
+    <div class="library-search">
+      <span class="library-search-icon">🔍</span>
+      <input type="text" placeholder="Search songs..." oninput="searchLibrary(this.value)" id="library-search-input">
+    </div>
+    <div class="song-list" id="song-list"><div class="loading-state">Loading songs...</div></div>
+    <div id="song-detail-panel" style="display:none;"></div>
+  </div>
+
+</div><!-- end app-content -->
+
+<!-- KB DETAIL MODAL -->
+<div id="kb-modal">
+  <div class="kb-modal-box">
+    <button class="kb-modal-close" onclick="closeKbModal()">✕</button>
+    <div id="kb-modal-content"></div>
+  </div>
+</div>
+
+<!-- ADD NOTE MODAL -->
+<div id="add-note-modal">
+  <div class="add-note-box">
+    <div class="add-note-title">📌 New Suggestion</div>
+    <div class="add-note-form">
+      <div class="form-row-2">
+        <div class="form-field">
+          <label>Your Name</label>
+          <input class="form-input" id="note-author" placeholder="First name">
+        </div>
+        <div class="form-field">
+          <label>Category</label>
+          <select class="form-select" id="note-cat" onchange="toggleNoteYT()">
+            <option value="song">🎵 Song</option>
+            <option value="event">📅 Event</option>
+            <option value="av">🎬 AV</option>
+            <option value="prayer">🙏 Prayer</option>
+            <option value="general">💡 General</option>
+            <option value="other">📎 Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Title</label>
+        <input class="form-input" id="note-title" placeholder="Give it a title...">
+      </div>
+      <div class="form-field">
+        <label>Details</label>
+        <textarea class="add-note-textarea" id="note-body" placeholder="Share your idea..."></textarea>
+      </div>
+      <div class="form-field" id="note-yt-field">
+        <label>YouTube Link (optional)</label>
+        <input class="form-input" id="note-yt" placeholder="https://youtube.com/...">
+      </div>
+      <div class="add-note-btn-row">
+        <button class="btn-cancel" onclick="closeAddNote()">Cancel</button>
+        <button class="btn-pin" onclick="saveNote()">📌 Pin It!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOUR OVERLAY -->
+<div id="tour-overlay">
+  <div class="tour-backdrop" onclick="endTour()"></div>
+  <div class="tour-highlight" id="tour-highlight"></div>
+  <div class="tour-tooltip" id="tour-tooltip">
+    <div class="tour-tooltip-title" id="tour-title"></div>
+    <div class="tour-tooltip-text" id="tour-text"></div>
+    <div class="tour-btn-row">
+      <button class="tour-skip" onclick="endTour()">Skip tour</button>
+      <span class="tour-step-count" id="tour-count"></span>
+      <button class="tour-next" onclick="nextTourStep()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" style="position:fixed;bottom:calc(var(--safe-bottom)+20px);left:50%;transform:translateX(-50%);background:var(--teal);color:white;padding:10px 20px;border-radius:9999px;font-size:12px;font-weight:800;z-index:800;display:none;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"></div>
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentSection = 'home';
+let sectionHistory = [];
+let rotaEvents = [];
+let rotaAddressBook = [];
+let boardNotes = [];
+let boardPages = [{ id: 'main', title: 'General Board' }];
+let boardCurrentPage = 'main';
+let boardFilter = 'all';
+let worshipAssets = [];
+let trainingAssets = [];
+let troubleshootAssets = [];
+let howtoAssets = [];
+let currentKbWorshipTab = 'playthrough';
+let currentKbAvTab = 'troubleshoot';
+let currentKbKey = 'all';
+let allSongs = [];
+let uploadSlotCount = 1;
+let uploadFiles = {};
+let tourStepIndex = 0;
+
+const ADMIN_PIN = '1234';
+const CAT_META = {
+  song:    { label:'Song',    emoji:'🎵', cls:'note-card-song'    },
+  event:   { label:'Event',   emoji:'📅', cls:'note-card-event'   },
+  av:      { label:'AV/Tech', emoji:'🎬', cls:'note-card-av'      },
+  prayer:  { label:'Prayer',  emoji:'🙏', cls:'note-card-prayer'  },
+  general: { label:'General', emoji:'💡', cls:'note-card-general' },
+  other:   { label:'Other',   emoji:'📎', cls:'note-card-other'   },
+};
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+function openSection(name) {
+  sectionHistory.push(currentSection);
+  currentSection = name;
+  document.getElementById('home-screen').style.display = 'none';
+  document.querySelectorAll('.section-screen').forEach(s => s.classList.remove('active'));
+
+  const titles = {
+    rota: 'Rota', board: 'Notice Board', worship: 'Worship Resources',
+    av: 'AV Help', upload: 'Music Uploader', library: 'Song Library'
+  };
+  document.getElementById('header-title').textContent = titles[name] || 'Worship Hub';
+  document.getElementById('back-btn').classList.add('visible');
+  document.getElementById('section-' + name).classList.add('active');
+
+  // Load data for the section
+  if (name === 'rota' && rotaEvents.length === 0) loadRota();
+  if (name === 'board') loadBoard();
+  if (name === 'worship' && worshipAssets.length === 0 && trainingAssets.length === 0) loadWorshipAssets();
+  if (name === 'av' && troubleshootAssets.length === 0 && howtoAssets.length === 0) loadAvAssets();
+  if (name === 'library' && allSongs.length === 0) loadSongs();
+}
+
+function goBack() {
+  const prev = sectionHistory.pop();
+  currentSection = prev || 'home';
+  document.querySelectorAll('.section-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('song-detail-panel').style.display = 'none';
+  document.getElementById('song-list').style.display = 'block';
+
+  if (currentSection === 'home') {
+    document.getElementById('home-screen').style.display = 'block';
+    document.getElementById('header-title').textContent = 'Worship Hub';
+    document.getElementById('back-btn').classList.remove('visible');
+  } else {
+    document.getElementById('section-' + currentSection).classList.add('active');
+  }
+}
+
+// ── NEWS ──────────────────────────────────────────────────────────────────
+async function loadNews() {
+  try {
+    const snap = await db.collection('portal').doc('dashboardContent').get();
+    const data = snap.exists ? snap.data() : {};
+    const items = (data.newsItems || []).slice().reverse().slice(0, 5);
+    const list = document.getElementById('news-list');
+    if (!items.length) {
+      list.innerHTML = '<div class="news-empty">No news yet.</div>';
+      return;
+    }
+    list.innerHTML = items.map(item => `
+      <div class="news-item">
+        ${item.date ? `<div class="news-item-date">${item.date}</div>` : ''}
+        <div class="news-item-title">${item.title || ''}</div>
+        <div class="news-item-body">${item.body || ''}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    document.getElementById('news-list').innerHTML = '<div class="news-empty">Could not load news.</div>';
+  }
+}
+
+// ── ROTA ──────────────────────────────────────────────────────────────────
+function loadRota() {
+  const today = new Date().toISOString().split('T')[0];
+
+  db.collection('addressBook').onSnapshot(snap => {
+    rotaAddressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const sel = document.getElementById('rota-member-select');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Select your name...</option>';
+    rotaAddressBook.sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(m => {
+      sel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+    });
+    if (cur) sel.value = cur;
+  });
+
+  db.collection('events').orderBy('date').onSnapshot(snap => {
+    rotaEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => !e.archived && e.date >= today);
+    renderRota();
+  });
+}
+
+function renderRota() {
+  const container = document.getElementById('rota-content');
+  if (!rotaEvents.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No upcoming services</div></div>';
+    return;
+  }
+
+  const grouped = {};
+  rotaEvents.forEach(ev => {
+    const term = ev.termLabel || 'Current Rota';
+    if (!grouped[term]) grouped[term] = [];
+    grouped[term].push(ev);
+  });
+
+  let html = '';
+  Object.keys(grouped).sort().forEach(term => {
+    const collapsed = false;
+    html += `<div class="rota-term">
+      <div class="rota-term-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span class="rota-term-title">${term}</span>
+        <span class="rota-term-toggle">Hide</span>
+      </div>
+      <div>`;
+    grouped[term].forEach(ev => {
+      const dateStr = new Date(ev.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+      const roles = ev.roles || [];
+      html += `<div class="rota-event">
+        <div class="rota-event-meta">
+          <span class="rota-date-badge">${dateStr}</span>
+          <span class="rota-time">${ev.startTime || ''}</span>
+          <span class="rota-type">${ev.type}</span>
+        </div>
+        <div class="rota-roles-grid">
+          ${roles.map(r => {
+            const assigned = ev.assignments?.[r]?.name || '—';
+            return `<div class="rota-role-card"><div class="rota-role-label">${r}</div><div class="rota-role-name">${assigned}</div></div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function downloadICS(type) {
+  const memberId = document.getElementById('rota-member-select').value;
+  if (!memberId) { toast('Please select your name first'); return; }
+  const member = rotaAddressBook.find(m => m.id === memberId);
+  if (!member) return;
+
+  let events = rotaEvents;
+  if (type === 'individual') {
+    events = rotaEvents.filter(e => Object.values(e.assignments||{}).some(a => a.id === memberId));
+  } else {
+    const relatedIds = [memberId, ...(member.relatedTo || [])];
+    events = rotaEvents.filter(e => Object.values(e.assignments||{}).some(a => relatedIds.includes(a.id)));
+  }
+
+  if (!events.length) { toast('No upcoming events found for you'); return; }
+
+  let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Worship Hub//EN\nCALSCALE:GREGORIAN\n';
+  events.forEach(e => {
+    const roles = type === 'individual'
+      ? Object.entries(e.assignments||{}).filter(([r,p]) => p.id === memberId).map(([r]) => r).join(', ')
+      : Object.entries(e.assignments||{}).filter(([r,p]) => [memberId,...(member.relatedTo||[])].includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(', ');
+    const date = e.date.replace(/-/g,'');
+    const uid = `${date}-${e.id}@egbc.worshiphub`;
+    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles || e.type}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description||''}\nEND:VEVENT\n`;
+  });
+  ics += 'END:VCALENDAR';
+
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `EGBC_${type}_rota.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Calendar file downloaded!');
+}
+
+// ── BOARD ─────────────────────────────────────────────────────────────────
+function loadBoard() {
+  const saved = localStorage.getItem('worshipBoard2');
+  if (saved) {
+    const state = JSON.parse(saved);
+    boardNotes = state.notes || [];
+    boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+  }
+  renderBoardPages();
+  renderNotes();
+}
+
+function renderBoardPages() {
+  const bar = document.getElementById('board-pages');
+  bar.innerHTML = boardPages.map(p =>
+    `<button class="page-pill ${p.id === boardCurrentPage ? 'active' : ''}" onclick="setBoardPage('${p.id}')">${p.title}</button>`
+  ).join('');
+}
+
+function setBoardPage(id) {
+  boardCurrentPage = id;
+  renderBoardPages();
+  renderNotes();
+}
+
+function setBoardFilter(cat, el) {
+  boardFilter = cat;
+  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderNotes();
+}
+
+function renderNotes() {
+  let notes = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived);
+  if (boardFilter !== 'all') notes = notes.filter(n => n.cat === boardFilter);
+  notes.sort((a,b) => b.createdAt - a.createdAt);
+
+  const list = document.getElementById('notes-list');
+  if (!notes.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📌</div><div class="empty-state-text">No notes yet — be the first!</div></div>';
+    return;
+  }
+
+  const REACTIONS = [
+    { key:'love', emoji:'❤️' }, { key:'like', emoji:'👍' },
+    { key:'dislike', emoji:'👎' }, { key:'pray', emoji:'🙌' },
+  ];
+
+  list.innerHTML = notes.map(n => {
+    const meta = CAT_META[n.cat] || CAT_META.other;
+    const date = new Date(n.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+    const reactions = REACTIONS.map(r => {
+      const count = (n.reactions||{})[r.key] || 0;
+      const active = (n.myReactions||{})[r.key];
+      return `<button class="reaction-btn ${active?'active':''}" onclick="react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`;
+    }).join('');
+    return `
+    <div class="note-card ${meta.cls} fade-in">
+      <div class="note-card-cat">${meta.emoji} ${meta.label}</div>
+      ${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}
+      ${n.body  ? `<div class="note-card-body">${esc(n.body)}</div>`   : ''}
+      <div class="note-card-footer">
+        <div class="note-card-meta">${esc(n.author||'Anonymous')} · ${date}</div>
+        <div class="note-reactions">${reactions}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function react(noteId, key) {
+  const n = boardNotes.find(x => x.id === noteId); if (!n) return;
+  if (!n.reactions)   n.reactions   = {};
+  if (!n.myReactions) n.myReactions = {};
+  const had = n.myReactions[key];
+  n.reactions[key]   = Math.max(0, (n.reactions[key]||0) + (had ? -1 : 1));
+  n.myReactions[key] = !had;
+  saveBoardState();
+  renderNotes();
+}
+
+function saveBoardState() {
+  const existing = JSON.parse(localStorage.getItem('worshipBoard2') || '{}');
+  existing.notes = boardNotes;
+  existing.pages = boardPages;
+  localStorage.setItem('worshipBoard2', JSON.stringify(existing));
+}
+
+function openAddNote() { document.getElementById('add-note-modal').classList.add('open'); }
+function closeAddNote() { document.getElementById('add-note-modal').classList.remove('open'); }
+function toggleNoteYT() {
+  const cat = document.getElementById('note-cat').value;
+  document.getElementById('note-yt-field').style.display = cat === 'song' ? 'block' : 'none';
+}
+
+function saveNote() {
+  const title = document.getElementById('note-title').value.trim();
+  const body  = document.getElementById('note-body').value.trim();
+  if (!title && !body) { toast('Please add a title or details'); return; }
+  const existing = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived);
+  const i = existing.length;
+  boardNotes.push({
+    id: 'n'+Date.now(), pageId: boardCurrentPage,
+    author: document.getElementById('note-author').value.trim(),
+    cat:    document.getElementById('note-cat').value,
+    title, body,
+    ytUrl:     document.getElementById('note-yt').value.trim(),
+    reactions: {}, myReactions: {},
+    createdAt: Date.now(), archived: false,
+    x: 60+(i%5)*310+(i*37%40)-20,
+    y: 60+Math.floor(i/5)*340+(i*53%40)-20,
+    rot: (i*17%7)-3.5, zIndex: 10,
+  });
+  saveBoardState();
+  closeAddNote();
+  renderNotes();
+  toast('Note pinned! 📌');
+  // clear form
+  ['note-author','note-title','note-body','note-yt'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('note-cat').value='song';
+}
+
+// ── KB ASSETS ─────────────────────────────────────────────────────────────
+async function loadWorshipAssets() {
+  try {
+    const [ptSnap, trSnap] = await Promise.all([
+      db.collection('kb_playthrough').where('published','==',true).orderBy('createdAt','desc').get(),
+      db.collection('kb_training_worship').where('published','==',true).orderBy('createdAt','desc').get()
+    ]);
+    worshipAssets  = ptSnap.docs.map(d => ({id:d.id,...d.data()}));
+    trainingAssets = trSnap.docs.map(d => ({id:d.id,...d.data()}));
+  } catch(e) {
+    worshipAssets = []; trainingAssets = [];
+  }
+  renderWorshipCards();
+}
+
+async function loadAvAssets() {
+  try {
+    const [tsSnap, htSnap] = await Promise.all([
+      db.collection('kb_troubleshoot_av').where('published','==',true).orderBy('createdAt','desc').get(),
+      db.collection('kb_howto_av').where('published','==',true).orderBy('createdAt','desc').get()
+    ]);
+    troubleshootAssets = tsSnap.docs.map(d => ({id:d.id,...d.data()}));
+    howtoAssets        = htSnap.docs.map(d => ({id:d.id,...d.data()}));
+  } catch(e) {
+    troubleshootAssets = []; howtoAssets = [];
+  }
+  renderAvCards();
+}
+
+function switchKbTab(tab) {
+  currentKbWorshipTab = tab;
+  document.getElementById('tab-playthrough').classList.toggle('active', tab==='playthrough');
+  document.getElementById('tab-training').classList.toggle('active', tab==='training');
+  document.getElementById('key-filter-row').style.display = tab==='playthrough' ? 'flex' : 'none';
+  document.getElementById('worship-search').value = '';
+  renderWorshipCards();
+}
+
+function switchAvTab(tab) {
+  currentKbAvTab = tab;
+  document.getElementById('tab-troubleshoot').classList.toggle('active', tab==='troubleshoot');
+  document.getElementById('tab-howto').classList.toggle('active', tab==='howto');
+  document.getElementById('av-search').value = '';
+  renderAvCards();
+}
+
+function setKbKey(key) {
+  currentKbKey = key;
+  document.querySelectorAll('[id^="key-"]').forEach(b => {
+    b.style.background = '';
+    b.style.color = '';
+  });
+  const btn = document.getElementById('key-'+key);
+  if (btn) { btn.style.background = 'var(--teal)'; btn.style.color = 'white'; }
+  renderWorshipCards();
+}
+
+function renderWorshipCards(highlight='') {
+  const el = document.getElementById('worship-cards');
+  let assets = currentKbWorshipTab === 'playthrough' ? worshipAssets : trainingAssets;
+
+  if (currentKbKey !== 'all' && currentKbWorshipTab === 'playthrough') {
+    assets = assets.filter(a => a.ourKey === currentKbKey);
+  }
+
+  if (highlight) {
+    const words = highlight.toLowerCase().split(/\s+/).filter(w=>w.length>1);
+    assets = assets.map(a => {
+      let score = 0;
+      words.forEach(w => {
+        if((a.title||'').toLowerCase().includes(w)) score+=10;
+        if((a.songTitle||'').toLowerCase().includes(w)) score+=8;
+        if((a.tags||'').toLowerCase().includes(w)) score+=4;
+        if((a.bullets||'').toLowerCase().includes(w)) score+=2;
+      });
+      return {...a, _score:score};
+    }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
+  }
+
+  el.innerHTML = renderKbCards(assets, currentKbWorshipTab === 'playthrough' ? 'playthrough' : 'training', highlight);
+}
+
+function renderAvCards(highlight='') {
+  const el = document.getElementById('av-cards');
+  const assets = currentKbAvTab === 'troubleshoot' ? troubleshootAssets : howtoAssets;
+
+  let filtered = assets;
+  if (highlight) {
+    const words = highlight.toLowerCase().split(/\s+/).filter(w=>w.length>1);
+    filtered = assets.map(a => {
+      let score = 0;
+      words.forEach(w => {
+        if((a.title||'').toLowerCase().includes(w)) score+=10;
+        if((a.tags||'').toLowerCase().includes(w)) score+=6;
+        if((a.bullets||'').toLowerCase().includes(w)) score+=4;
+      });
+      return {...a, _score:score};
+    }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
+  }
+
+  el.innerHTML = renderKbCards(filtered, currentKbAvTab, highlight);
+}
+
+function renderKbCards(assets, context, highlight='') {
+  if (!assets.length) {
+    return '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No content yet</div></div>';
+  }
+  return assets.map(a => {
+    const bullets = (a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
+    const typeClass = a.assetType==='Video' ? 'kb-card-type-video' : a.assetType==='Note' ? 'kb-card-type-note' : 'kb-card-type-image';
+    const typeLabel = a.assetType || 'Video';
+    const titleText = highlight ? hlText(a.title||'', highlight) : (a.title||'');
+    const keyBadge = a.ourKey ? `<span style="background:var(--teal);color:white;padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;">Key: ${a.ourKey}</span>` : '';
+    return `<div class="kb-card fade-in" onclick="openKbCard('${a.id}','${context}')">
+      <div class="kb-card-top">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="kb-card-type ${typeClass}">${typeLabel}</span>
+          ${keyBadge}
+          ${a.songSection ? `<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;color:var(--teal);">${a.songSection}</span>` : ''}
+        </div>
+      </div>
+      <div class="kb-card-title">${titleText}</div>
+      ${bullets.length ? `<div class="kb-card-bullets">${bullets.map(b=>`• ${b.replace(/^[•\-\*]\s*/,'')}`).join('<br>')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function doKbSearch(type) {
+  const q = document.getElementById(type+'-search').value.trim();
+  if (type === 'worship') renderWorshipCards(q);
+  else renderAvCards(q);
+}
+
+function quickKbSearch(type, term) {
+  const id = type+'-search';
+  document.getElementById(id).value = term;
+  if (type === 'worship') renderWorshipCards(term);
+  else renderAvCards(term);
+}
+
+function openKbCard(id, context) {
+  let asset;
+  if (context === 'playthrough') asset = worshipAssets.find(a=>a.id===id);
+  else if (context === 'training') asset = trainingAssets.find(a=>a.id===id);
+  else if (context === 'troubleshoot') asset = troubleshootAssets.find(a=>a.id===id);
+  else if (context === 'howto') asset = howtoAssets.find(a=>a.id===id);
+  if (!asset) return;
+
+  const bullets = (asset.bullets||'').split('\n').filter(b=>b.trim());
+  const src = asset.contentURL || '';
+  const contextLabels = { playthrough:'Play Through', training:'Worship Training', troubleshoot:'AV Troubleshoot', howto:'How To AV' };
+  const stepsLabel = context==='troubleshoot' ? 'How To Fix It' : 'How To Do It';
+
+  const sections = asset.sectionMarkers || [];
+  const chordsPerSection = asset.chordsPerSection || {};
+
+  document.getElementById('kb-modal-content').innerHTML = `
+    <div class="kb-modal-breadcrumb">${contextLabels[context]||''}${asset.category ? ' — '+asset.category : ''}</div>
+    <div class="kb-modal-title">${asset.title||''}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+      ${asset.ourKey ? `<span style="background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;">Key: ${asset.ourKey}</span>` : ''}
+      ${asset.songSection ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.songSection}</span>` : ''}
+      ${asset.instrument ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>` : ''}
+    </div>
+    ${src ? `<div class="kb-modal-video"><iframe src="${src}" allowfullscreen allow="autoplay; encrypted-media"></iframe></div>` : ''}
+    ${sections.length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div>
+    </div>` : ''}
+    ${Object.keys(chordsPerSection).length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Chords by Section</div>
+      ${Object.entries(chordsPerSection).map(([sec,chords])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="background:var(--teal);color:white;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:800;">${sec}</span><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--teal);">${chords}</span></div>`).join('')}
+    </div>` : ''}
+    ${bullets.length ? `<div class="kb-modal-steps">
+      <div class="kb-modal-steps-title">${stepsLabel}</div>
+      ${bullets.map((b,i) => `<div class="kb-modal-step"><span class="kb-step-num">${i+1}</span><span class="kb-step-text">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}
+    </div>` : ''}
+    ${asset.tags ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${asset.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--bg);padding:5px 12px;border-radius:9999px;font-size:10px;font-weight:700;color:var(--teal);border:1px solid var(--border);">${t}</span>`).join('')}</div>` : ''}
+  `;
+  document.getElementById('kb-modal').classList.add('open');
+}
+
+function closeKbModal() {
+  document.getElementById('kb-modal').classList.remove('open');
+  // Stop video
+  const frame = document.querySelector('#kb-modal-content iframe');
+  if (frame) frame.src = frame.src;
+}
+
+// ── SONG LIBRARY ──────────────────────────────────────────────────────────
+async function loadSongs() {
+  try {
+    const snap = await db.collection('songs').orderBy('normalized').get();
+    allSongs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderSongList(allSongs);
+  } catch(e) {
+    document.getElementById('song-list').innerHTML = '<div class="loading-state">Could not load songs.</div>';
+  }
+}
+
+function renderSongList(songs) {
+  const list = document.getElementById('song-list');
+  if (!songs.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎵</div><div class="empty-state-text">No songs found</div></div>';
+    return;
+  }
+  list.innerHTML = songs.slice(0,100).map(s => {
+    const keys = [...new Set((s.files||[]).map(f=>f.key).filter(Boolean))];
+    const types = [...new Set((s.files||[]).map(f=>f.type).filter(Boolean))];
+    return `<div class="song-item" onclick="openSong('${s.id}')">
+      <div class="song-item-title">${s.title||''}</div>
+      <div class="song-item-meta">
+        ${keys.slice(0,4).map(k=>`<span class="song-meta-badge">${k}</span>`).join('')}
+        ${types.slice(0,2).map(t=>`<span class="song-meta-badge">${t}</span>`).join('')}
+        ${s.youtube ? '<span class="song-meta-badge">▶ YT</span>' : ''}
+        ${s.ccli ? '<span class="song-meta-badge">CCLI</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function searchLibrary(q) {
+  if (!q.trim()) { renderSongList(allSongs); return; }
+  const norm = q.toLowerCase().trim();
+  const filtered = allSongs.filter(s =>
+    (s.title||'').toLowerCase().includes(norm) ||
+    (s.normalized||'').includes(norm)
+  );
+  renderSongList(filtered);
+}
+
+function openSong(id) {
+  const s = allSongs.find(x => x.id === id);
+  if (!s) return;
+  const files = s.files || [];
+  const grouped = {};
+  files.forEach(f => {
+    if (!grouped[f.key]) grouped[f.key] = [];
+    grouped[f.key].push(f);
+  });
+
+  const ccliUrl = s.ccli
+    ? `https://songselect.ccli.com/Songs/${s.ccli}`
+    : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(s.title||'')}`;
+
+  let filesHtml = '<div class="song-detail-files">';
+  if (Object.keys(grouped).length) {
+    filesHtml += '<div class="song-files-heading">Sheet Music</div>';
+    Object.entries(grouped).forEach(([key, keyFiles]) => {
+      keyFiles.forEach(f => {
+        filesHtml += `<div class="song-file-card">
+          <div class="song-file-info">
+            <div class="song-file-key">Key: ${key}</div>
+            <div class="song-file-type">${f.type}</div>
+          </div>
+          <button class="song-file-open" onclick="openFile('${f.url}')">Open</button>
+        </div>`;
+      });
+    });
+  }
+  filesHtml += '</div>';
+
+  const panel = document.getElementById('song-detail-panel');
+  panel.innerHTML = `<div class="song-detail fade-in">
+    <div class="song-detail-title">${s.title||''}</div>
+    ${s.artist ? `<div style="font-size:13px;color:var(--teal);opacity:0.5;font-weight:700;margin-bottom:12px;">${s.artist}</div>` : ''}
+    <div class="song-detail-links">
+      ${s.youtube ? `<a href="${s.youtube}" target="_blank" rel="noopener" class="song-detail-link song-link-youtube">▶ YouTube</a>` : ''}
+      <a href="${ccliUrl}" target="_blank" rel="noopener" class="song-detail-link song-link-ccli">🔗 SongSelect</a>
+    </div>
+    ${filesHtml}
+  </div>`;
+
+  document.getElementById('song-list').style.display = 'none';
+  panel.style.display = 'block';
+  sectionHistory.push('library-list'); // allow back to list
+}
+
+function openFile(url) {
+  window.open(url, '_blank');
+}
+
+// Override goBack to handle song detail
+const _origGoBack = goBack;
+window.goBack = function() {
+  const last = sectionHistory[sectionHistory.length-1];
+  if (last === 'library-list') {
+    sectionHistory.pop();
+    document.getElementById('song-detail-panel').style.display = 'none';
+    document.getElementById('song-list').style.display = 'block';
+    return;
+  }
+  _origGoBack();
+};
+
+// ── MUSIC UPLOADER ────────────────────────────────────────────────────────
+let uploadSlots = 1;
+
+function fileSelected(index, input) {
+  if (input.files[0]) {
+    document.getElementById(`upload-file-name-${index}`).textContent = input.files[0].name;
+    uploadFiles[index] = input.files[0];
+  }
+}
+
+function addUploadSlot() {
+  if (uploadSlots >= 4) { toast('Maximum 4 files at once'); return; }
+  const container = document.getElementById('upload-file-slots');
+  const div = document.createElement('div');
+  div.className = 'form-field';
+  div.innerHTML = `
+    <label>PDF File (${uploadSlots+1} of up to 4)</label>
+    <div class="upload-file-area" onclick="document.getElementById('upload-file-input-${uploadSlots}').click()">
+      <div class="upload-file-icon">📄</div>
+      <div class="upload-file-text">Tap to select PDF</div>
+      <div class="upload-file-name" id="upload-file-name-${uploadSlots}"></div>
+    </div>
+    <input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" style="display:none" onchange="fileSelected(${uploadSlots},this)">
+  `;
+  container.appendChild(div);
+  uploadSlots++;
+  if (uploadSlots >= 4) document.getElementById('upload-more-btn').style.display = 'none';
+}
+
+async function submitUpload() {
+  const title = document.getElementById('upload-song-title').value.trim();
+  const key   = document.getElementById('upload-key').value;
+  const type  = document.getElementById('upload-type').value;
+
+  if (!title) { toast('Please enter a song title'); return; }
+  if (!key)   { toast('Please select a key'); return; }
+  if (!type)  { toast('Please select a file type'); return; }
+  if (!Object.keys(uploadFiles).length) { toast('Please select at least one PDF'); return; }
+
+  const btn = document.getElementById('upload-submit-btn');
+  const prog = document.getElementById('upload-progress');
+  const bar  = document.getElementById('upload-progress-bar');
+  const status = document.getElementById('upload-status');
+
+  btn.disabled = true;
+  prog.style.display = 'block';
+  status.textContent = 'Uploading...';
+
+  try {
+    const id = title.toLowerCase().replace(/\s+/g,'-');
+    const docRef = db.collection('songs').doc(id);
+    const snap = await docRef.get();
+    let existingData = snap.exists ? snap.data() : {};
+    let files = existingData.files || [];
+
+    const fileKeys = Object.keys(uploadFiles);
+    for (let i = 0; i < fileKeys.length; i++) {
+      const file = uploadFiles[fileKeys[i]];
+      bar.style.width = Math.round(((i+1)/fileKeys.length)*80) + '%';
+      status.textContent = `Uploading file ${i+1} of ${fileKeys.length}...`;
+
+      const ref = storage.ref(`songs/${id}/${file.name}`);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+      files.push({ name: file.name, url, type, key });
+    }
+
+    bar.style.width = '95%';
+    status.textContent = 'Saving to database...';
+
+    await docRef.set({
+      title,
+      normalized: title.toLowerCase(),
+      files,
+      ...(existingData.youtube ? { youtube: existingData.youtube } : {}),
+      ...(existingData.ccli    ? { ccli:    existingData.ccli    } : {}),
+    }, { merge: true });
+
+    bar.style.width = '100%';
+    status.textContent = '✓ Uploaded successfully!';
+    toast('Upload complete! 🎵');
+
+    // Reset form
+    setTimeout(() => {
+      prog.style.display = 'none';
+      bar.style.width = '0%';
+      status.textContent = '';
+      btn.disabled = false;
+      document.getElementById('upload-song-title').value = '';
+      document.getElementById('upload-key').value = '';
+      document.getElementById('upload-type').value = '';
+      uploadFiles = {};
+      uploadSlots = 1;
+      document.getElementById('upload-file-slots').innerHTML = `
+        <div class="form-field">
+          <label>PDF File (1 of up to 4)</label>
+          <div class="upload-file-area" onclick="document.getElementById('upload-file-input-0').click()">
+            <div class="upload-file-icon">📄</div>
+            <div class="upload-file-text">Tap to select PDF</div>
+            <div class="upload-file-name" id="upload-file-name-0"></div>
+          </div>
+          <input type="file" id="upload-file-input-0" accept=".pdf" style="display:none" onchange="fileSelected(0,this)">
+        </div>`;
+      document.getElementById('upload-more-btn').style.display = 'block';
+      allSongs = []; // refresh library next time
+    }, 2000);
+
+  } catch(e) {
+    status.textContent = '✗ Upload failed: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+// ── ONBOARDING TOUR ───────────────────────────────────────────────────────
+const TOUR_STEPS = {
+  home: [
+    { target: '#news-section', title: 'Latest News', text: 'The latest updates from your team leaders appear here, pulled from the main hub automatically.' },
+    { target: '#tiles-grid', title: 'Your Tools', text: 'Tap any tile to open that section. Everything your team needs is here in one place.' },
+    { target: '#header-help', title: 'Help Button', text: 'Tap the ? button at any time to replay this tour for the current screen.' },
+  ],
+  rota: [
+    { target: '.rota-ics-bar', title: 'Download Your Rota', text: 'Select your name and tap "My Rota" to download a .ics calendar file you can import into any calendar app.' },
+    { target: '#rota-content', title: 'View the Rota', text: 'Scroll down to see the full team rota. Tap a term header to collapse it.' },
+  ],
+  board: [
+    { target: '.board-add-btn', title: 'Add a Suggestion', text: 'Tap here to pin a new note to the board. Anyone on the team can add suggestions!' },
+    { target: '#board-filters', title: 'Filter Notes', text: 'Filter by category to see just songs, events, prayer requests and more.' },
+    { target: '#board-pages', title: 'Pages', text: 'Switch between different topic boards using these tabs.' },
+  ],
+  worship: [
+    { target: '.kb-tabs', title: 'Play Through & Training', text: 'Switch between play-through videos of our songs, and general worship training guides.' },
+    { target: '.kb-search-box', title: 'Search', text: 'Search for a song name, technique, or topic. Results are ranked by relevance.' },
+    { target: '#key-filter-row', title: 'Filter by Key', text: 'In Play Through mode, filter videos to only show a specific key.' },
+  ],
+  av: [
+    { target: '.kb-tabs', title: 'Troubleshoot & How To', text: 'Troubleshoot searches for solutions to problems. How To gives you step-by-step guides.' },
+    { target: '.kb-search-box', title: 'Describe the Problem', text: 'Type what\'s going wrong and we\'ll find the most relevant guides instantly.' },
+  ],
+  upload: [
+    { target: '.upload-form', title: 'Upload Sheet Music', text: 'Fill in the song title, key and type, then tap to select your PDF. You can upload up to 4 files at once.' },
+  ],
+  library: [
+    { target: '.library-search', title: 'Search the Library', text: 'Search by song title to find sheet music. Tap a song to see all available keys and types.' },
+  ],
+};
+
+function startTour() {
+  const section = currentSection === 'home' ? 'home' : currentSection;
+  const steps = TOUR_STEPS[section];
+  if (!steps || !steps.length) { toast('No tour for this screen'); return; }
+  tourStepIndex = 0;
+  showTourStep(steps);
+}
+
+function showTourStep(steps) {
+  const overlay = document.getElementById('tour-overlay');
+  const step = steps[tourStepIndex];
+  if (!step) { endTour(); return; }
+
+  const target = document.querySelector(step.target);
+  const tooltip = document.getElementById('tour-tooltip');
+  const highlight = document.getElementById('tour-highlight');
+
+  overlay.classList.add('active');
+  document.getElementById('tour-title').textContent = step.title;
+  document.getElementById('tour-text').textContent = step.text;
+  document.getElementById('tour-count').textContent = `${tourStepIndex+1} / ${steps.length}`;
+  document.getElementById('tour-next').textContent = tourStepIndex < steps.length-1 ? 'Next →' : 'Got it!';
+
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    highlight.style.left   = rect.left - 4 + 'px';
+    highlight.style.top    = rect.top - 4 + 'px';
+    highlight.style.width  = rect.width + 8 + 'px';
+    highlight.style.height = rect.height + 8 + 'px';
+    highlight.style.display = 'block';
+
+    // Position tooltip
+    const tooltipTop = rect.bottom + 12;
+    tooltip.style.top  = Math.min(tooltipTop, window.innerHeight - 160) + 'px';
+    tooltip.style.left = '20px';
+    tooltip.style.right = '20px';
+    tooltip.style.maxWidth = 'calc(100% - 40px)';
+  } else {
+    highlight.style.display = 'none';
+    tooltip.style.top  = '50%';
+    tooltip.style.left = '20px';
+    tooltip.style.right = '20px';
+    tooltip.style.transform = 'translateY(-50%)';
+  }
+}
+
+function nextTourStep() {
+  const section = currentSection === 'home' ? 'home' : currentSection;
+  const steps = TOUR_STEPS[section];
+  tourStepIndex++;
+  if (tourStepIndex >= steps.length) { endTour(); return; }
+  showTourStep(steps);
+}
+
+function endTour() {
+  document.getElementById('tour-overlay').classList.remove('active');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2500);
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function hlText(text, q) {
+  if (!q) return text;
+  q.split(/\s+/).filter(w=>w.length>1).forEach(w => {
+    text = text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');
+  });
+  return text;
+}
+
+function fmtTime(s) {
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+loadNews();
+
+// Check if first visit - show tour
+if (!localStorage.getItem('egbc_hub_toured')) {
+  setTimeout(() => {
+    startTour();
+    localStorage.setItem('egbc_hub_toured', '1');
+  }, 800);
+}
+</script>
+</body>
+</html>
