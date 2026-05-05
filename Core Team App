@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Worship Planner">
+<meta name="theme-color" content="#3d6263">
+<title>EGBC Worship Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+:root {
+  --teal:       #3d6263;
+  --teal-dark:  #2f4c4d;
+  --teal-light: #e6f0f0;
+  --border:     #d1dfdf;
+  --bg:         #f0f6f6;
+  --white:      #ffffff;
+  --green:      #27ae60;
+  --red:        #ef4444;
+  --orange:     #f59e0b;
+  --blue:       #2c6999;
+  --font:       'Montserrat', sans-serif;
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg); }
+
+/* ══ HEADER ══ */
+#app-header {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: calc(var(--safe-top) + 54px);
+  padding-top: var(--safe-top);
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding-left: 12px; padding-right: 12px;
+  gap: 8px; z-index: 200;
+  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
+}
+#back-btn {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--teal); font-size: 18px; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  font-weight: 800; flex-shrink: 0;
+}
+#back-btn.visible { display: flex; }
+#header-title {
+  flex: 1; font-size: 16px; font-weight: 800;
+  color: var(--teal); text-align: center;
+  letter-spacing: -0.01em;
+}
+#header-action {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--teal); border: none; color: white;
+  font-size: 20px; cursor: pointer; display: none;
+  align-items: center; justify-content: center;
+  font-weight: 800; flex-shrink: 0;
+}
+#header-action.visible { display: flex; }
+
+/* ══ CONTENT AREA ══ */
+#app-content {
+  position: fixed;
+  top: calc(var(--safe-top) + 54px);
+  left: 0; right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.screen {
+  position: absolute; inset: 0;
+  overflow-y: auto;
+  display: none;
+  flex-direction: column;
+  background: var(--bg);
+  padding-bottom: calc(var(--safe-bottom) + 16px);
+}
+.screen.active { display: flex; }
+
+/* ══ HOME SCREEN ══ */
+.home-hero {
+  background: var(--teal);
+  padding: 28px 20px 24px;
+  display: flex; align-items: center; gap: 14px;
+}
+.home-logo {
+  width: 52px; height: 52px; border-radius: 50%;
+  object-fit: cover; border: 2px solid rgba(255,255,255,0.3);
+  flex-shrink: 0;
+}
+.home-hero-title { font-size: 20px; font-weight: 900; color: white; line-height: 1.1; }
+.home-hero-sub { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.15em; margin-top: 3px; }
+
+.home-tiles {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; padding: 16px;
+}
+.home-tile {
+  background: var(--white); border-radius: 18px;
+  border: 1px solid var(--border); padding: 20px 16px;
+  cursor: pointer; transition: transform 0.1s;
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(61,98,99,0.06);
+}
+.home-tile:active { transform: scale(0.97); }
+.home-tile-icon { font-size: 28px; }
+.home-tile-name { font-size: 14px; font-weight: 800; color: var(--teal); }
+.home-tile-desc { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; line-height: 1.3; }
+.tile-service { border-top: 3px solid var(--teal); }
+.tile-rota    { border-top: 3px solid var(--blue); }
+.tile-email   { border-top: 3px solid var(--green); }
+
+/* ══ COMMON SECTION STYLES ══ */
+.section-pad { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  background: var(--white); border-radius: 16px;
+  border: 1px solid var(--border); padding: 14px 16px;
+}
+
+.card-label {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--teal); opacity: 0.5;
+  margin-bottom: 8px;
+}
+
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-label {
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--teal); opacity: 0.6;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 12px 14px;
+  border: 1.5px solid var(--border); border-radius: 12px;
+  font-family: var(--font); font-size: 14px;
+  font-weight: 700; color: var(--teal);
+  background: var(--white); outline: none;
+  appearance: none; -webkit-appearance: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--teal); }
+.form-textarea { resize: none; min-height: 80px; line-height: 1.5; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 13px 20px; border-radius: 12px;
+  font-family: var(--font); font-size: 13px; font-weight: 800;
+  border: none; cursor: pointer; text-transform: uppercase;
+  letter-spacing: 0.04em; transition: transform 0.1s, background 0.15s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary   { background: var(--teal); color: white; }
+.btn-primary:hover { background: var(--teal-dark); }
+.btn-secondary { background: var(--bg); color: var(--teal); border: 1.5px solid var(--border); }
+.btn-green     { background: var(--green); color: white; }
+.btn-red       { background: var(--red); color: white; }
+.btn-blue      { background: var(--blue); color: white; }
+.btn-full      { width: 100%; }
+.btn-sm        { padding: 8px 14px; font-size: 11px; border-radius: 8px; }
+
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 48px 24px; gap: 10px; text-align: center;
+}
+.empty-state-icon { font-size: 40px; }
+.empty-state-text { font-size: 13px; font-weight: 700; color: var(--teal); opacity: 0.4; }
+
+/* ══ SERVICE PLANNER ══ */
+.service-list { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+
+.service-card {
+  background: var(--white); border-radius: 14px;
+  border: 1px solid var(--border); padding: 14px 16px;
+  cursor: pointer; transition: background 0.1s;
+  display: flex; align-items: center; gap: 12px;
+}
+.service-card:active { background: var(--teal-light); }
+.service-card-info { flex: 1; min-width: 0; }
+.service-card-date { font-size: 11px; font-weight: 800; color: var(--teal); opacity: 0.5; text-transform: uppercase; letter-spacing: 0.08em; }
+.service-card-title { font-size: 15px; font-weight: 800; color: var(--teal); margin: 2px 0; }
+.service-card-meta { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; }
+.service-card-arrow { font-size: 20px; color: var(--teal); opacity: 0.3; }
+
+/* Service order items (draggable) */
+.order-list { display: flex; flex-direction: column; gap: 6px; }
+
+.order-item {
+  background: var(--white); border-radius: 12px;
+  border: 1px solid var(--border); padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px;
+  touch-action: none;
+}
+.order-item.dragging {
+  opacity: 0.5; background: var(--teal-light);
+}
+.order-item.drag-over { border-color: var(--teal); background: var(--teal-light); }
+
+.order-drag-handle {
+  color: var(--teal); opacity: 0.3; font-size: 18px;
+  cursor: grab; flex-shrink: 0; padding: 4px;
+  user-select: none;
+}
+.order-item-type {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; padding: 3px 8px;
+  border-radius: 9999px; flex-shrink: 0;
+}
+.type-song    { background: #fef9c3; color: #854d0e; }
+.type-prayer  { background: #f5f3ff; color: #5b21b6; }
+.type-reading { background: #eff6ff; color: #1e40af; }
+.type-announcement { background: #f0fdf4; color: #166534; }
+.type-other   { background: var(--bg); color: var(--teal); }
+
+.order-item-title {
+  flex: 1; font-size: 14px; font-weight: 700;
+  color: var(--teal); min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.order-item-key {
+  font-size: 11px; font-weight: 800; color: var(--teal);
+  opacity: 0.5; flex-shrink: 0;
+}
+.order-item-delete {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: #fee2e2; border: none; color: var(--red);
+  font-size: 14px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Song search dropdown */
+.song-search-wrap { position: relative; }
+.song-suggestions {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--white); border: 1.5px solid var(--teal);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 8px 24px rgba(61,98,99,0.15);
+  z-index: 100; max-height: 200px; overflow-y: auto;
+}
+.song-suggestion-item {
+  padding: 12px 14px; font-size: 13px; font-weight: 700;
+  color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg);
+}
+.song-suggestion-item:hover { background: var(--teal-light); }
+
+/* Keys chips */
+.key-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.key-chip {
+  padding: 5px 12px; border-radius: 9999px;
+  border: 1.5px solid var(--border); background: var(--bg);
+  font-size: 11px; font-weight: 800; color: var(--teal);
+  cursor: pointer; transition: all 0.15s;
+}
+.key-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
+
+/* ══ ROTA PLANNER ══ */
+.rota-event-card {
+  background: var(--white); border-radius: 14px;
+  border: 1px solid var(--border);
+  cursor: pointer; overflow: hidden;
+}
+.rota-event-header {
+  background: var(--teal); padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rota-event-date { font-size: 13px; font-weight: 800; color: white; }
+.rota-event-type { font-size: 11px; color: rgba(255,255,255,0.7); font-weight: 700; }
+.rota-event-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.rota-assignment-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px; background: var(--bg);
+}
+.rota-role-label {
+  font-size: 11px; font-weight: 800; color: var(--teal);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  width: 120px; flex-shrink: 0;
+}
+.rota-member-name { flex: 1; font-size: 13px; font-weight: 700; color: var(--teal); }
+.rota-member-select {
+  flex: 1; padding: 6px 10px; border-radius: 8px;
+  border: 1.5px solid var(--border); font-family: var(--font);
+  font-size: 12px; font-weight: 700; color: var(--teal);
+  background: white; appearance: none; -webkit-appearance: none;
+  outline: none;
+}
+
+/* Role management */
+.role-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 9999px;
+  background: var(--teal-light); border: 1px solid var(--border);
+  font-size: 12px; font-weight: 700; color: var(--teal);
+}
+.role-tag-delete {
+  background: none; border: none; color: var(--red);
+  cursor: pointer; font-size: 14px; padding: 0;
+  display: flex; align-items: center;
+}
+
+/* ══ EMAIL COMPILER ══ */
+#email-editor-wrap {
+  flex: 1; overflow-y: auto;
+  padding: 12px;
+}
+
+.email-toolbar {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 10px 12px; background: var(--white);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; position: sticky; top: 0; z-index: 10;
+}
+
+.tool-btn {
+  padding: 7px 12px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-family: var(--font); font-size: 12px;
+  font-weight: 800; color: var(--teal);
+  cursor: pointer; white-space: nowrap;
+}
+.tool-btn:active { background: var(--teal-light); }
+.tool-btn.active { background: var(--teal); color: white; border-color: var(--teal); }
+
+.tool-select {
+  padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg);
+  font-family: var(--font); font-size: 12px;
+  font-weight: 700; color: var(--teal); outline: none;
+}
+
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 2px solid var(--border); cursor: pointer;
+  flex-shrink: 0;
+}
+
+#email-canvas {
+  background: white; border-radius: 14px;
+  border: 1px solid var(--border); overflow: hidden;
+  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
+}
+
+#editable-body {
+  padding: 20px; min-height: 300px;
+  outline: none; font-family: 'Segoe UI', sans-serif;
+  font-size: 16px; color: #333; line-height: 1.6;
+}
+#editable-body img {
+  max-width: 100%; height: auto;
+  cursor: pointer; border: 3px solid transparent;
+}
+#editable-body img.selected-img { border: 3px solid #e67e22 !important; }
+
+.draft-card {
+  background: var(--white); border-radius: 14px;
+  border: 1px solid var(--border); padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.draft-card.active-draft { border-color: var(--teal); background: var(--teal-light); }
+.draft-info { flex: 1; min-width: 0; }
+.draft-name { font-size: 14px; font-weight: 800; color: var(--teal); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-meta { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; line-height: 1.5; }
+.draft-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* Address book chips */
+.team-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border-radius: 9999px;
+  border: 1.5px solid var(--border); background: var(--bg);
+  font-size: 12px; font-weight: 800; color: var(--teal);
+  cursor: pointer; transition: all 0.15s;
+}
+.team-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
+
+/* ══ MODAL ══ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  z-index: 500; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-sheet {
+  background: var(--white); border-radius: 24px 24px 0 0;
+  width: 100%; max-height: 90vh; overflow-y: auto;
+  padding: 20px 16px calc(var(--safe-bottom) + 20px);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.modal-handle {
+  width: 36px; height: 4px; border-radius: 9999px;
+  background: var(--border); margin: 0 auto 16px;
+}
+.modal-title {
+  font-size: 18px; font-weight: 800; color: var(--teal);
+  margin-bottom: 16px; letter-spacing: -0.01em;
+}
+
+/* Center modal variant */
+.modal-center {
+  background: var(--white); border-radius: 20px;
+  padding: 24px 20px; max-width: 400px; width: calc(100% - 32px);
+  max-height: 85vh; overflow-y: auto;
+  animation: popIn 0.2s ease;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.modal-overlay.center { align-items: center; }
+
+/* ══ TOAST ══ */
+#toast {
+  position: fixed; bottom: calc(var(--safe-bottom) + 24px);
+  left: 50%; transform: translateX(-50%);
+  background: var(--teal); color: white;
+  padding: 10px 22px; border-radius: 9999px;
+  font-size: 12px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.05em; z-index: 9000;
+  display: none; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(61,98,99,0.3);
+  pointer-events: none;
+}
+
+/* ══ LOADING ══ */
+#loader {
+  display: none; position: fixed; inset: 0;
+  background: rgba(61,98,99,0.92); z-index: 9999;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+}
+#loader.show { display: flex; }
+.loader-spinner {
+  width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: white; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loader-msg { color: white; font-size: 13px; font-weight: 700; opacity: 0.8; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.2s ease; }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+<div id="loader"><div class="loader-spinner"></div><div class="loader-msg" id="loader-msg">Loading...</div></div>
+
+<!-- HEADER -->
+<div id="app-header">
+  <button id="back-btn" onclick="goBack()">←</button>
+  <div id="header-title">Worship Planner</div>
+  <button id="header-action">+</button>
+</div>
+
+<div id="app-content">
+
+  <!-- ══ HOME ══ -->
+  <div id="screen-home" class="screen active">
+    <div class="home-hero">
+      <img class="home-logo"
+        src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
+        alt="EGBC" onerror="this.style.display='none'">
+      <div>
+        <div class="home-hero-title">Worship Planner</div>
+        <div class="home-hero-sub">EGBC Worship &amp; AV</div>
+      </div>
+    </div>
+    <div class="home-tiles">
+      <div class="home-tile tile-service" onclick="openSection('service')">
+        <div class="home-tile-icon">🗓</div>
+        <div class="home-tile-name">Service Planner</div>
+        <div class="home-tile-desc">Build &amp; manage service orders</div>
+      </div>
+      <div class="home-tile tile-rota" onclick="openSection('rota')">
+        <div class="home-tile-icon">👥</div>
+        <div class="home-tile-name">Rota Planner</div>
+        <div class="home-tile-desc">Assign team to services</div>
+      </div>
+      <div class="home-tile tile-email" style="grid-column:1/-1;" onclick="openSection('email')">
+        <div class="home-tile-icon">📧</div>
+        <div class="home-tile-name">Email Compiler</div>
+        <div class="home-tile-desc">Draft &amp; send team updates</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SERVICE PLANNER LIST ══ -->
+  <div id="screen-service" class="screen">
+    <div style="padding:12px; display:flex; gap:8px;">
+      <input class="form-input" id="service-search" placeholder="Search by date or type..." oninput="renderServiceList()" style="flex:1;">
+    </div>
+    <div id="service-list" class="service-list"></div>
+  </div>
+
+  <!-- ══ SERVICE DETAIL ══ -->
+  <div id="screen-service-detail" class="screen">
+    <div class="section-pad">
+      <!-- Service info card -->
+      <div class="card" id="service-info-card"></div>
+
+      <!-- Order of service -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;">
+          <div class="card-label" style="margin-bottom:0;">Order of Service</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddItemModal()">+ Add Item</button>
+        </div>
+        <div class="order-list" id="order-list"></div>
+        <div id="order-empty" class="empty-state" style="display:none;">
+          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-text">No items yet — add your first</div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="card">
+        <div class="card-label">Service Notes</div>
+        <textarea class="form-textarea" id="service-notes" placeholder="Any notes for this service..." oninput="autoGrow(this)" rows="3"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+          <button class="btn btn-primary btn-full" onclick="saveService()">Save Service</button>
+          <button class="btn btn-red btn-sm" onclick="archiveService()">Archive</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROTA LIST ══ -->
+  <div id="screen-rota" class="screen">
+    <div style="padding:12px;display:flex;gap:8px;">
+      <input class="form-input" id="rota-search" placeholder="Search by date or type..." oninput="renderRotaList()" style="flex:1;">
+    </div>
+    <div id="rota-list" class="service-list"></div>
+  </div>
+
+  <!-- ══ ROTA DETAIL ══ -->
+  <div id="screen-rota-detail" class="screen">
+    <div class="section-pad" id="rota-detail-content"></div>
+  </div>
+
+  <!-- ══ EMAIL COMPILER ══ -->
+  <div id="screen-email" class="screen" style="flex-direction:column;">
+    <!-- Toolbar -->
+    <div class="email-toolbar">
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
+      <select class="tool-select" onchange="applySize(this.value);this.value=''">
+        <option value="">Size</option>
+        <option value="12px">Small</option>
+        <option value="16px">Normal</option>
+        <option value="22px">Large</option>
+        <option value="32px">Huge</option>
+      </select>
+      <div class="color-swatch" style="background:#3d6263;" onmousedown="event.preventDefault();applyColor('#3d6263')"></div>
+      <div class="color-swatch" style="background:#000000;" onmousedown="event.preventDefault();applyColor('#000000')"></div>
+      <div class="color-swatch" style="background:#a0b0b0;" onmousedown="event.preventDefault();applyColor('#a0b0b0')"></div>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyLeft')">L</button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyCenter')">C</button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyRight')">R</button>
+      <button class="tool-btn" onclick="insertSideLayout()">⬜⬜</button>
+      <button class="tool-btn" onclick="uploadEmailImage()">📷</button>
+      <button class="tool-btn" onclick="resizeImg()">↔</button>
+    </div>
+
+    <div id="email-editor-wrap">
+      <!-- Draft info bar -->
+      <div id="draft-bar" style="display:none;background:var(--teal-light);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div id="draft-bar-name" style="font-size:13px;font-weight:800;color:var(--teal);"></div>
+          <div id="draft-bar-meta" style="font-size:10px;color:var(--teal);opacity:0.6;"></div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="overwriteDraft()">💾 Save</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearEditor()">✕ Close</button>
+      </div>
+
+      <div id="email-canvas">
+        <div id="editable-body" contenteditable="true">
+          <p>Start your team update here...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div style="padding:8px 12px;background:var(--white);border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="openDraftsSheet()">📂 Drafts</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMailingSheet()">👥 Mailing List</button>
+      <button class="btn btn-green btn-sm" onclick="saveNewDraft()">💾 New Draft</button>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="compileEmail()">📋 Copy HTML</button>
+    </div>
+  </div>
+
+</div><!-- end app-content -->
+
+<!-- ══ ADD SERVICE MODAL ══ -->
+<div class="modal-overlay" id="modal-new-service">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New Service</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-field">
+        <label class="form-label">Date</label>
+        <input type="date" class="form-input" id="new-service-date">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Service Type</label>
+        <input class="form-input" id="new-service-type" placeholder="e.g. Sunday 10:30am, Youth Service...">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Worship Leader</label>
+        <select class="form-select" id="new-service-leader">
+          <option value="">Select leader...</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary btn-full" onclick="closeModal('modal-new-service')">Cancel</button>
+        <button class="btn btn-primary btn-full" onclick="createService()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD ORDER ITEM MODAL ══ -->
+<div class="modal-overlay" id="modal-add-item">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="add-item-title">Add Item</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-field">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="item-type" onchange="onItemTypeChange()">
+          <option value="song">🎵 Song</option>
+          <option value="prayer">🙏 Prayer</option>
+          <option value="reading">📖 Reading</option>
+          <option value="announcement">📢 Announcement</option>
+          <option value="other">📌 Other</option>
+        </select>
+      </div>
+      <div class="form-field song-search-wrap" id="item-title-wrap">
+        <label class="form-label">Title</label>
+        <input class="form-input" id="item-title" placeholder="e.g. Way Maker" oninput="onItemTitleInput()" autocomplete="off">
+        <div id="song-suggestions" class="song-suggestions" style="display:none;"></div>
+      </div>
+      <div class="form-field" id="item-keys-wrap">
+        <label class="form-label">Key(s)</label>
+        <div class="key-chips" id="item-key-chips">
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Ab" onchange="toggleItemKey(this)"> Ab</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="A" onchange="toggleItemKey(this)"> A</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Bb" onchange="toggleItemKey(this)"> Bb</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="B" onchange="toggleItemKey(this)"> B</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="C" onchange="toggleItemKey(this)"> C</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="C#" onchange="toggleItemKey(this)"> C#</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="D" onchange="toggleItemKey(this)"> D</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Eb" onchange="toggleItemKey(this)"> Eb</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="E" onchange="toggleItemKey(this)"> E</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="F" onchange="toggleItemKey(this)"> F</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="F#" onchange="toggleItemKey(this)"> F#</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="G" onchange="toggleItemKey(this)"> G</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="G#" onchange="toggleItemKey(this)"> G#</label>
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="item-notes" placeholder="Any notes for this item..." rows="2"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary btn-full" onclick="closeModal('modal-add-item')">Cancel</button>
+        <button class="btn btn-primary btn-full" id="item-save-btn" onclick="saveOrderItem()">Add Item</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEW ROTA EVENT MODAL ══ -->
+<div class="modal-overlay" id="modal-new-event">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New Rota Event</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-field">
+        <label class="form-label">Date</label>
+        <input type="date" class="form-input" id="new-event-date">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Service Type</label>
+        <input class="form-input" id="new-event-type" placeholder="e.g. Sunday 10:30am">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Term / Series Label (optional)</label>
+        <input class="form-input" id="new-event-term" placeholder="e.g. Easter 2025">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary btn-full" onclick="closeModal('modal-new-event')">Cancel</button>
+        <button class="btn btn-primary btn-full" onclick="createRotaEvent()">Create Event</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ WHO ARE YOU MODAL ══ -->
+<div class="modal-overlay center" id="modal-who">
+  <div class="modal-center">
+    <div class="modal-title">👋 Who are you?</div>
+    <p style="font-size:13px;font-weight:600;color:var(--teal);opacity:0.7;margin-bottom:16px;">Your name is saved with any drafts you create or edit.</p>
+    <div class="form-field" style="margin-bottom:14px;">
+      <input class="form-input" id="who-input" type="text" placeholder="Your first name..." maxlength="30"
+        onkeydown="if(event.key==='Enter')saveWho()">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveWho()">Let's go</button>
+  </div>
+</div>
+
+<!-- ══ DRAFTS SHEET ══ -->
+<div class="modal-overlay" id="modal-drafts">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📂 Saved Drafts</div>
+    <div id="drafts-count" style="font-size:11px;color:var(--teal);opacity:0.5;margin-bottom:12px;font-weight:700;"></div>
+    <div id="drafts-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="margin-top:14px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-drafts')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAILING LIST SHEET ══ -->
+<div class="modal-overlay" id="modal-mailing">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">👥 Mailing List</div>
+    <div class="form-field" style="margin-bottom:14px;">
+      <label class="form-label">Select Teams</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="team-chips">
+        <div class="team-chip" data-team="Worship Team" onclick="toggleTeam(this)">🎸 Worship</div>
+        <div class="team-chip" data-team="AV Team" onclick="toggleTeam(this)">🎬 AV</div>
+        <div class="team-chip" data-team="Youth Worship" onclick="toggleTeam(this)">⚡ Youth</div>
+        <div class="team-chip" data-team="Core Team" onclick="toggleTeam(this)">⭐ Core</div>
+        <div class="team-chip" data-team="Choir" onclick="toggleTeam(this)">🎤 Choir</div>
+        <div class="team-chip" data-team="Everyone" onclick="toggleTeam(this)">👥 Everyone</div>
+      </div>
+    </div>
+    <div id="recipient-count" style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.6;margin-bottom:14px;text-align:center;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-mailing')">Cancel</button>
+      <button class="btn btn-primary btn-full" onclick="launchEmail()">Open Email App</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM MODAL ══ -->
+<div class="modal-overlay center" id="modal-confirm">
+  <div class="modal-center">
+    <div class="modal-title" id="confirm-title">Confirm</div>
+    <p id="confirm-msg" style="font-size:13px;font-weight:600;color:var(--teal);opacity:0.7;margin-bottom:20px;"></p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-red btn-full" id="confirm-ok">Yes, proceed</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.firebasestorage.app"
+});
+const db      = firebase.firestore();
+const storage = firebase.storage();
+const TS      = firebase.firestore.FieldValue.serverTimestamp;
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentSection  = 'home';
+let screenStack     = ['home'];
+let allSongs        = [];
+let allMembers      = [];
+let currentService  = null; // { id, ...data }
+let currentRotaEvent = null;
+let editingItemIndex = null;
+let activeDraftId   = null;
+let currentUser     = localStorage.getItem('egbc_planner_user') || '';
+const MAX_DRAFTS    = 10;
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function toast(msg, dur = 2200) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._tt);
+  window._tt = setTimeout(() => { t.style.display = 'none'; }, dur);
+}
+
+function loader(show, msg = 'Loading...') {
+  $('loader').classList.toggle('show', show);
+  $('loader-msg').textContent = msg;
+}
+
+function openModal(id)  { $(id).classList.add('open'); }
+function closeModal(id) { $(id).classList.remove('open'); }
+
+function confirm_(title, msg, onOk) {
+  $('confirm-title').textContent = title;
+  $('confirm-msg').textContent   = msg;
+  $('confirm-ok').onclick = () => { closeModal('modal-confirm'); onOk(); };
+  openModal('modal-confirm');
+}
+
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+
+function fmtShortDate(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+}
+
+window.autoGrow = el => {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+};
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+const TITLES = {
+  home: 'Worship Planner',
+  service: 'Service Planner',
+  'service-detail': '',
+  rota: 'Rota Planner',
+  'rota-detail': '',
+  email: 'Email Compiler',
+};
+
+function openSection(name) {
+  screenStack.push(name);
+  showScreen(name);
+}
+
+function goBack() {
+  if (screenStack.length <= 1) return;
+  screenStack.pop();
+  showScreen(screenStack[screenStack.length - 1]);
+}
+
+function showScreen(name) {
+  currentSection = name;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + name);
+  if (el) el.classList.add('active');
+
+  $('header-title').textContent = TITLES[name] || 'Worship Planner';
+  const backBtn = $('back-btn');
+  backBtn.classList.toggle('visible', name !== 'home');
+
+  // Header action button
+  const actionBtn = $('header-action');
+  actionBtn.classList.remove('visible');
+  actionBtn.onclick = null;
+
+  if (name === 'service') {
+    actionBtn.classList.add('visible');
+    actionBtn.textContent = '+';
+    actionBtn.onclick = () => openNewServiceModal();
+    loadServiceList();
+  }
+  if (name === 'rota') {
+    actionBtn.classList.add('visible');
+    actionBtn.textContent = '+';
+    actionBtn.onclick = () => openNewEventModal();
+    loadRotaList();
+  }
+  if (name === 'service-detail' && currentService) {
+    $('header-title').textContent = currentService.type || 'Service';
+    renderServiceDetail();
+  }
+  if (name === 'rota-detail' && currentRotaEvent) {
+    $('header-title').textContent = currentRotaEvent.type || 'Event';
+    renderRotaDetail();
+  }
+  if (name === 'email') {
+    loadMembers();
+    if (!currentUser) openModal('modal-who');
+  }
+}
+
+// Fix: screens with hyphens need careful ID handling
+document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+$('screen-home').classList.add('active');
+
+// ── WHO ARE YOU ───────────────────────────────────────────────────────────
+function saveWho() {
+  const name = $('who-input').value.trim();
+  if (!name) return;
+  currentUser = name;
+  localStorage.setItem('egbc_planner_user', name);
+  closeModal('modal-who');
+  toast('Welcome, ' + name + '!');
+}
+
+// ── LOAD MEMBERS ──────────────────────────────────────────────────────────
+function loadMembers() {
+  if (allMembers.length) return;
+  db.collection('addressBook').onSnapshot(snap => {
+    allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    populateLeaderDropdown();
+  });
+}
+
+function populateLeaderDropdown() {
+  const sel = $('new-service-leader');
+  if (!sel) return;
+  const current = sel.value;
+  const leaders = allMembers.filter(m =>
+    m.markers && (m.markers.includes('Worship Team') || m.markers.includes('Core Team'))
+  );
+  sel.innerHTML = '<option value="">Select leader...</option>' +
+    leaders.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  if (current) sel.value = current;
+}
+
+// ── LOAD SONGS ────────────────────────────────────────────────────────────
+async function ensureSongs() {
+  if (allSongs.length) return;
+  try {
+    const snap = await db.collection('songs').orderBy('normalized').get();
+    allSongs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// SERVICE PLANNER
+// ══════════════════════════════════════════════════════════════════════════
+
+async function loadServiceList() {
+  $('service-list').innerHTML = '<div class="empty-state"><div class="loader-spinner"></div></div>';
+  try {
+    const snap = await db.collection('services').orderBy('date', 'desc').get();
+    window._services = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.archived);
+    renderServiceList();
+  } catch(e) {
+    $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-text">Could not load services</div></div>';
+  }
+}
+
+function renderServiceList() {
+  const q = $('service-search').value.toLowerCase();
+  const list = (window._services || []).filter(s =>
+    !q || (s.date||'').includes(q) || (s.type||'').toLowerCase().includes(q)
+  );
+  if (!list.length) {
+    $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗓</div><div class="empty-state-text">No services yet — tap + to create one</div></div>';
+    return;
+  }
+  $('service-list').innerHTML = list.map(s => `
+    <div class="service-card fade-in" onclick="openServiceDetail('${s.id}')">
+      <div class="service-card-info">
+        <div class="service-card-date">${fmtShortDate(s.date)}</div>
+        <div class="service-card-title">${s.type || 'Service'}</div>
+        <div class="service-card-meta">${(s.order||[]).filter(i=>i.type==='song').length} songs · ${s.worshipLeader || 'No leader set'}</div>
+      </div>
+      <div class="service-card-arrow">›</div>
+    </div>`).join('');
+}
+
+function openNewServiceModal() {
+  loadMembers();
+  // Default date to next Sunday
+  const today = new Date();
+  const day = today.getDay();
+  const diff = (7 - day) % 7 || 7;
+  const nextSunday = new Date(today);
+  nextSunday.setDate(today.getDate() + diff);
+  $('new-service-date').value = nextSunday.toISOString().split('T')[0];
+  $('new-service-type').value = '';
+  populateLeaderDropdown();
+  openModal('modal-new-service');
+}
+
+async function createService() {
+  const date   = $('new-service-date').value;
+  const type   = $('new-service-type').value.trim();
+  const leader = $('new-service-leader').value;
+  if (!date)   { toast('Please select a date'); return; }
+  if (!type)   { toast('Please enter a service type'); return; }
+  loader(true, 'Creating service...');
+  try {
+    const ref = await db.collection('services').add({
+      date, type, worshipLeader: leader,
+      order: [], notes: '', archived: false,
+      createdAt: TS(), updatedAt: TS()
+    });
+    closeModal('modal-new-service');
+    toast('Service created!');
+    currentService = { id: ref.id, date, type, worshipLeader: leader, order: [], notes: '' };
+    openSection('service-detail');
+  } catch(e) {
+    toast('Error creating service');
+  }
+  loader(false);
+}
+
+async function openServiceDetail(id) {
+  loader(true);
+  try {
+    const doc = await db.collection('services').doc(id).get();
+    currentService = { id, ...doc.data() };
+    openSection('service-detail');
+  } catch(e) { toast('Could not load service'); }
+  loader(false);
+}
+
+function renderServiceDetail() {
+  if (!currentService) return;
+  const s = currentService;
+  $('header-title').textContent = fmtShortDate(s.date);
+
+  $('service-info-card').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--teal);">${s.type || 'Service'}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(s.date)}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="openEditServiceMeta()">Edit</button>
+      </div>
+      ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;align-self:flex-start;">🎸 ${s.worshipLeader}</div>` : ''}
+    </div>`;
+
+  $('service-notes').value = s.notes || '';
+  setTimeout(() => autoGrow($('service-notes')), 50);
+  renderOrderList();
+}
+
+function renderOrderList() {
+  const order = currentService?.order || [];
+  const list = $('order-list');
+  const empty = $('order-empty');
+
+  if (!order.length) {
+    list.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const typeLabels = { song:'Song', prayer:'Prayer', reading:'Reading', announcement:'Announcement', other:'Other' };
+  list.innerHTML = order.map((item, i) => `
+    <div class="order-item" draggable="true" data-index="${i}"
+      ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
+      ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
+      <div class="order-drag-handle">⠿</div>
+      <span class="order-item-type type-${item.type||'other'}">${typeLabels[item.type]||'Other'}</span>
+      <div class="order-item-title">${item.title||'—'}</div>
+      ${item.keys?.length ? `<span class="order-item-key">${item.keys.join(', ')}</span>` : ''}
+      <button class="order-item-delete" onclick="editOrderItem(${i})">✏️</button>
+      <button class="order-item-delete" onclick="deleteOrderItem(${i})">✕</button>
+    </div>`).join('');
+}
+
+// Drag to reorder
+let dragSrcIndex = null;
+function dragStart(e, i) { dragSrcIndex = i; e.currentTarget.classList.add('dragging'); }
+function dragOver(e, i)  { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dragEnd(e)      { e.currentTarget.classList.remove('dragging'); document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over')); }
+function dragDrop(e, i)  {
+  e.preventDefault();
+  if (dragSrcIndex === null || dragSrcIndex === i) return;
+  const order = currentService.order;
+  const [moved] = order.splice(dragSrcIndex, 1);
+  order.splice(i, 0, moved);
+  renderOrderList();
+}
+
+async function openAddItemModal() {
+  await ensureSongs();
+  editingItemIndex = null;
+  $('add-item-title').textContent = 'Add Item';
+  $('item-save-btn').textContent = 'Add Item';
+  $('item-type').value = 'song';
+  $('item-title').value = '';
+  $('item-notes').value = '';
+  $('song-suggestions').style.display = 'none';
+  // Reset key chips
+  document.querySelectorAll('#item-key-chips input').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.key-chip').classList.remove('selected');
+  });
+  onItemTypeChange();
+  openModal('modal-add-item');
+}
+
+function editOrderItem(i) {
+  editingItemIndex = i;
+  const item = currentService.order[i];
+  $('add-item-title').textContent = 'Edit Item';
+  $('item-save-btn').textContent = 'Save Changes';
+  $('item-type').value = item.type || 'song';
+  $('item-title').value = item.title || '';
+  $('item-notes').value = item.notes || '';
+  $('song-suggestions').style.display = 'none';
+  // Set key chips
+  document.querySelectorAll('#item-key-chips input').forEach(cb => {
+    const on = (item.keys || []).includes(cb.value);
+    cb.checked = on;
+    cb.closest('.key-chip').classList.toggle('selected', on);
+  });
+  onItemTypeChange();
+  openModal('modal-add-item');
+}
+
+function onItemTypeChange() {
+  const type = $('item-type').value;
+  const keysWrap = $('item-keys-wrap');
+  keysWrap.style.display = type === 'song' ? 'flex' : 'none';
+}
+
+function toggleItemKey(cb) {
+  cb.closest('.key-chip').classList.toggle('selected', cb.checked);
+}
+
+let songSearchTimer = null;
+function onItemTitleInput() {
+  const q = $('item-title').value.trim().toLowerCase();
+  clearTimeout(songSearchTimer);
+  if ($('item-type').value !== 'song' || q.length < 2) {
+    $('song-suggestions').style.display = 'none';
+    return;
+  }
+  songSearchTimer = setTimeout(() => {
+    const matches = allSongs.filter(s => (s.normalized||s.title||'').toLowerCase().includes(q)).slice(0, 6);
+    if (!matches.length) { $('song-suggestions').style.display = 'none'; return; }
+    $('song-suggestions').innerHTML = matches.map(s =>
+      `<div class="song-suggestion-item" onclick="selectSong('${s.title.replace(/'/g,"\\'")}')">${s.title}</div>`
+    ).join('');
+    $('song-suggestions').style.display = 'block';
+  }, 250);
+}
+
+function selectSong(title) {
+  $('item-title').value = title;
+  $('song-suggestions').style.display = 'none';
+  // Auto-fill available keys
+  const song = allSongs.find(s => s.title === title);
+  if (song?.files) {
+    const keys = [...new Set(song.files.map(f => f.key).filter(Boolean))];
+    document.querySelectorAll('#item-key-chips input').forEach(cb => {
+      const on = keys.includes(cb.value);
+      cb.checked = on;
+      cb.closest('.key-chip').classList.toggle('selected', on);
+    });
+  }
+}
+
+function saveOrderItem() {
+  const title = $('item-title').value.trim();
+  const type  = $('item-type').value;
+  const notes = $('item-notes').value.trim();
+  const keys  = Array.from(document.querySelectorAll('#item-key-chips input:checked')).map(cb => cb.value);
+  if (!title) { toast('Please enter a title'); return; }
+
+  const item = { type, title, notes, ...(type === 'song' ? { keys } : {}) };
+
+  if (editingItemIndex !== null) {
+    currentService.order[editingItemIndex] = item;
+  } else {
+    currentService.order.push(item);
+  }
+
+  closeModal('modal-add-item');
+  renderOrderList();
+}
+
+function deleteOrderItem(i) {
+  confirm_('Remove Item', `Remove "${currentService.order[i].title}" from the order?`, () => {
+    currentService.order.splice(i, 1);
+    renderOrderList();
+  });
+}
+
+async function saveService() {
+  if (!currentService?.id) return;
+  loader(true, 'Saving service...');
+  currentService.notes = $('service-notes').value;
+  try {
+    await db.collection('services').doc(currentService.id).update({
+      order: currentService.order,
+      notes: currentService.notes,
+      type:  currentService.type,
+      date:  currentService.date,
+      worshipLeader: currentService.worshipLeader || '',
+      updatedAt: TS()
+    });
+    toast('✓ Service saved');
+    // Refresh list cache
+    if (window._services) {
+      const idx = window._services.findIndex(s => s.id === currentService.id);
+      if (idx !== -1) window._services[idx] = { ...currentService };
+    }
+  } catch(e) { toast('Error saving service'); }
+  loader(false);
+}
+
+function archiveService() {
+  confirm_('Archive Service', 'Archive this service? It will be hidden from the list.', async () => {
+    loader(true);
+    try {
+      await db.collection('services').doc(currentService.id).update({ archived: true });
+      toast('Service archived');
+      window._services = (window._services||[]).filter(s => s.id !== currentService.id);
+      goBack();
+    } catch(e) { toast('Error archiving'); }
+    loader(false);
+  });
+}
+
+function openEditServiceMeta() {
+  // Open new service modal pre-filled for editing
+  loadMembers();
+  $('new-service-date').value  = currentService.date || '';
+  $('new-service-type').value  = currentService.type || '';
+  setTimeout(() => {
+    populateLeaderDropdown();
+    $('new-service-leader').value = currentService.worshipLeader || '';
+  }, 100);
+  // Change button to "Save Changes"
+  const btn = document.querySelector('#modal-new-service .btn-primary');
+  btn.textContent = 'Save Changes';
+  btn.onclick = saveServiceMeta;
+  openModal('modal-new-service');
+}
+
+async function saveServiceMeta() {
+  const date   = $('new-service-date').value;
+  const type   = $('new-service-type').value.trim();
+  const leader = $('new-service-leader').value;
+  if (!date || !type) { toast('Please fill in date and type'); return; }
+  currentService.date = date;
+  currentService.type = type;
+  currentService.worshipLeader = leader;
+  closeModal('modal-new-service');
+  // Reset button
+  const btn = document.querySelector('#modal-new-service .btn-primary');
+  btn.textContent = 'Create';
+  btn.onclick = createService;
+  renderServiceDetail();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ROTA PLANNER
+// ══════════════════════════════════════════════════════════════════════════
+
+// Standard roles
+const DEFAULT_ROLES = [
+  'Worship Leader', 'Keyboard', 'Guitar', '2nd Guitar', 'Electric Guitar',
+  'Bass', 'Drums', 'Vocals', '2nd Vocals', '3rd Vocals',
+  'Sound', 'Visuals', 'Lighting', 'Camera'
+];
+
+async function loadRotaList() {
+  $('rota-list').innerHTML = '<div class="empty-state"><div class="loader-spinner"></div></div>';
+  try {
+    const snap = await db.collection('events').orderBy('date', 'desc').get();
+    window._events = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => !e.archived);
+    renderRotaList();
+  } catch(e) {
+    $('rota-list').innerHTML = '<div class="empty-state"><div class="empty-state-text">Could not load events</div></div>';
+  }
+}
+
+function renderRotaList() {
+  const q = $('rota-search').value.toLowerCase();
+  const list = (window._events || []).filter(e =>
+    !q || (e.date||'').includes(q) || (e.type||'').toLowerCase().includes(q)
+  );
+  if (!list.length) {
+    $('rota-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">No events yet — tap + to create one</div></div>';
+    return;
+  }
+  const filledCount = e => Object.values(e.assignments||{}).filter(a => a?.name).length;
+  const totalRoles  = e => Object.keys(e.assignments||{}).length || DEFAULT_ROLES.length;
+
+  $('rota-list').innerHTML = list.map(e => `
+    <div class="service-card fade-in" onclick="openRotaDetail('${e.id}')">
+      <div class="service-card-info">
+        <div class="service-card-date">${fmtShortDate(e.date)}</div>
+        <div class="service-card-title">${e.type || 'Event'}</div>
+        <div class="service-card-meta">${filledCount(e)} of ${totalRoles(e)} roles filled${e.termLabel ? ' · ' + e.termLabel : ''}</div>
+      </div>
+      <div class="service-card-arrow">›</div>
+    </div>`).join('');
+}
+
+function openNewEventModal() {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = (7 - day) % 7 || 7;
+  const nextSunday = new Date(today);
+  nextSunday.setDate(today.getDate() + diff);
+  $('new-event-date').value = nextSunday.toISOString().split('T')[0];
+  $('new-event-type').value = '';
+  $('new-event-term').value = '';
+  openModal('modal-new-event');
+}
+
+async function createRotaEvent() {
+  const date = $('new-event-date').value;
+  const type = $('new-event-type').value.trim();
+  const term = $('new-event-term').value.trim();
+  if (!date) { toast('Please select a date'); return; }
+  if (!type) { toast('Please enter a service type'); return; }
+
+  // Build default assignments object
+  const assignments = {};
+  DEFAULT_ROLES.forEach(r => { assignments[r] = { name: '', id: '' }; });
+
+  loader(true, 'Creating event...');
+  try {
+    const ref = await db.collection('events').add({
+      date, type, termLabel: term, archived: false,
+      assignments, createdAt: TS(), updatedAt: TS()
+    });
+    closeModal('modal-new-event');
+    toast('Event created!');
+    currentRotaEvent = { id: ref.id, date, type, termLabel: term, assignments };
+    openSection('rota-detail');
+  } catch(e) { toast('Error creating event'); }
+  loader(false);
+}
+
+async function openRotaDetail(id) {
+  loader(true);
+  try {
+    const doc = await db.collection('events').doc(id).get();
+    currentRotaEvent = { id, ...doc.data() };
+    loadMembers();
+    openSection('rota-detail');
+  } catch(e) { toast('Could not load event'); }
+  loader(false);
+}
+
+function renderRotaDetail() {
+  if (!currentRotaEvent) return;
+  const ev = currentRotaEvent;
+  $('header-title').textContent = fmtShortDate(ev.date);
+
+  const roles = Object.keys(ev.assignments || {}).length
+    ? Object.keys(ev.assignments)
+    : DEFAULT_ROLES;
+
+  const memberOptions = ['<option value="">— Unassigned —</option>',
+    ...allMembers.map(m => `<option value="${m.id}">${m.name}</option>`)
+  ].join('');
+
+  $('rota-detail-content').innerHTML = `
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--teal);">${ev.type||'Event'}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(ev.date)}${ev.termLabel ? ' · ' + ev.termLabel : ''}</div>
+        </div>
+        <button class="btn btn-red btn-sm" onclick="archiveEvent()">Archive</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="card-label" style="margin-bottom:0;">Team Assignments</div>
+        <button class="btn btn-secondary btn-sm" onclick="addCustomRole()">+ Role</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;" id="role-assignments">
+        ${roles.map(role => {
+          const assigned = ev.assignments?.[role] || { name:'', id:'' };
+          const memberId = assigned.id || '';
+          return `<div class="rota-assignment-row">
+            <div class="rota-role-label">${role}</div>
+            <select class="rota-member-select" onchange="assignMember('${role}',this.value)">
+              ${memberOptions.replace(`value="${memberId}"`, `value="${memberId}" selected`)}
+            </select>
+            <button style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0;" onclick="removeRole('${role}')">✕</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="saveRotaEvent()">Save Assignments</button>
+  `;
+}
+
+function assignMember(role, memberId) {
+  if (!currentRotaEvent.assignments) currentRotaEvent.assignments = {};
+  const member = allMembers.find(m => m.id === memberId);
+  currentRotaEvent.assignments[role] = member
+    ? { name: member.name, id: member.id }
+    : { name: '', id: '' };
+}
+
+function removeRole(role) {
+  confirm_('Remove Role', `Remove "${role}" from this event?`, () => {
+    delete currentRotaEvent.assignments[role];
+    renderRotaDetail();
+  });
+}
+
+function addCustomRole() {
+  const role = prompt('Role name (e.g. "Flute"):');
+  if (!role?.trim()) return;
+  if (!currentRotaEvent.assignments) currentRotaEvent.assignments = {};
+  currentRotaEvent.assignments[role.trim()] = { name: '', id: '' };
+  renderRotaDetail();
+}
+
+async function saveRotaEvent() {
+  if (!currentRotaEvent?.id) return;
+  loader(true, 'Saving...');
+  try {
+    await db.collection('events').doc(currentRotaEvent.id).update({
+      assignments: currentRotaEvent.assignments,
+      updatedAt: TS()
+    });
+    toast('✓ Assignments saved');
+    if (window._events) {
+      const idx = window._events.findIndex(e => e.id === currentRotaEvent.id);
+      if (idx !== -1) window._events[idx] = { ...currentRotaEvent };
+    }
+  } catch(e) { toast('Error saving'); }
+  loader(false);
+}
+
+function archiveEvent() {
+  confirm_('Archive Event', 'Archive this event? It will be hidden from the list.', async () => {
+    loader(true);
+    try {
+      await db.collection('events').doc(currentRotaEvent.id).update({ archived: true });
+      toast('Event archived');
+      window._events = (window._events||[]).filter(e => e.id !== currentRotaEvent.id);
+      goBack();
+    } catch(e) { toast('Error archiving'); }
+    loader(false);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// EMAIL COMPILER
+// ══════════════════════════════════════════════════════════════════════════
+
+function applySize(px) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const el = document.createElement('span');
+  el.style.fontSize = px;
+  try { el.appendChild(range.extractContents()); range.insertNode(el); } catch(e) {}
+}
+
+function applyColor(color) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const el = document.createElement('span');
+  el.style.color = color;
+  try { el.appendChild(range.extractContents()); range.insertNode(el); } catch(e) {}
+}
+
+function insertSideLayout() {
+  document.execCommand('insertHTML', false, `
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:16px 0;">
+      <tr>
+        <td width="50%" valign="top" style="padding:10px; border:1px dashed #ddd;">[Left content]</td>
+        <td width="50%" valign="top" style="padding:10px; border:1px dashed #ddd;">[Right content]</td>
+      </tr>
+    </table><p></p>`);
+}
+
+let lastClickedImg = null;
+$('editable-body').addEventListener('click', e => {
+  if (e.target.tagName === 'IMG') {
+    if (lastClickedImg) lastClickedImg.classList.remove('selected-img');
+    lastClickedImg = e.target;
+    lastClickedImg.classList.add('selected-img');
+  }
+});
+
+function resizeImg() {
+  if (!lastClickedImg) { toast('Tap an image first'); return; }
+  const val = prompt('Width (e.g. 300 or 80%):', lastClickedImg.getAttribute('width') || '300');
+  if (val) {
+    lastClickedImg.setAttribute('width', val.replace('px',''));
+    lastClickedImg.style.width = val.includes('%') ? val : val + 'px';
+  }
+}
+
+function uploadEmailImage() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    loader(true, 'Uploading image...');
+    try {
+      const ref = storage.ref(`email_assets/${Date.now()}_${file.name}`);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+      document.execCommand('insertHTML', false,
+        `<img src="${url}" width="300" style="width:300px;height:auto;margin:12px 0;">`);
+    } catch(e) { toast('Upload failed'); }
+    loader(false);
+  };
+  input.click();
+}
+
+function clearEditor() {
+  activeDraftId = null;
+  $('draft-bar').style.display = 'none';
+  $('editable-body').innerHTML = '<p>Start your team update here...</p>';
+}
+
+function updateDraftBar(name, createdBy, updatedBy) {
+  $('draft-bar-name').textContent = name;
+  $('draft-bar-meta').textContent = `Created by ${createdBy||'?'} · Last edited by ${updatedBy||'?'}`;
+  $('draft-bar').style.display = 'flex';
+}
+
+// Drafts
+async function openDraftsSheet() {
+  openModal('modal-drafts');
+  const list = $('drafts-list');
+  list.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:700;padding:10px 0;">Loading...</div>';
+  try {
+    const snap = await db.collection('emailDrafts').orderBy('updatedAt','desc').limit(MAX_DRAFTS).get();
+    $('drafts-count').textContent = `${snap.size} of ${MAX_DRAFTS} slots used`;
+    if (!snap.size) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-text">No saved drafts yet</div></div>';
+      return;
+    }
+    list.innerHTML = snap.docs.map(d => {
+      const data = d.data();
+      const isActive = d.id === activeDraftId;
+      return `<div class="draft-card ${isActive?'active-draft':''}">
+        <div class="draft-info">
+          <div class="draft-name">${data.name||'Untitled'}${isActive?'<span style="font-size:9px;background:var(--teal);color:white;padding:2px 7px;border-radius:20px;margin-left:6px;">LOADED</span>':''}</div>
+          <div class="draft-meta">✏️ ${data.createdBy||'?'} · 🔄 ${data.updatedBy||'?'}<br>${formatDate(data.updatedAt)}</div>
+        </div>
+        <div class="draft-actions">
+          <button class="btn btn-primary btn-sm" onclick="loadDraft('${d.id}')">Load</button>
+          <button class="btn btn-red btn-sm" onclick="deleteDraft('${d.id}','${(data.name||'this draft').replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-text">Error loading drafts</div></div>';
+  }
+}
+
+async function saveNewDraft() {
+  if (!currentUser) { openModal('modal-who'); return; }
+  const count = (await db.collection('emailDrafts').get()).size;
+  if (count >= MAX_DRAFTS) { toast(`Max ${MAX_DRAFTS} drafts reached — delete one first`); return; }
+  const name = prompt('Name this draft:', 'Team Update');
+  if (!name) return;
+  loader(true, 'Saving draft...');
+  try {
+    const content = $('editable-body').innerHTML;
+    const ref = await db.collection('emailDrafts').add({
+      name, content,
+      createdBy: currentUser, createdAt: TS(),
+      updatedBy: currentUser, updatedAt: TS()
+    });
+    activeDraftId = ref.id;
+    updateDraftBar(name, currentUser, currentUser);
+    toast(`"${name}" saved!`);
+  } catch(e) { toast('Error saving draft'); }
+  loader(false);
+}
+
+async function loadDraft(id) {
+  loader(true, 'Loading draft...');
+  try {
+    const d = await db.collection('emailDrafts').doc(id).get();
+    if (d.exists) {
+      const data = d.data();
+      $('editable-body').innerHTML = data.content;
+      activeDraftId = id;
+      updateDraftBar(data.name, data.createdBy, data.updatedBy);
+      closeModal('modal-drafts');
+      toast(`"${data.name}" loaded`);
+    }
+  } catch(e) { toast('Error loading draft'); }
+  loader(false);
+}
+
+async function overwriteDraft() {
+  if (!activeDraftId) { await saveNewDraft(); return; }
+  if (!currentUser) { openModal('modal-who'); return; }
+  loader(true, 'Saving...');
+  try {
+    await db.collection('emailDrafts').doc(activeDraftId).update({
+      content: $('editable-body').innerHTML,
+      updatedBy: currentUser, updatedAt: TS()
+    });
+    toast('Draft updated ✓');
+  } catch(e) { toast('Error saving'); }
+  loader(false);
+}
+
+async function deleteDraft(id, name) {
+  confirm_('Delete Draft', `Delete "${name}"? This cannot be undone.`, async () => {
+    try {
+      await db.collection('emailDrafts').doc(id).delete();
+      if (activeDraftId === id) clearEditor();
+      toast('Draft deleted');
+      openDraftsSheet();
+    } catch(e) { toast('Error deleting'); }
+  });
+}
+
+// Mailing list
+function toggleTeam(chip) {
+  chip.classList.toggle('selected');
+  updateRecipientCount();
+}
+
+function updateRecipientCount() {
+  const selected = Array.from(document.querySelectorAll('.team-chip.selected')).map(c => c.dataset.team);
+  let count = 0;
+  if (selected.includes('Everyone')) {
+    count = allMembers.filter(m => m.email).length;
+  } else {
+    const emails = new Set(
+      allMembers.filter(m => m.markers?.some(r => selected.includes(r)) && m.email).map(m => m.email)
+    );
+    count = emails.size;
+  }
+  $('recipient-count').textContent = count ? `${count} recipient${count !== 1 ? 's' : ''} selected` : 'No recipients selected';
+}
+
+function openMailingSheet() {
+  updateRecipientCount();
+  openModal('modal-mailing');
+}
+
+function launchEmail() {
+  const selected = Array.from(document.querySelectorAll('.team-chip.selected')).map(c => c.dataset.team);
+  let emails = [];
+  if (selected.includes('Everyone')) {
+    emails = allMembers.map(m => m.email).filter(Boolean);
+  } else {
+    emails = [...new Set(
+      allMembers.filter(m => m.markers?.some(r => selected.includes(r))).map(m => m.email).filter(Boolean)
+    )];
+  }
+  if (!emails.length) { toast('No recipients selected'); return; }
+  window.location.href = `mailto:?bcc=${emails.join(';')}&subject=Worship %26 AV Team Update`;
+  closeModal('modal-mailing');
+}
+
+async function compileEmail() {
+  const clone = $('editable-body').cloneNode(true);
+  clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
+  clone.querySelectorAll('table, td').forEach(el => el.style.border = 'none');
+
+  const header = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#fff;border-bottom:1px solid #d1dfdf;">
+    <tr>
+      <td style="padding:32px 40px;">
+        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="160" style="display:block;">
+      </td>
+      <td align="right" style="padding:32px 40px;font-family:Segoe UI,sans-serif;font-size:16px;color:#3d6263;font-weight:700;">
+        Worship &amp; AV Team
+      </td>
+    </tr>
+  </table>`;
+
+  const finalHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>@media only screen and (max-width:600px){.outer{width:100%!important}.inner{padding:20px!important}img{max-width:100%!important;height:auto!important}}</style>
+  </head><body style="margin:0;padding:0;background:#fff;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center">
+  <table class="outer" width="700" border="0" cellspacing="0" cellpadding="0" style="width:700px;">
+  <tr><td>${header}</td></tr>
+  <tr><td class="inner" style="padding:40px;font-family:Segoe UI,Arial,sans-serif;font-size:16px;color:#333;line-height:1.6;">
+  ${clone.innerHTML}
+  </td></tr></table></td></tr></table></body></html>`;
+
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([finalHtml], { type:'text/html' }) })]);
+    toast('Email HTML copied! ✓');
+  } catch(e) {
+    // Fallback for Android
+    const ta = document.createElement('textarea');
+    ta.value = finalHtml;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    toast('HTML copied to clipboard ✓');
+  }
+}
+
+// ── CLOSE MODALS ON BACKDROP TAP ──────────────────────────────────────────
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+);
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+loadMembers();
+if (currentUser) {
+  // Already know who they are
+}
+</script>
+</body>
+</html>
