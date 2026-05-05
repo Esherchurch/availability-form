@@ -73,8 +73,7 @@ body {
 #back-btn.visible { display: flex; }
 
 #header-logo {
-  height: 36px;
-  width: auto;
+  display: none;
 }
 
 #header-title {
@@ -1325,7 +1324,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 <!-- HEADER -->
 <div id="app-header">
   <button id="back-btn" onclick="goBack()">←</button>
-  <img id="header-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" onerror="this.src='https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300'">
+
   <div id="header-title">Worship Hub</div>
   <button id="header-help" onclick="startTour()" title="Help">?</button>
 </div>
@@ -1335,8 +1334,17 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
   <!-- HOME SCREEN -->
   <div id="home-screen">
+    <!-- Home header with logo -->
+    <div style="display:flex; align-items:center; gap:12px; padding:12px 16px 0;">
+      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+      <div>
+        <div style="font-size:16px;font-weight:900;color:var(--teal);line-height:1.1;">Worship Hub</div>
+        <div style="font-size:10px;font-weight:700;color:var(--teal);opacity:0.5;text-transform:uppercase;letter-spacing:0.1em;">EGBC Worship &amp; AV</div>
+      </div>
+    </div>
+
     <!-- News Feed -->
-    <div class="home-news" id="news-section">
+    <div class="home-news" id="news-section" style="margin-top:12px;">
       <div class="news-header-bar">
         <h3>Latest News</h3>
       </div>
