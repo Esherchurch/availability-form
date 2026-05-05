@@ -1706,6 +1706,9 @@ function openSection(name) {
   if (name === 'upload' && allSongs.length === 0) loadSongs();
   if (name === 'library' && allSongs.length === 0) loadSongs();
   if (name === 'news') renderNewsSection();
+
+  // Auto-trigger tour on first visit
+  maybeTriggerSectionTour(name);
 }
 
 function goBack() {
@@ -2544,35 +2547,70 @@ async function submitUpload() {
 // ── ONBOARDING TOUR ───────────────────────────────────────────────────────
 const TOUR_STEPS = {
   home: [
-    { target: '#news-section', title: 'Latest News', text: 'The latest updates from your team leaders appear here, pulled from the main hub automatically.' },
-    { target: '#tiles-grid', title: 'Your Tools', text: 'Tap any tile to open that section. Everything your team needs is here in one place.' },
-    { target: '#header-help', title: 'Help Button', text: 'Tap the ? button at any time to replay this tour for the current screen.' },
+    { target: '#tiles-grid', title: 'Welcome to Worship Hub! 👋', text: 'Everything your team needs is here in one place. Tap any tile to open that section.' },
+    { target: '#tile-news', title: 'Latest News', text: 'Team updates from your leaders appear here. A red badge shows when there\'s something new you haven\'t read.' },
+    { target: '#header-help', title: 'Need help?', text: 'Tap ? on any screen to replay that screen\'s walkthrough. Tick "Don\'t show again" on any tour to stop it auto-showing.' },
   ],
   rota: [
-    { target: '.rota-ics-bar', title: 'Download Your Rota', text: 'Select your name and tap "My Rota" to download a .ics calendar file you can import into any calendar app.' },
-    { target: '#rota-content', title: 'View the Rota', text: 'Scroll down to see the full team rota. Tap a term header to collapse it.' },
+    { target: '#rota-content', title: 'Team Rota', text: 'The full serving schedule is shown here, grouped by term. Tap a term header to collapse or expand it.' },
+    { target: '#rota-date-jump', title: 'Jump to a Date', text: 'Pick any date to instantly scroll the rota to that week — useful when you\'re planning ahead.' },
+    { target: '.rota-ics-bar', title: 'Download Your Rota', text: 'Select your name from the list, then tap "My Rota" to download a .ics file you can import into Apple Calendar, Google Calendar or Outlook.' },
+    { target: '.btn-ics-household', title: 'Family Rota', text: 'The Family Rota includes everyone in your household who serves — one file covers you all.' },
   ],
   board: [
-    { target: '.board-add-btn', title: 'Add a Suggestion', text: 'Tap here to pin a new note to the board. Anyone on the team can add suggestions!' },
-    { target: '#board-filters', title: 'Filter Notes', text: 'Filter by category to see just songs, events, prayer requests and more.' },
-    { target: '#board-pages', title: 'Pages', text: 'Switch between different topic boards using these tabs.' },
+    { target: '.board-add-btn', title: 'Add a Suggestion', text: 'Tap here to pin a new note to the board — a song idea, an event suggestion, a prayer request, anything.' },
+    { target: '#board-filters', title: 'Filter by Category', text: 'Use these chips to filter notes. Tap Songs to see only song suggestions, AV for tech ideas, and so on.' },
+    { target: '#board-pages', title: 'Topic Pages', text: 'Different pages keep topics separate — General Board, Easter Songs, and so on. Swipe left to see all pages.' },
+    { target: '.notes-list', title: 'React to Notes', text: 'Tap ❤️ 👍 👎 🙌 on any note to react. Your reactions are saved and visible to everyone.' },
   ],
   worship: [
-    { target: '.kb-tabs', title: 'Play Through & Training', text: 'Switch between play-through videos of our songs, and general worship training guides.' },
-    { target: '.kb-search-box', title: 'Search', text: 'Search for a song name, technique, or topic. Results are ranked by relevance.' },
-    { target: '#key-filter-row', title: 'Filter by Key', text: 'In Play Through mode, filter videos to only show a specific key.' },
+    { target: '.kb-tabs', title: 'Two Sections', text: 'This area has two sections — tap to switch between them.' },
+    { target: '#tab-playthrough', title: '▶ Play Through', text: 'Play Through shows videos of how we play each song — intros, chord progressions, full run-throughs. Great for practising at home.' },
+    { target: '#tab-training', title: '📖 Training', text: 'Training contains general worship guides — vocal technique, leading worship, instrument tips and more.' },
+    { target: '.kb-search-box', title: 'Search', text: 'Type a song name, section (e.g. "intro"), or topic to find the right video quickly.' },
+    { target: '#key-filter-row', title: 'Filter by Key', text: 'In Play Through mode, tap a key to show only videos in that key — handy when you\'re preparing for a specific service.' },
+    { target: '#worship-quick-tags', title: 'Quick Searches', text: 'Tap any of these chips for a one-tap search on common topics.' },
   ],
   av: [
-    { target: '.kb-tabs', title: 'Troubleshoot & How To', text: 'Troubleshoot searches for solutions to problems. How To gives you step-by-step guides.' },
-    { target: '.kb-search-box', title: 'Describe the Problem', text: 'Type what\'s going wrong and we\'ll find the most relevant guides instantly.' },
+    { target: '.kb-tabs', title: 'Two Sections — Easy to Miss!', text: 'This page has two different sections. Make sure you\'re in the right one before you search.' },
+    { target: '#tab-troubleshoot', title: '🔧 Troubleshoot', text: 'Use Troubleshoot when something has gone wrong — no sound, black screen, feedback. Describe the problem and it finds fixes.' },
+    { target: '#tab-howto', title: '📋 How To', text: 'Use How To when you need to learn how to do something — set up the mixing desk, mic a choir, adjust EQ. Step-by-step guides.' },
+    { target: '.kb-search-box', title: 'Describe the Problem', text: 'Type what\'s happening in plain English — "no sound from guitar" or "camera not showing". It searches titles, steps and transcripts.' },
+    { target: '.kb-quick-tags', title: 'Quick Searches', text: 'Tap a chip for instant results on the most common AV problems.' },
   ],
   upload: [
-    { target: '.upload-form', title: 'Upload Sheet Music', text: 'Fill in the song title, key and type, then tap to select your PDF. You can upload up to 4 files at once.' },
+    { target: '.uploader-info', title: 'Music Uploader', text: 'Use this to add PDF sheet music to the song library so the whole team can access it.' },
+    { target: '#upload-song-title', title: 'Step 1 — Song Title', text: 'Start typing the song title. If it already exists in the library, matching results appear below — tap one to select it. This prevents duplicates.' },
+    { target: '#upload-key', title: 'Step 2 — Key & Type', text: 'Select the key and type of sheet music. If a file for that exact key and type already exists, you\'ll get a warning before uploading.' },
+    { target: '#upload-file-slots', title: 'Step 3 — Select PDF', text: 'Tap to choose your PDF file. You can add up to 4 files at once using the + Add Another File button — useful for uploading multiple keys in one go.' },
+    { target: '#upload-submit-btn', title: 'Upload', text: 'Tap Upload to Library when you\'re ready. The file goes to Firebase Storage and is immediately available to the whole team in the Song Library.' },
   ],
   library: [
-    { target: '.library-search', title: 'Search the Library', text: 'Search by song title to find sheet music. Tap a song to see all available keys and types.' },
+    { target: '.library-search', title: 'Search the Library', text: 'Type any part of a song title to filter the list. The full library loads automatically.' },
+    { target: '#song-list', title: 'Browse Songs', text: 'Each song shows the available keys and file types at a glance. Tap a song to see everything.' },
+    { target: '#song-list', title: 'Song Detail', text: 'Inside a song you\'ll see YouTube and SongSelect links, plus Open buttons for each sheet music file. Files open in a new tab.' },
+  ],
+  news: [
+    { target: '#news-full-list', title: 'Latest News', text: 'Team updates and announcements from your leaders, pulled directly from the main hub. New items show a red badge on the home tile.' },
   ],
 };
+
+// Auto-trigger tour on first visit to each section
+const _sectionsAutoToured = new Set();
+function maybeTriggerSectionTour(section) {
+  if (_sectionsAutoToured.has(section)) return;
+  _sectionsAutoToured.add(section);
+  const key = 'egbc_hub_toured_' + section;
+  if (localStorage.getItem(key) === 'permanent') return;
+  if (!localStorage.getItem(key)) {
+    setTimeout(() => {
+      if (currentSection === section) {
+        startTour(false);
+        localStorage.setItem(key, '1');
+      }
+    }, 400);
+  }
+}
 
 function startTour(force) {
   const section = currentSection === 'home' ? 'home' : currentSection;
