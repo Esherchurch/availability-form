@@ -936,11 +936,22 @@ body {
   border-radius: 12px;
   padding: 24px;
   text-align: center;
-  cursor: pointer;
   transition: all 0.2s;
   background: var(--bg);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
 }
 .upload-file-area:active { border-color: var(--teal); background: var(--teal-light); }
+.upload-file-area input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  font-size: 0;
+}
 
 .upload-file-icon { font-size: 28px; margin-bottom: 8px; }
 
@@ -1056,6 +1067,7 @@ body {
 
 .kb-modal-video {
   position: relative;
+  width: 100%;
   padding-bottom: 56.25%;
   height: 0;
   border-radius: 12px;
@@ -1065,7 +1077,8 @@ body {
 }
 .kb-modal-video iframe {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   border: none;
@@ -1200,13 +1213,17 @@ body {
   z-index: 900;
   pointer-events: none;
 }
-#tour-overlay.active { display: block; }
+#tour-overlay.active {
+  display: block;
+  pointer-events: all;
+}
 
 .tour-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(0,0,0,0.5);
-  pointer-events: all;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .tour-tooltip {
@@ -1215,10 +1232,11 @@ body {
   color: white;
   border-radius: 16px;
   padding: 16px;
-  max-width: 280px;
+  max-width: calc(100vw - 40px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
   pointer-events: all;
-  z-index: 1;
+  z-index: 3;
+  cursor: default;
 }
 
 .tour-tooltip-title {
@@ -1316,17 +1334,109 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
 .fade-in { animation: fadeIn 0.2s ease; }
 
+/* ── MICROSOFT LOGIN SCREEN ── */
+#ms-login-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--teal);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  gap: 20px;
+}
+
+.ms-login-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255,255,255,0.3);
+}
+
+.ms-login-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: white;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.ms-login-sub {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  text-align: center;
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+.ms-login-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  color: var(--teal);
+  border: none;
+  border-radius: 14px;
+  padding: 16px 28px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  width: 100%;
+  max-width: 320px;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  transition: transform 0.1s;
+}
+.ms-login-btn:active { transform: scale(0.97); }
+
+.ms-login-skip {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  padding: 8px;
+}
+
 /* Caveat for sticky notes */
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
 </style>
 </head>
 <body>
 
+<!-- MICROSOFT LOGIN SCREEN -->
+<div id="ms-login-screen" style="display:none;">
+  <img class="ms-login-logo"
+    src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
+    alt="EGBC" onerror="this.style.display='none'">
+  <div class="ms-login-title">Worship Hub</div>
+  <div class="ms-login-sub">Sign in with your church Microsoft account to access training videos and resources.</div>
+  <button class="ms-login-btn" onclick="doMicrosoftLogin()">
+    <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+    </svg>
+    Sign in with Microsoft
+  </button>
+  <div class="ms-login-note">You only need to do this once. Your session will stay active.</div>
+  <button class="ms-login-skip" onclick="skipMicrosoftLogin()">Skip for now — videos won't be available</button>
+</div>
+
 <!-- HEADER -->
 <div id="app-header">
   <button id="back-btn" onclick="goBack()">←</button>
-
   <div id="header-title">Worship Hub</div>
+  <button onclick="reAuthenticate()" title="Re-sign in to Microsoft"
+    style="width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--teal);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🔐</button>
   <button id="header-help" onclick="startTour(true)" title="Help">?</button>
 </div>
 
@@ -1527,15 +1637,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
         <!-- File slots (up to 4) -->
         <div id="upload-file-slots">
-          <div class="form-field">
-            <label>PDF File (1 of up to 4)</label>
-            <div class="upload-file-area" onclick="document.getElementById('upload-file-input-0').click()">
-              <div class="upload-file-icon">📄</div>
-              <div class="upload-file-text">Tap to select PDF</div>
-              <div class="upload-file-name" id="upload-file-name-0"></div>
-            </div>
-            <input type="file" id="upload-file-input-0" accept=".pdf" style="display:none" onchange="fileSelected(0,this)">
-          </div>
+          <!-- File slots rendered when section opens -->
         </div>
 
         <button class="btn-upload" id="upload-more-btn" onclick="addUploadSlot()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">+ Add Another File</button>
@@ -1619,15 +1721,19 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
 <!-- TOUR OVERLAY -->
 <div id="tour-overlay">
-  <div class="tour-backdrop" onclick="endTour()"></div>
+  <!-- Transparent full-screen tap-to-dismiss — sits BEHIND tooltip -->
+  <div style="position:absolute;inset:0;z-index:1;cursor:pointer;" onclick="endTour()"></div>
+  <div class="tour-backdrop"></div>
   <div class="tour-highlight" id="tour-highlight"></div>
   <div class="tour-tooltip" id="tour-tooltip">
     <div class="tour-tooltip-title" id="tour-title"></div>
     <div class="tour-tooltip-text" id="tour-text"></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.7;margin-bottom:10px;cursor:pointer;">
-      <input type="checkbox" id="tour-dont-show" style="width:14px;height:14px;accent-color:white;">
-      Don't show this again
-    </label>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.8;margin-bottom:12px;position:relative;z-index:10;">
+      <input type="checkbox" id="tour-dont-show"
+        style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;"
+        onchange="this.blur()">
+      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+    </div>
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>
@@ -1704,8 +1810,12 @@ function openSection(name) {
   if (name === 'worship' && worshipAssets.length === 0 && trainingAssets.length === 0) loadWorshipAssets();
   if (name === 'av' && troubleshootAssets.length === 0 && howtoAssets.length === 0) loadAvAssets();
   if (name === 'upload' && allSongs.length === 0) loadSongs();
+  if (name === 'upload') initUploadSlots();
   if (name === 'library' && allSongs.length === 0) loadSongs();
   if (name === 'news') renderNewsSection();
+
+  // Auto-trigger tour on first visit
+  maybeTriggerSectionTour(name);
 }
 
 function goBack() {
@@ -2211,34 +2321,38 @@ function openKbCard(id, context) {
   document.getElementById('kb-modal-content').innerHTML = `
     <div class="kb-modal-breadcrumb">${contextLabels[context]||''}${asset.category ? ' — '+asset.category : ''}</div>
     <div class="kb-modal-title">${asset.title||''}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
       ${asset.ourKey ? `<span style="background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;">Key: ${asset.ourKey}</span>` : ''}
       ${asset.songSection ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.songSection}</span>` : ''}
       ${asset.instrument ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>` : ''}
     </div>
-    ${src ? `<div class="kb-modal-video"><iframe src="${src}" allowfullscreen allow="autoplay; encrypted-media"></iframe></div>` : ''}
+
+    ${src ? `<div class="kb-modal-video"><iframe src="${src}" allowfullscreen></iframe></div>` : ''}
+
     ${sections.length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div>
     </div>` : ''}
+
     ${Object.keys(chordsPerSection).length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Chords by Section</div>
       ${Object.entries(chordsPerSection).map(([sec,chords])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="background:var(--teal);color:white;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:800;">${sec}</span><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--teal);">${chords}</span></div>`).join('')}
     </div>` : ''}
+
     ${bullets.length ? `<div class="kb-modal-steps">
       <div class="kb-modal-steps-title">${stepsLabel}</div>
       ${bullets.map((b,i) => `<div class="kb-modal-step"><span class="kb-step-num">${i+1}</span><span class="kb-step-text">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}
     </div>` : ''}
-    ${asset.tags ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${asset.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--bg);padding:5px 12px;border-radius:9999px;font-size:10px;font-weight:700;color:var(--teal);border:1px solid var(--border);">${t}</span>`).join('')}</div>` : ''}
+
+    ${asset.description ? `<p style="font-size:13px;color:var(--teal);opacity:0.7;line-height:1.5;margin-top:12px;">${asset.description}</p>` : ''}
+
+    ${asset.tags ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">${asset.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--bg);padding:5px 12px;border-radius:9999px;font-size:10px;font-weight:700;color:var(--teal);border:1px solid var(--border);">${t}</span>`).join('')}</div>` : ''}
   `;
   document.getElementById('kb-modal').classList.add('open');
 }
 
 function closeKbModal() {
   document.getElementById('kb-modal').classList.remove('open');
-  // Stop video
-  const frame = document.querySelector('#kb-modal-content iframe');
-  if (frame) frame.src = frame.src;
 }
 
 // ── SONG LIBRARY ──────────────────────────────────────────────────────────
@@ -2347,6 +2461,23 @@ window.goBack = function() {
   _origGoBack();
 };
 
+function initUploadSlots() {
+  // Only init once
+  if (document.getElementById('upload-file-input-0')) return;
+  document.getElementById('upload-file-slots').innerHTML = `
+    <div class="form-field">
+      <label>PDF File (1 of up to 4)</label>
+      <div class="upload-file-area">
+        <div class="upload-file-icon">📄</div>
+        <div class="upload-file-text">Tap to select PDF</div>
+        <div class="upload-file-name" id="upload-file-name-0"></div>
+        <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
+      </div>
+    </div>`;
+  uploadSlots = 1;
+  uploadFiles = {};
+}
+
 // ── MUSIC UPLOADER ────────────────────────────────────────────────────────
 let uploadSlots = 1;
 let uploadMatchedSong = null; // the matched Firebase song doc
@@ -2365,12 +2496,12 @@ function addUploadSlot() {
   div.className = 'form-field';
   div.innerHTML = `
     <label>PDF File (${uploadSlots+1} of up to 4)</label>
-    <div class="upload-file-area" onclick="document.getElementById('upload-file-input-${uploadSlots}').click()">
+    <div class="upload-file-area">
       <div class="upload-file-icon">📄</div>
       <div class="upload-file-text">Tap to select PDF</div>
       <div class="upload-file-name" id="upload-file-name-${uploadSlots}"></div>
+      <input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" onchange="fileSelected(${uploadSlots},this)">
     </div>
-    <input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" style="display:none" onchange="fileSelected(${uploadSlots},this)">
   `;
   container.appendChild(div);
   uploadSlots++;
@@ -2524,12 +2655,12 @@ async function submitUpload() {
       document.getElementById('upload-file-slots').innerHTML = `
         <div class="form-field">
           <label>PDF File (1 of up to 4)</label>
-          <div class="upload-file-area" onclick="document.getElementById('upload-file-input-0').click()">
+          <div class="upload-file-area">
             <div class="upload-file-icon">📄</div>
             <div class="upload-file-text">Tap to select PDF</div>
             <div class="upload-file-name" id="upload-file-name-0"></div>
+            <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
           </div>
-          <input type="file" id="upload-file-input-0" accept=".pdf" style="display:none" onchange="fileSelected(0,this)">
         </div>`;
       document.getElementById('upload-more-btn').style.display = 'block';
       allSongs = []; // refresh library next time
@@ -2544,35 +2675,70 @@ async function submitUpload() {
 // ── ONBOARDING TOUR ───────────────────────────────────────────────────────
 const TOUR_STEPS = {
   home: [
-    { target: '#news-section', title: 'Latest News', text: 'The latest updates from your team leaders appear here, pulled from the main hub automatically.' },
-    { target: '#tiles-grid', title: 'Your Tools', text: 'Tap any tile to open that section. Everything your team needs is here in one place.' },
-    { target: '#header-help', title: 'Help Button', text: 'Tap the ? button at any time to replay this tour for the current screen.' },
+    { target: '#tiles-grid', title: 'Welcome to Worship Hub! 👋', text: 'Everything your team needs is here in one place. Tap any tile to open that section.' },
+    { target: '#tile-news', title: 'Latest News', text: 'Team updates from your leaders appear here. A red badge shows when there\'s something new you haven\'t read.' },
+    { target: '#header-help', title: 'Need help?', text: 'Tap ? on any screen to replay that screen\'s walkthrough. Tick "Don\'t show again" on any tour to stop it auto-showing.' },
   ],
   rota: [
-    { target: '.rota-ics-bar', title: 'Download Your Rota', text: 'Select your name and tap "My Rota" to download a .ics calendar file you can import into any calendar app.' },
-    { target: '#rota-content', title: 'View the Rota', text: 'Scroll down to see the full team rota. Tap a term header to collapse it.' },
+    { target: '#rota-content', title: 'Team Rota', text: 'The full serving schedule is shown here, grouped by term. Tap a term header to collapse or expand it.' },
+    { target: '#rota-date-jump', title: 'Jump to a Date', text: 'Pick any date to instantly scroll the rota to that week — useful when you\'re planning ahead.' },
+    { target: '.rota-ics-bar', title: 'Download Your Rota', text: 'Select your name from the list, then tap "My Rota" to download a .ics file you can import into Apple Calendar, Google Calendar or Outlook.' },
+    { target: '.btn-ics-household', title: 'Family Rota', text: 'The Family Rota includes everyone in your household who serves — one file covers you all.' },
   ],
   board: [
-    { target: '.board-add-btn', title: 'Add a Suggestion', text: 'Tap here to pin a new note to the board. Anyone on the team can add suggestions!' },
-    { target: '#board-filters', title: 'Filter Notes', text: 'Filter by category to see just songs, events, prayer requests and more.' },
-    { target: '#board-pages', title: 'Pages', text: 'Switch between different topic boards using these tabs.' },
+    { target: '.board-add-btn', title: 'Add a Suggestion', text: 'Tap here to pin a new note to the board — a song idea, an event suggestion, a prayer request, anything.' },
+    { target: '#board-filters', title: 'Filter by Category', text: 'Use these chips to filter notes. Tap Songs to see only song suggestions, AV for tech ideas, and so on.' },
+    { target: '#board-pages', title: 'Topic Pages', text: 'Different pages keep topics separate — General Board, Easter Songs, and so on. Swipe left to see all pages.' },
+    { target: '.notes-list', title: 'React to Notes', text: 'Tap ❤️ 👍 👎 🙌 on any note to react. Your reactions are saved and visible to everyone.' },
   ],
   worship: [
-    { target: '.kb-tabs', title: 'Play Through & Training', text: 'Switch between play-through videos of our songs, and general worship training guides.' },
-    { target: '.kb-search-box', title: 'Search', text: 'Search for a song name, technique, or topic. Results are ranked by relevance.' },
-    { target: '#key-filter-row', title: 'Filter by Key', text: 'In Play Through mode, filter videos to only show a specific key.' },
+    { target: '.kb-tabs', title: 'Two Sections', text: 'This area has two sections — tap to switch between them.' },
+    { target: '#tab-playthrough', title: '▶ Play Through', text: 'Play Through shows videos of how we play each song — intros, chord progressions, full run-throughs. Great for practising at home.' },
+    { target: '#tab-training', title: '📖 Training', text: 'Training contains general worship guides — vocal technique, leading worship, instrument tips and more.' },
+    { target: '.kb-search-box', title: 'Search', text: 'Type a song name, section (e.g. "intro"), or topic to find the right video quickly.' },
+    { target: '#key-filter-row', title: 'Filter by Key', text: 'In Play Through mode, tap a key to show only videos in that key — handy when you\'re preparing for a specific service.' },
+    { target: '#worship-quick-tags', title: 'Quick Searches', text: 'Tap any of these chips for a one-tap search on common topics.' },
   ],
   av: [
-    { target: '.kb-tabs', title: 'Troubleshoot & How To', text: 'Troubleshoot searches for solutions to problems. How To gives you step-by-step guides.' },
-    { target: '.kb-search-box', title: 'Describe the Problem', text: 'Type what\'s going wrong and we\'ll find the most relevant guides instantly.' },
+    { target: '.kb-tabs', title: 'Two Sections — Easy to Miss!', text: 'This page has two different sections. Make sure you\'re in the right one before you search.' },
+    { target: '#tab-troubleshoot', title: '🔧 Troubleshoot', text: 'Use Troubleshoot when something has gone wrong — no sound, black screen, feedback. Describe the problem and it finds fixes.' },
+    { target: '#tab-howto', title: '📋 How To', text: 'Use How To when you need to learn how to do something — set up the mixing desk, mic a choir, adjust EQ. Step-by-step guides.' },
+    { target: '.kb-search-box', title: 'Describe the Problem', text: 'Type what\'s happening in plain English — "no sound from guitar" or "camera not showing". It searches titles, steps and transcripts.' },
+    { target: '.kb-quick-tags', title: 'Quick Searches', text: 'Tap a chip for instant results on the most common AV problems.' },
   ],
   upload: [
-    { target: '.upload-form', title: 'Upload Sheet Music', text: 'Fill in the song title, key and type, then tap to select your PDF. You can upload up to 4 files at once.' },
+    { target: '.uploader-info', title: 'Music Uploader', text: 'Use this to add PDF sheet music to the song library so the whole team can access it.' },
+    { target: '#upload-song-title', title: 'Step 1 — Song Title', text: 'Start typing the song title. If it already exists in the library, matching results appear below — tap one to select it. This prevents duplicates.' },
+    { target: '#upload-key', title: 'Step 2 — Key & Type', text: 'Select the key and type of sheet music. If a file for that exact key and type already exists, you\'ll get a warning before uploading.' },
+    { target: '#upload-file-slots', title: 'Step 3 — Select PDF', text: 'Tap to choose your PDF file. You can add up to 4 files at once using the + Add Another File button — useful for uploading multiple keys in one go.' },
+    { target: '#upload-submit-btn', title: 'Upload', text: 'Tap Upload to Library when you\'re ready. The file goes to Firebase Storage and is immediately available to the whole team in the Song Library.' },
   ],
   library: [
-    { target: '.library-search', title: 'Search the Library', text: 'Search by song title to find sheet music. Tap a song to see all available keys and types.' },
+    { target: '.library-search', title: 'Search the Library', text: 'Type any part of a song title to filter the list. The full library loads automatically.' },
+    { target: '#song-list', title: 'Browse Songs', text: 'Each song shows the available keys and file types at a glance. Tap a song to see everything.' },
+    { target: '#song-list', title: 'Song Detail', text: 'Inside a song you\'ll see YouTube and SongSelect links, plus Open buttons for each sheet music file. Files open in a new tab.' },
+  ],
+  news: [
+    { target: '#news-full-list', title: 'Latest News', text: 'Team updates and announcements from your leaders, pulled directly from the main hub. New items show a red badge on the home tile.' },
   ],
 };
+
+// Auto-trigger tour on first visit to each section
+const _sectionsAutoToured = new Set();
+function maybeTriggerSectionTour(section) {
+  if (_sectionsAutoToured.has(section)) return;
+  _sectionsAutoToured.add(section);
+  const key = 'egbc_hub_toured_' + section;
+  if (localStorage.getItem(key) === 'permanent') return;
+  if (!localStorage.getItem(key)) {
+    setTimeout(() => {
+      if (currentSection === section) {
+        startTour(false);
+        localStorage.setItem(key, '1');
+      }
+    }, 400);
+  }
+}
 
 function startTour(force) {
   const section = currentSection === 'home' ? 'home' : currentSection;
@@ -2666,16 +2832,75 @@ function fmtTime(s) {
   return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────
-loadNews();
+// ── MICROSOFT LOGIN ───────────────────────────────────────────────────────
+const SP_SITE = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+const MS_LOGIN_KEY = 'egbc_ms_logged_in';
 
-// Auto-show tour on first visit to home
-if (!localStorage.getItem('egbc_hub_toured_home')) {
-  setTimeout(() => {
-    startTour(false);
-    localStorage.setItem('egbc_hub_toured_home', '1');
-  }, 800);
+function checkMicrosoftLogin() {
+  // If they've previously logged in, go straight to app
+  if (localStorage.getItem(MS_LOGIN_KEY)) {
+    showApp();
+    return;
+  }
+  // Show login screen
+  document.getElementById('ms-login-screen').style.display = 'flex';
 }
+
+function doMicrosoftLogin() {
+  // Open SharePoint in Chrome — user signs in, session cookies are set
+  // When they come back to the app, the webview shares those cookies
+  window.open(SP_SITE, '_blank');
+  // Show a "I've signed in" button so they can confirm and proceed
+  const btn = document.querySelector('.ms-login-btn');
+  btn.textContent = "✓ I've signed in — continue";
+  btn.onclick = confirmMicrosoftLogin;
+}
+
+function confirmMicrosoftLogin() {
+  localStorage.setItem(MS_LOGIN_KEY, '1');
+  document.getElementById('ms-login-screen').style.display = 'none';
+  showApp();
+}
+
+function skipMicrosoftLogin() {
+  document.getElementById('ms-login-screen').style.display = 'none';
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('app-header').style.display = 'flex';
+  document.getElementById('app-content').style.display = 'block';
+  loadNews();
+  if (!localStorage.getItem('egbc_hub_toured_home')) {
+    setTimeout(() => {
+      startTour(false);
+      localStorage.setItem('egbc_hub_toured_home', '1');
+    }, 800);
+  }
+}
+
+function reAuthenticate() {
+  // Clear the stored login flag and show login screen again
+  localStorage.removeItem(MS_LOGIN_KEY);
+  document.getElementById('app-header').style.display = 'none';
+  document.getElementById('app-content').style.display = 'none';
+  const screen = document.getElementById('ms-login-screen');
+  const btn = screen.querySelector('.ms-login-btn');
+  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+  </svg> Sign in with Microsoft`;
+  btn.onclick = doMicrosoftLogin;
+  screen.style.display = 'flex';
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+// Hide app until login check completes
+document.getElementById('app-header').style.display = 'none';
+document.getElementById('app-content').style.display = 'none';
+checkMicrosoftLogin();
 </script>
 </body>
 </html>
