@@ -1012,16 +1012,17 @@ function loadMembers() {
   });
 }
 
-function populateLeaderDropdown() {
+function populateLeaderDropdown(selectValue) {
   const sel = $('new-service-leader');
   if (!sel) return;
-  const current = sel.value;
+  // Preserve whatever is already selected unless a new value is passed in
+  const val = selectValue !== undefined ? selectValue : sel.value;
   const leaders = allMembers.filter(m =>
     m.markers && (m.markers.includes('Worship Team') || m.markers.includes('Core Team'))
   );
   sel.innerHTML = '<option value="">Select leader...</option>' +
     leaders.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
-  if (current) sel.value = current;
+  if (val) sel.value = val;
 }
 
 // ── LOAD SONGS ────────────────────────────────────────────────────────────
@@ -1116,17 +1117,6 @@ function renderServiceList() {
       </div>
       <div class="service-card-arrow">›</div>
     </div>`).join('');
-}
-
-function openNewServiceModal() {
-  loadMembers();
-  const today = new Date();
-  const diff = (7 - today.getDay()) % 7 || 7;
-  const next = new Date(today); next.setDate(today.getDate() + diff);
-  $('new-service-date').value = next.toISOString().split('T')[0];
-  $('new-service-type').value = '';
-  populateLeaderDropdown();
-  openModal('modal-new-service');
 }
 
 async function createService() {
@@ -1572,15 +1562,39 @@ function archiveService() {
 }
 
 function openEditServiceMeta() {
-  loadMembers();
-  $('new-service-date').value  = currentService.date||'';
-  $('new-service-type').value  = currentService.type||'';
-  setTimeout(()=>{
-    populateLeaderDropdown();
-    $('new-service-leader').value = currentService.worshipLeader||'';
-  },100);
+  // Set date and type immediately
+  $('new-service-date').value = currentService.date || '';
+  $('new-service-type').value = currentService.type || '';
+
+  // Populate leader dropdown with the current leader pre-selected
+  const wantedLeader = currentService.worshipLeader || '';
+  if (allMembers.length) {
+    populateLeaderDropdown(wantedLeader);
+  } else {
+    // Members not loaded yet — load them, then populate
+    db.collection('addressBook').get().then(snap => {
+      allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      populateLeaderDropdown(wantedLeader);
+    });
+  }
+
   const btn = document.querySelector('#modal-new-service .btn-primary');
-  btn.textContent='Save Changes'; btn.onclick=saveServiceMeta;
+  btn.textContent = 'Save Changes';
+  btn.onclick = saveServiceMeta;
+  openModal('modal-new-service');
+}
+
+function openNewServiceModal() {
+  loadMembers();
+  const today = new Date();
+  const diff = (7 - today.getDay()) % 7 || 7;
+  const next = new Date(today); next.setDate(today.getDate() + diff);
+  $('new-service-date').value = next.toISOString().split('T')[0];
+  $('new-service-type').value = '';
+  populateLeaderDropdown('');
+  const btn = document.querySelector('#modal-new-service .btn-primary');
+  btn.textContent = 'Create';
+  btn.onclick = createService;
   openModal('modal-new-service');
 }
 
