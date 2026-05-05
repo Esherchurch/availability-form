@@ -936,11 +936,22 @@ body {
   border-radius: 12px;
   padding: 24px;
   text-align: center;
-  cursor: pointer;
   transition: all 0.2s;
   background: var(--bg);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
 }
 .upload-file-area:active { border-color: var(--teal); background: var(--teal-light); }
+.upload-file-area input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  font-size: 0;
+}
 
 .upload-file-icon { font-size: 28px; margin-bottom: 8px; }
 
@@ -1529,12 +1540,12 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
         <div id="upload-file-slots">
           <div class="form-field">
             <label>PDF File (1 of up to 4)</label>
-            <div class="upload-file-area" onclick="document.getElementById('upload-file-input-0').click()">
+            <div class="upload-file-area">
               <div class="upload-file-icon">📄</div>
               <div class="upload-file-text">Tap to select PDF</div>
               <div class="upload-file-name" id="upload-file-name-0"></div>
+              <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
             </div>
-            <input type="file" id="upload-file-input-0" accept=".pdf" style="display:none" onchange="fileSelected(0,this)">
           </div>
         </div>
 
@@ -2368,12 +2379,12 @@ function addUploadSlot() {
   div.className = 'form-field';
   div.innerHTML = `
     <label>PDF File (${uploadSlots+1} of up to 4)</label>
-    <div class="upload-file-area" onclick="document.getElementById('upload-file-input-${uploadSlots}').click()">
+    <div class="upload-file-area">
       <div class="upload-file-icon">📄</div>
       <div class="upload-file-text">Tap to select PDF</div>
       <div class="upload-file-name" id="upload-file-name-${uploadSlots}"></div>
+      <input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" onchange="fileSelected(${uploadSlots},this)">
     </div>
-    <input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" style="display:none" onchange="fileSelected(${uploadSlots},this)">
   `;
   container.appendChild(div);
   uploadSlots++;
@@ -2527,12 +2538,12 @@ async function submitUpload() {
       document.getElementById('upload-file-slots').innerHTML = `
         <div class="form-field">
           <label>PDF File (1 of up to 4)</label>
-          <div class="upload-file-area" onclick="document.getElementById('upload-file-input-0').click()">
+          <div class="upload-file-area">
             <div class="upload-file-icon">📄</div>
             <div class="upload-file-text">Tap to select PDF</div>
             <div class="upload-file-name" id="upload-file-name-0"></div>
+            <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
           </div>
-          <input type="file" id="upload-file-input-0" accept=".pdf" style="display:none" onchange="fileSelected(0,this)">
         </div>`;
       document.getElementById('upload-more-btn').style.display = 'block';
       allSongs = []; // refresh library next time
