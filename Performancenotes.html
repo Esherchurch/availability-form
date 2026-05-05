@@ -769,10 +769,11 @@ async function showSong(i) {
   const allFiles = data.files || [];
   const youtubeUrl = data.youtube || "";
 
-  // Playthrough (keyboard roles)
-  const isKB = ["Keyboard","Keys","2nd Keys"].includes(currentRole);
+  // Playthrough links — instrumental roles only, must match selected key exactly
+  const PT_ROLES = ["Keyboard","Keys","2nd Keys","Guitar","2nd Guitar","Electric Guitar","Bass"];
+  const showPT = PT_ROLES.some(r => currentRole.toLowerCase().includes(r.toLowerCase()));
   let ptMatches = [];
-  if (isKB && selectedKeys.length) {
+  if (showPT && selectedKeys.length > 0) {
     try {
       const ptSnap = await getDocs(collection(db, "kb_playthrough"));
       const seen = new Set();
@@ -782,12 +783,9 @@ async function showSong(i) {
         const ptSong = (pt.songTitle||pt.title||'').toLowerCase().trim();
         const titleNorm = s.title.toLowerCase().trim();
         if (!(ptSong===titleNorm||ptSong.includes(titleNorm)||titleNorm.includes(ptSong))) return;
-        selectedKeys.forEach(k => {
-          if ((pt.ourKey||'').toLowerCase()===k.toLowerCase()) {
-            const uid = ptDoc.id+k;
-            if (!seen.has(uid)) { seen.add(uid); ptMatches.push({...pt}); }
-          }
-        });
+        // Only show if the playthrough key exactly matches one of the selected keys
+        if (!selectedKeys.some(k => (pt.ourKey||'').toLowerCase()===k.toLowerCase())) return;
+        if (!seen.has(ptDoc.id)) { seen.add(ptDoc.id); ptMatches.push({...pt}); }
       });
     } catch(e) {}
   }
