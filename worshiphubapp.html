@@ -1213,16 +1213,15 @@ body {
 }
 #tour-overlay.active {
   display: block;
-  pointer-events: none;
+  pointer-events: all;
 }
 
 .tour-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(0,0,0,0.5);
-  pointer-events: all;
+  pointer-events: none;
   z-index: 0;
-  cursor: pointer;
 }
 
 .tour-tooltip {
@@ -1628,7 +1627,9 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
 <!-- TOUR OVERLAY -->
 <div id="tour-overlay">
-  <div class="tour-backdrop" onclick="endTour()"></div>
+  <!-- Transparent full-screen tap-to-dismiss — sits BEHIND tooltip -->
+  <div style="position:absolute;inset:0;z-index:1;cursor:pointer;" onclick="endTour()"></div>
+  <div class="tour-backdrop"></div>
   <div class="tour-highlight" id="tour-highlight"></div>
   <div class="tour-tooltip" id="tour-tooltip">
     <div class="tour-tooltip-title" id="tour-title"></div>
