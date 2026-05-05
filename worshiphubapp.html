@@ -1334,109 +1334,16 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
 .fade-in { animation: fadeIn 0.2s ease; }
 
-/* ── MICROSOFT LOGIN SCREEN ── */
-#ms-login-screen {
-  position: fixed;
-  inset: 0;
-  background: var(--teal);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  gap: 20px;
-}
-
-.ms-login-logo {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid rgba(255,255,255,0.3);
-}
-
-.ms-login-title {
-  font-size: 24px;
-  font-weight: 900;
-  color: white;
-  text-align: center;
-  line-height: 1.2;
-}
-
-.ms-login-sub {
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.7);
-  text-align: center;
-  line-height: 1.5;
-  max-width: 280px;
-}
-
-.ms-login-btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: white;
-  color: var(--teal);
-  border: none;
-  border-radius: 14px;
-  padding: 16px 28px;
-  font-family: var(--font);
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-  width: 100%;
-  max-width: 320px;
-  justify-content: center;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-  transition: transform 0.1s;
-}
-.ms-login-btn:active { transform: scale(0.97); }
-
-.ms-login-skip {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.5);
-  cursor: pointer;
-  background: none;
-  border: none;
-  font-family: var(--font);
-  padding: 8px;
-}
-
 /* Caveat for sticky notes */
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
 </style>
 </head>
 <body>
 
-<!-- MICROSOFT LOGIN SCREEN -->
-<div id="ms-login-screen" style="display:none;">
-  <img class="ms-login-logo"
-    src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
-    alt="EGBC" onerror="this.style.display='none'">
-  <div class="ms-login-title">Worship Hub</div>
-  <div class="ms-login-sub">Sign in with your church Microsoft account to access training videos. You'll be taken to the Microsoft login page and then brought back automatically.</div>
-  <button class="ms-login-btn" onclick="doMicrosoftLogin()">
-    <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-    </svg>
-    Sign in with Microsoft
-  </button>
-  <div class="ms-login-note">You only need to do this once. Your session will stay active.</div>
-  <button class="ms-login-skip" onclick="skipMicrosoftLogin()">Skip for now — videos won't be available</button>
-</div>
-
 <!-- HEADER -->
 <div id="app-header">
   <button id="back-btn" onclick="goBack()">←</button>
   <div id="header-title">Worship Hub</div>
-  <button onclick="reAuthenticate()" title="Re-sign in to Microsoft"
-    style="width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--teal);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🔐</button>
   <button id="header-help" onclick="startTour(true)" title="Help">?</button>
 </div>
 
@@ -2327,7 +2234,15 @@ function openKbCard(id, context) {
       ${asset.instrument ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>` : ''}
     </div>
 
-    ${src ? `<div class="kb-modal-video"><iframe src="${src}" allowfullscreen></iframe></div>` : ''}
+    ${src ? `
+    <a href="${src}" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;gap:12px;background:var(--teal);color:white;
+              border-radius:14px;padding:16px 18px;margin-bottom:14px;text-decoration:none;
+              font-family:var(--font);font-weight:800;font-size:15px;letter-spacing:0.02em;">
+      <span style="font-size:22px;line-height:1;">▶</span>
+      <span style="flex:1;">Watch Video</span>
+      <span style="font-size:11px;opacity:0.6;font-weight:700;">Opens in Chrome</span>
+    </a>` : ''}
 
     ${sections.length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div>
@@ -2832,90 +2747,16 @@ function fmtTime(s) {
   return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 }
 
-// ── MICROSOFT LOGIN ───────────────────────────────────────────────────────
-const SP_SITE = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
-const MS_LOGIN_KEY = 'egbc_ms_logged_in';
-
-function checkMicrosoftLogin() {
-  // Returning from SharePoint login attempt
-  if (localStorage.getItem('egbc_ms_login_attempted')) {
-    localStorage.removeItem('egbc_ms_login_attempted');
-    localStorage.setItem(MS_LOGIN_KEY, '1');
-    showApp();
-    return;
-  }
-  // Already logged in before
-  if (localStorage.getItem(MS_LOGIN_KEY)) {
-    showApp();
-    return;
-  }
-  // First time — show login screen
-  document.getElementById('ms-login-screen').style.display = 'flex';
-}
-
-function doMicrosoftLogin() {
-  // Store flag so when we return we know login was attempted
-  localStorage.setItem('egbc_ms_login_attempted', '1');
-  // Navigate current window to SharePoint — Android PWA shares cookies with Chrome
-  // so signing in here sets the session for all iframes too
-  window.location.href = SP_SITE;
-}
-
-function confirmMicrosoftLogin() {
-  localStorage.setItem(MS_LOGIN_KEY, '1');
-  localStorage.removeItem('egbc_ms_login_attempted');
-  document.getElementById('ms-login-screen').style.display = 'none';
-  showApp();
-}
-
-function skipMicrosoftLogin() {
-  document.getElementById('ms-login-screen').style.display = 'none';
-  showApp();
-}
-
-function showApp() {
-  document.getElementById('app-header').style.display = 'flex';
-  document.getElementById('app-content').style.display = 'block';
-  // Small delay so Firebase connection is fully established
-  setTimeout(() => {
-    loadNews();
-    if (!localStorage.getItem('egbc_hub_toured_home')) {
-      setTimeout(() => {
-        startTour(false);
-        localStorage.setItem('egbc_hub_toured_home', '1');
-      }, 800);
-    }
-  }, 300);
-}
-
-function reAuthenticate() {
-  // Clear the stored login flag and show login screen again
-  localStorage.removeItem(MS_LOGIN_KEY);
-  document.getElementById('app-header').style.display = 'none';
-  document.getElementById('app-content').style.display = 'none';
-  const screen = document.getElementById('ms-login-screen');
-  const btn = screen.querySelector('.ms-login-btn');
-  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-  </svg> Sign in with Microsoft`;
-  btn.onclick = doMicrosoftLogin;
-  screen.style.display = 'flex';
-}
-
 // ── INIT ──────────────────────────────────────────────────────────────────
-// Hide app until login check completes
-document.getElementById('app-header').style.display = 'none';
-document.getElementById('app-content').style.display = 'none';
+loadNews();
 
-// Wait for DOM + Firebase to be fully ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', checkMicrosoftLogin);
-} else {
-  checkMicrosoftLogin();
+if (!localStorage.getItem('egbc_hub_toured_home')) {
+  setTimeout(() => {
+    startTour(false);
+    localStorage.setItem('egbc_hub_toured_home', '1');
+  }, 800);
 }
+
 </script>
 </body>
 </html>
