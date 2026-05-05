@@ -1405,6 +1405,10 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
         <button class="btn-ics btn-ics-household" onclick="downloadICS('household')">Family Rota (.ics)</button>
       </div>
     </div>
+    <div style="margin:8px 12px 0;display:flex;align-items:center;gap:8px;">
+      <input type="date" id="rota-date-jump" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--font);font-size:13px;font-weight:700;color:var(--teal);background:var(--bg);outline:none;" onchange="jumpToRotaDate(this.value)">
+      <button onclick="jumpToRotaDate(document.getElementById('rota-date-jump').value)" style="padding:10px 16px;background:var(--teal);color:white;border:none;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;text-transform:uppercase;">Go</button>
+    </div>
     <div id="rota-content"><div class="loading-state">Loading rota...</div></div>
   </div>
 
@@ -1489,12 +1493,14 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
       <div class="upload-form">
         <div class="form-field">
           <label>Song Title</label>
-          <input class="form-input" id="upload-song-title" type="text" placeholder="e.g. Way Maker">
+          <input class="form-input" id="upload-song-title" type="text" placeholder="e.g. Way Maker" oninput="searchUploadSong()">
+          <div id="upload-song-matches" style="background:white;border:1px solid var(--border);border-radius:10px;margin-top:4px;overflow:hidden;"></div>
+          <div id="upload-match-status" style="margin-top:6px;"></div>
         </div>
         <div class="form-row-2">
           <div class="form-field">
             <label>Key</label>
-            <select class="form-select" id="upload-key">
+            <select class="form-select" id="upload-key" onchange="checkDuplicates()">
               <option value="">Select Key</option>
               <optgroup label="Major">
                 <option>C</option><option>C#</option><option>Db</option><option>D</option>
@@ -1509,7 +1515,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
           </div>
           <div class="form-field">
             <label>Type</label>
-            <select class="form-select" id="upload-type">
+            <select class="form-select" id="upload-type" onchange="checkDuplicates()">
               <option value="">Select Type</option>
               <option>Chord Sheet</option>
               <option>Lead Sheet</option>
@@ -1685,6 +1691,7 @@ function openSection(name) {
   if (name === 'board') loadBoard();
   if (name === 'worship' && worshipAssets.length === 0 && trainingAssets.length === 0) loadWorshipAssets();
   if (name === 'av' && troubleshootAssets.length === 0 && howtoAssets.length === 0) loadAvAssets();
+  if (name === 'upload' && allSongs.length === 0) loadSongs();
   if (name === 'library' && allSongs.length === 0) loadSongs();
 }
 
@@ -1795,7 +1802,26 @@ function renderRota() {
   container.innerHTML = html;
 }
 
-function downloadICS(type) {
+function jumpToRotaDate(date) {
+  if (!date) return;
+  // Find the event card closest to this date
+  const target = rotaEvents.find(e => e.date >= date) || rotaEvents[rotaEvents.length - 1];
+  if (!target) return;
+  const dateStr = new Date(target.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+  // Find the badge element with that date text and scroll to it
+  const badges = document.querySelectorAll('.rota-date-badge');
+  for (const badge of badges) {
+    if (badge.textContent.trim() === dateStr) {
+      badge.closest('.rota-event').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Flash highlight
+      const card = badge.closest('.rota-event');
+      card.style.background = 'rgba(61,98,99,0.1)';
+      setTimeout(() => { card.style.background = ''; }, 1500);
+      return;
+    }
+  }
+  toast('Date not found in rota');
+}
   const memberId = document.getElementById('rota-member-select').value;
   if (!memberId) { toast('Please select your name first'); return; }
   const member = rotaAddressBook.find(m => m.id === memberId);
@@ -1833,12 +1859,30 @@ function downloadICS(type) {
 }
 
 // ── BOARD ─────────────────────────────────────────────────────────────────
-function loadBoard() {
-  const saved = localStorage.getItem('worshipBoard2');
-  if (saved) {
-    const state = JSON.parse(saved);
-    boardNotes = state.notes || [];
-    boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+async function loadBoard() {
+  document.getElementById('notes-list').innerHTML = '<div class="loading-state">Loading board...</div>';
+  try {
+    const snap = await db.collection('worshipBoardState').doc('state').get();
+    if (snap.exists) {
+      const state = snap.data();
+      boardNotes = state.notes || [];
+      boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+    } else {
+      // Fall back to localStorage for backwards compat
+      const saved = localStorage.getItem('worshipBoard2');
+      if (saved) {
+        const state = JSON.parse(saved);
+        boardNotes = state.notes || [];
+        boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+      }
+    }
+  } catch(e) {
+    const saved = localStorage.getItem('worshipBoard2');
+    if (saved) {
+      const state = JSON.parse(saved);
+      boardNotes = state.notes || [];
+      boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+    }
   }
   renderBoardPages();
   renderNotes();
@@ -1908,15 +1952,20 @@ function react(noteId, key) {
   const had = n.myReactions[key];
   n.reactions[key]   = Math.max(0, (n.reactions[key]||0) + (had ? -1 : 1));
   n.myReactions[key] = !had;
-  saveBoardState();
   renderNotes();
+  saveBoardState();
 }
 
-function saveBoardState() {
-  const existing = JSON.parse(localStorage.getItem('worshipBoard2') || '{}');
-  existing.notes = boardNotes;
-  existing.pages = boardPages;
-  localStorage.setItem('worshipBoard2', JSON.stringify(existing));
+async function saveBoardState() {
+  const state = { notes: boardNotes, pages: boardPages };
+  // Save to localStorage as backup
+  localStorage.setItem('worshipBoard2', JSON.stringify(state));
+  // Save to Firebase so all devices see changes
+  try {
+    await db.collection('worshipBoardState').doc('state').set(state);
+  } catch(e) {
+    console.log('Board save to Firebase failed, saved locally only');
+  }
 }
 
 function openAddNote() { document.getElementById('add-note-modal').classList.add('open'); }
@@ -1926,7 +1975,7 @@ function toggleNoteYT() {
   document.getElementById('note-yt-field').style.display = cat === 'song' ? 'block' : 'none';
 }
 
-function saveNote() {
+async function saveNote() {
   const title = document.getElementById('note-title').value.trim();
   const body  = document.getElementById('note-body').value.trim();
   if (!title && !body) { toast('Please add a title or details'); return; }
@@ -1944,11 +1993,11 @@ function saveNote() {
     y: 60+Math.floor(i/5)*340+(i*53%40)-20,
     rot: (i*17%7)-3.5, zIndex: 10,
   });
-  saveBoardState();
   closeAddNote();
   renderNotes();
+  toast('Saving... 📌');
+  await saveBoardState();
   toast('Note pinned! 📌');
-  // clear form
   ['note-author','note-title','note-body','note-yt'].forEach(id => document.getElementById(id).value='');
   document.getElementById('note-cat').value='song';
 }
@@ -2250,6 +2299,7 @@ window.goBack = function() {
 
 // ── MUSIC UPLOADER ────────────────────────────────────────────────────────
 let uploadSlots = 1;
+let uploadMatchedSong = null; // the matched Firebase song doc
 
 function fileSelected(index, input) {
   if (input.files[0]) {
@@ -2277,15 +2327,86 @@ function addUploadSlot() {
   if (uploadSlots >= 4) document.getElementById('upload-more-btn').style.display = 'none';
 }
 
+// Search songs as user types title
+async function searchUploadSong() {
+  const val = document.getElementById('upload-song-title').value.trim();
+  const resultsEl = document.getElementById('upload-song-matches');
+  uploadMatchedSong = null;
+  document.getElementById('upload-match-status').innerHTML = '';
+
+  if (val.length < 2) { resultsEl.innerHTML = ''; return; }
+
+  const norm = val.toLowerCase();
+  const matches = allSongs.filter(s =>
+    (s.normalized||s.title||'').toLowerCase().includes(norm)
+  ).slice(0, 5);
+
+  if (!matches.length) {
+    resultsEl.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--teal);opacity:0.5;font-style:italic;">No match — will create new song entry</div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = matches.map(s =>
+    `<div onclick="selectUploadSong('${s.id}')" style="padding:10px 14px;border-bottom:1px solid var(--bg);font-size:13px;font-weight:700;color:var(--teal);cursor:pointer;">${s.title}</div>`
+  ).join('');
+}
+
+function selectUploadSong(id) {
+  const song = allSongs.find(s => s.id === id);
+  if (!song) return;
+  uploadMatchedSong = song;
+  document.getElementById('upload-song-title').value = song.title;
+  document.getElementById('upload-song-matches').innerHTML = '';
+  checkDuplicates();
+}
+
+function checkDuplicates() {
+  const key  = document.getElementById('upload-key').value;
+  const type = document.getElementById('upload-type').value;
+  const statusEl = document.getElementById('upload-match-status');
+
+  if (!uploadMatchedSong) {
+    statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ New song — will be created</div>`;
+    return;
+  }
+
+  const existingFiles = uploadMatchedSong.files || [];
+  const dups = existingFiles.filter(f => f.key === key && f.type === type);
+
+  if (dups.length && key && type) {
+    statusEl.innerHTML = `<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:12px;font-weight:700;color:#991b1b;">
+      ⚠ A ${type} in ${key} already exists for "${uploadMatchedSong.title}"
+      <br><label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:700;cursor:pointer;">
+        <input type="checkbox" id="upload-force" style="width:16px;height:16px;"> Replace existing file
+      </label>
+    </div>`;
+  } else if (uploadMatchedSong && key && type) {
+    statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ Matched to "${uploadMatchedSong.title}" — no duplicate for this key/type</div>`;
+  }
+}
+
 async function submitUpload() {
-  const title = document.getElementById('upload-song-title').value.trim();
+  const titleInput = document.getElementById('upload-song-title').value.trim();
   const key   = document.getElementById('upload-key').value;
   const type  = document.getElementById('upload-type').value;
 
-  if (!title) { toast('Please enter a song title'); return; }
+  if (!titleInput) { toast('Please enter a song title'); return; }
   if (!key)   { toast('Please select a key'); return; }
   if (!type)  { toast('Please select a file type'); return; }
   if (!Object.keys(uploadFiles).length) { toast('Please select at least one PDF'); return; }
+
+  // Check for duplicate and force flag
+  if (uploadMatchedSong) {
+    const existingFiles = uploadMatchedSong.files || [];
+    const dups = existingFiles.filter(f => f.key === key && f.type === type);
+    if (dups.length) {
+      const forceEl = document.getElementById('upload-force');
+      if (!forceEl || !forceEl.checked) {
+        toast('Tick "Replace existing file" to overwrite, or change key/type');
+        return;
+      }
+    }
+  }
 
   const btn = document.getElementById('upload-submit-btn');
   const prog = document.getElementById('upload-progress');
@@ -2297,11 +2418,18 @@ async function submitUpload() {
   status.textContent = 'Uploading...';
 
   try {
-    const id = title.toLowerCase().replace(/\s+/g,'-');
+    const finalTitle = uploadMatchedSong ? uploadMatchedSong.title : titleInput;
+    const id = finalTitle.toLowerCase().replace(/\s+/g,'-');
     const docRef = db.collection('songs').doc(id);
     const snap = await docRef.get();
     let existingData = snap.exists ? snap.data() : {};
     let files = existingData.files || [];
+
+    // Remove duplicates if force-replacing
+    const forceEl = document.getElementById('upload-force');
+    if (forceEl && forceEl.checked) {
+      files = files.filter(f => !(f.key === key && f.type === type));
+    }
 
     const fileKeys = Object.keys(uploadFiles);
     for (let i = 0; i < fileKeys.length; i++) {
@@ -2319,8 +2447,8 @@ async function submitUpload() {
     status.textContent = 'Saving to database...';
 
     await docRef.set({
-      title,
-      normalized: title.toLowerCase(),
+      title: finalTitle,
+      normalized: finalTitle.toLowerCase(),
       files,
       ...(existingData.youtube ? { youtube: existingData.youtube } : {}),
       ...(existingData.ccli    ? { ccli:    existingData.ccli    } : {}),
@@ -2330,7 +2458,6 @@ async function submitUpload() {
     status.textContent = '✓ Uploaded successfully!';
     toast('Upload complete! 🎵');
 
-    // Reset form
     setTimeout(() => {
       prog.style.display = 'none';
       bar.style.width = '0%';
@@ -2339,8 +2466,11 @@ async function submitUpload() {
       document.getElementById('upload-song-title').value = '';
       document.getElementById('upload-key').value = '';
       document.getElementById('upload-type').value = '';
+      document.getElementById('upload-song-matches').innerHTML = '';
+      document.getElementById('upload-match-status').innerHTML = '';
       uploadFiles = {};
       uploadSlots = 1;
+      uploadMatchedSong = null;
       document.getElementById('upload-file-slots').innerHTML = `
         <div class="form-field">
           <label>PDF File (1 of up to 4)</label>
