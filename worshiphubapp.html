@@ -1417,7 +1417,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
     src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
     alt="EGBC" onerror="this.style.display='none'">
   <div class="ms-login-title">Worship Hub</div>
-  <div class="ms-login-sub">Sign in with your church Microsoft account to access training videos and resources.</div>
+  <div class="ms-login-sub">Sign in with your church Microsoft account to access training videos. You'll be taken to the Microsoft login page and then brought back automatically.</div>
   <button class="ms-login-btn" onclick="doMicrosoftLogin()">
     <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
       <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
@@ -2837,27 +2837,33 @@ const SP_SITE = 'https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
 const MS_LOGIN_KEY = 'egbc_ms_logged_in';
 
 function checkMicrosoftLogin() {
-  // If they've previously logged in, go straight to app
+  // Returning from SharePoint login attempt
+  if (localStorage.getItem('egbc_ms_login_attempted')) {
+    localStorage.removeItem('egbc_ms_login_attempted');
+    localStorage.setItem(MS_LOGIN_KEY, '1');
+    showApp();
+    return;
+  }
+  // Already logged in before
   if (localStorage.getItem(MS_LOGIN_KEY)) {
     showApp();
     return;
   }
-  // Show login screen
+  // First time — show login screen
   document.getElementById('ms-login-screen').style.display = 'flex';
 }
 
 function doMicrosoftLogin() {
-  // Open SharePoint in Chrome — user signs in, session cookies are set
-  // When they come back to the app, the webview shares those cookies
-  window.open(SP_SITE, '_blank');
-  // Show a "I've signed in" button so they can confirm and proceed
-  const btn = document.querySelector('.ms-login-btn');
-  btn.textContent = "✓ I've signed in — continue";
-  btn.onclick = confirmMicrosoftLogin;
+  // Store flag so when we return we know login was attempted
+  localStorage.setItem('egbc_ms_login_attempted', '1');
+  // Navigate current window to SharePoint — Android PWA shares cookies with Chrome
+  // so signing in here sets the session for all iframes too
+  window.location.href = SP_SITE;
 }
 
 function confirmMicrosoftLogin() {
   localStorage.setItem(MS_LOGIN_KEY, '1');
+  localStorage.removeItem('egbc_ms_login_attempted');
   document.getElementById('ms-login-screen').style.display = 'none';
   showApp();
 }
@@ -2870,13 +2876,16 @@ function skipMicrosoftLogin() {
 function showApp() {
   document.getElementById('app-header').style.display = 'flex';
   document.getElementById('app-content').style.display = 'block';
-  loadNews();
-  if (!localStorage.getItem('egbc_hub_toured_home')) {
-    setTimeout(() => {
-      startTour(false);
-      localStorage.setItem('egbc_hub_toured_home', '1');
-    }, 800);
-  }
+  // Small delay so Firebase connection is fully established
+  setTimeout(() => {
+    loadNews();
+    if (!localStorage.getItem('egbc_hub_toured_home')) {
+      setTimeout(() => {
+        startTour(false);
+        localStorage.setItem('egbc_hub_toured_home', '1');
+      }, 800);
+    }
+  }, 300);
 }
 
 function reAuthenticate() {
@@ -2900,7 +2909,13 @@ function reAuthenticate() {
 // Hide app until login check completes
 document.getElementById('app-header').style.display = 'none';
 document.getElementById('app-content').style.display = 'none';
-checkMicrosoftLogin();
+
+// Wait for DOM + Firebase to be fully ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkMicrosoftLogin);
+} else {
+  checkMicrosoftLogin();
+}
 </script>
 </body>
 </html>
