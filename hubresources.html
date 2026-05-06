@@ -8,7 +8,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -292,71 +291,6 @@
       margin-top: 4px;
     }
 
-    /* ── QR modal ── */
-    .qr-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-      padding: 20px;
-    }
-    .qr-modal-overlay.open { display: flex; }
-
-    .qr-modal {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 32px;
-      max-width: 360px;
-      width: 100%;
-      text-align: center;
-      position: relative;
-    }
-
-    .qr-modal h3 {
-      font-size: 1rem;
-      font-weight: 800;
-      color: var(--teal);
-      margin-bottom: 4px;
-    }
-
-    .qr-modal .qr-subtitle {
-      font-size: 0.72rem;
-      color: var(--teal-mid);
-      font-weight: 600;
-      margin-bottom: 22px;
-    }
-
-    #qr-canvas-wrap {
-      display: inline-block;
-      padding: 16px;
-      background: #fff;
-      border: 2px solid var(--teal-light);
-      border-radius: var(--radius-md);
-      margin-bottom: 18px;
-    }
-
-    #qr-canvas-wrap canvas, #qr-canvas-wrap img {
-      display: block;
-    }
-
-    .qr-url {
-      font-size: 0.68rem;
-      color: var(--teal-mid);
-      font-weight: 600;
-      word-break: break-all;
-      background: var(--bg);
-      border: 1px solid var(--teal-light);
-      border-radius: var(--radius-md);
-      padding: 10px 14px;
-      margin-bottom: 16px;
-      text-align: left;
-    }
-
-    .qr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-
     /* ── iOS instructions modal ── */
     .modal-overlay {
       position: fixed;
@@ -556,20 +490,6 @@
 
 </div>
 
-<!-- QR Code modal -->
-<div class="qr-modal-overlay" id="qr-modal">
-  <div class="qr-modal">
-    <button class="modal-close" onclick="closeQrModal()">Close</button>
-    <h3 id="qr-title">Scan to Download</h3>
-    <p class="qr-subtitle">Point any phone camera at this code</p>
-    <div id="qr-canvas-wrap"></div>
-    <div class="qr-url" id="qr-url-display"></div>
-    <div class="qr-actions">
-      <button class="btn btn-secondary btn-sm" onclick="downloadQr()">⬇ Save QR Image</button>
-    </div>
-  </div>
-</div>
-
 <!-- iOS Add to Home Screen modal -->
 <div class="modal-overlay" id="ios-modal">
   <div class="modal">
@@ -666,19 +586,13 @@ function cardHTML(r) {
   const actionBtn = r.type === 'apk'
     ? `<a href="${r.downloadUrl}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">
         ⬇ Download
-       </a>
-       <button class="btn btn-secondary btn-sm btn-icon" title="Show QR code" onclick="event.stopPropagation(); showQr('${escHtml(r.downloadUrl)}', '${escHtml(r.name)}')">
-        ⬛ QR
-       </button>`
+       </a>`
     : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); openLinkModal('${escHtml(r.url)}', '${escHtml(r.name)}')">
         📱 iOS Install
        </button>
        <a href="${escHtml(r.url)}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">
         Open →
-       </a>
-       <button class="btn btn-secondary btn-sm btn-icon" title="Show QR code" onclick="event.stopPropagation(); showQr('${escHtml(r.url)}', '${escHtml(r.name)}')">
-        ⬛ QR
-       </button>`;
+       </a>`;
 
   return `
     <div class="resource-card" onclick="editResource('${r.id}')">
@@ -879,52 +793,6 @@ async function deleteResource() {
     alert('Error deleting: ' + e.message);
   }
 }
-
-// ── QR Code modal ──
-function showQr(url, name) {
-  document.getElementById('qr-title').textContent = name || 'Scan to Open';
-  document.getElementById('qr-url-display').textContent = url;
-
-  const wrap = document.getElementById('qr-canvas-wrap');
-  wrap.innerHTML = '';
-
-  new QRCode(wrap, {
-    text: url,
-    width: 220,
-    height: 220,
-    colorDark: '#3d6263',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M
-  });
-
-  document.getElementById('qr-modal').classList.add('open');
-}
-
-function closeQrModal() {
-  document.getElementById('qr-modal').classList.remove('open');
-}
-
-function downloadQr() {
-  const canvas = document.querySelector('#qr-canvas-wrap canvas');
-  const img    = document.querySelector('#qr-canvas-wrap img');
-  const name   = (document.getElementById('qr-title').textContent || 'qr').replace(/\s+/g,'-').toLowerCase();
-
-  if (canvas) {
-    const a = document.createElement('a');
-    a.download = `${name}-qr.png`;
-    a.href = canvas.toDataURL('image/png');
-    a.click();
-  } else if (img) {
-    const a = document.createElement('a');
-    a.download = `${name}-qr.png`;
-    a.href = img.src;
-    a.click();
-  }
-}
-
-document.getElementById('qr-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeQrModal();
-});
 
 // ── iOS modal ──
 function openLinkModal(url, name) {
