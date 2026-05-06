@@ -841,11 +841,11 @@ function renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes,
       row1 += `<button class="action-btn btn-pt" onclick="openPDF('${url}')">${lbl}</button>`;
     });
     row1 += `<div class="translate-wrap" id="tw">
-      <button class="action-btn btn-trans" onclick="$('tw').classList.toggle('open')">A/ES ▾</button>
+      <button class="action-btn btn-trans" onclick="document.getElementById('tw').classList.toggle('open')">A/ES ▾</button>
       <div class="translate-menu">
-        <div class="translate-item" onclick="translateAll('es');$('tw').classList.remove('open')">English → Spanish</div>
-        <div class="translate-item" onclick="translateAll('en');$('tw').classList.remove('open')">Spanish → English</div>
-        <div class="translate-item" onclick="translateAll('revert');$('tw').classList.remove('open')">↩ Original</div>
+        <div class="translate-item" onclick="translateAll('es');document.getElementById('tw').classList.remove('open')">English → Spanish</div>
+        <div class="translate-item" onclick="translateAll('en');document.getElementById('tw').classList.remove('open')">Spanish → English</div>
+        <div class="translate-item" onclick="translateAll('revert');document.getElementById('tw').classList.remove('open')">↩ Original</div>
       </div>
     </div>`;
   }
