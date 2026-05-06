@@ -1,1 +1,2665 @@
-test
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Worship Planner">
+<meta name="theme-color" content="#3d6263">
+<title>EGBC Worship Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+:root {
+  --teal:       #3d6263;
+  --teal-dark:  #2f4c4d;
+  --teal-light: #e6f0f0;
+  --border:     #d1dfdf;
+  --bg:         #f0f6f6;
+  --white:      #ffffff;
+  --green:      #27ae60;
+  --red:        #ef4444;
+  --orange:     #f59e0b;
+  --blue:       #2c6999;
+  --font:       'Montserrat', sans-serif;
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg); }
+
+/* ══ HEADER ══ */
+#app-header {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: calc(var(--safe-top) + 54px);
+  padding-top: var(--safe-top);
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding-left: 12px; padding-right: 12px;
+  gap: 8px; z-index: 200;
+  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
+}
+#back-btn {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--teal); font-size: 18px; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  font-weight: 800; flex-shrink: 0;
+}
+#back-btn.visible { display: flex; }
+#header-title {
+  flex: 1; font-size: 16px; font-weight: 800;
+  color: var(--teal); text-align: center;
+  letter-spacing: -0.01em;
+}
+#header-action {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--teal); border: none; color: white;
+  font-size: 20px; cursor: pointer; display: none;
+  align-items: center; justify-content: center;
+  font-weight: 800; flex-shrink: 0;
+}
+#header-action.visible { display: flex; }
+
+/* ══ CONTENT AREA ══ */
+#app-content {
+  position: fixed;
+  top: calc(var(--safe-top) + 54px);
+  left: 0; right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.screen {
+  position: absolute; inset: 0;
+  overflow-y: auto;
+  display: none;
+  flex-direction: column;
+  background: var(--bg);
+  padding-bottom: calc(var(--safe-bottom) + 16px);
+}
+.screen.active { display: flex; }
+
+/* ══ HOME SCREEN ══ */
+.home-hero {
+  background: var(--teal);
+  padding: 28px 20px 24px;
+  display: flex; align-items: center; gap: 14px;
+}
+.home-logo {
+  width: 52px; height: 52px; border-radius: 50%;
+  object-fit: cover; border: 2px solid rgba(255,255,255,0.3);
+  flex-shrink: 0;
+}
+.home-hero-title { font-size: 20px; font-weight: 900; color: white; line-height: 1.1; }
+.home-hero-sub { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.15em; margin-top: 3px; }
+
+.home-tiles {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; padding: 16px;
+}
+.home-tile {
+  background: var(--white); border-radius: 18px;
+  border: 1px solid var(--border); padding: 20px 16px;
+  cursor: pointer; transition: transform 0.1s;
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(61,98,99,0.06);
+}
+.home-tile:active { transform: scale(0.97); }
+.home-tile-icon { font-size: 28px; }
+.home-tile-name { font-size: 14px; font-weight: 800; color: var(--teal); }
+.home-tile-desc { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; line-height: 1.3; }
+.tile-service { border-top: 3px solid var(--teal); }
+.tile-rota    { border-top: 3px solid var(--blue); }
+.tile-email   { border-top: 3px solid var(--green); }
+
+/* ══ COMMON SECTION STYLES ══ */
+.section-pad { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  background: var(--white); border-radius: 16px;
+  border: 1px solid var(--border); padding: 14px 16px;
+}
+
+.card-label {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--teal); opacity: 0.5;
+  margin-bottom: 8px;
+}
+
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-label {
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--teal); opacity: 0.6;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 12px 14px;
+  border: 1.5px solid var(--border); border-radius: 12px;
+  font-family: var(--font); font-size: 14px;
+  font-weight: 700; color: var(--teal);
+  background: var(--white); outline: none;
+  appearance: none; -webkit-appearance: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--teal); }
+.form-textarea { resize: none; min-height: 80px; line-height: 1.5; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 13px 20px; border-radius: 12px;
+  font-family: var(--font); font-size: 13px; font-weight: 800;
+  border: none; cursor: pointer; text-transform: uppercase;
+  letter-spacing: 0.04em; transition: transform 0.1s, background 0.15s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary   { background: var(--teal); color: white; }
+.btn-primary:hover { background: var(--teal-dark); }
+.btn-secondary { background: var(--bg); color: var(--teal); border: 1.5px solid var(--border); }
+.btn-green     { background: var(--green); color: white; }
+.btn-red       { background: var(--red); color: white; }
+.btn-blue      { background: var(--blue); color: white; }
+.btn-full      { width: 100%; }
+.btn-sm        { padding: 8px 14px; font-size: 11px; border-radius: 8px; }
+
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 48px 24px; gap: 10px; text-align: center;
+}
+.empty-state-icon { font-size: 40px; }
+.empty-state-text { font-size: 13px; font-weight: 700; color: var(--teal); opacity: 0.4; }
+
+/* ══ SERVICE PLANNER ══ */
+.service-list { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+
+.service-card {
+  background: var(--white); border-radius: 14px;
+  border: 1px solid var(--border); padding: 14px 16px;
+  cursor: pointer; transition: background 0.1s;
+  display: flex; align-items: center; gap: 12px;
+}
+.service-card:active { background: var(--teal-light); }
+.service-card-info { flex: 1; min-width: 0; }
+.service-card-date { font-size: 11px; font-weight: 800; color: var(--teal); opacity: 0.5; text-transform: uppercase; letter-spacing: 0.08em; }
+.service-card-title { font-size: 15px; font-weight: 800; color: var(--teal); margin: 2px 0; }
+.service-card-meta { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; }
+.service-card-arrow { font-size: 20px; color: var(--teal); opacity: 0.3; }
+
+.order-item {
+  background: var(--white); border-radius: 12px;
+  border: 1px solid var(--border); padding: 14px 12px;
+  display: flex; align-items: center; gap: 10px;
+  touch-action: pan-y;
+}
+.order-item.dragging { opacity: 0.5; background: var(--teal-light); }
+.order-item.drag-over { border-color: var(--teal); background: var(--teal-light); }
+
+.order-drag-handle {
+  color: var(--teal); opacity: 0.25; font-size: 20px;
+  flex-shrink: 0; padding: 8px 4px;
+  user-select: none; touch-action: none;
+  cursor: grab;
+}
+.order-item-type {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.1em; padding: 4px 8px;
+  border-radius: 9999px; flex-shrink: 0;
+}
+.type-song        { background: #fef9c3; color: #854d0e; }
+.type-prayer      { background: #f5f3ff; color: #5b21b6; }
+.type-reading     { background: #eff6ff; color: #1e40af; }
+.type-announcement{ background: #f0fdf4; color: #166534; }
+.type-other       { background: var(--bg); color: var(--teal); }
+
+.order-item-title {
+  flex: 1; font-size: 14px; font-weight: 700;
+  color: var(--teal); min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; padding: 4px 0;
+}
+.order-item-key {
+  font-size: 11px; font-weight: 800; color: var(--teal);
+  opacity: 0.5; flex-shrink: 0;
+}
+.order-item-delete {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: #fee2e2; border: none; color: var(--red);
+  font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Song search dropdown */
+.song-search-wrap { position: relative; }
+.song-suggestions {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--white); border: 1.5px solid var(--teal);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 8px 24px rgba(61,98,99,0.15);
+  z-index: 100; max-height: 200px; overflow-y: auto;
+}
+.song-suggestion-item {
+  padding: 12px 14px; font-size: 13px; font-weight: 700;
+  color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg);
+}
+.song-suggestion-item:hover { background: var(--teal-light); }
+
+/* Keys chips */
+.key-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.key-chip {
+  padding: 5px 12px; border-radius: 9999px;
+  border: 1.5px solid var(--border); background: var(--bg);
+  font-size: 11px; font-weight: 800; color: var(--teal);
+  cursor: pointer; transition: all 0.15s;
+}
+.key-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
+
+/* ══ ROTA PLANNER ══ */
+.rota-event-card {
+  background: var(--white); border-radius: 14px;
+  border: 1px solid var(--border);
+  cursor: pointer; overflow: hidden;
+}
+.rota-event-header {
+  background: var(--teal); padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rota-event-date { font-size: 13px; font-weight: 800; color: white; }
+.rota-event-type { font-size: 11px; color: rgba(255,255,255,0.7); font-weight: 700; }
+.rota-event-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.rota-assignment-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px; background: var(--bg);
+}
+.rota-role-label {
+  font-size: 11px; font-weight: 800; color: var(--teal);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  width: 120px; flex-shrink: 0;
+}
+.rota-member-name { flex: 1; font-size: 13px; font-weight: 700; color: var(--teal); }
+.rota-member-select {
+  flex: 1; padding: 6px 10px; border-radius: 8px;
+  border: 1.5px solid var(--border); font-family: var(--font);
+  font-size: 12px; font-weight: 700; color: var(--teal);
+  background: white; appearance: none; -webkit-appearance: none;
+  outline: none;
+}
+
+/* Role management */
+.role-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 9999px;
+  background: var(--teal-light); border: 1px solid var(--border);
+  font-size: 12px; font-weight: 700; color: var(--teal);
+}
+.role-tag-delete {
+  background: none; border: none; color: var(--red);
+  cursor: pointer; font-size: 14px; padding: 0;
+  display: flex; align-items: center;
+}
+
+/* ══ EMAIL COMPILER ══ */
+#email-editor-wrap {
+  flex: 1; overflow-y: auto;
+  padding: 12px;
+}
+
+.email-toolbar {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 10px 12px; background: var(--white);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; position: sticky; top: 0; z-index: 10;
+}
+
+.tool-btn {
+  padding: 7px 12px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-family: var(--font); font-size: 12px;
+  font-weight: 800; color: var(--teal);
+  cursor: pointer; white-space: nowrap;
+}
+.tool-btn:active { background: var(--teal-light); }
+.tool-btn.active { background: var(--teal); color: white; border-color: var(--teal); }
+
+.tool-select {
+  padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg);
+  font-family: var(--font); font-size: 12px;
+  font-weight: 700; color: var(--teal); outline: none;
+}
+
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 2px solid var(--border); cursor: pointer;
+  flex-shrink: 0;
+}
+
+#email-canvas {
+  background: white; border-radius: 14px;
+  border: 1px solid var(--border); overflow: hidden;
+  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
+}
+
+#editable-body {
+  padding: 20px; min-height: 300px;
+  outline: none; font-family: 'Segoe UI', sans-serif;
+  font-size: 16px; color: #333; line-height: 1.6;
+}
+#editable-body img {
+  max-width: 100%; height: auto;
+  cursor: pointer; border: 3px solid transparent;
+}
+#editable-body img.selected-img { border: 3px solid #e67e22 !important; }
+
+.draft-card {
+  background: var(--white); border-radius: 14px;
+  border: 1px solid var(--border); padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.draft-card.active-draft { border-color: var(--teal); background: var(--teal-light); }
+.draft-info { flex: 1; min-width: 0; }
+.draft-name { font-size: 14px; font-weight: 800; color: var(--teal); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-meta { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; line-height: 1.5; }
+.draft-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* Address book chips */
+.team-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border-radius: 9999px;
+  border: 1.5px solid var(--border); background: var(--bg);
+  font-size: 12px; font-weight: 800; color: var(--teal);
+  cursor: pointer; transition: all 0.15s;
+}
+.team-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
+
+/* ══ MODAL ══ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  z-index: 500; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-sheet {
+  background: var(--white); border-radius: 24px 24px 0 0;
+  width: 100%; max-height: 90vh; overflow-y: auto;
+  padding: 20px 16px calc(var(--safe-bottom) + 20px);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.modal-handle {
+  width: 36px; height: 4px; border-radius: 9999px;
+  background: var(--border); margin: 0 auto 16px;
+}
+.modal-title {
+  font-size: 18px; font-weight: 800; color: var(--teal);
+  margin-bottom: 16px; letter-spacing: -0.01em;
+}
+
+/* Center modal variant */
+.modal-center {
+  background: var(--white); border-radius: 20px;
+  padding: 24px 20px; max-width: 400px; width: calc(100% - 32px);
+  max-height: 85vh; overflow-y: auto;
+  animation: popIn 0.2s ease;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.modal-overlay.center { align-items: center; }
+
+/* ══ TOAST ══ */
+#toast {
+  position: fixed; bottom: calc(var(--safe-bottom) + 24px);
+  left: 50%; transform: translateX(-50%);
+  background: var(--teal); color: white;
+  padding: 10px 22px; border-radius: 9999px;
+  font-size: 12px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.05em; z-index: 9000;
+  display: none; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(61,98,99,0.3);
+  pointer-events: none;
+}
+
+/* ══ LOADING ══ */
+#loader {
+  display: none; position: fixed; inset: 0;
+  background: rgba(61,98,99,0.92); z-index: 9999;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+}
+#loader.show { display: flex; }
+.loader-spinner {
+  width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: white; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loader-msg { color: white; font-size: 13px; font-weight: 700; opacity: 0.8; }
+
+/* ══ TOUR ══ */
+#tour-overlay {
+  display: none; position: fixed; inset: 0;
+  z-index: 9000; pointer-events: none;
+}
+#tour-overlay.active { display: block; pointer-events: all; }
+.tour-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5);
+  pointer-events: none; z-index: 0;
+}
+.tour-dismiss-layer {
+  position: absolute; inset: 0;
+  z-index: 1; cursor: pointer;
+  pointer-events: all;
+}
+.tour-highlight {
+  position: absolute; border-radius: 12px;
+  box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3);
+  pointer-events: none; z-index: 2; transition: all 0.3s;
+}
+.tour-tooltip {
+  position: absolute; background: var(--teal); color: white;
+  border-radius: 16px; padding: 16px; max-width: calc(100vw - 40px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  pointer-events: all; z-index: 3; cursor: default;
+}
+.tour-tooltip-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.tour-tooltip-text  { font-size: 12px; font-weight: 600; opacity: 0.85; line-height: 1.5; margin-bottom: 12px; }
+.tour-btn-row { display: flex; align-items: center; gap: 8px; }
+.tour-skip { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: 9999px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+.tour-next { background: white; border: none; color: var(--teal); padding: 8px 16px; border-radius: 9999px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-left: auto; }
+.tour-step-count { font-size: 10px; opacity: 0.6; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+<div id="loader"><div class="loader-spinner"></div><div class="loader-msg" id="loader-msg">Loading...</div></div>
+
+<!-- HEADER -->
+<div id="app-header">
+  <button id="back-btn" onclick="goBack()">←</button>
+  <div id="header-title">Worship Planner</div>
+  <button id="header-action"></button>
+  <button onclick="startTour(true)" title="Help"
+    style="width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--teal);font-family:var(--font);font-weight:800;font-size:14px;cursor:pointer;flex-shrink:0;">?</button>
+</div>
+
+<div id="app-content">
+
+  <!-- ══ HOME ══ -->
+  <div id="screen-home" class="screen active">
+    <div class="home-hero">
+      <img class="home-logo"
+        src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
+        alt="EGBC" onerror="this.style.display='none'">
+      <div>
+        <div class="home-hero-title">Worship Planner</div>
+        <div class="home-hero-sub">EGBC Worship &amp; AV</div>
+      </div>
+    </div>
+    <div class="home-tiles">
+      <div class="home-tile tile-service" onclick="openSection('service')">
+        <div class="home-tile-icon">🗓</div>
+        <div class="home-tile-name">Service Planner</div>
+        <div class="home-tile-desc">Build &amp; manage service orders</div>
+      </div>
+      <div class="home-tile tile-rota" onclick="openSection('rota')">
+        <div class="home-tile-icon">👥</div>
+        <div class="home-tile-name">Rota Planner</div>
+        <div class="home-tile-desc">Assign team to services</div>
+      </div>
+      <div class="home-tile tile-email" style="grid-column:1/-1;" onclick="openSection('email')">
+        <div class="home-tile-icon">📧</div>
+        <div class="home-tile-name">Email Compiler</div>
+        <div class="home-tile-desc">Draft &amp; send team updates</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SERVICE PLANNER LIST ══ -->
+  <div id="screen-service" class="screen">
+    <div style="padding:12px; display:flex; gap:8px;">
+      <input class="form-input" id="service-search" placeholder="Search by date or type..." oninput="renderServiceList()" style="flex:1;">
+    </div>
+    <div id="service-list" class="service-list"></div>
+  </div>
+
+  <!-- ══ SERVICE DETAIL ══ -->
+  <div id="screen-service-detail" class="screen">
+    <div class="section-pad">
+
+      <!-- Service info card -->
+      <div class="card" id="service-info-card"></div>
+
+      <!-- Service type notes — inline, visible immediately like desktop -->
+      <div class="card">
+        <div class="card-label">Service Notes / Description</div>
+        <textarea class="form-textarea" id="service-typenotes"
+          placeholder="General notes about this service (e.g. special occasion, theme, requirements...)"
+          oninput="autoGrow(this)" rows="2" style="font-size:14px;"></textarea>
+      </div>
+
+      <!-- Intro box -->
+      <div class="card">
+        <div class="card-label">Opening Remarks</div>
+        <textarea class="form-textarea" id="service-intro" placeholder="Opening words, welcome message, prayer points... (appears at start of team email)" oninput="autoGrow(this)" rows="2"></textarea>
+      </div>
+
+      <!-- Order of service -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;gap:8px;flex-wrap:wrap;">
+          <div class="card-label" style="margin-bottom:0;">Order of Service</div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-sm" onclick="openSongModal()">+ Song</button>
+            <button class="btn btn-secondary btn-sm" onclick="openItemModal()">+ Item</button>
+            <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank"
+              style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:8px;background:var(--bg);border:1.5px solid var(--border);font-size:11px;font-weight:800;color:var(--teal);text-decoration:none;white-space:nowrap;">
+              📚 Songs DB
+            </a>
+          </div>
+        </div>
+        <div class="order-list" id="order-list"></div>
+        <div id="order-empty" class="empty-state" style="display:none;">
+          <div class="empty-state-icon">🎵</div>
+          <div class="empty-state-text">No items yet — add a song or item</div>
+        </div>
+      </div>
+
+      <!-- Rota section -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-label" style="margin-bottom:0;">Service Team</div>
+          <div style="font-size:11px;font-weight:700;color:var(--teal);opacity:0.5;" id="rota-link-note">Loaded from rota</div>
+        </div>
+        <div id="service-rota-table" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+
+      <!-- Service notes -->
+      <div class="card">
+        <div class="card-label">Service Notes</div>
+        <textarea class="form-textarea" id="service-notes" placeholder="General notes for this service..." oninput="autoGrow(this)" rows="2"></textarea>
+      </div>
+
+      <!-- Outro box -->
+      <div class="card">
+        <div class="card-label">Closing Remarks</div>
+        <textarea class="form-textarea" id="service-outro" placeholder="Closing prayer, blessing, notices... (appears at end of team email)" oninput="autoGrow(this)" rows="2"></textarea>
+      </div>
+
+      <!-- Action buttons -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-full" onclick="saveService()" style="flex:2;">💾 Save Service</button>
+        <button class="btn btn-blue btn-sm" onclick="emailTeam()" style="flex:1;">📧 Email Team</button>
+        <button class="btn btn-red btn-sm" onclick="archiveService()">Archive</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ ROTA ══ -->
+  <div id="screen-rota" class="screen" style="overflow:hidden;">
+
+    <!-- Top toolbar — same as desktop but wraps on mobile -->
+    <div style="background:white;border-bottom:1px solid #d1dfdf;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex-shrink:0;">
+      <select id="termSelect" style="background:#f0f6f6;border:1px solid #d1dfdf;border-radius:9999px;padding:8px 14px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#3d6263;outline:none;flex:1;min-width:100px;">
+        <option value="">Term…</option>
+        <option value="Spring">Spring</option>
+        <option value="Summer">Summer</option>
+        <option value="Autumn">Autumn</option>
+      </select>
+      <button onclick="generateTerm()" style="background:#f0f6f6;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Populate</button>
+      <button onclick="autoFillAllEvents()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Auto-Fill</button>
+      <button onclick="addThursdayPractices()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Practices</button>
+      <button onclick="addSingleLine()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Service</button>
+      <button onclick="gatherTermAvailability()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Gather Avail</button>
+      <button onclick="toggleHideAssigned()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Hide Assigned</button>
+    </div>
+
+    <!-- Scrollable event list — same renderPlanner() output as desktop -->
+    <div id="eventList" style="flex:1;overflow-y:auto;padding:12px 12px calc(var(--safe-bottom) + 16px);"></div>
+
+  </div>
+
+  <!-- ══ EMAIL COMPILER ══ -->
+  <div id="screen-email" class="screen" style="flex-direction:column;">
+    <!-- Toolbar -->
+    <div class="email-toolbar">
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
+      <select class="tool-select" onchange="applySize(this.value);this.value=''">
+        <option value="">Size</option>
+        <option value="12px">Small</option>
+        <option value="16px">Normal</option>
+        <option value="22px">Large</option>
+        <option value="32px">Huge</option>
+      </select>
+      <div class="color-swatch" style="background:#3d6263;" onmousedown="event.preventDefault();applyColor('#3d6263')"></div>
+      <div class="color-swatch" style="background:#000000;" onmousedown="event.preventDefault();applyColor('#000000')"></div>
+      <div class="color-swatch" style="background:#a0b0b0;" onmousedown="event.preventDefault();applyColor('#a0b0b0')"></div>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyLeft')">L</button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyCenter')">C</button>
+      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyRight')">R</button>
+      <button class="tool-btn" onclick="insertSideLayout()">⬜⬜</button>
+      <button class="tool-btn" onclick="uploadEmailImage()">📷</button>
+      <button class="tool-btn" onclick="resizeImg()">↔</button>
+    </div>
+
+    <div id="email-editor-wrap">
+      <!-- Draft info bar -->
+      <div id="draft-bar" style="display:none;background:var(--teal-light);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div id="draft-bar-name" style="font-size:13px;font-weight:800;color:var(--teal);"></div>
+          <div id="draft-bar-meta" style="font-size:10px;color:var(--teal);opacity:0.6;"></div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="overwriteDraft()">💾 Save</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearEditor()">✕ Close</button>
+      </div>
+
+      <div id="email-canvas">
+        <div id="editable-body" contenteditable="true">
+          <p>Start your team update here...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div style="padding:8px 12px;background:var(--white);border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="openDraftsSheet()">📂 Drafts</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMailingSheet()">👥 Mailing List</button>
+      <button class="btn btn-green btn-sm" onclick="saveNewDraft()">💾 New Draft</button>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="compileEmail()">📋 Copy HTML</button>
+    </div>
+  </div>
+
+</div><!-- end app-content -->
+
+<!-- ══ ADD SERVICE MODAL ══ -->
+<div class="modal-overlay" id="modal-new-service">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="service-modal-title">New Service</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="form-field">
+        <label class="form-label">Date</label>
+        <input type="date" class="form-input" id="new-service-date" onchange="loadEventTypesForDate(this.value)">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Service Type</label>
+        <select class="form-select" id="new-service-type" style="font-size:15px;">
+          <option value="">Loading...</option>
+        </select>
+        <div style="font-size:10px;font-weight:700;color:var(--teal);opacity:0.5;margin-top:4px;">Pick a date first to see available service types</div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Service Description / Notes</label>
+        <textarea class="form-textarea" id="new-service-typenotes"
+          placeholder="Any specific notes about this service type..."
+          rows="2" style="font-size:15px;"></textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Worship Leader</label>
+        <select class="form-select" id="new-service-leader">
+          <option value="">Select leader...</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary btn-full" onclick="closeModal('modal-new-service')">Cancel</button>
+        <button class="btn btn-primary btn-full" id="service-modal-btn" onclick="createService()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SONG EDITOR SHEET (full screen, keyboard-safe) ══ -->
+<div class="modal-overlay" id="modal-song" style="align-items:stretch;">
+  <div style="background:var(--white);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">
+
+    <!-- Song editor header -->
+    <div style="padding:12px 16px;background:var(--teal);display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <button onclick="closeSongModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+      <div style="flex:1;font-size:15px;font-weight:800;color:white;" id="song-modal-title">Add Song</div>
+      <button onclick="saveSongItem()" style="background:white;border:none;color:var(--teal);padding:8px 16px;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;text-transform:uppercase;">Save</button>
+    </div>
+
+    <!-- Scrollable song editor body -->
+    <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;">
+
+      <!-- Title search -->
+      <div class="form-field song-search-wrap">
+        <label class="form-label">Song Title</label>
+        <input class="form-input" id="song-title" placeholder="Type to search songs..." oninput="onSongTitleInput()" autocomplete="off">
+        <div id="song-title-suggestions" class="song-suggestions" style="display:none;"></div>
+      </div>
+
+      <!-- Key selector -->
+      <div class="form-field">
+        <label class="form-label">Key (up to 3)</label>
+        <div class="key-chips" id="song-key-chips">
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Ab" onchange="toggleSongKey(this)"> Ab</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="A" onchange="toggleSongKey(this)"> A</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Bb" onchange="toggleSongKey(this)"> Bb</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="B" onchange="toggleSongKey(this)"> B</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="C" onchange="toggleSongKey(this)"> C</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="C#" onchange="toggleSongKey(this)"> C#</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="D" onchange="toggleSongKey(this)"> D</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="Eb" onchange="toggleSongKey(this)"> Eb</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="E" onchange="toggleSongKey(this)"> E</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="F" onchange="toggleSongKey(this)"> F</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="F#" onchange="toggleSongKey(this)"> F#</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="G" onchange="toggleSongKey(this)"> G</label>
+          <label class="key-chip"><input type="checkbox" style="display:none" value="G#" onchange="toggleSongKey(this)"> G#</label>
+        </div>
+      </div>
+
+      <!-- Song notes -->
+      <div class="form-field">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="song-notes" placeholder="Key changes, capo, special instructions..." rows="3"></textarea>
+      </div>
+
+      <!-- Song info (loaded from Firebase) -->
+      <div id="song-info-panel"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD NON-SONG ITEM MODAL ══ -->
+<div class="modal-overlay" id="modal-add-item">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="item-modal-title">Add Item</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-field">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="item-type">
+          <option value="prayer">🙏 Prayer</option>
+          <option value="reading">📖 Reading</option>
+          <option value="announcement">📢 Announcement</option>
+          <option value="other">📌 Other</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Title / Description</label>
+        <input class="form-input" id="item-title" placeholder="e.g. Opening Prayer, Notices...">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary btn-full" onclick="closeModal('modal-add-item')">Cancel</button>
+        <button class="btn btn-primary btn-full" id="item-save-btn" onclick="saveOrderItem()">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EMAIL TEAM MODAL ══ -->
+<div class="modal-overlay" id="modal-email-team">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📧 Email Team</div>
+    <p style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;">The full worship plan will be copied to your clipboard and your email app will open.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-primary btn-full" onclick="emailWholeTeam()">Email Whole Team</button>
+      <div style="border-top:1px solid var(--border);padding-top:10px;">
+        <div class="form-label" style="margin-bottom:8px;">Or email one person:</div>
+        <select class="form-select" id="email-one-person" style="margin-bottom:8px;">
+          <option value="">— Pick a person —</option>
+        </select>
+        <button class="btn btn-secondary btn-full" onclick="emailOnePerson()">Email This Person</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-email-team')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEW ROTA EVENT MODAL ══ -->
+<div class="modal-overlay" id="modal-new-event">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="event-modal-title">New Event</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-field">
+        <label class="form-label">Date</label>
+        <input type="date" class="form-input" id="new-event-date">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Event Type</label>
+        <select class="form-select" id="new-event-type">
+          <option value="Sunday Morning Worship">Sunday Morning Worship</option>
+          <option value="Sunday Team Practice">Sunday Team Practice</option>
+          <option value="Evening Carol Service">Evening Carol Service</option>
+          <option value="Midnight Service">Midnight Service</option>
+          <option value="Worship and AV Team Meeting">Worship and AV Team Meeting</option>
+          <option value="All Team Practice">All Team Practice</option>
+          <option value="Core Team Meeting">Core Team Meeting</option>
+          <option value="Worship Team Meeting">Worship Team Meeting</option>
+          <option value="AV Team Meeting">AV Team Meeting</option>
+          <option value="Song Writing Workshop">Song Writing Workshop</option>
+          <option value="LOUD Worship">LOUD Worship</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Description / Notes (optional)</label>
+        <input class="form-input" id="new-event-term" placeholder="e.g. Easter Sunday, Communion...">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary btn-full" onclick="closeModal('modal-new-event')">Cancel</button>
+        <button class="btn btn-primary btn-full" id="event-modal-btn" onclick="createRotaEvent()">Create Event</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ROLE ASSIGNMENT SHEET ══ -->
+<div class="modal-overlay" id="modal-role-sheet">
+  <div class="modal-sheet" style="max-height:80vh;">
+    <div class="modal-handle"></div>
+    <div id="role-sheet-content" style="overflow-y:auto;max-height:65vh;"></div>
+    <div style="padding-top:12px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-role-sheet')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AVAILABILITY SHEET ══ -->
+<div class="modal-overlay" id="modal-avail-sheet">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div id="avail-sheet-content"></div>
+    <div style="padding-top:12px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-avail-sheet')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD ROLE SHEET ══ -->
+<div class="modal-overlay" id="modal-add-role-sheet">
+  <div class="modal-sheet" style="max-height:80vh;">
+    <div class="modal-handle"></div>
+    <div id="add-role-sheet-content" style="overflow-y:auto;max-height:65vh;"></div>
+    <div style="padding-top:12px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-add-role-sheet')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ WHO ARE YOU MODAL ══ -->
+<div class="modal-overlay center" id="modal-who">
+  <div class="modal-center">
+    <div class="modal-title">👋 Who are you?</div>
+    <p style="font-size:13px;font-weight:600;color:var(--teal);opacity:0.7;margin-bottom:16px;">Your name is saved with any drafts you create or edit.</p>
+    <div class="form-field" style="margin-bottom:14px;">
+      <input class="form-input" id="who-input" type="text" placeholder="Your first name..." maxlength="30"
+        onkeydown="if(event.key==='Enter')saveWho()">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveWho()">Let's go</button>
+  </div>
+</div>
+
+<!-- ══ DRAFTS SHEET ══ -->
+<div class="modal-overlay" id="modal-drafts">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📂 Saved Drafts</div>
+    <div id="drafts-count" style="font-size:11px;color:var(--teal);opacity:0.5;margin-bottom:12px;font-weight:700;"></div>
+    <div id="drafts-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="margin-top:14px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-drafts')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAILING LIST SHEET ══ -->
+<div class="modal-overlay" id="modal-mailing">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">👥 Mailing List</div>
+    <div class="form-field" style="margin-bottom:14px;">
+      <label class="form-label">Select Teams</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="team-chips">
+        <div class="team-chip" data-team="Worship Team" onclick="toggleTeam(this)">🎸 Worship</div>
+        <div class="team-chip" data-team="AV Team" onclick="toggleTeam(this)">🎬 AV</div>
+        <div class="team-chip" data-team="Youth Worship" onclick="toggleTeam(this)">⚡ Youth</div>
+        <div class="team-chip" data-team="Core Team" onclick="toggleTeam(this)">⭐ Core</div>
+        <div class="team-chip" data-team="Choir" onclick="toggleTeam(this)">🎤 Choir</div>
+        <div class="team-chip" data-team="Everyone" onclick="toggleTeam(this)">👥 Everyone</div>
+      </div>
+    </div>
+    <div id="recipient-count" style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.6;margin-bottom:14px;text-align:center;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-mailing')">Cancel</button>
+      <button class="btn btn-primary btn-full" onclick="launchEmail()">Open Email App</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM MODAL ══ -->
+<div class="modal-overlay center" id="modal-confirm">
+  <div class="modal-center">
+    <div class="modal-title" id="confirm-title">Confirm</div>
+    <p id="confirm-msg" style="font-size:13px;font-weight:600;color:var(--teal);opacity:0.7;margin-bottom:20px;"></p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-red btn-full" id="confirm-ok">Yes, proceed</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.firebasestorage.app"
+});
+const db      = firebase.firestore();
+const storage = firebase.storage();
+const TS      = firebase.firestore.FieldValue.serverTimestamp;
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentSection  = 'home';
+let screenStack     = ['home'];
+let allSongs        = [];
+let allMembers      = [];
+let currentService  = null;
+let currentRotaEvent = null;
+let editingItemIndex = null;
+let editingSongIndex = null;
+let activeDraftId   = null;
+let currentUser     = localStorage.getItem('egbc_planner_user') || '';
+const MAX_DRAFTS    = 10;
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function toast(msg, dur = 2200) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._tt);
+  window._tt = setTimeout(() => { t.style.display = 'none'; }, dur);
+}
+
+function loader(show, msg = 'Loading...') {
+  $('loader').classList.toggle('show', show);
+  $('loader-msg').textContent = msg;
+}
+
+function openModal(id)  { $(id).classList.add('open'); }
+function closeModal(id) { $(id).classList.remove('open'); }
+
+function confirm_(title, msg, onOk) {
+  $('confirm-title').textContent = title;
+  $('confirm-msg').textContent   = msg;
+  $('confirm-ok').onclick = () => { closeModal('modal-confirm'); onOk(); };
+  openModal('modal-confirm');
+}
+
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+
+function fmtShortDate(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+}
+
+window.autoGrow = el => {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+};
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+const TITLES = {
+  home: 'Worship Planner',
+  service: 'Service Planner',
+  'service-detail': '',
+  rota: 'Rota Planner',
+  'rota-detail': '',
+  email: 'Email Compiler',
+};
+
+function openSection(name) {
+  screenStack.push(name);
+  showScreen(name);
+}
+
+function goBack() {
+  if (screenStack.length <= 1) return;
+  screenStack.pop();
+  showScreen(screenStack[screenStack.length - 1]);
+}
+
+function showScreen(name) {
+  currentSection = name;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + name);
+  if (el) el.classList.add('active');
+
+  $('header-title').textContent = TITLES[name] || 'Worship Planner';
+  const backBtn = $('back-btn');
+  backBtn.classList.toggle('visible', name !== 'home');
+
+  // Header action button
+  const actionBtn = $('header-action');
+  actionBtn.classList.remove('visible');
+  actionBtn.onclick = null;
+
+  if (name === 'service') {
+    actionBtn.classList.add('visible');
+    actionBtn.textContent = '+';
+    actionBtn.onclick = () => openNewServiceModal();
+    loadServiceList();
+  }
+  if (name === 'rota') {
+    actionBtn.classList.add('visible');
+    actionBtn.textContent = '+';
+    actionBtn.onclick = () => openNewEventModal();
+    startRotaListeners();
+  }
+  if (name === 'service-detail' && currentService) {
+    $('header-title').textContent = currentService.type || 'Service';
+    renderServiceDetail();
+  }
+  if (name === 'rota-detail' && currentRotaEvent) {
+    $('header-title').textContent = currentRotaEvent.type || 'Event';
+    renderRotaDetail();
+  }
+  if (name === 'email') {
+    loadMembers();
+    if (!currentUser) openModal('modal-who');
+  }
+
+  // Auto-trigger tour on first visit
+  maybeTriggerTour(name);
+}
+
+// Fix: screens with hyphens need careful ID handling
+document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+$('screen-home').classList.add('active');
+// Auto-tour on first visit to home
+setTimeout(() => maybeTriggerTour('home'), 600);
+
+// ── WHO ARE YOU ───────────────────────────────────────────────────────────
+function saveWho() {
+  const name = $('who-input').value.trim();
+  if (!name) return;
+  currentUser = name;
+  localStorage.setItem('egbc_planner_user', name);
+  closeModal('modal-who');
+  toast('Welcome, ' + name + '!');
+}
+
+// ── LOAD MEMBERS ──────────────────────────────────────────────────────────
+function loadMembers() {
+  if (allMembers.length) return;
+  db.collection('addressBook').onSnapshot(snap => {
+    allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    populateLeaderDropdown();
+  });
+}
+
+function populateLeaderDropdown(selectValue) {
+  const sel = $('new-service-leader');
+  if (!sel) return;
+  // Preserve whatever is already selected unless a new value is passed in
+  const val = selectValue !== undefined ? selectValue : sel.value;
+  const leaders = allMembers.filter(m =>
+    m.markers && (m.markers.includes('Worship Team') || m.markers.includes('Core Team'))
+  );
+  sel.innerHTML = '<option value="">Select leader...</option>' +
+    leaders.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  if (val) sel.value = val;
+}
+
+// ── LOAD SONGS ────────────────────────────────────────────────────────────
+async function ensureSongs() {
+  if (allSongs.length) return;
+  try {
+    const snap = await db.collection('songs').orderBy('normalized').get();
+    allSongs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// SERVICE PLANNER
+// ══════════════════════════════════════════════════════════════════════════
+
+async function loadServiceList() {
+  $('service-list').innerHTML = '<div class="empty-state"><div class="loader-spinner"></div></div>';
+  try {
+    const [svcSnap, evSnap] = await Promise.all([
+      db.collection('services').orderBy('date', 'desc').get(),
+      db.collection('events').get()
+    ]);
+
+    // Build a date → event type map from events collection
+    const eventTypeByDate = {};
+    evSnap.docs.forEach(d => {
+      const ev = d.data();
+      if (!ev.archived && ev.date && ev.type) {
+        eventTypeByDate[ev.date] = ev.type;
+      }
+    });
+
+    window._services = svcSnap.docs
+      .map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          // Always pull type from events collection
+          _eventType: eventTypeByDate[data.date] || data.type || '',
+        };
+      })
+      .filter(s => !s.archived);
+
+    // Flag duplicates
+    const dateCounts = {};
+    window._services.forEach(s => { dateCounts[s.date] = (dateCounts[s.date]||0) + 1; });
+    window._services.forEach(s => { s._isDuplicate = dateCounts[s.date] > 1; });
+
+    renderServiceList();
+
+    const hasDupes = Object.values(dateCounts).some(c => c > 1);
+    if (hasDupes) {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'margin:0 12px 8px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;';
+      bar.innerHTML = `<div style="flex:1;font-size:12px;font-weight:700;color:#991b1b;">⚠ Duplicate services found for some dates</div>
+        <button onclick="deduplicateServices()" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:8px;font-family:var(--font);font-size:11px;font-weight:800;cursor:pointer;">Fix</button>`;
+      $('service-list').insertAdjacentElement('beforebegin', bar);
+    }
+  } catch(e) {
+    $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-text">Could not load services</div></div>';
+  }
+}
+
+async function deduplicateServices() {
+  // For each date with duplicates, keep the one with the most content and delete the rest
+  confirm_('Fix Duplicates', 'This will merge duplicate services, keeping the one with the most songs. Continue?', async () => {
+    loader(true, 'Fixing duplicates...');
+    try {
+      const snap = await db.collection('services').get();
+      const byDate = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.archived) return;
+        if (!byDate[data.date]) byDate[data.date] = [];
+        byDate[data.date].push({ id: d.id, ...data });
+      });
+
+      for (const [date, services] of Object.entries(byDate)) {
+        if (services.length <= 1) continue;
+        // Keep the one with the most order items
+        services.sort((a,b) => (b.order||[]).length - (a.order||[]).length);
+        const keep = services[0];
+        // Delete the rest
+        for (let i = 1; i < services.length; i++) {
+          await db.collection('services').doc(services[i].id).delete();
+        }
+      }
+      toast('Duplicates fixed ✓');
+      // Remove the warning bar
+      document.querySelectorAll('[style*="fef2f2"]').forEach(el => el.remove());
+      await loadServiceList();
+    } catch(e) { toast('Error: ' + e.message); }
+    loader(false);
+  });
+}
+
+function renderServiceList() {
+  const q = $('service-search').value.toLowerCase();
+  const list = (window._services || []).filter(s =>
+    !q || (s.date||'').includes(q) || (s.type||'').toLowerCase().includes(q) ||
+    (s.worshipLeader||'').toLowerCase().includes(q)
+  );
+  if (!list.length) {
+    $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗓</div><div class="empty-state-text">No services yet — tap + to create one</div></div>';
+    return;
+  }
+  $('service-list').innerHTML = list.map(s => `
+    <div class="service-card fade-in" onclick="openServiceDetail('${s.id}')">
+      <div class="service-card-info">
+        <div class="service-card-date">${fmtShortDate(s.date)}${s._isDuplicate ? ' <span style="color:#ef4444;font-size:9px;">● DUPLICATE</span>' : ''}</div>
+        <div class="service-card-title">${s._eventType || s.type || 'Service'}</div>
+        <div class="service-card-meta">${(s.order||[]).filter(i=>i.type==='song').length} songs · ${s.worshipLeader || 'No leader set'}</div>
+      </div>
+      <div class="service-card-arrow">›</div>
+    </div>`).join('');
+}
+
+async function createService() {
+  const date      = $('new-service-date').value;
+  const type      = $('new-service-type').value;
+  const typeNotes = $('new-service-typenotes').value.trim();
+  const leader    = $('new-service-leader').value;
+  if (!date) { toast('Please select a date'); return; }
+  if (!type) { toast('Please select a service type'); return; }
+  loader(true, 'Creating service...');
+  try {
+    const existing = await db.collection('services').where('date','==',date).get();
+    let serviceId;
+    if (!existing.empty) {
+      serviceId = existing.docs[0].id;
+      await db.collection('services').doc(serviceId).update({
+        type, serviceNotes: typeNotes, worshipLeader: leader, archived: false, updatedAt: TS()
+      });
+      currentService = { id: serviceId, ...existing.docs[0].data(), type, serviceNotes: typeNotes, worshipLeader: leader };
+      toast('Service updated ✓');
+    } else {
+      const ref = await db.collection('services').add({
+        date, type, serviceNotes: typeNotes, worshipLeader: leader,
+        order: [], notes: '', introText: '', outroText: '',
+        roleNotes: {}, archived: false,
+        createdAt: TS(), updatedAt: TS()
+      });
+      serviceId = ref.id;
+      currentService = { id: serviceId, date, type, serviceNotes: typeNotes, worshipLeader: leader, order: [], notes: '', introText: '', outroText: '', roleNotes: {} };
+      toast('Service created!');
+    }
+    closeModal('modal-new-service');
+
+    // Now load the full detail with rota from events collection
+    if (serviceId) {
+      await openServiceDetail(serviceId);
+    }
+  } catch(e) { toast('Error: ' + e.message); }
+  loader(false);
+}
+
+async function openServiceDetail(id) {
+  loader(true);
+  try {
+    const svcDoc = await db.collection('services').doc(id).get();
+    if (!svcDoc.exists) { toast('Service not found'); loader(false); return; }
+    const svcData = svcDoc.data();
+    const date = svcData.date;
+
+    // Always load type, description and assignments from events collection
+    // This mirrors the desktop exactly — events is the source of truth for these
+    let rotaAssignments  = {};
+    let eventType        = svcData.type        || '';
+    let eventDescription = svcData.serviceNotes || '';
+
+    try {
+      const evSnap = await db.collection('events').where('date','==',date).get();
+      if (!evSnap.empty) {
+        // Prefer non-archived, same as desktop
+        const evDocs = evSnap.docs.map(d => d.data());
+        const active = evDocs.find(e => !e.archived) || evDocs[0];
+        rotaAssignments  = active.assignments  || {};
+        eventType        = active.type         || eventType;
+        eventDescription = svcData.serviceNotes || active.description || '';
+      }
+    } catch(e) { console.log('Event load error:', e); }
+
+    currentService = {
+      id,
+      ...svcData,
+      // Always use event type — this is "Sunday Morning Service" etc
+      _eventType:       eventType,
+      // Description from saved serviceNotes, or event description as fallback
+      serviceNotes:     eventDescription,
+      roleNotes:        svcData.roleNotes || {},
+      order:            svcData.order     || [],
+      introText:        svcData.introText || '',
+      outroText:        svcData.outroText || '',
+      notes:            svcData.notes     || '',
+      _rotaAssignments: rotaAssignments,
+    };
+
+    openSection('service-detail');
+  } catch(e) { toast('Could not load service: ' + e.message); }
+  loader(false);
+}
+
+function renderServiceDetail() {
+  if (!currentService) return;
+  const s = currentService;
+  $('header-title').textContent = fmtShortDate(s.date);
+
+  // Info card — type comes from events collection, shown prominently
+  const eventType = s._eventType || s.type || 'Service';
+  $('service-info-card').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--teal);opacity:0.45;margin-bottom:3px;">${fmtShortDate(s.date)}</div>
+        <div style="font-size:16px;font-weight:800;color:var(--teal);line-height:1.2;">${eventType}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-left:10px;" onclick="openEditServiceMeta()">Edit</button>
+    </div>
+    ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;margin-top:10px;">🎸 ${s.worshipLeader}</div>` : ''}`;
+
+  renderOrderList();
+  renderServiceRotaTable();
+
+  // Populate text fields after a tick so the screen is visible and autoGrow works
+  setTimeout(() => {
+    const typenotes = $('service-typenotes');
+    const intro     = $('service-intro');
+    const notes     = $('service-notes');
+    const outro     = $('service-outro');
+    if (typenotes) { typenotes.value = s.serviceNotes || ''; autoGrow(typenotes); }
+    if (intro)     { intro.value     = s.introText    || ''; autoGrow(intro);     }
+    if (notes)     { notes.value     = s.notes        || ''; autoGrow(notes);     }
+    if (outro)     { outro.value     = s.outroText    || ''; autoGrow(outro);     }
+  }, 100);
+}
+
+function renderServiceRotaTable() {
+  const assignments = currentService._rotaAssignments || {};
+  const roleNotes   = currentService.roleNotes || {};
+  const table = $('service-rota-table');
+
+  if (!Object.keys(assignments).length) {
+    table.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.5;font-style:italic;text-align:center;padding:8px;">No rota found for this date — add in Rota Planner</div>';
+    return;
+  }
+
+  table.innerHTML = Object.entries(assignments).map(([role, person]) => `
+    <div class="rota-assignment-row" style="flex-wrap:wrap;gap:6px;">
+      <div class="rota-role-label" style="width:auto;min-width:100px;">${role}</div>
+      <div style="flex:1;font-size:13px;font-weight:700;color:var(--teal);">${person?.name || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
+      <input style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-family:var(--font);font-size:11px;font-weight:700;color:var(--teal);background:var(--bg);"
+        placeholder="Role notes..." value="${(roleNotes[role]||'').replace(/"/g,'&quot;')}"
+        oninput="setRoleNote('${role}',this.value)">
+    </div>`).join('');
+}
+
+function setRoleNote(role, val) {
+  if (!currentService.roleNotes) currentService.roleNotes = {};
+  currentService.roleNotes[role] = val;
+}
+
+function renderOrderList() {
+  const order = currentService?.order || [];
+  const list  = $('order-list');
+  const empty = $('order-empty');
+  if (!order.length) { list.innerHTML = ''; empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+
+  const typeLabels = { song:'🎵', prayer:'🙏', reading:'📖', announcement:'📢', other:'📌' };
+  const typeNames  = { song:'Song', prayer:'Prayer', reading:'Reading', announcement:'Announcement', other:'Other' };
+
+  list.innerHTML = order.map((item, i) => {
+    const useBadge = item.type === 'song' && item._useCount > 0
+      ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:9999px;flex-shrink:0;background:${item._useCount >= 4 ? 'var(--teal)' : 'var(--teal-light)'};color:${item._useCount >= 4 ? 'white' : 'var(--teal)'};">${item._useCount}×</span>`
+      : '';
+    return `<div class="order-item" data-index="${i}"
+        ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
+        ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
+      <div class="order-drag-handle" draggable="true">⠿</div>
+      <div class="order-item-title" onclick="${item.type==='song'?`editSongItem(${i})`:`editOrderItem(${i})}`}">
+        <span class="order-item-type type-${item.type||'other'}">${typeNames[item.type]||'Other'}</span>
+        <span style="margin-left:6px;">${item.title||'—'}</span>
+      </div>
+      ${item.keys?.length ? `<span class="order-item-key">${item.keys.join(', ')}</span>` : ''}
+      ${useBadge}
+      <button class="order-item-delete" onclick="deleteOrderItem(${i})" title="Remove">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// Drag to reorder
+let dragSrcIndex = null;
+function dragStart(e,i) { dragSrcIndex=i; e.currentTarget.classList.add('dragging'); }
+function dragOver(e,i)  { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dragEnd(e)     { e.currentTarget.classList.remove('dragging'); document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over')); }
+function dragDrop(e,i)  {
+  e.preventDefault();
+  if (dragSrcIndex===null || dragSrcIndex===i) return;
+  const [moved] = currentService.order.splice(dragSrcIndex,1);
+  currentService.order.splice(i,0,moved);
+  renderOrderList();
+}
+
+// ── SONG MODAL ─────────────────────────────────────────────────────────────
+
+async function openSongModal(editIdx=null) {
+  await ensureSongs();
+  editingSongIndex = editIdx;
+  $('song-modal-title').textContent = editIdx !== null ? 'Edit Song' : 'Add Song';
+  $('song-title-suggestions').style.display = 'none';
+  $('song-info-panel').innerHTML = '';
+
+  if (editIdx !== null) {
+    const item = currentService.order[editIdx];
+    $('song-title').value = item.title || '';
+    $('song-notes').value = item.notes || '';
+    document.querySelectorAll('#song-key-chips input').forEach(cb => {
+      const on = (item.keys||[]).includes(cb.value);
+      cb.checked = on; cb.closest('.key-chip').classList.toggle('selected',on);
+    });
+    // Load song info
+    await loadSongInfoPanel(item.title, item.keys||[]);
+  } else {
+    $('song-title').value = '';
+    $('song-notes').value = '';
+    document.querySelectorAll('#song-key-chips input').forEach(cb => {
+      cb.checked=false; cb.closest('.key-chip').classList.remove('selected');
+    });
+  }
+  openModal('modal-song');
+  setTimeout(() => $('song-title').focus(), 300);
+}
+
+function editSongItem(i) { openSongModal(i); }
+
+function closeSongModal() { closeModal('modal-song'); }
+
+function toggleSongKey(cb) {
+  // Max 3 keys
+  const checked = document.querySelectorAll('#song-key-chips input:checked');
+  if (checked.length > 3) { cb.checked = false; toast('Max 3 keys'); return; }
+  cb.closest('.key-chip').classList.toggle('selected', cb.checked);
+  // Refresh song info panel
+  const title = $('song-title').value.trim();
+  const keys  = Array.from(document.querySelectorAll('#song-key-chips input:checked')).map(c=>c.value);
+  if (title) loadSongInfoPanel(title, keys);
+}
+
+let songTitleTimer = null;
+function onSongTitleInput() {
+  const q = $('song-title').value.trim().toLowerCase();
+  clearTimeout(songTitleTimer);
+  $('song-title-suggestions').style.display = 'none';
+  if (q.length < 2) return;
+  songTitleTimer = setTimeout(() => {
+    const matches = allSongs.filter(s => (s.normalized||s.title||'').toLowerCase().includes(q)).slice(0,6);
+    if (!matches.length) return;
+    $('song-title-suggestions').innerHTML = matches.map(s =>
+      `<div class="song-suggestion-item" onclick="selectSongFromSearch('${s.title.replace(/'/g,"\\'")}','${s.id}')">${s.title}</div>`
+    ).join('');
+    $('song-title-suggestions').style.display = 'block';
+  }, 200);
+}
+
+async function selectSongFromSearch(title, id) {
+  $('song-title').value = title;
+  $('song-title-suggestions').style.display = 'none';
+  // Auto-select available keys
+  const song = allSongs.find(s => s.id === id || s.title === title);
+  if (song?.files) {
+    const keys = [...new Set(song.files.map(f=>f.key).filter(Boolean))];
+    document.querySelectorAll('#song-key-chips input').forEach(cb => {
+      const on = keys.slice(0,3).includes(cb.value);
+      cb.checked = on; cb.closest('.key-chip').classList.toggle('selected',on);
+    });
+    await loadSongInfoPanel(title, keys.slice(0,3));
+  } else {
+    await loadSongInfoPanel(title, []);
+  }
+}
+
+async function loadSongInfoPanel(title, keys) {
+  const panel = $('song-info-panel');
+  if (!title) { panel.innerHTML = ''; return; }
+  panel.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:700;">Loading song info...</div>';
+
+  try {
+    const id  = title.toLowerCase().replace(/\s+/g,'-');
+    const doc = await db.collection('songs').doc(id).get();
+    const data = doc.exists ? doc.data() : {};
+    const allFiles = data.files || [];
+    const youtube  = data.youtube || '';
+    const ccli     = data.ccli    || '';
+    const songSelectLink = ccli
+      ? `https://songselect.ccli.com/Songs/${ccli}`
+      : `https://songselect.ccli.com/search/results?SearchText=${encodeURIComponent(title)}`;
+
+    // Use count from services collection
+    let useCount = 0;
+    try {
+      const svcSnap = await db.collection('services').get();
+      svcSnap.docs.forEach(d => {
+        const svcData = d.data();
+        if (d.id !== currentService?.id && (svcData.order||[]).some(i=>i.type==='song'&&i.title===title)) useCount++;
+      });
+    } catch(e){}
+
+    let html = `<div class="card" style="background:var(--bg);">`;
+
+    // Use count badge
+    if (useCount > 0) {
+      const urgent = useCount >= 4;
+      html += `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:9999px;background:${urgent?'var(--teal)':'var(--teal-light)'};color:${urgent?'white':'var(--teal)'};font-size:11px;font-weight:800;margin-bottom:10px;">
+        Used ${useCount} time${useCount!==1?'s':''}${urgent?' — consider resting this song':''}
+      </div>`;
+    }
+
+    // Links row
+    html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      ${youtube ? `<a href="${youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:#ff0000;color:white;font-size:11px;font-weight:800;text-decoration:none;">▶ YouTube</a>` : ''}
+      <a href="${songSelectLink}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:var(--teal-light);color:var(--teal);font-size:11px;font-weight:800;text-decoration:none;border:1px solid var(--border);">🔎 SongSelect${ccli?` · CCLI ${ccli}`:''}</a>
+    </div>`;
+
+    // Sheet music files by key
+    if (keys.length > 0 && allFiles.length > 0) {
+      keys.forEach(k => {
+        const files = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
+        html += `<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px;">Key: ${k}</div>`;
+        if (!files.length) {
+          html += `<div style="font-size:12px;color:var(--teal);opacity:0.4;font-style:italic;">No files for ${k}</div>`;
+        } else {
+          const grouped = {};
+          files.forEach(f => { if(!grouped[f.type]) grouped[f.type]=[]; grouped[f.type].push(f); });
+          Object.entries(grouped).forEach(([type, fs]) => {
+            html += `<div style="font-size:9px;font-weight:800;color:var(--teal);opacity:0.4;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">${type}</div>`;
+            html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">`;
+            fs.forEach(file => {
+              html += `<a href="${file.url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:var(--teal);color:white;font-size:11px;font-weight:800;text-decoration:none;">Open File</a>`;
+            });
+            html += `</div>`;
+          });
+        }
+        html += `</div>`;
+      });
+    } else if (keys.length === 0) {
+      html += `<div style="font-size:12px;color:var(--teal);opacity:0.4;font-style:italic;">Select a key to see sheet music files</div>`;
+    }
+
+    // Play-through links
+    try {
+      const ptSnap = await db.collection('kb_playthrough').where('published','==',true).get();
+      const ptMatches = [];
+      ptSnap.docs.forEach(d => {
+        const pt = d.data();
+        const ptTitle = (pt.songTitle||pt.title||'').toLowerCase().trim();
+        const norm = title.toLowerCase().trim();
+        if (!(ptTitle===norm||ptTitle.includes(norm)||norm.includes(ptTitle))) return;
+        if (!keys.some(k => (pt.ourKey||'').toLowerCase()===k.toLowerCase())) return;
+        ptMatches.push(pt);
+      });
+      if (ptMatches.length) {
+        html += `<div style="margin-top:10px;padding:10px;background:var(--white);border-radius:10px;border:1px dashed var(--teal);">
+          <div style="font-size:9px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">▶ Play Through Videos</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+        ptMatches.forEach(pt => {
+          const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+          const lbl = pt.instrument ? `${pt.ourKey} (${pt.instrument})` : pt.ourKey;
+          html += `<a href="${url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:#7c3aed;color:white;font-size:11px;font-weight:800;text-decoration:none;">▶ ${lbl}</a>`;
+        });
+        html += `</div></div>`;
+      }
+    } catch(e){}
+
+    html += '</div>';
+    panel.innerHTML = html;
+  } catch(e) {
+    panel.innerHTML = '<div style="font-size:12px;color:var(--teal);opacity:0.4;">Could not load song details</div>';
+  }
+}
+
+async function saveSongItem() {
+  const title = $('song-title').value.trim();
+  if (!title) { toast('Please enter a song title'); return; }
+  const keys  = Array.from(document.querySelectorAll('#song-key-chips input:checked')).map(cb=>cb.value);
+  const notes = $('song-notes').value.trim();
+
+  // Get use count for badge
+  let useCount = 0;
+  try {
+    const svcSnap = await db.collection('services').get();
+    svcSnap.docs.forEach(d => {
+      if (d.id !== currentService?.id && (d.data().order||[]).some(i=>i.type==='song'&&i.title===title)) useCount++;
+    });
+  } catch(e){}
+
+  const item = { type:'song', title, keys, notes, _useCount: useCount };
+  if (editingSongIndex !== null) {
+    currentService.order[editingSongIndex] = item;
+  } else {
+    currentService.order.push(item);
+  }
+  closeSongModal();
+  renderOrderList();
+}
+
+// ── NON-SONG ITEM MODAL ────────────────────────────────────────────────────
+
+function openItemModal(editIdx=null) {
+  editingItemIndex = editIdx;
+  $('item-modal-title').textContent = editIdx!==null ? 'Edit Item' : 'Add Item';
+  $('item-save-btn').textContent = editIdx!==null ? 'Save' : 'Add';
+  if (editIdx!==null) {
+    const item = currentService.order[editIdx];
+    $('item-type').value  = item.type || 'prayer';
+    $('item-title').value = item.title || '';
+  } else {
+    $('item-type').value  = 'prayer';
+    $('item-title').value = '';
+  }
+  openModal('modal-add-item');
+}
+
+function editOrderItem(i) {
+  if (currentService.order[i].type === 'song') { editSongItem(i); return; }
+  openItemModal(i);
+}
+
+function saveOrderItem() {
+  const type  = $('item-type').value;
+  const title = $('item-title').value.trim();
+  if (!title) { toast('Please enter a title'); return; }
+  const item = { type, title };
+  if (editingItemIndex !== null) {
+    currentService.order[editingItemIndex] = item;
+  } else {
+    currentService.order.push(item);
+  }
+  closeModal('modal-add-item');
+  renderOrderList();
+}
+
+function deleteOrderItem(i) {
+  confirm_('Remove Item', `Remove "${currentService.order[i].title}" from the order?`, () => {
+    currentService.order.splice(i,1); renderOrderList();
+  });
+}
+
+async function saveService() {
+  if (!currentService?.id) return;
+  loader(true, 'Saving service...');
+  currentService.notes        = $('service-notes').value;
+  currentService.introText    = $('service-intro').value;
+  currentService.outroText    = $('service-outro').value;
+  currentService.serviceNotes = $('service-typenotes')?.value || currentService.serviceNotes || '';
+  // Strip runtime-only fields before saving
+  const orderToSave = currentService.order.map(item => {
+    const { _useCount, ...rest } = item;
+    return rest;
+  });
+  try {
+    await db.collection('services').doc(currentService.id).update({
+      order: orderToSave, notes: currentService.notes,
+      introText: currentService.introText, outroText: currentService.outroText,
+      serviceNotes: currentService.serviceNotes || '',
+      roleNotes: currentService.roleNotes || {},
+      type: currentService._eventType || currentService.type || '',
+      date: currentService.date,
+      worshipLeader: currentService.worshipLeader || '',
+      updatedAt: TS()
+    });
+    toast('✓ Service saved');
+    if (window._services) {
+      const idx = window._services.findIndex(s=>s.id===currentService.id);
+      if (idx!==-1) window._services[idx] = { ...currentService };
+    }
+  } catch(e) { toast('Error saving service'); }
+  loader(false);
+}
+
+function archiveService() {
+  confirm_('Archive Service','Archive this service? It will be hidden from the list.', async () => {
+    loader(true);
+    try {
+      await db.collection('services').doc(currentService.id).update({ archived:true });
+      toast('Service archived');
+      window._services = (window._services||[]).filter(s=>s.id!==currentService.id);
+      goBack();
+    } catch(e) { toast('Error archiving'); }
+    loader(false);
+  });
+}
+
+function openEditServiceMeta() {
+  const date      = currentService.date || '';
+  const wantedType   = currentService._eventType || currentService.type || '';
+  const wantedLeader = currentService.worshipLeader || '';
+
+  $('new-service-date').value      = date;
+  $('new-service-typenotes').value = currentService.serviceNotes || '';
+
+  // Load event types for this date, then select the right one
+  loadEventTypesForDate(date).then(() => {
+    const sel = $('new-service-type');
+    // Try to select the matching type
+    const opt = Array.from(sel.options).find(o => o.value === wantedType);
+    if (opt) sel.value = wantedType;
+    else if (wantedType) {
+      // Not in dropdown — add it
+      const o = document.createElement('option');
+      o.value = wantedType; o.textContent = wantedType;
+      sel.appendChild(o); sel.value = wantedType;
+    }
+  });
+
+  if (allMembers.length) {
+    populateLeaderDropdown(wantedLeader);
+  } else {
+    db.collection('addressBook').get().then(snap => {
+      allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      populateLeaderDropdown(wantedLeader);
+    });
+  }
+
+  $('service-modal-title').textContent = 'Edit Service';
+  $('service-modal-btn').textContent   = 'Save Changes';
+  $('service-modal-btn').onclick       = saveServiceMeta;
+  openModal('modal-new-service');
+}
+
+async function loadEventTypesForDate(date) {
+  const sel = $('new-service-type');
+  if (!date) { sel.innerHTML = '<option value="">Pick a date first...</option>'; return; }
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const snap = await db.collection('events').where('date','==',date).get();
+    const types = snap.docs
+      .map(d => d.data())
+      .filter(e => !e.archived && e.type)
+      .map(e => e.type);
+
+    if (!types.length) {
+      sel.innerHTML = '<option value="">No events found for this date</option>';
+    } else {
+      sel.innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join('');
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">Could not load — type manually</option>';
+  }
+}
+
+function openNewServiceModal() {
+  loadMembers();
+  const today = new Date();
+  const diff = (7 - today.getDay()) % 7 || 7;
+  const next = new Date(today); next.setDate(today.getDate() + diff);
+  const dateStr = next.toISOString().split('T')[0];
+  $('new-service-date').value      = dateStr;
+  $('new-service-typenotes').value = '';
+  populateLeaderDropdown('');
+  $('service-modal-title').textContent = 'New Service';
+  $('service-modal-btn').textContent   = 'Create';
+  $('service-modal-btn').onclick       = createService;
+  loadEventTypesForDate(dateStr);
+  openModal('modal-new-service');
+}
+
+async function saveServiceMeta() {
+  const date      = $('new-service-date').value;
+  const type      = $('new-service-type').value;
+  const typeNotes = $('new-service-typenotes').value.trim();
+  const leader    = $('new-service-leader').value;
+  if (!date || !type) { toast('Please fill in date and type'); return; }
+  currentService.date         = date;
+  currentService._eventType   = type;
+  currentService.type         = type;
+  currentService.serviceNotes = typeNotes;
+  currentService.worshipLeader = leader;
+  closeModal('modal-new-service');
+  renderServiceDetail();
+}
+
+// ── EMAIL TEAM ─────────────────────────────────────────────────────────────
+async function emailTeam() {
+  // Populate person dropdown
+  const sel = $('email-one-person');
+  sel.innerHTML = '<option value="">— Pick a person —</option>' +
+    allMembers.filter(m=>m.email).map(m=>`<option value="${m.email}">${m.name} (${m.email})</option>`).join('');
+  openModal('modal-email-team');
+}
+
+function buildServicePlanText() {
+  const s = currentService;
+  const assignments = s._rotaAssignments || {};
+  const roleNotes   = s.roleNotes || {};
+  let plan = '';
+
+  plan += `WORSHIP PLAN — ${fmtShortDate(s.date)}\n`;
+  plan += `Service: ${s.type||''}\n`;
+  plan += `Worship Leader: ${s.worshipLeader||''}\n\n`;
+
+  if (s.introText) plan += `${s.introText}\n\n`;
+  if (s.notes)     plan += `Service Notes: ${s.notes}\n\n`;
+
+  plan += `ORDER OF SERVICE\n${'─'.repeat(40)}\n`;
+  (s.order||[]).forEach((item,i) => {
+    if (item.type==='song') {
+      plan += `${i+1}. 🎵 ${item.title}`;
+      if (item.keys?.length) plan += ` — Key: ${item.keys.join(', ')}`;
+      plan += '\n';
+      if (item.notes) plan += `   Notes: ${item.notes}\n`;
+    } else {
+      const emoji = {prayer:'🙏',reading:'📖',announcement:'📢',other:'📌'}[item.type]||'📌';
+      plan += `${i+1}. ${emoji} ${item.title}\n`;
+    }
+  });
+
+  if (Object.keys(assignments).length) {
+    plan += `\nSERVICE TEAM\n${'─'.repeat(40)}\n`;
+    Object.entries(assignments).forEach(([role, person]) => {
+      plan += `${role}: ${person?.name||'—'}`;
+      if (roleNotes[role]) plan += ` — ${roleNotes[role]}`;
+      plan += '\n';
+    });
+  }
+
+  if (s.outroText) plan += `\n${s.outroText}\n`;
+
+  return plan;
+}
+
+async function emailWholeTeam() {
+  const plan = buildServicePlanText();
+  try {
+    await navigator.clipboard.writeText(plan);
+    toast('Plan copied to clipboard ✓');
+  } catch(e) {}
+
+  // Get all team emails from rota + core team
+  const rotaNames = Object.values(currentService._rotaAssignments||{}).map(a=>a?.name).filter(Boolean);
+  const emails = [...new Set(
+    allMembers
+      .filter(m => rotaNames.includes(m.name) || (m.markers||[]).includes('Core Team'))
+      .map(m=>m.email).filter(Boolean)
+  )];
+
+  closeModal('modal-email-team');
+  const subject = encodeURIComponent(`Worship Plan — ${fmtShortDate(currentService.date)}`);
+  window.location.href = `mailto:?bcc=${emails.join(';')}&subject=${subject}`;
+}
+
+function emailOnePerson() {
+  const email = $('email-one-person').value;
+  if (!email) { toast('Please select a person'); return; }
+  const plan = buildServicePlanText();
+  try { navigator.clipboard.writeText(plan); } catch(e) {}
+  closeModal('modal-email-team');
+  const subject = encodeURIComponent(`Worship Plan — ${fmtShortDate(currentService.date)}`);
+  window.location.href = `mailto:${email}?subject=${subject}`;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// ROTA PLANNER — desktop logic, mobile-friendly layout
+// ══════════════════════════════════════════════════════════════════════════
+
+const OPTIONAL_ROLES_LIST = ['Sound','Words','Cameras','Violin','Congas','2nd Guitar','2nd Keys','Electric Guitar','Oboe','Trumpet','Cahon','Singer 1','Singer 2','Singer 3','Other','Other 2','Other 3','Choir'];
+const MANDATORY_SUNDAY_ROLES = ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
+const EVENT_TYPES_LIST = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
+const AV_ROLES = ["Sound","Words","Cameras"];
+
+let rotaCollapsedTerms = new Set();
+let rotaExpandedEvents = new Set();
+let rotaOpenBuckets   = new Set();
+let cachedEvents      = [];
+let rotaAvailability  = {};
+let hideAssigned      = false;
+
+function getTermLabel(dateStr) {
+  const d = new Date(dateStr);
+  const m = d.getMonth() + 1, y = d.getFullYear();
+  return `${m<=4?'Spring':m<=8?'Summer':'Autumn'} ${y}`;
+}
+
+// Real-time listeners — start when rota section first opens
+let rotaListenersStarted = false;
+function startRotaListeners() {
+  if (rotaListenersStarted) return;
+  rotaListenersStarted = true;
+  db.collection('addressBook').onSnapshot(snap => {
+    allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPlanner();
+  });
+  db.collection('availability').onSnapshot(snap => {
+    rotaAvailability = {};
+    snap.forEach(d => {
+      const data = d.data();
+      if (!rotaAvailability[data.eventId]) rotaAvailability[data.eventId] = {};
+      rotaAvailability[data.eventId][data.memberId] = data.status;
+    });
+    renderPlanner();
+  });
+  db.collection('events').orderBy('date').onSnapshot(snap => {
+    cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPlanner();
+  });
+}
+
+window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
+window.toggleTermCollapse = t  => { rotaCollapsedTerms.has(t) ? rotaCollapsedTerms.delete(t) : rotaCollapsedTerms.add(t); renderPlanner(); };
+window.toggleEventExpand  = id => { rotaExpandedEvents.has(id) ? rotaExpandedEvents.delete(id) : rotaExpandedEvents.add(id); renderPlanner(); };
+window.toggleBucket       = id => { rotaOpenBuckets.has(id) ? rotaOpenBuckets.delete(id) : rotaOpenBuckets.add(id); renderPlanner(); };
+
+window.updateField = async (id, field, value) => {
+  const updates = { [field]: value };
+  if (field === 'date') updates.termLabel = getTermLabel(value);
+  await db.collection('events').doc(id).update(updates);
+};
+
+window.toggleTeam = async (eventId, teamName) => {
+  const snap = await db.collection('events').doc(eventId).get();
+  if (!snap.exists) return;
+  const cur = snap.data().teams || [];
+  await db.collection('events').doc(eventId).update({
+    teams: cur.includes(teamName) ? cur.filter(t=>t!==teamName) : [...cur, teamName]
+  });
+};
+
+window.addRole = async (eventId, roleName) => {
+  if (!roleName) return;
+  await db.collection('events').doc(eventId).update({ roles: firebase.firestore.FieldValue.arrayUnion(roleName) });
+};
+
+window.removeRole = async (eventId, roleName) => {
+  if (!confirm(`Remove role "${roleName}"?`)) return;
+  const updates = { roles: firebase.firestore.FieldValue.arrayRemove(roleName) };
+  updates[`assignments.${roleName}`] = firebase.firestore.FieldValue.delete();
+  await db.collection('events').doc(eventId).update(updates);
+};
+
+window.assignPerson = async (eventId, role, personId, personName) => {
+  const updates = {};
+  updates[`assignments.${role}`] = { id: personId, name: personName };
+  await db.collection('events').doc(eventId).update(updates);
+};
+
+window.unassignPerson = async (eventId, role) => {
+  const updates = {};
+  updates[`assignments.${role}`] = firebase.firestore.FieldValue.delete();
+  await db.collection('events').doc(eventId).update(updates);
+};
+
+window.deleteEvent = async (eventId) => {
+  if (confirm("Permanently delete this service?")) await db.collection('events').doc(eventId).delete();
+};
+
+window.archiveTerm = async (termLabel) => {
+  if (!confirm(`Archive all services in ${termLabel}?`)) return;
+  for (const ev of cachedEvents.filter(e => e.termLabel === termLabel))
+    await db.collection('events').doc(ev.id).update({ archived: true });
+};
+
+window.onDragStart = (e, personId, personName, eventId=null, role=null) => {
+  e.dataTransfer.setData("personId", personId);
+  e.dataTransfer.setData("personName", personName);
+  if (eventId && role) { e.dataTransfer.setData("sourceEventId", eventId); e.dataTransfer.setData("sourceRole", role); }
+};
+
+window.onDropRole = async (e, eventId, role) => {
+  e.preventDefault();
+  const pid = e.dataTransfer.getData("personId"), pname = e.dataTransfer.getData("personName");
+  const sEv = e.dataTransfer.getData("sourceEventId"), sRole = e.dataTransfer.getData("sourceRole");
+  if (sEv === eventId && sRole) await unassignPerson(sEv, sRole);
+  await assignPerson(eventId, role, pid, pname);
+};
+
+window.onDropBucket = async (e, eventId, targetStatus=null) => {
+  e.preventDefault();
+  const pid  = e.dataTransfer.getData("personId");
+  const sEv  = e.dataTransfer.getData("sourceEventId"), sRole = e.dataTransfer.getData("sourceRole");
+  if (sEv && sRole) await unassignPerson(sEv, sRole);
+  if (targetStatus && eventId && pid) {
+    const snap = await db.collection('availability').where('eventId','==',eventId).where('memberId','==',pid).get();
+    if (targetStatus === 'pending') {
+      for (const d of snap.docs) await db.collection('availability').doc(d.id).delete();
+    } else if (!snap.empty) {
+      await db.collection('availability').doc(snap.docs[0].id).update({ status: targetStatus });
+    } else {
+      await db.collection('availability').add({ eventId, memberId: pid, status: targetStatus });
+    }
+  }
+};
+
+window.addSingleLine = async () => {
+  const d = new Date().toISOString().split('T')[0];
+  await db.collection('events').add({ date:d, termLabel:getTermLabel(d), type:"Sunday Morning Worship", description:"", teams:["Worship Team","AV Team"], startTime:"08:00", endTime:"11:30", roles:[...MANDATORY_SUNDAY_ROLES], archived:false });
+};
+
+window.generateTerm = async () => {
+  const term = document.getElementById('termSelect').value;
+  if (!term) { toast('Select a term first'); return; }
+  const year = new Date().getFullYear();
+  let curr = new Date(`${year}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
+  const end = new Date(`${year}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
+  while (curr.getDay()!==0) curr.setDate(curr.getDate()+1);
+  loader(true, `Populating ${term}...`);
+  while (curr<=end) {
+    const ds = curr.toISOString().split('T')[0];
+    await db.collection('events').add({ date:ds, termLabel:getTermLabel(ds), type:"Sunday Morning Worship", description:"", teams:["Worship Team","AV Team"], startTime:"08:00", endTime:"11:30", roles:[...MANDATORY_SUNDAY_ROLES], archived:false });
+    curr.setDate(curr.getDate()+7);
+  }
+  loader(false); toast('Term populated ✓');
+};
+
+window.addThursdayPractices = async () => {
+  const term = document.getElementById('termSelect').value;
+  if (!term) { toast('Select a term first'); return; }
+  const year = new Date().getFullYear();
+  let curr = new Date(`${year}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
+  const end = new Date(`${year}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
+  while (curr.getDay()!==4) curr.setDate(curr.getDate()+1);
+  loader(true, 'Adding practices...');
+  while (curr<=end) {
+    const ds = curr.toISOString().split('T')[0];
+    await db.collection('events').add({ date:ds, termLabel:getTermLabel(ds), type:"Sunday Team Practice", description:"Thursday Rehearsal", teams:["Worship Team"], startTime:"19:30", endTime:"21:30", roles:["Worship Leader","Keyboard","Guitar","Drums","Bass"], archived:false });
+    curr.setDate(curr.getDate()+7);
+  }
+  loader(false); toast('Practices added ✓');
+};
+
+window.autoFillPractice = async (practiceId) => {
+  const practice = cachedEvents.find(e=>e.id===practiceId); if (!practice) return;
+  const pd = new Date(practice.date);
+  const sunday = cachedEvents.find(e => { const diff=(new Date(e.date)-pd)/(1000*60*60*24); return e.type==="Sunday Morning Worship"&&diff>0&&diff<=3; });
+  if (!sunday) { toast('No matching Sunday found'); return; }
+  const updates = {};
+  (practice.roles||[]).forEach(r => { const p=sunday.assignments?.[r]; if(p&&rotaAvailability[practiceId]?.[p.id]==='avail') updates[`assignments.${r}`]={id:p.id,name:p.name}; });
+  if (Object.keys(updates).length) await db.collection('events').doc(practiceId).update(updates);
+  toast('Synced ✓');
+};
+
+window.autoFillAllEvents = async () => {
+  if (!confirm("Automatically fill services?")) return;
+  loader(true,'Auto-filling...');
+  const events = cachedEvents.filter(e=>!e.archived&&e.type==="Sunday Morning Worship").sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const mCounts = {};
+  for (const ev of events) {
+    const mk = new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'});
+    if (!mCounts[mk]) mCounts[mk]={};
+    const members = allMembers.filter(m => rotaAvailability[ev.id]?.[m.id]==='avail' && (ev.teams?.some(t=>m.markers?.includes(t))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship"))));
+    const assigned = new Set(Object.values(ev.assignments||{}).map(a=>a.id));
+    const roles = [...(ev.roles||[])];
+    const asgn  = {...(ev.assignments||{})};
+
+    const tryAssign = (rn, inst, primary) => {
+      if (asgn[rn]?.id) return false;
+      let cands = members.filter(m => !assigned.has(m.id) && (mCounts[mk][m.id]||0)<(parseInt(m.maxFrequency)||2) && (primary?m.primaryInstruments?.includes(inst):(m.primaryInstruments?.includes(inst)||m.secondaryInstruments?.includes(inst))));
+      cands.sort((a,b)=>((a.markers?.includes("Youth Worship")?1:0)-(b.markers?.includes("Youth Worship")?1:0))||((a.primaryInstruments?.length||0)-(b.primaryInstruments?.length||0)));
+      if (!cands.length) return false;
+      const c=cands[0]; asgn[rn]={id:c.id,name:c.name}; assigned.add(c.id); mCounts[mk][c.id]=(mCounts[mk][c.id]||0)+1; return true;
+    };
+
+    MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,true));
+    roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",true));
+    MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,false));
+    roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",false));
+
+    members.filter(m=>!assigned.has(m.id)&&(m.primaryInstruments?.includes("Sing")||m.secondaryInstruments?.includes("Sing")))
+      .sort((a,b)=>(a.markers?.includes("Youth Worship")?1:0)-(b.markers?.includes("Youth Worship")?1:0))
+      .forEach(m => {
+        if ((mCounts[mk][m.id]||0)>=(parseInt(m.maxFrequency)||2)) return;
+        let i=1; while(roles.includes(`Singer ${i}`)) i++;
+        const nr=`Singer ${i}`; roles.push(nr); asgn[nr]={id:m.id,name:m.name}; assigned.add(m.id); mCounts[mk][m.id]=(mCounts[mk][m.id]||0)+1;
+      });
+
+    ["Guitar","Keyboard"].forEach(inst => {
+      const rn=`2nd ${inst}`;
+      if (!roles.includes(rn) && (tryAssign(rn,inst,true)||tryAssign(rn,inst,false))) roles.push(rn);
+    });
+    await db.collection('events').doc(ev.id).update({ assignments:asgn, roles });
+  }
+  loader(false); toast('Auto-fill complete ✓');
+};
+
+window.gatherTermAvailability = async () => {
+  const terms = [...new Set(cachedEvents.filter(e=>!e.archived).map(e=>e.termLabel))];
+  const sel = prompt(`Gather availability for which term?\n\n${terms.join('\n')}`, terms[0]);
+  if (!sel) return;
+  const emails = new Set();
+  cachedEvents.filter(e=>!e.archived&&e.termLabel===sel).forEach(ev => {
+    allMembers.forEach(m => { if (m.markers?.some(r=>ev.teams?.includes(r))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship"))) emails.add(m.email); });
+  });
+  window.location.href = `mailto:av@esherchurch.org?bcc=${[...emails].join(';')}&subject=Availability Request&body=Please click here: https://esherchurch.github.io/availability-form/`;
+};
+
+function buildTimeOptions(sel) {
+  let o='';
+  for (let h=0;h<24;h++) for (let m=0;m<60;m+=15) {
+    const v=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    o+=`<option value="${v}"${sel===v?' selected':''}>${v}</option>`;
+  }
+  return o;
+}
+
+function renderPlanner() {
+  const container = document.getElementById('eventList');
+  if (!container) return;
+  container.innerHTML = '';
+  const grouped = {};
+  cachedEvents.forEach(ev => {
+    if (ev.archived) return;
+    const t = ev.termLabel || getTermLabel(ev.date);
+    if (!grouped[t]) grouped[t]=[];
+    grouped[t].push(ev);
+  });
+  Object.keys(grouped).sort().forEach(term => {
+    const isCol = rotaCollapsedTerms.has(term);
+    let html = '<div style="margin-bottom:20px;">';
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;background:#3d6263;color:white;padding:12px 16px;border-radius:${isCol?'14px':'14px 14px 0 0'};">`;
+    html += `<button onclick="toggleTermCollapse('${term}')" style="background:none;border:none;color:white;font-family:'Montserrat',sans-serif;font-weight:800;font-size:13px;text-transform:uppercase;cursor:pointer;">${term}</button>`;
+    html += `<button onclick="archiveTerm('${term}')" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 10px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Archive</button>`;
+    html += '</div>';
+    if (!isCol) {
+      html += '<div style="background:white;padding:10px;border:1px solid #d1dfdf;border-top:none;border-radius:0 0 14px 14px;">';
+      const sorted = grouped[term].sort((a,b)=>new Date(a.date)-new Date(b.date));
+      const byMonth = {};
+      sorted.forEach(ev => { const mk=new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'}); if(!byMonth[mk])byMonth[mk]=[]; byMonth[mk].push(ev); });
+      Object.keys(byMonth).forEach(month => {
+        html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:#3d6263;opacity:0.5;margin:12px 0 8px;">${month}</div>`;
+        const blocks=[]; let cur=[];
+        byMonth[month].forEach(ev => { cur.push(ev); if(ev.type==="Sunday Morning Worship"){blocks.push(cur);cur=[];} });
+        if (cur.length) blocks.push(cur);
+        blocks.forEach((block,idx) => block.forEach(ev => { html += generateEventHtml(ev,idx); }));
+        const stats={};
+        byMonth[month].forEach(ev => { if(ev.type==='Sunday Morning Worship'&&ev.assignments) [...new Set(Object.values(ev.assignments).map(p=>p.name))].forEach(n=>{if(n)stats[n]=(stats[n]||0)+1;}); });
+        if (Object.keys(stats).length) {
+          html += '<div style="margin-top:10px;background:#f0f6f6;border-radius:10px;padding:10px;border:1px solid #d1dfdf;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;text-align:center;margin-bottom:8px;">Monthly Serving Totals</div><div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">';
+          Object.entries(stats).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([n,c]) => { html+=`<div style="background:white;border:1px solid #d1dfdf;padding:3px 8px;border-radius:9999px;font-size:10px;font-weight:700;color:#3d6263;">${n}: <strong>${c}</strong></div>`; });
+          html += '</div></div>';
+        }
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    container.innerHTML += html;
+  });
+}
+
+function generateEventHtml(ev, blockIdx) {
+  const assignedIds = Object.values(ev.assignments||{}).map(a=>a.id);
+  const members  = allMembers.filter(m => ev.teams?.some(t=>m.markers?.includes(t))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship")));
+  const avail    = members.filter(m => rotaAvailability[ev.id]?.[m.id]==='avail'        && (!hideAssigned||!assignedIds.includes(m.id)));
+  const declined = members.filter(m => (rotaAvailability[ev.id]?.[m.id]==='unavailable'||rotaAvailability[ev.id]?.[m.id]==='not-avail') && (!hideAssigned||!assignedIds.includes(m.id)));
+  const pending  = members.filter(m => !rotaAvailability[ev.id]?.[m.id]                 && (!hideAssigned||!assignedIds.includes(m.id)));
+  const isSunday = ev.type==="Sunday Morning Worship";
+  const sortedRoles = [...(ev.roles||[]).filter(r=>!AV_ROLES.includes(r)), ...(ev.roles||[]).filter(r=>AV_ROLES.includes(r))];
+  const isExp = rotaExpandedEvents.has(ev.id)||isSunday;
+  const bg = !isSunday ? '#f8fafc' : (blockIdx%2===0 ? 'white' : '#f9fbfb');
+
+  let html = `<div style="background:${bg};border:1px solid #d1dfdf;border-radius:12px;padding:10px;margin-bottom:8px;">`;
+  html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">';
+  html += `<button onclick="toggleEventExpand('${ev.id}')" style="width:26px;height:26px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0;">${isExp?'−':'+'}</button>`;
+  html += `<input type="date" value="${ev.date}" onchange="updateField('${ev.id}','date',this.value)" style="background:${isSunday?'#3d6263':'#d1dfdf'};color:${isSunday?'white':'#3d6263'};border:none;padding:5px 8px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:11px;">`;
+  html += `<select onchange="updateField('${ev.id}','startTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;">${buildTimeOptions(ev.startTime||'08:00')}</select>`;
+  html += `<span style="font-size:10px;color:#d1dfdf;">–</span>`;
+  html += `<select onchange="updateField('${ev.id}','endTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;">${buildTimeOptions(ev.endTime||'11:30')}</select>`;
+  html += `<select onchange="updateField('${ev.id}','type',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;flex:1;min-width:120px;">`;
+  EVENT_TYPES_LIST.forEach(t => { html+=`<option value="${t}"${ev.type===t?' selected':''}>${t}</option>`; });
+  html += '</select>';
+  html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
+  html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:9999px;border:1px solid #d1dfdf;">';
+  ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t => {
+    html+=`<label style="font-size:9px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;color:#3d6263;cursor:pointer;white-space:nowrap;"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} style="width:11px;height:11px;accent-color:#3d6263;"><span>${t}</span></label>`;
+  });
+  html += '</div>';
+  if (!isSunday) html += `<button onclick="autoFillPractice('${ev.id}')" style="background:#d1dfdf;color:#3d6263;border:none;padding:5px 8px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Sync</button>`;
+  html += `<button onclick="toggleBucket('${ev.id}')" style="width:28px;height:28px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;cursor:pointer;font-size:14px;" title="Availability">🪣</button>`;
+  html += `<button onclick="deleteEvent('${ev.id}')" style="background:none;border:none;color:#d1dfdf;font-size:16px;cursor:pointer;" title="Delete">🗑</button>`;
+  html += '</div>';
+
+  if (isExp) {
+    html += '<div style="margin-top:10px;border-top:1px solid #f0f6f6;padding-top:10px;">';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
+    sortedRoles.forEach(r => {
+      const asgn = ev.assignments?.[r]||null;
+      const isAV = AV_ROLES.includes(r);
+      const isPend = asgn && !rotaAvailability[ev.id]?.[asgn.id];
+      const border = isAV ? '#f59e0b' : (asgn ? '#3d6263' : '#d1dfdf');
+      const nc = isPend ? '#f97316' : '#3d6263';
+      const sr = r.replace(/'/g,"\\'");
+      html += `<div ondragover="event.preventDefault()" ondrop="onDropRole(event,'${ev.id}','${sr}')" style="background:white;border:2px ${asgn?'solid':'dashed'} ${border};border-radius:10px;padding:8px 10px;min-width:100px;">`;
+      html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;opacity:0.4;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:11px;cursor:pointer;padding:0;">✕</button></div>`;
+      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:${asgn?'grab':'default'};">${asgn?asgn.name:'Unassigned'}</div>`;
+      html += '</div>';
+    });
+    html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;
+    OPTIONAL_ROLES_LIST.forEach(o => { html+=`<option value="${o}">${o}</option>`; });
+    html += '</select></div>';
+
+    if (rotaOpenBuckets.has(ev.id)) {
+      html += '<div style="background:#f0f6f6;border-radius:12px;border:1px solid #d1dfdf;padding:10px;">';
+      const bucket = (label, items, status, col, bg2, border2) => {
+        let b = `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}','${status}');event.stopPropagation();" style="margin-bottom:8px;">`;
+        b += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:${col};margin-bottom:5px;">${label}</div>`;
+        b += '<div style="display:flex;flex-wrap:wrap;gap:5px;min-height:24px;">';
+        items.forEach(m => { b+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}')"`+` style="padding:4px 8px;background:${bg2};color:${col};border:1px solid ${border2};border-radius:7px;font-size:11px;font-weight:700;cursor:grab;">${m.name}</div>`; });
+        b += '</div></div>'; return b;
+      };
+      html += bucket('Available', avail,    'avail',       '#166534','#f0fdf4','#86efac');
+      html += bucket('Declined',  declined,  'not-avail',   '#991b1b','#fef2f2','#fca5a5');
+      html += bucket('Pending',   pending,   'pending',     '#64748b','#f8fafc','#e2e8f0');
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// EMAIL COMPILER
+// ══════════════════════════════════════════════════════════════════════════
+
+function applySize(px) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const el = document.createElement('span');
+  el.style.fontSize = px;
+  try { el.appendChild(range.extractContents()); range.insertNode(el); } catch(e) {}
+}
+
+function applyColor(color) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const el = document.createElement('span');
+  el.style.color = color;
+  try { el.appendChild(range.extractContents()); range.insertNode(el); } catch(e) {}
+}
+
+function insertSideLayout() {
+  document.execCommand('insertHTML', false, `
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:16px 0;">
+      <tr>
+        <td width="50%" valign="top" style="padding:10px; border:1px dashed #ddd;">[Left content]</td>
+        <td width="50%" valign="top" style="padding:10px; border:1px dashed #ddd;">[Right content]</td>
+      </tr>
+    </table><p></p>`);
+}
+
+let lastClickedImg = null;
+$('editable-body').addEventListener('click', e => {
+  if (e.target.tagName === 'IMG') {
+    if (lastClickedImg) lastClickedImg.classList.remove('selected-img');
+    lastClickedImg = e.target;
+    lastClickedImg.classList.add('selected-img');
+  }
+});
+
+function resizeImg() {
+  if (!lastClickedImg) { toast('Tap an image first'); return; }
+  const val = prompt('Width (e.g. 300 or 80%):', lastClickedImg.getAttribute('width') || '300');
+  if (val) {
+    lastClickedImg.setAttribute('width', val.replace('px',''));
+    lastClickedImg.style.width = val.includes('%') ? val : val + 'px';
+  }
+}
+
+function uploadEmailImage() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    loader(true, 'Uploading image...');
+    try {
+      const ref = storage.ref(`email_assets/${Date.now()}_${file.name}`);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+      document.execCommand('insertHTML', false,
+        `<img src="${url}" width="300" style="width:300px;height:auto;margin:12px 0;">`);
+    } catch(e) { toast('Upload failed'); }
+    loader(false);
+  };
+  input.click();
+}
+
+function clearEditor() {
+  activeDraftId = null;
+  $('draft-bar').style.display = 'none';
+  $('editable-body').innerHTML = '<p>Start your team update here...</p>';
+}
+
+function updateDraftBar(name, createdBy, updatedBy) {
+  $('draft-bar-name').textContent = name;
+  $('draft-bar-meta').textContent = `Created by ${createdBy||'?'} · Last edited by ${updatedBy||'?'}`;
+  $('draft-bar').style.display = 'flex';
+}
+
+// Drafts
+async function openDraftsSheet() {
+  openModal('modal-drafts');
+  const list = $('drafts-list');
+  list.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:700;padding:10px 0;">Loading...</div>';
+  try {
+    const snap = await db.collection('emailDrafts').orderBy('updatedAt','desc').limit(MAX_DRAFTS).get();
+    $('drafts-count').textContent = `${snap.size} of ${MAX_DRAFTS} slots used`;
+    if (!snap.size) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-text">No saved drafts yet</div></div>';
+      return;
+    }
+    list.innerHTML = snap.docs.map(d => {
+      const data = d.data();
+      const isActive = d.id === activeDraftId;
+      return `<div class="draft-card ${isActive?'active-draft':''}">
+        <div class="draft-info">
+          <div class="draft-name">${data.name||'Untitled'}${isActive?'<span style="font-size:9px;background:var(--teal);color:white;padding:2px 7px;border-radius:20px;margin-left:6px;">LOADED</span>':''}</div>
+          <div class="draft-meta">✏️ ${data.createdBy||'?'} · 🔄 ${data.updatedBy||'?'}<br>${formatDate(data.updatedAt)}</div>
+        </div>
+        <div class="draft-actions">
+          <button class="btn btn-primary btn-sm" onclick="loadDraft('${d.id}')">Load</button>
+          <button class="btn btn-red btn-sm" onclick="deleteDraft('${d.id}','${(data.name||'this draft').replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-text">Error loading drafts</div></div>';
+  }
+}
+
+async function saveNewDraft() {
+  if (!currentUser) { openModal('modal-who'); return; }
+  const count = (await db.collection('emailDrafts').get()).size;
+  if (count >= MAX_DRAFTS) { toast(`Max ${MAX_DRAFTS} drafts reached — delete one first`); return; }
+  const name = prompt('Name this draft:', 'Team Update');
+  if (!name) return;
+  loader(true, 'Saving draft...');
+  try {
+    const content = $('editable-body').innerHTML;
+    const ref = await db.collection('emailDrafts').add({
+      name, content,
+      createdBy: currentUser, createdAt: TS(),
+      updatedBy: currentUser, updatedAt: TS()
+    });
+    activeDraftId = ref.id;
+    updateDraftBar(name, currentUser, currentUser);
+    toast(`"${name}" saved!`);
+  } catch(e) { toast('Error saving draft'); }
+  loader(false);
+}
+
+async function loadDraft(id) {
+  loader(true, 'Loading draft...');
+  try {
+    const d = await db.collection('emailDrafts').doc(id).get();
+    if (d.exists) {
+      const data = d.data();
+      $('editable-body').innerHTML = data.content;
+      activeDraftId = id;
+      updateDraftBar(data.name, data.createdBy, data.updatedBy);
+      closeModal('modal-drafts');
+      toast(`"${data.name}" loaded`);
+    }
+  } catch(e) { toast('Error loading draft'); }
+  loader(false);
+}
+
+async function overwriteDraft() {
+  if (!activeDraftId) { await saveNewDraft(); return; }
+  if (!currentUser) { openModal('modal-who'); return; }
+  loader(true, 'Saving...');
+  try {
+    await db.collection('emailDrafts').doc(activeDraftId).update({
+      content: $('editable-body').innerHTML,
+      updatedBy: currentUser, updatedAt: TS()
+    });
+    toast('Draft updated ✓');
+  } catch(e) { toast('Error saving'); }
+  loader(false);
+}
+
+async function deleteDraft(id, name) {
+  confirm_('Delete Draft', `Delete "${name}"? This cannot be undone.`, async () => {
+    try {
+      await db.collection('emailDrafts').doc(id).delete();
+      if (activeDraftId === id) clearEditor();
+      toast('Draft deleted');
+      openDraftsSheet();
+    } catch(e) { toast('Error deleting'); }
+  });
+}
+
+// Mailing list
+function toggleTeam(chip) {
+  chip.classList.toggle('selected');
+  updateRecipientCount();
+}
+
+function updateRecipientCount() {
+  const selected = Array.from(document.querySelectorAll('.team-chip.selected')).map(c => c.dataset.team);
+  let count = 0;
+  if (selected.includes('Everyone')) {
+    count = allMembers.filter(m => m.email).length;
+  } else {
+    const emails = new Set(
+      allMembers.filter(m => m.markers?.some(r => selected.includes(r)) && m.email).map(m => m.email)
+    );
+    count = emails.size;
+  }
+  $('recipient-count').textContent = count ? `${count} recipient${count !== 1 ? 's' : ''} selected` : 'No recipients selected';
+}
+
+function openMailingSheet() {
+  updateRecipientCount();
+  openModal('modal-mailing');
+}
+
+function launchEmail() {
+  const selected = Array.from(document.querySelectorAll('.team-chip.selected')).map(c => c.dataset.team);
+  let emails = [];
+  if (selected.includes('Everyone')) {
+    emails = allMembers.map(m => m.email).filter(Boolean);
+  } else {
+    emails = [...new Set(
+      allMembers.filter(m => m.markers?.some(r => selected.includes(r))).map(m => m.email).filter(Boolean)
+    )];
+  }
+  if (!emails.length) { toast('No recipients selected'); return; }
+  window.location.href = `mailto:?bcc=${emails.join(';')}&subject=Worship %26 AV Team Update`;
+  closeModal('modal-mailing');
+}
+
+async function compileEmail() {
+  const clone = $('editable-body').cloneNode(true);
+  clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
+  clone.querySelectorAll('table, td').forEach(el => el.style.border = 'none');
+
+  const header = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#fff;border-bottom:1px solid #d1dfdf;">
+    <tr>
+      <td style="padding:32px 40px;">
+        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="160" style="display:block;">
+      </td>
+      <td align="right" style="padding:32px 40px;font-family:Segoe UI,sans-serif;font-size:16px;color:#3d6263;font-weight:700;">
+        Worship &amp; AV Team
+      </td>
+    </tr>
+  </table>`;
+
+  const finalHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>@media only screen and (max-width:600px){.outer{width:100%!important}.inner{padding:20px!important}img{max-width:100%!important;height:auto!important}}</style>
+  </head><body style="margin:0;padding:0;background:#fff;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center">
+  <table class="outer" width="700" border="0" cellspacing="0" cellpadding="0" style="width:700px;">
+  <tr><td>${header}</td></tr>
+  <tr><td class="inner" style="padding:40px;font-family:Segoe UI,Arial,sans-serif;font-size:16px;color:#333;line-height:1.6;">
+  ${clone.innerHTML}
+  </td></tr></table></td></tr></table></body></html>`;
+
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([finalHtml], { type:'text/html' }) })]);
+    toast('Email HTML copied! ✓');
+  } catch(e) {
+    // Fallback for Android
+    const ta = document.createElement('textarea');
+    ta.value = finalHtml;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    toast('HTML copied to clipboard ✓');
+  }
+}
+
+// ── CLOSE MODALS ON BACKDROP TAP ──────────────────────────────────────────
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+);
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+loadMembers();
+if (currentUser) {
+  // Already know who they are
+}
+
+// ── ONBOARDING TOUR ───────────────────────────────────────────────────────
+const TOUR_STEPS = {
+  home: [
+    { target: '.home-tiles', title: 'Welcome to Worship Planner! 👋', text: 'Three tools in one app. Tap any tile to get started.' },
+    { target: '#screen-home .home-tile.tile-service', title: '🗓 Service Planner', text: 'Build the order of service — add songs with sheet music, keys, YouTube links and play-throughs. Email the plan to your team.' },
+    { target: '#screen-home .home-tile.tile-rota',    title: '👥 Rota Planner',   text: 'Full rota management — populate a term, auto-fill from availability, assign roles, and manage the availability bucket.' },
+    { target: '#screen-home .home-tile.tile-email',   title: '📧 Email Compiler', text: 'Build rich team emails with images, layouts and formatting. Save drafts, select mailing lists and copy HTML.' },
+  ],
+  service: [
+    { target: '#service-list',    title: 'Service List', text: 'All your saved service plans, newest first. Tap one to open it, or tap + to create a new one.' },
+    { target: '#service-search',  title: 'Search',       text: 'Search by date, service type or worship leader name.' },
+  ],
+  'service-detail': [
+    { target: '#service-info-card',  title: 'Service Info', text: 'Shows the date, service type and worship leader. Tap Edit to change any of these.' },
+    { target: '#service-typenotes',  title: 'Service Notes', text: 'Add notes about this specific service — e.g. Communion, Easter Sunday, special requirements.' },
+    { target: '#service-intro',      title: 'Opening Remarks', text: 'These words appear at the top of the team email, before the order of service.' },
+    { target: '.order-list, #order-empty', title: 'Order of Service', text: 'Tap + Song to add a song from the library — it loads sheet music, YouTube, SongSelect and play-through links automatically. Tap + Item for prayers, readings and announcements. Drag the ⠿ handle to reorder.' },
+    { target: '#service-outro',      title: 'Closing Remarks', text: 'These words appear at the bottom of the team email, after the team rota.' },
+  ],
+  rota: [
+    { target: '#termSelect',           title: 'Select a Term', text: 'Pick Spring, Summer or Autumn before using Populate or Add Practices.' },
+    { target: '#screen-rota .btn-row, #screen-rota div:first-child', title: 'Toolbar',    text: 'Populate creates all Sundays for the term. Auto-Fill assigns people based on availability and instruments. + Practices adds Thursday rehearsals. Gather Avail emails the team for their availability.' },
+    { target: '#eventList',            title: 'Events by Term', text: 'Events are grouped by term. Tap a term header to collapse it. Tap + on any event to expand roles and the availability bucket.' },
+    { target: '#eventList',            title: 'Assigning Roles', text: 'Drag a person from the Available bucket into a role card. Or tap the role card name to type directly. Orange names mean no availability response yet.' },
+    { target: '#eventList',            title: '🪣 Availability Bucket', text: 'Tap the bucket icon on any event to see Available / Declined / Pending. Drag people between buckets to update their status.' },
+  ],
+  email: [
+    { target: '.email-toolbar',     title: 'Formatting Toolbar', text: 'Bold, italic, underline, font size, colour, alignment. Use ⬜⬜ for a two-column layout. 📷 uploads an image to Firebase.' },
+    { target: '#email-canvas',      title: 'Email Canvas',       text: 'Click to place your cursor and start typing. Tap an image to select it, then use ↔ to resize.' },
+    { target: '#screen-email > div:last-child', title: 'Bottom Bar', text: 'Drafts saves and loads from Firebase. Mailing List selects teams and opens your email app. Copy HTML copies the full formatted email to clipboard ready to paste.' },
+  ],
+};
+
+let tourStepIndex = 0;
+let tourCurrentSection = 'home';
+
+function startTour(force) {
+  const section = currentSection;
+  tourCurrentSection = section;
+  const key = 'egbc_planner_toured_' + section;
+  if (!force && localStorage.getItem(key) === 'permanent') return;
+  const steps = TOUR_STEPS[section];
+  if (!steps?.length) { if (force) toast('No tour for this screen'); return; }
+  tourStepIndex = 0;
+  const cb = document.getElementById('tour-dont-show');
+  if (cb) cb.checked = false;
+  showTourStep(steps);
+}
+
+function showTourStep(steps) {
+  const step = steps[tourStepIndex];
+  if (!step) { endTour(); return; }
+  const el = document.querySelector(step.target);
+  const title = document.getElementById('tour-title');
+  const text  = document.getElementById('tour-text');
+  const count = document.getElementById('tour-count');
+  const nextBtn = document.getElementById('tour-next-btn');
+  const tooltip = document.getElementById('tour-tooltip');
+  const highlight = document.getElementById('tour-highlight');
+
+  title.textContent = step.title;
+  text.textContent  = step.text;
+  count.textContent = `${tourStepIndex + 1} / ${steps.length}`;
+  nextBtn.textContent = tourStepIndex < steps.length - 1 ? 'Next →' : 'Got it!';
+
+  document.getElementById('tour-overlay').classList.add('active');
+
+  if (el) {
+    const rect = el.getBoundingClientRect();
+    const pad  = 6;
+    highlight.style.left   = (rect.left   - pad) + 'px';
+    highlight.style.top    = (rect.top    - pad) + 'px';
+    highlight.style.width  = (rect.width  + pad*2) + 'px';
+    highlight.style.height = (rect.height + pad*2) + 'px';
+    highlight.style.display = 'block';
+
+    // Position tooltip below or above
+    const tipTop = rect.bottom + pad + 12;
+    const tipLeft = Math.max(16, Math.min(rect.left, window.innerWidth - 300));
+    tooltip.style.top  = (tipTop + 200 > window.innerHeight ? rect.top - 180 : tipTop) + 'px';
+    tooltip.style.left = tipLeft + 'px';
+    tooltip.style.width = '280px';
+  } else {
+    highlight.style.display = 'none';
+    tooltip.style.top  = '50%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+    tooltip.style.width = '280px';
+  }
+}
+
+function nextTourStep() {
+  const steps = TOUR_STEPS[tourCurrentSection];
+  tourStepIndex++;
+  if (tourStepIndex >= steps.length) { endTour(); return; }
+  const tip = document.getElementById('tour-tooltip');
+  if (tip) tip.style.transform = '';
+  showTourStep(steps);
+}
+
+function endTour() {
+  const cb = document.getElementById('tour-dont-show');
+  if (cb?.checked) {
+    localStorage.setItem('egbc_planner_toured_' + tourCurrentSection, 'permanent');
+  }
+  document.getElementById('tour-overlay').classList.remove('active');
+}
+
+// Auto-trigger on first visit to each section
+const _touredSections = new Set();
+function maybeTriggerTour(section) {
+  if (_touredSections.has(section)) return;
+  _touredSections.add(section);
+  if (localStorage.getItem('egbc_planner_toured_' + section) === 'permanent') return;
+  if (!localStorage.getItem('egbc_planner_toured_' + section)) {
+    setTimeout(() => {
+      if (currentSection === section) {
+        startTour(false);
+        localStorage.setItem('egbc_planner_toured_' + section, '1');
+      }
+    }, 500);
+  }
+}
+</script>
+
+<!-- ══ TOUR OVERLAY ══ -->
+<div id="tour-overlay">
+  <div class="tour-backdrop"></div>
+  <div class="tour-dismiss-layer" onclick="endTour()"></div>
+  <div class="tour-highlight" id="tour-highlight"></div>
+  <div class="tour-tooltip" id="tour-tooltip" onclick="event.stopPropagation()">
+    <div class="tour-tooltip-title" id="tour-title"></div>
+    <div class="tour-tooltip-text"  id="tour-text"></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.75;margin-bottom:10px;">
+      <input type="checkbox" id="tour-dont-show" style="width:16px;height:16px;accent-color:#9bc34a;cursor:pointer;" onclick="event.stopPropagation()">
+      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+    </div>
+    <div class="tour-btn-row">
+      <button class="tour-skip" onclick="endTour()">Skip</button>
+      <span class="tour-step-count" id="tour-count"></span>
+      <button class="tour-next" id="tour-next-btn" onclick="nextTourStep()">Next →</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
