@@ -192,50 +192,47 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 .service-card-meta { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; }
 .service-card-arrow { font-size: 20px; color: var(--teal); opacity: 0.3; }
 
-/* Service order items (draggable) */
-.order-list { display: flex; flex-direction: column; gap: 6px; }
-
 .order-item {
   background: var(--white); border-radius: 12px;
-  border: 1px solid var(--border); padding: 12px 14px;
+  border: 1px solid var(--border); padding: 14px 12px;
   display: flex; align-items: center; gap: 10px;
-  touch-action: none;
+  touch-action: pan-y;
 }
-.order-item.dragging {
-  opacity: 0.5; background: var(--teal-light);
-}
+.order-item.dragging { opacity: 0.5; background: var(--teal-light); }
 .order-item.drag-over { border-color: var(--teal); background: var(--teal-light); }
 
 .order-drag-handle {
-  color: var(--teal); opacity: 0.3; font-size: 18px;
-  cursor: grab; flex-shrink: 0; padding: 4px;
-  user-select: none;
+  color: var(--teal); opacity: 0.25; font-size: 20px;
+  flex-shrink: 0; padding: 8px 4px;
+  user-select: none; touch-action: none;
+  cursor: grab;
 }
 .order-item-type {
   font-size: 9px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.12em; padding: 3px 8px;
+  letter-spacing: 0.1em; padding: 4px 8px;
   border-radius: 9999px; flex-shrink: 0;
 }
-.type-song    { background: #fef9c3; color: #854d0e; }
-.type-prayer  { background: #f5f3ff; color: #5b21b6; }
-.type-reading { background: #eff6ff; color: #1e40af; }
-.type-announcement { background: #f0fdf4; color: #166534; }
-.type-other   { background: var(--bg); color: var(--teal); }
+.type-song        { background: #fef9c3; color: #854d0e; }
+.type-prayer      { background: #f5f3ff; color: #5b21b6; }
+.type-reading     { background: #eff6ff; color: #1e40af; }
+.type-announcement{ background: #f0fdf4; color: #166534; }
+.type-other       { background: var(--bg); color: var(--teal); }
 
 .order-item-title {
   flex: 1; font-size: 14px; font-weight: 700;
   color: var(--teal); min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; padding: 4px 0;
 }
 .order-item-key {
   font-size: 11px; font-weight: 800; color: var(--teal);
   opacity: 0.5; flex-shrink: 0;
 }
 .order-item-delete {
-  width: 28px; height: 28px; border-radius: 8px;
+  width: 34px; height: 34px; border-radius: 8px;
   background: #fee2e2; border: none; color: var(--red);
-  font-size: 14px; cursor: pointer; display: flex;
-  align-items: center; justify-content: center;
+  font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 
@@ -643,15 +640,23 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 <div class="modal-overlay" id="modal-new-service">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title">New Service</div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="modal-title" id="service-modal-title">New Service</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="form-field">
         <label class="form-label">Date</label>
         <input type="date" class="form-input" id="new-service-date">
       </div>
       <div class="form-field">
         <label class="form-label">Service Type</label>
-        <input class="form-input" id="new-service-type" placeholder="e.g. Sunday 10:30am, Youth Service...">
+        <input class="form-input" id="new-service-type"
+          placeholder="e.g. Sunday 10:30am, Youth Service..."
+          style="font-size:16px;">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Service Description / Notes</label>
+        <textarea class="form-textarea" id="new-service-typenotes"
+          placeholder="Any specific notes about this service type..."
+          rows="2" style="font-size:15px;"></textarea>
       </div>
       <div class="form-field">
         <label class="form-label">Worship Leader</label>
@@ -661,7 +666,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
       </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-secondary btn-full" onclick="closeModal('modal-new-service')">Cancel</button>
-        <button class="btn btn-primary btn-full" onclick="createService()">Create</button>
+        <button class="btn btn-primary btn-full" id="service-modal-btn" onclick="createService()">Create</button>
       </div>
     </div>
   </div>
@@ -1120,37 +1125,34 @@ function renderServiceList() {
 }
 
 async function createService() {
-  const date   = $('new-service-date').value;
-  const type   = $('new-service-type').value.trim();
-  const leader = $('new-service-leader').value;
+  const date      = $('new-service-date').value;
+  const type      = $('new-service-type').value.trim();
+  const typeNotes = $('new-service-typenotes').value.trim();
+  const leader    = $('new-service-leader').value;
   if (!date) { toast('Please select a date'); return; }
   if (!type) { toast('Please enter a service type'); return; }
   loader(true, 'Creating service...');
   try {
-    // Check if a service already exists for this date
     const existing = await db.collection('services').where('date','==',date).get();
     let serviceId;
-
     if (!existing.empty) {
-      // Update the existing one rather than creating a duplicate
       serviceId = existing.docs[0].id;
       await db.collection('services').doc(serviceId).update({
-        type, worshipLeader: leader, archived: false, updatedAt: TS()
+        type, serviceNotes: typeNotes, worshipLeader: leader, archived: false, updatedAt: TS()
       });
-      currentService = { id: serviceId, ...existing.docs[0].data(), type, worshipLeader: leader };
+      currentService = { id: serviceId, ...existing.docs[0].data(), type, serviceNotes: typeNotes, worshipLeader: leader };
       toast('Service updated ✓');
     } else {
       const ref = await db.collection('services').add({
-        date, type, worshipLeader: leader,
+        date, type, serviceNotes: typeNotes, worshipLeader: leader,
         order: [], notes: '', introText: '', outroText: '',
         roleNotes: {}, archived: false,
         createdAt: TS(), updatedAt: TS()
       });
       serviceId = ref.id;
-      currentService = { id: serviceId, date, type, worshipLeader: leader, order: [], notes: '', introText: '', outroText: '', roleNotes: {} };
+      currentService = { id: serviceId, date, type, serviceNotes: typeNotes, worshipLeader: leader, order: [], notes: '', introText: '', outroText: '', roleNotes: {} };
       toast('Service created!');
     }
-
     closeModal('modal-new-service');
     await loadRotaForService(date);
     openSection('service-detail');
@@ -1190,11 +1192,12 @@ function renderServiceDetail() {
   // Info card
   $('service-info-card').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div>
+      <div style="flex:1;min-width:0;">
         <div style="font-size:16px;font-weight:800;color:var(--teal);">${s.type || 'Service'}</div>
         <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(s.date)}</div>
+        ${s.serviceNotes ? `<div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.7;margin-top:4px;">${s.serviceNotes}</div>` : ''}
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="openEditServiceMeta()">Edit</button>
+      <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-left:10px;" onclick="openEditServiceMeta()">Edit</button>
     </div>
     ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;margin-top:10px;">🎸 ${s.worshipLeader}</div>` : ''}`;
 
@@ -1244,20 +1247,24 @@ function renderOrderList() {
   if (!order.length) { list.innerHTML = ''; empty.style.display = 'flex'; return; }
   empty.style.display = 'none';
 
-  const typeLabels = { song:'🎵 Song', prayer:'🙏 Prayer', reading:'📖 Reading', announcement:'📢', other:'📌' };
+  const typeLabels = { song:'🎵', prayer:'🙏', reading:'📖', announcement:'📢', other:'📌' };
+  const typeNames  = { song:'Song', prayer:'Prayer', reading:'Reading', announcement:'Announcement', other:'Other' };
+
   list.innerHTML = order.map((item, i) => {
     const useBadge = item.type === 'song' && item._useCount > 0
-      ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:9999px;background:${item._useCount >= 4 ? 'var(--teal)' : 'var(--teal-light)'};color:${item._useCount >= 4 ? 'white' : 'var(--teal)'};">${item._useCount}×</span>`
+      ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:9999px;flex-shrink:0;background:${item._useCount >= 4 ? 'var(--teal)' : 'var(--teal-light)'};color:${item._useCount >= 4 ? 'white' : 'var(--teal)'};">${item._useCount}×</span>`
       : '';
-    return `<div class="order-item" draggable="true" data-index="${i}"
+    return `<div class="order-item" data-index="${i}"
         ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
         ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
-      <div class="order-drag-handle">⠿</div>
-      <span class="order-item-type type-${item.type||'other'}">${typeLabels[item.type]||'📌'}</span>
-      <div class="order-item-title" onclick="${item.type==='song' ? `editSongItem(${i})` : `editOrderItem(${i})`}" style="cursor:pointer;">${item.title||'—'}</div>
-      ${useBadge}
+      <div class="order-drag-handle" draggable="true">⠿</div>
+      <div class="order-item-title" onclick="${item.type==='song'?`editSongItem(${i})`:`editOrderItem(${i})}`}">
+        <span class="order-item-type type-${item.type||'other'}">${typeNames[item.type]||'Other'}</span>
+        <span style="margin-left:6px;">${item.title||'—'}</span>
+      </div>
       ${item.keys?.length ? `<span class="order-item-key">${item.keys.join(', ')}</span>` : ''}
-      <button class="order-item-delete" onclick="deleteOrderItem(${i})">✕</button>
+      ${useBadge}
+      <button class="order-item-delete" onclick="deleteOrderItem(${i})" title="Remove">✕</button>
     </div>`;
   }).join('');
 }
@@ -1534,6 +1541,7 @@ async function saveService() {
     await db.collection('services').doc(currentService.id).update({
       order: orderToSave, notes: currentService.notes,
       introText: currentService.introText, outroText: currentService.outroText,
+      serviceNotes: currentService.serviceNotes || '',
       roleNotes: currentService.roleNotes || {},
       type: currentService.type, date: currentService.date,
       worshipLeader: currentService.worshipLeader || '',
@@ -1562,25 +1570,23 @@ function archiveService() {
 }
 
 function openEditServiceMeta() {
-  // Set date and type immediately
-  $('new-service-date').value = currentService.date || '';
-  $('new-service-type').value = currentService.type || '';
+  $('new-service-date').value      = currentService.date || '';
+  $('new-service-type').value      = currentService.type || '';
+  $('new-service-typenotes').value = currentService.serviceNotes || '';
 
-  // Populate leader dropdown with the current leader pre-selected
   const wantedLeader = currentService.worshipLeader || '';
   if (allMembers.length) {
     populateLeaderDropdown(wantedLeader);
   } else {
-    // Members not loaded yet — load them, then populate
     db.collection('addressBook').get().then(snap => {
       allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       populateLeaderDropdown(wantedLeader);
     });
   }
 
-  const btn = document.querySelector('#modal-new-service .btn-primary');
-  btn.textContent = 'Save Changes';
-  btn.onclick = saveServiceMeta;
+  $('service-modal-title').textContent = 'Edit Service';
+  $('service-modal-btn').textContent   = 'Save Changes';
+  $('service-modal-btn').onclick       = saveServiceMeta;
   openModal('modal-new-service');
 }
 
@@ -1589,24 +1595,29 @@ function openNewServiceModal() {
   const today = new Date();
   const diff = (7 - today.getDay()) % 7 || 7;
   const next = new Date(today); next.setDate(today.getDate() + diff);
-  $('new-service-date').value = next.toISOString().split('T')[0];
-  $('new-service-type').value = '';
+  $('new-service-date').value      = next.toISOString().split('T')[0];
+  $('new-service-type').value      = '';
+  $('new-service-typenotes').value = '';
   populateLeaderDropdown('');
-  const btn = document.querySelector('#modal-new-service .btn-primary');
-  btn.textContent = 'Create';
-  btn.onclick = createService;
+  $('service-modal-title').textContent  = 'New Service';
+  $('service-modal-btn').textContent    = 'Create';
+  $('service-modal-btn').onclick        = createService;
   openModal('modal-new-service');
+  // Focus the type field after modal animates in
+  setTimeout(() => $('new-service-type').focus(), 300);
 }
 
 async function saveServiceMeta() {
-  const date=  $('new-service-date').value;
-  const type=  $('new-service-type').value.trim();
-  const leader=$('new-service-leader').value;
-  if (!date||!type) { toast('Please fill in date and type'); return; }
-  currentService.date=date; currentService.type=type; currentService.worshipLeader=leader;
+  const date      = $('new-service-date').value;
+  const type      = $('new-service-type').value.trim();
+  const typeNotes = $('new-service-typenotes').value.trim();
+  const leader    = $('new-service-leader').value;
+  if (!date || !type) { toast('Please fill in date and type'); return; }
+  currentService.date         = date;
+  currentService.type         = type;
+  currentService.serviceNotes = typeNotes;
+  currentService.worshipLeader = leader;
   closeModal('modal-new-service');
-  const btn = document.querySelector('#modal-new-service .btn-primary');
-  btn.textContent='Create'; btn.onclick=createService;
   renderServiceDetail();
 }
 
