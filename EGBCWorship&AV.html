@@ -396,7 +396,7 @@ async function loadAll() {
             menuItems = menuSnap.data().items.map(item => ({
                 ...item,
                 id:     toStrId(item.id),
-                parent: item.parent === null || item.parent === undefined ? '' : toStrId(item.parent)
+                parent: (!item.parent || item.parent === 'none') ? '' : String(item.parent)
             }));
         } else {
             menuItems = DEFAULT_MENU;
@@ -670,15 +670,17 @@ function renderMenu() {
     list.innerHTML = '';
     parentSelect.innerHTML = '<option value="">Top Level</option>';
 
+    // Normalise parent — treat 'none', null, undefined, '' all as top-level
+    const normParent = v => (!v || v === 'none') ? '' : String(v);
+
     const buildTree = (parentId, level = 0) => {
         const children = menuItems.filter(i => {
-            const itemParent = i.parent || '';
-            if (itemParent !== toStrId(parentId)) return false;
+            if (normParent(i.parent) !== normParent(parentId)) return false;
             if (userRole === 'core') return true;
             return i.role === 'worship' || !i.role;
         });
         children.forEach(item => {
-            const hasSubs = menuItems.some(i => (i.parent || '') === item.id);
+            const hasSubs = menuItems.some(i => normParent(i.parent) === normParent(item.id));
             const wrapper = document.createElement('div');
             wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
             wrapper.dataset.id = item.id;
