@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -232,45 +232,7 @@
 
     select { appearance: none; cursor: pointer; }
 
-    /* File upload zone */
-    .upload-zone {
-      border: 2px dashed var(--teal-light);
-      border-radius: var(--radius-md);
-      padding: 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-      margin-bottom: 16px;
-    }
-    .upload-zone:hover, .upload-zone.drag-over {
-      border-color: var(--teal);
-      background: var(--bg);
-    }
-    .upload-zone p { font-size: 0.75rem; font-weight: 700; color: var(--teal-mid); }
-    .upload-zone .upload-filename {
-      font-size: 0.72rem;
-      font-weight: 800;
-      color: var(--teal);
-      margin-top: 6px;
-      word-break: break-all;
-    }
 
-    .progress-bar-wrap {
-      background: var(--bg);
-      border: 1px solid var(--teal-light);
-      border-radius: var(--radius-pill);
-      height: 8px;
-      overflow: hidden;
-      margin-bottom: 16px;
-      display: none;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--teal);
-      width: 0%;
-      transition: width 0.2s;
-      border-radius: var(--radius-pill);
-    }
 
     .status-msg {
       font-size: 0.7rem;
@@ -290,6 +252,72 @@
       gap: 8px;
       margin-top: 4px;
     }
+
+
+    /* ── QR modal ── */
+    .qr-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+    .qr-modal-overlay.open { display: flex; }
+
+    .qr-modal {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+      position: relative;
+    }
+
+    .qr-modal h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--teal);
+      margin-bottom: 4px;
+    }
+
+    .qr-modal .qr-subtitle {
+      font-size: 0.72rem;
+      color: var(--teal-mid);
+      font-weight: 600;
+      margin-bottom: 22px;
+    }
+
+    #qr-canvas-wrap {
+      display: inline-block;
+      padding: 16px;
+      background: #fff;
+      border: 2px solid var(--teal-light);
+      border-radius: var(--radius-md);
+      margin-bottom: 18px;
+    }
+
+    #qr-canvas-wrap canvas, #qr-canvas-wrap img {
+      display: block;
+    }
+
+    .qr-url {
+      font-size: 0.68rem;
+      color: var(--teal-mid);
+      font-weight: 600;
+      word-break: break-all;
+      background: var(--bg);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .qr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 
     /* ── iOS instructions modal ── */
     .modal-overlay {
@@ -460,21 +488,16 @@
     <label>Version</label>
     <input type="text" id="f-version" placeholder="e.g. v1.0.0">
 
-    <!-- APK upload section -->
+    <!-- APK: just a URL field -->
     <div id="apk-section">
-      <label>APK File</label>
-      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('apk-file-input').click()">
-        <p>Tap to select APK file</p>
-        <div class="upload-filename" id="upload-filename"></div>
-      </div>
-      <input type="file" id="apk-file-input" accept=".apk" style="display:none" onchange="onFileSelected(event)">
-      <div class="progress-bar-wrap" id="progress-wrap">
-        <div class="progress-bar-fill" id="progress-fill"></div>
-      </div>
-      <div class="status-msg" id="upload-status"></div>
+      <label>Download URL</label>
+      <input type="url" id="f-manual-url" placeholder="Paste the file download link…">
+      <p style="font-size:0.68rem;font-weight:700;color:var(--teal-mid);padding-left:4px;margin-top:-12px;margin-bottom:16px;">
+        e.g. Firebase Storage → click file → Copy Download URL
+      </p>
     </div>
 
-    <!-- Link section -->
+    <!-- Web link -->
     <div id="link-section" style="display:none;">
       <label>URL</label>
       <input type="url" id="f-url" placeholder="https://...">
@@ -488,6 +511,20 @@
     <div class="status-msg" id="save-status"></div>
   </div>
 
+</div>
+
+<!-- QR Code modal -->
+<div class="qr-modal-overlay" id="qr-modal">
+  <div class="qr-modal">
+    <button class="modal-close" onclick="closeQrModal()">Close</button>
+    <h3 id="qr-title">Scan to Download</h3>
+    <p class="qr-subtitle">Point any phone camera at this code</p>
+    <div id="qr-canvas-wrap"></div>
+    <div class="qr-url" id="qr-url-display"></div>
+    <div class="qr-actions">
+      <button class="btn btn-secondary btn-sm" onclick="downloadQr()">⬇ Save QR Image</button>
+    </div>
+  </div>
 </div>
 
 <!-- iOS Add to Home Screen modal -->
@@ -530,11 +567,8 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db      = firebase.firestore();
-const storage = firebase.storage();
 
 let currentId   = null;  // Firestore doc ID being edited
-let uploadedUrl = null;  // URL after Firebase Storage upload
-let selectedFile = null;
 
 // ── Load all resources ──
 async function loadResources() {
@@ -586,13 +620,19 @@ function cardHTML(r) {
   const actionBtn = r.type === 'apk'
     ? `<a href="${r.downloadUrl}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">
         ⬇ Download
-       </a>`
+       </a>
+       <button class="btn btn-secondary btn-sm btn-icon" title="Show QR code" onclick="event.stopPropagation(); showQr('${escHtml(r.downloadUrl)}', '${escHtml(r.name)}')">
+        ⬛ QR
+       </button>`
     : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); openLinkModal('${escHtml(r.url)}', '${escHtml(r.name)}')">
         📱 iOS Install
        </button>
        <a href="${escHtml(r.url)}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">
         Open →
-       </a>`;
+       </a>
+       <button class="btn btn-secondary btn-sm btn-icon" title="Show QR code" onclick="event.stopPropagation(); showQr('${escHtml(r.url)}', '${escHtml(r.name)}')">
+        ⬛ QR
+       </button>`;
 
   return `
     <div class="resource-card" onclick="editResource('${r.id}')">
@@ -614,18 +654,13 @@ function escHtml(s) {
 // ── Show add form ──
 function showAddForm() {
   currentId    = null;
-  uploadedUrl  = null;
-  selectedFile = null;
   document.getElementById('f-name').value    = '';
   document.getElementById('f-desc').value    = '';
   document.getElementById('f-version').value = '';
   document.getElementById('f-type').value    = 'apk';
-  document.getElementById('f-url').value     = '';
-  document.getElementById('upload-filename').textContent = '';
-  document.getElementById('upload-status').textContent   = '';
-  document.getElementById('save-status').textContent     = '';
-  document.getElementById('progress-fill').style.width   = '0%';
-  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('f-url').value        = '';
+  document.getElementById('f-manual-url').value = '';
+  document.getElementById('save-status').textContent = '';
   document.getElementById('editor-title').textContent    = 'Add New Resource';
   document.getElementById('delete-btn').style.display    = 'none';
   onTypeChange();
@@ -637,19 +672,14 @@ async function editResource(id) {
   const doc  = await db.collection('hub_resources').doc(id).get();
   const data = doc.data();
   currentId    = id;
-  uploadedUrl  = data.downloadUrl || null;
-  selectedFile = null;
 
   document.getElementById('f-name').value    = data.name    || '';
   document.getElementById('f-desc').value    = data.description || '';
   document.getElementById('f-version').value = data.version || '';
   document.getElementById('f-type').value    = data.type    || 'apk';
   document.getElementById('f-url').value     = data.url     || '';
-  document.getElementById('upload-filename').textContent = data.fileName || (data.downloadUrl ? 'File already uploaded' : '');
-  document.getElementById('upload-status').textContent   = '';
-  document.getElementById('save-status').textContent     = '';
-  document.getElementById('progress-fill').style.width   = '0%';
-  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('f-manual-url').value = data.downloadUrl || '';
+  document.getElementById('save-status').textContent = '';
   document.getElementById('editor-title').textContent    = 'Edit Resource';
   document.getElementById('delete-btn').style.display    = 'block';
   onTypeChange();
@@ -658,7 +688,6 @@ async function editResource(id) {
 
 function cancelEdit() {
   currentId   = null;
-  uploadedUrl = null;
   document.getElementById('editor-panel').style.display = 'none';
 }
 
@@ -668,52 +697,6 @@ function onTypeChange() {
   document.getElementById('link-section').style.display = type === 'link' ? 'block' : 'none';
 }
 
-// ── File selection ──
-function onFileSelected(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  selectedFile = file;
-  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-  document.getElementById('upload-filename').textContent = `${file.name} (${sizeMB} MB)`;
-  document.getElementById('upload-status').textContent   = 'Ready to upload. Press Save to continue.';
-  document.getElementById('upload-status').className     = 'status-msg';
-  // Auto-fill version from filename if empty
-  const vField = document.getElementById('f-version');
-  if (!vField.value) {
-    const match = file.name.match(/v[\d._]+/i);
-    if (match) vField.value = match[0].replace(/_/g, '.');
-  }
-  // Auto-fill name if empty
-  const nField = document.getElementById('f-name');
-  if (!nField.value) {
-    const cleanName = file.name.replace(/\.apk$/i,'').replace(/_v[\d._]+.*/i,'').replace(/_/g,' ').trim();
-    nField.value = cleanName;
-  }
-}
-
-// ── Upload APK to Firebase Storage ──
-async function uploadApk(file) {
-  return new Promise((resolve, reject) => {
-    const path = `hub_apks/${Date.now()}_${file.name}`;
-    const ref  = storage.ref(path);
-    const task = ref.put(file);
-
-    document.getElementById('progress-wrap').style.display = 'block';
-
-    task.on('state_changed',
-      snap => {
-        const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
-        document.getElementById('progress-fill').style.width = pct + '%';
-        document.getElementById('upload-status').textContent = `Uploading… ${Math.round(pct)}%`;
-      },
-      err => reject(err),
-      async () => {
-        const url = await task.snapshot.ref.getDownloadURL();
-        resolve({ url, path });
-      }
-    );
-  });
-}
 
 // ── Save resource to Firestore ──
 async function saveResource() {
@@ -735,23 +718,14 @@ async function saveResource() {
     let data = { name, description: desc, version, type, updatedAt: new Date().toISOString() };
 
     if (type === 'apk') {
-      if (selectedFile) {
-        // Upload file
-        const { url: dlUrl, path } = await uploadApk(selectedFile);
-        uploadedUrl = dlUrl;
-        const sizeMB = (selectedFile.size / 1024 / 1024).toFixed(1) + ' MB';
-        data.downloadUrl = dlUrl;
-        data.storagePath = path;
-        data.fileSize    = sizeMB;
-        data.fileName    = selectedFile.name;
-      } else if (uploadedUrl) {
-        data.downloadUrl = uploadedUrl;
-      } else if (!currentId) {
-        status.textContent = 'Please select an APK file.';
+      const manualUrl = document.getElementById('f-manual-url').value.trim();
+      if (!manualUrl && !currentId) {
+        status.textContent = 'Please paste a download URL.';
         status.className   = 'status-msg error';
         btn.disabled = false;
         return;
       }
+      if (manualUrl) data.downloadUrl = manualUrl;
     } else {
       if (!url) { status.textContent = 'Please enter a URL.'; status.className = 'status-msg error'; btn.disabled = false; return; }
       data.url = url;
@@ -768,8 +742,7 @@ async function saveResource() {
 
     status.textContent = '✓ Saved!';
     status.className   = 'status-msg success';
-    selectedFile = null;
-    await loadResources();
+      await loadResources();
     setTimeout(() => {
       document.getElementById('editor-panel').style.display = 'none';
     }, 900);
@@ -794,6 +767,52 @@ async function deleteResource() {
   }
 }
 
+// ── QR Code modal ──
+function showQr(url, name) {
+  document.getElementById('qr-title').textContent = name || 'Scan to Open';
+  document.getElementById('qr-url-display').textContent = url;
+
+  const wrap = document.getElementById('qr-canvas-wrap');
+  wrap.innerHTML = '';
+
+  new QRCode(wrap, {
+    text: url,
+    width: 220,
+    height: 220,
+    colorDark: '#3d6263',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  document.getElementById('qr-modal').classList.add('open');
+}
+
+function closeQrModal() {
+  document.getElementById('qr-modal').classList.remove('open');
+}
+
+function downloadQr() {
+  const canvas = document.querySelector('#qr-canvas-wrap canvas');
+  const img    = document.querySelector('#qr-canvas-wrap img');
+  const name   = (document.getElementById('qr-title').textContent || 'qr').replace(/\s+/g,'-').toLowerCase();
+
+  if (canvas) {
+    const a = document.createElement('a');
+    a.download = `${name}-qr.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  } else if (img) {
+    const a = document.createElement('a');
+    a.download = `${name}-qr.png`;
+    a.href = img.src;
+    a.click();
+  }
+}
+
+document.getElementById('qr-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeQrModal();
+});
+
 // ── iOS modal ──
 function openLinkModal(url, name) {
   document.getElementById('modal-url').textContent = url;
@@ -805,22 +824,6 @@ function closeModal() {
 }
 document.getElementById('ios-modal').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
-});
-
-// ── Drag & drop on upload zone ──
-const zone = document.getElementById('upload-zone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-zone.addEventListener('drop', e => {
-  e.preventDefault();
-  zone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file && file.name.endsWith('.apk')) {
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    document.getElementById('apk-file-input').files = dt.files;
-    onFileSelected({ target: { files: [file] } });
-  }
 });
 
 // ── Init ──
