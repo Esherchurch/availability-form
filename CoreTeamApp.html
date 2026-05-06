@@ -1125,7 +1125,7 @@ function renderServiceList() {
     <div class="service-card fade-in" onclick="openServiceDetail('${s.id}')">
       <div class="service-card-info">
         <div class="service-card-date">${fmtShortDate(s.date)}${s._isDuplicate ? ' <span style="color:#ef4444;font-size:9px;">● DUPLICATE</span>' : ''}</div>
-        <div class="service-card-title">${s.type || 'Service'}</div>
+        <div class="service-card-title">${s.type || s.worshipLeader || 'Service'}</div>
         <div class="service-card-meta">${(s.order||[]).filter(i=>i.type==='song').length} songs · ${s.worshipLeader || 'No leader set'}</div>
       </div>
       <div class="service-card-arrow">›</div>
@@ -1174,37 +1174,41 @@ async function createService() {
 async function openServiceDetail(id) {
   loader(true);
   try {
-    // Load the saved service plan
     const svcDoc = await db.collection('services').doc(id).get();
     if (!svcDoc.exists) { toast('Service not found'); loader(false); return; }
     const svcData = svcDoc.data();
     const date = svcData.date;
 
-    // Load rota from events collection (same as desktop selectEvent)
-    let rotaAssignments = {};
-    let eventDescription = '';
+    // Always load type, description and assignments from events collection
+    // This mirrors the desktop exactly — events is the source of truth for these
+    let rotaAssignments  = {};
+    let eventType        = svcData.type        || '';
+    let eventDescription = svcData.serviceNotes || '';
+
     try {
       const evSnap = await db.collection('events').where('date','==',date).get();
       if (!evSnap.empty) {
-        // Desktop deduplicates by type — pick non-archived first
-        const events = evSnap.docs.map(d => d.data());
-        const active = events.find(e => !e.archived) || events[0];
-        rotaAssignments  = active.assignments || {};
-        eventDescription = active.description || '';
+        // Prefer non-archived, same as desktop
+        const evDocs = evSnap.docs.map(d => d.data());
+        const active = evDocs.find(e => !e.archived) || evDocs[0];
+        rotaAssignments  = active.assignments  || {};
+        eventType        = active.type         || eventType;
+        eventDescription = svcData.serviceNotes || active.description || '';
       }
-    } catch(e) { console.log('Rota load error:', e); }
+    } catch(e) { console.log('Event load error:', e); }
 
-    // Merge: service data from services collection, rota from events collection
-    // serviceNotes: use saved value first, fall back to event description
     currentService = {
       id,
       ...svcData,
-      serviceNotes: svcData.serviceNotes || eventDescription,
-      roleNotes:    svcData.roleNotes    || {},
-      order:        svcData.order        || [],
-      introText:    svcData.introText    || '',
-      outroText:    svcData.outroText    || '',
-      notes:        svcData.notes        || '',
+      // Always use event type — this is "Sunday Morning Service" etc
+      _eventType:       eventType,
+      // Description from saved serviceNotes, or event description as fallback
+      serviceNotes:     eventDescription,
+      roleNotes:        svcData.roleNotes || {},
+      order:            svcData.order     || [],
+      introText:        svcData.introText || '',
+      outroText:        svcData.outroText || '',
+      notes:            svcData.notes     || '',
       _rotaAssignments: rotaAssignments,
     };
 
@@ -1213,22 +1217,18 @@ async function openServiceDetail(id) {
   loader(false);
 }
 
-// Also update createService to use same flow after creation
-async function openServiceDetailById(id) {
-  return openServiceDetail(id);
-}
-
 function renderServiceDetail() {
   if (!currentService) return;
   const s = currentService;
   $('header-title').textContent = fmtShortDate(s.date);
 
-  // Info card
+  // Info card — type comes from events collection, shown prominently
+  const eventType = s._eventType || s.type || 'Service';
   $('service-info-card').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:16px;font-weight:800;color:var(--teal);">${s.type || 'Service'}</div>
-        <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(s.date)}</div>
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--teal);opacity:0.45;margin-bottom:3px;">${fmtShortDate(s.date)}</div>
+        <div style="font-size:16px;font-weight:800;color:var(--teal);line-height:1.2;">${eventType}</div>
       </div>
       <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-left:10px;" onclick="openEditServiceMeta()">Edit</button>
     </div>
@@ -1579,7 +1579,8 @@ async function saveService() {
       introText: currentService.introText, outroText: currentService.outroText,
       serviceNotes: currentService.serviceNotes || '',
       roleNotes: currentService.roleNotes || {},
-      type: currentService.type, date: currentService.date,
+      type: currentService._eventType || currentService.type || '',
+      date: currentService.date,
       worshipLeader: currentService.worshipLeader || '',
       updatedAt: TS()
     });
