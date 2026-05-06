@@ -449,8 +449,39 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 @keyframes spin { to { transform: rotate(360deg); } }
 .loader-msg { color: white; font-size: 13px; font-weight: 700; opacity: 0.8; }
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.fade-in { animation: fadeIn 0.2s ease; }
+/* ══ TOUR ══ */
+#tour-overlay {
+  display: none; position: fixed; inset: 0;
+  z-index: 9000; pointer-events: none;
+}
+#tour-overlay.active { display: block; pointer-events: all; }
+.tour-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5);
+  pointer-events: none; z-index: 0;
+}
+.tour-dismiss-layer {
+  position: absolute; inset: 0;
+  z-index: 1; cursor: pointer;
+  pointer-events: all;
+}
+.tour-highlight {
+  position: absolute; border-radius: 12px;
+  box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3);
+  pointer-events: none; z-index: 2; transition: all 0.3s;
+}
+.tour-tooltip {
+  position: absolute; background: var(--teal); color: white;
+  border-radius: 16px; padding: 16px; max-width: calc(100vw - 40px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  pointer-events: all; z-index: 3; cursor: default;
+}
+.tour-tooltip-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.tour-tooltip-text  { font-size: 12px; font-weight: 600; opacity: 0.85; line-height: 1.5; margin-bottom: 12px; }
+.tour-btn-row { display: flex; align-items: center; gap: 8px; }
+.tour-skip { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: 9999px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+.tour-next { background: white; border: none; color: var(--teal); padding: 8px 16px; border-radius: 9999px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-left: auto; }
+.tour-step-count { font-size: 10px; opacity: 0.6; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -462,7 +493,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 <div id="app-header">
   <button id="back-btn" onclick="goBack()">←</button>
   <div id="header-title">Worship Planner</div>
-  <button id="header-action">+</button>
+  <button id="header-action"></button>
+  <button onclick="startTour(true)" title="Help"
+    style="width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--teal);font-family:var(--font);font-weight:800;font-size:14px;cursor:pointer;flex-shrink:0;">?</button>
 </div>
 
 <div id="app-content">
@@ -1057,11 +1090,16 @@ function showScreen(name) {
     loadMembers();
     if (!currentUser) openModal('modal-who');
   }
+
+  // Auto-trigger tour on first visit
+  maybeTriggerTour(name);
 }
 
 // Fix: screens with hyphens need careful ID handling
 document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 $('screen-home').classList.add('active');
+// Auto-tour on first visit to home
+setTimeout(() => maybeTriggerTour('home'), 600);
 
 // ── WHO ARE YOU ───────────────────────────────────────────────────────────
 function saveWho() {
@@ -2477,6 +2515,151 @@ loadMembers();
 if (currentUser) {
   // Already know who they are
 }
+
+// ── ONBOARDING TOUR ───────────────────────────────────────────────────────
+const TOUR_STEPS = {
+  home: [
+    { target: '.home-tiles', title: 'Welcome to Worship Planner! 👋', text: 'Three tools in one app. Tap any tile to get started.' },
+    { target: '#screen-home .home-tile.tile-service', title: '🗓 Service Planner', text: 'Build the order of service — add songs with sheet music, keys, YouTube links and play-throughs. Email the plan to your team.' },
+    { target: '#screen-home .home-tile.tile-rota',    title: '👥 Rota Planner',   text: 'Full rota management — populate a term, auto-fill from availability, assign roles, and manage the availability bucket.' },
+    { target: '#screen-home .home-tile.tile-email',   title: '📧 Email Compiler', text: 'Build rich team emails with images, layouts and formatting. Save drafts, select mailing lists and copy HTML.' },
+  ],
+  service: [
+    { target: '#service-list',    title: 'Service List', text: 'All your saved service plans, newest first. Tap one to open it, or tap + to create a new one.' },
+    { target: '#service-search',  title: 'Search',       text: 'Search by date, service type or worship leader name.' },
+  ],
+  'service-detail': [
+    { target: '#service-info-card',  title: 'Service Info', text: 'Shows the date, service type and worship leader. Tap Edit to change any of these.' },
+    { target: '#service-typenotes',  title: 'Service Notes', text: 'Add notes about this specific service — e.g. Communion, Easter Sunday, special requirements.' },
+    { target: '#service-intro',      title: 'Opening Remarks', text: 'These words appear at the top of the team email, before the order of service.' },
+    { target: '.order-list, #order-empty', title: 'Order of Service', text: 'Tap + Song to add a song from the library — it loads sheet music, YouTube, SongSelect and play-through links automatically. Tap + Item for prayers, readings and announcements. Drag the ⠿ handle to reorder.' },
+    { target: '#service-outro',      title: 'Closing Remarks', text: 'These words appear at the bottom of the team email, after the team rota.' },
+  ],
+  rota: [
+    { target: '#termSelect',           title: 'Select a Term', text: 'Pick Spring, Summer or Autumn before using Populate or Add Practices.' },
+    { target: '#screen-rota .btn-row, #screen-rota div:first-child', title: 'Toolbar',    text: 'Populate creates all Sundays for the term. Auto-Fill assigns people based on availability and instruments. + Practices adds Thursday rehearsals. Gather Avail emails the team for their availability.' },
+    { target: '#eventList',            title: 'Events by Term', text: 'Events are grouped by term. Tap a term header to collapse it. Tap + on any event to expand roles and the availability bucket.' },
+    { target: '#eventList',            title: 'Assigning Roles', text: 'Drag a person from the Available bucket into a role card. Or tap the role card name to type directly. Orange names mean no availability response yet.' },
+    { target: '#eventList',            title: '🪣 Availability Bucket', text: 'Tap the bucket icon on any event to see Available / Declined / Pending. Drag people between buckets to update their status.' },
+  ],
+  email: [
+    { target: '.email-toolbar',     title: 'Formatting Toolbar', text: 'Bold, italic, underline, font size, colour, alignment. Use ⬜⬜ for a two-column layout. 📷 uploads an image to Firebase.' },
+    { target: '#email-canvas',      title: 'Email Canvas',       text: 'Click to place your cursor and start typing. Tap an image to select it, then use ↔ to resize.' },
+    { target: '#screen-email > div:last-child', title: 'Bottom Bar', text: 'Drafts saves and loads from Firebase. Mailing List selects teams and opens your email app. Copy HTML copies the full formatted email to clipboard ready to paste.' },
+  ],
+};
+
+let tourStepIndex = 0;
+let tourCurrentSection = 'home';
+
+function startTour(force) {
+  const section = currentSection;
+  tourCurrentSection = section;
+  const key = 'egbc_planner_toured_' + section;
+  if (!force && localStorage.getItem(key) === 'permanent') return;
+  const steps = TOUR_STEPS[section];
+  if (!steps?.length) { if (force) toast('No tour for this screen'); return; }
+  tourStepIndex = 0;
+  const cb = document.getElementById('tour-dont-show');
+  if (cb) cb.checked = false;
+  showTourStep(steps);
+}
+
+function showTourStep(steps) {
+  const step = steps[tourStepIndex];
+  if (!step) { endTour(); return; }
+  const el = document.querySelector(step.target);
+  const title = document.getElementById('tour-title');
+  const text  = document.getElementById('tour-text');
+  const count = document.getElementById('tour-count');
+  const nextBtn = document.getElementById('tour-next-btn');
+  const tooltip = document.getElementById('tour-tooltip');
+  const highlight = document.getElementById('tour-highlight');
+
+  title.textContent = step.title;
+  text.textContent  = step.text;
+  count.textContent = `${tourStepIndex + 1} / ${steps.length}`;
+  nextBtn.textContent = tourStepIndex < steps.length - 1 ? 'Next →' : 'Got it!';
+
+  document.getElementById('tour-overlay').classList.add('active');
+
+  if (el) {
+    const rect = el.getBoundingClientRect();
+    const pad  = 6;
+    highlight.style.left   = (rect.left   - pad) + 'px';
+    highlight.style.top    = (rect.top    - pad) + 'px';
+    highlight.style.width  = (rect.width  + pad*2) + 'px';
+    highlight.style.height = (rect.height + pad*2) + 'px';
+    highlight.style.display = 'block';
+
+    // Position tooltip below or above
+    const tipTop = rect.bottom + pad + 12;
+    const tipLeft = Math.max(16, Math.min(rect.left, window.innerWidth - 300));
+    tooltip.style.top  = (tipTop + 200 > window.innerHeight ? rect.top - 180 : tipTop) + 'px';
+    tooltip.style.left = tipLeft + 'px';
+    tooltip.style.width = '280px';
+  } else {
+    highlight.style.display = 'none';
+    tooltip.style.top  = '50%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+    tooltip.style.width = '280px';
+  }
+}
+
+function nextTourStep() {
+  const steps = TOUR_STEPS[tourCurrentSection];
+  tourStepIndex++;
+  if (tourStepIndex >= steps.length) { endTour(); return; }
+  const tip = document.getElementById('tour-tooltip');
+  if (tip) tip.style.transform = '';
+  showTourStep(steps);
+}
+
+function endTour() {
+  const cb = document.getElementById('tour-dont-show');
+  if (cb?.checked) {
+    localStorage.setItem('egbc_planner_toured_' + tourCurrentSection, 'permanent');
+  }
+  document.getElementById('tour-overlay').classList.remove('active');
+}
+
+// Auto-trigger on first visit to each section
+const _touredSections = new Set();
+function maybeTriggerTour(section) {
+  if (_touredSections.has(section)) return;
+  _touredSections.add(section);
+  if (localStorage.getItem('egbc_planner_toured_' + section) === 'permanent') return;
+  if (!localStorage.getItem('egbc_planner_toured_' + section)) {
+    setTimeout(() => {
+      if (currentSection === section) {
+        startTour(false);
+        localStorage.setItem('egbc_planner_toured_' + section, '1');
+      }
+    }, 500);
+  }
+}
 </script>
+
+<!-- ══ TOUR OVERLAY ══ -->
+<div id="tour-overlay">
+  <div class="tour-backdrop"></div>
+  <div class="tour-dismiss-layer" onclick="endTour()"></div>
+  <div class="tour-highlight" id="tour-highlight"></div>
+  <div class="tour-tooltip" id="tour-tooltip" onclick="event.stopPropagation()">
+    <div class="tour-tooltip-title" id="tour-title"></div>
+    <div class="tour-tooltip-text"  id="tour-text"></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.75;margin-bottom:10px;">
+      <input type="checkbox" id="tour-dont-show" style="width:16px;height:16px;accent-color:#9bc34a;cursor:pointer;" onclick="event.stopPropagation()">
+      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+    </div>
+    <div class="tour-btn-row">
+      <button class="tour-skip" onclick="endTour()">Skip</button>
+      <span class="tour-step-count" id="tour-count"></span>
+      <button class="tour-next" id="tour-next-btn" onclick="nextTourStep()">Next →</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
