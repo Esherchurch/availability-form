@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Youth Hub">
-<meta name="theme-color" content="#3d6263">
+<meta name="theme-color" content="#1e4a52">
 <title>Youth Hub</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -17,13 +17,13 @@
 
 <style>
 :root {
-  --teal: #3d6263;
-  --teal-dark: #2f4c4d;
-  --teal-light: #e6f0f0;
-  --border: #d1dfdf;
-  --bg: #f0f6f6;
+  --teal: #1e4a52;
+  --teal-dark: #163840;
+  --teal-light: #e2f0f2;
+  --border: #c2d8dc;
+  --bg: #eef6f7;
   --white: #ffffff;
-  --green: #9bc34a;
+  --green: #8fb832;
   --font: 'Montserrat', sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -51,7 +51,7 @@ body {
   align-items: center;
   gap: 12px;
   min-height: 60px;
-  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
+  box-shadow: 0 2px 16px rgba(0,180,200,0.15);
 }
 
 #back-btn {
@@ -151,18 +151,18 @@ body {
   position: relative; overflow: hidden;
   -webkit-user-select: none; user-select: none;
 }
-.tile:active { transform: scale(0.97); }
+.tile:active { transform: scale(0.97); box-shadow: 0 0 0 2px rgba(0,180,200,0.3); }
 .tile-icon { font-size: 28px; line-height: 1; }
 .tile-name { font-size: 13px; font-weight: 800; color: var(--teal); line-height: 1.2; }
 .tile-desc { font-size: 10px; color: var(--teal); opacity: 0.5; font-weight: 600; line-height: 1.3; }
 .tile-arrow { position: absolute; bottom: 14px; right: 14px; font-size: 16px; color: var(--teal); opacity: 0.2; }
 
-.tile-planner { border-top: 3px solid var(--teal); }
-.tile-board   { border-top: 3px solid #f59e0b; }
-.tile-worship { border-top: 3px solid #8b5cf6; }
-.tile-upload  { border-top: 3px solid var(--green); }
-.tile-library { border-top: 3px solid #2c6999; }
-.tile-news    { border-top: 3px solid #ef4444; }
+.tile-planner { border-top: 3px solid #00b4c8; }
+.tile-board   { border-top: 3px solid #8fb832; }
+.tile-worship { border-top: 3px solid #00b4c8; }
+.tile-upload  { border-top: 3px solid #8fb832; }
+.tile-library { border-top: 3px solid #1e4a52; }
+.tile-news    { border-top: 3px solid #00b4c8; }
 
 /* ── SECTION SCREENS ── */
 .section-screen { display: none; padding: 0 0 20px; }
@@ -384,7 +384,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   font-family: var(--font); font-size: 11px; font-weight: 800;
   color: var(--teal); cursor: pointer; white-space: nowrap;
 }
-.filter-pill.active { background: var(--teal); color: white; border-color: var(--teal); }
+.filter-pill.active { background: #8fb832; color: white; border-color: #8fb832; }
 .board-pages {
   display: flex; gap: 6px; padding: 10px 12px 0;
   overflow-x: auto; scrollbar-width: none;
@@ -395,7 +395,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   border: 1px solid var(--border); background: var(--bg);
   font-size: 11px; font-weight: 700; color: var(--teal); cursor: pointer;
 }
-.page-pill.active { background: var(--teal); color: white; border-color: var(--teal); }
+.page-pill.active { background: #1e4a52; color: white; border-color: #00b4c8; }
 .board-add-btn {
   margin: 12px 12px 0; width: calc(100% - 24px); padding: 13px;
   background: var(--teal); color: white; border: none; border-radius: 12px;
@@ -433,7 +433,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   color: var(--teal); cursor: pointer; text-align: center;
   text-transform: uppercase; letter-spacing: 0.05em;
 }
-.kb-tab.active { background: var(--teal); color: white; border-color: var(--teal); }
+.kb-tab.active { background: #1e4a52; color: white; border-color: #00b4c8; }
 .kb-search-box { margin: 10px 12px 0; position: relative; }
 .kb-search-input {
   width: 100%; padding: 12px 16px 12px 42px;
@@ -565,7 +565,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .tour-tooltip-text { font-size: 12px; opacity: 0.85; line-height: 1.4; margin-bottom: 14px; }
 .tour-btn-row { display: flex; justify-content: space-between; align-items: center; }
 .tour-skip { font-size: 11px; font-weight: 700; opacity: 0.6; cursor: pointer; background: none; border: none; color: white; padding: 0; }
-.tour-next { background: white; color: var(--teal); border: none; border-radius: 9999px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 800; cursor: pointer; }
+.tour-next { background: #8fb832; color: white; border: none; border-radius: 9999px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 800; cursor: pointer; }
 .tour-step-count { font-size: 10px; opacity: 0.5; }
 .tour-highlight { position: absolute; border-radius: 12px; box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3); pointer-events: none; z-index: 2; transition: all 0.3s; }
 
@@ -597,10 +597,10 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
   <!-- HOME -->
   <div id="home-screen">
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px 0;">
-      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+    <div style="background:var(--white);padding:16px 16px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);">
+      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=bdd037bd-8caf-436d-b09a-3174ecf5123c" alt="EGBC Youth Worship" style="height:56px;width:auto;display:block;background:white;">
       <div>
-        <div style="font-size:16px;font-weight:900;color:var(--teal);line-height:1.1;">Youth Hub</div>
+        <div style="font-size:16px;font-weight:900;color:var(--teal);line-height:1.1;">Youth Worship</div>
         <div style="font-size:10px;font-weight:700;color:var(--teal);opacity:0.5;text-transform:uppercase;letter-spacing:0.1em;">EGBC Youth Team</div>
       </div>
     </div>
@@ -646,11 +646,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
       </div>
     </div>
 
-    <!-- News feed on home -->
-    <div class="tiles-heading" style="margin-top:4px;">Latest News</div>
-    <div class="home-news" style="margin:0 12px 16px;">
-      <div class="news-items-list" id="home-news-list"><div class="news-empty">Loading news...</div></div>
-    </div>
+
   </div>
 
   <!-- YOUTH SERVICE PLANNER -->
@@ -1005,16 +1001,6 @@ async function loadNews() {
     if (badge) { if (unread > 0) { badge.textContent = unread > 9 ? '9+' : unread; badge.style.display = 'flex'; } else { badge.style.display = 'none'; } }
     window._newsItems = items;
 
-    // Render home news
-    const homeList = document.getElementById('home-news-list');
-    const homeItems = items.slice(0, 3);
-    if (!homeItems.length) { homeList.innerHTML = '<div class="news-empty">No news yet.</div>'; return; }
-    homeList.innerHTML = homeItems.map(item => `
-      <div class="news-item">
-        ${item.date ? `<div class="news-item-date">${item.date}</div>` : ''}
-        <div class="news-item-title">${item.title || ''}</div>
-        <div class="news-item-body">${item.body || ''}</div>
-      </div>`).join('');
   } catch(e) { window._newsItems = []; }
 }
 
@@ -1444,17 +1430,17 @@ async function emailSchedule() {
 async function loadBoard() {
   document.getElementById('notes-list').innerHTML = '<div class="loading-state">Loading board...</div>';
   try {
-    const snap = await db.collection('youthBoardState').doc('state').get();
+    const snap = await db.collection('worshipBoardState').doc('state').get();
     if (snap.exists) {
       const state = snap.data();
       boardNotes = state.notes || [];
       boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
     } else {
-      const saved = localStorage.getItem('youthBoard');
+      const saved = localStorage.getItem('worshipBoard2');
       if (saved) { const state = JSON.parse(saved); boardNotes = state.notes || []; boardPages = state.pages || [{ id: 'main', title: 'General Board' }]; }
     }
   } catch(e) {
-    const saved = localStorage.getItem('youthBoard');
+    const saved = localStorage.getItem('worshipBoard2');
     if (saved) { const state = JSON.parse(saved); boardNotes = state.notes || []; boardPages = state.pages || [{ id: 'main', title: 'General Board' }]; }
   }
   renderBoardPages(); renderNotes();
@@ -1500,8 +1486,8 @@ function react(noteId, key) {
 
 async function saveBoardState() {
   const state = { notes: boardNotes, pages: boardPages };
-  localStorage.setItem('youthBoard', JSON.stringify(state));
-  try { await db.collection('youthBoardState').doc('state').set(state); } catch(e) {}
+  localStorage.setItem('worshipBoard2', JSON.stringify(state));
+  try { await db.collection('worshipBoardState').doc('state').set(state); } catch(e) {}
 }
 
 function openAddNote() { document.getElementById('add-note-modal').classList.add('open'); }
@@ -1755,4 +1741,10 @@ const TOUR_STEPS = {
     { target:'.planner-top', title:'Youth Service Planner', text:'Pick a date, then select the service from the dropdown. Only services marked as Youth can be saved.' },
     { target:'#serviceDate', title:'Step 1 — Pick the Date', text:'Select the Sunday you\'re planning for. The service dropdown will populate from the events already in the rota.' },
     { target:'#eventSelect', title:'Step 2 — Select Service', text:'Choose the youth service. If it\'s not a youth service, you\'ll see a view-only banner and won\'t be able to save changes.' },
-    
+    { target:'#service-order', title:'Order of Service', text:'Drag items to reorder. Tap a song row to expand it and see keys, notes and sheet music. Tap ▶ to collapse.' },
+    { target:'#planner-save-btn', title:'Save & Email', text:'Save stores the plan to Firebase. Email copies the formatted plan to your clipboard and opens your email app.' },
+  ],
+  board: [
+    { target:'.board-add-btn', title:'Idea Pin Board', text:'Tap here to pin a new idea — a song suggestion, event idea, prayer request, anything the team should see.' },
+    { target:'#board-filters', title:'Filter by Category', text:'Use these chips to filter by type. Tap Songs to see only song suggestions, and so on.' },
+    { target:'.notes-list', title:'React to Ideas', text:'Tap ❤️ 👍 👎 🙌 on
