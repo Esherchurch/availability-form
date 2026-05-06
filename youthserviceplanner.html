@@ -2,1855 +2,1004 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Youth Hub">
-<meta name="theme-color" content="#3d6263">
-<title>Youth Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGBC Youth Service Planner</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <style>
-:root {
-  --teal: #3d6263;
-  --teal-dark: #2f4c4d;
-  --teal-light: #e6f0f0;
-  --border: #d1dfdf;
-  --bg: #f0f6f6;
-  --white: #ffffff;
-  --green: #9bc34a;
-  --font: 'Montserrat', sans-serif;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-}
+    body { font-family: 'Montserrat', sans-serif; background-color: #f0f6f6; }
 
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    .styled-input {
+        background-color: #ffffff;
+        border: 1px solid #d1dfdf;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-weight: 800;
+        color: #3d6263;
+        transition: all 0.2s;
+        height: auto;
+        overflow: hidden;
+    }
+    .styled-input:focus {
+        outline: none;
+        border-color: #3d6263;
+        box-shadow: 0 0 0 3px rgba(61, 98, 99, 0.1);
+    }
 
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
-  overflow-x: hidden;
-}
+    .btn-primary {
+        background-color: #3d6263;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 9999px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s;
+    }
+    .btn-primary:hover { background-color: #2f4c4d; transform: translateY(-1px); }
 
-/* ── HEADER ── */
-#app-header {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 200;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
-  padding: calc(var(--safe-top) + 10px) 16px 10px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 60px;
-  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
-}
+    .btn-secondary {
+        background-color: #f0f6f6;
+        color: #3d6263;
+        border: 2px solid #3d6263;
+        padding: 0.75rem 1.5rem;
+        border-radius: 9999px;
+        font-weight: 800;
+        transition: all 0.2s;
+    }
+    .btn-secondary:hover { background-color: #ffffff; }
 
-#back-btn {
-  display: none;
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--teal);
-  font-size: 18px;
-  cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-weight: 800;
-}
-#back-btn.visible { display: flex; }
+    .drag-handle {
+        cursor: grab;
+        color: #d1dfdf;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+    }
 
-#header-title {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--teal);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  line-height: 1.2;
-}
+    .rota-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 0.5rem;
+    }
+    .rota-table th {
+        text-align: left;
+        padding: 1rem;
+        color: #3d6263;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 800;
+    }
+    .rota-table tr { background-color: white; }
+    .rota-table td {
+        padding: 1rem;
+        border-top: 1px solid #d1dfdf;
+        border-bottom: 1px solid #d1dfdf;
+    }
+    .rota-table tr td:first-child { border-left: 1px solid #d1dfdf; border-radius: 1rem 0 0 1rem; font-weight: 800; color: #3d6263; }
+    .rota-table tr td:last-child { border-right: 1px solid #d1dfdf; border-radius: 0 1rem 1rem 0; }
 
-#header-help {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--teal);
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
+    textarea { resize: none; }
 
-/* ── MAIN CONTENT ── */
-#app-content {
-  padding-top: calc(var(--safe-top) + 70px);
-  padding-bottom: calc(var(--safe-bottom) + 20px);
-  min-height: 100vh;
-}
+    .collapse-btn {
+        transition: transform 0.2s;
+        font-size: 1.2rem;
+    }
+    .is-collapsed .collapse-btn {
+        transform: rotate(-90deg);
+    }
 
-/* ── HOME ── */
-#home-screen { display: block; }
+    /* ── Serve count badge ── */
+    .serve-count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2rem;
+        height: 2rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        padding: 0 0.5rem;
+        background-color: #e6f0f0;
+        color: #3d6263;
+        border: 1.5px solid #d1dfdf;
+        transition: all 0.2s;
+    }
+    .serve-count-badge.is-peak {
+        background-color: #3d6263;
+        color: #ffffff;
+        border-color: #3d6263;
+        box-shadow: 0 2px 8px rgba(61,98,99,0.3);
+    }
+    .serve-count-badge.hidden-badge {
+        visibility: hidden;
+    }
 
-.home-news {
-  margin: 0 12px 16px;
-  background: var(--white);
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-.news-header-bar {
-  padding: 12px 16px 8px;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.news-header-bar h3 {
-  font-size: 10px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal);
-}
-.news-items-list { padding: 0; }
-.news-item { padding: 12px 16px; border-bottom: 1px solid var(--bg); }
-.news-item:last-child { border-bottom: none; }
-.news-item-date { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #a0b0b0; margin-bottom: 3px; }
-.news-item-title { font-size: 13px; font-weight: 800; color: var(--teal); margin-bottom: 4px; line-height: 1.3; }
-.news-item-body { font-size: 12px; color: #555; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.news-item-body img { max-width: 100%; border-radius: 8px; margin: 4px 0; }
-.news-item-body a { color: var(--teal); }
-.news-empty { padding: 20px 16px; text-align: center; font-size: 12px; color: #a0b0b0; font-weight: 600; }
+    /* ── Email modal overlay ── */
+    #emailModal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.35);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    #emailModal.active { display: flex; }
+    #emailModalBox {
+        background: white;
+        border-radius: 1.5rem;
+        padding: 2rem;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(61,98,99,0.15);
+        font-family: 'Montserrat', sans-serif;
+    }
 
-/* ── TILES ── */
-.tiles-heading {
-  padding: 0 16px 10px;
-  font-size: 9px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.2em;
-  color: var(--teal); opacity: 0.5;
-}
-.tiles-grid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 12px; padding: 0 12px 20px;
-}
-.tile {
-  background: var(--white);
-  border-radius: 20px; border: 1px solid var(--border);
-  padding: 20px 16px; cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-  display: flex; flex-direction: column; gap: 10px;
-  position: relative; overflow: hidden;
-  -webkit-user-select: none; user-select: none;
-}
-.tile:active { transform: scale(0.97); }
-.tile-icon { font-size: 28px; line-height: 1; }
-.tile-name { font-size: 13px; font-weight: 800; color: var(--teal); line-height: 1.2; }
-.tile-desc { font-size: 10px; color: var(--teal); opacity: 0.5; font-weight: 600; line-height: 1.3; }
-.tile-arrow { position: absolute; bottom: 14px; right: 14px; font-size: 16px; color: var(--teal); opacity: 0.2; }
+    /* ── Help button ── */
+    #helpBtn {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 900;
+        width: 38px;
+        height: 38px;
+        border-radius: 9999px;
+        background: #ffffff;
+        border: 1.5px solid #d1dfdf;
+        color: #3d6263;
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        box-shadow: 0 2px 12px rgba(61,98,99,0.12);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+    #helpBtn:hover {
+        background: #3d6263;
+        color: #ffffff;
+        border-color: #3d6263;
+        box-shadow: 0 4px 16px rgba(61,98,99,0.25);
+        transform: translateY(-1px);
+    }
 
-.tile-planner { border-top: 3px solid var(--teal); }
-.tile-board   { border-top: 3px solid #f59e0b; }
-.tile-worship { border-top: 3px solid #8b5cf6; }
-.tile-upload  { border-top: 3px solid var(--green); }
-.tile-library { border-top: 3px solid #2c6999; }
-.tile-news    { border-top: 3px solid #ef4444; }
+    /* ── Read-only overlay banner ── */
+    #readonlyBanner {
+        display: none;
+        position: sticky;
+        top: 0;
+        z-index: 500;
+        background: #fff8e6;
+        border-bottom: 2px solid #e0c060;
+        padding: 12px 24px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 800;
+        color: #7a5500;
+        letter-spacing: 0.02em;
+    }
+    #readonlyBanner.visible { display: block; }
 
-/* ── SECTION SCREENS ── */
-.section-screen { display: none; padding: 0 0 20px; }
-.section-screen.active { display: block; }
-
-/* ══════════════════════════════════════════════════════
-   YOUTH SERVICE PLANNER STYLES
-══════════════════════════════════════════════════════ */
-.styled-input {
-  background-color: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
-  font-family: var(--font);
-  font-weight: 700;
-  color: var(--teal);
-  transition: all 0.2s;
-  height: auto;
-  overflow: hidden;
-  width: 100%;
-  outline: none;
-  font-size: 14px;
-}
-.styled-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(61,98,99,0.1); }
-textarea.styled-input { resize: none; }
-select.styled-input { appearance: none; cursor: pointer; }
-
-.planner-top {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
-}
-.planner-date-row { display: flex; gap: 8px; }
-.planner-date-row input,
-.planner-date-row select { flex: 1; }
-
-.planner-leader {
-  font-size: 11px; font-weight: 700; color: var(--teal);
-  opacity: 0.6; padding: 0 2px;
-}
-.planner-leader span { font-weight: 800; opacity: 1; }
-
-.readonly-banner {
-  display: none;
-  background: #fff8e6;
-  border-bottom: 2px solid #e0c060;
-  padding: 10px 16px;
-  font-size: 12px; font-weight: 800;
-  color: #7a5500; text-align: center;
-}
-.readonly-banner.visible { display: block; }
-
-.planner-section-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 12px 8px; flex-wrap: wrap; gap: 8px;
-}
-.planner-section-header h2 { font-size: 15px; font-weight: 800; color: var(--teal); }
-.planner-btn-row { display: flex; gap: 6px; }
-
-.planner-btn {
-  padding: 8px 14px;
-  border-radius: 9999px;
-  font-family: var(--font); font-size: 12px; font-weight: 800;
-  cursor: pointer; border: none;
-  text-transform: uppercase; letter-spacing: 0.04em;
-}
-.planner-btn-secondary {
-  background: var(--bg); color: var(--teal);
-  border: 1.5px solid var(--border);
-}
-.planner-btn-primary { background: var(--teal); color: white; }
-
-.song-block {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 1.5rem;
-  margin: 0 12px 10px;
-  overflow: visible;
-}
-.song-block-header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 14px;
-}
-.drag-handle {
-  cursor: grab; color: var(--border);
-  font-size: 1.2rem; display: flex; align-items: center;
-  flex-shrink: 0; touch-action: none;
-}
-.song-number {
-  font-size: 9px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.1em; color: var(--teal); opacity: 0.5;
-  white-space: nowrap; min-width: 44px;
-}
-.song-title-wrap { flex: 1; position: relative; min-width: 0; }
-.song-title-input {
-  width: 100%; background: var(--bg);
-  border: 1px solid var(--border); border-radius: 0.5rem;
-  padding: 8px 10px; font-family: var(--font);
-  font-weight: 700; font-size: 13px; color: var(--teal); outline: none;
-}
-.song-title-input:focus { border-color: var(--teal); }
-.suggest-box {
-  position: absolute; top: 100%; left: 0; right: 0;
-  background: var(--white); border: 1px solid var(--border);
-  border-radius: 0.75rem; box-shadow: 0 8px 24px rgba(61,98,99,0.15);
-  z-index: 300; overflow: hidden; margin-top: 2px; display: none;
-}
-.suggest-item {
-  padding: 10px 14px; font-size: 13px; font-weight: 700;
-  color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg);
-}
-.suggest-item:last-child { border-bottom: none; }
-.suggest-item:hover { background: var(--bg); }
-.collapse-btn {
-  width: 28px; height: 28px; border: none; background: none;
-  font-size: 11px; color: var(--teal); cursor: pointer;
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: transform 0.2s;
-}
-.is-collapsed .collapse-btn { transform: rotate(-90deg); }
-.remove-btn {
-  width: 28px; height: 28px; border: none; background: none;
-  font-size: 1.3rem; color: var(--border); cursor: pointer;
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: color 0.15s;
-}
-.remove-btn:hover { color: #b22222; }
-
-.song-content { padding: 0 14px 14px; border-top: 1px solid var(--bg); }
-.song-content.hidden { display: none; }
-
-.serve-count-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 2rem; height: 2rem; border-radius: 9999px;
-  font-size: 0.75rem; font-weight: 800; padding: 0 0.5rem;
-  background: #e6f0f0; color: var(--teal); border: 1.5px solid var(--border);
-  transition: all 0.2s; flex-shrink: 0;
-}
-.serve-count-badge.is-peak { background: var(--teal); color: white; border-color: var(--teal); }
-.serve-count-badge.hidden-badge { visibility: hidden; }
-
-.keys-row { display: flex; gap: 6px; margin-top: 10px; }
-.keys-row select { flex: 1; font-size: 12px; padding: 8px 6px; }
-
-.song-note { margin-top: 8px; }
-
-.key-info-box {
-  margin-top: 8px; padding: 8px 10px;
-  background: var(--bg); border-radius: 8px;
-  font-size: 11px; font-weight: 600; color: var(--teal); line-height: 1.5;
-}
-.files-box {
-  margin-top: 8px; padding: 10px 12px;
-  background: var(--bg); border-radius: 10px; font-size: 11px;
-}
-.files-box a {
-  display: inline-block; background: var(--teal); color: white;
-  padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
-  text-decoration: none; margin: 2px 2px 0 0;
-}
-
-.item-block {
-  background: var(--bg); border: 1px solid transparent;
-  border-radius: 1rem; margin: 0 12px 8px;
-  display: flex; align-items: center; gap: 8px; padding: 12px 14px;
-}
-.item-block:hover { border-color: var(--border); }
-.item-title-input {
-  flex: 1; background: transparent; border: none;
-  font-family: var(--font); font-weight: 700; font-size: 15px;
-  color: var(--teal); outline: none; min-width: 0;
-}
-
-.rota-table { width: 100%; border-collapse: collapse; }
-.rota-table th {
-  text-align: left; padding: 8px 12px;
-  font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--teal); font-weight: 800; border-bottom: 1px solid var(--border);
-}
-.rota-table td { padding: 10px 12px; font-size: 13px; font-weight: 600; color: #333; border-bottom: 1px solid var(--bg); }
-.rota-table td:first-child { font-weight: 800; color: var(--teal); }
-.rota-table textarea {
-  width: 100%; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 8px; padding: 6px 8px; font-family: var(--font);
-  font-size: 12px; font-weight: 600; color: var(--teal); outline: none; resize: none; overflow: hidden;
-}
-
-.planner-actions {
-  display: flex; gap: 10px; padding: 16px 12px 0;
-}
-.planner-actions button { flex: 1; padding: 14px; border: none; border-radius: 12px; font-family: var(--font); font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
-
-/* readonly */
-body.readonly-mode .styled-input,
-body.readonly-mode .song-title-input,
-body.readonly-mode .item-title-input,
-body.readonly-mode .rota-table textarea {
-  background: #f4f8f8 !important; color: #a0b0b0 !important; pointer-events: none !important;
-}
-body.readonly-mode .song-block,
-body.readonly-mode .item-block { opacity: 0.65; pointer-events: none; }
-body.readonly-mode #planner-save-btn,
-body.readonly-mode #planner-email-btn,
-body.readonly-mode #add-song-btn,
-body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
-
-/* ── BOARD (identical to worship hub) ── */
-.board-filters {
-  display: flex; gap: 8px; padding: 12px 12px 0;
-  overflow-x: auto; scrollbar-width: none;
-}
-.board-filters::-webkit-scrollbar { display: none; }
-.filter-pill {
-  flex-shrink: 0; padding: 6px 14px; border-radius: 9999px;
-  border: 1.5px solid var(--border); background: var(--white);
-  font-family: var(--font); font-size: 11px; font-weight: 800;
-  color: var(--teal); cursor: pointer; white-space: nowrap;
-}
-.filter-pill.active { background: var(--teal); color: white; border-color: var(--teal); }
-.board-pages {
-  display: flex; gap: 6px; padding: 10px 12px 0;
-  overflow-x: auto; scrollbar-width: none;
-}
-.board-pages::-webkit-scrollbar { display: none; }
-.page-pill {
-  flex-shrink: 0; padding: 5px 12px; border-radius: 9999px;
-  border: 1px solid var(--border); background: var(--bg);
-  font-size: 11px; font-weight: 700; color: var(--teal); cursor: pointer;
-}
-.page-pill.active { background: var(--teal); color: white; border-color: var(--teal); }
-.board-add-btn {
-  margin: 12px 12px 0; width: calc(100% - 24px); padding: 13px;
-  background: var(--teal); color: white; border: none; border-radius: 12px;
-  font-family: var(--font); font-size: 13px; font-weight: 800;
-  text-transform: uppercase; cursor: pointer; letter-spacing: 0.05em;
-}
-.notes-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-.note-card { border-radius: 16px; padding: 14px; position: relative; }
-.note-card-song    { background: linear-gradient(135deg, #fef9c3, #fef08a); }
-.note-card-event   { background: linear-gradient(135deg, #fce7f3, #fda4af); }
-.note-card-av      { background: linear-gradient(135deg, #eff6ff, #93c5fd); }
-.note-card-general { background: linear-gradient(135deg, #f0fdf4, #86efac); }
-.note-card-prayer  { background: linear-gradient(135deg, #f5f3ff, #d8b4fe); }
-.note-card-other   { background: linear-gradient(135deg, #fff7ed, #fdba74); }
-.note-card-cat { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(0,0,0,0.4); margin-bottom: 5px; }
-.note-card-title { font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #1a0a00; margin-bottom: 4px; line-height: 1.2; }
-.note-card-body { font-family: 'Caveat', cursive; font-size: 15px; color: #2d1a00; line-height: 1.4; margin-bottom: 8px; white-space: pre-wrap; }
-.note-card-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
-.note-card-meta { font-size: 10px; font-weight: 700; color: rgba(0,0,0,0.4); }
-.note-reactions { display: flex; gap: 5px; }
-.reaction-btn {
-  background: rgba(255,255,255,0.5); border: 1px solid rgba(0,0,0,0.1);
-  border-radius: 9999px; padding: 3px 9px; font-size: 12px; cursor: pointer;
-  display: flex; align-items: center; gap: 2px;
-  font-family: var(--font); font-weight: 700; color: rgba(0,0,0,0.6);
-}
-.reaction-btn.active { background: rgba(255,255,255,0.85); }
-
-/* ── KB (worship resources - identical) ── */
-.kb-tabs { display: flex; gap: 6px; padding: 12px 12px 0; }
-.kb-tab {
-  flex: 1; padding: 10px; border-radius: 12px;
-  border: 1.5px solid var(--border); background: var(--white);
-  font-family: var(--font); font-size: 11px; font-weight: 800;
-  color: var(--teal); cursor: pointer; text-align: center;
-  text-transform: uppercase; letter-spacing: 0.05em;
-}
-.kb-tab.active { background: var(--teal); color: white; border-color: var(--teal); }
-.kb-search-box { margin: 10px 12px 0; position: relative; }
-.kb-search-input {
-  width: 100%; padding: 12px 16px 12px 42px;
-  border: 1.5px solid var(--border); border-radius: 12px;
-  font-family: var(--font); font-size: 14px; font-weight: 600;
-  color: var(--teal); background: var(--white); outline: none;
-}
-.kb-search-input:focus { border-color: var(--teal); }
-.kb-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--teal); opacity: 0.4; font-size: 16px; }
-.kb-quick-tags { display: flex; gap: 6px; padding: 8px 12px 0; overflow-x: auto; scrollbar-width: none; }
-.kb-quick-tags::-webkit-scrollbar { display: none; }
-.kb-quick-tag {
-  flex-shrink: 0; padding: 5px 12px; border-radius: 9999px;
-  border: 1px solid var(--border); background: var(--bg);
-  font-size: 11px; font-weight: 700; color: var(--teal); cursor: pointer;
-}
-.kb-cards { padding: 10px 12px 0; display: flex; flex-direction: column; gap: 8px; }
-.kb-card {
-  background: var(--white); border: 1px solid var(--border);
-  border-radius: 14px; padding: 14px; cursor: pointer; transition: transform 0.1s;
-}
-.kb-card:active { transform: scale(0.98); }
-.kb-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-.kb-card-type { font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 9999px; }
-.kb-card-type-video { background: #eff6ff; color: #1d4ed8; }
-.kb-card-type-note  { background: #fefce8; color: #854d0e; }
-.kb-card-type-image { background: #f0fdf4; color: #166534; }
-.kb-card-title { font-size: 14px; font-weight: 800; color: var(--teal); margin-bottom: 5px; line-height: 1.3; }
-.kb-card-bullets { font-size: 11px; color: var(--teal); opacity: 0.6; line-height: 1.5; }
-.kb-section-label {
-  padding: 14px 12px 4px; font-size: 9px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal); opacity: 0.4;
-  display: flex; align-items: center; gap: 8px;
-}
-.kb-section-label::before { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-/* ── SONG LIBRARY (identical) ── */
-.library-search { margin: 12px 12px 0; position: relative; }
-.library-search input {
-  width: 100%; padding: 13px 16px 13px 42px;
-  border: 1.5px solid var(--border); border-radius: 12px;
-  font-family: var(--font); font-size: 14px; font-weight: 600;
-  color: var(--teal); background: var(--white); outline: none;
-}
-.library-search input:focus { border-color: var(--teal); }
-.library-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--teal); opacity: 0.4; font-size: 16px; }
-.song-list { padding: 10px 12px 0; }
-.song-item {
-  background: var(--white); border-radius: 12px; border: 1px solid var(--border);
-  padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: transform 0.1s;
-}
-.song-item:active { transform: scale(0.98); }
-.song-item-title { font-size: 14px; font-weight: 800; color: var(--teal); margin-bottom: 4px; }
-.song-item-meta { display: flex; gap: 6px; flex-wrap: wrap; }
-.song-meta-badge { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: var(--bg); color: var(--teal); border: 1px solid var(--border); }
-.song-detail { padding: 12px; }
-.song-detail-title { font-size: 22px; font-weight: 800; color: var(--teal); margin-bottom: 8px; line-height: 1.2; }
-.song-detail-links { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.song-detail-link { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 800; text-decoration: none; text-transform: uppercase; }
-.song-link-youtube { background: #ff0000; color: white; }
-.song-link-ccli    { background: var(--teal); color: white; }
-.song-detail-files { margin-top: 8px; }
-.song-files-heading { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--teal); opacity: 0.5; margin-bottom: 8px; padding: 0 2px; }
-.song-file-card { background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.song-file-info { flex: 1; min-width: 0; }
-.song-file-key { font-size: 10px; font-weight: 800; color: var(--teal); text-transform: uppercase; }
-.song-file-type { font-size: 11px; font-weight: 700; color: var(--teal); opacity: 0.6; }
-.song-file-open { background: var(--teal); color: white; border: none; border-radius: 8px; padding: 7px 14px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; flex-shrink: 0; }
-
-/* ── MUSIC UPLOADER (identical) ── */
-.uploader-wrap { padding: 12px; }
-.uploader-info { background: var(--white); border-radius: 14px; border: 1px solid var(--border); padding: 16px; margin-bottom: 14px; }
-.uploader-info-title { font-size: 13px; font-weight: 800; color: var(--teal); margin-bottom: 6px; }
-.uploader-info-text { font-size: 12px; color: var(--teal); opacity: 0.6; line-height: 1.5; }
-.upload-form { background: var(--white); border-radius: 14px; border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.form-field label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--teal); margin-bottom: 6px; }
-.form-input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--teal); background: var(--bg); outline: none; }
-.form-input:focus { border-color: var(--teal); background: var(--white); }
-.form-select { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--teal); background: var(--bg); outline: none; }
-.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.upload-file-area { border: 2px dashed var(--border); border-radius: 12px; padding: 24px; text-align: center; transition: all 0.2s; background: var(--bg); position: relative; overflow: hidden; cursor: pointer; }
-.upload-file-area:active { border-color: var(--teal); background: var(--teal-light); }
-.upload-file-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; font-size: 0; }
-.upload-file-icon { font-size: 28px; margin-bottom: 8px; }
-.upload-file-text { font-size: 12px; font-weight: 700; color: var(--teal); opacity: 0.6; }
-.upload-file-name { margin-top: 6px; font-size: 11px; font-weight: 800; color: var(--teal); }
-.btn-upload { width: 100%; padding: 14px; background: var(--teal); color: white; border: none; border-radius: 12px; font-family: var(--font); font-size: 14px; font-weight: 800; text-transform: uppercase; cursor: pointer; letter-spacing: 0.05em; }
-.btn-upload:disabled { opacity: 0.4; cursor: not-allowed; }
-.upload-progress { display: none; background: var(--bg); border-radius: 8px; overflow: hidden; height: 8px; }
-.upload-progress-bar { height: 100%; background: var(--teal); border-radius: 8px; width: 0%; transition: width 0.3s; }
-.upload-status { font-size: 12px; font-weight: 700; color: var(--teal); text-align: center; min-height: 16px; }
-
-/* ── KB MODAL (identical) ── */
-#kb-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; justify-content: center; }
-#kb-modal.open { display: flex; }
-.kb-modal-box { background: var(--white); border-radius: 24px 24px 0 0; width: 100%; max-height: 90vh; overflow-y: auto; padding: 20px 16px calc(var(--safe-bottom) + 20px); }
-.kb-modal-close { float: right; width: 32px; height: 32px; border-radius: 50%; background: var(--bg); border: none; font-size: 16px; font-weight: 800; cursor: pointer; color: var(--teal); display: flex; align-items: center; justify-content: center; }
-.kb-modal-breadcrumb { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal); opacity: 0.4; margin-bottom: 6px; }
-.kb-modal-title { font-size: 20px; font-weight: 800; color: var(--teal); margin-bottom: 14px; line-height: 1.2; clear: both; }
-.kb-modal-steps { background: var(--bg); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-.kb-modal-steps-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal); opacity: 0.5; margin-bottom: 12px; }
-.kb-modal-step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
-.kb-modal-step:last-child { margin-bottom: 0; }
-.kb-step-num { width: 24px; height: 24px; background: var(--teal); color: white; border-radius: 50%; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.kb-step-text { font-size: 13px; font-weight: 600; color: var(--teal); line-height: 1.4; padding-top: 2px; }
-
-/* ── ADD NOTE MODAL (identical) ── */
-#add-note-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; }
-#add-note-modal.open { display: flex; }
-.add-note-box { background: var(--white); border-radius: 24px 24px 0 0; width: 100%; padding: 20px 16px calc(var(--safe-bottom) + 20px); max-height: 92vh; overflow-y: auto; }
-.add-note-title { font-size: 18px; font-weight: 800; color: var(--teal); margin-bottom: 16px; }
-.add-note-form { display: flex; flex-direction: column; gap: 12px; }
-.add-note-textarea { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: var(--font); font-size: 14px; color: var(--teal); background: var(--bg); outline: none; resize: none; min-height: 80px; }
-.add-note-btn-row { display: flex; gap: 8px; }
-.btn-cancel { flex: 1; padding: 13px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--white); font-family: var(--font); font-size: 13px; font-weight: 800; color: var(--teal); cursor: pointer; }
-.btn-pin { flex: 2; padding: 13px; border-radius: 10px; border: none; background: var(--teal); font-family: var(--font); font-size: 13px; font-weight: 800; color: white; cursor: pointer; text-transform: uppercase; }
-
-/* ── EMAIL MODAL ── */
-#emailModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 600; align-items: flex-end; justify-content: center; }
-#emailModal.active { display: flex; }
-#emailModalBox { background: white; border-radius: 24px 24px 0 0; padding: 24px 20px calc(var(--safe-bottom) + 20px); width: 100%; font-family: var(--font); }
-
-/* ── TOUR (identical) ── */
-#tour-overlay { display: none; position: fixed; inset: 0; z-index: 900; pointer-events: none; }
-#tour-overlay.active { display: block; pointer-events: all; }
-.tour-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); pointer-events: none; z-index: 0; }
-.tour-tooltip { position: absolute; background: var(--teal); color: white; border-radius: 16px; padding: 16px; max-width: calc(100vw - 40px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); pointer-events: all; z-index: 3; cursor: default; }
-.tour-tooltip-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
-.tour-tooltip-text { font-size: 12px; opacity: 0.85; line-height: 1.4; margin-bottom: 14px; }
-.tour-btn-row { display: flex; justify-content: space-between; align-items: center; }
-.tour-skip { font-size: 11px; font-weight: 700; opacity: 0.6; cursor: pointer; background: none; border: none; color: white; padding: 0; }
-.tour-next { background: white; color: var(--teal); border: none; border-radius: 9999px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 800; cursor: pointer; }
-.tour-step-count { font-size: 10px; opacity: 0.5; }
-.tour-highlight { position: absolute; border-radius: 12px; box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3); pointer-events: none; z-index: 2; transition: all 0.3s; }
-
-/* ── SHARED ── */
-.skeleton { background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 10px; }
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.loading-state { padding: 40px 20px; text-align: center; color: var(--teal); opacity: 0.4; font-size: 12px; font-weight: 700; }
-.empty-state { padding: 40px 20px; text-align: center; }
-.empty-state-icon { font-size: 40px; margin-bottom: 10px; }
-.empty-state-text { font-size: 13px; font-weight: 700; color: var(--teal); opacity: 0.4; }
-mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.fade-in { animation: fadeIn 0.2s ease; }
-
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
+    /* ── Read-only state — grey out editable areas ── */
+    body.readonly-mode .styled-input,
+    body.readonly-mode textarea.styled-input,
+    body.readonly-mode input.styled-input,
+    body.readonly-mode select.styled-input {
+        background-color: #f4f8f8 !important;
+        color: #a0b0b0 !important;
+        cursor: not-allowed !important;
+        pointer-events: none;
+    }
+    body.readonly-mode .song-block,
+    body.readonly-mode .item-block {
+        opacity: 0.65;
+        pointer-events: none;
+    }
+    body.readonly-mode .drag-handle { cursor: not-allowed; }
+    body.readonly-mode #addSongBtn,
+    body.readonly-mode #addItemBtn,
+    body.readonly-mode #saveBtn,
+    body.readonly-mode #emailBtn {
+        opacity: 0.35;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    body.readonly-mode #introBox,
+    body.readonly-mode #outroBox,
+    body.readonly-mode #serviceTypeNotes {
+        background-color: #f4f8f8 !important;
+        color: #a0b0b0 !important;
+        cursor: not-allowed !important;
+        pointer-events: none;
+    }
 </style>
-</head>
-<body>
 
-<!-- HEADER -->
-<div id="app-header">
-  <button id="back-btn" onclick="goBack()">←</button>
-  <div id="header-title">Youth Hub</div>
-  <button id="header-help" onclick="startTour(true)" title="Help">?</button>
-</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-<!-- MAIN CONTENT -->
-<div id="app-content">
-
-  <!-- HOME -->
-  <div id="home-screen">
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px 0;">
-      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
-      <div>
-        <div style="font-size:16px;font-weight:900;color:var(--teal);line-height:1.1;">Youth Hub</div>
-        <div style="font-size:10px;font-weight:700;color:var(--teal);opacity:0.5;text-transform:uppercase;letter-spacing:0.1em;">EGBC Youth Team</div>
-      </div>
-    </div>
-
-    <div class="tiles-heading" style="margin-top:12px;">Tools</div>
-    <div class="tiles-grid" id="tiles-grid">
-      <div class="tile tile-planner" onclick="openSection('planner')">
-        <div class="tile-icon">📋</div>
-        <div class="tile-name">Service Planner</div>
-        <div class="tile-desc">Plan songs, order & team</div>
-        <div class="tile-arrow">›</div>
-      </div>
-      <div class="tile tile-board" onclick="openSection('board')">
-        <div class="tile-icon">📌</div>
-        <div class="tile-name">Idea Pin Board</div>
-        <div class="tile-desc">Suggestions & ideas from the team</div>
-        <div class="tile-arrow">›</div>
-      </div>
-      <div class="tile tile-worship" onclick="openSection('worship')">
-        <div class="tile-icon">🎸</div>
-        <div class="tile-name">Worship Resources</div>
-        <div class="tile-desc">Play-through videos & training</div>
-        <div class="tile-arrow">›</div>
-      </div>
-      <div class="tile tile-upload" onclick="openSection('upload')">
-        <div class="tile-icon">🎵</div>
-        <div class="tile-name">Music Uploader</div>
-        <div class="tile-desc">Add sheet music to the library</div>
-        <div class="tile-arrow">›</div>
-      </div>
-      <div class="tile tile-library" onclick="openSection('library')">
-        <div class="tile-icon">📚</div>
-        <div class="tile-name">Song Library</div>
-        <div class="tile-desc">Browse & find sheet music</div>
-        <div class="tile-arrow">›</div>
-      </div>
-      <div class="tile tile-news" onclick="openSection('news')" id="tile-news">
-        <div class="tile-icon">📣</div>
-        <div class="tile-name">Latest News</div>
-        <div class="tile-desc">Team updates & announcements</div>
-        <div class="tile-arrow">›</div>
-        <div id="news-badge" style="display:none;position:absolute;top:12px;right:12px;background:#ef4444;color:white;font-size:10px;font-weight:800;min-width:20px;height:20px;border-radius:9999px;align-items:center;justify-content:center;padding:0 5px;"></div>
-      </div>
-    </div>
-
-    <!-- News feed on home -->
-    <div class="tiles-heading" style="margin-top:4px;">Latest News</div>
-    <div class="home-news" style="margin:0 12px 16px;">
-      <div class="news-items-list" id="home-news-list"><div class="news-empty">Loading news...</div></div>
-    </div>
-  </div>
-
-  <!-- YOUTH SERVICE PLANNER -->
-  <div id="section-planner" class="section-screen">
-    <div class="readonly-banner" id="readonly-banner">👁️ View only — this is not a youth service. You can browse but cannot make changes.</div>
-
-    <div class="planner-top">
-      <div class="planner-date-row">
-        <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input">
-        <select id="eventSelect" onchange="selectEvent()" class="styled-input">
-          <option value="">Select Service…</option>
-        </select>
-      </div>
-      <input id="serviceTypeNotes" class="styled-input" placeholder="General Notes">
-      <div class="planner-leader">Leader: <span id="leaderName">None</span></div>
-    </div>
-
-    <div style="padding:10px 12px 0;">
-      <textarea id="introBox" class="styled-input" placeholder="Opening remarks (appears in team email)…" rows="2"></textarea>
-    </div>
-
-    <div class="planner-section-header">
-      <h2>Order of Service</h2>
-      <div class="planner-btn-row">
-        <button id="add-song-btn" class="planner-btn planner-btn-secondary" onclick="addSong()">+ Song</button>
-        <button id="add-item-btn" class="planner-btn planner-btn-secondary" onclick="addItem()">+ Item</button>
-        <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="planner-btn planner-btn-secondary" style="text-decoration:none;">Songs DB</a>
-      </div>
-    </div>
-
-    <div id="service-order"></div>
-
-    <div style="padding:0 12px;">
-      <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;margin-bottom:12px;">
-        <div style="font-size:13px;font-weight:800;color:var(--teal);margin-bottom:12px;">Service Team &amp; Roles</div>
-        <div style="overflow-x:auto;">
-          <table class="rota-table">
-            <thead><tr><th>Role</th><th>Person</th><th>Notes</th></tr></thead>
-            <tbody id="teamBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <textarea id="outroBox" class="styled-input" placeholder="Closing remarks (appears at end of team email)…" rows="2" style="margin-bottom:12px;"></textarea>
-
-      <div class="planner-actions" style="padding:0 0 16px;">
-        <button id="planner-save-btn" onclick="saveSchedule()" style="background:var(--teal);color:white;">Save</button>
-        <button id="planner-email-btn" onclick="emailSchedule()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">Email Team</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- IDEA PIN BOARD (identical to Notice Board, different Firestore collection) -->
-  <div id="section-board" class="section-screen">
-    <div class="board-pages" id="board-pages"></div>
-    <div class="board-filters" id="board-filters">
-      <button class="filter-pill active" onclick="setBoardFilter('all',this)">📌 All</button>
-      <button class="filter-pill" onclick="setBoardFilter('song',this)">🎵 Songs</button>
-      <button class="filter-pill" onclick="setBoardFilter('event',this)">📅 Events</button>
-      <button class="filter-pill" onclick="setBoardFilter('prayer',this)">🙏 Prayer</button>
-      <button class="filter-pill" onclick="setBoardFilter('general',this)">💡 General</button>
-      <button class="filter-pill" onclick="setBoardFilter('other',this)">📎 Other</button>
-    </div>
-    <button class="board-add-btn" onclick="openAddNote()">✏️ Add an Idea</button>
-    <div class="notes-list" id="notes-list"></div>
-  </div>
-
-  <!-- WORSHIP RESOURCES (identical) -->
-  <div id="section-worship" class="section-screen">
-    <div class="kb-tabs">
-      <button class="kb-tab active" id="tab-playthrough" onclick="switchKbTab('playthrough')">▶ Play Through</button>
-      <button class="kb-tab" id="tab-training" onclick="switchKbTab('training')">📖 Training</button>
-    </div>
-    <div class="kb-search-box">
-      <span class="kb-search-icon">🔍</span>
-      <input class="kb-search-input" id="worship-search" placeholder="Search songs, topics..." oninput="doKbSearch('worship')">
-    </div>
-    <div class="kb-quick-tags" id="worship-quick-tags">
-      <span class="kb-quick-tag" onclick="quickKbSearch('worship','Sovereign')">Sovereign</span>
-      <span class="kb-quick-tag" onclick="quickKbSearch('worship','Way Maker')">Way Maker</span>
-      <span class="kb-quick-tag" onclick="quickKbSearch('worship','vocal warm up')">Vocal warm up</span>
-      <span class="kb-quick-tag" onclick="quickKbSearch('worship','guitar')">Guitar</span>
-      <span class="kb-quick-tag" onclick="quickKbSearch('worship','keyboard')">Keyboard</span>
-    </div>
-    <div id="key-filter-row" style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto;scrollbar-width:none;">
-      <button class="kb-quick-tag" style="background:var(--teal);color:white;" id="key-all" onclick="setKbKey('all')">All Keys</button>
-      <button class="kb-quick-tag" id="key-A" onclick="setKbKey('A')">A</button>
-      <button class="kb-quick-tag" id="key-Bb" onclick="setKbKey('Bb')">B♭</button>
-      <button class="kb-quick-tag" id="key-B" onclick="setKbKey('B')">B</button>
-      <button class="kb-quick-tag" id="key-C" onclick="setKbKey('C')">C</button>
-      <button class="kb-quick-tag" id="key-D" onclick="setKbKey('D')">D</button>
-      <button class="kb-quick-tag" id="key-E" onclick="setKbKey('E')">E</button>
-      <button class="kb-quick-tag" id="key-F" onclick="setKbKey('F')">F</button>
-      <button class="kb-quick-tag" id="key-G" onclick="setKbKey('G')">G</button>
-    </div>
-    <div class="kb-cards" id="worship-cards"><div class="loading-state">Loading...</div></div>
-  </div>
-
-  <!-- MUSIC UPLOADER (identical) -->
-  <div id="section-upload" class="section-screen">
-    <div class="uploader-wrap">
-      <div class="uploader-info">
-        <div class="uploader-info-title">Upload Sheet Music</div>
-        <div class="uploader-info-text">Add PDF sheet music to the song library. Upload up to 4 files at once. Files are matched to existing songs automatically.</div>
-      </div>
-      <div class="upload-form">
-        <div class="form-field">
-          <label>Song Title</label>
-          <input class="form-input" id="upload-song-title" type="text" placeholder="e.g. Way Maker" oninput="searchUploadSong()">
-          <div id="upload-song-matches" style="background:white;border:1px solid var(--border);border-radius:10px;margin-top:4px;overflow:hidden;"></div>
-          <div id="upload-match-status" style="margin-top:6px;"></div>
-        </div>
-        <div class="form-row-2">
-          <div class="form-field">
-            <label>Key</label>
-            <select class="form-select" id="upload-key" onchange="checkDuplicates()">
-              <option value="">Select Key</option>
-              <optgroup label="Major"><option>C</option><option>C#</option><option>Db</option><option>D</option><option>Eb</option><option>E</option><option>F</option><option>F#</option><option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option></optgroup>
-              <optgroup label="Minor"><option>Cm</option><option>Dm</option><option>Em</option><option>Fm</option><option>Gm</option><option>Am</option><option>Bm</option></optgroup>
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Type</label>
-            <select class="form-select" id="upload-type" onchange="checkDuplicates()">
-              <option value="">Select Type</option>
-              <option>Chord Sheet</option><option>Lead Sheet</option><option>Lyrics</option><option>Bass Tabs</option>
-            </select>
-          </div>
-        </div>
-        <div id="upload-file-slots"></div>
-        <button class="btn-upload" id="upload-more-btn" onclick="addUploadSlot()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">+ Add Another File</button>
-        <div class="upload-progress" id="upload-progress"><div class="upload-progress-bar" id="upload-progress-bar"></div></div>
-        <div class="upload-status" id="upload-status"></div>
-        <button class="btn-upload" id="upload-submit-btn" onclick="submitUpload()">Upload to Library</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- SONG LIBRARY (identical) -->
-  <div id="section-library" class="section-screen">
-    <div class="library-search">
-      <span class="library-search-icon">🔍</span>
-      <input type="text" placeholder="Search songs..." oninput="searchLibrary(this.value)" id="library-search-input">
-    </div>
-    <div class="song-list" id="song-list"><div class="loading-state">Loading songs...</div></div>
-    <div id="song-detail-panel" style="display:none;"></div>
-  </div>
-
-  <!-- NEWS (identical) -->
-  <div id="section-news" class="section-screen">
-    <div id="news-full-list" style="padding:12px;display:flex;flex-direction:column;gap:10px;">
-      <div class="loading-state">Loading news...</div>
-    </div>
-  </div>
-
-</div><!-- end app-content -->
-
-<!-- KB MODAL (identical) -->
-<div id="kb-modal">
-  <div class="kb-modal-box">
-    <button class="kb-modal-close" onclick="closeKbModal()">✕</button>
-    <div id="kb-modal-content"></div>
-  </div>
-</div>
-
-<!-- ADD NOTE MODAL (identical) -->
-<div id="add-note-modal">
-  <div class="add-note-box">
-    <div class="add-note-title">📌 New Idea</div>
-    <div class="add-note-form">
-      <div class="form-row-2">
-        <div class="form-field">
-          <label>Your Name</label>
-          <input class="form-input" id="note-author" placeholder="First name">
-        </div>
-        <div class="form-field">
-          <label>Category</label>
-          <select class="form-select" id="note-cat" onchange="toggleNoteYT()">
-            <option value="song">🎵 Song</option>
-            <option value="event">📅 Event</option>
-            <option value="prayer">🙏 Prayer</option>
-            <option value="general">💡 General</option>
-            <option value="other">📎 Other</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-field">
-        <label>Title</label>
-        <input class="form-input" id="note-title" placeholder="Give it a title...">
-      </div>
-      <div class="form-field">
-        <label>Details</label>
-        <textarea class="add-note-textarea" id="note-body" placeholder="Share your idea..."></textarea>
-      </div>
-      <div class="form-field" id="note-yt-field">
-        <label>YouTube Link (optional)</label>
-        <input class="form-input" id="note-yt" placeholder="https://youtube.com/...">
-      </div>
-      <div class="add-note-btn-row">
-        <button class="btn-cancel" onclick="closeAddNote()">Cancel</button>
-        <button class="btn-pin" onclick="saveNote()">📌 Pin It!</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- EMAIL MODAL -->
-<div id="emailModal">
-  <div id="emailModalBox">
-    <h2 style="font-size:18px;font-weight:800;color:var(--teal);margin-bottom:6px;">Send Youth Service Plan</h2>
-    <p style="font-size:12px;color:var(--teal);opacity:0.6;margin-bottom:20px;font-weight:700;">Plan will be copied to clipboard. Choose who to email.</p>
-    <button id="modalTeamBtn" style="width:100%;display:block;text-align:center;border:none;cursor:pointer;margin-bottom:20px;background:var(--teal);color:white;padding:14px;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:800;text-transform:uppercase;">Email Whole Team</button>
-    <div style="border-top:1px solid var(--border);padding-top:16px;">
-      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Or email one person:</p>
-      <select id="modalIndividualSelect" class="styled-input" style="margin-bottom:10px;"></select>
-      <button id="modalIndividualBtn" style="width:100%;display:block;text-align:center;cursor:pointer;background:var(--bg);color:var(--teal);border:1.5px solid var(--border);padding:13px;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:800;">Email This Person</button>
-    </div>
-    <div style="margin-top:16px;text-align:center;">
-      <button id="modalCancelBtn" style="font-size:12px;font-weight:700;color:#aaa;background:none;border:none;cursor:pointer;text-decoration:underline;">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOUR OVERLAY (identical) -->
-<div id="tour-overlay">
-  <div style="position:absolute;inset:0;z-index:1;cursor:pointer;" onclick="endTour()"></div>
-  <div class="tour-backdrop"></div>
-  <div class="tour-highlight" id="tour-highlight"></div>
-  <div class="tour-tooltip" id="tour-tooltip">
-    <div class="tour-tooltip-title" id="tour-title"></div>
-    <div class="tour-tooltip-text" id="tour-text"></div>
-    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.8;margin-bottom:12px;position:relative;z-index:10;">
-      <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;" onchange="this.blur()">
-      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
-    </div>
-    <div class="tour-btn-row">
-      <button class="tour-skip" onclick="endTour()">Skip</button>
-      <span class="tour-step-count" id="tour-count"></span>
-      <button class="tour-next" onclick="nextTourStep()">Next →</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div id="toast" style="position:fixed;bottom:calc(var(--safe-bottom)+20px);left:50%;transform:translateX(-50%);background:var(--teal);color:white;padding:10px 20px;border-radius:9999px;font-size:12px;font-weight:800;z-index:800;display:none;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"></div>
-
-<script>
-// ── FIREBASE ──
 const firebaseConfig = {
-  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-  authDomain: "egbc-worship-planner.firebaseapp.com",
-  projectId: "egbc-worship-planner",
-  storageBucket: "egbc-worship-planner.firebasestorage.app"
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
 
-// ── STATE ──
-let currentSection = 'home';
-let sectionHistory = [];
-// Planner
-let worshipLeaderName = '';
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let worshipLeaderName = "";
 let eventsForDay = [];
 let addressBook = [];
 let isYouthService = false;
-// Board
-let boardNotes = [];
-let boardPages = [{ id: 'main', title: 'General Board' }];
-let boardCurrentPage = 'main';
-let boardFilter = 'all';
-// KB
-let worshipAssets = [];
-let trainingAssets = [];
-let currentKbWorshipTab = 'playthrough';
-let currentKbKey = 'all';
-// Library / upload
-let allSongs = [];
-let uploadSlotCount = 1;
-let uploadFiles = {};
-let uploadSlots = 1;
-let uploadMatchedSong = null;
-// Tour
-let tourStepIndex = 0;
 
-const ALL_KEYS = ["Ab","A","Am","A#","A#m","Bb","B","Bm","C","Cm","C#","C#m","Db","D","Dm","D#","D#m","Eb","E","Em","F","Fm","F#","F#m","Gb","G","Gm","G#","G#m"];
+const ALL_KEYS = [
+    "Ab", "A", "Am", "A#", "A#m", "Bb", "B", "Bm", "C", "Cm", "C#", "C#m", "Db", "D", "Dm", "D#", "D#m", "Eb", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "G", "Gm", "G#", "G#m"
+];
 
-const CAT_META = {
-  song:    { label:'Song',    emoji:'🎵', cls:'note-card-song'    },
-  event:   { label:'Event',   emoji:'📅', cls:'note-card-event'   },
-  prayer:  { label:'Prayer',  emoji:'🙏', cls:'note-card-prayer'  },
-  general: { label:'General', emoji:'💡', cls:'note-card-general' },
-  other:   { label:'Other',   emoji:'📎', cls:'note-card-other'   },
-};
-
-// ── NAVIGATION ──
-function openSection(name) {
-  sectionHistory.push(currentSection);
-  currentSection = name;
-  document.getElementById('home-screen').style.display = 'none';
-  document.querySelectorAll('.section-screen').forEach(s => s.classList.remove('active'));
-  const titles = {
-    planner:'Youth Service Planner', board:'Idea Pin Board',
-    worship:'Worship Resources', upload:'Music Uploader',
-    library:'Song Library', news:'Latest News'
-  };
-  document.getElementById('header-title').textContent = titles[name] || 'Youth Hub';
-  document.getElementById('back-btn').classList.add('visible');
-  document.getElementById('section-' + name).classList.add('active');
-
-  if (name === 'board') loadBoard();
-  if (name === 'worship' && worshipAssets.length === 0 && trainingAssets.length === 0) loadWorshipAssets();
-  if (name === 'upload' && allSongs.length === 0) loadSongs();
-  if (name === 'upload') initUploadSlots();
-  if (name === 'library' && allSongs.length === 0) loadSongs();
-  if (name === 'news') renderNewsSection();
-
-  maybeTriggerSectionTour(name);
-}
-
-function goBack() {
-  const last = sectionHistory[sectionHistory.length - 1];
-  if (last === 'library-list') {
-    sectionHistory.pop();
-    document.getElementById('song-detail-panel').style.display = 'none';
-    document.getElementById('song-list').style.display = 'block';
-    return;
-  }
-  const prev = sectionHistory.pop();
-  currentSection = prev || 'home';
-  document.querySelectorAll('.section-screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('song-detail-panel').style.display = 'none';
-  document.getElementById('song-list').style.display = 'block';
-  if (currentSection === 'home') {
-    document.getElementById('home-screen').style.display = 'block';
-    document.getElementById('header-title').textContent = 'Youth Hub';
-    document.getElementById('back-btn').classList.remove('visible');
-  } else {
-    document.getElementById('section-' + currentSection).classList.add('active');
-  }
-}
-
-// ── NEWS (reads from portal/dashboardContent — same as worship hub) ──
-async function loadNews() {
-  try {
-    const snap = await db.collection('portal').doc('dashboardContent').get();
-    const data = snap.exists ? snap.data() : {};
-    const items = (data.newsItems || []).slice().reverse();
-    const lastSeen = localStorage.getItem('egbc_youth_news_last_seen');
-    const unread = lastSeen ? items.filter(i => String(i.id) > String(lastSeen)).length : items.length;
-    const badge = document.getElementById('news-badge');
-    if (badge) { if (unread > 0) { badge.textContent = unread > 9 ? '9+' : unread; badge.style.display = 'flex'; } else { badge.style.display = 'none'; } }
-    window._newsItems = items;
-
-    // Render home news
-    const homeList = document.getElementById('home-news-list');
-    const homeItems = items.slice(0, 3);
-    if (!homeItems.length) { homeList.innerHTML = '<div class="news-empty">No news yet.</div>'; return; }
-    homeList.innerHTML = homeItems.map(item => `
-      <div class="news-item">
-        ${item.date ? `<div class="news-item-date">${item.date}</div>` : ''}
-        <div class="news-item-title">${item.title || ''}</div>
-        <div class="news-item-body">${item.body || ''}</div>
-      </div>`).join('');
-  } catch(e) { window._newsItems = []; }
-}
-
-function renderNewsSection() {
-  const items = window._newsItems || [];
-  const list = document.getElementById('news-full-list');
-  if (items.length) {
-    localStorage.setItem('egbc_youth_news_last_seen', String(items[0].id));
-    const badge = document.getElementById('news-badge');
-    if (badge) badge.style.display = 'none';
-  }
-  if (!items.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📣</div><div class="empty-state-text">No news yet</div></div>'; return; }
-  list.innerHTML = items.map(item => `
-    <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;">
-      ${item.date ? `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#a0b0b0;margin-bottom:5px;">${item.date}</div>` : ''}
-      <div style="font-size:15px;font-weight:800;color:var(--teal);margin-bottom:8px;line-height:1.3;">${item.title || ''}</div>
-      <div style="font-size:13px;color:#555;line-height:1.6;">${item.body || ''}</div>
-    </div>`).join('');
-}
-
-// ── YOUTH SERVICE PLANNER ──
-function setReadonlyMode(on) {
-  const banner = document.getElementById('readonly-banner');
-  if (on) { document.body.classList.add('readonly-mode'); banner.classList.add('visible'); }
-  else    { document.body.classList.remove('readonly-mode'); banner.classList.remove('visible'); }
+function setReadonlyMode(readonly) {
+    const banner = document.getElementById('readonlyBanner');
+    if (readonly) {
+        document.body.classList.add('readonly-mode');
+        banner.classList.add('visible');
+    } else {
+        document.body.classList.remove('readonly-mode');
+        banner.classList.remove('visible');
+    }
 }
 
 function autoFitTextAreas() {
-  document.querySelectorAll('textarea.styled-input').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
+    document.querySelectorAll('textarea.styled-input').forEach(textarea => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    });
 }
 
-window.addEventListener('load', async () => {
-  Sortable.create(document.getElementById('service-order'), {
-    animation: 150, handle: '.drag-handle', onEnd: () => updateSongNumbers()
-  });
-  setupDefaultOrder();
-  autoFitTextAreas();
-  document.getElementById('service-order').addEventListener('input', e => { if (e.target.tagName.toLowerCase() === 'textarea') autoFitTextAreas(); });
-  document.addEventListener('input', e => { if (['introBox','outroBox'].includes(e.target.id)) autoFitTextAreas(); });
+window.onload = async () => {
+    Sortable.create(document.getElementById('service-order'), {
+        animation: 150,
+        handle: '.drag-handle',
+        onEnd: function() { updateSongNumbers(); },
+        // Disable drag when in readonly mode
+        filter: '.readonly-mode *',
+    });
+    setupDefaultOrder();
+    autoFitTextAreas();
 
-  try {
-    const snap = await db.collection('addressBook').get();
-    snap.forEach(d => { const data = d.data(); if (data.email) addressBook.push(data); });
-  } catch(e) {}
+    document.getElementById('service-order').addEventListener('input', (e) => {
+        if (e.target.tagName.toLowerCase() === 'textarea') {
+            autoFitTextAreas();
+        }
+    });
 
-  loadNews();
-  if (!localStorage.getItem('egbc_youth_hub_toured_home')) {
-    setTimeout(() => { startTour(false); localStorage.setItem('egbc_youth_hub_toured_home', '1'); }, 800);
-  }
+    try {
+        const emailSnap = await getDocs(collection(db, "addressBook"));
+        emailSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.email) addressBook.push(data);
+        });
+    } catch (e) { console.error("Address book load failed", e); }
+};
+
+document.addEventListener('input', (e) => {
+    if (e.target.id === 'introBox' || e.target.id === 'outroBox') {
+        autoFitTextAreas();
+    }
 });
 
 function setupDefaultOrder() {
-  addSong(); addSong(); addSong();
-  addItem('Welcome and Notices');
-  addSong();
-  addItem('Message');
-  addSong(); addSong(); addSong();
+    addSong();
+    addSong();
+    addSong();
+    addItem("Welcome and Notices");
+    addSong();
+    addItem("Message");
+    addSong(); addSong(); addSong();
 }
 
-function updateSongNumbers() {
-  document.querySelectorAll('.song-block').forEach((b, i) => {
-    const lbl = b.querySelector('.song-number'); if (lbl) lbl.textContent = 'Song ' + (i + 1);
-  });
+window.updateSongNumbers = () => {
+    const songs = document.querySelectorAll('.song-block');
+    songs.forEach((song, index) => {
+        const label = song.querySelector('.song-number');
+        if (label) label.innerText = "Song " + (index + 1);
+    });
 }
 
-function toggleSong(btn) {
-  const block = btn.closest('.song-block');
-  const content = block.querySelector('.song-content');
-  block.classList.toggle('is-collapsed');
-  content.classList.toggle('hidden');
-  btn.textContent = content.classList.contains('hidden') ? '▶' : '▼';
-  if (!content.classList.contains('hidden')) autoFitTextAreas();
-}
+window.toggleSong = (btn) => {
+    const block = btn.closest('.song-block');
+    const content = block.querySelector('.song-content');
+    block.classList.toggle('is-collapsed');
+    content.classList.toggle('hidden');
+    btn.innerText = content.classList.contains('hidden') ? "▶" : "▼";
+    if (!content.classList.contains('hidden')) autoFitTextAreas();
+};
 
-function addSong() {
-  const container = document.getElementById('service-order');
-  const id = Math.random().toString(36).substr(2, 9);
-  const isFirst = container.querySelectorAll('.song-block').length === 0;
-  const div = document.createElement('div');
-  div.className = 'service-block song-block' + (isFirst ? '' : ' is-collapsed');
-  div.innerHTML = `
-    <div class="song-block-header">
-      <div class="drag-handle">⠿</div>
-      <button onclick="toggleSong(this)" class="collapse-btn">${isFirst ? '▼' : '▶'}</button>
-      <span class="song-number">Song</span>
-      <div class="song-title-wrap">
-        <input class="song-title-input" oninput="searchSong(this,'${id}')" placeholder="Song title">
-        <div id="suggest-${id}" class="suggest-box"></div>
-      </div>
-      <div id="serving-container-${id}" class="serve-count-badge hidden-badge"></div>
-      <button onclick="this.closest('.song-block').remove();updateSongNumbers();" class="remove-btn">&times;</button>
-    </div>
-    <div class="song-content ${isFirst ? '' : 'hidden'}">
-      <div class="keys-row">
-        <select onchange="keyChanged('${id}')" class="styled-input"><option value="">Key 1</option>${ALL_KEYS.map(k=>`<option>${k}</option>`).join('')}</select>
-        <select onchange="keyChanged('${id}')" class="styled-input"><option value="">Key 2</option>${ALL_KEYS.map(k=>`<option>${k}</option>`).join('')}</select>
-        <select onchange="keyChanged('${id}')" class="styled-input"><option value="">Key 3</option>${ALL_KEYS.map(k=>`<option>${k}</option>`).join('')}</select>
-      </div>
-      <textarea class="song-note styled-input" placeholder="Notes for the band..." rows="1" style="margin-top:8px;"></textarea>
-      <div id="keyinfo-${id}" class="key-info-box" style="display:none;"></div>
-      <div id="files-${id}"></div>
-    </div>`;
-  container.appendChild(div);
-  updateSongNumbers();
-  return id;
-}
+window.addSong = () => {
+    const container = document.getElementById('service-order');
+    const id = Math.random().toString(36).substr(2, 9);
 
-function addItem(val = '') {
-  const div = document.createElement('div');
-  div.className = 'service-block item-block';
-  div.innerHTML = `
-    <div class="drag-handle">⠿</div>
-    <div style="width:28px;"></div>
-    <input value="${val}" class="item-title-input" placeholder="Service Item Name...">
-    <button onclick="this.parentElement.remove()" class="remove-btn">&times;</button>`;
-  document.getElementById('service-order').appendChild(div);
-}
+    const isFirst = container.querySelectorAll('.song-block').length === 0;
+    const collapseClass = isFirst ? "" : "is-collapsed";
+    const contentClass = isFirst ? "" : "hidden";
+    const arrow = isFirst ? "▼" : "▶";
+
+    const div = document.createElement('div');
+    div.className = `service-block song-block bg-white p-6 mb-4 rounded-[1.5rem] shadow-sm border border-white hover:border-[#d1dfdf] transition-colors ${collapseClass}`;
+
+    div.innerHTML = `
+        <div class="flex gap-4 items-center mb-2">
+            <div class="drag-handle">⠿</div>
+            <button onclick="toggleSong(this)" class="collapse-btn text-[#3d6263] font-bold w-6">${arrow}</button>
+            <span class="song-number text-[10px] font-extrabold uppercase tracking-widest text-[#3d6263] opacity-50 min-w-[50px]">Song</span>
+            <div class="relative flex-grow">
+                <input oninput="searchSong(this,'${id}')" class="song-title styled-input w-full" placeholder="Song title">
+                <div id="suggest-${id}" class="absolute bg-white shadow-xl rounded-xl w-full hidden z-50 mt-1 border border-[#d1dfdf] overflow-hidden"></div>
+            </div>
+            <div id="serving-container-${id}" class="serve-count-badge hidden-badge" title="Number of Sundays this song has been used"></div>
+            <div class="flex gap-1">
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 1</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 2</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 3</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove(); updateSongNumbers();" class="text-[#d1dfdf] hover:text-red-500 text-2xl font-bold">&times;</button>
+        </div>
+        <div class="song-content ml-14 space-y-4 ${contentClass}">
+            <textarea class="song-note styled-input w-full" placeholder="Notes for the band..." rows="1"></textarea>
+            <div id="keyinfo-${id}"></div>
+            <div id="files-${id}"></div>
+        </div>
+    `;
+    container.appendChild(div);
+    updateSongNumbers();
+    return id;
+};
 
 async function showKeyInfo(id, title) {
-  if (!title) return;
-  const docId = title.toLowerCase().replace(/\s+/g, '-');
-  const snap = await db.collection('songs').doc(docId).get();
-  if (!snap.exists) return;
-  const data = snap.data();
-  const files = data.files || [];
-  const chordKeys = files.filter(f => f.type === 'Chord Sheet' && f.key).map(f => f.key);
-  const uniqueKeys = [...new Set(chordKeys)];
-  const missing = ALL_KEYS.filter(k => !uniqueKeys.includes(k));
-  const box = document.getElementById('keyinfo-' + id);
-  box.style.display = 'block';
-  box.innerHTML = `<span style="font-weight:800;color:var(--teal);">Available:</span> ${uniqueKeys.sort().join(', ') || 'None'} &nbsp;·&nbsp; <span style="font-weight:800;color:#b22222;">Missing:</span> <span style="opacity:0.6;">${missing.join(', ')}</span>`;
+    if (!title || title.trim() === "") return;
+    const container = document.getElementById(`keyinfo-${id}`);
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
+    if (!snap.exists()) return;
+    const data = snap.data();
+    const files = data.files || [];
+    const chordKeys = files.filter(f => f.type === "Chord Sheet" && f.key).map(f => f.key);
+    const uniqueKeys = [...new Set(chordKeys)];
+    let available = uniqueKeys.sort().join(", ") || "None";
+    const missing = ALL_KEYS.filter(k => !uniqueKeys.includes(k)).join(", ");
+    container.innerHTML = `
+        <div class="text-[10px] mt-2 bg-[#f0f6f6] p-3 rounded-lg flex flex-col gap-1">
+            <div><span class="text-[#3d6263] font-bold uppercase tracking-wider">Available:</span> <span class="text-[#3d6263]">${available}</span></div>
+            <div><span class="text-red-700 font-bold uppercase tracking-wider">Missing:</span> <span class="text-[#3d6263] opacity-60">${missing}</span></div>
+        </div>
+    `;
 
-  const servingHistory = data.servingHistory || [];
-  const sundayHistory = servingHistory.filter(s => s.day && s.day.toLowerCase() === 'sunday');
-  const display = document.getElementById('serving-container-' + id);
-  if (sundayHistory.length) {
-    const counts = sundayHistory.map(s => s.count || 0);
-    const maxSunday = Math.max(...counts);
-    const latest = sundayHistory[0].count || 0;
-    display.textContent = latest;
-    display.classList.remove('hidden-badge');
-    display.title = latest === maxSunday ? `Used ${latest} Sundays — consider resting` : `Used ${latest} Sundays`;
-    latest === maxSunday ? display.classList.add('is-peak') : display.classList.remove('is-peak');
-  } else { display.textContent = ''; display.classList.add('hidden-badge'); display.classList.remove('is-peak'); }
-}
+    const servingHistory = data.servingHistory || [];
+    const sundayHistory = servingHistory.filter(s => s.day && s.day.toLowerCase() === 'sunday');
+    const display = document.getElementById(`serving-container-${id}`);
 
-async function searchSong(input, id) {
-  const val = input.value.toLowerCase().trim();
-  const box = document.getElementById('suggest-' + id);
-  if (val.length < 2) { box.style.display = 'none'; return; }
-  const snap = await db.collection('songs').get();
-  const words = val.split(' ');
-  const matches = snap.docs.map(d => d.data()).filter(s => {
-    const t = (s.title || '').toLowerCase();
-    const n = (s.normalized || '').toLowerCase();
-    const l = (s.lyrics || '').toLowerCase();
-    return words.every(w => t.includes(w) || n.includes(w) || l.includes(w));
-  }).slice(0, 10);
-  if (!matches.length) {
-    const enc = encodeURIComponent(input.value);
-    box.innerHTML = `<div class="suggest-item" style="color:#b22222;">Not in library</div>
-      <div style="padding:8px 14px;font-size:11px;display:flex;gap:12px;background:white;">
-        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">🔎 SongSelect</a>
-        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">▶ YouTube</a>
-      </div>`;
-  } else {
-    box.innerHTML = matches.map(s => `<div class="suggest-item" onclick="selectSong('${s.title.replace(/'/g,"\\'")}','${id}')">${s.title}</div>`).join('');
-  }
-  box.style.display = 'block';
-}
-
-async function selectSong(title, id) {
-  const block = document.getElementById('suggest-' + id).closest('.song-block');
-  block.querySelector('.song-title-input').value = title;
-  document.getElementById('suggest-' + id).style.display = 'none';
-  document.getElementById('keyinfo-' + id).style.display = 'none';
-  document.getElementById('files-' + id).innerHTML = '';
-  await showKeyInfo(id, title);
-  if (worshipLeaderName && worshipLeaderName !== 'None') {
-    const preferred = await getPreferredKey(title, worshipLeaderName);
-    if (preferred) {
-      const keyInputs = block.querySelectorAll('select');
-      if (Array.isArray(preferred)) { preferred.forEach((k, i) => { if (keyInputs[i]) keyInputs[i].value = k; }); }
-      else { if (keyInputs[0]) keyInputs[0].value = preferred; }
+    if (sundayHistory.length > 0) {
+        const counts = sundayHistory.map(s => s.count || 0);
+        const maxSunday = Math.max(...counts);
+        const latestCount = sundayHistory[0].count || 0;
+        display.innerText = latestCount;
+        display.classList.remove('hidden-badge');
+        display.title = latestCount === maxSunday
+            ? `Used ${latestCount} Sundays — highest ever, consider resting this song`
+            : `Used ${latestCount} Sundays`;
+        if (latestCount === maxSunday) {
+            display.classList.add('is-peak');
+        } else {
+            display.classList.remove('is-peak');
+        }
+    } else {
+        display.innerText = "";
+        display.classList.add('hidden-badge');
+        display.classList.remove('is-peak');
     }
-  }
-  keyChanged(id);
 }
 
 async function getPreferredKey(title, leader) {
-  const snap = await db.collection('services').get();
-  let lastKey = '';
-  snap.forEach(doc => {
-    const data = doc.data();
-    if (data.worshipLeader !== leader) return;
-    (data.order || []).forEach(item => { if (item.type === 'song' && item.title === title) lastKey = item.keys || item.key || ''; });
-  });
-  return lastKey;
-}
-
-async function keyChanged(id) {
-  const block = document.getElementById('files-' + id).closest('.song-block');
-  const title = block.querySelector('.song-title-input').value;
-  const keys = Array.from(block.querySelectorAll('select')).map(s => s.value).filter(v => v !== '');
-  const container = document.getElementById('files-' + id);
-  if (!title) { container.innerHTML = ''; return; }
-  const docId = title.toLowerCase().replace(/\s+/g, '-');
-  const snap = await db.collection('songs').doc(docId).get();
-  if (!snap.exists) { container.innerHTML = ''; return; }
-  const data = snap.data();
-  const youtube = data.youtube || '';
-  const ccli = data.ccli || '';
-  const ssLink = ccli ? `https://songselect.ccli.com/Songs/${ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-  const allFiles = data.files || [];
-
-  let html = `<div class="files-box"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;font-weight:700;">
-    ${youtube ? `<a href="${youtube}" target="_blank" style="color:#b22222;text-decoration:none;">🎬 YouTube</a>` : ''}
-    <a href="${ssLink}" target="_blank" style="color:var(--teal);text-decoration:none;">🔎 SongSelect</a>
-    ${ccli ? `<span style="color:var(--teal);opacity:0.5;">CCLI: ${ccli}</span>` : ''}
-  </div>`;
-  if (keys.length) {
-    keys.forEach(k => {
-      const kFiles = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
-      html += `<div style="margin-top:6px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.5;margin-bottom:4px;">Key: ${k}</div>`;
-      if (!kFiles.length) html += `<span style="font-size:11px;opacity:0.5;font-weight:600;">No files for ${k}</span>`;
-      else { const grouped = {}; kFiles.forEach(f => { if (!grouped[f.type]) grouped[f.type] = []; grouped[f.type].push(f); }); Object.keys(grouped).forEach(type => { html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.4;margin-top:4px;">${type}</div>`; grouped[type].forEach(file => { html += `<a href="${file.url}" target="_blank">Open File</a>`; }); }); }
-      html += `</div>`;
-    });
-  } else { html += `<div style="font-size:11px;opacity:0.5;font-weight:600;">Select keys to see sheet music</div>`; }
-  html += `</div>`;
-  container.innerHTML = html;
-}
-
-async function loadRota() {
-  const date = document.getElementById('serviceDate').value;
-  const snap = await db.collection('events').get();
-  eventsForDay = [];
-  snap.forEach(d => { const ev = d.data(); if (ev.date === date && ev.archived !== true) eventsForDay.push(ev); });
-  const select = document.getElementById('eventSelect');
-  select.innerHTML = '<option value="">Select Service…</option>';
-  eventsForDay.forEach((ev, i) => {
-    const isYouth = (ev.description || ev.type || '').toLowerCase().includes('youth');
-    select.innerHTML += `<option value="${i}">${ev.type}${isYouth ? '' : ' (view only)'}</option>`;
-  });
-  setReadonlyMode(false);
-}
-
-function sortAssignments(arr) {
-  const tech = ['Sound', 'Words', 'Camera', 'Cameras'];
-  return arr.sort((a, b) => {
-    const tA = tech.includes(a[0]), tB = tech.includes(b[0]);
-    if (tA && !tB) return 1; if (!tA && tB) return -1;
-    if (tA && tB) return tech.indexOf(a[0]) - tech.indexOf(b[0]);
-    return a[0].localeCompare(b[0]);
-  });
-}
-
-async function selectEvent() {
-  const index = document.getElementById('eventSelect').value;
-  if (index === '') return;
-  const data = eventsForDay[index];
-  isYouthService = (data.description || data.type || '').toLowerCase().includes('youth');
-  setReadonlyMode(!isYouthService);
-  document.getElementById('serviceTypeNotes').value = data.description || '';
-  worshipLeaderName = data.assignments?.['Worship Leader']?.name || 'None';
-  document.getElementById('leaderName').textContent = worshipLeaderName;
-
-  const teamBody = document.getElementById('teamBody');
-  teamBody.innerHTML = '';
-  let rows = sortAssignments(Object.entries(data.assignments || {}));
-  rows.forEach(([role, person]) => {
-    teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
-  });
-
-  const q = db.collection('services').where('date', '==', data.date);
-  const snap = await q.get();
-  if (!snap.empty) {
-    const saved = snap.docs[0].data();
-    document.getElementById('introBox').value = saved.introText || '';
-    document.getElementById('outroBox').value = saved.outroText || '';
-    document.getElementById('serviceTypeNotes').value = saved.serviceNotes || '';
-    document.getElementById('service-order').innerHTML = '';
-    if (saved.roleNotes) {
-      document.querySelectorAll('#teamBody tr').forEach(row => {
-        const role = row.children[0].textContent;
-        if (saved.roleNotes[role]) row.querySelector('.instr-note').value = saved.roleNotes[role];
-      });
-    }
-    (saved.order || []).forEach(item => {
-      if (item.type === 'song') {
-        const id = addSong();
-        const last = document.getElementById('service-order').lastChild;
-        last.querySelector('.song-title-input').value = item.title;
-        const keyInputs = last.querySelectorAll('select');
-        const ks = Array.isArray(item.keys) ? item.keys : [item.key || ''];
-        ks.forEach((k, i) => { if (keyInputs[i]) keyInputs[i].value = k; });
-        last.querySelector('.song-note').value = item.notes || '';
-        showKeyInfo(id, item.title); keyChanged(id);
-        last.querySelector('.song-content').classList.remove('hidden');
-        last.classList.remove('is-collapsed');
-        last.querySelector('.collapse-btn').textContent = '▼';
-      } else { addItem(item.title); }
-    });
-    updateSongNumbers(); autoFitTextAreas();
-  }
-}
-
-async function saveSchedule() {
-  if (!isYouthService) { alert('⚠️ This is not a youth service — you can view it but cannot save changes.'); return; }
-  const date = document.getElementById('serviceDate').value;
-  const introText = document.getElementById('introBox').value;
-  const outroText = document.getElementById('outroBox').value;
-  const serviceNotes = document.getElementById('serviceTypeNotes').value;
-  const roleNotes = {};
-  document.querySelectorAll('#teamBody tr').forEach(row => {
-    const role = row.children[0].textContent;
-    const note = row.querySelector('.instr-note').value;
-    if (note) roleNotes[role] = note;
-  });
-  const order = [];
-  document.querySelectorAll('.service-block').forEach(b => {
-    if (b.classList.contains('song-block')) {
-      order.push({ type:'song', title:b.querySelector('.song-title-input').value, keys:Array.from(b.querySelectorAll('select')).map(s=>s.value).filter(v=>v), notes:b.querySelector('.song-note').value });
-    } else { order.push({ type:'item', title:b.querySelector('.item-title-input').value }); }
-  });
-  const serviceData = { date, worshipLeader:worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
-  const snap = await db.collection('services').where('date','==',date).get();
-  if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
-  else await db.collection('services').add(serviceData);
-  alert('✅ Youth service saved successfully.');
-}
-
-async function emailSchedule() {
-  if (!isYouthService) { alert('⚠️ This is not a youth service — cannot email.'); return; }
-  const date = document.getElementById('serviceDate').value || 'TBC';
-  const serviceNotes = document.getElementById('serviceTypeNotes').value || '';
-  const introText = document.getElementById('introBox').value || '';
-  const outroText = document.getElementById('outroBox').value || '';
-
-  let htmlEmail = `<div style="font-family:Montserrat,Arial,sans-serif;color:#3d6263;max-width:650px;padding:30px;background:#fff;margin:auto;">
-    <h1 style="color:#3d6263;font-size:24px;font-weight:800;text-align:center;">Youth Service Plan</h1>
-    <p style="text-transform:uppercase;font-weight:700;color:#3d6263;opacity:.6;letter-spacing:1.5px;font-size:11px;text-align:center;">${date} · Leader: ${worshipLeaderName}</p>
-    ${serviceNotes ? `<div style="background:#f0f6f6;border-left:4px solid #3d6263;padding:15px;margin:16px 0;font-size:13px;color:#3d6263;">${serviceNotes.replace(/\n/g,'<br>')}</div>` : ''}
-    ${introText ? `<div style="font-size:14px;color:#3d6263;margin:16px 0;">${introText.replace(/\n/g,'<br>')}</div>` : ''}
-    <h2 style="border-bottom:3px solid #3d6263;padding-bottom:8px;color:#3d6263;text-transform:uppercase;font-size:13px;letter-spacing:1px;margin:16px 0;">Order of Service</h2>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-      <thead style="background:#f0f6f6;"><tr>
-        <th style="text-align:left;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Title</th>
-        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Key</th>
-        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Resources</th>
-      </tr></thead><tbody>`;
-
-  const blocks = document.querySelectorAll('.service-block');
-  let songIdx = 1;
-  for (const b of blocks) {
-    if (b.classList.contains('song-block')) {
-      const title = b.querySelector('.song-title-input').value;
-      const keys = Array.from(b.querySelectorAll('select')).map(s=>s.value).filter(v=>v);
-      const notes = b.querySelector('.song-note').value;
-      if (!title) continue;
-      const docId = title.toLowerCase().replace(/\s+/g,'-');
-      const snap = await db.collection('songs').doc(docId).get();
-      let resourcesHtml = '';
-      if (snap.exists) {
-        const data = snap.data();
-        const ssLink = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-        let linksHtml = '';
-        if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color:#3d6263;text-decoration:none;font-weight:700;font-size:11px;padding:0 5px;">YouTube</a>`;
-        if (linksHtml) linksHtml += `<span style="color:#cbd5e1;font-size:11px;">&nbsp;|&nbsp;</span>`;
-        linksHtml += `<a href="${ssLink}" style="color:#3d6263;text-decoration:none;font-weight:700;font-size:11px;padding:0 5px;">SongSelect</a>`;
-        resourcesHtml = `<div style="margin-bottom:8px;">${linksHtml}</div>`;
-        keys.forEach(k => {
-          const kFiles = (data.files||[]).filter(f=>f.key&&f.key.trim().toLowerCase()===k.trim().toLowerCase());
-          if (kFiles.length) {
-            resourcesHtml += `<div style="font-size:10px;color:#3d6263;font-weight:bold;margin-top:5px;">Key: ${k}</div>`;
-            kFiles.forEach(f => { resourcesHtml += `<div style="margin-top:2px;"><a href="${f.url}" style="color:#3d6263;text-decoration:underline;font-size:11px;font-weight:600;">Download ${f.type}</a></div>`; });
-          }
+    const snap = await getDocs(collection(db, "services"));
+    let lastKey = "";
+    snap.forEach(doc => {
+        const data = doc.data();
+        if (data.worshipLeader !== leader) return;
+        (data.order || []).forEach(item => {
+            if (item.type === "song" && item.title === title) {
+                lastKey = item.keys || item.key || "";
+            }
         });
-      }
-      htmlEmail += `<tr>
-        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;"><p style="font-weight:800;font-size:14px;color:#1e293b;margin:0;">${songIdx}. ${title}</p>${notes?`<p style="font-style:italic;font-size:11px;color:#64748b;margin:4px 0 0;">${notes}</p>`:''}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:top;font-weight:700;color:#3d6263;font-size:14px;">${keys.join(', ')||'-'}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:top;">${resourcesHtml}</td>
-      </tr>`;
-      songIdx++;
-    } else {
-      const item = b.querySelector('.item-title-input').value;
-      if (item) htmlEmail += `<tr><td colspan="3" style="padding:10px 8px;background:#f8fafc;border-left:4px solid #3d6263;font-weight:800;font-size:12px;color:#3d6263;text-transform:uppercase;">${item}</td></tr>`;
+    });
+    return lastKey;
+}
+
+window.searchSong = async (input, id) => {
+    const val = input.value.toLowerCase().trim();
+    const box = document.getElementById(`suggest-${id}`);
+    if (val.length < 2) { box.classList.add('hidden'); return; }
+    const snap = await getDocs(collection(db, "songs"));
+    const words = val.split(" ");
+    const matches = snap.docs
+        .map(d => d.data())
+        .filter(song => {
+            const title = (song.title || "").toLowerCase();
+            const normalized = (song.normalized || "").toLowerCase();
+            const lyrics = (song.lyrics || "").toLowerCase();
+            return words.every(w => title.includes(w) || normalized.includes(w) || lyrics.includes(w));
+        })
+        .slice(0, 10);
+
+    if (matches.length === 0) {
+        const encoded = encodeURIComponent(input.value);
+        box.innerHTML = `
+            <div class="p-3 text-xs text-red-800 font-bold bg-[#f0f6f6]">Not in library</div>
+            <div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white">
+                <a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a>
+                <a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">▶ YouTube</a>
+                <a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">➕ Upload Song</a>
+            </div>
+        `;
+        box.classList.remove('hidden');
+        return;
     }
-  }
-
-  htmlEmail += `</tbody></table>`;
-  let rosterNames = [];
-  const teamRows = Array.from(document.querySelectorAll('#teamBody tr'));
-  htmlEmail += `<p style="font-weight:700;color:#3d6263;font-size:13px;margin:16px 0 8px;">Our team for this service:</p><table style="width:100%;border-collapse:collapse;"><tbody>`;
-  const rowData = teamRows.map(r => [r.children[0].textContent, r.children[1].textContent, r.querySelector('.instr-note').value]);
-  sortAssignments(rowData).forEach(([role, name, note]) => {
-    if (name && name !== 'None') rosterNames.push(name.trim());
-    htmlEmail += `<tr><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;width:35%;color:#3d6263;font-weight:700;">${role}</td><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">${name}${note?`<br><i style="font-size:11px;color:#666;">Note: ${note}</i>`:''}</td></tr>`;
-  });
-  htmlEmail += `</tbody></table>`;
-  if (outroText) htmlEmail += `<div style="font-size:14px;color:#444;margin-top:16px;">${outroText.replace(/\n/g,'<br>')}</div>`;
-  htmlEmail += `</div>`;
-
-  try { const blob = new Blob([htmlEmail], {type:'text/html'}); await navigator.clipboard.write([new ClipboardItem({'text/html':blob})]); } catch(e) {}
-
-  let recipients = [];
-  addressBook.forEach(p => { if ((rosterNames.includes(p.name?.trim()) || (p.markers && p.markers.includes('Core Team'))) && p.email) recipients.push(p.email); });
-  const teamTo = [...new Set(recipients)].join(',');
-  const subject = encodeURIComponent('Youth Service Plan: ' + date);
-
-  const modal = document.getElementById('emailModal');
-  const sel = document.getElementById('modalIndividualSelect');
-  sel.innerHTML = '<option value="">— Pick a person —</option>';
-  teamRows.forEach(row => {
-    const name = row.children[1].textContent.trim();
-    const found = addressBook.find(p => p.name?.trim() === name);
-    if (found && found.email) { const o = document.createElement('option'); o.value = found.email; o.textContent = `${name} (${found.email})`; sel.appendChild(o); }
-  });
-  document.getElementById('modalTeamBtn').onclick = () => { modal.classList.remove('active'); alert('Plan copied to clipboard!'); window.location.href = `mailto:${teamTo}?subject=${subject}`; };
-  document.getElementById('modalIndividualBtn').onclick = () => { const e = sel.value; if (!e) { alert('Please select a person first.'); return; } modal.classList.remove('active'); alert('Plan copied to clipboard!'); window.location.href = `mailto:${e}?subject=${subject}`; };
-  document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
-  modal.classList.add('active');
-}
-
-// ── BOARD (uses youth_board collection to keep separate from worship hub) ──
-async function loadBoard() {
-  document.getElementById('notes-list').innerHTML = '<div class="loading-state">Loading board...</div>';
-  try {
-    const snap = await db.collection('youthBoardState').doc('state').get();
-    if (snap.exists) {
-      const state = snap.data();
-      boardNotes = state.notes || [];
-      boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
-    } else {
-      const saved = localStorage.getItem('youthBoard');
-      if (saved) { const state = JSON.parse(saved); boardNotes = state.notes || []; boardPages = state.pages || [{ id: 'main', title: 'General Board' }]; }
-    }
-  } catch(e) {
-    const saved = localStorage.getItem('youthBoard');
-    if (saved) { const state = JSON.parse(saved); boardNotes = state.notes || []; boardPages = state.pages || [{ id: 'main', title: 'General Board' }]; }
-  }
-  renderBoardPages(); renderNotes();
-}
-
-function renderBoardPages() {
-  document.getElementById('board-pages').innerHTML = boardPages.map(p =>
-    `<button class="page-pill ${p.id === boardCurrentPage ? 'active' : ''}" onclick="setBoardPage('${p.id}')">${p.title}</button>`
-  ).join('');
-}
-
-function setBoardPage(id) { boardCurrentPage = id; renderBoardPages(); renderNotes(); }
-
-function setBoardFilter(cat, el) {
-  boardFilter = cat;
-  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
-  el.classList.add('active'); renderNotes();
-}
-
-function renderNotes() {
-  let notes = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived);
-  if (boardFilter !== 'all') notes = notes.filter(n => n.cat === boardFilter);
-  notes.sort((a, b) => b.createdAt - a.createdAt);
-  const list = document.getElementById('notes-list');
-  if (!notes.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📌</div><div class="empty-state-text">No ideas yet — be the first!</div></div>'; return; }
-  const REACTIONS = [{ key:'love', emoji:'❤️' }, { key:'like', emoji:'👍' }, { key:'dislike', emoji:'👎' }, { key:'pray', emoji:'🙌' }];
-  list.innerHTML = notes.map(n => {
-    const meta = CAT_META[n.cat] || CAT_META.other;
-    const date = new Date(n.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
-    const reactions = REACTIONS.map(r => { const count = (n.reactions||{})[r.key] || 0; const active = (n.myReactions||{})[r.key]; return `<button class="reaction-btn ${active?'active':''}" onclick="react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`; }).join('');
-    return `<div class="note-card ${meta.cls} fade-in"><div class="note-card-cat">${meta.emoji} ${meta.label}</div>${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}${n.body ? `<div class="note-card-body">${esc(n.body)}</div>` : ''}<div class="note-card-footer"><div class="note-card-meta">${esc(n.author||'Anonymous')} · ${date}</div><div class="note-reactions">${reactions}</div></div></div>`;
-  }).join('');
-}
-
-function react(noteId, key) {
-  const n = boardNotes.find(x => x.id === noteId); if (!n) return;
-  if (!n.reactions) n.reactions = {}; if (!n.myReactions) n.myReactions = {};
-  const had = n.myReactions[key];
-  n.reactions[key] = Math.max(0, (n.reactions[key]||0) + (had ? -1 : 1));
-  n.myReactions[key] = !had;
-  renderNotes(); saveBoardState();
-}
-
-async function saveBoardState() {
-  const state = { notes: boardNotes, pages: boardPages };
-  localStorage.setItem('youthBoard', JSON.stringify(state));
-  try { await db.collection('youthBoardState').doc('state').set(state); } catch(e) {}
-}
-
-function openAddNote() { document.getElementById('add-note-modal').classList.add('open'); }
-function closeAddNote() { document.getElementById('add-note-modal').classList.remove('open'); }
-function toggleNoteYT() { document.getElementById('note-yt-field').style.display = document.getElementById('note-cat').value === 'song' ? 'block' : 'none'; }
-
-async function saveNote() {
-  const title = document.getElementById('note-title').value.trim();
-  const body  = document.getElementById('note-body').value.trim();
-  if (!title && !body) { toast('Please add a title or details'); return; }
-  const i = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived).length;
-  boardNotes.push({ id:'n'+Date.now(), pageId:boardCurrentPage, author:document.getElementById('note-author').value.trim(), cat:document.getElementById('note-cat').value, title, body, ytUrl:document.getElementById('note-yt').value.trim(), reactions:{}, myReactions:{}, createdAt:Date.now(), archived:false, x:60+(i%5)*310+(i*37%40)-20, y:60+Math.floor(i/5)*340+(i*53%40)-20, rot:(i*17%7)-3.5, zIndex:10 });
-  closeAddNote(); renderNotes(); toast('Saving... 📌');
-  await saveBoardState(); toast('Idea pinned! 📌');
-  ['note-author','note-title','note-body','note-yt'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('note-cat').value = 'song';
-}
-
-// ── KB WORSHIP RESOURCES (identical to worship hub) ──
-async function loadWorshipAssets() {
-  try {
-    const [ptSnap, trSnap] = await Promise.all([
-      db.collection('kb_playthrough').where('published','==',true).orderBy('createdAt','desc').get(),
-      db.collection('kb_training_worship').where('published','==',true).orderBy('createdAt','desc').get()
-    ]);
-    worshipAssets  = ptSnap.docs.map(d => ({id:d.id,...d.data()}));
-    trainingAssets = trSnap.docs.map(d => ({id:d.id,...d.data()}));
-  } catch(e) { worshipAssets = []; trainingAssets = []; }
-  renderWorshipCards();
-}
-
-function switchKbTab(tab) {
-  currentKbWorshipTab = tab;
-  document.getElementById('tab-playthrough').classList.toggle('active', tab==='playthrough');
-  document.getElementById('tab-training').classList.toggle('active', tab==='training');
-  document.getElementById('key-filter-row').style.display = tab==='playthrough' ? 'flex' : 'none';
-  document.getElementById('worship-search').value = '';
-  renderWorshipCards();
-}
-
-function setKbKey(key) {
-  currentKbKey = key;
-  document.querySelectorAll('[id^="key-"]').forEach(b => { b.style.background=''; b.style.color=''; });
-  const btn = document.getElementById('key-'+key);
-  if (btn) { btn.style.background='var(--teal)'; btn.style.color='white'; }
-  renderWorshipCards();
-}
-
-function renderWorshipCards(highlight='') {
-  const el = document.getElementById('worship-cards');
-  let assets = currentKbWorshipTab==='playthrough' ? worshipAssets : trainingAssets;
-  if (currentKbKey !== 'all' && currentKbWorshipTab==='playthrough') assets = assets.filter(a => a.ourKey===currentKbKey);
-  if (highlight) {
-    const words = highlight.toLowerCase().split(/\s+/).filter(w=>w.length>1);
-    assets = assets.map(a => { let s=0; words.forEach(w => { if((a.title||'').toLowerCase().includes(w)) s+=10; if((a.songTitle||'').toLowerCase().includes(w)) s+=8; if((a.tags||'').toLowerCase().includes(w)) s+=4; if((a.bullets||'').toLowerCase().includes(w)) s+=2; }); return {...a,_score:s}; }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
-  }
-  el.innerHTML = renderKbCards(assets, currentKbWorshipTab==='playthrough' ? 'playthrough' : 'training', highlight);
-}
-
-function renderKbCards(assets, context, highlight='') {
-  if (!assets.length) return '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No content yet</div></div>';
-  return assets.map(a => {
-    const bullets = (a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
-    const typeClass = a.assetType==='Video' ? 'kb-card-type-video' : a.assetType==='Note' ? 'kb-card-type-note' : 'kb-card-type-image';
-    const titleText = highlight ? hlText(a.title||'', highlight) : (a.title||'');
-    const keyBadge = a.ourKey ? `<span style="background:var(--teal);color:white;padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;">Key: ${a.ourKey}</span>` : '';
-    return `<div class="kb-card fade-in" onclick="openKbCard('${a.id}','${context}')"><div class="kb-card-top"><div style="display:flex;gap:6px;flex-wrap:wrap;"><span class="kb-card-type ${typeClass}">${a.assetType||'Video'}</span>${keyBadge}${a.songSection?`<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;color:var(--teal);">${a.songSection}</span>`:''}</div></div><div class="kb-card-title">${titleText}</div>${bullets.length?`<div class="kb-card-bullets">${bullets.map(b=>`• ${b.replace(/^[•\-\*]\s*/,'')}`).join('<br>')}</div>`:''}</div>`;
-  }).join('');
-}
-
-function doKbSearch(type) { const q = document.getElementById(type+'-search').value.trim(); renderWorshipCards(q); }
-function quickKbSearch(type, term) { document.getElementById(type+'-search').value = term; renderWorshipCards(term); }
-
-function openKbCard(id, context) {
-  let asset;
-  if (context==='playthrough') asset=worshipAssets.find(a=>a.id===id);
-  else if (context==='training') asset=trainingAssets.find(a=>a.id===id);
-  if (!asset) return;
-  const bullets = (asset.bullets||'').split('\n').filter(b=>b.trim());
-  const src = asset.contentURL || '';
-  const sections = asset.sectionMarkers || [];
-  const chordsPerSection = asset.chordsPerSection || {};
-  document.getElementById('kb-modal-content').innerHTML = `
-    <div class="kb-modal-breadcrumb">${context==='playthrough'?'Play Through':'Worship Training'}${asset.category?' — '+asset.category:''}</div>
-    <div class="kb-modal-title">${asset.title||''}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-      ${asset.ourKey?`<span style="background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;">Key: ${asset.ourKey}</span>`:''}
-      ${asset.songSection?`<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.songSection}</span>`:''}
-      ${asset.instrument?`<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>`:''}
-    </div>
-    ${src?`<a href="${src}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;background:var(--teal);color:white;border-radius:14px;padding:16px 18px;margin-bottom:14px;text-decoration:none;font-family:var(--font);font-weight:800;font-size:15px;"><span style="font-size:22px;">▶</span><span style="flex:1;">Watch Video</span><span style="font-size:11px;opacity:0.6;font-weight:700;">Opens in browser</span></a>`:''}
-    ${sections.length?`<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div></div>`:''}
-    ${Object.keys(chordsPerSection).length?`<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Chords by Section</div>${Object.entries(chordsPerSection).map(([sec,chords])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="background:var(--teal);color:white;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:800;">${sec}</span><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--teal);">${chords}</span></div>`).join('')}</div>`:''}
-    ${bullets.length?`<div class="kb-modal-steps"><div class="kb-modal-steps-title">How To Do It</div>${bullets.map((b,i)=>`<div class="kb-modal-step"><span class="kb-step-num">${i+1}</span><span class="kb-step-text">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>`:''}
-    ${asset.description?`<p style="font-size:13px;color:var(--teal);opacity:0.7;line-height:1.5;margin-top:12px;">${asset.description}</p>`:''}
-    ${asset.tags?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">${asset.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--bg);padding:5px 12px;border-radius:9999px;font-size:10px;font-weight:700;color:var(--teal);border:1px solid var(--border);">${t}</span>`).join('')}</div>`:''}`;
-  document.getElementById('kb-modal').classList.add('open');
-}
-
-function closeKbModal() { document.getElementById('kb-modal').classList.remove('open'); }
-
-// ── SONG LIBRARY (identical) ──
-async function loadSongs() {
-  try {
-    const snap = await db.collection('songs').orderBy('normalized').get();
-    allSongs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderSongList(allSongs);
-  } catch(e) { document.getElementById('song-list').innerHTML = '<div class="loading-state">Could not load songs.</div>'; }
-}
-
-function renderSongList(songs) {
-  const list = document.getElementById('song-list');
-  if (!songs.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎵</div><div class="empty-state-text">No songs found</div></div>'; return; }
-  list.innerHTML = songs.slice(0, 100).map(s => {
-    const keys = [...new Set((s.files||[]).map(f=>f.key).filter(Boolean))];
-    const types = [...new Set((s.files||[]).map(f=>f.type).filter(Boolean))];
-    return `<div class="song-item" onclick="openSong('${s.id}')"><div class="song-item-title">${s.title||''}</div><div class="song-item-meta">${keys.slice(0,4).map(k=>`<span class="song-meta-badge">${k}</span>`).join('')}${types.slice(0,2).map(t=>`<span class="song-meta-badge">${t}</span>`).join('')}${s.youtube?'<span class="song-meta-badge">▶ YT</span>':''}${s.ccli?'<span class="song-meta-badge">CCLI</span>':''}</div></div>`;
-  }).join('');
-}
-
-function searchLibrary(q) {
-  if (!q.trim()) { renderSongList(allSongs); return; }
-  const norm = q.toLowerCase().trim();
-  renderSongList(allSongs.filter(s => (s.title||'').toLowerCase().includes(norm) || (s.normalized||'').includes(norm)));
-}
-
-function openSong(id) {
-  const s = allSongs.find(x => x.id === id); if (!s) return;
-  const files = s.files || [];
-  const grouped = {};
-  files.forEach(f => { if (!grouped[f.key]) grouped[f.key]=[]; grouped[f.key].push(f); });
-  const ccliUrl = s.ccli ? `https://songselect.ccli.com/Songs/${s.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(s.title||'')}`;
-  let filesHtml = '<div class="song-detail-files">';
-  if (Object.keys(grouped).length) {
-    filesHtml += '<div class="song-files-heading">Sheet Music</div>';
-    Object.entries(grouped).forEach(([key, keyFiles]) => { keyFiles.forEach(f => { filesHtml += `<div class="song-file-card"><div class="song-file-info"><div class="song-file-key">Key: ${key}</div><div class="song-file-type">${f.type}</div></div><button class="song-file-open" onclick="window.open('${f.url}','_blank')">Open</button></div>`; }); });
-  }
-  filesHtml += '</div>';
-  const panel = document.getElementById('song-detail-panel');
-  panel.innerHTML = `<div class="song-detail fade-in"><div class="song-detail-title">${s.title||''}</div>${s.artist?`<div style="font-size:13px;color:var(--teal);opacity:0.5;font-weight:700;margin-bottom:12px;">${s.artist}</div>`:''}<div class="song-detail-links">${s.youtube?`<a href="${s.youtube}" target="_blank" rel="noopener" class="song-detail-link song-link-youtube">▶ YouTube</a>`:''}<a href="${ccliUrl}" target="_blank" rel="noopener" class="song-detail-link song-link-ccli">🔗 SongSelect</a></div>${filesHtml}</div>`;
-  document.getElementById('song-list').style.display = 'none';
-  panel.style.display = 'block';
-  sectionHistory.push('library-list');
-}
-
-// ── MUSIC UPLOADER (identical) ──
-function initUploadSlots() {
-  if (document.getElementById('upload-file-input-0')) return;
-  document.getElementById('upload-file-slots').innerHTML = `<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon">📄</div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
-  uploadSlots = 1; uploadFiles = {};
-}
-
-function fileSelected(index, input) { if (input.files[0]) { document.getElementById(`upload-file-name-${index}`).textContent = input.files[0].name; uploadFiles[index] = input.files[0]; } }
-
-function addUploadSlot() {
-  if (uploadSlots >= 4) { toast('Maximum 4 files at once'); return; }
-  const container = document.getElementById('upload-file-slots');
-  const div = document.createElement('div'); div.className = 'form-field';
-  div.innerHTML = `<label>PDF File (${uploadSlots+1} of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon">📄</div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-${uploadSlots}"></div><input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" onchange="fileSelected(${uploadSlots},this)"></div>`;
-  container.appendChild(div); uploadSlots++;
-  if (uploadSlots >= 4) document.getElementById('upload-more-btn').style.display = 'none';
-}
-
-async function searchUploadSong() {
-  const val = document.getElementById('upload-song-title').value.trim();
-  const resultsEl = document.getElementById('upload-song-matches');
-  uploadMatchedSong = null; document.getElementById('upload-match-status').innerHTML = '';
-  if (val.length < 2) { resultsEl.innerHTML = ''; return; }
-  const norm = val.toLowerCase();
-  const matches = allSongs.filter(s => (s.normalized||s.title||'').toLowerCase().includes(norm)).slice(0, 5);
-  if (!matches.length) { resultsEl.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--teal);opacity:0.5;font-style:italic;">No match — will create new song entry</div>`; return; }
-  resultsEl.innerHTML = matches.map(s => `<div onclick="selectUploadSong('${s.id}')" style="padding:10px 14px;border-bottom:1px solid var(--bg);font-size:13px;font-weight:700;color:var(--teal);cursor:pointer;">${s.title}</div>`).join('');
-}
-
-function selectUploadSong(id) {
-  const song = allSongs.find(s => s.id === id); if (!song) return;
-  uploadMatchedSong = song;
-  document.getElementById('upload-song-title').value = song.title;
-  document.getElementById('upload-song-matches').innerHTML = '';
-  checkDuplicates();
-}
-
-function checkDuplicates() {
-  const key = document.getElementById('upload-key').value;
-  const type = document.getElementById('upload-type').value;
-  const statusEl = document.getElementById('upload-match-status');
-  if (!uploadMatchedSong) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ New song — will be created</div>`; return; }
-  const dups = (uploadMatchedSong.files||[]).filter(f => f.key===key && f.type===type);
-  if (dups.length && key && type) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:12px;font-weight:700;color:#991b1b;">⚠ A ${type} in ${key} already exists for "${uploadMatchedSong.title}"<br><label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:700;cursor:pointer;"><input type="checkbox" id="upload-force" style="width:16px;height:16px;"> Replace existing file</label></div>`; }
-  else if (uploadMatchedSong && key && type) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ Matched to "${uploadMatchedSong.title}" — no duplicate</div>`; }
-}
-
-async function submitUpload() {
-  const titleInput = document.getElementById('upload-song-title').value.trim();
-  const key = document.getElementById('upload-key').value;
-  const type = document.getElementById('upload-type').value;
-  if (!titleInput) { toast('Please enter a song title'); return; }
-  if (!key) { toast('Please select a key'); return; }
-  if (!type) { toast('Please select a file type'); return; }
-  if (!Object.keys(uploadFiles).length) { toast('Please select at least one PDF'); return; }
-  if (uploadMatchedSong) {
-    const dups = (uploadMatchedSong.files||[]).filter(f => f.key===key && f.type===type);
-    if (dups.length) { const forceEl = document.getElementById('upload-force'); if (!forceEl || !forceEl.checked) { toast('Tick "Replace existing file" to overwrite'); return; } }
-  }
-  const btn = document.getElementById('upload-submit-btn');
-  const prog = document.getElementById('upload-progress');
-  const bar  = document.getElementById('upload-progress-bar');
-  const status = document.getElementById('upload-status');
-  btn.disabled = true; prog.style.display = 'block'; status.textContent = 'Uploading...';
-  try {
-    const finalTitle = uploadMatchedSong ? uploadMatchedSong.title : titleInput;
-    const id = finalTitle.toLowerCase().replace(/\s+/g,'-');
-    const docRef = db.collection('songs').doc(id);
-    const snap = await docRef.get();
-    let existingData = snap.exists ? snap.data() : {};
-    let files = existingData.files || [];
-    const forceEl = document.getElementById('upload-force');
-    if (forceEl && forceEl.checked) files = files.filter(f => !(f.key===key && f.type===type));
-    const fileKeys = Object.keys(uploadFiles);
-    for (let i=0; i<fileKeys.length; i++) {
-      const file = uploadFiles[fileKeys[i]];
-      bar.style.width = Math.round(((i+1)/fileKeys.length)*80)+'%';
-      status.textContent = `Uploading file ${i+1} of ${fileKeys.length}...`;
-      const ref = storage.ref(`songs/${id}/${file.name}`);
-      await ref.put(file);
-      const url = await ref.getDownloadURL();
-      files.push({ name:file.name, url, type, key });
-    }
-    bar.style.width = '95%'; status.textContent = 'Saving to database...';
-    await docRef.set({ title:finalTitle, normalized:finalTitle.toLowerCase(), files, ...(existingData.youtube?{youtube:existingData.youtube}:{}), ...(existingData.ccli?{ccli:existingData.ccli}:{}) }, { merge:true });
-    bar.style.width = '100%'; status.textContent = '✓ Uploaded!'; toast('Upload complete! 🎵');
-    setTimeout(() => {
-      prog.style.display='none'; bar.style.width='0%'; status.textContent=''; btn.disabled=false;
-      document.getElementById('upload-song-title').value=''; document.getElementById('upload-key').value=''; document.getElementById('upload-type').value='';
-      document.getElementById('upload-song-matches').innerHTML=''; document.getElementById('upload-match-status').innerHTML='';
-      uploadFiles={}; uploadSlots=1; uploadMatchedSong=null;
-      document.getElementById('upload-file-slots').innerHTML=`<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon">📄</div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
-      document.getElementById('upload-more-btn').style.display='block'; allSongs=[];
-    }, 2000);
-  } catch(e) { status.textContent = '✗ Upload failed: '+e.message; btn.disabled=false; }
-}
-
-// ── TOUR (same structure, youth-specific content) ──
-const TOUR_STEPS = {
-  home: [
-    { target:'#tiles-grid', title:'Welcome to Youth Hub! 👋', text:'Everything your youth team needs is here in one place. Tap any tile to open that section.' },
-    { target:'#tile-news', title:'Latest News', text:'Team updates appear here. A red badge shows when there\'s something new you haven\'t read.' },
-    { target:'#header-help', title:'Need help?', text:'Tap ? on any screen to replay that screen\'s walkthrough.' },
-  ],
-  planner: [
-    { target:'.planner-top', title:'Youth Service Planner', text:'Pick a date, then select the service from the dropdown. Only services marked as Youth can be saved.' },
-    { target:'#serviceDate', title:'Step 1 — Pick the Date', text:'Select the Sunday you\'re planning for. The service dropdown will populate from the events already in the rota.' },
-    { target:'#eventSelect', title:'Step 2 — Select Service', text:'Choose the youth service. If it\'s not a youth service, you\'ll see a view-only banner and won\'t be able to save changes.' },
-    { target:'#service-order', title:'Order of Service', text:'Drag items to reorder. Tap a song row to expand it and see keys, notes and sheet music. Tap ▶ to collapse.' },
-    { target:'#planner-save-btn', title:'Save & Email', text:'Save stores the plan to Firebase. Email copies the formatted plan to your clipboard and opens your email app.' },
-  ],
-  board: [
-    { target:'.board-add-btn', title:'Idea Pin Board', text:'Tap here to pin a new idea — a song suggestion, event idea, prayer request, anything the team should see.' },
-    { target:'#board-filters', title:'Filter by Category', text:'Use these chips to filter by type. Tap Songs to see only song suggestions, and so on.' },
-    { target:'.notes-list', title:'React to Ideas', text:'Tap ❤️ 👍 👎 🙌 on any note to react. Reactions are visible to everyone on the team.' },
-  ],
-  worship: [
-    { target:'.kb-tabs', title:'Worship Resources', text:'Two sections — Play Through for song videos, Training for general worship guidance.' },
-    { target:'#tab-playthrough', title:'▶ Play Through', text:'Videos showing how we play each song — intros, chord progressions, full run-throughs. Great for home practice.' },
-    { target:'#tab-training', title:'📖 Training', text:'Vocal technique, leading worship, instrument tips and more.' },
-    { target:'#key-filter-row', title:'Filter by Key', text:'Tap a key to show only videos in that key — handy when preparing for a specific service.' },
-  ],
-  upload: [
-    { target:'#upload-song-title', title:'Music Uploader', text:'Start typing the song title. If it\'s already in the library, tap the match to avoid creating a duplicate.' },
-    { target:'#upload-key', title:'Key & Type', text:'Select the key and type. You\'ll get a warning if that combination already exists.' },
-    { target:'#upload-submit-btn', title:'Upload', text:'Files go straight to Firebase Storage and are immediately available to the whole team in the Song Library.' },
-  ],
-  library: [
-    { target:'.library-search', title:'Song Library', text:'Search by any part of the song title to filter the list instantly.' },
-    { target:'#song-list', title:'Browse & Open', text:'Tap any song to see YouTube, SongSelect links and all available sheet music files.' },
-  ],
-  news: [
-    { target:'#news-full-list', title:'Latest News', text:'Team updates from your leaders. The home screen always shows the 3 most recent items.' },
-  ],
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSong('${s.title.replace(/'/g, "\\'")}','${id}')" class="p-3 hover:bg-[#f0f6f6] cursor-pointer text-sm font-semibold text-[#3d6263] border-b border-[#d1dfdf] last:border-0">
+            ${s.title}
+        </div>
+    `).join('');
+    box.classList.remove('hidden');
 };
 
-const _sectionsAutoToured = new Set();
-function maybeTriggerSectionTour(section) {
-  if (_sectionsAutoToured.has(section)) return;
-  _sectionsAutoToured.add(section);
-  const key = 'egbc_youth_toured_' + section;
-  if (localStorage.getItem(key) === 'permanent') return;
-  if (!localStorage.getItem(key)) { setTimeout(() => { if (currentSection === section) { startTour(false); localStorage.setItem(key, '1'); } }, 400); }
+window.selectSong = async (title, id) => {
+    const block = document.getElementById(`suggest-${id}`).closest('.song-block');
+    const noteArea = block.querySelector('.song-note');
+    block.querySelector('.song-title').value = title;
+    document.getElementById(`suggest-${id}`).classList.add('hidden');
+    document.getElementById(`keyinfo-${id}`).innerHTML = "";
+    document.getElementById(`files-${id}`).innerHTML = "";
+    await showKeyInfo(id, title);
+
+    if (worshipLeaderName && worshipLeaderName !== "None") {
+        const preferred = await getPreferredKey(title, worshipLeaderName);
+        if (preferred) {
+            const keyInputs = block.querySelectorAll('.song-key');
+            if (Array.isArray(preferred)) {
+                preferred.forEach((k, idx) => { if(keyInputs[idx]) keyInputs[idx].value = k; });
+            } else {
+                if(keyInputs[0]) keyInputs[0].value = preferred;
+            }
+        }
+        keyChanged(id);
+        if (!noteArea.value.trim()) {
+            try {
+                const historySnap = await getDocs(collection(db, "schedules"));
+                let lastNote = "", lastDate = "";
+                historySnap.forEach(d => {
+                    const data = d.data();
+                    if (data.worshipLeader === worshipLeaderName && data.songTitle === title) {
+                        if (!lastDate || data.date > lastDate) { lastDate = data.date; lastNote = data.notes; }
+                    }
+                });
+                if (lastNote) { noteArea.value = lastNote; autoFitTextAreas(); }
+            } catch (e) { console.error("Error fetching song history:", e); }
+        }
+    } else {
+        keyChanged(id);
+    }
+};
+
+window.keyChanged = async (id) => {
+    const block = document.getElementById(`files-${id}`).closest('.song-block');
+    const title = block.querySelector('.song-title').value;
+    const keys = Array.from(block.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
+    const container = document.getElementById(`files-${id}`);
+    if (!title) { container.innerHTML = ""; return; }
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
+    if (!snap.exists()) { container.innerHTML = ""; return; }
+    const data = snap.data();
+    const youtube = data.youtube || "";
+    const ccli = data.ccli || "";
+    const songSelectLink = ccli
+        ? `https://songselect.ccli.com/Songs/${ccli}`
+        : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+    const allFiles = data.files || [];
+
+    let html = `<div class="mt-4 p-4 bg-[#f0f6f6] rounded-xl border border-[#d1dfdf]">`;
+    html += `
+        <div class="text-[11px] mb-3 flex gap-4 flex-wrap font-bold">
+            ${youtube ? `<a href="${youtube}" target="_blank" class="text-red-700 hover:underline">🎬 YouTube Video</a>` : `<span class="text-[#d1dfdf]">No YouTube</span>`}
+            <a href="${songSelectLink}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a>
+            ${ccli ? `<span class="text-[#3d6263] opacity-50 ml-auto">CCLI: ${ccli}</span>` : `<span class="text-[#d1dfdf] ml-auto">No CCLI</span>`}
+        </div>
+    `;
+    if (keys.length > 0) {
+        keys.forEach(k => {
+            const selectedKey = k.trim().toLowerCase();
+            const files = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === selectedKey);
+            html += `<div class="mb-4 last:mb-0"><div class="text-xs font-bold text-[#3d6263] border-b border-[#d1dfdf] mb-2">Key: ${k}</div>`;
+            if (files.length === 0) {
+                html += `<div class="text-xs text-[#3d6263] opacity-60 italic">No files found for ${k}</div>`;
+            } else {
+                const grouped = {};
+                files.forEach(f => { if (!grouped[f.type]) grouped[f.type] = []; grouped[f.type].push(f); });
+                Object.keys(grouped).forEach(type => {
+                    html += `<div class="mt-2 text-[10px] text-[#3d6263] opacity-40 font-extrabold uppercase tracking-widest">${type}</div><div class="flex flex-wrap gap-2 mt-1">`;
+                    grouped[type].forEach(file => {
+                        html += `<a href="${file.url}" target="_blank" class="inline-block text-[11px] bg-[#3d6263] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm hover:opacity-90">Open File</a>`;
+                    });
+                    html += `</div>`;
+                });
+            }
+            html += `</div>`;
+        });
+    } else {
+        html += `<div class="text-xs text-[#3d6263] opacity-50 italic">Select up to 3 keys to see sheet music files</div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+};
+
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+    div.className = "service-block item-block bg-[#f0f6f6] p-4 mb-4 rounded-2xl flex gap-4 items-center border border-transparent hover:border-[#d1dfdf] transition-colors";
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <div class="w-6"></div>
+        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#3d6263] focus:outline-none text-lg" placeholder="Service Item Name...">
+        <button onclick="this.parentElement.remove()" class="text-[#d1dfdf] hover:text-red-500 text-2xl font-bold">&times;</button>
+    `;
+    document.getElementById('service-order').appendChild(div);
+};
+
+window.loadRota = async () => {
+    const date = document.getElementById('serviceDate').value;
+    const snap = await getDocs(collection(db, "events"));
+    eventsForDay = [];
+    snap.forEach(d => {
+        const ev = d.data();
+        if (ev.date === date && ev.archived !== true) eventsForDay.push(ev);
+    });
+    const select = document.getElementById('eventSelect');
+    select.innerHTML = '<option value="">Select Service...</option>';
+    eventsForDay.forEach((ev, i) => {
+        const isYouth = (ev.description || ev.type || "").toLowerCase().includes("youth");
+        select.innerHTML += `<option value="${i}">${ev.type}${isYouth ? '' : ' (view only)'}</option>`;
+    });
+    // Reset readonly state when date changes
+    setReadonlyMode(false);
+};
+
+function sortAssignments(assignmentsArray) {
+    const techRoles = ["Sound", "Words", "Camera", "Cameras"];
+    return assignmentsArray.sort((a, b) => {
+        const roleA = a[0], roleB = b[0];
+        const isTechA = techRoles.includes(roleA), isTechB = techRoles.includes(roleB);
+        if (isTechA && !isTechB) return 1;
+        if (!isTechA && isTechB) return -1;
+        if (isTechA && isTechB) return techRoles.indexOf(roleA) - techRoles.indexOf(roleB);
+        return roleA.localeCompare(roleB);
+    });
 }
 
-function startTour(force) {
-  const section = currentSection === 'home' ? 'home' : currentSection;
-  if (!force && localStorage.getItem('egbc_youth_toured_' + section) === 'permanent') return;
-  const steps = TOUR_STEPS[section];
-  if (!steps || !steps.length) { toast('No tour for this screen'); return; }
-  tourStepIndex = 0;
-  const cb = document.getElementById('tour-dont-show'); if (cb) cb.checked = false;
-  showTourStep(steps);
+window.selectEvent = async () => {
+    const index = document.getElementById('eventSelect').value;
+    if (index === "") return;
+    const data = eventsForDay[index];
+
+    // ── Youth check ──
+    isYouthService = (data.description || data.type || "").toLowerCase().includes("youth");
+    setReadonlyMode(!isYouthService);
+
+    document.getElementById('serviceTypeNotes').value = data.description || "";
+    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+    document.getElementById('leaderName').innerText = worshipLeaderName;
+
+    const teamBody = document.getElementById('teamBody');
+    teamBody.innerHTML = '';
+    let assignmentsArray = Object.entries(data.assignments || {});
+    assignmentsArray = sortAssignments(assignmentsArray);
+    assignmentsArray.forEach(([role, person]) => {
+        teamBody.innerHTML += `
+            <tr>
+                <td class="w-1/4">${role}</td>
+                <td class="w-1/4">${person.name}</td>
+                <td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td>
+            </tr>`;
+    });
+
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
+        document.getElementById('introBox').value = saved.introText || "";
+        document.getElementById('outroBox').value = saved.outroText || "";
+        document.getElementById('serviceTypeNotes').value = saved.serviceNotes || "";
+
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+
+        if (saved.roleNotes) {
+            const rows = document.querySelectorAll('#teamBody tr');
+            rows.forEach(row => {
+                const role = row.children[0].innerText;
+                if (saved.roleNotes[role]) row.querySelector('.instr-note').value = saved.roleNotes[role];
+            });
+        }
+
+        saved.order.forEach(item => {
+            if (item.type === "song") {
+                const id = addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                const keyInputs = last.querySelectorAll('.song-key');
+                if (Array.isArray(item.keys)) {
+                    item.keys.forEach((k, idx) => { if(keyInputs[idx]) keyInputs[idx].value = k; });
+                } else {
+                    if(keyInputs[0]) keyInputs[0].value = item.key || "";
+                }
+                last.querySelector('.song-note').value = item.notes;
+                showKeyInfo(id, item.title);
+                keyChanged(id);
+                const content = last.querySelector('.song-content');
+                content.classList.remove('hidden');
+                last.classList.remove('is-collapsed');
+                last.querySelector('.collapse-btn').innerText = "▼";
+            } else {
+                addItem(item.title);
+            }
+        });
+        updateSongNumbers();
+        autoFitTextAreas();
+    } else {
+        autoFitTextAreas();
+    }
+};
+
+window.saveSchedule = async () => {
+    if (!isYouthService) {
+        alert("⚠️ This is not a youth service — you can view it but cannot save changes.");
+        return;
+    }
+    const date = document.getElementById('serviceDate').value;
+    const introText = document.getElementById('introBox').value;
+    const outroText = document.getElementById('outroBox').value;
+    const serviceNotes = document.getElementById('serviceTypeNotes').value;
+
+    const roleNotes = {};
+    document.querySelectorAll('#teamBody tr').forEach(row => {
+        const role = row.children[0].innerText;
+        const note = row.querySelector('.instr-note').value;
+        if (note) roleNotes[role] = note;
+    });
+
+    const blocks = document.querySelectorAll('.service-block');
+    const order = [];
+    blocks.forEach(b => {
+        if (b.classList.contains('song-block')) {
+            order.push({
+                type: "song",
+                title: b.querySelector('.song-title').value,
+                keys: Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== ""),
+                notes: b.querySelector('.song-note').value
+            });
+        } else {
+            order.push({ type: "item", title: b.querySelector('.item-title').value });
+        }
+    });
+
+    const q = query(collection(db, "services"), where("date", "==", date));
+    const snap = await getDocs(q);
+    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
+
+    if (!snap.empty) {
+        await updateDoc(doc(db, "services", snap.docs[0].id), serviceData);
+    } else {
+        await addDoc(collection(db, "services"), serviceData);
+    }
+    alert("✅ Youth service saved successfully.");
+};
+
+async function saveSongSummaryToFirestore(date) {
+    const blocks = document.querySelectorAll('.service-block');
+    const items = [];
+    let songIdx = 1;
+    for (const b of blocks) {
+        if (b.classList.contains('song-block')) {
+            const title = b.querySelector('.song-title').value;
+            const keys = Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
+            const notes = b.querySelector('.song-note').value;
+            if (!title) continue;
+            const docId = title.toLowerCase().replace(/\s+/g, "-");
+            const snap = await getDoc(doc(db, "songs", docId));
+            let ccli = "";
+            if (snap.exists()) ccli = snap.data().ccli || "";
+            items.push({ type: "song", idx: songIdx, title, keys, notes, ccli });
+            songIdx++;
+        } else {
+            const title = b.querySelector('.item-title').value;
+            if (title) items.push({ type: "item", title });
+        }
+    }
+    await setDoc(doc(db, "songSummaries", date), {
+        date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString()
+    });
+    return `https://esherchurch.github.io/availability-form/song-summary.html?date=${date}`;
 }
 
-function showTourStep(steps) {
-  const overlay = document.getElementById('tour-overlay');
-  const step = steps[tourStepIndex];
-  if (!step) { endTour(); return; }
-  const target = document.querySelector(step.target);
-  const tooltip = document.getElementById('tour-tooltip');
-  const highlight = document.getElementById('tour-highlight');
-  overlay.classList.add('active');
-  document.getElementById('tour-title').textContent = step.title;
-  document.getElementById('tour-text').textContent = step.text;
-  document.getElementById('tour-count').textContent = `${tourStepIndex+1} / ${steps.length}`;
-  document.getElementById('tour-next').textContent = tourStepIndex < steps.length-1 ? 'Next →' : 'Got it!';
-  if (target) {
-    const rect = target.getBoundingClientRect();
-    highlight.style.left = rect.left-4+'px'; highlight.style.top = rect.top-4+'px';
-    highlight.style.width = rect.width+8+'px'; highlight.style.height = rect.height+8+'px';
-    highlight.style.display = 'block';
-    tooltip.style.top = Math.min(rect.bottom+12, window.innerHeight-160)+'px';
-    tooltip.style.left = '20px'; tooltip.style.right = '20px';
-    tooltip.style.maxWidth = 'calc(100% - 40px)';
-    tooltip.style.transform = '';
-  } else {
-    highlight.style.display = 'none';
-    tooltip.style.top = '50%'; tooltip.style.left = '20px'; tooltip.style.right = '20px';
-    tooltip.style.transform = 'translateY(-50%)';
-  }
-}
+window.emailSchedule = async () => {
+    if (!isYouthService) {
+        alert("⚠️ This is not a youth service — you can view it but cannot send emails for it.");
+        return;
+    }
+    const date = document.getElementById('serviceDate').value || "TBC";
+    const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
+    const introText = document.getElementById('introBox').value || "";
+    const outroText = document.getElementById('outroBox').value || "";
+    const summaryUrl = await saveSongSummaryToFirestore(date);
 
-function nextTourStep() {
-  const section = currentSection === 'home' ? 'home' : currentSection;
-  const steps = TOUR_STEPS[section];
-  tourStepIndex++;
-  if (tourStepIndex >= steps.length) { endTour(); return; }
-  const tip = document.getElementById('tour-tooltip');
-  if (tip) tip.style.transform = '';
-  showTourStep(steps);
-}
+    let htmlEmail = `
+        <div style="font-family: 'Montserrat', Arial, sans-serif; color: #3d6263; max-width: 650px; padding: 30px; background-color: #ffffff; margin: auto;">
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
+                <tr>
+                    <td style="padding:40px; height:140px;">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="180" style="display:block;">
+                    </td>
+                    <td align="right" style="padding:40px; font-family:'Segoe UI', sans-serif;">
+                        <div style="font-size: 18px; color: #3d6263; font-weight: 700;">Youth & AV Team</div>
+                    </td>
+                </tr>
+            </table>
+            <h1 style="color: #3d6263; margin: 0; font-size: 24px; font-weight: 800; text-align: center; mso-line-height-rule: exactly; line-height: 28px;"><font color="#3d6263">Youth Service Plan</font></h1>
+            <p style="text-transform: uppercase; font-weight: 700; color: #3d6263; opacity: 0.6; letter-spacing: 1.5px; font-size: 11px; margin: 5px 0 25px 0; text-align: center;"><font color="#3d6263">${date} &bull; Leader: ${worshipLeaderName}</font></p>
+            ${serviceNotes ? `<div style="background-color: #f0f6f6; border-left: 4px solid #3d6263; padding: 15px; margin: 0; font-size: 13px; color: #3d6263; line-height: 1.5;"><font color="#3d6263"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</font></div>` : ''}
+            <p style="margin:0; font-size:10pt;">&nbsp;</p>
+            ${introText ? `<div style="font-size: 14px; color: #3d6263; margin: 0;"><font color="#3d6263">${introText.replace(/\n/g, '<br>')}</font></div>` : ''}
+            <p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>
+            <h2 style="text-align: left; border-bottom: 3px solid #3d6263; padding-bottom: 10px; color: #3d6263; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin: 0 0 20px 0;"><font color="#3d6263">Order of Service</font></h2>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+                <thead style="background-color: #f0f6f6;">
+                    <tr>
+                        <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #3d6263; border-bottom: 1px solid #d1dfdf;"><font color="#3d6263">Title</font></th>
+                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #3d6263; border-bottom: 1px solid #d1dfdf;"><font color="#3d6263">Key</font></th>
+                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #3d6263; border-bottom: 1px solid #d1dfdf;"><font color="#3d6263">Resources</font></th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
 
-function endTour() {
-  const dontShow = document.getElementById('tour-dont-show');
-  if (dontShow && dontShow.checked) localStorage.setItem('egbc_youth_toured_' + (currentSection==='home'?'home':currentSection), 'permanent');
-  document.getElementById('tour-overlay').classList.remove('active');
-}
+    const blocks = document.querySelectorAll('.service-block');
+    let songIdx = 1;
+    for (const b of blocks) {
+        if (b.classList.contains('song-block')) {
+            const title = b.querySelector('.song-title').value;
+            const keys = Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
+            const notes = b.querySelector('.song-note').value;
+            if (!title) continue;
+            const docId = title.toLowerCase().replace(/\s+/g, "-");
+            const snap = await getDoc(doc(db, "songs", docId));
+            let resourcesHtml = "", linksHtml = "";
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">YouTube</font></a>`;
+                const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+                if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
+                linksHtml += `<a href="${sSelect}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">SongSelect</font></a>`;
+                resourcesHtml += `<div style="margin-bottom: 8px;">${linksHtml}</div>`;
+                if (keys.length > 0) {
+                    keys.forEach(k => {
+                        const files = (data.files || []).filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
+                        if (files.length > 0) {
+                            resourcesHtml += `<div style="font-size: 10px; color: #3d6263; font-weight: bold; margin-top: 5px;">Key: ${k}</div>`;
+                            files.forEach(f => {
+                                resourcesHtml += `<div style="margin-top: 2px;"><a href="${f.url}" style="color: #3d6263; text-decoration: underline; font-size: 11px; font-weight: 600;"><font color="#3d6263">Download ${f.type}</font></a></div>`;
+                            });
+                        }
+                    });
+                }
+            }
+            htmlEmail += `
+                <tr>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">
+                        <p style="font-weight: 800; font-size: 14px; color: #1e293b; margin: 0;"><font color="#1e293b">${songIdx}. ${title}</font></p>
+                        ${notes ? `<p style="font-style: italic; font-size: 11px; color: #64748b; margin: 4px 0 0 0;"><font color="#64748b">${notes}</font></p>` : ''}
+                    </td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #3d6263; font-size: 14px;"><font color="#3d6263">${keys.join(', ') || '-'}</font></td>
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">${resourcesHtml}</td>
+                </tr>
+            `;
+            songIdx++;
+        } else {
+            const item = b.querySelector('.item-title').value;
+            if (item) {
+                htmlEmail += `
+                    <tr>
+                        <td colspan="3" style="padding: 12px 10px; background-color: #f8fafc; border-left: 4px solid #3d6263; font-weight: 800; font-size: 12px; color: #3d6263; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <font color="#3d6263">${item}</font>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    }
 
-// ── UTILS ──
-function toast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(window._toastTimer); window._toastTimer=setTimeout(()=>{t.style.display='none';},2500); }
-function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function hlText(text, q) { if (!q) return text; q.split(/\s+/).filter(w=>w.length>1).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');}); return text; }
-function fmtTime(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+    htmlEmail += `</tbody></table><p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
+    htmlEmail += `<p style="font-size: 10.0pt; font-weight: 700; color: #3d6263; margin: 0;"><font color="#3d6263">Our team for this service is:</font></p><p style="margin:0; font-size:10pt;">&nbsp;</p><table style="width: 100%; border-collapse: collapse; margin: 0;"><tbody>`;
+
+    let rosterNames = [];
+    const teamRows = Array.from(document.querySelectorAll('#teamBody tr'));
+    const rowsForEmail = teamRows.map(r => [r.children[0].innerText, r.children[1].innerText, r.querySelector('.instr-note').value]);
+    const sortedForEmail = sortAssignments(rowsForEmail);
+
+    sortedForEmail.forEach(([role, name, note]) => {
+        if (name && name !== "None") rosterNames.push(name.trim());
+        let roleColor = "#3d6263";
+        if (["Sound", "Words", "Camera", "Cameras"].includes(role)) roleColor = "#3B7D23";
+        htmlEmail += `<tr><td width="35%" style="width:35%; padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; vertical-align: top;"><font color="${roleColor}">${role}</font></td><td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; vertical-align: top;"><font color="#000000">${name}</font>${note ? `<br><font size="2" color="#666666"><i>Note: ${note}</i></font>` : ''}</td></tr>`;
+    });
+
+    htmlEmail += `</tbody></table><p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
+    if (outroText) htmlEmail += `<div style="font-size: 14px; color: #444444; margin: 0;"><font color="#444444">${outroText.replace(/\n/g, '<br>')}</font></div>`;
+
+    htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p>
+<div style="border-top: 1px solid #d1dfdf; padding-top: 14px; margin-top: 4px;">
+    <p style="font-size: 10.0pt; font-weight: 700; color: #3d6263; margin: 0 0 6px 0;"><font color="#3d6263"><strong>Projection / Song Summary:</strong></font></p>
+    <a href="${summaryUrl}" style="font-size: 10.0pt; color: #3d6263; text-decoration: underline; font-weight: 700;"><font color="#3d6263">View simplified song list (songs, CCLI &amp; notes)</font></a>
+</div></div>`;
+
+    const type = "text/html";
+    const blob = new Blob([htmlEmail], { type });
+    try { await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]); } catch (e) {}
+
+    let recipients = [];
+    addressBook.forEach(p => {
+        const isCore = p.markers && p.markers.includes("Core Team");
+        if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) recipients.push(p.email);
+    });
+    const teamTo = [...new Set(recipients)].join(",");
+    const subject = encodeURIComponent("Youth Service Plan: " + date);
+
+    const modal = document.getElementById('emailModal');
+    const individualSelect = document.getElementById('modalIndividualSelect');
+    individualSelect.innerHTML = '<option value="">— Pick a person —</option>';
+    teamRows.forEach(row => {
+        const name = row.children[1].innerText.trim();
+        const found = addressBook.find(p => p.name?.trim() === name);
+        if (found && found.email) {
+            const opt = document.createElement('option');
+            opt.value = found.email;
+            opt.textContent = `${name} (${found.email})`;
+            individualSelect.appendChild(opt);
+        }
+    });
+
+    document.getElementById('modalTeamBtn').onclick = () => {
+        modal.classList.remove('active');
+        alert("Plan copied to clipboard!");
+        window.location.href = `mailto:${teamTo}?subject=${subject}`;
+    };
+    document.getElementById('modalIndividualBtn').onclick = () => {
+        const email = individualSelect.value;
+        if (!email) { alert("Please select a person first."); return; }
+        modal.classList.remove('active');
+        alert("Plan copied to clipboard!");
+        window.location.href = `mailto:${email}?subject=${subject}`;
+    };
+    document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
+    modal.classList.add('active');
+};
 </script>
+</head>
+
+<body class="p-4 md:p-12">
+
+<!-- Read-only banner -->
+<div id="readonlyBanner">
+    👁️ View only — this is not a youth service. You can browse it as an example but cannot make changes.
+</div>
+
+<!-- Email modal -->
+<div id="emailModal">
+    <div id="emailModalBox">
+        <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Youth Service Plan</h2>
+        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:20px; font-weight:700;">Plan will be copied to clipboard. Choose who to email.</p>
+        <button id="modalTeamBtn" class="btn-primary" style="width:100%; display:block; text-align:center; border:none; cursor:pointer; margin-bottom:20px;">Email Whole Team</button>
+        <div style="border-top:1px solid #d1dfdf; padding-top:20px;">
+            <p style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#3d6263; opacity:0.5; margin-bottom:8px;">Or email one person:</p>
+            <select id="modalIndividualSelect" class="styled-input" style="width:100%; margin-bottom:10px;"></select>
+            <button id="modalIndividualBtn" class="btn-secondary" style="width:100%; display:block; text-align:center; cursor:pointer;">Email This Person</button>
+        </div>
+        <div style="margin-top:16px; text-align:center;">
+            <button id="modalCancelBtn" style="font-size:12px; font-weight:700; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Discrete help button -->
+<a id="helpBtn"
+   href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html"
+   target="_blank"
+   rel="noopener"
+   aria-label="Open instructions">?</a>
+
+<div class="max-w-[1200px] mx-auto space-y-10">
+
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[2rem] shadow-sm border border-[#d1dfdf]">
+        <div class="flex items-center gap-6">
+            <div>
+                <h1 class="text-3xl font-extrabold text-[#3d6263] tracking-tight">Youth Service Planner</h1>
+                <p class="text-sm font-bold text-[#3d6263] opacity-50 uppercase tracking-widest mt-1">Leader: <span id="leaderName" class="text-[#3d6263]">None</span></p>
+            </div>
+        </div>
+
+        <div class="flex gap-3 w-full md:w-auto overflow-x-auto">
+            <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input text-sm flex-1 md:min-w-[150px]">
+            <select id="eventSelect" onchange="selectEvent()" class="styled-input text-sm flex-1 md:min-w-[180px]">
+                <option value="">Select Service...</option>
+            </select>
+            <input id="serviceTypeNotes" class="styled-input text-sm flex-1 md:min-w-[200px]" placeholder="General Notes">
+        </div>
+    </div>
+
+    <div class="space-y-2">
+        <label class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#3d6263] opacity-60 ml-4">Opening Remarks</label>
+        <textarea id="introBox" class="w-full styled-input !bg-white" placeholder="This text appears at the start of the team email, just below the service notes..." rows="1"></textarea>
+    </div>
+
+    <div class="space-y-6">
+        <div class="flex justify-between items-center px-4">
+            <h2 class="text-xl font-extrabold text-[#3d6263]">Order of Service</h2>
+            <div class="flex gap-2">
+                <button id="addSongBtn" onclick="addSong()" class="btn-secondary text-sm !py-2">+ Add Song</button>
+                <button id="addItemBtn" onclick="addItem()" class="btn-secondary text-sm !py-2">+ Add Item</button>
+                <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">Songs Database</a>
+            </div>
+        </div>
+        <div id="service-order" class="space-y-2"></div>
+    </div>
+
+    <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-[#d1dfdf]">
+        <h2 class="text-xl font-extrabold text-[#3d6263] mb-6">Service Team & Roles</h2>
+        <div class="overflow-x-auto">
+            <table class="rota-table">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Assigned Member</th>
+                        <th>Role Specific Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="teamBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="space-y-2">
+        <label class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#3d6263] opacity-60 ml-4">Closing Remarks</label>
+        <textarea id="outroBox" class="w-full styled-input !bg-white" placeholder="This text appears at the end of the team email, after the team rota..." rows="1"></textarea>
+    </div>
+
+    <div class="flex justify-center gap-6 pt-6 pb-12">
+        <button id="saveBtn" onclick="saveSchedule()" class="btn-primary w-48 shadow-lg shadow-[#d1dfdf]">Save Schedule</button>
+        <button id="emailBtn" onclick="emailSchedule()" class="btn-secondary w-48">Email Team</button>
+    </div>
+
+</div>
 </body>
 </html>
