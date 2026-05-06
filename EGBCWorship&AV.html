@@ -54,64 +54,26 @@
         .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
 
         /* ── DASHBOARD LANDING ── */
-        #landing-content {
-            position: absolute; inset: 0; background: var(--pale-teal);
-            display: flex; flex-direction: column; overflow-y: auto; z-index: 5;
-        }
-
-        /* Hero banner — slimmer */
-        #hero-section {
-            position: relative; min-height: 140px; background: var(--accent-teal);
-            display: flex; align-items: flex-end; padding: 20px 40px; overflow: hidden; flex-shrink: 0;
-        }
-        #hero-bg {
-            position: absolute; inset: 0; background-size: cover; background-position: center 30%;
-            opacity: 0.35; transition: opacity 0.3s;
-        }
+        #landing-content { position: absolute; inset: 0; background: var(--pale-teal); display: flex; flex-direction: column; overflow-y: auto; z-index: 5; }
+        #hero-section { position: relative; min-height: 140px; background: var(--accent-teal); display: flex; align-items: flex-end; padding: 20px 40px; overflow: hidden; flex-shrink: 0; }
+        #hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 30%; opacity: 0.35; transition: opacity 0.3s; }
         #hero-text { position: relative; z-index: 1; }
         #hero-title { font-size: 28px; font-weight: 300; color: #fff; line-height: 1.2; }
         #hero-subtitle { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 4px; }
-        #hero-edit-btn {
-            position: absolute; top: 12px; right: 16px; z-index: 2;
-            background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px; padding: 5px 12px; font-size: 11px; font-weight: 700;
-            text-transform: uppercase; cursor: pointer; display: none;
-        }
-
-        /* Two-column body */
-        #dashboard-body {
-            display: grid; grid-template-columns: 1fr 480px; gap: 0;
-            flex-grow: 1; min-height: 0;
-        }
+        #hero-edit-btn { position: absolute; top: 12px; right: 16px; z-index: 2; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 5px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
+        #dashboard-body { display: grid; grid-template-columns: 1fr 480px; gap: 0; flex-grow: 1; min-height: 0; }
         #dashboard-main { padding: 30px 40px; overflow-y: auto; }
-        #dashboard-sidebar-panel {
-            border-left: 1px solid var(--border-teal); background: var(--white);
-            display: flex; flex-direction: column; overflow: hidden; min-width: 0;
-        }
-
-        /* Welcome/body content */
+        #dashboard-sidebar-panel { border-left: 1px solid var(--border-teal); background: var(--white); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
         #body-content-area { color: #444; font-size: 15px; line-height: 1.7; }
         #body-content-area h2 { font-size: 22px; font-weight: 400; color: var(--accent-teal); margin-bottom: 8px; }
         #body-content-area p { margin-bottom: 12px; }
         #body-content-area img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
-        #body-edit-btn {
-            margin-bottom: 14px; background: none; color: var(--accent-teal);
-            border: 1px solid var(--border-teal); border-radius: 8px; padding: 5px 12px;
-            font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none;
-        }
+        #body-edit-btn { margin-bottom: 14px; background: none; color: var(--accent-teal); border: 1px solid var(--border-teal); border-radius: 8px; padding: 5px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
 
         /* ── NEWS PANEL ── */
-        #news-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 16px 20px 12px; border-bottom: 1px solid var(--border-teal); flex-shrink: 0;
-        }
-        #news-header h3 { font-size: 11px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 1px; color: var(--accent-teal); }
-        #news-add-btn {
-            background: var(--brand-green); color: #fff; border: none; border-radius: 6px;
-            padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;
-            cursor: pointer; display: none;
-        }
+        #news-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-teal); flex-shrink: 0; }
+        #news-header h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-teal); }
+        #news-add-btn { background: var(--brand-green); color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
         #news-track-wrapper { flex-grow: 1; overflow: hidden; position: relative; min-width: 0; }
         #news-track { display: flex; flex-direction: column; gap: 0; will-change: transform; }
         .news-card { border-bottom: 1px solid var(--border-teal); padding: 16px 20px; background: var(--white); position: relative; flex-shrink: 0; min-width: 0; box-sizing: border-box; }
@@ -146,37 +108,17 @@
         .tab-btn.active { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
 
         /* ── RICH TEXT EDITOR ── */
-        .rte-toolbar {
-            display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px;
-            background: var(--pale-teal); border: 2px solid var(--border-teal);
-            border-bottom: none; border-radius: 8px 8px 0 0;
-            margin-top: 10px;
-        }
-        .rte-btn {
-            padding: 4px 8px; background: white; border: 1px solid var(--border-teal);
-            border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 700;
-            color: var(--accent-teal); transition: all 0.15s; line-height: 1.4;
-        }
+        .rte-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; background: var(--pale-teal); border: 2px solid var(--border-teal); border-bottom: none; border-radius: 8px 8px 0 0; margin-top: 10px; }
+        .rte-btn { padding: 4px 8px; background: white; border: 1px solid var(--border-teal); border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--accent-teal); transition: all 0.15s; line-height: 1.4; }
         .rte-btn:hover { background: var(--accent-teal); color: white; border-color: var(--accent-teal); }
         .rte-btn.active { background: var(--accent-teal); color: white; }
         .rte-btn.separator { background: none; border: none; border-left: 1px solid var(--border-teal); padding: 0 2px; cursor: default; color: transparent; }
         .rte-select { padding: 4px 6px; border: 1px solid var(--border-teal); border-radius: 4px; font-size: 11px; color: var(--accent-teal); background: white; cursor: pointer; outline: none; }
-        .rte-area {
-            width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto;
-            border: 2px solid var(--border-teal); border-radius: 0 0 8px 8px;
-            padding: 14px; font-family: 'Segoe UI', sans-serif; font-size: 14px;
-            line-height: 1.6; color: #444; outline: none;
-        }
+        .rte-area { width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 0 0 8px 8px; padding: 14px; font-family: 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; color: #444; outline: none; }
         .rte-area:focus { border-color: var(--accent-teal); }
         .rte-area img { max-width: 100%; border-radius: 6px; cursor: pointer; }
         .rte-area img.selected { outline: 3px solid var(--accent-teal); border-radius: 6px; }
-
-        /* Image resize controls */
-        #img-resize-bar {
-            display: none; align-items: center; gap: 10px; padding: 6px 10px;
-            background: var(--accent-teal); color: white; border-radius: 0 0 8px 8px;
-            font-size: 11px; font-weight: 700;
-        }
+        #img-resize-bar { display: none; align-items: center; gap: 10px; padding: 6px 10px; background: var(--accent-teal); color: white; border-radius: 0 0 8px 8px; font-size: 11px; font-weight: 700; }
         #img-resize-bar.visible { display: flex; }
         #img-size-slider { flex-grow: 1; accent-color: white; }
         #img-size-label { min-width: 40px; text-align: right; }
@@ -193,8 +135,6 @@
         .menu-modal-box { background: white; padding: 30px; border-radius: 16px; width: 450px; max-height: 90vh; overflow-y: auto; }
         .menu-modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
         .menu-modal-box input, .menu-modal-box select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
-
-        /* Image position slider in hero editor */
         .range-row { display: flex; align-items: center; gap: 10px; }
         .range-row input[type=range] { flex-grow: 1; accent-color: var(--accent-teal); }
         .range-row span { min-width: 40px; font-size: 12px; color: var(--accent-teal); font-weight: 700; text-align: right; }
@@ -202,46 +142,40 @@
 </head>
 <body>
 
-<!-- ═══════════════ SIDEBAR ═══════════════ -->
 <nav id="sidebar" onmouseleave="closeAllMenus()">
     <div id="nav-list"></div>
     <div id="admin-controls">
-        <button class="admin-btn" onclick="openMenuModal()">+ Add Page / Sub</button>
-        <button class="admin-btn" onclick="openDashboardEditor()" style="background:#5a8a8b;">✎ Edit Dashboard</button>
+        <button class="admin-btn" onclick="openMenuModal(null)">+ Add Page / Sub</button>
+        <button class="admin-btn" onclick="openDashboardEditor()" style="background:#5a8a8b;">&#10002; Edit Dashboard</button>
         <button class="admin-btn" style="background:#f44336;" onclick="resetMenu()">Reset System</button>
     </div>
 </nav>
 
-<!-- ═══════════════ MAIN ═══════════════ -->
 <div id="main-container">
     <header>
         <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
         <div style="text-align: right">
             <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
             <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
-            <div id="sync-status">Connecting…</div>
+            <div id="sync-status">Connecting&hellip;</div>
         </div>
     </header>
 
     <main id="app-viewport">
 
-        <!-- ── DASHBOARD ── -->
         <div id="landing-content">
-
-            <!-- Hero — slimmer -->
             <div id="hero-section">
                 <div id="hero-bg"></div>
                 <div id="hero-text">
                     <div id="hero-title">Welcome</div>
                     <div id="hero-subtitle">Select a tool from the menu to get started.</div>
                 </div>
-                <button id="hero-edit-btn" onclick="openHeroEditor()">✎ Edit Banner</button>
+                <button id="hero-edit-btn" onclick="openHeroEditor()">&#10002; Edit Banner</button>
             </div>
 
-            <!-- Body + News sidebar -->
             <div id="dashboard-body">
                 <div id="dashboard-main">
-                    <button id="body-edit-btn" onclick="openBodyEditor()">✎ Edit Content</button>
+                    <button id="body-edit-btn" onclick="openBodyEditor()">&#10002; Edit Content</button>
                     <div id="body-content-area">
                         <h2>Dashboard</h2>
                         <p style="color:#7a8c8c;">Select a tool to begin.</p>
@@ -258,16 +192,13 @@
                 </div>
             </div>
 
-            <!-- ── HERO EDITOR MODAL ── -->
+            <!-- HERO EDITOR -->
             <div class="modal-overlay" id="hero-modal">
                 <div class="modal-box">
                     <h3>Edit Banner</h3>
-                    <label>Title</label>
-                    <input type="text" id="he-title" placeholder="Welcome">
-                    <label>Subtitle</label>
-                    <input type="text" id="he-subtitle" placeholder="Short tagline…">
-                    <label>Background Image URL (optional)</label>
-                    <input type="text" id="he-img" placeholder="https://…" oninput="previewHeroBg()">
+                    <label>Title</label><input type="text" id="he-title" placeholder="Welcome">
+                    <label>Subtitle</label><input type="text" id="he-subtitle" placeholder="Short tagline&hellip;">
+                    <label>Background Image URL (optional)</label><input type="text" id="he-img" placeholder="https://&hellip;" oninput="previewHeroBg()">
                     <label>Image vertical position</label>
                     <div class="range-row">
                         <input type="range" id="he-pos" min="0" max="100" value="30" oninput="previewHeroPos(this.value)">
@@ -281,56 +212,44 @@
                 </div>
             </div>
 
-            <!-- ── BODY EDITOR MODAL — RICH TEXT ── -->
+            <!-- BODY EDITOR -->
             <div class="modal-overlay" id="body-modal">
                 <div class="modal-box">
                     <h3>Edit Dashboard Content</h3>
                     <div class="tab-row">
-                        <button class="tab-btn active" id="body-tab-rich" onclick="switchBodyTab('rich')">✦ Rich Editor</button>
+                        <button class="tab-btn active" id="body-tab-rich" onclick="switchBodyTab('rich')">&#10022; Rich Editor</button>
                         <button class="tab-btn" id="body-tab-source" onclick="switchBodyTab('source')">Source HTML</button>
                     </div>
-
-                    <!-- Rich text toolbar -->
                     <div id="rte-toolbar-wrap">
                         <div class="rte-toolbar">
                             <select class="rte-select" onchange="execCmd('formatBlock',this.value);this.value=''">
-                                <option value="">Format…</option>
-                                <option value="p">Paragraph</option>
-                                <option value="h2">Heading 2</option>
-                                <option value="h3">Heading 3</option>
-                                <option value="h4">Heading 4</option>
+                                <option value="">Format&hellip;</option><option value="p">Paragraph</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option><option value="h4">Heading 4</option>
                             </select>
                             <select class="rte-select" id="font-size-sel" onchange="execCmd('fontSize',this.value);this.value=''">
-                                <option value="">Size…</option>
-                                <option value="1">Small</option>
-                                <option value="3">Normal</option>
-                                <option value="4">Large</option>
-                                <option value="5">X-Large</option>
-                                <option value="6">XX-Large</option>
+                                <option value="">Size&hellip;</option><option value="1">Small</option><option value="3">Normal</option><option value="4">Large</option><option value="5">X-Large</option><option value="6">XX-Large</option>
                             </select>
                             <span class="rte-btn separator">|</span>
                             <button class="rte-btn" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
                             <button class="rte-btn" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
                             <button class="rte-btn" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="execCmd('justifyLeft')" title="Align left">⬅</button>
-                            <button class="rte-btn" onclick="execCmd('justifyCenter')" title="Centre">☰</button>
-                            <button class="rte-btn" onclick="execCmd('justifyRight')" title="Align right">➡</button>
+                            <button class="rte-btn" onclick="execCmd('justifyLeft')">&#8678;</button>
+                            <button class="rte-btn" onclick="execCmd('justifyCenter')">&#9776;</button>
+                            <button class="rte-btn" onclick="execCmd('justifyRight')">&#8680;</button>
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="execCmd('insertUnorderedList')" title="Bullet list">• List</button>
-                            <button class="rte-btn" onclick="execCmd('insertOrderedList')" title="Numbered list">1. List</button>
+                            <button class="rte-btn" onclick="execCmd('insertUnorderedList')">&#8226; List</button>
+                            <button class="rte-btn" onclick="execCmd('insertOrderedList')">1. List</button>
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="insertLink()" title="Insert link">🔗</button>
-                            <button class="rte-btn" onclick="insertImageUrl()" title="Insert image by URL">🖼</button>
+                            <button class="rte-btn" onclick="insertLink()">&#128279;</button>
+                            <button class="rte-btn" onclick="insertImageUrl()">&#128444;</button>
                             <span class="rte-btn separator">|</span>
-                            <input type="color" id="rte-color" title="Text colour" style="width:28px;height:28px;padding:1px;border:1px solid var(--border-teal);border-radius:4px;cursor:pointer;" onchange="execCmd('foreColor',this.value)">
+                            <input type="color" id="rte-color" style="width:28px;height:28px;padding:1px;border:1px solid var(--border-teal);border-radius:4px;cursor:pointer;" onchange="execCmd('foreColor',this.value)">
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="execCmd('undo')" title="Undo">↩</button>
-                            <button class="rte-btn" onclick="execCmd('redo')" title="Redo">↪</button>
-                            <button class="rte-btn" onclick="execCmd('removeFormat')" title="Clear formatting" style="font-size:10px;">Clear</button>
+                            <button class="rte-btn" onclick="execCmd('undo')">&#8617;</button>
+                            <button class="rte-btn" onclick="execCmd('redo')">&#8618;</button>
+                            <button class="rte-btn" onclick="execCmd('removeFormat')" style="font-size:10px;">Clear</button>
                         </div>
                         <div id="rte-area" class="rte-area" contenteditable="true"></div>
-                        <!-- Image resize bar — shown when image is selected -->
                         <div id="img-resize-bar">
                             <span>Image size:</span>
                             <input type="range" id="img-size-slider" min="5" max="100" value="100" oninput="resizeSelectedImg(this.value)">
@@ -338,8 +257,7 @@
                             <button onclick="deSelectImg()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:700;">Done</button>
                         </div>
                     </div>
-
-                    <textarea id="body-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here…"></textarea>
+                    <textarea id="body-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here&hellip;"></textarea>
                     <div class="modal-btn-row">
                         <button class="modal-btn cancel" onclick="closeModal('body-modal')">Cancel</button>
                         <button class="modal-btn primary" onclick="saveBodyContent()">Save</button>
@@ -347,22 +265,20 @@
                 </div>
             </div>
 
-            <!-- ── NEWS EDITOR MODAL ── -->
+            <!-- NEWS EDITOR -->
             <div class="modal-overlay" id="news-modal">
                 <div class="modal-box">
                     <h3 id="news-modal-title">Add News</h3>
                     <input type="hidden" id="ne-id">
-                    <label>Headline</label>
-                    <input type="text" id="ne-title" placeholder="What's the news?">
-                    <label>Date label (optional)</label>
-                    <input type="text" id="ne-date" placeholder="e.g. Sunday 4 May">
+                    <label>Headline</label><input type="text" id="ne-title" placeholder="What's the news?">
+                    <label>Date label (optional)</label><input type="text" id="ne-date" placeholder="e.g. Sunday 4 May">
                     <div class="tab-row" style="margin-top:12px;">
-                        <button class="tab-btn active" id="news-tab-paste" onclick="switchNewsTab('paste')">✦ Paste from email</button>
+                        <button class="tab-btn active" id="news-tab-paste" onclick="switchNewsTab('paste')">&#10022; Paste from email</button>
                         <button class="tab-btn" id="news-tab-source" onclick="switchNewsTab('source')">Source HTML</button>
                     </div>
-                    <div id="ne-paste-zone" contenteditable="true" class="paste-zone" placeholder="Click here, then paste from your email editor (Ctrl+V / Cmd+V)…"></div>
-                    <textarea id="ne-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here…"></textarea>
-                    <div style="font-size:11px; color:#a0b0b0; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above — images and formatting are preserved.</div>
+                    <div id="ne-paste-zone" contenteditable="true" class="paste-zone" placeholder="Click here, then paste from your email editor (Ctrl+V / Cmd+V)&hellip;"></div>
+                    <textarea id="ne-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here&hellip;"></textarea>
+                    <div style="font-size:11px; color:#a0b0b0; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above &mdash; images and formatting are preserved.</div>
                     <div class="modal-btn-row">
                         <button class="modal-btn danger" id="ne-delete-btn" style="display:none;" onclick="deleteNewsItem()">Delete</button>
                         <button class="modal-btn cancel" onclick="closeModal('news-modal')">Cancel</button>
@@ -371,14 +287,14 @@
                 </div>
             </div>
 
-            <!-- ── DASHBOARD SETTINGS MODAL ── -->
+            <!-- DASHBOARD SETTINGS -->
             <div class="modal-overlay" id="dash-settings-modal">
                 <div class="modal-box">
                     <h3>Dashboard Settings</h3>
                     <p style="font-size:13px; color:#7a8c8c; margin-bottom:16px;">Quick access to all dashboard editors.</p>
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">✎ Edit Hero Banner</button>
-                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">✎ Edit Main Content</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">&#10002; Edit Hero Banner</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">&#10002; Edit Main Content</button>
                         <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openNewsEditor(null)" style="background:var(--brand-green);">+ Add News Item</button>
                     </div>
                     <div class="modal-btn-row" style="margin-top:10px;">
@@ -387,12 +303,11 @@
                 </div>
             </div>
 
-        </div><!-- end #landing-content -->
+        </div><!-- end landing-content -->
 
-        <!-- ── IFRAME for non-dashboard pages ── -->
         <iframe id="app-frame" style="display:none;" src="" allow="popups popups-to-escape-sandbox"></iframe>
 
-        <!-- ── MENU MODAL ── -->
+        <!-- MENU MODAL -->
         <div id="menu-modal-overlay">
             <div class="menu-modal-box">
                 <h3 id="menuModalTitle" style="color: var(--accent-teal);">Page Settings</h3>
@@ -400,8 +315,9 @@
                 <label>Name</label><input type="text" id="nodeName">
                 <label>Link (URL)</label><input type="text" id="nodeUrl">
                 <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
-                <label>Parent Item</label><select id="nodeParent"><option value="none">Top Level</option></select>
-                <label>Icon</label><select id="nodeIcon">
+                <label>Parent Item</label><select id="nodeParent"><option value="">Top Level</option></select>
+                <label>Icon</label>
+                <select id="nodeIcon">
                     <option value="home">Home</option><option value="calendar">Calendar</option><option value="music">Music</option>
                     <option value="worship">Worship</option><option value="av">AV</option><option value="youth">Youth</option>
                     <option value="trouble">Tools</option><option value="training">Book</option><option value="social">Social</option>
@@ -423,7 +339,6 @@
     </main>
 </div>
 
-<!-- ═══════════════ FIREBASE ═══════════════ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
@@ -445,36 +360,48 @@ function setSyncStatus(state, text) {
 }
 
 const DEFAULT_MENU = [
-    {"id":1,"name":"Dashboard","url":"landing","icon":"home","parent":"none","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
-    {"id":1777068277958,"name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"none","icon":"calendar","role":"worship"},
-    {"id":1777067389206,"name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"none","icon":"home","role":"worship"},
-    {"id":1777068093291,"name":"Music Databases","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},
-    {"id":1777068195895,"name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},
-    {"id":3,"name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},
-    {"id":1777067117446,"name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"none","icon":"youth","role":"worship"},
-    {"id":1777067480746,"name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"none","icon":"av","role":"worship"},
-    {"id":1777067863602,"name":"Core Team","url":"","logo":"","parent":"none","icon":"core","role":"core"},
-    {"id":1777067920382,"name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},
-    {"id":2,"name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},
-    {"id":1777067978288,"name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},
-    {"id":1777068996894,"name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
+    {"id":"1","name":"Dashboard","url":"landing","icon":"home","parent":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
+    {"id":"1777068277958","name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"","icon":"calendar","role":"worship"},
+    {"id":"1777067389206","name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"","icon":"home","role":"worship"},
+    {"id":"1777068093291","name":"Music Databases","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},
+    {"id":"1777068195895","name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},
+    {"id":"3","name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},
+    {"id":"1777067117446","name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"","icon":"youth","role":"worship"},
+    {"id":"1777067480746","name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"","icon":"av","role":"worship"},
+    {"id":"1777067863602","name":"Core Team","url":"","logo":"","parent":"","icon":"core","role":"core"},
+    {"id":"1777067920382","name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},
+    {"id":"2","name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},
+    {"id":"1777067978288","name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},
+    {"id":"1777068996894","name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
 ];
 
 const DEFAULT_DASHBOARD = {
     hero: { title: "Welcome", subtitle: "Select a tool from the menu to get started.", bgImage: "", bgPosition: 30 },
-    bodyHtml: `<h2>Dashboard</h2><p style="color:#7a8c8c;">Select a tool to begin.</p>`,
+    bodyHtml: '<h2>Dashboard</h2><p style="color:#7a8c8c;">Select a tool to begin.</p>',
     newsItems: []
 };
 
 let menuItems = [];
 let dashData  = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD));
 
+// ── KEY FIX: always store and compare IDs as strings ──
+function toStrId(id) { return String(id); }
+
 async function loadAll() {
     setSyncStatus('syncing', 'Loading…');
     try {
         const [menuSnap, dashSnap] = await Promise.all([MENU_DOC.get(), DASHBOARD_DOC.get()]);
-        menuItems = (menuSnap.exists && menuSnap.data().items) ? menuSnap.data().items : DEFAULT_MENU;
-        if (!menuSnap.exists) await MENU_DOC.set({ items: menuItems });
+        if (menuSnap.exists && menuSnap.data().items) {
+            // Normalise all IDs and parents to strings on load
+            menuItems = menuSnap.data().items.map(item => ({
+                ...item,
+                id:     toStrId(item.id),
+                parent: item.parent === null || item.parent === undefined ? '' : toStrId(item.parent)
+            }));
+        } else {
+            menuItems = DEFAULT_MENU;
+            await MENU_DOC.set({ items: menuItems });
+        }
         dashData  = (dashSnap.exists && dashSnap.data()) ? dashSnap.data() : DEFAULT_DASHBOARD;
         if (!dashSnap.exists) await DASHBOARD_DOC.set(dashData);
         setSyncStatus('synced', '✓ Synced');
@@ -502,7 +429,7 @@ async function saveDashToDb() {
     catch (e) { setSyncStatus('error', '⚠ Save failed'); }
 }
 
-// ── RENDER DASHBOARD ────────────────────────────
+// ── RENDER DASHBOARD ──
 function renderDashboard() {
     stopNewsScroll();
     const h = dashData.hero || {};
@@ -514,15 +441,12 @@ function renderDashboard() {
         bg.style.backgroundImage    = `url('${h.bgImage}')`;
         bg.style.backgroundPosition = `center ${pos}%`;
         bg.style.opacity            = '0.35';
-    } else {
-        bg.style.backgroundImage = '';
-        bg.style.opacity = '0';
-    }
+    } else { bg.style.backgroundImage = ''; bg.style.opacity = '0'; }
     document.getElementById('body-content-area').innerHTML = dashData.bodyHtml || '';
     renderNews();
 }
 
-// ── NEWS ─────────────────────────────────────────
+// ── NEWS ──
 let newsScrollRAF = null, newsScrollPos = 0, newsScrollPaused = false;
 const NEWS_SCROLL_SPEED = 0.5;
 
@@ -530,20 +454,17 @@ function renderNews() {
     const items = (dashData.newsItems || []).slice().reverse();
     const track  = document.getElementById('news-track');
     track.innerHTML = '';
-    if (!items.length) {
-        track.innerHTML = `<div style="padding:24px 20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>`;
-        stopNewsScroll(); return;
-    }
-    function makeCard(item) {
+    if (!items.length) { track.innerHTML = '<div style="padding:24px 20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>'; stopNewsScroll(); return; }
+    items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'news-card';
-        card.innerHTML = `<div class="news-card-date">${item.date||''}</div><div class="news-card-title">${item.title||''}</div><div class="news-card-body">${item.body||''}</div><button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">✎</button>`;
-        return card;
-    }
-    items.forEach(item => track.appendChild(makeCard(item)));
+        card.innerHTML = `<div class="news-card-date">${item.date||''}</div><div class="news-card-title">${item.title||''}</div><div class="news-card-body">${item.body||''}</div><button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">&#10002;</button>`;
+        track.appendChild(card);
+    });
     newsScrollPos = 0; track.style.transform = 'translateY(0)';
     startNewsScroll();
 }
+
 function stopNewsScroll() { if (newsScrollRAF) { cancelAnimationFrame(newsScrollRAF); newsScrollRAF = null; } }
 function startNewsScroll() {
     stopNewsScroll(); newsScrollPos = 0;
@@ -557,10 +478,7 @@ function startNewsScroll() {
         if (trackH <= wrapperH) return true;
         Array.from(track.children).forEach(c => { const clone = c.cloneNode(true); clone.classList.add('news-card-clone'); track.appendChild(clone); });
         const halfH = track.scrollHeight / 2;
-        function step() {
-            if (!newsScrollPaused) { newsScrollPos += NEWS_SCROLL_SPEED; if (newsScrollPos >= halfH) newsScrollPos = 0; track.style.transform = `translateY(-${newsScrollPos}px)`; }
-            newsScrollRAF = requestAnimationFrame(step);
-        }
+        function step() { if (!newsScrollPaused) { newsScrollPos += NEWS_SCROLL_SPEED; if (newsScrollPos >= halfH) newsScrollPos = 0; track.style.transform = `translateY(-${newsScrollPos}px)`; } newsScrollRAF = requestAnimationFrame(step); }
         newsScrollRAF = requestAnimationFrame(step);
         return true;
     }
@@ -568,7 +486,7 @@ function startNewsScroll() {
 }
 (function(){ const w = document.getElementById('news-track-wrapper'); if (w) { w.addEventListener('mouseenter', () => { newsScrollPaused = true; }); w.addEventListener('mouseleave', () => { newsScrollPaused = false; }); } })();
 
-// ── HERO EDITOR ──────────────────────────────────
+// ── HERO EDITOR ──
 function openHeroEditor() {
     const h = dashData.hero || {};
     document.getElementById('he-title').value    = h.title    || '';
@@ -587,106 +505,55 @@ function previewHeroBg() {
     if (url) { prev.style.backgroundImage = `url('${url}')`; prev.style.backgroundPosition = `center ${pos}%`; prev.style.opacity = '0.9'; }
     else { prev.style.backgroundImage = ''; prev.style.backgroundColor = 'var(--accent-teal)'; }
 }
-function previewHeroPos(val) {
-    document.getElementById('he-pos-label').textContent = val + '%';
-    previewHeroBg();
-}
+function previewHeroPos(val) { document.getElementById('he-pos-label').textContent = val + '%'; previewHeroBg(); }
 async function saveHero() {
-    dashData.hero = {
-        title:      document.getElementById('he-title').value,
-        subtitle:   document.getElementById('he-subtitle').value,
-        bgImage:    document.getElementById('he-img').value,
-        bgPosition: parseInt(document.getElementById('he-pos').value)
-    };
+    dashData.hero = { title: document.getElementById('he-title').value, subtitle: document.getElementById('he-subtitle').value, bgImage: document.getElementById('he-img').value, bgPosition: parseInt(document.getElementById('he-pos').value) };
     await saveDashToDb(); renderDashboard(); closeModal('hero-modal');
 }
 
-// ── RICH TEXT EDITOR ─────────────────────────────
+// ── RICH TEXT EDITOR ──
 let _selectedImg = null;
-
-function execCmd(cmd, val) {
-    document.getElementById('rte-area').focus();
-    document.execCommand(cmd, false, val || null);
-}
-
-function insertLink() {
-    const url = prompt('Link URL:', 'https://');
-    if (url) execCmd('createLink', url);
-}
-
-function insertImageUrl() {
-    const url = prompt('Image URL:', 'https://');
-    if (url) {
-        document.getElementById('rte-area').focus();
-        document.execCommand('insertHTML', false, `<img src="${url}" style="max-width:100%;border-radius:6px;" />`);
-    }
-}
-
-function resizeSelectedImg(pct) {
-    if (!_selectedImg) return;
-    _selectedImg.style.width = pct + '%';
-    _selectedImg.style.maxWidth = '100%';
-    document.getElementById('img-size-label').textContent = pct + '%';
-}
-
-function deSelectImg() {
-    if (_selectedImg) { _selectedImg.classList.remove('selected'); _selectedImg = null; }
-    document.getElementById('img-resize-bar').classList.remove('visible');
-}
-
-// Click on image in RTE to select it for resizing
+function execCmd(cmd, val) { document.getElementById('rte-area').focus(); document.execCommand(cmd, false, val || null); }
+function insertLink() { const url = prompt('Link URL:', 'https://'); if (url) execCmd('createLink', url); }
+function insertImageUrl() { const url = prompt('Image URL:', 'https://'); if (url) { document.getElementById('rte-area').focus(); document.execCommand('insertHTML', false, `<img src="${url}" style="max-width:100%;border-radius:6px;" />`); } }
+function resizeSelectedImg(pct) { if (!_selectedImg) return; _selectedImg.style.width = pct + '%'; _selectedImg.style.maxWidth = '100%'; document.getElementById('img-size-label').textContent = pct + '%'; }
+function deSelectImg() { if (_selectedImg) { _selectedImg.classList.remove('selected'); _selectedImg = null; } document.getElementById('img-resize-bar').classList.remove('visible'); }
 document.addEventListener('click', function(e) {
     const rte = document.getElementById('rte-area');
     if (!rte) return;
     if (e.target.tagName === 'IMG' && rte.contains(e.target)) {
         if (_selectedImg) _selectedImg.classList.remove('selected');
-        _selectedImg = e.target;
-        _selectedImg.classList.add('selected');
+        _selectedImg = e.target; _selectedImg.classList.add('selected');
         const currentPct = _selectedImg.style.width ? parseInt(_selectedImg.style.width) : 100;
         document.getElementById('img-size-slider').value = currentPct;
         document.getElementById('img-size-label').textContent = currentPct + '%';
         document.getElementById('img-resize-bar').classList.add('visible');
-    } else if (!e.target.closest('#img-resize-bar')) {
-        deSelectImg();
-    }
+    } else if (!e.target.closest('#img-resize-bar')) { deSelectImg(); }
 });
-
 function openBodyEditor() {
     const rte = document.getElementById('rte-area');
     rte.innerHTML = dashData.bodyHtml || '';
     document.getElementById('body-source').value = dashData.bodyHtml || '';
-    switchBodyTab('rich');
-    openModal('body-modal');
+    switchBodyTab('rich'); openModal('body-modal');
 }
-
 function switchBodyTab(tab) {
     const isRich = tab === 'rich';
-    if (!isRich) {
-        // sync RTE → source
-        document.getElementById('body-source').value = document.getElementById('rte-area').innerHTML;
-    } else {
-        // sync source → RTE
-        document.getElementById('rte-area').innerHTML = document.getElementById('body-source').value;
-    }
+    if (!isRich) { document.getElementById('body-source').value = document.getElementById('rte-area').innerHTML; }
+    else { document.getElementById('rte-area').innerHTML = document.getElementById('body-source').value; }
     document.getElementById('rte-toolbar-wrap').style.display = isRich ? '' : 'none';
     document.getElementById('body-source').style.display      = isRich ? 'none' : '';
     document.getElementById('body-tab-rich').classList.toggle('active', isRich);
     document.getElementById('body-tab-source').classList.toggle('active', !isRich);
 }
-
 async function saveBodyContent() {
     const isRich = document.getElementById('rte-toolbar-wrap').style.display !== 'none';
-    dashData.bodyHtml = isRich
-        ? document.getElementById('rte-area').innerHTML
-        : document.getElementById('body-source').value;
+    dashData.bodyHtml = isRich ? document.getElementById('rte-area').innerHTML : document.getElementById('body-source').value;
     await saveDashToDb(); renderDashboard(); closeModal('body-modal');
 }
 
-// ── NEWS EDITOR ──────────────────────────────────
+// ── NEWS EDITOR ──
 function setupPasteZone(zoneId) {
-    const zone = document.getElementById(zoneId);
-    if (!zone || zone._pasteReady) return;
-    zone._pasteReady = true;
+    const zone = document.getElementById(zoneId); if (!zone || zone._pasteReady) return; zone._pasteReady = true;
     zone.addEventListener('paste', function(e) {
         e.preventDefault();
         const html = e.clipboardData.getData('text/html');
@@ -707,9 +574,9 @@ function syncPasteToSource(p, s) { document.getElementById(s).value = document.g
 function syncSourceToPaste(p, s) { document.getElementById(p).innerHTML = document.getElementById(s).value; }
 
 function openNewsEditor(id) {
-    const item = id ? (dashData.newsItems || []).find(n => n.id == id) : null;
+    const item = id ? (dashData.newsItems || []).find(n => toStrId(n.id) === toStrId(id)) : null;
     setupPasteZone('ne-paste-zone');
-    document.getElementById('ne-id').value    = item ? item.id    : '';
+    document.getElementById('ne-id').value    = item ? toStrId(item.id) : '';
     document.getElementById('ne-title').value = item ? item.title : '';
     document.getElementById('ne-date').value  = item ? (item.date || '') : '';
     setPasteZoneHtml('ne-paste-zone', item ? item.body : '');
@@ -729,27 +596,55 @@ function switchNewsTab(tab) {
 }
 async function saveNewsItem() {
     if (!dashData.newsItems) dashData.newsItems = [];
-    const id = document.getElementById('ne-id').value;
+    const rawId = document.getElementById('ne-id').value;
     const isPaste = document.getElementById('ne-paste-zone').style.display !== 'none';
     const body = isPaste ? getPasteZoneHtml('ne-paste-zone') : document.getElementById('ne-source').value;
-    const data = { id: id || Date.now(), title: document.getElementById('ne-title').value, date: document.getElementById('ne-date').value, body };
-    if (id) { const idx = dashData.newsItems.findIndex(n => n.id == id); if (idx >= 0) dashData.newsItems[idx] = data; else dashData.newsItems.push(data); }
-    else { dashData.newsItems.push(data); }
+    const newId = rawId ? toStrId(rawId) : toStrId(Date.now());
+    const data = { id: newId, title: document.getElementById('ne-title').value, date: document.getElementById('ne-date').value, body };
+    if (rawId) {
+        const idx = dashData.newsItems.findIndex(n => toStrId(n.id) === toStrId(rawId));
+        if (idx >= 0) dashData.newsItems[idx] = data; else dashData.newsItems.push(data);
+    } else { dashData.newsItems.push(data); }
     await saveDashToDb(); renderDashboard(); closeModal('news-modal');
 }
 async function deleteNewsItem() {
     const id = document.getElementById('ne-id').value;
-    dashData.newsItems = (dashData.newsItems || []).filter(n => n.id != id);
+    dashData.newsItems = (dashData.newsItems || []).filter(n => toStrId(n.id) !== toStrId(id));
     await saveDashToDb(); renderDashboard(); closeModal('news-modal');
 }
 
 function openDashboardEditor() { openModal('dash-settings-modal'); }
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function openMenuModal()  { document.getElementById('menu-modal-overlay').classList.add('open'); }
+function openMenuModal(id) {
+    // id = string ID to edit, or null/undefined = new page
+    document.getElementById('editId').value = id !== null && id !== undefined ? toStrId(id) : '';
+    if (id !== null && id !== undefined) {
+        const item = menuItems.find(i => i.id === toStrId(id));
+        if (!item) return;
+        document.getElementById('nodeName').value   = item.name   || '';
+        document.getElementById('nodeUrl').value    = item.url    || '';
+        document.getElementById('nodeLogo').value   = item.logo   || '';
+        document.getElementById('nodeParent').value = item.parent || '';
+        document.getElementById('nodeIcon').value   = item.icon   || 'home';
+        document.getElementById('nodeRole').value   = item.role   || 'worship';
+        document.getElementById('deleteBtn').style.display = 'block';
+        document.getElementById('menuModalTitle').textContent = 'Edit Page';
+    } else {
+        document.getElementById('nodeName').value   = '';
+        document.getElementById('nodeUrl').value    = '';
+        document.getElementById('nodeLogo').value   = '';
+        document.getElementById('nodeParent').value = '';
+        document.getElementById('nodeIcon').value   = 'home';
+        document.getElementById('nodeRole').value   = 'worship';
+        document.getElementById('deleteBtn').style.display = 'none';
+        document.getElementById('menuModalTitle').textContent = 'Add New Page';
+    }
+    document.getElementById('menu-modal-overlay').classList.add('open');
+}
 function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }
 
-// ── ICONS ────────────────────────────────────────
+// ── ICONS ──
 const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
 const ICONS = {
     home:`<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
@@ -772,26 +667,29 @@ const userRole  = urlParams.get('role') || 'worship';
 function renderMenu() {
     const list = document.getElementById('nav-list');
     const parentSelect = document.getElementById('nodeParent');
-    list.innerHTML = ''; parentSelect.innerHTML = '<option value="none">Top Level</option>';
+    list.innerHTML = '';
+    parentSelect.innerHTML = '<option value="">Top Level</option>';
+
     const buildTree = (parentId, level = 0) => {
         const children = menuItems.filter(i => {
-            if (i.parent != parentId) return false;
+            const itemParent = i.parent || '';
+            if (itemParent !== toStrId(parentId)) return false;
             if (userRole === 'core') return true;
             return i.role === 'worship' || !i.role;
         });
         children.forEach(item => {
-            const hasSubs = menuItems.some(i => i.parent == item.id);
+            const hasSubs = menuItems.some(i => (i.parent || '') === item.id);
             const wrapper = document.createElement('div');
             wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
             wrapper.dataset.id = item.id;
-            wrapper.innerHTML = `<div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${item.url}', '${item.logo || DEFAULT_LOGO}')"><div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div><span class="nav-text">${item.name}</span>${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}<div class="edit-trigger" onclick="event.stopPropagation(); openEdit(${item.id})">&#9998;</div></div><div class="child-container" id="child-of-${item.id}"></div>`;
-            const targetContainer = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
+            wrapper.innerHTML = `<div class="nav-row" onclick="handleItemClick(event, '${item.id}', '${(item.url||'').replace(/'/g,'\\'')}'  , '${(item.logo||DEFAULT_LOGO).replace(/'/g,'\\'')}'  )"><div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div><span class="nav-text">${item.name}</span>${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}<div class="edit-trigger" onclick="event.stopPropagation(); openMenuModal('${item.id}')">&#9998;</div></div><div class="child-container" id="child-of-${item.id}"></div>`;
+            const targetContainer = (!parentId || parentId === '') ? list : document.getElementById(`child-of-${parentId}`);
             if (targetContainer) targetContainer.appendChild(wrapper);
             if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
             buildTree(item.id, level + 1);
         });
     };
-    buildTree('none');
+    buildTree('');
 }
 
 function updateFocusState() { const navList = document.getElementById('nav-list'); const anyOpen = navList.querySelector('.has-children.open'); navList.classList.toggle('has-open', !!anyOpen); }
@@ -817,24 +715,61 @@ function handleSecret() {
     }
 }
 
-function openEdit(id) {
-    const item = menuItems.find(i => i.id == id);
-    document.getElementById('editId').value = id; document.getElementById('nodeName').value = item.name; document.getElementById('nodeUrl').value = item.url; document.getElementById('nodeLogo').value = item.logo || ''; document.getElementById('nodeParent').value = item.parent; document.getElementById('nodeIcon').value = item.icon; document.getElementById('nodeRole').value = item.role || 'worship'; document.getElementById('deleteBtn').style.display = 'block';
-    openMenuModal();
-}
+// ── KEY FIX: savePage and deletePage use strict string ID matching ──
 async function savePage() {
-    const id = document.getElementById('editId').value;
-    const data = { id: id ? parseInt(id) : Date.now(), name: document.getElementById('nodeName').value, url: document.getElementById('nodeUrl').value, logo: document.getElementById('nodeLogo').value, parent: document.getElementById('nodeParent').value, icon: document.getElementById('nodeIcon').value, role: document.getElementById('nodeRole').value };
-    if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data; else menuItems.push(data);
-    await saveMenuToDb(); renderMenu(); closeMenuModal();
+    const editId = document.getElementById('editId').value.trim();
+    const data = {
+        id:     editId !== '' ? editId : toStrId(Date.now()),
+        name:   document.getElementById('nodeName').value,
+        url:    document.getElementById('nodeUrl').value,
+        logo:   document.getElementById('nodeLogo').value,
+        parent: document.getElementById('nodeParent').value || '',
+        icon:   document.getElementById('nodeIcon').value,
+        role:   document.getElementById('nodeRole').value
+    };
+
+    if (editId !== '') {
+        // Editing existing — find by exact string match
+        const idx = menuItems.findIndex(i => i.id === editId);
+        if (idx >= 0) {
+            menuItems[idx] = data;
+        } else {
+            // ID not found — add as new rather than silently failing
+            menuItems.push(data);
+        }
+    } else {
+        // Brand new page
+        menuItems.push(data);
+    }
+
+    await saveMenuToDb();
+    renderMenu();
+    closeMenuModal();
 }
+
 async function deletePage() {
-    const id = document.getElementById('editId').value;
-    menuItems = menuItems.filter(i => i.id != id && i.parent != id);
-    await saveMenuToDb(); renderMenu(); closeMenuModal();
+    const editId = document.getElementById('editId').value.trim();
+    if (!editId) return;
+    if (!confirm('Delete this page and all its children?')) return;
+    // Remove the item and all its children (exact string match only)
+    const toRemove = new Set();
+    function collectIds(id) {
+        toRemove.add(id);
+        menuItems.filter(i => i.parent === id).forEach(child => collectIds(child.id));
+    }
+    collectIds(editId);
+    menuItems = menuItems.filter(i => !toRemove.has(i.id));
+    await saveMenuToDb();
+    renderMenu();
+    closeMenuModal();
 }
+
 async function resetMenu() {
-    if (confirm("Factory Reset? This will restore the default menu for ALL users.")) { menuItems = DEFAULT_MENU; await saveMenuToDb(); renderMenu(); }
+    if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
+        menuItems = DEFAULT_MENU;
+        await saveMenuToDb();
+        renderMenu();
+    }
 }
 
 loadAll();
