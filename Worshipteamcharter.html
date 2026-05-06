@@ -1,730 +1,629 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wider Worship Charter</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wider Worship Charter</title>
+    <style>
+        :root {
+            --pale-teal: #f0f6f6;
+            --border-teal: #d1dfdf;
+            --accent-teal: #3d6263;
+            --white: #ffffff;
+            --brand-green: #9bc34a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); min-height: 100vh; }
 
-  :root {
-    --teal:       #3d6263;
-    --teal-dark:  #2a4445;
-    --teal-mid:   #5b8e8f;
-    --teal-light: #d1dfdf;
-    --bg:         #f0f6f6;
-    --white:      #ffffff;
-    --accent:     #9bc34a;
-    --danger:     #b22222;
-    --font-body:  'Montserrat', sans-serif;
-    --font-display: 'Playfair Display', serif;
-  }
+        /* ── ADMIN BAR ── */
+        #admin-bar {
+            background: var(--accent-teal);
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 500;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        .admin-bar-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.6);
+            margin-right: 4px;
+        }
+        .admin-bar-btn {
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            transition: background 0.15s;
+        }
+        .admin-bar-btn:hover { background: rgba(255,255,255,0.28); }
+        .admin-bar-btn.green { background: var(--brand-green); border-color: var(--brand-green); }
+        .admin-bar-btn.red   { background: #f44336; border-color: #f44336; }
+        .admin-bar-btn.login { background: rgba(255,255,255,0.1); }
+        #admin-mode-badge {
+            display: none;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--brand-green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-left: auto;
+        }
 
-  body {
-    font-family: var(--font-body);
-    background: var(--bg);
-    color: #333;
-    min-height: 100vh;
-  }
+        /* ── HEADER ── */
+        header {
+            background: var(--white);
+            border-bottom: 1px solid var(--border-teal);
+            padding: 0 40px;
+            height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        header img { height: 65px; width: auto; max-width: 260px; }
+        #page-title-display {
+            font-size: 22px;
+            font-weight: 300;
+            color: var(--accent-teal);
+            letter-spacing: 0.3px;
+        }
+        #page-title-input {
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--accent-teal);
+            border: 2px solid var(--border-teal);
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-family: 'Segoe UI', sans-serif;
+            outline: none;
+            display: none;
+            min-width: 280px;
+        }
+        #page-title-input:focus { border-color: var(--accent-teal); }
+        .header-right { text-align: right; }
+        .header-right .sub { font-size: 11px; color: #a0b0b0; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
 
-  /* ── ADMIN BAR ── */
-  #admin-bar {
-    background: var(--teal-dark);
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    position: sticky;
-    top: 0;
-    z-index: 500;
-  }
+        /* ── PAGE BODY ── */
+        .page-wrap { max-width: 1100px; margin: 0 auto; padding: 30px 24px 60px; }
 
-  #admin-bar.locked { background: #1a2e2f; }
+        /* ── PHOTO GALLERY ── */
+        #photo-gallery-section {
+            background: var(--white);
+            border: 1px solid var(--border-teal);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .section-heading {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-teal);
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+        #photo-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0;
+            align-items: flex-end;
+            min-height: 20px;
+        }
+        #photo-gallery:empty + .gallery-empty-hint { display: block; }
+        .gallery-empty-hint {
+            display: none;
+            font-size: 12px;
+            color: #a0b0b0;
+            font-style: italic;
+        }
 
-  .admin-label {
-    font-size: 0.65rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: rgba(255,255,255,0.5);
-  }
+        /* Tilted photo frames */
+        .photo-frame-wrap {
+            position: relative;
+            display: inline-block;
+            margin: 8px 6px;
+            transition: transform 0.2s ease, z-index 0s;
+        }
+        .photo-frame-wrap:nth-child(4n+1) { transform: rotate(-3deg);   margin-top: 16px; }
+        .photo-frame-wrap:nth-child(4n+2) { transform: rotate(2.5deg);  margin-top: 4px; }
+        .photo-frame-wrap:nth-child(4n+3) { transform: rotate(-1.5deg); margin-top: 20px; }
+        .photo-frame-wrap:nth-child(4n+4) { transform: rotate(3deg);    margin-top: 8px; }
+        .photo-frame-wrap:hover { transform: rotate(0deg) scale(1.06); z-index: 20; }
 
-  .admin-btn {
-    padding: 6px 16px;
-    border-radius: 9999px;
-    font-family: var(--font-body);
-    font-size: 0.68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    border: none;
-    transition: opacity 0.15s;
-  }
-  .admin-btn:hover { opacity: 0.85; }
-  .admin-btn-primary  { background: var(--accent); color: #fff; }
-  .admin-btn-ghost    { background: rgba(255,255,255,0.12); color: #fff; }
-  .admin-btn-danger   { background: #b22222; color: #fff; }
-  .admin-btn-login    { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.2); }
+        .photo-frame {
+            background: var(--white);
+            padding: 8px 8px 28px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.16), 0 1px 4px rgba(0,0,0,0.08);
+            border-radius: 2px;
+            border: 1px solid #e8e8e8;
+        }
+        .photo-frame img {
+            display: block;
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+        }
 
-  #admin-status {
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: var(--accent);
-    margin-left: auto;
-  }
+        /* Admin delete overlay */
+        .photo-delete-btn {
+            display: none;
+            position: absolute;
+            top: -7px; right: -7px;
+            width: 22px; height: 22px;
+            background: #f44336;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            z-index: 10;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        body.admin-mode .photo-delete-btn { display: flex; }
 
-  /* ── PAGE WRAPPER ── */
-  #page-wrap {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 40px 20px 80px;
-  }
+        /* Add photo tile */
+        #photo-add-tile {
+            display: none;
+            width: 150px;
+            height: 186px;
+            border: 2px dashed var(--border-teal);
+            border-radius: 8px;
+            background: var(--pale-teal);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            margin: 8px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #a0b0b0;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        #photo-add-tile:hover { border-color: var(--accent-teal); background: var(--white); color: var(--accent-teal); }
+        #photo-add-tile span { font-size: 22px; }
+        body.admin-mode #photo-add-tile { display: flex; }
 
-  /* ── PAGE TITLE ── */
-  #page-title-wrap {
-    text-align: center;
-    margin-bottom: 40px;
-    position: relative;
-  }
+        /* ── CONTENT PANEL ── */
+        #content-panel {
+            background: var(--white);
+            border: 1px solid var(--border-teal);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        #content-panel-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-teal);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        #content-panel-header h3 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-teal);
+        }
+        #content-display {
+            padding: 28px 32px;
+            min-height: 120px;
+            font-size: 14px;
+            color: #444;
+            line-height: 1.7;
+        }
+        /* Styles for content inside the display area */
+        #content-display h2 { font-size: 20px; font-weight: 400; color: var(--accent-teal); margin: 0 0 10px; }
+        #content-display h3 { font-size: 16px; font-weight: 600; color: var(--accent-teal); margin: 18px 0 8px; }
+        #content-display h4 { font-size: 14px; font-weight: 600; color: var(--accent-teal); margin: 14px 0 6px; }
+        #content-display p  { margin-bottom: 12px; }
+        #content-display ul, #content-display ol { padding-left: 22px; margin-bottom: 12px; }
+        #content-display li { margin-bottom: 5px; }
+        #content-display strong { color: var(--accent-teal); }
+        #content-display a { color: var(--accent-teal); }
+        #content-display hr { border: none; border-top: 1px solid var(--border-teal); margin: 20px 0; }
+        #content-display blockquote { border-left: 3px solid var(--brand-green); padding-left: 14px; margin: 12px 0; color: #7a8c8c; font-style: italic; }
+        #content-display img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
+        #content-display table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        #content-display th { background: var(--accent-teal); color: #fff; padding: 9px 12px; font-size: 11px; text-align: left; font-weight: 700; }
+        #content-display td { padding: 9px 12px; border-bottom: 1px solid var(--border-teal); font-size: 13px; }
+        #content-display tr:nth-child(even) td { background: var(--pale-teal); }
 
-  #page-title-display {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 6vw, 3.6rem);
-    font-weight: 900;
-    color: var(--teal-dark);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-  }
+        .content-empty { padding: 40px 20px; text-align: center; color: #a0b0b0; font-size: 13px; }
 
-  #page-title-display::after {
-    content: '';
-    display: block;
-    width: 60px;
-    height: 4px;
-    background: var(--accent);
-    border-radius: 2px;
-    margin: 14px auto 0;
-  }
+        /* HTML editor */
+        #html-editor-wrap {
+            display: none;
+            padding: 20px;
+            flex-direction: column;
+            gap: 10px;
+            border-top: 1px solid var(--border-teal);
+        }
+        #html-textarea {
+            width: 100%;
+            min-height: 260px;
+            padding: 14px;
+            border: 2px solid var(--border-teal);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #333;
+            background: var(--pale-teal);
+            outline: none;
+            resize: vertical;
+            line-height: 1.5;
+        }
+        #html-textarea:focus { border-color: var(--accent-teal); }
+        .editor-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .editor-btn {
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            border: none;
+        }
+        .editor-btn.primary { background: var(--accent-teal); color: #fff; }
+        .editor-btn.cancel  { background: #e0e8e8; color: var(--accent-teal); }
+        .editor-btn.danger  { background: #f44336; color: #fff; }
 
-  #page-title-input {
-    font-family: var(--font-display);
-    font-size: clamp(1.8rem, 5vw, 3rem);
-    font-weight: 900;
-    color: var(--teal-dark);
-    text-align: center;
-    border: 2px dashed var(--teal-light);
-    border-radius: 12px;
-    padding: 8px 20px;
-    width: 100%;
-    background: rgba(255,255,255,0.7);
-    outline: none;
-    display: none;
-  }
-  #page-title-input:focus { border-color: var(--teal); }
+        /* ── PASSWORD MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(61,98,99,0.45);
+            z-index: 900;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 28px;
+            width: 380px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+        }
+        .modal-box h3 { font-size: 17px; font-weight: 600; color: var(--accent-teal); margin-bottom: 6px; }
+        .modal-box p  { font-size: 13px; color: #7a8c8c; margin-bottom: 18px; }
+        .modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 12px 0 5px; }
+        .modal-box input { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; font-family: inherit; font-size: 13px; }
+        .modal-box input:focus { border-color: var(--accent-teal); }
+        .modal-error { font-size: 11px; color: #f44336; min-height: 16px; margin: 6px 0 10px; }
+        .modal-btn-row { display: flex; gap: 10px; margin-top: 16px; }
+        .modal-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .modal-btn.primary { background: var(--accent-teal); color: #fff; }
+        .modal-btn.cancel  { background: #e0e8e8; color: var(--accent-teal); }
 
-  /* ── PHOTO GALLERY ── */
-  #photo-gallery {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0;
-    min-height: 60px;
-    margin-bottom: 40px;
-    position: relative;
-  }
-
-  #photo-gallery:empty::before {
-    content: 'Photos will appear here';
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--teal-light);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-
-  .photo-frame-wrap {
-    position: relative;
-    display: inline-block;
-    margin: 10px;
-    cursor: default;
-  }
-
-  /* Alternating tilt angles */
-  .photo-frame-wrap:nth-child(3n+1) { transform: rotate(-3deg); }
-  .photo-frame-wrap:nth-child(3n+2) { transform: rotate(2.5deg); }
-  .photo-frame-wrap:nth-child(3n+3) { transform: rotate(-1.5deg); }
-  .photo-frame-wrap:nth-child(4n+4) { transform: rotate(3.5deg); }
-
-  .photo-frame-wrap:hover { transform: rotate(0deg) scale(1.05); z-index: 10; transition: transform 0.25s ease; }
-
-  .photo-frame {
-    background: var(--white);
-    padding: 10px 10px 30px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.1);
-    border-radius: 2px;
-    position: relative;
-  }
-
-  .photo-frame img {
-    display: block;
-    width: 160px;
-    height: 160px;
-    object-fit: cover;
-    border-radius: 1px;
-  }
-
-  .photo-caption {
-    position: absolute;
-    bottom: 6px;
-    left: 0; right: 0;
-    text-align: center;
-    font-size: 0.6rem;
-    font-weight: 700;
-    color: #aaa;
-    font-family: var(--font-body);
-    letter-spacing: 0.04em;
-  }
-
-  /* Admin delete button on photos */
-  .photo-delete-btn {
-    display: none;
-    position: absolute;
-    top: -8px; right: -8px;
-    width: 22px; height: 22px;
-    background: var(--danger);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    font-size: 13px;
-    font-weight: 800;
-    cursor: pointer;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    z-index: 20;
-  }
-  body.admin-mode .photo-delete-btn { display: flex; }
-  body.admin-mode .photo-frame-wrap { cursor: pointer; }
-
-  /* Add photo placeholder */
-  .photo-add-slot {
-    display: none;
-    width: 160px; height: 200px;
-    border: 2px dashed var(--teal-light);
-    border-radius: 8px;
-    background: rgba(255,255,255,0.6);
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 8px;
-    cursor: pointer;
-    margin: 10px;
-    transition: border-color 0.2s, background 0.2s;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--teal-mid);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    text-align: center;
-    padding: 20px;
-  }
-  .photo-add-slot:hover { border-color: var(--teal); background: rgba(255,255,255,0.9); }
-  .photo-add-slot-icon { font-size: 1.8rem; }
-  body.admin-mode .photo-add-slot { display: flex; }
-
-  /* ── CONTENT AREA ── */
-  #content-area {
-    background: var(--white);
-    border: 1px solid var(--teal-light);
-    border-radius: 24px;
-    padding: 40px;
-    min-height: 200px;
-  }
-
-  /* Styles for pasted HTML content */
-  #content-display h1, #content-display h2, #content-display h3 {
-    font-family: var(--font-display);
-    color: var(--teal-dark);
-    margin-bottom: 12px;
-    margin-top: 24px;
-    line-height: 1.2;
-  }
-  #content-display h1 { font-size: 1.8rem; }
-  #content-display h2 { font-size: 1.4rem; }
-  #content-display h3 { font-size: 1.1rem; }
-  #content-display h1:first-child, #content-display h2:first-child, #content-display h3:first-child { margin-top: 0; }
-  #content-display p { font-size: 0.95rem; line-height: 1.7; color: #444; margin-bottom: 14px; font-weight: 500; }
-  #content-display ul, #content-display ol { padding-left: 24px; margin-bottom: 14px; }
-  #content-display li { font-size: 0.9rem; line-height: 1.7; color: #444; margin-bottom: 6px; font-weight: 500; }
-  #content-display strong { color: var(--teal-dark); font-weight: 800; }
-  #content-display em { font-style: italic; }
-  #content-display a { color: var(--teal); font-weight: 700; }
-  #content-display hr { border: none; border-top: 2px solid var(--teal-light); margin: 24px 0; }
-  #content-display blockquote { border-left: 4px solid var(--accent); padding-left: 16px; margin: 16px 0; color: var(--teal-mid); font-style: italic; }
-  #content-display img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
-  #content-display table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-  #content-display th { background: var(--teal); color: #fff; padding: 10px 14px; font-size: 0.8rem; text-align: left; font-weight: 800; }
-  #content-display td { padding: 10px 14px; border-bottom: 1px solid var(--teal-light); font-size: 0.85rem; }
-  #content-display tr:nth-child(even) td { background: var(--bg); }
-
-  .content-empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--teal-light);
-  }
-  .content-empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
-  .content-empty-text { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-
-  /* HTML editor */
-  #html-editor-wrap {
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  #html-textarea {
-    width: 100%;
-    min-height: 280px;
-    padding: 16px;
-    border: 1.5px solid var(--teal-light);
-    border-radius: 14px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.82rem;
-    color: var(--teal-dark);
-    background: #f8fcfc;
-    outline: none;
-    resize: vertical;
-    line-height: 1.5;
-  }
-  #html-textarea:focus { border-color: var(--teal); }
-
-  .html-editor-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-  /* ── PASSWORD MODAL ── */
-  .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.5);
-    display: none; align-items: center; justify-content: center;
-    z-index: 900; padding: 20px;
-  }
-  .modal-overlay.open { display: flex; }
-
-  .modal-box {
-    background: var(--white);
-    border-radius: 24px;
-    padding: 32px;
-    max-width: 380px; width: 100%;
-    position: relative;
-  }
-  .modal-box h3 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--teal-dark); margin-bottom: 6px; }
-  .modal-box p  { font-size: 0.78rem; font-weight: 600; color: var(--teal-mid); margin-bottom: 20px; }
-
-  .modal-input {
-    width: 100%; padding: 12px 18px;
-    border: 1.5px solid var(--teal-light);
-    border-radius: 9999px;
-    font-family: var(--font-body);
-    font-size: 0.9rem; font-weight: 600;
-    color: #333; background: var(--white); outline: none;
-    margin-bottom: 12px;
-  }
-  .modal-input:focus { border-color: var(--teal); }
-
-  .modal-error { font-size: 0.72rem; font-weight: 700; color: var(--danger); min-height: 16px; padding-left: 4px; margin-bottom: 10px; }
-
-  .modal-btn {
-    width: 100%; padding: 13px;
-    border-radius: 9999px; border: none;
-    font-family: var(--font-body); font-size: 0.82rem;
-    font-weight: 800; text-transform: uppercase;
-    cursor: pointer; background: var(--teal); color: #fff;
-    transition: opacity 0.15s;
-  }
-  .modal-btn:hover { opacity: 0.85; }
-
-  /* ── TOAST ── */
-  #toast {
-    position: fixed; bottom: 24px; left: 50%;
-    transform: translateX(-50%);
-    background: var(--teal-dark); color: #fff;
-    padding: 10px 22px; border-radius: 9999px;
-    font-size: 0.75rem; font-weight: 800;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    z-index: 800; display: none; white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-  }
-
-  /* ── DECORATIVE ELEMENTS ── */
-  .page-divider {
-    display: flex; align-items: center; gap: 16px;
-    margin: 32px 0;
-  }
-  .page-divider-line { flex: 1; height: 1px; background: var(--teal-light); }
-  .page-divider-icon { font-size: 1.2rem; opacity: 0.4; }
-</style>
+        /* ── TOAST ── */
+        #toast {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-teal); color: #fff;
+            padding: 9px 20px; border-radius: 9999px;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            z-index: 800; display: none; white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+    </style>
 </head>
 <body>
 
-<!-- Admin bar (always visible, locked until password entered) -->
-<div id="admin-bar" class="locked">
-  <span class="admin-label">Charter Page</span>
-  <div id="admin-controls-locked">
-    <button class="admin-btn admin-btn-login" onclick="openPasswordModal()">🔑 Admin Edit</button>
-  </div>
-  <div id="admin-controls-unlocked" style="display:none;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <button class="admin-btn admin-btn-ghost" onclick="toggleTitleEdit()">✏️ Edit Title</button>
-    <button class="admin-btn admin-btn-ghost" onclick="toggleHtmlEditor()">📝 Edit Content</button>
-    <button class="admin-btn admin-btn-ghost" onclick="document.getElementById('photo-upload-input').click()">🖼️ Add Photo</button>
-    <button class="admin-btn admin-btn-danger" onclick="logoutAdmin()">Log Out</button>
-  </div>
-  <span id="admin-status"></span>
+<!-- Admin bar -->
+<div id="admin-bar">
+    <span class="admin-bar-label">Charter</span>
+    <div id="admin-locked-controls">
+        <button class="admin-bar-btn login" onclick="openPwModal()">&#128273; Admin Edit</button>
+    </div>
+    <div id="admin-unlocked-controls" style="display:none; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="admin-bar-btn" onclick="toggleTitleEdit()">&#10002; Edit Title</button>
+        <button class="admin-bar-btn" onclick="openHtmlEditor()">&#128196; Edit Content</button>
+        <button class="admin-bar-btn green" onclick="document.getElementById('photo-file-input').click()">&#128444; Add Photos</button>
+        <button class="admin-bar-btn red" onclick="logoutAdmin()">Log Out</button>
+    </div>
+    <span id="admin-mode-badge">&#128273; Admin Mode</span>
 </div>
 
-<!-- Hidden file input for photos -->
-<input type="file" id="photo-upload-input" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(event)">
+<input type="file" id="photo-file-input" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(event)">
 
-<!-- Page content -->
-<div id="page-wrap">
+<!-- Header -->
+<header>
+    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" alt="EGBC">
+    <div>
+        <div id="page-title-display">Wider Worship Charter</div>
+        <input type="text" id="page-title-input" value="Wider Worship Charter" placeholder="Page title&hellip;">
+    </div>
+    <div class="header-right">
+        <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">EGBC</div>
+        <div class="sub">Worship &amp; AV Hub</div>
+    </div>
+</header>
 
-  <!-- Title -->
-  <div id="page-title-wrap">
-    <div id="page-title-display">Wider Worship Charter</div>
-    <input type="text" id="page-title-input" value="Wider Worship Charter" placeholder="Page title…">
-  </div>
+<!-- Page body -->
+<div class="page-wrap">
 
-  <!-- Photo gallery -->
-  <div id="photo-gallery">
-    <!-- Photos inserted here -->
-  </div>
-  <!-- Add photo slot (shown in admin mode) -->
-  <div id="admin-photo-slot" class="photo-add-slot" onclick="document.getElementById('photo-upload-input').click()">
-    <span class="photo-add-slot-icon">🖼️</span>
-    Add Photos
-  </div>
-
-  <div class="page-divider">
-    <div class="page-divider-line"></div>
-    <div class="page-divider-icon">✦</div>
-    <div class="page-divider-line"></div>
-  </div>
-
-  <!-- Content area -->
-  <div id="content-area">
-
-    <!-- Display view -->
-    <div id="content-display">
-      <div class="content-empty">
-        <div class="content-empty-icon">📄</div>
-        <div class="content-empty-text">Paste your HTML content in admin mode</div>
-      </div>
+    <!-- Photos -->
+    <div id="photo-gallery-section">
+        <div class="section-heading">Photos</div>
+        <div id="photo-gallery"></div>
+        <div class="gallery-empty-hint" id="gallery-hint">No photos yet. Log in as admin to add photos.</div>
+        <div id="photo-add-tile" onclick="document.getElementById('photo-file-input').click()">
+            <span>&#128444;</span>
+            Add Photos
+        </div>
     </div>
 
-    <!-- HTML editor (admin only) -->
-    <div id="html-editor-wrap">
-      <textarea id="html-textarea" placeholder="Paste your HTML here…"></textarea>
-      <div class="html-editor-actions">
-        <button class="admin-btn admin-btn-primary" onclick="applyHtml()">✓ Apply &amp; Save</button>
-        <button class="admin-btn admin-btn-ghost" onclick="cancelHtmlEdit()" style="background:rgba(61,98,99,0.12);color:var(--teal);">Cancel</button>
-        <button class="admin-btn admin-btn-danger" onclick="clearContent()">Clear Content</button>
-      </div>
+    <!-- Content -->
+    <div id="content-panel">
+        <div id="content-panel-header">
+            <h3>Charter Content</h3>
+        </div>
+        <div id="content-display">
+            <div class="content-empty">No content yet. Log in as admin and click "Edit Content" to add HTML.</div>
+        </div>
+        <div id="html-editor-wrap">
+            <textarea id="html-textarea" placeholder="Paste your HTML content here&hellip;"></textarea>
+            <div class="editor-btn-row">
+                <button class="editor-btn primary" onclick="applyHtml()">&#10003; Apply &amp; Save</button>
+                <button class="editor-btn cancel" onclick="closeHtmlEditor()">Cancel</button>
+                <button class="editor-btn danger" onclick="clearContent()">Clear Content</button>
+            </div>
+        </div>
     </div>
-
-  </div>
 
 </div>
 
 <!-- Password modal -->
 <div class="modal-overlay" id="pw-modal">
-  <div class="modal-box">
-    <h3>Admin Access</h3>
-    <p>Enter the admin password to edit this page.</p>
-    <input type="password" class="modal-input" id="pw-input" placeholder="Password…" onkeydown="if(event.key==='Enter')checkPassword()">
-    <div class="modal-error" id="pw-error"></div>
-    <button class="modal-btn" onclick="checkPassword()">Unlock</button>
-  </div>
+    <div class="modal-box">
+        <h3>Admin Access</h3>
+        <p>Enter the admin password to edit this page.</p>
+        <label>Password</label>
+        <input type="password" id="pw-input" placeholder="Password&hellip;" onkeydown="if(event.key==='Enter')checkPassword()">
+        <div class="modal-error" id="pw-error"></div>
+        <div class="modal-btn-row">
+            <button class="modal-btn cancel" onclick="closePwModal()">Cancel</button>
+            <button class="modal-btn primary" onclick="checkPassword()">Unlock</button>
+        </div>
+    </div>
 </div>
 
 <!-- Toast -->
 <div id="toast"></div>
 
 <script>
-// ─── CONFIG ───────────────────────────────────────────────────────────────
-// Change this to match the page identity (used for localStorage keys)
 const PAGE_ID  = 'wider-worship-charter';
 const ADMIN_PW = 'Surreykt10';
 
-// ─── STATE ────────────────────────────────────────────────────────────────
-let isAdmin        = false;
+let isAdmin = false;
 let isEditingTitle = false;
-let isEditingHtml  = false;
-let photos         = []; // array of { dataUrl, name }
+let photos  = [];
 
-// ─── INIT ─────────────────────────────────────────────────────────────────
-window.addEventListener('load', () => {
-  loadSaved();
-});
+// ── INIT ──
+window.addEventListener('load', loadSaved);
 
 function loadSaved() {
-  const saved = JSON.parse(localStorage.getItem(PAGE_ID) || '{}');
-
-  // Title
-  if (saved.title) {
-    document.getElementById('page-title-display').textContent = saved.title;
-    document.getElementById('page-title-input').value = saved.title;
-    document.title = saved.title;
-  }
-
-  // HTML content
-  if (saved.html) {
-    document.getElementById('content-display').innerHTML = saved.html;
-    document.getElementById('html-textarea').value = saved.html;
-  }
-
-  // Photos
-  if (saved.photos) {
-    photos = saved.photos;
-    renderPhotos();
-  }
+    const saved = JSON.parse(localStorage.getItem(PAGE_ID) || '{}');
+    if (saved.title) {
+        document.getElementById('page-title-display').textContent = saved.title;
+        document.getElementById('page-title-input').value = saved.title;
+        document.title = saved.title;
+    }
+    if (saved.html) {
+        document.getElementById('content-display').innerHTML = saved.html;
+        document.getElementById('html-textarea').value = saved.html;
+    }
+    if (saved.photos) {
+        photos = saved.photos;
+        renderPhotos();
+    }
 }
 
 function saveAll() {
-  const data = {
-    title:  document.getElementById('page-title-display').textContent,
-    html:   document.getElementById('content-display').innerHTML,
-    photos: photos
-  };
-  localStorage.setItem(PAGE_ID, JSON.stringify(data));
+    localStorage.setItem(PAGE_ID, JSON.stringify({
+        title:  document.getElementById('page-title-display').textContent,
+        html:   document.getElementById('content-display').innerHTML,
+        photos: photos
+    }));
 }
 
-// ─── ADMIN ────────────────────────────────────────────────────────────────
-function openPasswordModal() {
-  document.getElementById('pw-input').value  = '';
-  document.getElementById('pw-error').textContent = '';
-  document.getElementById('pw-modal').classList.add('open');
-  setTimeout(() => document.getElementById('pw-input').focus(), 150);
+// ── ADMIN ──
+function openPwModal() {
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-error').textContent = '';
+    document.getElementById('pw-modal').classList.add('open');
+    setTimeout(() => document.getElementById('pw-input').focus(), 150);
 }
-
+function closePwModal() {
+    document.getElementById('pw-modal').classList.remove('open');
+}
 document.getElementById('pw-modal').addEventListener('click', function(e) {
-  if (e.target === this) this.classList.remove('open');
+    if (e.target === this) closePwModal();
 });
 
 function checkPassword() {
-  const pw = document.getElementById('pw-input').value;
-  if (pw === ADMIN_PW) {
-    isAdmin = true;
-    document.getElementById('pw-modal').classList.remove('open');
-    document.getElementById('admin-bar').classList.remove('locked');
-    document.getElementById('admin-controls-locked').style.display   = 'none';
-    document.getElementById('admin-controls-unlocked').style.display = 'flex';
-    document.getElementById('admin-status').textContent = '🔑 Admin Mode';
-    document.body.classList.add('admin-mode');
-    renderPhotos(); // re-render with delete buttons
-    toast('Admin mode unlocked');
-  } else {
-    document.getElementById('pw-error').textContent = 'Incorrect password.';
-    document.getElementById('pw-input').value = '';
-    document.getElementById('pw-input').focus();
-  }
+    if (document.getElementById('pw-input').value === ADMIN_PW) {
+        isAdmin = true;
+        closePwModal();
+        document.getElementById('admin-locked-controls').style.display   = 'none';
+        document.getElementById('admin-unlocked-controls').style.display = 'flex';
+        document.getElementById('admin-mode-badge').style.display        = 'block';
+        document.getElementById('gallery-hint').style.display = photos.length ? 'none' : 'block';
+        document.body.classList.add('admin-mode');
+        renderPhotos();
+        toast('Admin mode unlocked');
+    } else {
+        document.getElementById('pw-error').textContent = 'Incorrect password.';
+        document.getElementById('pw-input').value = '';
+        document.getElementById('pw-input').focus();
+    }
 }
 
 function logoutAdmin() {
-  isAdmin = false;
-  document.getElementById('admin-bar').classList.add('locked');
-  document.getElementById('admin-controls-locked').style.display   = 'block';
-  document.getElementById('admin-controls-unlocked').style.display = 'none';
-  document.getElementById('admin-status').textContent = '';
-  document.body.classList.remove('admin-mode');
-
-  // Ensure display mode
-  if (isEditingTitle) cancelTitleEdit();
-  if (isEditingHtml)  cancelHtmlEdit();
-  renderPhotos();
-  toast('Logged out');
+    isAdmin = false;
+    document.getElementById('admin-locked-controls').style.display   = 'block';
+    document.getElementById('admin-unlocked-controls').style.display = 'none';
+    document.getElementById('admin-mode-badge').style.display        = 'none';
+    document.body.classList.remove('admin-mode');
+    if (isEditingTitle) cancelTitleEdit();
+    closeHtmlEditor();
+    renderPhotos();
+    toast('Logged out');
 }
 
-// ─── TITLE EDITING ────────────────────────────────────────────────────────
+// ── TITLE ──
 function toggleTitleEdit() {
-  if (!isAdmin) return;
-  if (isEditingTitle) {
-    saveTitleEdit();
-  } else {
-    startTitleEdit();
-  }
+    if (!isAdmin) return;
+    isEditingTitle ? saveTitleEdit() : startTitleEdit();
 }
-
 function startTitleEdit() {
-  isEditingTitle = true;
-  document.getElementById('page-title-display').style.display = 'none';
-  document.getElementById('page-title-input').style.display   = 'block';
-  document.getElementById('page-title-input').focus();
-  document.getElementById('page-title-input').select();
+    isEditingTitle = true;
+    document.getElementById('page-title-display').style.display = 'none';
+    document.getElementById('page-title-input').style.display   = 'block';
+    document.getElementById('page-title-input').focus();
+    document.getElementById('page-title-input').select();
 }
-
 function saveTitleEdit() {
-  const val = document.getElementById('page-title-input').value.trim() || 'Untitled';
-  document.getElementById('page-title-display').textContent = val;
-  document.getElementById('page-title-display').style.display = '';
-  document.getElementById('page-title-input').style.display   = 'none';
-  document.title = val;
-  isEditingTitle = false;
-  saveAll();
-  toast('Title saved');
+    const val = document.getElementById('page-title-input').value.trim() || 'Untitled';
+    document.getElementById('page-title-display').textContent = val;
+    document.getElementById('page-title-display').style.display = '';
+    document.getElementById('page-title-input').style.display   = 'none';
+    document.title = val;
+    isEditingTitle = false;
+    saveAll();
+    toast('Title saved');
 }
-
 function cancelTitleEdit() {
-  document.getElementById('page-title-display').style.display = '';
-  document.getElementById('page-title-input').style.display   = 'none';
-  isEditingTitle = false;
+    document.getElementById('page-title-display').style.display = '';
+    document.getElementById('page-title-input').style.display   = 'none';
+    isEditingTitle = false;
 }
-
-// Save title on Enter
 document.getElementById('page-title-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') saveTitleEdit();
-  if (e.key === 'Escape') cancelTitleEdit();
+    if (e.key === 'Enter')  saveTitleEdit();
+    if (e.key === 'Escape') cancelTitleEdit();
 });
 
-// ─── HTML EDITOR ──────────────────────────────────────────────────────────
-function toggleHtmlEditor() {
-  if (!isAdmin) return;
-  if (isEditingHtml) {
-    cancelHtmlEdit();
-  } else {
-    openHtmlEditor();
-  }
-}
-
+// ── HTML EDITOR ──
 function openHtmlEditor() {
-  isEditingHtml = true;
-  // Pre-fill textarea with current html
-  const current = document.getElementById('content-display').innerHTML;
-  const isEmpty = current.includes('content-empty');
-  document.getElementById('html-textarea').value = isEmpty ? '' : current;
-  document.getElementById('content-display').style.display = 'none';
-  document.getElementById('html-editor-wrap').style.display = 'flex';
-  document.getElementById('html-textarea').focus();
+    if (!isAdmin) return;
+    const current = document.getElementById('content-display').innerHTML;
+    const isEmpty = current.includes('content-empty') || current.trim() === '';
+    document.getElementById('html-textarea').value = isEmpty ? '' : current;
+    document.getElementById('html-editor-wrap').style.display = 'flex';
+    document.getElementById('html-textarea').focus();
 }
-
+function closeHtmlEditor() {
+    document.getElementById('html-editor-wrap').style.display = 'none';
+}
 function applyHtml() {
-  const html = document.getElementById('html-textarea').value.trim();
-  if (html) {
-    document.getElementById('content-display').innerHTML = html;
-  } else {
-    document.getElementById('content-display').innerHTML = `
-      <div class="content-empty">
-        <div class="content-empty-icon">📄</div>
-        <div class="content-empty-text">Paste your HTML content in admin mode</div>
-      </div>`;
-  }
-  document.getElementById('content-display').style.display = '';
-  document.getElementById('html-editor-wrap').style.display = 'none';
-  isEditingHtml = false;
-  saveAll();
-  toast('Content saved ✓');
+    const html = document.getElementById('html-textarea').value.trim();
+    document.getElementById('content-display').innerHTML = html ||
+        '<div class="content-empty">No content yet. Log in as admin and click &ldquo;Edit Content&rdquo; to add HTML.</div>';
+    closeHtmlEditor();
+    saveAll();
+    toast('Content saved &#10003;');
 }
-
-function cancelHtmlEdit() {
-  document.getElementById('content-display').style.display = '';
-  document.getElementById('html-editor-wrap').style.display = 'none';
-  isEditingHtml = false;
-}
-
 function clearContent() {
-  if (!confirm('Clear all content? This cannot be undone.')) return;
-  document.getElementById('html-textarea').value = '';
-  document.getElementById('content-display').innerHTML = `
-    <div class="content-empty">
-      <div class="content-empty-icon">📄</div>
-      <div class="content-empty-text">Paste your HTML content in admin mode</div>
-    </div>`;
-  document.getElementById('content-display').style.display = '';
-  document.getElementById('html-editor-wrap').style.display = 'none';
-  isEditingHtml = false;
-  saveAll();
-  toast('Content cleared');
+    if (!confirm('Clear all content?')) return;
+    document.getElementById('html-textarea').value = '';
+    document.getElementById('content-display').innerHTML =
+        '<div class="content-empty">No content yet. Log in as admin and click &ldquo;Edit Content&rdquo; to add HTML.</div>';
+    closeHtmlEditor();
+    saveAll();
+    toast('Content cleared');
 }
 
-// ─── PHOTOS ───────────────────────────────────────────────────────────────
+// ── PHOTOS ──
 function handlePhotoUpload(event) {
-  const files = Array.from(event.target.files);
-  if (!files.length) return;
-
-  let loaded = 0;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      photos.push({ dataUrl: e.target.result, name: file.name });
-      loaded++;
-      if (loaded === files.length) {
-        renderPhotos();
-        saveAll();
-        toast(`${files.length} photo${files.length > 1 ? 's' : ''} added`);
-      }
-    };
-    reader.readAsDataURL(file);
-  });
-
-  // Reset input so same file can be re-added
-  event.target.value = '';
+    const files = Array.from(event.target.files);
+    if (!files.length) return;
+    let loaded = 0;
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            photos.push({ dataUrl: e.target.result, name: file.name });
+            loaded++;
+            if (loaded === files.length) {
+                renderPhotos();
+                saveAll();
+                toast(`${files.length} photo${files.length > 1 ? 's' : ''} added`);
+                document.getElementById('gallery-hint').style.display = 'none';
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+    event.target.value = '';
 }
 
 function renderPhotos() {
-  const gallery = document.getElementById('photo-gallery');
-  gallery.innerHTML = '';
-
-  photos.forEach((photo, index) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'photo-frame-wrap';
-
-    const frame = document.createElement('div');
-    frame.className = 'photo-frame';
-
-    const img = document.createElement('img');
-    img.src = photo.dataUrl;
-    img.alt = photo.name || 'Photo';
-
-    const caption = document.createElement('div');
-    caption.className = 'photo-caption';
-    // No caption text by default - just the frame aesthetic
-
-    frame.appendChild(img);
-    frame.appendChild(caption);
-
-    if (isAdmin) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'photo-delete-btn';
-      delBtn.innerHTML = '&times;';
-      delBtn.title = 'Remove photo';
-      delBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        removePhoto(index);
-      });
-      wrap.appendChild(delBtn);
+    const gallery = document.getElementById('photo-gallery');
+    gallery.innerHTML = '';
+    photos.forEach((photo, index) => {
+        const wrap  = document.createElement('div');
+        wrap.className = 'photo-frame-wrap';
+        const frame = document.createElement('div');
+        frame.className = 'photo-frame';
+        const img   = document.createElement('img');
+        img.src = photo.dataUrl;
+        img.alt = photo.name || 'Photo';
+        frame.appendChild(img);
+        if (isAdmin) {
+            const del = document.createElement('button');
+            del.className = 'photo-delete-btn';
+            del.innerHTML = '&times;';
+            del.title = 'Remove photo';
+            del.addEventListener('click', e => { e.stopPropagation(); removePhoto(index); });
+            wrap.appendChild(del);
+        }
+        wrap.appendChild(frame);
+        gallery.appendChild(wrap);
+    });
+    if (!photos.length && !isAdmin) {
+        document.getElementById('gallery-hint').style.display = 'block';
+    } else {
+        document.getElementById('gallery-hint').style.display = 'none';
     }
-
-    wrap.appendChild(frame);
-    gallery.appendChild(wrap);
-  });
 }
 
 function removePhoto(index) {
-  if (!confirm('Remove this photo?')) return;
-  photos.splice(index, 1);
-  renderPhotos();
-  saveAll();
-  toast('Photo removed');
+    if (!confirm('Remove this photo?')) return;
+    photos.splice(index, 1);
+    renderPhotos();
+    saveAll();
+    toast('Photo removed');
 }
 
-// ─── TOAST ────────────────────────────────────────────────────────────────
+// ── TOAST ──
 function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2500);
+    const t = document.getElementById('toast');
+    t.innerHTML = msg; t.style.display = 'block';
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2500);
 }
 </script>
 </body>
