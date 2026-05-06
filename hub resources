@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EGBC Hub · Resources</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --teal:      #3d6263;
+      --teal-mid:  #5b8e8f;
+      --teal-light:#d1dfdf;
+      --bg:        #f0f6f6;
+      --white:     #ffffff;
+      --danger:    #b22222;
+      --radius-lg: 2.5rem;
+      --radius-md: 1.5rem;
+      --radius-sm: 1rem;
+      --radius-pill:9999px;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: var(--bg);
+      color: #333;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      background: var(--white);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-lg);
+      padding: 28px 36px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .page-header h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--teal);
+      line-height: 1.1;
+    }
+
+    .page-header p {
+      font-size: 0.78rem;
+      color: var(--teal-mid);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 11px 22px;
+      border-radius: var(--radius-pill);
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary   { background: var(--teal);    color: #fff; }
+    .btn-secondary { background: #e8f0f0;         color: var(--teal); }
+    .btn-danger    { background: var(--danger);   color: #fff; }
+    .btn-sm        { font-size: 0.7rem; padding: 8px 16px; }
+    .btn-icon      { padding: 10px 14px; }
+    .btn:disabled  { opacity: 0.4; pointer-events: none; }
+
+    /* ── Layout: two panels ── */
+    .layout { display: flex; gap: 20px; align-items: flex-start; }
+
+    /* ── Left: resource list ── */
+    .panel-list {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--teal-mid);
+      padding: 0 4px;
+      margin-top: 4px;
+    }
+
+    /* ── Resource card ── */
+    .resource-card {
+      background: var(--white);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-lg);
+      padding: 22px 26px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .resource-card:hover {
+      border-color: var(--teal);
+      box-shadow: 0 4px 20px rgba(61,98,99,0.1);
+    }
+
+    .card-icon {
+      width: 52px; height: 52px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      border: 1px solid var(--teal-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .card-body { flex: 1; min-width: 0; }
+
+    .card-name {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: var(--teal);
+      margin-bottom: 3px;
+    }
+
+    .card-desc {
+      font-size: 0.75rem;
+      color: var(--teal-mid);
+      font-weight: 600;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+    .badge {
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+    }
+    .badge-apk  { background: #e8f4e8; color: #2e7d32; }
+    .badge-link { background: #e3f2fd; color: #1565c0; }
+    .badge-doc  { background: #fff3e0; color: #e65100; }
+    .badge-version { background: var(--bg); color: var(--teal-mid); border: 1px solid var(--teal-light); }
+    .badge-size { background: var(--bg); color: var(--teal-mid); border: 1px solid var(--teal-light); }
+
+    .card-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* ── Right: editor panel ── */
+    .panel-editor {
+      width: 360px;
+      flex-shrink: 0;
+      background: var(--white);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      position: sticky;
+      top: 20px;
+    }
+
+    .panel-editor h3 {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--teal);
+      border-bottom: 1px solid var(--teal-light);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--teal);
+      margin-bottom: 6px;
+      padding-left: 4px;
+    }
+
+    input[type=text], input[type=url], textarea, select {
+      width: 100%;
+      padding: 11px 18px;
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-pill);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #333;
+      background: var(--white);
+      outline: none;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--teal); }
+
+    textarea {
+      border-radius: 1.2rem;
+      resize: vertical;
+      min-height: 72px;
+    }
+
+    select { appearance: none; cursor: pointer; }
+
+    /* File upload zone */
+    .upload-zone {
+      border: 2px dashed var(--teal-light);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 16px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--teal);
+      background: var(--bg);
+    }
+    .upload-zone p { font-size: 0.75rem; font-weight: 700; color: var(--teal-mid); }
+    .upload-zone .upload-filename {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--teal);
+      margin-top: 6px;
+      word-break: break-all;
+    }
+
+    .progress-bar-wrap {
+      background: var(--bg);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-pill);
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--teal);
+      width: 0%;
+      transition: width 0.2s;
+      border-radius: var(--radius-pill);
+    }
+
+    .status-msg {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--teal-mid);
+      min-height: 16px;
+      padding-left: 4px;
+      margin-top: -12px;
+      margin-bottom: 12px;
+    }
+    .status-msg.error { color: var(--danger); }
+    .status-msg.success { color: #2e7d32; }
+
+    .editor-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    /* ── QR modal ── */
+    .qr-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+    .qr-modal-overlay.open { display: flex; }
+
+    .qr-modal {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+      position: relative;
+    }
+
+    .qr-modal h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--teal);
+      margin-bottom: 4px;
+    }
+
+    .qr-modal .qr-subtitle {
+      font-size: 0.72rem;
+      color: var(--teal-mid);
+      font-weight: 600;
+      margin-bottom: 22px;
+    }
+
+    #qr-canvas-wrap {
+      display: inline-block;
+      padding: 16px;
+      background: #fff;
+      border: 2px solid var(--teal-light);
+      border-radius: var(--radius-md);
+      margin-bottom: 18px;
+    }
+
+    #qr-canvas-wrap canvas, #qr-canvas-wrap img {
+      display: block;
+    }
+
+    .qr-url {
+      font-size: 0.68rem;
+      color: var(--teal-mid);
+      font-weight: 600;
+      word-break: break-all;
+      background: var(--bg);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .qr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── iOS instructions modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      max-width: 440px;
+      width: 100%;
+      position: relative;
+    }
+
+    .modal h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--teal);
+      margin-bottom: 6px;
+    }
+
+    .modal .subtitle {
+      font-size: 0.75rem;
+      color: var(--teal-mid);
+      font-weight: 600;
+      margin-bottom: 22px;
+    }
+
+    .ios-steps { display: flex; flex-direction: column; gap: 14px; }
+
+    .ios-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .step-num {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-text { font-size: 0.82rem; font-weight: 600; color: #444; line-height: 1.5; padding-top: 4px; }
+    .step-text strong { color: var(--teal); font-weight: 800; }
+
+    .step-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      background: var(--bg);
+      border: 1px solid var(--teal-light);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      vertical-align: middle;
+      margin: 0 2px;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px; right: 20px;
+      background: var(--bg);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-pill);
+      padding: 6px 14px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: var(--teal-mid);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .modal-link-url {
+      background: var(--bg);
+      border: 1px solid var(--teal-light);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--teal);
+      word-break: break-all;
+      margin-bottom: 20px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      background: var(--white);
+      border: 1px dashed var(--teal-light);
+      border-radius: var(--radius-lg);
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .empty-state p { font-size: 0.82rem; font-weight: 700; color: var(--teal-mid); }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--teal-light);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 32px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .layout { flex-direction: column; }
+      .panel-editor { width: 100%; position: static; }
+      .page-header { padding: 20px 22px; }
+      .resource-card { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Page header -->
+<div class="page-header">
+  <div>
+    <h1>Hub Resources</h1>
+    <p>App downloads, web tools & links for the EGBC team</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-secondary" onclick="showAddForm()">+ Add Resource</button>
+  </div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Left: resource list -->
+  <div class="panel-list" id="resource-list">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Right: editor -->
+  <div class="panel-editor" id="editor-panel" style="display:none;">
+    <h3 id="editor-title">Add New Resource</h3>
+
+    <label>Name</label>
+    <input type="text" id="f-name" placeholder="e.g. Worship Hub">
+
+    <label>Description</label>
+    <textarea id="f-desc" placeholder="Short description of what this is for…"></textarea>
+
+    <label>Type</label>
+    <select id="f-type" onchange="onTypeChange()">
+      <option value="apk">📦 Android App (APK)</option>
+      <option value="link">🔗 Web Link / PWA</option>
+    </select>
+
+    <label>Version</label>
+    <input type="text" id="f-version" placeholder="e.g. v1.0.0">
+
+    <!-- APK upload section -->
+    <div id="apk-section">
+      <label>APK File</label>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('apk-file-input').click()">
+        <p>Tap to select APK file</p>
+        <div class="upload-filename" id="upload-filename"></div>
+      </div>
+      <input type="file" id="apk-file-input" accept=".apk" style="display:none" onchange="onFileSelected(event)">
+      <div class="progress-bar-wrap" id="progress-wrap">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <div class="status-msg" id="upload-status"></div>
+    </div>
+
+    <!-- Link section -->
+    <div id="link-section" style="display:none;">
+      <label>URL</label>
+      <input type="url" id="f-url" placeholder="https://...">
+    </div>
+
+    <div class="editor-actions">
+      <button class="btn btn-primary" id="save-btn" onclick="saveResource()">Save Resource</button>
+      <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="delete-btn" onclick="deleteResource()" style="display:none;">Delete Resource</button>
+    </div>
+    <div class="status-msg" id="save-status"></div>
+  </div>
+
+</div>
+
+<!-- QR Code modal -->
+<div class="qr-modal-overlay" id="qr-modal">
+  <div class="qr-modal">
+    <button class="modal-close" onclick="closeQrModal()">Close</button>
+    <h3 id="qr-title">Scan to Download</h3>
+    <p class="qr-subtitle">Point any phone camera at this code</p>
+    <div id="qr-canvas-wrap"></div>
+    <div class="qr-url" id="qr-url-display"></div>
+    <div class="qr-actions">
+      <button class="btn btn-secondary btn-sm" onclick="downloadQr()">⬇ Save QR Image</button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS Add to Home Screen modal -->
+<div class="modal-overlay" id="ios-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">Close</button>
+    <h3>Add to iPhone Home Screen</h3>
+    <p class="subtitle">Use this web app like a native app — no App Store needed.</p>
+    <div class="modal-link-url" id="modal-url"></div>
+    <div class="ios-steps">
+      <div class="ios-step">
+        <div class="step-num">1</div>
+        <div class="step-text">Open the link in <strong>Safari</strong> on your iPhone. (Must be Safari — not Chrome or Firefox.)</div>
+      </div>
+      <div class="ios-step">
+        <div class="step-num">2</div>
+        <div class="step-text">Tap the <strong>Share</strong> button <span class="step-icon">⬆</span> at the bottom of the screen.</div>
+      </div>
+      <div class="ios-step">
+        <div class="step-num">3</div>
+        <div class="step-text">Scroll down and tap <strong>"Add to Home Screen"</strong> <span class="step-icon">＋</span>.</div>
+      </div>
+      <div class="ios-step">
+        <div class="step-num">4</div>
+        <div class="step-text">Give it a name and tap <strong>Add</strong>. It will appear on your home screen just like an app.</div>
+      </div>
+    </div>
+    <br>
+    <a id="modal-open-link" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;">Open in Safari →</a>
+  </div>
+</div>
+
+<script>
+// ── Firebase init (same project as Song Library) ──
+const firebaseConfig = {
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.appspot.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db      = firebase.firestore();
+const storage = firebase.storage();
+
+let currentId   = null;  // Firestore doc ID being edited
+let uploadedUrl = null;  // URL after Firebase Storage upload
+let selectedFile = null;
+
+// ── Load all resources ──
+async function loadResources() {
+  const list = document.getElementById('resource-list');
+  list.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const snap = await db.collection('hub_resources').orderBy('order').get();
+    if (snap.empty) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <p>No resources yet. Click "Add Resource" to get started.</p>
+        </div>`;
+      return;
+    }
+
+    // Group by type
+    const apks   = [];
+    const links  = [];
+    snap.docs.forEach(doc => {
+      const d = { id: doc.id, ...doc.data() };
+      if (d.type === 'apk')  apks.push(d);
+      else                   links.push(d);
+    });
+
+    list.innerHTML = '';
+
+    if (apks.length) {
+      list.innerHTML += `<div class="section-label">Android Apps</div>`;
+      apks.forEach(r => list.innerHTML += cardHTML(r));
+    }
+    if (links.length) {
+      list.innerHTML += `<div class="section-label" style="margin-top:10px;">Web Links & Tools</div>`;
+      links.forEach(r => list.innerHTML += cardHTML(r));
+    }
+  } catch(e) {
+    list.innerHTML = `<div class="empty-state"><p>Error loading resources: ${e.message}</p></div>`;
+  }
+}
+
+function cardHTML(r) {
+  const icon    = r.type === 'apk' ? '📦' : '🔗';
+  const typeBadge = r.type === 'apk'
+    ? '<span class="badge badge-apk">APK</span>'
+    : '<span class="badge badge-link">Web App</span>';
+  const version = r.version ? `<span class="badge badge-version">${r.version}</span>` : '';
+  const size    = r.fileSize ? `<span class="badge badge-size">${r.fileSize}</span>` : '';
+
+  const actionBtn = r.type === 'apk'
+    ? `<a href="${r.downloadUrl}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">
+        ⬇ Download
+       </a>
+       <button class="btn btn-secondary btn-sm btn-icon" title="Show QR code" onclick="event.stopPropagation(); showQr('${escHtml(r.downloadUrl)}', '${escHtml(r.name)}')">
+        ⬛ QR
+       </button>`
+    : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); openLinkModal('${escHtml(r.url)}', '${escHtml(r.name)}')">
+        📱 iOS Install
+       </button>
+       <a href="${escHtml(r.url)}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">
+        Open →
+       </a>
+       <button class="btn btn-secondary btn-sm btn-icon" title="Show QR code" onclick="event.stopPropagation(); showQr('${escHtml(r.url)}', '${escHtml(r.name)}')">
+        ⬛ QR
+       </button>`;
+
+  return `
+    <div class="resource-card" onclick="editResource('${r.id}')">
+      <div class="card-icon">${icon}</div>
+      <div class="card-body">
+        <div class="card-name">${escHtml(r.name)}</div>
+        <div class="card-desc">${escHtml(r.description || '')}</div>
+        <div class="card-meta">${typeBadge}${version}${size}</div>
+      </div>
+      <div class="card-actions">${actionBtn}</div>
+    </div>`;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ── Show add form ──
+function showAddForm() {
+  currentId    = null;
+  uploadedUrl  = null;
+  selectedFile = null;
+  document.getElementById('f-name').value    = '';
+  document.getElementById('f-desc').value    = '';
+  document.getElementById('f-version').value = '';
+  document.getElementById('f-type').value    = 'apk';
+  document.getElementById('f-url').value     = '';
+  document.getElementById('upload-filename').textContent = '';
+  document.getElementById('upload-status').textContent   = '';
+  document.getElementById('save-status').textContent     = '';
+  document.getElementById('progress-fill').style.width   = '0%';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('editor-title').textContent    = 'Add New Resource';
+  document.getElementById('delete-btn').style.display    = 'none';
+  onTypeChange();
+  document.getElementById('editor-panel').style.display = 'block';
+}
+
+// ── Edit existing resource ──
+async function editResource(id) {
+  const doc  = await db.collection('hub_resources').doc(id).get();
+  const data = doc.data();
+  currentId    = id;
+  uploadedUrl  = data.downloadUrl || null;
+  selectedFile = null;
+
+  document.getElementById('f-name').value    = data.name    || '';
+  document.getElementById('f-desc').value    = data.description || '';
+  document.getElementById('f-version').value = data.version || '';
+  document.getElementById('f-type').value    = data.type    || 'apk';
+  document.getElementById('f-url').value     = data.url     || '';
+  document.getElementById('upload-filename').textContent = data.fileName || (data.downloadUrl ? 'File already uploaded' : '');
+  document.getElementById('upload-status').textContent   = '';
+  document.getElementById('save-status').textContent     = '';
+  document.getElementById('progress-fill').style.width   = '0%';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('editor-title').textContent    = 'Edit Resource';
+  document.getElementById('delete-btn').style.display    = 'block';
+  onTypeChange();
+  document.getElementById('editor-panel').style.display  = 'block';
+}
+
+function cancelEdit() {
+  currentId   = null;
+  uploadedUrl = null;
+  document.getElementById('editor-panel').style.display = 'none';
+}
+
+function onTypeChange() {
+  const type = document.getElementById('f-type').value;
+  document.getElementById('apk-section').style.display  = type === 'apk'  ? 'block' : 'none';
+  document.getElementById('link-section').style.display = type === 'link' ? 'block' : 'none';
+}
+
+// ── File selection ──
+function onFileSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  selectedFile = file;
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+  document.getElementById('upload-filename').textContent = `${file.name} (${sizeMB} MB)`;
+  document.getElementById('upload-status').textContent   = 'Ready to upload. Press Save to continue.';
+  document.getElementById('upload-status').className     = 'status-msg';
+  // Auto-fill version from filename if empty
+  const vField = document.getElementById('f-version');
+  if (!vField.value) {
+    const match = file.name.match(/v[\d._]+/i);
+    if (match) vField.value = match[0].replace(/_/g, '.');
+  }
+  // Auto-fill name if empty
+  const nField = document.getElementById('f-name');
+  if (!nField.value) {
+    const cleanName = file.name.replace(/\.apk$/i,'').replace(/_v[\d._]+.*/i,'').replace(/_/g,' ').trim();
+    nField.value = cleanName;
+  }
+}
+
+// ── Upload APK to Firebase Storage ──
+async function uploadApk(file) {
+  return new Promise((resolve, reject) => {
+    const path = `hub_apks/${Date.now()}_${file.name}`;
+    const ref  = storage.ref(path);
+    const task = ref.put(file);
+
+    document.getElementById('progress-wrap').style.display = 'block';
+
+    task.on('state_changed',
+      snap => {
+        const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('upload-status').textContent = `Uploading… ${Math.round(pct)}%`;
+      },
+      err => reject(err),
+      async () => {
+        const url = await task.snapshot.ref.getDownloadURL();
+        resolve({ url, path });
+      }
+    );
+  });
+}
+
+// ── Save resource to Firestore ──
+async function saveResource() {
+  const name    = document.getElementById('f-name').value.trim();
+  const desc    = document.getElementById('f-desc').value.trim();
+  const version = document.getElementById('f-version').value.trim();
+  const type    = document.getElementById('f-type').value;
+  const url     = document.getElementById('f-url').value.trim();
+  const status  = document.getElementById('save-status');
+
+  if (!name) { status.textContent = 'Please enter a name.'; status.className = 'status-msg error'; return; }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  status.textContent = 'Saving…';
+  status.className   = 'status-msg';
+
+  try {
+    let data = { name, description: desc, version, type, updatedAt: new Date().toISOString() };
+
+    if (type === 'apk') {
+      if (selectedFile) {
+        // Upload file
+        const { url: dlUrl, path } = await uploadApk(selectedFile);
+        uploadedUrl = dlUrl;
+        const sizeMB = (selectedFile.size / 1024 / 1024).toFixed(1) + ' MB';
+        data.downloadUrl = dlUrl;
+        data.storagePath = path;
+        data.fileSize    = sizeMB;
+        data.fileName    = selectedFile.name;
+      } else if (uploadedUrl) {
+        data.downloadUrl = uploadedUrl;
+      } else if (!currentId) {
+        status.textContent = 'Please select an APK file.';
+        status.className   = 'status-msg error';
+        btn.disabled = false;
+        return;
+      }
+    } else {
+      if (!url) { status.textContent = 'Please enter a URL.'; status.className = 'status-msg error'; btn.disabled = false; return; }
+      data.url = url;
+    }
+
+    if (currentId) {
+      await db.collection('hub_resources').doc(currentId).update(data);
+    } else {
+      // Set order based on existing count
+      const snap = await db.collection('hub_resources').get();
+      data.order = snap.size;
+      await db.collection('hub_resources').add(data);
+    }
+
+    status.textContent = '✓ Saved!';
+    status.className   = 'status-msg success';
+    selectedFile = null;
+    await loadResources();
+    setTimeout(() => {
+      document.getElementById('editor-panel').style.display = 'none';
+    }, 900);
+
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+    status.className   = 'status-msg error';
+  }
+  btn.disabled = false;
+}
+
+// ── Delete resource ──
+async function deleteResource() {
+  if (!currentId) return;
+  if (!confirm('Delete this resource? This cannot be undone.')) return;
+  try {
+    await db.collection('hub_resources').doc(currentId).delete();
+    document.getElementById('editor-panel').style.display = 'none';
+    await loadResources();
+  } catch(e) {
+    alert('Error deleting: ' + e.message);
+  }
+}
+
+// ── QR Code modal ──
+function showQr(url, name) {
+  document.getElementById('qr-title').textContent = name || 'Scan to Open';
+  document.getElementById('qr-url-display').textContent = url;
+
+  const wrap = document.getElementById('qr-canvas-wrap');
+  wrap.innerHTML = '';
+
+  new QRCode(wrap, {
+    text: url,
+    width: 220,
+    height: 220,
+    colorDark: '#3d6263',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  document.getElementById('qr-modal').classList.add('open');
+}
+
+function closeQrModal() {
+  document.getElementById('qr-modal').classList.remove('open');
+}
+
+function downloadQr() {
+  const canvas = document.querySelector('#qr-canvas-wrap canvas');
+  const img    = document.querySelector('#qr-canvas-wrap img');
+  const name   = (document.getElementById('qr-title').textContent || 'qr').replace(/\s+/g,'-').toLowerCase();
+
+  if (canvas) {
+    const a = document.createElement('a');
+    a.download = `${name}-qr.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  } else if (img) {
+    const a = document.createElement('a');
+    a.download = `${name}-qr.png`;
+    a.href = img.src;
+    a.click();
+  }
+}
+
+document.getElementById('qr-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeQrModal();
+});
+
+// ── iOS modal ──
+function openLinkModal(url, name) {
+  document.getElementById('modal-url').textContent = url;
+  document.getElementById('modal-open-link').href  = url;
+  document.getElementById('ios-modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('ios-modal').classList.remove('open');
+}
+document.getElementById('ios-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── Drag & drop on upload zone ──
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.apk')) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('apk-file-input').files = dt.files;
+    onFileSelected({ target: { files: [file] } });
+  }
+});
+
+// ── Init ──
+loadResources();
+</script>
+</body>
+</html>
