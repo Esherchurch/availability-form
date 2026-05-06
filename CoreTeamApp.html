@@ -652,13 +652,14 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="form-field">
         <label class="form-label">Date</label>
-        <input type="date" class="form-input" id="new-service-date">
+        <input type="date" class="form-input" id="new-service-date" onchange="loadEventTypesForDate(this.value)">
       </div>
       <div class="form-field">
         <label class="form-label">Service Type</label>
-        <input class="form-input" id="new-service-type"
-          placeholder="e.g. Sunday 10:30am, Youth Service..."
-          style="font-size:16px;">
+        <select class="form-select" id="new-service-type" style="font-size:15px;">
+          <option value="">Loading...</option>
+        </select>
+        <div style="font-size:10px;font-weight:700;color:var(--teal);opacity:0.5;margin-top:4px;">Pick a date first to see available service types</div>
       </div>
       <div class="form-field">
         <label class="form-label">Service Description / Notes</label>
@@ -1054,17 +1055,39 @@ async function ensureSongs() {
 async function loadServiceList() {
   $('service-list').innerHTML = '<div class="empty-state"><div class="loader-spinner"></div></div>';
   try {
-    const snap = await db.collection('services').orderBy('date', 'desc').get();
-    window._services = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.archived);
+    const [svcSnap, evSnap] = await Promise.all([
+      db.collection('services').orderBy('date', 'desc').get(),
+      db.collection('events').get()
+    ]);
 
-    // Detect duplicates — flag services sharing the same date
+    // Build a date → event type map from events collection
+    const eventTypeByDate = {};
+    evSnap.docs.forEach(d => {
+      const ev = d.data();
+      if (!ev.archived && ev.date && ev.type) {
+        eventTypeByDate[ev.date] = ev.type;
+      }
+    });
+
+    window._services = svcSnap.docs
+      .map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          // Always pull type from events collection
+          _eventType: eventTypeByDate[data.date] || data.type || '',
+        };
+      })
+      .filter(s => !s.archived);
+
+    // Flag duplicates
     const dateCounts = {};
     window._services.forEach(s => { dateCounts[s.date] = (dateCounts[s.date]||0) + 1; });
     window._services.forEach(s => { s._isDuplicate = dateCounts[s.date] > 1; });
 
     renderServiceList();
 
-    // Show deduplicate button if any duplicates exist
     const hasDupes = Object.values(dateCounts).some(c => c > 1);
     if (hasDupes) {
       const bar = document.createElement('div');
@@ -1125,7 +1148,7 @@ function renderServiceList() {
     <div class="service-card fade-in" onclick="openServiceDetail('${s.id}')">
       <div class="service-card-info">
         <div class="service-card-date">${fmtShortDate(s.date)}${s._isDuplicate ? ' <span style="color:#ef4444;font-size:9px;">● DUPLICATE</span>' : ''}</div>
-        <div class="service-card-title">${s.type || s.worshipLeader || 'Service'}</div>
+        <div class="service-card-title">${s._eventType || s.type || 'Service'}</div>
         <div class="service-card-meta">${(s.order||[]).filter(i=>i.type==='song').length} songs · ${s.worshipLeader || 'No leader set'}</div>
       </div>
       <div class="service-card-arrow">›</div>
@@ -1134,11 +1157,11 @@ function renderServiceList() {
 
 async function createService() {
   const date      = $('new-service-date').value;
-  const type      = $('new-service-type').value.trim();
+  const type      = $('new-service-type').value;
   const typeNotes = $('new-service-typenotes').value.trim();
   const leader    = $('new-service-leader').value;
   if (!date) { toast('Please select a date'); return; }
-  if (!type) { toast('Please enter a service type'); return; }
+  if (!type) { toast('Please select a service type'); return; }
   loader(true, 'Creating service...');
   try {
     const existing = await db.collection('services').where('date','==',date).get();
@@ -1607,11 +1630,27 @@ function archiveService() {
 }
 
 function openEditServiceMeta() {
-  $('new-service-date').value      = currentService.date || '';
-  $('new-service-type').value      = currentService.type || '';
+  const date      = currentService.date || '';
+  const wantedType   = currentService._eventType || currentService.type || '';
+  const wantedLeader = currentService.worshipLeader || '';
+
+  $('new-service-date').value      = date;
   $('new-service-typenotes').value = currentService.serviceNotes || '';
 
-  const wantedLeader = currentService.worshipLeader || '';
+  // Load event types for this date, then select the right one
+  loadEventTypesForDate(date).then(() => {
+    const sel = $('new-service-type');
+    // Try to select the matching type
+    const opt = Array.from(sel.options).find(o => o.value === wantedType);
+    if (opt) sel.value = wantedType;
+    else if (wantedType) {
+      // Not in dropdown — add it
+      const o = document.createElement('option');
+      o.value = wantedType; o.textContent = wantedType;
+      sel.appendChild(o); sel.value = wantedType;
+    }
+  });
+
   if (allMembers.length) {
     populateLeaderDropdown(wantedLeader);
   } else {
@@ -1627,30 +1666,51 @@ function openEditServiceMeta() {
   openModal('modal-new-service');
 }
 
+async function loadEventTypesForDate(date) {
+  const sel = $('new-service-type');
+  if (!date) { sel.innerHTML = '<option value="">Pick a date first...</option>'; return; }
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const snap = await db.collection('events').where('date','==',date).get();
+    const types = snap.docs
+      .map(d => d.data())
+      .filter(e => !e.archived && e.type)
+      .map(e => e.type);
+
+    if (!types.length) {
+      sel.innerHTML = '<option value="">No events found for this date</option>';
+    } else {
+      sel.innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join('');
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">Could not load — type manually</option>';
+  }
+}
+
 function openNewServiceModal() {
   loadMembers();
   const today = new Date();
   const diff = (7 - today.getDay()) % 7 || 7;
   const next = new Date(today); next.setDate(today.getDate() + diff);
-  $('new-service-date').value      = next.toISOString().split('T')[0];
-  $('new-service-type').value      = '';
+  const dateStr = next.toISOString().split('T')[0];
+  $('new-service-date').value      = dateStr;
   $('new-service-typenotes').value = '';
   populateLeaderDropdown('');
-  $('service-modal-title').textContent  = 'New Service';
-  $('service-modal-btn').textContent    = 'Create';
-  $('service-modal-btn').onclick        = createService;
+  $('service-modal-title').textContent = 'New Service';
+  $('service-modal-btn').textContent   = 'Create';
+  $('service-modal-btn').onclick       = createService;
+  loadEventTypesForDate(dateStr);
   openModal('modal-new-service');
-  // Focus the type field after modal animates in
-  setTimeout(() => $('new-service-type').focus(), 300);
 }
 
 async function saveServiceMeta() {
   const date      = $('new-service-date').value;
-  const type      = $('new-service-type').value.trim();
+  const type      = $('new-service-type').value;
   const typeNotes = $('new-service-typenotes').value.trim();
   const leader    = $('new-service-leader').value;
   if (!date || !type) { toast('Please fill in date and type'); return; }
   currentService.date         = date;
+  currentService._eventType   = type;
   currentService.type         = type;
   currentService.serviceNotes = typeNotes;
   currentService.worshipLeader = leader;
