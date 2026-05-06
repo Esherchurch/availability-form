@@ -512,6 +512,14 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
       <!-- Service info card -->
       <div class="card" id="service-info-card"></div>
 
+      <!-- Service type notes — inline, visible immediately like desktop -->
+      <div class="card">
+        <div class="card-label">Service Notes / Description</div>
+        <textarea class="form-textarea" id="service-typenotes"
+          placeholder="General notes about this service (e.g. special occasion, theme, requirements...)"
+          oninput="autoGrow(this)" rows="2" style="font-size:14px;"></textarea>
+      </div>
+
       <!-- Intro box -->
       <div class="card">
         <div class="card-label">Opening Remarks</div>
@@ -1154,8 +1162,11 @@ async function createService() {
       toast('Service created!');
     }
     closeModal('modal-new-service');
-    await loadRotaForService(date);
-    openSection('service-detail');
+
+    // Now load the full detail with rota from events collection
+    if (serviceId) {
+      await openServiceDetail(serviceId);
+    }
   } catch(e) { toast('Error: ' + e.message); }
   loader(false);
 }
@@ -1163,25 +1174,48 @@ async function createService() {
 async function openServiceDetail(id) {
   loader(true);
   try {
-    const doc = await db.collection('services').doc(id).get();
-    currentService = { id, ...doc.data() };
-    // Try to load rota assignments for this date
-    await loadRotaForService(currentService.date);
+    // Load the saved service plan
+    const svcDoc = await db.collection('services').doc(id).get();
+    if (!svcDoc.exists) { toast('Service not found'); loader(false); return; }
+    const svcData = svcDoc.data();
+    const date = svcData.date;
+
+    // Load rota from events collection (same as desktop selectEvent)
+    let rotaAssignments = {};
+    let eventDescription = '';
+    try {
+      const evSnap = await db.collection('events').where('date','==',date).get();
+      if (!evSnap.empty) {
+        // Desktop deduplicates by type — pick non-archived first
+        const events = evSnap.docs.map(d => d.data());
+        const active = events.find(e => !e.archived) || events[0];
+        rotaAssignments  = active.assignments || {};
+        eventDescription = active.description || '';
+      }
+    } catch(e) { console.log('Rota load error:', e); }
+
+    // Merge: service data from services collection, rota from events collection
+    // serviceNotes: use saved value first, fall back to event description
+    currentService = {
+      id,
+      ...svcData,
+      serviceNotes: svcData.serviceNotes || eventDescription,
+      roleNotes:    svcData.roleNotes    || {},
+      order:        svcData.order        || [],
+      introText:    svcData.introText    || '',
+      outroText:    svcData.outroText    || '',
+      notes:        svcData.notes        || '',
+      _rotaAssignments: rotaAssignments,
+    };
+
     openSection('service-detail');
-  } catch(e) { toast('Could not load service'); }
+  } catch(e) { toast('Could not load service: ' + e.message); }
   loader(false);
 }
 
-// Load rota assignments for a given date to populate the service team table
-async function loadRotaForService(date) {
-  try {
-    const snap = await db.collection('events').where('date','==',date).get();
-    if (!snap.empty) {
-      currentService._rotaAssignments = snap.docs[0].data().assignments || {};
-    } else {
-      currentService._rotaAssignments = {};
-    }
-  } catch(e) { currentService._rotaAssignments = {}; }
+// Also update createService to use same flow after creation
+async function openServiceDetailById(id) {
+  return openServiceDetail(id);
 }
 
 function renderServiceDetail() {
@@ -1195,7 +1229,6 @@ function renderServiceDetail() {
       <div style="flex:1;min-width:0;">
         <div style="font-size:16px;font-weight:800;color:var(--teal);">${s.type || 'Service'}</div>
         <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(s.date)}</div>
-        ${s.serviceNotes ? `<div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.7;margin-top:4px;">${s.serviceNotes}</div>` : ''}
       </div>
       <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-left:10px;" onclick="openEditServiceMeta()">Edit</button>
     </div>
@@ -1206,12 +1239,14 @@ function renderServiceDetail() {
 
   // Populate text fields after a tick so the screen is visible and autoGrow works
   setTimeout(() => {
-    const intro = $('service-intro');
-    const notes = $('service-notes');
-    const outro = $('service-outro');
-    if (intro) { intro.value = s.introText || ''; autoGrow(intro); }
-    if (notes) { notes.value = s.notes     || ''; autoGrow(notes); }
-    if (outro) { outro.value = s.outroText || ''; autoGrow(outro); }
+    const typenotes = $('service-typenotes');
+    const intro     = $('service-intro');
+    const notes     = $('service-notes');
+    const outro     = $('service-outro');
+    if (typenotes) { typenotes.value = s.serviceNotes || ''; autoGrow(typenotes); }
+    if (intro)     { intro.value     = s.introText    || ''; autoGrow(intro);     }
+    if (notes)     { notes.value     = s.notes        || ''; autoGrow(notes);     }
+    if (outro)     { outro.value     = s.outroText    || ''; autoGrow(outro);     }
   }, 100);
 }
 
@@ -1529,9 +1564,10 @@ function deleteOrderItem(i) {
 async function saveService() {
   if (!currentService?.id) return;
   loader(true, 'Saving service...');
-  currentService.notes     = $('service-notes').value;
-  currentService.introText = $('service-intro').value;
-  currentService.outroText = $('service-outro').value;
+  currentService.notes        = $('service-notes').value;
+  currentService.introText    = $('service-intro').value;
+  currentService.outroText    = $('service-outro').value;
+  currentService.serviceNotes = $('service-typenotes')?.value || currentService.serviceNotes || '';
   // Strip runtime-only fields before saving
   const orderToSave = currentService.order.map(item => {
     const { _useCount, ...rest } = item;
