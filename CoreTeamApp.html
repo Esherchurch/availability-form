@@ -577,32 +577,28 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
     </div>
   </div>
 
-  <!-- ══ ROTA LIST ══ -->
+  <!-- ══ ROTA ══ -->
   <div id="screen-rota" class="screen" style="overflow:hidden;">
-    <!-- Term generator bar — sticky at top -->
-    <div style="padding:10px 12px;background:var(--white);border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;position:sticky;top:0;z-index:10;">
-      <select class="form-select" id="rota-term-select" style="flex:1;padding:8px 12px;font-size:12px;">
-        <option value="">Select Term…</option>
+
+    <!-- Top toolbar — same as desktop but wraps on mobile -->
+    <div style="background:white;border-bottom:1px solid #d1dfdf;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex-shrink:0;">
+      <select id="termSelect" style="background:#f0f6f6;border:1px solid #d1dfdf;border-radius:9999px;padding:8px 14px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#3d6263;outline:none;flex:1;min-width:100px;">
+        <option value="">Term…</option>
         <option value="Spring">Spring</option>
         <option value="Summer">Summer</option>
         <option value="Autumn">Autumn</option>
       </select>
-      <button class="btn btn-secondary btn-sm" onclick="populateTerm()">Populate</button>
-      <button class="btn btn-secondary btn-sm" onclick="addThursdayPractices()">+ Practices</button>
-      <button class="btn btn-primary btn-sm" onclick="autoFillAllEvents()">Auto-Fill</button>
-      <button class="btn btn-secondary btn-sm" onclick="gatherAvailability()">Gather Avail</button>
+      <button onclick="generateTerm()" style="background:#f0f6f6;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Populate</button>
+      <button onclick="autoFillAllEvents()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Auto-Fill</button>
+      <button onclick="addThursdayPractices()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Practices</button>
+      <button onclick="addSingleLine()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Service</button>
+      <button onclick="gatherTermAvailability()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Gather Avail</button>
+      <button onclick="toggleHideAssigned()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Hide Assigned</button>
     </div>
-    <!-- Search -->
-    <div style="padding:10px 12px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;">
-      <input class="form-input" id="rota-search" placeholder="Search by date or type..." oninput="renderRotaList()" style="width:100%;padding:10px 12px;font-size:13px;">
-    </div>
-    <!-- Scrollable list -->
-    <div id="rota-list" style="flex:1;overflow-y:auto;padding:12px 12px calc(var(--safe-bottom) + 16px);"></div>
-  </div>
 
-  <!-- ══ ROTA DETAIL ══ -->
-  <div id="screen-rota-detail" class="screen">
-    <div class="section-pad" id="rota-detail-content"></div>
+    <!-- Scrollable event list — same renderPlanner() output as desktop -->
+    <div id="eventList" style="flex:1;overflow-y:auto;padding:12px 12px calc(var(--safe-bottom) + 16px);"></div>
+
   </div>
 
   <!-- ══ EMAIL COMPILER ══ -->
@@ -1047,7 +1043,7 @@ function showScreen(name) {
     actionBtn.classList.add('visible');
     actionBtn.textContent = '+';
     actionBtn.onclick = () => openNewEventModal();
-    loadRotaList();
+    startRotaListeners();
   }
   if (name === 'service-detail' && currentService) {
     $('header-title').textContent = currentService.type || 'Service';
@@ -1857,669 +1853,364 @@ function emailOnePerson() {
   window.location.href = `mailto:${email}?subject=${subject}`;
 }
 
+
 // ══════════════════════════════════════════════════════════════════════════
-// ROTA PLANNER
+// ROTA PLANNER — desktop logic, mobile-friendly layout
 // ══════════════════════════════════════════════════════════════════════════
 
+const OPTIONAL_ROLES_LIST = ['Sound','Words','Cameras','Violin','Congas','2nd Guitar','2nd Keys','Electric Guitar','Oboe','Trumpet','Cahon','Singer 1','Singer 2','Singer 3','Other','Other 2','Other 3','Choir'];
 const MANDATORY_SUNDAY_ROLES = ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
-const OPTIONAL_ROLES_LIST = ['2nd Guitar','2nd Keys','Electric Guitar','Violin','Congas','Singer 1','Singer 2','Singer 3','Choir','Trumpet','Oboe','Cahon','Other'];
-const AV_ROLES = ["Sound","Words","Cameras"];
 const EVENT_TYPES_LIST = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
+const AV_ROLES = ["Sound","Words","Cameras"];
+
+let rotaCollapsedTerms = new Set();
+let rotaExpandedEvents = new Set();
+let rotaOpenBuckets   = new Set();
+let cachedEvents      = [];
+let rotaAvailability  = {};
+let hideAssigned      = false;
 
 function getTermLabel(dateStr) {
   const d = new Date(dateStr);
-  const m = d.getMonth() + 1;
-  const y = d.getFullYear();
-  const term = m <= 4 ? 'Spring' : m <= 8 ? 'Summer' : 'Autumn';
-  return `${term} ${y}`;
+  const m = d.getMonth() + 1, y = d.getFullYear();
+  return `${m<=4?'Spring':m<=8?'Summer':'Autumn'} ${y}`;
 }
 
-async function loadRotaList() {
-  $('rota-list').innerHTML = '<div class="empty-state"><div class="loader-spinner"></div></div>';
-  try {
-    const snap = await db.collection('events').orderBy('date','desc').get();
-    window._events = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => !e.archived);
-    renderRotaList();
-  } catch(e) {
-    $('rota-list').innerHTML = '<div class="empty-state"><div class="empty-state-text">Could not load events</div></div>';
-  }
-}
-
-function renderRotaList() {
-  const q = ($('rota-search')?.value || '').toLowerCase();
-  const all = (window._events || []).filter(e =>
-    !q || (e.date||'').includes(q) || (e.type||'').toLowerCase().includes(q)
-  ).sort((a,b) => new Date(b.date) - new Date(a.date));
-
-  if (!all.length) {
-    $('rota-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">No events yet — use Populate or + to create one</div></div>';
-    return;
-  }
-
-  // Group by term
-  const byTerm = {};
-  all.forEach(e => {
-    const t = e.termLabel || getTermLabel(e.date);
-    if (!byTerm[t]) byTerm[t] = [];
-    byTerm[t].push(e);
+// Real-time listeners — start when rota section first opens
+let rotaListenersStarted = false;
+function startRotaListeners() {
+  if (rotaListenersStarted) return;
+  rotaListenersStarted = true;
+  db.collection('addressBook').onSnapshot(snap => {
+    allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPlanner();
   });
-
-  const termKeys = Object.keys(byTerm).sort((a,b) => {
-    const order = { Spring:0, Summer:1, Autumn:2 };
-    const [ta, ya] = a.split(' '); const [tb, yb] = b.split(' ');
-    return Number(yb) - Number(ya) || order[tb] - order[ta];
+  db.collection('availability').onSnapshot(snap => {
+    rotaAvailability = {};
+    snap.forEach(d => {
+      const data = d.data();
+      if (!rotaAvailability[data.eventId]) rotaAvailability[data.eventId] = {};
+      rotaAvailability[data.eventId][data.memberId] = data.status;
+    });
+    renderPlanner();
   });
-
-  $('rota-list').innerHTML = termKeys.map(term => {
-    const events = byTerm[term];
-    const filled = events.reduce((n,e) => n + Object.values(e.assignments||{}).filter(a=>a?.name).length, 0);
-    const total  = events.reduce((n,e) => n + (e.roles||MANDATORY_SUNDAY_ROLES).length, 0);
-
-    return `<div class="fade-in" style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--teal);padding:12px 16px;border-radius:14px 14px 0 0;cursor:pointer;" onclick="toggleTermSection('${term}')">
-        <div>
-          <div style="font-size:14px;font-weight:800;color:white;">${term}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.6);font-weight:700;">${events.length} events · ${filled}/${total} roles filled</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button onclick="event.stopPropagation();archiveTerm('${term}')" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:9999px;font-size:10px;font-weight:800;cursor:pointer;text-transform:uppercase;">Archive</button>
-          <span id="term-arrow-${term.replace(/ /g,'_')}" style="color:white;font-size:18px;font-weight:800;">▾</span>
-        </div>
-      </div>
-      <div id="term-section-${term.replace(/ /g,'_')}" style="background:var(--white);border:1px solid var(--border);border-top:none;border-radius:0 0 14px 14px;overflow:hidden;">
-        ${events.map(e => {
-          const assignedCount = Object.values(e.assignments||{}).filter(a=>a?.name).length;
-          const totalRoles    = (e.roles||MANDATORY_SUNDAY_ROLES).length;
-          const pct = totalRoles ? Math.round(assignedCount/totalRoles*100) : 0;
-          const isSunday = e.type === 'Sunday Morning Worship';
-          return `<div onclick="openRotaDetail('${e.id}')"
-            style="padding:12px 16px;border-bottom:1px solid var(--bg);cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.1s;"
-            onmousedown="this.style.background='var(--teal-light)'" onmouseup="this.style.background=''">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:10px;font-weight:800;color:var(--teal);opacity:0.5;text-transform:uppercase;letter-spacing:0.08em;">${fmtShortDate(e.date)}</div>
-              <div style="font-size:14px;font-weight:800;color:var(--teal);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.type||'Event'}</div>
-              ${e.description ? `<div style="font-size:11px;font-weight:600;color:var(--teal);opacity:0.5;">${e.description}</div>` : ''}
-            </div>
-            <div style="text-align:right;flex-shrink:0;">
-              <div style="font-size:11px;font-weight:800;color:${pct===100?'var(--green)':'var(--teal)'};">${assignedCount}/${totalRoles}</div>
-              <div style="width:48px;height:4px;background:var(--bg);border-radius:9999px;margin-top:3px;overflow:hidden;">
-                <div style="height:100%;width:${pct}%;background:${pct===100?'var(--green)':'var(--teal)'};border-radius:9999px;"></div>
-              </div>
-            </div>
-            <div style="color:var(--teal);opacity:0.3;font-size:18px;">›</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }).join('');
+  db.collection('events').orderBy('date').onSnapshot(snap => {
+    cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPlanner();
+  });
 }
 
-// Term collapse toggle
-const _collapsedTerms = new Set();
-function toggleTermSection(term) {
-  const key = term.replace(/ /g,'_');
-  const el  = $('term-section-' + key);
-  const arr = $('term-arrow-' + key);
-  if (!el) return;
-  if (_collapsedTerms.has(term)) {
-    _collapsedTerms.delete(term);
-    el.style.display = '';
-    if (arr) arr.textContent = '▾';
-  } else {
-    _collapsedTerms.add(term);
-    el.style.display = 'none';
-    if (arr) arr.textContent = '▸';
+window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
+window.toggleTermCollapse = t  => { rotaCollapsedTerms.has(t) ? rotaCollapsedTerms.delete(t) : rotaCollapsedTerms.add(t); renderPlanner(); };
+window.toggleEventExpand  = id => { rotaExpandedEvents.has(id) ? rotaExpandedEvents.delete(id) : rotaExpandedEvents.add(id); renderPlanner(); };
+window.toggleBucket       = id => { rotaOpenBuckets.has(id) ? rotaOpenBuckets.delete(id) : rotaOpenBuckets.add(id); renderPlanner(); };
+
+window.updateField = async (id, field, value) => {
+  const updates = { [field]: value };
+  if (field === 'date') updates.termLabel = getTermLabel(value);
+  await db.collection('events').doc(id).update(updates);
+};
+
+window.toggleTeam = async (eventId, teamName) => {
+  const snap = await db.collection('events').doc(eventId).get();
+  if (!snap.exists) return;
+  const cur = snap.data().teams || [];
+  await db.collection('events').doc(eventId).update({
+    teams: cur.includes(teamName) ? cur.filter(t=>t!==teamName) : [...cur, teamName]
+  });
+};
+
+window.addRole = async (eventId, roleName) => {
+  if (!roleName) return;
+  await db.collection('events').doc(eventId).update({ roles: firebase.firestore.FieldValue.arrayUnion(roleName) });
+};
+
+window.removeRole = async (eventId, roleName) => {
+  if (!confirm(`Remove role "${roleName}"?`)) return;
+  const updates = { roles: firebase.firestore.FieldValue.arrayRemove(roleName) };
+  updates[`assignments.${roleName}`] = firebase.firestore.FieldValue.delete();
+  await db.collection('events').doc(eventId).update(updates);
+};
+
+window.assignPerson = async (eventId, role, personId, personName) => {
+  const updates = {};
+  updates[`assignments.${role}`] = { id: personId, name: personName };
+  await db.collection('events').doc(eventId).update(updates);
+};
+
+window.unassignPerson = async (eventId, role) => {
+  const updates = {};
+  updates[`assignments.${role}`] = firebase.firestore.FieldValue.delete();
+  await db.collection('events').doc(eventId).update(updates);
+};
+
+window.deleteEvent = async (eventId) => {
+  if (confirm("Permanently delete this service?")) await db.collection('events').doc(eventId).delete();
+};
+
+window.archiveTerm = async (termLabel) => {
+  if (!confirm(`Archive all services in ${termLabel}?`)) return;
+  for (const ev of cachedEvents.filter(e => e.termLabel === termLabel))
+    await db.collection('events').doc(ev.id).update({ archived: true });
+};
+
+window.onDragStart = (e, personId, personName, eventId=null, role=null) => {
+  e.dataTransfer.setData("personId", personId);
+  e.dataTransfer.setData("personName", personName);
+  if (eventId && role) { e.dataTransfer.setData("sourceEventId", eventId); e.dataTransfer.setData("sourceRole", role); }
+};
+
+window.onDropRole = async (e, eventId, role) => {
+  e.preventDefault();
+  const pid = e.dataTransfer.getData("personId"), pname = e.dataTransfer.getData("personName");
+  const sEv = e.dataTransfer.getData("sourceEventId"), sRole = e.dataTransfer.getData("sourceRole");
+  if (sEv === eventId && sRole) await unassignPerson(sEv, sRole);
+  await assignPerson(eventId, role, pid, pname);
+};
+
+window.onDropBucket = async (e, eventId, targetStatus=null) => {
+  e.preventDefault();
+  const pid  = e.dataTransfer.getData("personId");
+  const sEv  = e.dataTransfer.getData("sourceEventId"), sRole = e.dataTransfer.getData("sourceRole");
+  if (sEv && sRole) await unassignPerson(sEv, sRole);
+  if (targetStatus && eventId && pid) {
+    const snap = await db.collection('availability').where('eventId','==',eventId).where('memberId','==',pid).get();
+    if (targetStatus === 'pending') {
+      for (const d of snap.docs) await db.collection('availability').doc(d.id).delete();
+    } else if (!snap.empty) {
+      await db.collection('availability').doc(snap.docs[0].id).update({ status: targetStatus });
+    } else {
+      await db.collection('availability').add({ eventId, memberId: pid, status: targetStatus });
+    }
   }
-}
+};
 
-// ── POPULATE TERM ─────────────────────────────────────────────────────────
-async function populateTerm() {
-  const term = $('rota-term-select').value;
+window.addSingleLine = async () => {
+  const d = new Date().toISOString().split('T')[0];
+  await db.collection('events').add({ date:d, termLabel:getTermLabel(d), type:"Sunday Morning Worship", description:"", teams:["Worship Team","AV Team"], startTime:"08:00", endTime:"11:30", roles:[...MANDATORY_SUNDAY_ROLES], archived:false });
+};
+
+window.generateTerm = async () => {
+  const term = document.getElementById('termSelect').value;
   if (!term) { toast('Select a term first'); return; }
   const year = new Date().getFullYear();
-  const starts = { Spring: '01', Summer: '05', Autumn: '09' };
-  const ends   = { Spring: '04', Summer: '08', Autumn: '12' };
-  let curr = new Date(`${year}-${starts[term]}-01`);
-  const end  = new Date(`${year}-${ends[term]}-31`);
-  // Move to first Sunday
-  while (curr.getDay() !== 0) curr.setDate(curr.getDate() + 1);
+  let curr = new Date(`${year}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
+  const end = new Date(`${year}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
+  while (curr.getDay()!==0) curr.setDate(curr.getDate()+1);
   loader(true, `Populating ${term}...`);
-  try {
-    let count = 0;
-    while (curr <= end) {
-      const dateStr = curr.toISOString().split('T')[0];
-      // Don't duplicate
-      const existing = await db.collection('events').where('date','==',dateStr).where('type','==','Sunday Morning Worship').get();
-      if (existing.empty) {
-        await db.collection('events').add({
-          date: dateStr, termLabel: getTermLabel(dateStr),
-          type: 'Sunday Morning Worship', description: '',
-          teams: ['Worship Team','AV Team'],
-          startTime: '08:00', endTime: '11:30',
-          roles: [...MANDATORY_SUNDAY_ROLES],
-          assignments: {}, archived: false
-        });
-        count++;
-      }
-      curr.setDate(curr.getDate() + 7);
-    }
-    toast(`Created ${count} Sunday services ✓`);
-    await loadRotaList();
-  } catch(e) { toast('Error: ' + e.message); }
-  loader(false);
-}
+  while (curr<=end) {
+    const ds = curr.toISOString().split('T')[0];
+    await db.collection('events').add({ date:ds, termLabel:getTermLabel(ds), type:"Sunday Morning Worship", description:"", teams:["Worship Team","AV Team"], startTime:"08:00", endTime:"11:30", roles:[...MANDATORY_SUNDAY_ROLES], archived:false });
+    curr.setDate(curr.getDate()+7);
+  }
+  loader(false); toast('Term populated ✓');
+};
 
-// ── ADD THURSDAY PRACTICES ─────────────────────────────────────────────────
-async function addThursdayPractices() {
-  const term = $('rota-term-select').value;
+window.addThursdayPractices = async () => {
+  const term = document.getElementById('termSelect').value;
   if (!term) { toast('Select a term first'); return; }
   const year = new Date().getFullYear();
-  const starts = { Spring: '01', Summer: '05', Autumn: '09' };
-  const ends   = { Spring: '04', Summer: '08', Autumn: '12' };
-  let curr = new Date(`${year}-${starts[term]}-01`);
-  const end  = new Date(`${year}-${ends[term]}-31`);
-  while (curr.getDay() !== 4) curr.setDate(curr.getDate() + 1);
+  let curr = new Date(`${year}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
+  const end = new Date(`${year}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
+  while (curr.getDay()!==4) curr.setDate(curr.getDate()+1);
   loader(true, 'Adding practices...');
-  try {
-    let count = 0;
-    while (curr <= end) {
-      const dateStr = curr.toISOString().split('T')[0];
-      const existing = await db.collection('events').where('date','==',dateStr).where('type','==','Sunday Team Practice').get();
-      if (existing.empty) {
-        await db.collection('events').add({
-          date: dateStr, termLabel: getTermLabel(dateStr),
-          type: 'Sunday Team Practice', description: 'Thursday Rehearsal',
-          teams: ['Worship Team'],
-          startTime: '19:30', endTime: '21:30',
-          roles: ['Worship Leader','Keyboard','Guitar','Drums','Bass'],
-          assignments: {}, archived: false
-        });
-        count++;
-      }
-      curr.setDate(curr.getDate() + 7);
-    }
-    toast(`Created ${count} Thursday practices ✓`);
-    await loadRotaList();
-  } catch(e) { toast('Error: ' + e.message); }
-  loader(false);
-}
+  while (curr<=end) {
+    const ds = curr.toISOString().split('T')[0];
+    await db.collection('events').add({ date:ds, termLabel:getTermLabel(ds), type:"Sunday Team Practice", description:"Thursday Rehearsal", teams:["Worship Team"], startTime:"19:30", endTime:"21:30", roles:["Worship Leader","Keyboard","Guitar","Drums","Bass"], archived:false });
+    curr.setDate(curr.getDate()+7);
+  }
+  loader(false); toast('Practices added ✓');
+};
 
-// ── AUTO-FILL ─────────────────────────────────────────────────────────────
-async function autoFillAllEvents() {
-  confirm_('Auto-Fill', 'Automatically assign available people to unfilled roles?', async () => {
-    loader(true, 'Auto-filling...');
-    try {
-      // Load availability
-      const availSnap = await db.collection('availability').get();
-      const avail = {};
-      availSnap.forEach(d => {
-        const data = d.data();
-        if (!avail[data.eventId]) avail[data.eventId] = {};
-        avail[data.eventId][data.memberId] = data.status;
+window.autoFillPractice = async (practiceId) => {
+  const practice = cachedEvents.find(e=>e.id===practiceId); if (!practice) return;
+  const pd = new Date(practice.date);
+  const sunday = cachedEvents.find(e => { const diff=(new Date(e.date)-pd)/(1000*60*60*24); return e.type==="Sunday Morning Worship"&&diff>0&&diff<=3; });
+  if (!sunday) { toast('No matching Sunday found'); return; }
+  const updates = {};
+  (practice.roles||[]).forEach(r => { const p=sunday.assignments?.[r]; if(p&&rotaAvailability[practiceId]?.[p.id]==='avail') updates[`assignments.${r}`]={id:p.id,name:p.name}; });
+  if (Object.keys(updates).length) await db.collection('events').doc(practiceId).update(updates);
+  toast('Synced ✓');
+};
+
+window.autoFillAllEvents = async () => {
+  if (!confirm("Automatically fill services?")) return;
+  loader(true,'Auto-filling...');
+  const events = cachedEvents.filter(e=>!e.archived&&e.type==="Sunday Morning Worship").sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const mCounts = {};
+  for (const ev of events) {
+    const mk = new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'});
+    if (!mCounts[mk]) mCounts[mk]={};
+    const members = allMembers.filter(m => rotaAvailability[ev.id]?.[m.id]==='avail' && (ev.teams?.some(t=>m.markers?.includes(t))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship"))));
+    const assigned = new Set(Object.values(ev.assignments||{}).map(a=>a.id));
+    const roles = [...(ev.roles||[])];
+    const asgn  = {...(ev.assignments||{})};
+
+    const tryAssign = (rn, inst, primary) => {
+      if (asgn[rn]?.id) return false;
+      let cands = members.filter(m => !assigned.has(m.id) && (mCounts[mk][m.id]||0)<(parseInt(m.maxFrequency)||2) && (primary?m.primaryInstruments?.includes(inst):(m.primaryInstruments?.includes(inst)||m.secondaryInstruments?.includes(inst))));
+      cands.sort((a,b)=>((a.markers?.includes("Youth Worship")?1:0)-(b.markers?.includes("Youth Worship")?1:0))||((a.primaryInstruments?.length||0)-(b.primaryInstruments?.length||0)));
+      if (!cands.length) return false;
+      const c=cands[0]; asgn[rn]={id:c.id,name:c.name}; assigned.add(c.id); mCounts[mk][c.id]=(mCounts[mk][c.id]||0)+1; return true;
+    };
+
+    MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,true));
+    roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",true));
+    MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,false));
+    roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",false));
+
+    members.filter(m=>!assigned.has(m.id)&&(m.primaryInstruments?.includes("Sing")||m.secondaryInstruments?.includes("Sing")))
+      .sort((a,b)=>(a.markers?.includes("Youth Worship")?1:0)-(b.markers?.includes("Youth Worship")?1:0))
+      .forEach(m => {
+        if ((mCounts[mk][m.id]||0)>=(parseInt(m.maxFrequency)||2)) return;
+        let i=1; while(roles.includes(`Singer ${i}`)) i++;
+        const nr=`Singer ${i}`; roles.push(nr); asgn[nr]={id:m.id,name:m.name}; assigned.add(m.id); mCounts[mk][m.id]=(mCounts[mk][m.id]||0)+1;
       });
 
-      const activeEvents = (window._events||[])
-        .filter(e => !e.archived && e.type === 'Sunday Morning Worship')
-        .sort((a,b) => new Date(a.date) - new Date(b.date));
+    ["Guitar","Keyboard"].forEach(inst => {
+      const rn=`2nd ${inst}`;
+      if (!roles.includes(rn) && (tryAssign(rn,inst,true)||tryAssign(rn,inst,false))) roles.push(rn);
+    });
+    await db.collection('events').doc(ev.id).update({ assignments:asgn, roles });
+  }
+  loader(false); toast('Auto-fill complete ✓');
+};
 
-      const monthlyCounts = {};
-
-      for (const ev of activeEvents) {
-        const monthKey = new Date(ev.date).toLocaleString('en-GB', { month:'long', year:'numeric' });
-        if (!monthlyCounts[monthKey]) monthlyCounts[monthKey] = {};
-
-        const members = allMembers.filter(m =>
-          ev.teams?.some(t => m.markers?.includes(t))
-        );
-        const alreadyAssigned = new Set(Object.values(ev.assignments||{}).map(a=>a.id).filter(Boolean));
-        const assignments = { ...(ev.assignments||{}) };
-        const roles = [...(ev.roles||MANDATORY_SUNDAY_ROLES)];
-
-        const tryAssign = (roleName, instrument, primaryOnly) => {
-          if (assignments[roleName]?.id) return false;
-          let candidates = members.filter(m => {
-            if (alreadyAssigned.has(m.id)) return false;
-            if ((monthlyCounts[monthKey][m.id]||0) >= (parseInt(m.maxFrequency)||2)) return false;
-            if (avail[ev.id]?.[m.id] !== 'avail') return false;
-            return primaryOnly
-              ? m.primaryInstruments?.includes(instrument)
-              : (m.primaryInstruments?.includes(instrument) || m.secondaryInstruments?.includes(instrument));
-          });
-          candidates.sort((a,b) => (a.primaryInstruments?.length||0) - (b.primaryInstruments?.length||0));
-          if (!candidates.length) return false;
-          const chosen = candidates[0];
-          assignments[roleName] = { id: chosen.id, name: chosen.name };
-          alreadyAssigned.add(chosen.id);
-          monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id]||0) + 1;
-          return true;
-        };
-
-        // Primary pass
-        MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, true));
-        // Secondary pass
-        MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, false));
-
-        await db.collection('events').doc(ev.id).update({ assignments, roles });
-        // Update local cache
-        const idx = (window._events||[]).findIndex(e => e.id === ev.id);
-        if (idx !== -1) { window._events[idx].assignments = assignments; window._events[idx].roles = roles; }
-      }
-      toast('Auto-fill complete ✓');
-      renderRotaList();
-    } catch(e) { toast('Error: ' + e.message); }
-    loader(false);
-  });
-}
-
-// ── GATHER AVAILABILITY ───────────────────────────────────────────────────
-async function gatherAvailability() {
-  const term = $('rota-term-select').value;
-  if (!term) { toast('Select a term first'); return; }
-  const events = (window._events||[]).filter(e => !e.archived && (e.termLabel||'').includes(term));
+window.gatherTermAvailability = async () => {
+  const terms = [...new Set(cachedEvents.filter(e=>!e.archived).map(e=>e.termLabel))];
+  const sel = prompt(`Gather availability for which term?\n\n${terms.join('\n')}`, terms[0]);
+  if (!sel) return;
   const emails = new Set();
-  events.forEach(ev => {
-    allMembers.forEach(m => {
-      if (ev.teams?.some(t => m.markers?.includes(t)) && m.email) emails.add(m.email);
-    });
+  cachedEvents.filter(e=>!e.archived&&e.termLabel===sel).forEach(ev => {
+    allMembers.forEach(m => { if (m.markers?.some(r=>ev.teams?.includes(r))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship"))) emails.add(m.email); });
   });
-  if (!emails.size) { toast('No emails found for this term'); return; }
-  window.location.href = `mailto:?bcc=${[...emails].join(';')}&subject=Availability Request&body=Please fill in your availability: https://esherchurch.github.io/availability-form/`;
+  window.location.href = `mailto:av@esherchurch.org?bcc=${[...emails].join(';')}&subject=Availability Request&body=Please click here: https://esherchurch.github.io/availability-form/`;
+};
+
+function buildTimeOptions(sel) {
+  let o='';
+  for (let h=0;h<24;h++) for (let m=0;m<60;m+=15) {
+    const v=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    o+=`<option value="${v}"${sel===v?' selected':''}>${v}</option>`;
+  }
+  return o;
 }
 
-// ── ARCHIVE TERM ──────────────────────────────────────────────────────────
-async function archiveTerm(term) {
-  confirm_(`Archive ${term}`, `Archive all events in ${term}? They will be hidden from the list.`, async () => {
-    loader(true);
-    try {
-      const toArchive = (window._events||[]).filter(e => (e.termLabel||getTermLabel(e.date)) === term);
-      for (const ev of toArchive) {
-        await db.collection('events').doc(ev.id).update({ archived: true });
-      }
-      window._events = (window._events||[]).filter(e => (e.termLabel||getTermLabel(e.date)) !== term);
-      toast(`${term} archived`);
-      renderRotaList();
-    } catch(e) { toast('Error archiving'); }
-    loader(false);
+function renderPlanner() {
+  const container = document.getElementById('eventList');
+  if (!container) return;
+  container.innerHTML = '';
+  const grouped = {};
+  cachedEvents.forEach(ev => {
+    if (ev.archived) return;
+    const t = ev.termLabel || getTermLabel(ev.date);
+    if (!grouped[t]) grouped[t]=[];
+    grouped[t].push(ev);
   });
-}
-
-// ── ROTA DETAIL ───────────────────────────────────────────────────────────
-let _availability = {}; // eventId → memberId → status
-
-async function openRotaDetail(id) {
-  loader(true);
-  try {
-    const evDoc = await db.collection('events').doc(id).get();
-    currentRotaEvent = { id, ...evDoc.data() };
-
-    // Load availability for this event
-    const availSnap = await db.collection('availability')
-      .where('eventId','==',id).get();
-    _availability[id] = {};
-    availSnap.forEach(d => {
-      const data = d.data();
-      _availability[id][data.memberId] = { status: data.status, docId: d.id };
-    });
-
-    if (!allMembers.length) await loadMembersOnce();
-    openSection('rota-detail');
-  } catch(e) { toast('Could not load event'); }
-  loader(false);
-}
-
-async function loadMembersOnce() {
-  if (allMembers.length) return;
-  const snap = await db.collection('addressBook').get();
-  allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-function renderRotaDetail() {
-  if (!currentRotaEvent) return;
-  const ev = currentRotaEvent;
-  $('header-title').textContent = fmtShortDate(ev.date);
-
-  const AV  = AV_ROLES;
-  // Derive roles: use ev.roles array, or fall back to keys from assignments, or use defaults
-  let allRoles = ev.roles?.length
-    ? ev.roles
-    : Object.keys(ev.assignments||{}).length
-      ? Object.keys(ev.assignments)
-      : [...MANDATORY_SUNDAY_ROLES];
-
-  // Ensure all assignment keys are in roles (desktop may have added extra)
-  Object.keys(ev.assignments||{}).forEach(r => {
-    if (!allRoles.includes(r)) allRoles.push(r);
-  });
-
-  const worship  = allRoles.filter(r => !AV.includes(r));
-  const avRoles  = allRoles.filter(r => AV.includes(r));
-  const evAvail  = _availability[ev.id] || {};
-
-  const membersForEvent = allMembers.filter(m =>
-    (ev.teams||[]).some(t => m.markers?.includes(t))
-  );
-  const available = membersForEvent.filter(m => evAvail[m.id]?.status === 'avail');
-  const declined  = membersForEvent.filter(m => evAvail[m.id]?.status === 'unavailable' || evAvail[m.id]?.status === 'not-avail');
-  const pending   = membersForEvent.filter(m => !evAvail[m.id]);
-
-  function roleCard(role) {
-    const assigned = ev.assignments?.[role];
-    const isAV = AV.includes(role);
-    const borderCol = assigned?.name
-      ? (isAV ? '#f59e0b' : 'var(--teal)')
-      : 'var(--border)';
-    const avStatus = assigned?.id ? evAvail[assigned.id]?.status : null;
-    const nameCol = (assigned?.id && avStatus === undefined) ? '#f97316' : 'var(--teal)';
-    const safeRole = role.replace(/'/g,"\\'");
-    return `
-      <div onclick="openRoleSheet('${safeRole}')"
-        style="background:var(--white);border:2px solid ${borderCol};border-radius:14px;padding:12px;cursor:pointer;min-width:0;active:background:var(--teal-light)">
-        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--teal);opacity:0.4;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-          <span>${role}</span>
-          <button onclick="event.stopPropagation();removeRoleFromEvent('${safeRole}')"
-            style="background:none;border:none;color:#fca5a5;font-size:14px;cursor:pointer;padding:0;line-height:1;">✕</button>
-        </div>
-        <div style="font-size:13px;font-weight:${assigned?.name?'800':'600'};color:${assigned?.name?nameCol:'#94a3b8'};font-style:${assigned?.name?'normal':'italic'};">
-          ${assigned?.name || 'Tap to assign'}
-        </div>
-      </div>`;
-  }
-
-  function availChip(m, status) {
-    const colors = {
-      avail:       { bg:'#f0fdf4', text:'#166534', border:'#86efac' },
-      unavailable: { bg:'#fef2f2', text:'#991b1b', border:'#fca5a5' },
-      'not-avail': { bg:'#fef2f2', text:'#991b1b', border:'#fca5a5' },
-      pending:     { bg:'var(--bg)', text:'var(--teal)', border:'var(--border)' },
-    };
-    const c = colors[status] || colors.pending;
-    return `<div onclick="openAvailSheet('${m.id}','${m.name.replace(/'/g,"\\'")}','${status}')"
-      style="padding:8px 12px;background:${c.bg};border:1px solid ${c.border};border-radius:10px;font-size:12px;font-weight:700;color:${c.text};cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-      <span>${m.name}</span>
-      <span style="font-size:9px;opacity:0.6;text-transform:uppercase;">${status==='avail'?'✓ Avail':status==='pending'?'?':' ✗'}</span>
-    </div>`;
-  }
-
-  $('rota-detail-content').innerHTML = `
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-size:16px;font-weight:800;color:var(--teal);">${ev.type||'Event'}</div>
-          <div style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.5;">${fmtShortDate(ev.date)}${ev.description?' · '+ev.description:''}</div>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-secondary btn-sm" onclick="openEditEventModal()">Edit</button>
-          <button class="btn btn-red btn-sm" onclick="archiveCurrentEvent()">Archive</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Worship roles -->
-    <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;">
-        <div class="card-label" style="margin-bottom:0;">Worship Roles</div>
-        <button class="btn btn-secondary btn-sm" onclick="openAddRoleSheet()">+ Role</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        ${worship.map(r => roleCard(r)).join('')}
-      </div>
-    </div>
-
-    <!-- AV roles -->
-    ${avRoles.length ? `
-    <div>
-      <div class="card-label" style="margin-bottom:8px;">AV Roles</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-        ${avRoles.map(r => roleCard(r)).join('')}
-      </div>
-    </div>` : ''}
-
-    <!-- Availability -->
-    <div class="card">
-      <div class="card-label" style="margin-bottom:12px;">Team Availability</div>
-
-      ${available.length ? `
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#166534;margin-bottom:6px;">✓ Available (${available.length})</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
-        ${available.map(m => availChip(m,'avail')).join('')}
-      </div>` : ''}
-
-      ${declined.length ? `
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#991b1b;margin-bottom:6px;">✗ Declined (${declined.length})</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
-        ${declined.map(m => availChip(m,'unavailable')).join('')}
-      </div>` : ''}
-
-      ${pending.length ? `
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal);opacity:0.5;margin-bottom:6px;">? Pending (${pending.length})</div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        ${pending.map(m => availChip(m,'pending')).join('')}
-      </div>` : ''}
-
-      ${!membersForEvent.length ? '<div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.4;text-align:center;padding:8px;">No team members found for this event\'s teams</div>' : ''}
-    </div>
-
-    <button class="btn btn-primary btn-full" onclick="saveRotaAssignments()">💾 Save Assignments</button>
-  `;
-}
-
-// ── ROLE ASSIGNMENT SHEET ─────────────────────────────────────────────────
-let _currentRole = null;
-
-function openRoleSheet(role) {
-  _currentRole = role;
-  const ev = currentRotaEvent;
-  const assigned = ev.assignments?.[role];
-  const evAvail  = _availability[ev.id] || {};
-
-  // Show available people first, then everyone
-  const available = allMembers.filter(m => evAvail[m.id]?.status === 'avail');
-  const others    = allMembers.filter(m => evAvail[m.id]?.status !== 'avail');
-
-  const memberRow = (m, statusEmoji) => `
-    <div onclick="assignPersonToRole('${m.id}','${m.name.replace(/'/g,"\\'")}','${role}')"
-      style="padding:14px 16px;border-bottom:1px solid var(--bg);font-size:14px;font-weight:700;color:var(--teal);cursor:pointer;display:flex;align-items:center;gap:10px;"
-      onmousedown="this.style.background='var(--teal-light)'" onmouseup="this.style.background=''">
-      <span style="font-size:16px;">${statusEmoji}</span>
-      <span style="flex:1;">${m.name}</span>
-      ${assigned?.id === m.id ? '<span style="font-size:11px;background:var(--teal);color:white;padding:2px 8px;border-radius:9999px;">Current</span>' : ''}
-    </div>`;
-
-  document.getElementById('role-sheet-content').innerHTML = `
-    <div class="modal-title">Assign: ${role}</div>
-    ${assigned?.name ? `<div style="margin-bottom:12px;padding:10px 14px;background:var(--teal-light);border-radius:10px;font-size:13px;font-weight:700;color:var(--teal);display:flex;justify-content:space-between;align-items:center;">
-      <span>Currently: ${assigned.name}</span>
-      <button onclick="unassignRole('${role}')" style="background:#ef4444;color:white;border:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;">Remove</button>
-    </div>` : ''}
-    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#166534;padding:8px 0 4px;">✓ Available</div>
-    ${available.map(m => memberRow(m,'✅')).join('') || '<div style="padding:8px 16px;font-size:12px;color:var(--teal);opacity:0.4;font-style:italic;">Nobody marked available yet</div>'}
-    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal);opacity:0.4;padding:8px 0 4px;">All Members</div>
-    ${others.map(m => memberRow(m,'⬜')).join('')}
-  `;
-  openModal('modal-role-sheet');
-}
-
-function assignPersonToRole(memberId, name, role) {
-  if (!currentRotaEvent.assignments) currentRotaEvent.assignments = {};
-  currentRotaEvent.assignments[role] = { id: memberId, name };
-  closeModal('modal-role-sheet');
-  renderRotaDetail();
-}
-
-function unassignRole(role) {
-  if (currentRotaEvent.assignments) {
-    delete currentRotaEvent.assignments[role];
-  }
-  closeModal('modal-role-sheet');
-  renderRotaDetail();
-}
-
-// ── AVAILABILITY SHEET ────────────────────────────────────────────────────
-async function openAvailSheet(memberId, name, currentStatus) {
-  const ev = currentRotaEvent;
-  const evAvail = _availability[ev.id] || {};
-
-  document.getElementById('avail-sheet-content').innerHTML = `
-    <div class="modal-title">${name}</div>
-    <div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:16px;">Change availability for ${fmtShortDate(ev.date)}</div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button onclick="setAvailability('${memberId}','avail')"
-        style="padding:14px;border-radius:12px;border:2px solid ${currentStatus==='avail'?'#166534':'var(--border)'};background:${currentStatus==='avail'?'#f0fdf4':'var(--bg)'};font-family:var(--font);font-size:14px;font-weight:800;color:#166534;cursor:pointer;text-align:left;">
-        ✅ Available
-      </button>
-      <button onclick="setAvailability('${memberId}','unavailable')"
-        style="padding:14px;border-radius:12px;border:2px solid ${currentStatus==='unavailable'||currentStatus==='not-avail'?'#991b1b':'var(--border)'};background:${currentStatus==='unavailable'||currentStatus==='not-avail'?'#fef2f2':'var(--bg)'};font-family:var(--font);font-size:14px;font-weight:800;color:#991b1b;cursor:pointer;text-align:left;">
-        ✗ Unavailable
-      </button>
-      <button onclick="setAvailability('${memberId}','pending')"
-        style="padding:14px;border-radius:12px;border:2px solid ${currentStatus==='pending'?'var(--teal)':'var(--border)'};background:${currentStatus==='pending'?'var(--teal-light)':'var(--bg)'};font-family:var(--font);font-size:14px;font-weight:800;color:var(--teal);cursor:pointer;text-align:left;">
-        ? Reset to Pending
-      </button>
-    </div>
-  `;
-  openModal('modal-avail-sheet');
-}
-
-async function setAvailability(memberId, status) {
-  const evId = currentRotaEvent.id;
-  const evAvail = _availability[evId] || {};
-  closeModal('modal-avail-sheet');
-  loader(true, 'Updating...');
-  try {
-    if (status === 'pending') {
-      // Delete the doc
-      if (evAvail[memberId]?.docId) {
-        await db.collection('availability').doc(evAvail[memberId].docId).delete();
-        delete _availability[evId][memberId];
-      }
-    } else if (evAvail[memberId]?.docId) {
-      await db.collection('availability').doc(evAvail[memberId].docId).update({ status });
-      _availability[evId][memberId].status = status;
-    } else {
-      const ref = await db.collection('availability').add({ eventId: evId, memberId, status });
-      if (!_availability[evId]) _availability[evId] = {};
-      _availability[evId][memberId] = { status, docId: ref.id };
+  Object.keys(grouped).sort().forEach(term => {
+    const isCol = rotaCollapsedTerms.has(term);
+    let html = '<div style="margin-bottom:20px;">';
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;background:#3d6263;color:white;padding:12px 16px;border-radius:${isCol?'14px':'14px 14px 0 0'};">`;
+    html += `<button onclick="toggleTermCollapse('${term}')" style="background:none;border:none;color:white;font-family:'Montserrat',sans-serif;font-weight:800;font-size:13px;text-transform:uppercase;cursor:pointer;">${term}</button>`;
+    html += `<button onclick="archiveTerm('${term}')" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 10px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Archive</button>`;
+    html += '</div>';
+    if (!isCol) {
+      html += '<div style="background:white;padding:10px;border:1px solid #d1dfdf;border-top:none;border-radius:0 0 14px 14px;">';
+      const sorted = grouped[term].sort((a,b)=>new Date(a.date)-new Date(b.date));
+      const byMonth = {};
+      sorted.forEach(ev => { const mk=new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'}); if(!byMonth[mk])byMonth[mk]=[]; byMonth[mk].push(ev); });
+      Object.keys(byMonth).forEach(month => {
+        html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:#3d6263;opacity:0.5;margin:12px 0 8px;">${month}</div>`;
+        const blocks=[]; let cur=[];
+        byMonth[month].forEach(ev => { cur.push(ev); if(ev.type==="Sunday Morning Worship"){blocks.push(cur);cur=[];} });
+        if (cur.length) blocks.push(cur);
+        blocks.forEach((block,idx) => block.forEach(ev => { html += generateEventHtml(ev,idx); }));
+        const stats={};
+        byMonth[month].forEach(ev => { if(ev.type==='Sunday Morning Worship'&&ev.assignments) [...new Set(Object.values(ev.assignments).map(p=>p.name))].forEach(n=>{if(n)stats[n]=(stats[n]||0)+1;}); });
+        if (Object.keys(stats).length) {
+          html += '<div style="margin-top:10px;background:#f0f6f6;border-radius:10px;padding:10px;border:1px solid #d1dfdf;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;text-align:center;margin-bottom:8px;">Monthly Serving Totals</div><div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">';
+          Object.entries(stats).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([n,c]) => { html+=`<div style="background:white;border:1px solid #d1dfdf;padding:3px 8px;border-radius:9999px;font-size:10px;font-weight:700;color:#3d6263;">${n}: <strong>${c}</strong></div>`; });
+          html += '</div></div>';
+        }
+      });
+      html += '</div>';
     }
-    toast('Availability updated ✓');
-    renderRotaDetail();
-  } catch(e) { toast('Error: ' + e.message); }
-  loader(false);
-}
-
-// ── ADD ROLE SHEET ────────────────────────────────────────────────────────
-function openAddRoleSheet() {
-  document.getElementById('add-role-sheet-content').innerHTML = `
-    <div class="modal-title">Add Role</div>
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
-      ${OPTIONAL_ROLES_LIST.map(r => `
-        <div onclick="addRoleToEvent('${r}')"
-          style="padding:12px 16px;border-bottom:1px solid var(--bg);font-size:14px;font-weight:700;color:var(--teal);cursor:pointer;"
-          onmousedown="this.style.background='var(--teal-light)'" onmouseup="this.style.background=''">
-          ${r}
-        </div>`).join('')}
-    </div>
-    <div class="form-field">
-      <label class="form-label">Or type a custom role</label>
-      <div style="display:flex;gap:8px;">
-        <input class="form-input" id="custom-role-input" placeholder="e.g. Flute, Oboe..." style="flex:1;">
-        <button class="btn btn-primary btn-sm" onclick="addRoleToEvent(document.getElementById('custom-role-input').value)">Add</button>
-      </div>
-    </div>
-  `;
-  openModal('modal-add-role-sheet');
-}
-
-async function addRoleToEvent(role) {
-  role = role?.trim();
-  if (!role) { toast('Please enter a role name'); return; }
-  if (!currentRotaEvent.roles) {
-    // Derive from assignments or defaults
-    currentRotaEvent.roles = Object.keys(currentRotaEvent.assignments||{}).length
-      ? Object.keys(currentRotaEvent.assignments)
-      : [...MANDATORY_SUNDAY_ROLES];
-  }
-  if (currentRotaEvent.roles.includes(role)) {
-    toast(`${role} is already in the list`);
-    closeModal('modal-add-role-sheet');
-    return;
-  }
-  currentRotaEvent.roles.push(role);
-  if (!currentRotaEvent.assignments) currentRotaEvent.assignments = {};
-  if (!currentRotaEvent.assignments[role]) currentRotaEvent.assignments[role] = {};
-  closeModal('modal-add-role-sheet');
-  renderRotaDetail();
-  toast(`${role} added`);
-}
-
-async function removeRoleFromEvent(role) {
-  confirm_('Remove Role', `Remove "${role}" from this event?`, () => {
-    if (currentRotaEvent.roles) {
-      currentRotaEvent.roles = currentRotaEvent.roles.filter(r => r !== role);
-    }
-    if (currentRotaEvent.assignments) {
-      delete currentRotaEvent.assignments[role];
-    }
-    renderRotaDetail();
+    html += '</div>';
+    container.innerHTML += html;
   });
 }
 
-// ── EDIT EVENT MODAL ──────────────────────────────────────────────────────
-function openEditEventModal() {
-  $('new-event-date').value = currentRotaEvent.date || '';
-  $('new-event-type').value = currentRotaEvent.type || EVENT_TYPES_LIST[0];
-  $('new-event-term').value = currentRotaEvent.description || '';
-  const btn = document.querySelector('#modal-new-event .btn-primary');
-  if (btn) { btn.textContent = 'Save'; btn.onclick = saveEventMeta; }
-  openModal('modal-new-event');
-}
+function generateEventHtml(ev, blockIdx) {
+  const assignedIds = Object.values(ev.assignments||{}).map(a=>a.id);
+  const members  = allMembers.filter(m => ev.teams?.some(t=>m.markers?.includes(t))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship")));
+  const avail    = members.filter(m => rotaAvailability[ev.id]?.[m.id]==='avail'        && (!hideAssigned||!assignedIds.includes(m.id)));
+  const declined = members.filter(m => (rotaAvailability[ev.id]?.[m.id]==='unavailable'||rotaAvailability[ev.id]?.[m.id]==='not-avail') && (!hideAssigned||!assignedIds.includes(m.id)));
+  const pending  = members.filter(m => !rotaAvailability[ev.id]?.[m.id]                 && (!hideAssigned||!assignedIds.includes(m.id)));
+  const isSunday = ev.type==="Sunday Morning Worship";
+  const sortedRoles = [...(ev.roles||[]).filter(r=>!AV_ROLES.includes(r)), ...(ev.roles||[]).filter(r=>AV_ROLES.includes(r))];
+  const isExp = rotaExpandedEvents.has(ev.id)||isSunday;
+  const bg = !isSunday ? '#f8fafc' : (blockIdx%2===0 ? 'white' : '#f9fbfb');
 
-async function saveEventMeta() {
-  const date = $('new-event-date').value;
-  const type = $('new-event-type').value;
-  const desc = $('new-event-term').value.trim();
-  if (!date) { toast('Please select a date'); return; }
-  currentRotaEvent.date = date;
-  currentRotaEvent.type = type;
-  currentRotaEvent.description = desc;
-  currentRotaEvent.termLabel = getTermLabel(date);
-  try {
-    await db.collection('events').doc(currentRotaEvent.id).update({
-      date, type, description: desc, termLabel: getTermLabel(date)
-    });
-    toast('Event updated ✓');
-  } catch(e) { toast('Error saving'); }
-  closeModal('modal-new-event');
-  renderRotaDetail();
-}
-
-// ── SAVE ASSIGNMENTS ──────────────────────────────────────────────────────
-async function saveRotaAssignments() {
-  if (!currentRotaEvent?.id) return;
-  loader(true, 'Saving...');
-  try {
-    await db.collection('events').doc(currentRotaEvent.id).update({
-      assignments: currentRotaEvent.assignments || {},
-      roles: currentRotaEvent.roles || [...MANDATORY_SUNDAY_ROLES],
-    });
-    toast('✓ Assignments saved');
-    const idx = (window._events||[]).findIndex(e => e.id === currentRotaEvent.id);
-    if (idx !== -1) window._events[idx] = { ...currentRotaEvent };
-  } catch(e) { toast('Error saving'); }
-  loader(false);
-}
-
-function archiveCurrentEvent() {
-  confirm_('Archive Event', 'Archive this event?', async () => {
-    loader(true);
-    try {
-      await db.collection('events').doc(currentRotaEvent.id).update({ archived: true });
-      toast('Event archived');
-      window._events = (window._events||[]).filter(e => e.id !== currentRotaEvent.id);
-      goBack();
-    } catch(e) { toast('Error'); }
-    loader(false);
+  let html = `<div style="background:${bg};border:1px solid #d1dfdf;border-radius:12px;padding:10px;margin-bottom:8px;">`;
+  html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">';
+  html += `<button onclick="toggleEventExpand('${ev.id}')" style="width:26px;height:26px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0;">${isExp?'−':'+'}</button>`;
+  html += `<input type="date" value="${ev.date}" onchange="updateField('${ev.id}','date',this.value)" style="background:${isSunday?'#3d6263':'#d1dfdf'};color:${isSunday?'white':'#3d6263'};border:none;padding:5px 8px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:11px;">`;
+  html += `<select onchange="updateField('${ev.id}','startTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;">${buildTimeOptions(ev.startTime||'08:00')}</select>`;
+  html += `<span style="font-size:10px;color:#d1dfdf;">–</span>`;
+  html += `<select onchange="updateField('${ev.id}','endTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;">${buildTimeOptions(ev.endTime||'11:30')}</select>`;
+  html += `<select onchange="updateField('${ev.id}','type',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;flex:1;min-width:120px;">`;
+  EVENT_TYPES_LIST.forEach(t => { html+=`<option value="${t}"${ev.type===t?' selected':''}>${t}</option>`; });
+  html += '</select>';
+  html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
+  html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:9999px;border:1px solid #d1dfdf;">';
+  ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t => {
+    html+=`<label style="font-size:9px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;color:#3d6263;cursor:pointer;white-space:nowrap;"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} style="width:11px;height:11px;accent-color:#3d6263;"><span>${t}</span></label>`;
   });
+  html += '</div>';
+  if (!isSunday) html += `<button onclick="autoFillPractice('${ev.id}')" style="background:#d1dfdf;color:#3d6263;border:none;padding:5px 8px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Sync</button>`;
+  html += `<button onclick="toggleBucket('${ev.id}')" style="width:28px;height:28px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;cursor:pointer;font-size:14px;" title="Availability">🪣</button>`;
+  html += `<button onclick="deleteEvent('${ev.id}')" style="background:none;border:none;color:#d1dfdf;font-size:16px;cursor:pointer;" title="Delete">🗑</button>`;
+  html += '</div>';
+
+  if (isExp) {
+    html += '<div style="margin-top:10px;border-top:1px solid #f0f6f6;padding-top:10px;">';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
+    sortedRoles.forEach(r => {
+      const asgn = ev.assignments?.[r]||null;
+      const isAV = AV_ROLES.includes(r);
+      const isPend = asgn && !rotaAvailability[ev.id]?.[asgn.id];
+      const border = isAV ? '#f59e0b' : (asgn ? '#3d6263' : '#d1dfdf');
+      const nc = isPend ? '#f97316' : '#3d6263';
+      const sr = r.replace(/'/g,"\\'");
+      html += `<div ondragover="event.preventDefault()" ondrop="onDropRole(event,'${ev.id}','${sr}')" style="background:white;border:2px ${asgn?'solid':'dashed'} ${border};border-radius:10px;padding:8px 10px;min-width:100px;">`;
+      html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;opacity:0.4;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:11px;cursor:pointer;padding:0;">✕</button></div>`;
+      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:${asgn?'grab':'default'};">${asgn?asgn.name:'Unassigned'}</div>`;
+      html += '</div>';
+    });
+    html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;
+    OPTIONAL_ROLES_LIST.forEach(o => { html+=`<option value="${o}">${o}</option>`; });
+    html += '</select></div>';
+
+    if (rotaOpenBuckets.has(ev.id)) {
+      html += '<div style="background:#f0f6f6;border-radius:12px;border:1px solid #d1dfdf;padding:10px;">';
+      const bucket = (label, items, status, col, bg2, border2) => {
+        let b = `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}','${status}');event.stopPropagation();" style="margin-bottom:8px;">`;
+        b += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:${col};margin-bottom:5px;">${label}</div>`;
+        b += '<div style="display:flex;flex-wrap:wrap;gap:5px;min-height:24px;">';
+        items.forEach(m => { b+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}')"`+` style="padding:4px 8px;background:${bg2};color:${col};border:1px solid ${border2};border-radius:7px;font-size:11px;font-weight:700;cursor:grab;">${m.name}</div>`; });
+        b += '</div></div>'; return b;
+      };
+      html += bucket('Available', avail,    'avail',       '#166534','#f0fdf4','#86efac');
+      html += bucket('Declined',  declined,  'not-avail',   '#991b1b','#fef2f2','#fca5a5');
+      html += bucket('Pending',   pending,   'pending',     '#64748b','#f8fafc','#e2e8f0');
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
 }
+
 
 // ══════════════════════════════════════════════════════════════════════════
 // EMAIL COMPILER
