@@ -372,7 +372,7 @@ body.readonly-mode #planner-email-btn,
 body.readonly-mode #add-song-btn,
 body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
-/* ── BOARD (identical to worship hub) ── */
+/* ── BOARD ── */
 .board-filters {
   display: flex; gap: 8px; padding: 12px 12px 0;
   overflow-x: auto; scrollbar-width: none;
@@ -403,7 +403,12 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   text-transform: uppercase; cursor: pointer; letter-spacing: 0.05em;
 }
 .notes-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-.note-card { border-radius: 16px; padding: 14px; position: relative; }
+.note-card {
+  border-radius: 16px; padding: 14px; position: relative;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.note-card:active { transform: scale(0.98); box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
 .note-card-song    { background: linear-gradient(135deg, #fef9c3, #fef08a); }
 .note-card-event   { background: linear-gradient(135deg, #fce7f3, #fda4af); }
 .note-card-av      { background: linear-gradient(135deg, #eff6ff, #93c5fd); }
@@ -421,10 +426,77 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   border-radius: 9999px; padding: 3px 9px; font-size: 12px; cursor: pointer;
   display: flex; align-items: center; gap: 2px;
   font-family: var(--font); font-weight: 700; color: rgba(0,0,0,0.6);
+  position: relative; z-index: 2;
 }
 .reaction-btn.active { background: rgba(255,255,255,0.85); }
 
-/* ── KB (worship resources - identical) ── */
+/* ── NOTE DETAIL MODAL ── */
+#note-detail-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 500;
+  align-items: flex-end; justify-content: center;
+}
+#note-detail-modal.open { display: flex; }
+.note-detail-box {
+  background: var(--white); border-radius: 24px 24px 0 0;
+  width: 100%; max-height: 85vh; overflow-y: auto;
+  padding: 20px 20px calc(var(--safe-bottom) + 24px);
+}
+.note-detail-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.note-detail-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg); border: none; font-size: 16px;
+  font-weight: 800; cursor: pointer; color: var(--teal);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.note-detail-cat-badge {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; padding: 4px 10px; border-radius: 9999px;
+  margin-bottom: 10px; display: inline-block;
+}
+.note-detail-title {
+  font-size: 22px; font-weight: 800; color: var(--teal);
+  line-height: 1.2; margin-bottom: 10px;
+}
+.note-detail-body {
+  font-size: 15px; color: #333; line-height: 1.6;
+  white-space: pre-wrap; margin-bottom: 16px;
+}
+.note-detail-yt {
+  display: flex; align-items: center; gap: 10px;
+  background: #ff0000; color: white; border-radius: 12px;
+  padding: 12px 16px; text-decoration: none;
+  font-family: var(--font); font-size: 13px; font-weight: 800;
+  margin-bottom: 16px;
+}
+.note-detail-meta {
+  font-size: 11px; font-weight: 700; color: var(--teal);
+  opacity: 0.4; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.note-detail-reactions {
+  display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;
+}
+.note-detail-reaction-btn {
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 9999px; padding: 8px 16px; font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font); font-weight: 800; color: var(--teal);
+}
+.note-detail-reaction-btn.active {
+  background: var(--teal); color: white; border-color: var(--teal);
+}
+.note-detail-delete {
+  margin-top: 20px; width: 100%; padding: 13px;
+  background: #fef2f2; color: #b22222; border: 1.5px solid #fca5a5;
+  border-radius: 12px; font-family: var(--font); font-size: 13px;
+  font-weight: 800; cursor: pointer; text-transform: uppercase;
+}
+
+/* ── KB ── */
 .kb-tabs { display: flex; gap: 6px; padding: 12px 12px 0; }
 .kb-tab {
   flex: 1; padding: 10px; border-radius: 12px;
@@ -470,7 +542,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 }
 .kb-section-label::before { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-/* ── SONG LIBRARY (identical) ── */
+/* ── SONG LIBRARY ── */
 .library-search { margin: 12px 12px 0; position: relative; }
 .library-search input {
   width: 100%; padding: 13px 16px 13px 42px;
@@ -503,7 +575,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .song-file-type { font-size: 11px; font-weight: 700; color: var(--teal); opacity: 0.6; }
 .song-file-open { background: var(--teal); color: white; border: none; border-radius: 8px; padding: 7px 14px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; flex-shrink: 0; }
 
-/* ── MUSIC UPLOADER (identical) ── */
+/* ── MUSIC UPLOADER ── */
 .uploader-wrap { padding: 12px; }
 .uploader-info { background: var(--white); border-radius: 14px; border: 1px solid var(--border); padding: 16px; margin-bottom: 14px; }
 .uploader-info-title { font-size: 13px; font-weight: 800; color: var(--teal); margin-bottom: 6px; }
@@ -526,7 +598,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .upload-progress-bar { height: 100%; background: var(--teal); border-radius: 8px; width: 0%; transition: width 0.3s; }
 .upload-status { font-size: 12px; font-weight: 700; color: var(--teal); text-align: center; min-height: 16px; }
 
-/* ── KB MODAL (identical) ── */
+/* ── KB MODAL ── */
 #kb-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; justify-content: center; }
 #kb-modal.open { display: flex; }
 .kb-modal-box { background: var(--white); border-radius: 24px 24px 0 0; width: 100%; max-height: 90vh; overflow-y: auto; padding: 20px 16px calc(var(--safe-bottom) + 20px); }
@@ -540,7 +612,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .kb-step-num { width: 24px; height: 24px; background: var(--teal); color: white; border-radius: 50%; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .kb-step-text { font-size: 13px; font-weight: 600; color: var(--teal); line-height: 1.4; padding-top: 2px; }
 
-/* ── ADD NOTE MODAL (identical) ── */
+/* ── ADD NOTE MODAL ── */
 #add-note-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; }
 #add-note-modal.open { display: flex; }
 .add-note-box { background: var(--white); border-radius: 24px 24px 0 0; width: 100%; padding: 20px 16px calc(var(--safe-bottom) + 20px); max-height: 92vh; overflow-y: auto; }
@@ -556,7 +628,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 #emailModal.active { display: flex; }
 #emailModalBox { background: white; border-radius: 24px 24px 0 0; padding: 24px 20px calc(var(--safe-bottom) + 20px); width: 100%; font-family: var(--font); }
 
-/* ── TOUR (identical) ── */
+/* ── TOUR ── */
 #tour-overlay { display: none; position: fixed; inset: 0; z-index: 900; pointer-events: none; }
 #tour-overlay.active { display: block; pointer-events: all; }
 .tour-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); pointer-events: none; z-index: 0; }
@@ -610,19 +682,19 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
       <div class="tile tile-planner" onclick="openSection('planner')">
         <div class="tile-icon">📋</div>
         <div class="tile-name">Service Planner</div>
-        <div class="tile-desc">Plan songs, order & team</div>
+        <div class="tile-desc">Plan songs, order &amp; team</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-board" onclick="openSection('board')">
         <div class="tile-icon">📌</div>
         <div class="tile-name">Idea Pin Board</div>
-        <div class="tile-desc">Suggestions & ideas from the team</div>
+        <div class="tile-desc">Suggestions &amp; ideas from the team</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-worship" onclick="openSection('worship')">
         <div class="tile-icon">🎸</div>
         <div class="tile-name">Worship Resources</div>
-        <div class="tile-desc">Play-through videos & training</div>
+        <div class="tile-desc">Play-through videos &amp; training</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-upload" onclick="openSection('upload')">
@@ -634,25 +706,22 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
       <div class="tile tile-library" onclick="openSection('library')">
         <div class="tile-icon">📚</div>
         <div class="tile-name">Song Library</div>
-        <div class="tile-desc">Browse & find sheet music</div>
+        <div class="tile-desc">Browse &amp; find sheet music</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-news" onclick="openSection('news')" id="tile-news">
         <div class="tile-icon">📣</div>
         <div class="tile-name">Latest News</div>
-        <div class="tile-desc">Team updates & announcements</div>
+        <div class="tile-desc">Team updates &amp; announcements</div>
         <div class="tile-arrow">›</div>
         <div id="news-badge" style="display:none;position:absolute;top:12px;right:12px;background:#ef4444;color:white;font-size:10px;font-weight:800;min-width:20px;height:20px;border-radius:9999px;align-items:center;justify-content:center;padding:0 5px;"></div>
       </div>
     </div>
-
-
   </div>
 
   <!-- YOUTH SERVICE PLANNER -->
   <div id="section-planner" class="section-screen">
     <div class="readonly-banner" id="readonly-banner">👁️ View only — this is not a youth service. You can browse but cannot make changes.</div>
-
     <div class="planner-top">
       <div class="planner-date-row">
         <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input">
@@ -699,7 +768,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
     </div>
   </div>
 
-  <!-- IDEA PIN BOARD (identical to Notice Board, different Firestore collection) -->
+  <!-- IDEA PIN BOARD -->
   <div id="section-board" class="section-screen">
     <div class="board-pages" id="board-pages"></div>
     <div class="board-filters" id="board-filters">
@@ -714,7 +783,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
     <div class="notes-list" id="notes-list"></div>
   </div>
 
-  <!-- WORSHIP RESOURCES (identical) -->
+  <!-- WORSHIP RESOURCES -->
   <div id="section-worship" class="section-screen">
     <div class="kb-tabs">
       <button class="kb-tab active" id="tab-playthrough" onclick="switchKbTab('playthrough')">▶ Play Through</button>
@@ -745,7 +814,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
     <div class="kb-cards" id="worship-cards"><div class="loading-state">Loading...</div></div>
   </div>
 
-  <!-- MUSIC UPLOADER (identical) -->
+  <!-- MUSIC UPLOADER -->
   <div id="section-upload" class="section-screen">
     <div class="uploader-wrap">
       <div class="uploader-info">
@@ -785,7 +854,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
     </div>
   </div>
 
-  <!-- SONG LIBRARY (identical) -->
+  <!-- SONG LIBRARY -->
   <div id="section-library" class="section-screen">
     <div class="library-search">
       <span class="library-search-icon">🔍</span>
@@ -795,7 +864,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
     <div id="song-detail-panel" style="display:none;"></div>
   </div>
 
-  <!-- NEWS (identical) -->
+  <!-- NEWS -->
   <div id="section-news" class="section-screen">
     <div id="news-full-list" style="padding:12px;display:flex;flex-direction:column;gap:10px;">
       <div class="loading-state">Loading news...</div>
@@ -804,7 +873,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 
 </div><!-- end app-content -->
 
-<!-- KB MODAL (identical) -->
+<!-- KB MODAL -->
 <div id="kb-modal">
   <div class="kb-modal-box">
     <button class="kb-modal-close" onclick="closeKbModal()">✕</button>
@@ -812,7 +881,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
   </div>
 </div>
 
-<!-- ADD NOTE MODAL (identical) -->
+<!-- ADD NOTE MODAL -->
 <div id="add-note-modal">
   <div class="add-note-box">
     <div class="add-note-title">📌 New Idea</div>
@@ -853,6 +922,22 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
   </div>
 </div>
 
+<!-- NOTE DETAIL MODAL -->
+<div id="note-detail-modal">
+  <div class="note-detail-box">
+    <div class="note-detail-header">
+      <div id="note-detail-cat-badge" class="note-detail-cat-badge"></div>
+      <button class="note-detail-close" onclick="closeNoteDetail()">✕</button>
+    </div>
+    <div id="note-detail-title" class="note-detail-title"></div>
+    <div id="note-detail-body" class="note-detail-body"></div>
+    <div id="note-detail-yt-wrap"></div>
+    <div id="note-detail-reactions" class="note-detail-reactions"></div>
+    <div id="note-detail-meta" class="note-detail-meta"></div>
+    <button class="note-detail-delete" id="note-detail-delete-btn">🗑 Remove this idea</button>
+  </div>
+</div>
+
 <!-- EMAIL MODAL -->
 <div id="emailModal">
   <div id="emailModalBox">
@@ -870,7 +955,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
   </div>
 </div>
 
-<!-- TOUR OVERLAY (identical) -->
+<!-- TOUR OVERLAY -->
 <div id="tour-overlay">
   <div style="position:absolute;inset:0;z-index:1;cursor:pointer;" onclick="endTour()"></div>
   <div class="tour-backdrop"></div>
@@ -908,38 +993,34 @@ const storage = firebase.storage();
 // ── STATE ──
 let currentSection = 'home';
 let sectionHistory = [];
-// Planner
 let worshipLeaderName = '';
 let eventsForDay = [];
 let addressBook = [];
 let isYouthService = false;
-// Board
 let boardNotes = [];
 let boardPages = [{ id: 'main', title: 'General Board' }];
 let boardCurrentPage = 'main';
 let boardFilter = 'all';
-// KB
 let worshipAssets = [];
 let trainingAssets = [];
 let currentKbWorshipTab = 'playthrough';
 let currentKbKey = 'all';
-// Library / upload
 let allSongs = [];
 let uploadSlotCount = 1;
 let uploadFiles = {};
 let uploadSlots = 1;
 let uploadMatchedSong = null;
-// Tour
 let tourStepIndex = 0;
+let currentOpenNoteId = null;
 
 const ALL_KEYS = ["Ab","A","Am","A#","A#m","Bb","B","Bm","C","Cm","C#","C#m","Db","D","Dm","D#","D#m","Eb","E","Em","F","Fm","F#","F#m","Gb","G","Gm","G#","G#m"];
 
 const CAT_META = {
-  song:    { label:'Song',    emoji:'🎵', cls:'note-card-song'    },
-  event:   { label:'Event',   emoji:'📅', cls:'note-card-event'   },
-  prayer:  { label:'Prayer',  emoji:'🙏', cls:'note-card-prayer'  },
-  general: { label:'General', emoji:'💡', cls:'note-card-general' },
-  other:   { label:'Other',   emoji:'📎', cls:'note-card-other'   },
+  song:    { label:'Song',    emoji:'🎵', cls:'note-card-song',    badgeBg:'#fef08a', badgeColor:'#7a5c00' },
+  event:   { label:'Event',   emoji:'📅', cls:'note-card-event',   badgeBg:'#fda4af', badgeColor:'#7f1d1d' },
+  prayer:  { label:'Prayer',  emoji:'🙏', cls:'note-card-prayer',  badgeBg:'#d8b4fe', badgeColor:'#4c1d95' },
+  general: { label:'General', emoji:'💡', cls:'note-card-general', badgeBg:'#86efac', badgeColor:'#14532d' },
+  other:   { label:'Other',   emoji:'📎', cls:'note-card-other',   badgeBg:'#fdba74', badgeColor:'#7c2d12' },
 };
 
 // ── NAVIGATION ──
@@ -989,7 +1070,7 @@ function goBack() {
   }
 }
 
-// ── NEWS (reads from portal/dashboardContent — same as worship hub) ──
+// ── NEWS ──
 async function loadNews() {
   try {
     const snap = await db.collection('portal').doc('dashboardContent').get();
@@ -1000,7 +1081,6 @@ async function loadNews() {
     const badge = document.getElementById('news-badge');
     if (badge) { if (unread > 0) { badge.textContent = unread > 9 ? '9+' : unread; badge.style.display = 'flex'; } else { badge.style.display = 'none'; } }
     window._newsItems = items;
-
   } catch(e) { window._newsItems = []; }
 }
 
@@ -1021,7 +1101,7 @@ function renderNewsSection() {
     </div>`).join('');
 }
 
-// ── YOUTH SERVICE PLANNER ──
+// ── PLANNER ──
 function setReadonlyMode(on) {
   const banner = document.getElementById('readonly-banner');
   if (on) { document.body.classList.add('readonly-mode'); banner.classList.add('visible'); }
@@ -1426,7 +1506,7 @@ async function emailSchedule() {
   modal.classList.add('active');
 }
 
-// ── BOARD (uses youth_board collection to keep separate from worship hub) ──
+// ── BOARD ──
 async function loadBoard() {
   document.getElementById('notes-list').innerHTML = '<div class="loading-state">Loading board...</div>';
   try {
@@ -1465,14 +1545,120 @@ function renderNotes() {
   if (boardFilter !== 'all') notes = notes.filter(n => n.cat === boardFilter);
   notes.sort((a, b) => b.createdAt - a.createdAt);
   const list = document.getElementById('notes-list');
-  if (!notes.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📌</div><div class="empty-state-text">No ideas yet — be the first!</div></div>'; return; }
-  const REACTIONS = [{ key:'love', emoji:'❤️' }, { key:'like', emoji:'👍' }, { key:'dislike', emoji:'👎' }, { key:'pray', emoji:'🙌' }];
+  if (!notes.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📌</div><div class="empty-state-text">No ideas yet — be the first!</div></div>';
+    return;
+  }
+  const REACTIONS = [
+    { key:'love', emoji:'❤️' },
+    { key:'like', emoji:'👍' },
+    { key:'dislike', emoji:'👎' },
+    { key:'pray', emoji:'🙌' }
+  ];
   list.innerHTML = notes.map(n => {
     const meta = CAT_META[n.cat] || CAT_META.other;
     const date = new Date(n.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
-    const reactions = REACTIONS.map(r => { const count = (n.reactions||{})[r.key] || 0; const active = (n.myReactions||{})[r.key]; return `<button class="reaction-btn ${active?'active':''}" onclick="react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`; }).join('');
-    return `<div class="note-card ${meta.cls} fade-in"><div class="note-card-cat">${meta.emoji} ${meta.label}</div>${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}${n.body ? `<div class="note-card-body">${esc(n.body)}</div>` : ''}<div class="note-card-footer"><div class="note-card-meta">${esc(n.author||'Anonymous')} · ${date}</div><div class="note-reactions">${reactions}</div></div></div>`;
+    const reactions = REACTIONS.map(r => {
+      const count = (n.reactions||{})[r.key] || 0;
+      const active = (n.myReactions||{})[r.key];
+      return `<button class="reaction-btn ${active?'active':''}" onclick="event.stopPropagation();react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`;
+    }).join('');
+    // Truncate body for card preview
+    const bodyPreview = (n.body || '').length > 120 ? (n.body||'').substring(0,120) + '…' : (n.body||'');
+    return `<div class="note-card ${meta.cls} fade-in" onclick="openNoteDetail('${n.id}')">
+      <div class="note-card-cat">${meta.emoji} ${meta.label}</div>
+      ${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}
+      ${n.body ? `<div class="note-card-body">${esc(bodyPreview)}</div>` : ''}
+      <div class="note-card-footer">
+        <div class="note-card-meta">${esc(n.author||'Anonymous')} · ${date}</div>
+        <div class="note-reactions">${reactions}</div>
+      </div>
+    </div>`;
   }).join('');
+}
+
+// ── NOTE DETAIL MODAL ──
+function openNoteDetail(noteId) {
+  const n = boardNotes.find(x => x.id === noteId);
+  if (!n) return;
+  currentOpenNoteId = noteId;
+  const meta = CAT_META[n.cat] || CAT_META.other;
+  const date = new Date(n.createdAt).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  // Badge
+  const badge = document.getElementById('note-detail-cat-badge');
+  badge.textContent = `${meta.emoji} ${meta.label}`;
+  badge.style.background = meta.badgeBg;
+  badge.style.color = meta.badgeColor;
+
+  // Title & body
+  document.getElementById('note-detail-title').textContent = n.title || '';
+  document.getElementById('note-detail-body').textContent = n.body || '';
+  document.getElementById('note-detail-body').style.display = n.body ? 'block' : 'none';
+
+  // YouTube link
+  const ytWrap = document.getElementById('note-detail-yt-wrap');
+  if (n.ytUrl) {
+    ytWrap.innerHTML = `<a href="${esc(n.ytUrl)}" target="_blank" class="note-detail-yt">▶ Watch on YouTube</a>`;
+  } else {
+    ytWrap.innerHTML = '';
+  }
+
+  // Reactions
+  const REACTIONS = [
+    { key:'love', emoji:'❤️', label:'Love' },
+    { key:'like', emoji:'👍', label:'Like' },
+    { key:'dislike', emoji:'👎', label:'Not sure' },
+    { key:'pray', emoji:'🙌', label:'Praying' }
+  ];
+  const reactEl = document.getElementById('note-detail-reactions');
+  reactEl.innerHTML = REACTIONS.map(r => {
+    const count = (n.reactions||{})[r.key] || 0;
+    const active = (n.myReactions||{})[r.key];
+    return `<button class="note-detail-reaction-btn ${active?'active':''}" onclick="reactFromDetail('${n.id}','${r.key}')">${r.emoji} ${r.label}${count ? ` · ${count}` : ''}</button>`;
+  }).join('');
+
+  // Meta
+  document.getElementById('note-detail-meta').textContent = `Posted by ${n.author || 'Anonymous'} on ${date}`;
+
+  // Delete button
+  document.getElementById('note-detail-delete-btn').onclick = () => deleteNote(noteId);
+
+  document.getElementById('note-detail-modal').classList.add('open');
+}
+
+function closeNoteDetail() {
+  document.getElementById('note-detail-modal').classList.remove('open');
+  currentOpenNoteId = null;
+}
+
+function reactFromDetail(noteId, key) {
+  react(noteId, key);
+  // Refresh the detail modal reactions
+  const n = boardNotes.find(x => x.id === noteId);
+  if (!n) return;
+  const REACTIONS = [
+    { key:'love', emoji:'❤️', label:'Love' },
+    { key:'like', emoji:'👍', label:'Like' },
+    { key:'dislike', emoji:'👎', label:'Not sure' },
+    { key:'pray', emoji:'🙌', label:'Praying' }
+  ];
+  const reactEl = document.getElementById('note-detail-reactions');
+  reactEl.innerHTML = REACTIONS.map(r => {
+    const count = (n.reactions||{})[r.key] || 0;
+    const active = (n.myReactions||{})[r.key];
+    return `<button class="note-detail-reaction-btn ${active?'active':''}" onclick="reactFromDetail('${n.id}','${r.key}')">${r.emoji} ${r.label}${count ? ` · ${count}` : ''}</button>`;
+  }).join('');
+}
+
+async function deleteNote(noteId) {
+  if (!confirm('Remove this idea from the board?')) return;
+  const n = boardNotes.find(x => x.id === noteId);
+  if (n) n.archived = true;
+  closeNoteDetail();
+  renderNotes();
+  toast('Idea removed');
+  await saveBoardState();
 }
 
 function react(noteId, key) {
@@ -1499,14 +1685,23 @@ async function saveNote() {
   const body  = document.getElementById('note-body').value.trim();
   if (!title && !body) { toast('Please add a title or details'); return; }
   const i = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived).length;
-  boardNotes.push({ id:'n'+Date.now(), pageId:boardCurrentPage, author:document.getElementById('note-author').value.trim(), cat:document.getElementById('note-cat').value, title, body, ytUrl:document.getElementById('note-yt').value.trim(), reactions:{}, myReactions:{}, createdAt:Date.now(), archived:false, x:60+(i%5)*310+(i*37%40)-20, y:60+Math.floor(i/5)*340+(i*53%40)-20, rot:(i*17%7)-3.5, zIndex:10 });
+  boardNotes.push({
+    id:'n'+Date.now(), pageId:boardCurrentPage,
+    author:document.getElementById('note-author').value.trim(),
+    cat:document.getElementById('note-cat').value,
+    title, body,
+    ytUrl:document.getElementById('note-yt').value.trim(),
+    reactions:{}, myReactions:{}, createdAt:Date.now(), archived:false,
+    x:60+(i%5)*310+(i*37%40)-20, y:60+Math.floor(i/5)*340+(i*53%40)-20,
+    rot:(i*17%7)-3.5, zIndex:10
+  });
   closeAddNote(); renderNotes(); toast('Saving... 📌');
   await saveBoardState(); toast('Idea pinned! 📌');
   ['note-author','note-title','note-body','note-yt'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('note-cat').value = 'song';
 }
 
-// ── KB WORSHIP RESOURCES (identical to worship hub) ──
+// ── KB WORSHIP RESOURCES ──
 async function loadWorshipAssets() {
   try {
     const [ptSnap, trSnap] = await Promise.all([
@@ -1589,7 +1784,7 @@ function openKbCard(id, context) {
 
 function closeKbModal() { document.getElementById('kb-modal').classList.remove('open'); }
 
-// ── SONG LIBRARY (identical) ──
+// ── SONG LIBRARY ──
 async function loadSongs() {
   try {
     const snap = await db.collection('songs').orderBy('normalized').get();
@@ -1633,7 +1828,7 @@ function openSong(id) {
   sectionHistory.push('library-list');
 }
 
-// ── MUSIC UPLOADER (identical) ──
+// ── MUSIC UPLOADER ──
 function initUploadSlots() {
   if (document.getElementById('upload-file-input-0')) return;
   document.getElementById('upload-file-slots').innerHTML = `<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon">📄</div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
@@ -1730,7 +1925,7 @@ async function submitUpload() {
   } catch(e) { status.textContent = '✗ Upload failed: '+e.message; btn.disabled=false; }
 }
 
-// ── TOUR (same structure, youth-specific content) ──
+// ── TOUR ──
 const TOUR_STEPS = {
   home: [
     { target:'#tiles-grid', title:'Welcome to Youth Hub! 👋', text:'Everything your youth team needs is here in one place. Tap any tile to open that section.' },
@@ -1747,7 +1942,7 @@ const TOUR_STEPS = {
   board: [
     { target:'.board-add-btn', title:'Idea Pin Board', text:'Tap here to pin a new idea — a song suggestion, event idea, prayer request, anything the team should see.' },
     { target:'#board-filters', title:'Filter by Category', text:'Use these chips to filter by type. Tap Songs to see only song suggestions, and so on.' },
-    { target:'.notes-list', title:'React to Ideas', text:'Tap ❤️ 👍 👎 🙌 on any note to react. Reactions are visible to everyone on the team.' },
+    { target:'.notes-list', title:'Tap any note to read it', text:'Tap a note card to open the full details, react with emoji, or remove it if it\'s no longer needed.' },
   ],
   worship: [
     { target:'.kb-tabs', title:'Worship Resources', text:'Two sections — Play Through for song videos, Training for general worship guidance.' },
