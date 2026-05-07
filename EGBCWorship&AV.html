@@ -34,7 +34,7 @@
         #sidebar:not(:hover) .child-container { max-height: 0 !important; }
         .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
         .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
-        .edit-trigger { display: none; padding: 0 10px; color: var(--border-teal); cursor: pointer; }
+        .edit-trigger { display: none; padding: 0 6px 0 8px; color: var(--border-teal); cursor: pointer; flex-shrink: 0; }
         #sidebar:hover .admin-active .edit-trigger { display: block; }
         #nav-list.has-open > .nav-item-wrapper { opacity: 0.2; transition: opacity 0.25s ease; }
         #nav-list.has-open > .nav-item-wrapper.open { opacity: 1; }
@@ -726,7 +726,7 @@ function renderMenu() {
             const safeUrl  = (item.url  || '').replace(/'/g, '&#39;');
             const safeLogo = (item.logo || DEFAULT_LOGO).replace(/'/g, '&#39;');
             const safeId   = String(item.id).replace(/'/g, '&#39;');
-            wrapper.innerHTML = `<div class="nav-row" onclick="handleItemClick(event, '${safeId}', '${safeUrl}', '${safeLogo}')"><div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div><span class="nav-text">${item.name}</span>${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}<div class="edit-trigger" onclick="event.stopPropagation(); openMenuModal(\'${safeId}\')">&#9998;</div></div><div class="child-container" id="child-of-${item.id}"></div>`;
+            wrapper.innerHTML = `<div class="nav-row" onclick="handleItemClick(event, '${safeId}', '${safeUrl}', '${safeLogo}')"><div class="edit-trigger" onclick="event.stopPropagation(); openMenuModal(\'${safeId}\')">&#9998;</div><div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div><span class="nav-text">${item.name}</span>${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}</div><div class="child-container" id="child-of-${item.id}"></div>`;
             const targetContainer = (!parentId || parentId === '') ? list : document.getElementById(`child-of-${parentId}`);
             if (targetContainer) targetContainer.appendChild(wrapper);
             if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
