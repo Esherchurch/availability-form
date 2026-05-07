@@ -107,6 +107,31 @@
         .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: #a0b0b0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
         .tab-btn.active { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
 
+        /* ── ICON PICKER ── */
+        #icon-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .icon-picker-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 6px 8px;
+            border: 2px solid var(--border-teal);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--pale-teal);
+        }
+        .icon-picker-option:hover { border-color: var(--accent-teal); background: #e4f0f0; }
+        .icon-picker-option.selected { border-color: var(--accent-teal); background: var(--accent-teal); color: white; }
+        .icon-picker-option svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+        .icon-picker-option span { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: inherit; text-align: center; line-height: 1.2; }
+        .icon-picker-option.selected span { color: white; }
+
         /* ── RICH TEXT EDITOR ── */
         .rte-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; background: var(--pale-teal); border: 2px solid var(--border-teal); border-bottom: none; border-radius: 8px 8px 0 0; margin-top: 10px; }
         .rte-btn { padding: 4px 8px; background: white; border: 1px solid var(--border-teal); border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--accent-teal); transition: all 0.15s; line-height: 1.4; }
@@ -132,7 +157,7 @@
         /* ── MENU MODAL ── */
         #menu-modal-overlay { display: none; position: absolute; inset: 0; background: rgba(61,98,99,0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         #menu-modal-overlay.open { display: flex; }
-        .menu-modal-box { background: white; padding: 30px; border-radius: 16px; width: 450px; max-height: 90vh; overflow-y: auto; }
+        .menu-modal-box { background: white; padding: 30px; border-radius: 16px; width: 480px; max-height: 90vh; overflow-y: auto; }
         .menu-modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
         .menu-modal-box input, .menu-modal-box select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
         .range-row { display: flex; align-items: center; gap: 10px; }
@@ -317,12 +342,10 @@
                 <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
                 <label>Parent Item</label><select id="nodeParent"><option value="">Top Level</option></select>
                 <label>Icon</label>
-                <select id="nodeIcon">
-                    <option value="home">Home</option><option value="calendar">Calendar</option><option value="music">Music</option>
-                    <option value="worship">Worship</option><option value="av">AV</option><option value="youth">Youth</option>
-                    <option value="trouble">Tools</option><option value="training">Book</option><option value="social">Social</option>
-                    <option value="core">Shield</option><option value="leader">Mic</option><option value="heart">Heart</option>
-                </select>
+                <!-- Hidden input stores selected value -->
+                <input type="hidden" id="nodeIcon" value="home">
+                <!-- Visual icon picker grid -->
+                <div id="icon-picker-grid"></div>
                 <label>Access Level</label>
                 <select id="nodeRole">
                     <option value="worship">Team (Worship/AV)</option>
@@ -384,7 +407,6 @@ const DEFAULT_DASHBOARD = {
 let menuItems = [];
 let dashData  = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD));
 
-// ── KEY FIX: always store and compare IDs as strings ──
 function toStrId(id) { return String(id); }
 
 async function loadAll() {
@@ -392,7 +414,6 @@ async function loadAll() {
     try {
         const [menuSnap, dashSnap] = await Promise.all([MENU_DOC.get(), DASHBOARD_DOC.get()]);
         if (menuSnap.exists && menuSnap.data().items) {
-            // Normalise all IDs and parents to strings on load
             menuItems = menuSnap.data().items.map(item => ({
                 ...item,
                 id:     toStrId(item.id),
@@ -616,50 +637,69 @@ async function deleteNewsItem() {
 function openDashboardEditor() { openModal('dash-settings-modal'); }
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function openMenuModal(id) {
-    // id = string ID to edit, or null/undefined = new page
-    document.getElementById('editId').value = id !== null && id !== undefined ? toStrId(id) : '';
-    if (id !== null && id !== undefined) {
-        const item = menuItems.find(i => i.id === toStrId(id));
-        if (!item) return;
-        document.getElementById('nodeName').value   = item.name   || '';
-        document.getElementById('nodeUrl').value    = item.url    || '';
-        document.getElementById('nodeLogo').value   = item.logo   || '';
-        document.getElementById('nodeParent').value = item.parent || '';
-        document.getElementById('nodeIcon').value   = item.icon   || 'home';
-        document.getElementById('nodeRole').value   = item.role   || 'worship';
-        document.getElementById('deleteBtn').style.display = 'block';
-        document.getElementById('menuModalTitle').textContent = 'Edit Page';
-    } else {
-        document.getElementById('nodeName').value   = '';
-        document.getElementById('nodeUrl').value    = '';
-        document.getElementById('nodeLogo').value   = '';
-        document.getElementById('nodeParent').value = '';
-        document.getElementById('nodeIcon').value   = 'home';
-        document.getElementById('nodeRole').value   = 'worship';
-        document.getElementById('deleteBtn').style.display = 'none';
-        document.getElementById('menuModalTitle').textContent = 'Add New Page';
-    }
-    document.getElementById('menu-modal-overlay').classList.add('open');
-}
-function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }
 
 // ── ICONS ──
-const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+// Extended icon set including pinboard and resources
 const ICONS = {
-    home:`<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
-    calendar:`<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
-    music:`<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
-    worship:`<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
-    av:`<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
-    youth:`<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
-    trouble:`<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
-    training:`<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
-    social:`<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
-    core:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
-    leader:`<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
-    heart:`<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+    home:      `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
+    calendar:  `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
+    music:     `<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
+    worship:   `<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
+    av:        `<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
+    youth:     `<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
+    trouble:   `<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
+    training:  `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
+    social:    `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
+    core:      `<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    leader:    `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
+    heart:     `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+    // ── NEW: Pin Board — pin shape, open stroke only ──
+    pinboard:  `<svg viewBox="0 0 24 24"><path d="M9 4v6l-2 4h10l-2-4V4M12 14v6M8 4h8"/></svg>`,
+    // ── NEW: Resources / open book ──
+    resources: `<svg viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
+    // ── NEW: Folder — open stroke outline ──
+    folder:    `<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`,
+    // ── NEW: Star — open stroke outline ──
+    star:      `<svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>`,
+    // ── NEW: Bell — open stroke outline ──
+    bell:      `<svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0"/></svg>`,
+    // ── NEW: Upload — open stroke outline ──
+    upload:    `<svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>`,
+    // ── NEW: Video — open stroke circle + play triangle ──
+    video:     `<svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>`,
+    // ── NEW: Settings / Cog — open stroke outline ──
+    settings:  `<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
 };
+
+// Icon labels for the picker UI
+const ICON_LABELS = {
+    home: 'Home', calendar: 'Calendar', music: 'Music', worship: 'Worship',
+    av: 'AV', youth: 'Youth', trouble: 'Tools', training: 'Book',
+    social: 'Chat', core: 'Shield', leader: 'Mic', heart: 'Heart',
+    pinboard: 'Pin Board', resources: 'Resources', folder: 'Folder',
+    star: 'Featured', bell: 'News', upload: 'Upload', video: 'Video',
+    settings: 'Settings'
+};
+
+// Build the icon picker grid
+function buildIconPicker(selectedIcon) {
+    const grid = document.getElementById('icon-picker-grid');
+    grid.innerHTML = '';
+    Object.keys(ICONS).forEach(key => {
+        const opt = document.createElement('div');
+        opt.className = 'icon-picker-option' + (key === selectedIcon ? ' selected' : '');
+        opt.dataset.icon = key;
+        opt.innerHTML = ICONS[key] + `<span>${ICON_LABELS[key] || key}</span>`;
+        opt.onclick = () => {
+            document.querySelectorAll('.icon-picker-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            document.getElementById('nodeIcon').value = key;
+        };
+        grid.appendChild(opt);
+    });
+}
+
+const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
 
 const urlParams = new URLSearchParams(window.location.search);
 const userRole  = urlParams.get('role') || 'worship';
@@ -670,7 +710,6 @@ function renderMenu() {
     list.innerHTML = '';
     parentSelect.innerHTML = '<option value="">Top Level</option>';
 
-    // Normalise parent — treat 'none', null, undefined, '' all as top-level
     const normParent = v => (!v || v === 'none') ? '' : String(v);
 
     const buildTree = (parentId, level = 0) => {
@@ -720,7 +759,36 @@ function handleSecret() {
     }
 }
 
-// ── KEY FIX: savePage and deletePage use strict string ID matching ──
+function openMenuModal(id) {
+    document.getElementById('editId').value = id !== null && id !== undefined ? toStrId(id) : '';
+    let currentIcon = 'home';
+    if (id !== null && id !== undefined) {
+        const item = menuItems.find(i => i.id === toStrId(id));
+        if (!item) return;
+        document.getElementById('nodeName').value   = item.name   || '';
+        document.getElementById('nodeUrl').value    = item.url    || '';
+        document.getElementById('nodeLogo').value   = item.logo   || '';
+        document.getElementById('nodeParent').value = item.parent || '';
+        document.getElementById('nodeIcon').value   = item.icon   || 'home';
+        document.getElementById('nodeRole').value   = item.role   || 'worship';
+        currentIcon = item.icon || 'home';
+        document.getElementById('deleteBtn').style.display = 'block';
+        document.getElementById('menuModalTitle').textContent = 'Edit Page';
+    } else {
+        document.getElementById('nodeName').value   = '';
+        document.getElementById('nodeUrl').value    = '';
+        document.getElementById('nodeLogo').value   = '';
+        document.getElementById('nodeParent').value = '';
+        document.getElementById('nodeIcon').value   = 'home';
+        document.getElementById('nodeRole').value   = 'worship';
+        document.getElementById('deleteBtn').style.display = 'none';
+        document.getElementById('menuModalTitle').textContent = 'Add New Page';
+    }
+    buildIconPicker(currentIcon);
+    document.getElementById('menu-modal-overlay').classList.add('open');
+}
+function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }
+
 async function savePage() {
     const editId = document.getElementById('editId').value.trim();
     const data = {
@@ -732,21 +800,10 @@ async function savePage() {
         icon:   document.getElementById('nodeIcon').value,
         role:   document.getElementById('nodeRole').value
     };
-
     if (editId !== '') {
-        // Editing existing — find by exact string match
         const idx = menuItems.findIndex(i => i.id === editId);
-        if (idx >= 0) {
-            menuItems[idx] = data;
-        } else {
-            // ID not found — add as new rather than silently failing
-            menuItems.push(data);
-        }
-    } else {
-        // Brand new page
-        menuItems.push(data);
-    }
-
+        if (idx >= 0) { menuItems[idx] = data; } else { menuItems.push(data); }
+    } else { menuItems.push(data); }
     await saveMenuToDb();
     renderMenu();
     closeMenuModal();
@@ -756,7 +813,6 @@ async function deletePage() {
     const editId = document.getElementById('editId').value.trim();
     if (!editId) return;
     if (!confirm('Delete this page and all its children?')) return;
-    // Remove the item and all its children (exact string match only)
     const toRemove = new Set();
     function collectIds(id) {
         toRemove.add(id);
