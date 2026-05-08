@@ -2000,7 +2000,7 @@ function renderNotes() {
       return `<button class="reaction-btn ${active?'active':''}" onclick="react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`;
     }).join('');
     return `
-    <div class="note-card ${meta.cls} fade-in">
+    <div class="note-card ${meta.cls} fade-in" style="pointer-events:auto;">
       <div class="note-card-cat">${meta.emoji} ${meta.label}</div>
       ${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}
       ${n.body  ? `<div class="note-card-body">${esc(n.body)}</div>`   : ''}
