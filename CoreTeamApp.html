@@ -1710,6 +1710,7 @@ let spEventsForDay = [];
 let spLeader = '';
 let spAddressBook = [];
 let _spSortableInit = false;
+let _spDefaultLoaded = false;
 
 function spInit() {
   if (!_spSortableInit && typeof Sortable !== 'undefined') {
@@ -1722,6 +1723,20 @@ function spInit() {
   document.getElementById('sp-order').addEventListener('input', e => {
     if (e.target.tagName.toLowerCase() === 'textarea') spAutoFit();
   });
+  // Pre-populate default order on first open, exactly like the desktop planner
+  if (!_spDefaultLoaded) {
+    spSetupDefaultOrder();
+    spAutoFit();
+    _spDefaultLoaded = true;
+  }
+}
+
+function spSetupDefaultOrder() {
+  spAddSong(); spAddSong(); spAddSong();
+  spAddItem('Welcome and Notices');
+  spAddSong();
+  spAddItem('Message');
+  spAddSong(); spAddSong(); spAddSong();
 }
 
 function spAutoFit() {
@@ -1953,8 +1968,10 @@ async function spSelectEvent() {
       } else { spAddItem(item.title); }
     });
   } else {
+    // No saved service — load fresh default order, just like the desktop
     document.getElementById('spIntro').value = '';
     document.getElementById('spOutro').value = '';
+    spSetupDefaultOrder();
   }
   spUpdateNumbers();
   spAutoFit();
