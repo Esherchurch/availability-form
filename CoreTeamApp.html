@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#3d6263">
 <title>EGBC Worship Planner</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
@@ -482,6 +483,107 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 .tour-skip { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: 9999px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
 .tour-next { background: white; border: none; color: var(--teal); padding: 8px 16px; border-radius: 9999px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-left: auto; }
 .tour-step-count { font-size: 10px; opacity: 0.6; font-weight: 700; }
+
+/* ══ YOUTH-STYLE SERVICE PLANNER ══ */
+.styled-input {
+  background-color: var(--white); border: 1px solid var(--border);
+  border-radius: 0.75rem; padding: 0.75rem 1rem;
+  font-family: var(--font); font-weight: 700; color: var(--teal);
+  transition: all 0.2s; height: auto; overflow: hidden;
+  width: 100%; outline: none; font-size: 14px;
+}
+.styled-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(61,98,99,0.1); }
+textarea.styled-input { resize: none; }
+select.styled-input { appearance: none; cursor: pointer; }
+.planner-top {
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  background: var(--white); border-bottom: 1px solid var(--border);
+}
+.planner-date-row { display: flex; gap: 8px; }
+.planner-date-row input, .planner-date-row select { flex: 1; }
+.planner-leader { font-size: 11px; font-weight: 700; color: var(--teal); opacity: 0.6; padding: 0 2px; }
+.planner-leader span { font-weight: 800; opacity: 1; }
+.planner-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 12px 8px; flex-wrap: wrap; gap: 8px;
+}
+.planner-section-header h2 { font-size: 15px; font-weight: 800; color: var(--teal); }
+.planner-btn-row { display: flex; gap: 6px; }
+.planner-btn {
+  padding: 8px 14px; border-radius: 9999px;
+  font-family: var(--font); font-size: 12px; font-weight: 800;
+  cursor: pointer; border: none; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.planner-btn-secondary { background: var(--bg); color: var(--teal); border: 1.5px solid var(--border); }
+.planner-btn-primary { background: var(--teal); color: white; }
+.song-block {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 1.5rem; margin: 0 12px 10px; overflow: visible;
+}
+.song-block-header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
+.drag-handle { cursor: grab; color: var(--border); font-size: 1.2rem; display: flex; align-items: center; flex-shrink: 0; touch-action: none; }
+.song-number { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--teal); opacity: 0.5; white-space: nowrap; min-width: 44px; }
+.song-title-wrap { flex: 1; position: relative; min-width: 0; }
+.song-title-input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 0.5rem; padding: 8px 10px; font-family: var(--font);
+  font-weight: 700; font-size: 13px; color: var(--teal); outline: none;
+}
+.song-title-input:focus { border-color: var(--teal); }
+.suggest-box {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 0.75rem; box-shadow: 0 8px 24px rgba(61,98,99,0.15);
+  z-index: 300; overflow: hidden; margin-top: 2px; display: none;
+}
+.suggest-item { padding: 10px 14px; font-size: 13px; font-weight: 700; color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg); }
+.suggest-item:last-child { border-bottom: none; }
+.suggest-item:hover { background: var(--bg); }
+.collapse-btn {
+  width: 28px; height: 28px; border: none; background: none;
+  font-size: 11px; color: var(--teal); cursor: pointer;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: transform 0.2s;
+}
+.is-collapsed .collapse-btn { transform: rotate(-90deg); }
+.song-remove-btn {
+  width: 28px; height: 28px; border: none; background: none;
+  font-size: 1.3rem; color: var(--border); cursor: pointer;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: color 0.15s;
+}
+.song-remove-btn:hover { color: #b22222; }
+.song-content { padding: 0 14px 14px; border-top: 1px solid var(--bg); }
+.song-content.hidden { display: none; }
+.serve-count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2rem; height: 2rem; border-radius: 9999px;
+  font-size: 0.75rem; font-weight: 800; padding: 0 0.5rem;
+  background: #e6f0f0; color: var(--teal); border: 1.5px solid var(--border);
+  transition: all 0.2s; flex-shrink: 0;
+}
+.serve-count-badge.is-peak { background: var(--teal); color: white; border-color: var(--teal); }
+.serve-count-badge.hidden-badge { visibility: hidden; }
+.keys-row { display: flex; gap: 6px; margin-top: 10px; }
+.keys-row select { flex: 1; font-size: 12px; padding: 8px 6px; }
+.song-note { margin-top: 8px; }
+.key-info-box { margin-top: 8px; padding: 8px 10px; background: var(--bg); border-radius: 8px; font-size: 11px; font-weight: 600; color: var(--teal); line-height: 1.5; }
+.files-box { margin-top: 8px; padding: 10px 12px; background: var(--bg); border-radius: 10px; font-size: 11px; }
+.files-box a { display: inline-block; background: var(--teal); color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; margin: 2px 2px 0 0; }
+.item-block {
+  background: var(--bg); border: 1px solid transparent;
+  border-radius: 1rem; margin: 0 12px 8px;
+  display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+}
+.item-block:hover { border-color: var(--border); }
+.item-title-input { flex: 1; background: transparent; border: none; font-family: var(--font); font-weight: 700; font-size: 15px; color: var(--teal); outline: none; min-width: 0; }
+.rota-table { width: 100%; border-collapse: collapse; }
+.rota-table th { text-align: left; padding: 8px 12px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--teal); font-weight: 800; border-bottom: 1px solid var(--border); }
+.rota-table td { padding: 10px 12px; font-size: 13px; font-weight: 600; color: #333; border-bottom: 1px solid var(--bg); }
+.rota-table td:first-child { font-weight: 800; color: var(--teal); }
+.rota-table textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--teal); outline: none; resize: none; overflow: hidden; }
+.planner-actions { display: flex; gap: 10px; padding: 16px 12px 0; }
+.planner-actions button { flex: 1; padding: 14px; border: none; border-radius: 12px; font-family: var(--font); font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
 </style>
 </head>
 <body>
@@ -512,7 +614,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
       </div>
     </div>
     <div class="home-tiles">
-      <div class="home-tile tile-service" onclick="openSection('service')">
+      <div class="home-tile tile-service" onclick="openPlannerScreen()">
         <div class="home-tile-icon">🗓</div>
         <div class="home-tile-name">Service Planner</div>
         <div class="home-tile-desc">Build &amp; manage service orders</div>
@@ -540,73 +642,50 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 
   <!-- ══ SERVICE DETAIL ══ -->
   <div id="screen-service-detail" class="screen">
-    <div class="section-pad">
 
-      <!-- Service info card -->
-      <div class="card" id="service-info-card"></div>
-
-      <!-- Service type notes — inline, visible immediately like desktop -->
-      <div class="card">
-        <div class="card-label">Service Notes / Description</div>
-        <textarea class="form-textarea" id="service-typenotes"
-          placeholder="General notes about this service (e.g. special occasion, theme, requirements...)"
-          oninput="autoGrow(this)" rows="2" style="font-size:14px;"></textarea>
+    <div class="planner-top">
+      <div class="planner-date-row">
+        <input type="date" id="serviceDate" onchange="plannerLoadRota()" class="styled-input">
+        <select id="eventSelect" onchange="plannerSelectEvent()" class="styled-input">
+          <option value="">Select Service…</option>
+        </select>
       </div>
+      <input id="serviceTypeNotes" class="styled-input" placeholder="General Notes">
+      <div class="planner-leader">Leader: <span id="leaderName">None</span></div>
+    </div>
 
-      <!-- Intro box -->
-      <div class="card">
-        <div class="card-label">Opening Remarks</div>
-        <textarea class="form-textarea" id="service-intro" placeholder="Opening words, welcome message, prayer points... (appears at start of team email)" oninput="autoGrow(this)" rows="2"></textarea>
+    <div style="padding:10px 12px 0;">
+      <textarea id="introBox" class="styled-input" placeholder="Opening remarks (appears in team email)…" rows="2"></textarea>
+    </div>
+
+    <div class="planner-section-header">
+      <h2>Order of Service</h2>
+      <div class="planner-btn-row">
+        <button class="planner-btn planner-btn-secondary" onclick="plannerAddSong()">+ Song</button>
+        <button class="planner-btn planner-btn-secondary" onclick="plannerAddItem()">+ Item</button>
+        <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="planner-btn planner-btn-secondary" style="text-decoration:none;">Songs DB</a>
       </div>
+    </div>
 
-      <!-- Order of service -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;gap:8px;flex-wrap:wrap;">
-          <div class="card-label" style="margin-bottom:0;">Order of Service</div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn btn-primary btn-sm" onclick="openSongModal()">+ Song</button>
-            <button class="btn btn-secondary btn-sm" onclick="openItemModal()">+ Item</button>
-            <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank"
-              style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:8px;background:var(--bg);border:1.5px solid var(--border);font-size:11px;font-weight:800;color:var(--teal);text-decoration:none;white-space:nowrap;">
-              📚 Songs DB
-            </a>
-          </div>
+    <div id="planner-service-order"></div>
+
+    <div style="padding:0 12px;">
+      <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:800;color:var(--teal);margin-bottom:12px;">Service Team &amp; Roles</div>
+        <div style="overflow-x:auto;">
+          <table class="rota-table">
+            <thead><tr><th>Role</th><th>Person</th><th>Notes</th></tr></thead>
+            <tbody id="plannerTeamBody"></tbody>
+          </table>
         </div>
-        <div class="order-list" id="order-list"></div>
-        <div id="order-empty" class="empty-state" style="display:none;">
-          <div class="empty-state-icon">🎵</div>
-          <div class="empty-state-text">No items yet — add a song or item</div>
-        </div>
       </div>
 
-      <!-- Rota section -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div class="card-label" style="margin-bottom:0;">Service Team</div>
-          <div style="font-size:11px;font-weight:700;color:var(--teal);opacity:0.5;" id="rota-link-note">Loaded from rota</div>
-        </div>
-        <div id="service-rota-table" style="display:flex;flex-direction:column;gap:6px;"></div>
-      </div>
+      <textarea id="outroBox" class="styled-input" placeholder="Closing remarks (appears at end of team email)…" rows="2" style="margin-bottom:12px;"></textarea>
 
-      <!-- Service notes -->
-      <div class="card">
-        <div class="card-label">Service Notes</div>
-        <textarea class="form-textarea" id="service-notes" placeholder="General notes for this service..." oninput="autoGrow(this)" rows="2"></textarea>
+      <div class="planner-actions" style="padding:0 0 16px;">
+        <button onclick="plannerSaveSchedule()" style="background:var(--teal);color:white;">Save</button>
+        <button onclick="plannerEmailSchedule()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">Email Team</button>
       </div>
-
-      <!-- Outro box -->
-      <div class="card">
-        <div class="card-label">Closing Remarks</div>
-        <textarea class="form-textarea" id="service-outro" placeholder="Closing prayer, blessing, notices... (appears at end of team email)" oninput="autoGrow(this)" rows="2"></textarea>
-      </div>
-
-      <!-- Action buttons -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary btn-full" onclick="saveService()" style="flex:2;">💾 Save Service</button>
-        <button class="btn btn-blue btn-sm" onclick="emailTeam()" style="flex:1;">📧 Email Team</button>
-        <button class="btn btn-red btn-sm" onclick="archiveService()">Archive</button>
-      </div>
-
     </div>
   </div>
 
@@ -1676,6 +1755,373 @@ function deleteOrderItem(i) {
   confirm_('Remove Item', `Remove "${currentService.order[i].title}" from the order?`, () => {
     currentService.order.splice(i,1); renderOrderList();
   });
+}
+
+let _plannerSortableInit = false;
+function openPlannerScreen() {
+  openSection('service-detail');
+  // Override header title
+  document.getElementById('header-title').textContent = 'Service Planner';
+  // Init Sortable once
+  if (!_plannerSortableInit && typeof Sortable !== 'undefined') {
+    Sortable.create(document.getElementById('planner-service-order'), {
+      animation: 150, handle: '.drag-handle', onEnd: () => plannerUpdateSongNumbers()
+    });
+    _plannerSortableInit = true;
+  }
+  // Listen to textarea input for auto-fit
+  document.getElementById('planner-service-order').addEventListener('input', e => {
+    if (e.target.tagName.toLowerCase() === 'textarea') plannerAutoFit();
+  });
+}
+
+// ══ YOUTH-STYLE SERVICE PLANNER FUNCTIONS ══
+const ALL_KEYS = ["Ab","A","Am","A#","A#m","Bb","B","Bm","C","Cm","C#","C#m","Db","D","Dm","D#","D#m","Eb","E","Em","F","Fm","F#","F#m","Gb","G","Gm","G#","G#m"];
+let plannerWorshipLeader = '';
+let plannerEventsForDay = [];
+let plannerAddressBook = [];
+
+function plannerAutoFit() {
+  document.querySelectorAll('#screen-service-detail textarea.styled-input').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
+}
+
+function plannerUpdateSongNumbers() {
+  document.querySelectorAll('#planner-service-order .song-block').forEach((b, i) => {
+    const lbl = b.querySelector('.song-number'); if (lbl) lbl.textContent = 'Song ' + (i + 1);
+  });
+}
+
+function plannerToggleSong(btn) {
+  const block = btn.closest('.song-block');
+  const content = block.querySelector('.song-content');
+  block.classList.toggle('is-collapsed');
+  content.classList.toggle('hidden');
+  btn.textContent = content.classList.contains('hidden') ? '▶' : '▼';
+  if (!content.classList.contains('hidden')) plannerAutoFit();
+}
+
+function plannerAddSong() {
+  const container = document.getElementById('planner-service-order');
+  const id = Math.random().toString(36).substr(2, 9);
+  const isFirst = container.querySelectorAll('.song-block').length === 0;
+  const div = document.createElement('div');
+  div.className = 'service-block song-block' + (isFirst ? '' : ' is-collapsed');
+  div.innerHTML = `
+    <div class="song-block-header">
+      <div class="drag-handle">⠿</div>
+      <button onclick="plannerToggleSong(this)" class="collapse-btn">${isFirst ? '▼' : '▶'}</button>
+      <span class="song-number">Song</span>
+      <div class="song-title-wrap">
+        <input class="song-title-input" oninput="plannerSearchSong(this,'${id}')" placeholder="Song title">
+        <div id="suggest-${id}" class="suggest-box"></div>
+      </div>
+      <div id="serving-container-${id}" class="serve-count-badge hidden-badge"></div>
+      <button onclick="this.closest('.song-block').remove();plannerUpdateSongNumbers();" class="song-remove-btn">&times;</button>
+    </div>
+    <div class="song-content ${isFirst ? '' : 'hidden'}">
+      <div class="keys-row">
+        <select onchange="plannerKeyChanged('${id}')" class="styled-input"><option value="">Key 1</option>${ALL_KEYS.map(k=>`<option>${k}</option>`).join('')}</select>
+        <select onchange="plannerKeyChanged('${id}')" class="styled-input"><option value="">Key 2</option>${ALL_KEYS.map(k=>`<option>${k}</option>`).join('')}</select>
+        <select onchange="plannerKeyChanged('${id}')" class="styled-input"><option value="">Key 3</option>${ALL_KEYS.map(k=>`<option>${k}</option>`).join('')}</select>
+      </div>
+      <textarea class="song-note styled-input" placeholder="Notes for the band..." rows="1" style="margin-top:8px;"></textarea>
+      <div id="keyinfo-${id}" class="key-info-box" style="display:none;"></div>
+      <div id="files-${id}"></div>
+    </div>`;
+  container.appendChild(div);
+  plannerUpdateSongNumbers();
+  return id;
+}
+
+function plannerAddItem(val = '') {
+  const div = document.createElement('div');
+  div.className = 'service-block item-block';
+  div.innerHTML = `
+    <div class="drag-handle">⠿</div>
+    <div style="width:28px;"></div>
+    <input value="${val}" class="item-title-input" placeholder="Service Item Name...">
+    <button onclick="this.parentElement.remove()" class="song-remove-btn">&times;</button>`;
+  document.getElementById('planner-service-order').appendChild(div);
+}
+
+async function plannerShowKeyInfo(id, title) {
+  if (!title) return;
+  const docId = title.toLowerCase().replace(/\s+/g, '-');
+  const snap = await db.collection('songs').doc(docId).get();
+  if (!snap.exists) return;
+  const data = snap.data();
+  const files = data.files || [];
+  const chordKeys = files.filter(f => f.type === 'Chord Sheet' && f.key).map(f => f.key);
+  const uniqueKeys = [...new Set(chordKeys)];
+  const missing = ALL_KEYS.filter(k => !uniqueKeys.includes(k));
+  const box = document.getElementById('keyinfo-' + id);
+  box.style.display = 'block';
+  box.innerHTML = `<span style="font-weight:800;color:var(--teal);">Available:</span> ${uniqueKeys.sort().join(', ') || 'None'} &nbsp;·&nbsp; <span style="font-weight:800;color:#b22222;">Missing:</span> <span style="opacity:0.6;">${missing.join(', ')}</span>`;
+  const servingHistory = data.servingHistory || [];
+  const sundayHistory = servingHistory.filter(s => s.day && s.day.toLowerCase() === 'sunday');
+  const display = document.getElementById('serving-container-' + id);
+  if (sundayHistory.length) {
+    const counts = sundayHistory.map(s => s.count || 0);
+    const maxSunday = Math.max(...counts);
+    const latest = sundayHistory[0].count || 0;
+    display.textContent = latest;
+    display.classList.remove('hidden-badge');
+    display.title = latest === maxSunday ? `Used ${latest} Sundays — consider resting` : `Used ${latest} Sundays`;
+    latest === maxSunday ? display.classList.add('is-peak') : display.classList.remove('is-peak');
+  } else { display.textContent = ''; display.classList.add('hidden-badge'); display.classList.remove('is-peak'); }
+}
+
+async function plannerSearchSong(input, id) {
+  const val = input.value.toLowerCase().trim();
+  const box = document.getElementById('suggest-' + id);
+  if (val.length < 2) { box.style.display = 'none'; return; }
+  const snap = await db.collection('songs').get();
+  const words = val.split(' ');
+  const matches = snap.docs.map(d => d.data()).filter(s => {
+    const t = (s.title || '').toLowerCase();
+    const n = (s.normalized || '').toLowerCase();
+    return words.every(w => t.includes(w) || n.includes(w));
+  }).slice(0, 10);
+  if (!matches.length) {
+    const enc = encodeURIComponent(input.value);
+    box.innerHTML = `<div class="suggest-item" style="color:#b22222;">Not in library</div>
+      <div style="padding:8px 14px;font-size:11px;display:flex;gap:12px;background:white;">
+        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">🔎 SongSelect</a>
+        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">▶ YouTube</a>
+      </div>`;
+  } else {
+    box.innerHTML = matches.map(s => `<div class="suggest-item" onclick="plannerSelectSong('${s.title.replace(/'/g,"\\'")}','${id}')">${s.title}</div>`).join('');
+  }
+  box.style.display = 'block';
+}
+
+async function plannerSelectSong(title, id) {
+  const block = document.getElementById('suggest-' + id).closest('.song-block');
+  block.querySelector('.song-title-input').value = title;
+  document.getElementById('suggest-' + id).style.display = 'none';
+  document.getElementById('keyinfo-' + id).style.display = 'none';
+  document.getElementById('files-' + id).innerHTML = '';
+  await plannerShowKeyInfo(id, title);
+  plannerKeyChanged(id);
+}
+
+async function plannerKeyChanged(id) {
+  const block = document.getElementById('files-' + id).closest('.song-block');
+  const title = block.querySelector('.song-title-input').value;
+  const keys = Array.from(block.querySelectorAll('select')).map(s => s.value).filter(v => v !== '');
+  const container = document.getElementById('files-' + id);
+  if (!title) { container.innerHTML = ''; return; }
+  const docId = title.toLowerCase().replace(/\s+/g, '-');
+  const snap = await db.collection('songs').doc(docId).get();
+  if (!snap.exists) { container.innerHTML = ''; return; }
+  const data = snap.data();
+  const youtube = data.youtube || '';
+  const ccli = data.ccli || '';
+  const ssLink = ccli ? `https://songselect.ccli.com/Songs/${ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+  const allFiles = data.files || [];
+  let html = `<div class="files-box"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;font-weight:700;">
+    ${youtube ? `<a href="${youtube}" target="_blank" style="color:#b22222;text-decoration:none;">🎬 YouTube</a>` : ''}
+    <a href="${ssLink}" target="_blank" style="color:var(--teal);text-decoration:none;">🔎 SongSelect</a>
+    ${ccli ? `<span style="color:var(--teal);opacity:0.5;">CCLI: ${ccli}</span>` : ''}
+  </div>`;
+  if (keys.length) {
+    keys.forEach(k => {
+      const kFiles = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
+      html += `<div style="margin-top:6px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.5;margin-bottom:4px;">Key: ${k}</div>`;
+      if (!kFiles.length) html += `<span style="font-size:11px;opacity:0.5;font-weight:600;">No files for ${k}</span>`;
+      else { const grouped = {}; kFiles.forEach(f => { if (!grouped[f.type]) grouped[f.type] = []; grouped[f.type].push(f); }); Object.keys(grouped).forEach(type => { html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.4;margin-top:4px;">${type}</div>`; grouped[type].forEach(file => { html += `<a href="${file.url}" target="_blank">Open File</a>`; }); }); }
+      html += `</div>`;
+    });
+  } else { html += `<div style="font-size:11px;opacity:0.5;font-weight:600;">Select keys to see sheet music</div>`; }
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+async function plannerLoadRota() {
+  const date = document.getElementById('serviceDate').value;
+  const snap = await db.collection('events').get();
+  plannerEventsForDay = [];
+  snap.forEach(d => { const ev = d.data(); if (ev.date === date && ev.archived !== true) plannerEventsForDay.push(ev); });
+  const select = document.getElementById('eventSelect');
+  select.innerHTML = '<option value="">Select Service…</option>';
+  plannerEventsForDay.forEach((ev, i) => {
+    select.innerHTML += `<option value="${i}">${ev.type || ev.description || 'Service'}</option>`;
+  });
+}
+
+function plannerSortAssignments(arr) {
+  const tech = ['Sound', 'Words', 'Camera', 'Cameras'];
+  return arr.sort((a, b) => {
+    const tA = tech.includes(a[0]), tB = tech.includes(b[0]);
+    if (tA && !tB) return 1; if (!tA && tB) return -1;
+    if (tA && tB) return tech.indexOf(a[0]) - tech.indexOf(b[0]);
+    return a[0].localeCompare(b[0]);
+  });
+}
+
+async function plannerSelectEvent() {
+  const index = document.getElementById('eventSelect').value;
+  if (index === '') return;
+  const data = plannerEventsForDay[index];
+  document.getElementById('serviceTypeNotes').value = data.description || '';
+  plannerWorshipLeader = data.assignments?.['Worship Leader']?.name || 'None';
+  document.getElementById('leaderName').textContent = plannerWorshipLeader;
+
+  const teamBody = document.getElementById('plannerTeamBody');
+  teamBody.innerHTML = '';
+  let rows = plannerSortAssignments(Object.entries(data.assignments || {}));
+  rows.forEach(([role, person]) => {
+    teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="instr-note styled-input" placeholder="Notes..." rows="1" style="padding:6px 8px;font-size:12px;"></textarea></td></tr>`;
+  });
+
+  const q = db.collection('services').where('date', '==', data.date);
+  const snap = await q.get();
+  document.getElementById('planner-service-order').innerHTML = '';
+  if (!snap.empty) {
+    const saved = snap.docs[0].data();
+    document.getElementById('introBox').value = saved.introText || '';
+    document.getElementById('outroBox').value = saved.outroText || '';
+    document.getElementById('serviceTypeNotes').value = saved.serviceNotes || data.description || '';
+    if (saved.roleNotes) {
+      document.querySelectorAll('#plannerTeamBody tr').forEach(row => {
+        const role = row.children[0].textContent;
+        if (saved.roleNotes[role]) row.querySelector('.instr-note').value = saved.roleNotes[role];
+      });
+    }
+    (saved.order || []).forEach(item => {
+      if (item.type === 'song') {
+        const id = plannerAddSong();
+        const last = document.getElementById('planner-service-order').lastChild;
+        last.querySelector('.song-title-input').value = item.title;
+        const keyInputs = last.querySelectorAll('select');
+        const ks = Array.isArray(item.keys) ? item.keys : [item.key || ''];
+        ks.forEach((k, i) => { if (keyInputs[i]) keyInputs[i].value = k; });
+        last.querySelector('.song-note').value = item.notes || '';
+        plannerShowKeyInfo(id, item.title); plannerKeyChanged(id);
+        last.querySelector('.song-content').classList.remove('hidden');
+        last.classList.remove('is-collapsed');
+        last.querySelector('.collapse-btn').textContent = '▼';
+      } else { plannerAddItem(item.title); }
+    });
+  } else {
+    document.getElementById('introBox').value = '';
+    document.getElementById('outroBox').value = '';
+  }
+  plannerUpdateSongNumbers(); plannerAutoFit();
+}
+
+async function plannerSaveSchedule() {
+  const date = document.getElementById('serviceDate').value;
+  if (!date) { toast('Please select a date first'); return; }
+  const introText = document.getElementById('introBox').value;
+  const outroText = document.getElementById('outroBox').value;
+  const serviceNotes = document.getElementById('serviceTypeNotes').value;
+  const roleNotes = {};
+  document.querySelectorAll('#plannerTeamBody tr').forEach(row => {
+    const role = row.children[0].textContent;
+    const note = row.querySelector('.instr-note')?.value;
+    if (note) roleNotes[role] = note;
+  });
+  const order = [];
+  document.querySelectorAll('#planner-service-order .service-block').forEach(b => {
+    if (b.classList.contains('song-block')) {
+      order.push({ type:'song', title:b.querySelector('.song-title-input').value, keys:Array.from(b.querySelectorAll('select')).map(s=>s.value).filter(v=>v), notes:b.querySelector('.song-note').value });
+    } else { order.push({ type:'item', title:b.querySelector('.item-title-input').value }); }
+  });
+  const serviceData = { date, worshipLeader:plannerWorshipLeader, serviceNotes, introText, outroText, roleNotes, order };
+  loader(true, 'Saving...');
+  try {
+    const snap = await db.collection('services').where('date','==',date).get();
+    if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
+    else await db.collection('services').add(serviceData);
+    toast('✓ Service saved');
+  } catch(e) { toast('Error saving'); }
+  loader(false);
+}
+
+async function plannerEmailSchedule() {
+  const date = document.getElementById('serviceDate').value || 'TBC';
+  const serviceNotes = document.getElementById('serviceTypeNotes').value || '';
+  const introText = document.getElementById('introBox').value || '';
+  const outroText = document.getElementById('outroBox').value || '';
+
+  let htmlEmail = `<div style="font-family:Montserrat,Arial,sans-serif;color:#3d6263;max-width:650px;padding:30px;background:#fff;margin:auto;">
+    <h1 style="color:#3d6263;font-size:24px;font-weight:800;text-align:center;">Service Plan</h1>
+    <p style="text-transform:uppercase;font-weight:700;color:#3d6263;opacity:.6;letter-spacing:1.5px;font-size:11px;text-align:center;">${date} · Leader: ${plannerWorshipLeader}</p>
+    ${serviceNotes ? `<div style="background:#f0f6f6;border-left:4px solid #3d6263;padding:15px;margin:16px 0;font-size:13px;color:#3d6263;">${serviceNotes.replace(/\n/g,'<br>')}</div>` : ''}
+    ${introText ? `<div style="font-size:14px;color:#3d6263;margin:16px 0;">${introText.replace(/\n/g,'<br>')}</div>` : ''}
+    <h2 style="border-bottom:3px solid #3d6263;padding-bottom:8px;color:#3d6263;text-transform:uppercase;font-size:13px;letter-spacing:1px;margin:16px 0;">Order of Service</h2>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <thead style="background:#f0f6f6;"><tr>
+        <th style="text-align:left;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Title</th>
+        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Key</th>
+        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Resources</th>
+      </tr></thead><tbody>`;
+
+  const blocks = document.querySelectorAll('#planner-service-order .service-block');
+  let songIdx = 1;
+  for (const b of blocks) {
+    if (b.classList.contains('song-block')) {
+      const title = b.querySelector('.song-title-input').value;
+      const keys = Array.from(b.querySelectorAll('select')).map(s=>s.value).filter(v=>v);
+      const notes = b.querySelector('.song-note').value;
+      if (!title) continue;
+      const docId = title.toLowerCase().replace(/\s+/g,'-');
+      const snap = await db.collection('songs').doc(docId).get();
+      let resourcesHtml = '';
+      if (snap.exists) {
+        const data = snap.data();
+        const ssLink = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+        let linksHtml = '';
+        if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color:#3d6263;text-decoration:none;font-weight:700;font-size:11px;padding:0 5px;">YouTube</a>`;
+        if (linksHtml) linksHtml += `<span style="color:#cbd5e1;font-size:11px;">&nbsp;|&nbsp;</span>`;
+        linksHtml += `<a href="${ssLink}" style="color:#3d6263;text-decoration:none;font-weight:700;font-size:11px;padding:0 5px;">SongSelect</a>`;
+        resourcesHtml = `<div style="margin-bottom:8px;">${linksHtml}</div>`;
+        keys.forEach(k => {
+          const kFiles = (data.files||[]).filter(f=>f.key&&f.key.trim().toLowerCase()===k.trim().toLowerCase());
+          if (kFiles.length) {
+            resourcesHtml += `<div style="font-size:10px;color:#3d6263;font-weight:bold;margin-top:5px;">Key: ${k}</div>`;
+            kFiles.forEach(f => { resourcesHtml += `<div style="margin-top:2px;"><a href="${f.url}" style="color:#3d6263;text-decoration:underline;font-size:11px;font-weight:600;">Download ${f.type}</a></div>`; });
+          }
+        });
+      }
+      htmlEmail += `<tr>
+        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;"><p style="font-weight:800;font-size:14px;color:#1e293b;margin:0;">${songIdx}. ${title}</p>${notes?`<p style="font-style:italic;font-size:11px;color:#64748b;margin:4px 0 0;">${notes}</p>`:''}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:top;font-weight:700;color:#3d6263;font-size:14px;">${keys.join(', ')||'-'}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:top;">${resourcesHtml}</td>
+      </tr>`;
+      songIdx++;
+    } else {
+      const item = b.querySelector('.item-title-input')?.value;
+      if (item) htmlEmail += `<tr><td colspan="3" style="padding:10px 8px;background:#f8fafc;border-left:4px solid #3d6263;font-weight:800;font-size:12px;color:#3d6263;text-transform:uppercase;">${item}</td></tr>`;
+    }
+  }
+
+  htmlEmail += `</tbody></table>`;
+  const teamRows = Array.from(document.querySelectorAll('#plannerTeamBody tr'));
+  let rosterNames = [];
+  htmlEmail += `<p style="font-weight:700;color:#3d6263;font-size:13px;margin:16px 0 8px;">Our team for this service:</p><table style="width:100%;border-collapse:collapse;"><tbody>`;
+  const rowData = teamRows.map(r => [r.children[0].textContent, r.children[1].textContent, r.querySelector('.instr-note')?.value || '']);
+  plannerSortAssignments(rowData).forEach(([role, name, note]) => {
+    if (name && name !== 'None') rosterNames.push(name.trim());
+    htmlEmail += `<tr><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;width:35%;color:#3d6263;font-weight:700;">${role}</td><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">${name}${note?`<br><i style="font-size:11px;color:#666;">Note: ${note}</i>`:''}</td></tr>`;
+  });
+  htmlEmail += `</tbody></table>`;
+  if (outroText) htmlEmail += `<div style="font-size:14px;color:#444;margin-top:16px;">${outroText.replace(/\n/g,'<br>')}</div>`;
+  htmlEmail += `</div>`;
+
+  try { const blob = new Blob([htmlEmail], {type:'text/html'}); await navigator.clipboard.write([new ClipboardItem({'text/html':blob})]); } catch(e) {}
+
+  // Build recipient list from address book
+  if (!plannerAddressBook.length) {
+    try { const s = await db.collection('addressBook').get(); s.forEach(d => { const d2 = d.data(); if (d2.email) plannerAddressBook.push(d2); }); } catch(e) {}
+  }
+  let recipients = [];
+  plannerAddressBook.forEach(p => { if (rosterNames.includes(p.name?.trim()) && p.email) recipients.push(p.email); });
+  const teamTo = [...new Set(recipients)].join(',');
+  const subject = encodeURIComponent('Service Plan: ' + date);
+  if (teamTo) { window.location.href = `mailto:${teamTo}?subject=${subject}`; }
+  else { alert('Plan copied to clipboard! Open your email app to send.'); }
 }
 
 async function saveService() {
