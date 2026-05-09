@@ -1132,6 +1132,69 @@ body {
 }
 
 /* ── ADD NOTE MODAL ── */
+/* ── NOTE DETAIL MODAL ── */
+#note-detail-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 500;
+  align-items: flex-end; justify-content: center;
+}
+#note-detail-modal.open { display: flex; }
+.note-detail-box {
+  background: var(--white); border-radius: 24px 24px 0 0;
+  width: 100%; max-height: 85vh; overflow-y: auto;
+  padding: 20px 20px calc(var(--safe-bottom) + 24px);
+}
+.note-detail-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.note-detail-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg); border: none; font-size: 16px;
+  font-weight: 800; cursor: pointer; color: var(--teal);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.note-detail-cat-badge {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; padding: 4px 10px; border-radius: 9999px;
+  display: inline-block;
+}
+.note-detail-title {
+  font-size: 22px; font-weight: 800; color: var(--teal);
+  line-height: 1.2; margin-bottom: 10px;
+}
+.note-detail-body {
+  font-size: 15px; color: #333; line-height: 1.6;
+  white-space: pre-wrap; margin-bottom: 16px;
+}
+.note-detail-yt {
+  display: flex; align-items: center; gap: 10px;
+  background: #ff0000; color: white; border-radius: 12px;
+  padding: 12px 16px; text-decoration: none;
+  font-family: var(--font); font-size: 13px; font-weight: 800;
+  margin-bottom: 16px;
+}
+.note-detail-reactions {
+  display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;
+}
+.note-detail-reaction-btn {
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 9999px; padding: 8px 16px; font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font); font-weight: 800; color: var(--teal);
+}
+.note-detail-reaction-btn.active { background: var(--teal); color: white; border-color: var(--teal); }
+.note-detail-meta {
+  font-size: 11px; font-weight: 700; color: var(--teal);
+  opacity: 0.4; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.note-detail-delete {
+  margin-top: 20px; width: 100%; padding: 13px;
+  background: #fef2f2; color: #b22222; border: 1.5px solid #fca5a5;
+  border-radius: 12px; font-family: var(--font); font-size: 13px;
+  font-weight: 800; cursor: pointer; text-transform: uppercase;
+}
+
 #add-note-modal {
   display: none;
   position: fixed;
@@ -1585,6 +1648,22 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 </div>
 
 <!-- ADD NOTE MODAL -->
+<!-- NOTE DETAIL MODAL -->
+<div id="note-detail-modal">
+  <div class="note-detail-box">
+    <div class="note-detail-header">
+      <div id="note-detail-cat-badge" class="note-detail-cat-badge"></div>
+      <button class="note-detail-close" onclick="closeNoteDetail()">✕</button>
+    </div>
+    <div id="note-detail-title" class="note-detail-title"></div>
+    <div id="note-detail-body" class="note-detail-body"></div>
+    <div id="note-detail-yt-wrap"></div>
+    <div id="note-detail-reactions" class="note-detail-reactions"></div>
+    <div id="note-detail-meta" class="note-detail-meta"></div>
+    <button class="note-detail-delete" id="note-detail-delete-btn">🗑 Remove this note</button>
+  </div>
+</div>
+
 <div id="add-note-modal">
   <div class="add-note-box">
     <div class="add-note-title">📌 New Suggestion</div>
@@ -1997,13 +2076,14 @@ function renderNotes() {
     const reactions = REACTIONS.map(r => {
       const count = (n.reactions||{})[r.key] || 0;
       const active = (n.myReactions||{})[r.key];
-      return `<button class="reaction-btn ${active?'active':''}" onclick="react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`;
+      return `<button class="reaction-btn ${active?'active':''}" onclick="event.stopPropagation();react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`;
     }).join('');
+    const bodyPreview = (n.body||'').length > 120 ? (n.body||'').substring(0,120)+'…' : (n.body||'');
     return `
-    <div class="note-card ${meta.cls} fade-in" style="pointer-events:auto;">
+    <div class="note-card ${meta.cls} fade-in" style="pointer-events:auto;cursor:pointer;" onclick="openNoteDetail('${n.id}')">
       <div class="note-card-cat">${meta.emoji} ${meta.label}</div>
       ${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}
-      ${n.body  ? `<div class="note-card-body">${esc(n.body)}</div>`   : ''}
+      ${n.body  ? `<div class="note-card-body">${esc(bodyPreview)}</div>`   : ''}
       <div class="note-card-footer">
         <div class="note-card-meta">${esc(n.author||'Anonymous')} · ${date}</div>
         <div class="note-reactions">${reactions}</div>
@@ -2021,6 +2101,72 @@ function react(noteId, key) {
   n.myReactions[key] = !had;
   renderNotes();
   saveBoardState();
+}
+
+function openNoteDetail(noteId) {
+  const n = boardNotes.find(x => x.id === noteId);
+  if (!n) return;
+  const meta = CAT_META[n.cat] || CAT_META.other;
+  const date = new Date(n.createdAt).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const badge = document.getElementById('note-detail-cat-badge');
+  const badgeColors = {
+    song:    { bg:'#fef08a', color:'#7a5c00' },
+    event:   { bg:'#fda4af', color:'#7f1d1d' },
+    av:      { bg:'#93c5fd', color:'#1e3a5f' },
+    prayer:  { bg:'#d8b4fe', color:'#4c1d95' },
+    general: { bg:'#86efac', color:'#14532d' },
+    other:   { bg:'#fdba74', color:'#7c2d12' },
+  };
+  const bc = badgeColors[n.cat] || badgeColors.other;
+  badge.textContent = `${meta.emoji} ${meta.label}`;
+  badge.style.background = bc.bg;
+  badge.style.color = bc.color;
+  document.getElementById('note-detail-title').textContent = n.title || '';
+  const bodyEl = document.getElementById('note-detail-body');
+  bodyEl.textContent = n.body || '';
+  bodyEl.style.display = n.body ? 'block' : 'none';
+  const ytWrap = document.getElementById('note-detail-yt-wrap');
+  ytWrap.innerHTML = n.ytUrl ? `<a href="${esc(n.ytUrl)}" target="_blank" class="note-detail-yt">▶ Watch on YouTube</a>` : '';
+  const REACTIONS = [
+    { key:'love', emoji:'❤️', label:'Love' }, { key:'like', emoji:'👍', label:'Like' },
+    { key:'dislike', emoji:'👎', label:'Not sure' }, { key:'pray', emoji:'🙌', label:'Praying' }
+  ];
+  document.getElementById('note-detail-reactions').innerHTML = REACTIONS.map(r => {
+    const count = (n.reactions||{})[r.key] || 0;
+    const active = (n.myReactions||{})[r.key];
+    return `<button class="note-detail-reaction-btn ${active?'active':''}" onclick="reactFromDetail('${n.id}','${r.key}')">${r.emoji} ${r.label}${count ? ` · ${count}` : ''}</button>`;
+  }).join('');
+  document.getElementById('note-detail-meta').textContent = `Posted by ${n.author || 'Anonymous'} on ${date}`;
+  document.getElementById('note-detail-delete-btn').onclick = () => deleteNote(noteId);
+  document.getElementById('note-detail-modal').classList.add('open');
+}
+
+function closeNoteDetail() {
+  document.getElementById('note-detail-modal').classList.remove('open');
+}
+
+function reactFromDetail(noteId, key) {
+  react(noteId, key);
+  const n = boardNotes.find(x => x.id === noteId); if (!n) return;
+  const REACTIONS = [
+    { key:'love', emoji:'❤️', label:'Love' }, { key:'like', emoji:'👍', label:'Like' },
+    { key:'dislike', emoji:'👎', label:'Not sure' }, { key:'pray', emoji:'🙌', label:'Praying' }
+  ];
+  document.getElementById('note-detail-reactions').innerHTML = REACTIONS.map(r => {
+    const count = (n.reactions||{})[r.key] || 0;
+    const active = (n.myReactions||{})[r.key];
+    return `<button class="note-detail-reaction-btn ${active?'active':''}" onclick="reactFromDetail('${n.id}','${r.key}')">${r.emoji} ${r.label}${count ? ` · ${count}` : ''}</button>`;
+  }).join('');
+}
+
+async function deleteNote(noteId) {
+  if (!confirm('Remove this note from the board?')) return;
+  const n = boardNotes.find(x => x.id === noteId);
+  if (n) n.archived = true;
+  closeNoteDetail();
+  renderNotes();
+  toast('Note removed');
+  await saveBoardState();
 }
 
 async function saveBoardState() {
