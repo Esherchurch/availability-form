@@ -134,22 +134,45 @@
 
         /* PRINT - report header with AV team logo */
         @media print {
-            .tab-nav, .app-header, .no-print { display: none !important; }
-            .tab-panel { display: flex !important; }
-            body { background: white; font-size: 11pt; }
-            .path-box { break-inside: avoid; }
-            .print-report-header { display: flex !important; }
-            .report-toggle { display: none !important; }
-            #report-schematic, #report-perbox { display: block !important; }
-            #report-suggest { display: none !important; }
-            .print-section { break-inside: avoid; }
-            .print-section-break { page-break-before: always; }
-            .rpt-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-            .rpt-table th { background: #4A7C7E !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .rpt-table td { border: 0.5pt solid #ccc; padding: 4pt 6pt; }
-            .rpt-chain-node { border: 0.5pt solid #ccc !important; background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .rpt-chain-node.desk { background: #e8f5d0 !important; border-color: #8DC63F !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .rpt-loc-header { background: #4A7C7E !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Hide absolutely everything by default */
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: white !important; margin: 0; padding: 0; }
+            .app-header, .tab-nav, .report-toggle, .no-print { display: none !important; }
+
+            /* Hide ALL tab panels */
+            .tab-panel { display: none !important; }
+
+            /* Show ONLY the paths tab */
+            #tab-paths { display: block !important; }
+
+            /* Show the print header logo */
+            .print-report-header { display: flex !important; align-items: center; justify-content: space-between; padding: 0 0 12pt; border-bottom: 2pt solid #8DC63F; margin-bottom: 16pt; }
+
+            /* Show whichever reports are marked print-visible */
+            .print-visible { display: block !important; }
+
+            /* Tables */
+            .rpt-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 12pt; }
+            .rpt-table th { background: #4A7C7E !important; color: white !important; padding: 5pt 8pt; text-align: left; font-size: 8pt; letter-spacing: 0.05em; text-transform: uppercase; }
+            .rpt-table td { padding: 5pt 8pt; border-bottom: 0.5pt solid #ddd; font-size: 9pt; vertical-align: middle; }
+            .rpt-table tr:nth-child(even) td { background: #f9fcfc !important; }
+
+            /* Loc blocks */
+            .rpt-loc-block { border: 0.5pt solid #ccc; border-radius: 4pt; overflow: hidden; margin-bottom: 10pt; break-inside: avoid; }
+            .rpt-loc-header { background: #4A7C7E !important; color: white !important; padding: 6pt 10pt; font-size: 10pt; font-weight: bold; }
+
+            /* Chain nodes */
+            .rpt-chain-node { background: #f0f5f5 !important; border: 0.5pt solid #aaa; border-radius: 3pt; padding: 2pt 5pt; font-size: 8pt; }
+            .rpt-chain-node.desk { background: #e8f5d0 !important; border-color: #8DC63F !important; }
+
+            /* Badges */
+            .rpt-badge-in  { background: #e0eded !important; color: #2a5a5c !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; font-weight: bold; }
+            .rpt-badge-out { background: #e8f5d0 !important; color: #3a6b10 !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; font-weight: bold; }
+            .rpt-ch { background: #4A7C7E !important; color: white !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; font-weight: bold; }
+            .rpt-signal-tag { background: #e8f5d0 !important; color: #3a6b10 !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; }
+
+            .rpt-section-title { font-size: 8pt; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; color: #666; margin: 14pt 0 6pt; padding-bottom: 3pt; border-bottom: 0.5pt solid #ccc; }
+            .rpt-loc-block + .rpt-section-title { page-break-before: always; }
         }
 
         /* ── PRINT REPORT STYLES (also used on screen in the report divs) ── */
@@ -1170,31 +1193,23 @@ function togglePrintMenu() {
 
 function printSection(which) {
     document.getElementById('print-menu').style.display = 'none';
-    // Ensure correct reports are rendered and visible for print
     renderSchematic();
     renderPerBox();
     const sch = document.getElementById('report-schematic');
     const box = document.getElementById('report-perbox');
     const sug = document.getElementById('report-suggest');
 
-    // Temporarily force visibility for print
-    const prev = { sch: sch.style.display, box: box.style.display, sug: sug ? sug.style.display : 'none' };
+    // Clear any previous print-visible classes
+    [sch, box, sug].forEach(el => { if (el) el.classList.remove('print-visible'); });
 
-    if (which === 'schematic') {
-        sch.style.display = 'block'; box.style.display = 'none';
-    } else if (which === 'perbox') {
-        sch.style.display = 'none'; box.style.display = 'block';
-    } else {
-        sch.style.display = 'block'; box.style.display = 'block';
-    }
-    if (sug) sug.style.display = 'none';
+    if (which === 'schematic') { sch.classList.add('print-visible'); }
+    else if (which === 'perbox') { box.classList.add('print-visible'); }
+    else { sch.classList.add('print-visible'); box.classList.add('print-visible'); }
 
     window.print();
 
-    // Restore
-    sch.style.display = prev.sch;
-    box.style.display = prev.box;
-    if (sug) sug.style.display = prev.sug;
+    // Clean up
+    [sch, box, sug].forEach(el => { if (el) el.classList.remove('print-visible'); });
 }
 
 // ── BOOT ──
