@@ -402,15 +402,18 @@ function registerLocation() {
 
 function renderRegistry() {
     const el = document.getElementById('registry-list');
-    el.innerHTML = locations.map(l => `
+    el.innerHTML = locations.map((l, i) => `
         <span class="chip" style="display:inline-flex;align-items:center;gap:5px;">
             📍 ${l}
-            <span onclick="deleteLocation('${l.replace(/'/g,"\'")}')" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:0.8rem;" title="Delete">×</span>
+            <span data-loc-idx="${i}" class="del-loc" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:0.8rem;" title="Delete">×</span>
         </span>`).join('');
+    el.querySelectorAll('.del-loc').forEach(btn => {
+        btn.onclick = () => deleteLocation(locations[parseInt(btn.dataset.locIdx)]);
+    });
 }
 
 function deleteLocation(name) {
-    if (!confirm('Remove "' + name + '"? This won't delete its hops.')) return;
+    if (!confirm('Remove "' + name + '"? This will not delete its hops.')) return;
     locations = locations.filter(l => l !== name);
     saveLocations();
 }
@@ -477,14 +480,17 @@ function renderSignalsList() {
     if (!signals.length) { card.style.display = 'none'; return; }
     card.style.display = '';
     const deskLabel = v => { const o = DESK_OPTIONS.find(x => x.val === v); return o ? o.label : null; };
-    el.innerHTML = signals.map(s => `
+    el.innerHTML = signals.map((s, i) => `
         <div class="signal-row">
             <span class="signal-name">🎤 ${s.label}</span>
             <div style="display:flex;align-items:center;gap:8px;">
                 ${s.desk ? `<span class="signal-desk">${deskLabel(s.desk) || s.desk}</span>` : '<span class="signal-unlinked">Not linked</span>'}
-                <span onclick="deleteSignal('${s.label.replace(/'/g,"\'")}')" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1rem;padding:0 4px;" title="Delete">×</span>
+                <span data-sig-idx="${i}" class="del-sig" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1rem;padding:0 4px;" title="Delete">×</span>
             </div>
         </div>`).join('');
+    el.querySelectorAll('.del-sig').forEach(btn => {
+        btn.onclick = () => deleteSignal(signals[parseInt(btn.dataset.sigIdx)].label);
+    });
 }
 
 // ── HOPS ──
@@ -535,7 +541,7 @@ function editHop(id) {
     const box = document.getElementById('hop-box-' + id);
     box.innerHTML = `
         <div class="path-box-body" style="flex-direction:column;gap:10px;">
-            <div style="font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.06em;">Edit Connection</div>
+            <div style="font-family:Nunito,sans-serif;font-size:0.75rem;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.06em;">Edit Connection</div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <div style="flex:1;min-width:120px;">
                     <div class="field-label" style="margin-bottom:4px;">From</div>
@@ -550,10 +556,12 @@ function editHop(id) {
                 </div>
             </div>
             <div style="display:flex;gap:8px;">
-                <button class="btn btn-primary" style="padding:10px;" onclick="saveHopEdit('${id}')">✓ Save</button>
-                <button class="btn btn-danger" style="padding:10px;flex:0.5;" onclick="renderSchematic()">Cancel</button>
+                <button class="btn btn-primary" style="padding:10px;" id="save-hop-btn-${id}">✓ Save</button>
+                <button class="btn btn-danger" style="padding:10px;flex:0.5;" id="cancel-hop-btn-${id}">Cancel</button>
             </div>
         </div>`;
+    document.getElementById('save-hop-btn-' + id).onclick = () => saveHopEdit(id);
+    document.getElementById('cancel-hop-btn-' + id).onclick = () => renderSchematic();
 }
 
 function saveHopEdit(id) {
@@ -619,7 +627,7 @@ function renderSchematic() {
     if (hops.length) {
         html += `<div class="schematic-section"><div class="schematic-section-title">All Physical Connections (${hops.length})</div>`;
         hops.forEach(h => {
-            html += `<div class="path-box" style="margin-bottom:8px;" id="hop-box-${h.id}">
+            html += `<div class="path-box" style="margin-bottom:8px;" id="hop-box-${h.id}" data-hop-id="${h.id}">
                 <div class="path-box-body" style="justify-content:space-between;">
                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                         <span class="hop-tag">📍 ${h.aLoc} <span style="color:var(--green);font-weight:800;">ch${h.aCh}</span></span>
@@ -627,12 +635,21 @@ function renderSchematic() {
                         <span class="hop-tag">📍 ${h.bLoc} <span style="color:var(--green);font-weight:800;">ch${h.bCh}</span></span>
                     </div>
                     <div style="display:flex;gap:6px;align-items:center;">
-                        <span onclick="editHop('${h.id}')" style="cursor:pointer;color:var(--teal);font-size:0.85rem;padding:3px 8px;border:1px solid var(--teal);border-radius:6px;font-family:'Nunito',sans-serif;font-weight:700;" title="Edit hop">✏ Edit</span>
-                        <span onclick="deleteHop('${h.id}')" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1.1rem;padding:0 6px;" title="Delete hop">×</span>
+                        <span class="edit-hop-btn" data-hop-id="${h.id}" style="cursor:pointer;color:var(--teal);font-size:0.85rem;padding:3px 8px;border:1px solid var(--teal);border-radius:6px;font-family:Nunito,sans-serif;font-weight:700;">✏ Edit</span>
+                        <span class="del-hop-btn" data-hop-id="${h.id}" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1.1rem;padding:0 6px;">×</span>
                     </div>
                 </div>
             </div>`;
         });
+        // Attach hop button listeners after render
+        setTimeout(() => {
+            document.querySelectorAll('.edit-hop-btn').forEach(btn => {
+                btn.onclick = () => editHop(btn.dataset.hopId);
+            });
+            document.querySelectorAll('.del-hop-btn').forEach(btn => {
+                btn.onclick = () => deleteHop(btn.dataset.hopId);
+            });
+        }, 0);
         html += `</div>`;
     }
 
