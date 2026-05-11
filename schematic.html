@@ -136,12 +136,125 @@
         @media print {
             .tab-nav, .app-header, .no-print { display: none !important; }
             .tab-panel { display: flex !important; }
-            body { background: white; }
+            body { background: white; font-size: 11pt; }
             .path-box { break-inside: avoid; }
             .print-report-header { display: flex !important; }
             .report-toggle { display: none !important; }
             #report-schematic, #report-perbox { display: block !important; }
+            #report-suggest { display: none !important; }
+            .print-section { break-inside: avoid; }
+            .print-section-break { page-break-before: always; }
+            .rpt-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+            .rpt-table th { background: #4A7C7E !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .rpt-table td { border: 0.5pt solid #ccc; padding: 4pt 6pt; }
+            .rpt-chain-node { border: 0.5pt solid #ccc !important; background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .rpt-chain-node.desk { background: #e8f5d0 !important; border-color: #8DC63F !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .rpt-loc-header { background: #4A7C7E !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
+
+        /* ── PRINT REPORT STYLES (also used on screen in the report divs) ── */
+        .rpt-page { padding: 0; }
+        .rpt-section-title {
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 18px 0 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+        .rpt-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        .rpt-table th {
+            background: var(--teal);
+            color: white;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 7px 10px;
+            text-align: left;
+        }
+        .rpt-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+            color: var(--text);
+        }
+        .rpt-table tr:last-child td { border-bottom: none; }
+        .rpt-table tr:nth-child(even) td { background: #fafcfc; }
+        .rpt-chain {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+        }
+        .rpt-chain-node {
+            background: var(--teal-light);
+            border: 1px solid rgba(74,124,126,0.25);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--teal-dark);
+            white-space: nowrap;
+        }
+        .rpt-chain-node.desk {
+            background: var(--green-light);
+            border-color: rgba(141,198,63,0.4);
+            color: var(--green-dark);
+            font-weight: 700;
+        }
+        .rpt-chain-arrow {
+            color: var(--green);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .rpt-alt-path {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px dashed var(--border);
+        }
+        .rpt-loc-block {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-bottom: 14px;
+            break-inside: avoid;
+        }
+        .rpt-loc-header {
+            background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+            color: white;
+            padding: 8px 14px;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 800;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .rpt-loc-header span {
+            font-size: 0.72rem;
+            opacity: 0.75;
+            font-weight: 600;
+        }
+        .rpt-empty {
+            padding: 12px 14px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .rpt-badge-in  { background: var(--teal-light); color: var(--teal); border: 1px solid rgba(74,124,126,0.25); border-radius: 20px; padding: 2px 8px; font-size: 0.68rem; font-weight: 700; }
+        .rpt-badge-out { background: var(--green-light); color: var(--green-dark); border: 1px solid rgba(141,198,63,0.3); border-radius: 20px; padding: 2px 8px; font-size: 0.68rem; font-weight: 700; }
+        .rpt-ch { background: var(--teal); color: white; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; font-family: 'Nunito', sans-serif; }
+        .rpt-signal-tag { background: var(--green-light); color: var(--green-dark); border: 1px solid rgba(141,198,63,0.3); border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; }
 
         .print-report-header {
             display: none;
@@ -286,7 +399,14 @@
             <button class="rtab active" id="rtab-schematic" onclick="showReport('schematic', this)">Signal Flow</button>
             <button class="rtab" id="rtab-perbox" onclick="showReport('perbox', this)">Per Box</button>
             <button class="rtab" id="rtab-suggest" onclick="showReport('suggest', this)">&#128161; Suggestions</button>
-            <button class="print-btn" onclick="window.print()">&#128424; Print</button>
+            <div style="position:relative;display:inline-block;">
+                <button class="print-btn" onclick="togglePrintMenu()" id="print-menu-btn">&#128424; Print &#9660;</button>
+                <div id="print-menu" style="display:none;position:absolute;right:0;top:110%;background:white;border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);z-index:200;min-width:180px;padding:6px 0;">
+                    <div onclick="printSection('schematic')" style="padding:9px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;color:var(--text);">&#128221; Signal Flow Report</div>
+                    <div onclick="printSection('perbox')" style="padding:9px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;color:var(--text);border-top:1px solid var(--border);">&#128230; Per Location Report</div>
+                    <div onclick="printSection('both')" style="padding:9px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;color:var(--text);border-top:1px solid var(--border);">&#128196; Full Report (Both)</div>
+                </div>
+            </div>
         </div>
 
         <!-- Print header (hidden on screen, shown on print) -->
@@ -747,6 +867,192 @@ function showReport(name, btn) {
     if (name === 'suggest') renderSuggestions();
 }
 
+function renderSchematic() {
+    const el = document.getElementById('report-schematic');
+    if (!el) return;
+
+    if (!signals.length && !hops.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128268;</div><p>No signals or hops yet.<br>Add hops and confirm signals via the Suggestions tab.</p></div>';
+        return;
+    }
+
+    const adj = buildAdjacency();
+
+    // Build a map of all hop chains for each signal
+    // For each signal, trace the full chain from deskEnd outward
+    function traceChainFromNode(startNode, excludeNode) {
+        // Walk from startNode away from excludeNode, returning ordered path
+        const path = [startNode];
+        let prev = excludeNode, curr = startNode;
+        while (true) {
+            const nexts = (adj[curr]||[]).filter(e => e.node !== prev);
+            if (nexts.length !== 1) break;
+            prev = curr;
+            curr = nexts[0].node;
+            path.push(curr);
+        }
+        return path;
+    }
+
+    function nodeLabel(n) {
+        const p = n.split(':');
+        return p[0] + ' ch' + p[1];
+    }
+
+    function renderChain(path) {
+        return '<div class="rpt-chain">' +
+            path.map((n, i) => {
+                const p = n.split(':');
+                const isDesk = isDeskNode(p[0]);
+                return (i > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
+                    '<span class="rpt-chain-node'+(isDesk?' desk':'')+'">'+p[0]+' <strong>ch'+p[1]+'</strong></span>';
+            }).join('') +
+        '</div>';
+    }
+
+    let html = '<div class="rpt-page">';
+
+    // ── SECTION 1: NAMED SIGNALS ──
+    if (signals.length) {
+        html += '<div class="rpt-section-title">Signal Flow — Named Signals ('+signals.length+')</div>';
+        html += '<table class="rpt-table"><thead><tr>' +
+            '<th style="width:160px">Signal</th>' +
+            '<th>Physical Path(s)</th>' +
+            '<th style="width:80px">Desk Ch</th>' +
+        '</tr></thead><tbody>';
+
+        signals.forEach(sig => {
+            const dl = sig.desk ? deskLabel(sig.desk) : '—';
+            // Build path display from stored paths array
+            const pathRows = (sig.paths && sig.paths.length) ? sig.paths : ['—'];
+            html += '<tr>' +
+                '<td style="font-weight:700;font-family:Nunito,sans-serif;">' + sig.label + '</td>' +
+                '<td>' +
+                    pathRows.map((p, pi) =>
+                        '<div class="rpt-chain' + (pi > 0 ? ' rpt-alt-path' : '') + '">' +
+                        (pi > 0 ? '<span style="font-size:0.65rem;color:var(--text-muted);margin-right:4px;">ALT:</span>' : '') +
+                        p.split(' → ').map((node, ni) =>
+                            (ni > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
+                            '<span class="rpt-chain-node'+(isDeskNode(node.split(' ch')[0])?' desk':'')+'">'+node+'</span>'
+                        ).join('') +
+                        '</div>'
+                    ).join('') +
+                '</td>' +
+                '<td><span class="rpt-chain-node desk">' + dl + '</span></td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+    }
+
+    // ── SECTION 2: ALL PHYSICAL HOPS ──
+    if (hops.length) {
+        html += '<div class="rpt-section-title print-section-break">All Physical Connections ('+hops.length+')</div>';
+        html += '<table class="rpt-table"><thead><tr>' +
+            '<th>From</th><th style="width:30px"></th><th>To</th>' +
+        '</tr></thead><tbody>';
+        hops.forEach(h => {
+            html += '<tr>' +
+                '<td><span class="rpt-ch">'+h.aCh+'</span> <strong>'+h.aLoc+'</strong></td>' +
+                '<td style="text-align:center;color:var(--green);font-weight:700;">&#8594;</td>' +
+                '<td><span class="rpt-ch">'+h.bCh+'</span> <strong>'+h.bLoc+'</strong></td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+    }
+
+    // ── SECTION 3: UNRESOLVED CHAINS ──
+    const { incomplete } = findAllChains();
+    if (incomplete.length) {
+        html += '<div class="rpt-section-title">Unresolved Chains — Desk Channel Not Yet Found</div>';
+        incomplete.forEach(c => {
+            const pathDisplay = c.path.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
+            html += '<div style="padding:8px 12px;background:#fff8e6;border:1px solid #f6d860;border-radius:8px;margin-bottom:6px;font-size:0.8rem;">&#9888; ' + pathDisplay + '</div>';
+        });
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function renderPerBox() {
+    const el = document.getElementById('report-perbox');
+    if (!el) return;
+
+    if (!locations.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128230;</div><p>No locations registered yet.</p></div>';
+        return;
+    }
+
+    // Build a lookup: "loc:ch" -> signal name
+    const nodeSignalMap = {};
+    signals.forEach(sig => {
+        (sig.paths||[]).forEach(path => {
+            path.split(' → ').forEach(node => {
+                const key = node.trim();
+                if (!nodeSignalMap[key]) nodeSignalMap[key] = [];
+                nodeSignalMap[key].push(sig.label);
+            });
+        });
+    });
+
+    let html = '<div class="rpt-page">';
+    html += '<div class="rpt-section-title">Per Location — Patch Reference</div>';
+
+    locations.forEach(loc => {
+        const locHops = hops.filter(h => h.aLoc === loc || h.bLoc === loc);
+        const hopCount = locHops.length;
+
+        html += '<div class="rpt-loc-block">' +
+            '<div class="rpt-loc-header">&#128205; ' + loc +
+                '<span>' + hopCount + ' connection' + (hopCount !== 1 ? 's' : '') + '</span>' +
+            '</div>';
+
+        if (!locHops.length) {
+            html += '<div class="rpt-empty">No connections mapped for this location.</div>';
+        } else {
+            html += '<table class="rpt-table"><thead><tr>' +
+                '<th>Ch</th><th>Dir</th><th>Remote Location</th><th>Remote Ch</th><th>Signal</th>' +
+            '</tr></thead><tbody>';
+
+            // Sort by channel number
+            const sorted = [...locHops].sort((a, b) => {
+                const ca = parseInt(a.aLoc === loc ? a.aCh : a.bCh) || 0;
+                const cb = parseInt(b.aLoc === loc ? b.aCh : b.bCh) || 0;
+                return ca - cb;
+            });
+
+            sorted.forEach(h => {
+                const isA      = h.aLoc === loc;
+                const localCh  = isA ? h.aCh  : h.bCh;
+                const remoteLoc = isA ? h.bLoc : h.aLoc;
+                const remoteCh  = isA ? h.bCh  : h.aCh;
+                // Look up signal
+                const nodeKey = loc + ' ch' + localCh;
+                const sigNames = nodeSignalMap[nodeKey] || [];
+                const sigTag = sigNames.length
+                    ? sigNames.map(s => '<span class="rpt-signal-tag">'+s+'</span>').join(' ')
+                    : '<span style="color:var(--text-muted);font-size:0.72rem;font-style:italic;">—</span>';
+                const dir = isA
+                    ? '<span class="rpt-badge-out">OUT &#8594;</span>'
+                    : '<span class="rpt-badge-in">&#8592; IN</span>';
+
+                html += '<tr>' +
+                    '<td><span class="rpt-ch">' + localCh + '</span></td>' +
+                    '<td>' + dir + '</td>' +
+                    '<td><strong>' + remoteLoc + '</strong></td>' +
+                    '<td><span class="rpt-ch">' + remoteCh + '</span></td>' +
+                    '<td>' + sigTag + '</td>' +
+                '</tr>';
+            });
+            html += '</tbody></table>';
+        }
+        html += '</div>';
+    });
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
 function renderReports() {
     renderSchematic();
     renderPerBox();
@@ -848,6 +1154,47 @@ function renderSuggestions() {
             renderReports();
         };
     });
+}
+
+// ── PRINT ──
+function togglePrintMenu() {
+    const m = document.getElementById('print-menu');
+    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+    document.addEventListener('click', function handler(e) {
+        if (!e.target.closest('#print-menu-btn') && !e.target.closest('#print-menu')) {
+            m.style.display = 'none';
+            document.removeEventListener('click', handler);
+        }
+    });
+}
+
+function printSection(which) {
+    document.getElementById('print-menu').style.display = 'none';
+    // Ensure correct reports are rendered and visible for print
+    renderSchematic();
+    renderPerBox();
+    const sch = document.getElementById('report-schematic');
+    const box = document.getElementById('report-perbox');
+    const sug = document.getElementById('report-suggest');
+
+    // Temporarily force visibility for print
+    const prev = { sch: sch.style.display, box: box.style.display, sug: sug ? sug.style.display : 'none' };
+
+    if (which === 'schematic') {
+        sch.style.display = 'block'; box.style.display = 'none';
+    } else if (which === 'perbox') {
+        sch.style.display = 'none'; box.style.display = 'block';
+    } else {
+        sch.style.display = 'block'; box.style.display = 'block';
+    }
+    if (sug) sug.style.display = 'none';
+
+    window.print();
+
+    // Restore
+    sch.style.display = prev.sch;
+    box.style.display = prev.box;
+    if (sug) sug.style.display = prev.sug;
 }
 
 // ── BOOT ──
