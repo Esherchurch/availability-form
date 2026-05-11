@@ -358,29 +358,26 @@
         <div class="card">
             <div class="card-header">
                 <div class="card-header-icon">🎚</div>
-                <h2><span class="step-badge">2</span>&nbsp; Define Signal / Desk Link</h2>
+                <h2>Define Signal</h2>
             </div>
             <div class="card-body">
                 <div class="field-group">
-                    <label class="field-label">Signal Label (e.g. Pastor Mic)</label>
-                    <input type="text" id="sig-label" placeholder="Unique identifier">
+                    <label class="field-label">Signal Label (e.g. Guitar, Pastor Mic)</label>
+                    <input type="text" id="sig-label" placeholder="Name for this signal">
                 </div>
                 <div class="field-group">
                     <label class="field-label">Sound Desk Channel (SQ5)</label>
-                    <select id="sig-desk" onchange="updateStereoLinkOptions()">
+                    <select id="sig-desk">
                         <option value="">-- Not Linked to Desk Yet --</option>
                     </select>
                 </div>
-                <div class="field-group" id="stereo-link-row" style="display:none; background:var(--teal-light); border-radius:var(--radius-sm); padding:10px 12px; border:1px solid rgba(74,124,126,0.2);">
-                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                        <input type="checkbox" id="stereo-link-cb" style="width:auto;margin:0;accent-color:var(--green);">
-                        <span style="font-size:0.8rem;font-weight:700;color:var(--teal);">
-                            Link as stereo pair with <strong id="stereo-partner-label"></strong>
-                        </span>
-                        <input type="hidden" id="stereo-partner-val">
-                    </label>
+                <div class="field-group">
+                    <label class="field-label" style="margin-bottom:8px;">Physical Paths</label>
+                    <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;line-height:1.5;">Add one path per physical entry point — e.g. Stage Left Jack ch7 and Stage Right Jack ch7 for a guitar that can plug in on either side.</p>
+                    <div id="sig-paths-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+                    <button class="btn btn-secondary" style="padding:9px;font-size:0.78rem;" onclick="addPathEntry()">+ Add Path</button>
                 </div>
-                <button class="btn btn-primary" onclick="saveSignal()">Save Signal Identity</button>
+                <button class="btn btn-primary" style="margin-top:4px;" onclick="saveSignal()">Save Signal</button>
             </div>
         </div>
         <div class="card" id="signals-list-card" style="display:none;">
