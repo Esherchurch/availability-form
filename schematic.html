@@ -182,6 +182,7 @@
         <h1>AV Infrastructure Mapper</h1>
         <p>EGBC Worship &amp; AV</p>
     </div>
+    <div style="margin-left:auto;"><span id="sync-status" style="font-size:0.68rem;color:rgba(255,255,255,0.8);font-family:'Nunito',sans-serif;font-weight:700;background:rgba(0,0,0,0.2);padding:4px 10px;border-radius:20px;">⏳ Connecting…</span></div>
 </div>
 
 <!-- TAB NAV -->
@@ -309,14 +310,64 @@
     </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script>
-// ── STORAGE ──
-function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) || def; } catch(e) { return def; } }
-function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
-let locations = load('av_locations', []);
-let signals   = load('av_signals', []);
-let hops      = load('av_hops', []);
+// ── FIREBASE ──
+const firebaseConfig = {
+  apiKey: "AIzaSyBRSbRPB3PsCFOSOKqEPl8pOEVg0ZfCHjM",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── IN-MEMORY STATE (kept in sync by listeners) ──
+let locations = [];
+let signals   = [];
+let hops      = [];
+let dbReady   = false;
+
+// ── REAL-TIME LISTENERS ──
+function initFirebase() {
+    // Show loading state
+    document.getElementById('sync-status').textContent = '⏳ Connecting…';
+
+    db.collection('av_schematic').doc('locations').onSnapshot(snap => {
+        locations = snap.exists ? (snap.data().list || []) : [];
+        renderRegistry();
+        renderHopDropdowns();
+        renderSignalsList();
+        if (document.getElementById('tab-paths').classList.contains('active')) renderReports();
+    });
+
+    db.collection('av_schematic').doc('signals').onSnapshot(snap => {
+        signals = snap.exists ? (snap.data().list || []) : [];
+        renderSignalsList();
+        if (document.getElementById('tab-paths').classList.contains('active')) renderReports();
+    });
+
+    db.collection('av_schematic').doc('hops').onSnapshot(snap => {
+        hops = snap.exists ? (snap.data().list || []) : [];
+        if (document.getElementById('tab-paths').classList.contains('active')) renderReports();
+    });
+
+    dbReady = true;
+    document.getElementById('sync-status').textContent = '🟢 Live';
+}
+
+// ── FIREBASE SAVE HELPERS ──
+function saveLocations() {
+    db.collection('av_schematic').doc('locations').set({ list: locations });
+}
+function saveSignals() {
+    db.collection('av_schematic').doc('signals').set({ list: signals });
+}
+function saveHops() {
+    db.collection('av_schematic').doc('hops').set({ list: hops });
+}
 
 // ── TABS ──
 function showTab(name) {
@@ -324,7 +375,6 @@ function showTab(name) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
     event.currentTarget.classList.add('active');
-    // Highlight settings icon when active
     const settingsBtn = document.getElementById('tab-btn-settings');
     if (settingsBtn) settingsBtn.style.opacity = name === 'settings' ? '1' : '0.3';
     if (name === 'signals') renderSignalsDeskOptions();
@@ -345,15 +395,25 @@ function registerLocation() {
     if (!n) return alert('Please enter a location name.');
     if (locations.includes(n)) return alert('That location already exists.');
     locations.push(n);
-    save('av_locations', locations);
+    saveLocations();
     document.getElementById('reg-name').value = '';
-    renderRegistry();
+    // renderRegistry() will be called by the listener
 }
+
 function renderRegistry() {
     const el = document.getElementById('registry-list');
-    el.innerHTML = locations.map(l => `<span class="chip">📍 ${l}</span>`).join('');
+    el.innerHTML = locations.map(l => `
+        <span class="chip" style="display:inline-flex;align-items:center;gap:5px;">
+            📍 ${l}
+            <span onclick="deleteLocation('${l.replace(/'/g,"\'")}')" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:0.8rem;" title="Delete">×</span>
+        </span>`).join('');
 }
-renderRegistry();
+
+function deleteLocation(name) {
+    if (!confirm('Remove "' + name + '"? This won't delete its hops.')) return;
+    locations = locations.filter(l => l !== name);
+    saveLocations();
+}
 
 function clearAllData() {
     const input = document.getElementById('reset-confirm-input');
@@ -364,11 +424,9 @@ function clearAllData() {
         return;
     }
     locations = []; signals = []; hops = [];
-    ['av_locations','av_signals','av_hops'].forEach(k => localStorage.removeItem(k));
+    saveLocations(); saveSignals(); saveHops();
     input.value = '';
     input.style.borderColor = '';
-    renderRegistry();
-    renderSignalsList();
     showTab_byName('setup');
     alert('All data cleared.');
 }
@@ -388,13 +446,15 @@ const DESK_OPTIONS = [
     { val: 'output-m4', label: 'Mix 4 (Mon)', type: 'out' }, { val: 'output-fx1', label: 'FX 1', type: 'out' },
     { val: 'output-fx2', label: 'FX 2', type: 'out' }
 ];
+
 function renderSignalsDeskOptions() {
-    const inEl = document.getElementById('opt-in');
+    const inEl  = document.getElementById('opt-in');
     const outEl = document.getElementById('opt-out');
-    inEl.innerHTML = DESK_OPTIONS.filter(o => o.type === 'in').map(o => `<option value="${o.val}">${o.label}</option>`).join('');
+    inEl.innerHTML  = DESK_OPTIONS.filter(o => o.type === 'in').map(o => `<option value="${o.val}">${o.label}</option>`).join('');
     outEl.innerHTML = DESK_OPTIONS.filter(o => o.type === 'out').map(o => `<option value="${o.val}">${o.label}</option>`).join('');
     renderSignalsList();
 }
+
 function saveSignal() {
     const label = document.getElementById('sig-label').value.trim();
     const desk  = document.getElementById('sig-desk').value;
@@ -402,10 +462,15 @@ function saveSignal() {
     const idx = signals.findIndex(s => s.label === label);
     if (idx > -1) signals[idx].desk = desk;
     else signals.push({ label, desk });
-    save('av_signals', signals);
+    saveSignals();
     document.getElementById('sig-label').value = '';
-    renderSignalsList();
 }
+
+function deleteSignal(label) {
+    signals = signals.filter(s => s.label !== label);
+    saveSignals();
+}
+
 function renderSignalsList() {
     const card = document.getElementById('signals-list-card');
     const el   = document.getElementById('signals-list');
@@ -415,7 +480,10 @@ function renderSignalsList() {
     el.innerHTML = signals.map(s => `
         <div class="signal-row">
             <span class="signal-name">🎤 ${s.label}</span>
-            ${s.desk ? `<span class="signal-desk">${deskLabel(s.desk) || s.desk}</span>` : '<span class="signal-unlinked">Not linked</span>'}
+            <div style="display:flex;align-items:center;gap:8px;">
+                ${s.desk ? `<span class="signal-desk">${deskLabel(s.desk) || s.desk}</span>` : '<span class="signal-unlinked">Not linked</span>'}
+                <span onclick="deleteSignal('${s.label.replace(/'/g,"\'")}')" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1rem;padding:0 4px;" title="Delete">×</span>
+            </div>
         </div>`).join('');
 }
 
@@ -423,11 +491,13 @@ function renderSignalsList() {
 function renderHopDropdowns() {
     ['hop-a-loc','hop-b-loc'].forEach(id => {
         const el = document.getElementById(id);
+        if (!el) return;
         const cur = el.value;
         el.innerHTML = '<option value="">-- Select Location --</option>' +
             locations.map(l => `<option value="${l}" ${l===cur?'selected':''}>${l}</option>`).join('');
     });
 }
+
 function saveHop() {
     const aLoc = document.getElementById('hop-a-loc').value;
     const aCh  = document.getElementById('hop-a-ch').value.trim();
@@ -436,11 +506,67 @@ function saveHop() {
     if (!aLoc || !bLoc) return alert('Please select both locations.');
     if (!aCh || !bCh)   return alert('Please enter both channel numbers.');
     if (aLoc === bLoc && aCh === bCh) return alert('A and B cannot be identical.');
-    hops.push({ aLoc, aCh, bLoc, bCh });
-    save('av_hops', hops);
+    hops.push({ aLoc, aCh, bLoc, bCh, id: Date.now().toString() });
+    saveHops();
     document.getElementById('hop-a-ch').value = '';
     document.getElementById('hop-b-ch').value = '';
-    alert(`Connection saved: ${aLoc} ch${aCh} → ${bLoc} ch${bCh}`);
+    // Brief confirmation in UI instead of alert
+    const btn = document.querySelector('#tab-hops .btn-secondary');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Saved!';
+    btn.style.background = 'var(--green)';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
+}
+
+function deleteHop(id) {
+    hops = hops.filter(h => h.id !== id);
+    saveHops();
+}
+
+function editHop(id) {
+    const h = hops.find(x => x.id === id);
+    if (!h) return;
+
+    const locOptions = locations.map(l =>
+        `<option value="${l}" ${l===h.aLoc?'selected':''}>${l}</option>`).join('');
+    const locOptionsB = locations.map(l =>
+        `<option value="${l}" ${l===h.bLoc?'selected':''}>${l}</option>`).join('');
+
+    const box = document.getElementById('hop-box-' + id);
+    box.innerHTML = `
+        <div class="path-box-body" style="flex-direction:column;gap:10px;">
+            <div style="font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.06em;">Edit Connection</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div style="flex:1;min-width:120px;">
+                    <div class="field-label" style="margin-bottom:4px;">From</div>
+                    <select id="edit-a-loc-${id}" style="margin-bottom:6px;">${locOptions}</select>
+                    <input type="number" id="edit-a-ch-${id}" value="${h.aCh}" placeholder="Ch" style="margin-bottom:0;">
+                </div>
+                <div style="color:var(--green);font-size:1.2rem;font-weight:bold;padding-top:16px;">→</div>
+                <div style="flex:1;min-width:120px;">
+                    <div class="field-label" style="margin-bottom:4px;">To</div>
+                    <select id="edit-b-loc-${id}" style="margin-bottom:6px;">${locOptionsB}</select>
+                    <input type="number" id="edit-b-ch-${id}" value="${h.bCh}" placeholder="Ch" style="margin-bottom:0;">
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-primary" style="padding:10px;" onclick="saveHopEdit('${id}')">✓ Save</button>
+                <button class="btn btn-danger" style="padding:10px;flex:0.5;" onclick="renderSchematic()">Cancel</button>
+            </div>
+        </div>`;
+}
+
+function saveHopEdit(id) {
+    const aLoc = document.getElementById('edit-a-loc-' + id).value;
+    const aCh  = document.getElementById('edit-a-ch-'  + id).value.trim();
+    const bLoc = document.getElementById('edit-b-loc-' + id).value;
+    const bCh  = document.getElementById('edit-b-ch-'  + id).value.trim();
+    if (!aLoc || !bLoc) return alert('Please select both locations.');
+    if (!aCh  || !bCh)  return alert('Please enter both channel numbers.');
+    if (aLoc === bLoc && aCh === bCh) return alert('A and B cannot be identical.');
+    const idx = hops.findIndex(h => h.id === id);
+    if (idx > -1) { hops[idx] = { aLoc, aCh, bLoc, bCh, id }; }
+    saveHops();
 }
 
 // ── REPORTS ──
@@ -448,7 +574,7 @@ function showReport(name, btn) {
     document.querySelectorAll('.rtab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('report-schematic').style.display = name === 'schematic' ? '' : 'none';
-    document.getElementById('report-perbox').style.display = name === 'perbox' ? '' : 'none';
+    document.getElementById('report-perbox').style.display    = name === 'perbox'    ? '' : 'none';
 }
 
 function renderReports() {
@@ -463,19 +589,8 @@ function renderSchematic() {
         return;
     }
     const deskLabel = v => { const o = DESK_OPTIONS.find(x => x.val === v); return o ? o.label : null; };
-
-    // Build adjacency for path tracing
-    const adj = {};
-    hops.forEach(h => {
-        const a = `${h.aLoc}:${h.aCh}`, b = `${h.bLoc}:${h.bCh}`;
-        if (!adj[a]) adj[a] = [];
-        if (!adj[b]) adj[b] = [];
-        adj[a].push(b); adj[b].push(a);
-    });
-
     let html = '';
 
-    // Desk block
     const deskSignals = signals.filter(s => s.desk);
     if (deskSignals.length) {
         html += `<div class="schematic-section">
@@ -486,7 +601,6 @@ function renderSchematic() {
         </div>`;
     }
 
-    // Signal flow rows
     if (signals.length) {
         html += `<div class="schematic-section"><div class="schematic-section-title">Signal Flows</div>`;
         signals.forEach(sig => {
@@ -495,22 +609,27 @@ function renderSchematic() {
                 <span class="flow-signal-name">🎤 ${sig.label}</span>
                 <div class="flow-path-hops">
                     ${dl ? `<span class="flow-hop-chip" style="background:var(--teal);color:white;">${dl}</span><span class="flow-arrow">⟷</span>` : ''}
-                    <span class="flow-hop-chip" style="color:var(--text-muted);font-style:italic;">trace via Hops tab</span>
+                    <span class="flow-hop-chip" style="color:var(--text-muted);font-style:italic;">trace via Hops</span>
                 </div>
             </div>`;
         });
         html += `</div>`;
     }
 
-    // All hops list
     if (hops.length) {
         html += `<div class="schematic-section"><div class="schematic-section-title">All Physical Connections (${hops.length})</div>`;
         hops.forEach(h => {
-            html += `<div class="path-box" style="margin-bottom:8px;">
-                <div class="path-box-body">
-                    <span class="hop-tag">📍 ${h.aLoc} <span style="color:var(--green);font-weight:800;">ch${h.aCh}</span></span>
-                    <span class="hop-arrow">→</span>
-                    <span class="hop-tag">📍 ${h.bLoc} <span style="color:var(--green);font-weight:800;">ch${h.bCh}</span></span>
+            html += `<div class="path-box" style="margin-bottom:8px;" id="hop-box-${h.id}">
+                <div class="path-box-body" style="justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span class="hop-tag">📍 ${h.aLoc} <span style="color:var(--green);font-weight:800;">ch${h.aCh}</span></span>
+                        <span class="hop-arrow">→</span>
+                        <span class="hop-tag">📍 ${h.bLoc} <span style="color:var(--green);font-weight:800;">ch${h.bCh}</span></span>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <span onclick="editHop('${h.id}')" style="cursor:pointer;color:var(--teal);font-size:0.85rem;padding:3px 8px;border:1px solid var(--teal);border-radius:6px;font-family:'Nunito',sans-serif;font-weight:700;" title="Edit hop">✏ Edit</span>
+                        <span onclick="deleteHop('${h.id}')" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1.1rem;padding:0 6px;" title="Delete hop">×</span>
+                    </div>
                 </div>
             </div>`;
         });
@@ -538,9 +657,9 @@ function renderPerBox() {
                 <thead><tr><th>Ch</th><th>Direction</th><th>Connected To</th><th>Remote Ch</th></tr></thead><tbody>`;
             locHops.forEach(h => {
                 const isA = h.aLoc === loc;
-                const localCh  = isA ? h.aCh : h.bCh;
+                const localCh   = isA ? h.aCh  : h.bCh;
                 const remoteLoc = isA ? h.bLoc : h.aLoc;
-                const remoteCh  = isA ? h.bCh : h.aCh;
+                const remoteCh  = isA ? h.bCh  : h.aCh;
                 const dir = isA
                     ? `<span class="dir-badge-out">OUT →</span>`
                     : `<span class="dir-badge-in">← IN</span>`;
@@ -558,8 +677,10 @@ function renderPerBox() {
     el.innerHTML = html;
 }
 
-// Init
+// ── BOOT ──
+initFirebase();
 renderSignalsDeskOptions();
+
 </script>
 </body>
 </html>
