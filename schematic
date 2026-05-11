@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AV Infrastructure Master Mapper</title>
+    <style>
+        :root { --blue: #004a99; --input-green: #d4edda; --output-orange: #fff3cd; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; }
+        .header { background: var(--blue); color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .workspace { display: grid; grid-template-columns: 380px 1fr; gap: 20px; flex-grow: 1; overflow: hidden; }
+        .entry-pane { background: white; padding: 20px; border-radius: 8px; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .card { border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 20px; background: #fff; }
+        h2 { font-size: 1rem; color: var(--blue); margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .view-pane { background: white; padding: 20px; border-radius: 8px; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        label { display: block; font-weight: bold; font-size: 0.75rem; margin-bottom: 4px; color: #555; }
+        select, input { width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { background: var(--blue); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-alt { background: #444; margin-top: 10px; }
+        .btn-danger { background: #dc3545; margin-top: 30px; font-size: 0.7rem; padding: 8px; }
+        .path-box { border-left: 5px solid var(--blue); background: #fdfdfd; padding: 15px; margin-bottom: 12px; border-radius: 4px; border: 1px solid #e2e8f0; border-left-width: 5px; }
+        .tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; margin: 2px; border: 1px solid rgba(0,0,0,0.1); }
+        .tag-desk { background: #333; color: white; font-weight: bold; }
+        .tag-loc { background: #eef4fb; color: var(--blue); border: 1px solid #ddecfa; }
+        .tag-label { background: var(--input-green); font-weight: bold; }
+        @media print { .no-print { display: none; } body { padding: 0; } .workspace { display: block; } .view-pane { box-shadow: none; } }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1 style="margin:0; font-size: 1.4rem;">Church AV: Infrastructure Master Mapper</h1>
+</div>
+
+<div class="workspace">
+    <div class="entry-pane no-print">
+        <div class="card">
+            <h2>1. Setup Hardware Registry</h2>
+            <label>NEW LOCATION NAME (e.g. Floor Box 1)</label>
+            <input type="text" id="reg-name" placeholder="Name of panel/box">
+            <button class="btn" onclick="registerLocation()">Add to Dropdowns</button>
+            <div id="registry-list" style="margin-top:10px; font-size:0.7rem; color:#666;"></div>
+        </div>
+
+        <div class="card">
+            <h2>2. Define Signal / Desk Link</h2>
+            <label>SIGNAL LABEL (e.g. Pastor Mic)</label>
+            <input type="text" id="sig-label" placeholder="Unique identifier">
+            <label>SOUND DESK ANCHOR</label>
+            <select id="sig-desk">
+                <option value="">-- Not Linked to Desk Yet --</option>
+                <optgroup label="Desk Inputs" id="opt-in"></optgroup>
+                <optgroup label="Desk Outputs" id="opt-out"></optgroup>
+            </select>
+            <button class="btn" onclick="saveSignal()">Save Signal Identity</button>
+        </div>
+
+        <div class="card">
+            <h2>3. Map Physical Hop</h2>
+            <label>POINT A (From)</label>
+            <select class="loc-dd" id="hop-a-loc"></select>
+            <input type="number" id="hop-a-ch" placeholder="Ch #">
+            <div style="text-align:center; font-weight:bold; color:var(--blue); margin: 5px 0;">&darr; WIRED TO &darr;</div>
+            <label>POINT B (To)</label>
+            <select class="loc-dd" id="hop-b-loc"></select>
+            <input type="number" id="hop-b-ch" placeholder="Ch #">
+            <button class="btn btn-alt" onclick="saveHop()">Create Connection</button>
+        </div>
+
+        <button class="btn btn-danger no-print" onclick="clearAllData()">RESET ALL DATA</button>
+    </div>
+
+    <div class="view-pane">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0;">System Signal Paths</h2>
+            <button class="no-print" onclick="window.print()">Print Schematic</button>
+        </div>
+        <div id="output"></div>
+    </div>
+</div>
+
+<script>
+    // State initialization from LocalStorage or Defaults
+    let registry = JSON.parse(localStorage.getItem('av_registry')) || ["Sound Desk", "Under-Desk Patch", "Stage Left Box", "Stage Right Box"];
+    let signals = JSON.parse(localStorage.getItem('av_signals')) || {}; 
+    let hops = JSON.parse(localStorage.getItem('av_hops')) || [];
+
+    function persist() {
+        localStorage.setItem('av_registry', JSON.stringify(registry));
+        localStorage.setItem('av_signals', JSON.stringify(signals));
+        localStorage.setItem('av_hops', JSON.stringify(hops));
+        render();
+    }
+
+    function init() {
+        const inp = document.getElementById('opt-in');
+        const out = document.getElementById('opt-out');
+        inp.innerHTML = ""; out.innerHTML = "";
+        for(let i=1; i<=48; i++) inp.innerHTML += `<option value="IN-${i}">Input Channel ${i}</option>`;
+        for(let i=1; i<=12; i++) out.innerHTML += `<option value="OUT-${i}">Output Channel ${i}</option>`;
+        updateDropdowns();
+        render();
+    }
+
+    function registerLocation() {
+        const name = document.getElementById('reg-name').value.trim();
+        if(name && !registry.includes(name)) {
+            registry.push(name);
+            updateDropdowns();
+            document.getElementById('reg-name').value = "";
+            persist();
+        }
+    }
+
+    function updateDropdowns() {
+        const dds = document.querySelectorAll('.loc-dd');
+        dds.forEach(d => {
+            const current = d.value;
+            d.innerHTML = registry.map(loc => `<option value="${loc}" ${loc===current?'selected':''}>${loc}</option>`).join('');
+        });
+        document.getElementById('registry-list').innerHTML = "Registered: " + registry.join(', ');
+    }
+
+    function saveSignal() {
+        const label = document.getElementById('sig-label').value.trim();
+        const desk = document.getElementById('sig-desk').value;
+        if(!label) return alert("Label required");
+        signals[label] = desk;
+        persist();
+    }
+
+    function saveHop() {
+        const hop = {
+            al: document.getElementById('hop-a-loc').value,
+            ac: document.getElementById('hop-a-ch').value,
+            bl: document.getElementById('hop-b-loc').value,
+            bc: document.getElementById('hop-b-ch').value
+        };
+        if(!hop.ac || !hop.bc) return alert("Channel numbers required");
+        hops.push(hop);
+        persist();
+        document.getElementById('hop-a-ch').value = "";
+        document.getElementById('hop-b-ch').value = "";
+    }
+
+    function clearAllData() {
+        if(confirm("Are you sure? This will delete all saved hardware, signals, and hops.")){
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    function render() {
+        const out = document.getElementById('output');
+        out.innerHTML = "";
+        let chains = [];
+        let visited = new Set();
+
+        hops.forEach((h, i) => {
+            if(visited.has(i)) return;
+            let chain = [{l: h.al, c: h.ac}, {l: h.bl, c: h.bc}];
+            visited.add(i);
+            let growing = true;
+            while(growing) {
+                growing = false;
+                hops.forEach((other, j) => {
+                    if(visited.has(j)) return;
+                    const head = chain[0];
+                    const tail = chain[chain.length-1];
+                    if(other.al === tail.l && other.ac === tail.c) {
+                        chain.push({l: other.bl, c: other.bc});
+                        visited.add(j); growing = true;
+                    } else if(other.bl === head.l && other.bc === head.c) {
+                        chain.unshift({l: other.al, c: other.ac});
+                        visited.add(j); growing = true;
+                    }
+                });
+            }
+            chains.push(chain);
+        });
+
+        if(chains.length === 0 && Object.keys(signals).length === 0) {
+            out.innerHTML = "<p style='color:#999;'>Ready for data...</p>"; return;
+        }
+
+        chains.forEach(chain => {
+            const div = document.createElement('div');
+            div.className = 'path-box';
+            let foundLabel = ""; let foundDesk = "";
+            chain.forEach(node => {
+                for(let [lbl, dsk] of Object.entries(signals)) {
+                    if(node.l === "Sound Desk" && node.c === dsk.split('-')[1]) {
+                        foundLabel = lbl; foundDesk = dsk;
+                    }
+                }
+            });
+            let html = `<div>`;
+            if(foundLabel) html += `<span class="tag tag-label">${foundLabel}</span>`;
+            if(foundDesk) html += `<span class="tag tag-desk">${foundDesk}</span>`;
+            html += `</div><div style="margin-top:10px;">`;
+            html += chain.map(n => `<span class="tag tag-loc"><strong>${n.l}</strong>: ${n.c}</span>`).join(' &rarr; ');
+            html += `</div>`;
+            div.innerHTML = html;
+            out.appendChild(div);
+        });
+    }
+
+    init();
+</script>
+</body>
+</html>
