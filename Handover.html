@@ -1140,7 +1140,7 @@ function buildReport(projects, boardMap) {
 
     const index = window._projectIndex || [];
     if (index.length === 0) {
-      showPanel(query, '<p>Report not yet generated. Please generate the report first.</p>', null);
+      showPanel(query, `<p>Report not yet generated. Please generate the report first.</p>`, null);
       return;
     }
 
@@ -1161,7 +1161,7 @@ function buildReport(projects, boardMap) {
       .slice(0, 3);
 
     if (scored.length === 0) {
-      showPanel(query, '<p>No projects matched that query. Try different keywords — e.g. a street name, person's name, or project topic.</p>', null);
+      showPanel(query, `<p>No projects matched that query. Try different keywords — e.g. a street name, a person name, or project topic.</p>`, null);
       return;
     }
 
@@ -1172,7 +1172,7 @@ function buildReport(projects, boardMap) {
     // Send to Claude for a direct, specific answer
     const systemPrompt = `You are an assistant helping someone navigate a workplace property handover document for Save the Children.
 You will be given the full text of one or more projects from the database, including task notes, update logs, leads, and contacts.
-Answer the user's question directly and specifically — if they ask who someone is, give the name. If they ask what is happening, summarise the current situation concisely.
+Answer the user question directly and specifically — if they ask who someone is, give the name. If they ask what is happening, summarise the current situation concisely.
 Be brief (2-4 sentences max). Use the exact names, statuses and details from the data.
 If the answer isn't in the data, say so clearly.
 End your response with exactly one line in this format (no other JSON anywhere): {"jumpTo":"PROJECT_ID"}
