@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STC Handover Report Generator</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Source+Sans+3:wght@300;400;600;700&display=swap');
+
+  :root {
+    --stc-red: #E52B20;
+    --stc-dark: #1a1a1a;
+    --stc-mid: #4a4a4a;
+    --stc-light: #f7f4f0;
+    --stc-rule: #e0d8d0;
+    --status-done: #1e7e34;
+    --status-progress: #d4860a;
+    --status-not: #888;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── LAUNCHER SCREEN ── */
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    background: var(--stc-light);
+    color: var(--stc-dark);
+  }
+
+  #launcher {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 40px 20px;
+  }
+
+  .launch-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--stc-red);
+  }
+
+  .launch-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 900;
+    text-align: center;
+    line-height: 1.15;
+    color: var(--stc-dark);
+  }
+
+  .launch-title span {
+    color: var(--stc-red);
+  }
+
+  .launch-desc {
+    font-size: 15px;
+    color: var(--stc-mid);
+    text-align: center;
+    max-width: 420px;
+    line-height: 1.6;
+  }
+
+  .launch-btn {
+    background: var(--stc-red);
+    color: white;
+    border: none;
+    padding: 16px 48px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .launch-btn:hover { background: #c0241a; transform: translateY(-1px); }
+  .launch-btn:active { transform: translateY(0); }
+
+  .launch-note {
+    font-size: 12px;
+    color: #aaa;
+    text-align: center;
+  }
+
+  /* ── LOADING STATE ── */
+  #loading {
+    display: none;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--stc-rule);
+    border-top-color: var(--stc-red);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── REPORT ── */
+  #report {
+    display: none;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 60px 60px 100px;
+  }
+
+  /* Toolbar (visible on screen, hidden on print) */
+  .report-toolbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: var(--stc-dark);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+    z-index: 1000;
+    font-size: 13px;
+  }
+
+  .toolbar-title { font-weight: 600; letter-spacing: 0.05em; }
+
+  .toolbar-actions { display: flex; gap: 10px; }
+
+  .tbtn {
+    background: var(--stc-red);
+    color: white;
+    border: none;
+    padding: 7px 18px;
+    border-radius: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+  }
+  .tbtn.secondary { background: #444; }
+  .tbtn:hover { filter: brightness(1.15); }
+
+  /* Push report content below fixed toolbar */
+  .report-body { margin-top: 0; }
+  #report { margin-top: 0; }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    padding: 80px 0 60px;
+    border-bottom: 3px solid var(--stc-dark);
+    margin-bottom: 60px;
+  }
+
+  .cover-org {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--stc-red);
+    margin-bottom: 24px;
+  }
+
+  .cover-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(32px, 5vw, 54px);
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--stc-dark);
+    margin-bottom: 20px;
+  }
+
+  .cover-rule {
+    width: 80px; height: 4px;
+    background: var(--stc-red);
+    margin: 24px 0;
+  }
+
+  .cover-meta {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+
+  .cover-meta-item label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stc-mid);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .cover-meta-item span {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--stc-dark);
+  }
+
+  /* ── SUMMARY STATS ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--stc-dark);
+    border: 1px solid var(--stc-dark);
+    margin-bottom: 60px;
+  }
+
+  .stat-box {
+    background: var(--stc-light);
+    padding: 24px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    font-weight: 900;
+    color: var(--stc-red);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stc-mid);
+    margin-top: 8px;
+  }
+
+  /* ── INDEX ── */
+  .section-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--stc-red);
+    margin-bottom: 20px;
+  }
+
+  .index-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 60px;
+  }
+
+  .index-table th {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stc-mid);
+    border-bottom: 2px solid var(--stc-dark);
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .index-table td {
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--stc-rule);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+
+  .index-table tr:hover td { background: #f0ebe4; }
+
+  .index-link {
+    color: var(--stc-dark);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .index-link:hover { color: var(--stc-red); text-decoration: underline; }
+
+  .status-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .pill-done { background: #d4edda; color: var(--status-done); }
+  .pill-progress { background: #fff3cd; color: var(--status-progress); }
+  .pill-not { background: #eee; color: var(--status-not); }
+
+  /* ── PROJECT SECTIONS ── */
+  .project-section {
+    margin-bottom: 60px;
+    page-break-inside: avoid;
+  }
+
+  .project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-top: 3px solid var(--stc-dark);
+    border-bottom: 1px solid var(--stc-rule);
+    padding: 20px 0 16px;
+    margin-bottom: 20px;
+    gap: 20px;
+  }
+
+  .project-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--stc-dark);
+    line-height: 1.2;
+  }
+
+  .project-meta-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .meta-item {
+    font-size: 12px;
+    color: var(--stc-mid);
+  }
+  .meta-item strong {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--stc-dark);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .project-notes {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--stc-mid);
+    background: white;
+    border-left: 3px solid var(--stc-red);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .project-notes p { margin-bottom: 8px; }
+  .project-notes p:last-child { margin-bottom: 0; }
+  .project-notes ul, .project-notes ol { padding-left: 20px; }
+  .project-notes li { margin-bottom: 4px; }
+  .project-notes a { color: var(--stc-red); }
+
+  /* Auto-linkified bare URLs */
+  a.auto-link {
+    color: var(--stc-red) !important;
+    text-decoration: underline;
+    word-break: break-all;
+    font-size: 13px !important;
+  }
+  a.auto-link:hover { opacity: 0.75; }
+
+  /* ── FORCE CONSISTENT TYPOGRAPHY IN ALL INJECTED HTML ── */
+  /* These override any inline font/size styles saved by the rich text editor */
+  .project-notes *, .subtask-notes *, .note-log-text * {
+    font-family: 'Source Sans 3', sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.7 !important;
+    color: var(--stc-mid) !important;
+  }
+  .project-notes strong, .project-notes b,
+  .subtask-notes strong, .subtask-notes b,
+  .note-log-text strong, .note-log-text b {
+    font-weight: 700 !important;
+    color: var(--stc-dark) !important;
+  }
+  .project-notes a, .subtask-notes a, .note-log-text a {
+    color: var(--stc-red) !important;
+  }
+  /* Headings inside notes: treat as bold body text, not browser h1/h2 sizing */
+  .project-notes h1, .project-notes h2, .project-notes h3,
+  .project-notes h4, .project-notes h5, .project-notes h6,
+  .subtask-notes h1, .subtask-notes h2, .subtask-notes h3,
+  .subtask-notes h4, .subtask-notes h5, .subtask-notes h6,
+  .note-log-text h1, .note-log-text h2, .note-log-text h3 {
+    font-family: 'Source Sans 3', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--stc-dark) !important;
+    margin-bottom: 6px;
+  }
+  /* Span/div wrappers added by contenteditable */
+  .project-notes span, .subtask-notes span, .note-log-text span {
+    font-family: 'Source Sans 3', sans-serif !important;
+    font-size: 14px !important;
+  }
+
+  /* ── FORCE CONSISTENT TYPOGRAPHY IN ALL INJECTED HTML ── */
+  /* Overrides any inline font-family, font-size, color set by the rich text editor */
+  .project-notes *,
+  .subtask-notes *,
+  .note-log-text * {
+    font-family: 'Source Sans 3', sans-serif !important;
+    font-size: inherit !important;
+  }
+  /* Strip inline style attributes that set fonts/sizes via JS after render */
+  .project-notes [style],
+  .subtask-notes [style],
+  .note-log-text [style] {
+    font-family: 'Source Sans 3', sans-serif !important;
+    font-size: inherit !important;
+  }
+  /* Headings inside notes should still look like body text, not browser h1/h2 */
+  .project-notes h1, .project-notes h2, .project-notes h3,
+  .project-notes h4, .project-notes h5, .project-notes h6,
+  .subtask-notes h1, .subtask-notes h2, .subtask-notes h3,
+  .subtask-notes h4, .subtask-notes h5, .subtask-notes h6,
+  .note-log-text h1, .note-log-text h2, .note-log-text h3,
+  .note-log-text h4, .note-log-text h5, .note-log-text h6 {
+    font-family: 'Source Sans 3', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 700;
+    color: var(--stc-dark);
+    margin-bottom: 6px;
+  }
+
+  /* Attachments */
+  .attachments-section { margin-bottom: 16px; }
+  .attach-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stc-mid);
+    margin-bottom: 8px;
+  }
+  .attach-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .attach-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: white;
+    border: 1px solid var(--stc-rule);
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--stc-dark);
+    text-decoration: none;
+    font-weight: 600;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .attach-link:hover { border-color: var(--stc-red); color: var(--stc-red); }
+
+  /* Subtasks */
+  .subtasks-heading {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stc-dark);
+    margin: 24px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--stc-rule);
+  }
+
+  .subtask-card {
+    background: white;
+    border: 1px solid var(--stc-rule);
+    border-left: 4px solid #ccc;
+    border-radius: 0 4px 4px 0;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .subtask-card.done { border-left-color: var(--status-done); }
+  .subtask-card.progress { border-left-color: var(--status-progress); }
+
+  .subtask-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 12px;
+  }
+
+  .subtask-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--stc-dark);
+  }
+
+  .subtask-dates {
+    font-size: 11px;
+    color: var(--stc-mid);
+    white-space: nowrap;
+  }
+
+  .subtask-meta {
+    font-size: 12px;
+    color: var(--stc-mid);
+    margin-bottom: 10px;
+  }
+
+  .subtask-notes {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--stc-mid);
+    margin-bottom: 10px;
+  }
+  .subtask-notes ul, .subtask-notes ol { padding-left: 18px; }
+
+  /* Note log */
+  .note-log-entry {
+    border-top: 1px solid var(--stc-rule);
+    padding: 8px 0 4px;
+    font-size: 12px;
+  }
+  .note-log-ts {
+    font-weight: 700;
+    color: var(--stc-mid);
+    font-size: 11px;
+    margin-bottom: 3px;
+  }
+  .note-log-text { color: var(--stc-dark); line-height: 1.5; }
+
+  /* Back to top link */
+  .back-to-top {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--stc-mid);
+    text-decoration: none;
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+  }
+  .back-to-top:hover { color: var(--stc-red); }
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    .report-toolbar { display: none !important; }
+    .report-body { margin-top: 0 !important; }
+    #launcher, #loading { display: none !important; }
+    #report { display: block !important; padding: 20px 30px; }
+    .back-to-top { display: none; }
+    .project-section { page-break-inside: avoid; }
+    .subtask-card { page-break-inside: avoid; }
+    a { color: inherit; }
+    .index-link { color: var(--stc-dark) !important; }
+  }
+
+  /* ── SMART SEARCH ── */
+  .search-wrap {
+    flex: 1;
+    max-width: 420px;
+    margin: 0 20px;
+    position: relative;
+  }
+  .smart-search-input {
+    width: 100%;
+    padding: 8px 40px 8px 14px;
+    border-radius: 20px;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: background 0.2s;
+  }
+  .smart-search-input::placeholder { color: rgba(255,255,255,0.45); }
+  .smart-search-input:focus { background: rgba(255,255,255,0.22); }
+  .search-send-btn {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer; font-size: 15px;
+    padding: 2px 4px;
+    transition: color 0.15s;
+  }
+  .search-send-btn:hover { color: white; }
+
+  /* AI answer panel */
+  #aiAnswerPanel {
+    display: none;
+    position: fixed;
+    top: 48px; left: 50%;
+    transform: translateX(-50%);
+    width: min(600px, 92vw);
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    z-index: 2000;
+    overflow: hidden;
+  }
+  .aap-header {
+    background: var(--stc-dark);
+    color: white;
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .aap-close {
+    background: none; border: none;
+    color: rgba(255,255,255,0.7);
+    font-size: 18px; cursor: pointer;
+    line-height: 1;
+  }
+  .aap-close:hover { color: white; }
+  .aap-query {
+    padding: 12px 16px 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--stc-dark);
+    border-bottom: 1px solid var(--stc-rule);
+  }
+  .aap-body {
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--stc-mid);
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+  .aap-body p { margin-bottom: 8px; }
+  .aap-body p:last-child { margin-bottom: 0; }
+  .aap-thinking {
+    display: flex; align-items: center; gap: 10px;
+    color: #aaa; font-size: 13px; font-style: italic;
+  }
+  .aap-thinking .dot-pulse {
+    display: flex; gap: 4px;
+  }
+  .aap-thinking .dot-pulse span {
+    width: 6px; height: 6px;
+    background: var(--stc-red);
+    border-radius: 50%;
+    animation: dotpulse 1.2s infinite;
+  }
+  .aap-thinking .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .aap-thinking .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotpulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+  .aap-jump-btn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 7px 18px;
+    background: var(--stc-red);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+    text-decoration: none;
+  }
+  .aap-jump-btn:hover { background: #c0241a; }
+  #aiPanelOverlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 1999;
+  }
+
+  /* ── ERROR STATE ── */
+  .error-box {
+    background: #fff0f0;
+    border: 1px solid #ffcccc;
+    border-radius: 6px;
+    padding: 20px;
+    color: #c0392b;
+    font-size: 14px;
+    text-align: center;
+    max-width: 500px;
+    margin: 40px auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- LAUNCHER -->
+<!-- AI answer overlay -->
+<div id="aiPanelOverlay" onclick="closeAiPanel()"></div>
+<div id="aiAnswerPanel">
+  <div class="aap-header">
+    <span>Smart Search</span>
+    <button class="aap-close" onclick="closeAiPanel()">✕</button>
+  </div>
+  <div class="aap-query" id="aapQuery"></div>
+  <div class="aap-body" id="aapBody"></div>
+</div>
+
+<!-- Static toolbar - shown after report generates -->
+<div id="reportToolbar" class="report-toolbar" style="display:none;">
+  <span class="toolbar-title">STC Handover</span>
+  <div class="search-wrap">
+    <input
+      class="smart-search-input"
+      id="smartSearchInput"
+      type="text"
+      placeholder="Generating report…"
+      disabled
+    />
+    <button class="search-send-btn" id="searchSendBtn" title="Search">⏎</button>
+  </div>
+  <div class="toolbar-actions">
+    <button class="tbtn secondary" onclick="window.print()">🖨 Print / Save PDF</button>
+  </div>
+</div>
+
+<div id="launcher">
+  <div class="launch-logo">Save the Children</div>
+  <h1 class="launch-title">Workplace<br><span>Handover Report</span></h1>
+  <p class="launch-desc">Generate a fully self-contained handover document with working index links and all project details — no database connection required after generation.</p>
+  <button class="launch-btn" onclick="generateReport()">Generate Report</button>
+  <p class="launch-note">Fetches live data from the project database. Report is then standalone.</p>
+</div>
+
+<!-- LOADING -->
+<div id="loading" style="display:none; min-height:100vh; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+  <div class="spinner"></div>
+  <p id="loadingMsg" style="font-size:14px; color:#888;">Connecting to database…</p>
+</div>
+
+<!-- REPORT (generated dynamically) -->
+<div id="report"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyB_iCMQyeqH07YXGQm53ghUq65EDQ001TY",
+  authDomain: "save-the-children-handover.firebaseapp.com",
+  projectId: "save-the-children-handover",
+  storageBucket: "save-the-children-handover.firebasestorage.app",
+  messagingSenderId: "15544019254",
+  appId: "1:15544019254:web:2b8e25b506da4ce90a47cf"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+function setLoading(msg) {
+  document.getElementById('launcher').style.display = 'none';
+  const ld = document.getElementById('loading');
+  ld.style.display = 'flex';
+  document.getElementById('loadingMsg').textContent = msg;
+}
+
+function statusClass(s) {
+  if (!s) return 'not';
+  if (s === 'Completed') return 'done';
+  if (s === 'In Progress') return 'progress';
+  return 'not';
+}
+
+function statusPill(s) {
+  const cls = statusClass(s);
+  const label = s || 'Not started';
+  return `<span class="status-pill pill-${cls}">${label}</span>`;
+}
+
+function fmt(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  } catch(e) { return dateStr; }
+}
+
+function safeHtml(str) {
+  if (!str) return '';
+  if (/<[a-z][\s\S]*>/i.test(str)) return str;
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Strips font-family, font-size, color and <font> tags from rich-text HTML
+// so stored editor content cannot override the report's consistent typography.
+function normaliseHtml(html) {
+  if (!html) return '';
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.querySelectorAll('[style]').forEach(el => {
+    el.style.removeProperty('font-family');
+    el.style.removeProperty('font-size');
+    el.style.removeProperty('font');
+    el.style.removeProperty('color');
+    if (!el.getAttribute('style') || !el.getAttribute('style').trim()) el.removeAttribute('style');
+  });
+  // Unwrap legacy <font> tags produced by some rich text editors
+  div.querySelectorAll('font').forEach(font => {
+    const span = document.createElement('span');
+    span.innerHTML = font.innerHTML;
+    font.parentNode.replaceChild(span, font);
+  });
+  // Auto-linkify bare URLs in the cleaned HTML
+  return linkifyUrls(div.innerHTML);
+}
+
+// Finds bare URLs in text nodes and wraps them in <a> tags.
+// Shortens display text to the hostname + a truncated path for readability.
+function linkifyUrls(html) {
+  if (!html) return '';
+  const div = document.createElement('div');
+  div.innerHTML = html;
+
+  const URL_RE = /https?:\/\/[^\s<>"'\)\]]+/g;
+
+  function shortLabel(url) {
+    try {
+      const u = new URL(url);
+      // Keep hostname, trim path to max 40 chars
+      let path = decodeURIComponent(u.pathname);
+      // Extract just the filename from the path if it's long
+      const parts = path.split('/').filter(Boolean);
+      const filename = parts[parts.length - 1] || '';
+      const label = filename.length > 0 && filename.length < 50
+        ? filename
+        : (path.length > 40 ? '…' + path.slice(-38) : path);
+      return u.hostname + (label ? ' / ' + label : '');
+    } catch(e) {
+      return url.length > 60 ? url.slice(0, 57) + '…' : url;
+    }
+  }
+
+  // Walk text nodes and replace bare URLs
+  function walkTextNodes(node) {
+    if (node.nodeType === 3) { // TEXT_NODE
+      const text = node.textContent;
+      if (!URL_RE.test(text)) return;
+      URL_RE.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let last = 0, match;
+      URL_RE.lastIndex = 0;
+      while ((match = URL_RE.exec(text)) !== null) {
+        if (match.index > last) {
+          frag.appendChild(document.createTextNode(text.slice(last, match.index)));
+        }
+        const a = document.createElement('a');
+        a.href = match[0];
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = shortLabel(match[0]);
+        a.className = 'auto-link';
+        frag.appendChild(a);
+        last = match.index + match[0].length;
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+      return;
+    }
+    if (node.nodeName === 'A') return; // don't process inside existing links
+    Array.from(node.childNodes).forEach(walkTextNodes);
+  }
+
+  walkTextNodes(div);
+  return div.innerHTML;
+}
+
+async function generateReport() {
+  setLoading('Connecting to database…');
+  try {
+    setLoading('Fetching projects…');
+    const snap = await db.collection("vox_projects").where("archived", "==", false).get();
+
+    setLoading('Fetching boards…');
+    const boardSnap = await db.collection("boards").where("archived", "==", false).get();
+    const boardMap = {};
+    boardSnap.forEach(d => { boardMap[d.id] = d.data().name; });
+
+    const projects = [];
+    snap.forEach(doc => projects.push({ id: doc.id, ...doc.data() }));
+
+    // Sort: Completed last, then alphabetical
+    projects.sort((a, b) => {
+      if (a.status === 'Completed' && b.status !== 'Completed') return 1;
+      if (b.status === 'Completed' && a.status !== 'Completed') return -1;
+      return (a.title || '').localeCompare(b.title || '');
+    });
+
+    setLoading('Rendering report…');
+    buildReport(projects, boardMap);
+  } catch(err) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('report').style.display = 'block';
+    document.getElementById('report').innerHTML = `<div class="error-box"><strong>Error fetching data</strong><br>${err.message}<br><br><button onclick="location.reload()" style="margin-top:10px; padding:8px 20px; cursor:pointer;">Try Again</button></div>`;
+  }
+}
+
+function buildReport(projects, boardMap) {
+  const total = projects.length;
+  const done = projects.filter(p => p.status === 'Completed').length;
+  const inProg = projects.filter(p => p.status === 'In Progress').length;
+  const today = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  // ── TOOLBAR ──
+  let html = `<div class="report-body">`;
+
+  // ── COVER ──
+  html += `
+  <div class="cover" id="top">
+    <div class="cover-org">Save the Children</div>
+    <h1 class="cover-title">Workplace<br>Handover Report</h1>
+    <div class="cover-rule"></div>
+    <div class="cover-meta">
+      <div class="cover-meta-item"><label>Generated</label><span>${today}</span></div>
+      <div class="cover-meta-item"><label>Total Projects</label><span>${total}</span></div>
+    </div>
+  </div>`;
+
+  // ── STATS ──
+  html += `
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">Total Projects</div></div>
+    <div class="stat-box"><div class="stat-num">${inProg}</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-box"><div class="stat-num">${done}</div><div class="stat-label">Completed</div></div>
+  </div>`;
+
+  // ── INDEX ──
+  html += `<p class="section-heading">Project Index</p>`;
+  html += `<table class="index-table">
+    <thead><tr>
+      <th>#</th>
+      <th>Project Title</th>
+      <th>Lead</th>
+      <th>Board</th>
+      <th>Due</th>
+      <th>Status</th>
+    </tr></thead>
+    <tbody>`;
+
+  projects.forEach((p, i) => {
+    const board = boardMap[p.boardId] || '—';
+    html += `<tr>
+      <td style="color:#aaa; font-size:12px;">${String(i+1).padStart(2,'0')}</td>
+      <td><a class="index-link" href="#proj-${p.id}">${safeHtml(p.title) || 'Untitled'}</a></td>
+      <td style="font-size:13px; color:var(--stc-mid);">${safeHtml(p.owner) || '—'}</td>
+      <td style="font-size:12px; color:var(--stc-mid);">${safeHtml(board)}</td>
+      <td style="font-size:12px; color:var(--stc-mid); white-space:nowrap;">${fmt(p.endDate)}</td>
+      <td>${statusPill(p.status)}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // ── PROJECT SECTIONS ──
+  html += `<p class="section-heading" style="margin-top:20px;">Project Details</p>`;
+
+  projects.forEach((p, i) => {
+    const board = boardMap[p.boardId] || '—';
+    const subs = p.subProjects || [];
+    const files = p.files || [];
+
+    html += `<div class="project-section" id="proj-${p.id}">
+      <div class="project-header">
+        <div>
+          <div style="font-size:10px; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--stc-mid); margin-bottom:6px;">${String(i+1).padStart(2,'0')} / ${safeHtml(board)}</div>
+          <div class="project-title">${safeHtml(p.title) || 'Untitled Project'}</div>
+        </div>
+        <div>${statusPill(p.status)}</div>
+      </div>
+
+      <div class="project-meta-row">
+        <div class="meta-item"><strong>Lead</strong>${safeHtml(p.owner) || '—'}</div>
+        <div class="meta-item"><strong>Start</strong>${fmt(p.startDate)}</div>
+        <div class="meta-item"><strong>End</strong>${fmt(p.endDate)}</div>
+        ${p.contact ? `<div class="meta-item"><strong>Contact</strong>${safeHtml(p.contact)}</div>` : ''}
+      </div>`;
+
+    if (p.notes) {
+      html += `<div class="project-notes">${normaliseHtml(p.notes)}</div>`;
+    }
+
+    if (files.length > 0) {
+      html += `<div class="attachments-section">
+        <div class="attach-label">Attachments</div>
+        <div class="attach-list">`;
+      files.forEach(f => {
+        html += `<a class="attach-link" href="${f.url}" target="_blank">📄 ${safeHtml(f.name)}</a>`;
+      });
+      html += `</div></div>`;
+    }
+
+    if (subs.length > 0) {
+      html += `<div class="subtasks-heading">Sub-Project Tasks (${subs.length})</div>`;
+      subs.forEach(sub => {
+        const sc = statusClass(sub.status);
+        const subFiles = sub.files || [];
+        const notes = sub.notes || '';
+        const noteLog = sub.noteLog || [];
+
+        html += `<div class="subtask-card ${sc}">
+          <div class="subtask-title-row">
+            <div class="subtask-title">${safeHtml(sub.title) || 'Untitled Task'}</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              ${sub.startDate || sub.endDate ? `<span class="subtask-dates">${fmt(sub.startDate)} → ${fmt(sub.endDate)}</span>` : ''}
+              ${statusPill(sub.status)}
+            </div>
+          </div>`;
+
+        if (sub.owner || sub.lead) {
+          html += `<div class="subtask-meta">Lead: <strong>${safeHtml(sub.owner || sub.lead)}</strong></div>`;
+        }
+
+        if (notes) {
+          html += `<div class="subtask-notes">${normaliseHtml(notes)}</div>`;
+        }
+
+        if (subFiles.length > 0) {
+          html += `<div class="attach-list" style="margin-bottom:10px;">`;
+          subFiles.forEach(f => {
+            html += `<a class="attach-link" href="${f.url}" target="_blank">📄 ${safeHtml(f.name)}</a>`;
+          });
+          html += `</div>`;
+        }
+
+        if (noteLog.length > 0) {
+          const sorted = [...noteLog].reverse();
+          html += `<div style="margin-top:8px;">`;
+          sorted.forEach(n => {
+            html += `<div class="note-log-entry">
+              <div class="note-log-ts">${safeHtml(n.ts)}</div>
+              <div class="note-log-text">${normaliseHtml(n.text) || ''}</div>
+            </div>`;
+          });
+          html += `</div>`;
+        }
+
+        html += `</div>`;
+      });
+    }
+
+    html += `<a class="back-to-top" href="#top">↑ Back to index</a>
+    </div>`;
+  });
+
+  // Footer
+  html += `
+  <div style="border-top:1px solid var(--stc-rule); padding-top:24px; margin-top:40px; font-size:11px; color:#bbb; display:flex; justify-content:space-between;">
+    <span>Save the Children — Workplace Handover Report</span>
+    <span>Generated ${today}</span>
+  </div>
+  </div>`; // end report-body
+
+  document.getElementById('loading').style.display = 'none';
+  const reportEl = document.getElementById('report');
+  reportEl.style.display = 'block';
+  reportEl.innerHTML = html;
+
+  // ── SMART SEARCH ──
+  window._projectIndex = [];
+
+  function stripHtml(html) {
+    if (!html) return '';
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    return (d.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function buildSearchIndex(projects, boardMap) {
+    window._projectIndex = projects.map(p => {
+      const subs = (p.subProjects || []).map(s => {
+        const logs = (s.noteLog || []).map(n => (n.text || '') + ' ' + (n.ts || '')).join(' ');
+        return {
+          title: s.title || '',
+          status: s.status || '',
+          owner: s.owner || s.lead || '',
+          notes: stripHtml(s.notes),
+          logs: stripHtml(logs)
+        };
+      });
+      // Full plain-text blob for scoring
+      const blob = [
+        p.title, p.owner, p.status, p.contact,
+        boardMap[p.boardId],
+        stripHtml(p.notes),
+        ...subs.map(s => [s.title, s.owner, s.status, s.notes, s.logs].join(' '))
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      // Rich text for sending to AI — preserves all detail
+      const richText = [
+        `PROJECT: ${p.title}`,
+        `Board: ${boardMap[p.boardId] || 'N/A'} | Lead: ${p.owner || 'N/A'} | Status: ${p.status || 'N/A'} | Start: ${p.startDate || 'N/A'} | End: ${p.endDate || 'N/A'} | Contact: ${p.contact || 'N/A'}`,
+        `Notes: ${stripHtml(p.notes)}`,
+        subs.length > 0 ? 'TASKS:\n' + subs.map(s =>
+          `  - ${s.title} | Status: ${s.status} | Lead: ${s.owner}\n    Notes: ${s.notes}\n    Updates: ${s.logs}`
+        ).join('\n') : ''
+      ].filter(Boolean).join('\n');
+
+      return { id: p.id, title: p.title || '', blob, richText };
+    });
+  }
+
+  // Stop-words stripped before keyword scoring
+  const STOP = new Set(['what','is','the','a','an','are','was','were','be','been','has','have',
+    'had','with','for','in','on','at','to','of','and','or','who','how','when','where','which',
+    'do','does','did','there','any','all','its','it','this','that','these','those','happening',
+    'update','status','latest','about','tell','me','us','please','can','you','find','get','give',
+    'show','whats','whos','hows','whens','current','currently']);
+
+  function tokenise(q) {
+    return q.toLowerCase()
+      .replace(/[^a-z0-9\s'-]/g, ' ')
+      .split(/\s+/)
+      .map(t => t.replace(/^'+|'+$/g, ''))
+      .filter(t => t.length > 1 && !STOP.has(t));
+  }
+
+  function scoreProject(blob, terms) {
+    let score = 0;
+    terms.forEach(term => {
+      const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      const hits = (blob.match(re) || []).length;
+      score += hits * 2;
+    });
+    return score;
+  }
+
+  async function runSmartSearch() {
+    const input = document.getElementById('smartSearchInput');
+    const query = (input ? input.value : '').trim();
+    if (!query) return;
+
+    const index = window._projectIndex || [];
+    if (index.length === 0) {
+      showPanel(query, '<p>Report not yet generated. Please generate the report first.</p>', null);
+      return;
+    }
+
+    // Show thinking state immediately
+    showPanel(query, `
+      <div class="aap-thinking">
+        <div class="dot-pulse"><span></span><span></span><span></span></div>
+        Reading project data…
+      </div>`, null);
+
+    const terms = tokenise(query);
+
+    // Score all projects and pick top 3 most relevant
+    const scored = index
+      .map(p => ({ proj: p, score: scoreProject(p.blob, terms) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+    if (scored.length === 0) {
+      showPanel(query, '<p>No projects matched that query. Try different keywords — e.g. a street name, person's name, or project topic.</p>', null);
+      return;
+    }
+
+    // Build context from the top matches — rich text with all notes and task detail
+    const context = scored.map(x => x.proj.richText).join('\n\n---\n\n');
+    const topId = scored[0].proj.id;
+
+    // Send to Claude for a direct, specific answer
+    const systemPrompt = `You are an assistant helping someone navigate a workplace property handover document for Save the Children.
+You will be given the full text of one or more projects from the database, including task notes, update logs, leads, and contacts.
+Answer the user's question directly and specifically — if they ask who someone is, give the name. If they ask what is happening, summarise the current situation concisely.
+Be brief (2-4 sentences max). Use the exact names, statuses and details from the data.
+If the answer isn't in the data, say so clearly.
+End your response with exactly one line in this format (no other JSON anywhere): {"jumpTo":"PROJECT_ID"}
+The PROJECT_ID to use is: ${topId}`;
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 400,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: `Project data:\n\n${context}\n\nQuestion: ${query}` }]
+        })
+      });
+
+      if (!resp.ok) {
+        throw new Error(`API error ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      const raw = (data.content || []).map(b => b.text || '').join('').trim();
+
+      // Extract jumpTo
+      let jumpId = topId; // default to top keyword match
+      const jumpMatch = raw.match(/\{\s*"jumpTo"\s*:\s*"([^"]+)"\s*\}/);
+      if (jumpMatch) jumpId = jumpMatch[1];
+
+      // Clean answer — remove the JSON line
+      const answer = raw.replace(/\{\s*"jumpTo"\s*:[^}]+\}\s*/g, '').trim();
+
+      // Render as paragraphs
+      const answerHtml = answer.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
+      showPanel(query, answerHtml, jumpId);
+
+    } catch(err) {
+      // Fallback: if API fails, show keyword result with excerpt
+      const top = scored[0].proj;
+      const excerpt = top.richText.slice(0, 400) + '…';
+      showPanel(query,
+        `<p style="color:#c0241a; font-size:12px; margin-bottom:10px;">⚠ Could not reach AI (${err.message}). Showing keyword match:</p>
+         <p><strong>${top.title}</strong></p>
+         <p style="font-size:13px; color:#888;">${excerpt}</p>`,
+        top.id
+      );
+    }
+  }
+
+  function showPanel(query, bodyHtml, jumpId) {
+    document.getElementById('aapQuery').textContent = query;
+    const bodyEl = document.getElementById('aapBody');
+    bodyEl.innerHTML = bodyHtml;
+
+    if (jumpId) {
+      const proj = (window._projectIndex || []).find(p => p.id === jumpId);
+      const label = proj ? proj.title : 'project';
+      const btn = document.createElement('button');
+      btn.className = 'aap-jump-btn';
+      btn.textContent = '→ Go to: ' + label;
+      btn.onclick = () => {
+        window.closeAiPanel();
+        setTimeout(() => {
+          const target = document.getElementById('proj-' + jumpId);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.scrollBy(0, -60);
+            target.style.transition = 'background 0.5s';
+            target.style.background = '#fff3cd';
+            setTimeout(() => { target.style.background = ''; }, 2500);
+          }
+        }, 150);
+      };
+      bodyEl.appendChild(btn);
+    }
+
+    document.getElementById('aiAnswerPanel').style.display = 'block';
+    document.getElementById('aiPanelOverlay').style.display = 'block';
+  }
+
+  window.closeAiPanel = function() {
+    document.getElementById('aiAnswerPanel').style.display = 'none';
+    document.getElementById('aiPanelOverlay').style.display = 'none';
+  };
+
+  // Build the search index now that projects and boardMap are in scope
+  buildSearchIndex(projects, boardMap);
+
+  // Enable the search input now that data is ready
+  const si = document.getElementById('smartSearchInput');
+  if (si) {
+    si.disabled = false;
+    si.placeholder = "Ask anything… e.g. who is the surveyor for Darnley Street?";
+  }
+
+  // Show toolbar and wire up search events
+  const toolbar = document.getElementById('reportToolbar');
+  if (toolbar) toolbar.style.display = 'flex';
+  const searchInput = document.getElementById('smartSearchInput');
+  const searchBtn = document.getElementById('searchSendBtn');
+  if (searchInput) {
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') runSmartSearch();
+    });
+  }
+  if (searchBtn) {
+    searchBtn.addEventListener('click', runSmartSearch);
+  }
+
+    // ── Smooth scroll for anchor links
+  reportEl.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Offset for fixed toolbar
+        window.scrollBy(0, -56);
+      }
+    });
+  });
+}
+</script>
+</body>
+</html>
