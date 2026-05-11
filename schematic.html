@@ -230,12 +230,19 @@
                     <input type="text" id="sig-label" placeholder="Unique identifier">
                 </div>
                 <div class="field-group">
-                    <label class="field-label">Sound Desk Anchor</label>
-                    <select id="sig-desk">
+                    <label class="field-label">Sound Desk Channel (SQ5)</label>
+                    <select id="sig-desk" onchange="updateStereoLinkOptions()">
                         <option value="">-- Not Linked to Desk Yet --</option>
-                        <optgroup label="Desk Inputs" id="opt-in"></optgroup>
-                        <optgroup label="Desk Outputs" id="opt-out"></optgroup>
                     </select>
+                </div>
+                <div class="field-group" id="stereo-link-row" style="display:none; background:var(--teal-light); border-radius:var(--radius-sm); padding:10px 12px; border:1px solid rgba(74,124,126,0.2);">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                        <input type="checkbox" id="stereo-link-cb" style="width:auto;margin:0;accent-color:var(--green);">
+                        <span style="font-size:0.8rem;font-weight:700;color:var(--teal);">
+                            Link as stereo pair with <strong id="stereo-partner-label"></strong>
+                        </span>
+                        <input type="hidden" id="stereo-partner-val">
+                    </label>
                 </div>
                 <button class="btn btn-primary" onclick="saveSignal()">Save Signal Identity</button>
             </div>
@@ -435,38 +442,95 @@ function clearAllData() {
 }
 
 // ── SIGNALS ──
+// ── SQ5 CHANNEL MAP ──
 const DESK_OPTIONS = [
-    { val: 'input-1', label: 'Input 1', type: 'in' }, { val: 'input-2', label: 'Input 2', type: 'in' },
-    { val: 'input-3', label: 'Input 3', type: 'in' }, { val: 'input-4', label: 'Input 4', type: 'in' },
-    { val: 'input-5', label: 'Input 5', type: 'in' }, { val: 'input-6', label: 'Input 6', type: 'in' },
-    { val: 'input-7', label: 'Input 7', type: 'in' }, { val: 'input-8', label: 'Input 8', type: 'in' },
-    { val: 'input-9', label: 'Input 9', type: 'in' }, { val: 'input-10', label: 'Input 10', type: 'in' },
-    { val: 'input-11', label: 'Input 11', type: 'in' }, { val: 'input-12', label: 'Input 12', type: 'in' },
-    { val: 'input-13', label: 'Input 13', type: 'in' }, { val: 'input-14', label: 'Input 14', type: 'in' },
-    { val: 'input-15', label: 'Input 15', type: 'in' }, { val: 'input-16', label: 'Input 16', type: 'in' },
-    { val: 'output-lr', label: 'Main L/R', type: 'out' }, { val: 'output-m1', label: 'Mix 1 (Mon)', type: 'out' },
-    { val: 'output-m2', label: 'Mix 2 (Mon)', type: 'out' }, { val: 'output-m3', label: 'Mix 3 (Mon)', type: 'out' },
-    { val: 'output-m4', label: 'Mix 4 (Mon)', type: 'out' }, { val: 'output-fx1', label: 'FX 1', type: 'out' },
-    { val: 'output-fx2', label: 'FX 2', type: 'out' }
+    // 48 Input channels
+    ...Array.from({length:48}, (_,i) => ({ val: `ip-${i+1}`, label: `IP${i+1}`, type: 'in' })),
+    // Stereo inputs
+    { val: 'st1-l', label: 'ST1 L', type: 'in' },
+    { val: 'st1-r', label: 'ST1 R', type: 'in' },
+    { val: 'st2-l', label: 'ST2 L', type: 'in' },
+    { val: 'st2-r', label: 'ST2 R', type: 'in' },
+    // FX Returns
+    ...Array.from({length:8}, (_,i) => ({ val: `fx-ret-${i+1}`, label: `FX Ret ${i+1}`, type: 'in' })),
+    // Main LR
+    { val: 'out-lr', label: 'Main LR', type: 'out' },
+    // 12 Mix buses
+    ...Array.from({length:12}, (_,i) => ({ val: `mix-${i+1}`, label: `MIX${i+1}`, type: 'out' })),
+    // 3 Matrix buses
+    ...Array.from({length:3}, (_,i) => ({ val: `mtx-${i+1}`, label: `MTX${i+1}`, type: 'out' })),
+    // 4 FX Sends
+    ...Array.from({length:4}, (_,i) => ({ val: `fx-send-${i+1}`, label: `FX Send ${i+1}`, type: 'out' })),
 ];
 
+// Stereo link pairs — channels that can be linked as a stereo pair
+const STEREO_PAIRS = [];
+for (let i = 1; i <= 47; i += 2) {
+    STEREO_PAIRS.push([`ip-${i}`, `ip-${i+1}`]);
+}
+STEREO_PAIRS.push(['st1-l','st1-r'], ['st2-l','st2-r']);
+for (let i = 1; i <= 7; i += 2) {
+    STEREO_PAIRS.push([`fx-ret-${i}`, `fx-ret-${i+1}`]);
+}
+for (let i = 1; i <= 11; i += 2) {
+    STEREO_PAIRS.push([`mix-${i}`, `mix-${i+1}`]);
+}
+for (let i = 1; i <= 3; i++) {
+    STEREO_PAIRS.push([`mtx-${i}`, `mtx-${i}`]);
+}
+
+
 function renderSignalsDeskOptions() {
-    const inEl  = document.getElementById('opt-in');
-    const outEl = document.getElementById('opt-out');
-    inEl.innerHTML  = DESK_OPTIONS.filter(o => o.type === 'in').map(o => `<option value="${o.val}">${o.label}</option>`).join('');
-    outEl.innerHTML = DESK_OPTIONS.filter(o => o.type === 'out').map(o => `<option value="${o.val}">${o.label}</option>`).join('');
+    const sel = document.getElementById('sig-desk');
+    // Rebuild full select with SQ5 groups
+    const groups = [
+        { label: 'Input Channels (IP1–IP48)',   vals: DESK_OPTIONS.filter(o => o.val.startsWith('ip-')) },
+        { label: 'Stereo Inputs (ST1, ST2)',     vals: DESK_OPTIONS.filter(o => o.val.startsWith('st')) },
+        { label: 'FX Returns (1–8)',             vals: DESK_OPTIONS.filter(o => o.val.startsWith('fx-ret')) },
+        { label: 'Main LR',                      vals: DESK_OPTIONS.filter(o => o.val === 'out-lr') },
+        { label: 'Mix Buses (MIX1–12)',          vals: DESK_OPTIONS.filter(o => o.val.startsWith('mix-')) },
+        { label: 'Matrix Buses (MTX1–3)',        vals: DESK_OPTIONS.filter(o => o.val.startsWith('mtx-')) },
+        { label: 'FX Sends (1–4)',               vals: DESK_OPTIONS.filter(o => o.val.startsWith('fx-send')) },
+    ];
+    sel.innerHTML = '<option value="">-- Not Linked to Desk Yet --</option>' +
+        groups.map(g =>
+            `<optgroup label="${g.label}">${g.vals.map(o => `<option value="${o.val}">${o.label}</option>`).join('')}</optgroup>`
+        ).join('');
+    // Stereo link checkbox
+    const stereoRow = document.getElementById('stereo-link-row');
+    if (stereoRow) updateStereoLinkOptions();
     renderSignalsList();
+}
+
+function updateStereoLinkOptions() {
+    const desk = document.getElementById('sig-desk').value;
+    const stereoRow = document.getElementById('stereo-link-row');
+    if (!desk) { stereoRow.style.display = 'none'; return; }
+    // Find if this channel has a natural stereo partner
+    const pair = STEREO_PAIRS.find(p => p[0] === desk || p[1] === desk);
+    if (!pair || pair[0] === pair[1]) { stereoRow.style.display = 'none'; return; }
+    const partner = pair[0] === desk ? pair[1] : pair[0];
+    const partnerLabel = DESK_OPTIONS.find(o => o.val === partner)?.label || partner;
+    stereoRow.style.display = '';
+    document.getElementById('stereo-partner-label').textContent = partnerLabel;
+    document.getElementById('stereo-partner-val').value = partner;
 }
 
 function saveSignal() {
     const label = document.getElementById('sig-label').value.trim();
     const desk  = document.getElementById('sig-desk').value;
+    const stereoLinked = document.getElementById('stereo-link-cb') && document.getElementById('stereo-link-cb').checked;
+    const stereoPartner = stereoLinked ? document.getElementById('stereo-partner-val').value : null;
     if (!label) return alert('Please enter a signal label.');
     const idx = signals.findIndex(s => s.label === label);
-    if (idx > -1) signals[idx].desk = desk;
-    else signals.push({ label, desk });
+    const entry = { label, desk, stereo: stereoLinked, stereoPartner };
+    if (idx > -1) signals[idx] = entry;
+    else signals.push(entry);
     saveSignals();
     document.getElementById('sig-label').value = '';
+    if (document.getElementById('stereo-link-cb')) document.getElementById('stereo-link-cb').checked = false;
+    document.getElementById('sig-desk').value = '';
+    updateStereoLinkOptions();
 }
 
 function deleteSignal(label) {
@@ -482,9 +546,9 @@ function renderSignalsList() {
     const deskLabel = v => { const o = DESK_OPTIONS.find(x => x.val === v); return o ? o.label : null; };
     el.innerHTML = signals.map((s, i) => `
         <div class="signal-row">
-            <span class="signal-name">🎤 ${s.label}</span>
+            <span class="signal-name">🎤 ${s.label}${s.stereo ? ' <span style="font-size:0.68rem;background:#e8f5d0;color:var(--green-dark);border:1px solid rgba(141,198,63,0.3);border-radius:20px;padding:1px 7px;font-weight:700;">STEREO</span>' : ''}</span>
             <div style="display:flex;align-items:center;gap:8px;">
-                ${s.desk ? `<span class="signal-desk">${deskLabel(s.desk) || s.desk}</span>` : '<span class="signal-unlinked">Not linked</span>'}
+                ${s.desk ? `<span class="signal-desk">${deskLabel(s.desk) || s.desk}${s.stereo && s.stereoPartner ? ' + ' + (deskLabel(s.stereoPartner) || s.stereoPartner) : ''}</span>` : '<span class="signal-unlinked">Not linked</span>'}
                 <span data-sig-idx="${i}" class="del-sig" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1rem;padding:0 4px;" title="Delete">×</span>
             </div>
         </div>`).join('');
