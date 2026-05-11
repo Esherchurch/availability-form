@@ -304,6 +304,7 @@
   .project-section {
     margin-bottom: 60px;
     page-break-inside: avoid;
+    scroll-margin-top: 60px;
   }
 
   .project-header {
@@ -376,10 +377,9 @@
   }
   .search-hit-anchor {
     display: block;
-    position: relative;
-    top: -70px;
-    visibility: hidden;
-    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+    scroll-margin-top: 70px;
   }
 
   /* Auto-linkified bare URLs */
@@ -719,11 +719,11 @@
 
 <!-- LAUNCHER -->
 <!-- AI answer overlay -->
-<div id="aiPanelOverlay" onclick="closeAiPanel()"></div>
+<div id="aiPanelOverlay" onclick="window.closeAiPanel(true)"></div>
 <div id="aiAnswerPanel">
   <div class="aap-header">
     <span>Smart Search</span>
-    <button class="aap-close" onclick="closeAiPanel(true)">✕</button>
+    <button class="aap-close" onclick="window.closeAiPanel(true)">✕</button>
   </div>
   <div class="aap-query" id="aapQuery"></div>
   <div class="aap-body" id="aapBody"></div>
@@ -1290,7 +1290,7 @@ function buildReport(projects, boardMap) {
         mark.className = 'search-hit';
         mark.textContent = m[0];
         mark.dataset.anchorId = anchorId;
-        mark.onclick = () => mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        mark.onclick = () => { window.location.hash = '#' + anchorId; };
         frag.appendChild(anchor);
         frag.appendChild(mark);
         hits.push({ anchorId, term: m[0].toLowerCase() });
@@ -1324,7 +1324,7 @@ function buildReport(projects, boardMap) {
         mark.className = 'search-hit';
         mark.textContent = m[0];
         mark.dataset.anchorId = anchorId;
-        mark.onclick = () => mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        mark.onclick = () => { window.location.hash = '#' + anchorId; };
         frag.appendChild(anchor);
         frag.appendChild(mark);
         hits.push({ anchorId, term: m[0].toLowerCase() });
@@ -1453,19 +1453,8 @@ function buildReport(projects, boardMap) {
 
         chip.onclick = () => {
           const idx = termPos[term] % count;
-          const anchorEl = document.getElementById(anchorIds[idx]);
-          if (anchorEl) {
-            // The anchor span sits just before the <mark> element
-            const mark = anchorEl.nextElementSibling;
-            if (mark) {
-              mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              setTimeout(() => window.scrollBy(0, -60), 50);
-              // Flash highlight
-              mark.style.transition = 'background 0.1s';
-              mark.style.background = '#ffcc00';
-              setTimeout(() => { mark.style.background = ''; }, 900);
-            }
-          }
+          // Use plain anchor navigation - most reliable cross-browser
+          window.location.hash = '#' + anchorIds[idx];
           termPos[term]++;
           badge.textContent = (idx + 1) + '/' + count;
           setTimeout(() => { badge.textContent = count; }, 1500);
@@ -1478,27 +1467,15 @@ function buildReport(projects, boardMap) {
       bodyEl.appendChild(section);
     }
 
-    // ── GO TO PROJECT BUTTON ──
+    // ── GO TO PROJECT LINK ──
     if (jumpId) {
       const proj = (window._projectIndex || []).find(p => p.id === jumpId);
-      const btn = document.createElement('button');
-      btn.className = 'aap-jump-btn';
-      btn.style.cssText = 'margin-top:12px; display:block;';
-      btn.textContent = '→ Go to: ' + (proj ? proj.title : 'project');
-      btn.onclick = () => {
-        const target = document.getElementById('proj-' + jumpId);
-        if (target) {
-          // Scroll first, THEN close panel so DOM elements still exist
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          window.scrollBy(0, -60);
-          target.style.transition = 'background 0.5s';
-          target.style.background = '#fff3cd';
-          setTimeout(() => { target.style.background = ''; }, 2500);
-        }
-        // Close panel after a short delay so scroll has started
-        setTimeout(() => window.closeAiPanel(false), 300);
-      };
-      bodyEl.appendChild(btn);
+      const a = document.createElement('a');
+      a.className = 'aap-jump-btn';
+      a.style.cssText = 'margin-top:12px; display:inline-block; text-decoration:none;';
+      a.href = '#proj-' + jumpId;
+      a.textContent = '→ Go to: ' + (proj ? proj.title : 'project');
+      bodyEl.appendChild(a);
     }
 
     // ── OTHER MATCHES ──
@@ -1546,18 +1523,7 @@ function buildReport(projects, boardMap) {
     searchBtn.addEventListener('click', runSmartSearch);
   }
 
-    // ── Smooth scroll for anchor links
-  reportEl.querySelectorAll('a[href^="#"]').forEach(a => {
-    a.addEventListener('click', e => {
-      const target = document.querySelector(a.getAttribute('href'));
-      if (target) {
-        e.preventDefault();
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Offset for fixed toolbar
-        window.scrollBy(0, -56);
-      }
-    });
-  });
+    // Anchor links use native browser navigation - no JS interception needed
 }
 </script>
 </body>
