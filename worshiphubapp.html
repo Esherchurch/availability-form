@@ -770,6 +770,92 @@ body {
   border: 1px solid var(--border);
 }
 
+/* Song usage stat badges */
+.song-usage-stats {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.stat-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stat-total  { background: #e8f0f0; color: #3d6263; }
+.stat-recent { background: #fff3e0; color: #e65100; }
+.stat-recent.warning { background: #fde8e8; color: #b22222; }
+.stat-last   { background: #f0f6f6; color: #5b8e8f; }
+.stat-never  { background: #f5f5f5; color: #aaa; }
+
+/* Song detail usage panel */
+.song-usage-panel {
+  display: flex;
+  gap: 0;
+  background: var(--bg);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+
+.song-usage-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 6px;
+  gap: 3px;
+}
+
+.song-usage-divider {
+  width: 1px;
+  background: var(--border);
+  align-self: stretch;
+}
+
+.song-usage-number {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--teal);
+  line-height: 1;
+}
+
+.song-usage-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--teal);
+  opacity: 0.5;
+  text-align: center;
+}
+
+.song-usage-last {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1;
+}
+
+.song-usage-warning {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b22222;
+  background: #fde8e8;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
 /* Song detail */
 .song-detail { padding: 12px; }
 
@@ -2417,9 +2503,50 @@ function closeKbModal() {
 }
 
 // ── SONG LIBRARY ──────────────────────────────────────────────────────────
+let servicesCache = null;
+
+async function getServicesCache() {
+  if (servicesCache) return servicesCache;
+  const snap = await db.collection('services').get();
+  servicesCache = snap.docs.map(d => d.data());
+  return servicesCache;
+}
+
+async function getSongUsageStats(songTitle) {
+  const services = await getServicesCache();
+  const title = (songTitle||'').trim().toLowerCase();
+  const matchingDates = [];
+  services.forEach(service => {
+    if (!service.date || !Array.isArray(service.order)) return;
+    const hasSong = service.order.some(item =>
+      item.type === 'song' && (item.title||'').trim().toLowerCase() === title
+    );
+    if (hasSong) matchingDates.push(service.date);
+  });
+  const uniqueDates = [...new Set(matchingDates)];
+  const totalCount = uniqueDates.length;
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const threeMonthStr = threeMonthsAgo.toISOString().split('T')[0];
+  const recentCount = uniqueDates.filter(d => d >= threeMonthStr).length;
+  const sortedDates = [...uniqueDates].sort();
+  const lastUsed = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null;
+  return { totalCount, recentCount, lastUsed };
+}
+
+function formatUsageDate(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
 async function loadSongs() {
   try {
-    const snap = await db.collection('songs').orderBy('normalized').get();
+    const [snap] = await Promise.all([
+      db.collection('songs').orderBy('normalized').get(),
+      getServicesCache()
+    ]);
     allSongs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderSongList(allSongs);
   } catch(e) {
@@ -2444,8 +2571,32 @@ function renderSongList(songs) {
         ${s.youtube ? '<span class="song-meta-badge">▶ YT</span>' : ''}
         ${s.ccli ? '<span class="song-meta-badge">CCLI</span>' : ''}
       </div>
+      <div class="song-usage-stats" id="list-stats-${s.id}">
+        <span class="stat-badge stat-never" style="font-size:9px;opacity:0.5;">Loading…</span>
+      </div>
     </div>`;
   }).join('');
+
+  // Load usage stats asynchronously for each visible song
+  songs.slice(0,100).forEach(async s => {
+    const el = document.getElementById(`list-stats-${s.id}`);
+    if (!el) return;
+    try {
+      const stats = await getSongUsageStats(s.title);
+      if (!el) return;
+      if (stats.totalCount === 0) {
+        el.innerHTML = `<span class="stat-badge stat-never">Never used</span>`;
+      } else {
+        const recentCls = stats.recentCount >= 3 ? 'stat-recent warning' : 'stat-recent';
+        el.innerHTML =
+          `<span class="stat-badge stat-total">✦ ${stats.totalCount} total</span>` +
+          (stats.recentCount > 0 ? `<span class="stat-badge ${recentCls}">↺ ${stats.recentCount} recent</span>` : '') +
+          (stats.lastUsed ? `<span class="stat-badge stat-last">Last: ${formatUsageDate(stats.lastUsed)}</span>` : '');
+      }
+    } catch(e) {
+      if (el) el.innerHTML = '';
+    }
+  });
 }
 
 function searchLibrary(q) {
@@ -2493,6 +2644,9 @@ function openSong(id) {
   panel.innerHTML = `<div class="song-detail fade-in">
     <div class="song-detail-title">${s.title||''}</div>
     ${s.artist ? `<div style="font-size:13px;color:var(--teal);opacity:0.5;font-weight:700;margin-bottom:12px;">${s.artist}</div>` : ''}
+    <div class="song-usage-panel" id="detail-usage-panel">
+      <div class="song-usage-stat"><span class="song-usage-number" style="font-size:16px;opacity:0.4;">…</span><span class="song-usage-label">Loading</span></div>
+    </div>
     <div class="song-detail-links">
       ${s.youtube ? `<a href="${s.youtube}" target="_blank" rel="noopener" class="song-detail-link song-link-youtube">▶ YouTube</a>` : ''}
       <a href="${ccliUrl}" target="_blank" rel="noopener" class="song-detail-link song-link-ccli">🔗 SongSelect</a>
@@ -2502,7 +2656,42 @@ function openSong(id) {
 
   document.getElementById('song-list').style.display = 'none';
   panel.style.display = 'block';
-  sectionHistory.push('library-list'); // allow back to list
+  sectionHistory.push('library-list');
+
+  // Load usage stats for detail panel
+  getSongUsageStats(s.title).then(stats => {
+    const up = document.getElementById('detail-usage-panel');
+    if (!up) return;
+    if (stats.totalCount === 0) {
+      up.outerHTML = `<div style="font-size:11px;color:#aaa;font-weight:700;margin-bottom:14px;text-align:center;">This song hasn't been used yet</div>`;
+    } else {
+      const recentColor = stats.recentCount >= 3 ? '#b22222' : stats.recentCount >= 1 ? '#e65100' : 'var(--teal)';
+      const warning = stats.recentCount >= 2
+        ? `<div class="song-usage-warning">⚠ Used ${stats.recentCount}× in last 3 months</div>`
+        : '';
+      up.outerHTML = `
+        ${warning}
+        <div class="song-usage-panel">
+          <div class="song-usage-stat">
+            <span class="song-usage-number">${stats.totalCount}</span>
+            <span class="song-usage-label">All Time</span>
+          </div>
+          <div class="song-usage-divider"></div>
+          <div class="song-usage-stat">
+            <span class="song-usage-number" style="color:${recentColor}">${stats.recentCount}</span>
+            <span class="song-usage-label">Last 3 Months</span>
+          </div>
+          <div class="song-usage-divider"></div>
+          <div class="song-usage-stat">
+            <span class="song-usage-last">${stats.lastUsed ? formatUsageDate(stats.lastUsed) : '—'}</span>
+            <span class="song-usage-label">Last Used</span>
+          </div>
+        </div>`;
+    }
+  }).catch(() => {
+    const up = document.getElementById('detail-usage-panel');
+    if (up) up.remove();
+  });
 }
 
 function openFile(url) {
@@ -2776,8 +2965,8 @@ const TOUR_STEPS = {
   ],
   library: [
     { target: '.library-search', title: 'Search the Library', text: 'Type any part of a song title to filter the list. The full library loads automatically.' },
-    { target: '#song-list', title: 'Browse Songs', text: 'Each song shows the available keys and file types at a glance. Tap a song to see everything.' },
-    { target: '#song-list', title: 'Song Detail', text: 'Inside a song you\'ll see YouTube and SongSelect links, plus Open buttons for each sheet music file. Files open in a new tab.' },
+    { target: '#song-list', title: 'Browse Songs', text: 'Each song shows available keys, file types, and usage stats — how often it\'s been used, how recently, and when it was last played.' },
+    { target: '#song-list', title: 'Song Detail', text: 'Inside a song you\'ll see full usage stats, YouTube and SongSelect links, plus Open buttons for each sheet music file.' },
   ],
   news: [
     { target: '#news-full-list', title: 'Latest News', text: 'Team updates and announcements from your leaders, pulled directly from the main hub. New items show a red badge on the home tile.' },
