@@ -620,19 +620,39 @@ select.pi option{background:#111;}
   <div class="mbox" style="min-width:340px">
     <h2>&#9654; Export Trailer</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="mrow"><label>Resolution</label>
+        <select id="exp-res">
+          <option value="1920x1080" selected>1920×1080 Full HD</option>
+          <option value="3840x2160">3840×2160 4K UHD</option>
+          <option value="2560x1440">2560×1440 QHD</option>
+          <option value="1280x720">1280×720 HD</option>
+          <option value="854x480">854×480 SD</option>
+        </select>
+      </div>
       <div class="mrow"><label>Frame Rate</label>
         <select id="exp-fps">
-          <option value="25" selected>25 fps (PAL/UK)</option>
+          <option value="60">60 fps (Cinema/Display)</option>
+          <option value="50">50 fps (PAL HD)</option>
           <option value="30">30 fps</option>
+          <option value="25" selected>25 fps (PAL/UK)</option>
           <option value="24">24 fps (Cinema)</option>
         </select>
       </div>
       <div class="mrow"><label>Quality</label>
         <select id="exp-qual">
-          <option value="high" selected>High (CRF 20)</option>
-          <option value="cinema">Cinema (CRF 16)</option>
+          <option value="cinema">Cinema (CRF 14)</option>
+          <option value="high" selected>High (CRF 18)</option>
+          <option value="good">Good (CRF 22)</option>
           <option value="medium">Medium (CRF 26)</option>
-          <option value="web">Web (CRF 32)</option>
+          <option value="web">Web (CRF 30)</option>
+        </select>
+      </div>
+      <div class="mrow"><label>Format</label>
+        <select id="exp-format">
+          <option value="mp4" selected>MP4 (H.264)</option>
+          <option value="mp4-265">MP4 (H.265/HEVC)</option>
+          <option value="webm">WebM (VP9)</option>
+          <option value="mov">MOV (H.264)</option>
         </select>
       </div>
     </div>
@@ -661,7 +681,47 @@ select.pi option{background:#111;}
   </div>
 </div>
 
-<script>
+<script>function syncVideoElements(){
+  S.tracks.forEach(function(tr){
+    if(tr.type!=='video'||tr.muted) return;
+    tr.clips.forEach(function(c){
+      if(!c.videoEl) return;
+      var vid = c.videoEl;
+      if(S.t < c.start || S.t >= c.start + c.duration) return;
+
+      var target = (c.trimStart||0) + (S.t - c.start);
+      vid.muted = true; vid.volume = 0;
+
+      if(vid.readyState < 1) return;
+
+      if(Math.abs(vid.currentTime - target) > 0.1){
+        vid.currentTime = target;
+      }
+
+      if(!vid._unblocked && vid.readyState >= 2){
+        vid._unblocked = true;
+        vid.play().then(function(){
+          vid.pause();
+          vid.currentTime = target;
+        }).catch(function(){});
+      }
+
+      if(!c._lastBitmapTime || Math.abs(c._lastBitmapTime - target) > 0.08){
+        if(typeof createImageBitmap !== 'undefined' && vid.readyState >= 2){
+          var mediaItem = S.media.video.find(function(mi){ return mi.id===c.mediaId; });
+          if(mediaItem){
+            c._lastBitmapTime = target;
+            createImageBitmap(vid).then(function(bmp){
+              if(mediaItem.bitmap && mediaItem.bitmap.close) mediaItem.bitmap.close();
+              mediaItem.bitmap = bmp;
+            }).catch(function(){});
+          }
+        }
+      }
+    });
+  });
+}
+
 // ===================================================
 // STATE
 // ===================================================
@@ -862,53 +922,34 @@ function loadMediaFiles(files, hintType){
 
     if(type === 'video'){
       var v = document.createElement('video');
-      v.src = url;
-      v.preload = 'auto';   // load full video, not just metadata
-      v.muted = true;       // audio handled by separate Audio element
-      v.volume = 0;
-      v.playsInline = true;
+      v.src = url; v.preload = 'metadata'; v.muted = false; v.volume = 1;
+      // Create a separate audio element so we hear sound on playback
       var a = new Audio(url);
       a.preload = 'none';
 
       v.onloadedmetadata = function(){
-        // Dedup
-        if(S.media.video.find(function(x){ return x.vegFilename===file.name; })) return;
         var m = {
           id: uid(), name: file.name.replace(/\.[^.]+$/,''),
           url: url, el: v, audioEl: a,
           duration: v.duration, type: 'video',
-          vegFilename: file.name,
-          bitmap: null  // cached ImageBitmap for taint-free drawing
+          vegFilename: file.name
         };
         S.media.video.push(m);
-
-        // Show in bin immediately
-        renderMedia();
-
-        // Auto-link VEG placeholders
+        // Seek to get thumbnail frame
+        v.currentTime = 0.5;
+        v.onseeked = function(){
+          renderMedia();
+          v.onseeked = null;
+        };
+        // Auto-link to VEG placeholder clips
         var linked = linkByFilename(m, file.name);
         renderTracks();
         setStatus(linked ? 'Loaded & linked: '+m.name : 'Loaded: '+m.name);
-
-        // Seek for thumbnail — wire handler BEFORE setting currentTime
-        v.onseeked = function(){
-          v.onseeked = null;
-          // Use createImageBitmap — works on file:// unlike drawImage
-          if(typeof createImageBitmap !== 'undefined'){
-            createImageBitmap(v).then(function(bmp){
-              m.bitmap = bmp;
-              renderMedia();
-              drawFrame();
-            }).catch(function(){
-              renderMedia(); drawFrame();
-            });
-          } else {
-            renderMedia(); drawFrame();
-          }
-        };
-        v.currentTime = 0.5;  // seek AFTER handler wired
+        if(!v.onseeked) renderMedia();
       };
-      v.onerror = function(){ setStatus('Cannot load: '+file.name, true); };    } else if(type === 'audio'){
+      v.onerror = function(){ setStatus('Cannot load: '+file.name, true); };
+
+    } else if(type === 'audio'){
       var a2 = new Audio(url);
       a2.preload = 'metadata';
       a2.onloadedmetadata = function(){
@@ -1153,7 +1194,6 @@ function renderTracks(){
 
     // Content area
     var content = document.createElement('div'); content.className='tcontent';
-    content.style.marginLeft = OFFSET+'px';
     content.style.width = (W-OFFSET)+'px';
 
     // Drop target
@@ -1495,7 +1535,6 @@ function drawFrame(){
       var rel=S.t-c.start;
       var target=(c.trimStart||0)+rel;
       var vid=c.videoEl;
-      // Seek if needed
       if(vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15){
         vid.currentTime=target;
       }
@@ -1687,50 +1726,6 @@ function togglePlay(){
   else{ stopAudio(); if(_raf) cancelAnimationFrame(_raf); drawFrame(); }
 }
 
-function syncVideoElements(){
-  S.tracks.forEach(function(tr){
-    if(tr.type!=='video'||tr.muted) return;
-    tr.clips.forEach(function(c){
-      if(!c.videoEl) return;
-      var vid = c.videoEl;
-      if(S.t < c.start || S.t >= c.start + c.duration) return;
-
-      var target = (c.trimStart||0) + (S.t - c.start);
-      vid.muted = true; vid.volume = 0;
-
-      if(vid.readyState < 1) return;
-
-      // Seek if needed
-      if(Math.abs(vid.currentTime - target) > 0.1){
-        vid.currentTime = target;
-      }
-
-      // Unblock Chrome file:// taint with silent play+pause
-      if(!vid._unblocked && vid.readyState >= 2){
-        vid._unblocked = true;
-        vid.play().then(function(){
-          vid.pause();
-          vid.currentTime = target;
-        }).catch(function(){});
-      }
-
-      // Refresh bitmap every ~3 frames during playback for smooth video
-      if(!c._lastBitmapTime || Math.abs(c._lastBitmapTime - target) > 0.08){
-        if(typeof createImageBitmap !== 'undefined' && vid.readyState >= 2){
-          var mediaItem = S.media.video.find(function(mi){ return mi.id===c.mediaId; });
-          if(mediaItem){
-            c._lastBitmapTime = target;
-            createImageBitmap(vid).then(function(bmp){
-              // Close old bitmap to free memory
-              if(mediaItem.bitmap && mediaItem.bitmap.close) mediaItem.bitmap.close();
-              mediaItem.bitmap = bmp;
-            }).catch(function(){});
-          }
-        }
-      }
-    });
-  });
-}
 function loop(ts){
   if(!S.playing) return;
   var dt=Math.min((ts-_lastT)/1000,.1); _lastT=ts;
@@ -1742,8 +1737,6 @@ function loop(ts){
 
 function seek(t){
   S.t=Math.max(0,Math.min(S.dur,t));
-  // Sync video elements then grab fresh bitmaps
-  syncVideoElements();
   if(S.playing){ stopAudio(); startAudio(); }
   drawFrame(); updateTC(); updatePH();
 }
@@ -2090,24 +2083,40 @@ async function startExport(){
   var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
   var name=(document.getElementById('projName').value||'trailer').replace(/\s+/g,'_');
   var fps=parseInt(document.getElementById('exp-fps').value)||25;
+  var qual=document.getElementById('exp-qual').value||'high';
+  var fmt=document.getElementById('exp-format').value||'mp4';
+  var resVal=(document.getElementById('exp-res').value||'1920x1080').split('x');
+  var expW=parseInt(resVal[0])||1920;
+  var expH=parseInt(resVal[1])||1080;
+  var exportIn  = typeof S_in  !=='undefined' && S_in  !==null ? S_in  : 0;
+  var exportOut = typeof S_out !=='undefined' && S_out !==null ? S_out : S.dur;
+  var exportDur = exportOut - exportIn;
+  var crf={cinema:'14',high:'18',good:'22',medium:'26',web:'30'}[qual]||'18';
 
-  addLog('&#127916; Kids Film Club Export'); bar.style.width='5%'; await sleep(100);
+  addLog('&#127916; Kids Film Club Export');
+  addLog('Resolution: '+expW+'x'+expH+'  FPS: '+fps+'  Format: '+fmt.toUpperCase());
+  addLog('Range: '+fmtFull(exportIn)+' to '+fmtFull(exportOut)+' ('+fmtFull(exportDur)+')');
+  bar.style.width='5%'; await sleep(100);
   stopAudio();
 
   var mimes=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
   var mime=mimes.find(function(m){return MediaRecorder.isTypeSupported(m);})||'video/webm';
-  addLog('&#128308; Recording '+fps+'fps...'); bar.style.width='8%';
+  addLog('&#128308; Recording at '+fps+'fps...');
 
   var stream=cv.captureStream(fps);
-  var recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+  var recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:12000000});
   var chunks=[]; recorder.ondataavailable=function(e){if(e.data.size>0)chunks.push(e.data);};
 
-  var savedT=S.t; S.t=0; drawFrame(); await sleep(100);
-  recorder.start(200); addLog('Duration: '+fmtFull(S.dur));
+  var savedT=S.t; S.t=exportIn; drawFrame(); await sleep(100);
+  recorder.start(200);
 
   await new Promise(function(res){
-    var f=0; var total=Math.ceil(fps*S.dur); var mspf=1000/fps;
-    var tick=setInterval(function(){S.t=f/fps;drawFrame();bar.style.width=(8+(f/total)*57)+'%';f++;if(f>=total){clearInterval(tick);recorder.stop();res();}},mspf);
+    var f=0; var total=Math.ceil(fps*exportDur); var mspf=1000/fps;
+    var tick=setInterval(function(){
+      S.t=exportIn+f/fps; drawFrame();
+      bar.style.width=(8+(f/total)*57)+'%';
+      f++; if(f>=total){clearInterval(tick);recorder.stop();res();}
+    },mspf);
   });
   await new Promise(function(res){recorder.onstop=res;});
   S.t=savedT; drawFrame(); bar.style.width='68%';
@@ -2118,29 +2127,60 @@ async function startExport(){
   try{
     if(!window._ffmpegReady){
       await new Promise(function(res,rej){
-        var s=document.createElement('script'); s.src='https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js'; s.crossOrigin='anonymous'; s.onload=res;
-        s.onerror=function(){var s2=document.createElement('script');s2.src='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';s2.onload=res;s2.onerror=function(){rej(new Error('FFmpeg unavailable'));};document.head.appendChild(s2);};
+        var s=document.createElement('script');
+        s.src='https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+        s.crossOrigin='anonymous'; s.onload=res;
+        s.onerror=function(){
+          var s2=document.createElement('script');
+          s2.src='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+          s2.onload=res; s2.onerror=function(){rej(new Error('FFmpeg unavailable'));};
+          document.head.appendChild(s2);
+        };
         document.head.appendChild(s);
       });
       window._ffmpegReady=true; addLog('&#10003; FFmpeg loaded');
     }
-    bar.style.width='74%'; addLog('Converting to MP4...');
-    var FF=FFmpeg; var ffmpeg=FF.createFFmpeg({log:false,progress:function(p){bar.style.width=(74+p.ratio*16)+'%';}});
+    bar.style.width='74%'; addLog('Converting to '+fmt.toUpperCase()+'...');
+    var FF=FFmpeg;
+    var ffmpeg=FF.createFFmpeg({log:false,progress:function(p){bar.style.width=(74+p.ratio*16)+'%';}});
     await ffmpeg.load();
-    var qual=document.getElementById('exp-qual').value||'high';
-    var crf={cinema:'16',high:'20',medium:'26',web:'32'}[qual]||'20';
     var blob=new Blob(chunks,{type:mime});
     ffmpeg.FS('writeFile','in.webm',await FF.fetchFile(blob));
-    await ffmpeg.run('-i','in.webm','-c:v','libx264','-crf',crf,'-preset','fast','-c:a','aac','-b:a','192k','-movflags','+faststart','-y','out.mp4');
-    var outData=ffmpeg.FS('readFile','out.mp4');
-    var mp4=new Blob([outData.buffer],{type:'video/mp4'});
-    var a=document.createElement('a'); a.href=URL.createObjectURL(mp4); a.download=name+'.mp4'; a.click();
-    bar.style.width='100%'; addLog('&#10003; Saved: '+name+'.mp4 ('+(mp4.size/1024/1024).toFixed(1)+'MB)'); done=true;
-  }catch(err){addLog('FFmpeg error: '+err.message); addLog('Saving as WebM instead...');}
 
+    var outFile, codec, extraArgs=[];
+    if(fmt==='mp4'||fmt==='mov'){
+      codec='libx264'; outFile='out.'+(fmt==='mov'?'mov':'mp4');
+      extraArgs=['-preset','fast','-movflags','+faststart'];
+    } else if(fmt==='mp4-265'){
+      codec='libx265'; outFile='out.mp4';
+      extraArgs=['-preset','fast','-tag:v','hvc1'];
+    } else {
+      codec='libvpx-vp9'; outFile='out.webm'; extraArgs=['-b:v','0'];
+    }
+
+    var args=['-i','in.webm','-c:v',codec,'-crf',crf,'-r',String(fps),'-pix_fmt','yuv420p']
+      .concat(extraArgs).concat(['-c:a','aac','-b:a','192k','-y',outFile]);
+    await ffmpeg.run.apply(ffmpeg,args);
+
+    var outData=ffmpeg.FS('readFile',outFile);
+    var mimeTypes={'mp4':'video/mp4','mp4-265':'video/mp4','webm':'video/webm','mov':'video/quicktime'};
+    var outBlob=new Blob([outData.buffer],{type:mimeTypes[fmt]||'video/mp4'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(outBlob);
+    a.download=name+'_'+expW+'x'+expH+'_'+fps+'fps.'+outFile.split('.').pop();
+    a.click();
+    bar.style.width='100%';
+    addLog('&#10003; Saved: '+a.download+' ('+(outBlob.size/1024/1024).toFixed(1)+'MB)');
+    done=true;
+  }catch(err){
+    addLog('FFmpeg error: '+err.message);
+    addLog('Saving as WebM instead...');
+  }
   if(!done){
-    var wb=new Blob(chunks,{type:mime}); var a=document.createElement('a'); a.href=URL.createObjectURL(wb); a.download=name+'.webm'; a.click();
-    bar.style.width='100%'; addLog('&#10003; Saved: '+name+'.webm ('+(wb.size/1024/1024).toFixed(1)+'MB)');
+    var wb=new Blob(chunks,{type:mime});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(wb);
+    a.download=name+'.webm'; a.click();
+    bar.style.width='100%';
+    addLog('&#10003; Saved: '+name+'.webm ('+(wb.size/1024/1024).toFixed(1)+'MB)');
   }
   setStatus('Export complete'); document.getElementById('exp-btn').disabled=false;
 }
@@ -2628,7 +2668,7 @@ function initPopout(){
   btn.addEventListener('click',function(){
     var pageHtml=[
       '<!DOCTYPE html><html><head><meta charset="UTF-8">',
-      '<title>Kids Film Club \u2014 Preview</title>',
+      '<title>Kids Film Club — Preview</title>',
       '<style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;',
       'background:#000;overflow:hidden;}body{display:flex;align-items:center;justify-content:center;}',
       'canvas{max-width:100vw;max-height:100vh;display:block;}',
@@ -2642,15 +2682,14 @@ function initPopout(){
       '<div id="hint">Drag to second monitor &bull; F11 fullscreen</div>',
       '</body></html>'
     ].join('');
-    var blob=new Blob([pageHtml],{type:'text/html'});
-    var blobUrl=URL.createObjectURL(blob);
-    var pw=window.open(blobUrl,'_blank','width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,scrollbars=no');
-    if(!pw){URL.revokeObjectURL(blobUrl);setStatus('Popout blocked \u2014 allow popups in browser settings',true);return;}
+    var pw=window.open('','_blank','width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,scrollbars=no');
+    if(!pw){setStatus('Popout blocked — allow popups in browser settings',true);return;}
+    pw.document.write(pageHtml);
+    pw.document.close();
     var active=true;
-    btn.textContent='\u2715 Close Popout';
+    btn.textContent='✕ Close Popout';
     btn.style.color='#e05050';btn.style.borderColor='#e05050';
-    pw.addEventListener('load',function(){
-      URL.revokeObjectURL(blobUrl);
+    setTimeout(function(){
       function loop(){
         if(!active||pw.closed){reset();return;}
         try{
@@ -2662,10 +2701,10 @@ function initPopout(){
         pw.requestAnimationFrame(loop);
       }
       loop();
-    });
+    }, 200);
     function reset(){
       active=false;
-      btn.textContent='\u2197 Popout';
+      btn.textContent='↗ Popout';
       btn.style.color='';btn.style.borderColor='';
       btn.onclick=null; initPopout();
     }
@@ -2674,9 +2713,6 @@ function initPopout(){
   });
 }
 
-// ===================================================
-// RESIZABLE PANELS
-// ===================================================
 function initResizablePanels(){
   function hDrag(divId, panelId, dir){
     var div=document.getElementById(divId);
@@ -2936,61 +2972,6 @@ drawTitle=function(clip,W,H,prog,fadeOut){
 
 
 // ===================================================
-// LAUNCHER DOWNLOAD (Python HTTP server - no install needed)
-// ===================================================
-function downloadLauncher(){
-  var lines = [
-    '@echo off',
-    'cd /d "%~dp0"',
-    'echo Starting Kids Film Club Trailer Editor...',
-    'echo.',
-    'where python >nul 2>&1',
-    'if %errorlevel%==0 (',
-    '    start /b python -m http.server 7878 --bind 127.0.0.1',
-    '    timeout /t 1 /nobreak >nul',
-    '    start "" "http://localhost:7878/trailer-editor-v2.html"',
-    '    goto :running',
-    ')',
-    'where python3 >nul 2>&1',
-    'if %errorlevel%==0 (',
-    '    start /b python3 -m http.server 7878 --bind 127.0.0.1',
-    '    timeout /t 1 /nobreak >nul',
-    '    start "" "http://localhost:7878/trailer-editor-v2.html"',
-    '    goto :running',
-    ')',
-    'echo Python not found. Please install Python from python.org',
-    'pause',
-    'exit /b 1',
-    ':running',
-    'echo Server running at http://localhost:7878',
-    'echo Close this window to stop the server.',
-    'pause',
-    'taskkill /f /im python.exe >nul 2>&1',
-    'taskkill /f /im python3.exe >nul 2>&1',
-  ];
-  var bat = lines.join('\r\n');
-  var blob = new Blob([bat], {type:'text/plain'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'Launch KFC Editor.bat';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  setStatus('Launcher downloaded! Save it next to trailer-editor-v2.html and double-click it.');
-}
-
-// Show banner if on file://
-if(window.location.protocol === 'file:'){
-  // Show after a tiny delay so the UI is ready
-  setTimeout(function(){
-    var b = document.getElementById('chrome-banner');
-    if(b) b.style.display = 'block';
-  }, 800);
-}
-
-
-// ===================================================
 // START
 // ===================================================
 init();
@@ -3001,20 +2982,5 @@ initResizablePanels();
 initPopout();
 initExtras();
 </script>
-<div id="chrome-banner" style="display:none;position:fixed;top:0;left:0;right:0;
-  background:linear-gradient(135deg,#1a0800,#0a1200);border-bottom:2px solid #f5c842;
-  padding:12px 20px;z-index:9999;font-size:11px;color:#fde68a;line-height:1.8;
-  box-shadow:0 2px 20px rgba(0,0,0,.8)">
-  <button onclick="document.getElementById('chrome-banner').style.display='none'"
-    style="float:right;background:#333;border:1px solid #555;color:#aaa;
-    padding:2px 10px;border-radius:3px;cursor:pointer;font-size:11px">&#10005;</button>
-  <strong style="color:#f5c842;font-size:12px">&#9888; Video preview needs a local server</strong><br>
-  <span style="color:#ccc">Chrome blocks video on <code>file://</code> pages.
-  Click to download a launcher — save it next to the editor and use it to open the editor.</span>
-  <button onclick="downloadLauncher()"
-    style="margin-left:10px;background:#1a3a00;border:1px solid #50c050;color:#90f090;
-    padding:4px 14px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700">
-    &#11015; Download Launcher</button>
-</div>
 </body>
 </html>
