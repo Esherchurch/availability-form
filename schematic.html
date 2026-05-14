@@ -367,9 +367,18 @@
                 </div>
                 <div class="field-group">
                     <label class="field-label">Sound Desk Channel (SQ5)</label>
-                    <select id="sig-desk">
+                    <select id="sig-desk" onchange="updateStereoRow()">
                         <option value="">-- Not Linked to Desk Yet --</option>
                     </select>
+                </div>
+                <div class="field-group" id="stereo-link-row" style="display:none; background:var(--teal-light); border-radius:var(--radius-sm); padding:10px 12px; border:1px solid rgba(74,124,126,0.2);">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                        <input type="checkbox" id="stereo-link-cb" style="width:auto;margin:0;accent-color:var(--green);">
+                        <span style="font-size:0.8rem;font-weight:700;color:var(--teal);">
+                            Link as stereo pair with <strong id="stereo-partner-label"></strong>
+                        </span>
+                        <input type="hidden" id="stereo-partner-val">
+                    </label>
                 </div>
                 <div class="field-group">
                     <label class="field-label" style="margin-bottom:8px;">Physical Paths</label>
@@ -659,12 +668,37 @@ function renderPathEntries() {
     });
 }
 
+// Stereo pairs — adjacent IP channels, ST pairs, FX return pairs, Mix pairs
+const STEREO_PAIRS = [
+    ...Array.from({length:24}, (_,i) => ['ip-'+(i*2+1), 'ip-'+(i*2+2)]),
+    ['st1-l','st1-r'], ['st2-l','st2-r'],
+    ...Array.from({length:4}, (_,i) => ['fx-ret-'+(i*2+1), 'fx-ret-'+(i*2+2)]),
+    ...Array.from({length:6}, (_,i) => ['mix-'+(i*2+1), 'mix-'+(i*2+2)]),
+];
+
+function updateStereoRow() {
+    const desk = document.getElementById('sig-desk').value;
+    const row = document.getElementById('stereo-link-row');
+    const cb = document.getElementById('stereo-link-cb');
+    if (!desk) { row.style.display = 'none'; cb.checked = false; return; }
+    const pair = STEREO_PAIRS.find(p => p[0] === desk || p[1] === desk);
+    if (!pair) { row.style.display = 'none'; cb.checked = false; return; }
+    const partner = pair[0] === desk ? pair[1] : pair[0];
+    const partnerLabel = deskLabel(partner);
+    document.getElementById('stereo-partner-label').textContent = partnerLabel;
+    document.getElementById('stereo-partner-val').value = partner;
+    row.style.display = '';
+}
+
 function saveSignal() {
     const label = document.getElementById('sig-label').value.trim();
     const desk  = document.getElementById('sig-desk').value;
     if (!label) return alert('Please enter a signal label.');
     const paths = pathEntries.map(p => p.label.trim()).filter(Boolean);
-    const entry = { label, desk, paths };
+    const stereoCb = document.getElementById('stereo-link-cb');
+    const stereo = stereoCb ? stereoCb.checked : false;
+    const stereoPartner = stereo ? document.getElementById('stereo-partner-val').value : null;
+    const entry = { label, desk, paths, stereo, stereoPartner };
     const idx = signals.findIndex(s => s.label === label);
     if (idx > -1) signals[idx] = entry;
     else signals.push(entry);
@@ -673,6 +707,9 @@ function saveSignal() {
     document.getElementById('sig-desk').value = '';
     pathEntries = [];
     renderPathEntries();
+    const cb = document.getElementById('stereo-link-cb');
+    if (cb) cb.checked = false;
+    updateStereoRow();
 }
 
 function deleteSignal(lbl) {
@@ -686,6 +723,9 @@ function editSignal(idx) {
     document.getElementById('sig-desk').innerHTML = buildDeskSelectHTML(s.desk || '');
     pathEntries = (s.paths || []).map((p, i) => ({ id: Date.now().toString()+i, label: p }));
     renderPathEntries();
+    updateStereoRow();
+    const cb = document.getElementById('stereo-link-cb');
+    if (cb) cb.checked = s.stereo || false;
     document.getElementById('sig-label').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -697,9 +737,9 @@ function renderSignalsList() {
     el.innerHTML = signals.map((s, i) =>
         '<div class="signal-row" style="flex-direction:column;align-items:flex-start;gap:5px;">' +
             '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">' +
-                '<span class="signal-name">&#127908; '+s.label+'</span>' +
+                '<span class="signal-name">&#127908; '+s.label+(s.stereo ? ' <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid rgba(141,198,63,0.3);border-radius:20px;padding:1px 7px;font-weight:700;">STEREO</span>' : '')+'</span>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
-                    (s.desk ? '<span class="signal-desk">'+deskLabel(s.desk)+'</span>' : '<span class="signal-unlinked">No desk ch</span>') +
+                    (s.desk ? '<span class="signal-desk">'+deskLabel(s.desk)+(s.stereo && s.stereoPartner ? ' + '+deskLabel(s.stereoPartner) : '')+'</span>' : '<span class="signal-unlinked">No desk ch</span>') +
                     '<span data-sig-idx="'+i+'" class="edit-sig-btn" style="cursor:pointer;color:var(--teal);font-size:0.75rem;padding:2px 7px;border:1px solid var(--teal);border-radius:6px;font-weight:700;">Edit</span>' +
                     '<span data-sig-idx="'+i+'" class="del-sig" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1rem;padding:0 4px;">x</span>' +
                 '</div>' +
@@ -958,7 +998,7 @@ function renderSchematic() {
                         '</div>'
                     ).join('') +
                 '</td>' +
-                '<td><span class="rpt-chain-node desk">' + dl + '</span></td>' +
+                '<td><span class="rpt-chain-node desk">' + dl + (sig.stereo && sig.stereoPartner ? ' + '+deskLabel(sig.stereoPartner) : '') + '</span></td>' +
             '</tr>';
         });
         html += '</tbody></table>';
