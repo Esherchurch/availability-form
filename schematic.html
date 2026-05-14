@@ -814,6 +814,12 @@ function renderHopDropdowns() {
     });
 }
 
+function getChannelSignalLabel(chLabel) {
+    // Find any signal assigned to this desk channel label
+    const sig = signals.find(s => deskLabel(s.desk) === chLabel);
+    return sig ? sig.label : null;
+}
+
 function buildDeskChannelSelect(wrapperId, inputId, currentVal) {
     const wrap = document.getElementById(wrapperId);
     if (!wrap) return;
@@ -830,7 +836,11 @@ function buildDeskChannelSelect(wrapperId, inputId, currentVal) {
         '<option value="">-- Select Channel --</option>' +
         groups.map(g =>
             '<optgroup label="'+g.label+'">'+
-            g.vals.map(o => '<option value="'+o.label+'"'+(o.label===currentVal?' selected':'')+'>'+o.label+'</option>').join('') +
+            g.vals.map(o => {
+                const sigName = getChannelSignalLabel(o.label);
+                const displayLabel = sigName ? o.label + '  —  ' + sigName : o.label;
+                return '<option value="'+o.label+'"'+(o.label===currentVal?' selected':'')+'>'+displayLabel+'</option>';
+            }).join('') +
             '</optgroup>'
         ).join('') +
     '</select>';
