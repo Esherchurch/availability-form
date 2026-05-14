@@ -305,6 +305,40 @@
         }
 
         @media (min-width: 600px) { .main { padding: 20px; } }
+
+        /* ── UNDO TOAST ── */
+        #undo-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #2d3748;
+            color: white;
+            padding: 12px 18px;
+            border-radius: var(--radius);
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+            z-index: 9999;
+            white-space: nowrap;
+        }
+        #undo-toast.visible { transform: translateX(-50%) translateY(0); }
+        #undo-toast-btn {
+            background: var(--green);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
     </style>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -408,14 +442,18 @@
             <div class="card-body">
                 <div class="field-group">
                     <label class="field-label">Point A — From</label>
-                    <select class="loc-dd" id="hop-a-loc"></select>
-                    <input type="number" id="hop-a-ch" placeholder="Channel number">
+                    <select class="loc-dd" id="hop-a-loc" onchange="updateHopChannelPicker('a')"></select>
+                    <div id="hop-a-ch-wrap">
+                        <input type="number" id="hop-a-ch" placeholder="Channel number">
+                    </div>
                 </div>
                 <div class="hop-divider">↓ WIRED TO ↓</div>
                 <div class="field-group">
                     <label class="field-label">Point B — To</label>
-                    <select class="loc-dd" id="hop-b-loc"></select>
-                    <input type="number" id="hop-b-ch" placeholder="Channel number">
+                    <select class="loc-dd" id="hop-b-loc" onchange="updateHopChannelPicker('b')"></select>
+                    <div id="hop-b-ch-wrap">
+                        <input type="number" id="hop-b-ch" placeholder="Channel number">
+                    </div>
                 </div>
                 <button class="btn btn-secondary" onclick="saveHop()">Create Connection</button>
             </div>
@@ -759,14 +797,62 @@ function renderSignalsList() {
     });
 }
 // ── HOPS ──
+const DESK_LOCATION = 'Sound Desk (SQ5)';
+
 function renderHopDropdowns() {
     ['hop-a-loc','hop-b-loc'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         const cur = el.value;
+        // Always include Sound Desk as first option, then user locations
         el.innerHTML = '<option value="">-- Select Location --</option>' +
-            locations.map(l => `<option value="${l}" ${l===cur?'selected':''}>${l}</option>`).join('');
+            `<option value="${DESK_LOCATION}" ${cur===DESK_LOCATION?'selected':''}> ${DESK_LOCATION}</option>` +
+            (locations.length ? '<optgroup label="Registered Locations">' +
+                locations.map(l => `<option value="${l}" ${l===cur?'selected':''}>${l}</option>`).join('') +
+            '</optgroup>' : '');
+        updateHopChannelPicker(id === 'hop-a-loc' ? 'a' : 'b');
     });
+}
+
+function buildDeskChannelSelect(wrapperId, inputId, currentVal) {
+    const wrap = document.getElementById(wrapperId);
+    if (!wrap) return;
+    const groups = [
+        { label: 'Input Channels (IP1-IP48)', vals: DESK_OPTIONS.filter(o => o.val.startsWith('ip-')) },
+        { label: 'Stereo Inputs (ST1, ST2)',  vals: DESK_OPTIONS.filter(o => o.val.startsWith('st')) },
+        { label: 'FX Returns (1-8)',          vals: DESK_OPTIONS.filter(o => o.val.startsWith('fx-ret')) },
+        { label: 'Main LR',                   vals: DESK_OPTIONS.filter(o => o.val === 'out-lr') },
+        { label: 'Mix Buses (MIX1-12)',       vals: DESK_OPTIONS.filter(o => o.val.startsWith('mix-')) },
+        { label: 'Matrix Buses (MTX1-3)',     vals: DESK_OPTIONS.filter(o => o.val.startsWith('mtx-')) },
+        { label: 'FX Sends (1-4)',            vals: DESK_OPTIONS.filter(o => o.val.startsWith('fx-send')) },
+    ];
+    wrap.innerHTML = '<select id="'+inputId+'" style="margin-bottom:0;">' +
+        '<option value="">-- Select Channel --</option>' +
+        groups.map(g =>
+            '<optgroup label="'+g.label+'">'+
+            g.vals.map(o => '<option value="'+o.label+'"'+(o.label===currentVal?' selected':'')+'>'+o.label+'</option>').join('') +
+            '</optgroup>'
+        ).join('') +
+    '</select>';
+}
+
+function updateHopChannelPicker(side) {
+    const locEl = document.getElementById('hop-'+side+'-loc');
+    const wrapId = 'hop-'+side+'-ch-wrap';
+    const inputId = 'hop-'+side+'-ch';
+    const wrap = document.getElementById(wrapId);
+    if (!locEl || !wrap) return;
+
+    if (locEl.value === DESK_LOCATION) {
+        // Replace number input with SQ5 channel dropdown
+        const currentVal = wrap.querySelector('select') ? wrap.querySelector('select').value : '';
+        buildDeskChannelSelect(wrapId, inputId, currentVal);
+    } else {
+        // Restore number input if it was replaced
+        if (wrap.querySelector('select')) {
+            wrap.innerHTML = '<input type="number" id="'+inputId+'" placeholder="Channel number">';
+        }
+    }
 }
 
 function saveHop() {
@@ -798,10 +884,9 @@ function editHop(id) {
     const h = hops.find(x => x.id === id);
     if (!h) return;
 
-    const locOptions = locations.map(l =>
-        `<option value="${l}" ${l===h.aLoc?'selected':''}>${l}</option>`).join('');
-    const locOptionsB = locations.map(l =>
-        `<option value="${l}" ${l===h.bLoc?'selected':''}>${l}</option>`).join('');
+    const allLocs = [DESK_LOCATION, ...locations];
+    const locOptions  = allLocs.map(l => `<option value="${l}" ${l===h.aLoc?'selected':''}>${l}</option>`).join('');
+    const locOptionsB = allLocs.map(l => `<option value="${l}" ${l===h.bLoc?'selected':''}>${l}</option>`).join('');
 
     const box = document.getElementById('hop-box-' + id);
     box.innerHTML = `
@@ -860,7 +945,10 @@ function buildAdjacency() {
 // Find all complete chains: paths from a dead-end through hops to a desk channel node
 // A desk node is one whose location name contains 'desk' (case-insensitive) or matches a DESK_OPTIONS val
 function isDeskNode(locName) {
-    return locName.toLowerCase().includes('desk') || locName.toLowerCase().includes('sq5') || locName.toLowerCase().includes('sound desk');
+    return locName === DESK_LOCATION ||
+        locName.toLowerCase().includes('desk') ||
+        locName.toLowerCase().includes('sq5') ||
+        locName.toLowerCase().includes('sound desk');
 }
 
 function findAllChains() {
