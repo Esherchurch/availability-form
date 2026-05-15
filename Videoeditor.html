@@ -1153,25 +1153,38 @@ async function autoRestoreHandles(){
 var _glitterPools={};
 function getGlitterPool(clipId, textW, textH, cx, cy){
   if(_glitterPools[clipId]) return _glitterPools[clipId];
-  // Generate particles seeded along the text bounding area
   var particles=[];
-  var count=120;
+  var count=1200;
   for(var i=0;i<count;i++){
-    // Random position within text bounds
-    var px=cx + (Math.random()-0.5)*textW*1.1;
-    var py=cy + (Math.random()-0.5)*textH*0.8;
-    // Velocity: burst outward/downward on impact, like shaken glitter
-    var angle=Math.PI*0.5 + (Math.random()-0.5)*Math.PI*0.9; // mostly downward fan
-    var speed=1.5+Math.random()*4.5;
+    var spread=Math.random()<0.7?1.0:2.4;
+    var px=cx + (Math.random()-0.5)*textW*spread;
+    var py=cy + (Math.random()-0.5)*textH*spread*0.55;
+    // Mix of directions: most fall downward, some burst upward then arc down
+    var angleRoll=Math.random();
+    var angle;
+    if(angleRoll<0.25){
+      // Upward burst — shoots up first, gravity pulls back down
+      angle=-(Math.PI*0.5) + (Math.random()-0.5)*Math.PI*0.8;
+    }else if(angleRoll<0.55){
+      // Sideways spray
+      angle=(Math.random()-0.5)*Math.PI*0.7;
+    }else{
+      // Downward fall (majority)
+      angle=Math.PI*0.5 + (Math.random()-0.5)*Math.PI*0.9;
+    }
+    var speed=0.5+Math.random()*8.5;
+    var sizeRoll=Math.random();
+    var sz=sizeRoll<0.6?0.5+Math.random()*1.1:sizeRoll<0.9?1.4+Math.random()*2.0:3.0+Math.random()*4.0;
+    var goldV=Math.random();
     particles.push({
-      x:px, y:py,
+      x:px,y:py,
       vx:Math.cos(angle)*speed*(Math.random()>0.5?1:-1),
       vy:Math.sin(angle)*speed,
-      life:0.55+Math.random()*0.45,  // how long this particle lives (0-1)
-      size:1+Math.random()*2.5,
-      hue:Math.random()*60+30,       // gold-ish range
-      bright:0.7+Math.random()*0.3,
+      life:0.35+Math.random()*0.65,
+      size:sz,
+      goldV:goldV,
       spin:Math.random()*Math.PI*2,
+      shape:Math.random()<0.5?'diamond':'dot',
     });
   }
   _glitterPools[clipId]=particles;
@@ -2213,32 +2226,44 @@ function drawTitle(clip,W,H,prog,fadeOut,userOp){
 
       pool.forEach(function(p){
         if(pTime<=0||pTime>p.life) return;
-        var pt=pTime/p.life; // 0-1 within this particle's life
-        // Position: integrate velocity with gravity
-        var gravity=280; // px/s² equivalent
-        var px=p.x + p.vx*pTime*60 + shakeX;
-        var py=p.y + p.vy*pTime*60 + 0.5*gravity*pTime*pTime*2 + shakeY;
-        var palpha=_fa((1-Math.pow(pt,1.5))*fadeOut*0.95);
+        var pt=pTime/p.life;
+        // Physics: gravity pulls down, slight drift
+        var gravity=320;
+        var px=p.x + p.vx*pTime*55 + shakeX;
+        var py=p.y + p.vy*pTime*55 + 0.5*gravity*pTime*pTime*1.8 + shakeY;
+        // Fade: sharp at start, tails off
+        var palpha=_fa((1-Math.pow(pt,1.2))*fadeOut);
         if(palpha<=0) return;
-        // Gold/white sparkle colour
-        var bright=Math.round(p.bright*255);
-        var r=Math.min(255,bright+30);
-        var g2=Math.min(255,bright+10);
-        var b=Math.max(0,bright-80);
+        // Rich gold palette: deep gold → mid gold → bright yellow-white
+        var gv=p.goldV;
+        var r,g2,b;
+        if(gv<0.4){        // deep gold
+          r=200+Math.round(gv*100);g2=140+Math.round(gv*80);b=0;
+        }else if(gv<0.75){ // mid bright gold
+          r=255;g2=195+Math.round((gv-0.4)*160);b=20;
+        }else{             // bright white-gold
+          r=255;g2=235+Math.round((gv-0.75)*80);b=120+Math.round((gv-0.75)*200);
+        }
+        var ps=p.size*(1-pt*0.35);
         ctx.save();
         ctx.globalAlpha=palpha;
         ctx.translate(px,py);
-        ctx.rotate(p.spin+pTime*Math.PI*3);
-        // Draw a small 4-pointed star / diamond sparkle
-        var ps=p.size*(1-pt*0.4);
+        ctx.rotate(p.spin+pTime*Math.PI*4);
         ctx.fillStyle='rgb('+r+','+g2+','+b+')';
-        ctx.beginPath();
-        // Simple diamond
-        ctx.moveTo(0,-ps*1.8);ctx.lineTo(ps*0.5,0);ctx.lineTo(0,ps*1.8);ctx.lineTo(-ps*0.5,0);
-        ctx.closePath();ctx.fill();
-        // Bright centre dot
-        ctx.fillStyle='rgba(255,255,220,0.9)';
-        ctx.beginPath();ctx.arc(0,0,ps*0.35,0,Math.PI*2);ctx.fill();
+        if(p.shape==='diamond'||p.size>2){
+          // Diamond / elongated flake
+          ctx.beginPath();
+          ctx.moveTo(0,-ps*2);ctx.lineTo(ps*0.6,0);ctx.lineTo(0,ps*2);ctx.lineTo(-ps*0.6,0);
+          ctx.closePath();ctx.fill();
+          // Bright specular highlight
+          if(p.size>1.5){
+            ctx.fillStyle='rgba(255,255,200,'+(palpha*0.7)+')';
+            ctx.beginPath();ctx.arc(0,-ps*0.4,ps*0.3,0,Math.PI*2);ctx.fill();
+          }
+        }else{
+          // Round dust particle
+          ctx.beginPath();ctx.arc(0,0,ps,0,Math.PI*2);ctx.fill();
+        }
         ctx.restore();
       });
     }
