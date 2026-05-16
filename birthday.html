@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High-Class Birthday Invitation Maker & Mail Merge</title>
     <!-- Premium Font Loading -->
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Fredoka+One&family=Montserrat:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Kanit:wght@800&family=Pinyon+Script&display=swap" rel="stylesheet">
     <!-- SheetJS for processing Excel Files -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -61,6 +61,13 @@
             flex-direction: column;
             gap: 8px;
         }
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
         label {
             font-size: 11px;
             text-transform: uppercase;
@@ -76,6 +83,11 @@
             border-radius: 4px;
             font-family: inherit;
             font-size: 14px;
+        }
+        input[type="color"] {
+            padding: 2px;
+            height: 40px;
+            cursor: pointer;
         }
         input:focus, textarea:focus, select:focus {
             outline: none;
@@ -110,7 +122,7 @@
 
         /* --- Workspace / Preview Area --- */
         #preview-container {
-            margin-left: 450px; /* Offset completely by the panel width */
+            margin-left: 450px; 
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -162,7 +174,6 @@
             font-size: 11px;
             letter-spacing: 2px;
             text-transform: uppercase;
-            font-family: 'Montserrat', sans-serif;
         }
         .divider {
             width: 50px;
@@ -170,161 +181,71 @@
             margin: 15px auto;
         }
 
-        /* --- TEMPLATE 1: Royal Midnight Blue & Gold (Natasha 50th) --- */
+        /* --- FONT STYLE OVERRIDES --- */
+        .f-serif .txt-main, .f-serif .txt-accent, .f-serif .txt-details, .f-serif .txt-recipient { font-family: 'Cinzel', serif; }
+        .f-sans .txt-main, .f-sans .txt-accent, .f-sans .txt-details, .f-sans .txt-recipient { font-family: 'Montserrat', sans-serif; }
+        .f-classic-serif .txt-main, .f-classic-serif .txt-accent, .f-classic-serif .txt-details, .f-classic-serif .txt-recipient { font-family: 'Playfair Display', serif; }
+        .f-sporty .txt-main, .f-sporty .txt-accent, .f-sporty .txt-recipient { font-family: 'Kanit', sans-serif; font-weight: 800; }
+        .f-script .txt-main, .f-script .txt-recipient { font-family: 'Pinyon Script', cursive; text-transform: none !important; }
+
+        /* --- PRESET TEMPLATE BASE DEFINITIONS --- */
+        
+        /* 1. Royal Midnight & Gold (Natasha 50th Base) */
         .tmpl-royal {
             background: radial-gradient(circle, #101f35 0%, #070d16 100%) !important;
             border: 4mm double #c5a059;
             outline: 1mm solid #c5a059;
             outline-offset: -2mm;
         }
-        .tmpl-royal .txt-accent {
-            color: #c5a059;
-            font-family: 'Cinzel', serif;
-            letter-spacing: 4px;
-        }
-        .tmpl-royal .txt-main {
-            color: #ffffff;
-            font-family: 'Cinzel', serif;
-            font-size: 32px;
-            letter-spacing: 6px;
-            text-transform: uppercase;
-            margin: 15px 0;
-            font-weight: 300;
-        }
-        .tmpl-royal .txt-details {
-            color: #dcdcdc;
-            font-family: 'Cinzel', serif;
-            font-size: 12px;
-            line-height: 1.8;
-            letter-spacing: 2px;
-        }
-        .tmpl-royal .txt-recipient {
-            color: #c5a059;
-            font-family: 'Cinzel', serif;
-            font-size: 16px;
-            font-style: italic;
-            letter-spacing: 2px;
-            margin-top: 5px;
-        }
+        .tmpl-royal:not(.customized) .txt-accent { color: #c5a059; font-family: 'Cinzel', serif; letter-spacing: 4px; }
+        .tmpl-royal:not(.customized) .txt-main { color: #ffffff; font-family: 'Cinzel', serif; font-size: 32px; letter-spacing: 6px; text-transform: uppercase; margin: 15px 0; }
+        .tmpl-royal:not(.customized) .txt-details { color: #dcdcdc; font-family: 'Cinzel', serif; font-size: 12px; line-height: 1.8; letter-spacing: 2px; }
+        .tmpl-royal:not(.customized) .txt-recipient { color: #c5a059; font-family: 'Cinzel', serif; font-size: 16px; font-style: italic; letter-spacing: 2px; }
 
-        /* --- TEMPLATE 2: Rose Gold Chic (Feminine / Elegant) --- */
-        .tmpl-rosegold {
-            background: linear-gradient(180deg, #fff5f5 0%, #ffe4e4 100%) !important;
-            border: 2px solid #e0b0b0;
+        /* 2. Classic Elegance (Burgundy & Crest Style) */
+        .tmpl-classic {
+            background: #4a0e17 !important;
+            border: 2px solid #d4af37;
+            outline: 12px solid #360a10;
+            outline-offset: -14px;
         }
-        .tmpl-rosegold .txt-accent {
-            color: #b87d7d;
-            font-family: 'Montserrat', sans-serif;
-            letter-spacing: 3px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        .tmpl-rosegold .txt-main {
-            color: #4a3b3b;
-            font-family: 'Playfair Display', serif;
-            font-size: 36px;
-            font-style: italic;
-            margin: 15px 0;
-        }
-        .tmpl-rosegold .txt-details {
-            color: #5c4a4a;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 12px;
-            line-height: 1.8;
-            letter-spacing: 1px;
-        }
-        .tmpl-rosegold .txt-recipient {
-            color: #b87d7d;
-            font-family: 'Playfair Display', serif;
-            font-size: 18px;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
+        .tmpl-classic:not(.customized) .txt-accent { color: #d4af37; font-family: 'Playfair Display', serif; font-style: italic; letter-spacing: 2px; }
+        .tmpl-classic:not(.customized) .txt-main { color: #ffffff; font-family: 'Playfair Display', serif; font-size: 34px; letter-spacing: 3px; font-weight: 700; text-transform: uppercase; margin: 12px 0; }
+        .tmpl-classic:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.8; letter-spacing: 2px; }
+        .tmpl-classic:not(.customized) .txt-recipient { color: #d4af37; font-family: 'Playfair Display', serif; font-size: 18px; letter-spacing: 1px; }
 
-        /* --- TEMPLATE 3: Safari Adventure (Boys Birthday) --- */
-        .tmpl-safari {
-            background: #f4f0e6 !important;
-            border: 5mm solid #556b2f;
+        /* 3. Modern Minimalist (Crisp White / Studio Style) */
+        .tmpl-modern {
+            background: #ffffff !important;
+            border: 1px solid #e0e0e0;
         }
-        .tmpl-safari .txt-accent {
-            color: #8b5a2b;
-            font-family: 'Fredoka One', cursive;
-            letter-spacing: 1px;
-            font-size: 14px;
-        }
-        .tmpl-safari .txt-main {
-            color: #2e8b57;
-            font-family: 'Fredoka One', cursive;
-            font-size: 34px;
-            margin: 10px 0;
-            letter-spacing: 1px;
-        }
-        .tmpl-safari .txt-details {
-            color: #333333;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 13px;
-            line-height: 1.6;
-            font-weight: bold;
-        }
-        .tmpl-safari .txt-recipient {
-            color: #d2691e;
-            font-family: 'Fredoka One', cursive;
-            font-size: 18px;
-        }
+        .tmpl-modern:not(.customized) .txt-accent { color: #222222; font-family: 'Montserrat', sans-serif; letter-spacing: 5px; font-size: 11px; font-weight: 700; }
+        .tmpl-modern:not(.customized) .txt-main { color: #111111; font-family: 'Montserrat', sans-serif; font-size: 36px; letter-spacing: 1px; font-weight: 900; text-transform: uppercase; margin: 15px 0; }
+        .tmpl-modern:not(.customized) .txt-details { color: #555555; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 2; letter-spacing: 1px; }
+        .tmpl-modern:not(.customized) .txt-recipient { color: #0044ff; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 2px; }
 
-        /* --- TEMPLATE 4: Super Galactic (Boys Birthday / Sci-Fi) --- */
-        .tmpl-galactic {
-            background: #020208 !important;
-            border: 3px dashed #00ffff;
-            outline: 10px solid #0a0a1f;
+        /* 4. Championship Football (Boys / Sport Theme) */
+        .tmpl-football {
+            background: linear-gradient(135deg, #113b21 0%, #082212 100%) !important;
+            border: 4px solid #ffffff;
+            outline: 6px solid #1e5631;
         }
-        .tmpl-galactic .txt-accent {
-            color: #ff00ff;
-            font-family: 'Montserrat', sans-serif;
-            letter-spacing: 4px;
-            font-weight: bold;
-            font-size: 11px;
-            text-shadow: 0 0 5px #ff00ff;
-        }
-        .tmpl-galactic .txt-main {
-            color: #00ffff;
-            font-family: 'Montserrat', sans-serif;
-            font-weight: 900;
-            font-size: 32px;
-            letter-spacing: 3px;
-            margin: 15px 0;
-            text-shadow: 0 0 8px #00ffff;
-        }
-        .tmpl-galactic .txt-details {
-            color: #ffffff;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 12px;
-            line-height: 1.8;
-            letter-spacing: 2px;
-        }
-        .tmpl-galactic .txt-recipient {
-            color: #ffff00;
-            font-family: 'Montserrat', sans-serif;
-            font-weight: bold;
-            font-size: 16px;
-            letter-spacing: 2px;
-            text-shadow: 0 0 5px #ffff00;
-        }
+        .tmpl-football:not(.customized) .txt-accent { color: #ffcc00; font-family: 'Kanit', sans-serif; letter-spacing: 2px; font-size: 13px; text-transform: uppercase; }
+        .tmpl-football:not(.customized) .txt-main { color: #ffffff; font-family: 'Kanit', sans-serif; font-size: 38px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin: 10px 0; text-shadow: 3px 3px 0px #000000; }
+        .tmpl-football:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 12px; line-height: 1.6; font-weight: bold; letter-spacing: 1px; }
+        .tmpl-football:not(.customized) .txt-recipient { color: #ffcc00; font-family: 'Kanit', sans-serif; font-size: 20px; font-style: italic; text-shadow: 2px 2px 0px #000000; }
 
         /* --- High-Resolution Print Engine --- */
         @media print {
-            /* Completely hide control configurations */
             #control-panel {
                 display: none !important;
             }
-            /* Shift container to the absolute page corner edge */
             #preview-container {
                 margin-left: 0 !important;
                 padding: 0 !important;
                 background: none !important;
                 display: block !important;
             }
-            /* Force exact template visual fidelity targets */
             .invitation-canvas {
                 box-shadow: none !important;
                 width: 148mm !important;
@@ -341,20 +262,58 @@
         <h2 class="panel-title">Invitation Customizer</h2>
         
         <div class="form-group">
-            <label for="template-select">Design Template</label>
+            <label for="template-select">Design Template Base</label>
             <select id="template-select" onchange="updateAllInvitations()">
                 <option value="tmpl-royal">Royal Midnight & Gold (Natasha 50th)</option>
-                <option value="tmpl-rosegold">Rose Gold Chic (Feminine Elegant)</option>
-                <option value="tmpl-safari">Safari Adventure (Boys Birthday)</option>
-                <option value="tmpl-galactic">Super Galactic (Boys Space Theme)</option>
+                <option value="tmpl-classic">Classic Elegance (Burgundy & Crest)</option>
+                <option value="tmpl-modern">Modern Minimalist (Studio White)</option>
+                <option value="tmpl-football">Championship Football (Sport Theme)</option>
             </select>
         </div>
+
+        <!-- CUSTOM ENGINE PARAMETERS -->
+        <div class="info-box">
+            <strong>Custom Branding Engine</strong><br>
+            Modify colors or fonts below to alter or completely override the preset designs.
+        </div>
+
+        <div class="form-group">
+            <label for="font-override">Font Style Override</label>
+            <select id="font-override" onchange="updateAllInvitations()">
+                <option value="default">— Keep Template Fonts —</option>
+                <option value="f-serif">Cinzel Premium Serif</option>
+                <option value="f-sans">Montserrat Clean Sans</option>
+                <option value="f-classic-serif">Playfair Literary Serif</option>
+                <option value="f-sporty">Kanit Athletic Heavy</option>
+                <option value="f-script">Pinyon Elegant Script</option>
+            </select>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="color-bg">Custom Background</label>
+                <input type="color" id="color-bg" value="#000000" oninput="applyColorOverride()">
+            </div>
+            <div class="form-group">
+                <label for="color-accent">Custom Accent</label>
+                <input type="color" id="color-accent" value="#4a90e2" oninput="applyColorOverride()">
+            </div>
+            <div class="form-group">
+                <label for="color-text">Custom Text</label>
+                <input type="color" id="color-text" value="#ffffff" oninput="applyColorOverride()">
+            </div>
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="enable-color-override" onchange="updateAllInvitations()"> Enable Custom Color Override</label>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #2a3546; margin: 5px 0;">
 
         <div class="form-group">
             <label for="excel-upload">Mail Merge (Excel List)</label>
             <input type="file" id="excel-upload" accept=".xlsx, .xls" onchange="handleExcel(event)">
             <div class="info-box">
-                Upload an Excel sheet containing a column named <strong>Name</strong>. Each row will generate an independent high-resolution A5 print page.
+                Upload sheet with a <strong>Name</strong> column header.
             </div>
         </div>
 
@@ -374,13 +333,13 @@
         </div>
 
         <div class="form-group">
-            <label for="image-upload">Guest of Honor Photo (High-Res)</label>
+            <label for="image-upload">Guest Photo (High-Res)</label>
             <input type="file" id="image-upload" accept="image/*" onchange="handleImage(event)">
         </div>
 
         <div class="form-group">
             <label for="input-details">Event Details</label>
-            <textarea id="input-details" rows="6" oninput="updateAllInvitations()">SATURDAY, OCTOBER 17TH | 7:00 PM
+            <textarea id="input-details" rows="5" oninput="updateAllInvitations()">SATURDAY, OCTOBER 17TH | 7:00 PM
 
 THE LUXE CLUBLAND LOUNGE
 45 PICCADILLY, LONDON
@@ -394,7 +353,7 @@ BLACK TIE REQUIRED</textarea>
 
     <!-- PREVIEW AREA -->
     <div id="preview-container">
-        <!-- Dynamic Canvas Nodes Generated Here -->
+        <!-- Canvas Nodes Dynamically Rendered -->
     </div>
 
     <!-- ENGINE LOGIC -->
@@ -425,7 +384,7 @@ BLACK TIE REQUIRED</textarea>
                 if (names.length > 0) {
                     recipientList = names;
                 } else {
-                    alert("No 'Name' column found in your file. Defaulting placeholder.");
+                    alert("No 'Name' column discovered. Defaulting to standard template sequence.");
                     recipientList = ["EXCLUSIVELY FOR YOU"];
                 }
                 renderInvitations();
@@ -437,7 +396,6 @@ BLACK TIE REQUIRED</textarea>
             const reader = new FileReader();
             reader.onload = function() {
                 currentImageDataUrl = reader.result;
-                
                 const previews = document.querySelectorAll('.photo-preview');
                 const placeholders = document.querySelectorAll('.photo-placeholder');
                 
@@ -459,22 +417,43 @@ BLACK TIE REQUIRED</textarea>
             container.innerHTML = ''; 
 
             const selectedTemplate = document.getElementById('template-select').value;
+            const fontOverride = document.getElementById('font-override').value;
+            const colorsEnabled = document.getElementById('enable-color-override').checked;
+
             const hostText = document.getElementById('input-host').value.toUpperCase();
             const titleText = document.getElementById('input-title').value.toUpperCase();
             const subtitleText = document.getElementById('input-subtitle').value.toUpperCase();
             const detailsText = document.getElementById('input-details').value.replace(/\n/g, '<br>');
 
-            // Dynamic color tracking for borders and accents per template
+            // Determine dynamic asset tracking layout colors
             let assetColor = '#c5a059'; 
             let placeholderBg = '#152238';
             
-            if (selectedTemplate === 'tmpl-rosegold') { assetColor = '#e0b0b0'; placeholderBg = '#fff0f0'; }
-            if (selectedTemplate === 'tmpl-safari') { assetColor = '#556b2f'; placeholderBg = '#e6dfd1'; }
-            if (selectedTemplate === 'tmpl-galactic') { assetColor = '#00ffff'; placeholderBg = '#050515'; }
+            if (selectedTemplate === 'tmpl-classic') { assetColor = '#d4af37'; placeholderBg = '#360a10'; }
+            if (selectedTemplate === 'tmpl-modern') { assetColor = '#111111'; placeholderBg = '#f0f0f0'; }
+            if (selectedTemplate === 'tmpl-football') { assetColor = '#ffcc00'; placeholderBg = '#082212'; }
+
+            if (colorsEnabled) {
+                assetColor = document.getElementById('color-accent').value;
+            }
 
             recipientList.forEach(recipient => {
                 const canvas = document.createElement('div');
-                canvas.className = `invitation-canvas ${selectedTemplate}`;
+                
+                // Construct standard base styles combined with active typographic overrides
+                canvas.className = `invitation-canvas ${selectedTemplate} ${fontOverride !== 'default' ? fontOverride : ''} ${colorsEnabled ? 'customized' : ''}`;
+
+                if (colorsEnabled) {
+                    canvas.style.backgroundColor = document.getElementById('color-bg').value;
+                    canvas.style.backgroundImage = 'none';
+                    canvas.style.borderColor = assetColor;
+                    canvas.style.outlineColor = assetColor;
+                } else {
+                    canvas.style.backgroundColor = '';
+                    canvas.style.backgroundImage = '';
+                    canvas.style.borderColor = '';
+                    canvas.style.outlineColor = '';
+                }
 
                 canvas.innerHTML = `
                     <div style="width: 100%;">
@@ -484,7 +463,7 @@ BLACK TIE REQUIRED</textarea>
                         <div class="divider" style="background-color: ${assetColor};"></div>
                     </div>
 
-                    <div class="photo-wrapper" style="border-color: ${assetColor}; background-color: ${placeholderBg};">
+                    <div class="photo-wrapper" style="border-color: ${assetColor}; background-color: ${colorsEnabled ? document.getElementById('color-bg').value : placeholderBg};">
                         <span class="photo-placeholder" style="display: ${currentImageDataUrl ? 'none' : 'block'}; color: ${assetColor};">Insert High-Resolution Photo</span>
                         <img class="photo-preview" src="${currentImageDataUrl || '#'}" alt="Invitation Portrait" style="display: ${currentImageDataUrl ? 'block' : 'none'};">
                     </div>
@@ -495,8 +474,29 @@ BLACK TIE REQUIRED</textarea>
                         <div class="txt-details">${detailsText}</div>
                     </div>
                 `;
+
+                // Handle text override inject targets inline if custom matrix matches active rule
+                if (colorsEnabled) {
+                    const txtAccents = canvas.querySelectorAll('.txt-accent');
+                    const txtMain = canvas.querySelector('.txt-main');
+                    const txtDetails = canvas.querySelector('.txt-details');
+                    const txtRecipient = canvas.querySelector('.txt-recipient');
+                    const userTextColor = document.getElementById('color-text').value;
+
+                    txtAccents.forEach(el => el.style.color = assetColor);
+                    if (txtMain) txtMain.style.color = userTextColor;
+                    if (txtDetails) txtDetails.style.color = userTextColor;
+                    if (txtRecipient) txtRecipient.style.color = assetColor;
+                }
+
                 container.appendChild(canvas);
             });
+        }
+
+        function applyColorOverride() {
+            // Auto-enable checkbox if a user interacts directly with a color wheel selector node
+            document.getElementById('enable-color-override').checked = true;
+            renderInvitations();
         }
 
         function updateAllInvitations() {
