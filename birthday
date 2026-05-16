@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Class Birthday Invitation Maker & Mail Merge</title>
+    <!-- Premium Font Loading -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Fredoka+One&family=Montserrat:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- SheetJS for processing Excel Files -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        /* --- Print & High-Resolution Defaults --- */
+        @page {
+            size: A5 portrait;
+            margin: 0;
+        }
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111111;
+            color: #ffffff;
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* --- Control Panel Styles --- */
+        #control-panel {
+            width: 450px;
+            background-color: #1a1a1a;
+            padding: 30px;
+            border-right: 2px solid #2a3546;
+            overflow-y: auto;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 100;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        h2.panel-title {
+            color: #4a90e2;
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 0;
+            border-bottom: 1px solid #2a3546;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #a0a0a0;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            background-color: #111111;
+            border: 1px solid #2a3546;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        .btn-print {
+            background-color: #4a90e2;
+            color: #ffffff;
+            border: none;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 10px;
+            transition: background 0.3s ease;
+        }
+        .btn-print:hover {
+            background-color: #357abd;
+        }
+        .info-box {
+            background-color: #0b131f;
+            border: 1px dashed #4a90e2;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #b0c4de;
+            line-height: 1.4;
+        }
+
+        /* --- Workspace / Preview Area --- */
+        #preview-container {
+            margin-left: 450px; /* Offset completely by the panel width */
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #222222;
+            padding: 40px;
+            overflow-y: auto;
+            gap: 40px;
+            min-height: 100vh;
+        }
+
+        /* --- Invitation Canvas (A5 exact aspect ratio for 300 DPI print) --- */
+        .invitation-canvas {
+            width: 148mm;
+            height: 210mm;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 25mm 15mm;
+            text-align: center;
+            box-sizing: border-box;
+            page-break-after: always;
+            flex-shrink: 0;
+        }
+
+        /* --- Universal Inner Components --- */
+        .photo-wrapper {
+            width: 110mm;
+            height: 70mm;
+            border: 3px solid transparent;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        .photo-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        .photo-placeholder {
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .divider {
+            width: 50px;
+            height: 1px;
+            margin: 15px auto;
+        }
+
+        /* --- TEMPLATE 1: Royal Midnight Blue & Gold (Natasha 50th) --- */
+        .tmpl-royal {
+            background: radial-gradient(circle, #101f35 0%, #070d16 100%) !important;
+            border: 4mm double #c5a059;
+            outline: 1mm solid #c5a059;
+            outline-offset: -2mm;
+        }
+        .tmpl-royal .txt-accent {
+            color: #c5a059;
+            font-family: 'Cinzel', serif;
+            letter-spacing: 4px;
+        }
+        .tmpl-royal .txt-main {
+            color: #ffffff;
+            font-family: 'Cinzel', serif;
+            font-size: 32px;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            margin: 15px 0;
+            font-weight: 300;
+        }
+        .tmpl-royal .txt-details {
+            color: #dcdcdc;
+            font-family: 'Cinzel', serif;
+            font-size: 12px;
+            line-height: 1.8;
+            letter-spacing: 2px;
+        }
+        .tmpl-royal .txt-recipient {
+            color: #c5a059;
+            font-family: 'Cinzel', serif;
+            font-size: 16px;
+            font-style: italic;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        /* --- TEMPLATE 2: Rose Gold Chic (Feminine / Elegant) --- */
+        .tmpl-rosegold {
+            background: linear-gradient(180deg, #fff5f5 0%, #ffe4e4 100%) !important;
+            border: 2px solid #e0b0b0;
+        }
+        .tmpl-rosegold .txt-accent {
+            color: #b87d7d;
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .tmpl-rosegold .txt-main {
+            color: #4a3b3b;
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-style: italic;
+            margin: 15px 0;
+        }
+        .tmpl-rosegold .txt-details {
+            color: #5c4a4a;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 12px;
+            line-height: 1.8;
+            letter-spacing: 1px;
+        }
+        .tmpl-rosegold .txt-recipient {
+            color: #b87d7d;
+            font-family: 'Playfair Display', serif;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* --- TEMPLATE 3: Safari Adventure (Boys Birthday) --- */
+        .tmpl-safari {
+            background: #f4f0e6 !important;
+            border: 5mm solid #556b2f;
+        }
+        .tmpl-safari .txt-accent {
+            color: #8b5a2b;
+            font-family: 'Fredoka One', cursive;
+            letter-spacing: 1px;
+            font-size: 14px;
+        }
+        .tmpl-safari .txt-main {
+            color: #2e8b57;
+            font-family: 'Fredoka One', cursive;
+            font-size: 34px;
+            margin: 10px 0;
+            letter-spacing: 1px;
+        }
+        .tmpl-safari .txt-details {
+            color: #333333;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 13px;
+            line-height: 1.6;
+            font-weight: bold;
+        }
+        .tmpl-safari .txt-recipient {
+            color: #d2691e;
+            font-family: 'Fredoka One', cursive;
+            font-size: 18px;
+        }
+
+        /* --- TEMPLATE 4: Super Galactic (Boys Birthday / Sci-Fi) --- */
+        .tmpl-galactic {
+            background: #020208 !important;
+            border: 3px dashed #00ffff;
+            outline: 10px solid #0a0a1f;
+        }
+        .tmpl-galactic .txt-accent {
+            color: #ff00ff;
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: 4px;
+            font-weight: bold;
+            font-size: 11px;
+            text-shadow: 0 0 5px #ff00ff;
+        }
+        .tmpl-galactic .txt-main {
+            color: #00ffff;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 900;
+            font-size: 32px;
+            letter-spacing: 3px;
+            margin: 15px 0;
+            text-shadow: 0 0 8px #00ffff;
+        }
+        .tmpl-galactic .txt-details {
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 12px;
+            line-height: 1.8;
+            letter-spacing: 2px;
+        }
+        .tmpl-galactic .txt-recipient {
+            color: #ffff00;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: bold;
+            font-size: 16px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px #ffff00;
+        }
+
+        /* --- High-Resolution Print Engine --- */
+        @media print {
+            /* Completely hide control configurations */
+            #control-panel {
+                display: none !important;
+            }
+            /* Shift container to the absolute page corner edge */
+            #preview-container {
+                margin-left: 0 !important;
+                padding: 0 !important;
+                background: none !important;
+                display: block !important;
+            }
+            /* Force exact template visual fidelity targets */
+            .invitation-canvas {
+                box-shadow: none !important;
+                width: 148mm !important;
+                height: 210mm !important;
+                margin: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CONTROL PANEL -->
+    <div id="control-panel">
+        <h2 class="panel-title">Invitation Customizer</h2>
+        
+        <div class="form-group">
+            <label for="template-select">Design Template</label>
+            <select id="template-select" onchange="updateAllInvitations()">
+                <option value="tmpl-royal">Royal Midnight & Gold (Natasha 50th)</option>
+                <option value="tmpl-rosegold">Rose Gold Chic (Feminine Elegant)</option>
+                <option value="tmpl-safari">Safari Adventure (Boys Birthday)</option>
+                <option value="tmpl-galactic">Super Galactic (Boys Space Theme)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="excel-upload">Mail Merge (Excel List)</label>
+            <input type="file" id="excel-upload" accept=".xlsx, .xls" onchange="handleExcel(event)">
+            <div class="info-box">
+                Upload an Excel sheet containing a column named <strong>Name</strong>. Each row will generate an independent high-resolution A5 print page.
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="input-host">Host Line / Prefix</label>
+            <input type="text" id="input-host" value="CHAMPAGNE TOAST TO CELEBRATE" oninput="updateAllInvitations()">
+        </div>
+
+        <div class="form-group">
+            <label for="input-title">Main Title / Name</label>
+            <input type="text" id="input-title" value="NATASHA'S 50TH" oninput="updateAllInvitations()">
+        </div>
+
+        <div class="form-group">
+            <label for="input-subtitle">Subtitle</label>
+            <input type="text" id="input-subtitle" value="BIRTHDAY SOHO SOIREE" oninput="updateAllInvitations()">
+        </div>
+
+        <div class="form-group">
+            <label for="image-upload">Guest of Honor Photo (High-Res)</label>
+            <input type="file" id="image-upload" accept="image/*" onchange="handleImage(event)">
+        </div>
+
+        <div class="form-group">
+            <label for="input-details">Event Details</label>
+            <textarea id="input-details" rows="6" oninput="updateAllInvitations()">SATURDAY, OCTOBER 17TH | 7:00 PM
+
+THE LUXE CLUBLAND LOUNGE
+45 PICCADILLY, LONDON
+
+RSVP BY SEPTEMBER 1ST
+BLACK TIE REQUIRED</textarea>
+        </div>
+
+        <button class="btn-print" onclick="window.print()">Print / Export PDF</button>
+    </div>
+
+    <!-- PREVIEW AREA -->
+    <div id="preview-container">
+        <!-- Dynamic Canvas Nodes Generated Here -->
+    </div>
+
+    <!-- ENGINE LOGIC -->
+    <script>
+        let currentImageDataUrl = "";
+        let recipientList = ["EXCLUSIVELY FOR YOU"];
+
+        window.onload = function() {
+            renderInvitations();
+        };
+
+        function handleExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                const names = jsonData
+                    .map(row => row.Name || row.name || row.NAME || null)
+                    .filter(name => name !== null);
+
+                if (names.length > 0) {
+                    recipientList = names;
+                } else {
+                    alert("No 'Name' column found in your file. Defaulting placeholder.");
+                    recipientList = ["EXCLUSIVELY FOR YOU"];
+                }
+                renderInvitations();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleImage(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                currentImageDataUrl = reader.result;
+                
+                const previews = document.querySelectorAll('.photo-preview');
+                const placeholders = document.querySelectorAll('.photo-placeholder');
+                
+                previews.forEach(img => {
+                    img.src = currentImageDataUrl;
+                    img.style.display = 'block';
+                });
+                placeholders.forEach(ph => {
+                    ph.style.display = 'none';
+                });
+            }
+            if(event.target.files[0]) {
+                reader.readAsDataURL(event.target.files[0]);
+            }
+        }
+
+        function renderInvitations() {
+            const container = document.getElementById('preview-container');
+            container.innerHTML = ''; 
+
+            const selectedTemplate = document.getElementById('template-select').value;
+            const hostText = document.getElementById('input-host').value.toUpperCase();
+            const titleText = document.getElementById('input-title').value.toUpperCase();
+            const subtitleText = document.getElementById('input-subtitle').value.toUpperCase();
+            const detailsText = document.getElementById('input-details').value.replace(/\n/g, '<br>');
+
+            // Dynamic color tracking for borders and accents per template
+            let assetColor = '#c5a059'; 
+            let placeholderBg = '#152238';
+            
+            if (selectedTemplate === 'tmpl-rosegold') { assetColor = '#e0b0b0'; placeholderBg = '#fff0f0'; }
+            if (selectedTemplate === 'tmpl-safari') { assetColor = '#556b2f'; placeholderBg = '#e6dfd1'; }
+            if (selectedTemplate === 'tmpl-galactic') { assetColor = '#00ffff'; placeholderBg = '#050515'; }
+
+            recipientList.forEach(recipient => {
+                const canvas = document.createElement('div');
+                canvas.className = `invitation-canvas ${selectedTemplate}`;
+
+                canvas.innerHTML = `
+                    <div style="width: 100%;">
+                        <div class="txt-accent">${hostText}</div>
+                        <div class="txt-main">${titleText}</div>
+                        <div class="txt-accent">${subtitleText}</div>
+                        <div class="divider" style="background-color: ${assetColor};"></div>
+                    </div>
+
+                    <div class="photo-wrapper" style="border-color: ${assetColor}; background-color: ${placeholderBg};">
+                        <span class="photo-placeholder" style="display: ${currentImageDataUrl ? 'none' : 'block'}; color: ${assetColor};">Insert High-Resolution Photo</span>
+                        <img class="photo-preview" src="${currentImageDataUrl || '#'}" alt="Invitation Portrait" style="display: ${currentImageDataUrl ? 'block' : 'none'};">
+                    </div>
+
+                    <div style="width: 100%;">
+                        <div class="txt-recipient">${recipient.toUpperCase()}</div>
+                        <div class="divider" style="background-color: ${assetColor};"></div>
+                        <div class="txt-details">${detailsText}</div>
+                    </div>
+                `;
+                container.appendChild(canvas);
+            });
+        }
+
+        function updateAllInvitations() {
+            renderInvitations();
+        }
+    </script>
+</body>
+</html>
