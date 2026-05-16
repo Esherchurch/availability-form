@@ -1245,16 +1245,27 @@ function renderSuggestions() {
         html += '<div style="margin-bottom:6px;font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">Complete chains — desk channel found</div>';
         unmatched.forEach((c, ci) => {
             const endParts = c.deskEnd.split(':');
-            const deskLoc = endParts[0], deskCh = endParts[1];
-            const pathDisplay = c.path.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
+            const deskChLabel = endParts[1]; // e.g. "IP1"
+
+            // Find the matching DESK_OPTIONS val from the label
+            const deskOpt = DESK_OPTIONS.find(o => o.label === deskChLabel);
+            const deskVal = deskOpt ? deskOpt.val : '';
+
+            // Path without the desk node — desk channel shown separately in the label
+            const pathWithoutDesk = c.path.filter(n => !isDeskNode(n.split(':')[0]));
+            const pathDisplay = pathWithoutDesk.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
+
             html += '<div class="card" style="margin-bottom:10px;border-left:4px solid var(--green);">' +
                 '<div class="card-body" style="padding:12px 14px;">' +
-                    '<div style="font-size:0.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Detected chain '+(ci+1)+'</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">' +
+                        '<div style="font-size:0.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:0.06em;">Detected chain '+(ci+1)+'</div>' +
+                        '<span class="signal-desk" style="margin-left:auto;">'+deskChLabel+'</span>' +
+                    '</div>' +
                     '<div style="font-size:0.82rem;color:var(--text);margin-bottom:10px;line-height:1.6;">' + pathDisplay + '</div>' +
                     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
                         '<input type="text" id="sug-name-'+ci+'" placeholder="Name this signal (e.g. Guitar)" style="margin-bottom:0;flex:1;min-width:140px;">' +
-                        '<select id="sug-desk-'+ci+'" style="margin-bottom:0;flex:1;min-width:120px;">' + buildDeskSelectHTML('') + '</select>' +
-                        '<button class="btn btn-primary" style="padding:10px 14px;white-space:nowrap;" data-chain-idx="'+ci+'" id="sug-confirm-'+ci+'">&#10003; Confirm</button>' +
+                        '<input type="hidden" id="sug-desk-'+ci+'" value="'+deskVal+'">' +
+                        '<button class="btn btn-primary" style="padding:10px 14px;white-space:nowrap;" id="sug-confirm-'+ci+'">&#10003; Confirm</button>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -1302,7 +1313,9 @@ function renderSuggestions() {
             const label = document.getElementById('sug-name-'+ci).value.trim();
             const desk  = document.getElementById('sug-desk-'+ci).value;
             if (!label) { alert('Please enter a name for this signal.'); return; }
-            const pathDisplay = c.path.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
+            // Path without the desk node
+            const pathWithoutDesk = c.path.filter(n => !isDeskNode(n.split(':')[0]));
+            const pathDisplay = pathWithoutDesk.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
             const entry = { label, desk, paths: [pathDisplay], deskEnd: c.deskEnd };
             const idx = signals.findIndex(s => s.label === label);
             if (idx > -1) signals[idx] = entry;
