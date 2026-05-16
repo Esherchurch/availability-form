@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High-Class Birthday Invitation Maker & Mail Merge</title>
     <!-- Premium Font Loading -->
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Kanit:wght@800&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Fredoka+One&family=Montserrat:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Kanit:wght@800&family=Pinyon+Script&display=swap" rel="stylesheet">
     <!-- SheetJS for processing Excel Files -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -202,7 +202,17 @@
         .tmpl-royal:not(.customized) .txt-details { color: #dcdcdc; font-family: 'Cinzel', serif; font-size: 12px; line-height: 1.8; letter-spacing: 2px; }
         .tmpl-royal:not(.customized) .txt-recipient { color: #c5a059; font-family: 'Cinzel', serif; font-size: 16px; font-style: italic; letter-spacing: 2px; }
 
-        /* 2. Classic Elegance (Burgundy & Crest Style) */
+        /* 2. Rose Gold Chic (Feminine Elegant) */
+        .tmpl-rosegold {
+            background: linear-gradient(180deg, #fff5f5 0%, #ffe4e4 100%) !important;
+            border: 2px solid #e0b0b0;
+        }
+        .tmpl-rosegold:not(.customized) .txt-accent { color: #b87d7d; font-family: 'Montserrat', sans-serif; letter-spacing: 3px; font-size: 11px; font-weight: bold; }
+        .tmpl-rosegold:not(.customized) .txt-main { color: #4a3b3b; font-family: 'Playfair Display', serif; font-size: 36px; font-style: italic; margin: 15px 0; }
+        .tmpl-rosegold:not(.customized) .txt-details { color: #5c4a4a; font-family: 'Montserrat', sans-serif; font-size: 12px; line-height: 1.8; letter-spacing: 1px; }
+        .tmpl-rosegold:not(.customized) .txt-recipient { color: #b87d7d; font-family: 'Playfair Display', serif; font-size: 18px; font-weight: bold; letter-spacing: 1px; }
+
+        /* 3. Classic Elegance (Burgundy & Crest) */
         .tmpl-classic {
             background: #4a0e17 !important;
             border: 2px solid #d4af37;
@@ -214,7 +224,7 @@
         .tmpl-classic:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.8; letter-spacing: 2px; }
         .tmpl-classic:not(.customized) .txt-recipient { color: #d4af37; font-family: 'Playfair Display', serif; font-size: 18px; letter-spacing: 1px; }
 
-        /* 3. Modern Minimalist (Crisp White / Studio Style) */
+        /* 4. Modern Minimalist (Studio White) */
         .tmpl-modern {
             background: #ffffff !important;
             border: 1px solid #e0e0e0;
@@ -224,7 +234,7 @@
         .tmpl-modern:not(.customized) .txt-details { color: #555555; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 2; letter-spacing: 1px; }
         .tmpl-modern:not(.customized) .txt-recipient { color: #0044ff; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 2px; }
 
-        /* 4. Championship Football (Boys / Sport Theme) */
+        /* 5. Championship Football (Sport Theme) */
         .tmpl-football {
             background: linear-gradient(135deg, #113b21 0%, #082212 100%) !important;
             border: 4px solid #ffffff;
@@ -234,6 +244,27 @@
         .tmpl-football:not(.customized) .txt-main { color: #ffffff; font-family: 'Kanit', sans-serif; font-size: 38px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin: 10px 0; text-shadow: 3px 3px 0px #000000; }
         .tmpl-football:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 12px; line-height: 1.6; font-weight: bold; letter-spacing: 1px; }
         .tmpl-football:not(.customized) .txt-recipient { color: #ffcc00; font-family: 'Kanit', sans-serif; font-size: 20px; font-style: italic; text-shadow: 2px 2px 0px #000000; }
+
+        /* 6. Safari Adventure */
+        .tmpl-safari {
+            background: #f4f0e6 !important;
+            border: 5mm solid #556b2f;
+        }
+        .tmpl-safari:not(.customized) .txt-accent { color: #8b5a2b; font-family: 'Fredoka One', cursive; letter-spacing: 1px; font-size: 14px; }
+        .tmpl-safari:not(.customized) .txt-main { color: #2e8b57; font-family: 'Fredoka One', cursive; font-size: 34px; margin: 10px 0; letter-spacing: 1px; }
+        .tmpl-safari:not(.customized) .txt-details { color: #333333; font-family: 'Montserrat', sans-serif; font-size: 13px; line-height: 1.6; font-weight: bold; }
+        .tmpl-safari:not(.customized) .txt-recipient { color: #d2691e; font-family: 'Fredoka One', cursive; font-size: 18px; }
+
+        /* 7. Super Galactic */
+        .tmpl-galactic {
+            background: #020208 !important;
+            border: 3px dashed #00ffff;
+            outline: 10px solid #0a0a1f;
+        }
+        .tmpl-galactic:not(.customized) .txt-accent { color: #ff00ff; font-family: 'Montserrat', sans-serif; letter-spacing: 4px; font-weight: bold; font-size: 11px; text-shadow: 0 0 5px #ff00ff; }
+        .tmpl-galactic:not(.customized) .txt-main { color: #00ffff; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 32px; letter-spacing: 3px; margin: 15px 0; text-shadow: 0 0 8px #00ffff; }
+        .tmpl-galactic:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 12px; line-height: 1.8; letter-spacing: 2px; }
+        .tmpl-galactic:not(.customized) .txt-recipient { color: #ffff00; font-family: 'Montserrat', sans-serif; font-weight: bold; font-size: 16px; letter-spacing: 2px; text-shadow: 0 0 5px #ffff00; }
 
         /* --- High-Resolution Print Engine --- */
         @media print {
@@ -265,9 +296,12 @@
             <label for="template-select">Design Template Base</label>
             <select id="template-select" onchange="updateAllInvitations()">
                 <option value="tmpl-royal">Royal Midnight & Gold (Natasha 50th)</option>
+                <option value="tmpl-rosegold">Rose Gold Chic (Feminine Elegant)</option>
                 <option value="tmpl-classic">Classic Elegance (Burgundy & Crest)</option>
                 <option value="tmpl-modern">Modern Minimalist (Studio White)</option>
                 <option value="tmpl-football">Championship Football (Sport Theme)</option>
+                <option value="tmpl-safari">Safari Adventure</option>
+                <option value="tmpl-galactic">Super Galactic</option>
             </select>
         </div>
 
@@ -429,9 +463,12 @@ BLACK TIE REQUIRED</textarea>
             let assetColor = '#c5a059'; 
             let placeholderBg = '#152238';
             
+            if (selectedTemplate === 'tmpl-rosegold') { assetColor = '#e0b0b0'; placeholderBg = '#fff0f0'; }
             if (selectedTemplate === 'tmpl-classic') { assetColor = '#d4af37'; placeholderBg = '#360a10'; }
             if (selectedTemplate === 'tmpl-modern') { assetColor = '#111111'; placeholderBg = '#f0f0f0'; }
             if (selectedTemplate === 'tmpl-football') { assetColor = '#ffcc00'; placeholderBg = '#082212'; }
+            if (selectedTemplate === 'tmpl-safari') { assetColor = '#556b2f'; placeholderBg = '#e6dfd1'; }
+            if (selectedTemplate === 'tmpl-galactic') { assetColor = '#00ffff'; placeholderBg = '#050515'; }
 
             if (colorsEnabled) {
                 assetColor = document.getElementById('color-accent').value;
@@ -494,7 +531,6 @@ BLACK TIE REQUIRED</textarea>
         }
 
         function applyColorOverride() {
-            // Auto-enable checkbox if a user interacts directly with a color wheel selector node
             document.getElementById('enable-color-override').checked = true;
             renderInvitations();
         }
