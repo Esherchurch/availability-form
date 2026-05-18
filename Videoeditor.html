@@ -3993,6 +3993,7 @@ async function startExportWebCodecs(){
   // Render each frame to offscreen canvas at target resolution
   var offCv=document.createElement('canvas');offCv.width=expW;offCv.height=expH;
   var offCtx=offCv.getContext('2d');
+  offCtx.imageSmoothingEnabled=true;offCtx.imageSmoothingQuality='high';
 
   // Collect audio
   addLog('🎵 Mixing audio...');barEl.style.width='5%';await sleep(50);
@@ -4083,6 +4084,7 @@ async function startExportWebCodecs(){
 
   var savedT=S.t;
   var savedProxy=S.proxy;S.proxy=false; // force full res during export
+  var savedGlitter=_glitterPools;_glitterPools={}; // clear cached preview-resolution glitter
   for(var fi=0;fi<totalFrames;fi++){
     S.t=exportIn+fi/fps;
     // Seek all videos and wait for frames to be ready before drawing
@@ -4101,7 +4103,7 @@ async function startExportWebCodecs(){
     if(fi%fps===0){barEl.style.width=(14+fi/totalFrames*56)+'%';await sleep(0);}
   }
   await videoEncoder.flush();videoEncoder.close();
-  S.t=savedT;S.proxy=savedProxy;drawFrame();
+  S.t=savedT;S.proxy=savedProxy;_glitterPools=savedGlitter;drawFrame();
   barEl.style.width='72%';addLog('✓ Video encoded ('+videoChunks.length+' chunks)');await sleep(50);
 
   // Mux into MP4 using mp4-muxer (bundled in this file)
