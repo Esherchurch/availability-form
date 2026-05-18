@@ -1390,7 +1390,7 @@ async function tryRestoreFileHandle(handle, mediaEntry){
       });});
       v.currentTime=0.5;
     } else if(mediaEntry.type === 'audio'){
-      var a2 = new Audio(url); a2.preload='metadata';
+      var a2 = new Audio(url); a2.preload='auto';
       await new Promise(function(res){ a2.onloadedmetadata=res; a2.onerror=res; });
       mediaEntry.url=url; mediaEntry.el=a2; mediaEntry.duration=a2.duration; mediaEntry._needsImport=false;
       S.tracks.forEach(function(tr){ tr.clips.forEach(function(c){
