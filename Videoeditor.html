@@ -3568,10 +3568,12 @@ function startAudio(){
         a.play().catch(function(){});_activeAudio.push(a);
       }
       if(tr.type==='audio'&&c.mediaId){
-        var m=S.media.audio.find(function(x){return x.id===c.mediaId;});
-        if(m&&m.el&&S.t>=c.start&&S.t<c.start+c.duration){
-          m.el.currentTime=(c.trimStart||0)+(S.t-c.start);m.el.volume=tr.volume||1;
-          m.el.play().catch(function(){});_activeAudio.push(m.el);
+        var m=S.media.audio.find(function(x){return x.id===c.mediaId;})
+          ||S.media.video.find(function(x){return x.id===c.mediaId;});
+        var mel=m&&(m.audioEl||m.el);
+        if(mel&&S.t>=c.start&&S.t<c.start+c.duration){
+          mel.currentTime=(c.trimStart||0)+(S.t-c.start);mel.volume=tr.volume||1;
+          mel.play().catch(function(){});_activeAudio.push(mel);
         }
       }
     });
