@@ -3400,11 +3400,12 @@ function drawTitle(clip,W,H,prog,fadeOut,userOp){
     // Glitter particles — only active after impact
     if(prog>impactT-0.02){
       var textW=ctx.measureText?ctx.measureText(line1).width:size*line1.length*0.6;
-      // Measure with impact font
+      // Measure with FINAL size (not impactSize) so pool origin matches resting text position
       ctx.save();ctx.font='bold '+size+'px '+font;
       textW=ctx.measureText(line1).width;ctx.restore();
       var textH=size;
-      var pool=getGlitterPool(clip.id||'gi',textW,textH,cx,cy+yOffGi);
+      var finalYOff=line2?-size*0.55:0;
+      var pool=getGlitterPool(clip.id||'gi',textW,textH,cx,cy+finalYOff);
       // Particle time: 0 at impact, grows after
       var pTime=(prog-impactT)/Math.max(0.001,(1-impactT));
       var shakeX=(Math.random()-0.5)*shakeMag;
