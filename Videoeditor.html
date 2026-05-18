@@ -4264,7 +4264,7 @@ function saveProject(){
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(p.name||'trailer').replace(/\s+/g,'_')+'.kfc';a.click();
   setStatus('Saved: '+p.name);goldFlash();
 }
-function loadProject(e){var file=e.target.files[0];if(!file)return;var r=new FileReader();r.onload=function(ev){try{var p=JSON.parse(ev.target.result);restoreProject(p);snapshot('load project');setStatus('Loaded: '+p.name);goldFlash();}catch(err){setStatus('Load error: '+err.message,true);}};r.readAsText(file);e.target.value='';}
+function loadProject(e){var file=e.target.files[0];if(!file)return;var r=new FileReader();r.onload=function(ev){try{var p=JSON.parse(ev.target.result);restoreProject(p);autoRestoreHandles();snapshot('load project');setStatus('Loaded: '+p.name);goldFlash();}catch(err){setStatus('Load error: '+err.message,true);}};r.readAsText(file);e.target.value='';}
 
 // ===================================================
 // VEG IMPORT
