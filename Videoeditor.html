@@ -2996,9 +2996,9 @@ function drawFrame(){
     tr.clips.forEach(function(c){
       var rel=S.t-c.start;if(rel<0||rel>=c.duration)return;
       var animSpd=c.animSpeed||1;
-      // animDur is the full clip duration divided by speed.
-      // At 1x speed the animation takes the full clip. At 2x it takes half. At 0.05x it takes 20x longer (clips slowly).
-      var animDur=(c.duration)/animSpd;
+      // animDur: how long the animation plays. Capped at clip duration so
+      // slow speeds don't prevent the animation completing within the clip.
+      var animDur=Math.min((c.duration)/animSpd, c.duration);
       var prog=Math.min(rel/animDur,1);
       var fadeOut=rel>c.duration-.5?(c.duration-rel)/.5:1;
       var titleOp=(c.opacity!==undefined?c.opacity:1);
@@ -4197,7 +4197,7 @@ function saveProject(){
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(p.name||'trailer').replace(/\s+/g,'_')+'.kfc';a.click();
   setStatus('Saved: '+p.name);goldFlash();
 }
-function loadProject(e){var file=e.target.files[0];if(!file)return;var r=new FileReader();r.onload=function(ev){try{var p=JSON.parse(ev.target.result);restoreProject(p);autoRestoreHandles();snapshot('load project');setStatus('Loaded: '+p.name);goldFlash();}catch(err){setStatus('Load error: '+err.message,true);}};r.readAsText(file);e.target.value='';}
+function loadProject(e){var file=e.target.files[0];if(!file)return;var r=new FileReader();r.onload=function(ev){try{var p=JSON.parse(ev.target.result);restoreProject(p);snapshot('load project');setStatus('Loaded: '+p.name);goldFlash();}catch(err){setStatus('Load error: '+err.message,true);}};r.readAsText(file);e.target.value='';}
 
 // ===================================================
 // VEG IMPORT
