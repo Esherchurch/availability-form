@@ -2093,7 +2093,7 @@ function init(){
   if(window.showOpenFilePicker){
     setupMediaPicker('inp-video','video',{'video/*':[]});
     setupMediaPicker('inp-audio','audio',{'audio/mpeg':[],'audio/mp3':[],'audio/wav':[],'audio/ogg':[],'audio/aac':[],'audio/flac':[],'audio/x-m4a':[],'audio/mp4':[]});
-    setupMediaPicker('inp-image','image',{'image/*':[]});
+    setupMediaPicker('inp-image','image',{'image/jpeg':[],'image/png':[],'image/gif':[],'image/webp':[],'image/svg+xml':[]});
   } else {
     document.getElementById('inp-video').onchange=function(){loadMediaFiles(this.files,'video');this.value='';};
     document.getElementById('inp-audio').onchange=function(){loadMediaFiles(this.files,'audio');this.value='';};
@@ -3568,7 +3568,9 @@ function startAudio(){
     tr.clips.forEach(function(c){
       if(c.audioEl&&S.t>=c.start&&S.t<c.start+c.duration){
         var a=c.audioEl;a.currentTime=(c.trimStart||0)+(S.t-c.start);
-        a.volume=Math.max(0,Math.min(1,tr.volume!==undefined?tr.volume:1));
+        var clipOp2=c.opacity!==undefined?c.opacity:1;
+        var trVol=tr.volume!==undefined?tr.volume:1;
+        a.volume=Math.max(0,Math.min(1,clipOp2*trVol));
         a.play().catch(function(){});_activeAudio.push(a);
       }
       if(tr.type==='audio'&&c.mediaId){
