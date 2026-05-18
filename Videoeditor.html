@@ -2353,7 +2353,7 @@ function loadMediaFiles(files,hint){
         }
       };
     }else if(type==='audio'){
-      var a2=new Audio(url);a2.preload='metadata';
+      var a2=new Audio(url);a2.preload='auto';
       a2.onloadedmetadata=function(){
         var fn2=file.name;var lower2=fn2.toLowerCase();var lower2NoExt=lower2.replace(/\.[^.]+$/,'');
         var existingA=S.media.audio.find(function(x){
@@ -3414,9 +3414,10 @@ function drawTitle(clip,W,H,prog,fadeOut,userOp){
         if(pTime<=0||pTime>p.life) return;
         var pt=pTime/p.life;
         // Physics: gravity pulls down, slight drift
-        var gravity=320;
-        var px=p.x + p.vx*pTime*55 + shakeX;
-        var py=p.y + p.vy*pTime*55 + 0.5*gravity*pTime*pTime*1.8 + shakeY;
+        var physScale=W/854;
+        var gravity=320*physScale;
+        var px=p.x + p.vx*pTime*55*physScale + shakeX;
+        var py=p.y + p.vy*pTime*55*physScale + 0.5*gravity*pTime*pTime*1.8 + shakeY;
         // Fade: sharp at start, tails off
         var palpha=_fa((1-Math.pow(pt,1.2))*fadeOut);
         if(palpha<=0) return;
