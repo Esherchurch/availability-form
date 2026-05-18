@@ -2092,7 +2092,7 @@ function init(){
   }
   if(window.showOpenFilePicker){
     setupMediaPicker('inp-video','video',{'video/*':[]});
-    setupMediaPicker('inp-audio','audio',{'audio/*':[]});
+    setupMediaPicker('inp-audio','audio',{'audio/mpeg':[],'audio/mp3':[],'audio/wav':[],'audio/ogg':[],'audio/aac':[],'audio/flac':[],'audio/x-m4a':[],'audio/mp4':[]});
     setupMediaPicker('inp-image','image',{'image/*':[]});
   } else {
     document.getElementById('inp-video').onchange=function(){loadMediaFiles(this.files,'video');this.value='';};
