@@ -2086,7 +2086,7 @@ function init(){
           return f;
         }));
         loadMediaFiles(files, type);
-      }catch(e2){ if(e2.name!=='AbortError') console.warn(e2); }
+      }catch(e2){ if(e2.name!=='AbortError'){ console.warn(e2); inp.click(); } }
     }, true);
     inp.onchange=function(){loadMediaFiles(this.files,type);this.value='';};
   }
@@ -3584,7 +3584,14 @@ function startAudio(){
     });
   });
 }
-function stopAudio(){_activeAudio.forEach(function(a){try{a.pause();}catch(e){}});_activeAudio=[];}
+function stopAudio(){
+  _activeAudio.forEach(function(a){try{a.pause();}catch(e){}});
+  _activeAudio=[];
+  // Also explicitly pause all clip audioEls to catch any that slipped through
+  S.tracks.forEach(function(tr){tr.clips.forEach(function(c){
+    if(c.audioEl){try{c.audioEl.pause();}catch(e){}}
+  });});
+}
 
 var _raf=null,_lastT=0;
 function togglePlay(){
@@ -3958,7 +3965,7 @@ function vuTick(){
 function setVUBar(ch,db,pk){var bar=document.getElementById('vu-bar-'+ch),peak=document.getElementById('vu-peak-'+ch),num=document.getElementById('vu-num-'+ch);if(!bar)return;var pct=Math.max(0,Math.min(100,(db+60)/60*100)),ppct=Math.max(0,Math.min(100,(pk+60)/60*100));bar.style.width=pct+'%';if(peak)peak.style.left=ppct+'%';if(num)num.textContent=db>-99?db.toFixed(1):'-inf';}
 
 var _origTogglePlay=togglePlay;
-togglePlay=function(){_origTogglePlay();if(S.playing){if(_audioCtx&&_audioCtx.state==='suspended')_audioCtx.resume();startVU();}else stopVU();};
+togglePlay=function(){_origTogglePlay();if(S.playing){var _actx=getAudioCtx();if(_actx&&_actx.state==='suspended')_actx.resume();startVU();}else stopVU();};
 var _origStartAudio=startAudio;
 startAudio=function(){_origStartAudio();_activeAudio.forEach(function(a){try{connectToChain(a);}catch(e){}});};
 
