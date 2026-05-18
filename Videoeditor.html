@@ -4010,7 +4010,8 @@ async function startExportWebCodecs(){
       else if(tr.type==='audio'&&c.mediaId){var m=S.media.audio.find(function(x){return x.id===c.mediaId;});if(m)el=m.el;}
       if(el){
         var url=el.src||el.currentSrc;
-        if(url) audioClips.push({url:url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:tr.volume||1});
+        var vol=(tr.volume!==undefined?tr.volume:1)*(c.clipVolume||1)*(c.opacity!==undefined&&tr.type==='audio'?c.opacity:1);
+        if(url) audioClips.push({url:url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:vol});
       }
     });
   });
@@ -4020,16 +4021,19 @@ async function startExportWebCodecs(){
     return fetch(ac.url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx2.decodeAudioData(b);}).then(function(buf){
       var chL=buf.getChannelData(0);var chR=buf.numberOfChannels>1?buf.getChannelData(1):chL;
       var sr=buf.sampleRate;var clipRelStart=ac.start-exportIn;
+      // If clip starts before exportIn, we start reading from partway into the clip
+      var readOffset=clipRelStart<0?(-clipRelStart):0;
       var writeStart=Math.max(0,Math.round(clipRelStart*48000));
-      var readStart=Math.round(ac.trim*sr);
-      var frames=Math.min(ac.dur*48000,exportDur*48000-writeStart);
+      var readStart=Math.round((ac.trim+readOffset)*sr);
+      var frames=Math.min(Math.round((ac.dur-readOffset)*48000),Math.round(exportDur*48000)-writeStart);
+      if(frames<=0){mixDone++;barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';return;}
       for(var i=0;i<frames;i++){
-        var ri=Math.round((readStart+i*(sr/48000)));
+        var ri=Math.round(readStart+i*(sr/48000));
         if(ri>=chL.length)break;
         var s=writeStart+i;if(s>=outL.length)break;
         outL[s]+=chL[ri]*ac.vol;outR[s]+=(chR[ri]||chL[ri])*ac.vol;
       }
-      mixDone++;barEl.style.width=(5+mixDone/audioClips.length*8)+'%';
+      mixDone++;barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';
     }).catch(function(){mixDone++;});
   }));
   addLog('✓ Audio mixed ('+audioClips.length+' clips)');barEl.style.width='14%';await sleep(50);
@@ -4078,6 +4082,7 @@ async function startExportWebCodecs(){
   }
 
   var savedT=S.t;
+  var savedProxy=S.proxy;S.proxy=false; // force full res during export
   for(var fi=0;fi<totalFrames;fi++){
     S.t=exportIn+fi/fps;
     // Seek all videos and wait for frames to be ready before drawing
@@ -4096,7 +4101,7 @@ async function startExportWebCodecs(){
     if(fi%fps===0){barEl.style.width=(14+fi/totalFrames*56)+'%';await sleep(0);}
   }
   await videoEncoder.flush();videoEncoder.close();
-  S.t=savedT;drawFrame();
+  S.t=savedT;S.proxy=savedProxy;drawFrame();
   barEl.style.width='72%';addLog('✓ Video encoded ('+videoChunks.length+' chunks)');await sleep(50);
 
   // Mux into MP4 using mp4-muxer (bundled in this file)
