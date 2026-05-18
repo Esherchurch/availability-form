@@ -1415,8 +1415,29 @@ async function autoRestoreHandles(){
   if(!window.FileSystemFileHandle){ return; } // API not available
   var handles = await new Promise(function(res){ loadAllFileHandles(res); });
   var restored = 0;
+  // Build a filename->handle map for fallback matching
+  var handlesByName = {};
+  await Promise.all(Object.keys(handles).map(async function(id){
+    try{
+      var h = handles[id];
+      var f = await h.getFile();
+      handlesByName[f.name.toLowerCase()] = h;
+    }catch(e){}
+  }));
   await Promise.all(needsImport.map(async function(m){
+    // Match by ID first, then by filename
     var handle = handles[m.id];
+    if(!handle){
+      var fname = (m.vegFilename||m.name+'.mp4').toLowerCase();
+      handle = handlesByName[fname];
+      // Try without extension too
+      if(!handle){
+        var fnameNoExt = fname.replace(/\.[^.]+$/,'');
+        for(var k in handlesByName){
+          if(k.replace(/\.[^.]+$/,'')===fnameNoExt){ handle=handlesByName[k]; break; }
+        }
+      }
+    }
     if(!handle) return;
     var ok = await tryRestoreFileHandle(handle, m);
     if(ok) restored++;
