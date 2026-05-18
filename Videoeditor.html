@@ -2363,10 +2363,12 @@ function loadMediaFiles(files,hint){
         });
         if(existingA){
           existingA.url=url;existingA.el=a2;existingA.duration=a2.duration;existingA.vegFilename=fn2;existingA._needsImport=false;
+          if(file._handle) saveFileHandle(existingA.id, file._handle);
           S.tracks.forEach(function(tr){tr.clips.forEach(function(c){if(c.mediaId===existingA.id){c.audioEl=a2;c._placeholder=false;}});});
           renderMedia();renderTracks();setStatus('Re-linked audio: '+existingA.name);return;
         }
         var m={id:uid(),name:file.name.replace(/\.[^.]+$/,''),url:url,el:a2,duration:a2.duration,type:'audio',vegFilename:file.name};
+        if(file._handle) saveFileHandle(m.id, file._handle);
         S.media.audio.push(m);linkByFilename(m,file.name);
         generateWaveform(m);
         renderMedia();renderTracks();setStatus('Loaded: '+m.name);
@@ -2643,7 +2645,7 @@ function makeClipEl(clip,track){
   el.className='clip '+clipType+'-clip'+(clip._placeholder?' ph':'')+(clip.id===S.sel?' sel':'');
   el.dataset.id=clip.id;
   el.style.left=(clip.start*S.zoom)+'px';
-  el.style.width=Math.max(clip.duration*S.zoom,16)+'px';
+  el.style.width=Math.max(clip.duration*S.zoom,32)+'px';
   // HTML5 drag disabled — cross-track moves handled by mousedown handler above
   el.draggable=false;
   el.addEventListener('dragstart',function(e){e.preventDefault();});
