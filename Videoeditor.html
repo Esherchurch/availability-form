@@ -1344,20 +1344,35 @@ function saveFileHandle(id, handle){
     tx.objectStore('handles').put(handle, id);
   });
 }
+function saveDirHandle(handle){ saveFileHandle('__dir__', handle); }
+function loadDirHandle(cb){
+  openHandleDB(function(db){
+    if(!db){ cb(null); return; }
+    var tx = db.transaction('handles','readonly');
+    var r = tx.objectStore('handles').get('__dir__');
+    r.onsuccess = function(){ cb(r.result || null); };
+    r.onerror = function(){ cb(null); };
+  });
+}
 function loadAllFileHandles(cb){
   openHandleDB(function(db){
     if(!db){ cb({}); return; }
     var tx = db.transaction('handles','readonly');
     var req = tx.objectStore('handles').getAll();
     var kreq = tx.objectStore('handles').getAllKeys();
-    var results = {}, keys = [], vals = [];
-    kreq.onsuccess = function(e){ keys = e.target.result; tryFinish(); };
-    req.onsuccess = function(e){ vals = e.target.result; tryFinish(); };
+    var results = {}, keys = null, vals = null, done = 0;
     function tryFinish(){
-      if(!keys.length || !vals.length || keys.length!==vals.length) return;
-      keys.forEach(function(k,i){ results[k]=vals[i]; });
+      done++;
+      if(done < 2) return;
+      keys = keys || []; vals = vals || [];
+      keys.forEach(function(k,i){
+        // Skip the directory handle marker — it's used separately
+        if(k !== '__dir__') results[k] = vals[i];
+      });
       cb(results);
     }
+    kreq.onsuccess = function(e){ keys = e.target.result; tryFinish(); };
+    req.onsuccess = function(e){ vals = e.target.result; tryFinish(); };
     kreq.onerror = req.onerror = function(){ cb({}); };
   });
 }
@@ -1457,7 +1472,18 @@ async function autoRestoreHandles(){
     var ok = await tryRestoreFileHandle(handle, m);
     if(ok) restored++;
   }));
+  // If anything is still missing, attempt directory-based restore from a
+  // previously saved folder handle (only works silently if permission was
+  // retained — usually still requires one user click after browser restart).
   var still = [].concat(S.media.video,S.media.audio,S.media.image).filter(function(m){return m._needsImport;});
+  if(still.length){
+    var dirHandle = await new Promise(function(res){ loadDirHandle(res); });
+    if(dirHandle){
+      var dirRestored = await tryRestoreFromDirectory(dirHandle, still, /*silent*/true);
+      restored += dirRestored;
+      still = [].concat(S.media.video,S.media.audio,S.media.image).filter(function(m){return m._needsImport;});
+    }
+  }
   if(restored > 0){
     renderMedia(); renderTracks(); drawFrame();
     if(!still.length){
@@ -1466,7 +1492,71 @@ async function autoRestoreHandles(){
     }
   }
   if(still.length){
-    setStatus((restored>0?'Auto-restored '+restored+' — ':'')+still.length+' file'+(still.length>1?'s':'')+' still need re-importing manually', true);
+    setStatus((restored>0?'Auto-restored '+restored+' — ':'')+still.length+' file'+(still.length>1?'s':'')+' need re-linking — click "Re-link folder" in the banner', true);
+  }
+}
+
+// Re-link missing files from a directory by matching filenames. If silent is
+// true, doesn't prompt for permission (returns 0 if no permission). If silent
+// is false, asks for permission and walks the directory.
+async function tryRestoreFromDirectory(dirHandle, needsImport, silent){
+  try{
+    var perm = await dirHandle.queryPermission({mode:'read'});
+    if(perm !== 'granted'){
+      if(silent) return 0;
+      perm = await dirHandle.requestPermission({mode:'read'});
+      if(perm !== 'granted') return 0;
+    }
+    // Walk directory, build filename->fileHandle map
+    var byName = {};
+    for await (var entry of dirHandle.values()){
+      if(entry.kind === 'file') byName[entry.name.toLowerCase()] = entry;
+    }
+    var matched = 0;
+    for(var i=0; i<needsImport.length; i++){
+      var m = needsImport[i];
+      if(!m._needsImport) continue;
+      var fname = (m.vegFilename||m.name).toLowerCase();
+      var fh = byName[fname];
+      if(!fh){
+        var noExt = fname.replace(/\.[^.]+$/,'');
+        for(var k in byName){
+          if(k.replace(/\.[^.]+$/,'') === noExt){ fh = byName[k]; break; }
+        }
+      }
+      if(!fh) continue;
+      var ok = await tryRestoreFileHandle(fh, m);
+      if(ok){ matched++; saveFileHandle(m.id, fh); }
+    }
+    return matched;
+  }catch(e){ return 0; }
+}
+
+// Manual: pick a folder and bulk-relink all missing files from it. One click,
+// one prompt, all matching files restored.
+async function pickFolderAndRelink(){
+  if(!window.showDirectoryPicker){
+    setStatus('Folder picker not supported in this browser', true);
+    return;
+  }
+  var still = [].concat(S.media.video,S.media.audio,S.media.image).filter(function(m){return m._needsImport;});
+  if(!still.length){ setStatus('Nothing to re-link'); return; }
+  try{
+    var dir = await window.showDirectoryPicker({mode:'read'});
+    saveDirHandle(dir);
+    setStatus('Searching folder for '+still.length+' file'+(still.length>1?'s':'')+'...');
+    var matched = await tryRestoreFromDirectory(dir, still, /*silent*/false);
+    renderMedia(); renderTracks(); drawFrame();
+    var leftover = [].concat(S.media.video,S.media.audio,S.media.image).filter(function(m){return m._needsImport;});
+    if(matched > 0){
+      setStatus('Re-linked '+matched+' file'+(matched>1?'s':'')+' from folder'+(leftover.length?' — '+leftover.length+' still missing':''));
+      goldFlash();
+      if(!leftover.length){ var b=document.getElementById('reimport-banner'); if(b)b.remove(); }
+    } else {
+      setStatus('No matching files found in that folder', true);
+    }
+  }catch(e){
+    if(e.name !== 'AbortError') setStatus('Folder error: '+e.message, true);
   }
 }
 
@@ -3617,63 +3707,53 @@ function drawTitle(clip,W,H,prog,fadeOut,userOp){
 // AUDIO PLAYBACK
 // ===================================================
 var _activeAudio=[];
-function startAudio(){
-  stopAudio();
+// Determine which audio elements SHOULD be playing right now, based on
+// current playhead position and current clip state (durations, mute, etc.)
+// Returns Map<HTMLMediaElement, {clip, track}>. A single audio element shared
+// by multiple clips will resolve to whichever clip is currently in range.
+function _audioShouldPlay(){
+  var map = new Map();
   S.tracks.forEach(function(tr){
-    if(tr.muted)return;
+    if(tr.muted) return;
     tr.clips.forEach(function(c){
-      if(c.audioEl&&S.t>=c.start&&S.t<c.start+c.duration){
-        var a=c.audioEl;a.currentTime=(c.trimStart||0)+(S.t-c.start);
-        var clipOp2=c.opacity!==undefined?c.opacity:1;
-        var trVol=tr.volume!==undefined?tr.volume:1;
-        a.volume=Math.max(0,Math.min(1,clipOp2*trVol));
-        a._kfcEnd=c.start+c.duration;
-        a.play().catch(function(){});_activeAudio.push(a);
+      if(S.t < c.start || S.t >= c.start + c.duration) return;
+      var audio = null;
+      if(c.audioEl) audio = c.audioEl;
+      if(!audio && tr.type==='audio' && c.mediaId){
+        var m = S.media.audio.find(function(x){return x.id===c.mediaId;});
+        if(m && m.el) audio = m.el;
       }
-      if(tr.type==='audio'&&c.mediaId){
-        var m=S.media.audio.find(function(x){return x.id===c.mediaId;});
-        if(m&&m.el&&S.t>=c.start&&S.t<c.start+c.duration){
-          m.el.currentTime=(c.trimStart||0)+(S.t-c.start);
-          m.el.volume=Math.max(0,Math.min(1,tr.volume!==undefined?tr.volume:1));
-          m.el._kfcEnd=c.start+c.duration;
-          m.el.play().catch(function(){});_activeAudio.push(m.el);
-        }
-      }
+      if(!audio) return;
+      map.set(audio, {clip:c, track:tr});
     });
   });
+  return map;
 }
-// Called every animation frame during playback. Pauses audio whose clip has
-// ended (so trimmed clips don't keep playing past their edge) and starts
-// audio for clips the playhead has just entered (so later clips in the
-// timeline come in without waiting for a stop/start cycle).
+function startAudio(){ stopAudio(); tickAudio(); }
+// Called from startAudio() and every animation frame during playback.
+// Pauses audio whose clip is no longer in range (handles trim, mute,
+// deletion, and clip-end overrun in one place) and starts audio for clips
+// the playhead has newly entered. Source of truth is current clip state.
 function tickAudio(){
-  for(var i=_activeAudio.length-1;i>=0;i--){
-    var a=_activeAudio[i];
-    if(a._kfcEnd!==undefined&&S.t>=a._kfcEnd){
+  var should = _audioShouldPlay();
+  // Pause anything currently playing that shouldn't be
+  for(var i=_activeAudio.length-1; i>=0; i--){
+    var a = _activeAudio[i];
+    if(!should.has(a)){
       try{a.pause();}catch(e){}
       _activeAudio.splice(i,1);
     }
   }
-  S.tracks.forEach(function(tr){
-    if(tr.muted)return;
-    tr.clips.forEach(function(c){
-      if(S.t<c.start||S.t>=c.start+c.duration)return;
-      var audio=null;
-      if(c.audioEl) audio=c.audioEl;
-      if(!audio&&tr.type==='audio'&&c.mediaId){
-        var m=S.media.audio.find(function(x){return x.id===c.mediaId;});
-        if(m&&m.el) audio=m.el;
-      }
-      if(!audio) return;
-      if(_activeAudio.indexOf(audio)>=0) return;
-      audio.currentTime=(c.trimStart||0)+(S.t-c.start);
-      var clipOp=c.opacity!==undefined?c.opacity:1;
-      var trVol=tr.volume!==undefined?tr.volume:1;
-      audio.volume=Math.max(0,Math.min(1,clipOp*trVol));
-      audio._kfcEnd=c.start+c.duration;
-      audio.play().catch(function(){});
-      _activeAudio.push(audio);
-    });
+  // Start anything that should be playing but isn't
+  should.forEach(function(info, audio){
+    if(_activeAudio.indexOf(audio) >= 0) return;
+    var c = info.clip; var tr = info.track;
+    audio.currentTime = (c.trimStart||0) + (S.t - c.start);
+    var clipOp = c.opacity!==undefined ? c.opacity : 1;
+    var trVol = tr.volume!==undefined ? tr.volume : 1;
+    audio.volume = Math.max(0, Math.min(1, clipOp*trVol));
+    audio.play().catch(function(){});
+    _activeAudio.push(audio);
   });
 }
 function stopAudio(){
@@ -4352,21 +4432,27 @@ function restoreProject(p){
     var banner=document.createElement('div');
     banner.id='reimport-banner';
     banner.style.cssText='position:fixed;top:40px;left:50%;transform:translateX(-50%);background:#0a0a0a;border:1px solid #e8920a;border-radius:6px;padding:10px 16px;font-size:11px;color:#e8e8e8;z-index:400;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.9);max-width:90vw;';
-    banner.innerHTML='<span style="color:#e8920a;font-size:13px">⚠</span><span style="flex:1"><strong style="color:#f5c842">'+missing.length+' video file'+(missing.length>1?'s':'')+(missing.length>1?' need':' needs')+' re-importing</strong><br><span style="color:#666;font-size:10px">Browser security prevents auto-restore after reload. Click to re-select your files.</span></span>';
+    banner.innerHTML='<span style="color:#e8920a;font-size:13px">⚠</span><span style="flex:1"><strong style="color:#f5c842">'+missing.length+' file'+(missing.length>1?'s':'')+(missing.length>1?' need':' needs')+' re-linking</strong><br><span style="color:#666;font-size:10px">Pick the folder containing your media and all files will be matched by name in one go.</span></span>';
+    // Primary: pick a folder (one click, bulk-relink everything)
+    var folderBtn=document.createElement('button');
+    folderBtn.textContent='📁 Re-link folder';
+    folderBtn.style.cssText='padding:5px 12px;border-radius:4px;border:1px solid #f5c842;background:#1a1200;color:#f5c842;cursor:pointer;font-size:11px;white-space:nowrap;font-family:Inter,sans-serif;';
+    folderBtn.onclick=function(){ pickFolderAndRelink(); };
+    // Secondary: individual file picker (legacy path)
     var btn=document.createElement('button');
-    btn.textContent='📂 Select files';
-    btn.style.cssText='padding:5px 12px;border-radius:4px;border:1px solid #f5c842;background:#1a1200;color:#f5c842;cursor:pointer;font-size:11px;white-space:nowrap;font-family:Inter,sans-serif;';
+    btn.textContent='Select files';
+    btn.style.cssText='padding:5px 12px;border-radius:4px;border:1px solid #333;background:transparent;color:#999;cursor:pointer;font-size:11px;white-space:nowrap;font-family:Inter,sans-serif;';
     btn.onclick=function(){
       var inp=document.createElement('input');inp.type='file';inp.multiple=true;
       inp.accept='video/*,audio/*,image/*';
-      inp.onchange=function(){if(this.files.length){loadMediaFiles(this.files,'auto');banner.remove();}};
+      inp.onchange=function(){if(this.files.length){loadMediaFiles(this.files,'auto');}};
       inp.click();
     };
     var xbtn=document.createElement('button');
     xbtn.textContent='✕';
     xbtn.style.cssText='padding:3px 7px;border-radius:3px;border:1px solid #333;background:transparent;color:#555;cursor:pointer;font-size:11px;';
     xbtn.onclick=function(){banner.remove();};
-    banner.appendChild(btn);banner.appendChild(xbtn);
+    banner.appendChild(folderBtn);banner.appendChild(btn);banner.appendChild(xbtn);
     document.body.appendChild(banner);
   } else {
     setStatus('Session restored');
