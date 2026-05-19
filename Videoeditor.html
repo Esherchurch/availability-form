@@ -1383,7 +1383,11 @@ async function tryRestoreFileHandle(handle, mediaEntry){
       var v = document.createElement('video'); v.src=url; v.preload='metadata'; v.muted=false; v.volume=1;
       var a = new Audio(url); a.preload='none';
       var vLoaded=false;
-      await new Promise(function(res){ v.onloadedmetadata=function(){vLoaded=true;res();}; v.onerror=res; });
+      await new Promise(function(res){
+        var done=function(){if(!vLoaded&&v.readyState>=2){vLoaded=true;}res();};
+        v.oncanplay=done; v.onloadeddata=done; v.onerror=res;
+        setTimeout(res,4000);
+      });
       if(!vLoaded){ URL.revokeObjectURL(url); return false; }
       mediaEntry.url=url; mediaEntry.el=v; mediaEntry.audioEl=a;
       mediaEntry.duration=v.duration; mediaEntry._needsImport=false;
@@ -1394,7 +1398,12 @@ async function tryRestoreFileHandle(handle, mediaEntry){
     } else if(mediaEntry.type === 'audio'){
       var a2 = new Audio(url); a2.preload='auto';
       var aLoaded=false;
-      await new Promise(function(res){ a2.onloadedmetadata=function(){aLoaded=true;res();}; a2.onerror=res; });
+      await new Promise(function(res){
+        var done=function(){if(!aLoaded&&a2.readyState>=2){aLoaded=true;}res();};
+        a2.oncanplay=done; a2.onloadeddata=done; a2.onerror=res;
+        // Hard timeout — some browsers never fire either event for broken handles
+        setTimeout(res,4000);
+      });
       if(!aLoaded){ URL.revokeObjectURL(url); return false; }
       mediaEntry.url=url; mediaEntry.el=a2; mediaEntry.duration=a2.duration; mediaEntry._needsImport=false;
       S.tracks.forEach(function(tr){ tr.clips.forEach(function(c){
@@ -2228,7 +2237,7 @@ function init(){
     if(e.ctrlKey||e.metaKey){
       if(e.key==='z'){e.preventDefault();undo();return;}
       if(e.key==='y'||(e.key==='z'&&e.shiftKey)){e.preventDefault();redo();return;}
-      if(e.key==='s'){e.preventDefault();saveProject();return;}
+      if(e.key==='s'){e.preventDefault();if(e.shiftKey)saveProjectAs();else saveProject();return;}
       if(e.key==='e'){e.preventDefault();openExportModal();return;}
       if(e.key==='c'){e.preventDefault();
         // Copy selected clips
@@ -3618,6 +3627,7 @@ function startAudio(){
         var clipOp2=c.opacity!==undefined?c.opacity:1;
         var trVol=tr.volume!==undefined?tr.volume:1;
         a.volume=Math.max(0,Math.min(1,clipOp2*trVol));
+        a._kfcEnd=c.start+c.duration;
         a.play().catch(function(){});_activeAudio.push(a);
       }
       if(tr.type==='audio'&&c.mediaId){
@@ -3625,9 +3635,44 @@ function startAudio(){
         if(m&&m.el&&S.t>=c.start&&S.t<c.start+c.duration){
           m.el.currentTime=(c.trimStart||0)+(S.t-c.start);
           m.el.volume=Math.max(0,Math.min(1,tr.volume!==undefined?tr.volume:1));
+          m.el._kfcEnd=c.start+c.duration;
           m.el.play().catch(function(){});_activeAudio.push(m.el);
         }
       }
+    });
+  });
+}
+// Called every animation frame during playback. Pauses audio whose clip has
+// ended (so trimmed clips don't keep playing past their edge) and starts
+// audio for clips the playhead has just entered (so later clips in the
+// timeline come in without waiting for a stop/start cycle).
+function tickAudio(){
+  for(var i=_activeAudio.length-1;i>=0;i--){
+    var a=_activeAudio[i];
+    if(a._kfcEnd!==undefined&&S.t>=a._kfcEnd){
+      try{a.pause();}catch(e){}
+      _activeAudio.splice(i,1);
+    }
+  }
+  S.tracks.forEach(function(tr){
+    if(tr.muted)return;
+    tr.clips.forEach(function(c){
+      if(S.t<c.start||S.t>=c.start+c.duration)return;
+      var audio=null;
+      if(c.audioEl) audio=c.audioEl;
+      if(!audio&&tr.type==='audio'&&c.mediaId){
+        var m=S.media.audio.find(function(x){return x.id===c.mediaId;});
+        if(m&&m.el) audio=m.el;
+      }
+      if(!audio) return;
+      if(_activeAudio.indexOf(audio)>=0) return;
+      audio.currentTime=(c.trimStart||0)+(S.t-c.start);
+      var clipOp=c.opacity!==undefined?c.opacity:1;
+      var trVol=tr.volume!==undefined?tr.volume:1;
+      audio.volume=Math.max(0,Math.min(1,clipOp*trVol));
+      audio._kfcEnd=c.start+c.duration;
+      audio.play().catch(function(){});
+      _activeAudio.push(audio);
     });
   });
 }
@@ -3650,6 +3695,7 @@ function togglePlay(){
 function playLoop(ts){
   if(!S.playing)return;
   var dt=Math.min((ts-_lastT)/1000,.1);_lastT=ts;S.t=Math.min(S.t+dt,S.dur);
+  tickAudio();
   drawFrame();updateTC();updatePH();
   if(S.t>=S.dur){togglePlay();S.t=S.dur;return;}
   _raf=requestAnimationFrame(playLoop);
@@ -4236,7 +4282,7 @@ function serializeProject(){
     saved:new Date().toISOString(),dur:S.dur,filters:S.filters,fx:S.fx,trans:S.trans,snap:S.snap,
     mediaLib:{video:S.media.video.map(mMeta),audio:S.media.audio.map(mMeta),image:S.media.image.map(mMeta)},
     markers:S.markers,
-    tracks:S.tracks.map(function(t){return{id:t.id,type:t.type,name:t.name,muted:t.muted,volume:t.volume,clips:t.clips.map(function(c){return{id:c.id,name:c.name,start:c.start,duration:c.duration,type:c.type,mediaId:c.mediaId,text:c.text,text2:c.text2,titleStyle:c.titleStyle,font:c.font,fontSize:c.fontSize,col1:c.col1,col2:c.col2,position:c.position,titleX:c.titleX,titleY:c.titleY,opacity:c.opacity,fadeInDur:c.fadeInDur,fadeOutDur:c.fadeOutDur,trimStart:c.trimStart,vegFilename:c.vegFilename,_placeholder:c._placeholder,chromaKey:c.chromaKey,pcScale:c.pcScale,pcX:c.pcX,pcY:c.pcY,pcCL:c.pcCL,pcCR:c.pcCR,pcCT:c.pcCT,pcCB:c.pcCB,clipFX:c.clipFX,titleShadow:c.titleShadow,titleShadowX:c.titleShadowX,titleShadowY:c.titleShadowY,titleShadowCol:c.titleShadowCol,audioUnlinked:c.audioUnlinked,cc:c.cc,keyframes:c.keyframes};})};})
+    tracks:S.tracks.map(function(t){return{id:t.id,type:t.type,name:t.name,muted:t.muted,volume:t.volume,clips:t.clips.map(function(c){return{id:c.id,name:c.name,start:c.start,duration:c.duration,type:c.type,mediaId:c.mediaId,text:c.text,text2:c.text2,titleStyle:c.titleStyle,font:c.font,fontSize:c.fontSize,col1:c.col1,col2:c.col2,position:c.position,titleX:c.titleX,titleY:c.titleY,animSpeed:c.animSpeed,opacity:c.opacity,fadeInDur:c.fadeInDur,fadeOutDur:c.fadeOutDur,trimStart:c.trimStart,vegFilename:c.vegFilename,_placeholder:c._placeholder,chromaKey:c.chromaKey,pcScale:c.pcScale,pcX:c.pcX,pcY:c.pcY,pcCL:c.pcCL,pcCR:c.pcCR,pcCT:c.pcCT,pcCB:c.pcCB,clipFX:c.clipFX,titleShadow:c.titleShadow,titleShadowX:c.titleShadowX,titleShadowY:c.titleShadowY,titleShadowCol:c.titleShadowCol,audioUnlinked:c.audioUnlinked,cc:c.cc,keyframes:c.keyframes};})};})
   };
 }
 function restoreProject(p){
@@ -4270,7 +4316,12 @@ function restoreProject(p){
         c.videoEl = m.type==='video' ? m.el : null;
         c.audioEl = m.type==='video' ? m.audioEl : null;
         c.imgEl   = m.type==='image' ? m.el : null;
-        c._placeholder = false;
+        // Stay a placeholder visually if the media isn't actually loaded yet
+        c._placeholder = m._needsImport ? true : false;
+        if(m._needsImport){
+          var fn0=c.vegFilename||m.vegFilename||c.name;
+          if(fn0&&!missing.includes(fn0)) missing.push(fn0);
+        }
       } else {
         // Try matching by stored filename
         var fn=c.vegFilename||c.name;
@@ -4321,11 +4372,31 @@ function restoreProject(p){
     setStatus('Session restored');
   }
 }
-function saveProject(){
+var _saveHandle=null;
+async function saveProject(saveAs){
   var p=serializeProject();var blob=new Blob([JSON.stringify(p,null,2)],{type:'application/json'});
+  if(window.showSaveFilePicker){
+    try{
+      if(saveAs||!_saveHandle){
+        _saveHandle = await window.showSaveFilePicker({
+          suggestedName:(p.name||'trailer').replace(/\s+/g,'_')+'.kfc',
+          types:[{description:'KFC project',accept:{'application/json':['.kfc','.json']}}]
+        });
+      }
+      var w=await _saveHandle.createWritable();
+      await w.write(blob);await w.close();
+      setStatus('Saved: '+_saveHandle.name);goldFlash();
+      return;
+    }catch(e){
+      if(e.name==='AbortError'){return;}
+      // Fall through to download fallback on any other error
+    }
+  }
+  // Fallback: classic download
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(p.name||'trailer').replace(/\s+/g,'_')+'.kfc';a.click();
   setStatus('Saved: '+p.name);goldFlash();
 }
+function saveProjectAs(){return saveProject(true);}
 function loadProject(e){var file=e.target.files[0];if(!file)return;var r=new FileReader();r.onload=function(ev){try{var p=JSON.parse(ev.target.result);restoreProject(p);autoRestoreHandles();snapshot('load project');setStatus('Loaded: '+p.name);goldFlash();}catch(err){setStatus('Load error: '+err.message,true);}};r.readAsText(file);e.target.value='';}
 
 // ===================================================
