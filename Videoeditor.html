@@ -1382,7 +1382,9 @@ async function tryRestoreFileHandle(handle, mediaEntry){
     if(mediaEntry.type === 'video'){
       var v = document.createElement('video'); v.src=url; v.preload='metadata'; v.muted=false; v.volume=1;
       var a = new Audio(url); a.preload='none';
-      await new Promise(function(res){ v.onloadedmetadata=res; v.onerror=res; });
+      var vLoaded=false;
+      await new Promise(function(res){ v.onloadedmetadata=function(){vLoaded=true;res();}; v.onerror=res; });
+      if(!vLoaded){ URL.revokeObjectURL(url); return false; }
       mediaEntry.url=url; mediaEntry.el=v; mediaEntry.audioEl=a;
       mediaEntry.duration=v.duration; mediaEntry._needsImport=false;
       S.tracks.forEach(function(tr){ tr.clips.forEach(function(c){
@@ -1391,14 +1393,18 @@ async function tryRestoreFileHandle(handle, mediaEntry){
       v.currentTime=0.5;
     } else if(mediaEntry.type === 'audio'){
       var a2 = new Audio(url); a2.preload='auto';
-      await new Promise(function(res){ a2.onloadedmetadata=res; a2.onerror=res; });
+      var aLoaded=false;
+      await new Promise(function(res){ a2.onloadedmetadata=function(){aLoaded=true;res();}; a2.onerror=res; });
+      if(!aLoaded){ URL.revokeObjectURL(url); return false; }
       mediaEntry.url=url; mediaEntry.el=a2; mediaEntry.duration=a2.duration; mediaEntry._needsImport=false;
       S.tracks.forEach(function(tr){ tr.clips.forEach(function(c){
         if(c.mediaId===mediaEntry.id){ c.audioEl=a2; c._placeholder=false; }
       });});
     } else if(mediaEntry.type === 'image'){
       var img = new Image();
-      await new Promise(function(res){ img.onload=res; img.onerror=res; img.src=url; });
+      var iLoaded=false;
+      await new Promise(function(res){ img.onload=function(){iLoaded=true;res();}; img.onerror=res; img.src=url; });
+      if(!iLoaded){ URL.revokeObjectURL(url); return false; }
       mediaEntry.url=url; mediaEntry.el=img; mediaEntry._needsImport=false;
       S.tracks.forEach(function(tr){ tr.clips.forEach(function(c){
         if(c.mediaId===mediaEntry.id){ c.imgEl=img; c._placeholder=false; }
@@ -1442,12 +1448,16 @@ async function autoRestoreHandles(){
     var ok = await tryRestoreFileHandle(handle, m);
     if(ok) restored++;
   }));
+  var still = [].concat(S.media.video,S.media.audio,S.media.image).filter(function(m){return m._needsImport;});
   if(restored > 0){
     renderMedia(); renderTracks(); drawFrame();
-    setStatus('Auto-restored '+restored+' file'+(restored>1?'s':''));
-    // Remove the banner if all restored
-    var still = [].concat(S.media.video,S.media.audio,S.media.image).filter(function(m){return m._needsImport;});
-    if(!still.length){ var b=document.getElementById('reimport-banner'); if(b)b.remove(); }
+    if(!still.length){
+      setStatus('Auto-restored '+restored+' file'+(restored>1?'s':''));
+      var b=document.getElementById('reimport-banner'); if(b)b.remove();
+    }
+  }
+  if(still.length){
+    setStatus((restored>0?'Auto-restored '+restored+' — ':'')+still.length+' file'+(still.length>1?'s':'')+' still need re-importing manually', true);
   }
 }
 
@@ -2397,7 +2407,20 @@ function loadMediaFiles(files,hint){
     }else{
       var img=new Image();
       img.onload=function(){
+        var fn3=file.name;var lower3=fn3.toLowerCase();var lower3NoExt=lower3.replace(/\.[^.]+$/,'');
+        var existingI=S.media.image.find(function(x){
+          if(!x._needsImport)return false;
+          var xfn=(x.vegFilename||x.name).toLowerCase();
+          return xfn===lower3||xfn.replace(/\.[^.]+$/,'')===lower3NoExt;
+        });
+        if(existingI){
+          existingI.url=url;existingI.el=img;existingI.naturalW=img.naturalWidth;existingI.naturalH=img.naturalHeight;existingI.vegFilename=fn3;existingI._needsImport=false;
+          if(file._handle) saveFileHandle(existingI.id, file._handle);
+          S.tracks.forEach(function(tr){tr.clips.forEach(function(c){if(c.mediaId===existingI.id){c.imgEl=img;c._placeholder=false;}});});
+          renderMedia();renderTracks();setStatus('Re-linked image: '+existingI.name);return;
+        }
         var m={id:uid(),name:file.name.replace(/\.[^.]+$/,''),url:url,el:img,naturalW:img.naturalWidth,naturalH:img.naturalHeight,type:'image',vegFilename:file.name};
+        if(file._handle) saveFileHandle(m.id, file._handle);
         S.media.image.push(m);linkByFilename(m,file.name);
         renderMedia();renderTracks();setStatus('Loaded: '+m.name);
       };
@@ -2509,7 +2532,7 @@ function renderTracks(){
     var iconEl=document.createElement('span');iconEl.className='ticon';iconEl.textContent=track.type==='video'?'🎞':track.type==='audio'?'🎵':track.type==='image'?'🖼':track.type==='lyric-bg'?'🎤':track.type==='lyric-text'?'📝':'✦';
     var nameEl=document.createElement('span');nameEl.className='tname';nameEl.textContent=track.name;
     var muteEl=document.createElement('span');muteEl.className='tmute';muteEl.textContent=track.muted?'🔇':'🔊';
-    muteEl.onclick=function(e){e.stopPropagation();snapshot('mute');track.muted=!track.muted;renderTracks();};
+    muteEl.onclick=function(e){e.stopPropagation();snapshot('mute');track.muted=!track.muted;renderTracks();if(S.playing){stopAudio();startAudio();}};
     lbl.appendChild(iconEl);lbl.appendChild(nameEl);lbl.appendChild(muteEl);
     // Track drag-to-reorder
     (function(tr,ln){
@@ -2667,6 +2690,9 @@ function makeClipEl(clip,track){
   el.dataset.id=clip.id;
   el.style.left=(clip.start*S.zoom)+'px';
   el.style.width=Math.max(clip.duration*S.zoom,32)+'px';
+  // When actual width is below the 32px floor, the padded element visually
+  // overlaps neighboring clips. Bring it forward so it stays clickable.
+  if(clip.duration*S.zoom<32) el.style.zIndex='10';
   // HTML5 drag disabled — cross-track moves handled by mousedown handler above
   el.draggable=false;
   el.addEventListener('dragstart',function(e){e.preventDefault();});
