@@ -1570,23 +1570,29 @@ function getGlitterPool(clipId, textW, textH, cx, cy){
   var particles=[];
   var count=1200;
   for(var i=0;i<count;i++){
-    var spread=Math.random()<0.7?1.0:2.4;
-    var px=cx + (Math.random()-0.5)*textW*spread;
-    var py=cy + (Math.random()-0.5)*textH*spread*0.55;
-    // Mix of directions: most fall downward, some burst upward then arc down
+    // Horizontal spread can extend beyond the text (looks good as it widens)
+    // but vertical spread is tight to the text bbox so glitter doesn't spawn
+    // visually above the rendered glyphs.
+    var hSpread=Math.random()<0.7?1.0:2.4;
+    var px=cx + (Math.random()-0.5)*textW*hSpread;
+    var py=cy + (Math.random()-0.5)*textH*0.9;
+    // Mix of directions: most fall downward, a small fraction has a gentle
+    // upward kick (just enough for sparkle, not enough to fly above the text)
     var angleRoll=Math.random();
-    var angle;
-    if(angleRoll<0.25){
-      // Upward burst — shoots up first, gravity pulls back down
-      angle=-(Math.PI*0.5) + (Math.random()-0.5)*Math.PI*0.8;
-    }else if(angleRoll<0.55){
+    var angle, speed;
+    if(angleRoll<0.10){
+      // Small upward kick — kept gentle so particles don't escape the text band
+      angle=-(Math.PI*0.5) + (Math.random()-0.5)*Math.PI*0.6;
+      speed=0.5+Math.random()*2.0;
+    }else if(angleRoll<0.40){
       // Sideways spray
       angle=(Math.random()-0.5)*Math.PI*0.7;
+      speed=0.5+Math.random()*5.0;
     }else{
       // Downward fall (majority)
       angle=Math.PI*0.5 + (Math.random()-0.5)*Math.PI*0.9;
+      speed=0.5+Math.random()*8.5;
     }
-    var speed=0.5+Math.random()*8.5;
     var sizeRoll=Math.random();
     var sz=sizeRoll<0.6?0.5+Math.random()*1.1:sizeRoll<0.9?1.4+Math.random()*2.0:3.0+Math.random()*4.0;
     var goldV=Math.random();
