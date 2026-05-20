@@ -3157,7 +3157,10 @@ function drawFrame(){
     tr.clips.forEach(function(c){
       if(S.t<c.start||S.t>=c.start+c.duration||!c.videoEl)return;
       var rel=S.t-c.start,target=(c.trimStart||0)+rel,vid=c.videoEl;
-      if(vid.readyState>=1&&Math.abs(vid.currentTime-target)>0.15)vid.currentTime=target;
+      // If tickVideo is actively playing this element, don't re-seek — it
+      // advances naturally and a forced seek would freeze it again.
+      var isLivePlay = _activeVideo && _activeVideo.indexOf(vid) >= 0;
+      if(!isLivePlay && vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
       if(vid.readyState>=1){
         applyKeyframes(c,rel);
         var op=c._kfOpacity!==undefined?c._kfOpacity*clipOp(c,rel):clipOp(c,rel);
@@ -3817,17 +3820,66 @@ function togglePlay(){
   S.playing=!S.playing;
   document.getElementById('btn-play').textContent=S.playing?'⏸':'▶';
   if(S.playing){startAudio();_lastT=performance.now();_raf=requestAnimationFrame(playLoop);}
-  else{stopAudio();if(_raf)cancelAnimationFrame(_raf);drawFrame();}
+  else{stopAudio();stopVideo();if(_raf)cancelAnimationFrame(_raf);drawFrame();}
 }
 function playLoop(ts){
   if(!S.playing)return;
   var dt=Math.min((ts-_lastT)/1000,.1);_lastT=ts;S.t=Math.min(S.t+dt,S.dur);
   tickAudio();
+  tickVideo();
   drawFrame();updateTC();updatePH();
   if(S.t>=S.dur){togglePlay();S.t=S.dur;return;}
   _raf=requestAnimationFrame(playLoop);
 }
-function seek(t){S.t=Math.max(0,Math.min(S.dur,t));if(S.playing){stopAudio();startAudio();}drawFrame();updateTC();updatePH();}
+// Video preview: when continuously playing, actually .play() the video
+// elements (muted — audio is handled separately by tickAudio). This avoids
+// the seek-storm that freezes B-frame / NTSC content where each seek takes
+// longer than the seek-threshold drift, causing a queue of pending seeks to
+// stack up while the frame never visibly advances.
+var _activeVideo = [];
+function tickVideo(){
+  var shouldPlay = new Map();
+  S.tracks.forEach(function(tr){
+    if(tr.type!=='video') return;
+    tr.clips.forEach(function(c){
+      if(S.t < c.start || S.t >= c.start + c.duration || !c.videoEl) return;
+      shouldPlay.set(c.videoEl, c);
+    });
+  });
+  // Pause video elements that shouldn't be playing
+  for(var i=_activeVideo.length-1; i>=0; i--){
+    var v = _activeVideo[i];
+    if(!shouldPlay.has(v)){
+      try{ v.pause(); }catch(e){}
+      _activeVideo.splice(i,1);
+    }
+  }
+  // Start (or correct drift on) video elements that should be playing
+  shouldPlay.forEach(function(c, v){
+    if(v.readyState < 1) return;
+    var rel = S.t - c.start;
+    var target = (c.trimStart||0) + rel;
+    if(_activeVideo.indexOf(v) < 0){
+      // First time entering this clip — seek and start playing
+      v.muted = true; // audio comes from c.audioEl, not the video element
+      try{ v.currentTime = target; }catch(e){}
+      v.play().catch(function(){});
+      _activeVideo.push(v);
+    } else {
+      // Already playing — only re-seek if it has drifted significantly
+      // (e.g., buffer stall). Larger threshold than the still-frame path
+      // because natural playback drifts a frame or two and that's fine.
+      if(Math.abs(v.currentTime - target) > 0.4){
+        try{ v.currentTime = target; }catch(e){}
+      }
+    }
+  });
+}
+function stopVideo(){
+  _activeVideo.forEach(function(v){try{v.pause();}catch(e){}});
+  _activeVideo = [];
+}
+function seek(t){S.t=Math.max(0,Math.min(S.dur,t));if(S.playing){stopAudio();startAudio();stopVideo();}drawFrame();updateTC();updatePH();}
 function seekRel(dt){seek(S.t+dt);}
 function timeFromMouse(e){var tl=document.getElementById('tlscroll');if(!tl)return 0;var rect=tl.getBoundingClientRect();return Math.max(0,Math.min(S.dur,(e.clientX-rect.left+tl.scrollLeft-OFFSET)/S.zoom));}
 function updateTC(){document.getElementById('tc').textContent=fmtFull(S.t)+' / '+fmtFull(S.dur);}
