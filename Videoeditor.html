@@ -483,6 +483,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
     <div id="tltb">
       <button class="tbtn" id="btn-addvtrack">+ Video</button>
       <button class="tbtn" id="btn-addatrack">+ Audio</button>
+      <button class="tbtn" id="btn-addittrack">+ Image</button>
       <button class="tbtn" id="btn-addttrack">+ Title</button>
       <button class="tbtn" id="btn-lyrics" style="color:#50e0a0;border-color:#50e0a0" title="Open lyric editor">&#127908; Lyrics</button>
       <button class="tbtn" id="btn-split">✂ Split</button>
@@ -2160,6 +2161,7 @@ function init(){
   // Timeline toolbar
   document.getElementById('btn-addvtrack').onclick=function(){snapshot('add track');addTrack('video');};
   document.getElementById('btn-addatrack').onclick=function(){snapshot('add track');addTrack('audio');};
+  document.getElementById('btn-addittrack').onclick=function(){snapshot('add track');addTrack('image');};
   document.getElementById('btn-addttrack').onclick=function(){snapshot('add track');addTrack('title');};
   var _lb=document.getElementById('btn-lyrics');if(_lb)_lb.onclick=openLyricEditor;
   var _lp=document.getElementById('ly-preview-btn');if(_lp)_lp.onclick=previewLyrics;
@@ -2532,8 +2534,12 @@ function linkByFilename(m,filename){
   var lower=filename.toLowerCase();var linked=0;
   S.tracks.forEach(function(t){t.clips.forEach(function(c){
     if(c._placeholder&&c.vegFilename&&c.vegFilename.toLowerCase()===lower){
-      c.mediaId=m.id;if(m.type==='video'){c.videoEl=m.el;c.audioEl=m.audioEl;}
-      if(m.type==='image')c.imgEl=m.el;
+      c.mediaId=m.id;
+      // Clear all element refs first, then set the matching one
+      c.videoEl=null; c.audioEl=null; c.imgEl=null;
+      if(m.type==='video' && c.type==='video'){c.videoEl=m.el;c.audioEl=m.audioEl;}
+      else if(m.type==='audio' && c.type==='audio'){c.audioEl=m.el;}
+      else if(m.type==='image' && c.type==='image'){c.imgEl=m.el;}
       c.name=m.name;if(m.duration)c.duration=m.duration;c._placeholder=false;linked++;
     }
   });});
@@ -2936,7 +2942,7 @@ function makeClipEl(clip,track){
 // ===================================================
 function addTrack(type){
   var n=S.tracks.filter(function(t){return t.type===type;}).length+1;
-  S.tracks.push({id:uid(),type:type,name:(type==='video'?'Video':type==='audio'?'Audio':type==='title'?'Titles':type==='lyric-bg'?'Lyric BG':type==='lyric-text'?'Lyrics':'Overlay')+' '+n,clips:[],muted:false});
+  S.tracks.push({id:uid(),type:type,name:(type==='video'?'Video':type==='audio'?'Audio':type==='image'?'Image':type==='title'?'Titles':type==='lyric-bg'?'Lyric BG':type==='lyric-text'?'Lyrics':'Overlay')+' '+n,clips:[],muted:false});
   renderTracks();
 }
 function splitClip(){
@@ -3715,13 +3721,31 @@ function _audioShouldPlay(){
   var map = new Map();
   S.tracks.forEach(function(tr){
     if(tr.muted) return;
+    // Image and title tracks cannot produce audio under any circumstances —
+    // this catches phantom audioEls left over from stale state or
+    // cross-type mediaId resolution.
+    if(tr.type==='image' || tr.type==='title' || tr.type==='lyric-bg' || tr.type==='lyric-text') return;
     tr.clips.forEach(function(c){
+      if(c.type==='image' || c.type==='title') return;
       if(S.t < c.start || S.t >= c.start + c.duration) return;
       var audio = null;
-      if(c.audioEl) audio = c.audioEl;
-      if(!audio && tr.type==='audio' && c.mediaId){
-        var m = S.media.audio.find(function(x){return x.id===c.mediaId;});
-        if(m && m.el) audio = m.el;
+      // For video clips, the inline audio is c.audioEl — unless the user
+      // explicitly unlinked it, in which case it must stay silent.
+      if(c.type==='video' && c.audioEl && !c.audioUnlinked) audio = c.audioEl;
+      // For audio clips, prefer c.audioEl (set when re-linked) or fall back
+      // to the media library's element.
+      if(c.type==='audio'){
+        if(c.audioEl) audio = c.audioEl;
+        else if(c.mediaId){
+          var m = S.media.audio.find(function(x){return x.id===c.mediaId;});
+          if(m && m.el) audio = m.el;
+          // Also try video media — if this is an unlinked-audio clip pointing
+          // at a video file, route through the video media's audioEl.
+          if(!audio){
+            var mv = S.media.video.find(function(x){return x.id===c.mediaId;});
+            if(mv && mv.audioEl) audio = mv.audioEl;
+          }
+        }
       }
       if(!audio) return;
       map.set(audio, {clip:c, track:tr});
@@ -4393,9 +4417,12 @@ function restoreProject(p){
       if(c.type==='title'){c.videoEl=null;c.audioEl=null;c.imgEl=null;return;}
       var m=allMedia.find(function(x){return x.id===c.mediaId;});
       if(m){
-        c.videoEl = m.type==='video' ? m.el : null;
-        c.audioEl = m.type==='video' ? m.audioEl : null;
-        c.imgEl   = m.type==='image' ? m.el : null;
+        // Both clip type and media type must match; otherwise leave field
+        // null so phantom playback (e.g. image clip carrying a stale audioEl
+        // from a video media) cannot happen.
+        c.videoEl = (c.type==='video' && m.type==='video') ? m.el : null;
+        c.audioEl = (c.type==='video' && m.type==='video') ? m.audioEl : null;
+        c.imgEl   = (c.type==='image' && m.type==='image') ? m.el : null;
         // Stay a placeholder visually if the media isn't actually loaded yet
         c._placeholder = m._needsImport ? true : false;
         if(m._needsImport){
@@ -4408,9 +4435,9 @@ function restoreProject(p){
         var byName=fn?allMedia.find(function(x){return (x.vegFilename||x.name).toLowerCase()===(fn).toLowerCase();}):null;
         if(byName){
           c.mediaId=byName.id;
-          c.videoEl=byName.type==='video'?byName.el:null;
-          c.audioEl=byName.type==='video'?byName.audioEl:null;
-          c.imgEl=byName.type==='image'?byName.el:null;
+          c.videoEl=(c.type==='video' && byName.type==='video')?byName.el:null;
+          c.audioEl=(c.type==='video' && byName.type==='video')?byName.audioEl:null;
+          c.imgEl=(c.type==='image' && byName.type==='image')?byName.el:null;
           c._placeholder=false;
         } else {
           c.videoEl=null;c.audioEl=null;c.imgEl=null;c._placeholder=true;
