@@ -3202,6 +3202,11 @@ function drawFrame(){
       // If tickVideo is actively playing this element, don't re-seek — it
       // advances naturally and a forced seek would freeze it again.
       var isLivePlay = _activeVideo && _activeVideo.indexOf(vid) >= 0;
+      // Skip drawing entirely if mid-seek — the videoEl is showing the
+      // previous frame which may belong to a different clip's position.
+      // Otherwise stale frames leak between clips that share the same source
+      // or between consecutive clips on the same track.
+      if(_seekingVideo && _seekingVideo.has(vid)) return;
       if(!isLivePlay && vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
       if(vid.readyState>=1){
         applyKeyframes(c,rel);
@@ -3879,6 +3884,9 @@ function playLoop(ts){
 // longer than the seek-threshold drift, causing a queue of pending seeks to
 // stack up while the frame never visibly advances.
 var _activeVideo = [];
+// Tracks videos that are mid-seek (awaiting seeked event). drawFrame uses
+// this to skip drawing stale frames until the seek lands.
+var _seekingVideo = new WeakSet ? new WeakSet() : null;
 function tickVideo(){
   var shouldPlay = new Map();
   S.tracks.forEach(function(tr){
@@ -3902,22 +3910,44 @@ function tickVideo(){
     var rel = S.t - c.start;
     var target = (c.trimStart||0) + rel;
     if(_activeVideo.indexOf(v) < 0){
-      // First time entering this clip — seek and start playing
+      // First time entering this clip — seek, wait for seeked, then play.
       v.muted = true; // audio comes from c.audioEl, not the video element
-      try{ v.currentTime = target; }catch(e){}
-      v.play().catch(function(){});
-      keepVideoAlive(v);
+      if(_seekingVideo) _seekingVideo.add(v);
+      var onSeeked = function(){
+        if(_seekingVideo) _seekingVideo.delete(v);
+        v.removeEventListener('seeked', onSeeked);
+        // Only start playing if we're still meant to be in range
+        if(_activeVideo.indexOf(v) >= 0 && S.playing){
+          v.play().catch(function(){});
+          keepVideoAlive(v);
+        }
+      };
+      v.addEventListener('seeked', onSeeked);
+      try{ v.currentTime = target; }catch(e){
+        if(_seekingVideo) _seekingVideo.delete(v);
+        v.removeEventListener('seeked', onSeeked);
+      }
       _activeVideo.push(v);
     } else {
-      // Already playing — only re-seek if it has drifted significantly
-      // (e.g., buffer stall). Larger threshold than the still-frame path
-      // because natural playback drifts a frame or two and that's fine.
-      if(Math.abs(v.currentTime - target) > 0.4){
-        try{ v.currentTime = target; }catch(e){}
+      // Already playing. Only re-seek if drift is GROSS (>1s) — natural
+      // playback drift of a few frames is fine and visually invisible.
+      // The previous 0.4s threshold was kicking in too eagerly and causing
+      // mid-playback stutter on B-frame content.
+      if(Math.abs(v.currentTime - target) > 1.0){
+        if(_seekingVideo) _seekingVideo.add(v);
+        var onDriftSeeked = function(){
+          if(_seekingVideo) _seekingVideo.delete(v);
+          v.removeEventListener('seeked', onDriftSeeked);
+        };
+        v.addEventListener('seeked', onDriftSeeked);
+        try{ v.currentTime = target; }catch(e){
+          if(_seekingVideo) _seekingVideo.delete(v);
+          v.removeEventListener('seeked', onDriftSeeked);
+        }
       }
       // If the element has paused itself for any reason (buffer stall,
       // browser intervention, decoder throttle), restart it.
-      if(v.paused){
+      if(v.paused && !(_seekingVideo && _seekingVideo.has(v))){
         v.play().catch(function(){});
         keepVideoAlive(v);
       }
