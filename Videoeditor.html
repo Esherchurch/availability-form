@@ -1385,17 +1385,18 @@ function clearFileHandle(id){
   });
 }
 
-// Video elements MUST be attached to the DOM, otherwise browsers throttle
-// or stall their decoder after a few seconds (battery-saver optimization),
-// causing the preview to freeze on a frame while audio continues. Hidden
-// container is positioned off-screen but still rendered so the decoder
-// stays active.
+// Video elements MUST be attached to the DOM AND positioned within the
+// visible viewport with non-zero size, otherwise browsers throttle their
+// decoder (Chrome's intersection-observer-based power-saver heuristic).
+// We use clip-path to hide visually while keeping the element rendered.
 function _vidContainer(){
   var c = document.getElementById('_kfc_video_pool');
   if(!c){
     c = document.createElement('div');
     c.id = '_kfc_video_pool';
-    c.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;overflow:hidden;pointer-events:none;opacity:0;';
+    // In-viewport, non-zero size, clipped to invisible. NOT opacity:0 and
+    // NOT off-screen — both trigger throttling.
+    c.style.cssText = 'position:fixed;top:0;left:0;width:160px;height:90px;clip-path:inset(50%);pointer-events:none;z-index:-9999;visibility:visible;';
     document.body.appendChild(c);
   }
   return c;
@@ -1407,9 +1408,23 @@ function createVideoEl(url){
   v.muted = false; v.volume = 1;
   v.playsInline = true;
   v.setAttribute('playsinline', '');
-  // CRITICAL: must be in DOM for decoder to stay active during playback
+  // CRITICAL: must be in DOM AND in viewport for decoder to stay active
   _vidContainer().appendChild(v);
   return v;
+}
+// Set up a requestVideoFrameCallback loop on a playing video. This signals
+// to the browser "I'm consuming every frame from this video" which is the
+// most reliable way to prevent decoder throttling — far stronger than
+// just being DOM-attached. Self-rearms each frame while playing.
+function keepVideoAlive(v){
+  if(!v.requestVideoFrameCallback) return; // older browser, fall back to DOM trick
+  if(v._kfcRVFC) return; // already running
+  v._kfcRVFC = true;
+  var loop = function(){
+    if(v.paused || v.ended){ v._kfcRVFC = false; return; }
+    try{ v.requestVideoFrameCallback(loop); }catch(e){ v._kfcRVFC = false; }
+  };
+  try{ v.requestVideoFrameCallback(loop); }catch(e){ v._kfcRVFC = false; }
 }
 
 async function tryRestoreFileHandle(handle, mediaEntry){
@@ -3891,6 +3906,7 @@ function tickVideo(){
       v.muted = true; // audio comes from c.audioEl, not the video element
       try{ v.currentTime = target; }catch(e){}
       v.play().catch(function(){});
+      keepVideoAlive(v);
       _activeVideo.push(v);
     } else {
       // Already playing — only re-seek if it has drifted significantly
@@ -3903,6 +3919,7 @@ function tickVideo(){
       // browser intervention, decoder throttle), restart it.
       if(v.paused){
         v.play().catch(function(){});
+        keepVideoAlive(v);
       }
     }
   });
