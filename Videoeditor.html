@@ -3778,14 +3778,18 @@ function tickAudio(){
       _activeAudio.splice(i,1);
     }
   }
-  // Start anything that should be playing but isn't
+  // Start anything that should be playing but isn't, and update volume
+  // EVERY tick (not just on start) so fadeIn/fadeOut actually take effect.
   should.forEach(function(info, audio){
-    if(_activeAudio.indexOf(audio) >= 0) return;
     var c = info.clip; var tr = info.track;
-    audio.currentTime = (c.trimStart||0) + (S.t - c.start);
-    var clipOp = c.opacity!==undefined ? c.opacity : 1;
+    var rel = S.t - c.start;
+    // clipOp folds in opacity, fadeInDur, and fadeOutDur — same logic used
+    // visually so audio and video fade together.
+    var op = clipOp(c, rel);
     var trVol = tr.volume!==undefined ? tr.volume : 1;
-    audio.volume = Math.max(0, Math.min(1, clipOp*trVol));
+    audio.volume = Math.max(0, Math.min(1, op*trVol));
+    if(_activeAudio.indexOf(audio) >= 0) return;
+    audio.currentTime = (c.trimStart||0) + rel;
     audio.play().catch(function(){});
     _activeAudio.push(audio);
   });
