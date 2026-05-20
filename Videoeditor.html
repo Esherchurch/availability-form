@@ -3786,16 +3786,19 @@ function tickAudio(){
     var c = info.clip; var tr = info.track;
     var rel = S.t - c.start;
     // clipOp folds in opacity, fadeInDur, and fadeOutDur — same logic used
-    // visually so audio and video fade together.
+    // visually so audio and video fade together. clipVolume (set by
+    // normaliseAll) is a separate multiplier that can boost above 1.0.
     var op = clipOp(c, rel);
     var trVol = tr.volume!==undefined ? tr.volume : 1;
+    var clipVol = c.clipVolume!==undefined ? c.clipVolume : 1;
+    var level = op * trVol * clipVol;
     if(_activeAudio.indexOf(audio) >= 0){
-      setAudioLevel(audio, op*trVol);
+      setAudioLevel(audio, level);
       return;
     }
     audio.currentTime = (c.trimStart||0) + rel;
     try{ connectToChain(audio); }catch(e){}
-    setAudioLevel(audio, op*trVol);
+    setAudioLevel(audio, level);
     audio.play().catch(function(){});
     _activeAudio.push(audio);
   });
@@ -4161,13 +4164,15 @@ function connectToChain(el){
   }catch(e){}
 }
 // Set the effective output level for an audio element. Works whether or not
-// the element has been connected to the WebAudio chain.
+// the element has been connected to the WebAudio chain. Level can exceed 1
+// for normalisation boost (applied to the GainNode); audio.volume is still
+// clamped to its valid 0..1 range as a fallback for unconnected elements.
 function setAudioLevel(el, level){
-  level = Math.max(0, Math.min(1, level));
-  el.volume = level; // works for unconnected elements
+  level = Math.max(0, level);
+  el.volume = Math.min(1, level);
   if(_gainNodes){
     var g = _gainNodes.get(el);
-    if(g){ try{ g.gain.value = level; }catch(e){} }
+    if(g){ try{ g.gain.value = Math.min(4, level); }catch(e){} }
   }
 }
 
@@ -4214,7 +4219,45 @@ function normaliseAll(){
   var TARGET=-14;var actx=getAudioCtx();var items=[];
   S.tracks.forEach(function(tr){tr.clips.forEach(function(c){var el=c.audioEl;if(!el&&tr.type==='audio'){var m=S.media.audio.find(function(x){return x.id===c.mediaId;});if(m)el=m.el;}if(el)items.push({clip:c,el:el});});});
   if(!items.length){setStatus('No audio clips',true);return;}
-  var done=0;items.forEach(function(item){var url=item.el.src||item.el.currentSrc;if(!url){done++;if(done>=items.length)finishNorm(items.length);return;}fetch(url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx.decodeAudioData(b);}).then(function(buf){var d=buf.getChannelData(0),sum=0;for(var i=0;i<d.length;i++)sum+=d[i]*d[i];var rms=Math.sqrt(sum/d.length),measDb=rms>0?20*Math.log10(rms):-60,gainDb=TARGET-measDb,gain=Math.min(Math.pow(10,gainDb/20),Math.pow(10,24/20));item.clip.clipVolume=Math.min(2,gain);item.el.volume=Math.min(1,gain);done++;if(done>=items.length)finishNorm(items.length);}).catch(function(){done++;if(done>=items.length)finishNorm(items.length);});});
+  setStatus('Analysing '+items.length+' clip'+(items.length>1?'s':'')+'...');
+  // Cache decoded buffers per URL so we don't decode the same file twice.
+  var bufCache = {};
+  function getBuffer(url){
+    if(bufCache[url]) return bufCache[url];
+    bufCache[url] = fetch(url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx.decodeAudioData(b);});
+    return bufCache[url];
+  }
+  var done=0, normCount=0;
+  items.forEach(function(item){
+    var url=item.el.src||item.el.currentSrc;
+    if(!url){done++;if(done>=items.length)finishNorm(normCount);return;}
+    getBuffer(url).then(function(buf){
+      // Measure RMS only across the region this clip actually uses, so a
+      // silent intro doesn't inflate the gain for a sound-effect clip.
+      var sr = buf.sampleRate;
+      var start = Math.floor((item.clip.trimStart||0) * sr);
+      var end = Math.min(buf.length, Math.floor(((item.clip.trimStart||0)+item.clip.duration) * sr));
+      if(end <= start){ end = buf.length; start = 0; }
+      var d = buf.getChannelData(0);
+      var sum = 0, n = end - start;
+      for(var i=start; i<end; i++) sum += d[i]*d[i];
+      var rms = n>0 ? Math.sqrt(sum/n) : 0;
+      var measDb = rms>0 ? 20*Math.log10(rms) : -60;
+      var gainDb = TARGET - measDb;
+      // Cap at +12dB to avoid blowing out silence-padded clips
+      var gain = Math.min(Math.pow(10, gainDb/20), Math.pow(10, 12/20));
+      gain = Math.max(0.1, gain); // and floor at -20dB
+      // clipVolume is read by tickAudio (via clipOp folded into the gain
+      // node) — this is the live, audible setting.
+      item.clip.clipVolume = gain;
+      normCount++;
+      done++;
+      if(done>=items.length) finishNorm(normCount);
+    }).catch(function(){
+      done++;
+      if(done>=items.length) finishNorm(normCount);
+    });
+  });
 }
 function finishNorm(n){renderTracks();setStatus('Normalised '+n+' clips to -14dB');goldFlash();}
 
@@ -4430,7 +4473,7 @@ function serializeProject(){
     saved:new Date().toISOString(),dur:S.dur,filters:S.filters,fx:S.fx,trans:S.trans,snap:S.snap,
     mediaLib:{video:S.media.video.map(mMeta),audio:S.media.audio.map(mMeta),image:S.media.image.map(mMeta)},
     markers:S.markers,
-    tracks:S.tracks.map(function(t){return{id:t.id,type:t.type,name:t.name,muted:t.muted,volume:t.volume,clips:t.clips.map(function(c){return{id:c.id,name:c.name,start:c.start,duration:c.duration,type:c.type,mediaId:c.mediaId,text:c.text,text2:c.text2,titleStyle:c.titleStyle,font:c.font,fontSize:c.fontSize,col1:c.col1,col2:c.col2,position:c.position,titleX:c.titleX,titleY:c.titleY,animSpeed:c.animSpeed,opacity:c.opacity,fadeInDur:c.fadeInDur,fadeOutDur:c.fadeOutDur,trimStart:c.trimStart,vegFilename:c.vegFilename,_placeholder:c._placeholder,chromaKey:c.chromaKey,pcScale:c.pcScale,pcX:c.pcX,pcY:c.pcY,pcCL:c.pcCL,pcCR:c.pcCR,pcCT:c.pcCT,pcCB:c.pcCB,clipFX:c.clipFX,titleShadow:c.titleShadow,titleShadowX:c.titleShadowX,titleShadowY:c.titleShadowY,titleShadowCol:c.titleShadowCol,audioUnlinked:c.audioUnlinked,cc:c.cc,keyframes:c.keyframes};})};})
+    tracks:S.tracks.map(function(t){return{id:t.id,type:t.type,name:t.name,muted:t.muted,volume:t.volume,clips:t.clips.map(function(c){return{id:c.id,name:c.name,start:c.start,duration:c.duration,type:c.type,mediaId:c.mediaId,text:c.text,text2:c.text2,titleStyle:c.titleStyle,font:c.font,fontSize:c.fontSize,col1:c.col1,col2:c.col2,position:c.position,titleX:c.titleX,titleY:c.titleY,animSpeed:c.animSpeed,opacity:c.opacity,fadeInDur:c.fadeInDur,fadeOutDur:c.fadeOutDur,trimStart:c.trimStart,vegFilename:c.vegFilename,_placeholder:c._placeholder,chromaKey:c.chromaKey,pcScale:c.pcScale,pcX:c.pcX,pcY:c.pcY,pcCL:c.pcCL,pcCR:c.pcCR,pcCT:c.pcCT,pcCB:c.pcCB,clipFX:c.clipFX,titleShadow:c.titleShadow,titleShadowX:c.titleShadowX,titleShadowY:c.titleShadowY,titleShadowCol:c.titleShadowCol,audioUnlinked:c.audioUnlinked,clipVolume:c.clipVolume,cc:c.cc,keyframes:c.keyframes};})};})
   };
 }
 function restoreProject(p){
