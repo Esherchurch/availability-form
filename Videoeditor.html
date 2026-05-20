@@ -3206,11 +3206,6 @@ function drawFrame(){
       // If tickVideo is actively playing this element, don't re-seek — it
       // advances naturally and a forced seek would freeze it again.
       var isLivePlay = _activeVideo && _activeVideo.indexOf(vid) >= 0;
-      // Skip drawing entirely if mid-seek — the videoEl is showing the
-      // previous frame which may belong to a different clip's position.
-      // Otherwise stale frames leak between clips that share the same source
-      // or between consecutive clips on the same track.
-      if(_seekingVideo && _seekingVideo.has(vid)) return;
       if(!isLivePlay && vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
       if(vid.readyState>=1){
         applyKeyframes(c,rel);
@@ -3914,40 +3909,48 @@ function tickVideo(){
     var rel = S.t - c.start;
     var target = (c.trimStart||0) + rel;
     if(_activeVideo.indexOf(v) < 0){
-      // First time entering this clip — seek, wait for seeked, then play.
+      // First time entering this clip — seek (if needed), then play.
       v.muted = true; // audio comes from c.audioEl, not the video element
+      _activeVideo.push(v);
+      // No-op seek case: if already at the right time, just play. Setting
+      // currentTime to its current value may NOT fire seeked, causing a
+      // permanent stuck-seeking state.
+      if(Math.abs(v.currentTime - target) < 0.05){
+        v.play().catch(function(){});
+        keepVideoAlive(v);
+        return;
+      }
       if(_seekingVideo) _seekingVideo.add(v);
-      var onSeeked = function(){
+      var done = false;
+      var finish = function(){
+        if(done) return; done = true;
         if(_seekingVideo) _seekingVideo.delete(v);
-        v.removeEventListener('seeked', onSeeked);
-        // Only start playing if we're still meant to be in range
+        v.removeEventListener('seeked', finish);
         if(_activeVideo.indexOf(v) >= 0 && S.playing){
           v.play().catch(function(){});
           keepVideoAlive(v);
         }
       };
-      v.addEventListener('seeked', onSeeked);
-      try{ v.currentTime = target; }catch(e){
-        if(_seekingVideo) _seekingVideo.delete(v);
-        v.removeEventListener('seeked', onSeeked);
-      }
-      _activeVideo.push(v);
+      v.addEventListener('seeked', finish);
+      // Fallback timeout — seeked sometimes never fires (especially with
+      // B-frame content seeking to a near-keyframe). Don't let the video
+      // get stuck in "seeking" state forever.
+      setTimeout(finish, 500);
+      try{ v.currentTime = target; }catch(e){ finish(); }
     } else {
       // Already playing. Only re-seek if drift is GROSS (>1s) — natural
       // playback drift of a few frames is fine and visually invisible.
-      // The previous 0.4s threshold was kicking in too eagerly and causing
-      // mid-playback stutter on B-frame content.
       if(Math.abs(v.currentTime - target) > 1.0){
         if(_seekingVideo) _seekingVideo.add(v);
-        var onDriftSeeked = function(){
+        var doneD = false;
+        var finishD = function(){
+          if(doneD) return; doneD = true;
           if(_seekingVideo) _seekingVideo.delete(v);
-          v.removeEventListener('seeked', onDriftSeeked);
+          v.removeEventListener('seeked', finishD);
         };
-        v.addEventListener('seeked', onDriftSeeked);
-        try{ v.currentTime = target; }catch(e){
-          if(_seekingVideo) _seekingVideo.delete(v);
-          v.removeEventListener('seeked', onDriftSeeked);
-        }
+        v.addEventListener('seeked', finishD);
+        setTimeout(finishD, 500);
+        try{ v.currentTime = target; }catch(e){ finishD(); }
       }
       // If the element has paused itself for any reason (buffer stall,
       // browser intervention, decoder throttle), restart it.
