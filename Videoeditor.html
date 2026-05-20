@@ -3780,6 +3780,8 @@ function tickAudio(){
   }
   // Start anything that should be playing but isn't, and update volume
   // EVERY tick (not just on start) so fadeIn/fadeOut actually take effect.
+  // Volume must go through the GainNode because once an element is routed
+  // through MediaElementSource, audio.volume is bypassed.
   should.forEach(function(info, audio){
     var c = info.clip; var tr = info.track;
     var rel = S.t - c.start;
@@ -3787,9 +3789,13 @@ function tickAudio(){
     // visually so audio and video fade together.
     var op = clipOp(c, rel);
     var trVol = tr.volume!==undefined ? tr.volume : 1;
-    audio.volume = Math.max(0, Math.min(1, op*trVol));
-    if(_activeAudio.indexOf(audio) >= 0) return;
+    if(_activeAudio.indexOf(audio) >= 0){
+      setAudioLevel(audio, op*trVol);
+      return;
+    }
     audio.currentTime = (c.trimStart||0) + rel;
+    try{ connectToChain(audio); }catch(e){}
+    setAudioLevel(audio, op*trVol);
     audio.play().catch(function(){});
     _activeAudio.push(audio);
   });
@@ -4139,7 +4145,31 @@ function getAudioCtx(){
   }
   return _audioCtx;
 }
-function connectToChain(el){if(!_connectedEls||_connectedEls.has(el))return;try{var actx=getAudioCtx();var src=actx.createMediaElementSource(el);src.connect(_eqNodes._first);_connectedEls.set(el,src);}catch(e){}}
+// Per-element GainNode map. audio.volume is bypassed once an element is the
+// source of a MediaElementSource, so we keep a gain node per element and
+// modulate IT to apply fades, opacity, and per-track volume.
+var _gainNodes = typeof WeakMap!=='undefined' ? new WeakMap() : null;
+function connectToChain(el){
+  if(!_connectedEls||_connectedEls.has(el))return;
+  try{
+    var actx=getAudioCtx();
+    var src=actx.createMediaElementSource(el);
+    var g=actx.createGain(); g.gain.value=1;
+    src.connect(g); g.connect(_eqNodes._first);
+    _connectedEls.set(el,src);
+    if(_gainNodes) _gainNodes.set(el,g);
+  }catch(e){}
+}
+// Set the effective output level for an audio element. Works whether or not
+// the element has been connected to the WebAudio chain.
+function setAudioLevel(el, level){
+  level = Math.max(0, Math.min(1, level));
+  el.volume = level; // works for unconnected elements
+  if(_gainNodes){
+    var g = _gainNodes.get(el);
+    if(g){ try{ g.gain.value = level; }catch(e){} }
+  }
+}
 
 function initAudio(){
   document.getElementById('sl-boost').oninput=function(){document.getElementById('sv-boost').textContent=this.value+'dB';if(_boostGain)_boostGain.gain.value=Math.pow(10,+this.value/20);};
