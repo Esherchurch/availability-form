@@ -1565,24 +1565,21 @@ async function pickFolderAndRelink(){
 // GLITTER PARTICLE SYSTEM
 // ===================================================
 var _glitterPools={};
-function getGlitterPool(clipId, textW, textH, cx, cy, line2RelY, line2W, line2H){
-  if(_glitterPools[clipId]) return _glitterPools[clipId];
+function getGlitterPool(clipId, textW, textH, cx, cy){
+  // Cache key includes position so a clip that gets moved (or two clips that
+  // ever shared an ID before being de-duplicated) cannot return a stale pool
+  // generated at a different position.
+  var key = clipId+'@'+Math.round(cx)+','+Math.round(cy)+'_'+Math.round(textW)+'x'+Math.round(textH);
+  if(_glitterPools[key]) return _glitterPools[key];
   var particles=[];
   var count=1200;
-  var hasLine2 = line2RelY && line2H;
   for(var i=0;i<count;i++){
-    // For two-line titles, 40% of particles spawn around line 2 so it gets
-    // glitter too (otherwise the second line has none and the burst looks
-    // detached from it).
-    var useL2 = hasLine2 && Math.random() < 0.4;
-    var bx = cx, by = cy, bw = textW, bh = textH;
-    if(useL2){ by = cy + line2RelY; bw = line2W; bh = line2H; }
     // Horizontal spread can extend beyond the text (looks good as it widens)
     // but vertical spread is tight to the text bbox so glitter doesn't spawn
     // visually above the rendered glyphs.
     var hSpread=Math.random()<0.7?1.0:2.4;
-    var px=bx + (Math.random()-0.5)*bw*hSpread;
-    var py=by + (Math.random()-0.5)*bh*0.9;
+    var px=cx + (Math.random()-0.5)*textW*hSpread;
+    var py=cy + (Math.random()-0.5)*textH*0.9;
     // Mix of directions: most fall downward, a small fraction has a gentle
     // upward kick (just enough for sparkle, not enough to fly above the text)
     var angleRoll=Math.random();
@@ -1614,7 +1611,7 @@ function getGlitterPool(clipId, textW, textH, cx, cy, line2RelY, line2W, line2H)
       shape:Math.random()<0.5?'diamond':'dot',
     });
   }
-  _glitterPools[clipId]=particles;
+  _glitterPools[key]=particles;
   return particles;
 }
 function clearGlitterPool(clipId){ delete _glitterPools[clipId]; }
@@ -3570,20 +3567,9 @@ function drawTitle(clip,W,H,prog,fadeOut,userOp){
       // Measure with FINAL size (not impactSize) so pool origin matches resting text position
       ctx.save();ctx.font='bold '+size+'px '+font;
       textW=ctx.measureText(line1).width;ctx.restore();
-      // Also measure line2 width (smaller font, ~0.5x size)
-      var textW2=0;
-      if(line2){
-        ctx.save();ctx.font='bold '+Math.round(size*0.5)+'px '+font;
-        textW2=ctx.measureText(line2).width;ctx.restore();
-      }
       var textH=size;
       var finalYOff=line2?-size*0.55:0;
-      // Offset from pool center (line1 position) to line2 final resting position.
-      // Line2 final rests at cy+size*0.6, pool center at cy-size*0.55 → diff is size*1.15.
-      var line2RelY = line2 ? size*1.15 : 0;
-      // Line2 spawn extent: line2 font is 0.5*size, so half-height ~ size*0.25
-      var line2H = line2 ? size*0.5 : 0;
-      var pool=getGlitterPool(clip.id||'gi',textW,textH,cx,cy+finalYOff,line2RelY,textW2,line2H);
+      var pool=getGlitterPool(clip.id||'gi',textW,textH,cx,cy+finalYOff);
       // Particle time: 0 at impact, grows after
       var pTime=(prog-impactT)/Math.max(0.001,(1-impactT));
       var shakeX=(Math.random()-0.5)*shakeMag;
@@ -4481,6 +4467,27 @@ function restoreProject(p){
   S.tracks.forEach(function(t){ scanIds(t.clips); });
   scanIds(S.media.video); scanIds(S.media.audio); scanIds(S.media.image);
   if(maxN >= S.nid) S.nid = maxN + 1;
+  // Also fix any DUPLICATE clip IDs already in the loaded state — projects
+  // saved before the S.nid bump fix existed can contain genuine collisions.
+  // Without this, clicks select the wrong clip and the glitter pool (cached
+  // by clip.id) renders at the wrong title's position.
+  var seenIds = {};
+  var dupesFixed = 0;
+  S.tracks.forEach(function(t){
+    t.clips.forEach(function(c){
+      if(!c.id || seenIds[c.id]){
+        // Duplicate (or missing) — give it a fresh unique ID
+        c.id = uid();
+        dupesFixed++;
+      } else {
+        seenIds[c.id] = true;
+      }
+    });
+  });
+  if(dupesFixed > 0){
+    renderTracks();
+    setStatus('Fixed '+dupesFixed+' duplicate clip ID'+(dupesFixed>1?'s':''));
+  }
   // Push to undo stack so undoing after restore works correctly
   snapshot('restore');
   // File handles are restored only when user explicitly loads a project
