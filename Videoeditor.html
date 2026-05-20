@@ -1385,6 +1385,33 @@ function clearFileHandle(id){
   });
 }
 
+// Video elements MUST be attached to the DOM, otherwise browsers throttle
+// or stall their decoder after a few seconds (battery-saver optimization),
+// causing the preview to freeze on a frame while audio continues. Hidden
+// container is positioned off-screen but still rendered so the decoder
+// stays active.
+function _vidContainer(){
+  var c = document.getElementById('_kfc_video_pool');
+  if(!c){
+    c = document.createElement('div');
+    c.id = '_kfc_video_pool';
+    c.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;overflow:hidden;pointer-events:none;opacity:0;';
+    document.body.appendChild(c);
+  }
+  return c;
+}
+function createVideoEl(url){
+  var v = document.createElement('video');
+  v.src = url;
+  v.preload = 'auto'; // fetch full file so playback doesn't stall mid-clip
+  v.muted = false; v.volume = 1;
+  v.playsInline = true;
+  v.setAttribute('playsinline', '');
+  // CRITICAL: must be in DOM for decoder to stay active during playback
+  _vidContainer().appendChild(v);
+  return v;
+}
+
 async function tryRestoreFileHandle(handle, mediaEntry){
   // Request permission to read the file
   try {
@@ -1396,7 +1423,7 @@ async function tryRestoreFileHandle(handle, mediaEntry){
     var file = await handle.getFile();
     var url = URL.createObjectURL(file);
     if(mediaEntry.type === 'video'){
-      var v = document.createElement('video'); v.src=url; v.preload='metadata'; v.muted=false; v.volume=1;
+      var v = createVideoEl(url);
       var a = new Audio(url); a.preload='none';
       var vLoaded=false;
       await new Promise(function(res){
@@ -2459,7 +2486,7 @@ function loadMediaFiles(files,hint){
     var type=hint==='auto'?getFileType(file.name):(hint||getFileType(file.name));
     var url=URL.createObjectURL(file);
     if(type==='video'){
-      var v=document.createElement('video');v.src=url;v.preload='metadata';v.muted=false;v.volume=1;
+      var v=createVideoEl(url);
       var a=new Audio(url);a.preload='none';
       v.onloadedmetadata=function(){
         // Check if a placeholder exists for this file (from project restore)
@@ -3871,6 +3898,11 @@ function tickVideo(){
       // because natural playback drifts a frame or two and that's fine.
       if(Math.abs(v.currentTime - target) > 0.4){
         try{ v.currentTime = target; }catch(e){}
+      }
+      // If the element has paused itself for any reason (buffer stall,
+      // browser intervention, decoder throttle), restart it.
+      if(v.paused){
+        v.play().catch(function(){});
       }
     }
   });
