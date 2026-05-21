@@ -3022,13 +3022,20 @@ function unlinkAudio(){
   clip.audioUnlinked=true;renderTracks();setStatus('Audio unlinked');goldFlash();
 }
 function deleteSelected(){
-  if(!S.sel)return;
+  // Collect IDs to delete: multiSel takes priority, otherwise just the primary sel
+  var ids = (S.multiSel && S.multiSel.length>0) ? S.multiSel.slice() : (S.sel?[S.sel]:[]);
+  if(!ids.length) return;
   snapshot('delete');
-  S.tracks.forEach(function(t){var i=t.clips.findIndex(function(c){return c.id===S.sel;});if(i>=0)t.clips.splice(i,1);});
-  S.sel=null;renderTracks();
+  S.tracks.forEach(function(t){
+    for(var i=t.clips.length-1; i>=0; i--){
+      if(ids.indexOf(t.clips[i].id) >= 0) t.clips.splice(i,1);
+    }
+  });
+  S.sel=null; S.multiSel=[];
+  renderTracks();
   document.getElementById('clipprops').innerHTML='<div style="font-size:10px;color:#444">Select a clip</div>';
   document.getElementById('fadeprops').innerHTML='<div style="font-size:10px;color:#444">Select a clip</div>';
-  setStatus('Deleted');
+  setStatus('Deleted '+ids.length+' clip'+(ids.length>1?'s':''));
 }
 
 // ===================================================
@@ -4453,25 +4460,45 @@ async function startExportWebCodecs(){
   });
 
   var mixDone=0;
-  await Promise.all(audioClips.map(function(ac){
-    return fetch(ac.url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx2.decodeAudioData(b);}).then(function(buf){
+  // Process audio clips SERIALLY rather than in parallel. Lossless audio
+  // (24bit/96kHz WAV/FLAC) decodes into hundreds of MB per file; running
+  // all decodes at once can exhaust memory and hang the export. Serial is
+  // slower but bounded in memory. We also add per-clip timeout and yield
+  // to the event loop so the UI stays responsive.
+  for(var aci=0; aci<audioClips.length; aci++){
+    var ac=audioClips[aci];
+    try{
+      var decodePromise=fetch(ac.url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx2.decodeAudioData(b);});
+      // 60-second hard timeout per clip so a stuck decode can't hang export
+      var buf=await Promise.race([
+        decodePromise,
+        new Promise(function(_,rej){setTimeout(function(){rej(new Error('decode timeout (60s)'));},60000);})
+      ]);
       var chL=buf.getChannelData(0);var chR=buf.numberOfChannels>1?buf.getChannelData(1):chL;
       var sr=buf.sampleRate;var clipRelStart=ac.start-exportIn;
-      // If clip starts before exportIn, we start reading from partway into the clip
       var readOffset=clipRelStart<0?(-clipRelStart):0;
       var writeStart=Math.max(0,Math.round(clipRelStart*48000));
       var readStart=Math.round((ac.trim+readOffset)*sr);
       var frames=Math.min(Math.round((ac.dur-readOffset)*48000),Math.round(exportDur*48000)-writeStart);
-      if(frames<=0){mixDone++;barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';return;}
-      for(var i=0;i<frames;i++){
-        var ri=Math.round(readStart+i*(sr/48000));
-        if(ri>=chL.length)break;
-        var s=writeStart+i;if(s>=outL.length)break;
-        outL[s]+=chL[ri]*ac.vol;outR[s]+=(chR[ri]||chL[ri])*ac.vol;
+      if(frames>0){
+        for(var i=0;i<frames;i++){
+          var ri=Math.round(readStart+i*(sr/48000));
+          if(ri>=chL.length)break;
+          var s=writeStart+i;if(s>=outL.length)break;
+          outL[s]+=chL[ri]*ac.vol;outR[s]+=(chR[ri]||chL[ri])*ac.vol;
+        }
       }
-      mixDone++;barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';
-    }).catch(function(){mixDone++;});
-  }));
+      mixDone++;
+      barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';
+      // Yield so the progress bar repaints and the user sees we're alive
+      await sleep(0);
+    }catch(err){
+      mixDone++;
+      addLog('⚠ Audio clip '+(aci+1)+' failed: '+(err.message||err)+' (skipped)');
+      barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';
+      await sleep(0);
+    }
+  }
   addLog('✓ Audio mixed ('+audioClips.length+' clips)');barEl.style.width='14%';await sleep(50);
 
   // Video encoding via VideoEncoder
