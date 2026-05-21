@@ -2634,15 +2634,20 @@ function renderMedia(){
       row.ondragend=function(){row.style.opacity='1';};
       row.onclick=function(){
         if(m._needsImport){
-          // Open a file picker to re-import this specific file
+          // Single click on a missing media item opens the re-import picker
           var tmpInp=document.createElement('input');tmpInp.type='file';
           tmpInp.accept=type==='video'?'video/*':type==='audio'?'audio/*':'image/*';
           tmpInp.onchange=function(){if(this.files.length)loadMediaFiles(this.files,type);};
           tmpInp.click();
-          return;
         }
-        addMediaToTimeline(m.id,type,S.t);
+        // For loaded media, single click does nothing. Use double-click or
+        // drag to add to timeline — prevents silent accidental duplicates
+        // when users click items to inspect them.
       };
+      row.ondblclick=function(){
+        if(!m._needsImport) addMediaToTimeline(m.id,type,S.t);
+      };
+      row.title='Double-click or drag to add to timeline';
       row.appendChild(thumb);row.appendChild(info);row.appendChild(del);list.appendChild(row);
     });
   });
