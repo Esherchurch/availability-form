@@ -1135,7 +1135,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 // ===================================================
 var OFFSET = 118;
 var S = {
-  t:0, dur:600, zoom:80,
+  t:0, dur:7200, zoom:80,
   playing:false, sel:null, multiSel:[], trans:'cut',
   tracks:[], media:{video:[],audio:[],image:[]},
   nid:1,
@@ -2629,6 +2629,21 @@ function renderMedia(){
       info.appendChild(nm);info.appendChild(sub);
       var del=document.createElement('span');del.className='mdel';del.textContent='x';del.title='Remove from bin';
       del.onclick=function(e){e.stopPropagation();removeFromBin(m.id,type);};
+      // Replace button — swap underlying file while keeping the media ID
+      // and every clip's edit points. Useful for swapping a music file or
+      // a placeholder video for the final version without re-doing all the
+      // splits, trims, fades, etc.
+      var rep=document.createElement('span');rep.className='mdel';rep.textContent='⇄';rep.title='Replace media file (keeps edits)';rep.style.marginRight='2px';
+      rep.onclick=function(e){
+        e.stopPropagation();
+        var pickInp=document.createElement('input');pickInp.type='file';
+        pickInp.accept=type==='video'?'video/*':type==='audio'?'audio/*':'image/*';
+        pickInp.onchange=function(){
+          if(!this.files.length) return;
+          replaceMediaFile(m.id, type, this.files[0]);
+        };
+        pickInp.click();
+      };
       row.draggable=true;
       row.ondragstart=function(e){e.dataTransfer.setData('mid',m.id);e.dataTransfer.setData('mtype',type);row.style.opacity='0.5';};
       row.ondragend=function(){row.style.opacity='1';};
@@ -2648,12 +2663,109 @@ function renderMedia(){
         if(!m._needsImport) addMediaToTimeline(m.id,type,S.t);
       };
       row.title='Double-click or drag to add to timeline';
-      row.appendChild(thumb);row.appendChild(info);row.appendChild(del);list.appendChild(row);
+      row.appendChild(thumb);row.appendChild(info);row.appendChild(rep);row.appendChild(del);list.appendChild(row);
     });
   });
 }
 
 function removeFromBin(id,type){S.media[type]=S.media[type].filter(function(m){return m.id!==id;});S.tracks.forEach(function(t){t.clips.forEach(function(c){if(c.mediaId===id){c.mediaId=null;c.videoEl=null;c.audioEl=null;c.imgEl=null;}});});renderMedia();renderTracks();}
+
+// Replace a media file in place — same media ID is kept, so all clips
+// referencing this media keep their start times, durations, trims, fades,
+// splits etc. Useful for swapping a music file for a different one with
+// the same edit points, or a placeholder video for the final version.
+function replaceMediaFile(mediaId, type, file){
+  var pool = type==='video' ? S.media.video : type==='audio' ? S.media.audio : S.media.image;
+  var m = pool.find(function(x){ return x.id === mediaId; });
+  if(!m){ setStatus('Replace failed: media not found', true); return; }
+  var url = URL.createObjectURL(file);
+  if(type === 'video'){
+    var v = createVideoEl(url);
+    var a = new Audio(url); a.preload='none';
+    v.onloadedmetadata = function(){
+      var oldUrl = m.url;
+      m.url = url; m.el = v; m.audioEl = a;
+      m.duration = v.duration;
+      m.name = file.name.replace(/\.[^.]+$/,'');
+      m.vegFilename = file.name;
+      m._needsImport = false;
+      // Update every clip that references this media id
+      S.tracks.forEach(function(tr){
+        tr.clips.forEach(function(c){
+          if(c.mediaId === mediaId){
+            c.videoEl = v; c.audioEl = a; c._placeholder = false;
+            c.name = m.name;
+            // If clip's used range goes past new file's length, clamp it
+            if((c.trimStart||0) + c.duration > v.duration){
+              c.duration = Math.max(0.1, v.duration - (c.trimStart||0));
+            }
+          }
+        });
+      });
+      if(file._handle) saveFileHandle(m.id, file._handle);
+      if(oldUrl) try{ URL.revokeObjectURL(oldUrl); }catch(e){}
+      snapshot('replace media');
+      renderMedia(); renderTracks(); drawFrame();
+      setStatus('Replaced: '+m.name);
+      goldFlash();
+    };
+  } else if(type === 'audio'){
+    var a2 = new Audio(url); a2.preload='auto';
+    a2.onloadedmetadata = function(){
+      var oldUrl = m.url;
+      m.url = url; m.el = a2;
+      m.duration = a2.duration;
+      m.name = file.name.replace(/\.[^.]+$/,'');
+      m.vegFilename = file.name;
+      m._needsImport = false;
+      S.tracks.forEach(function(tr){
+        tr.clips.forEach(function(c){
+          if(c.mediaId === mediaId){
+            c.audioEl = a2; c._placeholder = false;
+            c.name = m.name;
+            if((c.trimStart||0) + c.duration > a2.duration){
+              c.duration = Math.max(0.1, a2.duration - (c.trimStart||0));
+            }
+          }
+        });
+      });
+      if(file._handle) saveFileHandle(m.id, file._handle);
+      if(oldUrl) try{ URL.revokeObjectURL(oldUrl); }catch(e){}
+      // Regenerate waveform for the new audio
+      delete _waveformCache[m.id];
+      generateWaveform(m);
+      snapshot('replace media');
+      renderMedia(); renderTracks(); drawFrame();
+      setStatus('Replaced: '+m.name);
+      goldFlash();
+    };
+  } else if(type === 'image'){
+    var img = new Image();
+    img.onload = function(){
+      var oldUrl = m.url;
+      m.url = url; m.el = img;
+      m.naturalW = img.naturalWidth; m.naturalH = img.naturalHeight;
+      m.name = file.name.replace(/\.[^.]+$/,'');
+      m.vegFilename = file.name;
+      m._needsImport = false;
+      S.tracks.forEach(function(tr){
+        tr.clips.forEach(function(c){
+          if(c.mediaId === mediaId){
+            c.imgEl = img; c._placeholder = false;
+            c.name = m.name;
+          }
+        });
+      });
+      if(file._handle) saveFileHandle(m.id, file._handle);
+      if(oldUrl) try{ URL.revokeObjectURL(oldUrl); }catch(e){}
+      snapshot('replace media');
+      renderMedia(); renderTracks(); drawFrame();
+      setStatus('Replaced: '+m.name);
+      goldFlash();
+    };
+    img.src = url;
+  }
+}
 
 // ===================================================
 // ADD MEDIA TO TIMELINE
@@ -2666,7 +2778,9 @@ function addMediaToTimeline(id,type,startTime){
   var start=startTime||0;
   if(track.clips.length>0)start=Math.max.apply(null,track.clips.map(function(c){return c.start+c.duration;}));
   var clip={id:uid(),name:m.name,type:type,start:start,duration:m.duration||5,mediaId:m.id,videoEl:type==='video'?m.el:null,audioEl:type==='video'?m.audioEl:null,imgEl:type==='image'?m.el:null,trimStart:0,opacity:1,fadeInDur:0,fadeOutDur:0};
-  track.clips.push(clip);snapshot('add '+type);renderTracks();selectClip(clip.id);setStatus('Added: '+m.name);
+  track.clips.push(clip);
+  ensureProjectDuration(clip.start + clip.duration);
+  snapshot('add '+type);renderTracks();selectClip(clip.id);setStatus('Added: '+m.name);
   // Auto generate waveform for video clips (audio track)
   if(type==='video'&&m.audioEl) generateWaveform(m);
   if(type==='audio') generateWaveform(m);
@@ -2678,8 +2792,19 @@ function addMediaAtPosition(mid,mtype,start,track){
   var destTrack=track.type===mtype?track:S.tracks.find(function(t){return t.type===mtype;});
   if(!destTrack){destTrack={id:uid(),type:mtype,name:mtype,clips:[],muted:false};S.tracks.push(destTrack);}
   var clip={id:uid(),name:m.name,type:mtype,start:start,duration:m.duration||5,mediaId:m.id,videoEl:mtype==='video'?m.el:null,audioEl:mtype==='video'?m.audioEl:null,imgEl:mtype==='image'?m.el:null,trimStart:0,opacity:1,fadeInDur:0,fadeOutDur:0};
-  destTrack.clips.push(clip);snapshot('drop '+mtype);renderTracks();selectClip(clip.id);
+  destTrack.clips.push(clip);
+  ensureProjectDuration(clip.start + clip.duration);
+  snapshot('drop '+mtype);renderTracks();selectClip(clip.id);
   if(mtype==='audio'||mtype==='video') generateWaveform(m);
+}
+
+// Make sure the project timeline is long enough to contain a clip ending
+// at `endT`. Grows S.dur with a 60-second buffer so the user has space to
+// keep extending without needing to manually resize.
+function ensureProjectDuration(endT){
+  if(endT > S.dur){
+    S.dur = Math.ceil(endT + 60);
+  }
 }
 
 // ===================================================
@@ -3140,7 +3265,29 @@ function renderRuler(){
     if(major){x.fillStyle='#555';x.font='9px monospace';x.textAlign='center';x.fillText(pad(Math.floor(t/60))+':'+pad(t%60),px,6);}
   }
 }
-function updatePH(){document.getElementById('ph').style.left=(OFFSET+S.t*S.zoom)+'px';}
+function updatePH(){
+  var phX = OFFSET + S.t*S.zoom;
+  document.getElementById('ph').style.left = phX + 'px';
+  // Auto-scroll timeline to keep the playhead visible during playback.
+  // Only scrolls if the playhead has moved past the right portion of the
+  // visible area, and only during playback (so manual scrolling while
+  // stopped isn't disrupted).
+  if(S.playing){
+    var tl = document.getElementById('tlscroll');
+    if(tl){
+      var vw = tl.clientWidth;
+      var sl = tl.scrollLeft;
+      var phViewport = phX - sl;
+      // If playhead has reached 75% across the viewport, jump it to 25%
+      if(phViewport > vw * 0.75){
+        tl.scrollLeft = phX - vw * 0.25;
+      } else if(phViewport < 0){
+        // Or if the playhead is left of viewport (e.g. after a seek)
+        tl.scrollLeft = phX - vw * 0.25;
+      }
+    }
+  }
+}
 function updateStats(){var n=0;S.tracks.forEach(function(t){n+=t.clips.length;});document.getElementById('stat-clips').textContent=n+' clip'+(n!==1?'s':'');document.getElementById('stat-dur').textContent=fmt(S.dur);}
 function updateInOutMarkers(){
   var im=document.getElementById('in-marker'),om=document.getElementById('out-marker'),rng=document.getElementById('in-out-range');if(!im)return;
@@ -3829,6 +3976,22 @@ function startAudio(){ stopAudio(); tickAudio(); }
 // Pauses audio whose clip is no longer in range (handles trim, mute,
 // deletion, and clip-end overrun in one place) and starts audio for clips
 // the playhead has newly entered. Source of truth is current clip state.
+// Compute audio level for a clip — handles fades, with opacity ONLY
+// affecting audio clips (where the "opacity" slider is functionally a
+// volume slider) and NOT video clips (where opacity is visual only).
+function clipAudioLevel(c, rel){
+  var lvl = 1;
+  if(c.fadeInDur > 0 && rel < c.fadeInDur) lvl *= rel / c.fadeInDur;
+  if(c.fadeOutDur > 0 && rel > c.duration - c.fadeOutDur) lvl *= (c.duration - rel) / c.fadeOutDur;
+  // Audio clips: opacity acts as volume (preserves UI behaviour).
+  // Video clips: opacity is visual only, audio passes through unchanged.
+  if(c.type === 'audio'){
+    var op = c.opacity !== undefined ? c.opacity : 1;
+    lvl *= op;
+  }
+  return Math.max(0, Math.min(1, lvl));
+}
+
 function tickAudio(){
   var should = _audioShouldPlay();
   // Pause anything currently playing that shouldn't be
@@ -3846,10 +4009,9 @@ function tickAudio(){
   should.forEach(function(info, audio){
     var c = info.clip; var tr = info.track;
     var rel = S.t - c.start;
-    // clipOp folds in opacity, fadeInDur, and fadeOutDur — same logic used
-    // visually so audio and video fade together. clipVolume (set by
-    // normaliseAll) is a separate multiplier that can boost above 1.0.
-    var op = clipOp(c, rel);
+    // clipAudioLevel handles fades, and only includes opacity for audio
+    // clips — video opacity does NOT attenuate the audio.
+    var op = clipAudioLevel(c, rel);
     var trVol = tr.volume!==undefined ? tr.volume : 1;
     var clipVol = c.clipVolume!==undefined ? c.clipVolume : 1;
     var level = op * trVol * clipVol;
@@ -4524,27 +4686,57 @@ async function startExportWebCodecs(){
   });
   videoEncoder.configure({codec:codec,width:expW,height:expH,bitrate:vbr,framerate:fps,latencyMode:'quality'});
 
-  // Seek all video elements to a given time and wait for them to settle
+  // Track which video elements have been "primed" — seeked into position
+  // and set to play forward. After priming, we just wait for natural frame
+  // delivery via the video's own decoder pace, which is FAR faster than
+  // seeking on every export frame (B-frame seeks are slow; natural decode
+  // is the fast path).
+  var _exportPrimed = new WeakSet ? new WeakSet() : null;
   async function seekAllVideos(t){
     var clips=[];
     S.tracks.forEach(function(tr){
       if(tr.type!=='video'||tr.muted)return;
       tr.clips.forEach(function(c){
         if(t>=c.start&&t<c.start+c.duration&&c.videoEl){
-          clips.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start)});
+          clips.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start),clip:c});
         }
       });
     });
+    // Also collect videos that are NO LONGER in range — pause them so they
+    // don't keep decoding in the background while we export later frames.
+    if(_exportPrimed){
+      var stillActive = new Set(clips.map(function(x){return x.vid;}));
+      // Walk every video media element and pause anything not in stillActive
+      S.media.video.forEach(function(m){
+        if(m.el && _exportPrimed.has(m.el) && !stillActive.has(m.el)){
+          try{ m.el.pause(); }catch(e){}
+          _exportPrimed.delete(m.el);
+        }
+      });
+    }
     await Promise.all(clips.map(function(item){
       return new Promise(function(res){
         var vid=item.vid,target=item.target;
-        if(Math.abs(vid.currentTime-target)<0.001){res();return;}
+        // FAST PATH: video already playing and current frame is close to
+        // target (within ~2 frame durations of drift) — just proceed.
+        if(_exportPrimed && _exportPrimed.has(vid) && Math.abs(vid.currentTime-target) < 2/fps){
+          res();
+          return;
+        }
+        // SLOW PATH: needs a real seek (clip entry, drift correction, etc).
         var done=false;
-        function onSeeked(){if(done)return;done=true;vid.removeEventListener('seeked',onSeeked);res();}
+        function onSeeked(){if(done)return;done=true;vid.removeEventListener('seeked',onSeeked);
+          // After the seek lands, start the video playing forward so the
+          // decoder can deliver subsequent frames naturally.
+          try{ vid.muted = true; vid.playbackRate = 1.0; vid.play().catch(function(){}); }catch(e){}
+          if(_exportPrimed) _exportPrimed.add(vid);
+          res();
+        }
         vid.addEventListener('seeked',onSeeked);
-        vid.currentTime=target;
-        // Safety timeout in case seeked never fires
-        setTimeout(function(){if(!done){done=true;vid.removeEventListener('seeked',onSeeked);res();}},500);
+        try{ vid.currentTime=target; }catch(e){ done=true; res(); return; }
+        // Safety timeout — keep it modest so a single stuck seek can't
+        // bring the whole export to a crawl.
+        setTimeout(function(){if(!done){done=true;vid.removeEventListener('seeked',onSeeked);res();}},150);
       });
     }));
   }
@@ -4552,6 +4744,7 @@ async function startExportWebCodecs(){
   var savedT=S.t;
   var savedProxy=S.proxy;S.proxy=false; // force full res during export
   var savedGlitter=_glitterPools;_glitterPools={}; // clear cached preview-resolution glitter
+  var exportStartMs = performance.now();
   for(var fi=0;fi<totalFrames;fi++){
     S.t=exportIn+fi/fps;
     // Seek all videos and wait for frames to be ready before drawing
@@ -4567,8 +4760,25 @@ async function startExportWebCodecs(){
 
     while(videoEncoder.encodeQueueSize>4){await sleep(0);}
 
-    if(fi%fps===0){barEl.style.width=(14+fi/totalFrames*56)+'%';await sleep(0);}
+    // Progress + ETA every second of output (so the user sees activity and
+    // a meaningful remaining-time estimate). Yields to the event loop so the
+    // progress bar repaints — otherwise long exports look frozen.
+    if(fi%fps===0){
+      barEl.style.width=(14+fi/totalFrames*56)+'%';
+      if(fi > 0){
+        var elapsedMs = performance.now() - exportStartMs;
+        var msPerFrame = elapsedMs / fi;
+        var remainingMs = (totalFrames - fi) * msPerFrame;
+        var pct = Math.round(fi/totalFrames*100);
+        var etaMin = Math.floor(remainingMs/60000);
+        var etaSec = Math.round((remainingMs%60000)/1000);
+        setStatus('Exporting: '+pct+'% — ~'+etaMin+'m '+etaSec+'s left');
+      }
+      await sleep(0);
+    }
   }
+  // Pause every primed video so the decoder isn't running while we mux/encode
+  if(_exportPrimed) S.media.video.forEach(function(m){ if(m.el && _exportPrimed.has(m.el)){ try{m.el.pause();}catch(e){} _exportPrimed.delete(m.el); } });
   await videoEncoder.flush();videoEncoder.close();
   S.t=savedT;S.proxy=savedProxy;_glitterPools=savedGlitter;drawFrame();
   barEl.style.width='72%';addLog('✓ Video encoded ('+videoChunks.length+' chunks)');await sleep(50);
@@ -4647,7 +4857,7 @@ function serializeProject(){
   };
 }
 function restoreProject(p){
-  document.getElementById('projName').value=p.name||'Untitled';S.dur=p.dur||600;
+  document.getElementById('projName').value=p.name||'Untitled';S.dur=p.dur||7200;
   if(p.filters)S.filters=p.filters;if(p.fx)S.fx=p.fx;if(p.trans)S.trans=p.trans;if(p.snap!==undefined)S.snap=p.snap;
   if(p.markers)S.markers=p.markers||[];
   // Restore media library metadata (placeholders for files not yet re-imported)
