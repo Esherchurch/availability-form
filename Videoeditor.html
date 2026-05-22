@@ -4554,19 +4554,39 @@ async function startExportWebCodecs(){
 
   // Mix all audio clips
   var audioClips=[];
+  var skippedAudio=0;
   S.tracks.forEach(function(tr){
     if(tr.muted)return;
     tr.clips.forEach(function(c){
-      var el=null;
-      if(c.audioEl&&(tr.type==='video')){el=c.audioEl;}
-      else if(tr.type==='audio'&&c.mediaId){var m=S.media.audio.find(function(x){return x.id===c.mediaId;});if(m)el=m.el;}
-      if(el){
-        var url=el.src||el.currentSrc;
-        var vol=(tr.volume!==undefined?tr.volume:1)*(c.clipVolume||1)*(c.opacity!==undefined&&tr.type==='audio'?c.opacity:1);
-        if(url) audioClips.push({url:url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:vol});
+      if(c.type==='image'||c.type==='title')return; // no audio
+      // Resolve the media object this clip plays. Prefer the live media
+      // entry's url over the element's .src — element src can be a stale or
+      // revoked blob URL after a replace/remove/restore cycle.
+      var mediaObj=null;
+      if(tr.type==='video'&&c.mediaId){
+        mediaObj=S.media.video.find(function(x){return x.id===c.mediaId;});
+      }else if(tr.type==='audio'&&c.mediaId){
+        mediaObj=S.media.audio.find(function(x){return x.id===c.mediaId;});
       }
+      if(!mediaObj){
+        // Fall back to the element src if there's no media object
+        var elFallback=c.audioEl||null;
+        var ufb=elFallback?(elFallback.src||elFallback.currentSrc):null;
+        if(ufb){
+          var volFb=(tr.volume!==undefined?tr.volume:1)*(c.clipVolume||1)*(c.opacity!==undefined&&tr.type==='audio'?c.opacity:1);
+          audioClips.push({url:ufb,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:volFb,name:c.name});
+        }
+        return;
+      }
+      if(mediaObj._needsImport||!mediaObj.url){
+        skippedAudio++;
+        return; // placeholder — not re-linked, nothing to decode
+      }
+      var vol=(tr.volume!==undefined?tr.volume:1)*(c.clipVolume||1)*(c.opacity!==undefined&&tr.type==='audio'?c.opacity:1);
+      audioClips.push({url:mediaObj.url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:vol,name:c.name});
     });
   });
+  if(skippedAudio>0) addLog('… '+skippedAudio+' audio clip(s) skipped — media not re-linked');
 
   var mixDone=0;
   // Process audio clips SERIALLY rather than in parallel. Lossless audio
@@ -4574,15 +4594,52 @@ async function startExportWebCodecs(){
   // all decodes at once can exhaust memory and hang the export. Serial is
   // slower but bounded in memory. We also add per-clip timeout and yield
   // to the event loop so the UI stays responsive.
+  // Fallback decoder for formats decodeAudioData rejects (e.g. some 24-bit
+  // WAV / FLAC variants). Renders the file through an OfflineAudioContext by
+  // way of a real <audio> element — the browser's full media pipeline can
+  // decode many formats that the bare decodeAudioData call cannot.
+  async function decodeViaElement(url, approxDur){
+    return new Promise(function(resolve, reject){
+      var el = new Audio();
+      el.src = url; el.preload = 'auto';
+      el.onerror = function(){ reject(new Error('element decode failed')); };
+      el.onloadedmetadata = function(){
+        var dur = isFinite(el.duration) && el.duration>0 ? el.duration : (approxDur||10);
+        var sr = 48000;
+        var frames = Math.ceil(dur * sr);
+        var offline;
+        try{
+          offline = new OfflineAudioContext(2, frames, sr);
+        }catch(e){ reject(e); return; }
+        var srcNode;
+        try{
+          srcNode = offline.createMediaElementSource(el);
+        }catch(e){ reject(e); return; }
+        srcNode.connect(offline.destination);
+        el.play().catch(function(){});
+        offline.startRendering().then(function(rendered){
+          try{ el.pause(); }catch(e){}
+          resolve(rendered);
+        }).catch(reject);
+      };
+    });
+  }
+
   for(var aci=0; aci<audioClips.length; aci++){
     var ac=audioClips[aci];
     try{
-      var decodePromise=fetch(ac.url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx2.decodeAudioData(b);});
-      // 60-second hard timeout per clip so a stuck decode can't hang export
-      var buf=await Promise.race([
-        decodePromise,
-        new Promise(function(_,rej){setTimeout(function(){rej(new Error('decode timeout (60s)'));},60000);})
-      ]);
+      var buf;
+      try{
+        var decodePromise=fetch(ac.url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx2.decodeAudioData(b);});
+        buf=await Promise.race([
+          decodePromise,
+          new Promise(function(_,rej){setTimeout(function(){rej(new Error('decode timeout (60s)'));},60000);})
+        ]);
+      }catch(decodeErr){
+        // Primary decode failed — try the element-based fallback
+        addLog('… Audio "'+(ac.name||('clip '+(aci+1)))+'": retrying with fallback decoder');
+        buf=await decodeViaElement(ac.url, ac.dur);
+      }
       var chL=buf.getChannelData(0);var chR=buf.numberOfChannels>1?buf.getChannelData(1):chL;
       var sr=buf.sampleRate;var clipRelStart=ac.start-exportIn;
       var readOffset=clipRelStart<0?(-clipRelStart):0;
@@ -4599,11 +4656,10 @@ async function startExportWebCodecs(){
       }
       mixDone++;
       barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';
-      // Yield so the progress bar repaints and the user sees we're alive
       await sleep(0);
     }catch(err){
       mixDone++;
-      addLog('⚠ Audio clip '+(aci+1)+' failed: '+(err.message||err)+' (skipped)');
+      addLog('⚠ Audio "'+(ac.name||('clip '+(aci+1)))+'" failed: '+(err.message||err)+' (skipped)');
       barEl.style.width=(5+mixDone/Math.max(audioClips.length,1)*8)+'%';
       await sleep(0);
     }
@@ -4628,7 +4684,10 @@ async function startExportWebCodecs(){
   });
   videoEncoder.configure({codec:codec,width:expW,height:expH,bitrate:vbr,framerate:fps,latencyMode:'quality'});
 
-  // Seek all video elements to a given time and wait for them to settle
+  // Seek all video elements to a given time and wait for them to settle.
+  // After the seek lands we wait one requestVideoFrameCallback tick so the
+  // decoded frame is genuinely ready to be drawn (seeked can fire slightly
+  // before the frame is compositable).
   async function seekAllVideos(t){
     var clips=[];
     S.tracks.forEach(function(tr){
@@ -4644,11 +4703,23 @@ async function startExportWebCodecs(){
         var vid=item.vid,target=item.target;
         if(Math.abs(vid.currentTime-target)<0.001){res();return;}
         var done=false;
-        function onSeeked(){if(done)return;done=true;vid.removeEventListener('seeked',onSeeked);res();}
+        function finish(){
+          if(done)return;done=true;
+          vid.removeEventListener('seeked',onSeeked);
+          // One frame-callback tick to ensure the frame is decoded & ready
+          if(vid.requestVideoFrameCallback){
+            var t2=false;
+            vid.requestVideoFrameCallback(function(){ if(!t2){t2=true;res();} });
+            setTimeout(function(){ if(!t2){t2=true;res();} },120);
+          }else{
+            res();
+          }
+        }
+        function onSeeked(){ finish(); }
         vid.addEventListener('seeked',onSeeked);
         try{ vid.currentTime=target; }catch(e){ done=true; res(); return; }
         // Safety timeout in case seeked never fires
-        setTimeout(function(){if(!done){done=true;vid.removeEventListener('seeked',onSeeked);res();}},200);
+        setTimeout(function(){if(!done){finish();}},400);
       });
     }));
   }
