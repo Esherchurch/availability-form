@@ -2668,7 +2668,17 @@ function renderMedia(){
   });
 }
 
-function removeFromBin(id,type){S.media[type]=S.media[type].filter(function(m){return m.id!==id;});S.tracks.forEach(function(t){t.clips.forEach(function(c){if(c.mediaId===id){c.mediaId=null;c.videoEl=null;c.audioEl=null;c.imgEl=null;}});});renderMedia();renderTracks();}
+function removeFromBin(id,type){
+  var m = S.media[type].find(function(x){return x.id===id;});
+  if(m && type==='video' && m.el){
+    try{ m.el.pause(); m.el.removeAttribute('src'); m.el.load(); }catch(e){}
+    if(m.el.parentNode) try{ m.el.parentNode.removeChild(m.el); }catch(e){}
+  }
+  if(m && m.url) try{ URL.revokeObjectURL(m.url); }catch(e){}
+  S.media[type]=S.media[type].filter(function(m){return m.id!==id;});
+  S.tracks.forEach(function(t){t.clips.forEach(function(c){if(c.mediaId===id){c.mediaId=null;c.videoEl=null;c.audioEl=null;c.imgEl=null;}});});
+  renderMedia();renderTracks();
+}
 
 // Replace a media file in place — same media ID is kept, so all clips
 // referencing this media keep their start times, durations, trims, fades,
@@ -2684,6 +2694,7 @@ function replaceMediaFile(mediaId, type, file){
     var a = new Audio(url); a.preload='none';
     v.onloadedmetadata = function(){
       var oldUrl = m.url;
+      var oldEl = m.el;
       m.url = url; m.el = v; m.audioEl = a;
       m.duration = v.duration;
       m.name = file.name.replace(/\.[^.]+$/,'');
@@ -2704,6 +2715,12 @@ function replaceMediaFile(mediaId, type, file){
       });
       if(file._handle) saveFileHandle(m.id, file._handle);
       if(oldUrl) try{ URL.revokeObjectURL(oldUrl); }catch(e){}
+      // Free the old video element so it doesn't pile up in the DOM and
+      // hold onto its decoded buffer in memory.
+      if(oldEl){
+        try{ oldEl.pause(); oldEl.removeAttribute('src'); oldEl.load(); }catch(e){}
+        if(oldEl.parentNode) try{ oldEl.parentNode.removeChild(oldEl); }catch(e){}
+      }
       snapshot('replace media');
       renderMedia(); renderTracks(); drawFrame();
       setStatus('Replaced: '+m.name);
@@ -3362,10 +3379,7 @@ function drawFrame(){
     tr.clips.forEach(function(c){
       if(S.t<c.start||S.t>=c.start+c.duration||!c.videoEl)return;
       var rel=S.t-c.start,target=(c.trimStart||0)+rel,vid=c.videoEl;
-      // If tickVideo is actively playing this element, don't re-seek — it
-      // advances naturally and a forced seek would freeze it again.
-      var isLivePlay = _activeVideo && _activeVideo.indexOf(vid) >= 0;
-      if(!isLivePlay && vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
+      if(vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
       if(vid.readyState>=1){
         applyKeyframes(c,rel);
         var op=c._kfOpacity!==undefined?c._kfOpacity*clipOp(c,rel):clipOp(c,rel);
@@ -4046,96 +4060,19 @@ function playLoop(ts){
   if(!S.playing)return;
   var dt=Math.min((ts-_lastT)/1000,.1);_lastT=ts;S.t=Math.min(S.t+dt,S.dur);
   tickAudio();
-  tickVideo();
   drawFrame();updateTC();updatePH();
   if(S.t>=S.dur){togglePlay();S.t=S.dur;return;}
   _raf=requestAnimationFrame(playLoop);
 }
-// Video preview: when continuously playing, actually .play() the video
-// elements (muted — audio is handled separately by tickAudio). This avoids
-// the seek-storm that freezes B-frame / NTSC content where each seek takes
-// longer than the seek-threshold drift, causing a queue of pending seeks to
-// stack up while the frame never visibly advances.
+// Video preview now uses per-frame seek in drawFrame — much simpler than
+// trying to coordinate .play() across the encoder, the realtime loop, and
+// drawFrame. The off-DOM container fix (createVideoEl) is what stops the
+// decoder from freezing; we don't need play-forward orchestration here.
 var _activeVideo = [];
-// Tracks videos that are mid-seek (awaiting seeked event). drawFrame uses
-// this to skip drawing stale frames until the seek lands.
-var _seekingVideo = new WeakSet ? new WeakSet() : null;
-function tickVideo(){
-  var shouldPlay = new Map();
-  S.tracks.forEach(function(tr){
-    if(tr.type!=='video') return;
-    tr.clips.forEach(function(c){
-      if(S.t < c.start || S.t >= c.start + c.duration || !c.videoEl) return;
-      shouldPlay.set(c.videoEl, c);
-    });
-  });
-  // Pause video elements that shouldn't be playing
-  for(var i=_activeVideo.length-1; i>=0; i--){
-    var v = _activeVideo[i];
-    if(!shouldPlay.has(v)){
-      try{ v.pause(); }catch(e){}
-      _activeVideo.splice(i,1);
-    }
-  }
-  // Start (or correct drift on) video elements that should be playing
-  shouldPlay.forEach(function(c, v){
-    if(v.readyState < 1) return;
-    var rel = S.t - c.start;
-    var target = (c.trimStart||0) + rel;
-    if(_activeVideo.indexOf(v) < 0){
-      // First time entering this clip — seek (if needed), then play.
-      v.muted = true; // audio comes from c.audioEl, not the video element
-      _activeVideo.push(v);
-      // No-op seek case: if already at the right time, just play. Setting
-      // currentTime to its current value may NOT fire seeked, causing a
-      // permanent stuck-seeking state.
-      if(Math.abs(v.currentTime - target) < 0.05){
-        v.play().catch(function(){});
-        keepVideoAlive(v);
-        return;
-      }
-      if(_seekingVideo) _seekingVideo.add(v);
-      var done = false;
-      var finish = function(){
-        if(done) return; done = true;
-        if(_seekingVideo) _seekingVideo.delete(v);
-        v.removeEventListener('seeked', finish);
-        if(_activeVideo.indexOf(v) >= 0 && S.playing){
-          v.play().catch(function(){});
-          keepVideoAlive(v);
-        }
-      };
-      v.addEventListener('seeked', finish);
-      // Fallback timeout — seeked sometimes never fires (especially with
-      // B-frame content seeking to a near-keyframe). Don't let the video
-      // get stuck in "seeking" state forever.
-      setTimeout(finish, 500);
-      try{ v.currentTime = target; }catch(e){ finish(); }
-    } else {
-      // Already playing. Only re-seek if drift is GROSS (>1s) — natural
-      // playback drift of a few frames is fine and visually invisible.
-      if(Math.abs(v.currentTime - target) > 1.0){
-        if(_seekingVideo) _seekingVideo.add(v);
-        var doneD = false;
-        var finishD = function(){
-          if(doneD) return; doneD = true;
-          if(_seekingVideo) _seekingVideo.delete(v);
-          v.removeEventListener('seeked', finishD);
-        };
-        v.addEventListener('seeked', finishD);
-        setTimeout(finishD, 500);
-        try{ v.currentTime = target; }catch(e){ finishD(); }
-      }
-      // If the element has paused itself for any reason (buffer stall,
-      // browser intervention, decoder throttle), restart it.
-      if(v.paused && !(_seekingVideo && _seekingVideo.has(v))){
-        v.play().catch(function(){});
-        keepVideoAlive(v);
-      }
-    }
-  });
-}
+var _seekingVideo = null;
+function tickVideo(){ /* no-op */ }
 function stopVideo(){
+  // Make sure no leftover videos are still playing audio
   _activeVideo.forEach(function(v){try{v.pause();}catch(e){}});
   _activeVideo = [];
 }
@@ -4686,57 +4623,27 @@ async function startExportWebCodecs(){
   });
   videoEncoder.configure({codec:codec,width:expW,height:expH,bitrate:vbr,framerate:fps,latencyMode:'quality'});
 
-  // Track which video elements have been "primed" — seeked into position
-  // and set to play forward. After priming, we just wait for natural frame
-  // delivery via the video's own decoder pace, which is FAR faster than
-  // seeking on every export frame (B-frame seeks are slow; natural decode
-  // is the fast path).
-  var _exportPrimed = new WeakSet ? new WeakSet() : null;
+  // Seek all video elements to a given time and wait for them to settle
   async function seekAllVideos(t){
     var clips=[];
     S.tracks.forEach(function(tr){
       if(tr.type!=='video'||tr.muted)return;
       tr.clips.forEach(function(c){
         if(t>=c.start&&t<c.start+c.duration&&c.videoEl){
-          clips.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start),clip:c});
+          clips.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start)});
         }
       });
     });
-    // Also collect videos that are NO LONGER in range — pause them so they
-    // don't keep decoding in the background while we export later frames.
-    if(_exportPrimed){
-      var stillActive = new Set(clips.map(function(x){return x.vid;}));
-      // Walk every video media element and pause anything not in stillActive
-      S.media.video.forEach(function(m){
-        if(m.el && _exportPrimed.has(m.el) && !stillActive.has(m.el)){
-          try{ m.el.pause(); }catch(e){}
-          _exportPrimed.delete(m.el);
-        }
-      });
-    }
     await Promise.all(clips.map(function(item){
       return new Promise(function(res){
         var vid=item.vid,target=item.target;
-        // FAST PATH: video already playing and current frame is close to
-        // target (within ~2 frame durations of drift) — just proceed.
-        if(_exportPrimed && _exportPrimed.has(vid) && Math.abs(vid.currentTime-target) < 2/fps){
-          res();
-          return;
-        }
-        // SLOW PATH: needs a real seek (clip entry, drift correction, etc).
+        if(Math.abs(vid.currentTime-target)<0.001){res();return;}
         var done=false;
-        function onSeeked(){if(done)return;done=true;vid.removeEventListener('seeked',onSeeked);
-          // After the seek lands, start the video playing forward so the
-          // decoder can deliver subsequent frames naturally.
-          try{ vid.muted = true; vid.playbackRate = 1.0; vid.play().catch(function(){}); }catch(e){}
-          if(_exportPrimed) _exportPrimed.add(vid);
-          res();
-        }
+        function onSeeked(){if(done)return;done=true;vid.removeEventListener('seeked',onSeeked);res();}
         vid.addEventListener('seeked',onSeeked);
         try{ vid.currentTime=target; }catch(e){ done=true; res(); return; }
-        // Safety timeout — keep it modest so a single stuck seek can't
-        // bring the whole export to a crawl.
-        setTimeout(function(){if(!done){done=true;vid.removeEventListener('seeked',onSeeked);res();}},150);
+        // Safety timeout in case seeked never fires
+        setTimeout(function(){if(!done){done=true;vid.removeEventListener('seeked',onSeeked);res();}},200);
       });
     }));
   }
@@ -4778,7 +4685,8 @@ async function startExportWebCodecs(){
     }
   }
   // Pause every primed video so the decoder isn't running while we mux/encode
-  if(_exportPrimed) S.media.video.forEach(function(m){ if(m.el && _exportPrimed.has(m.el)){ try{m.el.pause();}catch(e){} _exportPrimed.delete(m.el); } });
+  // Pause any video elements that are still playing to free decoder resources before muxing
+  S.media.video.forEach(function(m){ if(m.el){ try{m.el.pause();}catch(e){} } });
   await videoEncoder.flush();videoEncoder.close();
   S.t=savedT;S.proxy=savedProxy;_glitterPools=savedGlitter;drawFrame();
   barEl.style.width='72%';addLog('✓ Video encoded ('+videoChunks.length+' chunks)');await sleep(50);
