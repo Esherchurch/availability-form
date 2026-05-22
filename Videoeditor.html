@@ -1446,9 +1446,11 @@ async function tryRestoreFileHandle(handle, mediaEntry){
       var a = new Audio(url); a.preload='none';
       var vLoaded=false;
       await new Promise(function(res){
-        var done=function(){if(!vLoaded&&v.readyState>=2){vLoaded=true;}res();};
-        v.oncanplay=done; v.onloadeddata=done; v.onerror=res;
-        setTimeout(res,4000);
+        var done=function(){ if(v.readyState>=1) vLoaded=true; res(); };
+        v.oncanplay=done; v.onloadeddata=done; v.onloadedmetadata=done; v.onerror=res;
+        // Longer timeout for large files on slow disks; also accept whatever
+        // readyState we have reached when it fires.
+        setTimeout(function(){ if(v.readyState>=1) vLoaded=true; res(); }, 12000);
       });
       if(!vLoaded){ URL.revokeObjectURL(url); return false; }
       mediaEntry.url=url; mediaEntry.el=v; mediaEntry.audioEl=a;
@@ -1456,15 +1458,14 @@ async function tryRestoreFileHandle(handle, mediaEntry){
       S.tracks.forEach(function(tr){ tr.clips.forEach(function(c){
         if(c.mediaId===mediaEntry.id){ c.videoEl=v; c.audioEl=a; c._placeholder=false; }
       });});
-      v.currentTime=0.5;
+      try{ v.currentTime=0.5; }catch(e){}
     } else if(mediaEntry.type === 'audio'){
       var a2 = new Audio(url); a2.preload='auto';
       var aLoaded=false;
       await new Promise(function(res){
-        var done=function(){if(!aLoaded&&a2.readyState>=2){aLoaded=true;}res();};
-        a2.oncanplay=done; a2.onloadeddata=done; a2.onerror=res;
-        // Hard timeout — some browsers never fire either event for broken handles
-        setTimeout(res,4000);
+        var done=function(){ if(a2.readyState>=1) aLoaded=true; res(); };
+        a2.oncanplay=done; a2.onloadeddata=done; a2.onloadedmetadata=done; a2.onerror=res;
+        setTimeout(function(){ if(a2.readyState>=1) aLoaded=true; res(); }, 12000);
       });
       if(!aLoaded){ URL.revokeObjectURL(url); return false; }
       mediaEntry.url=url; mediaEntry.el=a2; mediaEntry.duration=a2.duration; mediaEntry._needsImport=false;
@@ -2523,23 +2524,27 @@ function loadMediaFiles(files,hint){
           existing.url=url;existing.el=v;existing.audioEl=a;existing.duration=v.duration;existing.vegFilename=fn;existing._needsImport=false;
           if(file._handle) saveFileHandle(existing.id, file._handle);
           S.tracks.forEach(function(tr){tr.clips.forEach(function(c){if(c.mediaId===existing.id){c.videoEl=v;c.audioEl=a;c._placeholder=false;}});});
-          v.currentTime=0.5;v.onseeked=function(){renderMedia();renderTracks();v.onseeked=null;};
+          // Render immediately; also re-render once the thumbnail frame is ready
+          renderMedia();renderTracks();
+          try{ v.currentTime=0.5; }catch(e){}
+          v.onseeked=function(){renderMedia();renderTracks();v.onseeked=null;};
           setStatus('Re-linked: '+existing.name);
         } else {
           var m={id:uid(),name:file.name.replace(/\.[^.]+$/,''),url:url,el:v,audioEl:a,duration:v.duration,type:'video',vegFilename:file.name};
-          S.media.video.push(m);v.currentTime=0.5;
-          // Save file handle for automatic restore on next load
+          S.media.video.push(m);
           if(file._handle) saveFileHandle(m.id, file._handle);
-          else if(window.FileSystemFileHandle && file instanceof File){
-            // Try to get handle via drag-and-drop dataTransfer (not always available)
-            // Store via the input element's file handle if available
-          }
+          // Render immediately so the video appears in the bin right away.
+          // Don't gate this on the seek callback — if onseeked never fires
+          // (instant seek, preload timing), the video would never show.
+          linkByFilename(m,file.name);renderMedia();renderTracks();
+          try{ v.currentTime=0.5; }catch(e){}
           v.onseeked=function(){renderMedia();v.onseeked=null;};
-          linkByFilename(m,file.name);renderTracks();
           setStatus('Loaded: '+m.name);
-          if(!v.onseeked)renderMedia();
         }
       };
+      // Fallback: if onloadedmetadata somehow doesn't fire within 8s, still
+      // surface an error rather than silently loading nothing.
+      v.onerror=function(){ setStatus('Failed to load video: '+file.name,true); };
     }else if(type==='audio'){
       var a2=new Audio(url);a2.preload='auto';
       a2.onloadedmetadata=function(){
