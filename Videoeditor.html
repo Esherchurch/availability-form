@@ -1487,6 +1487,14 @@ async function tryRestoreFileHandle(handle, mediaEntry){
 }
 
 async function autoRestoreHandles(){
+  _restoreInProgress = true;
+  try{
+    await _autoRestoreHandlesInner();
+  } finally {
+    _restoreInProgress = false;
+  }
+}
+async function _autoRestoreHandlesInner(){
   var allMedia = [].concat(S.media.video, S.media.audio, S.media.image);
   var needsImport = allMedia.filter(function(m){ return m._needsImport; });
   if(!needsImport.length) return;
@@ -1533,6 +1541,21 @@ async function autoRestoreHandles(){
     }
   }
   if(restored > 0){
+    // Re-link every clip's element references. During restoreProject the
+    // clips were linked to media objects that were still placeholders
+    // (el=null). Now that the media has live elements, reconnect them so
+    // the clips actually show their video/image and don't blank out.
+    var liveMedia = [].concat(S.media.video, S.media.audio, S.media.image);
+    S.tracks.forEach(function(tr){
+      tr.clips.forEach(function(c){
+        if(!c.mediaId) return;
+        var m = liveMedia.find(function(x){ return x.id === c.mediaId; });
+        if(!m || m._needsImport) return;
+        if(c.type==='video' && m.type==='video'){ c.videoEl=m.el; c.audioEl=m.audioEl; c._placeholder=false; }
+        else if(c.type==='image' && m.type==='image'){ c.imgEl=m.el; c._placeholder=false; }
+        else if(c.type==='audio' && m.type==='audio'){ c.audioEl=m.el; c._placeholder=false; }
+      });
+    });
     renderMedia(); renderTracks(); drawFrame();
     if(!still.length){
       setStatus('Auto-restored '+restored+' file'+(restored>1?'s':''));
@@ -4840,7 +4863,9 @@ function serializeProject(){
     tracks:S.tracks.map(function(t){return{id:t.id,type:t.type,name:t.name,muted:t.muted,volume:t.volume,clips:t.clips.map(function(c){return{id:c.id,name:c.name,start:c.start,duration:c.duration,type:c.type,mediaId:c.mediaId,text:c.text,text2:c.text2,titleStyle:c.titleStyle,font:c.font,fontSize:c.fontSize,col1:c.col1,col2:c.col2,position:c.position,titleX:c.titleX,titleY:c.titleY,animSpeed:c.animSpeed,opacity:c.opacity,fadeInDur:c.fadeInDur,fadeOutDur:c.fadeOutDur,trimStart:c.trimStart,vegFilename:c.vegFilename,_placeholder:c._placeholder,chromaKey:c.chromaKey,pcScale:c.pcScale,pcX:c.pcX,pcY:c.pcY,pcCL:c.pcCL,pcCR:c.pcCR,pcCT:c.pcCT,pcCB:c.pcCB,clipFX:c.clipFX,titleShadow:c.titleShadow,titleShadowX:c.titleShadowX,titleShadowY:c.titleShadowY,titleShadowCol:c.titleShadowCol,audioUnlinked:c.audioUnlinked,clipVolume:c.clipVolume,cc:c.cc,keyframes:c.keyframes};})};})
   };
 }
+var _restoreInProgress = false;
 function restoreProject(p){
+  _restoreInProgress = true;
   document.getElementById('projName').value=p.name||'Untitled';S.dur=p.dur||7200;
   if(p.filters)S.filters=p.filters;if(p.fx)S.fx=p.fx;if(p.trans)S.trans=p.trans;if(p.snap!==undefined)S.snap=p.snap;
   if(p.markers)S.markers=p.markers||[];
@@ -4966,6 +4991,7 @@ function restoreProject(p){
   } else {
     setStatus('Session restored');
   }
+  _restoreInProgress = false;
 }
 var _saveHandle=null;
 async function saveProject(saveAs){
@@ -5120,6 +5146,10 @@ function initTitleDrag(){
 // AUTO-SAVE
 // ===================================================
 function autoSave(){
+  // Never autosave mid-restore — the project state is transient (some media
+  // still placeholders, clip element refs being reconnected). Snapshotting
+  // here would persist a broken half-restored state.
+  if(_restoreInProgress) return;
   try{var p=serializeProject();localStorage.setItem('kfc_v3_autosave',JSON.stringify(p));localStorage.setItem('kfc_v3_autosave_time',new Date().toLocaleTimeString());}catch(e){}
 }
 setInterval(autoSave,30000);window.addEventListener('beforeunload',function(){autoSave();});
