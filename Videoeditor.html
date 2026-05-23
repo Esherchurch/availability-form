@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 3</title>
+<title>Kids Film Club — Trailer Editor v3 · build 4</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 3</span>
+  <span class="hbtn v3">v3 · build 4</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -4779,19 +4779,35 @@ async function startExportWebCodecs(){
       return new Promise(function(res){
         var vid=j.vid, target=j.target;
         // Skip the seek if already within half a frame of the target —
-        // setting currentTime to ~its current value may not fire any
-        // event and would stall this promise.
+        // setting currentTime to ~its current value may not fire 'seeked'
+        // and would stall this promise.
         if(Math.abs(vid.currentTime-target) < (0.5/fps)){ res(); return; }
         var done=false;
-        function finish(){ if(done)return; done=true; res(); }
-        if(vid.requestVideoFrameCallback){
-          vid.requestVideoFrameCallback(function(){ finish(); });
-          // Short fallback: if rVFC doesn't fire (rare), don't hang.
-          setTimeout(finish, 60);
-        }else{
-          vid.addEventListener('seeked', function sk(){ vid.removeEventListener('seeked',sk); finish(); });
-          setTimeout(finish, 60);
+        function finish(){
+          if(done)return; done=true;
+          vid.removeEventListener('seeked',onSeeked);
+          res();
         }
+        // For a PAUSED video being scrubbed (which is the case during
+        // export), 'seeked' is the reliable signal that the new frame has
+        // been decoded and is ready to draw. requestVideoFrameCallback is
+        // unreliable on paused elements, so we do NOT depend on it.
+        function onSeeked(){
+          // Once the seek lands, the frame is decoded. Resolve on the next
+          // microtask so the browser has applied it to the element.
+          if(vid.requestVideoFrameCallback){
+            var d2=false;
+            vid.requestVideoFrameCallback(function(){ if(!d2){d2=true;finish();} });
+            setTimeout(function(){ if(!d2){d2=true;finish();} }, 40);
+          }else{
+            finish();
+          }
+        }
+        vid.addEventListener('seeked', onSeeked);
+        // Generous safety net — only fires if 'seeked' genuinely never
+        // does. Long enough that a real keyframe decode isn't cut short
+        // (which would capture a stale/black frame).
+        setTimeout(finish, 1000);
         try{ vid.currentTime = target; }catch(e){ finish(); }
       });
     }));
@@ -4802,6 +4818,19 @@ async function startExportWebCodecs(){
   var savedGlitter=_glitterPools;_glitterPools={}; // clear cached preview-resolution glitter
   var exportStartMs = performance.now();
   window._exportActive = true;
+
+  // Diagnostic: report any video clip that can't render (missing or
+  // unloaded element) so a black clip is named rather than silent.
+  S.tracks.forEach(function(tr){
+    if(tr.type!=='video')return;
+    tr.clips.forEach(function(c){
+      if(!c.videoEl){
+        addLog('\u26a0 Video clip "'+(c.name||'?')+'" has no video element — will be black');
+      }else if(c.videoEl.readyState<1){
+        addLog('\u26a0 Video clip "'+(c.name||'?')+'" not loaded (readyState '+c.videoEl.readyState+') — may be black');
+      }
+    });
+  });
 
   for(var fi=0;fi<totalFrames;fi++){
     S.t=exportIn+fi/fps;
