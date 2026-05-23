@@ -4790,26 +4790,83 @@ async function startExportWebCodecs(){
   S.t=savedT;S.proxy=savedProxy;_glitterPools=savedGlitter;drawFrame();
   barEl.style.width='72%';addLog('✓ Video encoded ('+videoChunks.length+' chunks)');await sleep(50);
 
+  // If no video chunks were produced, the encoder failed silently — stop
+  // here with a clear message rather than muxing an empty file.
+  if(videoChunks.length === 0){
+    addLog('\u2717 Export failed: no video frames were encoded');
+    setStatus('Export failed — no frames encoded',true);
+    document.getElementById('exp-btn').disabled=false;
+    return;
+  }
+
   // Mux into MP4 using mp4-muxer (bundled in this file)
   addLog('\u25b6 Muxing MP4...');barEl.style.width='78%';await sleep(50);
-  var muxer=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{codec:'avc',width:expW,height:expH,frameRate:fps},audio:{codec:'aac',sampleRate:48000,numberOfChannels:2},fastStart:'in-memory'});
+
+  // Decide up-front whether audio will be encoded. The muxer must only be
+  // told it has an audio track if we will actually feed it audio chunks —
+  // declaring an audio track and then adding zero samples can make
+  // finalize() produce a broken/empty file.
+  var willEncodeAudio = false;
+  var audioConfigOK = false;
+  if(typeof AudioEncoder !== 'undefined'){
+    try{
+      var ascCheck = await AudioEncoder.isConfigSupported({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:abr});
+      audioConfigOK = !!(ascCheck && ascCheck.supported);
+    }catch(e){ audioConfigOK = false; }
+  }
+  willEncodeAudio = audioConfigOK && mixBuf && mixBuf.length > 0;
+
+  var muxerOpts = {
+    target:new Mp4Muxer.ArrayBufferTarget(),
+    video:{codec:'avc',width:expW,height:expH,frameRate:fps},
+    fastStart:'in-memory'
+  };
+  if(willEncodeAudio){
+    muxerOpts.audio = {codec:'aac',sampleRate:48000,numberOfChannels:2};
+  }
+  var muxer=new Mp4Muxer.Muxer(muxerOpts);
   videoChunks.forEach(function(c){muxer.addVideoChunk(new EncodedVideoChunk({type:c.type,timestamp:c.ts,duration:c.duration,data:c.data}),c.meta);});
-  try{
-    if(typeof AudioEncoder!=='undefined'){
-      var asc=await AudioEncoder.isConfigSupported({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:abr});
-      if(asc.supported){
-        var ae=new AudioEncoder({output:function(chunk,meta){muxer.addAudioChunk(chunk,meta);},error:function(e){}});
-        ae.configure({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:abr});
-        for(var ai=0;ai<mixBuf.length;ai+=1024){var aLen=Math.min(1024,mixBuf.length-ai);var pb=new Float32Array(aLen*2);for(var j=0;j<aLen;j++){pb[j]=outL[ai+j]||0;pb[aLen+j]=outR[ai+j]||0;}var ad=new AudioData({format:'f32-planar',sampleRate:48000,numberOfFrames:aLen,numberOfChannels:2,timestamp:Math.round(ai/48000*1e6),data:pb});ae.encode(ad);ad.close();}
-        await ae.flush();ae.close();addLog('\u2713 Audio encoded (AAC)');
+
+  if(willEncodeAudio){
+    try{
+      var audioEncErr = null;
+      var ae=new AudioEncoder({
+        output:function(chunk,meta){ muxer.addAudioChunk(chunk,meta); },
+        error:function(e){ audioEncErr = e; addLog('\u26a0 Audio encoder error: '+(e.message||e)); }
+      });
+      ae.configure({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:abr});
+      for(var ai=0;ai<mixBuf.length;ai+=1024){
+        var aLen=Math.min(1024,mixBuf.length-ai);
+        var pb=new Float32Array(aLen*2);
+        for(var j=0;j<aLen;j++){pb[j]=outL[ai+j]||0;pb[aLen+j]=outR[ai+j]||0;}
+        var ad=new AudioData({format:'f32-planar',sampleRate:48000,numberOfFrames:aLen,numberOfChannels:2,timestamp:Math.round(ai/48000*1e6),data:pb});
+        ae.encode(ad);ad.close();
       }
+      await ae.flush();ae.close();
+      if(audioEncErr){ addLog('\u26a0 Audio had errors — video exported without full audio'); }
+      else { addLog('\u2713 Audio encoded (AAC)'); }
+    }catch(e){
+      addLog('\u26a0 Audio encoding failed: '+(e.message||e)+' — exporting video only');
     }
-  }catch(e){}
-  muxer.finalize();
-  var mp4Buf=muxer.target.buffer;
-  downloadBlob(new Blob([mp4Buf],{type:'video/mp4'}),name+'_'+expW+'x'+expH+'_'+fps+'fps.mp4');
-  barEl.style.width='100%';addLog('\u2713 '+name+'_'+expW+'x'+expH+'_'+fps+'fps.mp4 ('+(mp4Buf.byteLength/1024/1024).toFixed(1)+'MB)');
-  setStatus('Export complete');document.getElementById('exp-btn').disabled=false;goldFlash();
+  } else {
+    addLog('\u2026 No audio encoded (encoder unavailable or no audio in project)');
+  }
+
+  try{
+    muxer.finalize();
+    var mp4Buf=muxer.target.buffer;
+    if(!mp4Buf || mp4Buf.byteLength === 0){
+      throw new Error('muxer produced an empty file');
+    }
+    downloadBlob(new Blob([mp4Buf],{type:'video/mp4'}),name+'_'+expW+'x'+expH+'_'+fps+'fps.mp4');
+    barEl.style.width='100%';
+    addLog('\u2713 '+name+'_'+expW+'x'+expH+'_'+fps+'fps.mp4 ('+(mp4Buf.byteLength/1024/1024).toFixed(1)+'MB)');
+    setStatus('Export complete');goldFlash();
+  }catch(e){
+    addLog('\u2717 Export failed at muxing: '+(e.message||e));
+    setStatus('Export failed — see log',true);
+  }
+  document.getElementById('exp-btn').disabled=false;
 }
 
 function concatenateChunks(chunks){
