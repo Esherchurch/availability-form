@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 2</title>
+<title>Kids Film Club — Trailer Editor v3 · build 3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 2</span>
+  <span class="hbtn v3">v3 · build 3</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -4756,81 +4756,59 @@ async function startExportWebCodecs(){
   });
   videoEncoder.configure({codec:codec,width:expW,height:expH,bitrate:vbr,framerate:fps,latencyMode:'quality'});
 
-  // ---- Play-forward export ----
-  // Per-frame seeking is both slow (B-frame seeks take 100-300ms each) and
-  // unreliable (currentTime snaps to the source's frame grid, which doesn't
-  // align with the export fps, so frames freeze). Instead: when a clip
-  // enters range we seek its video ONCE to the clip's in-point, then play
-  // it forward at native rate. drawFrame draws whatever frame the decoder
-  // currently has. We pace the export loop to wall-clock time so the videos
-  // (playing in real time) stay roughly in sync with the export timeline.
-  var _expVidState = new Map(); // videoEl -> {playing:bool, clip:obj}
+  // ---- Deterministic per-frame seek export ----
+  // Each export frame seeks every in-range video to its exact timeline
+  // position, waits for the decoded frame via requestVideoFrameCallback,
+  // then draws. This is fully deterministic: frame fi ALWAYS shows
+  // S.t = exportIn + fi/fps, so there is no drift, no speed error, and no
+  // dependence on real time. rVFC makes a single-frame decode fast
+  // (typically 5-30ms); the only slow case is a genuine keyframe seek.
+  var _expSeenSrc = {}; // currentSrc -> last currentTime, to skip no-op seeks
 
-  function exportVideoSync(t){
-    // Determine which video elements should be active at time t
-    var want = new Map();
+  function exportSeekFrame(t){
+    var jobs = [];
     S.tracks.forEach(function(tr){
       if(tr.type!=='video'||tr.muted)return;
       tr.clips.forEach(function(c){
-        if(t>=c.start&&t<c.start+c.duration&&c.videoEl){
-          want.set(c.videoEl,c);
+        if(t>=c.start&&t<c.start+c.duration&&c.videoEl&&c.videoEl.readyState>=1){
+          jobs.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start)});
         }
       });
     });
-    // Pause videos no longer in range
-    _expVidState.forEach(function(st,vid){
-      if(!want.has(vid)){
-        try{ vid.pause(); }catch(e){}
-        _expVidState.delete(vid);
-      }
-    });
-    // Start videos newly in range — seek once to the clip in-point, play
-    want.forEach(function(c,vid){
-      if(!_expVidState.has(vid)){
-        var target=(c.trimStart||0)+(t-c.start);
-        try{ vid.muted=true; vid.currentTime=target; vid.play().catch(function(){}); }catch(e){}
-        _expVidState.set(vid,{clip:c});
-      }
-    });
-  }
-
-  // Wait until a given video has a decoded frame ready (one rVFC tick), or
-  // a short timeout. Used after starting/seeking so we don't capture black.
-  function waitVideoFrame(vid){
-    return new Promise(function(res){
-      var d=false;
-      if(vid.requestVideoFrameCallback){
-        vid.requestVideoFrameCallback(function(){ if(!d){d=true;res();} });
-        setTimeout(function(){ if(!d){d=true;res();} },80);
-      }else{
-        setTimeout(res,30);
-      }
-    });
+    return Promise.all(jobs.map(function(j){
+      return new Promise(function(res){
+        var vid=j.vid, target=j.target;
+        // Skip the seek if already within half a frame of the target —
+        // setting currentTime to ~its current value may not fire any
+        // event and would stall this promise.
+        if(Math.abs(vid.currentTime-target) < (0.5/fps)){ res(); return; }
+        var done=false;
+        function finish(){ if(done)return; done=true; res(); }
+        if(vid.requestVideoFrameCallback){
+          vid.requestVideoFrameCallback(function(){ finish(); });
+          // Short fallback: if rVFC doesn't fire (rare), don't hang.
+          setTimeout(finish, 60);
+        }else{
+          vid.addEventListener('seeked', function sk(){ vid.removeEventListener('seeked',sk); finish(); });
+          setTimeout(finish, 60);
+        }
+        try{ vid.currentTime = target; }catch(e){ finish(); }
+      });
+    }));
   }
 
   var savedT=S.t;
   var savedProxy=S.proxy;S.proxy=false; // force full res during export
   var savedGlitter=_glitterPools;_glitterPools={}; // clear cached preview-resolution glitter
   var exportStartMs = performance.now();
-  var lastClipSet = '';
   window._exportActive = true;
 
   for(var fi=0;fi<totalFrames;fi++){
     S.t=exportIn+fi/fps;
 
-    // Sync which videos are playing for this timeline position
-    var beforeKeys = Array.from(_expVidState.keys()).length;
-    exportVideoSync(S.t);
-
-    // If the active clip set changed (a clip just entered), wait one frame
-    // callback so the freshly-seeked video has delivered a real frame.
-    var clipSetKey = Array.from(_expVidState.keys()).map(function(v){return v.currentSrc;}).join('|');
-    if(clipSetKey!==lastClipSet){
-      lastClipSet=clipSetKey;
-      var waiters=[];
-      _expVidState.forEach(function(st,vid){ waiters.push(waitVideoFrame(vid)); });
-      if(waiters.length) await Promise.all(waiters);
-    }
+    // Seek every in-range video to this exact timeline position and wait
+    // for the decoded frame.
+    await exportSeekFrame(S.t);
 
     offCtx.clearRect(0,0,expW,expH);offCtx.fillStyle='#000';offCtx.fillRect(0,0,expW,expH);
     var oldCtx=ctx;var oldCv=cv;ctx=offCtx;cv=offCv;
@@ -4843,18 +4821,10 @@ async function startExportWebCodecs(){
 
     while(videoEncoder.encodeQueueSize>4){await sleep(0);}
 
-    // Pace the loop to wall-clock so the forward-playing videos stay in
-    // sync with the export timeline. If we're ahead of where the videos
-    // are (export clock faster than real time), wait. If behind, proceed
-    // immediately. This keeps videos and timeline aligned without seeking.
-    var targetWall = exportStartMs + (fi/fps)*1000;
-    var nowWall = performance.now();
-    var aheadBy = targetWall - nowWall;
-    if(aheadBy > 4){
-      await sleep(Math.min(aheadBy, 1000/fps));
-    } else {
-      await sleep(0);
-    }
+    // Yield to the event loop periodically so the UI stays responsive and
+    // the progress bar repaints. No wall-clock pacing — the export runs as
+    // fast as seek+encode allows.
+    if(fi%4===0) await sleep(0);
 
     // Progress + ETA every second of output
     if(fi%fps===0){
@@ -4874,8 +4844,6 @@ async function startExportWebCodecs(){
   }
   // Pause all videos
   window._exportActive = false;
-  _expVidState.forEach(function(st,vid){ try{vid.pause();}catch(e){} });
-  _expVidState.clear();
   S.media.video.forEach(function(m){ if(m.el){ try{m.el.pause();}catch(e){} } });
   await videoEncoder.flush();videoEncoder.close();
   S.t=savedT;S.proxy=savedProxy;_glitterPools=savedGlitter;drawFrame();
