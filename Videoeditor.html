@@ -4617,33 +4617,51 @@ async function startExportWebCodecs(){
   // all decodes at once can exhaust memory and hang the export. Serial is
   // slower but bounded in memory. We also add per-clip timeout and yield
   // to the event loop so the UI stays responsive.
-  // Fallback decoder for formats decodeAudioData rejects (e.g. some 24-bit
-  // WAV / FLAC variants). Renders the file through an OfflineAudioContext by
-  // way of a real <audio> element — the browser's full media pipeline can
-  // decode many formats that the bare decodeAudioData call cannot.
+  // Fallback decoder for files that decodeAudioData rejects. The browser's
+  // <audio> element media pipeline can play many formats the bare
+  // decodeAudioData cannot. We route the element through a realtime
+  // AudioContext into a MediaRecorder, capture its output as WebM, then
+  // decode that (decodeAudioData reliably handles WebM/Opus). This plays
+  // in realtime so it is slower, but it actually works — unlike
+  // OfflineAudioContext, which has no createMediaElementSource.
   async function decodeViaElement(url, approxDur){
     return new Promise(function(resolve, reject){
       var el = new Audio();
-      el.src = url; el.preload = 'auto';
-      el.onerror = function(){ reject(new Error('element decode failed')); };
-      el.onloadedmetadata = function(){
+      el.src = url; el.preload = 'auto'; el.crossOrigin = 'anonymous';
+      var settled = false;
+      function fail(msg){ if(settled)return; settled=true; reject(new Error(msg)); }
+      el.onerror = function(){ fail('element could not load file'); };
+      el.oncanplaythrough = function(){
+        if(settled) return;
+        var rtCtx, srcNode, dest, rec;
+        try{
+          rtCtx = new (window.AudioContext||window.webkitAudioContext)();
+          srcNode = rtCtx.createMediaElementSource(el);
+          dest = rtCtx.createMediaStreamDestination();
+          srcNode.connect(dest);
+        }catch(e){ fail('realtime route failed: '+(e.message||e)); return; }
+        var chunks = [];
+        try{
+          rec = new MediaRecorder(dest.stream);
+        }catch(e){ fail('MediaRecorder unavailable: '+(e.message||e)); return; }
+        rec.ondataavailable = function(ev){ if(ev.data && ev.data.size>0) chunks.push(ev.data); };
+        rec.onstop = function(){
+          var blob = new Blob(chunks, {type:'audio/webm'});
+          blob.arrayBuffer().then(function(ab){
+            var dctx = new (window.AudioContext||window.webkitAudioContext)();
+            return dctx.decodeAudioData(ab);
+          }).then(function(decoded){
+            if(settled) return; settled = true;
+            try{ rtCtx.close(); }catch(e){}
+            resolve(decoded);
+          }).catch(function(e){ fail('recorded-audio decode failed: '+(e.message||e)); });
+        };
+        el.onended = function(){ try{ rec.stop(); }catch(e){} };
+        rec.start();
+        el.play().catch(function(e){ fail('playback failed: '+(e.message||e)); });
+        // Hard ceiling so a stuck element can't hang the export
         var dur = isFinite(el.duration) && el.duration>0 ? el.duration : (approxDur||10);
-        var sr = 48000;
-        var frames = Math.ceil(dur * sr);
-        var offline;
-        try{
-          offline = new OfflineAudioContext(2, frames, sr);
-        }catch(e){ reject(e); return; }
-        var srcNode;
-        try{
-          srcNode = offline.createMediaElementSource(el);
-        }catch(e){ reject(e); return; }
-        srcNode.connect(offline.destination);
-        el.play().catch(function(){});
-        offline.startRendering().then(function(rendered){
-          try{ el.pause(); }catch(e){}
-          resolve(rendered);
-        }).catch(reject);
+        setTimeout(function(){ try{ rec.stop(); }catch(e){} try{ el.pause(); }catch(e){} }, (dur+2)*1000);
       };
     });
   }
