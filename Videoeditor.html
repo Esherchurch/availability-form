@@ -4597,7 +4597,7 @@ async function startExportWebCodecs(){
         var ufb=elFallback?(elFallback.src||elFallback.currentSrc):null;
         if(ufb){
           var volFb=(tr.volume!==undefined?tr.volume:1)*(c.clipVolume||1)*(c.opacity!==undefined&&tr.type==='audio'?c.opacity:1);
-          audioClips.push({url:ufb,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:volFb,name:c.name});
+          audioClips.push({url:ufb,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:volFb,name:c.name,isVideoContainer:(tr.type==='video')});
         }
         return;
       }
@@ -4606,7 +4606,10 @@ async function startExportWebCodecs(){
         return; // placeholder — not re-linked, nothing to decode
       }
       var vol=(tr.volume!==undefined?tr.volume:1)*(c.clipVolume||1)*(c.opacity!==undefined&&tr.type==='audio'?c.opacity:1);
-      audioClips.push({url:mediaObj.url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:vol,name:c.name});
+      // isVideoContainer: the URL points at a video file. decodeAudioData
+      // cannot reliably decode video containers — those must go straight to
+      // the realtime-capture fallback which plays the file and records it.
+      audioClips.push({url:mediaObj.url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:vol,name:c.name,isVideoContainer:(tr.type==='video')});
     });
   });
   if(skippedAudio>0) addLog('… '+skippedAudio+' audio clip(s) skipped — media not re-linked');
@@ -4670,16 +4673,23 @@ async function startExportWebCodecs(){
     var ac=audioClips[aci];
     try{
       var buf;
-      try{
-        var decodePromise=fetch(ac.url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx2.decodeAudioData(b);});
-        buf=await Promise.race([
-          decodePromise,
-          new Promise(function(_,rej){setTimeout(function(){rej(new Error('decode timeout (60s)'));},60000);})
-        ]);
-      }catch(decodeErr){
-        // Primary decode failed — try the element-based fallback
-        addLog('… Audio "'+(ac.name||('clip '+(aci+1)))+'": retrying with fallback decoder');
+      if(ac.isVideoContainer){
+        // Video files: decodeAudioData can't handle the container. Capture
+        // the audio track directly via realtime playback.
+        addLog('… Audio "'+(ac.name||('clip '+(aci+1)))+'": extracting from video');
         buf=await decodeViaElement(ac.url, ac.dur);
+      }else{
+        try{
+          var decodePromise=fetch(ac.url).then(function(r){return r.arrayBuffer();}).then(function(b){return actx2.decodeAudioData(b);});
+          buf=await Promise.race([
+            decodePromise,
+            new Promise(function(_,rej){setTimeout(function(){rej(new Error('decode timeout (60s)'));},60000);})
+          ]);
+        }catch(decodeErr){
+          // Primary decode failed — try the realtime-capture fallback
+          addLog('… Audio "'+(ac.name||('clip '+(aci+1)))+'": retrying with fallback decoder');
+          buf=await decodeViaElement(ac.url, ac.dur);
+        }
       }
       var chL=buf.getChannelData(0);var chR=buf.numberOfChannels>1?buf.getChannelData(1):chL;
       var sr=buf.sampleRate;var clipRelStart=ac.start-exportIn;
