@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3</title>
+<title>Kids Film Club — Trailer Editor v3 · build 2</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3</span>
+  <span class="hbtn v3">v3 · build 2</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -3407,7 +3407,9 @@ function drawFrame(){
     tr.clips.forEach(function(c){
       if(S.t<c.start||S.t>=c.start+c.duration||!c.videoEl)return;
       var rel=S.t-c.start,target=(c.trimStart||0)+rel,vid=c.videoEl;
-      if(vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
+      // During export the play-forward loop owns video timing — don't seek
+      // here or we fight it and freeze the frame.
+      if(!window._exportActive && vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
       if(vid.readyState>=1){
         applyKeyframes(c,rel);
         var op=c._kfOpacity!==undefined?c._kfOpacity*clipOp(c,rel):clipOp(c,rel);
@@ -4597,7 +4599,7 @@ async function startExportWebCodecs(){
         var ufb=elFallback?(elFallback.src||elFallback.currentSrc):null;
         if(ufb){
           var volFb=(tr.volume!==undefined?tr.volume:1)*(c.clipVolume||1)*(c.opacity!==undefined&&tr.type==='audio'?c.opacity:1);
-          audioClips.push({url:ufb,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:volFb,name:c.name,isVideoContainer:(tr.type==='video')});
+          audioClips.push({url:ufb,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:volFb,name:c.name,isVideoContainer:(tr.type==='video'),fadeIn:c.fadeInDur||0,fadeOut:c.fadeOutDur||0});
         }
         return;
       }
@@ -4609,7 +4611,7 @@ async function startExportWebCodecs(){
       // isVideoContainer: the URL points at a video file. decodeAudioData
       // cannot reliably decode video containers — those must go straight to
       // the realtime-capture fallback which plays the file and records it.
-      audioClips.push({url:mediaObj.url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:vol,name:c.name,isVideoContainer:(tr.type==='video')});
+      audioClips.push({url:mediaObj.url,start:c.start,dur:c.duration,trim:c.trimStart||0,vol:vol,name:c.name,isVideoContainer:(tr.type==='video'),fadeIn:c.fadeInDur||0,fadeOut:c.fadeOutDur||0});
     });
   });
   if(skippedAudio>0) addLog('… '+skippedAudio+' audio clip(s) skipped — media not re-linked');
@@ -4698,11 +4700,30 @@ async function startExportWebCodecs(){
       var readStart=Math.round((ac.trim+readOffset)*sr);
       var frames=Math.min(Math.round((ac.dur-readOffset)*48000),Math.round(exportDur*48000)-writeStart);
       if(frames>0){
+        // Fade durations in 48kHz samples. fadeIn ramps 0→1 over the first
+        // fadeIn seconds of the clip; fadeOut ramps 1→0 over the last
+        // fadeOut seconds. clipPos is the playhead position within the clip.
+        var fadeInSamp = Math.round((ac.fadeIn||0) * 48000);
+        var fadeOutSamp = Math.round((ac.fadeOut||0) * 48000);
+        var clipTotalSamp = Math.round(ac.dur * 48000);
+        var readOffsetSamp = Math.round(readOffset * 48000);
         for(var i=0;i<frames;i++){
           var ri=Math.round(readStart+i*(sr/48000));
           if(ri>=chL.length)break;
           var s=writeStart+i;if(s>=outL.length)break;
-          outL[s]+=chL[ri]*ac.vol;outR[s]+=(chR[ri]||chL[ri])*ac.vol;
+          // Position of this sample within the whole clip (not just the
+          // exported portion) so fades line up with the clip edges.
+          var clipPos = readOffsetSamp + i;
+          var fadeGain = 1;
+          if(fadeInSamp>0 && clipPos<fadeInSamp){
+            fadeGain *= clipPos/fadeInSamp;
+          }
+          if(fadeOutSamp>0 && clipPos>clipTotalSamp-fadeOutSamp){
+            var fg=(clipTotalSamp-clipPos)/fadeOutSamp;
+            fadeGain *= (fg<0?0:fg);
+          }
+          var g = ac.vol * fadeGain;
+          outL[s]+=chL[ri]*g;outR[s]+=(chR[ri]||chL[ri])*g;
         }
       }
       mixDone++;
@@ -4735,54 +4756,82 @@ async function startExportWebCodecs(){
   });
   videoEncoder.configure({codec:codec,width:expW,height:expH,bitrate:vbr,framerate:fps,latencyMode:'quality'});
 
-  // Seek all video elements to a given time and wait for them to settle.
-  // After the seek lands we wait one requestVideoFrameCallback tick so the
-  // decoded frame is genuinely ready to be drawn (seeked can fire slightly
-  // before the frame is compositable).
-  async function seekAllVideos(t){
-    var clips=[];
+  // ---- Play-forward export ----
+  // Per-frame seeking is both slow (B-frame seeks take 100-300ms each) and
+  // unreliable (currentTime snaps to the source's frame grid, which doesn't
+  // align with the export fps, so frames freeze). Instead: when a clip
+  // enters range we seek its video ONCE to the clip's in-point, then play
+  // it forward at native rate. drawFrame draws whatever frame the decoder
+  // currently has. We pace the export loop to wall-clock time so the videos
+  // (playing in real time) stay roughly in sync with the export timeline.
+  var _expVidState = new Map(); // videoEl -> {playing:bool, clip:obj}
+
+  function exportVideoSync(t){
+    // Determine which video elements should be active at time t
+    var want = new Map();
     S.tracks.forEach(function(tr){
       if(tr.type!=='video'||tr.muted)return;
       tr.clips.forEach(function(c){
         if(t>=c.start&&t<c.start+c.duration&&c.videoEl){
-          clips.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start)});
+          want.set(c.videoEl,c);
         }
       });
     });
-    await Promise.all(clips.map(function(item){
-      return new Promise(function(res){
-        var vid=item.vid,target=item.target;
-        if(Math.abs(vid.currentTime-target)<0.001){res();return;}
-        var done=false;
-        function finish(){
-          if(done)return;done=true;
-          vid.removeEventListener('seeked',onSeeked);
-          // One frame-callback tick to ensure the frame is decoded & ready
-          if(vid.requestVideoFrameCallback){
-            var t2=false;
-            vid.requestVideoFrameCallback(function(){ if(!t2){t2=true;res();} });
-            setTimeout(function(){ if(!t2){t2=true;res();} },120);
-          }else{
-            res();
-          }
-        }
-        function onSeeked(){ finish(); }
-        vid.addEventListener('seeked',onSeeked);
-        try{ vid.currentTime=target; }catch(e){ done=true; res(); return; }
-        // Safety timeout in case seeked never fires
-        setTimeout(function(){if(!done){finish();}},400);
-      });
-    }));
+    // Pause videos no longer in range
+    _expVidState.forEach(function(st,vid){
+      if(!want.has(vid)){
+        try{ vid.pause(); }catch(e){}
+        _expVidState.delete(vid);
+      }
+    });
+    // Start videos newly in range — seek once to the clip in-point, play
+    want.forEach(function(c,vid){
+      if(!_expVidState.has(vid)){
+        var target=(c.trimStart||0)+(t-c.start);
+        try{ vid.muted=true; vid.currentTime=target; vid.play().catch(function(){}); }catch(e){}
+        _expVidState.set(vid,{clip:c});
+      }
+    });
+  }
+
+  // Wait until a given video has a decoded frame ready (one rVFC tick), or
+  // a short timeout. Used after starting/seeking so we don't capture black.
+  function waitVideoFrame(vid){
+    return new Promise(function(res){
+      var d=false;
+      if(vid.requestVideoFrameCallback){
+        vid.requestVideoFrameCallback(function(){ if(!d){d=true;res();} });
+        setTimeout(function(){ if(!d){d=true;res();} },80);
+      }else{
+        setTimeout(res,30);
+      }
+    });
   }
 
   var savedT=S.t;
   var savedProxy=S.proxy;S.proxy=false; // force full res during export
   var savedGlitter=_glitterPools;_glitterPools={}; // clear cached preview-resolution glitter
   var exportStartMs = performance.now();
+  var lastClipSet = '';
+  window._exportActive = true;
+
   for(var fi=0;fi<totalFrames;fi++){
     S.t=exportIn+fi/fps;
-    // Seek all videos and wait for frames to be ready before drawing
-    await seekAllVideos(S.t);
+
+    // Sync which videos are playing for this timeline position
+    var beforeKeys = Array.from(_expVidState.keys()).length;
+    exportVideoSync(S.t);
+
+    // If the active clip set changed (a clip just entered), wait one frame
+    // callback so the freshly-seeked video has delivered a real frame.
+    var clipSetKey = Array.from(_expVidState.keys()).map(function(v){return v.currentSrc;}).join('|');
+    if(clipSetKey!==lastClipSet){
+      lastClipSet=clipSetKey;
+      var waiters=[];
+      _expVidState.forEach(function(st,vid){ waiters.push(waitVideoFrame(vid)); });
+      if(waiters.length) await Promise.all(waiters);
+    }
+
     offCtx.clearRect(0,0,expW,expH);offCtx.fillStyle='#000';offCtx.fillRect(0,0,expW,expH);
     var oldCtx=ctx;var oldCv=cv;ctx=offCtx;cv=offCv;
     drawFrame();
@@ -4794,9 +4843,20 @@ async function startExportWebCodecs(){
 
     while(videoEncoder.encodeQueueSize>4){await sleep(0);}
 
-    // Progress + ETA every second of output (so the user sees activity and
-    // a meaningful remaining-time estimate). Yields to the event loop so the
-    // progress bar repaints — otherwise long exports look frozen.
+    // Pace the loop to wall-clock so the forward-playing videos stay in
+    // sync with the export timeline. If we're ahead of where the videos
+    // are (export clock faster than real time), wait. If behind, proceed
+    // immediately. This keeps videos and timeline aligned without seeking.
+    var targetWall = exportStartMs + (fi/fps)*1000;
+    var nowWall = performance.now();
+    var aheadBy = targetWall - nowWall;
+    if(aheadBy > 4){
+      await sleep(Math.min(aheadBy, 1000/fps));
+    } else {
+      await sleep(0);
+    }
+
+    // Progress + ETA every second of output
     if(fi%fps===0){
       barEl.style.width=(14+fi/totalFrames*56)+'%';
       if(fi > 0){
@@ -4806,13 +4866,16 @@ async function startExportWebCodecs(){
         var pct = Math.round(fi/totalFrames*100);
         var etaMin = Math.floor(remainingMs/60000);
         var etaSec = Math.round((remainingMs%60000)/1000);
-        setStatus('Exporting: '+pct+'% — ~'+etaMin+'m '+etaSec+'s left');
+        var elMin = Math.floor(elapsedMs/60000);
+        var elSec = Math.round((elapsedMs%60000)/1000);
+        setStatus('Exporting: '+pct+'% — elapsed '+elMin+'m '+elSec+'s — ~'+etaMin+'m '+etaSec+'s left');
       }
-      await sleep(0);
     }
   }
-  // Pause every primed video so the decoder isn't running while we mux/encode
-  // Pause any video elements that are still playing to free decoder resources before muxing
+  // Pause all videos
+  window._exportActive = false;
+  _expVidState.forEach(function(st,vid){ try{vid.pause();}catch(e){} });
+  _expVidState.clear();
   S.media.video.forEach(function(m){ if(m.el){ try{m.el.pause();}catch(e){} } });
   await videoEncoder.flush();videoEncoder.close();
   S.t=savedT;S.proxy=savedProxy;_glitterPools=savedGlitter;drawFrame();
@@ -4889,7 +4952,10 @@ async function startExportWebCodecs(){
     downloadBlob(new Blob([mp4Buf],{type:'video/mp4'}),name+'_'+expW+'x'+expH+'_'+fps+'fps.mp4');
     barEl.style.width='100%';
     addLog('\u2713 '+name+'_'+expW+'x'+expH+'_'+fps+'fps.mp4 ('+(mp4Buf.byteLength/1024/1024).toFixed(1)+'MB)');
-    setStatus('Export complete');goldFlash();
+    var totalMs=performance.now()-exportStartMs;
+    var tMin=Math.floor(totalMs/60000), tSec=Math.round((totalMs%60000)/1000);
+    addLog('\u23f1 Export completed in '+tMin+'m '+tSec+'s');
+    setStatus('Export complete in '+tMin+'m '+tSec+'s');goldFlash();
   }catch(e){
     addLog('\u2717 Export failed at muxing: '+(e.message||e));
     setStatus('Export failed — see log',true);
