@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 7</title>
+<title>Kids Film Club — Trailer Editor v3 · build 8</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 7</span>
+  <span class="hbtn v3">v3 · build 8</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -2499,7 +2499,15 @@ function init(){
   try{var _rs=localStorage.getItem('kfc_rsec');if(_rs)_rsecState=JSON.parse(_rs);}catch(e){}
   Object.keys(_rsecState).forEach(function(id){if(_rsecState[id]==='collapsed'){var el=document.getElementById(id);if(el)el.classList.add('collapsed');}});
   setStatus('v3 Ready — Undo/Redo, Snapping, Waveforms, Thumbnails, WebCodecs Export, Template Editor');
-  requestAnimationFrame(function loop(){drawFrame();updatePH();requestAnimationFrame(loop);});
+  // Render loop. drawFrame/updatePH are wrapped so a transient error (e.g.
+  // a video element momentarily not ready during project load) cannot
+  // permanently kill the preview — without this, one thrown exception ends
+  // the loop forever and the screen freezes / videos vanish.
+  requestAnimationFrame(function loop(){
+    try{ drawFrame(); updatePH(); }
+    catch(e){ if(!window._drawErrLogged){ console.error('drawFrame error (loop continues):', e); window._drawErrLogged=true; } }
+    requestAnimationFrame(loop);
+  });
 }
 
 function showGhostLines(movingClip,movingTrack){
@@ -3429,8 +3437,10 @@ function drawFrame(){
       var rel=S.t-c.start,target=(c.trimStart||0)+rel,vid=c.videoEl;
       // During export the play-forward loop owns video timing — don't seek
       // here or we fight it and freeze the frame.
-      if(!window._exportActive && vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
-      if(vid.readyState>=1){
+      if(!window._exportActive && vid.readyState>=2 && Math.abs(vid.currentTime-target)>0.15) vid.currentTime=target;
+      // readyState>=2 (HAVE_CURRENT_DATA) means a decoded frame exists.
+      // Drawing a video at readyState 1 (metadata only) throws.
+      if(vid.readyState>=2){
         applyKeyframes(c,rel);
         var op=c._kfOpacity!==undefined?c._kfOpacity*clipOp(c,rel):clipOp(c,rel);
         var cf=buildClipFilter(c);
@@ -4802,7 +4812,7 @@ async function startExportWebCodecs(){
     S.tracks.forEach(function(tr){
       if(tr.type!=='video'||tr.muted)return;
       tr.clips.forEach(function(c){
-        if(t>=c.start&&t<c.start+c.duration&&c.videoEl&&c.videoEl.readyState>=1){
+        if(t>=c.start&&t<c.start+c.duration&&c.videoEl&&c.videoEl.readyState>=2){
           jobs.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start)});
         }
       });
