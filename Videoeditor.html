@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 4</title>
+<title>Kids Film Club — Trailer Editor v3 · build 7</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 4</span>
+  <span class="hbtn v3">v3 · build 7</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -464,7 +464,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <!-- CENTRE -->
 <div id="centre">
   <div id="preview">
-    <canvas id="cv" width="1280" height="720"></canvas>
+    <canvas id="cv" width="1920" height="1080"></canvas>
     <canvas id="ck-offscreen" width="1280" height="720" style="display:none"></canvas>
     <div class="proxy-badge" id="proxy-badge" style="display:none">480p PROXY</div>
     <div id="snap-indicator">⊕ Snap</div>
@@ -2374,6 +2374,26 @@ function init(){
   // Export
   document.getElementById('exp-cancel').onclick=function(){closeModal('modal-export');};
   document.getElementById('exp-btn').onclick=startExportWebCodecs;
+  // Keep the preview canvas resolution matched to the chosen export
+  // resolution. With preview and export at identical dimensions, titles
+  // and every other element render at exactly the same proportion in both.
+  (function(){
+    var resSel=document.getElementById('exp-res');
+    if(resSel){
+      resSel.addEventListener('change',function(){
+        var parts=(this.value||'1920x1080').split('x');
+        var w=parseInt(parts[0])||1920, h=parseInt(parts[1])||1080;
+        var cvEl=document.getElementById('cv');
+        if(cvEl && (cvEl.width!==w || cvEl.height!==h)){
+          cvEl.width=w; cvEl.height=h;
+          // Clear any cached offscreen buffers sized to the old dimensions
+          window._vidOffscreen=null;
+          if(typeof drawFrame==='function') drawFrame();
+          setStatus('Preview set to '+w+'×'+h);
+        }
+      });
+    }
+  })();
 
   // CK
   initChromaKeyPanel();
@@ -3490,7 +3510,13 @@ function drawTitle(clip,W,H,prog,fadeOut,userOp){
   if(userOp===undefined)userOp=1;
   var _fa=function(a){return a*userOp;}; // multiply every globalAlpha by user opacity
   var style=clip.titleStyle||'kfc-gold';var line1=clip.text||'Kids Film Club';var line2=clip.text2||'';
-  var font=clip.font||"'Cinzel',serif";var size=clip.fontSize||60;var col1=clip.col1||'#f5c842';var col2=clip.col2||'#e8920a';
+  var font=clip.font||"'Cinzel',serif";var col1=clip.col1||'#f5c842';var col2=clip.col2||'#e8920a';
+  // Font size is authored against a 1080-tall reference frame. Scale it to
+  // the actual canvas height so a title occupies the SAME proportion of the
+  // frame whether drawn on the 1280x720 preview canvas or the 1920x1080
+  // export canvas. Without this, titles render at the wrong size in export.
+  var sizeScale = H/1080;
+  var size=(clip.fontSize||60)*sizeScale;
   var ease=1-Math.pow(1-prog,3);
   var cy=clip.titleY!==undefined?clip.titleY*H:(clip.position==='top'?H*.18:clip.position==='bottom'?H*.85:H*.5);
   var cx=clip.titleX!==undefined?clip.titleX*W:W/2;
@@ -3510,7 +3536,13 @@ function drawTitle(clip,W,H,prog,fadeOut,userOp){
     ctx.globalAlpha=_fa(ease*fadeOut);ctx.font=size+'px '+font;
     var g2=ctx.createLinearGradient(cx-200,0,cx+200,0);g2.addColorStop(0,col1);g2.addColorStop(1,col2);
     ctx.fillStyle=g2;ctx.shadowColor='rgba(245,200,66,.3)';ctx.shadowBlur=12;
-    if(line2){ctx.fillText(line1,cx,cy-size*.55);ctx.fillStyle=col2;ctx.fillText(line2,cx,cy+size*.45);}else ctx.fillText(line1,cx,cy);
+    if(line2){
+      ctx.fillText(line1,cx,cy-size*.55);
+      // Line 2 (the date) is a secondary line — draw it smaller than line 1.
+      ctx.font=Math.round(size*.62)+'px '+font;
+      ctx.fillStyle=col2;
+      ctx.fillText(line2,cx,cy+size*.45);
+    }else ctx.fillText(line1,cx,cy);
 
   }else if(style==='kfc-coming'){
     ctx.globalAlpha=_fa(ease*fadeOut);ctx.font='italic '+Math.round(size*.6)+'px '+font;ctx.fillStyle='rgba(245,200,66,.7)';ctx.shadowBlur=8;
@@ -4815,7 +4847,11 @@ async function startExportWebCodecs(){
 
   var savedT=S.t;
   var savedProxy=S.proxy;S.proxy=false; // force full res during export
-  var savedGlitter=_glitterPools;_glitterPools={}; // clear cached preview-resolution glitter
+  // NOTE: do NOT clear _glitterPools here. The particle pool is generated
+  // with Math.random(); clearing it reseeds the randomness so exported
+  // glitter would not match what the user saw in the preview. Particle
+  // positions are derived from cx/cy/textW/textH which scale with the
+  // canvas, so the cache is resolution-independent and safe to keep.
   var exportStartMs = performance.now();
   window._exportActive = true;
 
@@ -4875,7 +4911,7 @@ async function startExportWebCodecs(){
   window._exportActive = false;
   S.media.video.forEach(function(m){ if(m.el){ try{m.el.pause();}catch(e){} } });
   await videoEncoder.flush();videoEncoder.close();
-  S.t=savedT;S.proxy=savedProxy;_glitterPools=savedGlitter;drawFrame();
+  S.t=savedT;S.proxy=savedProxy;drawFrame();
   barEl.style.width='72%';addLog('✓ Video encoded ('+videoChunks.length+' chunks)');await sleep(50);
 
   // If no video chunks were produced, the encoder failed silently — stop
