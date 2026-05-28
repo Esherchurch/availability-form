@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 10</title>
+<title>Kids Film Club — Trailer Editor v3 · build 11</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 10</span>
+  <span class="hbtn v3">v3 · build 11</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -3445,12 +3445,14 @@ function drawFrame(){
         if(c._exportFrame){ drawSrc=c._exportFrame; srcReady=true; }
         else if(vid.readyState>=2){ drawSrc=vid; srcReady=true; }
       } else {
-        // Live preview path — seek the element as before.
-        if(vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15){
-          try{ vid.currentTime=target; }catch(e){}
-        }
-        if(vid.readyState<2){
-          try{ vid.currentTime=target+0.001; }catch(e){}
+        // Live preview path. Only seek when the target has actually MOVED
+        // since the last frame. Re-seeking every frame (which the old code
+        // did whenever readyState<2) causes a seek storm: each seek drops
+        // readyState back to 1, which triggers another seek, forever — the
+        // blink-then-black. By seeking only on a genuine time change we let
+        // the element settle and finish decoding to readyState 2.
+        if(c._lastSeekT===undefined || Math.abs(c._lastSeekT-target)>0.033){
+          try{ vid.currentTime=target; c._lastSeekT=target; }catch(e){}
         }
         if(vid.readyState>=2){ drawSrc=vid; srcReady=true; }
       }
@@ -4822,6 +4824,10 @@ async function startExportWebCodecs(){
     if(tr.muted)return;
     tr.clips.forEach(function(c){
       if(c.type==='image'||c.type==='title')return; // no audio
+      // Skip clips that fall entirely outside the export range — otherwise
+      // a short export still extracts/mixes audio from the whole project,
+      // which is slow (especially the realtime video-audio extraction).
+      if(c.start+c.duration<=exportIn || c.start>=exportOut) return;
       // Resolve the media object this clip plays. Prefer the live media
       // entry's url over the element's .src — element src can be a stale or
       // revoked blob URL after a replace/remove/restore cycle.
@@ -5010,6 +5016,8 @@ async function startExportWebCodecs(){
       if(tr.type!=='video'||tr.muted) return;
       tr.clips.forEach(function(c){
         if(!c.mediaId||seen[c.mediaId]) return;
+        // Only prepare decoders for clips that overlap the export range.
+        if(c.start+c.duration<=exportIn || c.start>=exportOut) return;
         seen[c.mediaId]=true;
         var m=S.media.video.find(function(x){return x.id===c.mediaId;});
         if(m) mediaList.push(m);
