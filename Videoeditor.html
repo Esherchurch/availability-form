@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 12</title>
+<title>Kids Film Club — Trailer Editor v3 · build 13</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 12</span>
+  <span class="hbtn v3">v3 · build 13</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -1431,6 +1431,120 @@ function keepVideoAlive(v){
   };
   try{ v.requestVideoFrameCallback(loop); }catch(e){ v._kfcRVFC = false; }
 }
+
+// ============================================================
+// PREVIEW VIDEO DECODER
+// ------------------------------------------------------------
+// The <video> element will not reliably decode-on-seek for our off-screen
+// pooled elements (proven: readyState stays at 1 even while playing). So
+// the preview decodes frames with WebCodecs VideoDecoder — the same
+// approach proven to work in export. Each video media gets a background
+// decoder that keeps a "current frame" up to date based on the requested
+// source time; drawFrame draws that frame synchronously. Decoding is async
+// and decoupled from the render loop.
+// ============================================================
+var _previewDecoders = {}; // mediaId -> decoder state
+
+async function ensurePreviewDecoder(mediaId, url){
+  if(_previewDecoders[mediaId]) return _previewDecoders[mediaId];
+  var pd = { failed:false, ready:false, curFrame:null, wantTime:0, frameCache:[], decoder:null, decoding:false };
+  _previewDecoders[mediaId] = pd;
+  try{
+    if(typeof VideoDecoder==='undefined'){ pd.failed=true; return pd; }
+    var resp = await fetch(url);
+    var ab = await resp.arrayBuffer();
+    var track = demuxMP4Video(ab);
+    if(!track){ pd.failed=true; return pd; }
+    var support = await VideoDecoder.isConfigSupported({codec:track.codec,description:track.description,codedWidth:track.codedW,codedHeight:track.codedH});
+    if(!support||!support.supported){ pd.failed=true; return pd; }
+    pd.ab=ab; pd.track=track; pd.timescale=track.timescale;
+    pd.ordered = track.samples.map(function(s,i){return {i:i,cts:s.cts,key:s.key};}).sort(function(a,b){return a.cts-b.cts;});
+    pd.ready=true;
+  }catch(e){ pd.failed=true; }
+  return pd;
+}
+
+function _pdFindFrameIndex(pd, tSec){
+  var ticks = tSec * pd.timescale;
+  var lo=0, hi=pd.ordered.length-1, ans=0;
+  while(lo<=hi){ var mid=(lo+hi)>>1; if(pd.ordered[mid].cts<=ticks){ans=mid;lo=mid+1;}else hi=mid-1; }
+  return ans;
+}
+function _pdKeyframeBefore(pd, idx){
+  for(var i=idx;i>=0;i--){ if(pd.ordered[i].key) return i; }
+  return 0;
+}
+
+async function previewDecodeStep(pd){
+  if(!pd.ready||pd.failed||pd.decoding) return;
+  pd.decoding=true;
+  try{
+    var targetIdx=_pdFindFrameIndex(pd, pd.wantTime);
+    for(var ci=0;ci<pd.frameCache.length;ci++){
+      if(pd.frameCache[ci].orderedIdx===targetIdx){
+        pd.curFrame=pd.frameCache[ci].frame;
+        pd.decoding=false; return;
+      }
+    }
+    var needKeyframe = (pd.lastDecodedIdx===undefined) || (targetIdx < pd.lastDecodedIdx) || (targetIdx - pd.lastDecodedIdx > 60);
+    if(needKeyframe || !pd.decoder || pd.decoder.state!=='configured'){
+      _pdResetDecoder(pd);
+      pd.startIdx=_pdKeyframeBefore(pd, targetIdx);
+      pd.lastDecodedIdx=pd.startIdx-1;
+    }
+    var guard=0;
+    var fromIdx=pd.lastDecodedIdx+1;
+    for(var oi=fromIdx; oi<=targetIdx && guard<300; oi++, guard++){
+      var samp=pd.track.samples[pd.ordered[oi].i];
+      var chunk=new EncodedVideoChunk({
+        type: pd.ordered[oi].key ? 'key':'delta',
+        timestamp: Math.round(pd.ordered[oi].cts/pd.timescale*1e6),
+        duration:0,
+        data:new Uint8Array(pd.ab, samp.offset, samp.size)
+      });
+      try{ pd.decoder.decode(chunk); }catch(e){ break; }
+      pd.lastDecodedIdx=oi;
+    }
+    await new Promise(function(r){setTimeout(r,0);});
+  }catch(e){ }
+  pd.decoding=false;
+}
+
+function _pdResetDecoder(pd){
+  try{ if(pd.decoder&&pd.decoder.state!=='closed') pd.decoder.close(); }catch(e){}
+  pd.frameCache.forEach(function(fc){ try{fc.frame.close();}catch(e){} });
+  pd.frameCache=[];
+  pd.decoder=new VideoDecoder({
+    output:function(frame){
+      var cts=(frame.timestamp/1e6)*pd.timescale;
+      var oi=-1, bestD=1e18;
+      for(var k=0;k<pd.ordered.length;k++){ var d=Math.abs(pd.ordered[k].cts-cts); if(d<bestD){bestD=d;oi=k;} }
+      pd.frameCache.push({orderedIdx:oi, frame:frame});
+      while(pd.frameCache.length>10){ var old=pd.frameCache.shift(); try{old.frame.close();}catch(e){} }
+      var ti=_pdFindFrameIndex(pd, pd.wantTime);
+      if(oi<=ti) pd.curFrame=frame;
+    },
+    error:function(e){ pd.failed=true; }
+  });
+  pd.decoder.configure({codec:pd.track.codec,description:pd.track.description,codedWidth:pd.track.codedW,codedHeight:pd.track.codedH,optimizeForLatency:true});
+}
+
+function previewGetFrame(mediaId, url, srcTime){
+  var pd=_previewDecoders[mediaId];
+  if(!pd){ ensurePreviewDecoder(mediaId, url); return null; }
+  if(pd.failed||!pd.ready) return null;
+  pd.wantTime=srcTime;
+  if(!pd.decoding) previewDecodeStep(pd);
+  return pd.curFrame;
+}
+function disposePreviewDecoder(mediaId){
+  var pd=_previewDecoders[mediaId];
+  if(!pd) return;
+  try{ if(pd.decoder&&pd.decoder.state!=='closed') pd.decoder.close(); }catch(e){}
+  if(pd.frameCache) pd.frameCache.forEach(function(fc){ try{fc.frame.close();}catch(e){} });
+  delete _previewDecoders[mediaId];
+}
+
 
 async function tryRestoreFileHandle(handle, mediaEntry){
   // Request permission to read the file
@@ -3437,25 +3551,24 @@ function drawFrame(){
     tr.clips.forEach(function(c){
       if(S.t<c.start||S.t>=c.start+c.duration||!c.videoEl)return;
       var rel=S.t-c.start,target=(c.trimStart||0)+rel,vid=c.videoEl;
-      // During export, prefer the decoded VideoFrame produced by the
-      // VideoDecoder path (c._exportFrame). It's drawable directly and
-      // needs no <video> seeking. If the decoder failed for this clip,
-      // c._exportFrame is null and we fall through to the element.
       var drawSrc=vid, srcReady=false;
       if(window._exportActive){
         if(c._exportFrame){ drawSrc=c._exportFrame; srcReady=true; }
         else if(vid.readyState>=2){ drawSrc=vid; srcReady=true; }
       } else {
-        // Live preview path. Only seek when the target has actually MOVED
-        // since the last frame. Re-seeking every frame (which the old code
-        // did whenever readyState<2) causes a seek storm: each seek drops
-        // readyState back to 1, which triggers another seek, forever — the
-        // blink-then-black. By seeking only on a genuine time change we let
-        // the element settle and finish decoding to readyState 2.
-        if(c._lastSeekT===undefined || Math.abs(c._lastSeekT-target)>0.033){
-          try{ vid.currentTime=target; c._lastSeekT=target; }catch(e){}
+        // Live preview: decode the frame via WebCodecs VideoDecoder. The
+        // <video> element will not reliably decode in our off-screen pool
+        // (readyState stuck at 1), so we use the same decoder approach that
+        // works in export. previewGetFrame returns the best available
+        // decoded frame (may be briefly stale while catching up).
+        var murl=null;
+        if(c.mediaId){ var mm=S.media.video.find(function(x){return x.id===c.mediaId;}); if(mm) murl=mm.url; }
+        if(murl){
+          var pframe=previewGetFrame(c.mediaId, murl, target);
+          if(pframe){ drawSrc=pframe; srcReady=true; }
         }
-        if(vid.readyState>=2){ drawSrc=vid; srcReady=true; }
+        // Fallback to the element if the decoder isn't producing frames
+        if(!srcReady && vid.readyState>=2){ drawSrc=vid; srcReady=true; }
       }
       if(srcReady){
         applyKeyframes(c,rel);
@@ -5165,6 +5278,9 @@ async function startExportWebCodecs(){
   // canvas, so the cache is resolution-independent and safe to keep.
   var exportStartMs = performance.now();
   window._exportActive = true;
+  // Free preview decoders — export uses its own decoder set, no need to hold
+  // both in memory.
+  try{ Object.keys(_previewDecoders).forEach(function(k){ disposePreviewDecoder(k); }); }catch(e){}
 
   // Set up VideoDecoder sources for every source video before rendering.
   addLog('\u25b6 Preparing video decoders...');
