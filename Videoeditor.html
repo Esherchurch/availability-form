@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 11</title>
+<title>Kids Film Club — Trailer Editor v3 · build 12</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 11</span>
+  <span class="hbtn v3">v3 · build 12</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -1394,10 +1394,12 @@ function _vidContainer(){
   if(!c){
     c = document.createElement('div');
     c.id = '_kfc_video_pool';
-    // In-viewport, non-zero size, clipped to invisible. NOT opacity:0 and
-    // NOT off-screen — both trigger throttling. overflow:hidden AND
-    // clip-path together because some compositors bypass one or the other.
-    c.style.cssText = 'position:fixed;top:0;left:0;width:160px;height:90px;overflow:hidden;clip-path:inset(50%);pointer-events:none;z-index:-9999;visibility:visible;';
+    // The browser will only decode-on-seek a <video> it considers actually
+    // displayed. clip-path / opacity:0 / off-screen all make it "not
+    // displayed" and the element sticks at readyState 1 forever. So the
+    // container must be genuinely on-screen and visible — we make it 1px,
+    // bottom-corner, nearly transparent: imperceptible but truly rendered.
+    c.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;overflow:hidden;pointer-events:none;z-index:1;opacity:0.01;';
     document.body.appendChild(c);
   }
   return c;
@@ -1406,13 +1408,12 @@ function createVideoEl(url){
   var v = document.createElement('video');
   v.src = url;
   v.preload = 'auto'; // fetch full file so playback doesn't stall mid-clip
-  v.muted = false; v.volume = 1;
+  v.muted = true; // muted so an autoplay/decode nudge isn't blocked
+  v.volume = 1;
   v.playsInline = true;
   v.setAttribute('playsinline', '');
-  // Force tiny size so the element can't visually leak out of the hidden
-  // container even if the browser's compositor bypasses clip-path.
-  v.style.cssText = 'width:2px;height:2px;position:absolute;top:0;left:0;';
-  // CRITICAL: must be in DOM AND in viewport for decoder to stay active
+  // Fill the 1px container — genuinely rendered so the browser decodes it.
+  v.style.cssText = 'width:1px;height:1px;position:absolute;right:0;bottom:0;';
   _vidContainer().appendChild(v);
   return v;
 }
