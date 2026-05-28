@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 9</title>
+<title>Kids Film Club — Trailer Editor v3 · build 10</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 9</span>
+  <span class="hbtn v3">v3 · build 10</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -3387,7 +3387,8 @@ function getPanCrop(clip){return{scale:clip.pcScale!==undefined?clip.pcScale:100
 function drawWithPanCrop(clip,el,destCtx,W,H,alpha){
   var pc=getPanCrop(clip);var scale=pc.scale/100;
   var xOff=pc.x/100*W;var yOff=pc.y/100*H;
-  var elW=el.videoWidth||el.naturalWidth||W;var elH=el.videoHeight||el.naturalHeight||H;
+  var elW=el.videoWidth||el.naturalWidth||el.displayWidth||el.codedWidth||W;
+  var elH=el.videoHeight||el.naturalHeight||el.displayHeight||el.codedHeight||H;
   var sx=pc.cl/100*elW;var sy=pc.ct/100*elH;var sw=elW*(1-pc.cl/100-pc.cr/100);var sh=elH*(1-pc.ct/100-pc.cb/100);
   var dw=W*scale;var dh=H*scale;var dx=(W-dw)/2+xOff;var dy=(H-dh)/2+yOff;
   destCtx.save();destCtx.globalAlpha=alpha;
@@ -3435,29 +3436,28 @@ function drawFrame(){
     tr.clips.forEach(function(c){
       if(S.t<c.start||S.t>=c.start+c.duration||!c.videoEl)return;
       var rel=S.t-c.start,target=(c.trimStart||0)+rel,vid=c.videoEl;
-      // SEEK gate is readyState>=1 (metadata). Issuing the seek is what
-      // forces the browser to decode a frame for an off-screen, never-played
-      // video element — which advances it to readyState>=2. If we gated the
-      // seek behind >=2 it would deadlock: never seeked, so never decodes,
-      // so never reaches 2. The seek is the thing that unsticks it.
-      if(!window._exportActive && vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15){
-        try{ vid.currentTime=target; }catch(e){}
+      // During export, prefer the decoded VideoFrame produced by the
+      // VideoDecoder path (c._exportFrame). It's drawable directly and
+      // needs no <video> seeking. If the decoder failed for this clip,
+      // c._exportFrame is null and we fall through to the element.
+      var drawSrc=vid, srcReady=false;
+      if(window._exportActive){
+        if(c._exportFrame){ drawSrc=c._exportFrame; srcReady=true; }
+        else if(vid.readyState>=2){ drawSrc=vid; srcReady=true; }
+      } else {
+        // Live preview path — seek the element as before.
+        if(vid.readyState>=1 && Math.abs(vid.currentTime-target)>0.15){
+          try{ vid.currentTime=target; }catch(e){}
+        }
+        if(vid.readyState<2){
+          try{ vid.currentTime=target+0.001; }catch(e){}
+        }
+        if(vid.readyState>=2){ drawSrc=vid; srcReady=true; }
       }
-      // DRAW gate is readyState>=2 (HAVE_CURRENT_DATA — a decoded frame
-      // exists). Drawing at readyState 1 (metadata only) throws.
-      if(vid.readyState<2 && !window._exportActive){
-        // Video has metadata but no decoded frame (common for off-screen,
-        // never-played elements). Force a decode by nudging currentTime so
-        // the browser produces a frame and advances to readyState 2+.
-        try{ vid.currentTime = target + 0.001; }catch(e){}
-      }
-      if(vid.readyState>=2){
+      if(srcReady){
         applyKeyframes(c,rel);
         var op=c._kfOpacity!==undefined?c._kfOpacity*clipOp(c,rel):clipOp(c,rel);
         var cf=buildClipFilter(c);
-        // Always use offscreen canvas — this is the only reliable way to
-        // composite globalAlpha over an already-drawn canvas with CSS filters.
-        // Without it, filters apply AFTER alpha, making opacity non-functional.
         if(!window._vidOffscreen||_vidOffscreen.width!==W||_vidOffscreen.height!==H){
           window._vidOffscreen=document.createElement('canvas');_vidOffscreen.width=W;_vidOffscreen.height=H;
         }
@@ -3466,10 +3466,9 @@ function drawFrame(){
         octx.save();
         if(c.clipFX&&(c.clipFX.flipH||c.clipFX.flipV)){octx.translate(c.clipFX.flipH?W:0,c.clipFX.flipV?H:0);octx.scale(c.clipFX.flipH?-1:1,c.clipFX.flipV?-1:1);}
         octx.filter=(cf?cf+' ':'')+filterStr();
-        if(c.chromaKey&&c.chromaKey.enabled){var _sCtx=ctx;ctx=octx;applyChromaKey(c,vid,octx,W,H);ctx=_sCtx;}
-        else drawWithPanCrop(c,vid,octx,W,H,1);
+        if(c.chromaKey&&c.chromaKey.enabled){var _sCtx=ctx;ctx=octx;applyChromaKey(c,drawSrc,octx,W,H);ctx=_sCtx;}
+        else drawWithPanCrop(c,drawSrc,octx,W,H,1);
         octx.restore();octx.filter='none';
-        // Apply per-clip colour correction if set
         if(c.cc){var ccOut=document.createElement('canvas');ccOut.width=W;ccOut.height=H;applyClipCC(c,oc,ccOut.getContext('2d'),W,H);ctx.save();ctx.globalAlpha=op;ctx.drawImage(ccOut,0,0);ctx.restore();}
         else{ctx.save();ctx.globalAlpha=op;ctx.drawImage(oc,0,0);ctx.restore();}
       }
@@ -4594,6 +4593,192 @@ function normaliseAll(){
 function finishNorm(n){renderTracks();setStatus('Normalised '+n+' clips to -14dB');goldFlash();}
 
 // ===================================================
+// MP4 DEMUXER + VIDEODECODER FRAME SOURCE
+// ---------------------------------------------------
+// Decodes video frames directly from the encoded MP4 data using WebCodecs
+// VideoDecoder. No <video> element seeking — which was proven to corrupt
+// decode state (readyState collapsing 4->1 on every seek). This module
+// parses just enough of the MP4 box structure to get H.264/H.265 sample
+// offsets, sizes, timestamps and the codec config, then feeds samples to a
+// VideoDecoder in sequence.
+// ===================================================
+
+function _mp4ReadBoxes(dv, start, end){
+  var boxes=[], p=start;
+  while(p < end - 8){
+    var size=dv.getUint32(p);
+    var type=String.fromCharCode(dv.getUint8(p+4),dv.getUint8(p+5),dv.getUint8(p+6),dv.getUint8(p+7));
+    var hdr=8, bsize=size;
+    if(size===1){
+      var hi=dv.getUint32(p+8), lo=dv.getUint32(p+12);
+      bsize=hi*4294967296+lo; hdr=16;
+    } else if(size===0){
+      bsize=end-p;
+    }
+    if(bsize<8||p+bsize>end) break;
+    boxes.push({type:type,start:p,end:p+bsize,dataStart:p+hdr});
+    p+=bsize;
+  }
+  return boxes;
+}
+function _mp4FindBox(boxes,type){ for(var i=0;i<boxes.length;i++){ if(boxes[i].type===type) return boxes[i]; } return null; }
+function _hex2(n){ var s=n.toString(16); return s.length<2?'0'+s:s; }
+
+function demuxMP4Video(buf){
+  var dv=new DataView(buf);
+  var top=_mp4ReadBoxes(dv,0,buf.byteLength);
+  var moov=_mp4FindBox(top,'moov');
+  if(!moov) return null;
+  var moovBoxes=_mp4ReadBoxes(dv,moov.dataStart,moov.end);
+  for(var ti=0;ti<moovBoxes.length;ti++){
+    if(moovBoxes[ti].type!=='trak') continue;
+    var trak=moovBoxes[ti];
+    var trakBoxes=_mp4ReadBoxes(dv,trak.dataStart,trak.end);
+    var mdia=_mp4FindBox(trakBoxes,'mdia'); if(!mdia) continue;
+    var mdiaBoxes=_mp4ReadBoxes(dv,mdia.dataStart,mdia.end);
+    var hdlr=_mp4FindBox(mdiaBoxes,'hdlr');
+    if(!hdlr) continue;
+    var handler=String.fromCharCode(dv.getUint8(hdlr.dataStart+8),dv.getUint8(hdlr.dataStart+9),dv.getUint8(hdlr.dataStart+10),dv.getUint8(hdlr.dataStart+11));
+    if(handler!=='vide') continue;
+    var mdhd=_mp4FindBox(mdiaBoxes,'mdhd');
+    var timescale=mdhd?dv.getUint32(mdhd.dataStart+12):90000;
+    var minf=_mp4FindBox(mdiaBoxes,'minf'); if(!minf) continue;
+    var minfBoxes=_mp4ReadBoxes(dv,minf.dataStart,minf.end);
+    var stbl=_mp4FindBox(minfBoxes,'stbl'); if(!stbl) continue;
+    var stblBoxes=_mp4ReadBoxes(dv,stbl.dataStart,stbl.end);
+    var result=_mp4ParseStbl(dv,stblBoxes,buf);
+    if(result){ result.timescale=timescale; return result; }
+  }
+  return null;
+}
+
+function _mp4ParseStbl(dv,stblBoxes,buf){
+  var stsd=_mp4FindBox(stblBoxes,'stsd');
+  var stts=_mp4FindBox(stblBoxes,'stts');
+  var stsc=_mp4FindBox(stblBoxes,'stsc');
+  var stsz=_mp4FindBox(stblBoxes,'stsz');
+  var stco=_mp4FindBox(stblBoxes,'stco');
+  var co64=_mp4FindBox(stblBoxes,'co64');
+  var stss=_mp4FindBox(stblBoxes,'stss');
+  var ctts=_mp4FindBox(stblBoxes,'ctts');
+  if(!stsd||!stts||!stsc||!stsz||!(stco||co64)) return null;
+
+  var codec=null, description=null, codedW=0, codedH=0;
+  var entryCount=dv.getUint32(stsd.dataStart+4);
+  var sePos=stsd.dataStart+8;
+  if(entryCount>0){
+    var seSize=dv.getUint32(sePos);
+    codedW=dv.getUint16(sePos+8+24);
+    codedH=dv.getUint16(sePos+8+26);
+    var childStart=sePos+8+78;
+    var childBoxes=_mp4ReadBoxes(dv,childStart,sePos+seSize);
+    var avcC=_mp4FindBox(childBoxes,'avcC');
+    var hvcC=_mp4FindBox(childBoxes,'hvcC');
+    if(avcC){
+      description=new Uint8Array(buf.slice(avcC.dataStart,avcC.end));
+      var profile=dv.getUint8(avcC.dataStart+1);
+      var constraint=dv.getUint8(avcC.dataStart+2);
+      var level=dv.getUint8(avcC.dataStart+3);
+      codec='avc1.'+_hex2(profile)+_hex2(constraint)+_hex2(level);
+    } else if(hvcC){
+      codec='hev1.1.6.L93.B0';
+      description=new Uint8Array(buf.slice(hvcC.dataStart,hvcC.end));
+    } else {
+      return null;
+    }
+  } else return null;
+
+  var sampleSizes=[];
+  var stszSampleSize=dv.getUint32(stsz.dataStart+4);
+  var stszCount=dv.getUint32(stsz.dataStart+8);
+  if(stszSampleSize!==0){
+    for(var i=0;i<stszCount;i++) sampleSizes.push(stszSampleSize);
+  } else {
+    for(var i=0;i<stszCount;i++) sampleSizes.push(dv.getUint32(stsz.dataStart+12+i*4));
+  }
+
+  var chunkOffsets=[];
+  if(stco){
+    var n=dv.getUint32(stco.dataStart+4);
+    for(var i=0;i<n;i++) chunkOffsets.push(dv.getUint32(stco.dataStart+8+i*4));
+  } else {
+    var n=dv.getUint32(co64.dataStart+4);
+    for(var i=0;i<n;i++){ var hi=dv.getUint32(co64.dataStart+8+i*8), lo=dv.getUint32(co64.dataStart+12+i*8); chunkOffsets.push(hi*4294967296+lo); }
+  }
+
+  var stscCount=dv.getUint32(stsc.dataStart+4);
+  var stscEntries=[];
+  for(var i=0;i<stscCount;i++){
+    stscEntries.push({
+      first:dv.getUint32(stsc.dataStart+8+i*12),
+      perChunk:dv.getUint32(stsc.dataStart+8+i*12+4),
+      descIdx:dv.getUint32(stsc.dataStart+8+i*12+8)
+    });
+  }
+
+  var sampleOffsets=[];
+  var sampleIdx=0;
+  for(var sc=0;sc<stscEntries.length;sc++){
+    var firstChunk=stscEntries[sc].first;
+    var lastChunk=(sc+1<stscEntries.length)?stscEntries[sc+1].first-1:chunkOffsets.length;
+    var perChunk=stscEntries[sc].perChunk;
+    for(var ch=firstChunk;ch<=lastChunk;ch++){
+      if(ch-1>=chunkOffsets.length) break;
+      var off=chunkOffsets[ch-1];
+      for(var s=0;s<perChunk;s++){
+        if(sampleIdx>=sampleSizes.length) break;
+        sampleOffsets.push(off);
+        off+=sampleSizes[sampleIdx];
+        sampleIdx++;
+      }
+    }
+  }
+
+  var sttsCount=dv.getUint32(stts.dataStart+4);
+  var sampleDeltas=[];
+  for(var i=0;i<sttsCount;i++){
+    var cnt=dv.getUint32(stts.dataStart+8+i*8);
+    var delta=dv.getUint32(stts.dataStart+8+i*8+4);
+    for(var k=0;k<cnt;k++) sampleDeltas.push(delta);
+  }
+  var decodeTimes=[]; var acc=0;
+  for(var i=0;i<sampleDeltas.length;i++){ decodeTimes.push(acc); acc+=sampleDeltas[i]; }
+
+  var compOffsets=null;
+  if(ctts){
+    compOffsets=[];
+    var cttsCount=dv.getUint32(ctts.dataStart+4);
+    for(var i=0;i<cttsCount;i++){
+      var cnt=dv.getUint32(ctts.dataStart+8+i*8);
+      var off=dv.getInt32(ctts.dataStart+8+i*8+4);
+      for(var k=0;k<cnt;k++) compOffsets.push(off);
+    }
+  }
+
+  var keyframes={};
+  if(stss){
+    var ksCount=dv.getUint32(stss.dataStart+4);
+    for(var i=0;i<ksCount;i++) keyframes[dv.getUint32(stss.dataStart+8+i*4)-1]=true;
+  } else {
+    for(var i=0;i<sampleSizes.length;i++) keyframes[i]=true;
+  }
+
+  var samples=[];
+  var count=Math.min(sampleSizes.length,sampleOffsets.length,decodeTimes.length);
+  for(var i=0;i<count;i++){
+    var cto=compOffsets&&i<compOffsets.length?compOffsets[i]:0;
+    samples.push({
+      offset:sampleOffsets[i],
+      size:sampleSizes[i],
+      dts:decodeTimes[i],
+      cts:decodeTimes[i]+cto,
+      key:!!keyframes[i]
+    });
+  }
+  return {codec:codec,description:description,codedW:codedW,codedH:codedH,samples:samples};
+}
+
+// ===================================================
 // WEBCODECS EXPORT
 // ===================================================
 async function startExportWebCodecs(){
@@ -4809,61 +4994,157 @@ async function startExportWebCodecs(){
   });
   videoEncoder.configure({codec:codec,width:expW,height:expH,bitrate:vbr,framerate:fps,latencyMode:'quality'});
 
-  // ---- Deterministic per-frame seek export ----
-  // Each export frame seeks every in-range video to its exact timeline
-  // position, waits for the decoded frame via requestVideoFrameCallback,
-  // then draws. This is fully deterministic: frame fi ALWAYS shows
-  // S.t = exportIn + fi/fps, so there is no drift, no speed error, and no
-  // dependence on real time. rVFC makes a single-frame decode fast
-  // (typically 5-30ms); the only slow case is a genuine keyframe seek.
-  var _expSeenSrc = {}; // currentSrc -> last currentTime, to skip no-op seeks
+  // ---- VideoDecoder-based export frame sourcing ----
+  // Each source video is demuxed and decoded with WebCodecs VideoDecoder.
+  // Frames are produced in decode order; we keep a sliding cache and match
+  // the frame whose presentation time covers the requested timeline moment.
+  // No <video> element seeking anywhere — that was proven to corrupt decode
+  // state (readyState 4->1) and was the cause of the frozen-frame export.
+  var _decoderSources = {};   // mediaId -> decoder source object
+  var _decoderFailed = {};    // mediaId -> true if decoder setup failed
 
-  function exportSeekFrame(t){
-    var jobs = [];
+  async function setupDecoderSources(){
+    var seen = {};
+    var mediaList = [];
+    S.tracks.forEach(function(tr){
+      if(tr.type!=='video'||tr.muted) return;
+      tr.clips.forEach(function(c){
+        if(!c.mediaId||seen[c.mediaId]) return;
+        seen[c.mediaId]=true;
+        var m=S.media.video.find(function(x){return x.id===c.mediaId;});
+        if(m) mediaList.push(m);
+      });
+    });
+    for(var mi=0; mi<mediaList.length; mi++){
+      var m=mediaList[mi];
+      try{
+        addLog('\u2026 Decoding setup: '+m.name);
+        var resp=await fetch(m.url);
+        var ab=await resp.arrayBuffer();
+        var track=demuxMP4Video(ab);
+        if(!track){ throw new Error('not a demuxable MP4'); }
+        if(typeof VideoDecoder==='undefined'){ throw new Error('VideoDecoder unavailable'); }
+        var support=await VideoDecoder.isConfigSupported({
+          codec:track.codec, description:track.description,
+          codedWidth:track.codedW, codedHeight:track.codedH
+        });
+        if(!support||!support.supported){ throw new Error('codec unsupported: '+track.codec); }
+        var ordered=track.samples.map(function(s,idx){return {idx:idx,cts:s.cts};})
+                                 .sort(function(a,b){return a.cts-b.cts;});
+        _decoderSources[m.id]={
+          buf:ab, track:track, ordered:ordered, timescale:track.timescale,
+          frameCache:[], nextDecodeIdx:0, decoder:null, pendingFrames:[], mediaName:m.name
+        };
+        addLog('\u2713 '+m.name+': '+track.samples.length+' frames, '+track.codec);
+      }catch(e){
+        _decoderFailed[m.id]=true;
+        addLog('\u26a0 '+m.name+': decoder setup failed ('+(e.message||e)+') — using fallback');
+      }
+    }
+  }
+
+  async function decodeFrameAt(src, tSec){
+    var tsTicks = tSec * src.timescale;
+    for(var i=src.frameCache.length-1;i>=0;i--){
+      var fc=src.frameCache[i];
+      if(fc.cts<=tsTicks && (fc.ctsEnd>tsTicks||fc.last)) return fc.frame;
+    }
+    if(!src.decoder){
+      src.pendingFrames=[];
+      src.decoder=new VideoDecoder({
+        output:function(frame){ src.pendingFrames.push(frame); },
+        error:function(e){ src.decodeError=e; }
+      });
+      src.decoder.configure({
+        codec:src.track.codec, description:src.track.description,
+        codedWidth:src.track.codedW, codedHeight:src.track.codedH,
+        optimizeForLatency:true
+      });
+    }
+    var guard=0;
+    while(src.nextDecodeIdx < src.ordered.length && guard<200000){
+      guard++;
+      var orderedEntry=src.ordered[src.nextDecodeIdx];
+      var s=src.track.samples[orderedEntry.idx];
+      var chunk=new EncodedVideoChunk({
+        type: s.key ? 'key' : 'delta',
+        timestamp: Math.round(s.cts/src.timescale*1e6),
+        duration: 0,
+        data: new Uint8Array(src.buf, s.offset, s.size)
+      });
+      try{ src.decoder.decode(chunk); }catch(e){ src.decodeError=e; break; }
+      src.nextDecodeIdx++;
+      if(src.pendingFrames.length>0){
+        for(var pf=0; pf<src.pendingFrames.length; pf++){
+          var frame=src.pendingFrames[pf];
+          var ctsTicks=(frame.timestamp/1e6)*src.timescale;
+          src.frameCache.push({cts:ctsTicks, ctsEnd:ctsTicks+(src.timescale/Math.max(fps,1)), frame:frame, last:false});
+        }
+        src.pendingFrames=[];
+        while(src.frameCache.length>16){
+          var old=src.frameCache.shift();
+          try{ old.frame.close(); }catch(e){}
+        }
+        for(var ci=src.frameCache.length-1;ci>=0;ci--){
+          if(src.frameCache[ci].cts<=tsTicks) return src.frameCache[ci].frame;
+        }
+      }
+      if(src.decodeError) break;
+      // Keep the decoder queue bounded
+      if(src.decoder.decodeQueueSize>8){ await sleep(0); }
+    }
+    if(src.nextDecodeIdx>=src.ordered.length && src.decoder && src.decoder.state==='configured'){
+      try{ await src.decoder.flush(); }catch(e){}
+      for(var pf2=0; pf2<src.pendingFrames.length; pf2++){
+        var fr=src.pendingFrames[pf2];
+        var ct=(fr.timestamp/1e6)*src.timescale;
+        src.frameCache.push({cts:ct, ctsEnd:ct+(src.timescale/Math.max(fps,1)), frame:fr, last:true});
+      }
+      src.pendingFrames=[];
+    }
+    var best=null;
+    for(var bi=0;bi<src.frameCache.length;bi++){
+      if(src.frameCache[bi].cts<=tsTicks) best=src.frameCache[bi].frame;
+    }
+    return best;
+  }
+
+  async function exportPrepareFrames(t){
+    var clips=[];
     S.tracks.forEach(function(tr){
       if(tr.type!=='video'||tr.muted)return;
       tr.clips.forEach(function(c){
-        if(t>=c.start&&t<c.start+c.duration&&c.videoEl&&c.videoEl.readyState>=2){
-          jobs.push({vid:c.videoEl,target:(c.trimStart||0)+(t-c.start)});
-        }
+        if(t>=c.start&&t<c.start+c.duration) clips.push(c);
+        else { c._exportFrame=null; }
       });
     });
-    return Promise.all(jobs.map(function(j){
-      return new Promise(function(res){
-        var vid=j.vid, target=j.target;
-        // Skip the seek if already within half a frame of the target —
-        // setting currentTime to ~its current value may not fire 'seeked'
-        // and would stall this promise.
-        if(Math.abs(vid.currentTime-target) < (0.5/fps)){ res(); return; }
-        var done=false;
-        function finish(){
-          if(done)return; done=true;
-          vid.removeEventListener('seeked',onSeeked);
-          res();
+    for(var ci=0; ci<clips.length; ci++){
+      var c=clips[ci];
+      var srcTime=(c.trimStart||0)+(t-c.start);
+      if(c.mediaId && _decoderSources[c.mediaId] && !_decoderFailed[c.mediaId]){
+        var src=_decoderSources[c.mediaId];
+        try{
+          var frame=await decodeFrameAt(src, srcTime);
+          c._exportFrame=frame||null;
+        }catch(e){
+          c._exportFrame=null;
         }
-        // For a PAUSED video being scrubbed (which is the case during
-        // export), 'seeked' is the reliable signal that the new frame has
-        // been decoded and is ready to draw. requestVideoFrameCallback is
-        // unreliable on paused elements, so we do NOT depend on it.
-        function onSeeked(){
-          // Once the seek lands, the frame is decoded. Resolve on the next
-          // microtask so the browser has applied it to the element.
-          if(vid.requestVideoFrameCallback){
-            var d2=false;
-            vid.requestVideoFrameCallback(function(){ if(!d2){d2=true;finish();} });
-            setTimeout(function(){ if(!d2){d2=true;finish();} }, 40);
-          }else{
-            finish();
-          }
+      } else {
+        c._exportFrame=null;
+        if(c.videoEl && c.videoEl.readyState>=1){
+          try{ c.videoEl.currentTime=srcTime; }catch(e){}
         }
-        vid.addEventListener('seeked', onSeeked);
-        // Generous safety net — only fires if 'seeked' genuinely never
-        // does. Long enough that a real keyframe decode isn't cut short
-        // (which would capture a stale/black frame).
-        setTimeout(finish, 1000);
-        try{ vid.currentTime = target; }catch(e){ finish(); }
-      });
-    }));
+      }
+    }
+  }
+
+  function disposeDecoderSources(){
+    Object.keys(_decoderSources).forEach(function(k){
+      var src=_decoderSources[k];
+      try{ if(src.decoder&&src.decoder.state!=='closed') src.decoder.close(); }catch(e){}
+      src.frameCache.forEach(function(fc){ try{ fc.frame.close(); }catch(e){} });
+      if(src.pendingFrames) src.pendingFrames.forEach(function(f){ try{ f.close(); }catch(e){} });
+    });
   }
 
   var savedT=S.t;
@@ -4875,6 +5156,10 @@ async function startExportWebCodecs(){
   // canvas, so the cache is resolution-independent and safe to keep.
   var exportStartMs = performance.now();
   window._exportActive = true;
+
+  // Set up VideoDecoder sources for every source video before rendering.
+  addLog('\u25b6 Preparing video decoders...');
+  await setupDecoderSources();
 
   // Diagnostic: report any video clip that can't render (missing or
   // unloaded element) so a black clip is named rather than silent.
@@ -4892,9 +5177,8 @@ async function startExportWebCodecs(){
   for(var fi=0;fi<totalFrames;fi++){
     S.t=exportIn+fi/fps;
 
-    // Seek every in-range video to this exact timeline position and wait
-    // for the decoded frame.
-    await exportSeekFrame(S.t);
+    // Decode/prepare the correct video frame for each in-range clip.
+    await exportPrepareFrames(S.t);
 
     offCtx.clearRect(0,0,expW,expH);offCtx.fillStyle='#000';offCtx.fillRect(0,0,expW,expH);
     var oldCtx=ctx;var oldCv=cv;ctx=offCtx;cv=offCv;
@@ -4928,9 +5212,12 @@ async function startExportWebCodecs(){
       }
     }
   }
-  // Pause all videos
+  // Pause all videos and release decoder resources
   window._exportActive = false;
   S.media.video.forEach(function(m){ if(m.el){ try{m.el.pause();}catch(e){} } });
+  disposeDecoderSources();
+  // Clear per-clip export frame refs
+  S.tracks.forEach(function(tr){ tr.clips.forEach(function(c){ c._exportFrame=null; }); });
   await videoEncoder.flush();videoEncoder.close();
   S.t=savedT;S.proxy=savedProxy;drawFrame();
   barEl.style.width='72%';addLog('✓ Video encoded ('+videoChunks.length+' chunks)');await sleep(50);
