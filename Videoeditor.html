@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 13</title>
+<title>Kids Film Club — Trailer Editor v3 · build 14</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 13</span>
+  <span class="hbtn v3">v3 · build 14</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -1450,17 +1450,17 @@ async function ensurePreviewDecoder(mediaId, url){
   var pd = { failed:false, ready:false, curFrame:null, wantTime:0, frameCache:[], decoder:null, decoding:false };
   _previewDecoders[mediaId] = pd;
   try{
-    if(typeof VideoDecoder==='undefined'){ pd.failed=true; return pd; }
+    if(typeof VideoDecoder==='undefined'){ pd.failed=true; pd.failReason='VideoDecoder unavailable'; return pd; }
     var resp = await fetch(url);
     var ab = await resp.arrayBuffer();
     var track = demuxMP4Video(ab);
-    if(!track){ pd.failed=true; return pd; }
+    if(!track){ pd.failed=true; pd.failReason='demux failed'; return pd; }
     var support = await VideoDecoder.isConfigSupported({codec:track.codec,description:track.description,codedWidth:track.codedW,codedHeight:track.codedH});
-    if(!support||!support.supported){ pd.failed=true; return pd; }
+    if(!support||!support.supported){ pd.failed=true; pd.failReason='codec '+track.codec+' not supported'; return pd; }
     pd.ab=ab; pd.track=track; pd.timescale=track.timescale;
     pd.ordered = track.samples.map(function(s,i){return {i:i,cts:s.cts,key:s.key};}).sort(function(a,b){return a.cts-b.cts;});
     pd.ready=true;
-  }catch(e){ pd.failed=true; }
+  }catch(e){ pd.failed=true; pd.failReason=(e.message||String(e)); }
   return pd;
 }
 
@@ -1480,11 +1480,20 @@ async function previewDecodeStep(pd){
   pd.decoding=true;
   try{
     var targetIdx=_pdFindFrameIndex(pd, pd.wantTime);
+    // Cache hit: best frame at-or-before target. Avoids re-decoding when
+    // playing forward and the next frame is already in cache.
+    var bestCached=-1, bestCachedFrame=null;
     for(var ci=0;ci<pd.frameCache.length;ci++){
-      if(pd.frameCache[ci].orderedIdx===targetIdx){
-        pd.curFrame=pd.frameCache[ci].frame;
-        pd.decoding=false; return;
+      var fc=pd.frameCache[ci];
+      if(fc.orderedIdx<=targetIdx && fc.orderedIdx>bestCached){
+        bestCached=fc.orderedIdx; bestCachedFrame=fc.frame;
       }
+    }
+    if(bestCachedFrame && (bestCached===targetIdx || targetIdx-bestCached<=2)){
+      pd.curFrame=bestCachedFrame;
+      // Only return early if we have the exact frame; otherwise keep
+      // decoding forward to fill the gap.
+      if(bestCached===targetIdx){ pd.decoding=false; return; }
     }
     var needKeyframe = (pd.lastDecodedIdx===undefined) || (targetIdx < pd.lastDecodedIdx) || (targetIdx - pd.lastDecodedIdx > 60);
     if(needKeyframe || !pd.decoder || pd.decoder.state!=='configured'){
@@ -1514,6 +1523,7 @@ function _pdResetDecoder(pd){
   try{ if(pd.decoder&&pd.decoder.state!=='closed') pd.decoder.close(); }catch(e){}
   pd.frameCache.forEach(function(fc){ try{fc.frame.close();}catch(e){} });
   pd.frameCache=[];
+  pd.bestShownOrderedIdx = -1; // highest orderedIdx <= target that we've displayed
   pd.decoder=new VideoDecoder({
     output:function(frame){
       var cts=(frame.timestamp/1e6)*pd.timescale;
@@ -1521,8 +1531,16 @@ function _pdResetDecoder(pd){
       for(var k=0;k<pd.ordered.length;k++){ var d=Math.abs(pd.ordered[k].cts-cts); if(d<bestD){bestD=d;oi=k;} }
       pd.frameCache.push({orderedIdx:oi, frame:frame});
       while(pd.frameCache.length>10){ var old=pd.frameCache.shift(); try{old.frame.close();}catch(e){} }
+      // VideoDecoder emits frames in DECODE order, not presentation order.
+      // With B-frames the orderedIdx of emitted frames jumps around. To
+      // avoid showing an older intermediate frame after a newer one, we
+      // only advance curFrame when the new frame is closer to (and not
+      // past) the target AND newer than the best we have already shown.
       var ti=_pdFindFrameIndex(pd, pd.wantTime);
-      if(oi<=ti) pd.curFrame=frame;
+      if(oi<=ti && oi>pd.bestShownOrderedIdx){
+        pd.curFrame=frame;
+        pd.bestShownOrderedIdx=oi;
+      }
     },
     error:function(e){ pd.failed=true; }
   });
