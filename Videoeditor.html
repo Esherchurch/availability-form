@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 17</title>
+<title>Kids Film Club — Trailer Editor v3 · build 18</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 17</span>
+  <span class="hbtn v3">v3 · build 18</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -1568,9 +1568,15 @@ function previewGetFrame(mediaId, url, srcTime){
   var pd=_previewDecoders[mediaId];
   if(!pd){ ensurePreviewDecoder(mediaId, url); return null; }
   if(pd.failed||!pd.ready) return null;
-  // Just record the wanted time. The background pump (started below) does
-  // the decoding asynchronously — drawFrame must never wait on it or the
-  // render loop stalls (causing the playhead stutter and half-speed video).
+  // If the requested time moves backward or jumps far, reset the
+  // "only advance" tracker so the output handler will accept frames again.
+  // Without this, after a clip ends and a new one starts (or the playhead
+  // jumps backward), bestShownOrderedIdx stays high and curFrame is never
+  // updated — the video appears to "disappear after a few seconds".
+  if(pd.lastWantTime===undefined || Math.abs(srcTime-pd.lastWantTime) > 0.5){
+    pd.bestShownOrderedIdx = -1;
+  }
+  pd.lastWantTime=srcTime;
   pd.wantTime=srcTime;
   return pd.curFrame;
 }
@@ -5242,10 +5248,13 @@ async function startExportWebCodecs(){
       });
     }
     var guard=0;
-    while(src.nextDecodeIdx < src.ordered.length && guard<200000){
+    // Walk DECODE order, not presentation order. track.samples is the
+    // demuxer's natural (DTS) order. Feeding in presentation order silently
+    // produces wrong frames on any video with B-frames — that's the
+    // 'jumps to the end halfway through' symptom in the export.
+    while(src.nextDecodeIdx < src.track.samples.length && guard<200000){
       guard++;
-      var orderedEntry=src.ordered[src.nextDecodeIdx];
-      var s=src.track.samples[orderedEntry.idx];
+      var s=src.track.samples[src.nextDecodeIdx];
       var chunk=new EncodedVideoChunk({
         type: s.key ? 'key' : 'delta',
         timestamp: Math.round(s.cts/src.timescale*1e6),
@@ -5273,7 +5282,7 @@ async function startExportWebCodecs(){
       // Keep the decoder queue bounded
       if(src.decoder.decodeQueueSize>8){ await sleep(0); }
     }
-    if(src.nextDecodeIdx>=src.ordered.length && src.decoder && src.decoder.state==='configured'){
+    if(src.nextDecodeIdx>=src.track.samples.length && src.decoder && src.decoder.state==='configured'){
       try{ await src.decoder.flush(); }catch(e){}
       for(var pf2=0; pf2<src.pendingFrames.length; pf2++){
         var fr=src.pendingFrames[pf2];
