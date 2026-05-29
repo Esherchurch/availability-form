@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 14</title>
+<title>Kids Film Club — Trailer Editor v3 · build 16</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 14</span>
+  <span class="hbtn v3">v3 · build 16</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -1511,10 +1511,9 @@ async function previewDecodeStep(pd){
         duration:0,
         data:new Uint8Array(pd.ab, samp.offset, samp.size)
       });
-      try{ pd.decoder.decode(chunk); }catch(e){ break; }
+      try{ pd.decoder.decode(chunk); }catch(e){ pd.failed=true; pd.failReason='decode() threw: '+(e.message||String(e)); break; }
       pd.lastDecodedIdx=oi;
     }
-    await new Promise(function(r){setTimeout(r,0);});
   }catch(e){ }
   pd.decoding=false;
 }
@@ -1542,7 +1541,7 @@ function _pdResetDecoder(pd){
         pd.bestShownOrderedIdx=oi;
       }
     },
-    error:function(e){ pd.failed=true; }
+    error:function(e){ pd.failed=true; pd.failReason='decoder error: '+(e.message||String(e)); }
   });
   pd.decoder.configure({codec:pd.track.codec,description:pd.track.description,codedWidth:pd.track.codedW,codedHeight:pd.track.codedH,optimizeForLatency:true});
 }
@@ -1551,9 +1550,32 @@ function previewGetFrame(mediaId, url, srcTime){
   var pd=_previewDecoders[mediaId];
   if(!pd){ ensurePreviewDecoder(mediaId, url); return null; }
   if(pd.failed||!pd.ready) return null;
+  // Just record the wanted time. The background pump (started below) does
+  // the decoding asynchronously — drawFrame must never wait on it or the
+  // render loop stalls (causing the playhead stutter and half-speed video).
   pd.wantTime=srcTime;
-  if(!pd.decoding) previewDecodeStep(pd);
   return pd.curFrame;
+}
+
+// Background pump: walks active preview decoders and asks each to decode
+// up to its current wantTime. Runs on its own schedule, independent of
+// drawFrame, so heavy decode work cannot stall the render loop.
+var _previewPumpRunning=false;
+function startPreviewPump(){
+  if(_previewPumpRunning) return;
+  _previewPumpRunning=true;
+  async function tick(){
+    var keys=Object.keys(_previewDecoders);
+    for(var i=0;i<keys.length;i++){
+      var pd=_previewDecoders[keys[i]];
+      if(pd && pd.ready && !pd.failed && !pd.decoding){
+        // fire and forget — its own internal `decoding` flag prevents reentry
+        previewDecodeStep(pd);
+      }
+    }
+    setTimeout(tick, 8);
+  }
+  tick();
 }
 function disposePreviewDecoder(mediaId){
   var pd=_previewDecoders[mediaId];
@@ -6235,6 +6257,7 @@ init();
 initResizablePanels();
 initPopout();
 initTitleDrag();
+startPreviewPump();
 setTimeout(initSFX,100);
 setTimeout(initFirebase,300);
 // ── Mp4Muxer bundled inline ──
