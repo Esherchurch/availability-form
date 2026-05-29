@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 16</title>
+<title>Kids Film Club — Trailer Editor v3 · build 17</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 16</span>
+  <span class="hbtn v3">v3 · build 17</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -1458,7 +1458,15 @@ async function ensurePreviewDecoder(mediaId, url){
     var support = await VideoDecoder.isConfigSupported({codec:track.codec,description:track.description,codedWidth:track.codedW,codedHeight:track.codedH});
     if(!support||!support.supported){ pd.failed=true; pd.failReason='codec '+track.codec+' not supported'; return pd; }
     pd.ab=ab; pd.track=track; pd.timescale=track.timescale;
+    // Two orderings of the same samples:
+    //   ordered  — sorted by presentation time, used to find which frame
+    //              covers a given playhead position.
+    //   byDts    — decode order (already what the demuxer gives us in
+    //              track.samples). VideoDecoder REQUIRES samples in decode
+    //              order or it rejects them with "Decoding error".
     pd.ordered = track.samples.map(function(s,i){return {i:i,cts:s.cts,key:s.key};}).sort(function(a,b){return a.cts-b.cts;});
+    // Map: orderedIdx -> position in original (decode-order) samples array
+    pd.orderedToDecode = pd.ordered.map(function(o){return o.i;});
     pd.ready=true;
   }catch(e){ pd.failed=true; pd.failReason=(e.message||String(e)); }
   return pd;
@@ -1472,6 +1480,11 @@ function _pdFindFrameIndex(pd, tSec){
 }
 function _pdKeyframeBefore(pd, idx){
   for(var i=idx;i>=0;i--){ if(pd.ordered[i].key) return i; }
+  return 0;
+}
+// Decode-order keyframe at or before a given decode-order sample index.
+function _pdKeyframeBeforeDecodeIdx(pd, decIdx){
+  for(var i=decIdx;i>=0;i--){ if(pd.track.samples[i].key) return i; }
   return 0;
 }
 
@@ -1491,28 +1504,33 @@ async function previewDecodeStep(pd){
     }
     if(bestCachedFrame && (bestCached===targetIdx || targetIdx-bestCached<=2)){
       pd.curFrame=bestCachedFrame;
-      // Only return early if we have the exact frame; otherwise keep
-      // decoding forward to fill the gap.
       if(bestCached===targetIdx){ pd.decoding=false; return; }
     }
-    var needKeyframe = (pd.lastDecodedIdx===undefined) || (targetIdx < pd.lastDecodedIdx) || (targetIdx - pd.lastDecodedIdx > 60);
+    // Target's position in DECODE order
+    var targetDecodeIdx = pd.ordered[targetIdx].i;
+    // Reset to a decode-order keyframe if we have no decoder, or the target
+    // sample is behind where we last decoded, or we're jumping far ahead.
+    var needKeyframe = (pd.lastDecodedDecIdx===undefined) || (targetDecodeIdx <= pd.lastDecodedDecIdx) || (targetDecodeIdx - pd.lastDecodedDecIdx > 60);
     if(needKeyframe || !pd.decoder || pd.decoder.state!=='configured'){
       _pdResetDecoder(pd);
-      pd.startIdx=_pdKeyframeBefore(pd, targetIdx);
-      pd.lastDecodedIdx=pd.startIdx-1;
+      var kf = _pdKeyframeBeforeDecodeIdx(pd, targetDecodeIdx);
+      pd.lastDecodedDecIdx = kf - 1;
     }
     var guard=0;
-    var fromIdx=pd.lastDecodedIdx+1;
-    for(var oi=fromIdx; oi<=targetIdx && guard<300; oi++, guard++){
-      var samp=pd.track.samples[pd.ordered[oi].i];
-      var chunk=new EncodedVideoChunk({
-        type: pd.ordered[oi].key ? 'key':'delta',
-        timestamp: Math.round(pd.ordered[oi].cts/pd.timescale*1e6),
-        duration:0,
-        data:new Uint8Array(pd.ab, samp.offset, samp.size)
+    var fromIdx = pd.lastDecodedDecIdx + 1;
+    // Feed samples in DECODE order (track.samples is already in DTS order).
+    // VideoDecoder REQUIRES this; presentation-order feeding causes
+    // "Decoding error" on any file with B-frames.
+    for(var di = fromIdx; di <= targetDecodeIdx && guard<300; di++, guard++){
+      var samp = pd.track.samples[di];
+      var chunk = new EncodedVideoChunk({
+        type: samp.key ? 'key' : 'delta',
+        timestamp: Math.round(samp.cts/pd.timescale*1e6),
+        duration: 0,
+        data: new Uint8Array(pd.ab, samp.offset, samp.size)
       });
       try{ pd.decoder.decode(chunk); }catch(e){ pd.failed=true; pd.failReason='decode() threw: '+(e.message||String(e)); break; }
-      pd.lastDecodedIdx=oi;
+      pd.lastDecodedDecIdx = di;
     }
   }catch(e){ }
   pd.decoding=false;
