@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 18</title>
+<title>Kids Film Club — Trailer Editor v3 · build 19</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 18</span>
+  <span class="hbtn v3">v3 · build 19</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -5231,10 +5231,28 @@ async function startExportWebCodecs(){
 
   async function decodeFrameAt(src, tSec){
     var tsTicks = tSec * src.timescale;
-    for(var i=src.frameCache.length-1;i>=0;i--){
-      var fc=src.frameCache[i];
-      if(fc.cts<=tsTicks && (fc.ctsEnd>tsTicks||fc.last)) return fc.frame;
+    // Check for an exact-or-earlier frame already in cache whose cts ends
+    // AFTER the target — only that means it actually covers the target.
+    function findInCache(){
+      var best=null;
+      for(var i=0;i<src.frameCache.length;i++){
+        var fc=src.frameCache[i];
+        if(fc.cts<=tsTicks && (best===null || fc.cts>best.cts)) best=fc;
+      }
+      // Only accept it if the next-newer cached frame is past the target
+      // (otherwise we may be missing the real target frame still in flight).
+      if(!best) return null;
+      var hasNewer=false;
+      for(var j=0;j<src.frameCache.length;j++){
+        if(src.frameCache[j].cts>tsTicks){ hasNewer=true; break; }
+      }
+      if(hasNewer || best.last) return best.frame;
+      return null;
     }
+
+    var cached=findInCache();
+    if(cached) return cached;
+
     if(!src.decoder){
       src.pendingFrames=[];
       src.decoder=new VideoDecoder({
@@ -5247,11 +5265,11 @@ async function startExportWebCodecs(){
         optimizeForLatency:true
       });
     }
+
     var guard=0;
-    // Walk DECODE order, not presentation order. track.samples is the
-    // demuxer's natural (DTS) order. Feeding in presentation order silently
-    // produces wrong frames on any video with B-frames — that's the
-    // 'jumps to the end halfway through' symptom in the export.
+    // Feed decode-order samples and drain output until we have a frame
+    // covering the target AND at least one frame past it (so we know the
+    // target frame is definitely out, not still in flight).
     while(src.nextDecodeIdx < src.track.samples.length && guard<200000){
       guard++;
       var s=src.track.samples[src.nextDecodeIdx];
@@ -5263,39 +5281,48 @@ async function startExportWebCodecs(){
       });
       try{ src.decoder.decode(chunk); }catch(e){ src.decodeError=e; break; }
       src.nextDecodeIdx++;
+      // Drain emitted frames into the cache
       if(src.pendingFrames.length>0){
         for(var pf=0; pf<src.pendingFrames.length; pf++){
           var frame=src.pendingFrames[pf];
           var ctsTicks=(frame.timestamp/1e6)*src.timescale;
-          src.frameCache.push({cts:ctsTicks, ctsEnd:ctsTicks+(src.timescale/Math.max(fps,1)), frame:frame, last:false});
+          src.frameCache.push({cts:ctsTicks, frame:frame, last:false});
         }
         src.pendingFrames=[];
-        while(src.frameCache.length>16){
-          var old=src.frameCache.shift();
-          try{ old.frame.close(); }catch(e){}
+        // Evict ONLY frames whose cts is well before the current target.
+        // Frames after target are kept (they may be the actual target after
+        // sorting, or upcoming frames we'll need). Bounded eviction so a
+        // long backlog doesn't grow unbounded.
+        var keepFromTicks = tsTicks - src.timescale*2; // keep last 2 seconds before target
+        var trimmed=[];
+        for(var ti=0; ti<src.frameCache.length; ti++){
+          if(src.frameCache[ti].cts >= keepFromTicks) trimmed.push(src.frameCache[ti]);
+          else { try{ src.frameCache[ti].frame.close(); }catch(e){} }
         }
-        for(var ci=src.frameCache.length-1;ci>=0;ci--){
-          if(src.frameCache[ci].cts<=tsTicks) return src.frameCache[ci].frame;
-        }
+        src.frameCache=trimmed;
+        // Try again
+        cached=findInCache();
+        if(cached) return cached;
       }
       if(src.decodeError) break;
-      // Keep the decoder queue bounded
       if(src.decoder.decodeQueueSize>8){ await sleep(0); }
     }
+    // End of stream — flush and try again
     if(src.nextDecodeIdx>=src.track.samples.length && src.decoder && src.decoder.state==='configured'){
       try{ await src.decoder.flush(); }catch(e){}
       for(var pf2=0; pf2<src.pendingFrames.length; pf2++){
         var fr=src.pendingFrames[pf2];
         var ct=(fr.timestamp/1e6)*src.timescale;
-        src.frameCache.push({cts:ct, ctsEnd:ct+(src.timescale/Math.max(fps,1)), frame:fr, last:true});
+        src.frameCache.push({cts:ct, frame:fr, last:true});
       }
       src.pendingFrames=[];
     }
+    // Final: closest at-or-before target
     var best=null;
     for(var bi=0;bi<src.frameCache.length;bi++){
-      if(src.frameCache[bi].cts<=tsTicks) best=src.frameCache[bi].frame;
+      if(src.frameCache[bi].cts<=tsTicks && (best===null || src.frameCache[bi].cts>best.cts)) best=src.frameCache[bi];
     }
-    return best;
+    return best ? best.frame : null;
   }
 
   async function exportPrepareFrames(t){
