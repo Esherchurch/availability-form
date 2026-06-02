@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Kids Film Club — Trailer Editor v3 · build 19</title>
+<title>Kids Film Club — Trailer Editor v3 · build 20</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;900&family=Bebas+Neue&family=Anton&family=Trajan+Pro+3:wght@700&family=Abril+Fatface&family=Akira+Expanded&family=Dela+Gothic+One&family=Imbue:wght@900&family=Satisfy&family=Reenie+Beanie&family=Homemade+Apple&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Pacifico&display=swap');
 :root{
@@ -333,7 +333,7 @@ body.eyedropper-mode{cursor:crosshair!important;}
 <div id="hdr">
   <div><div class="logo">KIDS FILM CLUB</div><div class="logo-sub">Trailer Editor</div></div>
   <div style="width:1px;height:26px;background:#2a2a2a"></div>
-  <span class="hbtn v3">v3 · build 19</span>
+  <span class="hbtn v3">v3 · build 20</span>
   <input class="proj" id="projName" value="Kids Film Club Trailer">
   <div class="hsep"></div>
   <button class="hbtn undoredo" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
@@ -5289,18 +5289,19 @@ async function startExportWebCodecs(){
           src.frameCache.push({cts:ctsTicks, frame:frame, last:false});
         }
         src.pendingFrames=[];
-        // Evict ONLY frames whose cts is well before the current target.
-        // Frames after target are kept (they may be the actual target after
-        // sorting, or upcoming frames we'll need). Bounded eviction so a
-        // long backlog doesn't grow unbounded.
-        var keepFromTicks = tsTicks - src.timescale*2; // keep last 2 seconds before target
+        // Bounded sliding window. Each VideoFrame at 1080p is ~8MB; letting
+        // the cache grow unbounded crashed Chrome on long exports. Keep a
+        // small window of ~0.5s before/after target — enough for the
+        // "target is out" check and a tiny lookahead for the next call.
+        var keepFromTicks = tsTicks - src.timescale*0.5;
+        var keepToTicks   = tsTicks + src.timescale*0.5;
         var trimmed=[];
         for(var ti=0; ti<src.frameCache.length; ti++){
-          if(src.frameCache[ti].cts >= keepFromTicks) trimmed.push(src.frameCache[ti]);
-          else { try{ src.frameCache[ti].frame.close(); }catch(e){} }
+          var fcc=src.frameCache[ti];
+          if(fcc.cts >= keepFromTicks && fcc.cts <= keepToTicks) trimmed.push(fcc);
+          else { try{ fcc.frame.close(); }catch(e){} }
         }
         src.frameCache=trimmed;
-        // Try again
         cached=findInCache();
         if(cached) return cached;
       }
