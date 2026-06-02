@@ -392,7 +392,7 @@
         <div class="card">
             <div class="card-header">
                 <div class="card-header-icon">🎚</div>
-                <h2>Define Signal</h2>
+                <h2 id="sig-form-header-text">Define Signal</h2>
             </div>
             <div class="card-body">
                 <div class="field-group">
@@ -433,7 +433,10 @@
                     <div id="sig-paths-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
                     <button class="btn btn-secondary" style="padding:9px;font-size:0.78rem;" onclick="addPathEntry()">+ Add Path</button>
                 </div>
-                <button class="btn btn-primary" style="margin-top:4px;" onclick="saveSignal()">Save Signal</button>
+                <div style="display:flex;gap:8px;margin-top:4px;">
+                    <button id="sig-save-btn" class="btn btn-primary" style="flex:1;" onclick="saveSignal()">Save Signal</button>
+                    <button id="sig-cancel-btn" class="btn btn-danger" style="display:none;flex:0 0 auto;padding:13px 18px;" onclick="cancelEditSignal()">Cancel</button>
+                </div>
             </div>
         </div>
         <div class="card" id="signals-list-card" style="display:none;">
@@ -704,6 +707,36 @@ function updateDirLabels() {
     }
 }
 
+function cancelEditSignal() {
+    editingSignalIdx = -1;
+    document.getElementById('sig-label').value = '';
+    document.getElementById('sig-label').readOnly = false;
+    document.getElementById('sig-desk').value = '';
+    pathEntries = [];
+    renderPathEntries();
+    const cb = document.getElementById('stereo-link-cb');
+    if (cb) cb.checked = false;
+    updateStereoRow();
+    const defDir = document.querySelector('input[name="sig-direction"][value="to-desk"]');
+    if (defDir) { defDir.checked = true; updateDirLabels(); }
+    updateSignalFormMode();
+}
+
+function updateSignalFormMode() {
+    const isEditing = editingSignalIdx > -1;
+    const btn = document.getElementById('sig-save-btn');
+    const cancelBtn = document.getElementById('sig-cancel-btn');
+    const cardHeader = document.getElementById('sig-form-header-text');
+    if (btn) btn.textContent = isEditing ? '✓ Update Signal' : 'Save Signal';
+    if (cancelBtn) cancelBtn.style.display = isEditing ? '' : 'none';
+    if (cardHeader) cardHeader.textContent = isEditing ? ('Editing: ' + ((signals[editingSignalIdx]||{}).label||'')) : 'Define Signal';
+    const labelInput = document.getElementById('sig-label');
+    if (labelInput) {
+        labelInput.style.background = isEditing ? '#fffbea' : '';
+        labelInput.style.borderColor = isEditing ? 'var(--green)' : '';
+    }
+}
+
 let pathEntries = [];
 
 function addPathEntry() {
@@ -760,6 +793,8 @@ function updateStereoRow() {
     row.style.display = '';
 }
 
+let editingSignalIdx = -1; // -1 = new signal, >=0 = editing existing
+
 function saveSignal() {
     const label = document.getElementById('sig-label').value.trim();
     const desk  = document.getElementById('sig-desk').value;
@@ -771,11 +806,17 @@ function saveSignal() {
     const dirEl = document.querySelector('input[name="sig-direction"]:checked');
     const direction = dirEl ? dirEl.value : 'to-desk';
     const entry = { label, desk, paths, stereo, stereoPartner, direction };
-    const idx = signals.findIndex(s => s.label === label);
-    if (idx > -1) signals[idx] = entry;
-    else signals.push(entry);
+    if (editingSignalIdx > -1) {
+        signals[editingSignalIdx] = entry;
+    } else {
+        const existing = signals.findIndex(s => s.label === label);
+        if (existing > -1) signals[existing] = entry;
+        else signals.push(entry);
+    }
     saveSignals();
+    editingSignalIdx = -1;
     document.getElementById('sig-label').value = '';
+    document.getElementById('sig-label').readOnly = false;
     document.getElementById('sig-desk').value = '';
     pathEntries = [];
     renderPathEntries();
@@ -784,6 +825,7 @@ function saveSignal() {
     updateStereoRow();
     const defDir = document.querySelector('input[name="sig-direction"][value="to-desk"]');
     if (defDir) { defDir.checked = true; updateDirLabels(); }
+    updateSignalFormMode();
 }
 
 function deleteSignal(lbl) {
@@ -792,8 +834,10 @@ function deleteSignal(lbl) {
 }
 
 function editSignal(idx) {
+    editingSignalIdx = idx;
     const s = signals[idx];
     document.getElementById('sig-label').value = s.label;
+    document.getElementById('sig-label').readOnly = true;
     document.getElementById('sig-desk').innerHTML = buildDeskSelectHTML(s.desk || '');
     pathEntries = (s.paths || []).map((p, i) => ({ id: Date.now().toString()+i, label: p }));
     renderPathEntries();
@@ -802,6 +846,7 @@ function editSignal(idx) {
     if (cb) cb.checked = s.stereo || false;
     const dirEl = document.querySelector('input[name="sig-direction"][value="'+(s.direction||'to-desk')+'"]');
     if (dirEl) { dirEl.checked = true; updateDirLabels(); }
+    updateSignalFormMode();
     document.getElementById('sig-label').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -1125,22 +1170,30 @@ function renderSchematic() {
             const dirBadge = sig.direction === 'from-desk'
                 ? '<span class="rpt-badge-out" style="margin-left:6px;">&#8595; From Desk</span>'
                 : '<span class="rpt-badge-in"  style="margin-left:6px;">&#8593; To Desk</span>';
-            // Build path display from stored paths array
+            // Build path display from stored paths array — grouped under one signal name
             const pathRows = (sig.paths && sig.paths.length) ? sig.paths : ['—'];
-            html += '<tr>' +
-                '<td style="font-weight:700;font-family:Nunito,sans-serif;">' + sig.label + dirBadge + '</td>' +
-                '<td>' +
-                    pathRows.map((p, pi) =>
-                        '<div class="rpt-chain' + (pi > 0 ? ' rpt-alt-path' : '') + '">' +
-                        (pi > 0 ? '<span style="font-size:0.65rem;color:var(--text-muted);margin-right:4px;">ALT:</span>' : '') +
-                        p.split(' → ').map((node, ni) =>
-                            (ni > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
-                            '<span class="rpt-chain-node'+(isDeskNode(node.split(' ch')[0])?' desk':'')+'">'+node+'</span>'
-                        ).join('') +
-                        '</div>'
+            const pathsHTML = pathRows.length === 1
+                // Single path — plain chain
+                ? '<div class="rpt-chain">' +
+                    pathRows[0].split(' → ').map((node, ni) =>
+                        (ni > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
+                        '<span class="rpt-chain-node'+(isDeskNode(node.split(' ch')[0])?' desk':'')+'">'+node+'</span>'
                     ).join('') +
-                '</td>' +
-                '<td><span class="rpt-chain-node desk">' + dl + (sig.stereo && sig.stereoPartner ? ' + '+deskLabel(sig.stereoPartner) : '') + '</span></td>' +
+                  '</div>'
+                // Multiple paths — show each as a labelled branch
+                : pathRows.map((p, pi) =>
+                    '<div class="rpt-chain" style="margin-bottom:'+(pi < pathRows.length-1 ? '5' : '0')+'px;">' +
+                    '<span style="font-size:0.65rem;font-weight:800;color:var(--teal);background:var(--teal-light);border-radius:20px;padding:1px 7px;margin-right:5px;white-space:nowrap;">Branch '+(pi+1)+'</span>' +
+                    p.split(' → ').map((node, ni) =>
+                        (ni > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
+                        '<span class="rpt-chain-node'+(isDeskNode(node.split(' ch')[0])?' desk':'')+'">'+node+'</span>'
+                    ).join('') +
+                    '</div>'
+                  ).join('');
+            html += '<tr>' +
+                '<td style="font-weight:700;font-family:Nunito,sans-serif;vertical-align:top;padding-top:10px;">' + sig.label + dirBadge + '</td>' +
+                '<td>' + pathsHTML + '</td>' +
+                '<td style="vertical-align:top;padding-top:10px;"><span class="rpt-chain-node desk">' + dl + (sig.stereo && sig.stereoPartner ? ' + '+deskLabel(sig.stereoPartner) : '') + '</span></td>' +
             '</tr>';
         });
         html += '</tbody></table>';
