@@ -415,6 +415,19 @@
                     </label>
                 </div>
                 <div class="field-group">
+                    <label class="field-label">Signal Flow Direction</label>
+                    <div style="display:flex;gap:8px;">
+                        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--input-bg);transition:all 0.15s;" id="dir-label-to-desk">
+                            <input type="radio" id="sig-direction" name="sig-direction" value="to-desk" checked style="width:auto;margin:0;accent-color:var(--green);" onchange="updateDirLabels()">
+                            <span style="font-size:0.8rem;font-weight:700;color:var(--teal);">&#8593; To Desk <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted);">(input)</span></span>
+                        </label>
+                        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--input-bg);transition:all 0.15s;" id="dir-label-from-desk">
+                            <input type="radio" name="sig-direction" value="from-desk" style="width:auto;margin:0;accent-color:var(--green);" onchange="updateDirLabels()">
+                            <span style="font-size:0.8rem;font-weight:700;color:var(--green-dark);">&#8595; From Desk <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted);">(output)</span></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="field-group">
                     <label class="field-label" style="margin-bottom:8px;">Physical Paths</label>
                     <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;line-height:1.5;">Add one path per physical entry point — e.g. Stage Left Jack ch7 and Stage Right Jack ch7 for a guitar that can plug in on either side.</p>
                     <div id="sig-paths-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
@@ -672,6 +685,25 @@ function renderSignalsDeskOptions() {
     renderSignalsList();
 }
 
+function updateDirLabels() {
+    const toDesk   = document.querySelector('input[name="sig-direction"][value="to-desk"]');
+    const fromDesk = document.querySelector('input[name="sig-direction"][value="from-desk"]');
+    const labelTo   = document.getElementById('dir-label-to-desk');
+    const labelFrom = document.getElementById('dir-label-from-desk');
+    if (!toDesk || !labelTo) return;
+    if (toDesk.checked) {
+        labelTo.style.borderColor   = 'var(--teal)';
+        labelTo.style.background    = 'var(--teal-light)';
+        labelFrom.style.borderColor = 'var(--border)';
+        labelFrom.style.background  = 'var(--input-bg)';
+    } else {
+        labelFrom.style.borderColor = 'var(--green)';
+        labelFrom.style.background  = 'var(--green-light)';
+        labelTo.style.borderColor   = 'var(--border)';
+        labelTo.style.background    = 'var(--input-bg)';
+    }
+}
+
 let pathEntries = [];
 
 function addPathEntry() {
@@ -736,7 +768,9 @@ function saveSignal() {
     const stereoCb = document.getElementById('stereo-link-cb');
     const stereo = stereoCb ? stereoCb.checked : false;
     const stereoPartner = stereo ? document.getElementById('stereo-partner-val').value : null;
-    const entry = { label, desk, paths, stereo, stereoPartner };
+    const dirEl = document.querySelector('input[name="sig-direction"]:checked');
+    const direction = dirEl ? dirEl.value : 'to-desk';
+    const entry = { label, desk, paths, stereo, stereoPartner, direction };
     const idx = signals.findIndex(s => s.label === label);
     if (idx > -1) signals[idx] = entry;
     else signals.push(entry);
@@ -748,6 +782,8 @@ function saveSignal() {
     const cb = document.getElementById('stereo-link-cb');
     if (cb) cb.checked = false;
     updateStereoRow();
+    const defDir = document.querySelector('input[name="sig-direction"][value="to-desk"]');
+    if (defDir) { defDir.checked = true; updateDirLabels(); }
 }
 
 function deleteSignal(lbl) {
@@ -764,6 +800,8 @@ function editSignal(idx) {
     updateStereoRow();
     const cb = document.getElementById('stereo-link-cb');
     if (cb) cb.checked = s.stereo || false;
+    const dirEl = document.querySelector('input[name="sig-direction"][value="'+(s.direction||'to-desk')+'"]');
+    if (dirEl) { dirEl.checked = true; updateDirLabels(); }
     document.getElementById('sig-label').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -777,6 +815,9 @@ function renderSignalsList() {
             '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">' +
                 '<span class="signal-name">&#127908; '+s.label+(s.stereo ? ' <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid rgba(141,198,63,0.3);border-radius:20px;padding:1px 7px;font-weight:700;">STEREO</span>' : '')+'</span>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
+                    (s.direction === 'from-desk'
+                        ? '<span class="dir-badge-out">&#8595; Out</span>'
+                        : '<span class="dir-badge-in">&#8593; In</span>') +
                     (s.desk ? '<span class="signal-desk">'+deskLabel(s.desk)+(s.stereo && s.stereoPartner ? ' + '+deskLabel(s.stereoPartner) : '')+'</span>' : '<span class="signal-unlinked">No desk ch</span>') +
                     '<span data-sig-idx="'+i+'" class="edit-sig-btn" style="cursor:pointer;color:var(--teal);font-size:0.75rem;padding:2px 7px;border:1px solid var(--teal);border-radius:6px;font-weight:700;">Edit</span>' +
                     '<span data-sig-idx="'+i+'" class="del-sig" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1rem;padding:0 4px;">x</span>' +
@@ -1081,10 +1122,13 @@ function renderSchematic() {
 
         signals.forEach(sig => {
             const dl = sig.desk ? deskLabel(sig.desk) : '—';
+            const dirBadge = sig.direction === 'from-desk'
+                ? '<span class="rpt-badge-out" style="margin-left:6px;">&#8595; From Desk</span>'
+                : '<span class="rpt-badge-in"  style="margin-left:6px;">&#8593; To Desk</span>';
             // Build path display from stored paths array
             const pathRows = (sig.paths && sig.paths.length) ? sig.paths : ['—'];
             html += '<tr>' +
-                '<td style="font-weight:700;font-family:Nunito,sans-serif;">' + sig.label + '</td>' +
+                '<td style="font-weight:700;font-family:Nunito,sans-serif;">' + sig.label + dirBadge + '</td>' +
                 '<td>' +
                     pathRows.map((p, pi) =>
                         '<div class="rpt-chain' + (pi > 0 ? ' rpt-alt-path' : '') + '">' +
@@ -1190,7 +1234,22 @@ function renderPerBox() {
                 const sigTag = sigNames.length
                     ? sigNames.map(s => '<span class="rpt-signal-tag">'+s+'</span>').join(' ')
                     : '<span style="color:var(--text-muted);font-size:0.72rem;font-style:italic;">—</span>';
-                const dir = isA
+                // Determine direction: use signal's stored direction if available
+                let isOut = isA; // default: A-end = out
+                if (sigNames.length) {
+                    const sigObj = signals.find(s => s.label === sigNames[0]);
+                    if (sigObj && sigObj.direction) {
+                        const deskIsRemote = isDeskNode(remoteLoc);
+                        // 'to-desk' = signal flows toward the desk = OUT if remote is desk, IN if remote is not desk
+                        // 'from-desk' = signal flows away from desk = IN if remote is desk, OUT if remote is not desk
+                        if (deskIsRemote) {
+                            isOut = sigObj.direction === 'to-desk';
+                        } else {
+                            isOut = sigObj.direction === 'from-desk';
+                        }
+                    }
+                }
+                const dir = isOut
                     ? '<span class="rpt-badge-out">OUT &#8594;</span>'
                     : '<span class="rpt-badge-in">&#8592; IN</span>';
 
