@@ -1221,7 +1221,6 @@ function findAllChains() {
     allPaths.forEach(path => {
         const deskNodes = path.filter(n => isDeskNode(n.split(':')[0]));
         if (deskNodes.length) {
-            // deskEnd = the desk node (usually the source or first desk hop)
             const deskEnd = deskNodes[0];
             complete.push({ path, deskEnd });
         } else {
@@ -1229,7 +1228,26 @@ function findAllChains() {
         }
     });
 
-    return { complete, incomplete };
+    // Deduplicate complete chains: same deskEnd + same non-desk terminal = same suggestion
+    const seenComplete = new Set();
+    const dedupedComplete = complete.filter(c => {
+        const nonDeskEnd = c.path.filter(n => !isDeskNode(n.split(':')[0])).pop() || '';
+        const key = c.deskEnd + '|' + nonDeskEnd;
+        if (seenComplete.has(key)) return false;
+        seenComplete.add(key);
+        return true;
+    });
+
+    // Deduplicate incomplete chains by path string
+    const seenIncomplete = new Set();
+    const dedupedIncomplete = incomplete.filter(c => {
+        const key = c.path.join('|');
+        if (seenIncomplete.has(key)) return false;
+        seenIncomplete.add(key);
+        return true;
+    });
+
+    return { complete: dedupedComplete, incomplete: dedupedIncomplete };
 }
 
 // Check if a chain is already matched to a signal
