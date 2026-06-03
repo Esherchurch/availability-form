@@ -1518,24 +1518,70 @@ function renderSchematic() {
         });
     }
 
-    // ── SECTION 2: ALL PHYSICAL CONNECTIONS (flat list with direction) ──
+    // ── SECTION 2: ALL PHYSICAL CONNECTIONS (grouped by desk channel, sorted numerically) ──
     if (hops.length) {
-        html += '<div class="rpt-section-title print-section-break">All Physical Connections (' + hops.length + ')</div>';
-        html += '<table class="rpt-table"><thead><tr>' +
-            '<th>From</th><th style="width:24px"></th><th>To</th>' +
-        '</tr></thead><tbody>';
+        // Group by desk channel — each MIX appears once, all destinations listed together
+        const deskGroupMap = {};
+        const nonDeskRows  = [];
+
         hops.forEach(h => {
             const dir = h.direction || 'a→b';
-            const fromLoc = dir === 'a→b' ? h.aLoc : h.bLoc;
-            const fromCh  = dir === 'a→b' ? h.aCh  : h.bCh;
-            const toLoc   = dir === 'a→b' ? h.bLoc : h.aLoc;
-            const toCh    = dir === 'a→b' ? h.bCh  : h.aCh;
+            const aNode = { loc: h.aLoc, ch: h.aCh };
+            const bNode = { loc: h.bLoc, ch: h.bCh };
+            const fromNode = dir === 'a→b' ? aNode : bNode;
+            const toNode   = dir === 'a→b' ? bNode : aNode;
+            const fromIsDesk = isDeskNode(fromNode.loc);
+            const toIsDesk   = isDeskNode(toNode.loc);
+
+            if (fromIsDesk || toIsDesk) {
+                const deskNode  = fromIsDesk ? fromNode : toNode;
+                const otherNode = fromIsDesk ? toNode   : fromNode;
+                const key = deskNode.loc + ':' + deskNode.ch;
+                if (!deskGroupMap[key]) {
+                    deskGroupMap[key] = { deskLoc: deskNode.loc, deskCh: deskNode.ch, destinations: [] };
+                }
+                deskGroupMap[key].destinations.push({ loc: otherNode.loc, ch: otherNode.ch });
+            } else {
+                nonDeskRows.push({ fromLoc: fromNode.loc, fromCh: fromNode.ch, toLoc: toNode.loc, toCh: toNode.ch });
+            }
+        });
+
+        // Sort numerically by desk channel (MIX1, MIX2…)
+        const sortedDeskKeys = Object.keys(deskGroupMap).sort((a, b) => {
+            const numA = parseFloat(deskGroupMap[a].deskCh.replace(/[^0-9.]/g, '')) || 0;
+            const numB = parseFloat(deskGroupMap[b].deskCh.replace(/[^0-9.]/g, '')) || 0;
+            return numA - numB;
+        });
+
+        html += '<div class="rpt-section-title print-section-break">All Physical Connections (' + hops.length + ')</div>';
+        html += '<table class="rpt-table"><thead><tr>' +
+            '<th style="width:80px">Desk Ch</th>' +
+            '<th style="width:160px">Desk</th>' +
+            '<th style="width:24px"></th>' +
+            '<th>Destinations</th>' +
+        '</tr></thead><tbody>';
+
+        sortedDeskKeys.forEach(key => {
+            const g = deskGroupMap[key];
+            const destHtml = g.destinations.map(d =>
+                '<span class="rpt-ch" style="margin-right:5px;">' + d.ch + '</span><strong>' + d.loc + '</strong>'
+            ).join('<br>');
             html += '<tr>' +
-                '<td><span class="rpt-ch">' + fromCh + '</span> <strong>' + fromLoc + '</strong></td>' +
+                '<td><span class="rpt-ch">' + g.deskCh + '</span></td>' +
+                '<td><strong>' + g.deskLoc + '</strong></td>' +
                 '<td style="text-align:center;color:var(--green);font-weight:700;">&#8594;</td>' +
-                '<td><span class="rpt-ch">' + toCh + '</span> <strong>' + toLoc + '</strong></td>' +
+                '<td>' + destHtml + '</td>' +
             '</tr>';
         });
+
+        nonDeskRows.forEach(row => {
+            html += '<tr>' +
+                '<td colspan="2"><span class="rpt-ch">' + row.fromCh + '</span> <strong>' + row.fromLoc + '</strong></td>' +
+                '<td style="text-align:center;color:var(--green);font-weight:700;">&#8594;</td>' +
+                '<td><span class="rpt-ch">' + row.toCh + '</span> <strong>' + row.toLoc + '</strong></td>' +
+            '</tr>';
+        });
+
         html += '</tbody></table>';
     }
 
