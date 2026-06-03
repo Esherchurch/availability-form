@@ -1253,112 +1253,187 @@ function renderSchematic() {
     if (!el) return;
 
     if (!signals.length && !hops.length) {
-        el.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128268;</div><p>No signals or hops yet.<br>Add hops and confirm signals via the Suggestions tab.</p></div>';
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128268;</div><p>No signals or hops yet.<br>Add hops on the Hops tab, then define signals on the Signals tab.</p></div>';
         return;
     }
 
-    const adj = buildAdjacency();
-
-    // Build a map of all hop chains for each signal
-    // For each signal, trace the full chain from deskEnd outward
-    function traceChainFromNode(startNode, excludeNode) {
-        // Walk from startNode away from excludeNode, returning ordered path
-        const path = [startNode];
-        let prev = excludeNode, curr = startNode;
-        while (true) {
-            const nexts = (adj[curr]||[]).filter(e => e.node !== prev);
-            if (nexts.length !== 1) break;
-            prev = curr;
-            curr = nexts[0].node;
-            path.push(curr);
+    // ── BUILD DIRECTED ADJACENCY ──
+    // For each node, list which nodes it can send TO (respecting hop direction)
+    const fwdAdj = {}; // node → [node, ...] it flows TO
+    const allHopNodes = new Set();
+    hops.forEach(h => {
+        const a = h.aLoc + ':' + h.aCh;
+        const b = h.bLoc + ':' + h.bCh;
+        allHopNodes.add(a); allHopNodes.add(b);
+        if (!fwdAdj[a]) fwdAdj[a] = [];
+        if (!fwdAdj[b]) fwdAdj[b] = [];
+        const dir = h.direction || 'a→b';
+        if (dir === 'a→b') {
+            fwdAdj[a].push(b);
+        } else {
+            fwdAdj[b].push(a);
         }
-        return path;
+    });
+
+    // ── TRACE ALL PATHS FROM A NODE (DFS, returns array of paths) ──
+    // Each path is an array of node strings
+    function tracePaths(startNode, visited) {
+        const nexts = (fwdAdj[startNode] || []).filter(n => !visited.has(n));
+        if (!nexts.length) return [[startNode]];
+        const results = [];
+        nexts.forEach(next => {
+            const v = new Set(visited); v.add(startNode);
+            tracePaths(next, v).forEach(tail => {
+                results.push([startNode, ...tail]);
+            });
+        });
+        return results;
     }
 
-    function nodeLabel(n) {
-        const p = n.split(':');
-        return p[0] + ' ch' + p[1];
-    }
-
-    function renderChain(path) {
-        return '<div class="rpt-chain">' +
-            path.map((n, i) => {
-                const p = n.split(':');
-                const isDesk = isDeskNode(p[0]);
-                return (i > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
-                    '<span class="rpt-chain-node'+(isDesk?' desk':'')+'">'+p[0]+' <strong>ch'+p[1]+'</strong></span>';
-            }).join('') +
-        '</div>';
+    // ── FORMAT A PATH AS HTML CHAIN ──
+    function renderPathChain(path) {
+        return path.map((n, i) => {
+            const parts = n.split(':');
+            const loc = parts[0], ch = parts.slice(1).join(':');
+            const isDesk = isDeskNode(loc);
+            return (i > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
+                '<span class="rpt-chain-node' + (isDesk ? ' desk' : '') + '">' +
+                    loc + ' <strong>ch' + ch + '</strong>' +
+                '</span>';
+        }).join('');
     }
 
     let html = '<div class="rpt-page">';
 
     // ── SECTION 1: NAMED SIGNALS ──
     if (signals.length) {
-        html += '<div class="rpt-section-title">Signal Flow — Named Signals ('+signals.length+')</div>';
-        html += '<table class="rpt-table"><thead><tr>' +
-            '<th style="width:160px">Signal</th>' +
-            '<th>Physical Path(s)</th>' +
-            '<th style="width:80px">Desk Ch</th>' +
-        '</tr></thead><tbody>';
+        html += '<div class="rpt-section-title">Signal Flow — Named Signals (' + signals.length + ')</div>';
 
         signals.forEach(sig => {
-            const dl = sig.desk ? deskLabel(sig.desk) : '—';
+            const dl = sig.desk ? deskLabel(sig.desk) : null;
             const dirBadge = sig.direction === 'from-desk'
-                ? '<span class="rpt-badge-out" style="margin-left:6px;">&#8595; From Desk</span>'
-                : '<span class="rpt-badge-in"  style="margin-left:6px;">&#8593; To Desk</span>';
-            // Build path display from stored paths array — grouped under one signal name
-            const pathRows = (sig.paths && sig.paths.length) ? sig.paths : ['—'];
-            const pathsHTML = pathRows.length === 1
-                // Single path — plain chain
-                ? '<div class="rpt-chain">' +
-                    pathRows[0].split(' → ').map((node, ni) =>
-                        (ni > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
-                        '<span class="rpt-chain-node'+(isDeskNode(node.split(' ch')[0])?' desk':'')+'">'+node+'</span>'
-                    ).join('') +
-                  '</div>'
-                // Multiple paths — show each as a labelled branch
-                : pathRows.map((p, pi) =>
-                    '<div class="rpt-chain" style="margin-bottom:'+(pi < pathRows.length-1 ? '5' : '0')+'px;">' +
-                    '<span style="font-size:0.65rem;font-weight:800;color:var(--teal);background:var(--teal-light);border-radius:20px;padding:1px 7px;margin-right:5px;white-space:nowrap;">Branch '+(pi+1)+'</span>' +
-                    p.split(' → ').map((node, ni) =>
-                        (ni > 0 ? '<span class="rpt-chain-arrow">&#8594;</span>' : '') +
-                        '<span class="rpt-chain-node'+(isDeskNode(node.split(' ch')[0])?' desk':'')+'">'+node+'</span>'
-                    ).join('') +
+                ? '<span class="rpt-badge-out" style="margin-left:6px;vertical-align:middle;">&#8595; From Desk</span>'
+                : '<span class="rpt-badge-in"  style="margin-left:6px;vertical-align:middle;">&#8593; To Desk</span>';
+
+            // Find the desk node for this signal
+            let deskNode = null;
+            if (sig.desk) {
+                const dl2 = deskLabel(sig.desk);
+                // Find any hop that has this desk channel on the desk side
+                hops.forEach(h => {
+                    if (isDeskNode(h.aLoc) && h.aCh === dl2) deskNode = h.aLoc + ':' + h.aCh;
+                    if (isDeskNode(h.bLoc) && h.bCh === dl2) deskNode = h.bLoc + ':' + h.bCh;
+                });
+            }
+
+            // Trace outward paths from the desk node following signal direction
+            let tracedPaths = [];
+            if (deskNode) {
+                const visited = new Set([deskNode]);
+                tracedPaths = tracePaths(deskNode, visited);
+                // If from-desk, paths go deskNode → ... (already correct)
+                // If to-desk, the desk node is the END — trace backwards from non-desk ends
+                if (sig.direction !== 'from-desk') {
+                    // Reverse: find nodes that flow INTO deskNode
+                    // Build reverse adjacency for to-desk signals
+                    const revAdj = {};
+                    hops.forEach(h => {
+                        const a = h.aLoc + ':' + h.aCh;
+                        const b = h.bLoc + ':' + h.bCh;
+                        const dir = h.direction || 'a→b';
+                        const src = dir === 'a→b' ? a : b;
+                        const dst = dir === 'a→b' ? b : a;
+                        if (!revAdj[dst]) revAdj[dst] = [];
+                        revAdj[dst].push(src);
+                    });
+                    function traceReverse(node, vis) {
+                        const prevs = (revAdj[node] || []).filter(n => !vis.has(n));
+                        if (!prevs.length) return [[node]];
+                        const r = [];
+                        prevs.forEach(p => {
+                            const v = new Set(vis); v.add(node);
+                            traceReverse(p, v).forEach(head => r.push([...head, node]));
+                        });
+                        return r;
+                    }
+                    tracedPaths = traceReverse(deskNode, new Set([deskNode]));
+                }
+            }
+
+            // Build path display HTML
+            let pathsHTML = '';
+            if (!deskNode) {
+                // Signal has no desk channel mapped to a hop — show desk ch only or a hint
+                pathsHTML = '<div style="color:var(--text-muted);font-size:0.8rem;font-style:italic;">'
+                    + (dl ? 'Desk ch <strong>' + dl + '</strong> — no hops connected yet' : 'No desk channel or hops mapped yet')
+                    + '</div>';
+            } else if (!tracedPaths.length || (tracedPaths.length === 1 && tracedPaths[0].length === 1)) {
+                pathsHTML = '<div style="color:var(--text-muted);font-size:0.8rem;font-style:italic;">Desk ch <strong>' + dl + '</strong> found but no connected hops in that direction yet</div>';
+            } else if (tracedPaths.length === 1) {
+                pathsHTML = '<div class="rpt-chain">' + renderPathChain(tracedPaths[0]) + '</div>';
+            } else {
+                pathsHTML = tracedPaths.map((path, pi) =>
+                    '<div class="rpt-chain" style="margin-bottom:' + (pi < tracedPaths.length - 1 ? '6' : '0') + 'px;">' +
+                    '<span style="font-size:0.65rem;font-weight:800;color:var(--teal);background:var(--teal-light);border-radius:20px;padding:1px 8px;margin-right:6px;white-space:nowrap;">Branch ' + (pi + 1) + '</span>' +
+                    renderPathChain(path) +
                     '</div>'
-                  ).join('');
-            html += '<tr>' +
-                '<td style="font-weight:700;font-family:Nunito,sans-serif;vertical-align:top;padding-top:10px;">' + sig.label + dirBadge + '</td>' +
-                '<td>' + pathsHTML + '</td>' +
-                '<td style="vertical-align:top;padding-top:10px;"><span class="rpt-chain-node desk">' + dl + (sig.stereo && sig.stereoPartner ? ' + '+deskLabel(sig.stereoPartner) : '') + '</span></td>' +
-            '</tr>';
+                ).join('');
+            }
+
+            html +=
+                '<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow-sm);">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:' + (pathsHTML ? '10' : '0') + 'px;flex-wrap:wrap;gap:6px;">' +
+                        '<span style="font-size:1rem;font-weight:800;font-family:Nunito,sans-serif;color:var(--teal-dark);">&#127908; ' + sig.label + '</span>' +
+                        '<span>' + dirBadge + (dl ? '<span class="rpt-chain-node desk" style="margin-left:8px;">' + dl + (sig.stereo && sig.stereoPartner ? ' + ' + deskLabel(sig.stereoPartner) : '') + '</span>' : '') + '</span>' +
+                    '</div>' +
+                    pathsHTML +
+                '</div>';
         });
-        html += '</tbody></table>';
     }
 
-    // ── SECTION 2: ALL PHYSICAL HOPS ──
+    // ── SECTION 2: ALL PHYSICAL CONNECTIONS (flat list with direction) ──
     if (hops.length) {
-        html += '<div class="rpt-section-title print-section-break">All Physical Connections ('+hops.length+')</div>';
+        html += '<div class="rpt-section-title print-section-break">All Physical Connections (' + hops.length + ')</div>';
         html += '<table class="rpt-table"><thead><tr>' +
-            '<th>From</th><th style="width:30px"></th><th>To</th>' +
+            '<th>From</th><th style="width:24px"></th><th>To</th>' +
         '</tr></thead><tbody>';
         hops.forEach(h => {
+            const dir = h.direction || 'a→b';
+            const fromLoc = dir === 'a→b' ? h.aLoc : h.bLoc;
+            const fromCh  = dir === 'a→b' ? h.aCh  : h.bCh;
+            const toLoc   = dir === 'a→b' ? h.bLoc : h.aLoc;
+            const toCh    = dir === 'a→b' ? h.bCh  : h.aCh;
             html += '<tr>' +
-                '<td><span class="rpt-ch">'+h.aCh+'</span> <strong>'+h.aLoc+'</strong></td>' +
+                '<td><span class="rpt-ch">' + fromCh + '</span> <strong>' + fromLoc + '</strong></td>' +
                 '<td style="text-align:center;color:var(--green);font-weight:700;">&#8594;</td>' +
-                '<td><span class="rpt-ch">'+h.bCh+'</span> <strong>'+h.bLoc+'</strong></td>' +
+                '<td><span class="rpt-ch">' + toCh + '</span> <strong>' + toLoc + '</strong></td>' +
             '</tr>';
         });
         html += '</tbody></table>';
     }
 
-    // ── SECTION 3: UNRESOLVED CHAINS ──
-    const { incomplete } = findAllChains();
-    if (incomplete.length) {
-        html += '<div class="rpt-section-title">Unresolved Chains — Desk Channel Not Yet Found</div>';
-        incomplete.forEach(c => {
-            const pathDisplay = c.path.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
-            html += '<div style="padding:8px 12px;background:#fff8e6;border:1px solid #f6d860;border-radius:8px;margin-bottom:6px;font-size:0.8rem;">&#9888; ' + pathDisplay + '</div>';
+    // ── SECTION 3: UNCONNECTED HOPS (nodes that are dead ends and not a desk) ──
+    // i.e. hops that don't trace back to any signal's desk channel
+    const signalDeskNodes = new Set();
+    signals.forEach(sig => {
+        if (!sig.desk) return;
+        const dl2 = deskLabel(sig.desk);
+        hops.forEach(h => {
+            if (isDeskNode(h.aLoc) && h.aCh === dl2) signalDeskNodes.add(h.aLoc + ':' + h.aCh);
+            if (isDeskNode(h.bLoc) && h.bCh === dl2) signalDeskNodes.add(h.bLoc + ':' + h.bCh);
+        });
+    });
+    const orphanHops = hops.filter(h => {
+        const a = h.aLoc + ':' + h.aCh, b = h.bLoc + ':' + h.bCh;
+        return !signalDeskNodes.has(a) && !signalDeskNodes.has(b);
+    });
+    if (orphanHops.length) {
+        html += '<div class="rpt-section-title">Hops Not Linked to Any Signal</div>';
+        orphanHops.forEach(h => {
+            const dir = h.direction || 'a→b';
+            const fromLoc = dir === 'a→b' ? h.aLoc : h.bLoc, fromCh = dir === 'a→b' ? h.aCh : h.bCh;
+            const toLoc   = dir === 'a→b' ? h.bLoc : h.aLoc, toCh   = dir === 'a→b' ? h.bCh : h.aCh;
+            html += '<div style="padding:8px 12px;background:#fff8e6;border:1px solid #f6d860;border-radius:8px;margin-bottom:6px;font-size:0.8rem;">&#9888; <strong>' + fromLoc + '</strong> ch' + fromCh + ' &#8594; <strong>' + toLoc + '</strong> ch' + toCh + ' — no signal linked</div>';
         });
     }
 
