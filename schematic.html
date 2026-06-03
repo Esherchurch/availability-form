@@ -1192,10 +1192,11 @@ function findAllChains() {
     hops.forEach(h => {
         const a = h.aLoc+':'+h.aCh, b = h.bLoc+':'+h.bCh;
         allNodes.add(a); allNodes.add(b);
-        if (!fwdAdj[a]) fwdAdj[a] = [];
-        if (!fwdAdj[b]) fwdAdj[b] = [];
         const dir = h.direction || 'a→b';
-        if (dir === 'a→b') fwdAdj[a].push(b); else fwdAdj[b].push(a);
+        const src = dir === 'a→b' ? a : b;
+        const dst = dir === 'a→b' ? b : a;
+        if (!fwdAdj[src]) fwdAdj[src] = [];
+        fwdAdj[src].push(dst);
     });
 
     // Find all source nodes (nothing flows INTO them)
@@ -1260,21 +1261,17 @@ function renderSchematic() {
     }
 
     // ── BUILD DIRECTED ADJACENCY ──
-    // For each node, list which nodes it can send TO (respecting hop direction)
-    const fwdAdj = {}; // node → [node, ...] it flows TO
+    const fwdAdj = {};
     const allHopNodes = new Set();
     hops.forEach(h => {
         const a = h.aLoc + ':' + h.aCh;
         const b = h.bLoc + ':' + h.bCh;
         allHopNodes.add(a); allHopNodes.add(b);
-        if (!fwdAdj[a]) fwdAdj[a] = [];
-        if (!fwdAdj[b]) fwdAdj[b] = [];
         const dir = h.direction || 'a→b';
-        if (dir === 'a→b') {
-            fwdAdj[a].push(b);
-        } else {
-            fwdAdj[b].push(a);
-        }
+        const src = dir === 'a→b' ? a : b;
+        const dst = dir === 'a→b' ? b : a;
+        if (!fwdAdj[src]) fwdAdj[src] = [];
+        fwdAdj[src].push(dst);
     });
 
     // ── TRACE ALL PATHS FROM A NODE (DFS, returns array of paths) ──
@@ -1360,6 +1357,14 @@ function renderSchematic() {
                     }
                     tracedPaths = traceReverse(deskNode, new Set([deskNode]));
                 }
+                // Deduplicate paths by their string representation
+                const seen = new Set();
+                tracedPaths = tracedPaths.filter(p => {
+                    const key = p.join('|');
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
             }
 
             // Build path display HTML
