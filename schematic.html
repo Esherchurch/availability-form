@@ -1186,46 +1186,48 @@ function isDeskNode(locName) {
 
 function findAllChains() {
     if (!hops.length) return { complete: [], incomplete: [] };
-    const adj = buildAdjacency();
-    const allNodes = new Set();
-    hops.forEach(h => { allNodes.add(h.aLoc+':'+h.aCh); allNodes.add(h.bLoc+':'+h.bCh); });
 
-    // Dead ends = nodes with only one connection
-    const deadEnds = [...allNodes].filter(n => (adj[n]||[]).length === 1);
+    // Build directed adjacency (respecting hop direction)
+    const fwdAdj = {}, allNodes = new Set();
+    hops.forEach(h => {
+        const a = h.aLoc+':'+h.aCh, b = h.bLoc+':'+h.bCh;
+        allNodes.add(a); allNodes.add(b);
+        if (!fwdAdj[a]) fwdAdj[a] = [];
+        if (!fwdAdj[b]) fwdAdj[b] = [];
+        const dir = h.direction || 'a→b';
+        if (dir === 'a→b') fwdAdj[a].push(b); else fwdAdj[b].push(a);
+    });
 
-    const chains = [];
-    const visited = new Set();
+    // Find all source nodes (nothing flows INTO them)
+    const hasFwdInto = new Set();
+    Object.values(fwdAdj).forEach(targets => targets.forEach(t => hasFwdInto.add(t)));
+    const sources = [...allNodes].filter(n => !hasFwdInto.has(n));
 
-    // Trace from each dead end
-    deadEnds.forEach(start => {
-        if (visited.has(start)) return;
-        // BFS/DFS walk the chain
-        const path = [start];
-        let current = start;
-        let prev = null;
-        while (true) {
-            const neighbours = (adj[current] || []).filter(e => e.node !== prev);
-            if (neighbours.length === 0 || neighbours.length > 1) break; // end or junction
-            prev = current;
-            current = neighbours[0].node;
-            path.push(current);
-            if ((adj[current]||[]).length === 1) break; // another dead end
-        }
-        if (path.length >= 2) {
-            path.forEach(n => visited.add(n));
-            // Check if either end is a desk channel
-            const startParts = path[0].split(':');
-            const endParts   = path[path.length-1].split(':');
-            const startIsDesk = isDeskNode(startParts[0]);
-            const endIsDesk   = isDeskNode(endParts[0]);
-            // Also check if any node matches a desk location that user registered
-            const deskEnd = endIsDesk ? path[path.length-1] : (startIsDesk ? path[0] : null);
-            chains.push({ path, deskEnd, startIsDesk, endIsDesk });
+    // DFS from each source, collect all terminal paths
+    function dfs(node, path, visited) {
+        const nexts = (fwdAdj[node]||[]).filter(n => !visited.has(n));
+        if (!nexts.length) return [path];
+        const results = [];
+        nexts.forEach(n => dfs(n, [...path, n], new Set([...visited, n])).forEach(r => results.push(r)));
+        return results;
+    }
+
+    const allPaths = [];
+    sources.forEach(s => dfs(s, [s], new Set([s])).forEach(p => allPaths.push(p)));
+
+    // A chain is "complete" if it passes through a desk node anywhere in its path
+    const complete = [], incomplete = [];
+    allPaths.forEach(path => {
+        const deskNodes = path.filter(n => isDeskNode(n.split(':')[0]));
+        if (deskNodes.length) {
+            // deskEnd = the desk node (usually the source or first desk hop)
+            const deskEnd = deskNodes[0];
+            complete.push({ path, deskEnd });
+        } else {
+            incomplete.push({ path });
         }
     });
 
-    const complete   = chains.filter(c => c.deskEnd);
-    const incomplete = chains.filter(c => !c.deskEnd);
     return { complete, incomplete };
 }
 
@@ -1586,16 +1588,16 @@ function renderSuggestions() {
         });
     }
 
-    // Incomplete chains (no desk end found yet)
+    // Incomplete chains (no desk node anywhere in the path)
     if (incomplete.length) {
-        html += '<div style="margin:16px 0 6px;font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">Incomplete chains — no desk channel yet</div>';
+        html += '<div style="margin:16px 0 6px;font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">Hops with no desk channel in the path</div>';
         incomplete.forEach((c, ci) => {
             const pathDisplay = c.path.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
             html += '<div class="card" style="margin-bottom:10px;border-left:4px solid #e2a93f;">' +
                 '<div class="card-body" style="padding:12px 14px;">' +
-                    '<div style="font-size:0.72rem;font-weight:700;color:#b07d20;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">&#9888; Unresolved chain</div>' +
+                    '<div style="font-size:0.72rem;font-weight:700;color:#b07d20;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">&#9888; No desk channel found</div>' +
                     '<div style="font-size:0.82rem;color:var(--text);line-height:1.6;">' + pathDisplay + '</div>' +
-                    '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:5px;">Neither end connects to a desk location — add more hops to complete this chain.</div>' +
+                    '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:5px;">This path doesn\'t pass through the Sound Desk — check the hop directions are correct.</div>' +
                 '</div>' +
             '</div>';
         });
