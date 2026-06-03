@@ -471,8 +471,28 @@
                         <input type="number" id="hop-b-ch" placeholder="Channel number">
                     </div>
                 </div>
+                <div class="field-group">
+                    <label class="field-label">Signal flows</label>
+                    <div style="display:flex;gap:8px;">
+                        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--input-bg);" id="hop-dir-label-ab">
+                            <input type="radio" name="hop-direction" value="a→b" checked style="width:auto;margin:0;accent-color:var(--green);" onchange="updateHopDirLabels()">
+                            <span style="font-size:0.78rem;font-weight:700;color:var(--teal);">A &#8594; B</span>
+                        </label>
+                        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--input-bg);" id="hop-dir-label-ba">
+                            <input type="radio" name="hop-direction" value="b→a" style="width:auto;margin:0;accent-color:var(--green);" onchange="updateHopDirLabels()">
+                            <span style="font-size:0.78rem;font-weight:700;color:var(--green-dark);">B &#8594; A</span>
+                        </label>
+                    </div>
+                </div>
                 <button class="btn btn-secondary" onclick="saveHop()">Create Connection</button>
             </div>
+        </div>
+        <div class="card" id="hops-list-card" style="display:none;">
+            <div class="card-header">
+                <div class="card-header-icon">📋</div>
+                <h2>Saved Connections</h2>
+            </div>
+            <div id="hops-list"></div>
         </div>
     </div>
 
@@ -563,6 +583,7 @@ function initFirebase() {
 
     db.collection('av_schematic').doc('hops').onSnapshot(snap => {
         hops = snap.exists ? (snap.data().list || []) : [];
+        renderHopsList();
         if (document.getElementById('tab-paths').classList.contains('active')) renderReports();
     });
 
@@ -590,7 +611,7 @@ function showTab(name) {
     const settingsBtn = document.getElementById('tab-btn-settings');
     if (settingsBtn) settingsBtn.style.opacity = name === 'settings' ? '1' : '0.3';
     if (name === 'signals') { renderSignalsDeskOptions(); }
-    if (name === 'hops') renderHopDropdowns();
+    if (name === 'hops') { renderHopDropdowns(); renderHopsList(); }
     if (name === 'paths') renderReports();
 }
 function showTab_byName(name) {
@@ -951,6 +972,21 @@ function updateHopChannelPicker(side) {
     }
 }
 
+function updateHopDirLabels() {
+    const ab = document.querySelector('input[name="hop-direction"][value="a→b"]');
+    const ba = document.querySelector('input[name="hop-direction"][value="b→a"]');
+    const lblAB = document.getElementById('hop-dir-label-ab');
+    const lblBA = document.getElementById('hop-dir-label-ba');
+    if (!ab || !lblAB) return;
+    if (ab.checked) {
+        lblAB.style.borderColor = 'var(--teal)'; lblAB.style.background = 'var(--teal-light)';
+        lblBA.style.borderColor = 'var(--border)'; lblBA.style.background = 'var(--input-bg)';
+    } else {
+        lblBA.style.borderColor = 'var(--green)'; lblBA.style.background = 'var(--green-light)';
+        lblAB.style.borderColor = 'var(--border)'; lblAB.style.background = 'var(--input-bg)';
+    }
+}
+
 function saveHop() {
     const aLoc = document.getElementById('hop-a-loc').value;
     const aCh  = document.getElementById('hop-a-ch').value.trim();
@@ -959,11 +995,15 @@ function saveHop() {
     if (!aLoc || !bLoc) return alert('Please select both locations.');
     if (!aCh || !bCh)   return alert('Please enter both channel numbers.');
     if (aLoc === bLoc && aCh === bCh) return alert('A and B cannot be identical.');
-    hops.push({ aLoc, aCh, bLoc, bCh, id: Date.now().toString() });
+    const dirEl = document.querySelector('input[name="hop-direction"]:checked');
+    const direction = dirEl ? dirEl.value : 'a→b';
+    hops.push({ aLoc, aCh, bLoc, bCh, direction, id: Date.now().toString() });
     saveHops();
     document.getElementById('hop-a-ch').value = '';
     document.getElementById('hop-b-ch').value = '';
-    // Brief confirmation in UI instead of alert
+    const defDir = document.querySelector('input[name="hop-direction"][value="a→b"]');
+    if (defDir) { defDir.checked = true; updateHopDirLabels(); }
+    // Brief confirmation
     const btn = document.querySelector('#tab-hops .btn-secondary');
     const orig = btn.textContent;
     btn.textContent = '✓ Saved!';
@@ -974,6 +1014,101 @@ function saveHop() {
 function deleteHop(id) {
     hops = hops.filter(h => h.id !== id);
     saveHops();
+}
+
+function renderHopsList() {
+    const card = document.getElementById('hops-list-card');
+    const el   = document.getElementById('hops-list');
+    if (!card || !el) return;
+    if (!hops.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    el.innerHTML = hops.map(h => {
+        const dir = h.direction || 'a→b';
+        const fromLoc = dir === 'a→b' ? h.aLoc : h.bLoc;
+        const fromCh  = dir === 'a→b' ? h.aCh  : h.bCh;
+        const toLoc   = dir === 'a→b' ? h.bLoc : h.aLoc;
+        const toCh    = dir === 'a→b' ? h.bCh  : h.aCh;
+        return '<div class="signal-row" style="flex-direction:column;align-items:flex-start;gap:6px;" id="hops-list-row-'+h.id+'">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">' +
+                '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                    '<span style="background:var(--teal-light);color:var(--teal-dark);border-radius:6px;padding:3px 8px;font-size:0.78rem;font-weight:700;">'+fromLoc+'</span>' +
+                    '<span style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">ch '+fromCh+'</span>' +
+                    '<span style="color:var(--green);font-weight:800;font-size:1rem;">&#8594;</span>' +
+                    '<span style="background:var(--teal-light);color:var(--teal-dark);border-radius:6px;padding:3px 8px;font-size:0.78rem;font-weight:700;">'+toLoc+'</span>' +
+                    '<span style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">ch '+toCh+'</span>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;flex-shrink:0;">' +
+                    '<span data-hop-id="'+h.id+'" class="edit-hop-btn" style="cursor:pointer;color:var(--teal);font-size:0.75rem;padding:2px 7px;border:1px solid var(--teal);border-radius:6px;font-weight:700;">Edit</span>' +
+                    '<span data-hop-id="'+h.id+'" class="del-hop-btn" style="cursor:pointer;color:#e53e3e;font-weight:800;font-size:1rem;padding:0 4px;">×</span>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+
+    el.querySelectorAll('.del-hop-btn').forEach(btn => {
+        btn.onclick = function() { if (confirm('Delete this connection?')) deleteHop(this.dataset.hopId); };
+    });
+    el.querySelectorAll('.edit-hop-btn').forEach(btn => {
+        btn.onclick = function() { editHopInline(this.dataset.hopId); };
+    });
+}
+
+function editHopInline(id) {
+    const h = hops.find(x => x.id === id);
+    if (!h) return;
+    const allLocs = [DESK_LOCATION, ...locations];
+    const locOpts = l => allLocs.map(loc => `<option value="${loc}" ${loc===l?'selected':''}>${loc}</option>`).join('');
+    const currentDir = h.direction || 'a→b';
+
+    const row = document.getElementById('hops-list-row-' + id);
+    row.innerHTML =
+        '<div style="display:flex;flex-direction:column;gap:8px;width:100%;">' +
+            '<div style="font-size:0.72rem;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.05em;">Edit Connection</div>' +
+            '<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:120px;">' +
+                    '<div class="field-label" style="margin-bottom:3px;">Point A</div>' +
+                    '<select id="ehop-a-loc-'+id+'" style="margin-bottom:4px;">' + locOpts(h.aLoc) + '</select>' +
+                    '<input type="text" id="ehop-a-ch-'+id+'" value="'+h.aCh+'" placeholder="Ch" style="margin-bottom:0;">' +
+                '</div>' +
+                '<div style="flex:1;min-width:120px;">' +
+                    '<div class="field-label" style="margin-bottom:3px;">Point B</div>' +
+                    '<select id="ehop-b-loc-'+id+'" style="margin-bottom:4px;">' + locOpts(h.bLoc) + '</select>' +
+                    '<input type="text" id="ehop-b-ch-'+id+'" value="'+h.bCh+'" placeholder="Ch" style="margin-bottom:0;">' +
+                '</div>' +
+            '</div>' +
+            '<div>' +
+                '<div class="field-label" style="margin-bottom:4px;">Signal flows</div>' +
+                '<div style="display:flex;gap:8px;">' +
+                    '<label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid '+(currentDir==='a→b'?'var(--teal)':'var(--border)')+';border-radius:var(--radius-sm);cursor:pointer;background:'+(currentDir==='a→b'?'var(--teal-light)':'var(--input-bg)')+'" id="ehop-dir-label-ab-'+id+'">' +
+                        '<input type="radio" name="ehop-dir-'+id+'" value="a→b" '+(currentDir==='a→b'?'checked':'')+' style="width:auto;margin:0;accent-color:var(--green);" onchange="updateEditHopDirLabels(\''+id+'\')">' +
+                        '<span style="font-size:0.78rem;font-weight:700;color:var(--teal);">A &#8594; B</span>' +
+                    '</label>' +
+                    '<label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid '+(currentDir==='b→a'?'var(--green)':'var(--border)')+';border-radius:var(--radius-sm);cursor:pointer;background:'+(currentDir==='b→a'?'var(--green-light)':'var(--input-bg)')+'" id="ehop-dir-label-ba-'+id+'">' +
+                        '<input type="radio" name="ehop-dir-'+id+'" value="b→a" '+(currentDir==='b→a'?'checked':'')+' style="width:auto;margin:0;accent-color:var(--green);" onchange="updateEditHopDirLabels(\''+id+'\')">' +
+                        '<span style="font-size:0.78rem;font-weight:700;color:var(--green-dark);">B &#8594; A</span>' +
+                    '</label>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;">' +
+                '<button class="btn btn-primary" style="padding:10px;" onclick="saveHopEdit(\''+id+'\')">✓ Save</button>' +
+                '<button class="btn btn-danger" style="padding:10px;flex:0 0 auto;" onclick="renderHopsList()">Cancel</button>' +
+            '</div>' +
+        '</div>';
+}
+
+function updateEditHopDirLabels(id) {
+    const ab = document.querySelector('input[name="ehop-dir-'+id+'"][value="a→b"]');
+    const lblAB = document.getElementById('ehop-dir-label-ab-'+id);
+    const lblBA = document.getElementById('ehop-dir-label-ba-'+id);
+    if (!ab || !lblAB) return;
+    if (ab.checked) {
+        lblAB.style.borderColor = 'var(--teal)'; lblAB.style.background = 'var(--teal-light)';
+        lblBA.style.borderColor = 'var(--border)'; lblBA.style.background = 'var(--input-bg)';
+    } else {
+        lblBA.style.borderColor = 'var(--green)'; lblBA.style.background = 'var(--green-light)';
+        lblAB.style.borderColor = 'var(--border)'; lblAB.style.background = 'var(--input-bg)';
+    }
 }
 
 function editHop(id) {
@@ -1011,15 +1146,17 @@ function editHop(id) {
 }
 
 function saveHopEdit(id) {
-    const aLoc = document.getElementById('edit-a-loc-' + id).value;
-    const aCh  = document.getElementById('edit-a-ch-'  + id).value.trim();
-    const bLoc = document.getElementById('edit-b-loc-' + id).value;
-    const bCh  = document.getElementById('edit-b-ch-'  + id).value.trim();
+    const aLoc = document.getElementById('ehop-a-loc-' + id).value;
+    const aCh  = document.getElementById('ehop-a-ch-'  + id).value.trim();
+    const bLoc = document.getElementById('ehop-b-loc-' + id).value;
+    const bCh  = document.getElementById('ehop-b-ch-'  + id).value.trim();
     if (!aLoc || !bLoc) return alert('Please select both locations.');
     if (!aCh  || !bCh)  return alert('Please enter both channel numbers.');
     if (aLoc === bLoc && aCh === bCh) return alert('A and B cannot be identical.');
+    const dirEl = document.querySelector('input[name="ehop-dir-'+id+'"]:checked');
+    const direction = dirEl ? dirEl.value : 'a→b';
     const idx = hops.findIndex(h => h.id === id);
-    if (idx > -1) { hops[idx] = { aLoc, aCh, bLoc, bCh, id }; }
+    if (idx > -1) { hops[idx] = { aLoc, aCh, bLoc, bCh, direction, id }; }
     saveHops();
 }
 
@@ -1287,21 +1424,11 @@ function renderPerBox() {
                 const sigTag = sigNames.length
                     ? sigNames.map(s => '<span class="rpt-signal-tag">'+s+'</span>').join(' ')
                     : '<span style="color:var(--text-muted);font-size:0.72rem;font-style:italic;">—</span>';
-                // Determine direction: use signal's stored direction if available
-                let isOut = isA; // default: A-end = out
-                if (sigNames.length) {
-                    const sigObj = signals.find(s => s.label === sigNames[0]);
-                    if (sigObj && sigObj.direction) {
-                        const deskIsRemote = isDeskNode(remoteLoc);
-                        // 'to-desk' = signal flows toward the desk = OUT if remote is desk, IN if remote is not desk
-                        // 'from-desk' = signal flows away from desk = IN if remote is desk, OUT if remote is not desk
-                        if (deskIsRemote) {
-                            isOut = sigObj.direction === 'to-desk';
-                        } else {
-                            isOut = sigObj.direction === 'from-desk';
-                        }
-                    }
-                }
+                // Direction: use hop's stored direction field
+                // hop.direction 'a→b' means signal flows from aLoc to bLoc
+                // If this location is aLoc and direction is a→b → OUT; if bLoc and a→b → IN
+                const hopDir = h.direction || 'a→b';
+                const isOut = (isA && hopDir === 'a→b') || (!isA && hopDir === 'b→a');
                 const dir = isOut
                     ? '<span class="rpt-badge-out">OUT &#8594;</span>'
                     : '<span class="rpt-badge-in">&#8592; IN</span>';
@@ -1476,6 +1603,7 @@ function printSection(which) {
 initFirebase();
 renderSignalsDeskOptions();
 renderPathEntries();
+renderHopsList();
 
 </script>
 </body>
