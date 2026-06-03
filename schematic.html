@@ -1755,24 +1755,79 @@ function renderPrintSchematic() {
         h += '</tbody></table>';
     }
 
-    // ── ALL PHYSICAL CONNECTIONS TABLE ──
+    // ── ALL PHYSICAL CONNECTIONS TABLE (grouped by desk channel, sorted numerically) ──
     if (hops.length) {
+        // Build a map: deskChKey → { fromLoc, fromCh, destinations: [{toLoc, toCh}] }
+        // "Desk" side is whichever end is the Sound Desk (SQ5)
+        const deskGroupMap = {};
+        const nonDeskRows  = [];
+
+        hops.forEach(hop => {
+            const dir = hop.direction || 'a→b';
+            const aNode = { loc: hop.aLoc, ch: hop.aCh };
+            const bNode = { loc: hop.bLoc, ch: hop.bCh };
+            const fromNode = dir === 'a→b' ? aNode : bNode;
+            const toNode   = dir === 'a→b' ? bNode : aNode;
+
+            const fromIsDesk = isDeskNode(fromNode.loc);
+            const toIsDesk   = isDeskNode(toNode.loc);
+
+            if (fromIsDesk || toIsDesk) {
+                // Key on whichever end touches the desk
+                const deskNode  = fromIsDesk ? fromNode : toNode;
+                const otherNode = fromIsDesk ? toNode   : fromNode;
+                const key = deskNode.loc + ':' + deskNode.ch;
+                if (!deskGroupMap[key]) {
+                    deskGroupMap[key] = { deskLoc: deskNode.loc, deskCh: deskNode.ch, destinations: [] };
+                }
+                deskGroupMap[key].destinations.push({ loc: otherNode.loc, ch: otherNode.ch });
+            } else {
+                // No desk end — keep as a flat row
+                nonDeskRows.push({ fromLoc: fromNode.loc, fromCh: fromNode.ch, toLoc: toNode.loc, toCh: toNode.ch });
+            }
+        });
+
+        // Sort desk groups numerically by channel number (MIX1, MIX2 … or numeric)
+        const sortedDeskKeys = Object.keys(deskGroupMap).sort((a, b) => {
+            const numA = parseFloat(deskGroupMap[a].deskCh.replace(/[^0-9.]/g, '')) || 0;
+            const numB = parseFloat(deskGroupMap[b].deskCh.replace(/[^0-9.]/g, '')) || 0;
+            return numA - numB;
+        });
+
         h += '<div class="print-section-title print-page-break">All Physical Connections ('+hops.length+')</div>';
         h += '<table class="print-hops-table"><thead><tr>' +
-            '<th style="width:40pt">Ch</th><th>From Location</th>' +
+            '<th style="width:60pt">Desk Ch</th>' +
+            '<th style="width:120pt">Desk Location</th>' +
             '<th style="width:20pt"></th>' +
-            '<th style="width:40pt">Ch</th><th>To Location</th>' +
+            '<th>Destinations</th>' +
         '</tr></thead><tbody>';
-        hops.forEach(hop => {
-            const dir = hop.direction||'a→b';
-            const fromLoc=dir==='a→b'?hop.aLoc:hop.bLoc, fromCh=dir==='a→b'?hop.aCh:hop.bCh;
-            const toLoc  =dir==='a→b'?hop.bLoc:hop.aLoc, toCh  =dir==='a→b'?hop.bCh:hop.aCh;
+
+        sortedDeskKeys.forEach(key => {
+            const g = deskGroupMap[key];
+            // Build destination list — each as "Ch XX — Location"
+            const destHtml = g.destinations.map(d =>
+                '<div style="margin-bottom:2pt;">' +
+                '<span class="print-ch" style="margin-right:5pt;">'+d.ch+'</span>' +
+                '<strong>'+d.loc+'</strong>' +
+                '</div>'
+            ).join('');
             h += '<tr>' +
-                '<td><span class="print-ch">'+fromCh+'</span></td><td><strong>'+fromLoc+'</strong></td>' +
+                '<td><span class="print-ch">'+g.deskCh+'</span></td>' +
+                '<td><strong>'+g.deskLoc+'</strong></td>' +
                 '<td class="print-arrow" style="text-align:center;">&#8594;</td>' +
-                '<td><span class="print-ch">'+toCh+'</span></td><td><strong>'+toLoc+'</strong></td>' +
+                '<td>'+destHtml+'</td>' +
             '</tr>';
         });
+
+        // Any non-desk hops appended at the end
+        nonDeskRows.forEach(row => {
+            h += '<tr>' +
+                '<td colspan="2"><strong>'+row.fromLoc+'</strong> <span class="print-ch">'+row.fromCh+'</span></td>' +
+                '<td class="print-arrow" style="text-align:center;">&#8594;</td>' +
+                '<td colspan="1"><span class="print-ch">'+row.toCh+'</span> <strong>'+row.toLoc+'</strong></td>' +
+            '</tr>';
+        });
+
         h += '</tbody></table>';
     }
 
