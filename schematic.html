@@ -134,45 +134,126 @@
 
         /* PRINT - report header with AV team logo */
         @media print {
-            /* Hide absolutely everything by default */
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { background: white !important; margin: 0; padding: 0; }
-            .app-header, .tab-nav, .report-toggle, .no-print { display: none !important; }
+            @page {
+                size: A4 portrait;
+                margin: 15mm 12mm 15mm 12mm;
+            }
+            @page :first { margin-top: 10mm; }
 
-            /* Hide ALL tab panels */
-            .tab-panel { display: none !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-shadow: none !important; }
+            body { background: white !important; margin: 0; padding: 0; font-family: 'Source Sans Pro', Arial, sans-serif; font-size: 10pt; color: #111; }
 
-            /* Show ONLY the paths tab */
-            #tab-paths { display: block !important; }
+            /* Hide UI chrome */
+            .app-header, .tab-nav, .report-toggle, .no-print,
+            #tab-setup, #tab-signals, #tab-hops, #tab-settings { display: none !important; }
 
-            /* Show the print header logo */
-            .print-report-header { display: flex !important; align-items: center; justify-content: space-between; padding: 0 0 12pt; border-bottom: 2pt solid #8DC63F; margin-bottom: 16pt; }
+            /* Show only the paths tab */
+            #tab-paths { display: block !important; padding: 0 !important; }
 
-            /* Show whichever reports are marked print-visible */
+            /* Print header */
+            .print-report-header { display: flex !important; align-items: center; justify-content: space-between;
+                padding-bottom: 8pt; border-bottom: 2pt solid #4A7C7E; margin-bottom: 12pt; }
+            .print-report-title { font-size: 16pt; font-weight: 700; color: #4A7C7E; font-family: 'Nunito', Arial, sans-serif; }
+            .print-report-subtitle { font-size: 9pt; color: #666; margin-top: 2pt; }
+
+            /* Hide screen report divs, show only print-visible */
+            #report-schematic, #report-perbox, #report-suggest { display: none !important; }
             .print-visible { display: block !important; }
 
-            /* Tables */
-            .rpt-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 12pt; }
-            .rpt-table th { background: #4A7C7E !important; color: white !important; padding: 5pt 8pt; text-align: left; font-size: 8pt; letter-spacing: 0.05em; text-transform: uppercase; }
-            .rpt-table td { padding: 5pt 8pt; border-bottom: 0.5pt solid #ddd; font-size: 9pt; vertical-align: middle; }
-            .rpt-table tr:nth-child(even) td { background: #f9fcfc !important; }
+            /* ── SECTION TITLES ── */
+            .print-section-title {
+                font-size: 8pt; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+                color: #4A7C7E; padding: 4pt 0 3pt; border-bottom: 1pt solid #4A7C7E;
+                margin: 14pt 0 6pt; page-break-after: avoid;
+            }
 
-            /* Loc blocks */
-            .rpt-loc-block { border: 0.5pt solid #ccc; border-radius: 4pt; overflow: hidden; margin-bottom: 10pt; break-inside: avoid; }
-            .rpt-loc-header { background: #4A7C7E !important; color: white !important; padding: 6pt 10pt; font-size: 10pt; font-weight: bold; }
+            /* ── SIGNAL FLOW TABLE ── */
+            .print-signal-table { width: 100%; border-collapse: collapse; margin-bottom: 14pt; }
+            .print-signal-table th {
+                background: #4A7C7E !important; color: white !important;
+                padding: 5pt 8pt; text-align: left; font-size: 8pt;
+                font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+            }
+            .print-signal-table td {
+                padding: 6pt 8pt; border-bottom: 0.5pt solid #ddd;
+                font-size: 9pt; vertical-align: top;
+            }
+            .print-signal-table tr:nth-child(even) td { background: #f6fafa !important; }
+            .print-signal-table td.sig-name {
+                font-weight: 700; color: #1a3d3e; font-size: 9.5pt;
+                white-space: nowrap; width: 140pt;
+            }
+            .print-signal-table td.sig-desk {
+                white-space: nowrap; width: 60pt; color: #1a3d3e; font-weight: 600;
+            }
+            .print-signal-table td.sig-dir {
+                white-space: nowrap; width: 60pt;
+            }
+            .print-dir-in  { color: #2a5a5c; font-weight: 700; font-size: 8pt; }
+            .print-dir-out { color: #3a6b10; font-weight: 700; font-size: 8pt; }
 
-            /* Chain nodes */
-            .rpt-chain-node { background: #f0f5f5 !important; border: 0.5pt solid #aaa; border-radius: 3pt; padding: 2pt 5pt; font-size: 8pt; }
-            .rpt-chain-node.desk { background: #e8f5d0 !important; border-color: #8DC63F !important; }
+            /* Path chain in print */
+            .print-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 2pt; margin: 2pt 0; }
+            .print-chain-node {
+                background: #eef4f4 !important; border: 0.5pt solid #99b8b9;
+                border-radius: 3pt; padding: 1pt 5pt; font-size: 8pt; white-space: nowrap;
+            }
+            .print-chain-node.desk {
+                background: #eaf4d8 !important; border-color: #8DC63F !important; color: #2a4d08 !important;
+            }
+            .print-chain-arrow { color: #4A7C7E; font-weight: 700; padding: 0 2pt; font-size: 9pt; }
+            .print-branch-label {
+                font-size: 7pt; font-weight: 800; color: #4A7C7E;
+                background: #e0eeee !important; border: 0.5pt solid #99b8b9;
+                border-radius: 10pt; padding: 1pt 6pt; white-space: nowrap; margin-right: 3pt;
+            }
 
-            /* Badges */
-            .rpt-badge-in  { background: #e0eded !important; color: #2a5a5c !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; font-weight: bold; }
-            .rpt-badge-out { background: #e8f5d0 !important; color: #3a6b10 !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; font-weight: bold; }
-            .rpt-ch { background: #4A7C7E !important; color: white !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; font-weight: bold; }
-            .rpt-signal-tag { background: #e8f5d0 !important; color: #3a6b10 !important; border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; }
+            /* ── CONNECTIONS TABLE ── */
+            .print-hops-table { width: 100%; border-collapse: collapse; margin-bottom: 14pt; }
+            .print-hops-table th {
+                background: #4A7C7E !important; color: white !important;
+                padding: 5pt 8pt; text-align: left; font-size: 8pt; font-weight: 700;
+                letter-spacing: 0.06em; text-transform: uppercase;
+            }
+            .print-hops-table td {
+                padding: 5pt 8pt; border-bottom: 0.5pt solid #ddd; font-size: 9pt; vertical-align: middle;
+            }
+            .print-hops-table tr:nth-child(even) td { background: #f6fafa !important; }
+            .print-ch {
+                background: #4A7C7E !important; color: white !important;
+                border-radius: 10pt; padding: 1pt 6pt; font-size: 8pt; font-weight: 700;
+                display: inline-block;
+            }
+            .print-arrow { color: #8DC63F; font-weight: 700; font-size: 11pt; }
 
-            .rpt-section-title { font-size: 8pt; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; color: #666; margin: 14pt 0 6pt; padding-bottom: 3pt; border-bottom: 0.5pt solid #ccc; }
-            .rpt-loc-block + .rpt-section-title { page-break-before: always; }
+            /* ── PER BOX TABLE ── */
+            .print-loc-block { break-inside: avoid; margin-bottom: 12pt; }
+            .print-loc-header {
+                background: #4A7C7E !important; color: white !important;
+                padding: 5pt 10pt; font-size: 11pt; font-weight: 700;
+                font-family: 'Nunito', Arial, sans-serif;
+                border-radius: 3pt 3pt 0 0;
+            }
+            .print-loc-table { width: 100%; border-collapse: collapse; border: 0.5pt solid #ccc; border-top: none; }
+            .print-loc-table th {
+                background: #f0f5f5 !important; color: #4A7C7E !important;
+                padding: 4pt 8pt; font-size: 7.5pt; font-weight: 700;
+                letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 0.5pt solid #ccc;
+            }
+            .print-loc-table td { padding: 5pt 8pt; border-bottom: 0.5pt solid #eee; font-size: 9pt; vertical-align: middle; }
+            .print-loc-table tr:last-child td { border-bottom: none; }
+            .print-loc-table tr:nth-child(even) td { background: #f9fcfc !important; }
+            .print-badge-in  { color: #2a5a5c; font-weight: 700; font-size: 8pt; }
+            .print-badge-out { color: #3a6b10; font-weight: 700; font-size: 8pt; }
+            .print-signal-tag {
+                background: #eaf4d8 !important; color: #2a4d08 !important;
+                border: 0.5pt solid #8DC63F; border-radius: 10pt;
+                padding: 1pt 5pt; font-size: 7.5pt; font-weight: 700; display: inline-block;
+            }
+
+            /* Page breaks */
+            .print-page-break { page-break-before: always; }
+            .print-keep-together { break-inside: avoid; }
         }
 
         /* ── PRINT REPORT STYLES (also used on screen in the report divs) ── */
@@ -525,6 +606,9 @@
         <div id="report-schematic"></div>
         <div id="report-perbox" style="display:none;"></div>
         <div id="report-suggest" style="display:none;"></div>
+        <!-- Print-only clean output divs (hidden on screen) -->
+        <div id="print-schematic" style="display:none;"></div>
+        <div id="print-perbox"    style="display:none;"></div>
     </div>
 
     <!-- TAB: SETTINGS (hidden, danger zone) -->
@@ -1568,9 +1652,211 @@ function renderPerBox() {
     el.innerHTML = html;
 }
 
+function renderPrintSchematic() {
+    const el = document.getElementById('print-schematic');
+    if (!el) return;
+
+    // Reuse the same directed adjacency from renderSchematic
+    const fwdAdj = {};
+    hops.forEach(h => {
+        const a = h.aLoc+':'+h.aCh, b = h.bLoc+':'+h.bCh;
+        const dir = h.direction || 'a→b';
+        const src = dir === 'a→b' ? a : b, dst = dir === 'a→b' ? b : a;
+        if (!fwdAdj[src]) fwdAdj[src] = [];
+        fwdAdj[src].push(dst);
+    });
+    function tracePaths(node, visited) {
+        const nexts = (fwdAdj[node]||[]).filter(n => !visited.has(n));
+        if (!nexts.length) return [[node]];
+        const r = [];
+        nexts.forEach(n => { const v = new Set(visited); v.add(node); tracePaths(n,v).forEach(t => r.push([node,...t])); });
+        return r;
+    }
+    function printChain(path) {
+        return '<div class="print-chain">' + path.map((n,i) => {
+            const p = n.split(':'), isDesk = isDeskNode(p[0]);
+            return (i > 0 ? '<span class="print-chain-arrow">&#8594;</span>' : '') +
+                '<span class="print-chain-node'+(isDesk?' desk':'')+'">'+p[0]+' ch'+p.slice(1).join(':')+'</span>';
+        }).join('') + '</div>';
+    }
+
+    let h = '';
+
+    // ── SIGNAL FLOW TABLE ──
+    if (signals.length) {
+        h += '<div class="print-section-title">Signal Flow — Named Signals</div>';
+        h += '<table class="print-signal-table"><thead><tr>' +
+            '<th style="width:130pt">Signal</th>' +
+            '<th style="width:52pt">Direction</th>' +
+            '<th style="width:52pt">Desk Ch</th>' +
+            '<th>Physical Path</th>' +
+        '</tr></thead><tbody>';
+
+        signals.forEach(sig => {
+            const dl = sig.desk ? deskLabel(sig.desk) : '—';
+            const dirLabel = sig.direction === 'from-desk'
+                ? '<span class="print-dir-out">&#8595; Output</span>'
+                : '<span class="print-dir-in">&#8593; Input</span>';
+
+            // Find desk node and trace paths
+            let deskNode = null;
+            if (sig.desk) {
+                const dl2 = deskLabel(sig.desk);
+                hops.forEach(hop => {
+                    if (isDeskNode(hop.aLoc) && hop.aCh === dl2) deskNode = hop.aLoc+':'+hop.aCh;
+                    if (isDeskNode(hop.bLoc) && hop.bCh === dl2) deskNode = hop.bLoc+':'+hop.bCh;
+                });
+            }
+            let tracedPaths = [];
+            if (deskNode) {
+                if (sig.direction === 'from-desk') {
+                    tracedPaths = tracePaths(deskNode, new Set([deskNode]));
+                } else {
+                    const revAdj = {};
+                    hops.forEach(hop => {
+                        const a=hop.aLoc+':'+hop.aCh, b=hop.bLoc+':'+hop.bCh;
+                        const d=hop.direction||'a→b', src=d==='a→b'?a:b, dst=d==='a→b'?b:a;
+                        if (!revAdj[dst]) revAdj[dst]=[];
+                        revAdj[dst].push(src);
+                    });
+                    function rev(node, vis) {
+                        const prevs=(revAdj[node]||[]).filter(n=>!vis.has(n));
+                        if (!prevs.length) return [[node]];
+                        const r=[];
+                        prevs.forEach(p=>{ const v=new Set(vis); v.add(node); rev(p,v).forEach(head=>r.push([...head,node])); });
+                        return r;
+                    }
+                    tracedPaths = rev(deskNode, new Set([deskNode]));
+                }
+                const seen = new Set();
+                tracedPaths = tracedPaths.filter(p => { const k=p.join('|'); if(seen.has(k)) return false; seen.add(k); return true; });
+            }
+
+            let pathCell = '';
+            if (!tracedPaths.length || (tracedPaths.length===1 && tracedPaths[0].length===1)) {
+                pathCell = '<em style="color:#999;font-size:8pt;">No hops connected</em>';
+            } else if (tracedPaths.length === 1) {
+                pathCell = printChain(tracedPaths[0]);
+            } else {
+                pathCell = tracedPaths.map((path, pi) =>
+                    '<div style="margin-bottom:'+(pi<tracedPaths.length-1?'4':'0')+'pt;">' +
+                    '<span class="print-branch-label">Branch '+(pi+1)+'</span>' +
+                    printChain(path) + '</div>'
+                ).join('');
+            }
+
+            h += '<tr class="print-keep-together">' +
+                '<td class="sig-name">'+sig.label+(sig.stereo?'<br><span style="font-size:7.5pt;font-weight:400;color:#666;">Stereo pair</span>':'')+'</td>' +
+                '<td class="sig-dir">'+dirLabel+'</td>' +
+                '<td class="sig-desk"><span style="background:#4A7C7E;color:white;border-radius:10pt;padding:1pt 6pt;font-size:8pt;font-weight:700;">'+dl+(sig.stereo&&sig.stereoPartner?' + '+deskLabel(sig.stereoPartner):'')+'</span></td>' +
+                '<td>'+pathCell+'</td>' +
+            '</tr>';
+        });
+        h += '</tbody></table>';
+    }
+
+    // ── ALL PHYSICAL CONNECTIONS TABLE ──
+    if (hops.length) {
+        h += '<div class="print-section-title print-page-break">All Physical Connections ('+hops.length+')</div>';
+        h += '<table class="print-hops-table"><thead><tr>' +
+            '<th style="width:40pt">Ch</th><th>From Location</th>' +
+            '<th style="width:20pt"></th>' +
+            '<th style="width:40pt">Ch</th><th>To Location</th>' +
+        '</tr></thead><tbody>';
+        hops.forEach(hop => {
+            const dir = hop.direction||'a→b';
+            const fromLoc=dir==='a→b'?hop.aLoc:hop.bLoc, fromCh=dir==='a→b'?hop.aCh:hop.bCh;
+            const toLoc  =dir==='a→b'?hop.bLoc:hop.aLoc, toCh  =dir==='a→b'?hop.bCh:hop.aCh;
+            h += '<tr>' +
+                '<td><span class="print-ch">'+fromCh+'</span></td><td><strong>'+fromLoc+'</strong></td>' +
+                '<td class="print-arrow" style="text-align:center;">&#8594;</td>' +
+                '<td><span class="print-ch">'+toCh+'</span></td><td><strong>'+toLoc+'</strong></td>' +
+            '</tr>';
+        });
+        h += '</tbody></table>';
+    }
+
+    el.innerHTML = h;
+}
+
+function renderPrintPerBox() {
+    const el = document.getElementById('print-perbox');
+    if (!el) return;
+    if (!locations.length) { el.innerHTML = ''; return; }
+
+    // Build node→signal map same as renderPerBox
+    const nodeSignalMap = {};
+    signals.forEach(sig => {
+        if (!sig.desk) return;
+        const dl = deskLabel(sig.desk);
+        hops.forEach(h => {
+            [[h.aLoc,h.aCh],[h.bLoc,h.bCh]].forEach(([loc,ch]) => {
+                if (isDeskNode(loc) && ch === dl) {
+                    const key = loc+' ch'+ch;
+                    if (!nodeSignalMap[key]) nodeSignalMap[key]=[];
+                    if (!nodeSignalMap[key].includes(sig.label)) nodeSignalMap[key].push(sig.label);
+                }
+            });
+        });
+        (sig.paths||[]).forEach(p => {
+            p.split(' → ').forEach(node => {
+                if (!nodeSignalMap[node]) nodeSignalMap[node]=[];
+                if (!nodeSignalMap[node].includes(sig.label)) nodeSignalMap[node].push(sig.label);
+            });
+        });
+    });
+
+    const allLocs = [DESK_LOCATION, ...locations];
+    let h = '';
+
+    allLocs.forEach((loc, li) => {
+        const locHops = hops.filter(hop => hop.aLoc===loc || hop.bLoc===loc);
+        if (!locHops.length) return;
+
+        h += '<div class="print-loc-block'+(li>0?' print-keep-together':'')+'">';
+        h += '<div class="print-loc-header">&#128205; '+loc+' <span style="font-size:9pt;font-weight:400;opacity:0.85;">('+locHops.length+' connection'+(locHops.length!==1?'s':'')+')</span></div>';
+        h += '<table class="print-loc-table"><thead><tr>' +
+            '<th style="width:40pt">Ch</th><th style="width:50pt">Dir</th>' +
+            '<th>Remote Location</th><th style="width:40pt">Remote Ch</th><th>Signal</th>' +
+        '</tr></thead><tbody>';
+
+        const sorted = [...locHops].sort((a,b) => {
+            const ca = parseFloat(a.aLoc===loc?a.aCh:a.bCh)||0;
+            const cb = parseFloat(b.aLoc===loc?b.aCh:b.bCh)||0;
+            return ca-cb;
+        });
+        sorted.forEach(hop => {
+            const isA = hop.aLoc===loc;
+            const localCh=isA?hop.aCh:hop.bCh, remoteLoc=isA?hop.bLoc:hop.aLoc, remoteCh=isA?hop.bCh:hop.aCh;
+            const nodeKey = loc+' ch'+localCh;
+            const sigNames = nodeSignalMap[nodeKey]||[];
+            const sigTags = sigNames.length
+                ? sigNames.map(s=>'<span class="print-signal-tag">'+s+'</span>').join(' ')
+                : '<span style="color:#aaa;font-size:8pt;">—</span>';
+            const hopDir = hop.direction||'a→b';
+            const isOut = (isA && hopDir==='a→b') || (!isA && hopDir==='b→a');
+            const dirLabel = isOut
+                ? '<span class="print-badge-out">OUT &#8594;</span>'
+                : '<span class="print-badge-in">&#8592; IN</span>';
+            h += '<tr>' +
+                '<td><span class="print-ch">'+localCh+'</span></td>' +
+                '<td>'+dirLabel+'</td>' +
+                '<td><strong>'+remoteLoc+'</strong></td>' +
+                '<td><span class="print-ch">'+remoteCh+'</span></td>' +
+                '<td>'+sigTags+'</td>' +
+            '</tr>';
+        });
+        h += '</tbody></table></div>';
+    });
+
+    el.innerHTML = h;
+}
+
 function renderReports() {
     renderSchematic();
     renderPerBox();
+    renderPrintSchematic();
+    renderPrintPerBox();
     // Update suggestion badge
     const { complete, incomplete } = findAllChains();
     const unmatched = complete.filter(c => !signals.some(s => s.deskEnd === c.deskEnd));
@@ -1708,23 +1994,33 @@ function togglePrintMenu() {
 
 function printSection(which) {
     document.getElementById('print-menu').style.display = 'none';
-    renderSchematic();
-    renderPerBox();
-    const sch = document.getElementById('report-schematic');
-    const box = document.getElementById('report-perbox');
-    const sug = document.getElementById('report-suggest');
+    // Ensure print content is up to date
+    renderPrintSchematic();
+    renderPrintPerBox();
 
-    // Clear any previous print-visible classes
-    [sch, box, sug].forEach(el => { if (el) el.classList.remove('print-visible'); });
+    const pSch = document.getElementById('print-schematic');
+    const pBox = document.getElementById('print-perbox');
 
-    if (which === 'schematic') { sch.classList.add('print-visible'); }
-    else if (which === 'perbox') { box.classList.add('print-visible'); }
-    else { sch.classList.add('print-visible'); box.classList.add('print-visible'); }
+    // Clear previous
+    [pSch, pBox].forEach(el => { if (el) el.classList.remove('print-visible'); });
+
+    if (which === 'schematic') {
+        pSch.classList.add('print-visible');
+    } else if (which === 'perbox') {
+        pBox.classList.add('print-visible');
+    } else {
+        pSch.classList.add('print-visible');
+        // Add a page break div between sections
+        pSch.insertAdjacentHTML('afterend', '<div id="print-page-spacer" class="print-page-break"></div>');
+        pBox.classList.add('print-visible');
+    }
 
     window.print();
 
     // Clean up
-    [sch, box, sug].forEach(el => { if (el) el.classList.remove('print-visible'); });
+    [pSch, pBox].forEach(el => { if (el) el.classList.remove('print-visible'); });
+    const spacer = document.getElementById('print-page-spacer');
+    if (spacer) spacer.remove();
 }
 
 // ── BOOT ──
