@@ -397,7 +397,8 @@
             <div class="card-body">
                 <div class="field-group">
                     <label class="field-label">Signal Label (e.g. Guitar, Pastor Mic)</label>
-                    <input type="text" id="sig-label" placeholder="Name for this signal">
+                    <input type="text" id="sig-label" placeholder="Name for this signal" list="sig-label-suggestions" autocomplete="off">
+                    <datalist id="sig-label-suggestions"></datalist>
                 </div>
                 <div class="field-group">
                     <label class="field-label">Sound Desk Channel (SQ5)</label>
@@ -578,6 +579,7 @@ function initFirebase() {
     db.collection('av_schematic').doc('signals').onSnapshot(snap => {
         signals = snap.exists ? (snap.data().list || []) : [];
         renderSignalsList();
+        updateSignalLabelSuggestions();
         if (document.getElementById('tab-paths').classList.contains('active')) renderReports();
     });
 
@@ -610,7 +612,7 @@ function showTab(name) {
     event.currentTarget.classList.add('active');
     const settingsBtn = document.getElementById('tab-btn-settings');
     if (settingsBtn) settingsBtn.style.opacity = name === 'settings' ? '1' : '0.3';
-    if (name === 'signals') { renderSignalsDeskOptions(); }
+    if (name === 'signals') { renderSignalsDeskOptions(); updateSignalLabelSuggestions(); }
     if (name === 'hops') { renderHopDropdowns(); renderHopsList(); }
     if (name === 'paths') renderReports();
 }
@@ -726,6 +728,7 @@ function updateDirLabels() {
         labelTo.style.borderColor   = 'var(--border)';
         labelTo.style.background    = 'var(--input-bg)';
     }
+    updateSignalLabelSuggestions();
 }
 
 function cancelEditSignal() {
@@ -741,6 +744,21 @@ function cancelEditSignal() {
     const defDir = document.querySelector('input[name="sig-direction"][value="to-desk"]');
     if (defDir) { defDir.checked = true; updateDirLabels(); }
     updateSignalFormMode();
+}
+
+function updateSignalLabelSuggestions() {
+    const dl = document.getElementById('sig-label-suggestions');
+    if (!dl) return;
+    const dirEl = document.querySelector('input[name="sig-direction"]:checked');
+    const currentDir = dirEl ? dirEl.value : null;
+    // Filter to matching direction, exclude the one currently being edited
+    const editingLabel = editingSignalIdx > -1 ? (signals[editingSignalIdx]||{}).label : null;
+    const pool = signals.filter(s => {
+        if (s.label === editingLabel) return false; // don't suggest the one being edited
+        if (!currentDir) return true;
+        return (s.direction || 'to-desk') === currentDir;
+    });
+    dl.innerHTML = pool.map(s => '<option value="'+s.label.replace(/"/g,'&quot;')+'">').join('');
 }
 
 function updateSignalFormMode() {
@@ -1584,13 +1602,18 @@ function renderSuggestions() {
         html += '<div style="margin-bottom:6px;font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">Complete chains — desk channel found</div>';
         unmatched.forEach((c, ci) => {
             const endParts = c.deskEnd.split(':');
-            const deskChLabel = endParts[1]; // e.g. "IP1"
-
-            // Find the matching DESK_OPTIONS val from the label
+            const deskChLabel = endParts[1];
             const deskOpt = DESK_OPTIONS.find(o => o.label === deskChLabel);
             const deskVal = deskOpt ? deskOpt.val : '';
 
-            // Path without the desk node — desk channel shown separately in the label
+            // Determine if this chain is from-desk or to-desk based on whether desk is first in path
+            const deskIsFirst = isDeskNode(c.path[0].split(':')[0]);
+            const chainDir = deskIsFirst ? 'from-desk' : 'to-desk';
+
+            // Build datalist from signals of matching direction
+            const sugPool = signals.filter(s => (s.direction || 'to-desk') === chainDir);
+            const datalistId = 'sug-dl-' + ci;
+
             const pathWithoutDesk = c.path.filter(n => !isDeskNode(n.split(':')[0]));
             const pathDisplay = pathWithoutDesk.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
 
@@ -1599,11 +1622,16 @@ function renderSuggestions() {
                     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">' +
                         '<div style="font-size:0.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:0.06em;">Detected chain '+(ci+1)+'</div>' +
                         '<span class="signal-desk" style="margin-left:auto;">'+deskChLabel+'</span>' +
+                        (chainDir === 'from-desk'
+                            ? '<span class="rpt-badge-out" style="font-size:0.65rem;">&#8595; Output</span>'
+                            : '<span class="rpt-badge-in"  style="font-size:0.65rem;">&#8593; Input</span>') +
                     '</div>' +
                     '<div style="font-size:0.82rem;color:var(--text);margin-bottom:10px;line-height:1.6;">' + pathDisplay + '</div>' +
                     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
-                        '<input type="text" id="sug-name-'+ci+'" placeholder="Name this signal (e.g. Guitar)" style="margin-bottom:0;flex:1;min-width:140px;">' +
+                        '<input type="text" id="sug-name-'+ci+'" placeholder="Name this signal (e.g. Guitar)" style="margin-bottom:0;flex:1;min-width:140px;" list="'+datalistId+'" autocomplete="off">' +
+                        '<datalist id="'+datalistId+'">' + sugPool.map(s => '<option value="'+s.label.replace(/"/g,'&quot;')+'">').join('') + '</datalist>' +
                         '<input type="hidden" id="sug-desk-'+ci+'" value="'+deskVal+'">' +
+                        '<input type="hidden" id="sug-dir-'+ci+'" value="'+chainDir+'">' +
                         '<button class="btn btn-primary" style="padding:10px 14px;white-space:nowrap;" id="sug-confirm-'+ci+'">&#10003; Confirm</button>' +
                     '</div>' +
                 '</div>' +
@@ -1651,11 +1679,11 @@ function renderSuggestions() {
         btn.onclick = function() {
             const label = document.getElementById('sug-name-'+ci).value.trim();
             const desk  = document.getElementById('sug-desk-'+ci).value;
+            const direction = document.getElementById('sug-dir-'+ci).value || 'to-desk';
             if (!label) { alert('Please enter a name for this signal.'); return; }
-            // Path without the desk node
             const pathWithoutDesk = c.path.filter(n => !isDeskNode(n.split(':')[0]));
             const pathDisplay = pathWithoutDesk.map(n => { const p=n.split(':'); return p[0]+' ch'+p[1]; }).join(' → ');
-            const entry = { label, desk, paths: [pathDisplay], deskEnd: c.deskEnd };
+            const entry = { label, desk, paths: [pathDisplay], deskEnd: c.deskEnd, direction };
             const idx = signals.findIndex(s => s.label === label);
             if (idx > -1) signals[idx] = entry;
             else signals.push(entry);
