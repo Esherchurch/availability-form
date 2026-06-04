@@ -1941,9 +1941,15 @@ function renderPrintPerBox() {
         '</tr></thead><tbody>';
 
         const sorted = [...locHops].sort((a,b) => {
-            const ca = parseFloat(a.aLoc===loc?a.aCh:a.bCh)||0;
-            const cb = parseFloat(b.aLoc===loc?b.aCh:b.bCh)||0;
-            return ca-cb;
+            const chA = a.aLoc===loc?a.aCh:a.bCh;
+            const chB = b.aLoc===loc?b.aCh:b.bCh;
+            // Sort by DESK_OPTIONS order if this is a desk location, else by numeric value
+            const deskIdxA = DESK_OPTIONS.findIndex(o => o.label === chA);
+            const deskIdxB = DESK_OPTIONS.findIndex(o => o.label === chB);
+            if (deskIdxA !== -1 && deskIdxB !== -1) return deskIdxA - deskIdxB;
+            if (deskIdxA !== -1) return -1;
+            if (deskIdxB !== -1) return 1;
+            return (parseFloat(chA)||0) - (parseFloat(chB)||0);
         });
         // Group by local channel — each ch once, all destinations stacked
         const printChGroupMap = {};
