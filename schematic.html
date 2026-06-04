@@ -1661,31 +1661,34 @@ function renderPerBox() {
                 return ca - cb;
             });
 
+            // Group by local channel — each ch appears once, all destinations stacked
+            const chGroupMap = {};
             sorted.forEach(h => {
-                const isA      = h.aLoc === loc;
-                const localCh  = isA ? h.aCh  : h.bCh;
+                const isA       = h.aLoc === loc;
+                const localCh   = isA ? h.aCh  : h.bCh;
                 const remoteLoc = isA ? h.bLoc : h.aLoc;
                 const remoteCh  = isA ? h.bCh  : h.aCh;
-                // Look up signal
-                const nodeKey = loc + ' ch' + localCh;
+                const hopDir    = h.direction || 'a→b';
+                const isOut     = (isA && hopDir === 'a→b') || (!isA && hopDir === 'b→a');
+                if (!chGroupMap[localCh]) chGroupMap[localCh] = { localCh, isOut, destinations: [] };
+                chGroupMap[localCh].destinations.push({ remoteLoc, remoteCh });
+            });
+            Object.values(chGroupMap).forEach(g => {
+                const nodeKey  = loc + ' ch' + g.localCh;
                 const sigNames = nodeSignalMap[nodeKey] || [];
-                const sigTag = sigNames.length
+                const sigTag   = sigNames.length
                     ? sigNames.map(s => '<span class="rpt-signal-tag">'+s+'</span>').join(' ')
                     : '<span style="color:var(--text-muted);font-size:0.72rem;font-style:italic;">—</span>';
-                // Direction: use hop's stored direction field
-                // hop.direction 'a→b' means signal flows from aLoc to bLoc
-                // If this location is aLoc and direction is a→b → OUT; if bLoc and a→b → IN
-                const hopDir = h.direction || 'a→b';
-                const isOut = (isA && hopDir === 'a→b') || (!isA && hopDir === 'b→a');
-                const dir = isOut
-                    ? '<span class="rpt-badge-out">OUT &#8594;</span>'
-                    : '<span class="rpt-badge-in">&#8592; IN</span>';
-
+                const dir = g.isOut
+                    ? '<span class="rpt-badge-out">OUT →</span>'
+                    : '<span class="rpt-badge-in">← IN</span>';
+                const destHtml = g.destinations.map(d =>
+                    '<span class="rpt-ch" style="margin-right:4px;">' + d.remoteCh + '</span><strong>' + d.remoteLoc + '</strong>'
+                ).join('<br>');
                 html += '<tr>' +
-                    '<td><span class="rpt-ch">' + localCh + '</span></td>' +
+                    '<td><span class="rpt-ch">' + g.localCh + '</span></td>' +
                     '<td>' + dir + '</td>' +
-                    '<td><strong>' + remoteLoc + '</strong></td>' +
-                    '<td><span class="rpt-ch">' + remoteCh + '</span></td>' +
+                    '<td colspan="2">' + destHtml + '</td>' +
                     '<td>' + sigTag + '</td>' +
                 '</tr>';
             });
@@ -1926,24 +1929,32 @@ function renderPrintPerBox() {
             const cb = parseFloat(b.aLoc===loc?b.aCh:b.bCh)||0;
             return ca-cb;
         });
+        // Group by local channel — each ch once, all destinations stacked
+        const printChGroupMap = {};
         sorted.forEach(hop => {
             const isA = hop.aLoc===loc;
             const localCh=isA?hop.aCh:hop.bCh, remoteLoc=isA?hop.bLoc:hop.aLoc, remoteCh=isA?hop.bCh:hop.aCh;
-            const nodeKey = loc+' ch'+localCh;
+            const hopDir = hop.direction||'a→b';
+            const isOut = (isA && hopDir==='a→b') || (!isA && hopDir==='b→a');
+            if (!printChGroupMap[localCh]) printChGroupMap[localCh] = { localCh, isOut, destinations: [] };
+            printChGroupMap[localCh].destinations.push({ remoteLoc, remoteCh });
+        });
+        Object.values(printChGroupMap).forEach(g => {
+            const nodeKey = loc+' ch'+g.localCh;
             const sigNames = nodeSignalMap[nodeKey]||[];
             const sigTags = sigNames.length
                 ? sigNames.map(s=>'<span class="print-signal-tag">'+s+'</span>').join(' ')
                 : '<span style="color:#aaa;font-size:8pt;">—</span>';
-            const hopDir = hop.direction||'a→b';
-            const isOut = (isA && hopDir==='a→b') || (!isA && hopDir==='b→a');
-            const dirLabel = isOut
-                ? '<span class="print-badge-out">OUT &#8594;</span>'
-                : '<span class="print-badge-in">&#8592; IN</span>';
+            const dirLabel = g.isOut
+                ? '<span class="print-badge-out">OUT →</span>'
+                : '<span class="print-badge-in">← IN</span>';
+            const destHtml = g.destinations.map(d =>
+                '<span class="print-ch" style="margin-right:4pt;">'+d.remoteCh+'</span><strong>'+d.remoteLoc+'</strong>'
+            ).join('<br>');
             h += '<tr>' +
-                '<td><span class="print-ch">'+localCh+'</span></td>' +
+                '<td><span class="print-ch">'+g.localCh+'</span></td>' +
                 '<td>'+dirLabel+'</td>' +
-                '<td><strong>'+remoteLoc+'</strong></td>' +
-                '<td><span class="print-ch">'+remoteCh+'</span></td>' +
+                '<td colspan="2">'+destHtml+'</td>' +
                 '<td>'+sigTags+'</td>' +
             '</tr>';
         });
