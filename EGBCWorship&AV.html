@@ -17,29 +17,32 @@
         body { font-family: 'Montserrat', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
 
         /* ── SIDEBAR ── */
-        #sidebar { width: 70px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
-        #sidebar:hover { width: 280px; }
+        #sidebar { width: 64px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 1000; flex-shrink: 0; }
+        #sidebar.pinned { width: 260px; }
+        #sidebar-pin { width: 64px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-bottom: 1px solid var(--border-teal); flex-shrink: 0; color: var(--accent-teal); opacity: 0.4; transition: opacity 0.2s; }
+        #sidebar-pin:hover { opacity: 1; }
+        #sidebar.pinned #sidebar-pin { opacity: 1; }
+        #sidebar-pin svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
         #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
-        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 280px; position: relative; }
-        .nav-row { display: flex; align-items: center; height: 45px; color: #3d6263; opacity: 0.5; cursor: pointer; border-left: 4px solid transparent; transition: color 0.2s, background 0.2s, border-color 0.2s, opacity 0.25s; }
-        .nav-row:hover { background: var(--pale-teal); color: var(--accent-teal); border-left-color: var(--accent-teal); }
-        .nav-icon { min-width: 70px; display: flex; justify-content: center; align-items: center; }
+        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 260px; position: relative; }
+        .nav-row { display: flex; align-items: center; height: 48px; color: var(--accent-teal); opacity: 0.45; cursor: pointer; border-left: 3px solid transparent; transition: opacity 0.15s, background 0.15s, border-color 0.15s; }
+        .nav-row:hover, .nav-row.active { opacity: 1; background: var(--pale-teal); border-left-color: var(--accent-teal); }
+        .nav-icon { min-width: 64px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
         .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-        .nav-text { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
-        #sidebar:hover .nav-text { opacity: 1; }
-        .chevron { width: 40px; display: flex; justify-content: center; opacity: 0; transition: transform 0.3s, opacity 0.2s; }
-        #sidebar:hover .chevron { opacity: 0.5; }
-        .has-children.open > .nav-row .chevron { transform: rotate(180deg); }
-        .child-container { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.02); }
-        .has-children.open > .child-container { max-height: 1200px; }
-        #sidebar:not(:hover) .child-container { max-height: 0 !important; }
-        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
-        .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
-        .edit-trigger { display: none; padding: 0 6px 0 8px; color: var(--border-teal); cursor: pointer; flex-shrink: 0; }
-        #sidebar:hover .admin-active .edit-trigger { display: block; }
-        #nav-list.has-open > .nav-item-wrapper { opacity: 0.2; transition: opacity 0.25s ease; }
-        #nav-list.has-open > .nav-item-wrapper.open { opacity: 1; }
-        #sidebar:not(:hover) #nav-list.has-open > .nav-item-wrapper { opacity: 1; }
+        .nav-text { font-family: 'Montserrat', sans-serif; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; white-space: nowrap; flex-grow: 1; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+        #sidebar.pinned .nav-text { opacity: 1; }
+        .chevron { width: 36px; display: flex; justify-content: center; align-items: center; opacity: 0; transition: transform 0.2s, opacity 0.15s; flex-shrink: 0; }
+        #sidebar.pinned .chevron { opacity: 0.4; }
+        .has-children.open > .nav-row .chevron { transform: rotate(180deg); opacity: 0.8; }
+        .child-container { overflow: hidden; transition: height 0.2s cubic-bezier(0.4,0,0.2,1); height: 0; background: rgba(61,98,99,0.03); }
+        .child-container.open { height: auto; }
+        .indent-1 .nav-row { height: 40px; }
+        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; letter-spacing: 0.3px; }
+        .indent-1 .nav-icon { opacity: 0.6; }
+        .indent-2 .nav-row { height: 36px; }
+        .indent-2 .nav-text { font-weight: 500; text-transform: none; font-size: 11px; font-style: italic; }
+        .edit-trigger { display: none; padding: 0 8px; color: var(--border-teal); cursor: pointer; flex-shrink: 0; font-size: 13px; }
+        #sidebar.pinned .admin-active .edit-trigger { display: block; }
 
         /* ── MAIN ── */
         #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; width: 100%; }
@@ -168,7 +171,10 @@
 </head>
 <body>
 
-<nav id="sidebar" onmouseleave="closeAllMenus()">
+<nav id="sidebar">
+    <div id="sidebar-pin" onclick="toggleSidebarPin()" title="Pin sidebar open">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </div>
     <div id="nav-list"></div>
     <div id="admin-controls">
         <button class="admin-btn" onclick="openMenuModal(null)">+ Add Page / Sub</button>
@@ -737,16 +743,90 @@ function renderMenu() {
     buildTree('');
 }
 
-function updateFocusState() { const navList = document.getElementById('nav-list'); const anyOpen = navList.querySelector('.has-children.open'); navList.classList.toggle('has-open', !!anyOpen); }
-function closeAllMenus() { document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open')); updateFocusState(); }
+function toggleSidebarPin() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('pinned');
+    localStorage.setItem('sidebar-pinned', sidebar.classList.contains('pinned') ? '1' : '0');
+}
+
+function initSidebar() {
+    if (localStorage.getItem('sidebar-pinned') === '1') {
+        document.getElementById('sidebar').classList.add('pinned');
+    }
+}
+
+function setChildHeight(container, open) {
+    if (open) {
+        container.style.height = container.scrollHeight + 'px';
+        container.classList.add('open');
+        // After transition, set to auto so it doesn't clip if content changes
+        container.addEventListener('transitionend', function handler() {
+            if (container.classList.contains('open')) container.style.height = 'auto';
+            container.removeEventListener('transitionend', handler);
+        });
+    } else {
+        // Collapse: set explicit height first, then animate to 0
+        container.style.height = container.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+            container.style.height = '0';
+            container.classList.remove('open');
+        });
+    }
+}
+
+function updateFocusState() {}
+function closeAllMenus() {
+    document.querySelectorAll('.has-children.open').forEach(wrapper => {
+        wrapper.classList.remove('open');
+        const container = wrapper.querySelector('.child-container');
+        if (container) setChildHeight(container, false);
+    });
+}
+
 function handleItemClick(event, id, url, logo) {
     const wrapper = event.currentTarget.parentElement;
-    if (wrapper.classList.contains('has-children')) { const isOpening = !wrapper.classList.contains('open'); wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open')); if (isOpening) wrapper.classList.add('open'); updateFocusState(); }
+    if (wrapper.classList.contains('has-children')) {
+        const isOpening = !wrapper.classList.contains('open');
+        // Close siblings at same level
+        wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children.open').forEach(p => {
+            if (p !== wrapper) {
+                p.classList.remove('open');
+                const c = p.querySelector('.child-container');
+                if (c) setChildHeight(c, false);
+            }
+        });
+        const container = wrapper.querySelector('.child-container');
+        if (isOpening) {
+            wrapper.classList.add('open');
+            if (container) setChildHeight(container, true);
+            // Auto-pin sidebar when opening a menu
+            document.getElementById('sidebar').classList.add('pinned');
+        } else {
+            wrapper.classList.remove('open');
+            if (container) setChildHeight(container, false);
+        }
+    }
+    // Mark active
+    document.querySelectorAll('.nav-row').forEach(r => r.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
     if (url && url !== '#' && url !== 'landing') navigate(url, logo);
     else if (url === 'landing') showLanding(logo);
 }
-function navigate(url, logoUrl) { document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO; document.getElementById('landing-content').style.display = 'none'; const frame = document.getElementById('app-frame'); frame.style.display = 'block'; frame.src = url; }
-function showLanding(logoUrl) { document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO; document.getElementById('app-frame').style.display = 'none'; document.getElementById('landing-content').style.display = 'flex'; }
+
+function navigate(url, logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('landing-content').style.display = 'none';
+    const frame = document.getElementById('app-frame');
+    frame.style.display = 'block';
+    frame.src = url;
+}
+
+function showLanding(logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('app-frame').style.display = 'none';
+    document.getElementById('landing-content').style.display = 'flex';
+}
 
 let clickCount = 0;
 function handleSecret() {
@@ -835,6 +915,7 @@ async function resetMenu() {
 }
 
 loadAll();
+initSidebar();
 </script>
 </body>
 </html>
