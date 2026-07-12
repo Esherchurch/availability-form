@@ -304,65 +304,91 @@
         };
 
 
-        window.autoFillPractice = async (practiceId) => {
+        // Sync a practice from its linked Sunday — no availability check needed
+        window.autoFillPractice = async (practiceId, silent = false) => {
             const practice = cachedEvents.find(e => e.id === practiceId);
             if(!practice) return;
             const practiceDate = new Date(practice.date);
+            // Find Sunday within 4 days after practice (Thu→Sun = 3 days, allow 4 for flexibility)
             const sundayService = cachedEvents.find(e => {
                 const eDate = new Date(e.date);
                 const diff = (eDate - practiceDate) / (1000 * 60 * 60 * 24);
-                return e.type === "Sunday Morning Worship" && diff > 0 && diff <= 3;
+                return e.type === "Sunday Morning Worship" && diff > 0 && diff <= 4;
             });
-            if(!sundayService) return alert("No matching Sunday Worship found.");
+            if(!sundayService) {
+                if(!silent) alert("No Sunday Worship found within 4 days after this practice.");
+                return;
+            }
             const updates = {};
-            practice.roles.forEach(role => {
+            const roles = practice.roles || sundayService.roles || [];
+            roles.forEach(role => {
                 const sundayPerson = sundayService.assignments?.[role];
-                if(sundayPerson && availability[practiceId]?.[sundayPerson.id] === 'avail') {
+                if(sundayPerson) {
+                    // Copy from Sunday regardless of practice availability
                     updates[`assignments.${role}`] = { id: sundayPerson.id, name: sundayPerson.name };
                 }
             });
-            if(Object.keys(updates).length > 0) await updateDoc(doc(db, "events", practiceId), updates);
+            if(Object.keys(updates).length > 0) {
+                await updateDoc(doc(db, "events", practiceId), updates);
+            }
         };
 
 
         window.autoFillAllEvents = async () => {
-            if (!confirm("Automatically fill services?")) return;
-            const activeEvents = cachedEvents.filter(e => !e.archived && e.type === "Sunday Morning Worship").sort((a,b) => new Date(a.date) - new Date(b.date));
+            if (!confirm("Auto-populate all Sunday services and sync practices?")) return;
+
+            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
+            const sundayEvents = activeEvents.filter(e => e.type === "Sunday Morning Worship");
+            const practiceEvents = activeEvents.filter(e => e.type !== "Sunday Morning Worship");
+
+            // Build last-served tracker across whole term (not just monthly)
+            const lastServed = {}; // memberId -> Date of last Sunday served
+            sundayEvents.forEach(ev => {
+                Object.values(ev.assignments || {}).forEach(a => {
+                    const d = new Date(ev.date);
+                    if (!lastServed[a.id] || d > lastServed[a.id]) lastServed[a.id] = d;
+                });
+            });
             const monthlyCounts = {};
 
-            for (const ev of activeEvents) {
+            for (const ev of sundayEvents) {
                 const monthKey = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-                if (!monthlyCounts[monthKey]) {
-                    monthlyCounts[monthKey] = {};
-                }
+                if (!monthlyCounts[monthKey]) monthlyCounts[monthKey] = {};
 
-                const members = addressBook.filter(m => availability[ev.id]?.[m.id] === 'avail' && (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship"))));
+                const evDate = new Date(ev.date);
+                const members = addressBook.filter(m =>
+                    availability[ev.id]?.[m.id] === 'avail' &&
+                    (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship")))
+                );
                 const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
-                const currentRoles = [...(ev.roles || [])];
                 const assignments = { ...(ev.assignments || {}) };
+                // Use a live set of roles that we can extend during this loop
+                const liveRoles = new Set(ev.roles || []);
 
                 const tryAssign = (roleName, instrumentName, isPrimaryOnly) => {
-                    if (assignments[roleName]) {
-                        return false;
-                    }
+                    if (assignments[roleName]) return false;
                     let candidates = members.filter(m => {
-                        if (alreadyAssignedToday.has(m.id)) {
-                            return false;
-                        }
-                        if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) {
-                            return false;
-                        }
-                        const hasInst = isPrimaryOnly ? m.primaryInstruments?.includes(instrumentName) : (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName));
+                        if (alreadyAssignedToday.has(m.id)) return false;
+                        if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) return false;
+                        const hasInst = isPrimaryOnly
+                            ? m.primaryInstruments?.includes(instrumentName)
+                            : (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName));
                         return hasInst;
                     });
 
-                    candidates.sort((a,b) => {
+                    // Sort: primary specialists first, then by longest gap since last served
+                    candidates.sort((a, b) => {
                         const aYouth = a.markers?.includes("Youth Worship") ? 1 : 0;
                         const bYouth = b.markers?.includes("Youth Worship") ? 1 : 0;
-                        if (aYouth !== bYouth) {
-                            return aYouth - bYouth;
-                        }
-                        return (a.primaryInstruments?.length || 0) - (b.primaryInstruments?.length || 0);
+                        if (aYouth !== bYouth) return aYouth - bYouth;
+                        // Prefer primary over secondary
+                        const aPrimary = a.primaryInstruments?.includes(instrumentName) ? 0 : 1;
+                        const bPrimary = b.primaryInstruments?.includes(instrumentName) ? 0 : 1;
+                        if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+                        // Prefer longer gap since last served (fairness)
+                        const aLast = lastServed[a.id] ? (evDate - lastServed[a.id]) : Infinity;
+                        const bLast = lastServed[b.id] ? (evDate - lastServed[b.id]) : Infinity;
+                        return bLast - aLast;
                     });
 
                     if (candidates.length > 0) {
@@ -370,65 +396,94 @@
                         assignments[roleName] = { id: chosen.id, name: chosen.name };
                         alreadyAssignedToday.add(chosen.id);
                         monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id] || 0) + 1;
+                        lastServed[chosen.id] = evDate;
+                        liveRoles.add(roleName);
                         return true;
                     }
                     return false;
                 };
 
-                MANDATORY_SUNDAY_ROLES.forEach(r => {
-                    tryAssign(r, r, true);
+                // 1. Fill mandatory roles — primary instruments first, then secondary
+                MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, true));
+                MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, false));
+
+                // 2. Fill existing Singer slots
+                [...liveRoles].filter(r => r.startsWith("Singer")).forEach(r => {
+                    tryAssign(r, "Sing", true) || tryAssign(r, "Sing", false);
                 });
 
-                currentRoles.filter(r => r.startsWith("Singer")).forEach(r => {
-                    tryAssign(r, "Sing", true);
-                });
-
-                MANDATORY_SUNDAY_ROLES.forEach(r => {
-                    tryAssign(r, r, false);
-                });
-
-                currentRoles.filter(r => r.startsWith("Singer")).forEach(r => {
-                    tryAssign(r, "Sing", false);
-                });
-
-                let potentialSingers = members.filter(m => !alreadyAssignedToday.has(m.id) && (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")));
-
-                potentialSingers.sort((a,b) => {
+                // 3. Add additional singers from available pool (fix: track added singers in liveRoles)
+                const availableSingers = members.filter(m =>
+                    !alreadyAssignedToday.has(m.id) &&
+                    (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")) &&
+                    (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
+                ).sort((a, b) => {
                     const aYouth = a.markers?.includes("Youth Worship") ? 1 : 0;
                     const bYouth = b.markers?.includes("Youth Worship") ? 1 : 0;
-                    return aYouth - bYouth;
+                    if (aYouth !== bYouth) return aYouth - bYouth;
+                    const aLast = lastServed[a.id] ? (evDate - lastServed[a.id]) : Infinity;
+                    const bLast = lastServed[b.id] ? (evDate - lastServed[b.id]) : Infinity;
+                    return bLast - aLast;
                 });
 
-                for (const m of potentialSingers) {
-                    if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) {
-                        continue;
-                    }
+                for (const m of availableSingers) {
+                    // Find next available Singer slot not already in liveRoles
                     let nextIdx = 1;
-                    while (currentRoles.includes(`Singer ${nextIdx}`)) {
-                        nextIdx++;
-                    }
+                    while (liveRoles.has(`Singer ${nextIdx}`)) nextIdx++;
                     const newRole = `Singer ${nextIdx}`;
-                    currentRoles.push(newRole);
                     assignments[newRole] = { id: m.id, name: m.name };
                     alreadyAssignedToday.add(m.id);
                     monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
+                    lastServed[m.id] = evDate;
+                    liveRoles.add(newRole); // ← fix: add to liveRoles so next singer gets next slot
                 }
 
+                // 4. Add 2nd Guitar / 2nd Keyboard / Electric Guitar if extra players available
                 ["Guitar", "Keyboard"].forEach(inst => {
-                    const rName = `2nd ${inst}`;
-                    if (!currentRoles.includes(rName)) {
+                    const rName = inst === "Guitar" ? "2nd Guitar" : "2nd Keys";
+                    if (!liveRoles.has(rName)) {
                         if (tryAssign(rName, inst, true) || tryAssign(rName, inst, false)) {
-                            currentRoles.push(rName);
+                            liveRoles.add(rName);
                         }
                     }
                 });
 
-                await updateDoc(doc(db, "events", ev.id), { 
-                    assignments: assignments, 
-                    roles: currentRoles 
+                // 5. Add Electric Guitar if available and not already assigned
+                if (!liveRoles.has("Electric Guitar")) {
+                    if (tryAssign("Electric Guitar", "Electric Guitar", true) || tryAssign("Electric Guitar", "Electric Guitar", false)) {
+                        liveRoles.add("Electric Guitar");
+                    }
+                }
+
+                // 6. Add other available instrumentalists (Violin, Trumpet, Congas, etc.)
+                const extraInstruments = [
+                    { role: "Violin", inst: "Violin" },
+                    { role: "Trumpet", inst: "Trumpet" },
+                    { role: "Congas", inst: "Congas" },
+                    { role: "Cahon", inst: "Cahon" },
+                ];
+                extraInstruments.forEach(({ role, inst }) => {
+                    if (!liveRoles.has(role)) {
+                        if (tryAssign(role, inst, true) || tryAssign(role, inst, false)) {
+                            liveRoles.add(role);
+                        }
+                    }
+                });
+
+                await updateDoc(doc(db, "events", ev.id), {
+                    assignments,
+                    roles: [...liveRoles]
                 });
             }
-            alert("Auto-fill complete!");
+
+            // After filling all Sundays, auto-sync all practices
+            let practicesSynced = 0;
+            for (const practice of practiceEvents) {
+                await autoFillPractice(practice.id, true);
+                practicesSynced++;
+            }
+
+            alert(`Auto-fill complete!\n\nSundays filled: ${sundayEvents.length}\nPractices synced: ${practicesSynced}`);
         };
 
 
@@ -1065,7 +1120,8 @@
             const declined = members.filter(m => (availability[ev.id]?.[m.id] === 'unavailable' || availability[ev.id]?.[m.id] === 'not-avail') && (!hideAssigned || !assignedIds.includes(m.id)));
             const pending = members.filter(m => !availability[ev.id]?.[m.id] && (!hideAssigned || !assignedIds.includes(m.id)));
             const isSunday = ev.type === "Sunday Morning Worship";
-            const rowClass = !isSunday ? 'bg-slate-50 border-dashed border-[#d1dfdf]' : (blockIdx % 2 === 0 ? 'bg-white border-[#d1dfdf]' : 'bg-[#f0f6f6]/30 border-[#d1dfdf]');
+            const mandatoryFilled = isSunday && MANDATORY_SUNDAY_ROLES.every(r => ev.assignments?.[r]);
+            const rowClass = !isSunday ? 'bg-slate-50 border-dashed border-[#d1dfdf]' : (mandatoryFilled ? 'bg-white border-green-300' : (blockIdx % 2 === 0 ? 'bg-white border-[#d1dfdf]' : 'bg-[#f0f6f6]/30 border-[#d1dfdf]'));
             const dateBg = !isSunday ? 'bg-[#d1dfdf]' : 'bg-[#3d6263]';
             const sortedRoles = [...(ev.roles || []).filter(r => !AV_ROLES.includes(r)), ...(ev.roles || []).filter(r => AV_ROLES.includes(r))];
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
@@ -1077,9 +1133,12 @@
 
             let html = '<div class="' + rowClass + ' border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">';
             html += '<div class="flex flex-wrap items-center gap-4 overflow-visible">';
+            html += '<div class="relative">';
             html += '<button onclick="toggleEventExpand(\'' + ev.id + '\')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[#3d6263] shadow-sm border border-[#d1dfdf]">';
             html += (expandedEvents.has(ev.id) || isSunday ? '<svg ' + iconStyles + ' viewBox="0 0 24 24"><path d="M19.5 12h-15" /></svg>' : '<svg ' + iconStyles + ' viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>');
             html += '</button>';
+            if (mandatoryFilled) html += '<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white" title="All mandatory roles filled"></div>';
+            html += '</div>';
             html += '<input type="date" value="' + ev.date + '" onchange="updateField(\'' + ev.id + '\', \'date\', this.value)" class="' + dateBg + ' ' + (!isSunday ? 'text-[#3d6263]' : 'text-white') + ' px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">';
             html += timeGroupHtml;
             html += '<select onchange="updateField(\'' + ev.id + '\', \'type\', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">';
