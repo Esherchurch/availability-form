@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wider Worship Charter</title>
+    <title>Worship & AV Team Charter</title>
     <style>
         :root {
             --pale-teal: #f0f6f6;
@@ -13,7 +14,7 @@
             --brand-green: #9bc34a;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); min-height: 100vh; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--pale-teal); min-height: 100vh; }
 
         /* ── ADMIN BAR ── */
         #admin-bar {
@@ -39,7 +40,7 @@
         .admin-bar-btn {
             padding: 5px 14px;
             border-radius: 6px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
@@ -246,7 +247,7 @@
         .editor-btn {
             padding: 8px 18px;
             border-radius: 6px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
@@ -322,7 +323,7 @@
 <div class="page-wrap">
     <div style="padding:0 0 20px;">
         <div id="page-title-display" style="font-size:22px;font-weight:300;color:var(--accent-teal);letter-spacing:0.3px;"></div>
-        <input type="text" id="page-title-input" placeholder="Page title&hellip;" style="display:none;font-size:20px;font-weight:300;color:var(--accent-teal);border:2px solid var(--border-teal);border-radius:8px;padding:6px 14px;font-family:'Segoe UI',sans-serif;outline:none;min-width:280px;">
+        <input type="text" id="page-title-input" placeholder="Page title&hellip;" style="display:none;font-size:20px;font-weight:300;color:var(--accent-teal);border:2px solid var(--border-teal);border-radius:8px;padding:6px 14px;font-family:'Montserrat',sans-serif;outline:none;min-width:280px;">
     </div>
 
     <!-- Photos -->
@@ -387,14 +388,45 @@ window.addEventListener('load', loadSaved);
 
 function loadSaved() {
     const saved = JSON.parse(localStorage.getItem(PAGE_ID) || '{}');
-    const title = saved.title || 'Wider Worship Charter';
+    const title = saved.title || 'Worship & AV Team Charter';
     document.getElementById('page-title-display').textContent = title;
     document.getElementById('page-title-input').value = title;
     document.title = title;
-    if (saved.html) {
-        document.getElementById('content-display').innerHTML = saved.html;
-        document.getElementById('html-textarea').value = saved.html;
-    }
+    const defaultHtml = `<h2>Worship &amp; AV Team Charter</h2>
+<blockquote>We are worshippers first, team members second, musicians and technicians third.</blockquote>
+
+<h3>Who We Are</h3>
+<p>We are a family of worshippers who serve together with humility, joy, and unity. Every person — musician, vocalist, or AV — plays a vital role in helping the church encounter God.</p>
+
+<h3>When We Disagree</h3>
+<p>We understand that we may not always share the same theological views or ways of doing things. When differences arise, we commit to talking with love, respect, and humility, keeping Jesus at the centre. Unity is not about agreeing on everything — it's about choosing love in everything.</p>
+
+<h3>Living as Followers of Jesus</h3>
+<p>As people who serve visibly, our lives should reflect the way of Jesus — not perfectly, but sincerely. We aim to honour Him in our relationships, decisions, and behaviour.</p>
+<p>We recognise that lifestyle choices shaped by a hedonistic or self-centred approach to life do not align with the calling of serving in worship ministry. This applies to choices, not to identity or things people cannot control.</p>
+<p>We choose to grow, to be accountable, and to live lives that point others to Jesus.</p>
+
+<h3>How We Serve Together</h3>
+<ul>
+<li><strong>We prepare well</strong> — learning our parts, listening to the set, and arriving ready</li>
+<li><strong>We stay flexible</strong> — songs and arrangements may change</li>
+<li><strong>We honour one another</strong> — with kindness and encouragement</li>
+<li><strong>We communicate early</strong> — about availability or challenges</li>
+<li><strong>We follow the worship leader's direction</strong> — with unity and trust</li>
+<li><strong>We partner with AV as one team</strong> — not two</li>
+<li><strong>We pray together</strong> — because worship is spiritual before it is musical</li>
+</ul>
+
+<h3>Sunday Expression</h3>
+<ul>
+<li>We arrive prepared, prayerful, and ready to bless the church</li>
+<li>We support the worship leader and each other with unity</li>
+<li>We respond to the Holy Spirit with sensitivity and trust</li>
+<li>We serve with cheerful hearts, remembering our goal is to help others see Jesus</li>
+</ul>`;
+    const htmlContent = saved.html || defaultHtml;
+    document.getElementById('content-display').innerHTML = htmlContent;
+    document.getElementById('html-textarea').value = htmlContent;
     if (saved.photos) {
         photos = saved.photos;
         renderPhotos();
