@@ -825,6 +825,133 @@
         };
 
 
+        window.sendSingleRota = async (memberId) => {
+            if (!memberId) return alert("Please select a team member first.");
+            const member = addressBook.find(m => m.id === memberId);
+            if (!member || !member.email) return alert("Member not found or has no email.");
+            if (!confirm(`Send rota to ${member.name} (${member.email})?`)) return;
+
+            const SEND_FUNCTION_URL = "https://us-central1-egbc-worship-planner.cloudfunctions.net/sendEmail";
+            const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+            const packageId = `rota-single-${Date.now()}`;
+
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
+            document.body.appendChild(toast);
+            toast.textContent = `Preparing rota for ${member.name}...`;
+
+            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
+            const termLabels = [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))].join(', ');
+            const mId = member.id;
+            const safeName = member.name.replace(/\s+/g, '_');
+            const firstName = member.name.split(' ')[0];
+            const headId = member.householdId || member.id;
+            const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+            const personalEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
+            const familyEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+            const fullDoc = await getPdfBlob('full', null, activeEvents);
+            const storageRefs = [];
+
+            const uploadAndEncode = async (blob, path) => {
+                const storageRef = ref(storage, path);
+                await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
+                storageRefs.push(storageRef);
+                const url = await getDownloadURL(storageRef);
+                return await fetch(url).then(r => r.blob()).then(b => new Promise(res => {
+                    const fr = new FileReader(); fr.onload = () => res(fr.result.split(',')[1]); fr.readAsDataURL(b);
+                }));
+            };
+
+            try {
+                const attachments = [];
+
+                const indDoc = await getPdfBlob('individual', mId, activeEvents);
+                if (indDoc) attachments.push({ filename: `${safeName}_Individual_Rota.pdf`, content: await uploadAndEncode(indDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Rota.pdf`) });
+
+                const hDoc = await getPdfBlob('household', mId, activeEvents);
+                if (hDoc) attachments.push({ filename: `${safeName}_Household_Rota.pdf`, content: await uploadAndEncode(hDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Household_Rota.pdf`) });
+
+                const wDoc = await getPdfBlob('wall', mId, activeEvents);
+                if (wDoc) attachments.push({ filename: `${safeName}_Wall_Planner.pdf`, content: await uploadAndEncode(wDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Wall_Planner.pdf`) });
+
+                if (fullDoc) attachments.push({ filename: 'Full_Church_Rota.pdf', content: await uploadAndEncode(fullDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Full_Church_Rota.pdf`) });
+
+                if (personalEvents.length > 0) {
+                    const icsStr = buildICS(personalEvents, ev => ({
+                        dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
+                        summary: `EGBC: ${Object.entries(ev.assignments || {}).filter(([r,p]) => p.id === mId).map(([r]) => r).join(', ')}`,
+                        description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
+                    }));
+                    attachments.push({ filename: `${safeName}_My_Rota.ics`, content: btoa(unescape(encodeURIComponent(icsStr))) });
+                }
+
+                if (familyEvents.length > 0) {
+                    const hIcsStr = buildICS(familyEvents, ev => {
+                        const familyRoles = Object.entries(ev.assignments || {}).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(', ');
+                        return { dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null, summary: `EGBC Family: ${familyRoles}`, description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}` };
+                    });
+                    attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: btoa(unescape(encodeURIComponent(hIcsStr))) });
+                }
+
+                const dateRows = personalEvents.map(ev => {
+                    const roles = Object.entries(ev.assignments || {}).filter(([r,p]) => p.id === mId).map(([r]) => r).join(', ');
+                    const d = new Date(ev.date);
+                    const dateStr = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
+                    const timeStr = ev.startTime ? ` &bull; ${ev.startTime}–${ev.endTime || ''}` : '';
+                    return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}${timeStr}</td><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:800;">${roles}</td></tr>`;
+                }).join('');
+
+                const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background-color:#eaf2f2;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
+<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
+  <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:bottom;"><p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Your Rota</p><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${termLabels}</p></td>
+      <td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC"></div></td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:36px 40px 0;">
+    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi ${firstName},</p>
+    <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">Please find your rota attached for the upcoming term. We are really grateful for your faithful service and look forward to worshipping together with you.</p>
+    <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Your Serving Dates</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;margin-bottom:32px;">
+      <tr bgcolor="#f4f9f9"><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date &amp; Time</td><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Role</td></tr>
+      ${dateRows}
+    </table>
+    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Your individual rota, household rota, wall planner, full church rota and calendar files (.ics) are all attached.</p>
+  </td></tr>
+  <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
+    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
+    </tr></table>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+
+                toast.innerHTML = `Sending to <strong>${member.name}</strong>...`;
+                const resp = await fetch(SEND_FUNCTION_URL, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: 'worship@esherchurch.org', attachments })
+                });
+                const result = await resp.json();
+                await Promise.allSettled(storageRefs.map(r => deleteObject(r)));
+                if (result.ok) {
+                    toast.innerHTML = `✓ Rota sent to <strong>${member.name}</strong>!`;
+                    toast.style.background = '#3B7D23';
+                } else {
+                    toast.innerHTML = `✗ Failed: ${result.error}`;
+                    toast.style.background = '#e05555';
+                }
+            } catch(e) {
+                await Promise.allSettled(storageRefs.map(r => deleteObject(r)));
+                toast.innerHTML = `✗ Error: ${e.message}`;
+                toast.style.background = '#e05555';
+            }
+            setTimeout(() => toast.remove(), 6000);
+        };
+
         window.gatherTermAvailability = async () => {
             const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel))];
             const selectedTerm = prompt(`Gather availability for which term?\n\nOptions:\n${terms.join('\n')}`, terms[0]);
@@ -1056,6 +1183,7 @@
                 <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Indiv</button>
                 <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Home</button>
                 <button onclick="generatePDF('wall', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md">Wall</button>
+                <button onclick="sendSingleRota(document.getElementById('memberPdfSelect').value)" class="bg-white text-[#3d6263] border-2 border-[#3d6263] px-6 py-3 rounded-full font-black text-[10px] uppercase shadow-md hover:bg-[#3d6263] hover:text-white transition-all">✉ Send</button>
             </div>
         </header>
         <div id="eventList"></div>
