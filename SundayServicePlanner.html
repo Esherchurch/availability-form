@@ -618,7 +618,7 @@ window.emailSchedule = async () => {
         if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
     });
     teamRecipients = [...new Set(teamRecipients)];
-    const SEND_FUNCTION_URL = "https://us-central1-egbc-worship-planner.cloudfunctions.net/sendEmail";
+    const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
     async function sendViaResend(toAddresses, emailSubject, emailHtml) {
         const statusEl = document.getElementById('modalStatus');
         statusEl.textContent = "Sending…";
