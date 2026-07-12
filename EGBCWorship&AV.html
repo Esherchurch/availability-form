@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Worship &amp; AV Hub</title>
     <style>
@@ -13,15 +14,15 @@
             --brand-green: #9bc34a;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
 
         /* ── SIDEBAR ── */
         #sidebar { width: 70px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
         #sidebar:hover { width: 280px; }
         #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
         .nav-item-wrapper { display: flex; flex-direction: column; min-width: 280px; position: relative; }
-        .nav-row { display: flex; align-items: center; height: 45px; color: #7a8c8c; cursor: pointer; border-left: 4px solid transparent; transition: color 0.2s, background 0.2s, border-color 0.2s, opacity 0.25s; }
-        .nav-row:hover { background: var(--pale-teal); color: var(--accent-teal); border-left-color: var(--brand-green); }
+        .nav-row { display: flex; align-items: center; height: 45px; color: #3d6263; opacity: 0.5; cursor: pointer; border-left: 4px solid transparent; transition: color 0.2s, background 0.2s, border-color 0.2s, opacity 0.25s; }
+        .nav-row:hover { background: var(--pale-teal); color: var(--accent-teal); border-left-color: var(--accent-teal); }
         .nav-icon { min-width: 70px; display: flex; justify-content: center; align-items: center; }
         .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
         .nav-text { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
@@ -46,9 +47,9 @@
         #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
         #app-viewport { flex-grow: 1; position: relative; background: var(--white); overflow: hidden; }
         #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
-        #sync-status { font-size: 10px; color: #a0b0b0; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
+        #sync-status { font-size: 10px; color: #3d6263; opacity: 0.4; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
         #sync-status.syncing { color: #f0a500; }
-        #sync-status.synced  { color: var(--brand-green); }
+        #sync-status.synced  { color: var(--accent-teal); }
         #sync-status.error   { color: #f44336; }
         #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
         .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
@@ -73,18 +74,18 @@
         /* ── NEWS PANEL ── */
         #news-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-teal); flex-shrink: 0; }
         #news-header h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-teal); }
-        #news-add-btn { background: var(--brand-green); color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
+        #news-add-btn { background: var(--accent-teal); color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
         #news-track-wrapper { flex-grow: 1; overflow: hidden; position: relative; min-width: 0; }
         #news-track { display: flex; flex-direction: column; gap: 0; will-change: transform; }
         .news-card { border-bottom: 1px solid var(--border-teal); padding: 16px 20px; background: var(--white); position: relative; flex-shrink: 0; min-width: 0; box-sizing: border-box; }
-        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #a0b0b0; margin-bottom: 4px; }
+        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #3d6263; opacity: 0.4; margin-bottom: 4px; }
         .news-card-title { font-size: 13px; font-weight: 700; color: var(--accent-teal); margin-bottom: 6px; }
         .news-card-body { font-size: 13px; color: #555; line-height: 1.55; overflow: hidden; word-break: break-word; }
         .news-card-body * { max-width: 100% !important; box-sizing: border-box; }
         .news-card-body img { max-width: 100% !important; width: auto; height: auto; border-radius: 6px; margin: 6px 0; display: block; }
         .news-card-body table { width: 100% !important; table-layout: fixed; }
         .news-card-body a { color: var(--accent-teal); }
-        .news-card-edit-btn { position: absolute; top: 10px; right: 10px; background: none; border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #a0b0b0; cursor: pointer; display: none; }
+        .news-card-edit-btn { position: absolute; top: 10px; right: 10px; background: none; border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #3d6263; opacity: 0.4; cursor: pointer; display: none; }
         body.admin-mode .news-card-edit-btn { display: block; }
         body.admin-mode #hero-edit-btn { display: block; }
         body.admin-mode #body-edit-btn { display: block; }
@@ -104,7 +105,7 @@
         .modal-btn.danger  { background: #f44336; color: #fff; }
         .modal-btn.cancel  { background: #e0e8e8; color: var(--accent-teal); }
         .tab-row { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid var(--border-teal); }
-        .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: #a0b0b0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: #3d6263; opacity: 0.4; border-bottom: 2px solid transparent; margin-bottom: -2px; }
         .tab-btn.active { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
 
         /* ── ICON PICKER ── */
@@ -139,7 +140,7 @@
         .rte-btn.active { background: var(--accent-teal); color: white; }
         .rte-btn.separator { background: none; border: none; border-left: 1px solid var(--border-teal); padding: 0 2px; cursor: default; color: transparent; }
         .rte-select { padding: 4px 6px; border: 1px solid var(--border-teal); border-radius: 4px; font-size: 11px; color: var(--accent-teal); background: white; cursor: pointer; outline: none; }
-        .rte-area { width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 0 0 8px 8px; padding: 14px; font-family: 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; color: #444; outline: none; }
+        .rte-area { width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 0 0 8px 8px; padding: 14px; font-family: 'Montserrat', sans-serif; font-size: 14px; line-height: 1.6; color: #444; outline: none; }
         .rte-area:focus { border-color: var(--accent-teal); }
         .rte-area img { max-width: 100%; border-radius: 6px; cursor: pointer; }
         .rte-area img.selected { outline: 3px solid var(--accent-teal); border-radius: 6px; }
@@ -180,7 +181,7 @@
     <header>
         <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
         <div style="text-align: right">
-            <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
+            <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #3d6263; opacity: 0.4; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
             <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
             <div id="sync-status">Connecting&hellip;</div>
         </div>
@@ -203,7 +204,7 @@
                     <button id="body-edit-btn" onclick="openBodyEditor()">&#10002; Edit Content</button>
                     <div id="body-content-area">
                         <h2>Dashboard</h2>
-                        <p style="color:#7a8c8c;">Select a tool to begin.</p>
+                        <p style="color:#3d6263; opacity:0.5;">Select a tool to begin.</p>
                     </div>
                 </div>
                 <div id="dashboard-sidebar-panel">
@@ -320,7 +321,7 @@
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">&#10002; Edit Hero Banner</button>
                         <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">&#10002; Edit Main Content</button>
-                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openNewsEditor(null)" style="background:var(--brand-green);">+ Add News Item</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openNewsEditor(null)" style="background:var(--accent-teal);">+ Add News Item</button>
                     </div>
                     <div class="modal-btn-row" style="margin-top:10px;">
                         <button class="modal-btn cancel" onclick="closeModal('dash-settings-modal')">Close</button>
@@ -400,7 +401,7 @@ const DEFAULT_MENU = [
 
 const DEFAULT_DASHBOARD = {
     hero: { title: "Welcome", subtitle: "Select a tool from the menu to get started.", bgImage: "", bgPosition: 30 },
-    bodyHtml: '<h2>Dashboard</h2><p style="color:#7a8c8c;">Select a tool to begin.</p>',
+    bodyHtml: '<h2>Dashboard</h2><p style="color:#3d6263; opacity:0.5;">Select a tool to begin.</p>',
     newsItems: []
 };
 
