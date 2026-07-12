@@ -564,27 +564,72 @@ window.emailSchedule = async () => {
     <a href="${summaryUrl}" style="font-size: 10.0pt; color: #3d6263; text-decoration: underline; font-weight: 700;"><font color="#3d6263">View simplified song list (songs, CCLI &amp; notes)</font></a>
 </div></div>`;
 
-    const type = "text/html";
-    const blob = new Blob([htmlEmail], { type });
-    try { await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]); } catch (e) {}
-
-    let recipients = [];
+    // Build recipient lists
+    let teamRecipients = [];
     addressBook.forEach(p => {
         const isCore = p.markers && p.markers.includes("Core Team");
-        if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) recipients.push(p.email);
+        if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
     });
-    const teamTo = [...new Set(recipients)].join(",");
-    const subject = encodeURIComponent("Sunday Worship Plan: " + date);
+    teamRecipients = [...new Set(teamRecipients)];
+
+    const subject = "Sunday Worship Plan: " + date;
     const modal = document.getElementById('emailModal');
     const individualSelect = document.getElementById('modalIndividualSelect');
     individualSelect.innerHTML = '<option value="">— Pick a person —</option>';
     teamRows.forEach(row => {
         const name = row.children[1].innerText.trim();
         const found = addressBook.find(p => p.name?.trim() === name);
-        if (found && found.email) { const opt = document.createElement('option'); opt.value = found.email; opt.textContent = `${name} (${found.email})`; individualSelect.appendChild(opt); }
+        if (found && found.email) {
+            const opt = document.createElement('option');
+            opt.value = found.email;
+            opt.textContent = `${name} (${found.email})`;
+            individualSelect.appendChild(opt);
+        }
     });
-    document.getElementById('modalTeamBtn').onclick = () => { modal.classList.remove('active'); alert("Plan copied to clipboard!"); window.location.href = `mailto:${teamTo}?subject=${subject}`; };
-    document.getElementById('modalIndividualBtn').onclick = () => { const email = individualSelect.value; if (!email) { alert("Please select a person first."); return; } modal.classList.remove('active'); alert("Plan copied to clipboard!"); window.location.href = `mailto:${email}?subject=${subject}`; };
+
+    const SEND_FUNCTION_URL = "https://us-central1-egbc-worship-planner.cloudfunctions.net/sendEmail";
+
+    async function sendViaResend(toAddresses, emailSubject, emailHtml) {
+        const statusEl = document.getElementById('modalStatus');
+        statusEl.textContent = "Sending…";
+        statusEl.style.color = "#3d6263";
+        try {
+            const resp = await fetch(SEND_FUNCTION_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: "worship@esherchurch.org" })
+            });
+            const result = await resp.json();
+            if (result.ok) {
+                statusEl.textContent = "✓ Sent successfully!";
+                statusEl.style.color = "#3B7D23";
+                setTimeout(() => modal.classList.remove('active'), 1800);
+            } else {
+                statusEl.textContent = "✗ Error: " + (result.error || "Unknown error");
+                statusEl.style.color = "#e05555";
+            }
+        } catch (e) {
+            statusEl.textContent = "✗ Network error: " + e.message;
+            statusEl.style.color = "#e05555";
+        }
+    }
+
+    document.getElementById('modalTeamBtn').onclick = async () => {
+        document.getElementById('modalTeamBtn').disabled = true;
+        document.getElementById('modalIndividualBtn').disabled = true;
+        await sendViaResend(teamRecipients, subject, htmlEmail);
+        document.getElementById('modalTeamBtn').disabled = false;
+        document.getElementById('modalIndividualBtn').disabled = false;
+    };
+    document.getElementById('modalIndividualBtn').onclick = async () => {
+        const email = individualSelect.value;
+        if (!email) { alert("Please select a person first."); return; }
+        document.getElementById('modalTeamBtn').disabled = true;
+        document.getElementById('modalIndividualBtn').disabled = true;
+        await sendViaResend([email], subject, htmlEmail);
+        document.getElementById('modalTeamBtn').disabled = false;
+        document.getElementById('modalIndividualBtn').disabled = false;
+    };
     document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
     modal.classList.add('active');
 };
@@ -596,14 +641,15 @@ window.emailSchedule = async () => {
 <div id="emailModal">
     <div id="emailModalBox">
         <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Worship Plan</h2>
-        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:20px; font-weight:700;">Plan will be copied to clipboard. Choose who to email.</p>
+        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:20px; font-weight:700;">Sends from EGBCWorship@callasuite.uk. Choose who to email.</p>
         <button id="modalTeamBtn" class="btn-primary" style="width:100%; display:block; text-align:center; border:none; cursor:pointer; margin-bottom:20px;">Email Whole Team</button>
         <div style="border-top:1px solid #d1dfdf; padding-top:20px;">
             <p style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#3d6263; opacity:0.5; margin-bottom:8px;">Or email one person:</p>
             <select id="modalIndividualSelect" class="styled-input" style="width:100%; margin-bottom:10px;"></select>
             <button id="modalIndividualBtn" class="btn-secondary" style="width:100%; display:block; text-align:center; cursor:pointer;">Email This Person</button>
         </div>
-        <div style="margin-top:16px; text-align:center;"><button id="modalCancelBtn" style="font-size:12px; font-weight:700; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button></div>
+        <div id="modalStatus" style="margin-top:14px; font-size:13px; font-weight:700; min-height:20px; text-align:center;"></div>
+        <div style="margin-top:12px; text-align:center;"><button id="modalCancelBtn" style="font-size:12px; font-weight:700; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button></div>
     </div>
 </div>
 
