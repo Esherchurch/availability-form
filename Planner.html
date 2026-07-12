@@ -631,7 +631,7 @@
         }
 
         window.prepareDistributionPackage = async () => {
-            const SEND_FUNCTION_URL = "https://us-central1-egbc-worship-planner.cloudfunctions.net/sendEmail";
+            const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
             const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
             const packageId = `rota-${Date.now()}`;
 
@@ -831,7 +831,7 @@
             if (!member || !member.email) return alert("Member not found or has no email.");
             if (!confirm(`Send rota to ${member.name} (${member.email})?`)) return;
 
-            const SEND_FUNCTION_URL = "https://us-central1-egbc-worship-planner.cloudfunctions.net/sendEmail";
+            const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
             const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
             const packageId = `rota-single-${Date.now()}`;
 
