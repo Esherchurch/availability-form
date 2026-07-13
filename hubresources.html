@@ -141,14 +141,14 @@
     <textarea id="f-desc" placeholder="Short description of what this is for…"></textarea>
     <label>Type</label>
     <select id="f-type" onchange="onTypeChange()">
-      <option value="pwa">📱 Install as App (PWA)</option>
+      <option value="pwa">📱 App (PWA)</option>
       <option value="link">🔗 Web Link / PWA</option>
     </select>
     <label>Version</label>
     <input type="text" id="f-version" placeholder="e.g. v1.0.0">
     <div id="apk-section">
-      <label>App URL</label>
-      <input type="url" id="f-manual-url" placeholder="Paste the app URL (e.g. https://esherchurch.github.io/…)">
+      <label>App / Page URL</label>
+      <input type="url" id="f-manual-url" placeholder="e.g. https://esherchurch.github.io/availability-form/worshiphubapp.html">
       <p style="font-size:0.68rem;font-weight:700;color:var(--teal-mid);padding-left:4px;margin-top:-12px;margin-bottom:16px;">e.g. https://esherchurch.github.io/availability-form/worshiphubapp.html</p>
     </div>
     <div id="link-section" style="display:none;">
@@ -191,39 +191,38 @@
   </div>
 </div>
 
-<!-- Android PWA Modal -->
-<div class="modal-overlay" id="android-modal">
-  <div class="modal" style="max-width:440px;">
-    <button class="modal-close" onclick="closeAndroidModal()">Close</button>
-    <h3>Install on Android</h3>
-    <p class="subtitle">Add this app to your home screen — no Play Store needed.</p>
-    <div class="modal-link-url" id="android-modal-url"></div>
-    <div class="ios-steps">
-      <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Chrome</strong> on your Android phone.</div></div>
-      <div class="ios-step"><div class="step-num">2</div><div class="step-text">Tap the <strong>three dots menu</strong> <span class="step-icon">⋮</span> in the top right corner.</div></div>
-      <div class="ios-step"><div class="step-num">3</div><div class="step-text">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>.</div></div>
-      <div class="ios-step"><div class="step-num">4</div><div class="step-text">Tap <strong>Install</strong>. The app will appear on your home screen and open full screen.</div></div>
-    </div>
-    <br>
-    <a id="android-modal-link" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;">Open in Chrome →</a>
-  </div>
-</div>
+<!-- Install Modal -->
+<div class="modal-overlay" id="install-modal">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeInstallModal()">Close</button>
+    <h3 id="install-modal-title">Install App</h3>
+    <p class="subtitle">Add this app to your home screen — works like a native app, no App Store needed.</p>
+    <div class="modal-link-url" id="install-modal-url"></div>
 
-<!-- iOS Modal -->
-<div class="modal-overlay" id="ios-modal">
-  <div class="modal" style="max-width:440px;">
-    <button class="modal-close" onclick="closeModal()">Close</button>
-    <h3>Add to iPhone Home Screen</h3>
-    <p class="subtitle">Use this web app like a native app — no App Store needed.</p>
-    <div class="modal-link-url" id="modal-url"></div>
-    <div class="ios-steps">
-      <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Safari</strong> on your iPhone. (Must be Safari — not Chrome or Firefox.)</div></div>
-      <div class="ios-step"><div class="step-num">2</div><div class="step-text">Tap the <strong>Share</strong> button <span class="step-icon">⬆</span> at the bottom of the screen.</div></div>
-      <div class="ios-step"><div class="step-num">3</div><div class="step-text">Scroll down and tap <strong>"Add to Home Screen"</strong> <span class="step-icon">＋</span>.</div></div>
-      <div class="ios-step"><div class="step-num">4</div><div class="step-text">Give it a name and tap <strong>Add</strong>. It will appear on your home screen just like an app.</div></div>
+    <div style="display:flex;gap:10px;margin:16px 0;">
+      <button onclick="showInstallTab('android')" id="tab-android" class="btn btn-primary btn-sm" style="flex:1;">🤖 Android</button>
+      <button onclick="showInstallTab('ios')" id="tab-ios" class="btn btn-secondary btn-sm" style="flex:1;">🍎 iPhone</button>
     </div>
-    <br>
-    <a id="modal-open-link" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;">Open in Safari →</a>
+
+    <div id="install-tab-android">
+      <div class="ios-steps">
+        <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Chrome</strong> on your Android phone — tap the button below or scan the QR code.</div></div>
+        <div class="ios-step"><div class="step-num">2</div><div class="step-text">Tap the <strong>three dots menu ⋮</strong> in the top right of Chrome.</div></div>
+        <div class="ios-step"><div class="step-num">3</div><div class="step-text">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>.</div></div>
+        <div class="ios-step"><div class="step-num">4</div><div class="step-text">Tap <strong>Install</strong>. It opens full screen just like a native app.</div></div>
+      </div>
+      <a id="install-link-android" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Open in Chrome →</a>
+    </div>
+
+    <div id="install-tab-ios" style="display:none;">
+      <div class="ios-steps">
+        <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Safari</strong> on your iPhone — must be Safari, not Chrome.</div></div>
+        <div class="ios-step"><div class="step-num">2</div><div class="step-text">Tap the <strong>Share button ⬆</strong> at the bottom of the screen.</div></div>
+        <div class="ios-step"><div class="step-num">3</div><div class="step-text">Scroll down and tap <strong>"Add to Home Screen" ＋</strong>.</div></div>
+        <div class="ios-step"><div class="step-num">4</div><div class="step-text">Give it a name and tap <strong>Add</strong>.</div></div>
+      </div>
+      <a id="install-link-ios" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Open in Safari →</a>
+    </div>
   </div>
 </div>
 
@@ -293,13 +292,14 @@ async function loadResources() {
       list.innerHTML = `<div class="empty-state"><p>${isAdmin ? 'No resources yet. Click "+ Add Resource" to get started.' : 'No resources yet.'}</p></div>`;
       return;
     }
-    const apks = [], links = [];
+    list.innerHTML = '';
+    const apps = [], links = [];
     snap.docs.forEach(doc => {
       const d = { id: doc.id, ...doc.data() };
-      d.type === 'apk' ? apks.push(d) : links.push(d);
+      (d.type === 'apk' || d.type === 'pwa') ? apps.push(d) : links.push(d);
     });
     list.innerHTML = '';
-    if (apks.length)  { list.innerHTML += `<div class="section-label">Android Apps (Install as PWA)</div>`; apks.forEach(r => list.innerHTML += cardHTML(r)); }
+    if (apps.length)  { list.innerHTML += `<div class="section-label">Apps — Scan QR or tap Install</div>`; apps.forEach(r => list.innerHTML += cardHTML(r)); }
     if (links.length) { list.innerHTML += `<div class="section-label" style="margin-top:10px;">Web Links &amp; Tools</div>`; links.forEach(r => list.innerHTML += cardHTML(r)); }
   } catch(e) {
     list.innerHTML = `<div class="empty-state"><p>Error loading resources: ${e.message}</p></div>`;
@@ -307,17 +307,17 @@ async function loadResources() {
 }
 
 function cardHTML(r) {
-  const icon      = r.type === 'apk' ? '📦' : '🔗';
-  const typeBadge = r.type === 'apk' ? '<span class="badge badge-apk">APK</span>' : '<span class="badge badge-link">Web App</span>';
-  const version   = r.version  ? `<span class="badge badge-version">${r.version}</span>`  : '';
-  const size      = r.fileSize ? `<span class="badge badge-size">${r.fileSize}</span>`     : '';
+  const isApp     = r.type === 'apk' || r.type === 'pwa';
+  const icon      = isApp ? '📱' : '🔗';
+  const typeBadge = isApp ? '<span class="badge badge-apk">App</span>' : '<span class="badge badge-link">Web</span>';
+  const version   = r.version ? `<span class="badge badge-version">${r.version}</span>` : '';
+  const appUrl    = r.url || r.downloadUrl || '';
 
-  const actionBtn = r.type === 'apk'
-    ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();showAndroidModal('${escHtml(r.downloadUrl||r.url)}','${escHtml(r.name)}')">🤖 Android Install</button>
-       <button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(r.downloadUrl||r.url)}','${escHtml(r.name)}')">⬛ QR</button>`
-    : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openLinkModal('${escHtml(r.url)}','${escHtml(r.name)}')">📱 iOS Install</button>
-       <a href="${escHtml(r.url)}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">Open →</a>
-       <button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(r.url)}','${escHtml(r.name)}')">⬛ QR</button>`;
+  const actionBtn = isApp
+    ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();showInstallModal('${escHtml(appUrl)}','${escHtml(r.name)}')">📲 Install</button>
+       <button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>`
+    : `<a href="${escHtml(appUrl)}" target="_blank" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">Open →</a>
+       <button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>`;
 
   const cardClass = isAdmin ? 'resource-card admin-clickable' : 'resource-card';
   const cardClick = isAdmin ? `onclick="editResource('${r.id}')"` : '';
@@ -327,7 +327,7 @@ function cardHTML(r) {
     <div class="card-body">
       <div class="card-name">${escHtml(r.name)}</div>
       <div class="card-desc">${escHtml(r.description || '')}</div>
-      <div class="card-meta">${typeBadge}${version}${size}</div>
+      <div class="card-meta">${typeBadge}${version}</div>
     </div>
     <div class="card-actions">${actionBtn}</div>
   </div>`;
@@ -453,16 +453,31 @@ function openLinkModal(url) {
   document.getElementById('modal-open-link').href    = url;
   document.getElementById('ios-modal').classList.add('open');
 }
-function showAndroidModal(url, name) {
-  document.getElementById('android-modal-url').textContent = url;
-  document.getElementById('android-modal-link').href = url;
-  document.getElementById('android-modal').classList.add('open');
+function showInstallModal(url, name) {
+  document.getElementById('install-modal-title').textContent = name;
+  document.getElementById('install-modal-url').textContent = url;
+  document.getElementById('install-link-android').href = url;
+  document.getElementById('install-link-ios').href = url;
+  document.getElementById('install-modal').classList.add('open');
+  showInstallTab('android');
 }
-function closeAndroidModal() {
-  document.getElementById('android-modal').classList.remove('open');
+function closeInstallModal() {
+  document.getElementById('install-modal').classList.remove('open');
+}
+function showInstallTab(tab) {
+  document.getElementById('install-tab-android').style.display = tab === 'android' ? 'block' : 'none';
+  document.getElementById('install-tab-ios').style.display = tab === 'ios' ? 'block' : 'none';
+  document.getElementById('tab-android').className = tab === 'android' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  document.getElementById('tab-android').style.flex = '1';
+  document.getElementById('tab-ios').className = tab === 'ios' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  document.getElementById('tab-ios').style.flex = '1';
 }
 
-function closeModal() { document.getElementById('ios-modal').classList.remove('open'); }
+// Legacy - keep openLinkModal working
+function openLinkModal(url, name) { showInstallModal(url, name); }
+function closeModal() { closeInstallModal(); }
+
+function closeModal2() { document.getElementById('ios-modal').classList.remove('open'); }
 document.getElementById('ios-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
 // ── Init ──
