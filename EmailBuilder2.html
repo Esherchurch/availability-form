@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Worship & AV Team | Email Compiler</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -9,7 +10,7 @@
 
     <style>
         :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
-        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
+        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Montserrat', sans-serif; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
         #toolbar { background: #ffffff; padding: 12px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; position: sticky; top: 0; }
         .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
         .btn:hover { background: #2c4849; }
@@ -17,9 +18,9 @@
         #main-container { display: flex; flex-grow: 1; }
         #compiler-window { flex-grow: 1; padding: 30px; display: flex; justify-content: center; align-items: flex-start; }
         #email-canvas { background: #ffffff; width: 750px; min-height: 900px; height: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 50px; }
-        #address-sidebar { width: 280px; background: #f0f4f7; border-left: 1px solid var(--border-light); padding: 20px; position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
+        #address-sidebar { width: 280px; background: #f0f6f6; border-left: 1px solid var(--border-light); padding: 20px; position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
         .list-group { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .list-title { font-size: 10px; font-weight: 800; color: #2c6999; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .list-title { font-size: 10px; font-weight: 800; color: #3d6263; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .list-item { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; font-weight: 600; }
         #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333; line-height: 1.6; font-size: 16px; }
         #editable-body img { cursor: pointer; max-width: 100%; height: auto; border: 3px solid transparent; }
@@ -55,12 +56,12 @@
         .draft-meta { font-size: 11px; color: #64748b; line-height: 1.5; }
         .draft-meta span { display: inline-block; margin-right: 8px; }
         .draft-actions { display: flex; gap: 6px; flex-shrink: 0; }
-        .btn-load { background: #2c6999; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+        .btn-load { background: #3d6263; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
         .btn-load:hover { background: #1d4e7a; }
         .btn-del { background: #fee2e2; color: #b91c1c; border: none; padding: 7px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
         .btn-del:hover { background: #fca5a5; }
-        .draft-empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 30px 0; }
-        .draft-slot-count { font-size: 11px; color: #94a3b8; margin-bottom: 16px; }
+        .draft-empty { text-align: center; color: #3d6263; opacity: 0.5; font-size: 13px; padding: 30px 0; }
+        .draft-slot-count { font-size: 11px; color: #3d6263; opacity: 0.5; margin-bottom: 16px; }
 
         /* Who are you modal */
         #whoModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 3000; align-items: center; justify-content: center; }
@@ -176,7 +177,7 @@
     </div>
 
     <div id="address-sidebar">
-        <h3 style="font-weight: 800; color: #2c6999; text-transform: uppercase; font-size: 13px; margin-bottom: 15px;">Mailing Lists</h3>
+        <h3 style="font-weight: 800; color: #3d6263; text-transform: uppercase; font-size: 13px; margin-bottom: 15px;">Mailing Lists</h3>
         <div class="list-group">
             <div class="list-title">Select Team</div>
             <label class="list-item"><input type="checkbox" class="team-filter" value="AV Team"> AV Team</label>
@@ -187,11 +188,15 @@
             <label class="list-item"><input type="checkbox" class="team-filter" value="Everyone"> Everyone</label>
         </div>
 
-        <button onclick="launchGroupEmail()" class="btn" style="width:100%; padding: 12px 0;">Open Outlook</button>
+        <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:5px;">Your Email (reply-to)</label>
+            <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+        </div>
+        <button onclick="launchGroupEmail()" class="btn" style="width:100%; padding: 12px 0;">Send Email</button>
 
         <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:16px;">
-            <div style="font-size:10px; font-weight:800; color:#2c6999; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px;">Drafts</div>
-            <button onclick="openDraftsModal()" class="btn" style="width:100%; padding: 11px 0; background: #2c6999;">📂 Open Drafts</button>
+            <div style="font-size:10px; font-weight:800; color:#3d6263; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px;">Drafts</div>
+            <button onclick="openDraftsModal()" class="btn" style="width:100%; padding: 11px 0; background: #3d6263;">📂 Open Drafts</button>
         </div>
 
         <div id="current-draft-info" style="display:none; margin-top:12px; background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0; font-size:11px; color:#64748b; line-height:1.7;">
@@ -199,9 +204,9 @@
 
         <div id="member-count" style="font-size: 10px; text-align: center; margin-top: 10px; color: #999;">0 Selected</div>
 
-        <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px; font-size:11px; color:#94a3b8; text-align:center;">
+        <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px; font-size:11px; color:#3d6263; opacity:0.5; text-align:center;">
             Editing as: <span id="currentUserLabel" style="font-weight:700; color:#3d6263;">—</span>
-            <br><a href="#" onclick="changeUser()" style="color:#94a3b8; font-size:10px;">change</a>
+            <br><a href="#" onclick="changeUser()" style="color:#3d6263; opacity:0.5; font-size:10px;">change</a>
         </div>
     </div>
 </div>
@@ -279,7 +284,7 @@ function closeDraftsModal() {
 
 async function renderDraftsList() {
     const list = document.getElementById('draftsList');
-    list.innerHTML = '<div style="color:#94a3b8; font-size:12px; padding:10px 0;">Loading...</div>';
+    list.innerHTML = '<div style="color:#3d6263; opacity:0.5; font-size:12px; padding:10px 0;">Loading...</div>';
 
     try {
         const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS).get();
@@ -417,9 +422,9 @@ function updateCurrentDraftInfo(name, createdBy, updatedBy, createdAt, updatedAt
     const el = document.getElementById('current-draft-info');
     let html = `<div style="font-weight:800; color:#1e293b; margin-bottom:4px; font-size:12px;">${name || 'Draft'}</div>`;
     html += `<div>✏️ Created by <b>${createdBy || '?'}</b></div>`;
-    if (createdAt) html += `<div style="color:#94a3b8; font-size:10px;">${formatDate(createdAt)}</div>`;
+    if (createdAt) html += `<div style="color:#3d6263; opacity:0.5; font-size:10px;">${formatDate(createdAt)}</div>`;
     html += `<div style="margin-top:4px;">🔄 Last edited by <b>${updatedBy || '?'}</b></div>`;
-    if (updatedAt) html += `<div style="color:#94a3b8; font-size:10px;">${formatDate(updatedAt)}</div>`;
+    if (updatedAt) html += `<div style="color:#3d6263; opacity:0.5; font-size:10px;">${formatDate(updatedAt)}</div>`;
     html += `<button onclick="overwriteActiveDraft()" class="btn" style="width:100%; margin-top:10px; padding:9px; font-size:11px; background:#27ae60;">💾 Save Changes</button>`;
     el.innerHTML = html;
     el.style.display = 'block';
@@ -452,7 +457,7 @@ function applyManualStyle(styleType, value) {
 }
 
 // ── EMAIL ─────────────────────────────────────────────────────────────────
-function launchGroupEmail() {
+async function launchGroupEmail() {
     const activeTeams = Array.from(document.querySelectorAll('.team-filter:checked')).map(cb => cb.value);
     let recipients = [];
     if (activeTeams.includes("Everyone")) {
@@ -464,9 +469,64 @@ function launchGroupEmail() {
     }
     const unique = [...new Set(recipients)].filter(e => e);
     document.getElementById('member-count').innerText = `${unique.length} Selected`;
-    if (unique.length > 0) {
-        window.location.href = `mailto:?bcc=${unique.join(';')}&subject=Worship & AV Team Update`;
+    if (unique.length === 0) { alert('Please select at least one team.'); return; }
+
+    // Get the compiled email HTML
+    const editableBody = document.getElementById('editable-body');
+    const clone = editableBody.cloneNode(true);
+    const finalHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background-color:#f0f6f6;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0f6f6">
+<tr><td align="center" style="padding:32px 16px;">
+<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
+  <tr><td bgcolor="#3d6263" style="padding:28px 40px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:bottom;">
+        <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:22px;font-weight:800;color:#ffffff;">EGBC Worship &amp; AV</p>
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Team Update</p>
+      </td>
+      <td style="vertical-align:top;text-align:right;padding-left:20px;">
+        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
+          <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
+        </div>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:36px 40px;font-family:Arial,sans-serif;font-size:15px;color:#1e3a3a;line-height:1.8;">
+    ${clone.innerHTML}
+  </td></tr>
+  <tr><td bgcolor="#3d6263" style="padding:20px 40px;">
+    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:12px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:8px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:8px;">worship@esherchurch.org</td>
+    </tr></table>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+
+    const senderEmail = document.getElementById('senderEmail').value || 'worship@esherchurch.org';
+    const btn = document.querySelector('button[onclick="launchGroupEmail()"]');
+    const origText = btn.textContent;
+    btn.textContent = `Sending to ${unique.length}...`;
+    btn.disabled = true;
+
+    let sent = 0, failed = 0;
+    for (const email of unique) {
+        try {
+            const resp = await fetch('https://sendemail-irkwdhx3xq-uc.a.run.app', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: [email], subject: 'Worship & AV Team Update', html: finalHtml, replyTo: senderEmail })
+            });
+            const result = await resp.json();
+            if (result.ok) sent++; else failed++;
+        } catch(e) { failed++; }
+        await new Promise(r => setTimeout(r, 200));
     }
+
+    btn.textContent = origText;
+    btn.disabled = false;
+    document.getElementById('member-count').innerText = failed === 0 ? `✓ Sent to ${sent}` : `${sent} sent, ${failed} failed`;
 }
 
 document.getElementById('editable-body').addEventListener('click', e => {
@@ -560,11 +620,16 @@ ${responsiveStyles}
 </body>
 </html>`;
 
-    const blob = new Blob([finalHtml], { type: "text/html" });
-    const data = [new ClipboardItem({ "text/html": blob })];
-    await navigator.clipboard.write(data);
-    alert("Email HTML Copied to clipboard!");
+    // Email is ready - user can send via the Send Email button
+    alert("Email compiled! Select your team in the sidebar and click Send Email.");
 }
+
+// Pre-populate sender email
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('egbc-sender-email') || '';
+    const el = document.getElementById('senderEmail');
+    if (el) el.value = saved;
+});
 
 // ── GIF MAKER ─────────────────────────────────────────────────────────────
 function openGifModal() { document.getElementById('gifModal').classList.add('active'); }

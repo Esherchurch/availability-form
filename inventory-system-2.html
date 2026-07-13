@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
 <title>EGBC Inventory</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
 
@@ -267,10 +268,10 @@ td {
   letter-spacing: .3px;
   text-transform: uppercase;
 }
-.badge.excellent { background: #eaf7d8; color: #4a7c1f; border: 1px solid #c5e899; }
+.badge.excellent { background: #eaf2f2; color: #3d6263; border: 1px solid #c5e899; }
 .badge.good      { background: #e0f0f0; color: var(--teal); border: 1px solid #b0d4d4; }
-.badge.fair      { background: #fff3e0; color: #b85c00; border: 1px solid #ffd080; }
-.badge.poor      { background: #fde8e8; color: var(--bad); border: 1px solid #f5b8b8; }
+.badge.fair      { background: #fff3e0; color: #3d6263; border: 1px solid #ffd080; }
+.badge.poor      { background: #fef2f2; color: var(--bad); border: 1px solid #f5b8b8; }
 
 /* location */
 .location-tag {
@@ -317,8 +318,8 @@ td {
   text-transform: uppercase;
   letter-spacing: .3px;
 }
-.status-badge.in  { background: #eaf7d8; color: #4a7c1f; border: 1px solid #c5e899; }
-.status-badge.out { background: #fde8e8; color: var(--bad); border: 1px solid #f5b8b8; }
+.status-badge.in  { background: #eaf2f2; color: #3d6263; border: 1px solid #c5e899; }
+.status-badge.out { background: #fef2f2; color: var(--bad); border: 1px solid #f5b8b8; }
 .status-dot { width:6px; height:6px; border-radius:50%; background: currentColor; }
 
 /* action buttons */
@@ -338,7 +339,7 @@ td {
 }
 .btn-sm:hover { background: var(--teal); color: #fff; border-color: var(--teal); }
 .btn-sm.danger:hover { background: var(--bad); color: #fff; border-color: var(--bad); }
-.btn-sm.sign-out-btn:hover { background: #b85c00; color: #fff; border-color: #b85c00; }
+.btn-sm.sign-out-btn:hover { background: #3d6263; color: #fff; border-color: #3d6263; }
 .btn-sm.sign-in-btn:hover  { background: var(--good); color: #fff; border-color: var(--good); }
 
 /* empty state */
@@ -601,7 +602,7 @@ canvas#sigPad {
   from { opacity:0; transform:translateX(20px); }
   to   { opacity:1; transform:translateX(0); }
 }
-.toast.success { background: #4a7c1f; }
+.toast.success { background: #3d6263; }
 .toast.error   { background: var(--bad); }
 .toast.info    { background: var(--teal); }
 

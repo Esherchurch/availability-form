@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Youth Hub">
-<meta name="theme-color" content="#1e4a52">
+<meta name="theme-color" content="#3d6263">
 <title>Youth Hub</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -17,13 +17,13 @@
 
 <style>
 :root {
-  --teal: #1e4a52;
+  --teal: #3d6263;
   --teal-dark: #163840;
   --teal-light: #e2f0f2;
   --border: #c2d8dc;
   --bg: #eef6f7;
   --white: #ffffff;
-  --green: #8fb832;
+  --green: #3d6263;
   --font: 'Montserrat', sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -157,12 +157,12 @@ body {
 .tile-desc { font-size: 10px; color: var(--teal); opacity: 0.5; font-weight: 600; line-height: 1.3; }
 .tile-arrow { position: absolute; bottom: 14px; right: 14px; font-size: 16px; color: var(--teal); opacity: 0.2; }
 
-.tile-planner { border-top: 3px solid #00b4c8; }
-.tile-board   { border-top: 3px solid #8fb832; }
-.tile-worship { border-top: 3px solid #00b4c8; }
-.tile-upload  { border-top: 3px solid #8fb832; }
-.tile-library { border-top: 3px solid #1e4a52; }
-.tile-news    { border-top: 3px solid #00b4c8; }
+.tile-planner { border-top: 3px solid #3d6263; }
+.tile-board   { border-top: 3px solid #3d6263; }
+.tile-worship { border-top: 3px solid #3d6263; }
+.tile-upload  { border-top: 3px solid #3d6263; }
+.tile-library { border-top: 3px solid #3d6263; }
+.tile-news    { border-top: 3px solid #3d6263; }
 
 /* ── SECTION SCREENS ── */
 .section-screen { display: none; padding: 0 0 20px; }
@@ -384,7 +384,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   font-family: var(--font); font-size: 11px; font-weight: 800;
   color: var(--teal); cursor: pointer; white-space: nowrap;
 }
-.filter-pill.active { background: #8fb832; color: white; border-color: #8fb832; }
+.filter-pill.active { background: #3d6263; color: white; border-color: #3d6263; }
 .board-pages {
   display: flex; gap: 6px; padding: 10px 12px 0;
   overflow-x: auto; scrollbar-width: none;
@@ -395,7 +395,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   border: 1px solid var(--border); background: var(--bg);
   font-size: 11px; font-weight: 700; color: var(--teal); cursor: pointer;
 }
-.page-pill.active { background: #1e4a52; color: white; border-color: #00b4c8; }
+.page-pill.active { background: #3d6263; color: white; border-color: #3d6263; }
 .board-add-btn {
   margin: 12px 12px 0; width: calc(100% - 24px); padding: 13px;
   background: var(--teal); color: white; border: none; border-radius: 12px;
@@ -505,7 +505,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   color: var(--teal); cursor: pointer; text-align: center;
   text-transform: uppercase; letter-spacing: 0.05em;
 }
-.kb-tab.active { background: #1e4a52; color: white; border-color: #00b4c8; }
+.kb-tab.active { background: #3d6263; color: white; border-color: #3d6263; }
 .kb-search-box { margin: 10px 12px 0; position: relative; }
 .kb-search-input {
   width: 100%; padding: 12px 16px 12px 42px;
@@ -637,7 +637,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .tour-tooltip-text { font-size: 12px; opacity: 0.85; line-height: 1.4; margin-bottom: 14px; }
 .tour-btn-row { display: flex; justify-content: space-between; align-items: center; }
 .tour-skip { font-size: 11px; font-weight: 700; opacity: 0.6; cursor: pointer; background: none; border: none; color: white; padding: 0; }
-.tour-next { background: #8fb832; color: white; border: none; border-radius: 9999px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 800; cursor: pointer; }
+.tour-next { background: #3d6263; color: white; border: none; border-radius: 9999px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 800; cursor: pointer; }
 .tour-step-count { font-size: 10px; opacity: 0.5; }
 .tour-highlight { position: absolute; border-radius: 12px; box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3); pointer-events: none; z-index: 2; transition: all 0.3s; }
 
@@ -941,6 +941,11 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 <!-- EMAIL MODAL -->
 <div id="emailModal">
   <div id="emailModalBox">
+    <p style="font-size:12px;color:#3d6263;opacity:0.7;margin-bottom:10px;font-weight:700;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:5px;">Your Email (reply-to)</label>
+      <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+    </div>
     <h2 style="font-size:18px;font-weight:800;color:var(--teal);margin-bottom:6px;">Send Youth Service Plan</h2>
     <p style="font-size:12px;color:var(--teal);opacity:0.6;margin-bottom:20px;font-weight:700;">Plan will be copied to clipboard. Choose who to email.</p>
     <button id="modalTeamBtn" style="width:100%;display:block;text-align:center;border:none;cursor:pointer;margin-bottom:20px;background:var(--teal);color:white;padding:14px;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:800;text-transform:uppercase;">Email Whole Team</button>
@@ -950,6 +955,7 @@ mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
       <button id="modalIndividualBtn" style="width:100%;display:block;text-align:center;cursor:pointer;background:var(--bg);color:var(--teal);border:1.5px solid var(--border);padding:13px;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:800;">Email This Person</button>
     </div>
     <div style="margin-top:16px;text-align:center;">
+      <div id="modalStatus" style="margin-top:10px;font-size:13px;font-weight:700;min-height:18px;text-align:center;"></div>
       <button id="modalCancelBtn" style="font-size:12px;font-weight:700;color:#aaa;background:none;border:none;cursor:pointer;text-decoration:underline;">Cancel</button>
     </div>
   </div>
@@ -1485,12 +1491,12 @@ async function emailSchedule() {
   if (outroText) htmlEmail += `<div style="font-size:14px;color:#444;margin-top:16px;">${outroText.replace(/\n/g,'<br>')}</div>`;
   htmlEmail += `</div>`;
 
-  try { const blob = new Blob([htmlEmail], {type:'text/html'}); await navigator.clipboard.write([new ClipboardItem({'text/html':blob})]); } catch(e) {}
+  // Email sent via Resend below
 
   let recipients = [];
   addressBook.forEach(p => { if ((rosterNames.includes(p.name?.trim()) || (p.markers && p.markers.includes('Core Team'))) && p.email) recipients.push(p.email); });
   const teamTo = [...new Set(recipients)].join(',');
-  const subject = encodeURIComponent('Youth Service Plan: ' + date);
+  const subject = 'Youth Service Plan: ' + date;
 
   const modal = document.getElementById('emailModal');
   const sel = document.getElementById('modalIndividualSelect');
@@ -1500,9 +1506,45 @@ async function emailSchedule() {
     const found = addressBook.find(p => p.name?.trim() === name);
     if (found && found.email) { const o = document.createElement('option'); o.value = found.email; o.textContent = `${name} (${found.email})`; sel.appendChild(o); }
   });
-  document.getElementById('modalTeamBtn').onclick = () => { modal.classList.remove('active'); alert('Plan copied to clipboard!'); window.location.href = `mailto:${teamTo}?subject=${subject}`; };
-  document.getElementById('modalIndividualBtn').onclick = () => { const e = sel.value; if (!e) { alert('Please select a person first.'); return; } modal.classList.remove('active'); alert('Plan copied to clipboard!'); window.location.href = `mailto:${e}?subject=${subject}`; };
+  const SEND_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
+  async function sendViaResend(toAddresses, subj, html) {
+    const statusEl = document.getElementById('modalStatus');
+    if (statusEl) { statusEl.textContent = 'Sending…'; statusEl.style.color = '#3d6263'; }
+    try {
+      const resp = await fetch(SEND_URL, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ to: toAddresses, subject: subj, html, replyTo: document.getElementById('senderEmail')?.value || 'worship@esherchurch.org' })
+      });
+      const result = await resp.json();
+      if (result.ok) {
+        if (statusEl) { statusEl.textContent = '✓ Sent!'; statusEl.style.color = '#3B7D23'; }
+        setTimeout(() => modal.classList.remove('active'), 1800);
+      } else {
+        if (statusEl) { statusEl.textContent = '✗ Error: ' + (result.error || 'Unknown'); statusEl.style.color = '#e05555'; }
+      }
+    } catch(e) {
+      if (statusEl) { statusEl.textContent = '✗ Network error'; statusEl.style.color = '#e05555'; }
+    }
+  }
+  document.getElementById('modalTeamBtn').onclick = async () => {
+    document.getElementById('modalTeamBtn').disabled = true;
+    document.getElementById('modalIndividualBtn').disabled = true;
+    await sendViaResend([...new Set(recipients)], decodeURIComponent(subject), htmlEmail);
+    document.getElementById('modalTeamBtn').disabled = false;
+    document.getElementById('modalIndividualBtn').disabled = false;
+  };
+  document.getElementById('modalIndividualBtn').onclick = async () => {
+    const e = sel.value; if (!e) { alert('Please select a person first.'); return; }
+    document.getElementById('modalTeamBtn').disabled = true;
+    document.getElementById('modalIndividualBtn').disabled = true;
+    await sendViaResend([e], decodeURIComponent(subject), htmlEmail);
+    document.getElementById('modalTeamBtn').disabled = false;
+    document.getElementById('modalIndividualBtn').disabled = false;
+  };
   document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
+  // Pre-populate sender email
+  const savedSender = localStorage.getItem('egbc-sender-email') || '';
+  if (document.getElementById('senderEmail')) document.getElementById('senderEmail').value = savedSender;
   modal.classList.add('active');
 }
 
