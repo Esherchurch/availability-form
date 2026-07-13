@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-coreteam.json">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Core Team">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -2897,7 +2902,14 @@ async function compileEmail() {
   <tr><td>${header}</td></tr>
   <tr><td class="inner" style="padding:40px;font-family:Segoe UI,Arial,sans-serif;font-size:16px;color:#333;line-height:1.6;">
   ${clone.innerHTML}
-  </td></tr></table></td></tr></table></body></html>`;
+  </td></tr></table></td></tr></table>
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
+</body></html>`;
 
   try {
     await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([finalHtml], { type:'text/html' }) })]);

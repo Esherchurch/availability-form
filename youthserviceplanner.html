@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-youthservice.json">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Youth Planner">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EGBC Youth Service Planner</title>
 
@@ -870,7 +875,14 @@ window.emailSchedule = async () => {
       <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
     </tr></table>
   </td></tr>
-</table></td></tr></table></body></html>`;
+</table></td></tr></table>
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
+</body></html>`;
 
     const subject = "Youth Service Plan: " + date;
     const modal = document.getElementById('emailModal');

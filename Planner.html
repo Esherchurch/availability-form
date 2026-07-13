@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-planner.json">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Rota Planner">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Master Rota Planner</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
@@ -843,6 +848,13 @@
     </tr></table>
   </td></tr>
 </table></td></tr></table>
+
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
 </body></html>`;
 
                     toast.innerHTML = `Sending to <strong>${firstName}</strong>...<br><span style="font-weight:400;opacity:0.8;">${sent + 1} of ${members.length}</span>`;
