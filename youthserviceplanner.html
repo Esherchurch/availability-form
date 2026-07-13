@@ -904,7 +904,7 @@ window.emailSchedule = async () => {
             const resp = await fetch(SEND_FUNCTION_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: "worship@esherchurch.org" })
+                body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" })
             });
             const result = await resp.json();
             if (result.ok) {
@@ -938,6 +938,8 @@ window.emailSchedule = async () => {
         document.getElementById('modalIndividualBtn').disabled = false;
     };
     document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
+    const savedSender = localStorage.getItem('egbc-sender-email') || '';
+    document.getElementById('senderEmail').value = savedSender;
     modal.classList.add('active');
 };
 </script>
@@ -954,7 +956,11 @@ window.emailSchedule = async () => {
 <div id="emailModal">
     <div id="emailModalBox">
         <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Youth Service Plan</h2>
-        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:20px; font-weight:700;">Sends from EGBCWorship@callasuite.uk &mdash; choose who to email.</p>
+        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:16px; font-weight:700;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:6px;">Your Email (reply-to)</label>
+            <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+        </div>
         <button id="modalTeamBtn" class="btn-primary" style="width:100%; display:block; text-align:center; border:none; cursor:pointer; margin-bottom:20px;">Email Whole Team</button>
         <div style="border-top:1px solid #d1dfdf; padding-top:20px;">
             <p style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#3d6263; opacity:0.5; margin-bottom:8px;">Or email one person:</p>

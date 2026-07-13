@@ -854,7 +854,7 @@
                             to: [member.email],
                             subject: `Your Worship & AV Rota — ${termLabels}`,
                             html,
-                            replyTo: 'worship@esherchurch.org',
+                            replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org',
                             attachments
                         })
                     });
@@ -988,7 +988,7 @@
                 toast.innerHTML = `Sending to <strong>${member.name}</strong>...`;
                 const resp = await fetch(SEND_FUNCTION_URL, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: 'worship@esherchurch.org', attachments })
+                    body: JSON.stringify({ to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments })
                 });
                 const result = await resp.json();
                 await Promise.allSettled(storageRefs.map(r => deleteObject(r)));
@@ -1035,6 +1035,13 @@
             return opts;
         }
 
+
+        // Pre-populate sender email from localStorage
+        setTimeout(() => {
+            const savedSender = localStorage.getItem('egbc-sender-email') || '';
+            const rotaEl = document.getElementById('rotaSenderEmail');
+            if (rotaEl) rotaEl.value = savedSender;
+        }, 800);
 
         function renderPlanner() {
             const container = document.getElementById('eventList');
@@ -1233,6 +1240,10 @@
                 <button onclick="addSingleLine()" class="bg-[#3d6263] text-white px-10 py-3 rounded-full font-black text-[11px] uppercase shadow-lg">+ Service</button>
                 <button onclick="gatherTermAvailability()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Gather Avail</button>
                 <button onclick="toggleHideAssigned()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-sm">Hide Assigned</button>
+                <div class="flex items-center gap-3 bg-white border border-[#d1dfdf] rounded-2xl px-4 py-2">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] whitespace-nowrap">Sending as</label>
+                    <input id="rotaSenderEmail" type="email" placeholder="your@email.com" class="styled-input text-sm flex-1 min-w-[180px] !py-1 !px-2" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+                </div>
                 <button onclick="prepareDistributionPackage()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg hover:bg-black transition-all">🚀 SEND ALL ROTAS</button>
             </div>
             <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
