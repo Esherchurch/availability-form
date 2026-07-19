@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-coreteam.json">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Core Team">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -631,6 +636,7 @@ select.sp-input { appearance: none; cursor: pointer; }
       <textarea id="spOutro" class="sp-input" placeholder="Closing remarks (appears at end of team email)…" rows="2" style="margin-bottom:12px;"></textarea>
       <div class="sp-actions">
         <button onclick="spSave()" style="background:var(--teal);color:white;">Save</button>
+        <input id="spSenderEmail" type="email" placeholder="Your email..." style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:var(--teal);font-family:var(--font);outline:none;margin-bottom:6px;width:100%;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
         <button onclick="spEmail()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">Email Team</button>
       </div>
     </div>
@@ -2066,15 +2072,25 @@ async function spEmail() {
   if (outroText) html += `<div style="font-size:14px;color:#444;margin-top:16px;">${outroText.replace(/\n/g,'<br>')}</div>`;
   html += `</div>`;
 
-  try { const blob = new Blob([html], {type:'text/html'}); await navigator.clipboard.write([new ClipboardItem({'text/html':blob})]); } catch(e) {}
-
   if (!spAddressBook.length) {
     try { const s=await db.collection('addressBook').get(); s.forEach(d=>{const d2=d.data();if(d2.email)spAddressBook.push(d2);}); } catch(e) {}
   }
-  const recipients = [...new Set(spAddressBook.filter(p=>rosterNames.includes(p.name?.trim())&&p.email).map(p=>p.email))].join(',');
-  const subject = encodeURIComponent('Service Plan: ' + date);
-  toast('Plan copied to clipboard!');
-  if (recipients) setTimeout(() => { window.location.href = `mailto:${recipients}?subject=${subject}`; }, 500);
+  const spRecipients = [...new Set(spAddressBook.filter(p=>rosterNames.includes(p.name?.trim())&&p.email).map(p=>p.email))];
+  const spSubject = 'Service Plan: ' + date;
+  const senderEmail = document.getElementById('spSenderEmail')?.value || localStorage.getItem('egbc-sender-email') || 'worship@esherchurch.org';
+
+  if (spRecipients.length > 0) {
+    toast('Sending plan...');
+    try {
+      const resp = await fetch('https://sendemail-irkwdhx3xq-uc.a.run.app', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ to: spRecipients, subject: spSubject, html, replyTo: senderEmail })
+      });
+      const result = await resp.json();
+      if (result.ok) toast('✓ Plan sent to ' + spRecipients.length + ' people!');
+      else toast('✗ Error: ' + (result.error || 'Unknown'));
+    } catch(e) { toast('✗ Network error'); }
+  } else { toast('No recipients found'); }
 }
 
 async function saveService() {
@@ -2263,8 +2279,7 @@ function buildServicePlanText() {
 async function emailWholeTeam() {
   const plan = buildServicePlanText();
   try {
-    await navigator.clipboard.writeText(plan);
-    toast('Plan copied to clipboard ✓');
+    // Plan sending handled via Resend
   } catch(e) {}
 
   // Get all team emails from rota + core team
@@ -2887,7 +2902,14 @@ async function compileEmail() {
   <tr><td>${header}</td></tr>
   <tr><td class="inner" style="padding:40px;font-family:Segoe UI,Arial,sans-serif;font-size:16px;color:#333;line-height:1.6;">
   ${clone.innerHTML}
-  </td></tr></table></td></tr></table></body></html>`;
+  </td></tr></table></td></tr></table>
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
+</body></html>`;
 
   try {
     await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([finalHtml], { type:'text/html' }) })]);

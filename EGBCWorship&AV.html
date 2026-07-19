@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Worship &amp; AV Hub</title>
     <style>
@@ -13,32 +14,37 @@
             --brand-green: #9bc34a;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--pale-teal); display: flex; height: 100vh; overflow: hidden; }
 
         /* ── SIDEBAR ── */
-        #sidebar { width: 70px; background: var(--white); border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
-        #sidebar:hover { width: 280px; }
+        #sidebar { width: 64px; background: #f8fbfb; border-right: 1px solid var(--border-teal); display: flex; flex-direction: column; transition: width 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 1000; flex-shrink: 0; }
+        #sidebar.pinned { width: 260px; }
+        #sidebar-pin { width: 64px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-bottom: 1px solid var(--border-teal); flex-shrink: 0; color: var(--accent-teal); transition: background 0.2s; }
+        #sidebar-pin:hover { background: var(--pale-teal); }
+        #sidebar.pinned #sidebar-pin { background: var(--pale-teal); }
+        #sidebar-pin svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
         #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
-        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 280px; position: relative; }
-        .nav-row { display: flex; align-items: center; height: 45px; color: #7a8c8c; cursor: pointer; border-left: 4px solid transparent; transition: color 0.2s, background 0.2s, border-color 0.2s, opacity 0.25s; }
-        .nav-row:hover { background: var(--pale-teal); color: var(--accent-teal); border-left-color: var(--brand-green); }
-        .nav-icon { min-width: 70px; display: flex; justify-content: center; align-items: center; }
+        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 260px; position: relative; }
+        .nav-row { display: flex; align-items: center; height: 48px; color: #1e3a3a; cursor: pointer; border-left: 4px solid transparent; transition: color 0.15s, background 0.15s, border-color 0.15s; }
+        .nav-row:hover { color: #1e3a3a; background: var(--pale-teal); border-left-color: var(--accent-teal); }
+        .nav-row.active { color: #ffffff; background: var(--accent-teal); border-left-color: #1e3a3a; }
+        .nav-icon { min-width: 64px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
         .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-        .nav-text { font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
-        #sidebar:hover .nav-text { opacity: 1; }
-        .chevron { width: 40px; display: flex; justify-content: center; opacity: 0; transition: transform 0.3s, opacity 0.2s; }
-        #sidebar:hover .chevron { opacity: 0.5; }
-        .has-children.open > .nav-row .chevron { transform: rotate(180deg); }
-        .child-container { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.02); }
-        .has-children.open > .child-container { max-height: 1200px; }
-        #sidebar:not(:hover) .child-container { max-height: 0 !important; }
-        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 11px; }
-        .indent-2 .nav-text { font-weight: 400; text-transform: none; font-size: 11px; font-style: italic; }
-        .edit-trigger { display: none; padding: 0 6px 0 8px; color: var(--border-teal); cursor: pointer; flex-shrink: 0; }
-        #sidebar:hover .admin-active .edit-trigger { display: block; }
-        #nav-list.has-open > .nav-item-wrapper { opacity: 0.2; transition: opacity 0.25s ease; }
-        #nav-list.has-open > .nav-item-wrapper.open { opacity: 1; }
-        #sidebar:not(:hover) #nav-list.has-open > .nav-item-wrapper { opacity: 1; }
+        .nav-text { font-family: 'Montserrat', sans-serif; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; white-space: nowrap; flex-grow: 1; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+        #sidebar.pinned .nav-text { opacity: 1; }
+        .nav-row.active .nav-text { color: #ffffff; }
+        .nav-row.active .chevron { color: #ffffff; }
+        .chevron { width: 36px; display: flex; justify-content: center; align-items: center; opacity: 0; transition: transform 0.2s, opacity 0.15s; flex-shrink: 0; }
+        #sidebar.pinned .chevron { opacity: 0.6; }
+        .has-children.open > .nav-row .chevron { transform: rotate(180deg); opacity: 1; }
+        .child-container { overflow: hidden; transition: height 0.2s cubic-bezier(0.4,0,0.2,1); height: 0; background: rgba(61,98,99,0.03); }
+        .child-container.open { height: auto; }
+        .indent-1 .nav-row { height: 40px; }
+        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 12px; letter-spacing: 0.3px; }
+        .indent-2 .nav-row { height: 40px; }
+        .indent-2 .nav-text { font-weight: 500; text-transform: none; font-size: 12px; }
+        .edit-trigger { display: none; padding: 0 8px; color: var(--border-teal); cursor: pointer; flex-shrink: 0; font-size: 13px; }
+        #sidebar.pinned .admin-active .edit-trigger { display: block; }
 
         /* ── MAIN ── */
         #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; width: 100%; }
@@ -46,9 +52,9 @@
         #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
         #app-viewport { flex-grow: 1; position: relative; background: var(--white); overflow: hidden; }
         #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
-        #sync-status { font-size: 10px; color: #a0b0b0; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
+        #sync-status { font-size: 10px; color: #2a4e4e; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
         #sync-status.syncing { color: #f0a500; }
-        #sync-status.synced  { color: var(--brand-green); }
+        #sync-status.synced  { color: var(--accent-teal); }
         #sync-status.error   { color: #f44336; }
         #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--border-teal); }
         .admin-btn { width: 100%; padding: 10px; background: var(--accent-teal); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
@@ -59,12 +65,12 @@
         #hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 30%; opacity: 0.35; transition: opacity 0.3s; }
         #hero-text { position: relative; z-index: 1; }
         #hero-title { font-size: 28px; font-weight: 300; color: #fff; line-height: 1.2; }
-        #hero-subtitle { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 4px; }
+        #hero-subtitle { font-size: 13px; color: rgba(255,255,255,0.95); margin-top: 4px; }
         #hero-edit-btn { position: absolute; top: 12px; right: 16px; z-index: 2; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 5px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
         #dashboard-body { display: grid; grid-template-columns: 1fr 480px; gap: 0; flex-grow: 1; min-height: 0; }
         #dashboard-main { padding: 30px 40px; overflow-y: auto; }
         #dashboard-sidebar-panel { border-left: 1px solid var(--border-teal); background: var(--white); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-        #body-content-area { color: #444; font-size: 15px; line-height: 1.7; }
+        #body-content-area { color: #1e3a3a; font-size: 15px; line-height: 1.7; }
         #body-content-area h2 { font-size: 22px; font-weight: 400; color: var(--accent-teal); margin-bottom: 8px; }
         #body-content-area p { margin-bottom: 12px; }
         #body-content-area img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
@@ -73,18 +79,18 @@
         /* ── NEWS PANEL ── */
         #news-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-teal); flex-shrink: 0; }
         #news-header h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-teal); }
-        #news-add-btn { background: var(--brand-green); color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
+        #news-add-btn { background: var(--accent-teal); color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
         #news-track-wrapper { flex-grow: 1; overflow: hidden; position: relative; min-width: 0; }
         #news-track { display: flex; flex-direction: column; gap: 0; will-change: transform; }
         .news-card { border-bottom: 1px solid var(--border-teal); padding: 16px 20px; background: var(--white); position: relative; flex-shrink: 0; min-width: 0; box-sizing: border-box; }
-        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #a0b0b0; margin-bottom: 4px; }
+        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #2a4e4e; margin-bottom: 4px; }
         .news-card-title { font-size: 13px; font-weight: 700; color: var(--accent-teal); margin-bottom: 6px; }
-        .news-card-body { font-size: 13px; color: #555; line-height: 1.55; overflow: hidden; word-break: break-word; }
+        .news-card-body { font-size: 13px; color: #1e3a3a; line-height: 1.55; overflow: hidden; word-break: break-word; }
         .news-card-body * { max-width: 100% !important; box-sizing: border-box; }
         .news-card-body img { max-width: 100% !important; width: auto; height: auto; border-radius: 6px; margin: 6px 0; display: block; }
         .news-card-body table { width: 100% !important; table-layout: fixed; }
         .news-card-body a { color: var(--accent-teal); }
-        .news-card-edit-btn { position: absolute; top: 10px; right: 10px; background: none; border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #a0b0b0; cursor: pointer; display: none; }
+        .news-card-edit-btn { position: absolute; top: 10px; right: 10px; background: none; border: 1px solid var(--border-teal); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #2a4e4e; cursor: pointer; display: none; }
         body.admin-mode .news-card-edit-btn { display: block; }
         body.admin-mode #hero-edit-btn { display: block; }
         body.admin-mode #body-edit-btn { display: block; }
@@ -104,7 +110,7 @@
         .modal-btn.danger  { background: #f44336; color: #fff; }
         .modal-btn.cancel  { background: #e0e8e8; color: var(--accent-teal); }
         .tab-row { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid var(--border-teal); }
-        .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: #a0b0b0; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: #2a4e4e; border-bottom: 2px solid transparent; margin-bottom: -2px; }
         .tab-btn.active { color: var(--accent-teal); border-bottom-color: var(--accent-teal); }
 
         /* ── ICON PICKER ── */
@@ -139,7 +145,7 @@
         .rte-btn.active { background: var(--accent-teal); color: white; }
         .rte-btn.separator { background: none; border: none; border-left: 1px solid var(--border-teal); padding: 0 2px; cursor: default; color: transparent; }
         .rte-select { padding: 4px 6px; border: 1px solid var(--border-teal); border-radius: 4px; font-size: 11px; color: var(--accent-teal); background: white; cursor: pointer; outline: none; }
-        .rte-area { width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 0 0 8px 8px; padding: 14px; font-family: 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; color: #444; outline: none; }
+        .rte-area { width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 0 0 8px 8px; padding: 14px; font-family: 'Montserrat', sans-serif; font-size: 14px; line-height: 1.6; color: #1e3a3a; outline: none; }
         .rte-area:focus { border-color: var(--accent-teal); }
         .rte-area img { max-width: 100%; border-radius: 6px; cursor: pointer; }
         .rte-area img.selected { outline: 3px solid var(--accent-teal); border-radius: 6px; }
@@ -147,12 +153,17 @@
         #img-resize-bar.visible { display: flex; }
         #img-size-slider { flex-grow: 1; accent-color: white; }
         #img-size-label { min-width: 40px; text-align: right; }
-        .source-textarea { width: 100%; min-height: 200px; max-height: 340px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 8px; padding: 12px; margin-top: 10px; font-family: monospace; font-size: 12px; line-height: 1.5; color: #333; outline: none; resize: vertical; }
+        .source-textarea { width: 100%; min-height: 200px; max-height: 340px; overflow-y: auto; border: 2px solid var(--border-teal); border-radius: 8px; padding: 12px; margin-top: 10px; font-family: monospace; font-size: 12px; line-height: 1.5; color: #1e3a3a; outline: none; resize: vertical; }
         .source-textarea:focus { border-color: var(--accent-teal); }
-        .paste-zone { min-height: 200px; max-height: 340px; overflow-y: auto; border: 2px dashed var(--border-teal); border-radius: 8px; padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.6; color: #444; outline: none; transition: border-color 0.2s; }
+        .paste-zone { min-height: 200px; max-height: 340px; overflow-y: auto; border: 2px dashed var(--border-teal); border-radius: 8px; padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.6; color: #1e3a3a; outline: none; transition: border-color 0.2s; }
         .paste-zone:focus { border-color: var(--accent-teal); border-style: solid; }
         .paste-zone:empty:before { content: attr(placeholder); color: #b0c0c0; pointer-events: none; }
         .paste-zone img { max-width: 100%; border-radius: 6px; }
+
+        /* ── ACCESSIBILITY ── */
+        :focus-visible { outline: 3px solid var(--accent-teal); outline-offset: 2px; }
+        .nav-row:focus-visible { outline: 3px solid var(--accent-teal); outline-offset: -3px; }
+        button:focus-visible { outline: 3px solid var(--accent-teal); outline-offset: 2px; }
 
         /* ── MENU MODAL ── */
         #menu-modal-overlay { display: none; position: absolute; inset: 0; background: rgba(61,98,99,0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
@@ -167,7 +178,10 @@
 </head>
 <body>
 
-<nav id="sidebar" onmouseleave="closeAllMenus()">
+<nav id="sidebar">
+    <div id="sidebar-pin" onclick="toggleSidebarPin()" title="Pin sidebar open">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </div>
     <div id="nav-list"></div>
     <div id="admin-controls">
         <button class="admin-btn" onclick="openMenuModal(null)">+ Add Page / Sub</button>
@@ -180,7 +194,7 @@
     <header>
         <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
         <div style="text-align: right">
-            <div id="secret-trigger" onclick="handleSecret()" style="font-size: 10px; color: #a0b0b0; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
+            <div id="secret-trigger" onclick="handleSecret()" style="font-size: 11px; color: #2a4e4e; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
             <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
             <div id="sync-status">Connecting&hellip;</div>
         </div>
@@ -203,7 +217,7 @@
                     <button id="body-edit-btn" onclick="openBodyEditor()">&#10002; Edit Content</button>
                     <div id="body-content-area">
                         <h2>Dashboard</h2>
-                        <p style="color:#7a8c8c;">Select a tool to begin.</p>
+                        <p style="color:#2a4e4e; font-size:15px;">Select a tool to begin.</p>
                     </div>
                 </div>
                 <div id="dashboard-sidebar-panel">
@@ -303,7 +317,7 @@
                     </div>
                     <div id="ne-paste-zone" contenteditable="true" class="paste-zone" placeholder="Click here, then paste from your email editor (Ctrl+V / Cmd+V)&hellip;"></div>
                     <textarea id="ne-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here&hellip;"></textarea>
-                    <div style="font-size:11px; color:#a0b0b0; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above &mdash; images and formatting are preserved.</div>
+                    <div style="font-size:12px; color:#3d5a5a; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above &mdash; images and formatting are preserved.</div>
                     <div class="modal-btn-row">
                         <button class="modal-btn danger" id="ne-delete-btn" style="display:none;" onclick="deleteNewsItem()">Delete</button>
                         <button class="modal-btn cancel" onclick="closeModal('news-modal')">Cancel</button>
@@ -316,11 +330,11 @@
             <div class="modal-overlay" id="dash-settings-modal">
                 <div class="modal-box">
                     <h3>Dashboard Settings</h3>
-                    <p style="font-size:13px; color:#7a8c8c; margin-bottom:16px;">Quick access to all dashboard editors.</p>
+                    <p style="font-size:13px; color:#2a4e4e; margin-bottom:16px;">Quick access to all dashboard editors.</p>
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">&#10002; Edit Hero Banner</button>
                         <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">&#10002; Edit Main Content</button>
-                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openNewsEditor(null)" style="background:var(--brand-green);">+ Add News Item</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openNewsEditor(null)" style="background:var(--accent-teal);">+ Add News Item</button>
                     </div>
                     <div class="modal-btn-row" style="margin-top:10px;">
                         <button class="modal-btn cancel" onclick="closeModal('dash-settings-modal')">Close</button>
@@ -330,7 +344,7 @@
 
         </div><!-- end landing-content -->
 
-        <iframe id="app-frame" style="display:none;" src=""></iframe>
+        <iframe id="app-frame" style="display:none;" src="" allow="clipboard-read; clipboard-write; camera; microphone; fullscreen; file-system-access" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads allow-top-navigation-by-user-activation"></iframe>
 
         <!-- MENU MODAL -->
         <div id="menu-modal-overlay">
@@ -400,7 +414,7 @@ const DEFAULT_MENU = [
 
 const DEFAULT_DASHBOARD = {
     hero: { title: "Welcome", subtitle: "Select a tool from the menu to get started.", bgImage: "", bgPosition: 30 },
-    bodyHtml: '<h2>Dashboard</h2><p style="color:#7a8c8c;">Select a tool to begin.</p>',
+    bodyHtml: '<h2>Dashboard</h2><p style="color:#2a4e4e; font-size:15px;">Select a tool to begin.</p>',
     newsItems: []
 };
 
@@ -475,7 +489,7 @@ function renderNews() {
     const items = (dashData.newsItems || []).slice().reverse();
     const track  = document.getElementById('news-track');
     track.innerHTML = '';
-    if (!items.length) { track.innerHTML = '<div style="padding:24px 20px; color:#a0b0b0; font-size:13px; text-align:center;">No news yet.</div>'; stopNewsScroll(); return; }
+    if (!items.length) { track.innerHTML = '<div style="padding:24px 20px; color:#2a4e4e; font-size:14px; text-align:center;">No news yet.</div>'; stopNewsScroll(); return; }
     items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'news-card';
@@ -736,16 +750,90 @@ function renderMenu() {
     buildTree('');
 }
 
-function updateFocusState() { const navList = document.getElementById('nav-list'); const anyOpen = navList.querySelector('.has-children.open'); navList.classList.toggle('has-open', !!anyOpen); }
-function closeAllMenus() { document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open')); updateFocusState(); }
+function toggleSidebarPin() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('pinned');
+    localStorage.setItem('sidebar-pinned', sidebar.classList.contains('pinned') ? '1' : '0');
+}
+
+function initSidebar() {
+    if (localStorage.getItem('sidebar-pinned') === '1') {
+        document.getElementById('sidebar').classList.add('pinned');
+    }
+}
+
+function setChildHeight(container, open) {
+    if (open) {
+        container.style.height = container.scrollHeight + 'px';
+        container.classList.add('open');
+        // After transition, set to auto so it doesn't clip if content changes
+        container.addEventListener('transitionend', function handler() {
+            if (container.classList.contains('open')) container.style.height = 'auto';
+            container.removeEventListener('transitionend', handler);
+        });
+    } else {
+        // Collapse: set explicit height first, then animate to 0
+        container.style.height = container.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+            container.style.height = '0';
+            container.classList.remove('open');
+        });
+    }
+}
+
+function updateFocusState() {}
+function closeAllMenus() {
+    document.querySelectorAll('.has-children.open').forEach(wrapper => {
+        wrapper.classList.remove('open');
+        const container = wrapper.querySelector('.child-container');
+        if (container) setChildHeight(container, false);
+    });
+}
+
 function handleItemClick(event, id, url, logo) {
     const wrapper = event.currentTarget.parentElement;
-    if (wrapper.classList.contains('has-children')) { const isOpening = !wrapper.classList.contains('open'); wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open')); if (isOpening) wrapper.classList.add('open'); updateFocusState(); }
+    if (wrapper.classList.contains('has-children')) {
+        const isOpening = !wrapper.classList.contains('open');
+        // Close siblings at same level
+        wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children.open').forEach(p => {
+            if (p !== wrapper) {
+                p.classList.remove('open');
+                const c = p.querySelector('.child-container');
+                if (c) setChildHeight(c, false);
+            }
+        });
+        const container = wrapper.querySelector('.child-container');
+        if (isOpening) {
+            wrapper.classList.add('open');
+            if (container) setChildHeight(container, true);
+            // Auto-pin sidebar when opening a menu
+            document.getElementById('sidebar').classList.add('pinned');
+        } else {
+            wrapper.classList.remove('open');
+            if (container) setChildHeight(container, false);
+        }
+    }
+    // Mark active
+    document.querySelectorAll('.nav-row').forEach(r => r.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
     if (url && url !== '#' && url !== 'landing') navigate(url, logo);
     else if (url === 'landing') showLanding(logo);
 }
-function navigate(url, logoUrl) { document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO; document.getElementById('landing-content').style.display = 'none'; const frame = document.getElementById('app-frame'); frame.style.display = 'block'; frame.src = url; }
-function showLanding(logoUrl) { document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO; document.getElementById('app-frame').style.display = 'none'; document.getElementById('landing-content').style.display = 'flex'; }
+
+function navigate(url, logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('landing-content').style.display = 'none';
+    const frame = document.getElementById('app-frame');
+    frame.style.display = 'block';
+    frame.src = url;
+}
+
+function showLanding(logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('app-frame').style.display = 'none';
+    document.getElementById('landing-content').style.display = 'flex';
+}
 
 let clickCount = 0;
 function handleSecret() {
@@ -834,6 +922,7 @@ async function resetMenu() {
 }
 
 loadAll();
+initSidebar();
 </script>
 </body>
 </html>

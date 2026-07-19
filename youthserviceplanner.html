@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-youthservice.json">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Youth Planner">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EGBC Youth Service Planner</title>
 
@@ -754,35 +759,36 @@ window.emailSchedule = async () => {
     const outroText = document.getElementById('outroBox').value || "";
     const summaryUrl = await saveSongSummaryToFirestore(date);
 
-    let htmlEmail = `
-        <div style="font-family: 'Montserrat', Arial, sans-serif; color: #3d6263; max-width: 650px; padding: 30px; background-color: #ffffff; margin: auto;">
-            <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
-                <tr>
-                    <td style="padding:40px; height:140px;">
-                        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="180" style="display:block;">
-                    </td>
-                    <td align="right" style="padding:40px; font-family:'Segoe UI', sans-serif;">
-                        <div style="font-size: 18px; color: #3d6263; font-weight: 700;">Youth & AV Team</div>
-                    </td>
-                </tr>
-            </table>
-            <h1 style="color: #3d6263; margin: 0; font-size: 24px; font-weight: 800; text-align: center; mso-line-height-rule: exactly; line-height: 28px;"><font color="#3d6263">Youth Service Plan</font></h1>
-            <p style="text-transform: uppercase; font-weight: 700; color: #3d6263; opacity: 0.6; letter-spacing: 1.5px; font-size: 11px; margin: 5px 0 25px 0; text-align: center;"><font color="#3d6263">${date} &bull; Leader: ${worshipLeaderName}</font></p>
-            ${serviceNotes ? `<div style="background-color: #f0f6f6; border-left: 4px solid #3d6263; padding: 15px; margin: 0; font-size: 13px; color: #3d6263; line-height: 1.5;"><font color="#3d6263"><strong>Service Notes:</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</font></div>` : ''}
-            <p style="margin:0; font-size:10pt;">&nbsp;</p>
-            ${introText ? `<div style="font-size: 14px; color: #3d6263; margin: 0;"><font color="#3d6263">${introText.replace(/\n/g, '<br>')}</font></div>` : ''}
-            <p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>
-            <h2 style="text-align: left; border-bottom: 3px solid #3d6263; padding-bottom: 10px; color: #3d6263; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin: 0 0 20px 0;"><font color="#3d6263">Order of Service</font></h2>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
-                <thead style="background-color: #f0f6f6;">
-                    <tr>
-                        <th style="text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #3d6263; border-bottom: 1px solid #d1dfdf;"><font color="#3d6263">Title</font></th>
-                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #3d6263; border-bottom: 1px solid #d1dfdf;"><font color="#3d6263">Key</font></th>
-                        <th style="text-align: center; padding: 10px; font-size: 11px; text-transform: uppercase; color: #3d6263; border-bottom: 1px solid #d1dfdf;"><font color="#3d6263">Resources</font></th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
+    let htmlEmail = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#eaf2f2;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2">
+<tr><td align="center" style="padding:32px 16px;">
+<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
+  <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:bottom;">
+        <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Youth Service Plan</p>
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${date}${worshipLeaderName && worshipLeaderName !== "None" ? " &bull; " + worshipLeaderName + " leading" : ""}</p>
+      </td>
+      <td style="vertical-align:top;text-align:right;padding-left:20px;">
+        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
+          <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
+        </div>
+      </td>
+    </tr></table>
+  </td></tr>
+  ${serviceNotes ? `<tr><td style="padding:20px 40px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#3d6263" style="font-size:0;line-height:0;">&nbsp;</td><td bgcolor="#f0f6f6" style="padding:14px 18px;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;line-height:1.6;"><strong>Service Notes</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</td></tr></table></td></tr>` : ""}
+  ${introText ? `<tr><td style="padding:20px 40px 0;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">${introText.replace(/\n/g, '<br>')}</td></tr>` : ""}
+  <tr><td style="padding:28px 40px 0;">
+    <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#3d6263;padding-bottom:10px;border-bottom:2px solid #3d6263;">Order of Service</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+      <tr bgcolor="#f0f6f6">
+        <td width="44%" style="padding:9px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#3d6263;font-weight:800;border-bottom:1px solid #d1dfdf;">Song</td>
+        <td width="10%" style="padding:9px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#3d6263;font-weight:800;border-bottom:1px solid #d1dfdf;text-align:center;">Key</td>
+        <td width="46%" style="padding:9px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#3d6263;font-weight:800;border-bottom:1px solid #d1dfdf;">Resources</td>
+      </tr>
+`;
 
     const blocks = document.querySelectorAll('.service-block');
     let songIdx = 1;
@@ -815,66 +821,70 @@ window.emailSchedule = async () => {
                 }
             }
             htmlEmail += `
-                <tr>
-                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">
-                        <p style="font-weight: 800; font-size: 14px; color: #1e293b; margin: 0;"><font color="#1e293b">${songIdx}. ${title}</font></p>
-                        ${notes ? `<p style="font-style: italic; font-size: 11px; color: #64748b; margin: 4px 0 0 0;"><font color="#64748b">${notes}</font></p>` : ''}
-                    </td>
-                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top; font-weight: 700; color: #3d6263; font-size: 14px;"><font color="#3d6263">${keys.join(', ') || '-'}</font></td>
-                    <td style="padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; vertical-align: top;">${resourcesHtml}</td>
-                </tr>
-            `;
+              <tr>
+                <td style="padding:14px 10px;border-bottom:1px solid #f0f6f6;vertical-align:top;font-family:Arial,sans-serif;">
+                  <p style="margin:0 0 3px;font-size:14px;font-weight:800;color:#1e293b;">${songIdx}. ${title}</p>
+                  ${notes ? `<p style="margin:0;font-size:11px;font-style:italic;color:#64748b;line-height:1.5;">${notes}</p>` : ""}
+                </td>
+                <td style="padding:14px 10px;border-bottom:1px solid #f0f6f6;vertical-align:top;text-align:center;font-family:Arial,sans-serif;font-size:14px;font-weight:800;color:#3d6263;">${keys.join(", ") || "—"}</td>
+                <td style="padding:14px 10px;border-bottom:1px solid #f0f6f6;vertical-align:top;font-family:Arial,sans-serif;">${resourcesHtml}</td>
+              </tr>`;
             songIdx++;
         } else {
             const item = b.querySelector('.item-title').value;
             if (item) {
-                htmlEmail += `
-                    <tr>
-                        <td colspan="3" style="padding: 12px 10px; background-color: #f8fafc; border-left: 4px solid #3d6263; font-weight: 800; font-size: 12px; color: #3d6263; text-transform: uppercase; letter-spacing: 0.5px;">
-                            <font color="#3d6263">${item}</font>
-                        </td>
-                    </tr>
-                `;
+                htmlEmail += `<tr><td colspan="3" style="padding:10px 14px;background-color:#f0f6f6;border-left:3px solid #3d6263;font-family:Arial,sans-serif;font-size:11px;font-weight:800;color:#3d6263;text-transform:uppercase;letter-spacing:1px;">${item}</td></tr>`;
             }
         }
     }
 
-    htmlEmail += `</tbody></table><p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
-    htmlEmail += `<p style="font-size: 10.0pt; font-weight: 700; color: #3d6263; margin: 0;"><font color="#3d6263">Our team for this service is:</font></p><p style="margin:0; font-size:10pt;">&nbsp;</p><table style="width: 100%; border-collapse: collapse; margin: 0;"><tbody>`;
+    htmlEmail += `</table></td></tr>
+  <tr><td style="padding:24px 40px 0;">
+    <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#3d6263;padding-bottom:10px;border-bottom:2px solid #3d6263;">Our Team This Service</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tbody>`;
 
     let rosterNames = [];
     const teamRows = Array.from(document.querySelectorAll('#teamBody tr'));
     const rowsForEmail = teamRows.map(r => [r.children[0].innerText, r.children[1].innerText, r.querySelector('.instr-note').value]);
     const sortedForEmail = sortAssignments(rowsForEmail);
-
     sortedForEmail.forEach(([role, name, note]) => {
-        if (name && name !== "None") rosterNames.push(name.trim());
+        if(name && name !== "None") rosterNames.push(name.trim());
         let roleColor = "#3d6263";
-        if (["Sound", "Words", "Camera", "Cameras"].includes(role)) roleColor = "#3B7D23";
-        htmlEmail += `<tr><td width="35%" style="width:35%; padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; vertical-align: top;"><font color="${roleColor}">${role}</font></td><td style="padding: 9.0pt 0; border-bottom: 1px solid #f0f4f8; font-size: 10.0pt; vertical-align: top;"><font color="#000000">${name}</font>${note ? `<br><font size="2" color="#666666"><i>Note: ${note}</i></font>` : ''}</td></tr>`;
+        if (["Sound","Words","Camera","Cameras"].includes(role)) roleColor = "#3B7D23";
+        htmlEmail += `<tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f0f6f6;font-family:Arial,sans-serif;font-size:13px;font-weight:800;color:${roleColor};vertical-align:top;width:38%;">${role}</td>
+          <td style="padding:10px 0;border-bottom:1px solid #f0f6f6;font-family:Arial,sans-serif;font-size:13px;color:#333333;vertical-align:top;">${name}${note ? `<br><span style="font-size:11px;color:#888888;font-style:italic;">${note}</span>` : ""}</td>
+        </tr>`;
     });
+    htmlEmail += `</tbody></table>
+  </td></tr>
+  ${outroText ? `<tr><td style="padding:20px 40px 0;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">${outroText.replace(/\n/g, "<br>")}</td></tr>` : ""}
+  <tr><td style="padding:20px 40px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td width="4" bgcolor="#3d6263" style="font-size:0;line-height:0;">&nbsp;</td>
+      <td bgcolor="#f0f6f6" style="padding:14px 18px;">
+        <p style="margin:0 0 6px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#3d6263;">Projection / Song Summary</p>
+        <a href="${summaryUrl}" style="font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:700;">View simplified song list (songs, CCLI &amp; notes) &rarr;</a>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
+    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
+    </tr></table>
+  </td></tr>
+</table></td></tr></table>
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
+</body></html>`;
 
-    htmlEmail += `</tbody></table><p style="margin:0; font-size:10pt;">&nbsp;</p><p style="margin:0; font-size:10pt;">&nbsp;</p>`;
-    if (outroText) htmlEmail += `<div style="font-size: 14px; color: #444444; margin: 0;"><font color="#444444">${outroText.replace(/\n/g, '<br>')}</font></div>`;
-
-    htmlEmail += `<p style="margin:0; font-size:10pt;">&nbsp;</p>
-<div style="border-top: 1px solid #d1dfdf; padding-top: 14px; margin-top: 4px;">
-    <p style="font-size: 10.0pt; font-weight: 700; color: #3d6263; margin: 0 0 6px 0;"><font color="#3d6263"><strong>Projection / Song Summary:</strong></font></p>
-    <a href="${summaryUrl}" style="font-size: 10.0pt; color: #3d6263; text-decoration: underline; font-weight: 700;"><font color="#3d6263">View simplified song list (songs, CCLI &amp; notes)</font></a>
-</div></div>`;
-
-    const type = "text/html";
-    const blob = new Blob([htmlEmail], { type });
-    try { await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]); } catch (e) {}
-
-    let recipients = [];
-    addressBook.forEach(p => {
-        const isCore = p.markers && p.markers.includes("Core Team");
-        if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) recipients.push(p.email);
-    });
-    const teamTo = [...new Set(recipients)].join(",");
-    const subject = encodeURIComponent("Youth Service Plan: " + date);
-
+    const subject = "Youth Service Plan: " + date;
     const modal = document.getElementById('emailModal');
     const individualSelect = document.getElementById('modalIndividualSelect');
     individualSelect.innerHTML = '<option value="">— Pick a person —</option>';
@@ -889,19 +899,59 @@ window.emailSchedule = async () => {
         }
     });
 
-    document.getElementById('modalTeamBtn').onclick = () => {
-        modal.classList.remove('active');
-        alert("Plan copied to clipboard!");
-        window.location.href = `mailto:${teamTo}?subject=${subject}`;
+    let teamRecipients = [];
+    addressBook.forEach(p => {
+        const isCore = p.markers && p.markers.includes("Core Team");
+        if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
+    });
+    teamRecipients = [...new Set(teamRecipients)];
+
+    const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
+
+    async function sendViaResend(toAddresses, emailSubject, emailHtml) {
+        const statusEl = document.getElementById('modalStatus');
+        statusEl.textContent = "Sending…";
+        statusEl.style.color = "#3d6263";
+        try {
+            const resp = await fetch(SEND_FUNCTION_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" })
+            });
+            const result = await resp.json();
+            if (result.ok) {
+                statusEl.textContent = "✓ Sent successfully!";
+                statusEl.style.color = "#3B7D23";
+                setTimeout(() => modal.classList.remove('active'), 1800);
+            } else {
+                statusEl.textContent = "✗ Error: " + (result.error || "Unknown error");
+                statusEl.style.color = "#e05555";
+            }
+        } catch (e) {
+            statusEl.textContent = "✗ Network error: " + e.message;
+            statusEl.style.color = "#e05555";
+        }
+    }
+
+    document.getElementById('modalTeamBtn').onclick = async () => {
+        document.getElementById('modalTeamBtn').disabled = true;
+        document.getElementById('modalIndividualBtn').disabled = true;
+        await sendViaResend(teamRecipients, subject, htmlEmail);
+        document.getElementById('modalTeamBtn').disabled = false;
+        document.getElementById('modalIndividualBtn').disabled = false;
     };
-    document.getElementById('modalIndividualBtn').onclick = () => {
+    document.getElementById('modalIndividualBtn').onclick = async () => {
         const email = individualSelect.value;
         if (!email) { alert("Please select a person first."); return; }
-        modal.classList.remove('active');
-        alert("Plan copied to clipboard!");
-        window.location.href = `mailto:${email}?subject=${subject}`;
+        document.getElementById('modalTeamBtn').disabled = true;
+        document.getElementById('modalIndividualBtn').disabled = true;
+        await sendViaResend([email], subject, htmlEmail);
+        document.getElementById('modalTeamBtn').disabled = false;
+        document.getElementById('modalIndividualBtn').disabled = false;
     };
     document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
+    const savedSender = localStorage.getItem('egbc-sender-email') || '';
+    document.getElementById('senderEmail').value = savedSender;
     modal.classList.add('active');
 };
 </script>
@@ -918,14 +968,19 @@ window.emailSchedule = async () => {
 <div id="emailModal">
     <div id="emailModalBox">
         <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Youth Service Plan</h2>
-        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:20px; font-weight:700;">Plan will be copied to clipboard. Choose who to email.</p>
+        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:16px; font-weight:700;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:6px;">Your Email (reply-to)</label>
+            <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+        </div>
         <button id="modalTeamBtn" class="btn-primary" style="width:100%; display:block; text-align:center; border:none; cursor:pointer; margin-bottom:20px;">Email Whole Team</button>
         <div style="border-top:1px solid #d1dfdf; padding-top:20px;">
             <p style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#3d6263; opacity:0.5; margin-bottom:8px;">Or email one person:</p>
             <select id="modalIndividualSelect" class="styled-input" style="width:100%; margin-bottom:10px;"></select>
             <button id="modalIndividualBtn" class="btn-secondary" style="width:100%; display:block; text-align:center; cursor:pointer;">Email This Person</button>
         </div>
-        <div style="margin-top:16px; text-align:center;">
+        <div id="modalStatus" style="margin-top:14px; font-size:13px; font-weight:700; min-height:20px; text-align:center;"></div>
+        <div style="margin-top:12px; text-align:center;">
             <button id="modalCancelBtn" style="font-size:12px; font-weight:700; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button>
         </div>
     </div>

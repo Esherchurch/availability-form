@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-availability.json">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Availability">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Member Availability</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -102,17 +107,21 @@
         };
 
         window.submitAll = async () => {
-            const btn = document.getElementById('finalSubmitBtn');
-            btn.innerText = "Saving...";
-            btn.disabled = true;
-
-            for (const ev of displayedEvents) {
-                if (!availabilityData[ev.id]) {
+            // Check all dates have been responded to
+            const unanswered = displayedEvents.filter(ev => !availabilityData[ev.id]);
+            if (unanswered.length > 0) {
+                const dateList = unanswered.map(ev => new Date(ev.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })).join(', ');
+                const proceed = confirm(`You haven't responded to ${unanswered.length} date(s): ${dateList}\n\nThese will be marked as Available. Continue?`);
+                if (!proceed) return;
+                for (const ev of unanswered) {
                     await setStatus(ev.id, ev.date, 'avail');
                 }
             }
-            
-            alert("Availability Submitted Successfully!");
+
+            const btn = document.getElementById('finalSubmitBtn');
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+            alert("Availability Submitted Successfully! Thank you.");
             location.reload();
         };
 
@@ -137,7 +146,7 @@
                 if (ev.archived === true) return;
                 const eventTeams = ev.teams || [];
                 const memberMarkers = currentUser.markers || [];
-                const isRelevant = eventTeams.length === 0 || eventTeams.some(t => memberMarkers.includes(t));
+                const isRelevant = eventTeams.length === 0 || eventTeams.some(t => memberMarkers.includes(t)) || (eventTeams.includes('Youth') && memberMarkers.includes('Youth Worship'));
                 if (isRelevant) {
                     const eventObj = { id: d.id, ...ev };
                     displayedEvents.push(eventObj);
@@ -151,34 +160,34 @@
                 let termHtml = `
                     <div class="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div class="flex items-center gap-2 mb-4 px-1">
-                            <div class="h-1 w-8 bg-[#2c6999] rounded-full"></div>
-                            <h3 class="text-[11px] font-extrabold text-[#2c6999] uppercase tracking-[0.2em]">${term}</h3>
+                            <div class="h-1 w-8 bg-[#3d6263] rounded-full"></div>
+                            <h3 class="text-[11px] font-extrabold text-[#3d6263] uppercase tracking-[0.2em]">${term}</h3>
                         </div>
                         <div class="space-y-4">
                 `;
                 grouped[term].forEach(ev => {
-                    const status = availabilityData[ev.id] || 'avail'; 
+                    const status = availabilityData[ev.id] || 'pending'; 
                     const dateDisplay = new Date(ev.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
                     termHtml += `
                         <div class="bg-white border border-gray-100 rounded-[24px] p-5 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 transition-all hover:shadow-md">
                             <div class="text-center sm:text-left flex-1">
-                                <span class="text-[9px] font-black text-[#2c6999] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">${ev.type}</span>
+                                <span class="text-[9px] font-black text-[#3d6263] uppercase tracking-widest bg-[#eaf2f2] px-3 py-1 rounded-full border border-[#d1dfdf]">${ev.type}</span>
                                 <div class="flex flex-col sm:flex-row sm:items-baseline gap-2 mt-2">
-                                    <div class="text-lg font-bold text-[#1a1a1a]">${dateDisplay}</div>
+                                    <div class="text-lg font-bold text-[#1e2e2e]">${dateDisplay}</div>
                                     <div class="text-[12px] font-medium text-gray-400 italic">${ev.description || ''}</div>
                                 </div>
                                 <div class="text-[10px] font-semibold text-gray-400 mt-0.5">${ev.startTime || '08:00'} - ${ev.endTime || '11:30'}</div>
                             </div>
                             <div class="flex gap-2 w-full sm:w-auto">
                                 <button onclick="setStatus('${ev.id}', '${ev.date}', 'avail')" 
-                                    class="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-[10px] uppercase transition-all 
-                                    ${status === 'avail' ? 'bg-green-600 text-white shadow-lg shadow-green-100' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
-                                    Available
+                                    class="flex-1 sm:flex-none px-7 py-4 rounded-2xl font-black text-[11px] uppercase transition-all 
+                                    ${status === 'avail' ? 'bg-green-600 text-white shadow-lg shadow-green-100' : 'bg-[#f0f6f6] text-[#3d6263] opacity-40 hover:opacity-100 hover:bg-green-50 hover:text-green-600'}">
+                                    ✓ Available
                                 </button>
                                 <button onclick="setStatus('${ev.id}', '${ev.date}', 'not-avail')" 
-                                    class="flex-1 sm:flex-none px-6 py-3 rounded-2xl font-bold text-[10px] uppercase transition-all 
-                                    ${status === 'not-avail' ? 'bg-red-500 text-white shadow-lg shadow-red-100' : 'bg-gray-50 text-gray-300 hover:bg-gray-100'}">
-                                    Unavailable
+                                    class="flex-1 sm:flex-none px-7 py-4 rounded-2xl font-black text-[11px] uppercase transition-all 
+                                    ${status === 'not-avail' ? 'bg-red-500 text-white shadow-lg shadow-red-100' : 'bg-[#f0f6f6] text-[#3d6263] opacity-40 hover:opacity-100 hover:bg-red-50 hover:text-red-500'}">
+                                    ✗ Unavailable
                                 </button>
                             </div>
                         </div>`;
@@ -190,11 +199,11 @@
         }
     </script>
     <style>
-        body { background-color: #fbfcff; font-family: 'Montserrat', sans-serif; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
+        body { background-color: #eaf2f2; font-family: 'Montserrat', sans-serif; color: #1e2e2e; -webkit-font-smoothing: antialiased; }
         .glass { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); }
         input::placeholder { color: #cbd5e1; font-weight: 500; }
-        #userName { font-style: normal !important; color: #2c6999 !important; font-weight: 800; text-transform: uppercase; }
-        .login-card { background: #ffffff; border-radius: 40px; box-shadow: 0 20px 50px -12px rgba(44, 105, 153, 0.12); border: 1px solid rgba(44, 105, 153, 0.05); }
+        #userName { font-style: normal !important; color: #3d6263 !important; font-weight: 800; text-transform: uppercase; }
+        .login-card { background: #ffffff; border-radius: 40px; box-shadow: 0 20px 50px -12px rgba(61, 98, 99, 0.12); border: 1px solid rgba(61, 98, 99, 0.05); }
     </style>
 </head>
 <body class="p-5 sm:p-10 lg:p-12 pb-32">
@@ -205,7 +214,7 @@
                 <img src="" alt="Logo" class="egbc-logo h-24 mx-auto object-contain">
                 <div class="text-center">
                     <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.4em]">Esher Green Baptist Church</p>
-                    <h1 class="text-3xl font-black text-[#2c6999] tracking-tight uppercase mt-2">Team Portal</h1>
+                    <h1 class="text-3xl font-black text-[#3d6263] tracking-tight uppercase mt-2">Availability Form</h1>
                 </div>
             </div>
             
@@ -214,21 +223,21 @@
                     <div class="space-y-2">
                         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-center mb-3">Worship & AV Member Login</label>
                         <input type="email" id="memberEmail" placeholder="Enter your email" 
-                            class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 text-center font-bold text-lg outline-none focus:border-blue-100 transition-all shadow-inner">
+                            class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 text-center font-bold text-lg outline-none focus:border-[#d1dfdf] transition-all shadow-inner">
                     </div>
-                    <button onclick="loginMember()" class="w-full bg-[#2c6999] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#23557d] transform active:scale-95 transition-all">
+                    <button onclick="loginMember()" class="w-full bg-[#3d6263] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#2f4c4d] transform active:scale-95 transition-all">
                         Check My Services
                     </button>
                 </div>
 
                 <div id="householdBox" class="hidden space-y-8 animate-in fade-in slide-in-from-top-2">
                     <div class="space-y-2">
-                        <label class="block text-[10px] font-black text-[#2c6999] uppercase tracking-widest text-center mb-3">Multiple Team Members Found</label>
+                        <label class="block text-[10px] font-black text-[#3d6263] uppercase tracking-widest text-center mb-3">Multiple Team Members Found</label>
                         <div class="relative">
-                            <select id="householdSelect" class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 appearance-none text-center font-bold text-lg outline-none focus:border-blue-100 transition-all shadow-inner"></select>
+                            <select id="householdSelect" class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 appearance-none text-center font-bold text-lg outline-none focus:border-[#d1dfdf] transition-all shadow-inner"></select>
                         </div>
                     </div>
-                    <button onclick="confirmHouseholdMember()" class="w-full bg-[#2c6999] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#23557d] transform active:scale-95 transition-all">
+                    <button onclick="confirmHouseholdMember()" class="w-full bg-[#3d6263] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#2f4c4d] transform active:scale-95 transition-all">
                         Load Form for me
                     </button>
                 </div>
@@ -241,7 +250,7 @@
             <header class="flex justify-between items-start mb-12 border-b border-gray-100 pb-6">
                 <div>
                     <img src="" alt="Logo" class="egbc-logo h-12 object-contain mb-3">
-                    <p class="text-[9px] font-black text-[#2c6999] uppercase tracking-[0.3em]">TEAM MEMBER</p>
+                    <p class="text-[9px] font-black text-[#3d6263] uppercase tracking-[0.3em]">TEAM MEMBER</p>
                     <h2 id="userName" class="text-2xl font-extrabold"></h2>
                 </div>
                 <button onclick="location.reload()" class="bg-gray-100 text-gray-400 p-3 rounded-full hover:bg-gray-200 transition-all shadow-sm">
@@ -252,13 +261,20 @@
             <div id="eventList"></div>
 
             <div id="actionButtons" class="hidden fixed bottom-6 left-0 right-0 px-5 z-50">
-                <div class="max-w-2xl mx-auto glass p-5 rounded-[32px] shadow-2xl border border-blue-50 flex flex-col sm:flex-row gap-3">
-                    <button id="finalSubmitBtn" onclick="submitAll()" class="flex-1 bg-[#2c6999] text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:bg-[#23557d] transition-all transform active:scale-95">
+                <div class="max-w-2xl mx-auto glass p-5 rounded-[32px] shadow-2xl border border-[#d1dfdf] flex flex-col sm:flex-row gap-3">
+                    <button id="finalSubmitBtn" onclick="submitAll()" class="flex-1 bg-[#3d6263] text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:bg-[#2f4c4d] transition-all transform active:scale-95">
                         Confirm Rota Availability
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
 </body>
 </html>

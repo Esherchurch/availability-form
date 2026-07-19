@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Class Birthday Invitation Maker & Mail Merge</title>
+    <!-- Premium Font Loading -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Fredoka+One&family=Montserrat:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Kanit:wght@800&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <!-- SheetJS for processing Excel Files -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        /* --- Print & High-Resolution Defaults --- */
+        @page {
+            size: A5 portrait;
+            margin: 0;
+        }
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111111;
+            color: #ffffff;
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* --- Control Panel Styles --- */
+        #control-panel {
+            width: 450px;
+            background-color: #1a1a1a;
+            padding: 30px;
+            border-right: 2px solid #2a3546;
+            overflow-y: auto;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 100;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        h2.panel-title {
+            color: #4a90e2;
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 0;
+            border-bottom: 1px solid #2a3546;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #a0a0a0;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            background-color: #111111;
+            border: 1px solid #2a3546;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        input[type="color"] {
+            padding: 2px;
+            height: 40px;
+            cursor: pointer;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        .btn-print {
+            background-color: #4a90e2;
+            color: #ffffff;
+            border: none;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 10px;
+            transition: background 0.3s ease;
+        }
+        .btn-print:hover {
+            background-color: #357abd;
+        }
+        .info-box {
+            background-color: #0b131f;
+            border: 1px dashed #4a90e2;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #b0c4de;
+            line-height: 1.4;
+        }
+
+        /* --- Workspace / Preview Area --- */
+        #preview-container {
+            margin-left: 450px; 
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #222222;
+            padding: 40px;
+            overflow-y: auto;
+            gap: 40px;
+            min-height: 100vh;
+        }
+
+        /* --- Invitation Canvas (A5 exact aspect ratio for 300 DPI print) --- */
+        .invitation-canvas {
+            width: 148mm;
+            height: 210mm;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 25mm 15mm;
+            text-align: center;
+            box-sizing: border-box;
+            page-break-after: always;
+            flex-shrink: 0;
+        }
+
+        /* --- Universal Inner Components --- */
+        .photo-wrapper {
+            width: 110mm;
+            height: 70mm;
+            border: 3px solid transparent;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        .photo-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        .photo-placeholder {
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .divider {
+            width: 50px;
+            height: 1px;
+            margin: 15px auto;
+        }
+
+        /* --- FONT STYLE OVERRIDES --- */
+        .f-serif .txt-main, .f-serif .txt-accent, .f-serif .txt-details, .f-serif .txt-recipient { font-family: 'Cinzel', serif; }
+        .f-sans .txt-main, .f-sans .txt-accent, .f-sans .txt-details, .f-sans .txt-recipient { font-family: 'Montserrat', sans-serif; }
+        .f-classic-serif .txt-main, .f-classic-serif .txt-accent, .f-classic-serif .txt-details, .f-classic-serif .txt-recipient { font-family: 'Playfair Display', serif; }
+        .f-sporty .txt-main, .f-sporty .txt-accent, .f-sporty .txt-recipient { font-family: 'Kanit', sans-serif; font-weight: 800; }
+        .f-script .txt-main, .f-script .txt-recipient { font-family: 'Pinyon Script', cursive; text-transform: none !important; }
+
+        /* --- PRESET TEMPLATE BASE DEFINITIONS --- */
+        
+        /* 1. Royal Midnight & Gold (Natasha 50th Base) */
+        .tmpl-royal {
+            background: radial-gradient(circle, #101f35 0%, #070d16 100%) !important;
+            border: 4mm double #c5a059;
+            outline: 1mm solid #c5a059;
+            outline-offset: -2mm;
+        }
+        .tmpl-royal:not(.customized) .txt-accent { color: #c5a059; font-family: 'Cinzel', serif; letter-spacing: 4px; }
+        .tmpl-royal:not(.customized) .txt-main { color: #ffffff; font-family: 'Cinzel', serif; font-size: 32px; letter-spacing: 6px; text-transform: uppercase; margin: 15px 0; }
+        .tmpl-royal:not(.customized) .txt-details { color: #dcdcdc; font-family: 'Cinzel', serif; font-size: 12px; line-height: 1.8; letter-spacing: 2px; }
+        .tmpl-royal:not(.customized) .txt-recipient { color: #c5a059; font-family: 'Cinzel', serif; font-size: 16px; font-style: italic; letter-spacing: 2px; }
+
+        /* 2. Rose Gold Chic (Feminine Elegant) */
+        .tmpl-rosegold {
+            background: linear-gradient(180deg, #fff5f5 0%, #ffe4e4 100%) !important;
+            border: 2px solid #e0b0b0;
+        }
+        .tmpl-rosegold:not(.customized) .txt-accent { color: #b87d7d; font-family: 'Montserrat', sans-serif; letter-spacing: 3px; font-size: 11px; font-weight: bold; }
+        .tmpl-rosegold:not(.customized) .txt-main { color: #4a3b3b; font-family: 'Playfair Display', serif; font-size: 36px; font-style: italic; margin: 15px 0; }
+        .tmpl-rosegold:not(.customized) .txt-details { color: #5c4a4a; font-family: 'Montserrat', sans-serif; font-size: 12px; line-height: 1.8; letter-spacing: 1px; }
+        .tmpl-rosegold:not(.customized) .txt-recipient { color: #b87d7d; font-family: 'Playfair Display', serif; font-size: 18px; font-weight: bold; letter-spacing: 1px; }
+
+        /* 3. Classic Elegance (Burgundy & Crest) */
+        .tmpl-classic {
+            background: #4a0e17 !important;
+            border: 2px solid #d4af37;
+            outline: 12px solid #360a10;
+            outline-offset: -14px;
+        }
+        .tmpl-classic:not(.customized) .txt-accent { color: #d4af37; font-family: 'Playfair Display', serif; font-style: italic; letter-spacing: 2px; }
+        .tmpl-classic:not(.customized) .txt-main { color: #ffffff; font-family: 'Playfair Display', serif; font-size: 34px; letter-spacing: 3px; font-weight: 700; text-transform: uppercase; margin: 12px 0; }
+        .tmpl-classic:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.8; letter-spacing: 2px; }
+        .tmpl-classic:not(.customized) .txt-recipient { color: #d4af37; font-family: 'Playfair Display', serif; font-size: 18px; letter-spacing: 1px; }
+
+        /* 4. Modern Minimalist (Studio White) */
+        .tmpl-modern {
+            background: #ffffff !important;
+            border: 1px solid #e0e0e0;
+        }
+        .tmpl-modern:not(.customized) .txt-accent { color: #222222; font-family: 'Montserrat', sans-serif; letter-spacing: 5px; font-size: 11px; font-weight: 700; }
+        .tmpl-modern:not(.customized) .txt-main { color: #111111; font-family: 'Montserrat', sans-serif; font-size: 36px; letter-spacing: 1px; font-weight: 900; text-transform: uppercase; margin: 15px 0; }
+        .tmpl-modern:not(.customized) .txt-details { color: #555555; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 2; letter-spacing: 1px; }
+        .tmpl-modern:not(.customized) .txt-recipient { color: #0044ff; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 2px; }
+
+        /* 5. Championship Football (Sport Theme) */
+        .tmpl-football {
+            background: linear-gradient(135deg, #113b21 0%, #082212 100%) !important;
+            border: 4px solid #ffffff;
+            outline: 6px solid #1e5631;
+        }
+        .tmpl-football:not(.customized) .txt-accent { color: #ffcc00; font-family: 'Kanit', sans-serif; letter-spacing: 2px; font-size: 13px; text-transform: uppercase; }
+        .tmpl-football:not(.customized) .txt-main { color: #ffffff; font-family: 'Kanit', sans-serif; font-size: 38px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin: 10px 0; text-shadow: 3px 3px 0px #000000; }
+        .tmpl-football:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 12px; line-height: 1.6; font-weight: bold; letter-spacing: 1px; }
+        .tmpl-football:not(.customized) .txt-recipient { color: #ffcc00; font-family: 'Kanit', sans-serif; font-size: 20px; font-style: italic; text-shadow: 2px 2px 0px #000000; }
+
+        /* 6. Safari Adventure */
+        .tmpl-safari {
+            background: #f4f0e6 !important;
+            border: 5mm solid #556b2f;
+        }
+        .tmpl-safari:not(.customized) .txt-accent { color: #8b5a2b; font-family: 'Fredoka One', cursive; letter-spacing: 1px; font-size: 14px; }
+        .tmpl-safari:not(.customized) .txt-main { color: #2e8b57; font-family: 'Fredoka One', cursive; font-size: 34px; margin: 10px 0; letter-spacing: 1px; }
+        .tmpl-safari:not(.customized) .txt-details { color: #333333; font-family: 'Montserrat', sans-serif; font-size: 13px; line-height: 1.6; font-weight: bold; }
+        .tmpl-safari:not(.customized) .txt-recipient { color: #d2691e; font-family: 'Fredoka One', cursive; font-size: 18px; }
+
+        /* 7. Super Galactic */
+        .tmpl-galactic {
+            background: #020208 !important;
+            border: 3px dashed #00ffff;
+            outline: 10px solid #0a0a1f;
+        }
+        .tmpl-galactic:not(.customized) .txt-accent { color: #ff00ff; font-family: 'Montserrat', sans-serif; letter-spacing: 4px; font-weight: bold; font-size: 11px; text-shadow: 0 0 5px #ff00ff; }
+        .tmpl-galactic:not(.customized) .txt-main { color: #00ffff; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 32px; letter-spacing: 3px; margin: 15px 0; text-shadow: 0 0 8px #00ffff; }
+        .tmpl-galactic:not(.customized) .txt-details { color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 12px; line-height: 1.8; letter-spacing: 2px; }
+        .tmpl-galactic:not(.customized) .txt-recipient { color: #ffff00; font-family: 'Montserrat', sans-serif; font-weight: bold; font-size: 16px; letter-spacing: 2px; text-shadow: 0 0 5px #ffff00; }
+
+        /* --- High-Resolution Print Engine --- */
+        @media print {
+            #control-panel {
+                display: none !important;
+            }
+            #preview-container {
+                margin-left: 0 !important;
+                padding: 0 !important;
+                background: none !important;
+                display: block !important;
+            }
+            .invitation-canvas {
+                box-shadow: none !important;
+                width: 148mm !important;
+                height: 210mm !important;
+                margin: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CONTROL PANEL -->
+    <div id="control-panel">
+        <h2 class="panel-title">Invitation Customizer</h2>
+        
+        <div class="form-group">
+            <label for="template-select">Design Template Base</label>
+            <select id="template-select" onchange="updateAllInvitations()">
+                <option value="tmpl-royal">Royal Midnight & Gold (Natasha 50th)</option>
+                <option value="tmpl-rosegold">Rose Gold Chic (Feminine Elegant)</option>
+                <option value="tmpl-classic">Classic Elegance (Burgundy & Crest)</option>
+                <option value="tmpl-modern">Modern Minimalist (Studio White)</option>
+                <option value="tmpl-football">Championship Football (Sport Theme)</option>
+                <option value="tmpl-safari">Safari Adventure</option>
+                <option value="tmpl-galactic">Super Galactic</option>
+            </select>
+        </div>
+
+        <!-- CUSTOM ENGINE PARAMETERS -->
+        <div class="info-box">
+            <strong>Custom Branding Engine</strong><br>
+            Modify colors or fonts below to alter or completely override the preset designs.
+        </div>
+
+        <div class="form-group">
+            <label for="font-override">Font Style Override</label>
+            <select id="font-override" onchange="updateAllInvitations()">
+                <option value="default">— Keep Template Fonts —</option>
+                <option value="f-serif">Cinzel Premium Serif</option>
+                <option value="f-sans">Montserrat Clean Sans</option>
+                <option value="f-classic-serif">Playfair Literary Serif</option>
+                <option value="f-sporty">Kanit Athletic Heavy</option>
+                <option value="f-script">Pinyon Elegant Script</option>
+            </select>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="color-bg">Custom Background</label>
+                <input type="color" id="color-bg" value="#000000" oninput="applyColorOverride()">
+            </div>
+            <div class="form-group">
+                <label for="color-accent">Custom Accent</label>
+                <input type="color" id="color-accent" value="#4a90e2" oninput="applyColorOverride()">
+            </div>
+            <div class="form-group">
+                <label for="color-text">Custom Text</label>
+                <input type="color" id="color-text" value="#ffffff" oninput="applyColorOverride()">
+            </div>
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="enable-color-override" onchange="updateAllInvitations()"> Enable Custom Color Override</label>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #2a3546; margin: 5px 0;">
+
+        <div class="form-group">
+            <label for="excel-upload">Mail Merge (Excel List)</label>
+            <input type="file" id="excel-upload" accept=".xlsx, .xls" onchange="handleExcel(event)">
+            <div class="info-box">
+                Upload sheet with a <strong>Name</strong> column header.
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="input-host">Host Line / Prefix</label>
+            <input type="text" id="input-host" value="CHAMPAGNE TOAST TO CELEBRATE" oninput="updateAllInvitations()">
+        </div>
+
+        <div class="form-group">
+            <label for="input-title">Main Title / Name</label>
+            <input type="text" id="input-title" value="NATASHA'S 50TH" oninput="updateAllInvitations()">
+        </div>
+
+        <div class="form-group">
+            <label for="input-subtitle">Subtitle</label>
+            <input type="text" id="input-subtitle" value="BIRTHDAY SOHO SOIREE" oninput="updateAllInvitations()">
+        </div>
+
+        <div class="form-group">
+            <label for="image-upload">Guest Photo (High-Res)</label>
+            <input type="file" id="image-upload" accept="image/*" onchange="handleImage(event)">
+        </div>
+
+        <div class="form-group">
+            <label for="input-details">Event Details</label>
+            <textarea id="input-details" rows="5" oninput="updateAllInvitations()">SATURDAY, OCTOBER 17TH | 7:00 PM
+
+THE LUXE CLUBLAND LOUNGE
+45 PICCADILLY, LONDON
+
+RSVP BY SEPTEMBER 1ST
+BLACK TIE REQUIRED</textarea>
+        </div>
+
+        <button class="btn-print" onclick="window.print()">Print / Export PDF</button>
+    </div>
+
+    <!-- PREVIEW AREA -->
+    <div id="preview-container">
+        <!-- Canvas Nodes Dynamically Rendered -->
+    </div>
+
+    <!-- ENGINE LOGIC -->
+    <script>
+        let currentImageDataUrl = "";
+        let recipientList = ["EXCLUSIVELY FOR YOU"];
+
+        window.onload = function() {
+            renderInvitations();
+        };
+
+        function handleExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                const names = jsonData
+                    .map(row => row.Name || row.name || row.NAME || null)
+                    .filter(name => name !== null);
+
+                if (names.length > 0) {
+                    recipientList = names;
+                } else {
+                    alert("No 'Name' column discovered. Defaulting to standard template sequence.");
+                    recipientList = ["EXCLUSIVELY FOR YOU"];
+                }
+                renderInvitations();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleImage(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                currentImageDataUrl = reader.result;
+                const previews = document.querySelectorAll('.photo-preview');
+                const placeholders = document.querySelectorAll('.photo-placeholder');
+                
+                previews.forEach(img => {
+                    img.src = currentImageDataUrl;
+                    img.style.display = 'block';
+                });
+                placeholders.forEach(ph => {
+                    ph.style.display = 'none';
+                });
+            }
+            if(event.target.files[0]) {
+                reader.readAsDataURL(event.target.files[0]);
+            }
+        }
+
+        function renderInvitations() {
+            const container = document.getElementById('preview-container');
+            container.innerHTML = ''; 
+
+            const selectedTemplate = document.getElementById('template-select').value;
+            const fontOverride = document.getElementById('font-override').value;
+            const colorsEnabled = document.getElementById('enable-color-override').checked;
+
+            const hostText = document.getElementById('input-host').value.toUpperCase();
+            const titleText = document.getElementById('input-title').value.toUpperCase();
+            const subtitleText = document.getElementById('input-subtitle').value.toUpperCase();
+            const detailsText = document.getElementById('input-details').value.replace(/\n/g, '<br>');
+
+            // Determine dynamic asset tracking layout colors
+            let assetColor = '#c5a059'; 
+            let placeholderBg = '#152238';
+            
+            if (selectedTemplate === 'tmpl-rosegold') { assetColor = '#e0b0b0'; placeholderBg = '#fff0f0'; }
+            if (selectedTemplate === 'tmpl-classic') { assetColor = '#d4af37'; placeholderBg = '#360a10'; }
+            if (selectedTemplate === 'tmpl-modern') { assetColor = '#111111'; placeholderBg = '#f0f0f0'; }
+            if (selectedTemplate === 'tmpl-football') { assetColor = '#ffcc00'; placeholderBg = '#082212'; }
+            if (selectedTemplate === 'tmpl-safari') { assetColor = '#556b2f'; placeholderBg = '#e6dfd1'; }
+            if (selectedTemplate === 'tmpl-galactic') { assetColor = '#00ffff'; placeholderBg = '#050515'; }
+
+            if (colorsEnabled) {
+                assetColor = document.getElementById('color-accent').value;
+            }
+
+            recipientList.forEach(recipient => {
+                const canvas = document.createElement('div');
+                
+                // Construct standard base styles combined with active typographic overrides
+                canvas.className = `invitation-canvas ${selectedTemplate} ${fontOverride !== 'default' ? fontOverride : ''} ${colorsEnabled ? 'customized' : ''}`;
+
+                if (colorsEnabled) {
+                    canvas.style.backgroundColor = document.getElementById('color-bg').value;
+                    canvas.style.backgroundImage = 'none';
+                    canvas.style.borderColor = assetColor;
+                    canvas.style.outlineColor = assetColor;
+                } else {
+                    canvas.style.backgroundColor = '';
+                    canvas.style.backgroundImage = '';
+                    canvas.style.borderColor = '';
+                    canvas.style.outlineColor = '';
+                }
+
+                canvas.innerHTML = `
+                    <div style="width: 100%;">
+                        <div class="txt-accent">${hostText}</div>
+                        <div class="txt-main">${titleText}</div>
+                        <div class="txt-accent">${subtitleText}</div>
+                        <div class="divider" style="background-color: ${assetColor};"></div>
+                    </div>
+
+                    <div class="photo-wrapper" style="border-color: ${assetColor}; background-color: ${colorsEnabled ? document.getElementById('color-bg').value : placeholderBg};">
+                        <span class="photo-placeholder" style="display: ${currentImageDataUrl ? 'none' : 'block'}; color: ${assetColor};">Insert High-Resolution Photo</span>
+                        <img class="photo-preview" src="${currentImageDataUrl || '#'}" alt="Invitation Portrait" style="display: ${currentImageDataUrl ? 'block' : 'none'};">
+                    </div>
+
+                    <div style="width: 100%;">
+                        <div class="txt-recipient">${recipient.toUpperCase()}</div>
+                        <div class="divider" style="background-color: ${assetColor};"></div>
+                        <div class="txt-details">${detailsText}</div>
+                    </div>
+                `;
+
+                // Handle text override inject targets inline if custom matrix matches active rule
+                if (colorsEnabled) {
+                    const txtAccents = canvas.querySelectorAll('.txt-accent');
+                    const txtMain = canvas.querySelector('.txt-main');
+                    const txtDetails = canvas.querySelector('.txt-details');
+                    const txtRecipient = canvas.querySelector('.txt-recipient');
+                    const userTextColor = document.getElementById('color-text').value;
+
+                    txtAccents.forEach(el => el.style.color = assetColor);
+                    if (txtMain) txtMain.style.color = userTextColor;
+                    if (txtDetails) txtDetails.style.color = userTextColor;
+                    if (txtRecipient) txtRecipient.style.color = assetColor;
+                }
+
+                container.appendChild(canvas);
+            });
+        }
+
+        function applyColorOverride() {
+            document.getElementById('enable-color-override').checked = true;
+            renderInvitations();
+        }
+
+        function updateAllInvitations() {
+            renderInvitations();
+        }
+    </script>
+</body>
+</html>

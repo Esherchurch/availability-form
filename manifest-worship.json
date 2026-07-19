@@ -1,0 +1,29 @@
+{
+  "name": "EGBC Worship Hub",
+  "short_name": "Worship Hub",
+  "description": "EGBC Worship & AV Team Hub",
+  "start_url": "https://esherchurch.github.io/availability-form/worshiphubapp.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#3d6263",
+  "theme_color": "#3d6263",
+  "icons": [
+    {
+      "src": "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "utilities",
+    "productivity"
+  ],
+  "lang": "en-GB"
+}

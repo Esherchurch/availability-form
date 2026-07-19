@@ -10,7 +10,7 @@
 <style>
 body { font-family: Arial; padding: 40px; }
 
-.dropzone {
+.dropzone { position: relative; display: flex; align-items: center; justify-content: center;
 border: 3px dashed #ccc;
 padding: 40px;
 text-align: center;
@@ -19,7 +19,7 @@ cursor: pointer;
 }
 
 .dropzone.dragover {
-background: #e8f4ff;
+background: #eaf2f2;
 }
 
 #suggestions {
@@ -35,7 +35,7 @@ cursor: pointer;
 
 #suggestions div:hover {
 .suggestion-item:hover {
-background: #f0f0f0;
+background: #f0f6f6;
 }
 
 table {
@@ -61,11 +61,10 @@ padding: 8px;
 <input id="youtube" placeholder="YouTube link"><br><br>
 <input id="ccli" placeholder="CCLI"><br><br>
 
-<div class="dropzone" id="dropzone">
-Drag & Drop OR Click to Select Files
-</div>
-
-<input type="file" id="fileInput" multiple style="display:none">
+<label for="fileInput" class="dropzone" id="dropzone">
+    <span>Drag &amp; Drop or tap here to select files</span>
+    <input type="file" id="fileInput" multiple style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+</label>
 
 <table id="fileTable">
 <thead>
@@ -104,7 +103,6 @@ const ALL_KEYS = [
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 
-dropzone.addEventListener("click", () => fileInput.click());
 
 fileInput.addEventListener("change", (e) => {
 addFiles(e.target.files);

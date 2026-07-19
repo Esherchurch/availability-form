@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Core Team Charter</title>
     <style>
@@ -13,7 +14,7 @@
             --brand-green: #9bc34a;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); min-height: 100vh; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--pale-teal); min-height: 100vh; }
 
         /* ── ADMIN BAR ── */
         #admin-bar {
@@ -39,7 +40,7 @@
         .admin-bar-btn {
             padding: 5px 14px;
             border-radius: 6px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
@@ -246,7 +247,7 @@
         .editor-btn {
             padding: 8px 18px;
             border-radius: 6px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
@@ -322,7 +323,7 @@
 <div class="page-wrap">
     <div style="padding:0 0 20px;">
         <div id="page-title-display" style="font-size:22px;font-weight:300;color:var(--accent-teal);letter-spacing:0.3px;"></div>
-        <input type="text" id="page-title-input" placeholder="Page title&hellip;" style="display:none;font-size:20px;font-weight:300;color:var(--accent-teal);border:2px solid var(--border-teal);border-radius:8px;padding:6px 14px;font-family:'Segoe UI',sans-serif;outline:none;min-width:280px;">
+        <input type="text" id="page-title-input" placeholder="Page title&hellip;" style="display:none;font-size:20px;font-weight:300;color:var(--accent-teal);border:2px solid var(--border-teal);border-radius:8px;padding:6px 14px;font-family:'Montserrat',sans-serif;outline:none;min-width:280px;">
     </div>
 
     <!-- Photos -->
@@ -391,10 +392,41 @@ function loadSaved() {
     document.getElementById('page-title-display').textContent = title;
     document.getElementById('page-title-input').value = title;
     document.title = title;
-    if (saved.html) {
-        document.getElementById('content-display').innerHTML = saved.html;
-        document.getElementById('html-textarea').value = saved.html;
-    }
+    const defaultHtml = `<h2>Core Team Charter</h2>
+<blockquote>We lead not by talent or title, but by character, humility, and a servant heart.</blockquote>
+
+<h3>Our Identity &amp; Posture</h3>
+<p>The Core Team exists to set the culture of the Worship &amp; AV Ministry. We model what we want the whole team to become: worshippers first, musicians second, servants always.</p>
+
+<h3>When We Disagree</h3>
+<p>We recognise that we may not always share the same theological views or ministry preferences. When differences arise, we commit to speaking with love, humility, and respect, keeping Jesus at the centre of every conversation. Our unity is not built on sameness, but on Christ-like love (John 13:35).</p>
+
+<h3>Visible Lives of Discipleship</h3>
+<p>Because we serve in a visible ministry, our lives should reflect the character and way of Jesus — not perfectly, but sincerely. We commit to living in a way that honours Christ in our relationships, choices, and conduct.</p>
+<p>We recognise that certain lifestyle choices that reflect a hedonistic or self-centred way of living are not compatible with the calling of leading others in worship. This applies to behaviours we choose, not to aspects of identity or circumstances people cannot control.</p>
+<p>We choose integrity, accountability, and holiness, seeking to grow in Christ.</p>
+
+<h3>How We Lead</h3>
+<ul>
+<li><strong>Servant leadership</strong> — we lead by example, not position</li>
+<li><strong>Visible support on Sundays</strong> — present, engaged, and encouraging</li>
+<li><strong>Teachable spirits</strong> — always willing to learn and grow</li>
+<li><strong>Culture carriers</strong> — we set the tone for the whole team</li>
+<li><strong>Spiritual sensitivity</strong> — attuned to God and to one another</li>
+</ul>
+
+<h3>Our Commitment</h3>
+<ul>
+<li>We lead by example</li>
+<li>We protect unity</li>
+<li>We champion others</li>
+<li>We communicate clearly</li>
+<li>We honour AV as equal partners</li>
+<li>We steward Sundays with prayer</li>
+</ul>`;
+    const htmlContent = saved.html || defaultHtml;
+    document.getElementById('content-display').innerHTML = htmlContent;
+    document.getElementById('html-textarea').value = htmlContent;
     if (saved.photos) {
         photos = saved.photos;
         renderPhotos();

@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Youth Charter</title>
+    <title>Youth Worship & AV Charter</title>
     <style>
         :root {
             --pale-teal: #f0f6f6;
@@ -13,7 +14,7 @@
             --brand-green: #9bc34a;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--pale-teal); min-height: 100vh; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--pale-teal); min-height: 100vh; }
 
         /* ── ADMIN BAR ── */
         #admin-bar {
@@ -39,7 +40,7 @@
         .admin-bar-btn {
             padding: 5px 14px;
             border-radius: 6px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
@@ -246,7 +247,7 @@
         .editor-btn {
             padding: 8px 18px;
             border-radius: 6px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
@@ -322,7 +323,7 @@
 <div class="page-wrap">
     <div style="padding:0 0 20px;">
         <div id="page-title-display" style="font-size:22px;font-weight:300;color:var(--accent-teal);letter-spacing:0.3px;"></div>
-        <input type="text" id="page-title-input" placeholder="Page title&hellip;" style="display:none;font-size:20px;font-weight:300;color:var(--accent-teal);border:2px solid var(--border-teal);border-radius:8px;padding:6px 14px;font-family:'Segoe UI',sans-serif;outline:none;min-width:280px;">
+        <input type="text" id="page-title-input" placeholder="Page title&hellip;" style="display:none;font-size:20px;font-weight:300;color:var(--accent-teal);border:2px solid var(--border-teal);border-radius:8px;padding:6px 14px;font-family:'Montserrat',sans-serif;outline:none;min-width:280px;">
     </div>
 
     <!-- Photos -->
@@ -387,14 +388,45 @@ window.addEventListener('load', loadSaved);
 
 function loadSaved() {
     const saved = JSON.parse(localStorage.getItem(PAGE_ID) || '{}');
-    const title = saved.title || 'Youth Charter';
+    const title = saved.title || 'Youth Worship & AV Charter';
     document.getElementById('page-title-display').textContent = title;
     document.getElementById('page-title-input').value = title;
     document.title = title;
-    if (saved.html) {
-        document.getElementById('content-display').innerHTML = saved.html;
-        document.getElementById('html-textarea').value = saved.html;
-    }
+    const defaultHtml = `<h2>Youth Worship &amp; AV Team Charter</h2>
+<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>
+
+<h3>Who We Are</h3>
+<p>We serve with love, joy, and unity — on instruments, with our voices, or on the AV team. Every one of us matters.</p>
+
+<h3>When We Don't Agree</h3>
+<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>
+
+<h3>Living Like Jesus Outside of Sundays</h3>
+<p>Because we're on a team that people can see, our lives should show that we follow Jesus — not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>
+<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>
+<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>
+
+<h3>How We Serve</h3>
+<ul>
+<li><strong>We show up ready</strong> — prepared and on time</li>
+<li><strong>We stay flexible</strong> — things change, and that's okay</li>
+<li><strong>We encourage each other</strong> — words build up, not tear down</li>
+<li><strong>We follow the leader</strong> — with trust and unity</li>
+<li><strong>We work with AV as one team</strong> — everyone counts</li>
+<li><strong>We pray together</strong> — because this is about more than music</li>
+</ul>
+
+<h3>Sundays</h3>
+<ul>
+<li>We arrive early</li>
+<li>We support the leader</li>
+<li>We help create a joyful atmosphere</li>
+<li>We worship wholeheartedly</li>
+<li>We serve visibly and kindly</li>
+</ul>`;
+    const htmlContent = saved.html || defaultHtml;
+    document.getElementById('content-display').innerHTML = htmlContent;
+    document.getElementById('html-textarea').value = htmlContent;
     if (saved.photos) {
         photos = saved.photos;
         renderPhotos();
