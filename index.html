@@ -45,6 +45,8 @@
         }
         loadLogo();
 
+        function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
         window.loginMember = async () => {
             const emailInput = document.getElementById('memberEmail').value.toLowerCase().trim();
             if (!emailInput) return;
@@ -73,7 +75,7 @@
             
             select.innerHTML = '<option value="" disabled selected>Select your name...</option>';
             loginMatches.forEach(m => {
-                select.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                select.innerHTML += `<option value="${m.id}">${escapeHtml(m.name)}</option>`;
             });
 
             loginBox.classList.add('hidden');
@@ -113,16 +115,24 @@
                 const dateList = unanswered.map(ev => new Date(ev.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })).join(', ');
                 const proceed = confirm(`You haven't responded to ${unanswered.length} date(s): ${dateList}\n\nThese will be marked as Available. Continue?`);
                 if (!proceed) return;
-                for (const ev of unanswered) {
-                    await setStatus(ev.id, ev.date, 'avail');
-                }
             }
 
             const btn = document.getElementById('finalSubmitBtn');
+            const prevText = btn.innerText;
             btn.innerText = "Saving...";
             btn.disabled = true;
-            alert("Availability Submitted Successfully! Thank you.");
-            location.reload();
+            try {
+                for (const ev of unanswered) {
+                    await setStatus(ev.id, ev.date, 'avail');
+                }
+                alert("Availability Submitted Successfully! Thank you.");
+                location.reload();
+            } catch (err) {
+                console.error("Availability submit failed:", err);
+                alert("Could not save your availability. Please check your internet connection and try again — your responses have NOT been submitted.");
+                btn.innerText = prevText;
+                btn.disabled = false;
+            }
         };
 
         function loadResponses() {
@@ -161,7 +171,7 @@
                     <div class="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div class="flex items-center gap-2 mb-4 px-1">
                             <div class="h-1 w-8 bg-[#3d6263] rounded-full"></div>
-                            <h3 class="text-[11px] font-extrabold text-[#3d6263] uppercase tracking-[0.2em]">${term}</h3>
+                            <h3 class="text-[11px] font-extrabold text-[#3d6263] uppercase tracking-[0.2em]">${escapeHtml(term)}</h3>
                         </div>
                         <div class="space-y-4">
                 `;
@@ -171,10 +181,10 @@
                     termHtml += `
                         <div class="bg-white border border-gray-100 rounded-[24px] p-5 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 transition-all hover:shadow-md">
                             <div class="text-center sm:text-left flex-1">
-                                <span class="text-[9px] font-black text-[#3d6263] uppercase tracking-widest bg-[#eaf2f2] px-3 py-1 rounded-full border border-[#d1dfdf]">${ev.type}</span>
+                                <span class="text-[9px] font-black text-[#3d6263] uppercase tracking-widest bg-[#eaf2f2] px-3 py-1 rounded-full border border-[#d1dfdf]">${escapeHtml(ev.type)}</span>
                                 <div class="flex flex-col sm:flex-row sm:items-baseline gap-2 mt-2">
                                     <div class="text-lg font-bold text-[#1e2e2e]">${dateDisplay}</div>
-                                    <div class="text-[12px] font-medium text-gray-400 italic">${ev.description || ''}</div>
+                                    <div class="text-[12px] font-medium text-gray-400 italic">${escapeHtml(ev.description || '')}</div>
                                 </div>
                                 <div class="text-[10px] font-semibold text-gray-400 mt-0.5">${ev.startTime || '08:00'} - ${ev.endTime || '11:30'}</div>
                             </div>

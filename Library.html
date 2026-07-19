@@ -427,6 +427,9 @@ let currentFiles = [];
 
 let servicesCache = null;
 
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function safeUrl(u){return /^(https?:|mailto:)/i.test(String(u||'').trim())?String(u).trim():'';}
+
 async function getServicesCache() {
     if (servicesCache) return servicesCache;
     const snap = await db.collection("services").get();
@@ -496,7 +499,7 @@ async function renderList(docs) {
     const list = document.getElementById("list");
     list.innerHTML = docs.map(doc => `
         <div class="song" onclick="openSong('${doc.id.replace(/'/g, "\\'")}')">
-            <div class="song-title-text">${doc.data().title}</div>
+            <div class="song-title-text">${escapeHtml(doc.data().title)}</div>
             <div class="song-stats" id="stats-${doc.id}">
                 <span class="stat-badge stat-never">Loading...</span>
             </div>
@@ -686,12 +689,19 @@ async function smartScanArtist() {
                            .trim();
 
             if (!artist || artist.length < 2) {
-                artist = data.author_name.replace("- Topic", "").trim();
+                artist = (data.author_name || "").replace("- Topic", "").trim();
+            }
+
+            // Only fill the artist when it's currently empty; never overwrite a hand-entered artist.
+            const existingArtist = document.getElementById("artist").value.trim();
+            if (existingArtist) {
+                status.innerText = "";
+                return;
             }
 
             document.getElementById("artist").value = artist;
 
-            if (currentDoc) {
+            if (currentDoc && artist) {
                 await db.collection("songs").doc(currentDoc).update({ artist: artist });
                 status.innerText = "Artist auto-saved!";
                 setTimeout(() => { status.innerText = ""; }, 3000);
@@ -724,7 +734,7 @@ function renderFiles() {
     const container = document.getElementById("files-container");
     container.innerHTML = currentFiles.map((file, index) => `
         <div class="file-item">
-            <div class="file-row"><label>File Name</label><input type="text" value="${file.name}" onchange="updateFileMetadata(${index}, 'name', this.value)"></div>
+            <div class="file-row"><label>File Name</label><input type="text" value="${escapeHtml(file.name)}" onchange="updateFileMetadata(${index}, 'name', this.value)"></div>
             <div class="file-row"><label>Key</label><select onchange="updateFileMetadata(${index}, 'key', this.value)">${getKeyOptionsHTML(file.key)}</select></div>
             <div class="file-row"><label>Type</label>
                 <select onchange="updateFileMetadata(${index}, 'type', this.value)">
@@ -735,7 +745,7 @@ function renderFiles() {
                     <option value="Other" ${file.type === 'Other' ? 'selected' : ''}>Other</option>
                 </select>
             </div>
-            <a href="${file.url}" target="_blank" class="view-link">View Physical File</a>
+            <a href="${escapeHtml(safeUrl(file.url))}" target="_blank" class="view-link">View Physical File</a>
         </div>
     `).join("");
 }
@@ -745,17 +755,22 @@ function updateFileMetadata(index, field, value) { currentFiles[index][field] = 
 async function save() {
     if (!currentDoc) return;
     const newTitle = document.getElementById("edit-title").value;
-    await db.collection("songs").doc(currentDoc).update({
-        title: newTitle,
-        normalized: normalizeTitle(newTitle),
-        artist: document.getElementById("artist").value,
-        youtube: document.getElementById("youtube").value,
-        ccli: document.getElementById("ccli").value,
-        files: currentFiles
-    });
-    document.getElementById("display-title").innerText = newTitle;
-    alert("All changes saved.");
-    loadSongs();
+    try {
+        await db.collection("songs").doc(currentDoc).update({
+            title: newTitle,
+            normalized: normalizeTitle(newTitle),
+            artist: document.getElementById("artist").value,
+            youtube: document.getElementById("youtube").value,
+            ccli: document.getElementById("ccli").value,
+            files: currentFiles
+        });
+        document.getElementById("display-title").innerText = newTitle;
+        alert("All changes saved.");
+        loadSongs();
+    } catch (err) {
+        console.error(err);
+        alert("Error saving changes. Please try again.");
+    }
 }
 
 async function handleLyricsSearch(e) {

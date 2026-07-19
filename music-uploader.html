@@ -25,15 +25,15 @@ background: #eaf2f2;
 #suggestions {
 border: 1px solid #ddd;
 max-width: 300px;
+max-height: 240px;
+overflow: auto;
 }
 
-#suggestions div {
 .suggestion-item {
 padding: 5px;
 cursor: pointer;
 }
 
-#suggestions div:hover {
 .suggestion-item:hover {
 background: #f0f6f6;
 }
@@ -82,7 +82,7 @@ padding: 8px;
 <script>
 
 const firebaseConfig = {
-apiKey: "YOUR_KEY",
+apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
 authDomain: "egbc-worship-planner.firebaseapp.com",
 projectId: "egbc-worship-planner",
 storageBucket: "egbc-worship-planner.firebasestorage.app"
@@ -92,6 +92,8 @@ firebase.initializeApp(firebaseConfig);
 
 const storage = firebase.storage();
 const db = firebase.firestore();
+
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 let files = [];
 
@@ -112,8 +114,18 @@ dropzone.addEventListener("dragover", e => {
 e.preventDefault();
 });
 
+dropzone.addEventListener("dragenter", e => {
+e.preventDefault();
+dropzone.classList.add("dragover");
+});
+
+dropzone.addEventListener("dragleave", e => {
+if (e.target === dropzone) dropzone.classList.remove("dragover");
+});
+
 dropzone.addEventListener("drop", e => {
 e.preventDefault();
+dropzone.classList.remove("dragover");
 addFiles(e.dataTransfer.files);
 });
 
@@ -154,7 +166,7 @@ const tbody = document.querySelector("#fileTable tbody");
 
 tbody.innerHTML = files.map((f, i) => `
        <tr>
-           <td>${f.file.name}</td>
+           <td>${escapeHtml(f.file.name)}</td>
 
            <td>
                <select onchange="updateType(${i}, this.value)">
@@ -269,7 +281,9 @@ return;
 }
 }
 
-const docId = normalizeTitle(title).replace(/\s+/g, "-");
+// Match the reader's id scheme (SundayServicePlanner.html): title.toLowerCase().replace(/\s+/g,"-")
+// plus sanitizing "/" and "\" which are illegal in Firestore doc ids / Storage paths.
+const docId = title.toLowerCase().replace(/[\\/]/g, "-").replace(/\s+/g, "-");
 const docRef = db.collection("songs").doc(docId);
 
 let existing = await docRef.get();
@@ -277,7 +291,11 @@ let existingData = existing.exists ? existing.data() : {};
 
 let uploadedFiles = existingData.files || [];
 
+let succeeded = 0;
+let failed = [];
+
 for (const f of files) {
+try {
 const ref = storage.ref(`songs/${docId}/${f.file.name}`);
 await ref.put(f.file);
 
@@ -289,17 +307,30 @@ url: url,
 type: f.type,
 key: f.key
 });
+succeeded++;
+} catch (err) {
+failed.push(f.file.name + " — " + (err && err.message ? err.message : err));
+}
 }
 
+try {
 await docRef.set({
 title,
 normalized: normalizeTitle(title),
 youtube: youtube,
 ccli: ccli,
 files: uploadedFiles
-});
+}, { merge: true });
+} catch (err) {
+alert("Files uploaded but saving the song record failed: " + (err && err.message ? err.message : err));
+return;
+}
 
+if (failed.length) {
+alert("Upload finished.\nSucceeded: " + succeeded + "\nFailed: " + failed.length + "\n\n" + failed.join("\n"));
+} else {
 alert("Upload complete!");
+}
 
 files = [];
 renderFiles();

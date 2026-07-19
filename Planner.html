@@ -620,6 +620,9 @@
 
 
         window.generatePDF = async (type, memberId) => {
+            if ((type === 'individual' || type === 'household' || type === 'wall') && !addressBook.find(m => m.id === memberId)) {
+                return alert("Select your name first.");
+            }
             const doc = await getPdfBlob(type, memberId);
             if (!doc) {
                 return alert("No dates found.");

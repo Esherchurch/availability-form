@@ -328,7 +328,6 @@
   <div class="modal" style="max-width:340px">
     <button class="modal-close" onclick="closeModal('adminModal')">✕</button>
     <div class="modal-title">Admin Login</div>
-    <p style="font-size:.8rem;font-weight:700;color:var(--teal);opacity:.6;margin-bottom:14px">Default PIN: <strong style="opacity:1">1234</strong> — change in the source.</p>
     <div class="form-group">
       <label class="form-label">PIN</label>
       <input class="form-input" type="password" id="adminPin" placeholder="Enter admin PIN" onkeydown="if(event.key==='Enter')doAdminLogin()">
@@ -624,7 +623,7 @@ function buildNoteEl(note, idx) {
     if (id) ytHtml = `<iframe class="yt-player" src="https://www.youtube.com/embed/${id}?rel=0" allowfullscreen loading="lazy"></iframe>`;
   }
   if (note.imgUrl) imgHtml  = `<img class="note-image" src="${esc(note.imgUrl)}" alt="" onerror="this.style.display='none'">`;
-  if (note.link)   linkHtml = `<a class="note-link" href="${esc(note.link)}" target="_blank" rel="noopener">🔗 ${esc(note.linkLabel||note.link)}</a>`;
+  if (note.link) { const _lnk=String(note.link).trim(); if(/^https?:\/\//i.test(_lnk)) linkHtml = `<a class="note-link" href="${esc(_lnk)}" target="_blank" rel="noopener">🔗 ${esc(note.linkLabel||note.link)}</a>`; }
 
   const mr = note.myReactions || {};
   const reactHtml = REACTIONS.map(r => {

@@ -561,13 +561,15 @@ window.keyChanged = async (id) => {
     container.innerHTML = html;
 };
 
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
 window.addItem = (val="") => {
     const div = document.createElement('div');
     div.className = "service-block item-block bg-[#f0f6f6] p-4 mb-4 rounded-2xl flex gap-4 items-center border border-transparent hover:border-[#d1dfdf] transition-colors";
     div.innerHTML = `
         <div class="drag-handle">⠿</div>
         <div class="w-6"></div>
-        <input value="${val}" class="item-title flex-grow bg-transparent font-bold text-[#3d6263] focus:outline-none text-lg" placeholder="Service Item Name...">
+        <input value="${escapeHtml(val)}" class="item-title flex-grow bg-transparent font-bold text-[#3d6263] focus:outline-none text-lg" placeholder="Service Item Name...">
         <button onclick="this.parentElement.remove()" class="text-[#d1dfdf] hover:text-red-500 text-2xl font-bold">&times;</button>
     `;
     document.getElementById('service-order').appendChild(div);
@@ -648,7 +650,7 @@ window.selectEvent = async () => {
             });
         }
 
-        saved.order.forEach(item => {
+        (saved.order || []).forEach(item => {
             if (item.type === "song") {
                 const id = addSong();
                 const last = container.lastChild;
@@ -710,15 +712,20 @@ window.saveSchedule = async () => {
     });
 
     const q = query(collection(db, "services"), where("date", "==", date));
-    const snap = await getDocs(q);
     const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
 
-    if (!snap.empty) {
-        await updateDoc(doc(db, "services", snap.docs[0].id), serviceData);
-    } else {
-        await addDoc(collection(db, "services"), serviceData);
+    try {
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            await updateDoc(doc(db, "services", snap.docs[0].id), serviceData);
+        } else {
+            await addDoc(collection(db, "services"), serviceData);
+        }
+        alert("✅ Youth service saved successfully.");
+    } catch (err) {
+        console.error("Failed to save youth service:", err);
+        alert("❌ Failed to save youth service: " + (err?.message || err));
     }
-    alert("✅ Youth service saved successfully.");
 };
 
 async function saveSongSummaryToFirestore(date) {

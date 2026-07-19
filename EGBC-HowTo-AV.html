@@ -210,13 +210,13 @@ function cardHTML(a,highlight=''){
   const colors={Video:'bg-blue-50 text-blue-700',Image:'bg-green-50 text-green-700',Note:'bg-yellow-50 text-yellow-700'};
   const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
   const tags=(a.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
-  const title=highlight?hlText(a.title||'',highlight):(a.title||'');
+  const title=highlight?hlText(escapeHtml(a.title||''),highlight):escapeHtml(a.title||'');
   return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}')">
     <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'📄'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.assetType||'Video'}</span></div>
     <h3 class="font-black text-base mb-3 leading-snug">${title}</h3>
     ${a.description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.description}</p>`:''}
     ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.bullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
-    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}
+    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}
   </div>`;
 }
 
@@ -227,12 +227,12 @@ function openCard(id){
   const src=hasURL?(a.timestampStart?`${a.contentURL}${a.contentURL.includes('?')?'&':'?'}startTime=${a.timestampStart}`:a.contentURL):'';
   document.getElementById('modalContent').innerHTML=`
     <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">How To AV${a.category?' — '+a.category:''}</div>
-    <h2 class="font-black text-2xl mb-6 leading-tight">${a.title}</h2>
+    <h2 class="font-black text-2xl mb-6 leading-tight">${escapeHtml(a.title)}</h2>
     ${(a.assetType==='Video')&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
-    ${a.assetType==='Image'&&hasURL?`<img src="${a.contentURL}" alt="${a.title}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
+    ${a.assetType==='Image'&&hasURL?`<img src="${a.contentURL}" alt="${escapeHtml(a.title)}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
     ${a.description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${a.description}</p>`:''}
     ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How To Do It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div></div>`:''}
-    ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${t}</span>`).join('')}</div>`:''}`;
+    ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}`;
   document.getElementById('modal').classList.remove('hidden');
 }
 
@@ -283,7 +283,7 @@ function showAssembledAnswer(query,results){
     steps+=`<div class="flex gap-4 items-start mb-4">
       <span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span>
       <div class="flex-1">
-        <div class="font-black text-sm text-[#3d6263] mb-1">${a.title}</div>
+        <div class="font-black text-sm text-[#3d6263] mb-1">${escapeHtml(a.title)}</div>
         ${bullets.length?`<div class="text-[12px] opacity-70 space-y-1">${bullets.map(b=>`<div>• ${b.replace(/^[•\-\*]\s*/,'')}</div>`).join('')}</div>`:''}
         <button onclick="openCard('${a.id}')" class="mt-2 bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-[#3d6263] hover:text-white transition-all">${{Video:'▶ Watch',Image:'📷 View',Note:'📝 Read'}[a.assetType]||'View'}</button>
       </div>
@@ -420,7 +420,7 @@ async function renderManageList(){
   if(!items.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
   list.innerHTML=items.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
     <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝'}[a.assetType]||'📄'}</span>
-    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${a.title}</div><div class="text-[10px] opacity-50">${a.category||'Uncategorised'} · ${a.assetType} · ${a.published?'Published':'Unpublished'}</div></div>
+    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${escapeHtml(a.title)}</div><div class="text-[10px] opacity-50">${a.category||'Uncategorised'} · ${a.assetType} · ${a.published?'Published':'Unpublished'}</div></div>
     <div class="flex gap-2 flex-shrink-0">
       <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
       <button onclick="togglePublish('${a.id}',${a.published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.published?'bg-amber-50 text-amber-700 border-amber-200':'bg-green-50 text-green-700 border-green-200'}">${a.published?'Unpublish':'Publish'}</button>
@@ -459,6 +459,7 @@ function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div 
 function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
 
 function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');});return text;}
 </script>
 </body>

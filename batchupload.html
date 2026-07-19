@@ -111,7 +111,7 @@ Drag folder OR click to select
 <script>
 
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
   authDomain: "egbc-worship-planner.firebaseapp.com",
   projectId: "egbc-worship-planner",
   storageBucket: "egbc-worship-planner.firebasestorage.app"
@@ -123,6 +123,10 @@ const storage = firebase.storage();
 
 let songs = [];
 let rows = [];
+
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// For a plain-text value placed inside a single-quoted JS string that itself lives in an HTML attribute (e.g. onclick="fn('...')").
+function jsAttr(s){return escapeHtml(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));}
 
 const KEYS = ["C","Cm","C#","C#m","Db","Dbm","D","Dm","Eb","Ebm","E","Em","F","Fm","F#","F#m","Gb","Gbm","G","Gm","Ab","Abm","A","Am","Bb","Bbm","B","Bm"];
 const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
@@ -296,8 +300,8 @@ function render(){
     let tr = document.createElement("tr");
     tr.className = "status-"+status.toLowerCase();
     tr.innerHTML = `
-      <td>${r.file.name}</td>
-      <td><input value="${r.title}"></td>
+      <td>${escapeHtml(r.file.name)}</td>
+      <td><input value="${escapeHtml(r.title)}"></td>
       <td>
         <select>
           <option value="">Key</option>
@@ -313,14 +317,14 @@ function render(){
       <td>
         <select>
           <option value="">— New Song —</option>
-          ${r.matches.map(m=>`<option value="${m.song.id}" ${r.match?.id===m.song.id?"selected":""}>${m.song.title}</option>`).join("")}
+          ${r.matches.map(m=>`<option value="${escapeHtml(m.song.id)}" ${r.match?.id===m.song.id?"selected":""}>${escapeHtml(m.song.title)}</option>`).join("")}
         </select>
       </td>
       <td class="conf-${r.confidence}">${r.confidence}</td>
-      <td><input value="${r.youtube}"></td>
-      <td><input value="${r.ccli}"></td>
+      <td><input value="${escapeHtml(r.youtube)}"></td>
+      <td><input value="${escapeHtml(r.ccli)}"></td>
       <td>
-        <button onclick="openYouTubeSearch('${r.title}')">Find YouTube</button>
+        <button onclick="openYouTubeSearch('${jsAttr(r.title)}')">Find YouTube</button>
         <button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
       </td>
       <td>${status}</td>
@@ -352,33 +356,45 @@ function render(){
 
 async function processAll(){
   if(!confirm("Upload?")) return;
+  let succeeded = [], failed = [];
   for(const r of rows){
     let status = getStatus(r);
     if(status==="SKIPPED" || status==="EXISTS") continue;
     if(status==="REVIEW"){ alert("Fix: "+r.file.name); return; }
 
-    let finalTitle = r.match ? r.match.title : r.title;
-    let id = finalTitle.toLowerCase().replace(/\s+/g,"-");
+    try {
+      let finalTitle = r.match ? r.match.title : r.title;
+      // Match the reader's id scheme (SundayServicePlanner.html): title.toLowerCase().replace(/\s+/g,"-")
+      // plus sanitizing "/" and "\" which are illegal in Firestore doc ids / Storage paths.
+      let id = finalTitle.toLowerCase().replace(/[\\/]/g,"-").replace(/\s+/g,"-");
 
-    const ref = storage.ref(`songs/${id}/${r.file.name}`);
-    await ref.put(r.file);
-    const url = await ref.getDownloadURL();
+      const ref = storage.ref(`songs/${id}/${r.file.name}`);
+      await ref.put(r.file);
+      const url = await ref.getDownloadURL();
 
-    const docRef = db.collection("songs").doc(id);
-    const snap = await docRef.get();
-    let data = snap.exists ? snap.data() : {};
-    let files = data.files || [];
-    files.push({ name:r.file.name, url, type:r.type, key:r.key });
+      const docRef = db.collection("songs").doc(id);
+      const snap = await docRef.get();
+      let data = snap.exists ? snap.data() : {};
+      let files = data.files || [];
+      files.push({ name:r.file.name, url, type:r.type, key:r.key });
 
-    await docRef.set({
-      title: finalTitle,
-      normalized: finalTitle.toLowerCase(),
-      youtube: r.youtube,
-      ccli: r.ccli,
-      files
-    },{merge:true});
+      await docRef.set({
+        title: finalTitle,
+        normalized: finalTitle.toLowerCase(),
+        youtube: r.youtube,
+        ccli: r.ccli,
+        files
+      },{merge:true});
+      succeeded.push(r.file.name);
+    } catch(err){
+      failed.push(r.file.name + " — " + (err && err.message ? err.message : err));
+    }
   }
-  alert("Upload complete");
+  if(failed.length){
+    alert("Upload finished.\nSucceeded: " + succeeded.length + "\nFailed: " + failed.length + "\n\n" + failed.join("\n"));
+  } else {
+    alert("Upload complete — " + succeeded.length + " file(s) uploaded.");
+  }
 }
 
 </script>

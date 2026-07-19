@@ -270,6 +270,9 @@ let currentIsTraining = false;
 let schedulesCache = null;
 let allDocsCache   = []; // merged real + training
 
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function safeUrl(u){return /^(https?:|mailto:)/i.test(String(u||'').trim())?String(u).trim():'';}
+
 function loadTrainingSongs() {
     try { return JSON.parse(sessionStorage.getItem(TS_SONGS_KEY) || '[]'); }
     catch(e) { return []; }
@@ -376,7 +379,7 @@ async function renderList(docs) {
         const badge = isTraining ? `<span class="song-training-badge">Training</span>` : '';
         return `
         <div class="song" onclick="openSong('${(doc._id||'').replace(/'/g,"\\'")}')">
-            <div class="song-title-text">${doc.title||''}${badge}</div>
+            <div class="song-title-text">${escapeHtml(doc.title||'')}${badge}</div>
             <div class="song-stats" id="stats-${doc._id}">
                 <span class="stat-badge stat-never">Loading...</span>
             </div>
@@ -542,7 +545,7 @@ function renderFiles() {
         return `
         <div class="${fileClass}">
             ${trainingLabel}
-            <div class="file-row"><label>File Name</label><input type="text" value="${file.name||''}" onchange="updateFileMetadata(${index},'name',this.value)"></div>
+            <div class="file-row"><label>File Name</label><input type="text" value="${escapeHtml(file.name||'')}" onchange="updateFileMetadata(${index},'name',this.value)"></div>
             <div class="file-row"><label>Key</label><select onchange="updateFileMetadata(${index},'key',this.value)">${getKeyOptionsHTML(file.key)}</select></div>
             <div class="file-row"><label>Type</label>
                 <select onchange="updateFileMetadata(${index},'type',this.value)">
@@ -553,8 +556,8 @@ function renderFiles() {
                     <option value="Other"        ${file.type==='Other'       ?'selected':''}>Other</option>
                 </select>
             </div>
-            ${file.url && file.url !== '#training-file-not-viewable'
-                ? `<a href="${file.url}" target="_blank" class="view-link">View File ${isTrainingFile?'(training session only)':''}</a>`
+            ${file.url && file.url !== '#training-file-not-viewable' && /^(https?:|mailto:|blob:)/i.test(String(file.url).trim())
+                ? `<a href="${escapeHtml(String(file.url).trim())}" target="_blank" class="view-link">View File ${isTrainingFile?'(training session only)':''}</a>`
                 : `<span style="font-size:11px;color:#aaa;font-style:italic;">File viewable in the same browser session only</span>`
             }
         </div>`;

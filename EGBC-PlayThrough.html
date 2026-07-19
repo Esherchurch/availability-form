@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         return songMatch&&keyMatch;
       });
       if(filtered.length){
-        document.getElementById('searchResults').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] px-6 py-4 mb-6 flex items-center justify-between gap-4 flex-wrap"><div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Showing play-throughs for</div><div class="font-black text-lg">${paramSong||''}${paramKey?' — Key: '+paramKey:''}</div></div><button onclick="clearSearch()" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Show All</button></div>`;
+        document.getElementById('searchResults').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] px-6 py-4 mb-6 flex items-center justify-between gap-4 flex-wrap"><div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Showing play-throughs for</div><div class="font-black text-lg">${escapeHtml(paramSong||'')}${paramKey?' — Key: '+escapeHtml(paramKey):''}</div></div><button onclick="clearSearch()" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Show All</button></div>`;
         document.getElementById('searchResults').classList.remove('hidden');
         renderContent(filtered);
       }
@@ -1105,7 +1105,8 @@ function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div 
 function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
 function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
 function fmtTime(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
-function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');});return text;}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{const rw=w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');text=text.replace(new RegExp(`(${rw})`,'gi'),'<mark>$1</mark>');});return text;}
 </script>
 </body>
 </html>

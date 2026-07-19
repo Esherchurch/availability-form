@@ -24,16 +24,21 @@
         const addressBookRef = collection(db, "addressBook");
 
         let editingId = null;
+        let memberCache = {};
 
-        // 1. DELETE - Now using Base64 for safety
-        window.deleteMember = async (id, encodedName) => {
-            const name = atob(encodedName);
+        function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+        // 1. DELETE - look up member by id (Unicode-safe, no btoa)
+        window.deleteMember = async (id) => {
+            const m = memberCache[id];
+            const name = m ? m.name : '';
             if(confirm(`Remove ${name} permanently?`)) await deleteDoc(doc(db, "addressBook", id));
         };
 
-        // 2. EDIT - Now using Base64 for safety
-        window.editMember = (id, encodedData) => {
-            const data = JSON.parse(atob(encodedData));
+        // 2. EDIT - look up member by id (Unicode-safe, no btoa)
+        window.editMember = (id) => {
+            const data = memberCache[id];
+            if(!data) return;
             editingId = id;
             document.getElementById('fullName').value = data.name;
             document.getElementById('email').value = data.email || '';
@@ -59,18 +64,17 @@
             tableBody.innerHTML = '';
             
             const allMembers = [];
+            memberCache = {};
             snapshot.forEach((d) => allMembers.push({id: d.id, ...d.data()}));
 
             allMembers.forEach((member) => {
+                memberCache[member.id] = member;
+
                 const opt = document.createElement('option');
                 opt.value = member.id;
                 opt.text = member.name;
                 select.add(opt);
 
-                // Convert data and name to Base64 to handle apostrophes
-                const b64Data = btoa(JSON.stringify(member));
-                const b64Name = btoa(member.name);
-                
                 let householdDisplay = "—";
                 if (member.householdId) {
                     const head = allMembers.find(m => m.id === member.householdId);
@@ -80,18 +84,18 @@
                 const row = `
                     <tr class="border-b border-[#d1dfdf] hover:bg-[#f0f6f6] transition-colors text-sm">
                         <td class="p-4">
-                            <div class="font-bold text-[#3d6263]">${member.name}</div>
-                            <div class="text-[11px] text-[#3d6263] font-bold opacity-70">${member.email}</div>
+                            <div class="font-bold text-[#3d6263]">${escapeHtml(member.name)}</div>
+                            <div class="text-[11px] text-[#3d6263] font-bold opacity-70">${member.email ? escapeHtml(member.email) : '—'}</div>
                         </td>
-                        <td class="p-4 text-xs font-bold text-gray-500">${householdDisplay}</td>
+                        <td class="p-4 text-xs font-bold text-gray-500">${escapeHtml(householdDisplay)}</td>
                         <td class="p-4">
-                            <div class="text-[11px] text-[#3d6263] font-extrabold uppercase tracking-tighter">P: ${member.primaryInstruments ? member.primaryInstruments.join(', ') : ''}</div>
-                            <div class="text-[10px] text-gray-400 italic">S: ${member.secondaryInstruments ? member.secondaryInstruments.join(', ') : ''}</div>
+                            <div class="text-[11px] text-[#3d6263] font-extrabold uppercase tracking-tighter">P: ${member.primaryInstruments ? escapeHtml(member.primaryInstruments.join(', ')) : ''}</div>
+                            <div class="text-[10px] text-gray-400 italic">S: ${member.secondaryInstruments ? escapeHtml(member.secondaryInstruments.join(', ')) : ''}</div>
                         </td>
-                        <td class="p-4 text-center font-bold text-[#3d6263]">${member.maxFrequency}</td>
+                        <td class="p-4 text-center font-bold text-[#3d6263]">${escapeHtml(member.maxFrequency)}</td>
                         <td class="p-4 text-right space-x-3">
-                            <button onclick="editMember('${member.id}', '${b64Data}')" class="text-[#3d6263] font-bold text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
-                            <button onclick="deleteMember('${member.id}', '${b64Name}')" class="text-red-300 hover:text-red-500 font-bold text-xl leading-none">×</button>
+                            <button onclick="editMember('${member.id}')" class="text-[#3d6263] font-bold text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
+                            <button onclick="deleteMember('${member.id}')" class="text-red-300 hover:text-red-500 font-bold text-xl leading-none">×</button>
                         </td>
                     </tr>
                 `;

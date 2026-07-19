@@ -343,7 +343,7 @@ function showAddForm() {
   if (!isAdmin) return;
   currentId = null;
   ['f-name','f-desc','f-version','f-url','f-manual-url'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-type').value = 'apk';
+  document.getElementById('f-type').value = 'pwa';
   document.getElementById('save-status').textContent  = '';
   document.getElementById('editor-title').textContent = 'Add New Resource';
   document.getElementById('delete-btn').style.display = 'none';
@@ -376,7 +376,7 @@ function cancelEdit() {
 
 function onTypeChange() {
   const t = document.getElementById('f-type').value;
-  document.getElementById('apk-section').style.display  = t === 'apk'  ? 'block' : 'none';
+  document.getElementById('apk-section').style.display  = (t === 'apk' || t === 'pwa') ? 'block' : 'none';
   document.getElementById('link-section').style.display = t === 'link' ? 'block' : 'none';
 }
 
@@ -393,7 +393,7 @@ async function saveResource() {
   btn.disabled = true; status.textContent = 'Saving…'; status.className = 'status-msg';
   try {
     let data = { name, description: desc, version, type, updatedAt: new Date().toISOString() };
-    if (type === 'apk') {
+    if (type === 'apk' || type === 'pwa') {
       const manualUrl = document.getElementById('f-manual-url').value.trim();
       if (!manualUrl && !currentId) { status.textContent = 'Please paste a download URL.'; status.className = 'status-msg error'; btn.disabled = false; return; }
       if (manualUrl) data.downloadUrl = manualUrl;
@@ -478,7 +478,8 @@ function openLinkModal(url, name) { showInstallModal(url, name); }
 function closeModal() { closeInstallModal(); }
 
 function closeModal2() { document.getElementById('ios-modal').classList.remove('open'); }
-document.getElementById('ios-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+var iosModalEl = document.getElementById('ios-modal');
+if (iosModalEl) iosModalEl.addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
 // ── Init ──
 loadResources();

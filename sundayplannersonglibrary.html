@@ -234,6 +234,9 @@ const db = firebase.firestore();
 let currentDoc = null;
 let servicesCache = null;
 
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function safeUrl(u){return /^(https?:|mailto:)/i.test(String(u||'').trim())?String(u).trim():'';}
+
 async function getServicesCache() {
     if (servicesCache) return servicesCache;
     const snap = await db.collection("services").get();
@@ -292,7 +295,7 @@ async function renderList(docs) {
     const list = document.getElementById("list");
     list.innerHTML = docs.map(doc => `
         <div class="song" onclick="openSong('${doc.id.replace(/'/g, "\\'")}')">
-            <div class="song-title-text">${doc.data().title}</div>
+            <div class="song-title-text">${escapeHtml(doc.data().title)}</div>
             <div class="song-stats" id="stats-${doc.id}">
                 <span class="stat-badge stat-never">Loading...</span>
             </div>
@@ -398,8 +401,9 @@ async function renderUsagePanel(songTitle) {
 
 function updateYoutubeLink(url) {
     const box = document.getElementById("yt-link-box");
-    if (url && url.startsWith('http')) {
-        box.innerHTML = `<a href="${url}" target="_blank" class="external-link">▶ Watch on YouTube</a>`;
+    const safe = safeUrl(url);
+    if (safe) {
+        box.innerHTML = `<a href="${escapeHtml(safe)}" target="_blank" class="external-link">▶ Watch on YouTube</a>`;
     } else {
         box.innerHTML = "";
     }
@@ -478,16 +482,21 @@ async function smartScanArtist() {
 async function save() {
     if (!currentDoc) return;
     const newTitle = document.getElementById("edit-title").value;
-    await db.collection("songs").doc(currentDoc).update({
-        title: newTitle,
-        normalized: normalizeTitle(newTitle),
-        artist: document.getElementById("artist").value,
-        youtube: document.getElementById("youtube").value,
-        ccli: document.getElementById("ccli").value
-    });
-    document.getElementById("display-title").innerText = newTitle;
-    alert("Saved.");
-    loadSongs();
+    try {
+        await db.collection("songs").doc(currentDoc).update({
+            title: newTitle,
+            normalized: normalizeTitle(newTitle),
+            artist: document.getElementById("artist").value,
+            youtube: document.getElementById("youtube").value,
+            ccli: document.getElementById("ccli").value
+        });
+        document.getElementById("display-title").innerText = newTitle;
+        alert("Saved.");
+        loadSongs();
+    } catch (err) {
+        console.error(err);
+        alert("Error saving. Please try again.");
+    }
 }
 
 async function deleteSong() {

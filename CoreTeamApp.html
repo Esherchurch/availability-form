@@ -968,12 +968,12 @@ select.sp-input { appearance: none; cursor: pointer; }
     <div class="form-field" style="margin-bottom:14px;">
       <label class="form-label">Select Teams</label>
       <div style="display:flex;flex-wrap:wrap;gap:8px;" id="team-chips">
-        <div class="team-chip" data-team="Worship Team" onclick="toggleTeam(this)">🎸 Worship</div>
-        <div class="team-chip" data-team="AV Team" onclick="toggleTeam(this)">🎬 AV</div>
-        <div class="team-chip" data-team="Youth Worship" onclick="toggleTeam(this)">⚡ Youth</div>
-        <div class="team-chip" data-team="Core Team" onclick="toggleTeam(this)">⭐ Core</div>
-        <div class="team-chip" data-team="Choir" onclick="toggleTeam(this)">🎤 Choir</div>
-        <div class="team-chip" data-team="Everyone" onclick="toggleTeam(this)">👥 Everyone</div>
+        <div class="team-chip" data-team="Worship Team" onclick="toggleMailTeam(this)">🎸 Worship</div>
+        <div class="team-chip" data-team="AV Team" onclick="toggleMailTeam(this)">🎬 AV</div>
+        <div class="team-chip" data-team="Youth Worship" onclick="toggleMailTeam(this)">⚡ Youth</div>
+        <div class="team-chip" data-team="Core Team" onclick="toggleMailTeam(this)">⭐ Core</div>
+        <div class="team-chip" data-team="Choir" onclick="toggleMailTeam(this)">🎤 Choir</div>
+        <div class="team-chip" data-team="Everyone" onclick="toggleMailTeam(this)">👥 Everyone</div>
       </div>
     </div>
     <div id="recipient-count" style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.6;margin-bottom:14px;text-align:center;"></div>
@@ -1442,7 +1442,7 @@ function renderOrderList() {
         ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
         ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
       <div class="order-drag-handle" draggable="true">⠿</div>
-      <div class="order-item-title" onclick="${item.type==='song'?`editSongItem(${i})`:`editOrderItem(${i})}`}">
+      <div class="order-item-title" onclick="${item.type==='song'?`editSongItem(${i})`:`editOrderItem(${i})`}">
         <span class="order-item-type type-${item.type||'other'}">${typeNames[item.type]||'Other'}</span>
         <span style="margin-left:6px;">${item.title||'—'}</span>
       </div>
@@ -2839,7 +2839,7 @@ async function deleteDraft(id, name) {
 }
 
 // Mailing list
-function toggleTeam(chip) {
+function toggleMailTeam(chip) {
   chip.classList.toggle('selected');
   updateRecipientCount();
 }
