@@ -1,215 +1,430 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Worship & AV Team | Email Compiler</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worship & AV Team | Email Builder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
 
     <style>
-        :root { --brand-blue: #3d6263; --border-light: #d1dfdf; }
-        body { margin: 0; padding: 0; background: var(--brand-blue); font-family: 'Montserrat', sans-serif; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
-        #toolbar { background: #ffffff; padding: 12px 40px; display: flex; gap: 8px; align-items: center; border-bottom: 2px solid var(--border-light); z-index: 10; flex-wrap: wrap; position: sticky; top: 0; }
-        .btn { background: var(--brand-blue); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; text-transform: uppercase; }
-        .btn:hover { background: #2c4849; }
-        select { padding: 6px; border-radius: 4px; border: 1px solid var(--border-light); font-size: 12px; }
-        #main-container { display: flex; flex-grow: 1; }
-        #compiler-window { flex-grow: 1; padding: 30px; display: flex; justify-content: center; align-items: flex-start; }
-        #email-canvas { background: #ffffff; width: 750px; min-height: 900px; height: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 50px; }
-        #address-sidebar { width: 280px; background: #f0f6f6; border-left: 1px solid var(--border-light); padding: 20px; position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
-        .list-group { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .list-title { font-size: 10px; font-weight: 800; color: #3d6263; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        .list-item { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; font-weight: 600; }
-        #editable-body { padding: 40px; outline: none; min-height: 700px; color: #333; line-height: 1.6; font-size: 16px; }
+        :root {
+            --brand: #3d6263; --brand-dark: #2c4849; --brand-soft: #f0f6f6;
+            --border: #d1dfdf; --ink: #1e3a3a; --muted: #64748b;
+            --accent: #c47b2e; --good: #2f8f4e; --danger: #c0392b;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: var(--brand); font-family: 'Montserrat', sans-serif;
+            display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; color: var(--ink); }
+
+        /* ── Toolbar ────────────────────────────────────────────── */
+        #toolbar { background: #fff; padding: 10px 24px; display: flex; gap: 6px; align-items: center;
+            border-bottom: 1px solid var(--border); z-index: 50; flex-wrap: wrap; position: sticky; top: 0;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.04); }
+        .tgroup { display: flex; gap: 4px; align-items: center; padding-right: 10px; margin-right: 4px;
+            border-right: 1px solid #e8eeee; }
+        .tgroup:last-child { border-right: none; }
+        .brandmark { font-weight: 800; font-size: 13px; color: var(--brand); letter-spacing: -0.01em;
+            margin-right: 4px; display: flex; align-items: center; gap: 7px; }
+        .tbtn { background: var(--brand-soft); color: var(--brand); border: 1px solid transparent; min-width: 32px;
+            padding: 7px 10px; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 12px;
+            font-family: inherit; transition: all .12s; line-height: 1; }
+        .tbtn:hover { background: var(--brand); color: #fff; }
+        .tbtn.b { font-weight: 800; } .tbtn.i { font-style: italic; }
+        .tbtn.accent { background: #fbf1e5; color: var(--accent); }
+        .tbtn.accent:hover { background: var(--accent); color: #fff; }
+        select.tsel { padding: 7px 8px; border-radius: 7px; border: 1px solid var(--border); font-size: 12px;
+            font-family: inherit; font-weight: 600; color: var(--brand); background: #fff; cursor: pointer; }
+        .color-dot { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid #fff;
+            box-shadow: 0 0 0 1px var(--border); display: inline-block; }
+
+        /* ── Layout ─────────────────────────────────────────────── */
+        #main-container { display: flex; flex-grow: 1; align-items: flex-start; }
+        #compiler-window { flex-grow: 1; padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+        .subject-bar { width: 640px; max-width: 100%; background: #fff; border-radius: 12px; padding: 12px 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: flex; align-items: center; gap: 12px; }
+        .subject-bar label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--brand); white-space: nowrap; }
+        .subject-bar input { flex: 1; border: none; outline: none; font-family: inherit; font-size: 15px;
+            font-weight: 700; color: var(--ink); background: transparent; }
+        .subject-bar input::placeholder { color: #b6c7c7; font-weight: 600; }
+
+        /* ── WYSIWYG email canvas ───────────────────────────────── */
+        #email-canvas { background: #ffffff; width: 640px; max-width: 100%; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.28); margin-bottom: 40px; }
+        .canvas-preheader { background: var(--brand-soft); border-bottom: 1px dashed var(--border);
+            padding: 6px 20px; font-size: 10.5px; color: #8aa3a3; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+        .canvas-preheader input { flex: 1; border: none; background: transparent; outline: none; font-family: inherit;
+            font-size: 10.5px; color: #6f8a8a; font-weight: 600; }
+        .canvas-header { background: var(--brand); padding: 26px 34px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+        .canvas-header .ht-title { color: #fff; font-weight: 800; font-size: 22px; outline: none; min-width: 40px; }
+        .canvas-header .ht-sub { color: #a8c5c5; font-weight: 700; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 2px; margin-top: 6px; outline: none; min-width: 40px; }
+        .canvas-header [contenteditable]:focus { background: rgba(255,255,255,0.12); border-radius: 4px; }
+        .canvas-header .logo { background: #fff; border-radius: 10px; padding: 8px 11px; flex-shrink: 0; }
+        .canvas-header .logo img { height: 40px; display: block; }
+        #editable-body { padding: 34px; outline: none; min-height: 380px; color: var(--ink); line-height: 1.7; font-size: 16px; }
         #editable-body img { cursor: pointer; max-width: 100%; height: auto; border: 3px solid transparent; }
-        #editable-body img.selected-img { border: 3px solid #e67e22 !important; }
-        .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #eee; display: inline-block; margin-right: 5px; }
-        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(61, 98, 99, 0.95); color: white; z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
-        #loader p { font-size: 14px; margin-top: 10px; opacity: 0.8; }
+        #editable-body img.selected-img { border: 3px solid var(--accent) !important; }
+        #editable-body a { color: var(--brand); }
+        .canvas-footer { background: var(--brand); padding: 20px 34px; }
+        .canvas-footer .verse { color: #c8dede; font-style: italic; font-size: 12px; line-height: 1.5; margin: 0 0 10px; }
+        .canvas-footer .frow { border-top: 1px solid #4d7475; padding-top: 8px; display: flex; justify-content: space-between;
+            gap: 10px; font-size: 11px; color: #7a9e9f; }
 
-        /* GIF Maker modal */
-        #gifModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; }
-        #gifModal.active { display: flex; }
-        #gifModalBox { background: white; border-radius: 16px; padding: 30px; width: 480px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-        #gifModalBox h3 { color: #3d6263; font-weight: 800; margin: 0 0 16px 0; }
-        #gifFrameList { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; min-height: 60px; padding: 10px; border: 2px dashed #d1dfdf; border-radius: 8px; }
-        #gifFrameList img { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; border: 2px solid #d1dfdf; cursor: pointer; }
-        #gifFrameList img.selected-frame { border-color: #e67e22; }
-        #gifProgress { display: none; margin-top: 12px; }
-        #gifProgressBar { width: 100%; height: 8px; background: #f0f6f6; border-radius: 4px; overflow: hidden; }
-        #gifProgressFill { height: 100%; background: #3d6263; width: 0%; transition: width 0.2s; border-radius: 4px; }
-        .gif-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-        .gif-label { font-size: 11px; font-weight: 700; color: #3d6263; text-transform: uppercase; width: 80px; }
-        .gif-input { flex: 1; padding: 8px 12px; border: 1px solid #d1dfdf; border-radius: 8px; font-size: 13px; }
+        /* ── Sidebar ────────────────────────────────────────────── */
+        #sidebar { width: 300px; flex-shrink: 0; background: var(--brand-soft); border-left: 1px solid var(--border);
+            padding: 18px; position: sticky; top: 55px; height: calc(100vh - 55px); overflow-y: auto; }
+        .panel { background: #fff; border-radius: 12px; padding: 15px; margin-bottom: 14px; border: 1px solid #e2e8f0; }
+        .panel-title { font-size: 10px; font-weight: 800; color: var(--brand); text-transform: uppercase;
+            letter-spacing: 0.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .field { margin-bottom: 11px; }
+        .field:last-child { margin-bottom: 0; }
+        .field label { display: block; font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+        .field input { width: 100%; border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 11px;
+            font-size: 12.5px; font-weight: 600; color: var(--ink); font-family: inherit; outline: none; }
+        .field input:focus { border-color: var(--brand); }
+        .list-item { display: flex; align-items: center; gap: 9px; font-size: 12.5px; margin-bottom: 9px; font-weight: 600; cursor: pointer; }
+        .list-item:last-child { margin-bottom: 0; }
+        .list-item input { width: 15px; height: 15px; accent-color: var(--brand); cursor: pointer; }
+        .list-item .cnt { margin-left: auto; font-size: 10px; color: #9fb3b3; font-weight: 700; }
+        .btn-primary { width: 100%; background: var(--brand); color: #fff; border: none; padding: 13px 0;
+            border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 13px; font-family: inherit;
+            text-transform: uppercase; letter-spacing: 0.04em; transition: background .12s; }
+        .btn-primary:hover { background: var(--brand-dark); }
+        .btn-primary:disabled { background: #a9c2c2; cursor: not-allowed; }
+        .btn-ghost { width: 100%; background: #fff; color: var(--brand); border: 1.5px solid var(--border);
+            padding: 10px 0; border-radius: 9px; cursor: pointer; font-weight: 700; font-size: 12px; font-family: inherit; }
+        .btn-ghost:hover { border-color: var(--brand); background: var(--brand-soft); }
+        .recip-summary { font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 10px; font-weight: 600; }
+        .recip-summary b { color: var(--brand); }
+        .userline { font-size: 11px; color: #7a9494; text-align: center; margin-top: 6px; }
+        .userline a { color: var(--brand); font-size: 10px; }
+        #current-draft-info { margin-top: 12px; background: #fff; border-radius: 10px; padding: 12px;
+            border: 1px solid #e2e8f0; font-size: 11px; color: var(--muted); line-height: 1.7; display: none; }
 
-        /* Drafts modal */
-        #draftsModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; }
-        #draftsModal.active { display: flex; }
-        #draftsModalBox { background: white; border-radius: 16px; padding: 30px; width: 560px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-        #draftsModalBox h3 { color: #3d6263; font-weight: 800; margin: 0 0 6px 0; }
-        .draft-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #f8fafc; display: flex; align-items: center; gap: 12px; }
-        .draft-card:hover { border-color: #3d6263; background: #f0f6f6; }
+        /* ── Modals ─────────────────────────────────────────────── */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(20,40,40,0.55); z-index: 2000;
+            align-items: center; justify-content: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-box { background: #fff; border-radius: 16px; padding: 28px; width: 560px; max-width: 100%;
+            max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 70px rgba(0,0,0,0.35); }
+        .modal-box.wide { width: 860px; }
+        .modal-box h3 { color: var(--brand); font-weight: 800; margin: 0 0 6px; font-size: 19px; }
+        .modal-box .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; }
+        .modal-row { display: flex; gap: 10px; margin-top: 18px; }
+
+        /* Review & Send */
+        .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 720px) { .review-grid { grid-template-columns: 1fr; } }
+        .review-preview { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--brand-soft); }
+        .review-preview iframe { width: 100%; height: 460px; border: none; display: block; background: #fff; }
+        .review-meta .rlabel { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 5px; }
+        .review-meta .rlabel:first-child { margin-top: 0; }
+        .review-subject { font-size: 15px; font-weight: 700; color: var(--ink); }
+        .recip-chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 120px; overflow-y: auto;
+            padding: 8px; background: var(--brand-soft); border-radius: 8px; }
+        .chip { background: #fff; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px;
+            font-size: 11px; font-weight: 600; color: var(--brand); }
+        .chip.warn { background: #fdeee2; border-color: #f0d3b0; color: var(--accent); }
+        .warnbox { background: #fdeee2; border: 1px solid #f0d3b0; color: #92551a; border-radius: 8px;
+            padding: 9px 12px; font-size: 11.5px; margin-top: 12px; line-height: 1.5; }
+        .test-row { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+        .test-row input { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 11px;
+            font-size: 12px; font-family: inherit; outline: none; }
+
+        /* progress + results */
+        #sendProgress { display: none; margin-top: 16px; }
+        .pbar { width: 100%; height: 10px; background: var(--brand-soft); border-radius: 6px; overflow: hidden; }
+        .pfill { height: 100%; width: 0; background: var(--brand); border-radius: 6px; transition: width .2s; }
+        .pstat { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: center; font-weight: 600; }
+        #sendResults { display: none; margin-top: 14px; }
+        .res-summary { display: flex; gap: 10px; margin-bottom: 12px; }
+        .res-pill { flex: 1; text-align: center; border-radius: 10px; padding: 12px; }
+        .res-pill .n { font-size: 26px; font-weight: 800; line-height: 1; }
+        .res-pill .k { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 5px; }
+        .res-pill.ok { background: #e7f4ec; color: var(--good); }
+        .res-pill.fail { background: #fbeae7; color: var(--danger); }
+        .fail-list { font-size: 12px; color: var(--danger); background: #fbeae7; border-radius: 8px;
+            padding: 10px 12px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
+
+        /* Drafts */
+        .draft-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 13px 15px; margin-bottom: 9px;
+            background: #f8fafc; display: flex; align-items: center; gap: 12px; }
+        .draft-card:hover { border-color: var(--brand); }
         .draft-info { flex: 1; min-width: 0; }
-        .draft-name { font-weight: 800; font-size: 14px; color: #1e293b; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .draft-meta { font-size: 11px; color: #64748b; line-height: 1.5; }
-        .draft-meta span { display: inline-block; margin-right: 8px; }
+        .draft-name { font-weight: 800; font-size: 14px; color: #1e293b; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .draft-meta { font-size: 10.5px; color: #64748b; line-height: 1.5; }
         .draft-actions { display: flex; gap: 6px; flex-shrink: 0; }
-        .btn-load { background: #3d6263; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
-        .btn-load:hover { background: #1d4e7a; }
-        .btn-del { background: #fee2e2; color: #b91c1c; border: none; padding: 7px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
-        .btn-del:hover { background: #fca5a5; }
-        .draft-empty { text-align: center; color: #3d6263; opacity: 0.5; font-size: 13px; padding: 30px 0; }
-        .draft-slot-count { font-size: 11px; color: #3d6263; opacity: 0.5; margin-bottom: 16px; }
+        .btn-load { background: var(--brand); color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .btn-del { background: #fee2e2; color: #b91c1c; border: none; padding: 7px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .draft-empty { text-align: center; color: var(--brand); opacity: 0.5; font-size: 13px; padding: 26px 0; }
+        .draft-badge { font-size: 9px; background: var(--brand); color: #fff; padding: 2px 7px; border-radius: 20px; margin-left: 4px; }
 
-        /* Who are you modal */
-        #whoModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 3000; align-items: center; justify-content: center; }
-        #whoModal.active { display: flex; }
-        #whoModalBox { background: white; border-radius: 16px; padding: 36px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; }
-        #whoModalBox h3 { color: #3d6263; font-weight: 800; margin: 0 0 8px 0; font-size: 20px; }
-        #whoModalBox p { color: #64748b; font-size: 13px; margin: 0 0 20px 0; }
-        #whoInput { width: 100%; box-sizing: border-box; padding: 12px 16px; border: 2px solid #d1dfdf; border-radius: 10px; font-size: 15px; font-weight: 600; margin-bottom: 16px; outline: none; }
-        #whoInput:focus { border-color: #3d6263; }
+        /* People picker */
+        .people-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .people-row:hover { background: var(--brand-soft); }
+        .people-row input { width: 16px; height: 16px; accent-color: var(--brand); flex-shrink: 0; }
+        .people-row .pr-name { font-weight: 700; color: var(--ink); }
+        .people-row .pr-email { margin-left: auto; font-size: 11px; color: var(--muted); }
+        .people-row.noemail { opacity: 0.55; cursor: not-allowed; }
+        .people-row.noemail .pr-email { color: var(--accent); }
+
+        /* GIF */
+        #gifFrameList { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; min-height: 60px; padding: 10px;
+            border: 2px dashed var(--border); border-radius: 8px; }
+        #gifFrameList img { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; border: 2px solid var(--border); cursor: pointer; }
+        #gifProgress { display: none; margin-top: 12px; }
+        .gif-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .gif-label { font-size: 11px; font-weight: 700; color: var(--brand); text-transform: uppercase; width: 80px; }
+        .gif-input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; }
+
+        /* Who */
+        #whoInput { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px;
+            font-size: 15px; font-weight: 600; margin-bottom: 16px; outline: none; font-family: inherit; }
+        #whoInput:focus { border-color: var(--brand); }
+
+        /* Loader */
+        #loader { display: none; position: fixed; inset: 0; background: rgba(61,98,99,0.95); color: #fff; z-index: 4000;
+            justify-content: center; align-items: center; flex-direction: column; }
+        #loader p { font-size: 14px; margin-top: 10px; opacity: 0.8; }
+        .spinner { width: 42px; height: 42px; border: 4px solid rgba(255,255,255,0.25); border-top-color: #fff;
+            border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+        @media (max-width: 900px) {
+            #main-container { flex-direction: column; }
+            #sidebar { width: 100%; position: static; height: auto; border-left: none; border-top: 1px solid var(--border); }
+        }
     </style>
 </head>
 <body>
 
-<div id="loader"><h2>Syncing to Hub...</h2><p id="loaderMsg">Please wait...</p></div>
+<div id="loader"><div class="spinner"></div><h2 id="loaderTitle">Working…</h2><p id="loaderMsg">Please wait…</p></div>
 
-<!-- Who Are You modal -->
-<div id="whoModal">
-    <div id="whoModalBox">
+<!-- Who Are You -->
+<div id="whoModal" class="modal">
+    <div class="modal-box" style="width:380px; text-align:center;">
         <h3>👋 Who are you?</h3>
-        <p>Your name will be saved alongside any drafts you create or edit.</p>
-        <input id="whoInput" type="text" placeholder="Your first name..." maxlength="30" />
-        <button class="btn" style="width:100%; padding:12px; font-size:13px;" onclick="saveWhoAndContinue()">Let's go</button>
+        <p class="sub">Your name is saved alongside any drafts you create or edit — so the team can see who wrote what.</p>
+        <input id="whoInput" type="text" placeholder="Your first name…" maxlength="30" />
+        <button class="btn-primary" onclick="saveWhoAndContinue()">Let's go</button>
     </div>
 </div>
 
-<!-- Drafts Modal -->
-<div id="draftsModal">
-    <div id="draftsModalBox">
-        <h3>📂 Saved Drafts</h3>
-        <div class="draft-slot-count" id="draftSlotCount"></div>
-        <div id="draftsList"></div>
-        <div style="display:flex; gap:8px; margin-top:16px;">
-            <button class="btn" style="flex:1; padding:11px; font-size:12px; background:#27ae60;" onclick="saveNewDraft()">💾 Save Current as New Draft</button>
-            <button class="btn" style="padding:11px; background:#aaa;" onclick="closeDraftsModal()">Close</button>
+<!-- Review & Send -->
+<div id="reviewModal" class="modal">
+    <div class="modal-box wide">
+        <h3>Review &amp; Send</h3>
+        <p class="sub">This is exactly what lands in your team's inbox. Send yourself a test first if you like.</p>
+        <div class="review-grid">
+            <div class="review-preview"><iframe id="previewFrame" title="Email preview"></iframe></div>
+            <div class="review-meta">
+                <div class="rlabel">Subject</div>
+                <div class="review-subject" id="reviewSubject"></div>
+                <div class="rlabel">Recipients (<span id="reviewCount">0</span>)</div>
+                <div class="recip-chips" id="reviewChips"></div>
+                <div id="reviewWarn"></div>
+                <div class="rlabel">Reply-to</div>
+                <div style="font-size:12.5px; font-weight:600; color:var(--ink);" id="reviewReplyTo"></div>
+                <div class="test-row">
+                    <input id="testEmail" type="email" placeholder="you@email.com">
+                    <button class="btn-ghost" style="width:auto; padding:9px 14px; white-space:nowrap;" onclick="sendTest()">Send test</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="sendProgress">
+            <div class="pbar"><div class="pfill" id="pfill"></div></div>
+            <div class="pstat" id="pstat">Sending…</div>
+        </div>
+
+        <div id="sendResults">
+            <div class="res-summary">
+                <div class="res-pill ok"><div class="n" id="resOk">0</div><div class="k">Delivered</div></div>
+                <div class="res-pill fail"><div class="n" id="resFail">0</div><div class="k">Failed</div></div>
+            </div>
+            <div id="failList"></div>
+        </div>
+
+        <div class="modal-row" id="reviewButtons">
+            <button class="btn-ghost" onclick="closeReview()">Cancel</button>
+            <button class="btn-primary" id="confirmSendBtn" onclick="sendAll()">Send to <span id="sendBtnCount">0</span> people</button>
         </div>
     </div>
 </div>
 
-<!-- GIF Maker Modal -->
-<div id="gifModal">
-    <div id="gifModalBox">
+<!-- Drafts -->
+<div id="draftsModal" class="modal">
+    <div class="modal-box">
+        <h3>📂 Saved Drafts</h3>
+        <p class="sub" id="draftSlotCount"></p>
+        <div id="draftsList"></div>
+        <div class="modal-row">
+            <button class="btn-primary" style="background:var(--good);" onclick="saveNewDraft()">💾 Save current as new draft</button>
+            <button class="btn-ghost" onclick="closeDraftsModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Pick individuals -->
+<div id="peopleModal" class="modal">
+    <div class="modal-box">
+        <h3>Pick individual people</h3>
+        <p class="sub">Tick anyone to add them to this send — on top of any teams you've selected. People with no email on file can't be picked.</p>
+        <input id="peopleSearch" type="text" placeholder="Search name or email…" style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 13px;font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;">
+        <div id="peopleList" style="max-height:340px;overflow-y:auto;"></div>
+        <div class="modal-row">
+            <button class="btn-ghost" onclick="clearPicked()">Clear all</button>
+            <button class="btn-primary" onclick="closePeople()">Done · <span id="pickedCount">0</span> picked</button>
+        </div>
+    </div>
+</div>
+
+<!-- GIF Maker -->
+<div id="gifModal" class="modal">
+    <div class="modal-box" style="width:480px;">
         <h3>🎬 GIF Maker</h3>
-        <p style="font-size:12px; color:#666; margin:0 0 12px 0;">Upload 2–8 images to create an animated GIF. Click a frame to remove it.</p>
+        <p class="sub">Add 2–8 images to build an animated GIF. Click a frame to remove it.</p>
         <div id="gifFrameList"><span style="font-size:11px; color:#aaa; align-self:center;">No frames yet — add images below</span></div>
         <div style="display:flex; gap:8px; margin-bottom:16px;">
-            <button class="btn" onclick="addGifFrames()" style="flex:1;">+ Add Images</button>
-            <button class="btn" onclick="clearGifFrames()" style="background:#b22222;">Clear All</button>
+            <button class="btn-ghost" onclick="addGifFrames()">+ Add images</button>
+            <button class="btn-ghost" style="color:var(--danger); border-color:#f0c0b8;" onclick="clearGifFrames()">Clear all</button>
         </div>
-        <div class="gif-row">
-            <span class="gif-label">Delay (ms)</span>
-            <input id="gifDelay" type="number" value="500" min="100" max="5000" step="100" class="gif-input" placeholder="500">
-            <span style="font-size:11px; color:#999;">per frame</span>
-        </div>
-        <div class="gif-row">
-            <span class="gif-label">Width (px)</span>
-            <input id="gifWidth" type="number" value="400" min="100" max="700" class="gif-input" placeholder="400">
-        </div>
+        <div class="gif-row"><span class="gif-label">Delay (ms)</span>
+            <input id="gifDelay" type="number" value="500" min="100" max="5000" step="100" class="gif-input">
+            <span style="font-size:11px; color:#999;">per frame</span></div>
+        <div class="gif-row"><span class="gif-label">Width (px)</span>
+            <input id="gifWidth" type="number" value="400" min="100" max="700" class="gif-input"></div>
+        <div class="gif-row"><span class="gif-label">Smoothing</span>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);font-weight:600;cursor:pointer;">
+                <input id="gifDither" type="checkbox" checked style="width:16px;height:16px;accent-color:var(--brand);"> Dither — smooths colour banding
+            </label></div>
         <div id="gifProgress">
-            <p style="font-size:11px; color:#3d6263; font-weight:700; margin-bottom:6px;">Generating GIF...</p>
-            <div id="gifProgressBar"><div id="gifProgressFill"></div></div>
+            <p style="font-size:11px; color:var(--brand); font-weight:700; margin-bottom:6px;">Generating GIF…</p>
+            <div class="pbar"><div class="pfill" id="gifProgressFill"></div></div>
         </div>
-        <div style="display:flex; gap:8px; margin-top:16px;">
-            <button class="btn" onclick="generateGif()" style="flex:1; background:#27ae60;">Generate & Insert</button>
-            <button class="btn" onclick="closeGifModal()" style="background:#aaa;">Cancel</button>
+        <div class="modal-row">
+            <button class="btn-primary" style="background:var(--good);" onclick="generateGif()">Generate &amp; insert</button>
+            <button class="btn-ghost" onclick="closeGifModal()">Cancel</button>
         </div>
     </div>
 </div>
 
+<!-- Toolbar -->
 <div id="toolbar">
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('bold');">B</button>
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('italic');">I</button>
-
-    <select id="sizeSelector" onchange="applyManualStyle('fontSize', this.value); this.value=''">
-        <option value="">Text Size</option>
-        <option value="12px">Small</option>
-        <option value="16px">Normal</option>
-        <option value="22px">Large</option>
-        <option value="32px">Huge</option>
-    </select>
-
-    <div style="display:flex; align-items:center; border-left:1px solid #ddd; padding-left:10px;">
-        <div class="color-dot" style="background:#3d6263;" onmousedown="event.preventDefault(); applyManualStyle('color', '#3d6263');"></div>
-        <div class="color-dot" style="background:#a0b0b0;" onmousedown="event.preventDefault(); applyManualStyle('color', '#a0b0b0');"></div>
-        <div class="color-dot" style="background:#000000;" onmousedown="event.preventDefault(); applyManualStyle('color', '#000000');"></div>
+    <div class="tgroup"><span class="brandmark">✉️ Email Builder</span></div>
+    <div class="tgroup">
+        <button class="tbtn b" onmousedown="event.preventDefault(); document.execCommand('bold');" title="Bold">B</button>
+        <button class="tbtn i" onmousedown="event.preventDefault(); document.execCommand('italic');" title="Italic">I</button>
+        <button class="tbtn" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList');" title="Bullet list">•≡</button>
+        <select class="tsel" id="sizeSelector" onchange="applyManualStyle('fontSize', this.value); this.value=''">
+            <option value="">Size</option>
+            <option value="12px">Small</option>
+            <option value="16px">Normal</option>
+            <option value="22px">Large</option>
+            <option value="32px">Huge</option>
+        </select>
     </div>
-
-    <button class="btn" onclick="uploadImage()">Add Photo</button>
-    <button class="btn" onclick="openGifModal()" style="background:#8b4513;">Make GIF</button>
-    <button class="btn" onclick="triggerResize()" style="background:#555;">Resize</button>
-
-    <select onchange="if(this.value) insertSideLayout(this.value); this.value=''">
-        <option value="">Side Layout</option>
-        <option value="top">Top</option>
-        <option value="middle">Middle</option>
-        <option value="bottom">Bottom</option>
-    </select>
-
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');">L</button>
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');">C</button>
-    <button class="btn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');">R</button>
-
-    <div style="flex-grow: 1;"></div>
-    <button class="btn" onclick="compileAndLaunch()" style="background: #e67e22;">Copy Email HTML</button>
+    <div class="tgroup">
+        <span class="color-dot" style="background:#3d6263;" onmousedown="event.preventDefault(); applyManualStyle('color', '#3d6263');" title="Teal"></span>
+        <span class="color-dot" style="background:#c47b2e;" onmousedown="event.preventDefault(); applyManualStyle('color', '#c47b2e');" title="Amber"></span>
+        <span class="color-dot" style="background:#000000;" onmousedown="event.preventDefault(); applyManualStyle('color', '#000000');" title="Black"></span>
+    </div>
+    <div class="tgroup">
+        <button class="tbtn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');" title="Align left">↤</button>
+        <button class="tbtn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');" title="Align center">↔</button>
+        <button class="tbtn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');" title="Align right">↦</button>
+    </div>
+    <div class="tgroup">
+        <select class="tsel" onchange="if(this.value) insertBlock(this.value); this.value=''">
+            <option value="">+ Insert</option>
+            <option value="button">Button / link</option>
+            <option value="heading">Heading</option>
+            <option value="divider">Divider line</option>
+            <option value="spacer">Spacer</option>
+            <option value="columns">Two columns</option>
+        </select>
+        <button class="tbtn accent" onclick="uploadImage()">📷 Photo</button>
+        <button class="tbtn accent" onclick="openGifModal()">🎬 GIF</button>
+        <button class="tbtn" onclick="triggerResize()">⤢ Resize</button>
+    </div>
+    <div style="flex-grow:1;"></div>
+    <div class="tgroup" style="border:none;">
+        <span id="saveState" style="font-size:11px; color:#9fb3b3; font-weight:600;">All changes autosaved</span>
+    </div>
 </div>
 
 <div id="main-container">
     <div id="compiler-window">
+        <div class="subject-bar">
+            <label for="subjectInput">Subject</label>
+            <input id="subjectInput" type="text" placeholder="e.g. This Sunday's plan & a thank you" maxlength="150">
+        </div>
+
         <div id="email-canvas">
+            <div class="canvas-preheader" title="Preview text — the grey line shown in the inbox next to the subject">
+                <span>👁</span><input id="preheaderInput" type="text" placeholder="Preview text shown in the inbox (optional)" maxlength="140">
+            </div>
+            <div class="canvas-header">
+                <div>
+                    <div class="ht-title" id="headerTitle" contenteditable="true" spellcheck="false">EGBC Worship &amp; AV</div>
+                    <div class="ht-sub" id="headerSub" contenteditable="true" spellcheck="false">Team Update</div>
+                </div>
+                <div class="logo"><img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" alt="EGBC"></div>
+            </div>
             <div id="editable-body" contenteditable="true">
-                <p>Start your team update here...</p>
+                <p>Hi team,</p>
+                <p>Start your update here — add a heading, drop in a photo, or insert a button linking to the rota.</p>
+            </div>
+            <div class="canvas-footer">
+                <p class="verse">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; — John 13:35</p>
+                <div class="frow"><span>Esher Green Baptist Church · Worship &amp; AV Team</span><span>worship@esherchurch.org</span></div>
             </div>
         </div>
     </div>
 
-    <div id="address-sidebar">
-        <h3 style="font-weight: 800; color: #3d6263; text-transform: uppercase; font-size: 13px; margin-bottom: 15px;">Mailing Lists</h3>
-        <div class="list-group">
-            <div class="list-title">Select Team</div>
-            <label class="list-item"><input type="checkbox" class="team-filter" value="AV Team"> AV Team</label>
-            <label class="list-item"><input type="checkbox" class="team-filter" value="Worship Team"> Worship Team</label>
-            <label class="list-item"><input type="checkbox" class="team-filter" value="Youth Worship"> Youth Team</label>
-            <label class="list-item"><input type="checkbox" class="team-filter" value="Core Team"> Core Team</label>
-            <label class="list-item"><input type="checkbox" class="team-filter" value="Choir"> Choir</label>
-            <label class="list-item"><input type="checkbox" class="team-filter" value="Everyone"> Everyone</label>
+    <div id="sidebar">
+        <div class="panel">
+            <div class="panel-title">📮 Send to</div>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="AV Team"> AV Team <span class="cnt" data-team="AV Team"></span></label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Worship Team"> Worship Team <span class="cnt" data-team="Worship Team"></span></label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Youth Worship"> Youth Team <span class="cnt" data-team="Youth Worship"></span></label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Core Team"> Core Team <span class="cnt" data-team="Core Team"></span></label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Choir"> Choir <span class="cnt" data-team="Choir"></span></label>
+            <label class="list-item"><input type="checkbox" class="team-filter" value="Everyone"> Everyone <span class="cnt" data-team="Everyone"></span></label>
+            <button class="btn-ghost" style="margin-top:11px;" onclick="openPeople()">➕ Pick individual people<span id="pickedBadge" style="margin-left:6px;font-weight:800;color:var(--brand);"></span></button>
+            <div class="recip-summary" id="recipSummary"><b>0</b> people selected</div>
         </div>
 
-        <div style="margin-bottom:10px;">
-            <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:5px;">Your Email (reply-to)</label>
-            <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
-        </div>
-        <button onclick="launchGroupEmail()" class="btn" style="width:100%; padding: 12px 0;">Send Email</button>
-
-        <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:16px;">
-            <div style="font-size:10px; font-weight:800; color:#3d6263; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px;">Drafts</div>
-            <button onclick="openDraftsModal()" class="btn" style="width:100%; padding: 11px 0; background: #3d6263;">📂 Open Drafts</button>
+        <div class="panel">
+            <div class="panel-title">✍️ Your details</div>
+            <div class="field">
+                <label for="senderEmail">Your email (reply-to)</label>
+                <input id="senderEmail" type="email" placeholder="your@email.com" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+            </div>
+            <button class="btn-primary" onclick="openReview()">Review &amp; Send →</button>
         </div>
 
-        <div id="current-draft-info" style="display:none; margin-top:12px; background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0; font-size:11px; color:#64748b; line-height:1.7;">
+        <div class="panel">
+            <div class="panel-title">📂 Drafts</div>
+            <button class="btn-ghost" onclick="openDraftsModal()">Open saved drafts</button>
+            <div id="current-draft-info"></div>
         </div>
 
-        <div id="member-count" style="font-size: 10px; text-align: center; margin-top: 10px; color: #999;">0 Selected</div>
-
-        <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px; font-size:11px; color:#3d6263; opacity:0.5; text-align:center;">
-            Editing as: <span id="currentUserLabel" style="font-weight:700; color:#3d6263;">—</span>
-            <br><a href="#" onclick="changeUser()" style="color:#3d6263; opacity:0.5; font-size:10px;">change</a>
-        </div>
+        <div class="userline">Editing as <b id="currentUserLabel">—</b> · <a href="#" onclick="changeUser(); return false;">change</a></div>
     </div>
 </div>
+
+<a id="helpBtn" href="https://esherchurch.github.io/availability-form/emailcompilerinstructions.html"
+   target="_blank" rel="noopener" aria-label="Open instructions"
+   style="position:fixed; bottom:24px; right:24px; z-index:900; width:38px; height:38px; border-radius:9999px; background:#fff; border:1.5px solid #d1dfdf; color:#3d6263; font-weight:800; font-size:15px; box-shadow:0 2px 12px rgba(61,98,99,0.12); display:flex; align-items:center; justify-content:center; text-decoration:none;">?</a>
 
 <script>
 const firebaseConfig = {
@@ -221,216 +436,192 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
+const SEND_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
 
 const MAX_DRAFTS = 10;
+const LS_AUTOSAVE = 'egbc-email-autosave';
 let allMembers = [];
 let lastClickedImg = null;
 let gifFrames = [];
 let currentUser = "";
-let activeDraftId = null; // the draft currently loaded in the editor
+let activeDraftId = null;
+let dirty = false;
+let lastSendList = [];   // recipients resolved for the current review
+let pickedIds = new Set(); // individually-picked address-book members (by doc id)
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function safeUrl(u) {
+    u = String(u || '').trim();
+    return /^(https?:|mailto:)/i.test(u) ? u : '';
+}
+function showLoader(title, msg) { $('loaderTitle').textContent = title || 'Working…'; $('loaderMsg').textContent = msg || ''; $('loader').style.display = 'flex'; }
+function hideLoader() { $('loader').style.display = 'none'; }
+function markDirty() { dirty = true; $('saveState').textContent = 'Unsaved edits'; scheduleAutosave(); }
+function markClean() { dirty = false; $('saveState').textContent = 'All changes autosaved'; }
 
 db.collection("addressBook").onSnapshot(snap => {
     allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    updateTeamCounts();
+    updateRecipSummary();
 });
 
-// ── WHO ARE YOU ────────────────────────────────────────────────────────────
+// ── Who are you ──────────────────────────────────────────────────────────────
 function initUser() {
     const stored = localStorage.getItem('egbc_email_user');
-    if (stored) {
-        currentUser = stored;
-        document.getElementById('currentUserLabel').textContent = currentUser;
-    } else {
-        document.getElementById('whoModal').classList.add('active');
-        setTimeout(() => document.getElementById('whoInput').focus(), 100);
-    }
+    if (stored) { currentUser = stored; $('currentUserLabel').textContent = currentUser; }
+    else { $('whoModal').classList.add('active'); setTimeout(() => $('whoInput').focus(), 100); }
 }
-
 function saveWhoAndContinue() {
-    const name = document.getElementById('whoInput').value.trim();
+    const name = $('whoInput').value.trim();
     if (!name) return;
     currentUser = name;
     localStorage.setItem('egbc_email_user', name);
-    document.getElementById('currentUserLabel').textContent = name;
-    document.getElementById('whoModal').classList.remove('active');
+    $('currentUserLabel').textContent = name;
+    $('whoModal').classList.remove('active');
 }
-
 function changeUser() {
-    localStorage.removeItem('egbc_email_user');
-    document.getElementById('whoInput').value = currentUser;
-    document.getElementById('whoModal').classList.add('active');
-    setTimeout(() => document.getElementById('whoInput').focus(), 100);
+    $('whoInput').value = currentUser;
+    $('whoModal').classList.add('active');
+    setTimeout(() => $('whoInput').focus(), 100);
+}
+$('whoInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveWhoAndContinue(); });
+
+// ── Email meta + WYSIWYG chrome ──────────────────────────────────────────────
+function getMeta() {
+    return {
+        subject: $('subjectInput').value.trim(),
+        preheader: $('preheaderInput').value.trim(),
+        headerTitle: $('headerTitle').innerText.trim(),
+        headerSub: $('headerSub').innerText.trim()
+    };
+}
+['subjectInput','preheaderInput'].forEach(id => $(id).addEventListener('input', markDirty));
+['headerTitle','headerSub'].forEach(id => $(id).addEventListener('input', markDirty));
+$('editable-body').addEventListener('input', markDirty);
+
+// Reliable insertion — remember the last cursor position in the editor so photos,
+// GIFs and blocks land even after focus moved to a toolbar dropdown or modal.
+let savedRange = null;
+function rememberSelection() {
+    const sel = window.getSelection();
+    if (sel.rangeCount && $('editable-body').contains(sel.anchorNode)) savedRange = sel.getRangeAt(0).cloneRange();
+}
+['keyup','mouseup','input'].forEach(ev => $('editable-body').addEventListener(ev, rememberSelection));
+function insertIntoEditor(html) {
+    const ed = $('editable-body');
+    ed.focus();
+    const sel = window.getSelection();
+    const haveSaved = savedRange && ed.contains(savedRange.startContainer);
+    if (haveSaved) { sel.removeAllRanges(); sel.addRange(savedRange); }
+    let ok = false;
+    try { ok = document.execCommand('insertHTML', false, html); } catch (e) { ok = false; }
+    if (!ok) {                                   // fallback: caret was lost — place it ourselves
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const frag = document.createDocumentFragment();
+        while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+        if (haveSaved) { savedRange.collapse(false); savedRange.insertNode(frag); }
+        else ed.appendChild(frag);               // no known caret → append to the end
+    }
+    rememberSelection();
+    markDirty();
 }
 
-document.getElementById('whoInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveWhoAndContinue();
-});
-
-// ── DRAFTS ─────────────────────────────────────────────────────────────────
-function formatDate(ts) {
-    if (!ts) return '—';
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
-        + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+// ── Build the real email HTML (single source of truth) ───────────────────────
+function buildEmailHtml(bodyInner, meta) {
+    const title = escapeHtml(meta.headerTitle || 'EGBC Worship & AV');
+    const sub = escapeHtml(meta.headerSub || '');
+    const pre = escapeHtml(meta.preheader || '');
+    const logo = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300';
+    const preheaderBlock = pre
+        ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:#f0f6f6;font-size:1px;line-height:1px;">${pre}&#8199;&#65279;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;</div>`
+        : '';
+    const subBlock = sub
+        ? `<p style="margin:6px 0 0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${sub}</p>`
+        : '';
+    return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style type="text/css">
+@media only screen and (max-width:620px){
+ .container{width:100%!important;border-radius:0!important;}
+ .hpad{padding-left:24px!important;padding-right:24px!important;}
+ .bodypad{padding:28px 24px!important;}
+ .htitle{font-size:20px!important;}
+ img{max-width:100%!important;height:auto!important;}
+}
+</style></head>
+<body style="margin:0;padding:0;background-color:#eaf2f2;-webkit-text-size-adjust:100%;">
+${preheaderBlock}
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:36px 16px;">
+<table class="container" width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
+  <tr><td bgcolor="#3d6263" class="hpad" style="padding:28px 40px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:middle;">
+        <p class="htitle" style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:800;color:#ffffff;line-height:1.2;">${title}</p>
+        ${subBlock}
+      </td>
+      <td style="vertical-align:middle;text-align:right;padding-left:20px;width:78px;">
+        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 11px;">
+          <img src="${logo}" height="40" style="display:block;height:40px;border:0;" alt="EGBC">
+        </div>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td class="bodypad" style="padding:36px 40px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#1e3a3a;line-height:1.7;">
+    ${bodyInner}
+  </td></tr>
+  <tr><td bgcolor="#3d6263" class="hpad" style="padding:22px 40px;">
+    <p style="margin:0 0 10px;font-family:Arial,sans-serif;font-size:12px;color:#c8dede;font-style:italic;line-height:1.5;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
+    </tr></table>
+  </td></tr>
+</table>
+</td></tr></table></body></html>`;
 }
 
-async function openDraftsModal() {
-    document.getElementById('draftsModal').classList.add('active');
-    await renderDraftsList();
+// Clean the editor content for output (strip editor-only artefacts)
+function getBodyInner() {
+    const clone = $('editable-body').cloneNode(true);
+    clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
+    clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+    return clone.innerHTML;
 }
 
-function closeDraftsModal() {
-    document.getElementById('draftsModal').classList.remove('active');
-}
-
-async function renderDraftsList() {
-    const list = document.getElementById('draftsList');
-    list.innerHTML = '<div style="color:#3d6263; opacity:0.5; font-size:12px; padding:10px 0;">Loading...</div>';
-
-    try {
-        const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS).get();
-        const count = snap.docs.length;
-        document.getElementById('draftSlotCount').textContent = `${count} of ${MAX_DRAFTS} slots used`;
-
-        if (count === 0) {
-            list.innerHTML = '<div class="draft-empty">No saved drafts yet.</div>';
-            return;
-        }
-
-        list.innerHTML = snap.docs.map(d => {
-            const data = d.data();
-            const isActive = d.id === activeDraftId;
-            return `
-            <div class="draft-card" style="${isActive ? 'border-color:#3d6263; background:#f0f6f6;' : ''}">
-                <div class="draft-info">
-                    <div class="draft-name">${data.name || 'Untitled Draft'} ${isActive ? '<span style="font-size:10px; background:#3d6263; color:white; padding:2px 7px; border-radius:20px; margin-left:4px;">LOADED</span>' : ''}</div>
-                    <div class="draft-meta">
-                        <span>✏️ Created by <b>${data.createdBy || '?'}</b> on ${formatDate(data.createdAt)}</span><br>
-                        <span>🔄 Last edited by <b>${data.updatedBy || '?'}</b> on ${formatDate(data.updatedAt)}</span>
-                    </div>
-                </div>
-                <div class="draft-actions">
-                    <button class="btn-load" onclick="loadDraft('${d.id}')">Load</button>
-                    <button class="btn-del" onclick="deleteDraft('${d.id}', '${(data.name||'this draft').replace(/'/g,"\\'")}')">🗑</button>
-                </div>
-            </div>`;
-        }).join('');
-    } catch(e) {
-        list.innerHTML = '<div class="draft-empty">Error loading drafts.</div>';
+// ── Insert blocks ────────────────────────────────────────────────────────────
+function insertBlock(kind) {
+    if (kind === 'button') {
+        const label = prompt('Button label:', 'View the rota');
+        if (!label) return;
+        const url = safeUrl(prompt('Where should it link? (https://…)', 'https://esherchurch.github.io/availability-form/'));
+        if (!url) { alert('That link was empty or not a valid http(s):// address.'); return; }
+        insertIntoEditor(`<table border="0" cellspacing="0" cellpadding="0" style="margin:20px auto;"><tr>` +
+            `<td align="center" bgcolor="#3d6263" style="border-radius:9px;">` +
+            `<a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:9px;">${escapeHtml(label)}</a>` +
+            `</td></tr></table><p><br></p>`);
+    } else if (kind === 'heading') {
+        const text = prompt('Heading text:', 'This Sunday');
+        if (!text) return;
+        insertIntoEditor(`<p style="margin:26px 0 8px;font-family:Arial,sans-serif;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#3d6263;">${escapeHtml(text)}</p>`);
+    } else if (kind === 'divider') {
+        insertIntoEditor(`<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0;"><tr><td style="border-top:1px solid #dbe6e6;font-size:0;line-height:0;height:1px;">&nbsp;</td></tr></table>`);
+    } else if (kind === 'spacer') {
+        insertIntoEditor(`<div style="height:24px;line-height:24px;font-size:0;">&nbsp;</div>`);
+    } else if (kind === 'columns') {
+        insertIntoEditor(`<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:18px 0;"><tr>` +
+            `<td width="50%" valign="top" style="padding:0 10px 0 0;">Left column…</td>` +
+            `<td width="50%" valign="top" style="padding:0 0 0 10px;">Right column…</td>` +
+            `</tr></table><p><br></p>`);
     }
 }
 
-async function saveNewDraft() {
-    if (!currentUser) { document.getElementById('whoModal').classList.add('active'); return; }
-
-    // Check slot count
-    const countSnap = await db.collection("emailDrafts").get();
-    if (countSnap.size >= MAX_DRAFTS) {
-        alert(`You've reached the maximum of ${MAX_DRAFTS} saved drafts. Please delete one before saving a new one.`);
-        return;
-    }
-
-    const name = prompt("Name this draft:", "Team Update");
-    if (!name) return;
-
-    const content = document.getElementById('editable-body').innerHTML;
-    const now = firebase.firestore.FieldValue.serverTimestamp();
-
-    document.getElementById('loader').style.display = 'flex';
-    document.getElementById('loaderMsg').textContent = 'Saving draft...';
-
-    try {
-        const ref = await db.collection("emailDrafts").add({
-            name,
-            content,
-            createdBy: currentUser,
-            createdAt: now,
-            updatedBy: currentUser,
-            updatedAt: now
-        });
-        activeDraftId = ref.id;
-        updateCurrentDraftInfo(name, currentUser, currentUser);
-        await renderDraftsList();
-        alert(`"${name}" saved!`);
-    } catch(e) {
-        alert("Error saving draft.");
-    }
-    document.getElementById('loader').style.display = 'none';
-}
-
-async function loadDraft(id) {
-    document.getElementById('loader').style.display = 'flex';
-    document.getElementById('loaderMsg').textContent = 'Loading draft...';
-    try {
-        const d = await db.collection("emailDrafts").doc(id).get();
-        if (d.exists) {
-            const data = d.data();
-            document.getElementById('editable-body').innerHTML = data.content;
-            activeDraftId = id;
-            updateCurrentDraftInfo(data.name, data.createdBy, data.updatedBy, data.createdAt, data.updatedAt);
-            closeDraftsModal();
-        }
-    } catch(e) {
-        alert("Error loading draft.");
-    }
-    document.getElementById('loader').style.display = 'none';
-}
-
-async function overwriteActiveDraft() {
-    if (!activeDraftId) { await saveNewDraft(); return; }
-    if (!currentUser) { document.getElementById('whoModal').classList.add('active'); return; }
-
-    const content = document.getElementById('editable-body').innerHTML;
-    const now = firebase.firestore.FieldValue.serverTimestamp();
-
-    document.getElementById('loader').style.display = 'flex';
-    document.getElementById('loaderMsg').textContent = 'Saving draft...';
-
-    try {
-        // Get current draft name & createdBy to preserve them
-        const existing = await db.collection("emailDrafts").doc(activeDraftId).get();
-        const existingData = existing.data();
-
-        await db.collection("emailDrafts").doc(activeDraftId).update({
-            content,
-            updatedBy: currentUser,
-            updatedAt: now
-        });
-
-        updateCurrentDraftInfo(existingData.name, existingData.createdBy, currentUser, existingData.createdAt);
-        alert(`Draft updated!`);
-    } catch(e) {
-        alert("Error saving draft.");
-    }
-    document.getElementById('loader').style.display = 'none';
-}
-
-async function deleteDraft(id, name) {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    try {
-        await db.collection("emailDrafts").doc(id).delete();
-        if (activeDraftId === id) {
-            activeDraftId = null;
-            document.getElementById('current-draft-info').style.display = 'none';
-        }
-        await renderDraftsList();
-    } catch(e) {
-        alert("Error deleting draft.");
-    }
-}
-
-function updateCurrentDraftInfo(name, createdBy, updatedBy, createdAt, updatedAt) {
-    const el = document.getElementById('current-draft-info');
-    let html = `<div style="font-weight:800; color:#1e293b; margin-bottom:4px; font-size:12px;">${name || 'Draft'}</div>`;
-    html += `<div>✏️ Created by <b>${createdBy || '?'}</b></div>`;
-    if (createdAt) html += `<div style="color:#3d6263; opacity:0.5; font-size:10px;">${formatDate(createdAt)}</div>`;
-    html += `<div style="margin-top:4px;">🔄 Last edited by <b>${updatedBy || '?'}</b></div>`;
-    if (updatedAt) html += `<div style="color:#3d6263; opacity:0.5; font-size:10px;">${formatDate(updatedAt)}</div>`;
-    html += `<button onclick="overwriteActiveDraft()" class="btn" style="width:100%; margin-top:10px; padding:9px; font-size:11px; background:#27ae60;">💾 Save Changes</button>`;
-    el.innerHTML = html;
-    el.style.display = 'block';
-}
-
-// ── TEXT STYLING ──────────────────────────────────────────────────────────
+// ── Text styling ─────────────────────────────────────────────────────────────
 function applyManualStyle(styleType, value) {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.isCollapsed) return;
@@ -445,196 +636,359 @@ function applyManualStyle(styleType, value) {
         const pt = Math.round(px * 0.75);
         wrapper = document.createElement("font");
         wrapper.setAttribute("size", ptToFontSize(pt));
-        wrapper.style.fontSize = pt + "pt";
-        wrapper.style.lineHeight = "1.2";
+        wrapper.style.fontSize = pt + "pt"; wrapper.style.lineHeight = "1.4";
     }
-    if (styleType === 'color') {
-        wrapper = document.createElement("span");
-        wrapper.style.color = value;
-        wrapper.style.lineHeight = "1.2";
-    }
-    try { wrapper.appendChild(range.extractContents()); range.insertNode(wrapper); } catch(e) {}
+    if (styleType === 'color') { wrapper = document.createElement("span"); wrapper.style.color = value; }
+    try { wrapper.appendChild(range.extractContents()); range.insertNode(wrapper); markDirty(); } catch(e) {}
 }
 
-// ── EMAIL ─────────────────────────────────────────────────────────────────
-async function launchGroupEmail() {
-    const activeTeams = Array.from(document.querySelectorAll('.team-filter:checked')).map(cb => cb.value);
-    let recipients = [];
-    if (activeTeams.includes("Everyone")) {
-        recipients = allMembers.map(m => m.email);
-    } else {
-        recipients = allMembers
-            .filter(m => m.markers && m.markers.some(r => activeTeams.includes(r)))
-            .map(m => m.email);
-    }
-    const unique = [...new Set(recipients)].filter(e => e);
-    document.getElementById('member-count').innerText = `${unique.length} Selected`;
-    if (unique.length === 0) { alert('Please select at least one team.'); return; }
-
-    // Get the compiled email HTML
-    const editableBody = document.getElementById('editable-body');
-    const clone = editableBody.cloneNode(true);
-    const finalHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f0f6f6;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0f6f6">
-<tr><td align="center" style="padding:32px 16px;">
-<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
-  <tr><td bgcolor="#3d6263" style="padding:28px 40px;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="vertical-align:bottom;">
-        <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:22px;font-weight:800;color:#ffffff;">EGBC Worship &amp; AV</p>
-        <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Team Update</p>
-      </td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;">
-        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
-          <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
-        </div>
-      </td>
-    </tr></table>
-  </td></tr>
-  <tr><td style="padding:36px 40px;font-family:Arial,sans-serif;font-size:15px;color:#1e3a3a;line-height:1.8;">
-    ${clone.innerHTML}
-  </td></tr>
-  <tr><td bgcolor="#3d6263" style="padding:20px 40px;">
-    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:12px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
-      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:8px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
-      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:8px;">worship@esherchurch.org</td>
-    </tr></table>
-  </td></tr>
-</table></td></tr></table></body></html>`;
-
-    const senderEmail = document.getElementById('senderEmail').value || 'worship@esherchurch.org';
-    const btn = document.querySelector('button[onclick="launchGroupEmail()"]');
-    const origText = btn.textContent;
-    btn.textContent = `Sending to ${unique.length}...`;
-    btn.disabled = true;
-
-    let sent = 0, failed = 0;
-    for (const email of unique) {
-        try {
-            const resp = await fetch('https://sendemail-irkwdhx3xq-uc.a.run.app', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: [email], subject: 'Worship & AV Team Update', html: finalHtml, replyTo: senderEmail })
-            });
-            const result = await resp.json();
-            if (result.ok) sent++; else failed++;
-        } catch(e) { failed++; }
-        await new Promise(r => setTimeout(r, 200));
-    }
-
-    btn.textContent = origText;
-    btn.disabled = false;
-    document.getElementById('member-count').innerText = failed === 0 ? `✓ Sent to ${sent}` : `${sent} sent, ${failed} failed`;
+// ── Recipients ───────────────────────────────────────────────────────────────
+function selectedTeams() { return Array.from(document.querySelectorAll('.team-filter:checked')).map(cb => cb.value); }
+function memberInTeams(m, teams) {
+    if (teams.includes('Everyone')) return true;
+    return m.markers && m.markers.some(r => teams.includes(r));
 }
+function resolveRecipients() {
+    const teams = selectedTeams();
+    const withEmail = [], noEmail = [], seen = new Set();
+    allMembers.forEach(m => {
+        const selected = (teams.length && memberInTeams(m, teams)) || pickedIds.has(m.id);
+        if (!selected) return;
+        const email = (m.email || '').trim();
+        if (!email) { noEmail.push(m.name || 'Unnamed'); return; }
+        const key = email.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        withEmail.push({ name: m.name || email, email });
+    });
+    return { withEmail, noEmail };
+}
+function updateTeamCounts() {
+    document.querySelectorAll('.cnt').forEach(el => {
+        const team = el.dataset.team;
+        const n = team === 'Everyone'
+            ? allMembers.filter(m => (m.email || '').trim()).length
+            : allMembers.filter(m => m.markers && m.markers.includes(team) && (m.email || '').trim()).length;
+        el.textContent = n ? n : '';
+    });
+}
+function updateRecipSummary() {
+    const { withEmail, noEmail } = resolveRecipients();
+    let txt = `<b>${withEmail.length}</b> ${withEmail.length === 1 ? 'person' : 'people'} selected`;
+    if (noEmail.length) txt += ` · ${noEmail.length} without an email`;
+    $('recipSummary').innerHTML = txt;
+}
+document.querySelectorAll('.team-filter').forEach(cb => cb.addEventListener('change', updateRecipSummary));
 
-document.getElementById('editable-body').addEventListener('click', e => {
-    if (e.target.tagName === 'IMG') {
-        if (lastClickedImg) lastClickedImg.classList.remove('selected-img');
-        lastClickedImg = e.target;
-        lastClickedImg.classList.add('selected-img');
+// Individual recipient picker
+function openPeople() { $('peopleModal').classList.add('active'); renderPeople(); setTimeout(() => $('peopleSearch').focus(), 80); }
+function closePeople() { $('peopleModal').classList.remove('active'); }
+function renderPeople() {
+    const q = ($('peopleSearch').value || '').toLowerCase().trim();
+    const rows = allMembers.slice()
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        .filter(m => !q || (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q));
+    $('peopleList').innerHTML = rows.length ? rows.map(m => {
+        const email = (m.email || '').trim(), has = !!email;
+        return `<label class="people-row ${has ? '' : 'noemail'}">
+            <input type="checkbox" data-id="${escapeHtml(m.id)}" ${pickedIds.has(m.id) ? 'checked' : ''} ${has ? '' : 'disabled'}>
+            <span class="pr-name">${escapeHtml(m.name || 'Unnamed')}</span>
+            <span class="pr-email">${has ? escapeHtml(email) : 'no email on file'}</span>
+        </label>`;
+    }).join('') : '<div class="draft-empty">No matches.</div>';
+}
+$('peopleSearch').addEventListener('input', renderPeople);
+$('peopleList').addEventListener('change', e => {
+    const cb = e.target;
+    if (cb && cb.dataset && cb.dataset.id) {
+        if (cb.checked) pickedIds.add(cb.dataset.id); else pickedIds.delete(cb.dataset.id);
+        updatePickedUi();
     }
 });
+function clearPicked() { pickedIds.clear(); renderPeople(); updatePickedUi(); }
+function updatePickedUi() {
+    $('pickedCount').textContent = pickedIds.size;
+    $('pickedBadge').textContent = pickedIds.size ? `· ${pickedIds.size}` : '';
+    updateRecipSummary();
+}
 
+// ── Review & Send ────────────────────────────────────────────────────────────
+function openReview() {
+    const meta = getMeta();
+    if (!meta.subject) { $('subjectInput').focus(); alert('Add a subject line first — it\'s what people see in their inbox.'); return; }
+    const { withEmail, noEmail } = resolveRecipients();
+    if (withEmail.length === 0) { alert('Choose who to send to first — tick a team or use "Pick individual people".'); return; }
+    lastSendList = withEmail;
+
+    $('reviewSubject').textContent = meta.subject;
+    $('reviewCount').textContent = withEmail.length;
+    $('reviewChips').innerHTML = withEmail.map(r => `<span class="chip">${escapeHtml(r.name)}</span>`).join('');
+    $('reviewWarn').innerHTML = noEmail.length
+        ? `<div class="warnbox"><b>${noEmail.length}</b> selected ${noEmail.length === 1 ? 'person has' : 'people have'} no email on file and won't receive this: ${noEmail.map(escapeHtml).join(', ')}. Add their address in the Address Book.</div>`
+        : '';
+    $('reviewReplyTo').textContent = $('senderEmail').value.trim() || 'worship@esherchurch.org (default)';
+    $('testEmail').value = $('senderEmail').value.trim();
+
+    $('previewFrame').srcdoc = buildEmailHtml(getBodyInner(), meta);
+
+    // reset send UI (rebuild button labels so a prior retry/success state can't linger)
+    $('sendProgress').style.display = 'none';
+    $('sendResults').style.display = 'none';
+    $('reviewButtons').style.display = 'flex';
+    const confirmBtn = $('confirmSendBtn');
+    confirmBtn.style.display = '';
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = `Send to <span id="sendBtnCount">${withEmail.length}</span> people`;
+    $('reviewButtons').querySelector('.btn-ghost').textContent = 'Cancel';
+    $('reviewModal').classList.add('active');
+}
+function closeReview() { $('reviewModal').classList.remove('active'); }
+
+async function postEmail(toList, meta, html) {
+    const resp = await fetch(SEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            to: toList,
+            subject: meta.subject,
+            html,
+            replyTo: $('senderEmail').value.trim() || 'worship@esherchurch.org'
+        })
+    });
+    return resp.json();
+}
+
+async function sendTest() {
+    const addr = $('testEmail').value.trim();
+    if (!addr) { $('testEmail').focus(); return; }
+    const meta = getMeta();
+    const html = buildEmailHtml(getBodyInner(), meta);
+    const btnRow = $('testEmail').nextElementSibling;
+    btnRow.disabled = true; btnRow.textContent = 'Sending…';
+    try {
+        const r = await postEmail([addr], { ...meta, subject: '[TEST] ' + meta.subject }, html);
+        alert(r && r.ok ? `Test sent to ${addr}. Check your inbox.` : `Test failed: ${(r && r.error) || 'unknown error'}`);
+    } catch(e) { alert('Test failed: ' + e.message); }
+    btnRow.disabled = false; btnRow.textContent = 'Send test';
+}
+
+async function sendAll() {
+    const meta = getMeta();
+    const html = buildEmailHtml(getBodyInner(), meta);
+    const list = lastSendList.slice();
+    if (!list.length) return;
+
+    $('reviewButtons').style.display = 'none';
+    $('sendResults').style.display = 'none';
+    $('sendProgress').style.display = 'block';
+    $('pfill').style.width = '0';
+
+    let ok = 0; const failed = [];
+    for (let i = 0; i < list.length; i++) {
+        const r = list[i];
+        $('pstat').textContent = `Sending ${i + 1} of ${list.length} — ${r.name}`;
+        try {
+            const res = await postEmail([r.email], meta, html);
+            if (res && res.ok) ok++; else failed.push(r);
+        } catch(e) { failed.push(r); }
+        $('pfill').style.width = Math.round(((i + 1) / list.length) * 100) + '%';
+        await new Promise(res => setTimeout(res, 180));
+    }
+
+    $('sendProgress').style.display = 'none';
+    $('resOk').textContent = ok;
+    $('resFail').textContent = failed.length;
+    $('failList').innerHTML = failed.length
+        ? `<div class="fail-list"><b>Couldn't deliver to:</b><br>${failed.map(f => escapeHtml(f.name) + ' (' + escapeHtml(f.email) + ')').join('<br>')}</div>`
+        : `<div style="text-align:center;color:var(--good);font-weight:700;font-size:13px;">🎉 Everyone received it.</div>`;
+    $('sendResults').style.display = 'block';
+
+    lastSendList = failed;  // allow one-click retry of just the failures
+    $('reviewButtons').style.display = 'flex';
+    if (failed.length) {
+        $('sendBtnCount').textContent = failed.length;
+        $('confirmSendBtn').textContent = `Retry ${failed.length} failed`;
+    } else {
+        $('confirmSendBtn').style.display = 'none';
+        $('reviewButtons').querySelector('.btn-ghost').textContent = 'Done';
+    }
+}
+
+// ── Drafts ───────────────────────────────────────────────────────────────────
+const draftNames = {};
+function formatDate(ts) {
+    if (!ts) return '—';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+        + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+async function openDraftsModal() { $('draftsModal').classList.add('active'); await renderDraftsList(); }
+function closeDraftsModal() { $('draftsModal').classList.remove('active'); }
+
+async function renderDraftsList() {
+    const list = $('draftsList');
+    list.innerHTML = '<div class="draft-empty">Loading…</div>';
+    try {
+        const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS).get();
+        $('draftSlotCount').textContent = `${snap.docs.length} of ${MAX_DRAFTS} slots used`;
+        if (snap.docs.length === 0) { list.innerHTML = '<div class="draft-empty">No saved drafts yet.</div>'; return; }
+        list.innerHTML = snap.docs.map(d => {
+            const data = d.data();
+            draftNames[d.id] = data.name || 'Untitled Draft';
+            const active = d.id === activeDraftId;
+            return `<div class="draft-card" style="${active ? 'border-color:#3d6263;background:#f0f6f6;' : ''}">
+                <div class="draft-info">
+                    <div class="draft-name">${escapeHtml(data.name || 'Untitled Draft')}${active ? '<span class="draft-badge">LOADED</span>' : ''}</div>
+                    <div class="draft-meta">✏️ ${escapeHtml(data.createdBy || '?')} · ${formatDate(data.createdAt)}<br>🔄 ${escapeHtml(data.updatedBy || '?')} · ${formatDate(data.updatedAt)}</div>
+                </div>
+                <div class="draft-actions">
+                    <button class="btn-load" onclick="loadDraft('${d.id}')">Load</button>
+                    <button class="btn-del" onclick="deleteDraft('${d.id}')" title="Delete">🗑</button>
+                </div></div>`;
+        }).join('');
+    } catch(e) { list.innerHTML = '<div class="draft-empty">Couldn\'t load drafts — check your connection.</div>'; }
+}
+
+function draftPayload() {
+    const meta = getMeta();
+    return { name: '', content: $('editable-body').innerHTML,
+        subject: meta.subject, preheader: meta.preheader, headerTitle: meta.headerTitle, headerSub: meta.headerSub };
+}
+
+async function saveNewDraft() {
+    if (!currentUser) { $('whoModal').classList.add('active'); return; }
+    const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS + 1).get();
+    if (snap.size >= MAX_DRAFTS) { alert(`You've reached ${MAX_DRAFTS} drafts. Delete one before saving a new draft.`); return; }
+    const name = prompt("Name this draft:", getMeta().subject || "Team Update");
+    if (!name) return;
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+    showLoader('Saving draft…');
+    try {
+        const ref = await db.collection("emailDrafts").add({
+            ...draftPayload(), name, createdBy: currentUser, createdAt: now, updatedBy: currentUser, updatedAt: now
+        });
+        activeDraftId = ref.id;
+        updateCurrentDraftInfo(name, currentUser, currentUser);
+        await renderDraftsList();
+        markClean();
+    } catch(e) { alert("Couldn't save the draft — check your connection."); }
+    hideLoader();
+}
+
+async function loadDraft(id) {
+    showLoader('Loading draft…');
+    try {
+        const d = await db.collection("emailDrafts").doc(id).get();
+        if (d.exists) {
+            const data = d.data();
+            $('editable-body').innerHTML = data.content || '';
+            $('subjectInput').value = data.subject || '';
+            $('preheaderInput').value = data.preheader || '';
+            $('headerTitle').innerText = data.headerTitle || 'EGBC Worship & AV';
+            $('headerSub').innerText = data.headerSub || 'Team Update';
+            activeDraftId = id;
+            updateCurrentDraftInfo(data.name, data.createdBy, data.updatedBy, data.createdAt, data.updatedAt);
+            closeDraftsModal();
+            markClean();
+        }
+    } catch(e) { alert("Couldn't load that draft."); }
+    hideLoader();
+}
+
+async function overwriteActiveDraft() {
+    if (!activeDraftId) { await saveNewDraft(); return; }
+    if (!currentUser) { $('whoModal').classList.add('active'); return; }
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+    showLoader('Saving changes…');
+    try {
+        const existing = await db.collection("emailDrafts").doc(activeDraftId).get();
+        const ex = existing.data() || {};
+        const payload = draftPayload(); delete payload.name;
+        await db.collection("emailDrafts").doc(activeDraftId).update({ ...payload, updatedBy: currentUser, updatedAt: now });
+        updateCurrentDraftInfo(ex.name, ex.createdBy, currentUser, ex.createdAt);
+        markClean();
+    } catch(e) { alert("Couldn't save changes — check your connection."); }
+    hideLoader();
+}
+
+async function deleteDraft(id) {
+    if (!confirm(`Delete "${draftNames[id] || 'this draft'}"? This cannot be undone.`)) return;
+    try {
+        await db.collection("emailDrafts").doc(id).delete();
+        if (activeDraftId === id) { activeDraftId = null; $('current-draft-info').style.display = 'none'; }
+        await renderDraftsList();
+    } catch(e) { alert("Couldn't delete that draft."); }
+}
+
+function updateCurrentDraftInfo(name, createdBy, updatedBy, createdAt, updatedAt) {
+    const el = $('current-draft-info');
+    let html = `<div style="font-weight:800;color:#1e293b;margin-bottom:4px;font-size:12px;">${escapeHtml(name || 'Draft')}</div>`;
+    html += `<div>✏️ Created by <b>${escapeHtml(createdBy || '?')}</b></div>`;
+    html += `<div style="margin-top:4px;">🔄 Last edited by <b>${escapeHtml(updatedBy || '?')}</b></div>`;
+    html += `<button onclick="overwriteActiveDraft()" class="btn-primary" style="background:var(--good);margin-top:10px;padding:9px;font-size:11px;">💾 Save changes to this draft</button>`;
+    el.innerHTML = html; el.style.display = 'block';
+}
+
+// ── Autosave (local) + unsaved guard ─────────────────────────────────────────
+let autosaveTimer = null;
+function scheduleAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+        try {
+            const meta = getMeta();
+            localStorage.setItem(LS_AUTOSAVE, JSON.stringify({ ...meta, content: $('editable-body').innerHTML, at: Date.now() }));
+            $('saveState').textContent = 'Autosaved · unsent';
+        } catch(e) {}
+    }, 700);
+}
+function restoreAutosave() {
+    try {
+        const raw = localStorage.getItem(LS_AUTOSAVE);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (s.content) $('editable-body').innerHTML = s.content;
+        if (s.subject) $('subjectInput').value = s.subject;
+        if (s.preheader) $('preheaderInput').value = s.preheader;
+        if (s.headerTitle) $('headerTitle').innerText = s.headerTitle;
+        if (s.headerSub) $('headerSub').innerText = s.headerSub;
+    } catch(e) {}
+}
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ── Images ───────────────────────────────────────────────────────────────────
+$('editable-body').addEventListener('click', e => {
+    if (e.target.tagName === 'IMG') {
+        if (lastClickedImg) lastClickedImg.classList.remove('selected-img');
+        lastClickedImg = e.target; lastClickedImg.classList.add('selected-img');
+    }
+});
 function triggerResize() {
-    if (!lastClickedImg) return alert("Select an image first");
+    if (!lastClickedImg) return alert("Click an image in the email first, then Resize.");
     const val = prompt("Width (e.g. 400 or 100%):", lastClickedImg.getAttribute('width') || "300");
     if (val) {
         lastClickedImg.setAttribute('width', val.replace('px',''));
         lastClickedImg.style.width = val.includes('%') ? val : val + "px";
+        markDirty();
     }
 }
-
-function insertSideLayout(align) {
-    const html = `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:20px 0;">
-        <tr>
-            <td width="50%" valign="${align}" style="padding:15px; border: 1px dashed #ddd;">[Left Content]</td>
-            <td width="50%" valign="${align}" style="padding:15px; border: 1px dashed #ddd;">[Right Content]</td>
-        </tr>
-    </table><p></p>`;
-    document.execCommand('insertHTML', false, html);
-}
-
 function uploadImage() {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*';
     input.onchange = e => {
-        const file = e.target.files[0];
-        document.getElementById('loader').style.display = 'flex';
-        document.getElementById('loaderMsg').textContent = 'Uploading image...';
+        const file = e.target.files[0]; if (!file) return;
+        showLoader('Uploading image…');
         const ref = storage.ref(`email_assets/${Date.now()}_${file.name}`);
         ref.put(file).then(() => ref.getDownloadURL()).then(url => {
-            document.execCommand('insertHTML', false, `<img src="${url}" width="350" style="width:350px; height:auto; margin:15px 0;">`);
-            document.getElementById('loader').style.display = 'none';
-        });
+            insertIntoEditor(`<img src="${url}" width="350" style="width:350px;height:auto;margin:15px 0;border-radius:8px;">`);
+            hideLoader();
+        }).catch(err => { hideLoader(); alert('Image upload failed: ' + err.message); });
     };
     input.click();
 }
 
-async function compileAndLaunch() {
-    const clone = document.getElementById('editable-body').cloneNode(true);
-    clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
-    clone.querySelectorAll('table, td').forEach(el => el.style.border = "none");
-
-    const outlookHeader = `
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff; border-bottom:1px solid #d1dfdf;">
-            <tr>
-                <td style="padding:40px; height:140px;">
-                    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="180" style="display:block;">
-                </td>
-                <td align="right" style="padding:40px; font-family:'Segoe UI', sans-serif;">
-                    <div style="font-size: 18px; color: #3d6263; font-weight: 700;">Worship &amp; AV Team</div>
-                </td>
-            </tr>
-        </table>`;
-
-    const responsiveStyles = `
-        <style type="text/css">
-            @media only screen and (max-width: 600px) {
-                .email-outer { width: 100% !important; }
-                .email-inner { width: 100% !important; padding: 20px !important; }
-                .email-body { font-size: 16px !important; line-height: 1.6 !important; }
-                img { max-width: 100% !important; height: auto !important; }
-            }
-        </style>`;
-
-    const finalHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-${responsiveStyles}
-</head>
-<body style="margin:0;padding:0;background-color:#ffffff;">
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
-    <tr><td align="center">
-        <table class="email-outer" width="750" border="0" cellspacing="0" cellpadding="0" style="width:750px;">
-            <tr><td>${outlookHeader}</td></tr>
-            <tr><td class="email-inner" style="padding:40px; font-family:'Segoe UI', Arial, sans-serif; font-size:16px; color:#333333; line-height:1.6;">
-                <div class="email-body">${clone.innerHTML}</div>
-            </td></tr>
-        </table>
-    </td></tr>
-</table>
-</body>
-</html>`;
-
-    // Email is ready - user can send via the Send Email button
-    alert("Email compiled! Select your team in the sidebar and click Send Email.");
-}
-
-// Pre-populate sender email
-document.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('egbc-sender-email') || '';
-    const el = document.getElementById('senderEmail');
-    if (el) el.value = saved;
-});
-
-// ── GIF MAKER ─────────────────────────────────────────────────────────────
-function openGifModal() { document.getElementById('gifModal').classList.add('active'); }
-function closeGifModal() { document.getElementById('gifModal').classList.remove('active'); }
-
+// ── GIF Maker ────────────────────────────────────────────────────────────────
+function openGifModal() { $('gifModal').classList.add('active'); }
+function closeGifModal() { $('gifModal').classList.remove('active'); }
 function addGifFrames() {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
@@ -648,106 +1002,178 @@ function addGifFrames() {
     };
     input.click();
 }
-
 function renderGifFrames() {
-    const list = document.getElementById('gifFrameList');
-    if (gifFrames.length === 0) {
-        list.innerHTML = '<span style="font-size:11px; color:#aaa; align-self:center;">No frames yet — add images below</span>';
-        return;
-    }
-    list.innerHTML = gifFrames.map((f, i) =>
-        `<img src="${f.dataUrl}" title="Click to remove" onclick="removeGifFrame(${i})">`
-    ).join('');
+    const list = $('gifFrameList');
+    if (gifFrames.length === 0) { list.innerHTML = '<span style="font-size:11px;color:#aaa;align-self:center;">No frames yet — add images below</span>'; return; }
+    list.innerHTML = gifFrames.map((f, i) => `<img src="${f.dataUrl}" title="Click to remove" onclick="removeGifFrame(${i})">`).join('');
 }
-
 function removeGifFrame(idx) { gifFrames.splice(idx, 1); renderGifFrames(); }
 function clearGifFrames() { gifFrames = []; renderGifFrames(); }
-
 async function generateGif() {
-    if (gifFrames.length < 2) { alert("Please add at least 2 images."); return; }
-    const delayMs = parseInt(document.getElementById('gifDelay').value) || 500;
-    const targetWidth = parseInt(document.getElementById('gifWidth').value) || 400;
+    if (gifFrames.length < 2) { alert("Add at least 2 images."); return; }
+    const delayMs = parseInt($('gifDelay').value) || 500;
+    const targetWidth = parseInt($('gifWidth').value) || 400;
     const delayCentiseconds = Math.round(delayMs / 10);
-
-    document.getElementById('gifProgress').style.display = 'block';
-    document.getElementById('gifProgressFill').style.width = '10%';
+    $('gifProgress').style.display = 'block'; $('gifProgressFill').style.width = '8%';
 
     const loadImg = src => new Promise(res => { const img = new Image(); img.onload = () => res(img); img.src = src; });
     const imgs = await Promise.all(gifFrames.map(f => loadImg(f.dataUrl)));
-    const ratio = imgs[0].naturalHeight / imgs[0].naturalWidth;
-    const targetHeight = Math.round(targetWidth * ratio);
 
+    // Canvas shape from the first frame; every frame is cover-fitted (no stretching).
+    const targetHeight = Math.round(targetWidth * (imgs[0].naturalHeight / imgs[0].naturalWidth));
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth; canvas.height = targetHeight;
-    const ctx = canvas.getContext('2d');
-    const buf = new Uint8Array(targetWidth * targetHeight * imgs.length * 5 + 1024);
-    const writer = new GifWriter(buf, targetWidth, targetHeight, { loop: 0 });
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    for (let i = 0; i < imgs.length; i++) {
+    // 1) Rasterise every frame and keep its pixels.
+    const framesData = imgs.map(img => {
         ctx.clearRect(0, 0, targetWidth, targetHeight);
-        ctx.drawImage(imgs[i], 0, 0, targetWidth, targetHeight);
-        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-        const { palette, indexed } = rgbaToPaletteIndexed(imageData.data, targetWidth, targetHeight);
-        writer.addFrame(0, 0, targetWidth, targetHeight, indexed, { palette, delay: delayCentiseconds });
-        document.getElementById('gifProgressFill').style.width = Math.round(((i + 1) / imgs.length) * 80) + '%';
-    }
+        drawCover(ctx, img, targetWidth, targetHeight);
+        return ctx.getImageData(0, 0, targetWidth, targetHeight).data;
+    });
+    $('gifProgressFill').style.width = '30%';
 
+    // 2) One shared, representative 256-colour palette for the whole animation
+    //    (median-cut across ALL frames → accurate colour, no frame-to-frame flicker).
+    const paletteRGB = medianCutPalette(framesData, 256);
+    const paletteInts = paletteRGB.map(p => (p.r << 16) | (p.g << 8) | p.b);
+    while (paletteInts.length < 2 || (paletteInts.length & (paletteInts.length - 1)) !== 0) paletteInts.push(0);
+    $('gifProgressFill').style.width = '45%';
+
+    // 3) Map each pixel to the nearest palette colour and encode.
+    const buf = new Uint8Array(targetWidth * targetHeight * imgs.length * 5 + 4096);
+    const writer = new GifWriter(buf, targetWidth, targetHeight, { loop: 0 });
+    const cache = new Map();
+    const useDither = $('gifDither') ? $('gifDither').checked : true;
+    for (let i = 0; i < framesData.length; i++) {
+        const data = framesData[i];
+        const indexed = useDither
+            ? ditherFrame(data, targetWidth, targetHeight, paletteRGB, cache)
+            : mapFrame(data, targetWidth, targetHeight, paletteRGB, cache);
+        writer.addFrame(0, 0, targetWidth, targetHeight, indexed, { palette: paletteInts, delay: delayCentiseconds });
+        $('gifProgressFill').style.width = (45 + Math.round(((i + 1) / framesData.length) * 45)) + '%';
+    }
     const gifData = buf.slice(0, writer.end());
     const blob = new Blob([gifData], { type: 'image/gif' });
-    document.getElementById('gifProgressFill').style.width = '90%';
+    $('gifProgressFill').style.width = '95%';
 
-    document.getElementById('loader').style.display = 'flex';
-    document.getElementById('loaderMsg').textContent = 'Uploading GIF...';
-    document.getElementById('gifProgress').style.display = 'none';
-
+    showLoader('Uploading GIF…'); $('gifProgress').style.display = 'none';
     try {
         const ref = storage.ref(`email_assets/gif_${Date.now()}.gif`);
         await ref.put(blob, { contentType: 'image/gif' });
         const url = await ref.getDownloadURL();
-        document.execCommand('insertHTML', false, `<img src="${url}" width="${targetWidth}" style="width:${targetWidth}px; height:auto; margin:15px 0;">`);
-        closeGifModal();
-        clearGifFrames();
-    } catch(e) {
-        alert("Error uploading GIF: " + e.message);
-    }
-    document.getElementById('loader').style.display = 'none';
+        insertIntoEditor(`<img src="${url}" width="${targetWidth}" style="width:${targetWidth}px;height:auto;margin:15px 0;">`);
+        closeGifModal(); clearGifFrames();
+    } catch(e) { alert("Error uploading GIF: " + e.message); }
+    hideLoader();
+}
+// Draw an image to fill w×h without distortion (centre-crop / "cover").
+function drawCover(ctx, img, cw, ch) {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const cr = cw / ch, ir = iw / ih;
+    let sw, sh, sx, sy;
+    if (ir > cr) { sh = ih; sw = ih * cr; sx = (iw - sw) / 2; sy = 0; }
+    else { sw = iw; sh = iw / cr; sx = 0; sy = (ih - sh) / 2; }
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
 }
 
-function rgbaToPaletteIndexed(data, w, h) {
-    const colorMap = new Map();
+// Median-cut colour quantisation across all frames → one representative palette.
+function medianCutPalette(framesData, maxColors) {
+    const hist = new Map();               // 5-bit-per-channel histogram, all frames
+    for (const data of framesData) {
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i], g = data[i+1], b = data[i+2];
+            const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+            const e = hist.get(key);
+            if (e) e.c++; else hist.set(key, { r, g, b, c: 1 });
+        }
+    }
+    let boxes = [Array.from(hist.values())];
+    if (boxes[0].length === 0) return [{ r: 0, g: 0, b: 0 }];
+    while (boxes.length < maxColors) {
+        let bi = -1, widest = -1, axis = 0;      // split the box with the widest colour range
+        for (let k = 0; k < boxes.length; k++) {
+            const box = boxes[k];
+            if (box.length < 2) continue;
+            let rmin=255,rmax=0,gmin=255,gmax=0,bmin=255,bmax=0;
+            for (const p of box) {
+                if(p.r<rmin)rmin=p.r; if(p.r>rmax)rmax=p.r;
+                if(p.g<gmin)gmin=p.g; if(p.g>gmax)gmax=p.g;
+                if(p.b<bmin)bmin=p.b; if(p.b>bmax)bmax=p.b;
+            }
+            const rr=rmax-rmin, gr=gmax-gmin, br=bmax-bmin, mx=Math.max(rr,gr,br);
+            if (mx > widest) { widest = mx; bi = k; axis = (rr>=gr&&rr>=br)?0:(gr>=br?1:2); }
+        }
+        if (bi < 0) break;
+        const box = boxes[bi];
+        box.sort((a,b) => axis===0 ? a.r-b.r : axis===1 ? a.g-b.g : a.b-b.b);
+        const mid = box.length >> 1;
+        boxes.splice(bi, 1, box.slice(0, mid), box.slice(mid));
+    }
+    return boxes.map(box => {                    // palette colour = weighted average of its box
+        let r=0,g=0,b=0,c=0;
+        for (const p of box) { r+=p.r*p.c; g+=p.g*p.c; b+=p.b*p.c; c+=p.c; }
+        c = c || 1;
+        return { r: Math.round(r/c), g: Math.round(g/c), b: Math.round(b/c) };
+    });
+}
+
+// Nearest palette index for an RGB value, cached by 5-bit colour key.
+function nearestIndex(r, g, b, palette, cache) {
+    const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+    const hit = cache.get(key);
+    if (hit !== undefined) return hit;
+    let best = 0, bd = Infinity;
+    for (let j = 0; j < palette.length; j++) {
+        const p = palette[j];
+        const d = (r-p.r)*(r-p.r) + (g-p.g)*(g-p.g) + (b-p.b)*(b-p.b);
+        if (d < bd) { bd = d; best = j; }
+    }
+    cache.set(key, best);
+    return best;
+}
+
+// Straight nearest-colour mapping (no dithering).
+function mapFrame(data, w, h, palette, cache) {
     const indexed = new Uint8Array(w * h);
-    const palette = [];
-    for (let i = 0; i < w * h; i++) {
-        const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
-        const key = ((r >> 2) << 16) | ((g >> 2) << 8) | (b >> 2);
-        if (!colorMap.has(key)) {
-            if (palette.length < 255) {
-                colorMap.set(key, palette.length);
-                palette.push((r >> 2) << 18 | (g >> 2) << 10 | (b >> 2) << 2);
-            } else {
-                let best = 0, bestDist = Infinity;
-                for (let j = 0; j < palette.length; j++) {
-                    const pr = (palette[j] >> 18) << 2, pg = ((palette[j] >> 10) & 0x3f) << 2, pb = ((palette[j] >> 2) & 0x3f) << 2;
-                    const d = (r-pr)**2 + (g-pg)**2 + (b-pb)**2;
-                    if (d < bestDist) { bestDist = d; best = j; }
-                }
-                colorMap.set(key, best);
+    for (let p = 0; p < indexed.length; p++)
+        indexed[p] = nearestIndex(data[p*4], data[p*4+1], data[p*4+2], palette, cache);
+    return indexed;
+}
+
+// Floyd–Steinberg dithering — diffuses quantisation error to neighbours so
+// gradients (skies, skin tones) read as a fine texture instead of hard bands.
+function ditherFrame(data, w, h, palette, cache) {
+    const buf = new Float32Array(w * h * 3);
+    for (let i = 0, j = 0; i < w * h; i++, j += 3) { buf[j] = data[i*4]; buf[j+1] = data[i*4+1]; buf[j+2] = data[i*4+2]; }
+    const clamp = v => v < 0 ? 0 : v > 255 ? 255 : v;
+    const indexed = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = y * w + x, j = i * 3;
+            const r = clamp(buf[j]), g = clamp(buf[j+1]), b = clamp(buf[j+2]);
+            const idx = nearestIndex(r | 0, g | 0, b | 0, palette, cache);
+            indexed[i] = idx;
+            const p = palette[idx];
+            const er = r - p.r, eg = g - p.g, eb = b - p.b;
+            if (x + 1 < w)      { const k=(i+1)*3;   buf[k]+=er*7/16; buf[k+1]+=eg*7/16; buf[k+2]+=eb*7/16; }
+            if (y + 1 < h) {
+                if (x > 0)      { const k=(i+w-1)*3; buf[k]+=er*3/16; buf[k+1]+=eg*3/16; buf[k+2]+=eb*3/16; }
+                                { const k=(i+w)*3;   buf[k]+=er*5/16; buf[k+1]+=eg*5/16; buf[k+2]+=eb*5/16; }
+                if (x + 1 < w)  { const k=(i+w+1)*3; buf[k]+=er*1/16; buf[k+1]+=eg*1/16; buf[k+2]+=eb*1/16; }
             }
         }
-        indexed[i] = colorMap.get(key);
     }
-    while (palette.length < 2 || (palette.length & (palette.length - 1)) !== 0) palette.push(0);
-    return { palette, indexed };
+    return indexed;
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    $('senderEmail').value = localStorage.getItem('egbc-sender-email') || '';
+    restoreAutosave();
+});
 initUser();
 </script>
-
-<a id="helpBtn"
-   href="https://esherchurch.github.io/availability-form/emailcompilerinstructions.html"
-   target="_blank" rel="noopener" aria-label="Open instructions"
-   style="position:fixed; bottom:24px; right:24px; z-index:900; width:38px; height:38px; border-radius:9999px; background:#ffffff; border:1.5px solid #d1dfdf; color:#3d6263; font-family:'Segoe UI',sans-serif; font-weight:800; font-size:15px; box-shadow:0 2px 12px rgba(61,98,99,0.12); display:flex; align-items:center; justify-content:center; text-decoration:none;">?</a>
 
 </body>
 </html>
