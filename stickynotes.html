@@ -161,7 +161,7 @@
   .reaction-btn { background:rgba(255,255,255,.45); border:1.5px solid rgba(0,0,0,.1); border-radius:9999px; padding:3px 9px; cursor:pointer; font-size:.76rem; display:flex; align-items:center; gap:3px; transition:all .15s; font-family:var(--font); font-weight:700; color:rgba(0,0,0,.6); }
   .reaction-btn:hover  { background:rgba(255,255,255,.75); transform:scale(1.1); }
   .reaction-btn.active { background:rgba(255,255,255,.88); border-color:rgba(0,0,0,.25); color:#000; }
-  .note-meta { margin-top:7px; font-size:.63rem; color:rgba(0,0,0,.4); display:flex; justify-content:space-between; align-items:center; font-family:var(--font); font-weight:700; }
+  .note-meta { margin-top:7px; font-size:.7rem; color:rgba(0,0,0,.58); display:flex; justify-content:space-between; align-items:center; font-family:var(--font); font-weight:700; }
   .archived-badge { font-size:.55rem; font-weight:800; background:rgba(0,0,0,.15); color:rgba(0,0,0,.5); padding:2px 6px; border-radius:9999px; text-transform:uppercase; letter-spacing:.08em; }
 
   .drag-hint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--teal); color:#fff; padding:8px 22px; border-radius:9999px; font-family:var(--font); font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; pointer-events:none; opacity:1; transition:opacity .6s; z-index:300; box-shadow:0 4px 14px rgba(61,98,99,.3); }
@@ -203,6 +203,12 @@
     .board-outer { top:132px; }
     .form-row { grid-template-columns:1fr; }
     .note { width:230px; }
+  }
+
+  /* Touch devices can't hover — always show the per-note action buttons */
+  @media (hover: none) {
+    .note-actions { opacity: 1; }
+    .page-tab .tab-delete { opacity: 1; }
   }
 </style>
 </head>

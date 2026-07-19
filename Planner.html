@@ -1237,9 +1237,12 @@
         .max-h-\[400px\]::-webkit-scrollbar { width: 6px; }
         .max-h-\[400px\]::-webkit-scrollbar-thumb { background: #d1dfdf; border-radius: 10px; }
         body { background-color: #f0f6f6; color: #3d6263; font-family: 'Montserrat', sans-serif; }
+        /* Readability pass (additive, brand-safe): lift tiny sub-10px labels + darken faint grey */
+        .text-\[7px\], .text-\[8px\], .text-\[9px\] { font-size: 11px !important; }
+        .text-gray-400 { color: #4b5563 !important; }
     </style>
 </head>
-<body class="p-8 lg:p-12">
+<body class="p-4 sm:p-8 lg:p-12">
     <div class="max-w-[1900px] mx-auto">
         <header class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-12 gap-10 border-b border-[#d1dfdf] pb-12">
             <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">

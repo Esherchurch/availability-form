@@ -5,6 +5,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Youth Worship & AV Charter</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <style>
         :root {
             --pale-teal: #f0f6f6;
@@ -379,6 +382,19 @@
 const PAGE_ID  = 'youth-charter';
 const ADMIN_PW = 'Surreykt10';
 
+// Shared storage — admin edits are now saved to Firebase so everyone sees them
+// (previously saved to this browser's localStorage only).
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+const DOC_REF = db.collection('pageContent').doc(PAGE_ID);
+
 let isAdmin = false;
 let isEditingTitle = false;
 let photos  = [];
@@ -386,8 +402,10 @@ let photos  = [];
 // ── INIT ──
 window.addEventListener('load', loadSaved);
 
-function loadSaved() {
-    const saved = JSON.parse(localStorage.getItem(PAGE_ID) || '{}');
+async function loadSaved() {
+    let saved = {};
+    try { const snap = await DOC_REF.get(); if (snap.exists) saved = snap.data() || {}; }
+    catch (e) { console.error('Charter load failed', e); }
     const title = saved.title || 'Youth Worship & AV Charter';
     document.getElementById('page-title-display').textContent = title;
     document.getElementById('page-title-input').value = title;
@@ -427,18 +445,22 @@ function loadSaved() {
     const htmlContent = saved.html || defaultHtml;
     document.getElementById('content-display').innerHTML = htmlContent;
     document.getElementById('html-textarea').value = htmlContent;
-    if (saved.photos) {
-        photos = saved.photos;
-        renderPhotos();
-    }
+    photos = saved.photos || [];
+    renderPhotos();
 }
 
-function saveAll() {
-    localStorage.setItem(PAGE_ID, JSON.stringify({
-        title:  document.getElementById('page-title-display').textContent,
-        html:   document.getElementById('content-display').innerHTML,
-        photos: photos
-    }));
+async function saveAll() {
+    try {
+        await DOC_REF.set({
+            title:  document.getElementById('page-title-display').textContent,
+            html:   document.getElementById('content-display').innerHTML,
+            photos: photos,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.error('Charter save failed', e);
+        toast('Save failed — check your connection');
+    }
 }
 
 // ── ADMIN ──
@@ -551,20 +573,18 @@ function clearContent() {
 function handlePhotoUpload(event) {
     const files = Array.from(event.target.files);
     if (!files.length) return;
-    let loaded = 0;
-    files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
-            photos.push({ dataUrl: e.target.result, name: file.name });
-            loaded++;
-            if (loaded === files.length) {
-                renderPhotos();
-                saveAll();
-                toast(`${files.length} photo${files.length > 1 ? 's' : ''} added`);
-                document.getElementById('gallery-hint').style.display = 'none';
-            }
-        };
-        reader.readAsDataURL(file);
+    toast('Uploading photo' + (files.length > 1 ? 's' : '') + '…');
+    Promise.all(files.map(file => {
+        const ref = storage.ref(`charter_photos/${PAGE_ID}/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`);
+        return ref.put(file)
+            .then(() => ref.getDownloadURL())
+            .then(url => { photos.push({ url: url, name: file.name }); })
+            .catch(err => { console.error('Photo upload failed', err); });
+    })).then(() => {
+        renderPhotos();
+        saveAll();
+        toast(`${files.length} photo${files.length > 1 ? 's' : ''} added`);
+        document.getElementById('gallery-hint').style.display = 'none';
     });
     event.target.value = '';
 }
@@ -578,7 +598,7 @@ function renderPhotos() {
         const frame = document.createElement('div');
         frame.className = 'photo-frame';
         const img   = document.createElement('img');
-        img.src = photo.dataUrl;
+        img.src = photo.url || photo.dataUrl;
         img.alt = photo.name || 'Photo';
         frame.appendChild(img);
         if (isAdmin) {

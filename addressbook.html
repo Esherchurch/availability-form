@@ -152,6 +152,19 @@
             margin-top: 10px;
         }
         input:focus, select:focus { border-color: #9bc34a !important; }
+
+        /* Directory table: let cramped instrument cells breathe / wrap instead of overflowing */
+        .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        #memberListBody td div { word-break: break-word; }
+        /* Readability: keep the small secondary-instrument line legible */
+        #memberListBody .text-\[10px\] { font-size: 11px; }
+        #memberListBody .text-gray-400 { color: #6b7280; }
+
+        @media (max-width: 768px) {
+            table { min-width: 560px; }
+            #memberListBody td { padding: 12px 10px !important; }
+            thead th { padding-bottom: 1rem !important; }
+        }
     </style>
 </head>
 <body class="p-8 lg:p-12">

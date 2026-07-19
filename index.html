@@ -109,11 +109,12 @@
         };
 
         window.submitAll = async () => {
-            // Check all dates have been responded to
+            // Every ✓/✗ choice is already saved the instant it's clicked. Unanswered dates
+            // are deliberately left blank — never auto-marked Available.
             const unanswered = displayedEvents.filter(ev => !availabilityData[ev.id]);
             if (unanswered.length > 0) {
                 const dateList = unanswered.map(ev => new Date(ev.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })).join(', ');
-                const proceed = confirm(`You haven't responded to ${unanswered.length} date(s): ${dateList}\n\nThese will be marked as Available. Continue?`);
+                const proceed = confirm(`You still have ${unanswered.length} date(s) with no answer: ${dateList}\n\nThese will be left blank — the team will see no response from you for them (they are NOT counted as available). Submit anyway?`);
                 if (!proceed) return;
             }
 
@@ -122,10 +123,12 @@
             btn.innerText = "Saving...";
             btn.disabled = true;
             try {
-                for (const ev of unanswered) {
-                    await setStatus(ev.id, ev.date, 'avail');
+                // Re-save the answered choices so a submit also recovers from any earlier
+                // per-click write that silently failed. Unanswered dates are left untouched.
+                for (const ev of displayedEvents) {
+                    if (availabilityData[ev.id]) await setStatus(ev.id, ev.date, availabilityData[ev.id]);
                 }
-                alert("Availability Submitted Successfully! Thank you.");
+                alert("Availability submitted — thank you!");
                 location.reload();
             } catch (err) {
                 console.error("Availability submit failed:", err);

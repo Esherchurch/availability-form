@@ -52,7 +52,7 @@
         #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
         #app-viewport { flex-grow: 1; position: relative; background: var(--white); overflow: hidden; }
         #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
-        #sync-status { font-size: 10px; color: #2a4e4e; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
+        #sync-status { font-size: 11px; color: #2a4e4e; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; transition: color 0.3s; }
         #sync-status.syncing { color: #f0a500; }
         #sync-status.synced  { color: var(--accent-teal); }
         #sync-status.error   { color: #f44336; }
@@ -83,7 +83,7 @@
         #news-track-wrapper { flex-grow: 1; overflow: hidden; position: relative; min-width: 0; }
         #news-track { display: flex; flex-direction: column; gap: 0; will-change: transform; }
         .news-card { border-bottom: 1px solid var(--border-teal); padding: 16px 20px; background: var(--white); position: relative; flex-shrink: 0; min-width: 0; box-sizing: border-box; }
-        .news-card-date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #2a4e4e; margin-bottom: 4px; }
+        .news-card-date { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #2a4e4e; margin-bottom: 4px; }
         .news-card-title { font-size: 13px; font-weight: 700; color: var(--accent-teal); margin-bottom: 6px; }
         .news-card-body { font-size: 13px; color: #1e3a3a; line-height: 1.55; overflow: hidden; word-break: break-word; }
         .news-card-body * { max-width: 100% !important; box-sizing: border-box; }
@@ -99,7 +99,7 @@
         /* ── MODALS ── */
         .modal-overlay { display: none; position: absolute; inset: 0; background: rgba(61,98,99,0.45); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
         .modal-overlay.open { display: flex; }
-        .modal-box { background: #fff; border-radius: 16px; padding: 28px; width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.15); }
+        .modal-box { background: #fff; border-radius: 16px; padding: 28px; width: 600px; max-width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.15); }
         .modal-box h3 { font-size: 17px; font-weight: 600; color: var(--accent-teal); margin-bottom: 18px; }
         .modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 12px 0 5px; }
         .modal-box input, .modal-box select, .modal-box textarea { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; font-family: inherit; font-size: 13px; }
@@ -135,7 +135,7 @@
         .icon-picker-option:hover { border-color: var(--accent-teal); background: #e4f0f0; }
         .icon-picker-option.selected { border-color: var(--accent-teal); background: var(--accent-teal); color: white; }
         .icon-picker-option svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-        .icon-picker-option span { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: inherit; text-align: center; line-height: 1.2; }
+        .icon-picker-option span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: inherit; text-align: center; line-height: 1.2; }
         .icon-picker-option.selected span { color: white; }
 
         /* ── RICH TEXT EDITOR ── */
@@ -168,12 +168,24 @@
         /* ── MENU MODAL ── */
         #menu-modal-overlay { display: none; position: absolute; inset: 0; background: rgba(61,98,99,0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         #menu-modal-overlay.open { display: flex; }
-        .menu-modal-box { background: white; padding: 30px; border-radius: 16px; width: 480px; max-height: 90vh; overflow-y: auto; }
+        .menu-modal-box { background: white; padding: 30px; border-radius: 16px; width: 480px; max-width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto; }
         .menu-modal-box label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent-teal); margin: 10px 0 5px; }
         .menu-modal-box input, .menu-modal-box select { width: 100%; padding: 10px; border: 2px solid var(--border-teal); border-radius: 8px; outline: none; }
         .range-row { display: flex; align-items: center; gap: 10px; }
         .range-row input[type=range] { flex-grow: 1; accent-color: var(--accent-teal); }
         .range-row span { min-width: 40px; font-size: 12px; color: var(--accent-teal); font-weight: 700; text-align: right; }
+
+        /* ── RESPONSIVE (additive — stacks the two-column dashboard on small screens) ── */
+        @media (max-width: 900px) {
+            header { height: auto; min-height: 76px; padding: 12px 16px; }
+            #dept-logo { height: 56px; }
+            #hero-section { padding: 16px 20px; }
+            #hero-title { font-size: 24px; }
+            #dashboard-body { grid-template-columns: 1fr; }
+            #dashboard-main { padding: 20px 16px; }
+            #dashboard-sidebar-panel { border-left: none; border-top: 1px solid var(--border-teal); min-height: 320px; }
+            .modal-box, .menu-modal-box { width: 100%; }
+        }
     </style>
 </head>
 <body>

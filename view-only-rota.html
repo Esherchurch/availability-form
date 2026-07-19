@@ -185,6 +185,21 @@
             });
         }
     </script>
+    <style>
+        /* Readability pass (additive, brand-safe): lift tiny sub-10px labels */
+        .text-\[7px\], .text-\[8px\], .text-\[9px\] { font-size: 11px !important; }
+        /* Clean printing: hide download chrome, white page, keep brand colours legible */
+        @media print {
+            @page { margin: 12mm; }
+            header { display: none !important; }
+            body { background: #ffffff !important; }
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                box-shadow: none !important;
+            }
+        }
+    </style>
 </head>
 <body class="p-2 md:p-6 bg-[#f0f6f6] font-montserrat">
     <div class="w-full mx-auto">
