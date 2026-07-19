@@ -829,8 +829,15 @@ function handleItemClick(event, id, url, logo) {
     document.querySelectorAll('.nav-row').forEach(r => r.classList.remove('active'));
     event.currentTarget.classList.add('active');
 
-    if (url && url !== '#' && url !== 'landing') navigate(url, logo);
-    else if (url === 'landing') showLanding(logo);
+    if (url && url !== '#' && url !== 'landing') { navigate(url, logo); collapseSidebarAfterNav(); }
+    else if (url === 'landing') { showLanding(logo); collapseSidebarAfterNav(); }
+}
+
+// After choosing a page, collapse the menu instead of leaving it pinned open
+// (previously you had to tap the pin/hamburger to close it manually).
+function collapseSidebarAfterNav() {
+    closeAllMenus();
+    document.getElementById('sidebar').classList.remove('pinned');
 }
 
 function navigate(url, logoUrl) {
