@@ -51,7 +51,8 @@
     .resource-card.admin-clickable { cursor: pointer; }
     .resource-card.admin-clickable:hover { border-color: var(--teal); box-shadow: 0 4px 20px rgba(61,98,99,0.1); }
 
-    .card-icon { width: 52px; height: 52px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--teal-light); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+    .card-icon { width: 52px; height: 52px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--teal-light); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; overflow: hidden; }
+    .card-icon img { width: 100%; height: 100%; object-fit: contain; padding: 7px; border-radius: inherit; }
     .card-body { flex: 1; min-width: 0; }
     .card-name { font-weight: 800; font-size: 0.95rem; color: var(--teal); margin-bottom: 3px; }
     .card-desc { font-size: 0.75rem; color: var(--teal-mid); font-weight: 600; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -108,6 +109,15 @@
     .spinner { width: 32px; height: 32px; border: 3px solid var(--teal-light); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 32px auto; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Loading skeleton (nicer than a lone spinner) */
+    .skeleton-card { background: var(--white); border: 1px solid var(--teal-light); border-radius: var(--radius-lg); padding: 22px 26px; display: flex; align-items: center; gap: 18px; }
+    .sk { background: linear-gradient(90deg, #eef4f4 25%, #dfeaea 37%, #eef4f4 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 8px; }
+    .sk-icon { width: 52px; height: 52px; border-radius: var(--radius-sm); flex-shrink: 0; }
+    .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 9px; }
+    .sk-line { height: 12px; }
+    @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) { .sk, .spinner { animation: none; } }
+
     @media (max-width: 768px) {
       .layout { flex-direction: column; }
       .panel-editor { width: 100%; position: static; }
@@ -131,7 +141,7 @@
 </div>
 
 <div class="layout">
-  <div class="panel-list" id="resource-list"><div class="spinner"></div></div>
+  <div class="panel-list" id="resource-list"></div>
 
   <div class="panel-editor" id="editor-panel" style="display:none;">
     <h3 id="editor-title">Add New Resource</h3>
@@ -240,6 +250,9 @@ let currentId = null;
 let isAdmin   = false;
 const ADMIN_PW = 'Surreykt10';
 
+const SKELETON = '<div class="section-label" style="opacity:.55;">Loading resources…</div>' +
+  Array(4).fill('<div class="skeleton-card"><div class="sk sk-icon"></div><div class="sk-lines"><div class="sk sk-line" style="width:42%;"></div><div class="sk sk-line" style="width:72%;"></div><div class="sk sk-line" style="width:28%;"></div></div></div>').join('');
+
 // ── Admin ──
 function toggleAdmin() {
   if (isAdmin) {
@@ -285,7 +298,7 @@ document.getElementById('admin-login-modal').addEventListener('click', function(
 // ── Load resources ──
 async function loadResources() {
   const list = document.getElementById('resource-list');
-  list.innerHTML = '<div class="spinner"></div>';
+  list.innerHTML = SKELETON;
   try {
     const snap = await db.collection('hub_resources').orderBy('order').get();
     if (snap.empty) {
@@ -299,7 +312,7 @@ async function loadResources() {
       (d.type === 'apk' || d.type === 'pwa') ? apps.push(d) : links.push(d);
     });
     list.innerHTML = '';
-    if (apps.length)  { list.innerHTML += `<div class="section-label">Apps — Scan QR or tap Install</div>`; apps.forEach(r => list.innerHTML += cardHTML(r)); }
+    if (apps.length)  { list.innerHTML += `<div class="section-label">Apps — open, or add to your home screen</div>`; apps.forEach(r => list.innerHTML += cardHTML(r)); }
     if (links.length) { list.innerHTML += `<div class="section-label" style="margin-top:10px;">Web Links &amp; Tools</div>`; links.forEach(r => list.innerHTML += cardHTML(r)); }
   } catch(e) {
     list.innerHTML = `<div class="empty-state"><p>Error loading resources: ${e.message}</p></div>`;
@@ -308,22 +321,27 @@ async function loadResources() {
 
 function cardHTML(r) {
   const isApp     = r.type === 'apk' || r.type === 'pwa';
-  const icon      = isApp ? '📱' : '🔗';
-  const typeBadge = isApp ? '<span class="badge badge-apk">App</span>' : '<span class="badge badge-link">Web</span>';
-  const version   = r.version ? `<span class="badge badge-version">${r.version}</span>` : '';
   const appUrl    = r.url || r.downloadUrl || '';
+  const iconInner = (r.icon || r.iconUrl)
+      ? `<img src="${escHtml(r.icon || r.iconUrl)}" alt="">`
+      : (isApp ? '📱' : '🔗');
+  const typeBadge = isApp ? '<span class="badge badge-apk">App</span>' : '<span class="badge badge-link">Web</span>';
+  const version   = r.version ? `<span class="badge badge-version">${escHtml(r.version)}</span>` : '';
 
+  const openLink = `<a href="${escHtml(appUrl)}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">Open →</a>`;
+  const qrBtn    = `<button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>`;
   const actionBtn = isApp
-    ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();showInstallModal('${escHtml(appUrl)}','${escHtml(r.name)}')">📲 Install</button>
-       <button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>`
-    : `<a href="${escHtml(appUrl)}" target="_blank" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">Open →</a>
-       <button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>`;
+    ? `${openLink}
+       <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();showInstallModal('${escHtml(appUrl)}','${escHtml(r.name)}')">How to install</button>
+       ${qrBtn}`
+    : `${openLink}
+       ${qrBtn}`;
 
   const cardClass = isAdmin ? 'resource-card admin-clickable' : 'resource-card';
   const cardClick = isAdmin ? `onclick="editResource('${r.id}')"` : '';
 
   return `<div class="${cardClass}" ${cardClick}>
-    <div class="card-icon">${icon}</div>
+    <div class="card-icon">${iconInner}</div>
     <div class="card-body">
       <div class="card-name">${escHtml(r.name)}</div>
       <div class="card-desc">${escHtml(r.description || '')}</div>
