@@ -565,6 +565,9 @@ function buildEmailHtml(bodyInner, meta) {
     return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style type="text/css">
+.bodypad img{max-width:100%!important;height:auto!important;}
+.bodypad table{table-layout:fixed;max-width:100%;}
+.bodypad td{word-wrap:break-word;overflow-wrap:break-word;}
 @media only screen and (max-width:620px){
  .container{width:100%!important;border-radius:0!important;}
  .hpad{padding-left:24px!important;padding-right:24px!important;}
