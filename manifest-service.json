@@ -3,6 +3,8 @@
   "short_name": "Service Planner",
   "description": "EGBC Sunday Service Planner",
   "start_url": "https://esherchurch.github.io/availability-form/SundayServicePlanner.html",
+  "id": "/availability-form/SundayServicePlanner.html",
+  "scope": "https://esherchurch.github.io/availability-form/SundayServicePlanner.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#3d6263",

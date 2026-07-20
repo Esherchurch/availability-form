@@ -186,13 +186,89 @@
         }
     </script>
     <style>
-        /* Readability pass (additive, brand-safe): lift tiny sub-10px labels */
-        .text-\[7px\], .text-\[8px\], .text-\[9px\] { font-size: 11px !important; }
+        /* ============================================================
+           EGBC shared design system (visual only — merged tokens)
+           ============================================================ */
+        :root{
+            --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9;
+            --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+            --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+            --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+            --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4;
+            --gold:#b07d2e; --gold-tint:#f6efe1;
+            --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+            --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+            --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+            --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+        }
+        body { color:var(--body); font-family:'Montserrat', sans-serif; }
+        body.bg-\[\#f0f6f6\] { background:var(--canvas) !important; }
+
+        /* Neutral + brand colour remaps */
+        .bg-\[\#f0f6f6\], .bg-\[\#f0f6f6\]\/30 { background-color:var(--surface-2) !important; }
+        .border-\[\#d1dfdf\] { border-color:var(--hairline) !important; }
+        .bg-\[\#d1dfdf\] { background-color:var(--hairline-strong) !important; }
+        .text-\[\#3d6263\] { color:var(--brand) !important; }
+        .bg-\[\#3d6263\] { background-color:var(--brand) !important; }
+        .border-\[\#3d6263\] { border-color:var(--brand) !important; }
+        .text-\[\#d1dfdf\] { color:var(--faint) !important; }
+        .bg-\[\#9bc34a\] { background-color:var(--success) !important; }
+        .text-\[\#9bc34a\] { color:var(--success) !important; }
+
+        /* Typography — tame heavy weights + shouty tracking */
+        .font-black { font-weight:800 !important; }
+        .tracking-widest { letter-spacing:.08em !important; }
+
+        /* Radii → tokens (pills/badges keep rounded-full) */
+        .rounded-\[3rem\], .rounded-\[2rem\], .rounded-3xl { border-radius:var(--r-lg) !important; }
+        .rounded-t-\[2rem\], .rounded-t-2xl { border-top-left-radius:var(--r-lg) !important; border-top-right-radius:var(--r-lg) !important; }
+        .rounded-b-\[2rem\], .rounded-b-2xl { border-bottom-left-radius:var(--r-lg) !important; border-bottom-right-radius:var(--r-lg) !important; }
+        .rounded-2xl, .rounded-xl { border-radius:var(--r-md) !important; }
+        .rounded-lg { border-radius:var(--r-sm) !important; }
+
+        /* Shadows → tokens */
+        .shadow-xl, .shadow-lg { box-shadow:var(--shadow) !important; }
+        .shadow-md, .shadow-sm { box-shadow:var(--shadow-sm) !important; }
+
+        /* Buttons → one system (text action buttons all carry .uppercase) */
+        button.uppercase{
+            border-radius:var(--r-md) !important;
+            font-weight:700 !important;
+            letter-spacing:.02em !important;
+            text-transform:none !important;
+            transition:background .15s ease, transform .05s ease, box-shadow .15s ease !important;
+        }
+        button.uppercase:active{ transform:translateY(1px) !important; }
+        button.uppercase:focus-visible{ outline:none !important; box-shadow:0 0 0 3px var(--brand-ring) !important; }
+        button.uppercase.bg-\[\#3d6263\]{ background:var(--brand) !important; color:#fff !important; box-shadow:var(--shadow-sm) !important; }
+        button.uppercase.bg-\[\#3d6263\]:hover{ background:var(--brand-dark) !important; }
+        button.uppercase.bg-\[\#f0f6f6\]{ background:var(--brand-tint) !important; color:var(--brand) !important; border-color:transparent !important; }
+        button.uppercase.bg-\[\#f0f6f6\]:hover{ background:#d8e6e4 !important; }
+        button.uppercase.bg-\[\#9bc34a\]{ background:var(--success) !important; color:#fff !important; }
+        button.uppercase.bg-\[\#9bc34a\]:hover{ filter:brightness(.94) !important; }
+
+        /* Inputs / selects */
+        input, select, textarea { font-family:'Montserrat', sans-serif; }
+        select:focus, input:focus{
+            border-color:var(--brand) !important;
+            box-shadow:0 0 0 3px var(--brand-ring) !important;
+            outline:none !important;
+        }
+
+        /* Readability pass (additive, brand-safe): lift tiny sub-11px labels */
+        .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size: 11px !important; }
+
+        /* Loading shimmer skeleton (design-system component) */
+        .sk{ background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sh 1.4s ease infinite; border-radius:6px; }
+        @keyframes sh{ 0%{background-position:100% 0} 100%{background-position:0 0} }
+        @media (prefers-reduced-motion:reduce){ .sk{ animation:none } }
+
         /* Clean printing: hide download chrome, white page, keep brand colours legible */
         @media print {
             @page { margin: 12mm; }
             header { display: none !important; }
             body { background: #ffffff !important; }
+            body.bg-\[\#f0f6f6\] { background: #ffffff !important; }
             *, *::before, *::after {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;

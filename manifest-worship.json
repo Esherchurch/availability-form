@@ -3,6 +3,8 @@
   "short_name": "Worship Hub",
   "description": "EGBC Worship & AV Team Hub",
   "start_url": "https://esherchurch.github.io/availability-form/worshiphubapp.html",
+  "id": "/availability-form/worshiphubapp.html",
+  "scope": "https://esherchurch.github.io/availability-form/worshiphubapp.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#3d6263",

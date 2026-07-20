@@ -139,11 +139,16 @@
         };
     </script>
     <style>
-        body { background-color: #f0f6f6; font-family: 'Montserrat', sans-serif; color: #3d6263; }
-        .card { background: white; border-radius: 24px; border: 1px solid #d1dfdf; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-        .instr-grid { height: 160px; overflow-y: auto; border: 1px solid #d1dfdf; padding: 12px; border-radius: 12px; background: #fafbfc; }
+        :root{
+            --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+            --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+            --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+        }
+        body { background-color: var(--canvas); font-family: 'Montserrat', sans-serif; color: var(--body); font-size: 16px; }
+        .card { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow); }
+        .instr-grid { height: 160px; overflow-y: auto; border: 1px solid var(--hairline-strong); padding: 12px; border-radius: var(--r-md); background: var(--surface-2); }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #3d6263; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--brand); border-radius: var(--r-pill); }
         .sticky-footer {
             position: sticky;
             bottom: 0;
@@ -151,14 +156,23 @@
             padding-top: 20px;
             margin-top: 10px;
         }
-        input:focus, select:focus { border-color: #9bc34a !important; }
 
-        /* Directory table: let cramped instrument cells breathe / wrap instead of overflowing */
+        /* Inputs → system: token radius, hairline border, brand focus ring */
+        input, select { border-radius: var(--r-md) !important; border-color: var(--hairline-strong) !important; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+        input:focus, select:focus { border-color: var(--brand) !important; box-shadow: 0 0 0 3px var(--brand-ring); outline: none; }
+
+        /* Legibility: lift faint greys to muted and bump sub-11px text */
+        .text-\[10px\] { font-size: 11px !important; }
+        .text-gray-400 { color: var(--muted) !important; }
+        .text-gray-500 { color: var(--muted) !important; }
+        .text-gray-600 { color: var(--body) !important; }
+        .text-red-300 { color: var(--danger) !important; }
+
+        /* Directory table: airy rows, hairline dividers, wrap cramped cells */
         .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         #memberListBody td div { word-break: break-word; }
-        /* Readability: keep the small secondary-instrument line legible */
-        #memberListBody .text-\[10px\] { font-size: 11px; }
-        #memberListBody .text-gray-400 { color: #6b7280; }
+        #memberListBody tr { border-color: var(--hairline) !important; }
+        #memberListBody td { padding: 16px !important; }
 
         @media (max-width: 768px) {
             table { min-width: 560px; }
@@ -171,7 +185,7 @@
     <div class="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-12">
         
         <div class="xl:col-span-1 card p-8 h-[90vh] sticky top-12 flex flex-col">
-            <h1 class="text-3xl font-extrabold text-[#3d6263] tracking-tight uppercase mb-8 shrink-0">Member Entry</h1>
+            <h1 class="text-3xl font-extrabold text-[#14201f] tracking-tight mb-8 shrink-0">Member Entry</h1>
             
             <div class="space-y-6 overflow-y-auto pr-2 flex-grow">
                 <div>
@@ -195,7 +209,7 @@
                     </div>
                 </div>
 
-                <div class="space-y-4 pt-4 border-t border-[#d1dfdf]">
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Teams</label>
                     <div class="grid grid-cols-2 gap-2 text-[10px] font-bold text-gray-600">
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Core Team"> CORE</label>
@@ -206,7 +220,7 @@
                     </div>
                 </div>
 
-                <div class="space-y-4 pt-4 border-t border-[#d1dfdf]">
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Primary)</label>
                     <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Worship Leader"> Worship Leader</label>
@@ -227,7 +241,7 @@
                     </div>
                 </div>
 
-                <div class="space-y-4 pt-4 border-t border-[#d1dfdf]">
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Secondary)</label>
                     <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Worship Leader"> Worship Leader</label>
@@ -250,18 +264,18 @@
             </div>
 
             <div class="sticky-footer shrink-0">
-                <button id="saveBtn" onclick="saveMember()" class="w-full bg-[#3d6263] text-white font-extrabold py-4 rounded-full text-xs uppercase tracking-widest shadow-lg hover:bg-[#9bc34a] transition-all">
+                <button id="saveBtn" onclick="saveMember()" class="w-full bg-[#3d6263] text-white font-bold py-3 rounded-xl text-sm shadow-lg hover:bg-[#9bc34a] transition-all">
                     Add to Address Book
                 </button>
             </div>
         </div>
 
         <div class="xl:col-span-3 card p-10">
-            <h2 class="text-3xl font-extrabold text-[#3d6263] tracking-tight uppercase mb-8 border-b border-[#d1dfdf] pb-8">Team Directory</h2>
+            <h2 class="text-3xl font-extrabold text-[#14201f] tracking-tight mb-8 border-b border-[#dde7e6] pb-8">Team Directory</h2>
             <div class="table-container">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="text-[10px] uppercase font-extrabold text-gray-400 tracking-[0.2em] border-b border-[#d1dfdf]">
+                        <tr class="text-[10px] uppercase font-extrabold text-gray-400 tracking-[0.08em] border-b border-[#dde7e6]">
                             <th class="pb-6">Member / Email</th>
                             <th class="pb-6">Family</th>
                             <th class="pb-6">Instruments</th>

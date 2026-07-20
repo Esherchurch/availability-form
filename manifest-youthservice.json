@@ -3,6 +3,8 @@
   "short_name": "Youth Planner",
   "description": "EGBC Youth Service Planner",
   "start_url": "https://esherchurch.github.io/availability-form/youthserviceplanner.html",
+  "id": "/availability-form/youthserviceplanner.html",
+  "scope": "https://esherchurch.github.io/availability-form/youthserviceplanner.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#3d6263",

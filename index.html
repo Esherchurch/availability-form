@@ -213,11 +213,46 @@
         }
     </script>
     <style>
-        body { background-color: #eaf2f2; font-family: 'Montserrat', sans-serif; color: #1e2e2e; -webkit-font-smoothing: antialiased; }
+        :root{
+          --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+          --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+          --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+          --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+          --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+        }
+        body { background-color: var(--canvas); font-family: 'Montserrat', sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
         .glass { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); }
-        input::placeholder { color: #cbd5e1; font-weight: 500; }
-        #userName { font-style: normal !important; color: #3d6263 !important; font-weight: 800; text-transform: uppercase; }
-        .login-card { background: #ffffff; border-radius: 40px; box-shadow: 0 20px 50px -12px rgba(61, 98, 99, 0.12); border: 1px solid rgba(61, 98, 99, 0.05); }
+        input::placeholder { color: var(--faint); font-weight: 500; }
+        #userName { font-style: normal !important; color: var(--brand) !important; font-weight: 800; text-transform: none; letter-spacing: -.01em; }
+
+        /* Card surfaces */
+        .login-card { background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); border: 1px solid var(--hairline); }
+
+        /* Inputs — styled by id so JS-referenced classes stay untouched */
+        #memberEmail, #householdSelect {
+          background: var(--surface-2) !important;
+          border: 1px solid var(--hairline-strong) !important;
+          border-radius: var(--r-md) !important;
+          box-shadow: none !important;
+          color: var(--ink);
+          font-weight: 600 !important;
+          padding: 15px 18px !important;
+          transition: border-color .18s, box-shadow .18s;
+        }
+        #memberEmail:focus, #householdSelect:focus {
+          border-color: var(--brand) !important;
+          box-shadow: 0 0 0 3px var(--brand-ring) !important;
+        }
+
+        /* Primary action buttons (login / household / submit) share this look */
+        .btn-egbc {
+          background: var(--brand); color: #fff;
+          border-radius: var(--r-md); font-weight: 700; letter-spacing: .01em;
+          box-shadow: var(--shadow); transition: background .18s, transform .06s;
+        }
+        .btn-egbc:hover { background: var(--brand-dark); }
+        .btn-egbc:active { transform: translateY(1px); }
+        .btn-egbc:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
     </style>
 </head>
 <body class="p-5 sm:p-10 lg:p-12 pb-32">
@@ -227,44 +262,44 @@
             <div class="space-y-4">
                 <img src="" alt="Logo" class="egbc-logo h-24 mx-auto object-contain">
                 <div class="text-center">
-                    <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.4em]">Esher Green Baptist Church</p>
-                    <h1 class="text-3xl font-black text-[#3d6263] tracking-tight uppercase mt-2">Availability Form</h1>
+                    <p class="text-[#6b8281] text-[11px] font-bold uppercase tracking-[0.3em]">Esher Green Baptist Church</p>
+                    <h1 class="text-4xl font-extrabold text-[#3d6263] tracking-tight mt-2">Availability Form</h1>
                 </div>
             </div>
             
             <div class="login-card p-8 sm:p-12 max-w-md mx-auto">
                 <div id="loginBox" class="space-y-8">
                     <div class="space-y-2">
-                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-center mb-3">Worship & AV Member Login</label>
-                        <input type="email" id="memberEmail" placeholder="Enter your email" 
-                            class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 text-center font-bold text-lg outline-none focus:border-[#d1dfdf] transition-all shadow-inner">
+                        <label class="block text-[11px] font-extrabold text-[#6b8281] uppercase tracking-[0.08em] text-center mb-3">Worship & AV Member Login</label>
+                        <input type="email" id="memberEmail" placeholder="Enter your email"
+                            class="w-full border-2 border-transparent px-6 text-center text-lg outline-none transition-all">
                     </div>
-                    <button onclick="loginMember()" class="w-full bg-[#3d6263] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#2f4c4d] transform active:scale-95 transition-all">
+                    <button onclick="loginMember()" class="btn-egbc w-full py-4 text-sm transform active:scale-95 transition-all">
                         Check My Services
                     </button>
                 </div>
 
                 <div id="householdBox" class="hidden space-y-8 animate-in fade-in slide-in-from-top-2">
                     <div class="space-y-2">
-                        <label class="block text-[10px] font-black text-[#3d6263] uppercase tracking-widest text-center mb-3">Multiple Team Members Found</label>
+                        <label class="block text-[11px] font-extrabold text-[#3d6263] uppercase tracking-[0.08em] text-center mb-3">Multiple Team Members Found</label>
                         <div class="relative">
-                            <select id="householdSelect" class="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-5 appearance-none text-center font-bold text-lg outline-none focus:border-[#d1dfdf] transition-all shadow-inner"></select>
+                            <select id="householdSelect" class="w-full border-2 border-transparent px-6 appearance-none text-center text-lg outline-none transition-all"></select>
                         </div>
                     </div>
-                    <button onclick="confirmHouseholdMember()" class="w-full bg-[#3d6263] text-white py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-[#2f4c4d] transform active:scale-95 transition-all">
+                    <button onclick="confirmHouseholdMember()" class="btn-egbc w-full py-4 text-sm transform active:scale-95 transition-all">
                         Load Form for me
                     </button>
                 </div>
             </div>
             
-            <p class="text-gray-300 text-[10px] font-medium uppercase tracking-wider">Choices are saved instantly as you click.</p>
+            <p class="text-[#93a8a6] text-[11px] font-semibold tracking-wide">Choices are saved instantly as you click.</p>
         </div>
 
         <div id="formSection" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
             <header class="flex justify-between items-start mb-12 border-b border-gray-100 pb-6">
                 <div>
                     <img src="" alt="Logo" class="egbc-logo h-12 object-contain mb-3">
-                    <p class="text-[9px] font-black text-[#3d6263] uppercase tracking-[0.3em]">TEAM MEMBER</p>
+                    <p class="text-[11px] font-extrabold text-[#6b8281] uppercase tracking-[0.2em]">TEAM MEMBER</p>
                     <h2 id="userName" class="text-2xl font-extrabold"></h2>
                 </div>
                 <button onclick="location.reload()" class="bg-gray-100 text-gray-400 p-3 rounded-full hover:bg-gray-200 transition-all shadow-sm">
@@ -276,7 +311,7 @@
 
             <div id="actionButtons" class="hidden fixed bottom-6 left-0 right-0 px-5 z-50">
                 <div class="max-w-2xl mx-auto glass p-5 rounded-[32px] shadow-2xl border border-[#d1dfdf] flex flex-col sm:flex-row gap-3">
-                    <button id="finalSubmitBtn" onclick="submitAll()" class="flex-1 bg-[#3d6263] text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:bg-[#2f4c4d] transition-all transform active:scale-95">
+                    <button id="finalSubmitBtn" onclick="submitAll()" class="btn-egbc flex-1 py-4 text-sm transition-all transform active:scale-95">
                         Confirm Rota Availability
                     </button>
                 </div>

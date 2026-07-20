@@ -3,6 +3,8 @@
   "short_name": "Rota Planner",
   "description": "EGBC Worship & AV Rota Planner",
   "start_url": "https://esherchurch.github.io/availability-form/Planner.html",
+  "id": "/availability-form/Planner.html",
+  "scope": "https://esherchurch.github.io/availability-form/Planner.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#3d6263",

@@ -13,11 +13,18 @@
 
 <style>
 :root {
+  /* Design system tokens */
+  --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+  --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+  --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+  --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+  /* Legacy aliases remapped to design tokens */
   --teal:       #3d6263;
-  --teal-dark:  #2f4c4d;
-  --teal-light: #e6f0f0;
-  --border:     #d1dfdf;
-  --bg:         #f0f6f6;
+  --teal-dark:  #2e4c4d;
+  --teal-light: #e7f0ef;
+  --border:     #dde7e6;
+  --bg:         #eef4f3;
   --white:      #ffffff;
   --font:       'Montserrat', sans-serif;
   --safe-top:    env(safe-area-inset-top, 0px);
@@ -111,7 +118,7 @@ body {
 }
 
 .start-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.15em;
@@ -136,7 +143,7 @@ body {
   -webkit-appearance: none;
   transition: border-color 0.2s;
 }
-.start-input:focus { border-color: var(--teal); }
+.start-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--brand-ring); }
 
 .btn-load {
   width: 100%;
@@ -289,7 +296,7 @@ body {
 }
 
 .section-label {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.15em;
@@ -321,7 +328,7 @@ body {
   overflow: hidden;
   transition: border-color 0.2s;
 }
-.notes-section:focus-within { border-color: var(--teal); }
+.notes-section:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px var(--brand-ring); }
 
 .notes-textarea {
   width: 100%;
@@ -367,7 +374,7 @@ body {
 }
 
 .info-box-label {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.15em;

@@ -3,6 +3,8 @@
   "short_name": "Youth Hub",
   "description": "EGBC Youth Worship Hub",
   "start_url": "https://esherchurch.github.io/availability-form/youthapp2.html",
+  "id": "/availability-form/youthapp2.html",
+  "scope": "https://esherchurch.github.io/availability-form/youthapp2.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#3d6263",

@@ -3,6 +3,8 @@
   "short_name": "Core Team",
   "description": "EGBC Core Team App",
   "start_url": "https://esherchurch.github.io/availability-form/CoreTeamApp.html",
+  "id": "/availability-form/CoreTeamApp.html",
+  "scope": "https://esherchurch.github.io/availability-form/CoreTeamApp.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#3d6263",

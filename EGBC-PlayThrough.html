@@ -9,27 +9,33 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <style>
-    body{background-color:#f0f6f6;color:#3d6263;font-family:'Montserrat',sans-serif}
-    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#d1dfdf;border-radius:10px}
-    .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(61,98,99,0.12)}
+    :root{
+      --brand:#3d6263;--brand-dark:#2e4c4d;--surface:#fff;--canvas:#f0f6f6;
+      --ink:#14201f;--muted:#6b8281;--hairline:#dde7e6;--hairline-strong:#c9d8d6;--brand-ring:rgba(61,98,99,.28);
+      --shadow-sm:0 1px 2px rgba(20,32,31,.05);--shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);--shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+    }
+    body{background-color:var(--canvas);color:var(--brand);font-family:'Montserrat',sans-serif}
+    ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:10px}::-webkit-scrollbar-thumb:hover{background:var(--brand)}
+    input:focus,textarea:focus,select:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px var(--brand-ring)}
+    .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
     .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:1rem}
     .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:1rem}
-    .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:1rem}
+    .skeleton{background:linear-gradient(90deg,#eef4f3 25%,#dde7e6 50%,#eef4f3 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:1rem}
     @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    .tab-btn.active{background:#3d6263;color:white}.tab-btn{transition:all 0.15s}
-    .key-btn.active{background:#3d6263;color:white}.key-btn{transition:all 0.15s}
+    .tab-btn.active{background:var(--brand);color:white}.tab-btn{transition:all 0.15s}
+    .key-btn.active{background:var(--brand);color:white}.key-btn{transition:all 0.15s}
     .admin-tab.hidden{display:none}
-    mark{background:#fef08a;border-radius:2px;padding:0 2px}
-    .jump-btn{transition:all 0.15s}.jump-btn:hover{background:#3d6263;color:white}
+    mark{background:#f6efc2;color:inherit;border-radius:3px;padding:0 3px}
+    .jump-btn{transition:all 0.15s}.jump-btn:hover{background:var(--brand);color:white}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .drop-zone{border:2px dashed #d1dfdf;border-radius:1rem;padding:1.5rem;text-align:center;cursor:pointer;transition:all 0.2s}
-    .drop-zone:hover,.drop-zone.drag-over{border-color:#3d6263;background:#e8f4f4}
-    .drop-zone.analysing{border-color:#3d6263;background:#e8f4f4;cursor:wait}
-    .chord-section{background:white;border:1px solid #d1dfdf;border-radius:1rem;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem}
-    .chord-badge{background:#3d6263;color:white;border-radius:9999px;padding:0.2rem 0.75rem;font-size:10px;font-weight:900;white-space:nowrap}
-    .chord-value{font-family:monospace;font-size:12px;color:#3d6263;font-weight:700}
-    .analyse-progress{height:4px;background:#d1dfdf;border-radius:2px;overflow:hidden;margin-top:0.5rem}
-    .analyse-progress-bar{height:100%;background:#3d6263;border-radius:2px;transition:width 0.3s}
+    .drop-zone{border:2px dashed var(--hairline-strong);border-radius:1rem;padding:1.5rem;text-align:center;cursor:pointer;transition:all 0.2s}
+    .drop-zone:hover,.drop-zone.drag-over{border-color:var(--brand);background:#e8f4f4}
+    .drop-zone.analysing{border-color:var(--brand);background:#e8f4f4;cursor:wait}
+    .chord-section{background:white;border:1px solid var(--hairline);border-radius:0.85rem;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem}
+    .chord-badge{background:var(--brand);color:white;border-radius:9999px;padding:0.2rem 0.75rem;font-size:10px;font-weight:900;letter-spacing:.04em;white-space:nowrap}
+    .chord-value{font-family:monospace;font-size:12px;color:var(--brand);font-weight:700}
+    .analyse-progress{height:5px;background:var(--hairline);border-radius:9999px;overflow:hidden;margin-top:0.5rem}
+    .analyse-progress-bar{height:100%;background:var(--brand);border-radius:9999px;transition:width 0.3s}
   </style>
 </head>
 <body class="p-6 lg:p-10 min-h-screen">

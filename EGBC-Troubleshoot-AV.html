@@ -9,16 +9,31 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <style>
-    body{background-color:#f0f6f6;color:#3d6263;font-family:'Montserrat',sans-serif}
-    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#d1dfdf;border-radius:10px}
-    .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(61,98,99,0.12)}
-    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:1rem}
-    .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:1rem}
-    .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:1rem}
+    :root{
+      --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+      --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+      --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+      --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+      --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+    }
+    body{background-color:var(--canvas);color:var(--brand);font-family:'Montserrat',sans-serif;-webkit-font-smoothing:antialiased}
+    h1{color:var(--ink)}
+    ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:var(--r-pill)}
+    .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-2px)!important;box-shadow:var(--shadow-lg)!important}
+    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:var(--r-lg)}
+    .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:var(--r-lg)}
+    .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:var(--r-lg)}
     @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    .tab-btn.active{background:#3d6263;color:white}.tab-btn{transition:all 0.15s}
+    .tab-btn.active{background:var(--brand);color:#fff}.tab-btn{transition:all 0.15s}
     .admin-tab.hidden{display:none}
-    mark{background:#fef08a;border-radius:2px;padding:0 2px}
+    mark{background:var(--gold-tint);color:var(--ink);border-radius:3px;padding:0 3px}
+    /* Design-system refinements layered over Tailwind utilities (visual only) */
+    input:focus,textarea:focus,select:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px var(--brand-ring)!important}
+    .hover\:bg-black:hover{background-color:var(--brand-dark)!important}
+    .shadow-sm{box-shadow:var(--shadow-sm)!important}
+    .shadow-md{box-shadow:var(--shadow)!important}
+    .shadow-lg{box-shadow:var(--shadow)!important}
+    .shadow-xl,.shadow-2xl{box-shadow:var(--shadow-lg)!important}
   </style>
 </head>
 <body class="p-6 lg:p-10 min-h-screen">
@@ -27,7 +42,7 @@
   <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
     <div>
       <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC — AV Knowledge Base</div>
-      <h1 class="text-3xl font-black uppercase tracking-tight">AV Troubleshoot</h1>
+      <h1 class="text-3xl font-black tracking-tight">AV Troubleshoot</h1>
       <p class="text-sm font-semibold opacity-60 mt-1">Describe the problem and get instant help</p>
     </div>
     <div class="flex gap-3 items-center flex-wrap">
