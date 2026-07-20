@@ -333,7 +333,7 @@
             <option value="22px">Large</option>
             <option value="32px">Huge</option>
         </select>
-        <select class="tsel" id="fontSelector" onchange="applyManualStyle('fontFamily', this.value); this.value=''" title="Font">
+        <select class="tsel" id="fontSelector" onchange="applyFont(this.value); this.value=''" title="Font">
             <option value="">Font</option>
             <option value="Arial, Helvetica, sans-serif">Arial</option>
             <option value="Georgia, 'Times New Roman', serif">Georgia</option>
@@ -590,7 +590,7 @@ ${preheaderBlock}
       </td>
     </tr></table>
   </td></tr>
-  <tr><td class="bodypad" style="padding:36px 40px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#1e3a3a;line-height:1.7;">
+  <tr><td class="bodypad" style="padding:36px 40px;font-family:${emailFont};font-size:16px;color:#1e3a3a;line-height:1.7;">
     ${bodyInner}
   </td></tr>
   <tr><td bgcolor="#3d6263" class="hpad" style="padding:22px 40px;">
@@ -657,8 +657,17 @@ function applyManualStyle(styleType, value) {
         wrapper.style.fontSize = pt + "pt"; wrapper.style.lineHeight = "1.4";
     }
     if (styleType === 'color') { wrapper = document.createElement("span"); wrapper.style.color = value; }
-    if (styleType === 'fontFamily') { wrapper = document.createElement("span"); wrapper.style.fontFamily = value; }
     try { wrapper.appendChild(range.extractContents()); range.insertNode(wrapper); markDirty(); } catch(e) {}
+}
+
+// Font applies to the WHOLE email (the email-safe way) instead of wrapping a selection —
+// so it can never mangle the layout the way the old approach did.
+let emailFont = "Arial, Helvetica, sans-serif";
+function applyFont(font) {
+    if (!font) return;
+    emailFont = font;
+    $('editable-body').style.fontFamily = font;
+    markDirty();
 }
 
 // Line spacing on the selected paragraphs (or all of them, if nothing is selected)
@@ -916,8 +925,20 @@ function draftPayload() {
         subject: meta.subject, preheader: meta.preheader, headerTitle: meta.headerTitle, headerSub: meta.headerSub };
 }
 
+// Make sure we know the editor's name (drafts record who wrote them). Asked once, inline,
+// so saving works in a single click instead of needing a separate "Who are you?" step.
+function ensureUser() {
+    if (currentUser) return true;
+    const who = (prompt("Your name (saved with your drafts):") || '').trim();
+    if (!who) return false;
+    currentUser = who;
+    localStorage.setItem('egbc_email_user', currentUser);
+    const lbl = $('currentUserLabel'); if (lbl) lbl.textContent = currentUser;
+    return true;
+}
+
 async function saveNewDraft() {
-    if (!currentUser) { $('whoModal').classList.add('active'); return; }
+    if (!ensureUser()) return;
     const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS + 1).get();
     if (snap.size >= MAX_DRAFTS) { alert(`You've reached ${MAX_DRAFTS} drafts. Delete one before saving a new draft.`); return; }
     const name = prompt("Name this draft:", getMeta().subject || "Team Update");
@@ -958,7 +979,7 @@ async function loadDraft(id) {
 
 async function overwriteActiveDraft() {
     if (!activeDraftId) { await saveNewDraft(); return; }
-    if (!currentUser) { $('whoModal').classList.add('active'); return; }
+    if (!ensureUser()) return;
     const now = firebase.firestore.FieldValue.serverTimestamp();
     showLoader('Saving changes…');
     try {
