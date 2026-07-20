@@ -805,6 +805,12 @@ function setChildHeight(container, open) {
             if (container.classList.contains('open')) container.style.height = 'auto';
             container.removeEventListener('transitionend', handler);
         });
+        // Let already-open ancestor menus grow so a nested sub-menu isn't clipped/hidden
+        let p = container.parentElement;
+        while (p) {
+            if (p.classList && p.classList.contains('child-container') && p.classList.contains('open')) p.style.height = 'auto';
+            p = p.parentElement;
+        }
     } else {
         // Collapse: set explicit height first, then animate to 0
         container.style.height = container.scrollHeight + 'px';
@@ -851,8 +857,11 @@ function handleItemClick(event, id, url, logo) {
     document.querySelectorAll('.nav-row').forEach(r => r.classList.remove('active'));
     event.currentTarget.classList.add('active');
 
-    if (url && url !== '#' && url !== 'landing') { navigate(url, logo); collapseSidebarAfterNav(); }
-    else if (url === 'landing') { showLanding(logo); collapseSidebarAfterNav(); }
+    // Only collapse the menu for an actual end page — NOT for a category that has
+    // sub-links (otherwise clicking it would hide the sub-links it just opened).
+    const isParentItem = wrapper.classList.contains('has-children');
+    if (url && url !== '#' && url !== 'landing') { navigate(url, logo); if (!isParentItem) collapseSidebarAfterNav(); }
+    else if (url === 'landing') { showLanding(logo); if (!isParentItem) collapseSidebarAfterNav(); }
 }
 
 // After choosing a page, collapse the menu instead of leaving it pinned open
