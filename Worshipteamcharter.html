@@ -339,7 +339,7 @@
     </div>
 
     <!-- Photos -->
-    <div id="photo-gallery-section">
+    <div id="photo-gallery-section" style="display:none">
         <div class="section-heading">Photos</div>
         <div id="photo-gallery"></div>
         <div class="gallery-empty-hint" id="gallery-hint">No photos yet. Log in as admin to add photos.</div>
@@ -645,11 +645,11 @@ function renderPhotos() {
         wrap.appendChild(frame);
         gallery.appendChild(wrap);
     });
-    if (!photos.length && !isAdmin) {
-        document.getElementById('gallery-hint').style.display = 'block';
-    } else {
-        document.getElementById('gallery-hint').style.display = 'none';
-    }
+    // Hide the Photos panel from visitors when empty — show only if there are photos or you're in admin mode.
+    const _sec = document.getElementById('photo-gallery-section');
+    if (_sec) _sec.style.display = (photos.length > 0 || isAdmin) ? '' : 'none';
+    const _hint = document.getElementById('gallery-hint');
+    if (_hint) _hint.style.display = 'none';
 }
 
 function removePhoto(index) {
