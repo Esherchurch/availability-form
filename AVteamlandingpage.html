@@ -335,7 +335,7 @@
     <div id="admin-locked-controls">
         <button class="admin-bar-btn login" onclick="openPwModal()">&#128273; Admin Edit</button>
     </div>
-    <div id="admin-unlocked-controls" style="display:none; display:flex; gap:8px; flex-wrap:wrap;">
+    <div id="admin-unlocked-controls" style="display:none; gap:8px; flex-wrap:wrap;">
         <button class="admin-bar-btn" onclick="toggleTitleEdit()">&#10002; Edit Title</button>
         <button class="admin-bar-btn" onclick="openHtmlEditor()">&#128196; Edit Content</button>
         <button class="admin-bar-btn green" onclick="document.getElementById('photo-file-input').click()">&#128444; Add Photos</button>
@@ -457,6 +457,30 @@ async function saveAll() {
 }
 
 // ── ADMIN ──
+// Admin mode is entered by a hidden gesture: 3 quick clicks on the RIGHT of the top bar (no password).
+(function(){
+  var bar = document.getElementById('admin-bar');
+  var locked = document.getElementById('admin-locked-controls');
+  if (locked) locked.style.display = 'none';
+  if (!bar) return;
+  var clicks = 0, timer = null;
+  bar.addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('button')) return;
+    var r = bar.getBoundingClientRect();
+    if (e.clientX < r.right - r.width * 0.4) return;
+    clicks++; clearTimeout(timer); timer = setTimeout(function(){ clicks = 0; }, 1200);
+    if (clicks >= 3 && !isAdmin) { clicks = 0; unlockAdmin(); }
+  });
+})();
+function unlockAdmin(){
+  isAdmin = true;
+  var u = document.getElementById('admin-unlocked-controls'); if (u) u.style.display = 'flex';
+  var b = document.getElementById('admin-mode-badge'); if (b) b.style.display = 'block';
+  var h = document.getElementById('gallery-hint'); if (h) h.style.display = (typeof photos !== 'undefined' && photos.length) ? 'none' : 'block';
+  document.body.classList.add('admin-mode');
+  if (typeof renderPhotos === 'function') renderPhotos();
+  if (typeof toast === 'function') toast('Admin mode unlocked');
+}
 function openPwModal() {
     document.getElementById('pw-input').value = '';
     document.getElementById('pw-error').textContent = '';
@@ -490,7 +514,7 @@ function checkPassword() {
 
 function logoutAdmin() {
     isAdmin = false;
-    document.getElementById('admin-locked-controls').style.display   = 'block';
+    document.getElementById('admin-locked-controls').style.display   = 'none';
     document.getElementById('admin-unlocked-controls').style.display = 'none';
     document.getElementById('admin-mode-badge').style.display        = 'none';
     document.body.classList.remove('admin-mode');

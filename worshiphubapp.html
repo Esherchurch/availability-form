@@ -1643,6 +1643,86 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 /* Caveat for sticky notes */
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
 </style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap">
+<style>
+/* ── FUN NOTICE BOARD — cork pinboard with tilted, pinned sticky notes ── */
+#notes-list {
+  display: block !important;
+  columns: 2; column-gap: 12px;
+  padding: 18px 14px 30px !important; margin-top: 6px;
+  border-radius: 16px;
+  background-color: #c9a568;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(0,0,0,.07) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 75% 55%, rgba(255,255,255,.12) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 45% 80%, rgba(0,0,0,.05) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 62% 18%, rgba(0,0,0,.05) 0 1.5px, transparent 2px);
+  background-size: 26px 26px, 30px 30px, 18px 18px, 22px 22px;
+  box-shadow: inset 0 2px 12px rgba(0,0,0,.22);
+}
+@media (min-width:520px){ #notes-list { columns: 3; } }
+#notes-list .note-card {
+  break-inside: avoid; display: inline-block; width: 100%;
+  margin: 0 0 16px !important; padding: 26px 15px 14px !important;
+  border-radius: 3px !important;
+  box-shadow: 0 7px 15px rgba(0,0,0,.22), 0 1px 3px rgba(0,0,0,.16) !important;
+  transition: rotate .18s ease, scale .18s ease, box-shadow .18s ease;
+  transform-origin: 50% 8px;
+  animation: noteDrop .34s cubic-bezier(.2,.85,.3,1.15) both;
+}
+/* resting tilt via the individual rotate property so the drop-in can animate translate independently */
+#notes-list .note-card:nth-child(4n+1){ rotate: -2.4deg; }
+#notes-list .note-card:nth-child(4n+2){ rotate: 1.7deg; }
+#notes-list .note-card:nth-child(4n+3){ rotate: -1deg; }
+#notes-list .note-card:nth-child(4n+4){ rotate: 2.6deg; }
+#notes-list .note-card:hover, #notes-list .note-card:active { rotate: 0deg; scale: 1.04; box-shadow: 0 16px 30px rgba(0,0,0,.30) !important; z-index: 6; }
+
+/* staggered drop-in as notes appear */
+@keyframes noteDrop { from { opacity: 0; translate: 0 -12px; } to { opacity: 1; translate: 0 0; } }
+#notes-list .note-card:nth-child(1){ animation-delay:0s; }
+#notes-list .note-card:nth-child(2){ animation-delay:.04s; }
+#notes-list .note-card:nth-child(3){ animation-delay:.08s; }
+#notes-list .note-card:nth-child(4){ animation-delay:.12s; }
+#notes-list .note-card:nth-child(5){ animation-delay:.16s; }
+#notes-list .note-card:nth-child(n+6){ animation-delay:.20s; }
+
+/* randomised sticky-note colours, independent of category */
+#notes-list .note-card:nth-child(7n+1){ background: linear-gradient(170deg,#fff7b0,#ffec87) !important; }
+#notes-list .note-card:nth-child(7n+2){ background: linear-gradient(170deg,#ffd3dd,#ffb3c4) !important; }
+#notes-list .note-card:nth-child(7n+3){ background: linear-gradient(170deg,#c6e6ff,#a6d5ff) !important; }
+#notes-list .note-card:nth-child(7n+4){ background: linear-gradient(170deg,#cdf3c8,#a9e9a3) !important; }
+#notes-list .note-card:nth-child(7n+5){ background: linear-gradient(170deg,#e7d2ff,#d3b3ff) !important; }
+#notes-list .note-card:nth-child(7n+6){ background: linear-gradient(170deg,#ffe0b3,#ffca82) !important; }
+#notes-list .note-card:nth-child(7n){   background: linear-gradient(170deg,#c4f2e6,#9fe9d6) !important; }
+
+/* folded paper corner */
+#notes-list .note-card::before {
+  content:''; position:absolute; right:0; bottom:0;
+  border-style:solid; border-width:0 0 15px 15px;
+  border-color: transparent transparent rgba(0,0,0,.12) transparent;
+}
+/* attachment — pushpin by default, washi tape on every 2nd note */
+#notes-list .note-card::after {
+  content:''; position:absolute; top:7px; left:50%; margin-left:-7px;
+  width:14px; height:14px; border-radius:50%;
+  background: radial-gradient(circle at 34% 28%, #ff9a9a, #c0392b 72%);
+  box-shadow: 0 2px 3px rgba(0,0,0,.4), inset 0 -1px 2px rgba(0,0,0,.35);
+}
+#notes-list .note-card:nth-child(6n+3)::after { background: radial-gradient(circle at 34% 28%, #8fd6ff, #2b7dc0 72%); }
+#notes-list .note-card:nth-child(6n+5)::after { background: radial-gradient(circle at 34% 28%, #ffe08a, #c08a2b 72%); }
+#notes-list .note-card:nth-child(2n)::after {
+  top:-9px; margin-left:-28px; width:56px; height:22px; border-radius:2px;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.4) 0 5px, rgba(255,255,255,.1) 5px 10px), rgba(122,182,176,.7);
+  box-shadow: 0 2px 4px rgba(0,0,0,.16); rotate: -5deg;
+}
+#notes-list .note-card:nth-child(4n)::after { background: repeating-linear-gradient(45deg, rgba(255,255,255,.4) 0 5px, rgba(255,255,255,.1) 5px 10px), rgba(232,170,120,.72); rotate: 4deg; }
+#notes-list .note-card-title { font-family:'Caveat',cursive; font-size:22px; line-height:1.15; color:#241100; }
+#notes-list .note-card-body  { font-family:'Caveat',cursive; font-size:17px; color:#3a2200; }
+#notes-list .note-card-cat   { font-family:'Caveat',cursive !important; font-size:14px !important; text-transform:none !important; letter-spacing:0 !important; color:rgba(0,0,0,.55) !important; font-weight:700; margin-bottom:2px; }
+#notes-list .note-card-meta  { color:rgba(0,0,0,.5) !important; font-size:11px !important; }
+#notes-list .empty-state { background:transparent !important; color:#5a3d17 !important; text-align:center; padding:44px 16px; }
+@media (prefers-reduced-motion: reduce){ #notes-list .note-card { transition:none; animation:none; } }
+</style>
 </head>
 <body>
 
