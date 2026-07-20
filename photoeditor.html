@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Editor · Calla Design</title>
+<style>
+  :root{
+    --canvas:#e7ecec; --surface:#ffffff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c;
+    --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+    --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+    --danger:#b0392c; --r-md:12px;
+    --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI', system-ui, sans-serif;
+    color:var(--body);
+    background:var(--canvas);
+    display:flex;
+    flex-direction:row;
+    min-height:100vh;
+  }
+
+  /* ---------- Left control panel ---------- */
+  .panel{
+    position:fixed;
+    top:0; left:0; bottom:0;
+    width:380px;
+    background:var(--surface);
+    padding:22px;
+    border-right:1px solid var(--hairline);
+    overflow-y:auto;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    z-index:5;
+  }
+
+  .panel h2{
+    margin:0;
+    font-size:19px;
+    font-weight:800;
+    color:var(--ink);
+    letter-spacing:-.01em;
+  }
+  .subtitle{
+    margin:0;
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.4;
+  }
+
+  .section-label{
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.1em;
+    color:var(--brand);
+    text-transform:uppercase;
+    margin-top:4px;
+  }
+
+  .group{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  /* ---------- Inputs & buttons ---------- */
+  .file-input{
+    width:100%;
+    font-size:13px;
+    color:var(--body);
+    padding:9px 10px;
+    border:1px solid var(--hairline-strong);
+    border-radius:var(--r-md);
+    background:var(--surface-2);
+    cursor:pointer;
+  }
+  .file-input::file-selector-button{
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--brand);
+    background:#fff;
+    border:1px dashed var(--brand);
+    border-radius:8px;
+    padding:6px 12px;
+    margin-right:10px;
+    cursor:pointer;
+  }
+  .file-input:focus{
+    outline:none;
+    box-shadow:0 0 0 3px var(--brand-ring);
+    border-color:var(--brand);
+  }
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border-radius:var(--r-md);
+    transition:background .15s, border-color .15s, color .15s;
+  }
+
+  .btn-primary{
+    background:var(--brand);
+    color:#fff;
+    border:1px solid var(--brand);
+    font-weight:700;
+    font-size:13.5px;
+    padding:11px 14px;
+    width:100%;
+  }
+  .btn-primary:hover{background:var(--brand-dark);border-color:var(--brand-dark);}
+  .btn-primary:focus{outline:none;box-shadow:0 0 0 3px var(--brand-ring);}
+
+  .btn-ghost{
+    background:#fff;
+    color:var(--brand);
+    border:1px dashed var(--brand);
+    font-weight:600;
+    font-size:13px;
+    padding:10px 14px;
+    width:100%;
+  }
+  .btn-ghost:hover{background:var(--brand-tint);}
+  .btn-ghost:focus{outline:none;box-shadow:0 0 0 3px var(--brand-ring);}
+
+  /* secondary solid-ish grid buttons (transform / crop / frame) */
+  .btn-mini{
+    background:#fff;
+    color:var(--body);
+    border:1px solid var(--hairline-strong);
+    font-weight:600;
+    font-size:12.5px;
+    padding:9px 8px;
+  }
+  .btn-mini:hover{background:var(--surface-2);border-color:var(--hairline-strong);}
+  .btn-mini:focus{outline:none;box-shadow:0 0 0 3px var(--brand-ring);border-color:var(--brand);}
+  .btn-mini.active{
+    background:var(--brand-tint);
+    border-color:var(--brand);
+    color:var(--brand-dark);
+  }
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+
+  /* filter preset chips */
+  .chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{
+    background:#fff;
+    color:var(--body);
+    border:1px solid var(--hairline-strong);
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+  }
+  .chip:hover{background:var(--surface-2);}
+  .chip:focus{outline:none;box-shadow:0 0 0 3px var(--brand-ring);border-color:var(--brand);}
+  .chip.active{
+    background:var(--brand-tint);
+    border-color:var(--brand);
+    color:var(--brand-dark);
+  }
+
+  /* sliders */
+  .slider-row{display:flex;flex-direction:column;gap:5px;}
+  .slider-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:12.5px;
+    color:var(--body);
+    font-weight:600;
+  }
+  .slider-val{
+    color:var(--muted);
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .reset-mini{
+    background:none;
+    border:none;
+    color:var(--brand);
+    font-size:11px;
+    font-weight:700;
+    padding:2px 4px;
+    cursor:pointer;
+  }
+  .reset-mini:hover{color:var(--brand-dark);text-decoration:underline;}
+  input[type=range]{
+    width:100%;
+    accent-color:var(--brand);
+    cursor:pointer;
+    margin:0;
+  }
+  input[type=range]:focus{outline:none;}
+
+  .divider{height:1px;background:var(--hairline);border:none;margin:2px 0;}
+
+  /* ---------- Right stage ---------- */
+  .stage{
+    margin-left:380px;
+    flex:1;
+    background:radial-gradient(circle at 50% 0%, #eef2f1, #dfe6e5);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:30px;
+    position:relative;
+  }
+  .stage.dragover::after{
+    content:"Drop to load photo";
+    position:absolute;
+    inset:16px;
+    border:2px dashed var(--brand);
+    border-radius:16px;
+    background:rgba(231,240,239,.72);
+    color:var(--brand-dark);
+    font-size:17px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    pointer-events:none;
+  }
+
+  #canvas{
+    max-width:100%;
+    max-height:calc(100vh - 60px);
+    box-shadow:var(--shadow);
+    border-radius:10px;
+    background:#fff;
+    display:block;
+  }
+
+  .empty-state{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    color:var(--muted);
+    text-align:center;
+    padding:60px;
+    border:2px dashed var(--hairline-strong);
+    border-radius:16px;
+    background:rgba(255,255,255,.55);
+    max-width:440px;
+  }
+  .empty-state .icon{font-size:44px;line-height:1;}
+  .empty-state .title{font-size:16px;font-weight:700;color:var(--body);}
+  .empty-state .hint{font-size:13px;color:var(--muted);}
+  .hidden{display:none !important;}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:900px){
+    body{flex-direction:column;}
+    .panel{
+      position:static;
+      width:100%;
+      bottom:auto;
+      border-right:none;
+      border-bottom:1px solid var(--hairline);
+    }
+    .stage{margin-left:0;min-height:60vh;}
+    #canvas{max-height:70vh;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===================== LEFT PANEL ===================== -->
+  <aside class="panel">
+    <div>
+      <h2>Photo Editor</h2>
+      <p class="subtitle">Crop, tune and filter a photo, then download it.</p>
+    </div>
+
+    <!-- Photo -->
+    <div class="section-label">Photo</div>
+    <div class="group">
+      <input class="file-input" type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <hr class="divider">
+
+    <!-- Filters -->
+    <div class="section-label">Filters</div>
+    <div class="chips" id="filterChips">
+      <button class="chip active" data-filter="original">Original</button>
+      <button class="chip" data-filter="mono">Mono</button>
+      <button class="chip" data-filter="sepia">Sepia</button>
+      <button class="chip" data-filter="vintage">Vintage</button>
+      <button class="chip" data-filter="cool">Cool</button>
+      <button class="chip" data-filter="warm">Warm</button>
+      <button class="chip" data-filter="vivid">Vivid</button>
+      <button class="chip" data-filter="fade">Fade</button>
+      <button class="chip" data-filter="noir">Noir</button>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Adjust -->
+    <div class="section-label">Adjust</div>
+    <div class="group" id="adjustGroup"><!-- sliders injected by JS --></div>
+
+    <hr class="divider">
+
+    <!-- Transform -->
+    <div class="section-label">Transform</div>
+    <div class="group">
+      <div class="grid-2">
+        <button class="btn-mini" id="rotL">&#8630; Rotate left</button>
+        <button class="btn-mini" id="rotR">&#8631; Rotate right</button>
+        <button class="btn-mini" id="flipH">&#8596; Flip H</button>
+        <button class="btn-mini" id="flipV">&#8597; Flip V</button>
+      </div>
+      <div class="slider-head" style="margin-top:2px;">Crop aspect</div>
+      <div class="grid-3" id="cropGroup">
+        <button class="btn-mini active" data-aspect="original">Original</button>
+        <button class="btn-mini" data-aspect="1:1">1:1</button>
+        <button class="btn-mini" data-aspect="4:5">4:5</button>
+        <button class="btn-mini" data-aspect="3:2">3:2</button>
+        <button class="btn-mini" data-aspect="16:9">16:9</button>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Frame -->
+    <div class="section-label">Frame</div>
+    <div class="group">
+      <div class="grid-2" id="frameGroup">
+        <button class="btn-mini active" data-frame="none">None</button>
+        <button class="btn-mini" data-frame="white">White</button>
+        <button class="btn-mini" data-frame="black">Black</button>
+        <button class="btn-mini" data-frame="cream">Cream</button>
+      </div>
+      <div class="slider-row">
+        <div class="slider-head">
+          <span>Frame width</span>
+          <span class="slider-val"><span id="frameWidthVal">3%</span></span>
+        </div>
+        <input type="range" id="frameWidth" min="0" max="8" step="0.5" value="3">
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Save -->
+    <div class="section-label">Save</div>
+    <div class="group">
+      <div class="slider-row">
+        <div class="slider-head">
+          <span>JPG quality</span>
+          <span class="slider-val"><span id="jpgQualityVal">0.92</span></span>
+        </div>
+        <input type="range" id="jpgQuality" min="0.5" max="1" step="0.01" value="0.92">
+      </div>
+      <button class="btn-primary" id="downloadPng">Download PNG</button>
+      <button class="btn-ghost" id="downloadJpg">Download JPG</button>
+      <button class="btn-ghost" id="resetAll">Reset all</button>
+    </div>
+  </aside>
+
+  <!-- ===================== RIGHT STAGE ===================== -->
+  <main class="stage" id="stage">
+    <div class="empty-state" id="emptyState">
+      <div class="icon">&#128247;</div>
+      <div class="title">Drop a photo here, or choose one</div>
+      <div class="hint">Use the file picker in the panel, or drag an image onto this area.</div>
+    </div>
+    <canvas id="canvas" class="hidden"></canvas>
+  </main>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Element references ----------
+  const fileInput   = document.getElementById('fileInput');
+  const stage       = document.getElementById('stage');
+  const emptyState  = document.getElementById('emptyState');
+  const canvas      = document.getElementById('canvas');
+  const ctx         = canvas.getContext('2d');
+  const filterChips = document.getElementById('filterChips');
+  const adjustGroup = document.getElementById('adjustGroup');
+  const cropGroup   = document.getElementById('cropGroup');
+  const frameGroup  = document.getElementById('frameGroup');
+  const frameWidth  = document.getElementById('frameWidth');
+  const frameWidthVal = document.getElementById('frameWidthVal');
+  const jpgQuality  = document.getElementById('jpgQuality');
+  const jpgQualityVal = document.getElementById('jpgQualityVal');
+
+  // ---------- State ----------
+  let originalImage = null;   // the source Image, never mutated
+
+  const DEFAULTS = {
+    brightness:100, contrast:100, saturation:100,
+    warmth:0, blur:0, vignette:0
+  };
+
+  let state = {
+    filter:'original',
+    aspect:'original',
+    frame:'none',
+    frameWidth:3,
+    rotation:0,        // degrees, multiples of 90
+    flipH:false,
+    flipV:false,
+    adjust:Object.assign({}, DEFAULTS)
+  };
+
+  // Slider definitions: [key, label, min, max, step, unit]
+  const SLIDERS = [
+    ['brightness','Brightness',50,150,1,'%'],
+    ['contrast','Contrast',50,150,1,'%'],
+    ['saturation','Saturation',0,200,1,'%'],
+    ['warmth','Warmth',-100,100,1,''],
+    ['blur','Blur',0,8,0.1,'px'],
+    ['vignette','Vignette',0,100,1,'%']
+  ];
+
+  // Filter presets: extra multiplicative adjustments + special flags.
+  // These stack on top of the manual Adjust sliders.
+  const FILTERS = {
+    original:{},
+    mono:{grayscale:1},
+    sepia:{sepia:0.85},
+    vintage:{sepia:0.35, contrast:0.92, saturation:0.85, brightness:1.03, warmth:30},
+    cool:{saturation:1.05, warmth:-45, brightness:1.02},
+    warm:{saturation:1.1, warmth:45, brightness:1.02},
+    vivid:{saturation:1.5, contrast:1.12},
+    fade:{contrast:0.82, saturation:0.75, brightness:1.08},
+    noir:{grayscale:1, contrast:1.3, brightness:0.95}
+  };
+
+  // ---------- Build Adjust sliders ----------
+  const sliderEls = {};
+  SLIDERS.forEach(function(def){
+    const [key,label,min,max,step,unit] = def;
+    const row = document.createElement('div');
+    row.className = 'slider-row';
+    row.innerHTML =
+      '<div class="slider-head">' +
+        '<span>' + label + '</span>' +
+        '<span class="slider-val">' +
+          '<span id="val_' + key + '"></span>' +
+          '<button class="reset-mini" data-reset="' + key + '">Reset</button>' +
+        '</span>' +
+      '</div>' +
+      '<input type="range" id="adj_' + key + '" min="' + min + '" max="' + max +
+        '" step="' + step + '" value="' + DEFAULTS[key] + '">';
+    adjustGroup.appendChild(row);
+
+    const input = row.querySelector('#adj_' + key);
+    const valEl = row.querySelector('#val_' + key);
+    sliderEls[key] = {input:input, val:valEl, unit:unit};
+
+    input.addEventListener('input', function(){
+      state.adjust[key] = parseFloat(input.value);
+      updateSliderReadout(key);
+      render();
+    });
+  });
+
+  function updateSliderReadout(key){
+    const s = sliderEls[key];
+    const v = state.adjust[key];
+    s.val.textContent = (key === 'blur' ? v.toFixed(1) : Math.round(v)) + s.unit;
+  }
+  function refreshAllReadouts(){
+    SLIDERS.forEach(function(d){
+      sliderEls[d[0]].input.value = state.adjust[d[0]];
+      updateSliderReadout(d[0]);
+    });
+    frameWidth.value = state.frameWidth;
+    frameWidthVal.textContent = state.frameWidth + '%';
+  }
+
+  // Reset-mini buttons
+  adjustGroup.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-reset]');
+    if(!btn) return;
+    const key = btn.getAttribute('data-reset');
+    state.adjust[key] = DEFAULTS[key];
+    sliderEls[key].input.value = DEFAULTS[key];
+    updateSliderReadout(key);
+    render();
+  });
+
+  // ---------- Filter chips ----------
+  filterChips.addEventListener('click', function(e){
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    state.filter = chip.getAttribute('data-filter');
+    setActive(filterChips, chip);
+    render();
+  });
+
+  // ---------- Crop / Frame groups ----------
+  cropGroup.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-aspect]');
+    if(!btn) return;
+    state.aspect = btn.getAttribute('data-aspect');
+    setActive(cropGroup, btn);
+    render();
+  });
+  frameGroup.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-frame]');
+    if(!btn) return;
+    state.frame = btn.getAttribute('data-frame');
+    setActive(frameGroup, btn);
+    render();
+  });
+
+  frameWidth.addEventListener('input', function(){
+    state.frameWidth = parseFloat(frameWidth.value);
+    frameWidthVal.textContent = state.frameWidth + '%';
+    render();
+  });
+  jpgQuality.addEventListener('input', function(){
+    jpgQualityVal.textContent = parseFloat(jpgQuality.value).toFixed(2);
+  });
+
+  function setActive(container, el){
+    container.querySelectorAll('.active').forEach(function(n){ n.classList.remove('active'); });
+    el.classList.add('active');
+  }
+
+  // ---------- Transform buttons ----------
+  document.getElementById('rotL').addEventListener('click', function(){
+    if(!originalImage) return;
+    state.rotation = ((state.rotation - 90) % 360 + 360) % 360;
+    render();
+  });
+  document.getElementById('rotR').addEventListener('click', function(){
+    if(!originalImage) return;
+    state.rotation = (state.rotation + 90) % 360;
+    render();
+  });
+  document.getElementById('flipH').addEventListener('click', function(){
+    if(!originalImage) return;
+    state.flipH = !state.flipH;
+    render();
+  });
+  document.getElementById('flipV').addEventListener('click', function(){
+    if(!originalImage) return;
+    state.flipV = !state.flipV;
+    render();
+  });
+
+  // ---------- Reset all ----------
+  document.getElementById('resetAll').addEventListener('click', function(){
+    state.filter='original';
+    state.aspect='original';
+    state.frame='none';
+    state.frameWidth=3;
+    state.rotation=0;
+    state.flipH=false;
+    state.flipV=false;
+    state.adjust=Object.assign({}, DEFAULTS);
+
+    // sync UI
+    setActive(filterChips, filterChips.querySelector('[data-filter="original"]'));
+    setActive(cropGroup, cropGroup.querySelector('[data-aspect="original"]'));
+    setActive(frameGroup, frameGroup.querySelector('[data-frame="none"]'));
+    refreshAllReadouts();
+    render();
+  });
+
+  // ---------- File loading ----------
+  fileInput.addEventListener('change', function(e){
+    const f = e.target.files && e.target.files[0];
+    if(f) loadFile(f);
+  });
+
+  function loadFile(file){
+    if(!file || !/^image\//.test(file.type)) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const img = new Image();
+      img.onload = function(){
+        originalImage = img;
+        emptyState.classList.add('hidden');
+        canvas.classList.remove('hidden');
+        render();
+      };
+      img.onerror = function(){ /* ignore bad image gracefully */ };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---------- Drag & drop onto stage ----------
+  ['dragenter','dragover'].forEach(function(evt){
+    stage.addEventListener(evt, function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      stage.classList.add('dragover');
+    });
+  });
+  ['dragleave','dragend'].forEach(function(evt){
+    stage.addEventListener(evt, function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.target === stage) stage.classList.remove('dragover');
+    });
+  });
+  stage.addEventListener('drop', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    stage.classList.remove('dragover');
+    const dt = e.dataTransfer;
+    if(dt && dt.files && dt.files.length) loadFile(dt.files[0]);
+  });
+
+  // ================= RENDER PIPELINE =================
+  // Draw everything into a supplied context at a chosen scale.
+  // scale=1 => full native resolution (export). <1 => scaled preview.
+
+  // Returns the source-space dimensions AFTER rotation is applied.
+  function getRotatedSize(){
+    const rot = state.rotation;
+    if(rot === 90 || rot === 270){
+      return {w:originalImage.height, h:originalImage.width};
+    }
+    return {w:originalImage.width, h:originalImage.height};
+  }
+
+  // Compute the cropped output rectangle (in rotated-source pixels).
+  function getCropSize(rw, rh){
+    if(state.aspect === 'original') return {w:rw, h:rh};
+    const parts = state.aspect.split(':');
+    const ar = parseFloat(parts[0]) / parseFloat(parts[1]); // width/height
+    let cw = rw, ch = rw / ar;
+    if(ch > rh){ ch = rh; cw = rh * ar; }
+    return {w:Math.round(cw), h:Math.round(ch)};
+  }
+
+  // Build the CSS filter string from adjust sliders + active preset.
+  function buildFilterString(){
+    const a = state.adjust;
+    const preset = FILTERS[state.filter] || {};
+
+    let brightness = a.brightness/100 * (preset.brightness || 1);
+    let contrast   = a.contrast/100   * (preset.contrast   || 1);
+    let saturation = a.saturation/100 * (preset.saturation || 1);
+    const blur     = a.blur;
+    const grayscale= preset.grayscale || 0;
+    const sepia    = preset.sepia || 0;
+
+    let f = '';
+    f += 'brightness(' + brightness.toFixed(3) + ') ';
+    f += 'contrast(' + contrast.toFixed(3) + ') ';
+    f += 'saturate(' + saturation.toFixed(3) + ') ';
+    if(grayscale) f += 'grayscale(' + grayscale + ') ';
+    if(sepia)     f += 'sepia(' + sepia + ') ';
+    if(blur > 0)  f += 'blur(' + blur + 'px) ';
+    return f.trim();
+  }
+
+  // Effective warmth = manual slider + preset warmth contribution.
+  function effectiveWarmth(){
+    const preset = FILTERS[state.filter] || {};
+    let w = state.adjust.warmth + (preset.warmth || 0);
+    if(w > 100) w = 100;
+    if(w < -100) w = -100;
+    return w;
+  }
+
+  // Core draw. targetCtx must have width/height already set on its canvas.
+  function drawTo(targetCtx, outW, outH){
+    const tCanvas = targetCtx.canvas;
+
+    // 1) Produce a rotated+flipped+cropped intermediate at full crop resolution.
+    const rSize = getRotatedSize();
+    const crop  = getCropSize(rSize.w, rSize.h);
+
+    // intermediate holds the transformed + cropped image (no filters yet)
+    const inter = document.createElement('canvas');
+    inter.width = crop.w;
+    inter.height = crop.h;
+    const ictx = inter.getContext('2d');
+
+    ictx.save();
+    // translate to center of crop, so we can position the rotated image centered
+    ictx.translate(crop.w/2, crop.h/2);
+    // apply flips
+    ictx.scale(state.flipH ? -1 : 1, state.flipV ? -1 : 1);
+    // apply rotation
+    ictx.rotate(state.rotation * Math.PI/180);
+    // draw original centered; for 90/270 the axes are swapped but centering handles it
+    ictx.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
+    ictx.restore();
+
+    // 2) Frame math (border drawn inside output).
+    const frameActive = state.frame !== 'none' && state.frameWidth > 0;
+    const shortSide = Math.min(outW, outH);
+    const border = frameActive ? Math.round(shortSide * (state.frameWidth/100)) : 0;
+    const imgX = border, imgY = border;
+    const imgW = outW - border*2;
+    const imgH = outH - border*2;
+
+    // Clear whole target
+    targetCtx.clearRect(0,0,outW,outH);
+
+    // Paint frame background first (fills the border area)
+    if(frameActive){
+      targetCtx.fillStyle = frameColor(state.frame);
+      targetCtx.fillRect(0,0,outW,outH);
+    }
+
+    // 3) Draw the intermediate scaled into the image area WITH filters applied.
+    targetCtx.save();
+    // clip to image area so blur/filters don't bleed onto frame
+    targetCtx.beginPath();
+    targetCtx.rect(imgX, imgY, imgW, imgH);
+    targetCtx.clip();
+    targetCtx.filter = buildFilterString();
+    targetCtx.drawImage(inter, imgX, imgY, imgW, imgH);
+    targetCtx.filter = 'none';
+    targetCtx.restore();
+
+    // 4) Warmth overlay (warm = orange, cool = blue) over image area only.
+    const warmth = effectiveWarmth();
+    if(warmth !== 0){
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.rect(imgX, imgY, imgW, imgH);
+      targetCtx.clip();
+      const amt = Math.abs(warmth)/100 * 0.35; // max 35% overlay
+      if(warmth > 0){
+        targetCtx.fillStyle = 'rgba(255,150,40,' + amt.toFixed(3) + ')';
+        targetCtx.globalCompositeOperation = 'overlay';
+      } else {
+        targetCtx.fillStyle = 'rgba(40,120,255,' + amt.toFixed(3) + ')';
+        targetCtx.globalCompositeOperation = 'overlay';
+      }
+      targetCtx.fillRect(imgX, imgY, imgW, imgH);
+      targetCtx.restore();
+    }
+
+    // 5) Vignette overlay (radial dark gradient) over image area only.
+    if(state.adjust.vignette > 0){
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.rect(imgX, imgY, imgW, imgH);
+      targetCtx.clip();
+      const cx = imgX + imgW/2, cy = imgY + imgH/2;
+      const inner = Math.min(imgW, imgH) * 0.35;
+      const outer = Math.sqrt(imgW*imgW + imgH*imgH)/2;
+      const strength = state.adjust.vignette/100 * 0.85;
+      const grad = targetCtx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,' + strength.toFixed(3) + ')');
+      targetCtx.fillStyle = grad;
+      targetCtx.fillRect(imgX, imgY, imgW, imgH);
+      targetCtx.restore();
+    }
+  }
+
+  function frameColor(name){
+    switch(name){
+      case 'white': return '#ffffff';
+      case 'black': return '#111111';
+      case 'cream': return '#f4ecdc';
+      default: return '#ffffff';
+    }
+  }
+
+  // ---------- Preview render (scaled to fit stage) ----------
+  function render(){
+    if(!originalImage) return;
+
+    const rSize = getRotatedSize();
+    const crop  = getCropSize(rSize.w, rSize.h);
+    const fullW = crop.w;
+    const fullH = crop.h;
+
+    // Scale preview down to a sensible max so huge photos stay fast.
+    const MAX = 1400;
+    let scale = 1;
+    if(Math.max(fullW, fullH) > MAX){
+      scale = MAX / Math.max(fullW, fullH);
+    }
+    const pw = Math.max(1, Math.round(fullW * scale));
+    const ph = Math.max(1, Math.round(fullH * scale));
+
+    canvas.width = pw;
+    canvas.height = ph;
+    drawTo(ctx, pw, ph);
+  }
+
+  // ---------- Export at native resolution ----------
+  function exportImage(type, quality){
+    if(!originalImage) return;
+    const rSize = getRotatedSize();
+    const crop  = getCropSize(rSize.w, rSize.h);
+    const outW = crop.w, outH = crop.h;
+
+    const off = document.createElement('canvas');
+    off.width = outW;
+    off.height = outH;
+    const octx = off.getContext('2d');
+
+    // For JPG, fill white background (no transparency in JPEG)
+    if(type === 'image/jpeg'){
+      octx.fillStyle = '#ffffff';
+      octx.fillRect(0,0,outW,outH);
+    }
+
+    drawTo(octx, outW, outH);
+
+    let dataUrl;
+    try{
+      dataUrl = (type === 'image/jpeg')
+        ? off.toDataURL('image/jpeg', quality)
+        : off.toDataURL('image/png');
+    }catch(err){
+      return; // tainted canvas or other failure — fail gracefully
+    }
+
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = (type === 'image/jpeg') ? 'edited-photo.jpg' : 'edited-photo.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  document.getElementById('downloadPng').addEventListener('click', function(){
+    exportImage('image/png');
+  });
+  document.getElementById('downloadJpg').addEventListener('click', function(){
+    exportImage('image/jpeg', parseFloat(jpgQuality.value));
+  });
+
+  // ---------- Init readouts ----------
+  refreshAllReadouts();
+})();
+</script>
+</body>
+</html>

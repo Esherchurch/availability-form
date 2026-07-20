@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Maker · Calla Design</title>
+    <style>
+        :root{
+            --canvas:#e7ecec; --surface:#ffffff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c;
+            --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+            --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+            --danger:#b0392c;
+            --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+            --r-md:12px;
+        }
+        *{ box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; }
+        body{ background:var(--canvas); color:var(--body); height:100vh; display:flex; flex-direction:column; overflow:hidden; -webkit-font-smoothing:antialiased; }
+
+        header{ background:var(--surface); padding:13px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--hairline); box-shadow:var(--shadow); z-index:2; }
+        header h1{ font-size:1.1rem; font-weight:800; color:var(--ink); letter-spacing:-.01em; }
+        header p{ color:var(--muted); font-size:.8rem; margin-top:2px; }
+        header a.back{ font-size:.82rem; font-weight:700; color:var(--brand); text-decoration:none; white-space:nowrap; }
+        header a.back:hover{ color:var(--brand-dark); }
+
+        .app-container{ display:flex; flex:1; overflow:hidden; }
+
+        /* Control Panel */
+        .control-sidebar{ width:420px; border-right:1px solid var(--hairline); display:flex; flex-direction:column; overflow-y:auto; background:var(--surface); }
+        .control-section{ border-bottom:1px solid var(--hairline); padding:18px 20px; }
+        .section-title{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--brand); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+
+        .form-group{ margin-bottom:14px; }
+        .form-row{ display:flex; gap:10px; margin-bottom:14px; }
+        .form-row .form-group{ flex:1; margin-bottom:0; }
+
+        label{ display:block; font-size:.7rem; font-weight:800; margin-bottom:6px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+        input[type="text"], input[type="color"], textarea, select{ width:100%; padding:10px 12px; border:1px solid var(--hairline-strong); border-radius:var(--r-md); font-size:.9rem; background:var(--surface); color:var(--ink); outline:none; transition:border-color .15s, box-shadow .15s; }
+        input[type="text"]:focus, textarea:focus, select:focus{ border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
+        input[type="color"]{ height:40px; padding:3px; cursor:pointer; }
+        textarea{ resize:vertical; line-height:1.5; }
+        select{ cursor:pointer; }
+
+        /* Dynamic List Utilities */
+        .dynamic-item-card{ background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--r-md); padding:14px 12px 12px; margin-bottom:10px; position:relative; }
+        .remove-btn{ background:none; color:var(--faint); border:none; padding:2px 5px; font-size:.72rem; font-weight:800; border-radius:6px; cursor:pointer; position:absolute; top:9px; right:8px; }
+        .remove-btn:hover{ color:var(--danger); }
+        .add-btn{ background:var(--surface); color:var(--brand); border:1px dashed var(--hairline-strong); padding:10px 14px; font-size:.85rem; font-weight:700; border-radius:var(--r-md); cursor:pointer; transition:background .15s, border-color .15s; width:100%; text-align:center; margin-top:2px; }
+        .add-btn:hover{ background:var(--brand-tint); border-color:var(--brand); }
+
+        /* Preview Panel */
+        .preview-pane{ flex:1; display:flex; flex-direction:column; background:radial-gradient(circle at 50% 0%, #eef2f1, #dfe6e5); padding:20px; }
+        .tab-navigation{ display:flex; gap:4px; background:var(--surface); border:1px solid var(--hairline); padding:4px; border-radius:10px; margin-bottom:16px; width:fit-content; box-shadow:var(--shadow); }
+        .view-tab{ padding:8px 16px; background:none; border:none; font-weight:700; font-size:.83rem; cursor:pointer; border-radius:7px; color:var(--muted); transition:background .15s, color .15s; }
+        .view-tab:hover{ color:var(--ink); }
+        .view-tab.active{ background:var(--brand); color:#fff; }
+        .frame-wrapper{ flex:1; background:#fff; border-radius:14px; overflow:hidden; border:1px solid var(--hairline); box-shadow:var(--shadow); }
+        iframe{ width:100%; height:100%; border:none; background:#fff; }
+
+        /* Sticky Footer Export */
+        .action-tray{ padding:18px 20px; background:var(--surface); border-top:1px solid var(--hairline); position:sticky; bottom:0; }
+        .btn-export{ background:var(--brand); color:#fff; border:none; padding:14px; font-size:.9rem; font-weight:800; border-radius:var(--r-md); cursor:pointer; width:100%; display:flex; justify-content:center; align-items:center; gap:8px; transition:background .15s, transform .1s; }
+        .btn-export:hover{ background:var(--brand-dark); }
+        .btn-export:active{ transform:translateY(1px); }
+
+        .media-row{ display:flex; align-items:center; gap:10px; background:var(--surface-2); padding:6px; border-radius:var(--r-md); border:1px solid var(--hairline); }
+        .media-preview{ width:44px; height:32px; object-fit:cover; border-radius:6px; border:1px solid var(--hairline-strong); background:#e9eeed; }
+        .media-row input[type=file]{ font-size:.78rem; color:var(--muted); }
+
+        @media (max-width:900px){
+            body{ height:auto; overflow:auto; }
+            .app-container{ flex-direction:column; }
+            .control-sidebar{ width:100%; border-right:none; border-bottom:1px solid var(--hairline); }
+            .preview-pane{ min-height:80vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>Website Maker</h1>
+            <p>Build a 3-page website, style it your way, and download it ready to publish.</p>
+        </div>
+        <a class="back" href="studio.html">‹ Calla Design</a>
+    </header>
+
+    <div class="app-container">
+        <!-- CONTROL PANEL FORM -->
+        <div class="control-sidebar">
+            
+            <!-- SECTOR SELECTOR -->
+            <div class="control-section" style="background: var(--surface-2);">
+                <div class="section-title">Start from a template</div>
+                <div class="form-group">
+                    <label>Choose a business type</label>
+                    <select id="sectorSelector" onchange="loadSectorDataProfile()">
+                        <option value="finance">Finance & Asset Advisory</option>
+                        <option value="legal">Legal Counsel & Practice</option>
+                        <option value="building">Building & Construction Contractors</option>
+                        <option value="grooming">Professional Dog Grooming</option>
+                        <option value="property">Prosser Property Management</option>
+                        <option value="beauty">Aesthetic Beauty & Hair Studio</option>
+                        <option value="electrician">Certified Electrical Engineering</option>
+                        <option value="plumbing">Plumbing & Thermal Systems</option>
+                        <option value="sports">Athletic Performance & Coaching</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- THEME DESIGN SYSTEM CONTROLS -->
+            <div class="control-section">
+                <div class="section-title">Style &amp; fonts</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Main colour</label>
+                        <input type="color" id="stylePrimary" onchange="refreshCanvas()">
+                    </div>
+                    <div class="form-group">
+                        <label>Accent colour</label>
+                        <input type="color" id="styleAccent" onchange="refreshCanvas()">
+                    </div>
+                    <div class="form-group">
+                        <label>Heading colour</label>
+                        <input type="color" id="styleHeadingColor" onchange="refreshCanvas()">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Heading font</label>
+                        <select id="styleHeadingFont" onchange="refreshCanvas()">
+                            <optgroup label="Modern Sans-Serif (Clean & Sharp)">
+                                <option value="'Inter', sans-serif">Inter</option>
+                                <option value="'Roboto', sans-serif">Roboto</option>
+                                <option value="'Montserrat', sans-serif">Montserrat</option>
+                                <option value="'Open Sans', sans-serif">Open Sans</option>
+                                <option value="'Lato', sans-serif">Lato</option>
+                                <option value="'Poppins', sans-serif">Poppins</option>
+                                <option value="'Roboto Condensed', sans-serif">Roboto Condensed</option>
+                                <option value="'Raleway', sans-serif">Raleway</option>
+                                <option value="'Oswald', sans-serif">Oswald</option>
+                                <option value="'Nuosu SIL', sans-serif">Nuosu SIL</option>
+                            </optgroup>
+                            <optgroup label="Premium Serifs (Sophisticated & Posh)">
+                                <option value="'Playfair Display', serif">Playfair Display</option>
+                                <option value="'Cinzel', serif">Cinzel</option>
+                                <option value="'Merriweather', serif">Merriweather</option>
+                                <option value="'Lora', serif">Lora</option>
+                                <option value="'PT Serif', serif">PT Serif</option>
+                                <option value="'Cormorant Garamond', serif">Cormorant Garamond</option>
+                                <option value="'Libre Baskerville', serif">Libre Baskerville</option>
+                                <option value="'EB Garamond', serif">EB Garamond</option>
+                                <option value="'Bodoni Moda', serif">Bodoni Moda</option>
+                                <option value="'Prata', serif">Prata</option>
+                            </optgroup>
+                            <optgroup label="Handwritten & Posh Scripts">
+                                <option value="'Great Vibes', cursive">Great Vibes</option>
+                                <option value="'Alex Brush', cursive">Alex Brush</option>
+                                <option value="'Dancing Script', cursive">Dancing Script</option>
+                                <option value="'Pacifico', cursive">Pacifico</option>
+                                <option value="'Sacramento', cursive">Sacramento</option>
+                                <option value="'Allura', cursive">Allura</option>
+                                <option value="'Pinyon Script', cursive">Pinyon Script</option>
+                                <option value="'Parisienne', cursive">Parisienne</option>
+                                <option value="'Cookie', cursive">Cookie</option>
+                                <option value="'Tangerine', cursive">Tangerine</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Body font</label>
+                        <select id="styleBodyFont" onchange="refreshCanvas()">
+                            <option value="'Inter', sans-serif">Inter Sans</option>
+                            <option value="'Roboto', sans-serif">Roboto Sans</option>
+                            <option value="'Open Sans', sans-serif">Open Sans</option>
+                            <option value="'Lato', sans-serif">Lato Sans</option>
+                            <option value="'Poppins', sans-serif">Poppins Sans</option>
+                            <option value="'Georgia', serif">Georgia Traditional</option>
+                            <option value="'Lora', serif">Lora Serif</option>
+                            <option value="'Merriweather', serif">Merriweather Serif</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Heading style</label>
+                        <select id="styleOutline" onchange="refreshCanvas()">
+                            <option value="none">Solid fill</option>
+                            <option value="outline">Outline only</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Outline thickness</label>
+                        <select id="styleOutlineWidth" onchange="refreshCanvas()">
+                            <option value="1px">Fine</option>
+                            <option value="2px">Medium</option>
+                            <option value="3px">Bold</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Text size</label>
+                        <select id="styleFontSize" onchange="refreshCanvas()">
+                            <option value="15px">15px Standard</option>
+                            <option value="16px">16px Readable</option>
+                            <option value="17px">17px Spacious</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Section spacing</label>
+                        <select id="stylePadding" onchange="refreshCanvas()">
+                            <option value="40px 6%">Compact</option>
+                            <option value="70px 6%">Balanced</option>
+                            <option value="100px 6%">Spacious</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CORE CONFIGURATION -->
+            <div class="control-section">
+                <div class="section-title">Business name &amp; logo</div>
+                <div class="form-group">
+                    <label>Business name</label>
+                    <input type="text" id="globalSiteTitle" oninput="refreshCanvas()">
+                </div>
+                <div class="form-group">
+                    <label>Logo</label>
+                    <div class="media-row">
+                        <img id="previewLogo" class="media-preview" src="">
+                        <input type="file" accept="image/*" onchange="encodeUploadedImage(this, 'logoData', 'previewLogo')">
+                    </div>
+                </div>
+            </div>
+
+            <!-- DYNAMIC MEDIA REGISTRY -->
+            <div class="control-section">
+                <div class="section-title">Images</div>
+                <div class="form-group">
+                    <label>Homepage banner image</label>
+                    <div class="media-row">
+                        <img id="previewHero" class="media-preview" src="">
+                        <input type="file" accept="image/*" onchange="encodeUploadedImage(this, 'heroData', 'previewHero')">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Contact page image</label>
+                    <div class="media-row">
+                        <img id="previewContact" class="media-preview" src="">
+                        <input type="file" accept="image/*" onchange="encodeUploadedImage(this, 'contactData', 'previewContact')">
+                    </div>
+                </div>
+            </div>
+
+            <!-- MARKETING PROPOSITION -->
+            <div class="control-section">
+                <div class="section-title">Homepage intro</div>
+                <div class="form-group">
+                    <label>Headline</label>
+                    <input type="text" id="introHeadline" oninput="refreshCanvas()">
+                </div>
+                <div class="form-group">
+                    <label>Short intro paragraph</label>
+                    <textarea id="introSubtext" rows="3" oninput="refreshCanvas()"></textarea>
+                </div>
+            </div>
+
+            <!-- DYNAMIC SERVICES MANAGEMENT ENGINE -->
+            <div class="control-section">
+                <div class="section-title">Services</div>
+                <div id="servicesDataWrapper"></div>
+                <button class="add-btn" onclick="addNewServiceItemDataField()">+ Add a service</button>
+            </div>
+
+            <!-- DYNAMIC RATE CARD MATRIX ENGINE -->
+            <div class="control-section">
+                <div class="section-title">Prices</div>
+                <div id="rateCardDataWrapper"></div>
+                <button class="add-btn" onclick="addNewRateCardDataField()">+ Add a price</button>
+            </div>
+
+            <!-- CONTACT CONFIGURATION -->
+            <div class="control-section">
+                <div class="section-title">Contact details</div>
+                <div class="form-group">
+                    <label>Contact heading</label>
+                    <input type="text" id="contactHeader" oninput="refreshCanvas()">
+                </div>
+                <div class="form-group">
+                    <label>Email address</label>
+                    <input type="text" id="contactEmail" oninput="refreshCanvas()">
+                </div>
+            </div>
+
+            <!-- STICKY EXPORT ACTIONS -->
+            <div class="action-tray">
+                <button class="btn-export" onclick="executeProductionBundleDownload()">
+                    <span>⤓</span> Download my website
+                </button>
+            </div>
+
+        </div>
+
+        <!-- LIVE WORKSPACE CANVAS -->
+        <div class="preview-pane">
+            <div class="tab-navigation">
+                <button class="view-tab active" id="tab-intro" onclick="switchCanvasTab('intro')">Home</button>
+                <button class="view-tab" id="tab-services" onclick="switchCanvasTab('services')">Services</button>
+                <button class="view-tab" id="tab-contact" onclick="switchCanvasTab('contact')">Contact &amp; prices</button>
+            </div>
+            <div class="frame-wrapper">
+                <iframe id="studioCanvasFrame"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let assetBinaryRegister = { logoData: '', heroData: '', contactData: '' };
+        let localActiveTabNode = 'intro';
+
+        const photoStock = {
+            financeHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%231e293b'/><path d='M200 600 L400 400 L600 500 L900 200' stroke='%233b82f6' stroke-width='8' fill='none'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Corporate Finance Strategy Visual</text></svg>",
+            financeContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%230f172a'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Wealth Management Consultation Matrix</text></svg>",
+            legalHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%23292524'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Legal Counsel & Juris Infrastructure</text></svg>",
+            legalContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%231c1917'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Fiduciary Review Panel</text></svg>",
+            buildingHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%23334155'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Industrial Site Engineering Frame</text></svg>",
+            buildingContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%231e293b'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Structural Operations Grid</text></svg>",
+            groomingHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%23f472b6'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Premium Canine Styling Space</text></svg>",
+            groomingContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%23db2777'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Anatomical Pet Care Hub</text></svg>",
+            propertyHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%23064e3b'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Real Estate Asset Management Profile</text></svg>",
+            propertyContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%2314532d'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Tenancy Portfolio Tracking Matrix</text></svg>",
+            beautyHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%2350061e'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Aesthetic Treatment Lounge Layout</text></svg>",
+            beautyContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%234c0519'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Dermal Transformation Workspace</text></svg>",
+            electricianHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%23172554'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Certified Distribution Grid Engineering</text></svg>",
+            electricianContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%23111827'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>EICR Failure Diagnostic Systems</text></svg>",
+            plumbingHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%230369a1'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Plantroom Hydraulic Layout Pipeline</text></svg>",
+            plumbingContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%230c4a6e'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Thermal Zoning Flow Control</text></svg>",
+            sportsHero: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%25' height='100%25' fill='%231e1b4b'/><text x='50%25' y='50%25' fill='white' font-size='24' font-family='sans-serif' text-anchor='middle'>Biomechanical Athletic Performance Lab</text></svg>",
+            sportsContact: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'><rect width='100%25' height='100%25' fill='%230f172a'/><text x='50%25' y='50%25' fill='white' font-size='20' font-family='sans-serif' text-anchor='middle'>Tactical Squad Strategy Mapping</text></svg>"
+        };
+
+        const dynamicSectorPresets = {
+            finance: {
+                title: "Prosser Wealth Management",
+                headline: "Independent Wealth Preservation & Fiduciary Strategy Systems",
+                subtext: "We deliver transactional visibility, rigorous database auditing tracking, and multi-entity portfolio allocation metrics tailored for executive structures.",
+                cHead: "Schedule Strategic Asset Review", cEmail: "fiduciary@prosserwealth.co.uk",
+                primary: "#0f172a", accent: "#2563eb", heading: "#0f172a", font: "'Inter', sans-serif", outline: "none",
+                heroImg: photoStock.financeHero, contactImg: photoStock.financeContact,
+                services: [
+                    { title: "Portfolio Engineering", desc: "Custom investment vehicle architectures configured perfectly for long-term multi-entity optimization." },
+                    { title: "Forensic Capital Audits", desc: "Rigorous balancing analysis keeping transactional trails error-free across all accounting channels." },
+                    { title: "Corporate Formations", desc: "Structuring governance blueprints optimized for leadership successions and professional exits." }
+                ],
+                rates: [
+                    { item: "Initial Strategic Evaluation", price: "£450", billing: "Fixed Flat Fee" },
+                    { item: "Forensic Capital Audit", price: "£150", billing: "Hourly Scale" },
+                    { item: "Corporate Structure Design", price: "Custom Portfolio", billing: "Per Project Agreement" }
+                ]
+            },
+            legal: {
+                title: "Vanguard Corporate Juris",
+                headline: "Definitive Corporate Representation and Structural Risk Mitigation",
+                subtext: "Our practitioners manage regulatory pathways, contractual structures, and commercial arbitration profiles with absolute legal precision.",
+                cHead: "Initiate Counsel Retainer", cEmail: "brief@vanguardjuris.com",
+                primary: "#1c1917", accent: "#b45309", heading: "#1c1917", font: "'Cinzel', serif", outline: "none",
+                heroImg: photoStock.legalHero, contactImg: photoStock.legalContact,
+                services: [
+                    { title: "Regulatory Risk Auditing", desc: "Proactive structural analysis protecting organizational channels from changing corporate laws." },
+                    { title: "Contractual Infrastructure", desc: "Meticulous structural drafting of corporate provider layouts and enterprise merger rules." },
+                    { title: "Arbitration & Litigation", desc: "High-stakes litigation representation designed to protect enterprise operational paths and milestones." }
+                ],
+                rates: [
+                    { item: "Regulatory Compliance Audit", price: "£1,200", billing: "Per Framework Flat" },
+                    { item: "Partnership Agreement Draft", price: "£750", billing: "Per Structure" },
+                    { item: "Senior Litigation Retainer", price: "£350", billing: "Hourly Rate Tracking" }
+                ]
+            },
+            building: {
+                title: "Apex Build Contractors",
+                headline: "Industrial Infrastructure & High-Specification Architectural Building",
+                subtext: "From ground excavation mapping to structural frame reinforcement, we execute commercial building developments flawlessly within strict safety parameters.",
+                cHead: "Submit Tender Documentation", cEmail: "tenders@apexbuilders.com",
+                primary: "#1e293b", accent: "#d97706", heading: "#1e293b", font: "'Montserrat', sans-serif", outline: "none",
+                heroImg: photoStock.buildingHero, contactImg: photoStock.buildingContact,
+                services: [
+                    { title: "Commercial General Contracting", desc: "Turnkey operational development executing structural site schemas on accelerated timelines." },
+                    { title: "Reinforced Groundwork Layouts", desc: "Precision heavy excavation, structural grading, and concrete infrastructure laying." },
+                    { title: "Spec Development Extensions", desc: "High-spec commercial conversions adding premium space optimization arrays to your portfolio." }
+                ],
+                rates: [
+                    { item: "Site Engineering Appraisal", price: "£650", billing: "Flat Survey Metric" },
+                    { item: "Project Management Track", price: "12.5%", billing: "Total Construction Cost" },
+                    { item: "High-Spec Structural Adjustments", price: "Quote Provided", billing: "Custom Materials Matrix" }
+                ]
+            },
+            grooming: {
+                title: "The Velvet Coat Studio",
+                headline: "Elite Canine Styling and Specialized Dermal Therapy Profiles",
+                subtext: "A premium, anxiety-free styling environment focused on standard anatomical coat optimization, precise scissoring, and dermatological care.",
+                cHead: "Secure Stylist Calendar Slot", cEmail: "grooming@velvetcoat.studio",
+                primary: "#1e3a8a", accent: "#ec4899", heading: "#1e3a8a", font: "'Montserrat', sans-serif", outline: "none",
+                heroImg: photoStock.groomingHero, contactImg: photoStock.groomingContact,
+                services: [
+                    { title: "Breed-Standard Styling", desc: "Artisanal hand-scissoring and dimensional coat profiling executed by master animal stylists." },
+                    { title: "Follicular Dermal Cleansing", desc: "Mineral-enriched hydrotherapy systems systematically restoring correct dermal pH balances." },
+                    { title: "Hygienic Profile Trimming", desc: "Precision nail alignment tracking, ear canal clearance, and careful padding profiling." }
+                ],
+                rates: [
+                    { item: "Full Toy/Small Breed Styling Profile", price: "£55", billing: "Flat Care Session" },
+                    { item: "Medium/Large Breed Therapeutic Wash", price: "£75", billing: "Session Basis" },
+                    { item: "Hygienic Claw & Pad Maintenance", price: "£20", billing: "Walk-In Standard" }
+                ]
+            },
+            property: {
+                title: "Prosser Property Management",
+                headline: "Maximizing Asset Yields via Systematic Real Estate Asset Oversight",
+                subtext: "We streamline multi-tenant portfolio operations, handle strict legal compliance checking, manage facility lifecycles, and run financial tenant ledgers.",
+                cHead: "Integrate Asset Portfolio Now", cEmail: "director@prossermanagement.com",
+                primary: "#14532d", accent: "#10b981", heading: "#14532d", font: "'Inter', sans-serif", outline: "none",
+                heroImg: photoStock.propertyHero, contactImg: photoStock.propertyContact,
+                services: [
+                    { title: "Asset Yield Management", desc: "Continuous portfolio tracking and rent alignment metrics maximizing revenue performance layout." },
+                    { title: "Planned Facility Maintenance", desc: "Systematic building system checks and localized electrical/plumbing emergency networks on call." },
+                    { title: "Tenant Compliance Tracking", desc: "Rigorous legal oversight keeping your assets fully aligned with modern residential/commercial laws." }
+                ],
+                rates: [
+                    { item: "Full Portfolio Management Route", price: "8%", billing: "Monthly Gross Rental Collect" },
+                    { item: "Tenant Ingress & Check Asset Audit", price: "£250", billing: "Per New Lease Track" },
+                    { item: "Annual Safety Compliance Layout", price: "£180", billing: "Per Operational Unit" }
+                ]
+            },
+            beauty: {
+                title: "Aura Aesthetic Lounge",
+                headline: "Advanced Skincare Science & Luxurious Dermal Transformations",
+                subtext: "Experience premium clinical layout precision, custom hair color saturation profiles, and specialized facial structural therapy in a premium clinical lounge.",
+                cHead: "Book Posh Consultation Lounge", cEmail: "lounge@auraclinic.co.uk",
+                primary: "#4c0519", accent: "#f43f5e", heading: "#4c0519", font: "'Great Vibes', cursive", outline: "none",
+                heroImg: photoStock.beautyHero, contactImg: photoStock.beautyContact,
+                services: [
+                    { title: "Dermal Cell Remodeling", desc: "Targeted anti-aging procedures formulated with active scientific cosmetic elements." },
+                    { title: "Balayage Matrix Design", desc: "Advanced hair dimension charting and precise tone saturation profiling managed by masters." },
+                    { title: "Lash Contour Sculpting", desc: "Precision micro-pigmentation and lash framing aligning perfectly with facial geometry." }
+                ],
+                rates: [
+                    { item: "Clinical Dermal Session", price: "£120", billing: "Per 60 Mins Treatment" },
+                    { item: "Master Balayage Alignment & Styling", price: "£185", billing: "Standard Master Package" },
+                    { item: "Micro-Pigmentation Mapping Consultation", price: "£90", billing: "Session Basis" }
+                ]
+            },
+            electrician: {
+                title: "VoltCore Grid Systems",
+                headline: "High-Capacity Power Distribution and Certified System Remediation",
+                subtext: "NIC EIC approved electrical engineers executing commercial distribution overhauls, compliance safety testing, and automated control logic integration.",
+                cHead: "Request Technical System Quote", cEmail: "engineering@voltcore.co.uk",
+                primary: "#111827", accent: "#eab308", heading: "#111827", font: "'Montserrat', sans-serif", outline: "none",
+                heroImg: photoStock.electricianHero, contactImg: photoStock.electricianContact,
+                services: [
+                    { title: "Commercial Three-Phase Panels", desc: "Engineering load-balanced distribution boards optimized for production and high-draw hardware lines." },
+                    { title: "EICR Structural Diagnostics", desc: "Forensic loop resistance logging mapping out insulation and circuit load limitations." },
+                    { title: "Industrial Grid Automation", desc: "Integrating smart logical controllers, remote telemetry switches, and efficiency monitoring arrays." }
+                ],
+                rates: [
+                    { item: "Commercial EICR System Testing", price: "£250", billing: "Up to 10 Ways Base" },
+                    { item: "Emergency Diagnostic Callout Protocol", price: "£90", billing: "First 60 Mins Onsite" },
+                    { item: "Three Phase Power Structural Install", price: "Custom Build", billing: "Scope Dependent Estimate" }
+                ]
+            },
+            plumbing: {
+                title: "HydroFlow Thermal Engineering",
+                headline: "Industrial Commercial Plantrooms and Advanced Hydraulic Control",
+                subtext: "We resolve localized low-pressure bottlenecks, configure hydronic underfloor matrices, and deploy heavy-duty plantroom infrastructure safely.",
+                cHead: "Book System Performance Survey", cEmail: "systems@hydroflow-thermal.co.uk",
+                primary: "#0c4a6e", accent: "#0ea5e9", heading: "#0c4a6e", font: "'Inter', sans-serif", outline: "none",
+                heroImg: photoStock.plumbingHero, contactImg: photoStock.plumbingContact,
+                services: [
+                    { title: "Plantroom Optimization Streams", desc: "Configuring multi-boiler cascades, inline booster pumps, and expansion vessel clusters." },
+                    { title: "Thermal Zoning Matrix", desc: "Precision balancing of multi-loop hydraulic paths ensuring uniform heating across commercial spaces." },
+                    { title: "Main Water Infrastructure", desc: "Heavy-duty unvented hot water installations certified to strict local building authority guidelines." }
+                ],
+                rates: [
+                    { item: "Commercial Boiler System Service", price: "£140", billing: "Flat Rate Check" },
+                    { item: "Hydronic Loop Balancing Audit", price: "£85", billing: "Hourly Diagnostic" },
+                    { item: "Unvented Cylinder Infrastructure Install", price: "£950", billing: "Base Install Flat Fee" }
+                ]
+            },
+            sports: {
+                title: "Apex Performance Lab",
+                headline: "Biomechanical Motion Analysis and Tactical Athletic Optimization",
+                subtext: "We design elite athletic performance profiles using structured data tracking, frame-by-frame video capture, and targeted physiological metabolic programming.",
+                cHead: "Initiate Athletic Assessment Profile", cEmail: "coaching@performance-lab.com",
+                primary: "#0f172a", accent: "#dc2626", heading: "#0f172a", font: "'Montserrat', sans-serif", outline: "none",
+                heroImg: photoStock.sportsHero, contactImg: photoStock.sportsContact,
+                services: [
+                    { title: "Frame-By-Frame Video Analysis", desc: "Deep analytical positional breakdowns examining joint mechanical angles and torque distribution vectors." },
+                    { title: "Metabolic Threshold Programming", desc: "Customized physiological training protocols targeting lactic and aerobic capacity limits." },
+                    { title: "Tactical System Spatial Modeling", desc: "Advanced squad formation strategy mapping designed for professional teams and elite lines." }
+                ],
+                rates: [
+                    { item: "Biomechanical Motion Mapping", price: "£150", billing: "Per Comprehensive Lab Run" },
+                    { item: "Monthly Performance Programming", price: "£95", billing: "Calendar Subscription Basis" },
+                    { item: "Squad Tactical Strategy Seminar", price: "£400", billing: "Half Day Module" }
+                ]
+            }
+        };
+
+        function encodeUploadedImage(inputDOM, storageTargetKey, previewImgID) {
+            const rawFile = inputDOM.files[0];
+            if (!rawFile) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                assetBinaryRegister[storageTargetKey] = e.target.result;
+                document.getElementById(previewImgID).src = e.target.result;
+                refreshCanvas();
+            };
+            reader.readAsDataURL(rawFile);
+        }
+
+        function addNewServiceItemDataField(title = '', desc = '') {
+            const wrapper = document.getElementById('servicesDataWrapper');
+            const uniqueID = Date.now() + Math.random().toString(36).substr(2, 5);
+            
+            const outerDiv = document.createElement('div');
+            outerDiv.className = 'dynamic-item-card';
+            outerDiv.id = `srv-${uniqueID}`;
+            outerDiv.innerHTML = `
+                <button class="remove-btn" onclick="removeDynamicElementDOMNode('srv-${uniqueID}')">&times;</button>
+                <div class="form-group">
+                    <label>Service name</label>
+                    <input type="text" class="srv-title-field" value="${title}" oninput="refreshCanvas()">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Description</label>
+                    <textarea class="srv-desc-field" rows="2" oninput="refreshCanvas()">${desc}</textarea>
+                </div>
+            `;
+            wrapper.appendChild(outerDiv);
+            refreshCanvas();
+        }
+
+        function addNewRateCardDataField(item = '', price = '', billing = '') {
+            const wrapper = document.getElementById('rateCardDataWrapper');
+            const uniqueID = Date.now() + Math.random().toString(36).substr(2, 5);
+            
+            const outerDiv = document.createElement('div');
+            outerDiv.className = 'dynamic-item-card';
+            outerDiv.id = `rate-${uniqueID}`;
+            outerDiv.innerHTML = `
+                <button class="remove-btn" onclick="removeDynamicElementDOMNode('rate-${uniqueID}')">&times;</button>
+                <div class="form-group">
+                    <label>Item</label>
+                    <input type="text" class="rate-item-field" value="${item}" oninput="refreshCanvas()">
+                </div>
+                <div class="form-row" style="margin-bottom:0;">
+                    <div class="form-group">
+                        <label>Price</label>
+                        <input type="text" class="rate-price-field" value="${price}" oninput="refreshCanvas()">
+                    </div>
+                    <div class="form-group">
+                        <label>Billing</label>
+                        <input type="text" class="rate-bill-field" value="${billing}" oninput="refreshCanvas()">
+                    </div>
+                </div>
+            `;
+            wrapper.appendChild(outerDiv);
+            refreshCanvas();
+        }
+
+        function removeDynamicElementDOMNode(elementID) {
+            const target = document.getElementById(elementID);
+            if (target) {
+                target.parentNode.removeChild(target);
+                refreshCanvas();
+            }
+        }
+
+        function extractServicesListState() {
+            const titleNodes = document.querySelectorAll('.srv-title-field');
+            const descNodes = document.querySelectorAll('.srv-desc-field');
+            let results = [];
+            titleNodes.forEach((node, index) => {
+                if(node.value.trim() !== '') {
+                    results.push({ title: node.value, desc: descNodes[index].value });
+                }
+            });
+            return results;
+        }
+
+        function extractRateCardListState() {
+            const itemNodes = document.querySelectorAll('.rate-item-field');
+            const priceNodes = document.querySelectorAll('.rate-price-field');
+            const fillNodes = document.querySelectorAll('.rate-bill-field');
+            let results = [];
+            itemNodes.forEach((node, index) => {
+                if(node.value.trim() !== '') {
+                    results.push({ item: node.value, price: priceNodes[index].value, billing: fillNodes[index].value });
+                }
+            });
+            return results;
+        }
+
+        function loadSectorDataProfile() {
+            const key = document.getElementById('sectorSelector').value;
+            const profile = dynamicSectorPresets[key];
+
+            document.getElementById('globalSiteTitle').value = profile.title;
+            document.getElementById('introHeadline').value = profile.headline;
+            document.getElementById('introSubtext').value = profile.subtext;
+            document.getElementById('contactHeader').value = profile.cHead;
+            document.getElementById('contactEmail').value = profile.cEmail;
+
+            document.getElementById('stylePrimary').value = profile.primary;
+            document.getElementById('styleAccent').value = profile.accent;
+            document.getElementById('styleHeadingColor').value = profile.heading;
+            document.getElementById('styleHeadingFont').value = profile.font;
+            document.getElementById('styleOutline').value = profile.outline;
+
+            document.getElementById('servicesDataWrapper').innerHTML = '';
+            document.getElementById('rateCardDataWrapper').innerHTML = '';
+
+            profile.services.forEach(s => addNewServiceItemDataField(s.title, s.desc));
+            profile.rates.forEach(r => addNewRateCardDataField(r.item, r.price, r.billing));
+
+            assetBinaryRegister.logoData = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="250" height="60" viewBox="0 0 250 60"><text x='10' y='38' font-family='sans-serif' font-weight='900' font-size='18' fill='${encodeURIComponent(profile.accent)}'>${encodeURIComponent(profile.title.toUpperCase())}</text></svg>`;
+            assetBinaryRegister.heroData = profile.heroImg;
+            assetBinaryRegister.contactData = profile.contactImg;
+
+            document.getElementById('previewLogo').src = assetBinaryRegister.logoData;
+            document.getElementById('previewHero').src = assetBinaryRegister.heroData;
+            document.getElementById('previewContact').src = assetBinaryRegister.contactData;
+
+            refreshCanvas();
+        }
+
+        function switchCanvasTab(targetTabID) {
+            document.getElementById('tab-intro').classList.remove('active');
+            document.getElementById('tab-services').classList.remove('active');
+            document.getElementById('tab-contact').classList.remove('active');
+            
+            document.getElementById('tab-' + targetTabID).classList.add('active');
+            localActiveTabNode = targetTabID;
+            refreshCanvas();
+        }
+
+        function generateEngineCSS() {
+            const primary = document.getElementById('stylePrimary').value;
+            const accent = document.getElementById('styleAccent').value;
+            const hColor = document.getElementById('styleHeadingColor').value;
+            const hFont = document.getElementById('styleHeadingFont').value;
+            const bFont = document.getElementById('styleBodyFont').value;
+            const fSize = document.getElementById('styleFontSize').value;
+            const secPadding = document.getElementById('stylePadding').value;
+            const outlineMode = document.getElementById('styleOutline').value;
+            const strokeWidth = document.getElementById('styleOutlineWidth').value;
+
+            let headingStyleEffect = `color: ${hColor};`;
+            if (outlineMode === 'outline') {
+                headingStyleEffect = `color: transparent; -webkit-text-stroke: ${strokeWidth} ${hColor}; text-stroke: ${strokeWidth} ${hColor};`;
+            }
+
+            return `/* Structural High-Spec Website Layout Engine Style Sheet */
+@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Allura&family=Bodoni+Moda:ital,wght@0,400..900;1,400..900&family=Cinzel:wght@400..900&family=Cookie&family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Dancing+Script:wght@400..700&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Great+Vibes&family=Inter:wght@100..900&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Oswald:wght@200..700&family=Pacifico&family=Parisienne&family=Pinyon+Script&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Prata&family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Raleway:ital,wght@0,100..900;1,100..900&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Sacramento&family=Tangerine:wght@400;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: ${bFont}; color: #334155; background-color: #ffffff; font-size: ${fSize}; -webkit-font-smoothing: antialiased; }
+
+header { background: #ffffff; padding: 24px 6%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 1000; }
+.logo-box img { max-height: 42px; width: auto; object-fit: contain; display: block; }
+nav { display: flex; gap: 32px; align-items: center; }
+nav a { color: #475569; text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.2s; }
+nav a:hover, nav a.active { color: ${accent}; }
+nav a.active { font-weight: 700; border-bottom: 2px solid ${accent}; padding-bottom: 2px; }
+
+/* Dynamic Hero Section */
+.hero-block { display: flex; align-items: center; padding: ${secPadding}; gap: 60px; max-width: 1400px; margin: 0 auto; min-height: 75vh; }
+.hero-text-node { flex: 1.1; }
+.hero-text-node h1 { font-family: ${hFont}; font-size: 4rem; font-weight: 800; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 24px; ${headingStyleEffect} }
+.hero-text-node p { font-size: 1.15rem; color: #475569; margin-bottom: 36px; max-width: 600px; }
+.action-btn { background: ${primary}; color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block; transition: background 0.2s; }
+.action-btn:hover { background: ${accent}; }
+.hero-image-node { flex: 0.9; }
+.hero-image-node img { width: 100%; height: 480px; object-fit: cover; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+
+/* Modular Multi-Item Layout Rows */
+.section-headline-block { text-align: center; max-width: 800px; margin: 60px auto 40px auto; padding: 0 20px; }
+.section-headline-block h2 { font-family: ${hFont}; font-size: 3rem; font-weight: 800; margin-bottom: 12px; ${headingStyleEffect} }
+.section-headline-block p { color: #64748b; font-size: 1.05rem; }
+
+.portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 40px; padding: 0 6% 80px 6%; max-width: 1400px; margin: 0 auto; }
+.portfolio-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); }
+.portfolio-card-body { padding: 28px; }
+.portfolio-card-body h3 { font-family: ${hFont}; font-size: 1.6rem; font-weight: 700; margin-bottom: 12px; color: ${outlineMode === 'outline' ? hColor : 'inherit'}; }
+.portfolio-card-body p { color: #475569; font-size: 0.95rem; }
+
+/* Rate Card Table Architecture Layout */
+.rate-table-container { max-width: 1000px; margin: 0 auto 80px auto; padding: 0 6%; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
+th { background-color: ${primary}; color: white; text-align: left; padding: 16px; font-family: ${hFont}; font-weight: 600; font-size: 1.1rem; }
+td { padding: 16px; border-bottom: 1px solid #e2e8f0; background: #ffffff; font-size: 0.95rem; color: #334155; }
+tr:last-child td { border-bottom: none; }
+.badge-price { font-weight: 700; color: ${accent}; }
+
+/* Contact Routing Layout */
+.split-contact-block { display: flex; max-width: 1400px; margin: 0 auto; padding: ${secPadding}; gap: 80px; }
+.contact-inputs { flex: 1.2; }
+.contact-sidebar-graphic { flex: 0.8; display: flex; flex-direction: column; gap: 30px; }
+.contact-sidebar-graphic img { width: 100%; height: 360px; object-fit: cover; border-radius: 8px; }
+.field-label { display: block; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; margin-bottom: 6px; }
+.field-input { width: 100%; padding: 14px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; font-family: inherit; }
+.info-card-panel { background: #f8fafc; padding: 32px; border-radius: 8px; border: 1px solid #e2e8f0; }
+.info-card-panel h4 { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 6px; }
+.info-card-panel a { font-size: 1.3rem; font-weight: 700; color: ${primary}; text-decoration: none; }
+
+footer { background: #0f172a; color: #94a3b8; text-align: center; padding: 32px 20px; font-size: 0.85rem; border-top: 1px solid #1e293b; }
+@media (max-width: 968px) { .hero-block, .split-contact-block { flex-direction: column; } }
+`;
+        }
+
+        function compileEngineHTML(pageNodeKey) {
+            const title = document.getElementById('globalSiteTitle').value;
+            const headline = document.getElementById('introHeadline').value;
+            const subtext = document.getElementById('introSubtext').value;
+            const contactMsg = document.getElementById('contactHeader').value;
+            const contactMail = document.getElementById('contactEmail').value;
+            
+            const servicesArray = extractServicesListState();
+            const rateCardArray = extractRateCardListState();
+
+            const commonHeader = `
+    <header>
+        <div class="logo-box">
+            <img src="${assetBinaryRegister.logoData}" alt="${title}">
+        </div>
+        <nav>
+            <a href="index.html" class="${pageNodeKey === 'intro' ? 'active' : ''}">Home</a>
+            <a href="services.html" class="${pageNodeKey === 'services' ? 'active' : ''}">Services</a>
+            <a href="contact.html" class="${pageNodeKey === 'contact' ? 'active' : ''}">Contact & Rates</a>
+        </nav>
+    </header>`;
+
+            const commonFooter = `<footer>&copy; 2026 ${title}. All rights reserved.</footer>`;
+
+            if (pageNodeKey === 'intro') {
+                return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    ${commonHeader}
+    <section class="hero-block">
+        <div class="hero-text-node">
+            <h1>${headline}</h1>
+            <p>${subtext}</p>
+            <a href="services.html" class="action-btn">View our services</a>
+        </div>
+        <div class="hero-image-node">
+            <img src="${assetBinaryRegister.heroData}" alt="Corporate Core Asset">
+        </div>
+    </section>
+    ${commonFooter}
+</body>
+</html>`;
+            }
+
+            if (pageNodeKey === 'services') {
+                let cardsHTML = '';
+                servicesArray.forEach(srv => {
+                    cardsHTML += `
+        <div class="portfolio-card">
+            <div class="portfolio-card-body">
+                <h3>${srv.title}</h3>
+                <p>${srv.desc}</p>
+            </div>
+        </div>`;
+                });
+
+                return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${title} | Capabilities Portfolio</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    ${commonHeader}
+    <div class="section-headline-block">
+        <h2>What we do</h2>
+        <p>The services we offer.</p>
+    </div>
+    <div class="portfolio-grid">
+        ${cardsHTML || '<p style="text-align:center; grid-column: 1/-1; color:#94a3b8;">No services added yet.</p>'}
+    </div>
+    ${commonFooter}
+</body>
+</html>`;
+            }
+
+            if (pageNodeKey === 'contact') {
+                let tableRowsHTML = '';
+                rateCardArray.forEach(rate => {
+                    tableRowsHTML += `
+                <tr>
+                    <td style="font-weight:600;">${rate.item}</td>
+                    <td class="badge-price">${rate.price}</td>
+                    <td style="color:#64748b; font-style:italic;">${rate.billing}</td>
+                </tr>`;
+                });
+
+                return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${title} | Commercial Rate Card</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    ${commonHeader}
+    
+    <div class="section-headline-block">
+        <h2>Prices</h2>
+        <p>Our standard rates.</p>
+    </div>
+
+    <div class="rate-table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Price</th>
+                    <th>Billing</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRowsHTML || '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No prices added yet.</td></tr>'}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="split-contact-block">
+        <div class="contact-inputs">
+            <h3 style="font-size:2.2rem; font-weight:800; margin-bottom:12px;">${contactMsg}</h3>
+            <p style="color:#475569; margin-bottom:30px;">Send us a message and we'll get back to you.</p>
+            <form onsubmit="event.preventDefault(); alert('Thanks — your message has been sent.');">
+                <label class="field-label">Your name</label>
+                <input type="text" class="field-input" placeholder="Your name" required>
+                <label class="field-label">Your email</label>
+                <input type="text" class="field-input" placeholder="you@email.com" required>
+                <button type="submit" class="action-btn" style="border:none; width:100%; cursor:pointer;">Send message</button>
+            </form>
+        </div>
+        <div class="contact-sidebar-graphic">
+            <img src="${assetBinaryRegister.contactData}" alt="System Nexus Graph">
+            <div class="info-card-panel">
+                <h4>Email us</h4>
+                <a href="mailto:${contactMail}">${contactMail}</a>
+            </div>
+        </div>
+    </div>
+    ${commonFooter}
+</body>
+</html>`;
+            }
+        }
+
+        function refreshCanvas() {
+            const frame = document.getElementById('studioCanvasFrame');
+            const targetHTML = compileEngineHTML(localActiveTabNode);
+            const styleBlocks = generateEngineCSS();
+            const compiledCodeStream = targetHTML.replace('<link rel="stylesheet" href="style.css">', `<style>${styleBlocks}</style>`);
+            frame.srcdoc = compiledCodeStream;
+        }
+
+        function dispatchDownloadToken(fileName, payloadStream) {
+            const binaryBlob = new Blob([payloadStream], { type: 'text/html;charset=utf-8;' });
+            const anchor = document.createElement("a");
+            const virtualBlobURL = URL.createObjectURL(binaryBlob);
+            anchor.setAttribute("href", virtualBlobURL);
+            anchor.setAttribute("download", fileName);
+            anchor.style.visibility = 'hidden';
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+        }
+
+        function executeProductionBundleDownload() {
+            dispatchDownloadToken("index.html", compileEngineHTML('intro'));
+            setTimeout(() => dispatchDownloadToken("services.html", compileEngineHTML('services')), 200);
+            setTimeout(() => dispatchDownloadToken("contact.html", compileEngineHTML('contact')), 400);
+            setTimeout(() => dispatchDownloadToken("style.css", generateEngineCSS()), 600);
+        }
+
+        window.onload = function() {
+            loadSectorDataProfile();
+        };
+    </script>
+</body>
+</html>

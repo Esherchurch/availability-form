@@ -1,0 +1,17 @@
+{
+  "name": "Calla Design",
+  "short_name": "Calla Design",
+  "description": "Make invitations, websites, photos and films — the Calla Design suite.",
+  "start_url": "https://esherchurch.github.io/availability-form/studio.html",
+  "id": "/availability-form/studio.html",
+  "scope": "https://esherchurch.github.io/availability-form/studio.html",
+  "display": "standalone",
+  "background_color": "#f2f0f9",
+  "theme_color": "#6f59c0",
+  "icons": [
+    { "src": "calla-icon.png", "sizes": "192x192 512x512 1024x1024", "type": "image/png", "purpose": "any" },
+    { "src": "calla-icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "maskable" }
+  ],
+  "categories": ["utilities", "productivity", "graphics"],
+  "lang": "en-GB"
+}
