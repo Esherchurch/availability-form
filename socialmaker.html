@@ -1,0 +1,1307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Social Media Maker · Calla Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Poppins:wght@400;600;700;800&family=Playfair+Display:wght@400;600;700;800&family=Lora:wght@400;600;700&family=Oswald:wght@400;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#e7ecec; --surface:#ffffff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c;
+  --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+  --brand:#7C5CD6; --brand-dark:#5f45b0; --brand-tint:#efeafc; --brand-ring:rgba(124,92,214,.28);
+  --danger:#b0392c; --r-md:12px; --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--body); background:var(--canvas); display:flex; flex-direction:row; min-height:100vh;
+}
+/* ---- LEFT PANEL ---- */
+.panel{
+  width:380px; background:var(--surface); padding:22px; border-right:1px solid var(--hairline);
+  height:100vh; overflow-y:auto; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:14px;
+  position:fixed; left:0; top:0;
+}
+.back{ color:var(--brand); text-decoration:none; font-size:12px; font-weight:700; }
+.back:hover{ text-decoration:underline; }
+.head h2{ margin:6px 0 2px; font-size:19px; font-weight:800; color:var(--ink); }
+.head p{ margin:0; font-size:12.5px; color:var(--muted); line-height:1.4; }
+.section{ display:flex; flex-direction:column; gap:8px; }
+.label{ text-transform:uppercase; font-size:10px; font-weight:800; letter-spacing:.1em; color:var(--brand); }
+.field{ display:flex; flex-direction:column; gap:5px; }
+.field > span{ font-size:11.5px; font-weight:600; color:var(--body); }
+input[type=text], select, textarea{
+  width:100%; font:inherit; font-size:13px; color:var(--ink); background:var(--surface);
+  border:1px solid var(--hairline-strong); border-radius:var(--r-md); padding:9px 11px; outline:none;
+}
+textarea{ resize:vertical; min-height:52px; line-height:1.4; }
+input[type=text]:focus, select:focus, textarea:focus{
+  box-shadow:0 0 0 3px var(--brand-ring); border-color:var(--brand);
+}
+input[type=range]{ width:100%; accent-color:var(--brand); }
+input[type=color]{
+  -webkit-appearance:none; appearance:none; width:100%; height:38px; padding:3px;
+  border:1px solid var(--hairline-strong); border-radius:var(--r-md); background:var(--surface); cursor:pointer;
+}
+input[type=color]::-webkit-color-swatch-wrapper{ padding:0; }
+input[type=color]::-webkit-color-swatch{ border:none; border-radius:8px; }
+.row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.row2 .field > span{ font-size:11px; }
+.chips{ display:flex; flex-wrap:wrap; gap:7px; }
+.chip{
+  font:inherit; font-size:12px; font-weight:600; color:var(--body); cursor:pointer;
+  background:var(--surface-2); border:1px solid var(--hairline-strong); border-radius:var(--r-md);
+  padding:7px 11px; transition:all .12s;
+}
+.chip:hover{ border-color:var(--brand); }
+.chip.active{ background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark); }
+.chip:focus-visible{ box-shadow:0 0 0 3px var(--brand-ring); outline:none; }
+.rng{ display:flex; align-items:center; gap:10px; }
+.rng output{ font-size:11.5px; font-weight:700; color:var(--muted); min-width:38px; text-align:right; }
+.upload{
+  display:block; text-align:center; font-size:12.5px; font-weight:600; color:var(--brand-dark); cursor:pointer;
+  border:1.5px dashed var(--hairline-strong); border-radius:var(--r-md); padding:12px; background:var(--surface-2);
+}
+.upload:hover{ border-color:var(--brand); background:var(--brand-tint); }
+.upload input{ display:none; }
+.filename{ font-size:11px; color:var(--muted); margin-top:4px; word-break:break-all; }
+.btn{
+  font:inherit; font-size:13.5px; font-weight:700; cursor:pointer; border-radius:var(--r-md);
+  padding:11px 14px; border:1px solid transparent; width:100%;
+}
+.btn-primary{ background:var(--brand); color:#fff; }
+.btn-primary:hover{ background:var(--brand-dark); }
+.btn-ghost{ background:var(--surface); color:var(--body); border-color:var(--hairline-strong); }
+.btn-ghost:hover{ border-color:var(--brand); color:var(--brand-dark); }
+.dl-row{ display:flex; flex-direction:column; gap:8px; }
+.dim{ display:none; }
+.dim.show{ display:flex; }
+.hint{ font-size:11px; color:var(--faint); }
+/* ---- Advert thumbnails ---- */
+.adv-thumbs{ display:flex; flex-wrap:wrap; gap:8px; }
+.adv-thumbs:empty{ display:none; }
+.adv-thumb{
+  position:relative; width:62px; height:62px; border-radius:9px; overflow:hidden;
+  border:1px solid var(--hairline-strong); background:var(--surface-2);
+}
+.adv-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.adv-thumb button{
+  position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
+  border:none; background:rgba(20,32,31,.72); color:#fff; font-size:11px; line-height:1;
+  cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center;
+}
+.adv-thumb button:hover{ background:var(--danger); }
+/* ---- RIGHT STAGE ---- */
+.stage{
+  margin-left:380px; flex:1; min-height:100vh; padding:24px;
+  background:radial-gradient(circle at 50% 0%, #eef2f1, #dfe6e5);
+  display:flex; align-items:center; justify-content:center;
+}
+#canvas{
+  max-width:100%; max-height:calc(100vh - 48px); background:#fff;
+  border-radius:12px; box-shadow:0 10px 40px rgba(20,32,31,.18); display:block;
+}
+@media (max-width:900px){
+  body{ flex-direction:column; }
+  .panel{ position:static; width:100%; height:auto; border-right:none; border-bottom:1px solid var(--hairline); }
+  .stage{ margin-left:0; min-height:60vh; }
+}
+</style>
+</head>
+<body>
+<aside class="panel">
+  <a class="back" href="studio.html">‹ Calla Design</a>
+  <div class="head">
+    <h2>Social Media Maker</h2>
+    <p>Make on-brand posts, then download them ready to share.</p>
+  </div>
+
+  <div class="section" id="aiSection">
+    <div class="label">AI Assist</div>
+    <p class="hint">Describe what you're promoting and let Claude write the post.</p>
+    <label class="field"><span>What are you promoting?</span><textarea id="aiProduct" placeholder="e.g. weekend sale on handmade candles"></textarea></label>
+    <label class="field"><span>Tone</span>
+      <select id="aiTone">
+        <option>Friendly</option>
+        <option>Professional</option>
+        <option>Bold</option>
+        <option>Playful</option>
+        <option>Elegant</option>
+      </select>
+    </label>
+    <label class="field"><span>Offer / key detail (optional)</span><input type="text" id="aiDetail" placeholder="e.g. 20% off, code CALLA20"></label>
+    <button class="btn btn-primary" id="aiGenerate">&#10024; Generate post</button>
+    <div class="hint" id="aiStatus"></div>
+    <button id="aiKeyBtn" class="back" style="background:none;border:none;padding:0;margin-top:-2px;cursor:pointer;text-align:left;align-self:flex-start;">Change API key</button>
+  </div>
+
+  <div class="section" id="advSection">
+    <div class="label">&#127916; Advert</div>
+    <p class="hint">Turn photos plus a spoken voiceover into a short video advert.</p>
+    <div class="field">
+      <span>Advert images</span>
+      <div class="adv-thumbs" id="advThumbs"></div>
+      <label class="upload">+ Add image<input type="file" id="advImgFile" accept="image/*" multiple></label>
+    </div>
+    <label class="field"><span>What's the advert about? Paste any details</span><textarea id="advInfo" placeholder="e.g. weekend sale on handmade candles — 20% off, warm cosy vibe, code CALLA20"></textarea></label>
+    <label class="field"><span>Voice</span>
+      <select id="advVoice">
+        <option value="alloy">Alloy</option>
+        <option value="echo">Echo</option>
+        <option value="fable">Fable</option>
+        <option value="onyx">Onyx</option>
+        <option value="nova">Nova</option>
+        <option value="shimmer">Shimmer</option>
+        <option value="ash">Ash</option>
+        <option value="sage">Sage</option>
+        <option value="coral">Coral</option>
+        <option value="verse">Verse</option>
+      </select>
+    </label>
+    <button class="btn btn-ghost" id="advVoiceBtn">&#127897; Generate voiceover</button>
+    <label class="field"><span>Script (editable)</span><textarea id="advScript" placeholder="Claude writes the narration here — edit it however you like."></textarea></label>
+    <div class="hint" id="advStatus"></div>
+    <button class="btn btn-primary" id="advMake">&#127916; Download advert</button>
+    <div class="hint">Saves as .webm (video + voiceover).</div>
+  </div>
+
+  <div class="section">
+    <div class="label">Size</div>
+    <select id="size"></select>
+  </div>
+
+  <div class="section">
+    <div class="label">Template</div>
+    <div class="chips" id="templateChips"></div>
+  </div>
+
+  <div class="section">
+    <div class="label">Layout</div>
+    <div class="chips" id="layoutChips">
+      <button class="chip" data-value="centered">Centered</button>
+      <button class="chip" data-value="lowerleft">Lower-left</button>
+      <button class="chip" data-value="topband">Top band</button>
+      <button class="chip" data-value="overlay">Full-photo overlay</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">Wording</div>
+    <label class="field"><span>Eyebrow / tag</span><input type="text" id="eyebrow"></label>
+    <label class="field"><span>Headline</span><textarea id="headline"></textarea></label>
+    <label class="field"><span>Subtext</span><textarea id="subtext"></textarea></label>
+    <div class="row2">
+      <label class="field"><span>Call-to-action</span><input type="text" id="cta"></label>
+      <label class="field"><span>Business / handle</span><input type="text" id="business"></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">Background</div>
+    <div class="chips" id="bgChips">
+      <button class="chip" data-value="solid">Solid</button>
+      <button class="chip" data-value="gradient">Gradient</button>
+      <button class="chip" data-value="photo">Photo</button>
+    </div>
+    <div class="dim" id="dimSolid">
+      <label class="field" style="flex:1"><span>Colour</span><input type="color" id="solid"></label>
+    </div>
+    <div class="dim" id="dimGradient" style="flex-direction:column">
+      <div class="row2">
+        <label class="field"><span>Colour 1</span><input type="color" id="grad1"></label>
+        <label class="field"><span>Colour 2</span><input type="color" id="grad2"></label>
+      </div>
+      <label class="field"><span>Angle</span>
+        <div class="rng"><input type="range" id="angle" min="0" max="360" step="1"><output id="angleOut"></output></div>
+      </label>
+    </div>
+    <div class="dim" id="dimPhoto" style="flex-direction:column">
+      <label class="upload">Upload photo<input type="file" id="photoFile" accept="image/*"></label>
+      <div class="filename" id="photoName">No photo yet — a placeholder is shown.</div>
+      <label class="field"><span>Darken for readability</span>
+        <div class="rng"><input type="range" id="darken" min="0" max="80" step="1"><output id="darkenOut"></output></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">Brand &amp; fonts</div>
+    <div class="row2">
+      <label class="field"><span>Accent</span><input type="color" id="accent"></label>
+      <label class="field"><span>Text colour</span><input type="color" id="textColor"></label>
+    </div>
+    <div class="row2">
+      <label class="field"><span>Heading font</span><select id="headingFont"></select></label>
+      <label class="field"><span>Body font</span><select id="bodyFont"></select></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">Logo</div>
+    <label class="upload">Upload logo<input type="file" id="logoFile" accept="image/*"></label>
+    <div class="filename" id="logoName">No logo added.</div>
+    <div class="field"><span>Corner</span>
+      <div class="chips" id="cornerChips">
+        <button class="chip" data-value="top-left">Top-left</button>
+        <button class="chip" data-value="top-right">Top-right</button>
+        <button class="chip" data-value="bottom-left">Bottom-left</button>
+        <button class="chip" data-value="bottom-right">Bottom-right</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost" id="removeLogo" style="margin-top:2px">Remove logo</button>
+  </div>
+
+  <div class="section">
+    <div class="label">Animation</div>
+    <div class="chips" id="motionChips">
+      <button class="chip" data-value="none">None</button>
+      <button class="chip" data-value="fade">Fade in</button>
+      <button class="chip" data-value="rise">Rise up</button>
+      <button class="chip" data-value="slowzoom">Slow zoom</button>
+      <button class="chip" data-value="pop">Pop</button>
+      <button class="chip" data-value="reveal">Reveal</button>
+    </div>
+    <label class="field"><span>Duration</span>
+      <div class="rng"><input type="range" id="duration" min="2" max="6" step="0.5" value="4"><output id="durationOut">4s</output></div>
+    </label>
+    <div class="dl-row">
+      <button class="btn btn-ghost" id="preview">&#9654; Preview</button>
+      <button class="btn btn-primary" id="downloadVideo">&#10515; Download video</button>
+      <div class="hint">Plays once on the canvas, then holds the final frame. Saves as .webm.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">Download</div>
+    <div class="dl-row">
+      <button class="btn btn-primary" id="download">Download PNG</button>
+      <button class="btn btn-ghost" id="reset">Reset to defaults</button>
+      <div class="hint" id="sizeHint"></div>
+    </div>
+  </div>
+</aside>
+
+<main class="stage">
+  <canvas id="canvas" width="1080" height="1080"></canvas>
+</main>
+
+<script>
+"use strict";
+
+/* ---------------- Data ---------------- */
+const SIZES = {
+  "ig-post":   { w:1080, h:1080, label:"Instagram Post 1080×1080",  file:"instagram-post" },
+  "ig-story":  { w:1080, h:1920, label:"Instagram Story 1080×1920", file:"instagram-story" },
+  "fb-post":   { w:1200, h:630,  label:"Facebook Post 1200×630",    file:"facebook-post" },
+  "fb-cover":  { w:1640, h:624,  label:"Facebook Cover 1640×624",   file:"facebook-cover" },
+  "li-banner": { w:1584, h:396,  label:"LinkedIn Banner 1584×396",  file:"linkedin-banner" },
+  "x-post":    { w:1600, h:900,  label:"X/Twitter Post 1600×900",   file:"x-post" },
+  "pin":       { w:1000, h:1500, label:"Pinterest Pin 1000×1500",   file:"pinterest-pin" }
+};
+
+const FONTS = {
+  "Montserrat":       '"Montserrat", sans-serif',
+  "Poppins":          '"Poppins", sans-serif',
+  "Playfair Display": '"Playfair Display", serif',
+  "Lora":             '"Lora", serif',
+  "Oswald":           '"Oswald", sans-serif',
+  "Bebas Neue":       '"Bebas Neue", sans-serif'
+};
+function fontStr(name){ return FONTS[name] || "sans-serif"; }
+
+const TEMPLATES = {
+  bizpromo:   { name:"Business Promotion", eyebrow:"CALLA DESIGN", headline:"Beautiful design for small businesses", subtext:"Websites, invitations & social — done for you, without the agency price tag.", cta:"See our work", layout:"lowerleft", bgMode:"solid", solid:"#f6faf9", accent:"#7C5CD6", textColor:"#14201f", headingFont:"Playfair Display", bodyFont:"Montserrat" },
+  prodpromo:  { name:"Product Promotion", eyebrow:"NEW", headline:"Brand Starter Pack", subtext:"Logo, one-page website & 10 social templates — one simple bundle.", cta:"Get 20% off", layout:"centered", bgMode:"gradient", grad1:"#7C5CD6", grad2:"#5f45b0", angle:135, accent:"#ffd166", textColor:"#ffffff", headingFont:"Poppins", bodyFont:"Poppins" },
+  offer:      { name:"Special Offer", eyebrow:"Limited time", headline:"20% Off Everything", subtext:"This weekend only — use code CALLA20 at checkout.", cta:"Shop now", layout:"centered", bgMode:"gradient", grad1:"#7C5CD6", grad2:"#5f45b0", angle:135, accent:"#ffd166", textColor:"#ffffff", headingFont:"Montserrat", bodyFont:"Montserrat" },
+  quote:      { name:"Quote", eyebrow:"", headline:"“Design is intelligence made visible.”", subtext:"— Alina Wheeler", cta:"", layout:"centered", bgMode:"solid", solid:"#14201f", accent:"#7C5CD6", textColor:"#ffffff", headingFont:"Playfair Display", bodyFont:"Lora" },
+  announce:   { name:"Announcement", eyebrow:"News", headline:"We're Open!", subtext:"Come and visit our brand-new studio downtown.", cta:"Learn more", layout:"topband", bgMode:"gradient", grad1:"#5f45b0", grad2:"#7C5CD6", angle:200, accent:"#ffd166", textColor:"#ffffff", headingFont:"Poppins", bodyFont:"Poppins" },
+  event:      { name:"Event", eyebrow:"You're invited", headline:"Summer Launch Party", subtext:"Fri 25 July · 7pm · Calla Studio", cta:"RSVP", layout:"lowerleft", bgMode:"gradient", grad1:"#b0392c", grad2:"#5f45b0", angle:120, accent:"#ffd166", textColor:"#ffffff", headingFont:"Oswald", bodyFont:"Montserrat" },
+  testimonial:{ name:"Testimonial", eyebrow:"Testimonial", headline:"“Absolutely brilliant service.”", subtext:"Calla transformed our brand overnight. — Sam R.", cta:"", layout:"centered", bgMode:"solid", solid:"#efeafc", accent:"#7C5CD6", textColor:"#14201f", headingFont:"Playfair Display", bodyFont:"Lora" },
+  product:    { name:"New Product", eyebrow:"New in", headline:"Meet the Bloom Collection", subtext:"Handcrafted pieces, now available online.", cta:"Shop the range", layout:"overlay", bgMode:"photo", accent:"#ffd166", textColor:"#ffffff", headingFont:"Playfair Display", bodyFont:"Montserrat", darken:30 },
+  hiring:     { name:"Now Hiring", eyebrow:"We're hiring", headline:"Join Our Team", subtext:"Junior Designer · Full-time · Remote-friendly", cta:"Apply now", layout:"lowerleft", bgMode:"gradient", grad1:"#7C5CD6", grad2:"#14201f", angle:160, accent:"#ffd166", textColor:"#ffffff", headingFont:"Oswald", bodyFont:"Poppins" },
+  hours:      { name:"Opening Times", eyebrow:"Visit us", headline:"Opening Hours", subtext:"Mon–Fri 9–6 · Sat 10–4 · Sun Closed", cta:"", layout:"topband", bgMode:"solid", solid:"#14201f", accent:"#7C5CD6", textColor:"#ffffff", headingFont:"Poppins", bodyFont:"Montserrat" }
+};
+
+const DEFAULT_STATE = {
+  size:"ig-post", template:"bizpromo", layout:"lowerleft",
+  eyebrow:"CALLA DESIGN", headline:"Beautiful design for small businesses",
+  subtext:"Websites, invitations & social — done for you, without the agency price tag.",
+  cta:"See our work", business:"@calladesign",
+  bgMode:"solid", solid:"#f6faf9", grad1:"#7C5CD6", grad2:"#5f45b0", angle:135,
+  darken:35, accent:"#7C5CD6", textColor:"#14201f",
+  headingFont:"Playfair Display", bodyFont:"Montserrat", logoCorner:"top-left"
+};
+
+/* ---------------- State ---------------- */
+let state = Object.assign({}, DEFAULT_STATE);
+let photoImg = null;
+let logoImg = null;
+let logoDataUrl = null;
+let fontsReady = false;
+
+/* Advert (desktop-only) state */
+let advImages = [];   /* [{ img, url, name }] — slideshow scenes */
+let advAudio = null;  /* { el, url, duration, graph? } — generated voiceover */
+let advBusy = false;
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+/* ---------------- Animation state & easing ---------------- */
+let animState = { motion:"none", duration:4 };
+let animBusy = false;
+function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
+function easeOutCubic(v){ v = clamp01(v); return 1 - Math.pow(1 - v, 3); }
+function backOut(v){ v = clamp01(v); const c1 = 1.70158, c3 = c1 + 1; return 1 + c3*Math.pow(v-1,3) + c1*Math.pow(v-1,2); }
+
+/* Per-row animation transform. No-op when not animating -> identical static output. */
+function applyRowAnim(motion, animating, t, r, idx, x, y, align, base){
+  if(!animating) return;
+  const rise = base * 0.04; /* ~+40px on a 1080 canvas */
+  if(motion === "fade"){
+    ctx.globalAlpha = easeOutCubic(t);
+  } else if(motion === "rise"){
+    const p = easeOutCubic(t);
+    ctx.globalAlpha = p;
+    ctx.translate(0, (1 - p) * rise);
+  } else if(motion === "reveal"){
+    /* staggered eyebrow -> headline -> subtext -> cta -> business */
+    const local = easeOutCubic((t - idx * 0.1) / 0.55);
+    ctx.globalAlpha = local;
+    ctx.translate(0, (1 - local) * rise);
+  } else if(motion === "pop"){
+    if(r.kind === "cta"){
+      const p = backOut(t); /* scales in with slight overshoot near the end */
+      const cx = (align === "center") ? x : x + (r.pw || 0) / 2;
+      const cy = y + (r.ph || r.height) / 2;
+      ctx.translate(cx, cy);
+      ctx.scale(p, p);
+      ctx.translate(-cx, -cy);
+      ctx.globalAlpha = clamp01(t * 2);
+    }
+  }
+}
+
+/* ---------------- Helpers ---------------- */
+function $(id){ return document.getElementById(id); }
+
+function roundRectPath(x,y,w,h,r){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+}
+
+function wrapLine(text, maxWidth){
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  for(const wd of words){
+    const test = line ? line + " " + wd : wd;
+    if(ctx.measureText(test).width > maxWidth && line){
+      lines.push(line);
+      line = wd;
+    } else {
+      line = test;
+    }
+  }
+  if(line) lines.push(line);
+  return lines.length ? lines : [""];
+}
+function wrapAll(text, maxWidth){
+  let out = [];
+  for(const seg of String(text).split(/\n/)){
+    out = out.concat(wrapLine(seg.trim(), maxWidth));
+  }
+  return out;
+}
+
+/* ---------------- Draw ---------------- */
+/* Static/animated post render. Unchanged behaviour: PNG export, animated-post WebM,
+   and preview all call this (t defaults to 1 = static). It now delegates the two
+   layers to drawBackground()/drawTextLayer() so the advert export can swap the
+   background for a photo slideshow while reusing the exact same text layer. */
+function draw(t){
+  if(t === undefined) t = 1;
+  const motion = animState.motion;
+  const animating = motion !== "none" && t < 1;
+  const S = SIZES[state.size];
+  const w = S.w, h = S.h;
+  if(canvas.width !== w) canvas.width = w;
+  if(canvas.height !== h) canvas.height = h;
+  const base = Math.min(w, h);
+  const pad = base * 0.075;
+
+  ctx.clearRect(0,0,w,h);
+  drawBackground(w, h, base, motion, animating, t);
+  drawTextLayer(w, h, base, pad, motion, animating, t);
+}
+
+/* Background layer — solid / gradient / single photo (with Ken Burns while animating). */
+function drawBackground(w, h, base, motion, animating, t){
+  if(state.bgMode === "solid"){
+    ctx.fillStyle = state.solid;
+    ctx.fillRect(0,0,w,h);
+  } else if(state.bgMode === "gradient"){
+    const a = state.angle * Math.PI/180;
+    const cx = w/2, cy = h/2;
+    const x0 = cx - Math.cos(a)*w/2, y0 = cy - Math.sin(a)*h/2;
+    const x1 = cx + Math.cos(a)*w/2, y1 = cy + Math.sin(a)*h/2;
+    const g = ctx.createLinearGradient(x0,y0,x1,y1);
+    g.addColorStop(0, state.grad1);
+    g.addColorStop(1, state.grad2);
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,w,h);
+  } else { /* photo */
+    if(photoImg){
+      let pscale = 1;
+      if(animating && (motion === "slowzoom" || motion === "reveal")){
+        pscale = 1.08 + (1.0 - 1.08) * easeOutCubic(t); /* Ken Burns 1.08 -> 1.0 */
+      }
+      drawImageCover(photoImg, w, h, pscale);
+    } else {
+      const g = ctx.createLinearGradient(0,0,w,h);
+      g.addColorStop(0,"#c9d8d6"); g.addColorStop(1,"#93a8a6");
+      ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+      ctx.fillStyle = "rgba(20,32,31,.35)";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "600 " + (base*0.04) + "px " + fontStr("Montserrat");
+      ctx.fillText("Upload a photo", w/2, h/2);
+    }
+    if(state.darken > 0){
+      ctx.fillStyle = "rgba(0,0,0," + (state.darken/100) + ")";
+      ctx.fillRect(0,0,w,h);
+    }
+  }
+}
+
+/* Cover-fit an image (centered, optional Ken Burns scale). Same maths the single
+   photo background used inline; now shared with the advert slideshow. */
+function drawImageCover(img, w, h, scale){
+  scale = scale || 1;
+  const ir = img.width/img.height, cr = w/h;
+  let dw, dh;
+  if(ir > cr){ dh = h; dw = h*ir; }
+  else { dw = w; dh = w/ir; }
+  dw *= scale; dh *= scale;
+  const dx = (w-dw)/2, dy = (h-dh)/2;
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+/* Text + logo overlay. Reused verbatim by the static/animated post render and by the
+   advert export (which passes its own motion/t for a gentle per-scene entrance). */
+function drawTextLayer(w, h, base, pad, motion, animating, t){
+  /* --- build text rows --- */
+  const align = (state.layout === "centered" || state.layout === "topband") ? "center" : "left";
+  const maxWidth = align === "center" ? w*0.84 : w*0.82;
+  const rows = buildRows(base, maxWidth, align);
+  let total = 0;
+  for(const r of rows) total += r.height;
+
+  /* --- scrim behind text --- */
+  if(state.layout === "overlay"){
+    const g = ctx.createLinearGradient(0, h*0.30, 0, h);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.62)");
+    ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+  }
+
+  /* --- vertical anchor --- */
+  let top, x;
+  if(state.layout === "centered"){ top = (h - total)/2; x = w/2; }
+  else if(state.layout === "topband"){ top = pad; x = w/2; }
+  else { top = h - pad - total; x = pad; } /* lowerleft + overlay */
+
+  if(state.layout === "topband"){
+    ctx.fillStyle = "rgba(0,0,0,0.30)";
+    ctx.fillRect(0, 0, w, top + total + pad*0.6);
+  }
+
+  /* --- draw rows --- */
+  let y = top;
+  rows.forEach((r, idx)=>{
+    ctx.save();
+    applyRowAnim(motion, animating, t, r, idx, x, y, align, base);
+    r.draw(x, y, align);
+    ctx.restore();
+    y += r.height;
+  });
+
+  /* --- logo --- */
+  if(logoImg){
+    const lp = base*0.05;
+    const maxW = w*0.16, maxH = base*0.16;
+    let lw = logoImg.width, lh = logoImg.height;
+    const sc = Math.min(maxW/lw, maxH/lh);
+    lw *= sc; lh *= sc;
+    let lx, ly;
+    if(state.logoCorner === "top-left"){ lx = lp; ly = lp; }
+    else if(state.logoCorner === "top-right"){ lx = w-lp-lw; ly = lp; }
+    else if(state.logoCorner === "bottom-left"){ lx = lp; ly = h-lp-lh; }
+    else { lx = w-lp-lw; ly = h-lp-lh; }
+    ctx.save();
+    if(animating && (motion === "fade" || motion === "rise" || motion === "reveal")){
+      ctx.globalAlpha = easeOutCubic(t);
+    }
+    ctx.drawImage(logoImg, lx, ly, lw, lh);
+    ctx.restore();
+  }
+}
+
+/* ---------------- Advert compositing (desktop-only) ---------------- */
+/* Slideshow background: the advert images shown in sequence with a slow Ken Burns
+   zoom and a short cross-fade into the next scene. */
+function drawAdvertSlideshow(w, h, elapsed, total){
+  const N = advImages.length;
+  const slice = total / N;
+  let idx = Math.floor(elapsed / slice);
+  if(idx > N - 1) idx = N - 1;
+  if(idx < 0) idx = 0;
+  const sceneElapsed = elapsed - idx * slice;
+  const p = clamp01(sceneElapsed / slice);
+  const scale = 1.08 + (1.0 - 1.08) * p; /* zoom 1.08 -> 1.0 across the scene */
+  const cur = advImages[idx].img;
+  if(cur && cur.complete && cur.naturalWidth){
+    drawImageCover(cur, w, h, scale);
+  } else {
+    ctx.fillStyle = "#14201f"; ctx.fillRect(0,0,w,h);
+  }
+  /* short cross-fade into the next scene */
+  const fadeDur = Math.min(0.6, slice * 0.28);
+  if(idx < N - 1 && sceneElapsed > slice - fadeDur){
+    const f = clamp01((sceneElapsed - (slice - fadeDur)) / fadeDur);
+    const nxt = advImages[idx + 1].img;
+    if(nxt && nxt.complete && nxt.naturalWidth){
+      ctx.save();
+      ctx.globalAlpha = f;
+      drawImageCover(nxt, w, h, 1.08);
+      ctx.restore();
+    }
+  }
+}
+
+/* One advert frame = slideshow (or the tool's normal background if no advert images)
+   + the tool's own text/brand layer with a gentle rise-in near each scene change. */
+function drawAdvertFrame(elapsed, total){
+  const S = SIZES[state.size];
+  const w = S.w, h = S.h;
+  if(canvas.width !== w) canvas.width = w;
+  if(canvas.height !== h) canvas.height = h;
+  const base = Math.min(w, h);
+  const pad = base * 0.075;
+
+  ctx.clearRect(0,0,w,h);
+
+  if(advImages.length){
+    drawAdvertSlideshow(w, h, elapsed, total);
+    /* keep the wording legible over photos — reuse the darken control, min ~28% */
+    const dk = Math.max(state.darken / 100, 0.28);
+    ctx.fillStyle = "rgba(0,0,0," + dk + ")";
+    ctx.fillRect(0,0,w,h);
+  } else {
+    /* fall back to the tool's existing single background/photo */
+    drawBackground(w, h, base, "none", false, 1);
+  }
+
+  /* entrance: rise+fade during the first part of each scene */
+  const N = Math.max(advImages.length, 1);
+  const slice = total / N;
+  let idx = Math.floor(elapsed / slice);
+  if(idx > N - 1) idx = N - 1;
+  if(idx < 0) idx = 0;
+  const sceneElapsed = elapsed - idx * slice;
+  const entrance = Math.min(0.6, slice * 0.5);
+  const overlayT = clamp01(sceneElapsed / entrance);
+  drawTextLayer(w, h, base, pad, "rise", overlayT < 1, overlayT);
+}
+
+function buildRows(base, maxWidth, align){
+  const rows = [];
+  const bf = fontStr(state.bodyFont);
+  const hf = fontStr(state.headingFont);
+
+  if(state.eyebrow.trim()){
+    const size = base*0.032, mb = base*0.028;
+    rows.push({ kind:"eyebrow", height: size + mb, draw:(x,topY,al)=>{
+      ctx.font = "700 " + size + "px " + bf;
+      ctx.fillStyle = state.accent;
+      ctx.textBaseline = "top"; ctx.textAlign = al;
+      ctx.letterSpacing = (size*0.18) + "px";
+      ctx.fillText(state.eyebrow.toUpperCase(), x, topY);
+      ctx.letterSpacing = "0px";
+    }});
+  }
+
+  if(state.headline.trim()){
+    const size = base*0.105, lh = size*1.06, mb = base*0.036;
+    ctx.font = "800 " + size + "px " + hf;
+    const lines = wrapAll(state.headline, maxWidth);
+    rows.push({ kind:"headline", height: lines.length*lh + mb, draw:(x,topY,al)=>{
+      ctx.font = "800 " + size + "px " + hf;
+      ctx.fillStyle = state.textColor;
+      ctx.textBaseline = "top"; ctx.textAlign = al;
+      let yy = topY;
+      for(const ln of lines){ ctx.fillText(ln, x, yy); yy += lh; }
+    }});
+  }
+
+  if(state.subtext.trim()){
+    const size = base*0.04, lh = size*1.34, mb = base*0.045;
+    ctx.font = "400 " + size + "px " + bf;
+    const lines = wrapAll(state.subtext, maxWidth);
+    rows.push({ kind:"subtext", height: lines.length*lh + mb, draw:(x,topY,al)=>{
+      ctx.font = "400 " + size + "px " + bf;
+      ctx.fillStyle = state.textColor;
+      ctx.textBaseline = "top"; ctx.textAlign = al;
+      let yy = topY;
+      for(const ln of lines){ ctx.fillText(ln, x, yy); yy += lh; }
+    }});
+  }
+
+  if(state.cta.trim()){
+    const size = base*0.034, padX = size*0.95, ph = size*2.1, mb = base*0.03;
+    ctx.font = "700 " + size + "px " + bf;
+    const tw = ctx.measureText(state.cta).width;
+    const pw = tw + padX*2;
+    rows.push({ kind:"cta", pw:pw, ph:ph, height: ph + mb, draw:(x,topY,al)=>{
+      let px;
+      if(al === "center") px = x - pw/2;
+      else px = x;
+      ctx.fillStyle = state.accent;
+      roundRectPath(px, topY, pw, ph, ph/2);
+      ctx.fill();
+      const ctaInk = pickInk(state.accent);
+      ctx.fillStyle = ctaInk;
+      ctx.font = "700 " + size + "px " + bf;
+      ctx.textBaseline = "middle"; ctx.textAlign = "center";
+      ctx.fillText(state.cta, px + pw/2, topY + ph/2 + size*0.03);
+    }});
+  }
+
+  if(state.business.trim()){
+    const size = base*0.028;
+    rows.push({ kind:"business", height: size*1.3, draw:(x,topY,al)=>{
+      ctx.font = "600 " + size + "px " + bf;
+      ctx.fillStyle = state.textColor;
+      const _a = ctx.globalAlpha;
+      ctx.globalAlpha = _a * 0.82;
+      ctx.textBaseline = "top"; ctx.textAlign = al;
+      ctx.fillText(state.business, x, topY);
+      ctx.globalAlpha = _a;
+    }});
+  }
+
+  return rows;
+}
+
+/* choose readable ink for a given background hex (for CTA text) */
+function pickInk(hex){
+  const c = hex.replace("#","");
+  if(c.length < 6) return "#ffffff";
+  const r = parseInt(c.substr(0,2),16), g = parseInt(c.substr(2,2),16), b = parseInt(c.substr(4,2),16);
+  const lum = (0.299*r + 0.587*g + 0.114*b)/255;
+  return lum > 0.62 ? "#14201f" : "#ffffff";
+}
+
+/* ---------------- Animation playback ---------------- */
+function playAnimation(onDone){
+  const durMs = animState.duration * 1000;
+  if(animState.motion === "none"){ draw(1); if(onDone) onDone(); return; }
+  const start = performance.now();
+  function frame(now){
+    const t = (now - start) / durMs;
+    if(t >= 1){ draw(1); if(onDone) onDone(); return; }
+    draw(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+function recordVideo(){
+  if(typeof MediaRecorder === "undefined" || !canvas.captureStream){
+    alert("Sorry — your browser can't record canvas video. Try the latest Chrome, Edge or Firefox.");
+    return;
+  }
+  const types = ["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
+  let mime = "";
+  for(const ty of types){ if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(ty)){ mime = ty; break; } }
+  if(!mime){
+    alert("Sorry — WebM recording isn't supported in this browser.");
+    return;
+  }
+  const btn = $("downloadVideo");
+  const label = btn.textContent;
+  const restore = ()=>{ animBusy = false; btn.disabled = false; $("preview").disabled = false; btn.textContent = label; };
+
+  animBusy = true;
+  btn.disabled = true; $("preview").disabled = true;
+  btn.textContent = "● Recording…";
+
+  const stream = canvas.captureStream(30);
+  const chunks = [];
+  let rec;
+  try{
+    rec = new MediaRecorder(stream, { mimeType: mime });
+  }catch(e){
+    alert("Sorry — video recording failed to start in this browser.");
+    restore();
+    return;
+  }
+  rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+  rec.onstop = ()=>{
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = SIZES[state.size].file + ".webm";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=> URL.revokeObjectURL(url), 4000);
+    restore();
+    draw(1);
+  };
+
+  const durMs = animState.duration * 1000;
+  const start = performance.now();
+  rec.start();
+  function frame(now){
+    const t = (now - start) / durMs;
+    if(t < 1){
+      draw(t);
+      requestAnimationFrame(frame);
+    } else {
+      draw(1); /* hold final frame ~0.6s */
+      setTimeout(()=>{ if(rec.state !== "inactive") rec.stop(); }, 600);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- Fonts ---------------- */
+async function ensureFont(name){
+  try{
+    await document.fonts.load("800 60px " + fontStr(name));
+    await document.fonts.load("400 40px " + fontStr(name));
+  }catch(e){}
+}
+
+/* ---------------- UI sync ---------------- */
+function setChip(containerId, value){
+  document.querySelectorAll("#" + containerId + " .chip").forEach(b=>{
+    b.classList.toggle("active", b.dataset.value === value);
+  });
+}
+
+function updateBgVisibility(){
+  $("dimSolid").classList.toggle("show", state.bgMode === "solid");
+  $("dimGradient").classList.toggle("show", state.bgMode === "gradient");
+  $("dimPhoto").classList.toggle("show", state.bgMode === "photo");
+}
+
+function syncInputs(){
+  $("size").value = state.size;
+  $("eyebrow").value = state.eyebrow;
+  $("headline").value = state.headline;
+  $("subtext").value = state.subtext;
+  $("cta").value = state.cta;
+  $("business").value = state.business;
+  $("solid").value = state.solid;
+  $("grad1").value = state.grad1;
+  $("grad2").value = state.grad2;
+  $("angle").value = state.angle;
+  $("angleOut").value = state.angle + "°";
+  $("darken").value = state.darken;
+  $("darkenOut").value = state.darken + "%";
+  $("accent").value = state.accent;
+  $("textColor").value = state.textColor;
+  $("headingFont").value = state.headingFont;
+  $("bodyFont").value = state.bodyFont;
+  setChip("templateChips", state.template);
+  setChip("layoutChips", state.layout);
+  setChip("bgChips", state.bgMode);
+  setChip("cornerChips", state.logoCorner);
+  updateBgVisibility();
+  $("sizeHint").textContent = "Exports at " + SIZES[state.size].w + "×" + SIZES[state.size].h + " px · " + SIZES[state.size].file + ".png";
+}
+
+/* ---------------- Templates ---------------- */
+async function applyTemplate(key){
+  const t = TEMPLATES[key];
+  if(!t) return;
+  state.template = key;
+  state.eyebrow = t.eyebrow;
+  state.headline = t.headline;
+  state.subtext = t.subtext;
+  state.cta = t.cta;
+  state.layout = t.layout;
+  state.bgMode = t.bgMode;
+  if(t.solid) state.solid = t.solid;
+  if(t.grad1) state.grad1 = t.grad1;
+  if(t.grad2) state.grad2 = t.grad2;
+  if(typeof t.angle === "number") state.angle = t.angle;
+  if(typeof t.darken === "number") state.darken = t.darken;
+  state.accent = t.accent;
+  state.textColor = t.textColor;
+  state.headingFont = t.headingFont;
+  state.bodyFont = t.bodyFont;
+  await ensureFont(state.headingFont);
+  await ensureFont(state.bodyFont);
+  syncInputs();
+  draw();
+}
+
+/* ---------------- Build dynamic controls ---------------- */
+function buildControls(){
+  // size dropdown
+  const sizeSel = $("size");
+  for(const k in SIZES){
+    const o = document.createElement("option");
+    o.value = k; o.textContent = SIZES[k].label;
+    sizeSel.appendChild(o);
+  }
+  // font dropdowns
+  for(const sel of [$("headingFont"), $("bodyFont")]){
+    for(const f in FONTS){
+      const o = document.createElement("option");
+      o.value = f; o.textContent = f;
+      sel.appendChild(o);
+    }
+  }
+  // template chips
+  const tc = $("templateChips");
+  for(const k in TEMPLATES){
+    const b = document.createElement("button");
+    b.className = "chip"; b.dataset.value = k; b.textContent = TEMPLATES[k].name;
+    tc.appendChild(b);
+  }
+}
+
+/* ---------------- Wire events ---------------- */
+function wire(){
+  $("size").addEventListener("change", e=>{ state.size = e.target.value; syncInputs(); draw(); });
+
+  $("templateChips").addEventListener("click", e=>{
+    const b = e.target.closest(".chip"); if(!b) return;
+    applyTemplate(b.dataset.value);
+  });
+  $("layoutChips").addEventListener("click", e=>{
+    const b = e.target.closest(".chip"); if(!b) return;
+    state.layout = b.dataset.value; setChip("layoutChips", state.layout); draw();
+  });
+  $("bgChips").addEventListener("click", e=>{
+    const b = e.target.closest(".chip"); if(!b) return;
+    state.bgMode = b.dataset.value; setChip("bgChips", state.bgMode); updateBgVisibility(); draw();
+  });
+  $("cornerChips").addEventListener("click", e=>{
+    const b = e.target.closest(".chip"); if(!b) return;
+    state.logoCorner = b.dataset.value; setChip("cornerChips", state.logoCorner); draw();
+  });
+
+  const textFields = ["eyebrow","headline","subtext","cta","business"];
+  for(const f of textFields){
+    $(f).addEventListener("input", e=>{ state[f] = e.target.value; draw(); });
+  }
+
+  $("solid").addEventListener("input", e=>{ state.solid = e.target.value; draw(); });
+  $("grad1").addEventListener("input", e=>{ state.grad1 = e.target.value; draw(); });
+  $("grad2").addEventListener("input", e=>{ state.grad2 = e.target.value; draw(); });
+  $("angle").addEventListener("input", e=>{ state.angle = +e.target.value; $("angleOut").value = state.angle + "°"; draw(); });
+  $("darken").addEventListener("input", e=>{ state.darken = +e.target.value; $("darkenOut").value = state.darken + "%"; draw(); });
+  $("accent").addEventListener("input", e=>{ state.accent = e.target.value; draw(); });
+  $("textColor").addEventListener("input", e=>{ state.textColor = e.target.value; draw(); });
+
+  $("headingFont").addEventListener("change", async e=>{ state.headingFont = e.target.value; await ensureFont(state.headingFont); draw(); });
+  $("bodyFont").addEventListener("change", async e=>{ state.bodyFont = e.target.value; await ensureFont(state.bodyFont); draw(); });
+
+  $("photoFile").addEventListener("change", e=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const img = new Image();
+    img.onload = ()=>{ photoImg = img; state.bgMode = "photo"; setChip("bgChips","photo"); updateBgVisibility(); draw(); };
+    img.src = URL.createObjectURL(file);
+    $("photoName").textContent = file.name;
+  });
+
+  $("logoFile").addEventListener("change", e=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const img = new Image();
+    img.onload = ()=>{ logoImg = img; draw(); };
+    img.src = URL.createObjectURL(file);
+    const fr = new FileReader();
+    fr.onload = ()=>{ logoDataUrl = fr.result; };
+    fr.readAsDataURL(file);
+    $("logoName").textContent = file.name;
+  });
+  $("removeLogo").addEventListener("click", ()=>{ logoImg = null; logoDataUrl = null; $("logoName").textContent = "No logo added."; $("logoFile").value = ""; draw(); });
+
+  $("download").addEventListener("click", ()=>{
+    draw();
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = SIZES[state.size].file + ".png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  $("motionChips").addEventListener("click", e=>{
+    const b = e.target.closest(".chip"); if(!b) return;
+    animState.motion = b.dataset.value; setChip("motionChips", animState.motion);
+  });
+  $("duration").addEventListener("input", e=>{
+    animState.duration = +e.target.value; $("durationOut").value = animState.duration + "s";
+  });
+  $("preview").addEventListener("click", ()=>{
+    if(animBusy) return;
+    animBusy = true;
+    const pb = $("preview"), lbl = pb.textContent;
+    pb.disabled = true; $("downloadVideo").disabled = true;
+    pb.textContent = "Playing…";
+    playAnimation(()=>{ animBusy = false; pb.disabled = false; $("downloadVideo").disabled = false; pb.textContent = lbl; draw(1); });
+  });
+  $("downloadVideo").addEventListener("click", ()=>{ if(animBusy) return; recordVideo(); });
+
+  $("reset").addEventListener("click", async ()=>{
+    state = Object.assign({}, DEFAULT_STATE);
+    photoImg = null; logoImg = null; logoDataUrl = null;
+    $("photoName").textContent = "No photo yet — a placeholder is shown.";
+    $("logoName").textContent = "No logo added.";
+    $("photoFile").value = ""; $("logoFile").value = "";
+    await ensureFont(state.headingFont);
+    await ensureFont(state.bodyFont);
+    syncInputs();
+    draw();
+  });
+}
+
+/* ---------------- AI Assist (desktop / Electron only) ---------------- */
+/* Maps whatever layout string Claude returns onto this tool's own layout keys. */
+function mapAiLayout(l){
+  if(!l) return null;
+  const k = String(l).toLowerCase().replace(/[\s_]+/g, "-");
+  const m = {
+    "centered":"centered",
+    "lower-left":"lowerleft", "lowerleft":"lowerleft",
+    "top-band":"topband", "topband":"topband",
+    "photo-overlay":"overlay", "full-photo-overlay":"overlay", "overlay":"overlay"
+  };
+  return m[k] || null;
+}
+function isHex6(v){ return typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v.trim()); }
+
+function promptForKey(){
+  const msg = "Paste your Anthropic API key (starts with sk-ant-). Stored locally on this PC.";
+  return (window.api && window.api.callaPrompt) ? window.api.callaPrompt(msg) : Promise.resolve(prompt(msg));
+}
+
+function wireAI(){
+  const sec = $("aiSection");
+  /* Web build has no Electron bridge -> hide the whole section, leave everything else untouched. */
+  if(!(window.api && window.api.aiGenerate)){
+    if(sec) sec.style.display = "none";
+    return;
+  }
+  const btn = $("aiGenerate");
+  const status = $("aiStatus");
+
+  $("aiKeyBtn").addEventListener("click", async ()=>{
+    const k = await promptForKey();
+    if(!k) return;
+    try{ await window.api.aiSetKey(k); status.textContent = "API key saved."; }
+    catch(e){ status.textContent = "Couldn't save the key."; }
+  });
+
+  btn.addEventListener("click", async ()=>{
+    const product = $("aiProduct").value.trim();
+    if(!product){ status.textContent = "Tell me what you're promoting first."; return; }
+
+    try{
+      if(!(await window.api.aiHasKey())){
+        const k = await promptForKey();
+        if(!k) return;
+        await window.api.aiSetKey(k);
+      }
+    }catch(e){ status.textContent = "Couldn't check the API key."; return; }
+
+    status.textContent = "Writing your post…";
+    btn.disabled = true;
+    try{
+      const r = await window.api.aiGenerate({
+        product: product,
+        tone: $("aiTone").value,
+        detail: $("aiDetail").value.trim(),
+        sizeName: SIZES[state.size].label,
+        logoDataUrl: logoDataUrl || null
+      });
+
+      if(r && r.ok && r.data){
+        const d = r.data;
+        if(typeof d.eyebrow  === "string") state.eyebrow  = d.eyebrow;
+        if(typeof d.headline === "string") state.headline = d.headline;
+        if(typeof d.subtext  === "string") state.subtext  = d.subtext;
+        if(typeof d.cta      === "string") state.cta      = d.cta;
+        if(isHex6(d.accent)) state.accent = d.accent.trim();
+        const lay = mapAiLayout(d.layout);
+        if(lay) state.layout = lay;
+        syncInputs();   /* writes state -> real inputs + chips (accent, layout, wording) */
+        draw();         /* tool's own re-render */
+        status.textContent = "Done — tweak anything you like ✨";
+      } else if(r && r.error === "no-key"){
+        const k = await promptForKey();
+        if(k){ await window.api.aiSetKey(k); status.textContent = "Key saved — press Generate again."; }
+        else{ status.textContent = ""; }
+      } else if(r && r.error === "bad-json"){
+        status.textContent = "Claude's reply wasn't usable — try again.";
+      } else {
+        status.textContent = (r && r.error) ? String(r.error) : "Something went wrong — try again.";
+      }
+    }catch(e){
+      status.textContent = "Something went wrong — try again.";
+    }finally{
+      btn.disabled = false;
+    }
+  });
+}
+
+/* ---------------- Advert (desktop / Electron only) ---------------- */
+function advFirstSupportedMime(list){
+  if(typeof MediaRecorder === "undefined" || !MediaRecorder.isTypeSupported) return "";
+  for(const ty of list){ if(MediaRecorder.isTypeSupported(ty)) return ty; }
+  return "";
+}
+
+function renderAdvThumbs(){
+  const box = $("advThumbs");
+  if(!box) return;
+  box.innerHTML = "";
+  advImages.forEach((it, i)=>{
+    const d = document.createElement("div");
+    d.className = "adv-thumb";
+    const im = document.createElement("img");
+    im.src = it.url; im.alt = it.name || "advert image";
+    const rm = document.createElement("button");
+    rm.type = "button"; rm.title = "Remove"; rm.textContent = "✕";
+    rm.addEventListener("click", ()=>{
+      const gone = advImages.splice(i, 1)[0];
+      if(gone){ try{ URL.revokeObjectURL(gone.url); }catch(e){} }
+      renderAdvThumbs();
+    });
+    d.appendChild(im); d.appendChild(rm);
+    box.appendChild(d);
+  });
+}
+
+/* Build (once) and cache the WebAudio graph that routes the voiceover element to
+   both the speakers and a MediaStream. createMediaElementSource can only run once
+   per element, so we keep it on advAudio and reuse it across downloads. */
+function advEnsureAudioGraph(){
+  if(!advAudio) return null;
+  if(!advAudio.graph){
+    const ac = new AudioContext();
+    const srcN = ac.createMediaElementSource(advAudio.el);
+    const dst = ac.createMediaStreamDestination();
+    srcN.connect(dst);
+    srcN.connect(ac.destination);
+    advAudio.graph = { ac, dst };
+  }
+  return advAudio.graph;
+}
+
+function wireAdvert(){
+  const sec = $("advSection");
+  /* Desktop-only: the web build has no TTS/script bridge -> hide the whole section. */
+  if(!(window.api && window.api.ttsGenerate && window.api.aiScript)){
+    if(sec) sec.style.display = "none";
+    return;
+  }
+
+  $("advImgFile").addEventListener("change", e=>{
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    for(const file of files){
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = ()=> renderAdvThumbs();
+      img.src = url;
+      advImages.push({ img, url, name:file.name });
+    }
+    renderAdvThumbs();
+    e.target.value = "";
+  });
+
+  /* ---- Generate voiceover: Claude writes the script, OpenAI speaks it ---- */
+  $("advVoiceBtn").addEventListener("click", async ()=>{
+    const status = $("advStatus");
+    const info = $("advInfo").value.trim();
+    if(!info){ status.textContent = "Tell me what the advert's about first."; return; }
+    const btn = $("advVoiceBtn");
+    btn.disabled = true;
+    try{
+      if(!(await window.api.ttsHasKey())){
+        const k = await window.api.callaPrompt("Paste your OpenAI API key (sk-...). Stored locally.");
+        if(!k) return;
+        await window.api.ttsSetKey(k);
+      }
+
+      status.textContent = "Writing script…";
+      const sr = await window.api.aiScript({ info: info, seconds: 20, tone: "upbeat, persuasive" });
+      if(sr && sr.ok && typeof sr.script === "string"){
+        $("advScript").value = sr.script;
+      } else if(sr && sr.error === "no-key"){
+        status.textContent = "Set your Anthropic key first (use ‘Change API key’ in AI Assist).";
+        return;
+      } else {
+        status.textContent = (sr && sr.error) ? String(sr.error) : "Couldn't write the script — try again.";
+        return;
+      }
+
+      const text = $("advScript").value.trim();
+      if(!text){ status.textContent = "The script is empty."; return; }
+
+      status.textContent = "Recording voiceover…";
+      const r = await window.api.ttsGenerate({ text: text, voice: $("advVoice").value });
+      if(r && r.ok && r.path){
+        const bytes = await window.api.readFile(r.path);
+        const blob = new Blob([bytes], { type: "audio/mpeg" });
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        await new Promise((res, rej)=>{
+          a.addEventListener("loadedmetadata", ()=>res(), { once:true });
+          a.addEventListener("error", ()=>rej(new Error("audio failed to load")), { once:true });
+        });
+        /* release any previous voiceover */
+        if(advAudio){
+          if(advAudio.graph){ try{ advAudio.graph.ac.close(); }catch(e){} }
+          try{ URL.revokeObjectURL(advAudio.url); }catch(e){}
+        }
+        advAudio = { el:a, url:url, duration:a.duration };
+        status.textContent = "Voiceover ready (" + Math.round(a.duration) + "s)";
+      } else {
+        status.textContent = (r && r.error) ? String(r.error) : "Voiceover failed — try again.";
+      }
+    }catch(e){
+      status.textContent = "Something went wrong — try again.";
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  /* ---- Download advert: canvas slideshow + voiceover -> one .webm ---- */
+  $("advMake").addEventListener("click", async ()=>{
+    if(advBusy || animBusy) return;
+    const status = $("advStatus");
+
+    if(typeof MediaRecorder === "undefined" || !canvas.captureStream){
+      alert("Sorry — your browser can't record video. Try the latest Chrome or Edge.");
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(advAudio && !AC){
+      alert("Sorry — audio mixing isn't supported in this browser.");
+      return;
+    }
+    const mime = advFirstSupportedMime([
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm"
+    ]);
+    if(!mime){ alert("Sorry — WebM recording isn't supported here."); return; }
+
+    const total = (advAudio && advAudio.duration && isFinite(advAudio.duration) && advAudio.duration > 0)
+      ? advAudio.duration : 8;
+
+    const btn = $("advMake");
+    const lbl = btn.textContent;
+    advBusy = true; animBusy = true;
+    btn.disabled = true; btn.textContent = "● Recording…";
+    if($("preview")) $("preview").disabled = true;
+    if($("downloadVideo")) $("downloadVideo").disabled = true;
+
+    const cleanup = ()=>{
+      advBusy = false; animBusy = false;
+      btn.disabled = false; btn.textContent = lbl;
+      if($("preview")) $("preview").disabled = false;
+      if($("downloadVideo")) $("downloadVideo").disabled = false;
+      if(advAudio){ try{ advAudio.el.onended = null; advAudio.el.pause(); }catch(e){} }
+      draw(1); /* restore the static frame */
+    };
+
+    try{
+      const vStream = canvas.captureStream(30);
+      let mixed, graph = null;
+      if(advAudio){
+        graph = advEnsureAudioGraph();
+        mixed = new MediaStream([ ...vStream.getVideoTracks(), ...graph.dst.stream.getAudioTracks() ]);
+      } else {
+        mixed = new MediaStream([ ...vStream.getVideoTracks() ]);
+      }
+
+      const chunks = [];
+      const rec = new MediaRecorder(mixed, { mimeType: mime });
+      let stopped = false;
+      const stopRec = ()=>{ if(!stopped && rec.state !== "inactive"){ stopped = true; rec.stop(); } };
+      rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = ()=>{
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = SIZES[state.size].file + "-advert.webm";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(()=> URL.revokeObjectURL(url), 4000);
+        cleanup();
+      };
+
+      rec.start();
+      if(advAudio){
+        advAudio.el.currentTime = 0;
+        advAudio.el.onended = stopRec;
+        try{ if(graph.ac.state === "suspended") await graph.ac.resume(); }catch(e){}
+        try{ await advAudio.el.play(); }catch(e){}
+      }
+
+      const start = performance.now();
+      function frame(now){
+        if(stopped) return;
+        const elapsed = (now - start) / 1000;
+        if(elapsed >= total){
+          drawAdvertFrame(Math.max(total - 0.001, 0), total);
+          stopRec();
+          return;
+        }
+        drawAdvertFrame(elapsed, total);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }catch(e){
+      status.textContent = "Advert export failed — try again.";
+      cleanup();
+    }
+  });
+}
+
+/* ---------------- Init ---------------- */
+async function init(){
+  buildControls();
+  syncInputs();
+  setChip("motionChips", animState.motion);
+  $("durationOut").value = animState.duration + "s";
+  wire();
+  wireAI();
+  wireAdvert();
+  try{ await document.fonts.ready; }catch(e){}
+  await ensureFont(state.headingFont);
+  await ensureFont(state.bodyFont);
+  fontsReady = true;
+  draw();
+}
+init();
+</script>
+</body>
+</html>

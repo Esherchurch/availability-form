@@ -80,7 +80,7 @@
       <div class="tagline">Design Studio</div>
     </div>
 
-    <p class="lede">A little set of tools for making lovely things — invitations, websites, photos and films. Pick one to get started.</p>
+    <p class="lede">A little set of tools for making lovely things — invitations, websites, photos, social posts and films. Pick one to get started.</p>
 
     <div class="install-row" id="installRow" hidden>
       <button id="installBtn" class="install-btn">⤓ Install as an app</button>
@@ -119,7 +119,17 @@
         <span class="open">Open<span class="arrow">→</span></span>
       </a>
 
-      <a class="card" href="Videoeditor.html" style="--accent:#a88ef0;--accent-tint:rgba(168,142,240,.18);">
+      <a class="card" href="socialmaker.html" style="--accent:#e0699a;--accent-tint:rgba(224,105,154,.16);">
+        <div class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.6M8.3 13.2l7.4 4.6"/></svg>
+        </div>
+        <h2>Social Media Maker</h2>
+        <p>Create branded posts, stories and banners for Instagram, Facebook and LinkedIn from business templates — offers, quotes, events and more. Add your logo and download ready to post.</p>
+        <div class="tags"><span class="tag">Post &amp; story sizes</span><span class="tag">Business templates</span><span class="tag">Download PNG</span></div>
+        <span class="open">Open<span class="arrow">→</span></span>
+      </a>
+
+      <a id="tile-movie" class="card" href="Videoeditor.html" style="--accent:#a88ef0;--accent-tint:rgba(168,142,240,.18);">
         <div class="badge">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 4v16M17 4v16"/></svg>
         </div>
@@ -143,8 +153,15 @@
 
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    const isElectron = !!(window.api && window.api.isElectron) || /electron/i.test(navigator.userAgent || '');
 
-    if (!isStandalone) {
+    // In the installed desktop app: Movie Maker = the native editor, and there's no PWA install button.
+    if (isElectron) {
+      const mv = document.getElementById('tile-movie');
+      if (mv) mv.setAttribute('href', 'index.html');
+    }
+
+    if (!isStandalone && !isElectron) {
       installRow.hidden = false;
       if (isiOS) installNote.textContent = 'On iPhone/iPad: tap Share, then “Add to Home Screen”.';
     }

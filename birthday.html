@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invitation Maker · Calla Design</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700;800&family=Great+Vibes&family=Kanit:wght@600;800&family=Fredoka+One&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cinzel+Decorative:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Marcellus&family=Prata&family=Italiana&family=Abril+Fatface&family=Yeseva+One&family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&family=Josefin+Sans:wght@300;400;600&family=Jost:wght@300;400;500;600&family=EB+Garamond:ital@0;1&family=Great+Vibes&family=Pinyon+Script&family=Sacramento&family=Parisienne&family=Dancing+Script:wght@500;700&family=Caveat:wght@500;700&family=Kanit:wght@600;800&family=Fredoka+One&family=Amatic+SC:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
       @page { size: A5 portrait; margin: 0; }
       :root{
@@ -21,10 +24,10 @@
       body{ margin:0; padding:0; background:var(--canvas); color:var(--body); display:flex; flex-direction:row; min-height:100vh; font-family:'Montserrat',sans-serif; -webkit-font-smoothing:antialiased; }
 
       /* ── Control panel ── */
-      #control-panel{ width:400px; flex-shrink:0; background:var(--surface); padding:24px; border-right:1px solid var(--hairline); overflow-y:auto; height:100vh; position:fixed; left:0; top:0; z-index:100; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:16px; }
+      #control-panel{ width:410px; flex-shrink:0; background:var(--surface); padding:22px; border-right:1px solid var(--hairline); overflow-y:auto; height:100vh; position:fixed; left:0; top:0; z-index:100; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:15px; }
       .panel-head h2{ font-size:19px; font-weight:800; letter-spacing:-.01em; color:var(--ink); margin:0; }
       .panel-head p{ font-size:12.5px; color:var(--muted); margin:4px 0 0; font-weight:500; }
-      .divider-rule{ border:0; border-top:1px solid var(--hairline); margin:4px 0; }
+      .divider-rule{ border:0; border-top:1px solid var(--hairline); margin:2px 0; }
       .form-group{ display:flex; flex-direction:column; gap:6px; }
       .form-row{ display:flex; gap:10px; } .form-row .form-group{ flex:1; }
       label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
@@ -33,215 +36,139 @@
       input[type=text], textarea, select, input[type=file]{ width:100%; background:var(--surface); border:1px solid var(--hairline-strong); color:var(--ink); padding:10px 12px; border-radius:var(--r-md); font-family:inherit; font-size:14px; outline:none; transition:border-color .15s, box-shadow .15s; }
       textarea{ resize:vertical; line-height:1.5; }
       select{ appearance:none; cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b8281' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:36px; }
-      input[type=color]{ width:100%; height:40px; padding:3px; border:1px solid var(--hairline-strong); border-radius:var(--r-md); background:var(--surface); cursor:pointer; }
+      input[type=color]{ width:100%; height:38px; padding:3px; border:1px solid var(--hairline-strong); border-radius:var(--r-md); background:var(--surface); cursor:pointer; }
       input:focus, textarea:focus, select:focus{ border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
-      .btn-print{ background:var(--brand); color:#fff; border:none; padding:13px; font-size:14px; font-weight:800; letter-spacing:.03em; cursor:pointer; border-radius:var(--r-md); margin-top:6px; transition:background .15s, transform .1s; }
-      .btn-print:hover{ background:var(--brand-dark); } .btn-print:active{ transform:translateY(1px); }
       .info-box{ background:var(--brand-tint); border:1px solid var(--hairline-strong); padding:11px 13px; border-radius:var(--r-md); font-size:12px; color:var(--brand-dark); line-height:1.5; }
       .info-box strong{ color:var(--brand); }
-      .section-label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--brand); margin-top:2px; }
+      .section-label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--brand); margin-top:2px; display:flex; align-items:center; gap:7px; }
+      .section-label::after{ content:""; flex:1; height:1px; background:var(--hairline); }
+
+      /* Collapsible sections */
+      details.sect{ border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; }
+      details.sect > summary{ list-style:none; cursor:pointer; padding:11px 13px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink); background:var(--surface-2); display:flex; align-items:center; justify-content:space-between; }
+      details.sect > summary::-webkit-details-marker{ display:none; }
+      details.sect > summary::after{ content:"▾"; color:var(--muted); transition:transform .15s; }
+      details.sect[open] > summary::after{ transform:rotate(180deg); }
+      details.sect > .sect-body{ padding:13px; display:flex; flex-direction:column; gap:12px; }
+
+      /* Format tabs */
+      .fmt-tabs{ display:grid; grid-template-columns:repeat(2,1fr); gap:7px; }
+      .fmt-tab{ border:1px solid var(--hairline-strong); background:var(--surface); border-radius:var(--r-md); padding:9px 8px; cursor:pointer; text-align:center; transition:all .12s; }
+      .fmt-tab .ft-t{ font-size:12px; font-weight:800; color:var(--ink); display:block; }
+      .fmt-tab .ft-s{ font-size:10px; color:var(--muted); font-weight:600; }
+      .fmt-tab.active{ border-color:var(--brand); background:var(--brand-tint); box-shadow:0 0 0 2px var(--brand-ring); }
+
+      /* Buttons */
+      .btn{ border:none; padding:12px; font-size:13.5px; font-weight:800; letter-spacing:.02em; cursor:pointer; border-radius:var(--r-md); transition:background .15s, transform .1s, opacity .15s; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:7px; }
+      .btn:active{ transform:translateY(1px); }
+      .btn-primary{ background:var(--brand); color:#fff; } .btn-primary:hover{ background:var(--brand-dark); }
+      .btn-ghost{ background:var(--surface); color:var(--ink); border:1px solid var(--hairline-strong); } .btn-ghost:hover{ border-color:var(--brand); color:var(--brand); }
+      .btn-wa{ background:#25D366; color:#fff; } .btn-wa:hover{ background:#1eb457; }
+      .btn-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .btn-full{ grid-column:1/-1; }
+
+      /* Template gallery (thumbnails) */
+      .tpl-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+      .tpl-chip{ border:2px solid transparent; border-radius:var(--r-md); overflow:hidden; cursor:pointer; position:relative; aspect-ratio:3/4; box-shadow:var(--shadow-sm); transition:transform .1s; }
+      .tpl-chip:hover{ transform:translateY(-2px); }
+      .tpl-chip.active{ border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-ring); }
+      .tpl-chip .tpl-mini{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:6px; overflow:hidden; }
+      .tpl-chip .tm-num{ font-size:22px; line-height:1; font-weight:700; }
+      .tpl-chip .tm-name{ font-size:6.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.9; }
+      .tpl-chip .tpl-label{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55); color:#fff; font-size:8.5px; font-weight:700; text-align:center; padding:2px; letter-spacing:.02em; }
 
       /* ── Workspace ── */
-      #preview-container{ margin-left:400px; flex:1; display:flex; flex-direction:column; align-items:center; background:radial-gradient(circle at 50% 0%, #eef2f1 0%, #dfe6e5 100%); padding:48px 24px 80px; overflow-y:auto; gap:44px; min-height:100vh; }
+      #preview-container{ margin-left:410px; flex:1; display:flex; flex-direction:column; align-items:center; background:radial-gradient(circle at 50% 0%, #eef2f1 0%, #dfe6e5 100%); padding:40px 24px 90px; overflow-y:auto; gap:34px; min-height:100vh; }
+      .stage{ flex-shrink:0; position:relative; }
 
-      /* ── Invitation canvas (A5, print-exact) ── */
-      .invitation-canvas{ width:148mm; height:210mm; position:relative; overflow:hidden; box-shadow:0 18px 50px rgba(20,32,31,.28); display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:22mm 15mm; text-align:center; page-break-after:always; flex-shrink:0; }
-      .inv-section{ width:100%; }
-      .photo-wrapper{ width:112mm; height:60mm; overflow:hidden; position:relative; display:flex; justify-content:center; align-items:center; box-shadow:0 6px 18px rgba(0,0,0,.28); }
+      /* Toast */
+      #toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:12px 20px; border-radius:var(--r-pill); font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:all .25s; z-index:500; box-shadow:0 8px 30px rgba(0,0,0,.3); }
+      #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+      /* Modal (email preview) */
+      #modal-back{ position:fixed; inset:0; background:rgba(10,18,17,.55); z-index:600; display:none; align-items:center; justify-content:center; padding:24px; }
+      #modal-back.show{ display:flex; }
+      .modal{ background:var(--surface); border-radius:var(--r-lg); max-width:680px; width:100%; max-height:88vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,.4); }
+      .modal-head{ padding:16px 20px; border-bottom:1px solid var(--hairline); display:flex; align-items:center; justify-content:space-between; }
+      .modal-head h3{ margin:0; font-size:16px; color:var(--ink); font-weight:800; }
+      .modal-head button{ background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); line-height:1; }
+      .modal-body{ padding:20px; overflow-y:auto; background:var(--surface-2); }
+      .modal-foot{ padding:14px 20px; border-top:1px solid var(--hairline); display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+
+      /* ═══════════ INVITATION CARD (size-independent, em-scaled) ═══════════ */
+      .card{
+        position:relative; overflow:hidden; flex-shrink:0;
+        display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+        text-align:center; background:var(--bg); color:var(--body-c);
+        font-family:var(--fb),sans-serif;
+        /* width / height / font-size set inline per format */
+      }
+      .card *{ position:relative; z-index:2; }
+      .card .frame, .card .motif-layer{ z-index:1; }
+      .card-inner{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:2.1em 1.7em; }
+      .card-top, .card-bottom{ width:100%; display:flex; flex-direction:column; align-items:center; }
+
+      .eyebrow{ font-family:var(--fb),sans-serif; color:var(--accent); font-size:.36em; letter-spacing:.28em; text-transform:uppercase; font-weight:600; line-height:1.5; }
+      .bignum{ font-family:var(--fd),serif; color:var(--accent); line-height:.86; font-weight:700; margin:.12em 0 .06em; font-size:var(--numem,3.5em); }
+      .headline{ font-family:var(--fd),serif; color:var(--ink-c); line-height:1.02; margin:.1em 0; font-size:var(--headem,1.55em); letter-spacing:var(--headls,.02em); text-transform:var(--headtt,none); font-weight:var(--headfw,600); }
+      .subhead{ font-family:var(--fb),sans-serif; color:var(--sub); font-size:.42em; letter-spacing:.14em; text-transform:uppercase; font-weight:600; margin-top:.5em; line-height:1.5; }
+      .subhead.script{ font-family:var(--fd),serif; text-transform:none; letter-spacing:0; font-size:.9em; }
+
+      .ornament{ display:flex; align-items:center; justify-content:center; gap:.7em; margin:.75em 0; color:var(--accent); width:70%; }
+      .orn-line{ flex:1; height:1px; background:currentColor; opacity:.5; max-width:3em; }
+      .orn-sym{ font-size:.5em; letter-spacing:.2em; }
+
+      .photo-wrapper{ width:74%; overflow:hidden; position:relative; background:rgba(0,0,0,.14); box-shadow:0 .15em .5em rgba(0,0,0,.28); margin:.3em 0; }
+      .photo-wrapper::before{ content:""; display:block; padding-top:62.5%; }      /* 16:10 */
+      .photo-wrapper.round{ border-radius:999px; width:44%; }
+      .photo-wrapper.round::before{ padding-top:100%; }
+      .photo-wrapper.arch{ border-radius:999px 999px 0 0; width:52%; }
+      .photo-wrapper.arch::before{ padding-top:133%; }
+      .photo-fill{ position:absolute; inset:0; display:flex; justify-content:center; align-items:center; }
       .photo-preview{ width:100%; height:100%; object-fit:cover; }
-      .photo-placeholder{ font-size:10px; letter-spacing:2px; text-transform:uppercase; opacity:.8; }
+      .photo-placeholder{ font-size:.32em; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); opacity:.85; }
 
-      /* Ornamental divider (── ✦ ──) */
-      .ornament{ display:flex; align-items:center; justify-content:center; gap:12px; margin:14px 0; }
-      .orn-line{ width:46px; height:1px; background:currentColor; opacity:.55; }
-      .orn-dot{ font-size:9px; letter-spacing:3px; }
+      .recipient{ font-family:var(--fd),serif; color:var(--accent); font-size:.72em; font-style:italic; line-height:1.2; margin-bottom:.1em; }
+      .details{ font-family:var(--fb),sans-serif; color:var(--body-c); font-size:.4em; line-height:1.75; letter-spacing:.03em; margin-top:.4em; }
+      .details .d-when{ font-weight:700; }
+      .details .d-line{ margin:.15em 0; }
+      .details .d-rsvp{ margin-top:.7em; opacity:.92; font-size:.94em; }
 
-      /* Shared milestone numeral */
-      .txt-milestone{ line-height:.9; margin:6px 0 8px; font-weight:700; }
+      /* ── Frames (rendered as inset border elements → export-safe) ── */
+      .frame{ position:absolute; pointer-events:none; }
+      .frame.thin{ inset:.75em; border:1px solid var(--frame); }
+      .frame.double{ inset:.62em; border:.14em double var(--frame); }
+      .frame.doubleThin{ inset:.62em; border:1px solid var(--frame); box-shadow:inset 0 0 0 .28em var(--bg), inset 0 0 0 calc(.28em + 1px) var(--frame); }
+      .frame.block{ inset:0; border:.55em solid var(--frame); }
+      .frame.blockInset{ inset:.5em; border:.28em solid var(--frame); }
+      .frame.corners{ inset:.7em; }
+      .frame.corners::before,.frame.corners::after{ content:""; position:absolute; width:1.5em; height:1.5em; border-color:var(--frame); border-style:solid; }
+      .frame.corners::before{ top:0; left:0; border-width:1.5px 0 0 1.5px; }
+      .frame.corners::after{ bottom:0; right:0; border-width:0 1.5px 1.5px 0; }
+      .frame.rainbow{ inset:0; border:.5em solid transparent; border-image:linear-gradient(90deg,#ff595e,#ffca3a,#8ac926,#1982c4,#6a4c93) 1; }
+      .frame.softcard{ inset:.4em; border:1px solid var(--frame); border-radius:.6em; }
 
-      /* ── FONT OVERRIDES ── */
-      .f-serif .txt-main,.f-serif .txt-accent,.f-serif .txt-details,.f-serif .txt-recipient,.f-serif .txt-milestone{ font-family:'Cinzel',serif; }
-      .f-garamond .txt-main,.f-garamond .txt-accent,.f-garamond .txt-details,.f-garamond .txt-recipient,.f-garamond .txt-milestone{ font-family:'Cormorant Garamond',serif; }
-      .f-sans .txt-main,.f-sans .txt-accent,.f-sans .txt-details,.f-sans .txt-recipient,.f-sans .txt-milestone{ font-family:'Montserrat',sans-serif; }
-      .f-classic-serif .txt-main,.f-classic-serif .txt-accent,.f-classic-serif .txt-details,.f-classic-serif .txt-recipient,.f-classic-serif .txt-milestone{ font-family:'Playfair Display',serif; }
-      .f-sporty .txt-main,.f-sporty .txt-accent,.f-sporty .txt-recipient,.f-sporty .txt-milestone{ font-family:'Kanit',sans-serif; font-weight:800; }
-      .f-script .txt-main,.f-script .txt-recipient{ font-family:'Great Vibes',cursive; text-transform:none !important; letter-spacing:0 !important; }
+      /* ── Motif layer (SVG decorations injected per template) ── */
+      .motif-layer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+      .motif-layer svg{ position:absolute; }
 
-      /* ═══ TEMPLATES ═══ */
-
-      /* 1 · Midnight & Gold — flagship milestone */
-      .tmpl-royal{ background:radial-gradient(120% 100% at 50% 0%, #1a2942 0%, #0a1220 70%) !important; border:2.6mm double #c9a24e; outline:.4mm solid #c9a24e; outline-offset:-1.6mm; }
-      .tmpl-royal:not(.customized) .txt-accent{ color:#d9be7e; font-family:'Cinzel',serif; letter-spacing:5px; font-size:12px; text-transform:uppercase; }
-      .tmpl-royal:not(.customized) .txt-milestone{ font-family:'Cinzel',serif; font-size:78px; color:#c9a24e; letter-spacing:2px; }
-      .tmpl-royal:not(.customized) .txt-main{ color:#ffffff; font-family:'Cinzel',serif; font-size:30px; letter-spacing:6px; text-transform:uppercase; margin:6px 0; }
-      .tmpl-royal:not(.customized) .txt-subtitle{ color:#b9c4d6; }
-      .tmpl-royal:not(.customized) .txt-details{ color:#d7ddea; font-family:'Cormorant Garamond',serif; font-size:15px; line-height:1.7; letter-spacing:.5px; }
-      .tmpl-royal:not(.customized) .txt-recipient{ color:#c9a24e; font-family:'Cormorant Garamond',serif; font-size:22px; font-style:italic; letter-spacing:1px; }
-      .tmpl-royal .photo-wrapper{ border:1px solid #c9a24e; }
-
-      /* 2 · Blush & Rose Gold */
-      .tmpl-rosegold{ background:linear-gradient(165deg,#fdf1f0 0%,#f7dede 100%) !important; border:1px solid #d9a5aa; outline:3px solid #f7dede; outline-offset:-9px; }
-      .tmpl-rosegold:not(.customized) .txt-accent{ color:#b76e79; font-family:'Montserrat',sans-serif; letter-spacing:4px; font-size:11px; font-weight:600; text-transform:uppercase; }
-      .tmpl-rosegold:not(.customized) .txt-milestone{ font-family:'Playfair Display',serif; font-size:76px; color:#c98a92; font-style:italic; }
-      .tmpl-rosegold:not(.customized) .txt-main{ color:#5a4646; font-family:'Playfair Display',serif; font-size:38px; font-style:italic; margin:6px 0; }
-      .tmpl-rosegold:not(.customized) .txt-subtitle{ color:#a07b7f; }
-      .tmpl-rosegold:not(.customized) .txt-details{ color:#6a5555; font-family:'Montserrat',sans-serif; font-size:12px; line-height:1.85; letter-spacing:.5px; }
-      .tmpl-rosegold:not(.customized) .txt-recipient{ color:#b76e79; font-family:'Playfair Display',serif; font-size:22px; font-weight:600; }
-      .tmpl-rosegold .photo-wrapper{ border:5px solid #fff; box-shadow:0 6px 18px rgba(183,110,121,.28); }
-
-      /* 3 · Emerald & Gold Deco */
-      .tmpl-emerald{ background:radial-gradient(120% 100% at 50% 0%, #12362c 0%, #071d16 75%) !important; border:1px solid #cBa457; outline:5px solid #0c2820; outline-offset:-6px; }
-      .tmpl-emerald:not(.customized) .txt-accent{ color:#cBa457; font-family:'Cinzel',serif; letter-spacing:5px; font-size:12px; text-transform:uppercase; }
-      .tmpl-emerald:not(.customized) .txt-milestone{ font-family:'Cinzel',serif; font-size:76px; color:#cBa457; }
-      .tmpl-emerald:not(.customized) .txt-main{ color:#f3 efe2; font-family:'Cinzel',serif; font-size:30px; letter-spacing:5px; text-transform:uppercase; margin:6px 0; }
-      .tmpl-emerald:not(.customized) .txt-subtitle{ color:#a9c4b6; }
-      .tmpl-emerald:not(.customized) .txt-details{ color:#dfe8e0; font-family:'Cormorant Garamond',serif; font-size:15px; line-height:1.7; }
-      .tmpl-emerald:not(.customized) .txt-recipient{ color:#cBa457; font-family:'Cormorant Garamond',serif; font-size:22px; font-style:italic; }
-      .tmpl-emerald .photo-wrapper{ border:1px solid #cBa457; }
-
-      /* 4 · Burgundy & Crest */
-      .tmpl-classic{ background:radial-gradient(120% 100% at 50% 0%, #601521 0%, #3d0b12 80%) !important; border:1px solid #d4af37; outline:10px solid #360a10; outline-offset:-12px; }
-      .tmpl-classic:not(.customized) .txt-accent{ color:#d4af37; font-family:'Cormorant Garamond',serif; font-style:italic; letter-spacing:2px; font-size:16px; }
-      .tmpl-classic:not(.customized) .txt-milestone{ font-family:'Playfair Display',serif; font-size:76px; color:#d4af37; }
-      .tmpl-classic:not(.customized) .txt-main{ color:#fdf6e9; font-family:'Playfair Display',serif; font-size:32px; letter-spacing:3px; font-weight:700; text-transform:uppercase; margin:6px 0; }
-      .tmpl-classic:not(.customized) .txt-subtitle{ color:#e7c9a0; font-style:normal; }
-      .tmpl-classic:not(.customized) .txt-details{ color:#f4e9dd; font-family:'Montserrat',sans-serif; font-size:11px; line-height:1.9; letter-spacing:1.5px; }
-      .tmpl-classic:not(.customized) .txt-recipient{ color:#d4af37; font-family:'Playfair Display',serif; font-size:20px; letter-spacing:1px; }
-      .tmpl-classic .photo-wrapper{ border:1px solid #d4af37; }
-
-      /* 5 · Champagne Noir */
-      .tmpl-noir{ background:#0c0c0c !important; border:1px solid #cbb682; outline:3px solid #1a1a1a; outline-offset:-8px; }
-      .tmpl-noir:not(.customized) .txt-accent{ color:#cbb682; font-family:'Montserrat',sans-serif; letter-spacing:6px; font-size:11px; font-weight:500; text-transform:uppercase; }
-      .tmpl-noir:not(.customized) .txt-milestone{ font-family:'Cormorant Garamond',serif; font-weight:500; font-size:96px; color:#cbb682; }
-      .tmpl-noir:not(.customized) .txt-main{ color:#ffffff; font-family:'Cormorant Garamond',serif; font-size:40px; font-weight:500; letter-spacing:2px; margin:2px 0; }
-      .tmpl-noir:not(.customized) .txt-subtitle{ color:#9c9488; }
-      .tmpl-noir:not(.customized) .txt-details{ color:#d8d2c6; font-family:'Montserrat',sans-serif; font-size:11px; line-height:1.95; letter-spacing:1.5px; }
-      .tmpl-noir:not(.customized) .txt-recipient{ color:#cbb682; font-family:'Cormorant Garamond',serif; font-size:24px; font-style:italic; }
-      .tmpl-noir .photo-wrapper{ border:1px solid #cbb682; }
-
-      /* 6 · Modern Editorial */
-      .tmpl-modern{ background:#ffffff !important; border:1px solid #e6e2da; }
-      .tmpl-modern:not(.customized) .txt-accent{ color:#b08d4f; font-family:'Montserrat',sans-serif; letter-spacing:5px; font-size:11px; font-weight:700; text-transform:uppercase; }
-      .tmpl-modern:not(.customized) .txt-milestone{ font-family:'Cormorant Garamond',serif; font-weight:500; font-size:96px; color:#111111; }
-      .tmpl-modern:not(.customized) .txt-main{ color:#111111; font-family:'Montserrat',sans-serif; font-size:32px; letter-spacing:1px; font-weight:800; text-transform:uppercase; margin:6px 0; }
-      .tmpl-modern:not(.customized) .txt-subtitle{ color:#8a8a8a; }
-      .tmpl-modern:not(.customized) .txt-details{ color:#555555; font-family:'Montserrat',sans-serif; font-size:11px; line-height:2; letter-spacing:1px; }
-      .tmpl-modern:not(.customized) .txt-recipient{ color:#b08d4f; font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:600; font-size:22px; }
-      .tmpl-modern .photo-wrapper{ border:1px solid #eee; }
-
-      /* 7 · Championship Football */
-      .tmpl-football{ background:linear-gradient(135deg,#134a29 0%,#082212 100%) !important; border:4px solid #ffffff; outline:6px solid #1e5631; outline-offset:-10px; }
-      .tmpl-football:not(.customized) .txt-accent{ color:#ffcc00; font-family:'Kanit',sans-serif; letter-spacing:2px; font-size:13px; text-transform:uppercase; }
-      .tmpl-football:not(.customized) .txt-milestone{ font-family:'Kanit',sans-serif; font-size:82px; color:#ffcc00; text-shadow:3px 3px 0 #000; }
-      .tmpl-football:not(.customized) .txt-main{ color:#fff; font-family:'Kanit',sans-serif; font-size:38px; font-weight:800; letter-spacing:1px; text-transform:uppercase; margin:6px 0; text-shadow:3px 3px 0 #000; }
-      .tmpl-football:not(.customized) .txt-subtitle{ color:#ffe27a; }
-      .tmpl-football:not(.customized) .txt-details{ color:#fff; font-family:'Montserrat',sans-serif; font-size:12px; line-height:1.6; font-weight:600; letter-spacing:1px; }
-      .tmpl-football:not(.customized) .txt-recipient{ color:#ffcc00; font-family:'Kanit',sans-serif; font-size:22px; font-style:italic; text-shadow:2px 2px 0 #000; }
-      .tmpl-football .photo-wrapper{ border:3px solid #fff; }
-
-      /* 8 · Safari Adventure */
-      .tmpl-safari{ background:#f4f0e6 !important; border:5mm solid #556b2f; }
-      .tmpl-safari:not(.customized) .txt-accent{ color:#8b5a2b; font-family:'Fredoka One',cursive; letter-spacing:1px; font-size:14px; }
-      .tmpl-safari:not(.customized) .txt-milestone{ font-family:'Fredoka One',cursive; font-size:70px; color:#2e8b57; }
-      .tmpl-safari:not(.customized) .txt-main{ color:#2e8b57; font-family:'Fredoka One',cursive; font-size:34px; margin:6px 0; letter-spacing:1px; }
-      .tmpl-safari:not(.customized) .txt-subtitle{ color:#8b5a2b; }
-      .tmpl-safari:not(.customized) .txt-details{ color:#333; font-family:'Montserrat',sans-serif; font-size:13px; line-height:1.6; font-weight:600; }
-      .tmpl-safari:not(.customized) .txt-recipient{ color:#d2691e; font-family:'Fredoka One',cursive; font-size:20px; }
-      .tmpl-safari .photo-wrapper{ border:4px solid #556b2f; }
-
-      /* 9 · Super Galactic */
-      .tmpl-galactic{ background:radial-gradient(circle at 50% 20%, #101034 0%, #020208 70%) !important; border:2px solid #00e5ff; outline:8px solid #0a0a1f; outline-offset:-10px; }
-      .tmpl-galactic:not(.customized) .txt-accent{ color:#ff5df2; font-family:'Montserrat',sans-serif; letter-spacing:4px; font-weight:700; font-size:11px; text-shadow:0 0 6px #ff5df2; }
-      .tmpl-galactic:not(.customized) .txt-milestone{ font-family:'Montserrat',sans-serif; font-weight:800; font-size:72px; color:#00e5ff; text-shadow:0 0 12px #00e5ff; }
-      .tmpl-galactic:not(.customized) .txt-main{ color:#00e5ff; font-family:'Montserrat',sans-serif; font-weight:800; font-size:32px; letter-spacing:3px; margin:6px 0; text-shadow:0 0 10px #00e5ff; }
-      .tmpl-galactic:not(.customized) .txt-subtitle{ color:#c9c9ff; }
-      .tmpl-galactic:not(.customized) .txt-details{ color:#eef; font-family:'Montserrat',sans-serif; font-size:12px; line-height:1.8; letter-spacing:1px; }
-      .tmpl-galactic:not(.customized) .txt-recipient{ color:#ffe14d; font-family:'Montserrat',sans-serif; font-weight:700; font-size:18px; text-shadow:0 0 6px #ffe14d; }
-      .tmpl-galactic .photo-wrapper{ border:2px solid #00e5ff; }
-
-      /* 10 · Gatsby Deco */
-      .tmpl-gatsby{ background:#0a0a0a !important; border:2px solid #d4b968; outline:1px solid #d4b968; outline-offset:-7px; }
-      .tmpl-gatsby:not(.customized) .txt-accent{ color:#d4b968; font-family:'Cinzel',serif; letter-spacing:6px; font-size:12px; text-transform:uppercase; }
-      .tmpl-gatsby:not(.customized) .txt-milestone{ font-family:'Cinzel',serif; font-weight:700; font-size:84px; color:#d4b968; }
-      .tmpl-gatsby:not(.customized) .txt-main{ color:#fff; font-family:'Cinzel',serif; font-size:30px; letter-spacing:5px; text-transform:uppercase; margin:6px 0; }
-      .tmpl-gatsby:not(.customized) .txt-subtitle{ color:#c9b06a; }
-      .tmpl-gatsby:not(.customized) .txt-details{ color:#e8e2d0; font-family:'Montserrat',sans-serif; font-size:11px; line-height:1.9; letter-spacing:2px; }
-      .tmpl-gatsby:not(.customized) .txt-recipient{ color:#d4b968; font-family:'Cinzel',serif; font-size:18px; letter-spacing:2px; }
-      .tmpl-gatsby .photo-wrapper{ border:1px solid #d4b968; }
-
-      /* 11 · Botanical Greenery */
-      .tmpl-botanical{ background:#f7f5ee !important; border:1px solid #cdd6c1; outline:6px solid #fdfdfa; outline-offset:-8px; }
-      .tmpl-botanical:not(.customized) .txt-accent{ color:#5b7355; font-family:'Cormorant Garamond',serif; font-style:italic; letter-spacing:2px; font-size:16px; }
-      .tmpl-botanical:not(.customized) .txt-milestone{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:88px; color:#6b8460; }
-      .tmpl-botanical:not(.customized) .txt-main{ color:#37432f; font-family:'Cormorant Garamond',serif; font-weight:600; font-size:40px; letter-spacing:1px; margin:2px 0; }
-      .tmpl-botanical:not(.customized) .txt-subtitle{ color:#7a8a6e; letter-spacing:3px; text-transform:uppercase; font-size:12px; }
-      .tmpl-botanical:not(.customized) .txt-details{ color:#4d5a44; font-family:'Montserrat',sans-serif; font-size:11px; line-height:1.9; letter-spacing:1px; }
-      .tmpl-botanical:not(.customized) .txt-recipient{ color:#5b7355; font-family:'Cormorant Garamond',serif; font-style:italic; font-size:22px; }
-      .tmpl-botanical .photo-wrapper{ border:3px solid #fff; box-shadow:0 6px 18px rgba(91,115,85,.25); }
-
-      /* 12 · Watercolour Bloom */
-      .tmpl-watercolour{ background:linear-gradient(135deg,#fbeef4 0%,#eef1fb 50%,#f3eefb 100%) !important; border:1px solid #e3cad8; }
-      .tmpl-watercolour:not(.customized) .txt-accent{ color:#b06a92; font-family:'Montserrat',sans-serif; letter-spacing:3px; font-size:11px; font-weight:600; text-transform:uppercase; }
-      .tmpl-watercolour:not(.customized) .txt-milestone{ font-family:'Great Vibes',cursive; font-size:96px; color:#c17aa0; }
-      .tmpl-watercolour:not(.customized) .txt-main{ color:#5b4a5a; font-family:'Great Vibes',cursive; font-size:54px; margin:0; }
-      .tmpl-watercolour:not(.customized) .txt-subtitle{ color:#9a7c93; letter-spacing:2px; font-size:11px; text-transform:uppercase; }
-      .tmpl-watercolour:not(.customized) .txt-details{ color:#6a5a68; font-family:'Montserrat',sans-serif; font-size:12px; line-height:1.85; }
-      .tmpl-watercolour:not(.customized) .txt-recipient{ color:#b06a92; font-family:'Great Vibes',cursive; font-size:36px; }
-      .tmpl-watercolour .photo-wrapper{ border:5px solid #fff; box-shadow:0 6px 18px rgba(176,106,146,.22); }
-
-      /* 13 · Tropical Fiesta */
-      .tmpl-tropical{ background:linear-gradient(160deg,#ff8a5c 0%,#ff5e7e 45%,#ffb347 100%) !important; border:4px solid #fff; outline:6px solid rgba(255,255,255,.35); outline-offset:-11px; }
-      .tmpl-tropical:not(.customized) .txt-accent{ color:#fff; font-family:'Fredoka One',cursive; letter-spacing:2px; font-size:14px; }
-      .tmpl-tropical:not(.customized) .txt-milestone{ font-family:'Fredoka One',cursive; font-size:80px; color:#fff; text-shadow:3px 3px 0 rgba(0,0,0,.15); }
-      .tmpl-tropical:not(.customized) .txt-main{ color:#fff; font-family:'Fredoka One',cursive; font-size:38px; margin:6px 0; text-shadow:2px 2px 0 rgba(0,0,0,.15); }
-      .tmpl-tropical:not(.customized) .txt-subtitle{ color:#fff5e0; }
-      .tmpl-tropical:not(.customized) .txt-details{ color:#fff; font-family:'Montserrat',sans-serif; font-size:12px; line-height:1.7; font-weight:600; }
-      .tmpl-tropical:not(.customized) .txt-recipient{ color:#fff; font-family:'Fredoka One',cursive; font-size:22px; }
-      .tmpl-tropical .photo-wrapper{ border:5px solid #fff; }
-
-      /* 14 · Midnight Confetti */
-      .tmpl-confetti{ background:radial-gradient(circle,#ffd84d 2.5px,transparent 3px) 0 0/58px 58px, radial-gradient(circle,#ff6ec7 2.5px,transparent 3px) 29px 29px/58px 58px, radial-gradient(circle,#5ce1e6 2.5px,transparent 3px) 14px 44px/72px 72px, linear-gradient(160deg,#241a52,#140f30) !important; border:3px solid #ffd84d; outline:4px solid #241a52; outline-offset:-7px; }
-      .tmpl-confetti:not(.customized) .txt-accent{ color:#ffd84d; font-family:'Montserrat',sans-serif; letter-spacing:4px; font-weight:700; font-size:12px; text-transform:uppercase; }
-      .tmpl-confetti:not(.customized) .txt-milestone{ font-family:'Montserrat',sans-serif; font-weight:800; font-size:80px; color:#ff6ec7; text-shadow:0 2px 0 #5ce1e6; }
-      .tmpl-confetti:not(.customized) .txt-main{ color:#fff; font-family:'Montserrat',sans-serif; font-weight:800; font-size:34px; letter-spacing:1px; margin:6px 0; text-transform:uppercase; }
-      .tmpl-confetti:not(.customized) .txt-subtitle{ color:#c9c2ff; }
-      .tmpl-confetti:not(.customized) .txt-details{ color:#eee; font-family:'Montserrat',sans-serif; font-size:12px; line-height:1.8; letter-spacing:1px; }
-      .tmpl-confetti:not(.customized) .txt-recipient{ color:#ffd84d; font-family:'Montserrat',sans-serif; font-weight:700; font-size:18px; }
-      .tmpl-confetti .photo-wrapper{ border:3px solid #ffd84d; }
-
-      /* 15 · Winter Sparkle */
-      .tmpl-winter{ background:radial-gradient(120% 100% at 50% 0%, #1e3a5f 0%, #0a1a2e 75%) !important; border:1px solid #cbd9e8; outline:3px solid #10233b; outline-offset:-8px; }
-      .tmpl-winter:not(.customized) .txt-accent{ color:#bcd3e8; font-family:'Cinzel',serif; letter-spacing:5px; font-size:12px; text-transform:uppercase; }
-      .tmpl-winter:not(.customized) .txt-milestone{ font-family:'Cinzel',serif; font-size:78px; color:#dbe8f5; }
-      .tmpl-winter:not(.customized) .txt-main{ color:#fff; font-family:'Cinzel',serif; font-size:30px; letter-spacing:5px; text-transform:uppercase; margin:6px 0; }
-      .tmpl-winter:not(.customized) .txt-subtitle{ color:#a9c0d8; }
-      .tmpl-winter:not(.customized) .txt-details{ color:#dce8f2; font-family:'Cormorant Garamond',serif; font-size:15px; line-height:1.7; }
-      .tmpl-winter:not(.customized) .txt-recipient{ color:#cddff0; font-family:'Cormorant Garamond',serif; font-style:italic; font-size:22px; }
-      .tmpl-winter .photo-wrapper{ border:1px solid #cbd9e8; }
-
-      /* 16 · Rainbow Party */
-      .tmpl-rainbow{ background:#fffdf7 !important; border:8px solid transparent; border-image:linear-gradient(90deg,#ff595e,#ffca3a,#8ac926,#1982c4,#6a4c93) 1; }
-      .tmpl-rainbow:not(.customized) .txt-accent{ color:#1982c4; font-family:'Fredoka One',cursive; letter-spacing:1px; font-size:14px; }
-      .tmpl-rainbow:not(.customized) .txt-milestone{ font-family:'Fredoka One',cursive; font-size:80px; color:#ff595e; }
-      .tmpl-rainbow:not(.customized) .txt-main{ color:#6a4c93; font-family:'Fredoka One',cursive; font-size:36px; margin:6px 0; }
-      .tmpl-rainbow:not(.customized) .txt-subtitle{ color:#8ac926; }
-      .tmpl-rainbow:not(.customized) .txt-details{ color:#444; font-family:'Montserrat',sans-serif; font-size:13px; line-height:1.6; font-weight:600; }
-      .tmpl-rainbow:not(.customized) .txt-recipient{ color:#ff924c; font-family:'Fredoka One',cursive; font-size:20px; }
-      .tmpl-rainbow .photo-wrapper{ border:5px solid #ffca3a; }
+      /* Font override utility classes handled via CSS vars (see JS) */
 
       /* ── Responsive tool ── */
-      @media (max-width:880px){
+      @media (max-width:940px){
         body{ flex-direction:column; }
         #control-panel{ position:static; width:100%; height:auto; border-right:none; border-bottom:1px solid var(--hairline); box-shadow:none; }
-        #preview-container{ margin-left:0; padding:28px 12px 60px; }
-        .invitation-canvas{ transform:scale(.82); transform-origin:top center; margin-bottom:-38mm; }
+        #preview-container{ margin-left:0; padding:24px 12px 70px; }
       }
 
       /* ── Print ── */
       @media print{
-        #control-panel{ display:none !important; }
+        #control-panel, #toast, #modal-back{ display:none !important; }
         #preview-container{ margin-left:0 !important; padding:0 !important; background:none !important; display:block !important; gap:0 !important; }
-        .invitation-canvas{ box-shadow:none !important; width:148mm !important; height:210mm !important; margin:0 !important; transform:none !important; }
+        .stage{ transform:none !important; margin:0 !important; }
+        .stage:not(.print-a5){ display:none !important; }
+        .card{ box-shadow:none !important; }
+        .card.a5{ width:148mm !important; height:210mm !important; font-size:4.93mm !important; margin:0 !important; page-break-after:always; }
       }
     </style>
 </head>
@@ -250,224 +177,831 @@
     <div id="control-panel">
         <div class="panel-head">
             <h2>Invitation Maker</h2>
-            <p>Design a beautiful invitation, then print or mail-merge a whole guest list.</p>
-        </div>
-        <hr class="divider-rule">
-
-        <div class="form-group">
-            <label for="template-select">Design</label>
-            <select id="template-select" onchange="updateAllInvitations()">
-                <optgroup label="Elegant · milestone">
-                    <option value="tmpl-royal">Midnight &amp; Gold</option>
-                    <option value="tmpl-noir">Champagne Noir</option>
-                    <option value="tmpl-gatsby">Gatsby Deco</option>
-                    <option value="tmpl-emerald">Emerald &amp; Gold Deco</option>
-                    <option value="tmpl-classic">Burgundy &amp; Crest</option>
-                    <option value="tmpl-winter">Winter Sparkle</option>
-                    <option value="tmpl-modern">Modern Editorial</option>
-                </optgroup>
-                <optgroup label="Pretty &amp; floral">
-                    <option value="tmpl-rosegold">Blush &amp; Rose Gold</option>
-                    <option value="tmpl-botanical">Botanical Greenery</option>
-                    <option value="tmpl-watercolour">Watercolour Bloom</option>
-                </optgroup>
-                <optgroup label="Fun &amp; bright">
-                    <option value="tmpl-confetti">Midnight Confetti</option>
-                    <option value="tmpl-tropical">Tropical Fiesta</option>
-                    <option value="tmpl-football">Championship Football</option>
-                </optgroup>
-                <optgroup label="Kids">
-                    <option value="tmpl-rainbow">Rainbow Party</option>
-                    <option value="tmpl-safari">Safari Adventure</option>
-                    <option value="tmpl-galactic">Super Galactic</option>
-                </optgroup>
-            </select>
+            <p>Design once — then print, share on WhatsApp, or email your whole guest list.</p>
         </div>
 
-        <div class="section-label">Wording</div>
-        <div class="form-group">
-            <label for="input-host">Top line</label>
-            <input type="text" id="input-host" value="Please join us to celebrate" oninput="updateAllInvitations()">
+        <!-- OUTPUT FORMAT -->
+        <div class="section-label">Format</div>
+        <div class="fmt-tabs" id="fmt-tabs">
+            <div class="fmt-tab active" data-fmt="a5"><span class="ft-t">🖨 Card</span><span class="ft-s">A5 print / PDF</span></div>
+            <div class="fmt-tab" data-fmt="wa"><span class="ft-t">📱 WhatsApp</span><span class="ft-s">1080×1350</span></div>
+            <div class="fmt-tab" data-fmt="story"><span class="ft-t">📲 Story</span><span class="ft-s">1080×1920</span></div>
+            <div class="fmt-tab" data-fmt="square"><span class="ft-t">⬛ Square</span><span class="ft-s">1080×1080 post</span></div>
         </div>
-        <div class="form-row">
-            <div class="form-group" style="flex:0 0 110px;">
-                <label for="input-milestone">Big number</label>
-                <input type="text" id="input-milestone" value="50" oninput="updateAllInvitations()" placeholder="e.g. 50">
+
+        <!-- OCCASION + TEMPLATE -->
+        <div class="section-label">Design</div>
+        <div class="form-group">
+            <label for="occasion-select">Occasion</label>
+            <select id="occasion-select"><option value="all">All occasions</option></select>
+        </div>
+        <div class="tpl-grid" id="tpl-grid"></div>
+
+        <!-- WORDING -->
+        <details class="sect" open>
+            <summary>Wording</summary>
+            <div class="sect-body">
+                <div class="form-group">
+                    <label for="input-host">Top line</label>
+                    <input type="text" id="input-host" value="Please join us to celebrate">
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:0 0 118px;">
+                        <label for="input-milestone">Big number / monogram</label>
+                        <input type="text" id="input-milestone" value="50" placeholder="e.g. 50 or J&amp;M">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-title">Main name / title</label>
+                        <input type="text" id="input-title" value="MARGARET">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="input-subtitle">Subtitle</label>
+                    <input type="text" id="input-subtitle" value="50th Birthday Celebration">
+                </div>
             </div>
-            <div class="form-group">
-                <label for="input-title">Name</label>
-                <input type="text" id="input-title" value="MARGARET" oninput="updateAllInvitations()">
+        </details>
+
+        <!-- EVENT DETAILS (structured) -->
+        <details class="sect" open>
+            <summary>Event details</summary>
+            <div class="sect-body">
+                <div class="form-row">
+                    <div class="form-group"><label for="input-date">Date</label><input type="text" id="input-date" value="Saturday 17th October"></div>
+                    <div class="form-group" style="flex:0 0 110px;"><label for="input-time">Time</label><input type="text" id="input-time" value="7:00pm"></div>
+                </div>
+                <div class="form-group"><label for="input-venue">Venue</label><input type="text" id="input-venue" value="The Riverside Rooms"></div>
+                <div class="form-group"><label for="input-address">Address</label><input type="text" id="input-address" value="12 Church Lane, Esher"></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="input-rsvp">RSVP</label><input type="text" id="input-rsvp" value="RSVP by 1st September"></div>
+                    <div class="form-group"><label for="input-note">Note / dress</label><input type="text" id="input-note" value="Dress: black tie"></div>
+                </div>
+                <div class="form-group">
+                    <label for="input-details">Or free-text details (overrides the above on the card)</label>
+                    <textarea id="input-details" rows="3" placeholder="Leave blank to use the fields above"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="image-upload">Photo (optional)</label>
+                    <input type="file" id="image-upload" accept="image/*" onchange="handleImage(event)">
+                    <label class="cb-label" style="margin-top:2px;"><input type="checkbox" id="photo-round"> Round / arched photo frame</label>
+                </div>
             </div>
-        </div>
-        <div class="form-group">
-            <label for="input-subtitle">Subtitle</label>
-            <input type="text" id="input-subtitle" value="50th Birthday Celebration" oninput="updateAllInvitations()">
-        </div>
-        <div class="form-group">
-            <label for="input-details">Details (date, venue, RSVP)</label>
-            <textarea id="input-details" rows="6" oninput="updateAllInvitations()">Saturday 17th October · 7:00pm
+        </details>
 
-The Riverside Rooms
-12 Church Lane, Esher
+        <!-- CUSTOM COLOURS -->
+        <details class="sect">
+            <summary>Custom colours &amp; fonts</summary>
+            <div class="sect-body">
+                <label class="cb-label"><input type="checkbox" id="enable-color-override"> Override the template's colours</label>
+                <div class="form-row">
+                    <div class="form-group"><label for="color-bg">Background</label><input type="color" id="color-bg" value="#0a1220"></div>
+                    <div class="form-group"><label for="color-accent">Accent</label><input type="color" id="color-accent" value="#c9a24e"></div>
+                    <div class="form-group"><label for="color-text">Text</label><input type="color" id="color-text" value="#ffffff"></div>
+                </div>
+                <div class="form-group">
+                    <label for="font-override">Font override</label>
+                    <select id="font-override">
+                        <option value="default">— Keep template fonts —</option>
+                        <option value="Cinzel">Cinzel (grand serif)</option>
+                        <option value="Cormorant Garamond">Cormorant (refined serif)</option>
+                        <option value="Playfair Display">Playfair (literary serif)</option>
+                        <option value="Marcellus">Marcellus (calm caps serif)</option>
+                        <option value="Abril Fatface">Abril Fatface (bold display)</option>
+                        <option value="Montserrat">Montserrat (clean sans)</option>
+                        <option value="Poppins">Poppins (rounded sans)</option>
+                        <option value="Great Vibes">Great Vibes (elegant script)</option>
+                        <option value="Pinyon Script">Pinyon Script (fine script)</option>
+                        <option value="Dancing Script">Dancing Script (casual script)</option>
+                        <option value="Kanit">Kanit (bold athletic)</option>
+                        <option value="Fredoka One">Fredoka (fun round)</option>
+                    </select>
+                </div>
+            </div>
+        </details>
 
-RSVP by 1st September
-Dress: black tie</textarea>
-        </div>
-        <div class="form-group">
-            <label for="image-upload">Photo (optional)</label>
-            <input type="file" id="image-upload" accept="image/*" onchange="handleImage(event)">
+        <!-- MAIL MERGE -->
+        <details class="sect">
+            <summary>Mail merge — guest list</summary>
+            <div class="sect-body">
+                <div class="form-group">
+                    <label for="excel-upload">Excel guest list (.xlsx)</label>
+                    <input type="file" id="excel-upload" accept=".xlsx, .xls" onchange="handleExcel(event)">
+                    <div class="info-box">Upload a spreadsheet with a <strong>Name</strong> column (and an optional <strong>Email</strong> column) — you'll get one personalised invitation per guest for printing, and you can email the whole list at once with Resend.</div>
+                </div>
+                <button class="btn btn-ghost" onclick="clearMerge()">Clear list</button>
+            </div>
+        </details>
+
+        <!-- EXPORT -->
+        <div class="section-label">Share &amp; export</div>
+        <div class="btn-row">
+            <button class="btn btn-primary btn-full" onclick="doPrint()">🖨 Print / Save as PDF</button>
+            <button class="btn btn-ghost" onclick="downloadImage()">🖼 Download image</button>
+            <button class="btn btn-wa" onclick="shareWhatsApp()">📱 WhatsApp</button>
+            <button class="btn btn-ghost" onclick="copyWhatsAppText()">📋 Copy message</button>
+            <button class="btn btn-ghost" onclick="openEmail()">✉ Email invite</button>
+            <button class="btn btn-ghost btn-full" onclick="downloadCalendar()">📅 Add-to-calendar file (.ics)</button>
         </div>
 
-        <hr class="divider-rule">
-        <div class="section-label">Send to a list (optional)</div>
-        <div class="form-group">
-            <label for="excel-upload">Mail merge — Excel guest list</label>
-            <input type="file" id="excel-upload" accept=".xlsx, .xls" onchange="handleExcel(event)">
-            <div class="info-box">Upload a spreadsheet with a <strong>Name</strong> column — you'll get one personalised invitation per guest, ready to print.</div>
-        </div>
-
-        <hr class="divider-rule">
-        <div class="section-label">Custom colours (optional)</div>
-        <div class="form-group">
-            <label class="cb-label"><input type="checkbox" id="enable-color-override" onchange="updateAllInvitations()"> Override the template's colours</label>
-        </div>
-        <div class="form-row">
-            <div class="form-group"><label for="color-bg">Background</label><input type="color" id="color-bg" value="#0a1220" oninput="applyColorOverride()"></div>
-            <div class="form-group"><label for="color-accent">Accent</label><input type="color" id="color-accent" value="#c9a24e" oninput="applyColorOverride()"></div>
-            <div class="form-group"><label for="color-text">Text</label><input type="color" id="color-text" value="#ffffff" oninput="applyColorOverride()"></div>
-        </div>
-        <div class="form-group">
-            <label for="font-override">Font override</label>
-            <select id="font-override" onchange="updateAllInvitations()">
-                <option value="default">— Keep template fonts —</option>
-                <option value="f-serif">Cinzel (grand serif)</option>
-                <option value="f-garamond">Cormorant (refined serif)</option>
-                <option value="f-classic-serif">Playfair (literary serif)</option>
-                <option value="f-sans">Montserrat (clean sans)</option>
-                <option value="f-script">Great Vibes (elegant script)</option>
-                <option value="f-sporty">Kanit (bold athletic)</option>
-            </select>
-        </div>
-
-        <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
     </div>
 
     <div id="preview-container"></div>
 
+    <!-- Email modal -->
+    <div id="modal-back">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>✉ Email invitation</h3>
+                <button onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="resend-status" class="info-box" style="margin-bottom:14px;"></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="mail-fromname">From name</label><input type="text" id="mail-fromname" placeholder="e.g. Margaret"></div>
+                    <div class="form-group"><label for="mail-fromemail">From address</label><input type="text" id="mail-fromemail" placeholder="invites@yourdomain.com"></div>
+                </div>
+                <div class="form-group" style="margin-top:12px;"><label for="mail-subject">Subject</label><input type="text" id="mail-subject"></div>
+                <div class="form-group" style="margin-top:12px;">
+                    <label for="mail-to">Send to (comma-separated emails)</label>
+                    <textarea id="mail-to" rows="2" placeholder="guest1@example.com, guest2@example.com"></textarea>
+                    <label class="cb-label" id="mail-uselist-wrap" style="display:none;margin-top:4px;"><input type="checkbox" id="mail-uselist" checked onchange="fillToFromList()"> Use my uploaded guest list (<span id="mail-listcount">0</span> emails)</label>
+                </div>
+                <details class="sect" id="resend-settings" style="margin-top:14px;">
+                    <summary>Resend account &amp; API key</summary>
+                    <div class="sect-body">
+                        <div class="info-box">Emails are delivered with <strong>Resend</strong>. Paste your API key from resend.com and a sender address on a domain you've verified there. Stored only on this device.</div>
+                        <div class="form-group"><label for="mail-key">Resend API key</label><input type="text" id="mail-key" placeholder="re_xxxxxxxx"></div>
+                        <div class="form-group"><label for="mail-keyfrom">Default sender address</label><input type="text" id="mail-keyfrom" placeholder="invites@yourdomain.com"></div>
+                        <button class="btn btn-ghost" onclick="saveResendKey()">Save</button>
+                    </div>
+                </details>
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 8px;">Preview</div>
+                <div id="email-preview"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-primary" id="btn-send-resend" onclick="sendResend()">📨 Send via Resend</button>
+                <button class="btn btn-ghost" onclick="downloadEmailHtml()">⬇ Download .html</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
     <script>
-        let currentImageDataUrl = "";
-        let recipientList = [""];
+    /* ══════════════════════════════════════════════════════════════════
+       TEMPLATE LIBRARY  (data-driven themes)
+       Each template only sets colour/type/frame/motif — sizing is shared,
+       so every design renders identically to print, WhatsApp, story & square.
+       Fields:
+         id, name, occasion, tag(gallery pill)
+         bg      : full CSS background value
+         accent  : accent / lines / number colour
+         ink     : main headline colour
+         sub     : subtitle colour
+         body    : details colour
+         fd      : display font family   fb : body font family
+         frame   : thin|double|doubleThin|block|blockInset|corners|rainbow|softcard|none
+         orn     : ornament symbol ('' = hide)
+         motif   : botanical|deco|hearts|stars|balloons|sparkle|petals|leaves|snow|''
+         numem/headem/headtt/headls/headfw : optional sizing overrides
+         subScript : true → subtitle in display font (script look)
+       ══════════════════════════════════════════════════════════════════ */
+    const TEMPLATES = [
+      /* ─── Elegant / milestone ─── */
+      { id:'royal', name:'Midnight & Gold', occasion:'Milestone', tag:'Milestone',
+        bg:'radial-gradient(120% 100% at 50% 0%, #1a2942 0%, #0a1220 70%)', accent:'#c9a24e', ink:'#ffffff', sub:'#b9c4d6', body:'#d7ddea',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'double', orn:'✦', motif:'', headtt:'uppercase', headls:'.18em', numem:'3.6em' },
+      { id:'noir', name:'Champagne Noir', occasion:'Milestone', tag:'Formal',
+        bg:'#0c0c0c', accent:'#cbb682', ink:'#ffffff', sub:'#9c9488', body:'#d8d2c6',
+        fd:'Cormorant Garamond', fb:'Montserrat', frame:'doubleThin', orn:'◆', motif:'', numem:'4.2em', headfw:500, headls:'.05em' },
+      { id:'gatsby', name:'Gatsby Deco', occasion:'Milestone', tag:'Art deco',
+        bg:'#0a0a0a', accent:'#d4b968', ink:'#ffffff', sub:'#c9b06a', body:'#e8e2d0',
+        fd:'Cinzel Decorative', fb:'Josefin Sans', frame:'corners', orn:'❖', motif:'deco', headtt:'uppercase', headls:'.22em' },
+      { id:'emerald', name:'Emerald & Gold', occasion:'Milestone', tag:'Formal',
+        bg:'radial-gradient(120% 100% at 50% 0%, #12362c 0%, #071d16 75%)', accent:'#cba457', ink:'#f3efe2', sub:'#a9c4b6', body:'#dfe8e0',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'thin', orn:'✦', motif:'', headtt:'uppercase', headls:'.16em' },
+      { id:'burgundy', name:'Burgundy Crest', occasion:'Milestone', tag:'Classic',
+        bg:'radial-gradient(120% 100% at 50% 0%, #601521 0%, #3d0b12 80%)', accent:'#d4af37', ink:'#fdf6e9', sub:'#e7c9a0', body:'#f4e9dd',
+        fd:'Playfair Display', fb:'Montserrat', frame:'blockInset', orn:'✦', motif:'', headtt:'uppercase', headls:'.1em', headfw:700 },
+      { id:'editorial', name:'Modern Editorial', occasion:'Milestone', tag:'Minimal',
+        bg:'#ffffff', accent:'#b08d4f', ink:'#111111', sub:'#8a8a8a', body:'#555555',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'none', orn:'', motif:'', numem:'4.4em', headtt:'uppercase', headls:'.06em', headfw:800, headem:'1.4em' },
+      { id:'winter', name:'Winter Sparkle', occasion:'Festive', tag:'Winter',
+        bg:'radial-gradient(120% 100% at 50% 0%, #1e3a5f 0%, #0a1a2e 75%)', accent:'#cddff0', ink:'#ffffff', sub:'#a9c0d8', body:'#dce8f2',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'thin', orn:'❄', motif:'snow', headtt:'uppercase', headls:'.16em' },
 
-        window.onload = renderInvitations;
+      /* ─── Wedding / engagement / anniversary ─── */
+      { id:'ivory', name:'Ivory Vows', occasion:'Wedding', tag:'Wedding',
+        bg:'#f7f4ee', accent:'#a68a5b', ink:'#3a352c', sub:'#9a8f7a', body:'#5a5245',
+        fd:'Pinyon Script', fb:'EB Garamond', frame:'thin', orn:'❦', motif:'leaves', numem:'3.2em', headem:'2.6em', headfw:400, subScript:false },
+      { id:'archboho', name:'Boho Arch', occasion:'Wedding', tag:'Boho',
+        bg:'linear-gradient(180deg,#efe4d6 0%,#e3cdb5 100%)', accent:'#9c6b4a', ink:'#4a3527', sub:'#a07d5f', body:'#5c4636',
+        fd:'Marcellus', fb:'Jost', frame:'none', orn:'', motif:'arch', headtt:'uppercase', headls:'.2em', photoArch:true },
+      { id:'sagegold', name:'Sage & Gold', occasion:'Wedding', tag:'Wedding',
+        bg:'#e7ece1', accent:'#8a7b3f', ink:'#39412e', sub:'#7c8968', body:'#4f5840',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'doubleThin', orn:'❧', motif:'leaves', headem:'2.2em', headfw:600 },
+      { id:'engaged', name:'Save the Date', occasion:'Wedding', tag:'Save the date',
+        bg:'linear-gradient(160deg,#f6e9e4 0%,#f0d7cf 100%)', accent:'#b5817a', ink:'#5b3f3b', sub:'#a37f79', body:'#6d504b',
+        fd:'Parisienne', fb:'Montserrat', frame:'none', orn:'♡', motif:'', numem:'2.6em', headem:'2.8em', headfw:400 },
+      { id:'anniv', name:'Golden Anniversary', occasion:'Anniversary', tag:'Anniversary',
+        bg:'radial-gradient(120% 100% at 50% 0%, #2a2417 0%, #14110a 80%)', accent:'#e3c766', ink:'#fbf3dd', sub:'#c9b48a', body:'#eaded0',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'double', orn:'∞', motif:'', headtt:'uppercase', headls:'.16em' },
 
-        function handleExcel(event){
-            const file = event.target.files[0]; if(!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e){
-                const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(ws);
-                const names = rows.map(r => r.Name || r.name || r.NAME || null).filter(Boolean);
-                if(names.length){ recipientList = names; }
-                else { alert("No 'Name' column found — showing a single invitation."); recipientList = [""]; }
-                renderInvitations();
-            };
-            reader.readAsArrayBuffer(file);
+      /* ─── Baby / christening ─── */
+      { id:'babyblue', name:'Little Star (Blue)', occasion:'Baby', tag:'Baby shower',
+        bg:'linear-gradient(180deg,#eaf3fb 0%,#d5e8f7 100%)', accent:'#5b8bc4', ink:'#33506e', sub:'#7ba0c8', body:'#46617d',
+        fd:'Dancing Script', fb:'Poppins', frame:'softcard', orn:'★', motif:'stars', headem:'2.6em', headfw:700 },
+      { id:'babypink', name:'Sweet Pea (Pink)', occasion:'Baby', tag:'Baby shower',
+        bg:'linear-gradient(180deg,#fdeef2 0%,#f8d8e2 100%)', accent:'#d17a9a', ink:'#7a4257', sub:'#c78aa1', body:'#8a5568',
+        fd:'Dancing Script', fb:'Poppins', frame:'softcard', orn:'❀', motif:'petals', headem:'2.6em', headfw:700 },
+      { id:'reveal', name:'Gender Reveal', occasion:'Baby', tag:'Reveal',
+        bg:'linear-gradient(120deg,#8ec5e8 0%,#f6b6cd 100%)', accent:'#ffffff', ink:'#ffffff', sub:'#fff3f6', body:'#ffffff',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'?', motif:'', headfw:400, headem:'1.9em' },
+      { id:'christening', name:'Christening Dove', occasion:'Baby', tag:'Christening',
+        bg:'#f6f8fb', accent:'#9ab0c8', ink:'#3d4a5a', sub:'#8ea2b8', body:'#54606f',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'thin', orn:'✝', motif:'', headem:'2.3em', headfw:600 },
+
+      /* ─── Parties / social ─── */
+      { id:'cocktail', name:'Cocktail Hour', occasion:'Party', tag:'Drinks',
+        bg:'radial-gradient(120% 100% at 50% 0%, #2b1b3d 0%, #150d20 80%)', accent:'#e8a0c0', ink:'#ffffff', sub:'#c9a0d8', body:'#ecd9e8',
+        fd:'Italiana', fb:'Jost', frame:'corners', orn:'🍸', motif:'', headtt:'uppercase', headls:'.2em' },
+      { id:'dinner', name:'Supper Club', occasion:'Party', tag:'Dinner',
+        bg:'#1c1c1a', accent:'#c9a86a', ink:'#f4efe4', sub:'#a89d86', body:'#ded6c6',
+        fd:'Prata', fb:'Jost', frame:'thin', orn:'✦', motif:'', headem:'2em', headfw:400 },
+      { id:'housewarming', name:'Housewarming', occasion:'Party', tag:'Housewarming',
+        bg:'#f4efe6', accent:'#c07a3e', ink:'#4a3826', sub:'#a07c58', body:'#5c4835',
+        fd:'Yeseva One', fb:'Jost', frame:'softcard', orn:'⌂', motif:'', headem:'2.1em', headfw:400 },
+      { id:'nye', name:"New Year's Eve", occasion:'Festive', tag:'NYE',
+        bg:'radial-gradient(circle at 50% 25%, #1b1533 0%, #05040c 75%)', accent:'#e9c65a', ink:'#ffffff', sub:'#c9b8f0', body:'#ece6f5',
+        fd:'Bebas Neue', fb:'Montserrat', frame:'doubleThin', orn:'✧', motif:'sparkle', headtt:'uppercase', headls:'.08em', headem:'2.2em' },
+      { id:'xmas', name:'Christmas Party', occasion:'Festive', tag:'Christmas',
+        bg:'radial-gradient(120% 100% at 50% 0%, #143024 0%, #0a1c14 80%)', accent:'#d9a441', ink:'#f6efe0', sub:'#b6cbb4', body:'#e3ecdf',
+        fd:'Cinzel', fb:'Montserrat', frame:'double', orn:'❆', motif:'snow', headtt:'uppercase', headls:'.14em' },
+
+      /* ─── Corporate / business ─── */
+      { id:'corporate', name:'Corporate Event', occasion:'Business', tag:'Corporate',
+        bg:'#0e1726', accent:'#7C5CD6', ink:'#ffffff', sub:'#9fb0c7', body:'#cdd6e2',
+        fd:'Poppins', fb:'Jost', frame:'blockInset', orn:'', motif:'', headtt:'uppercase', headls:'.06em', headfw:700, headem:'1.7em', numem:'3.2em' },
+      { id:'launch', name:'Product Launch', occasion:'Business', tag:'Launch',
+        bg:'linear-gradient(150deg,#7C5CD6 0%,#4b2e9e 100%)', accent:'#ffd84d', ink:'#ffffff', sub:'#e6dcff', body:'#f1ecff',
+        fd:'Bebas Neue', fb:'Poppins', frame:'none', orn:'', motif:'', headtt:'uppercase', headls:'.05em', headem:'2.4em' },
+      { id:'gala', name:'Charity Gala', occasion:'Business', tag:'Gala',
+        bg:'radial-gradient(120% 100% at 50% 0%, #2a2340 0%, #12102a 80%)', accent:'#d9b877', ink:'#ffffff', sub:'#bcb0d8', body:'#e4dcf0',
+        fd:'Prata', fb:'Jost', frame:'double', orn:'✦', motif:'', headem:'2em', headfw:400 },
+
+      /* ─── Graduation / retirement ─── */
+      { id:'grad', name:'Graduation', occasion:'Achievement', tag:'Graduation',
+        bg:'radial-gradient(120% 100% at 50% 0%, #14243f 0%, #0a1424 80%)', accent:'#e3c766', ink:'#ffffff', sub:'#9fb4d0', body:'#d5e0ee',
+        fd:'Cinzel', fb:'Montserrat', frame:'thin', orn:'🎓', motif:'', headtt:'uppercase', headls:'.14em' },
+      { id:'retire', name:'Retirement', occasion:'Achievement', tag:'Retirement',
+        bg:'linear-gradient(180deg,#eef3ef 0%,#dbe7de 100%)', accent:'#5f8a6a', ink:'#33443a', sub:'#7a9584', body:'#48594e',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'doubleThin', orn:'❧', motif:'leaves', headem:'2.2em', headfw:600 },
+
+      /* ─── Memorial ─── */
+      { id:'memorial', name:'In Loving Memory', occasion:'Memorial', tag:'Memorial',
+        bg:'#f5f4f1', accent:'#8a8578', ink:'#3c3a34', sub:'#8a8578', body:'#55524a',
+        fd:'Cormorant Garamond', fb:'EB Garamond', frame:'thin', orn:'✝', motif:'', headem:'2.3em', headfw:500 },
+
+      /* ─── Kids ─── */
+      { id:'rainbow', name:'Rainbow Party', occasion:'Kids', tag:'Kids',
+        bg:'#fffdf7', accent:'#ff924c', ink:'#6a4c93', sub:'#8ac926', body:'#444444',
+        fd:'Fredoka One', fb:'Poppins', frame:'rainbow', orn:'★', motif:'balloons', headfw:400, headem:'2em' },
+      { id:'safari', name:'Safari Adventure', occasion:'Kids', tag:'Kids',
+        bg:'#f4f0e6', accent:'#d2691e', ink:'#2e8b57', sub:'#8b5a2b', body:'#3a3a30',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'🦁', motif:'leaves', headfw:400, headem:'2em' },
+      { id:'galactic', name:'Super Galactic', occasion:'Kids', tag:'Kids',
+        bg:'radial-gradient(circle at 50% 20%, #101034 0%, #020208 70%)', accent:'#00e5ff', ink:'#00e5ff', sub:'#c9c9ff', body:'#eeeeff',
+        fd:'Bebas Neue', fb:'Poppins', frame:'thin', orn:'★', motif:'stars', headtt:'uppercase', headls:'.06em', headem:'2.2em' },
+      { id:'princess', name:'Princess Party', occasion:'Kids', tag:'Kids',
+        bg:'linear-gradient(180deg,#fdeef7 0%,#f6d5ec 100%)', accent:'#d46fae', ink:'#8a3d74', sub:'#c77fb2', body:'#8a5b7d',
+        fd:'Dancing Script', fb:'Poppins', frame:'softcard', orn:'♛', motif:'sparkle', headem:'2.6em', headfw:700 },
+      { id:'dino', name:'Dino Roar', occasion:'Kids', tag:'Kids',
+        bg:'#eaf1e2', accent:'#e08a3c', ink:'#3f7d4f', sub:'#7a9a5a', body:'#3e4a36',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'🦕', motif:'', headfw:400, headem:'2em' },
+
+      /* ─── Fun / bright / trend ─── */
+      { id:'tropical', name:'Tropical Fiesta', occasion:'Party', tag:'Tropical',
+        bg:'linear-gradient(160deg,#ff8a5c 0%,#ff5e7e 45%,#ffb347 100%)', accent:'#ffffff', ink:'#ffffff', sub:'#fff5e0', body:'#ffffff',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'🌴', motif:'', headfw:400, headem:'2em' },
+      { id:'confetti', name:'Confetti Pop', occasion:'Party', tag:'Party',
+        bg:'radial-gradient(circle,#ffd84d 2.5px,transparent 3px) 0 0/2.4em 2.4em, radial-gradient(circle,#ff6ec7 2.5px,transparent 3px) 1.2em 1.2em/2.4em 2.4em, radial-gradient(circle,#5ce1e6 2.5px,transparent 3px) .6em 1.8em/3em 3em, linear-gradient(160deg,#241a52,#140f30)', accent:'#ffd84d', ink:'#ffffff', sub:'#c9c2ff', body:'#eeeeee',
+        fd:'Bebas Neue', fb:'Poppins', frame:'doubleThin', orn:'✦', motif:'', headtt:'uppercase', headem:'2.2em' },
+      { id:'y2k', name:'Y2K Retro', occasion:'Party', tag:'Retro',
+        bg:'linear-gradient(135deg,#ff5df2 0%,#00e5ff 100%)', accent:'#ffffff', ink:'#12043a', sub:'#3a1466', body:'#20114a',
+        fd:'Bebas Neue', fb:'Poppins', frame:'block', orn:'✧', motif:'', headtt:'uppercase', headls:'.04em', headem:'2.4em' },
+      { id:'terracotta', name:'Terracotta Sun', occasion:'Party', tag:'Boho',
+        bg:'linear-gradient(180deg,#e8b98f 0%,#c97b4a 100%)', accent:'#5a2f1c', ink:'#3d2114', sub:'#7a4326', body:'#4a2a19',
+        fd:'Marcellus', fb:'Jost', frame:'corners', orn:'☀', motif:'arch', headtt:'uppercase', headls:'.18em' },
+      { id:'football', name:'Championship', occasion:'Kids', tag:'Sport',
+        bg:'linear-gradient(135deg,#134a29 0%,#082212 100%)', accent:'#ffcc00', ink:'#ffffff', sub:'#ffe27a', body:'#f0f0f0',
+        fd:'Kanit', fb:'Montserrat', frame:'block', orn:'⚽', motif:'', headtt:'uppercase', headfw:800, headem:'2.1em' },
+
+      /* ─── Festive / cultural ─── */
+      { id:'eid', name:'Eid Celebration', occasion:'Festive', tag:'Eid',
+        bg:'radial-gradient(120% 100% at 50% 0%, #123a3a 0%, #06201f 80%)', accent:'#e3c766', ink:'#f4efe0', sub:'#a9c9c4', body:'#dce8e4',
+        fd:'Marcellus', fb:'Jost', frame:'double', orn:'☾', motif:'', headtt:'uppercase', headls:'.16em' },
+      { id:'diwali', name:'Festival of Lights', occasion:'Festive', tag:'Diwali',
+        bg:'radial-gradient(120% 100% at 50% 0%, #4a1e5c 0%, #1c0a24 80%)', accent:'#ffb347', ink:'#fff2dd', sub:'#e0a9d8', body:'#f3e3d4',
+        fd:'Yeseva One', fb:'Poppins', frame:'double', orn:'✦', motif:'sparkle', headem:'2.1em', headfw:400 },
+    ];
+
+    const FONT_STACK = { serifs:['Cinzel','Cinzel Decorative','Cormorant Garamond','Playfair Display','Marcellus','Prata','Italiana','EB Garamond','Abril Fatface','Yeseva One'] };
+    function fontFallback(f){ return FONT_STACK.serifs.includes(f) ? "'"+f+"',serif" : (['Great Vibes','Pinyon Script','Sacramento','Parisienne','Dancing Script','Caveat'].includes(f) ? "'"+f+"',cursive" : "'"+f+"',sans-serif"); }
+
+    /* Format definitions: [w, h, unit, baseFontDivisor, previewWidthPx, className] */
+    const FORMATS = {
+      a5:    { w:148, h:210, unit:'mm', base:30, pw:360, cls:'a5', label:'A5 card' },
+      wa:    { w:1080, h:1350, unit:'px', base:30, pw:340, cls:'wa', label:'WhatsApp' },
+      story: { w:1080, h:1920, unit:'px', base:32, pw:300, cls:'story', label:'Story' },
+      square:{ w:1080, h:1080, unit:'px', base:28, pw:380, cls:'square', label:'Square' },
+    };
+
+    /* ── State ── */
+    let state = {
+      fmt:'a5',
+      tpl:'royal',
+      occasion:'all',
+      image:'',
+      recipients:[{name:'',email:''}],   /* one card per recipient; email used for Resend */
+    };
+
+    /* ══════════ Motif SVGs (export-safe, inline) ══════════ */
+    function motifSvg(type, color){
+      const c = color;
+      const leaf = `<path d="M0,40 C10,20 25,8 40,0 C30,18 18,30 0,40 Z" fill="${c}" opacity=".5"/>`;
+      switch(type){
+        case 'leaves': return `
+          <svg width="15%" viewBox="0 0 40 40" style="top:1.2em;left:1.2em;transform:rotate(0deg)">${leaf}</svg>
+          <svg width="15%" viewBox="0 0 40 40" style="top:1.2em;right:1.2em;transform:scaleX(-1)">${leaf}</svg>
+          <svg width="15%" viewBox="0 0 40 40" style="bottom:1.2em;left:1.2em;transform:scaleY(-1)">${leaf}</svg>
+          <svg width="15%" viewBox="0 0 40 40" style="bottom:1.2em;right:1.2em;transform:scale(-1,-1)">${leaf}</svg>`;
+        case 'petals': return `
+          <svg width="14%" viewBox="0 0 40 40" style="top:1em;left:1em"><g fill="${c}" opacity=".45"><circle cx="10" cy="10" r="5"/><circle cx="20" cy="7" r="4"/><circle cx="8" cy="22" r="4"/></g></svg>
+          <svg width="14%" viewBox="0 0 40 40" style="bottom:1em;right:1em;transform:rotate(180deg)"><g fill="${c}" opacity=".45"><circle cx="10" cy="10" r="5"/><circle cx="20" cy="7" r="4"/><circle cx="8" cy="22" r="4"/></g></svg>`;
+        case 'stars': return starsField(c, 9);
+        case 'snow': return snowField(c, 14);
+        case 'sparkle': return sparkleField(c, 7);
+        case 'deco': return `
+          <svg width="60%" viewBox="0 0 100 12" style="top:.9em;left:20%"><g stroke="${c}" stroke-width="1" opacity=".7"><line x1="0" y1="6" x2="38" y2="6"/><line x1="62" y1="6" x2="100" y2="6"/><path d="M44 2 L50 6 L44 10 L38 6 Z" fill="${c}" stroke="none"/><path d="M56 2 L62 6 L56 10 L50 6 Z" fill="${c}" stroke="none"/></g></svg>
+          <svg width="60%" viewBox="0 0 100 12" style="bottom:.9em;left:20%;transform:scaleY(-1)"><g stroke="${c}" stroke-width="1" opacity=".7"><line x1="0" y1="6" x2="38" y2="6"/><line x1="62" y1="6" x2="100" y2="6"/><path d="M44 2 L50 6 L44 10 L38 6 Z" fill="${c}" stroke="none"/><path d="M56 2 L62 6 L56 10 L50 6 Z" fill="${c}" stroke="none"/></g></svg>`;
+        case 'balloons': return `
+          <svg width="12%" viewBox="0 0 30 50" style="top:.8em;left:1em"><ellipse cx="15" cy="14" rx="11" ry="13" fill="${c}" opacity=".55"/><line x1="15" y1="27" x2="15" y2="48" stroke="${c}" stroke-width="1" opacity=".5"/></svg>
+          <svg width="12%" viewBox="0 0 30 50" style="top:1.4em;right:1em"><ellipse cx="15" cy="14" rx="11" ry="13" fill="${c}" opacity=".4"/><line x1="15" y1="27" x2="15" y2="48" stroke="${c}" stroke-width="1" opacity=".4"/></svg>`;
+        case 'arch': return ''; /* handled by photo-arch + frame */
+        default: return '';
+      }
+    }
+    function starsField(c,n){ let s=''; const pos=[[8,12],[22,26],[85,10],[70,30],[14,80],[90,72],[50,90],[35,15],[78,86]]; for(let i=0;i<n;i++){const p=pos[i%pos.length]; const sz=(i%3)+3; s+=`<svg width="${sz}%" viewBox="0 0 24 24" style="top:${p[1]}%;left:${p[0]}%"><path d="M12 0 L14 9 L24 12 L14 15 L12 24 L10 15 L0 12 L10 9 Z" fill="${c}" opacity=".${5+(i%4)}"/></svg>`;} return s; }
+    function snowField(c,n){ let s=''; for(let i=0;i<n;i++){const x=(i*37+11)%94+2; const y=(i*53+7)%92+2; const sz=(i%3)+1.4; s+=`<svg width="${sz}%" viewBox="0 0 10 10" style="top:${y}%;left:${x}%"><circle cx="5" cy="5" r="4" fill="${c}" opacity=".${3+(i%4)}"/></svg>`;} return s; }
+    function sparkleField(c,n){ let s=''; const pos=[[12,16],[82,14],[68,34],[20,74],[88,80],[46,88],[30,44]]; for(let i=0;i<n;i++){const p=pos[i%pos.length]; const sz=(i%3)+2.5; s+=`<svg width="${sz}%" viewBox="0 0 24 24" style="top:${p[1]}%;left:${p[0]}%"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" fill="${c}" opacity=".${5+(i%4)}"/></svg>`;} return s; }
+
+    /* ══════════ Build one card element ══════════ */
+    function tplById(id){ return TEMPLATES.find(t=>t.id===id) || TEMPLATES[0]; }
+
+    function getFields(){
+      return {
+        host: val('input-host'),
+        milestone: val('input-milestone').trim(),
+        title: val('input-title'),
+        subtitle: val('input-subtitle'),
+        date: val('input-date'),
+        time: val('input-time'),
+        venue: val('input-venue'),
+        address: val('input-address'),
+        rsvp: val('input-rsvp'),
+        note: val('input-note'),
+        freetext: val('input-details').trim(),
+      };
+    }
+    function val(id){ return document.getElementById(id).value; }
+
+    function detailsHtml(f){
+      if(f.freetext) return f.freetext.split('\n').map(l=>`<div class="d-line">${escapeHtml(l)}</div>`).join('');
+      let h='';
+      const when=[f.date,f.time].filter(Boolean).join(' · ');
+      if(when) h+=`<div class="d-line d-when">${escapeHtml(when)}</div>`;
+      if(f.venue) h+=`<div class="d-line">${escapeHtml(f.venue)}</div>`;
+      if(f.address) h+=`<div class="d-line">${escapeHtml(f.address)}</div>`;
+      const foot=[f.rsvp,f.note].filter(Boolean).join(' · ');
+      if(foot) h+=`<div class="d-line d-rsvp">${escapeHtml(foot)}</div>`;
+      return h;
+    }
+
+    function buildCard(tpl, fmt, recipient){
+      const F = FORMATS[fmt];
+      const f = getFields();
+      const colorsOn = document.getElementById('enable-color-override').checked;
+      const fontOv = document.getElementById('font-override').value;
+
+      let accent=tpl.accent, ink=tpl.ink, body=tpl.body, sub=tpl.sub, bg=tpl.bg, frameC=tpl.accent;
+      if(colorsOn){
+        bg = val('color-bg'); accent = val('color-accent'); ink = val('color-text'); body = val('color-text'); sub = val('color-accent'); frameC = accent;
+      }
+      let fd=fontFallback(tpl.fd), fb=fontFallback(tpl.fb);
+      if(fontOv!=='default'){ fd=fontFallback(fontOv); }
+
+      const card = document.createElement('div');
+      card.className = 'card '+F.cls;
+      const baseUnit = (F.w / F.base) + F.unit;
+      card.style.cssText = `width:${F.w}${F.unit};height:${F.h}${F.unit};font-size:${baseUnit};`
+        + `--bg:${bg};--accent:${accent};--ink-c:${ink};--sub:${sub};--body-c:${body};--frame:${frameC};`
+        + `--fd:${fd};--fb:${fb};`
+        + `box-shadow:0 18px 50px rgba(20,32,31,.28);`
+        + (tpl.numem?`--numem:${tpl.numem};`:'')
+        + (tpl.headem?`--headem:${tpl.headem};`:'')
+        + (tpl.headtt?`--headtt:${tpl.headtt};`:'')
+        + (tpl.headls?`--headls:${tpl.headls};`:'')
+        + (tpl.headfw?`--headfw:${tpl.headfw};`:'');
+
+      const orn = tpl.orn ? `<div class="ornament"><span class="orn-line"></span><span class="orn-sym">${tpl.orn}</span><span class="orn-line"></span></div>` : '';
+      const frameEl = tpl.frame && tpl.frame!=='none' ? `<div class="frame ${tpl.frame}"></div>` : '';
+      const motif = tpl.motif ? `<div class="motif-layer">${motifSvg(tpl.motif, accent)}</div>` : '';
+
+      const photoRound = document.getElementById('photo-round').checked;
+      const photoCls = tpl.photoArch ? 'arch' : (photoRound ? 'round' : '');
+      const photo = `<div class="photo-wrapper ${photoCls}"><div class="photo-fill">${ state.image
+          ? `<img class="photo-preview" src="${state.image}" alt="">`
+          : `<span class="photo-placeholder">Add a photo</span>` }</div></div>`;
+
+      const recipBlock = recipient
+        ? `<div class="recipient">${escapeHtml(recipient)}</div>`
+        : '';
+
+      const subCls = tpl.subScript ? 'subhead script' : 'subhead';
+
+      card.innerHTML = `
+        ${frameEl}${motif}
+        <div class="card-inner">
+          <div class="card-top">
+            ${f.host?`<div class="eyebrow">${escapeHtml(f.host)}</div>`:''}
+            ${f.milestone?`<div class="bignum">${escapeHtml(f.milestone)}</div>`:''}
+            ${f.title?`<div class="headline">${escapeHtml(f.title)}</div>`:''}
+            ${f.subtitle?`<div class="${subCls}">${escapeHtml(f.subtitle)}</div>`:''}
+            ${orn}
+          </div>
+          ${photo}
+          <div class="card-bottom">
+            ${recipBlock}
+            <div class="details">${detailsHtml(f)}</div>
+          </div>
+        </div>`;
+      return card;
+    }
+
+    /* ══════════ Render preview ══════════ */
+    function render(){
+      const container = document.getElementById('preview-container');
+      container.innerHTML='';
+      const tpl = tplById(state.tpl);
+      const F = FORMATS[state.fmt];
+      const cardWpx = F.unit==='mm' ? F.w*3.7795 : F.w;    /* mm→px @96dpi */
+      const scale = Math.min(1, F.pw / cardWpx);
+
+      state.recipients.forEach(rec=>{
+        const card = buildCard(tpl, state.fmt, rec.name);
+        const stage = document.createElement('div');
+        stage.className = 'stage' + (state.fmt==='a5'?' print-a5':'');
+        stage.appendChild(card);
+        // scale for preview
+        const cardHpx = (F.unit==='mm'? F.h*3.7795 : F.h);
+        stage.style.width = (cardWpx*scale)+'px';
+        stage.style.height = (cardHpx*scale)+'px';
+        card.style.transformOrigin='top left';
+        card.style.transform = `scale(${scale})`;
+        container.appendChild(stage);
+      });
+      // update calendar description etc happens on demand
+    }
+
+    /* ══════════ Template gallery ══════════ */
+    function occasions(){ return ['all', ...Array.from(new Set(TEMPLATES.map(t=>t.occasion)))]; }
+    function buildOccasionSelect(){
+      const sel=document.getElementById('occasion-select');
+      sel.innerHTML = occasions().map(o=>`<option value="${o}">${o==='all'?'All occasions':o}</option>`).join('');
+    }
+    function buildGallery(){
+      const grid=document.getElementById('tpl-grid');
+      const list = state.occasion==='all' ? TEMPLATES : TEMPLATES.filter(t=>t.occasion===state.occasion);
+      grid.innerHTML='';
+      list.forEach(t=>{
+        const chip=document.createElement('div');
+        chip.className='tpl-chip'+(t.id===state.tpl?' active':'');
+        chip.title=t.name;
+        chip.onclick=()=>{ state.tpl=t.id; buildGallery(); render(); };
+        chip.innerHTML = `
+          <div class="tpl-mini" style="background:${t.bg};font-family:${fontFallback(t.fd)}">
+            <div class="tm-num" style="color:${t.accent}">${(document.getElementById('input-milestone').value||'✦').slice(0,3)}</div>
+            <div class="tm-name" style="color:${t.ink}">${escapeHtml(t.name)}</div>
+          </div>
+          <div class="tpl-label">${escapeHtml(t.tag)}</div>`;
+        grid.appendChild(chip);
+      });
+    }
+
+    /* ══════════ Format tabs ══════════ */
+    document.getElementById('fmt-tabs').addEventListener('click', e=>{
+      const tab=e.target.closest('.fmt-tab'); if(!tab) return;
+      state.fmt=tab.dataset.fmt;
+      document.querySelectorAll('.fmt-tab').forEach(t=>t.classList.toggle('active', t===tab));
+      render();
+    });
+    document.getElementById('occasion-select').addEventListener('change', e=>{
+      state.occasion=e.target.value; buildGallery();
+      const list = state.occasion==='all' ? TEMPLATES : TEMPLATES.filter(t=>t.occasion===state.occasion);
+      if(list.length && !list.find(t=>t.id===state.tpl)){ state.tpl=list[0].id; buildGallery(); render(); }
+    });
+
+    /* live text updates */
+    ['input-host','input-milestone','input-title','input-subtitle','input-date','input-time','input-venue','input-address','input-rsvp','input-note','input-details']
+      .forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ render(); if(id==='input-milestone') buildGallery(); }));
+    ['enable-color-override','color-bg','color-accent','color-text','font-override','photo-round']
+      .forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ if(id==='color-bg'||id==='color-accent'||id==='color-text') document.getElementById('enable-color-override').checked=true; render(); }));
+
+    /* ══════════ Image / Excel handlers ══════════ */
+    function handleImage(event){
+      const file=event.target.files[0]; if(!file) return;
+      const reader=new FileReader();
+      reader.onload=()=>{ state.image=reader.result; render(); };
+      reader.readAsDataURL(file);
+    }
+    function handleExcel(event){
+      const file=event.target.files[0]; if(!file) return;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws);
+        const guests=rows.map(r=>({
+          name: r.Name||r.name||r.NAME||'',
+          email: r.Email||r.email||r.EMAIL||r['E-mail']||''
+        })).filter(g=>g.name||g.email);
+        if(guests.length){
+          state.recipients=guests;
+          const withEmail=guests.filter(g=>g.email).length;
+          toast(`${guests.length} guests loaded${withEmail?` · ${withEmail} with email`:''}`);
         }
+        else { alert("No 'Name' or 'Email' column found — showing a single invitation."); state.recipients=[{name:'',email:''}]; }
+        render();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    function clearMerge(){ state.recipients=[{name:'',email:''}]; document.getElementById('excel-upload').value=''; render(); toast('Guest list cleared'); }
+    function guestEmails(){ return state.recipients.map(r=>r.email).filter(Boolean); }
 
-        function handleImage(event){
-            const file = event.target.files[0]; if(!file) return;
-            const reader = new FileReader();
-            reader.onload = function(){ currentImageDataUrl = reader.result; renderInvitations(); };
-            reader.readAsDataURL(file);
+    /* ══════════ Export to image (html2canvas) ══════════ */
+    async function renderCanvas(recipient){
+      const tpl=tplById(state.tpl);
+      // Build an unscaled, full-resolution card off-screen
+      const holder=document.createElement('div');
+      holder.style.cssText='position:fixed;left:-99999px;top:0;';
+      const card=buildCard(tpl, state.fmt, recipient);
+      card.style.boxShadow='none';
+      holder.appendChild(card); document.body.appendChild(holder);
+      // Wait for fonts, but never hang the export if the promise stalls.
+      await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1800))]);
+      const F=FORMATS[state.fmt];
+      const targetW = F.unit==='mm' ? Math.round(F.w*3.7795*2) : F.w;   /* A5 → 2x for crispness */
+      const cardWpx = F.unit==='mm' ? F.w*3.7795 : F.w;
+      const canvas=await html2canvas(card,{ backgroundColor:null, scale:targetW/cardWpx, useCORS:true, logging:false });
+      holder.remove();
+      return canvas;
+    }
+    async function downloadImage(){
+      toast('Rendering image…');
+      try{
+        const canvas=await renderCanvas(state.recipients[0].name);
+        const link=document.createElement('a');
+        link.download=`invitation-${state.tpl}-${state.fmt}.png`;
+        link.href=canvas.toDataURL('image/png');
+        link.click();
+        toast('Image downloaded ✓');
+      }catch(err){ console.error(err); toast('Could not render image'); }
+    }
+    async function canvasToBlob(canvas, type='image/png', q=0.92){
+      return new Promise(res=>canvas.toBlob(res,type,q));
+    }
+
+    /* ══════════ WhatsApp ══════════ */
+    function buildWhatsAppText(){
+      const f=getFields();
+      const em = { Milestone:'🎉', Wedding:'💍', Baby:'👶', Party:'🥂', Festive:'✨', Business:'📣', Achievement:'🎓', Memorial:'🕊', Kids:'🎈', Anniversary:'💛' }[tplById(state.tpl).occasion] || '🎉';
+      let t = `${em} *You're Invited!* ${em}\n\n`;
+      if(f.host) t+=`${f.host}\n`;
+      const titleLine=[f.milestone,f.title].filter(Boolean).join(' · ');
+      if(titleLine) t+=`*${titleLine}*\n`;
+      if(f.subtitle) t+=`${f.subtitle}\n`;
+      t+=`\n`;
+      if(f.freetext){ t+=f.freetext+'\n'; }
+      else {
+        const when=[f.date,f.time].filter(Boolean).join(', ');
+        if(when) t+=`🗓 ${when}\n`;
+        const where=[f.venue,f.address].filter(Boolean).join(', ');
+        if(where) t+=`📍 ${where}\n`;
+        if(f.note) t+=`👗 ${f.note}\n`;
+        if(f.rsvp) t+=`✉ ${f.rsvp}\n`;
+      }
+      t+=`\nHope you can make it! 💜`;
+      return t;
+    }
+    async function shareWhatsApp(){
+      const text=buildWhatsAppText();
+      toast('Preparing…');
+      try{
+        const canvas=await renderCanvas(state.recipients[0].name);
+        const blob=await canvasToBlob(canvas,'image/png');
+        const file=new File([blob],'invitation.png',{type:'image/png'});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          await navigator.share({ files:[file], text });
+          return;
         }
+      }catch(err){ /* fall through */ }
+      // Fallback: open WhatsApp with text, image downloaded separately
+      try{
+        const canvas=await renderCanvas(state.recipients[0].name);
+        const link=document.createElement('a'); link.download='invitation.png'; link.href=canvas.toDataURL('image/png'); link.click();
+      }catch(e){}
+      window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+      toast('Image saved — attach it in WhatsApp');
+    }
+    async function copyWhatsAppText(){
+      const text=buildWhatsAppText();
+      try{ await navigator.clipboard.writeText(text); toast('Message copied ✓'); }
+      catch(e){ prompt('Copy the invitation message:', text); }
+    }
 
-        function renderInvitations(){
-            const container = document.getElementById('preview-container');
-            container.innerHTML = '';
+    /* ══════════ Email invitation — email-safe HTML, delivered via Resend ══════════ */
+    let lastEmail={ sendHtml:'', fileHtml:'', text:'', imageData:'' };
 
-            const tpl = document.getElementById('template-select').value;
-            const fontOverride = document.getElementById('font-override').value;
-            const colorsEnabled = document.getElementById('enable-color-override').checked;
+    /* Table-based, all-inline HTML that renders across Gmail/Outlook/Apple Mail.
+       imgSrc = 'cid:invite' when sending via Resend (inline attachment),
+                or a data: URI for the in-app preview / downloadable .html file. */
+    function emailHtml(imgSrc){
+      const f=getFields(), tpl=tplById(state.tpl);
+      const when=[f.date,f.time].filter(Boolean).join(' · ');
+      const where=[f.venue,f.address].filter(Boolean).join(', ');
+      const gcal=googleCalUrl(f), accent=tpl.accent;
+      const row=(k,v)=>v?`<tr><td valign="top" style="padding:4px 12px 4px 0;color:${accent};font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;">${k}</td><td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#333;">${escapeHtml(v)}</td></tr>`:'';
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f2f0ec;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">You're invited — ${escapeHtml([f.milestone,f.title].filter(Boolean).join(' '))}. ${escapeHtml(when)}.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0ec;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+  <tr><td align="center" style="padding:0;font-size:0;line-height:0;"><img src="${imgSrc}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" alt="You're invited"></td></tr>
+  <tr><td style="padding:26px 32px 6px;">
+    <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${accent};font-weight:bold;">You're Invited</p>
+    <h1 style="margin:0 0 6px;font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.2;color:#111;">${escapeHtml([f.milestone,f.title].filter(Boolean).join(' · '))||'Please join us'}</h1>
+    ${f.subtitle?`<p style="margin:0 0 16px;font-family:Georgia,serif;font-size:16px;color:#777;font-style:italic;">${escapeHtml(f.subtitle)}</p>`:''}
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:6px;">
+      ${row('When',when)}${row('Where',where)}${row('Dress',f.note)}${row('RSVP',f.rsvp)}
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:22px 32px 30px;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${accent}" style="border-radius:8px;">
+      <a href="${gcal}" target="_blank" style="display:inline-block;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;padding:13px 28px;">Add to Calendar</a>
+    </td></tr></table>
+  </td></tr>
+  <tr><td align="center" style="padding:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#aaa;">Made with Calla Design · Invitation Maker</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+    }
 
-            const host = document.getElementById('input-host').value;
-            const milestone = document.getElementById('input-milestone').value.trim();
-            const title = document.getElementById('input-title').value;
-            const subtitle = document.getElementById('input-subtitle').value;
-            const details = document.getElementById('input-details').value.replace(/\n/g, '<br>');
+    async function buildEmailAssets(){
+      // Render the invite image at WhatsApp 4:5 ratio (nice in email), regardless of current preview format.
+      const savedFmt=state.fmt; state.fmt='wa';
+      let canvas; try{ canvas=await renderCanvas(''); } finally { state.fmt=savedFmt; }
+      const imgData=canvas.toDataURL('image/jpeg',0.9);
+      lastEmail.imageData=imgData;
+      lastEmail.sendHtml=emailHtml('cid:invite');
+      lastEmail.fileHtml=emailHtml(imgData);
+      lastEmail.text=buildWhatsAppText().replace(/\*/g,'');
+      return lastEmail;
+    }
 
-            const assetMap = {
-                'tmpl-royal':   ['#c9a24e','#0f1a2e'],
-                'tmpl-noir':    ['#cbb682','#141414'],
-                'tmpl-emerald': ['#cBa457','#0c261e'],
-                'tmpl-classic': ['#d4af37','#360a10'],
-                'tmpl-rosegold':['#b76e79','#fff3f3'],
-                'tmpl-modern':  ['#b08d4f','#f4f2ec'],
-                'tmpl-football':['#ffcc00','#082212'],
-                'tmpl-safari':  ['#556b2f','#e6dfd1'],
-                'tmpl-galactic':['#00e5ff','#0a0a24'],
-                'tmpl-gatsby':  ['#d4b968','#0a0a0a'],
-                'tmpl-botanical':['#5b7355','#eef1e9'],
-                'tmpl-watercolour':['#b06a92','#f6eef4'],
-                'tmpl-tropical':['#ffffff','#ff7a5c'],
-                'tmpl-confetti':['#ffd84d','#1c1642'],
-                'tmpl-winter':  ['#cddff0','#12263f'],
-                'tmpl-rainbow': ['#ff924c','#fff7e6']
-            };
-            let assetColor = (assetMap[tpl] || ['#c9a24e'])[0];
-            let placeholderBg = (assetMap[tpl] || ['','#152238'])[1];
-            if(colorsEnabled){ assetColor = document.getElementById('color-accent').value; }
+    async function openEmail(){
+      toast('Building email…');
+      try{
+        await buildEmailAssets();
+        document.getElementById('email-preview').innerHTML=lastEmail.fileHtml;
+        // Prefill send form
+        const f=getFields();
+        setValIf('mail-fromname', [f.title].filter(Boolean).join(' ').replace(/[A-Z]{2,}/g,m=>m[0]+m.slice(1).toLowerCase()) || 'Your name');
+        setValIf('mail-subject', `You're invited: ${[f.milestone,f.title].filter(Boolean).join(' ')}`.trim());
+        const emails=guestEmails();
+        const wrap=document.getElementById('mail-uselist-wrap');
+        if(emails.length){ wrap.style.display='flex'; document.getElementById('mail-listcount').textContent=emails.length; document.getElementById('mail-uselist').checked=true; fillToFromList(); }
+        else { wrap.style.display='none'; }
+        await refreshResendStatus();
+        document.getElementById('modal-back').classList.add('show');
+      }catch(e){ console.error(e); toast('Could not build email'); }
+    }
+    function setValIf(id,v){ const el=document.getElementById(id); if(el && !el.value) el.value=v; }
+    function fillToFromList(){
+      if(document.getElementById('mail-uselist').checked){ document.getElementById('mail-to').value=guestEmails().join(', '); }
+    }
+    function closeModal(){ document.getElementById('modal-back').classList.remove('show'); }
 
-            const orn = `<span class="orn-line"></span><span class="orn-dot">✦</span><span class="orn-line"></span>`;
-
-            recipientList.forEach(recipient => {
-                const canvas = document.createElement('div');
-                canvas.className = `invitation-canvas ${tpl} ${fontOverride !== 'default' ? fontOverride : ''} ${colorsEnabled ? 'customized' : ''}`;
-
-                if(colorsEnabled){
-                    canvas.style.backgroundColor = document.getElementById('color-bg').value;
-                    canvas.style.backgroundImage = 'none';
-                    canvas.style.borderColor = assetColor;
-                    canvas.style.outlineColor = assetColor;
-                }
-
-                const recipBlock = recipient
-                    ? `<div class="txt-recipient">${escapeHtml(recipient)}</div><div class="ornament" style="color:${assetColor}">${orn}</div>`
-                    : '';
-
-                canvas.innerHTML = `
-                    <div class="inv-section">
-                        <div class="txt-accent">${escapeHtml(host)}</div>
-                        ${milestone ? `<div class="txt-milestone">${escapeHtml(milestone)}</div>` : ''}
-                        <div class="txt-main">${escapeHtml(title)}</div>
-                        ${subtitle ? `<div class="txt-accent txt-subtitle">${escapeHtml(subtitle)}</div>` : ''}
-                        <div class="ornament" style="color:${assetColor}">${orn}</div>
-                    </div>
-                    <div class="photo-wrapper" style="background-color:${colorsEnabled ? document.getElementById('color-bg').value : placeholderBg}; ${colorsEnabled ? 'border-color:'+assetColor+';' : ''}">
-                        ${currentImageDataUrl
-                            ? `<img class="photo-preview" src="${currentImageDataUrl}" alt="Photo">`
-                            : `<span class="photo-placeholder" style="color:${assetColor};">Add a photo (optional)</span>`}
-                    </div>
-                    <div class="inv-section">
-                        ${recipBlock}
-                        <div class="txt-details">${details}</div>
-                    </div>`;
-
-                if(colorsEnabled){
-                    const userText = document.getElementById('color-text').value;
-                    canvas.querySelectorAll('.txt-accent').forEach(el => el.style.color = assetColor);
-                    const m = canvas.querySelector('.txt-main');       if(m) m.style.color = userText;
-                    const mi = canvas.querySelector('.txt-milestone');  if(mi) mi.style.color = assetColor;
-                    const d = canvas.querySelector('.txt-details');     if(d) d.style.color = userText;
-                    const r = canvas.querySelector('.txt-recipient');   if(r) r.style.color = assetColor;
-                }
-                container.appendChild(canvas);
-            });
+    async function refreshResendStatus(){
+      const box=document.getElementById('resend-status');
+      const btn=document.getElementById('btn-send-resend');
+      if(!window.api || !window.api.resendSend){
+        box.innerHTML='📧 <strong>Sending needs the Calla Design desktop app.</strong> On the web you can still download the email as an <strong>.html</strong> file to attach or forward.';
+        btn.disabled=true; btn.style.opacity='.45'; btn.style.cursor='not-allowed';
+        document.getElementById('resend-settings').style.display='none';
+        return;
+      }
+      document.getElementById('resend-settings').style.display='';
+      btn.disabled=false; btn.style.opacity=''; btn.style.cursor='';
+      try{
+        const st=await window.api.resendHasKey();
+        if(st && st.hasKey){
+          box.innerHTML='✅ <strong>Resend connected.</strong> Ready to send your invitation.';
+          if(st.from) setValIf('mail-fromemail', st.from);
+        } else {
+          box.innerHTML='🔑 <strong>Add your Resend API key</strong> below to send. It\'s free to start at resend.com.';
+          document.getElementById('resend-settings').open=true;
         }
+      }catch(e){ box.textContent='Could not check Resend status.'; }
+    }
+    async function saveResendKey(){
+      if(!window.api || !window.api.resendSetKey){ toast('Desktop app only'); return; }
+      const key=document.getElementById('mail-key').value.trim();
+      const from=document.getElementById('mail-keyfrom').value.trim();
+      await window.api.resendSetKey({ key, from });
+      document.getElementById('mail-key').value='';
+      toast('Saved ✓'); refreshResendStatus();
+    }
+    async function sendResend(){
+      if(!window.api || !window.api.resendSend){ toast('Sending needs the desktop app — downloading .html instead'); downloadEmailHtml(); return; }
+      const from=document.getElementById('mail-fromemail').value.trim();
+      const fromName=document.getElementById('mail-fromname').value.trim();
+      const to=document.getElementById('mail-to').value.split(',').map(s=>s.trim()).filter(Boolean);
+      const subject=document.getElementById('mail-subject').value.trim()||"You're invited";
+      if(!from){ toast('Add a from address'); document.getElementById('resend-settings').open=true; return; }
+      if(!to.length){ toast('Add at least one recipient email'); return; }
+      const fromField=fromName?`${fromName} <${from}>`:from;
+      const btn=document.getElementById('btn-send-resend'); const old=btn.textContent;
+      btn.textContent='Sending…'; btn.disabled=true;
+      try{
+        const res=await window.api.resendSend({ from:fromField, to, subject, html:lastEmail.sendHtml, imageDataUrl:lastEmail.imageData });
+        if(res && res.ok){ toast(`Sent to ${res.sent} recipient${res.sent===1?'':'s'} ✓`); closeModal(); }
+        else if(res && res.error==='no-key'){ toast('Add your Resend API key first'); document.getElementById('resend-settings').open=true; }
+        else { toast('Send failed: '+((res&&res.error)||'unknown')); }
+      }catch(e){ toast('Send failed'); }
+      finally{ btn.textContent=old; btn.disabled=false; }
+    }
+    function downloadEmailHtml(){
+      const blob=new Blob([lastEmail.fileHtml],{type:'text/html'});
+      const link=document.createElement('a'); link.download='invitation-email.html'; link.href=URL.createObjectURL(blob); link.click();
+      toast('Email .html downloaded ✓');
+    }
 
-        function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-        function applyColorOverride(){ document.getElementById('enable-color-override').checked = true; renderInvitations(); }
-        function updateAllInvitations(){ renderInvitations(); }
+    /* ══════════ Calendar (.ics + Google) ══════════ */
+    function parseDateGuess(f){
+      // Best-effort: try Date.parse on "date time"
+      const raw=(f.date+' '+f.time).replace(/(\d)(st|nd|rd|th)/g,'$1');
+      const d=new Date(raw);
+      return isNaN(d) ? null : d;
+    }
+    function icsStamp(d){ return d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,''); }
+    function googleCalUrl(f){
+      const d=parseDateGuess(f);
+      const title=[f.milestone,f.title,f.subtitle].filter(Boolean).join(' ').trim() || 'Invitation';
+      const loc=[f.venue,f.address].filter(Boolean).join(', ');
+      let dates='';
+      if(d){ const end=new Date(d.getTime()+3*3600*1000); dates=`&dates=${icsStamp(d)}/${icsStamp(end)}`; }
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}${dates}&location=${encodeURIComponent(loc)}&details=${encodeURIComponent(f.rsvp||'')}`;
+    }
+    function downloadCalendar(){
+      const f=getFields();
+      const d=parseDateGuess(f);
+      const title=[f.milestone,f.title,f.subtitle].filter(Boolean).join(' ').trim()||'Invitation';
+      const loc=[f.venue,f.address].filter(Boolean).join(', ');
+      let dtLines='';
+      if(d){ const end=new Date(d.getTime()+3*3600*1000); dtLines=`DTSTART:${icsStamp(d)}\nDTEND:${icsStamp(end)}\n`; }
+      const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Calla Design//Invitation Maker//EN\nBEGIN:VEVENT\n${dtLines}SUMMARY:${title}\nLOCATION:${loc}\nDESCRIPTION:${(f.rsvp||'').replace(/,/g,'\\,')}\nEND:VEVENT\nEND:VCALENDAR`;
+      const blob=new Blob([ics],{type:'text/calendar'});
+      const link=document.createElement('a'); link.download='invitation.ics'; link.href=URL.createObjectURL(blob); link.click();
+      toast(d?'Calendar file saved ✓':'Saved (add a clear date/time for auto-fill)');
+    }
+
+    /* ══════════ Print ══════════ */
+    function doPrint(){
+      const prev=state.fmt;
+      if(prev!=='a5'){ state.fmt='a5'; document.querySelectorAll('.fmt-tab').forEach(t=>t.classList.toggle('active',t.dataset.fmt==='a5')); render(); }
+      setTimeout(()=>window.print(), 60);
+    }
+
+    /* ══════════ Utils ══════════ */
+    function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    let toastTimer;
+    function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+
+    /* ══════════ Init ══════════ */
+    buildOccasionSelect();
+    buildGallery();
+    document.fonts.ready.then(render);
+    render();
     </script>
 </body>
 </html>
