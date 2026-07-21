@@ -832,35 +832,78 @@
     /* ══════════ Email invitation — email-safe HTML, delivered via Resend ══════════ */
     let lastEmail={ sendHtml:'', fileHtml:'', text:'', imageData:'' };
 
-    /* Table-based, all-inline HTML that renders across Gmail/Outlook/Apple Mail.
+    /* Colour helpers so the email can pick up the template's mood (email-safe). */
+    function firstHex(bg){ const m=String(bg).match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})/); return m?('#'+m[1]):'#111111'; }
+    function hexToRgb(h){ h=String(h).replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+    function relLum(h){ const p=hexToRgb(h).map(v=>{v/=255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4);}); return 0.2126*p[0]+0.7152*p[1]+0.0722*p[2]; }
+    function isLight(h){ return relLum(h)>0.45; }
+    function mixHex(h,target,amt){ const a=hexToRgb(h),b=hexToRgb(target); const c=a.map((v,i)=>Math.round(v+(b[i]-v)*amt)); return '#'+c.map(v=>v.toString(16).padStart(2,'0')).join(''); }
+
+    /* Table-based, all-inline, template-matched HTML that renders across Gmail/Outlook/Apple Mail.
        imgSrc = 'cid:invite' when sending via Resend (inline attachment),
                 or a data: URI for the in-app preview / downloadable .html file. */
     function emailHtml(imgSrc){
       const f=getFields(), tpl=tplById(state.tpl);
+      const colorsOn=document.getElementById('enable-color-override').checked;
       const when=[f.date,f.time].filter(Boolean).join(' · ');
       const where=[f.venue,f.address].filter(Boolean).join(', ');
-      const gcal=googleCalUrl(f), accent=tpl.accent;
-      const row=(k,v)=>v?`<tr><td valign="top" style="padding:4px 12px 4px 0;color:${accent};font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;">${k}</td><td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#333;">${escapeHtml(v)}</td></tr>`:'';
-      return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f2f0ec;">
-<span style="display:none;max-height:0;overflow:hidden;opacity:0;">You're invited — ${escapeHtml([f.milestone,f.title].filter(Boolean).join(' '))}. ${escapeHtml(when)}.</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0ec;"><tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+      const gcal=googleCalUrl(f);
+
+      // Template-derived palette (email-safe solids)
+      const cardBg = colorsOn ? val('color-bg') : firstHex(tpl.bg);
+      const accent = colorsOn ? val('color-accent') : tpl.accent;
+      const dark   = !isLight(cardBg);
+      const ink    = colorsOn ? val('color-text') : (tpl.ink || (dark?'#ffffff':'#1a1a1a'));
+      const bodyC  = colorsOn ? val('color-text') : (tpl.body || (dark?'#dfe3ea':'#4a4a4a'));
+      const subC   = colorsOn ? accent : (tpl.sub || mixHex(ink,cardBg,0.35));
+      const muted  = dark ? mixHex(ink,cardBg,0.5) : '#9a9a9a';
+      const hair   = dark ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.1)';
+      const pageBg = dark ? '#0e0e12' : '#efece6';
+      const btnTxt = isLight(accent) ? '#161616' : '#ffffff';
+      const serif  = fontFallback(colorsOn?tpl.fd:tpl.fd).endsWith('sans-serif') ? false : true;
+      const headFont = serif ? "Georgia,'Times New Roman',serif" : "'Helvetica Neue',Helvetica,Arial,sans-serif";
+      const bodyFont = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+      const lineC  = mixHex(accent, cardBg, 0.4);
+      // Use the template's ornament, but fall back to ✦ for multi-byte emoji that render poorly in email.
+      const ornSym = (tpl.orn && tpl.orn.length===1 && /[‐-⯿!-~]/.test(tpl.orn)) ? tpl.orn : '✦';
+
+      const row=(k,v)=>v?`<tr>
+        <td valign="top" style="padding:6px 14px 6px 0;font-family:${bodyFont};font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:${accent};white-space:nowrap;">${k}</td>
+        <td valign="top" style="padding:6px 0;font-family:${bodyFont};font-size:15px;line-height:1.5;color:${bodyC};">${escapeHtml(v)}</td></tr>`:'';
+
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"></head>
+<body style="margin:0;padding:0;background:${pageBg};">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">You're invited — ${escapeHtml([f.milestone,f.title].filter(Boolean).join(' '))}${when?'. '+escapeHtml(when):''}.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${pageBg}" style="background:${pageBg};"><tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="${cardBg}" style="max-width:600px;width:100%;background:${cardBg};border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.22);">
+  <tr><td height="5" style="height:5px;line-height:5px;font-size:0;background:${accent};">&nbsp;</td></tr>
   <tr><td align="center" style="padding:0;font-size:0;line-height:0;"><img src="${imgSrc}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" alt="You're invited"></td></tr>
-  <tr><td style="padding:26px 32px 6px;">
-    <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${accent};font-weight:bold;">You're Invited</p>
-    <h1 style="margin:0 0 6px;font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.2;color:#111;">${escapeHtml([f.milestone,f.title].filter(Boolean).join(' · '))||'Please join us'}</h1>
-    ${f.subtitle?`<p style="margin:0 0 16px;font-family:Georgia,serif;font-size:16px;color:#777;font-style:italic;">${escapeHtml(f.subtitle)}</p>`:''}
-    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:6px;">
-      ${row('When',when)}${row('Where',where)}${row('Dress',f.note)}${row('RSVP',f.rsvp)}
-    </table>
+  <tr><td align="center" style="padding:36px 44px 0;text-align:center;">
+    <p style="margin:0 0 12px;font-family:${bodyFont};font-size:11px;letter-spacing:4px;text-transform:uppercase;color:${accent};font-weight:bold;">You're Invited</p>
+    <h1 style="margin:0;font-family:${headFont};font-size:30px;line-height:1.15;color:${ink};font-weight:${serif?'normal':'bold'};letter-spacing:${serif?'.5px':'0'};">${escapeHtml([f.milestone,f.title].filter(Boolean).join(' · '))||'Please join us'}</h1>
+    ${f.subtitle?`<p style="margin:10px 0 0;font-family:${headFont};font-size:16px;line-height:1.4;color:${subC};font-style:${serif?'italic':'normal'};">${escapeHtml(f.subtitle)}</p>`:''}
   </td></tr>
-  <tr><td align="center" style="padding:22px 32px 30px;">
-    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${accent}" style="border-radius:8px;">
-      <a href="${gcal}" target="_blank" style="display:inline-block;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;padding:13px 28px;">Add to Calendar</a>
+  <tr><td align="center" style="padding:20px 0 6px;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td valign="middle"><div style="width:54px;height:1px;line-height:1px;font-size:0;background:${lineC};">&#8202;</div></td>
+      <td valign="middle" style="padding:0 15px;font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${accent};line-height:1;">${ornSym}</td>
+      <td valign="middle"><div style="width:54px;height:1px;line-height:1px;font-size:0;background:${lineC};">&#8202;</div></td>
+    </tr></table>
+  </td></tr>
+  <tr><td align="center" style="padding:10px 44px 6px;text-align:center;">
+    <div style="font-family:${headFont};color:${bodyC};font-size:16px;line-height:1.9;">
+      ${when?`<div style="color:${ink};font-weight:bold;font-size:17px;">${escapeHtml(when)}</div>`:''}
+      ${f.venue?`<div>${escapeHtml(f.venue)}</div>`:''}
+      ${f.address?`<div style="color:${subC};">${escapeHtml(f.address)}</div>`:''}
+    </div>
+    ${(f.note||f.rsvp)?`<div style="margin-top:14px;font-family:${bodyFont};font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:${accent};line-height:1.6;">${escapeHtml([f.note,f.rsvp].filter(Boolean).join('  ·  '))}</div>`:''}
+  </td></tr>
+  <tr><td align="center" style="padding:24px 36px 34px;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${accent}" style="border-radius:8px;mso-padding-alt:14px 30px;">
+      <a href="${gcal}" target="_blank" style="display:inline-block;color:${btnTxt};text-decoration:none;font-family:${bodyFont};font-size:14px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;padding:15px 34px;">Add to Calendar</a>
     </td></tr></table>
   </td></tr>
-  <tr><td align="center" style="padding:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#aaa;">Made with Calla Design · Invitation Maker</td></tr>
+  <tr><td align="center" style="padding:0 0 22px;font-family:${bodyFont};font-size:11px;letter-spacing:.5px;color:${muted};">Made with Calla Design · Invitation Maker</td></tr>
 </table>
 </td></tr></table>
 </body></html>`;
