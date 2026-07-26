@@ -207,7 +207,7 @@ window.searchSong = async (input, id) => {
     }).slice(0, 10);
     if (matches.length === 0) {
         const encoded = encodeURIComponent(input.value);
-        box.innerHTML = `<div class="p-3 text-xs text-red-800 font-bold bg-[#f0f6f6]">Not in library</div><div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white"><a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a><a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">▶ YouTube</a><a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">➕ Upload Song</a></div>`;
+        box.innerHTML = `<div class="p-3 text-xs text-red-800 font-bold bg-[#f0f6f6]">Not in library</div><div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white"><a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a><a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" rel="noreferrer noopener" class="text-[#3d6263] hover:underline">▶ YouTube</a><a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">➕ Upload Song</a></div>`;
         box.classList.remove('hidden');
         return;
     }
@@ -288,7 +288,7 @@ window.keyChanged = async (id) => {
 
     let html = `<div class="mt-4 p-4 bg-[#f0f6f6] rounded-xl border border-[#d1dfdf]">`;
     html += `<div class="text-[11px] mb-3 flex gap-4 flex-wrap font-bold">
-        ${youtube ? `<a href="${youtube}" target="_blank" class="text-red-700 hover:underline">🎬 YouTube Video</a>` : `<span class="text-[#d1dfdf]">No YouTube</span>`}
+        ${youtube ? `<a href="${youtube}" target="_blank" rel="noreferrer noopener" class="text-red-700 hover:underline">🎬 YouTube Video</a>` : `<span class="text-[#d1dfdf]">No YouTube</span>`}
         <a href="${songSelectLink}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a>
         ${ccli ? `<span class="text-[#3d6263] opacity-50 ml-auto">CCLI: ${ccli}</span>` : `<span class="text-[#d1dfdf] ml-auto">No CCLI</span>`}
     </div>`;
@@ -533,7 +533,7 @@ window.emailSchedule = async () => {
             let linksHtml = "";
             if (snap.exists()) {
                 const data = snap.data();
-                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">YouTube</font></a>`;
+                if (data.youtube) linksHtml += `<a href="${data.youtube}" target="_blank" rel="noreferrer noopener" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">YouTube</font></a>`;
                 const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
                 if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
                 linksHtml += `<a href="${sSelect}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">SongSelect</font></a>`;
