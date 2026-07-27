@@ -88,6 +88,13 @@ window.onload = async () => {
     try {
         const emailSnap = await getDocs(collection(db, "addressBook"));
         emailSnap.forEach(doc => { const data = doc.data(); if (data.email) addressBook.push(data); });
+        const peopleList = document.getElementById('peopleList');
+        if (peopleList) {
+            peopleList.innerHTML = addressBook
+                .map(p => (p.name || '').trim()).filter(Boolean)
+                .sort((a, b) => a.localeCompare(b))
+                .map(n => `<option value="${n.replace(/"/g, '&quot;')}">`).join('');
+        }
     } catch (e) { console.error("Address book load failed", e); }
 };
 
@@ -383,6 +390,11 @@ window.selectEvent = async () => {
     document.getElementById('leaderName').innerText = worshipLeaderName;
     const teamBody = document.getElementById('teamBody');
     teamBody.innerHTML = '';
+    const findRole = re => { const k = Object.keys(data.assignments || {}).find(x => re.test(x)); const v = k ? data.assignments[k] : null; return v && v.name && v.name !== 'None' ? v.name : ''; };
+    document.getElementById('roleServiceLeader').value = findRole(/service\s*lead|leading|host/i);
+    document.getElementById('roleWorshipLeader').value = (worshipLeaderName && worshipLeaderName !== 'None') ? worshipLeaderName : findRole(/worship\s*lead/i);
+    document.getElementById('roleSpeaker').value = findRole(/speak|preach|message|sermon/i);
+    document.getElementById('roleReader').value = findRole(/read/i);
     let assignmentsArray = Object.entries(data.assignments || {});
     assignmentsArray = sortAssignments(assignmentsArray);
     assignmentsArray.forEach(([role, person]) => {
@@ -392,6 +404,12 @@ window.selectEvent = async () => {
     const snap = await getDocs(q);
     if (!snap.empty) {
         const saved = snap.docs[0].data();
+        if (saved.roles) {
+            if (saved.roles.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
+            if (saved.roles.worshipLeader) document.getElementById('roleWorshipLeader').value = saved.roles.worshipLeader;
+            if (saved.roles.speaker) document.getElementById('roleSpeaker').value = saved.roles.speaker;
+            if (saved.roles.reader) document.getElementById('roleReader').value = saved.roles.reader;
+        }
         document.getElementById('introBox').value = saved.introText || "";
         document.getElementById('outroBox').value = saved.outroText || "";
         document.getElementById('serviceTypeNotes').value = saved.serviceNotes || "";
@@ -437,7 +455,13 @@ window.saveSchedule = async () => {
         else { order.push({ type: "item", title: b.querySelector('.item-title').value }); }
     });
     const q = query(collection(db, "services"), where("date", "==", date));
-    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
+    const roles = {
+        serviceLeader: document.getElementById('roleServiceLeader').value.trim(),
+        worshipLeader: document.getElementById('roleWorshipLeader').value.trim(),
+        speaker: document.getElementById('roleSpeaker').value.trim(),
+        reader: document.getElementById('roleReader').value.trim()
+    };
+    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order, roles };
     try {
         const snap = await getDocs(q);
         if (!snap.empty) { await updateDoc(doc(db, "services", snap.docs[0].id), serviceData); }
@@ -508,6 +532,19 @@ window.emailSchedule = async () => {
 
   ${serviceNotes ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;"><tr><td width="4" bgcolor="#3d6263" style="font-size:0;border-radius:2px;">&nbsp;</td><td style="padding:14px 18px;background:#f4f9f9;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;line-height:1.7;"><strong>Service Notes</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</td></tr></table>` : ""}
   ${introText ? `<p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#444444;line-height:1.8;">${introText.replace(/\n/g, '<br>')}</p>` : ""}
+
+  <!-- Key roles -->
+  ${(() => {
+      const kr = [
+        ["Service Leader", document.getElementById('roleServiceLeader').value.trim()],
+        ["Worship Leader", document.getElementById('roleWorshipLeader').value.trim()],
+        ["Speaker", document.getElementById('roleSpeaker').value.trim()],
+        ["Reader", document.getElementById('roleReader').value.trim()]
+      ].filter(r => r[1]);
+      if (!kr.length) return "";
+      return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:26px;"><tr>` +
+        kr.map(r => `<td style="padding:10px 12px;background:#f4f9f9;border-radius:10px;font-family:Arial,sans-serif;text-align:center;"><p style="margin:0 0 3px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#7a9e9f;">${r[0]}</p><p style="margin:0;font-size:13px;font-weight:800;color:#3d6263;">${r[1]}</p></td><td width="8" style="font-size:0;">&nbsp;</td>`).join("") + `</tr></table>`;
+  })()}
 
   <!-- Order of service -->
   <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Order of Service</p>
@@ -741,6 +778,18 @@ window.emailSchedule = async () => {
     <div class="space-y-2">
         <label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] ml-4">Opening Remarks / Call to Worship</label>
         <textarea id="introBox" class="w-full styled-input !bg-white" placeholder="This text appears at the start of the team email, just below the service notes..." rows="1"></textarea>
+    </div>
+
+    <div class="bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
+        <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight mb-6">Key Roles</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div><label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Service Leader</label><input id="roleServiceLeader" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
+            <div><label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Worship Leader</label><input id="roleWorshipLeader" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
+            <div><label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Speaker</label><input id="roleSpeaker" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
+            <div><label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Reader</label><input id="roleReader" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
+        </div>
+        <datalist id="peopleList"></datalist>
+        <p class="text-[11px] text-[#93a8a6] mt-3 font-semibold">Pre-filled from the rota where possible — type any name to override. Saved with the schedule; the projection software picks these up automatically.</p>
     </div>
 
     <div class="space-y-6">
