@@ -1053,9 +1053,24 @@
         function renderPlanner() {
             const container = document.getElementById('eventList');
             container.innerHTML = '';
-            const grouped = {};
+
+            // ── Deduplicate: for each date+type keep the doc with the most assignments ──
+            const dedupMap = {};
             cachedEvents.forEach(ev => {
                 if(ev.archived) return;
+                const key = `${ev.date}||${ev.type}`;
+                if (!dedupMap[key]) {
+                    dedupMap[key] = ev;
+                } else {
+                    const existingCount = Object.keys(dedupMap[key].assignments || {}).length;
+                    const newCount = Object.keys(ev.assignments || {}).length;
+                    if (newCount > existingCount) dedupMap[key] = ev;
+                }
+            });
+            const deduped = Object.values(dedupMap);
+
+            const grouped = {};
+            deduped.forEach(ev => {
                 const termKey = ev.termLabel || getTermLabel(ev.date);
                 if (!grouped[termKey]) grouped[termKey] = [];
                 grouped[termKey].push(ev);
@@ -1110,9 +1125,20 @@
             });
 
             // ── ARCHIVED TERMS SECTION ──────────────────────────────────
-            const archivedGrouped = {};
+            const archivedDedupMap = {};
             cachedEvents.forEach(ev => {
                 if(!ev.archived) return;
+                const key = `${ev.date}||${ev.type}`;
+                if (!archivedDedupMap[key]) {
+                    archivedDedupMap[key] = ev;
+                } else {
+                    const existingCount = Object.keys(archivedDedupMap[key].assignments || {}).length;
+                    const newCount = Object.keys(ev.assignments || {}).length;
+                    if (newCount > existingCount) archivedDedupMap[key] = ev;
+                }
+            });
+            const archivedGrouped = {};
+            Object.values(archivedDedupMap).forEach(ev => {
                 const termKey = ev.termLabel || getTermLabel(ev.date);
                 if (!archivedGrouped[termKey]) archivedGrouped[termKey] = [];
                 archivedGrouped[termKey].push(ev);
