@@ -212,11 +212,18 @@
             if (!name || !name.trim()) {
                 updates[`assignments.${role}`] = deleteField();
             } else {
-                // Find id from address book if possible
                 const member = addressBook.find(m => m.name?.trim().toLowerCase() === name.trim().toLowerCase());
                 updates[`assignments.${role}`] = [{ id: member?.id || name.trim(), name: name.trim() }];
             }
-            await updateDoc(doc(db, "events", eventId), updates);
+            try {
+                await updateDoc(doc(db, "events", eventId), updates);
+                // Brief visual confirmation on the input
+                const inputs = document.querySelectorAll(`input[data-qid="${eventId}-${role}"]`);
+                inputs.forEach(el => { el.style.borderColor = '#3b7d23'; setTimeout(() => { el.style.borderColor = ''; }, 1500); });
+            } catch(e) {
+                console.error('quickAssign failed', e);
+                alert('Save failed: ' + e.message);
+            }
         };
 
         window.deleteEvent = async (eventId) => {
@@ -1205,8 +1212,8 @@
             // ── Service Leader & Speaker quick-fields ──
             const svcLeaderVal = (ev.assignments?.['Service Leader']?.name || ev.assignments?.['service leader']?.name || '');
             const speakerVal   = (ev.assignments?.['Speaker']?.name || ev.assignments?.['speaker']?.name || '');
-            html += '<input value="' + svcLeaderVal.replace(/"/g,'\\"') + '" placeholder="Service Leader" onchange="quickAssign(\'' + ev.id + '\',\'Service Leader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
-            html += '<input value="' + speakerVal.replace(/"/g,'\\"') + '" placeholder="Speaker" onchange="quickAssign(\'' + ev.id + '\',\'Speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
+            html += '<input data-qid="' + ev.id + '-Service Leader" value="' + svcLeaderVal.replace(/"/g,'\\"') + '" placeholder="Service Leader" onblur="quickAssign(\'' + ev.id + '\',\'Service Leader\',this.value)" onkeydown="if(event.key===\'Enter\'){this.blur();}" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36 transition-colors">';
+            html += '<input data-qid="' + ev.id + '-Speaker" value="' + speakerVal.replace(/"/g,'\\"') + '" placeholder="Speaker" onblur="quickAssign(\'' + ev.id + '\',\'Speaker\',this.value)" onkeydown="if(event.key===\'Enter\'){this.blur();}" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32 transition-colors">';
             html += '<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
             ["Core Team", "Worship Team", "AV Team", "Choir", "Youth"].forEach(t => {
                 html += '<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t + '</span></label>';
