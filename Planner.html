@@ -23,7 +23,6 @@
         import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, arrayUnion, arrayRemove, deleteField, getDoc, setDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL, uploadBytes, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-
         const firebaseConfig = {
             apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
             authDomain: "egbc-worship-planner.firebaseapp.com",
@@ -33,17 +32,14 @@
             appId: "1:199442060489:web:7eaf85a76334c753db6918"
         };
 
-
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const storage = getStorage(app);
-
 
         const OPTIONAL_ROLES = ['Sound', 'Words', 'Cameras', 'Violin', 'Congas', '2nd Guitar', '2nd Keys', 'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3', 'Choir'];
         const MANDATORY_SUNDAY_ROLES = ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass", "Sound", "Words", "Cameras"];
         const EVENT_TYPES = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service', 'Midnight Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
         const AV_ROLES = ["Sound", "Words", "Cameras"];
-
 
         let collapsedTerms = new Set();
         let expandedEvents = new Set();
@@ -56,9 +52,7 @@
         let logoNaturalHeight = 1;
         let hideAssigned = false;
 
-
         const FORM_LINK = "https://esherchurch.github.io/availability-form/";
-
 
         let logoLoadPromise = null;
         const getLogoBase64 = () => {
@@ -86,15 +80,13 @@
         };
         getLogoBase64();
 
-
         function getTermLabel(dateString) {
             const d = new Date(dateString);
-            const month = d.getMonth() + 1; 
+            const month = d.getMonth() + 1;
             const year = d.getFullYear();
             let term = (month <= 4) ? "Spring" : (month <= 8) ? "Summer" : "Autumn";
             return `${term} ${year}`;
         }
-
 
         onSnapshot(collection(db, "addressBook"), (snap) => {
             addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -110,7 +102,6 @@
             renderPlanner();
         });
 
-
         onSnapshot(collection(db, "availability"), (snap) => {
             availability = {};
             snap.forEach(d => {
@@ -121,43 +112,49 @@
             renderPlanner();
         });
 
-
         onSnapshot(query(collection(db, "events"), orderBy("date")), (snap) => {
             cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             renderPlanner();
+            populateSendTermSelect();
         });
 
+        // ── POPULATE TERM SELECT IN SEND MODAL ─────────────────────────
+        function populateSendTermSelect() {
+            const sel = document.getElementById('sendTermSelect');
+            if (!sel) return;
+            const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel).filter(Boolean))].sort();
+            const current = sel.value;
+            sel.innerHTML = '<option value="">All active terms</option>';
+            terms.forEach(t => {
+                sel.innerHTML += `<option value="${t}"${t === current ? ' selected' : ''}>${t}</option>`;
+            });
+        }
 
-        window.toggleHideAssigned = () => { 
-            hideAssigned = !hideAssigned; 
-            renderPlanner(); 
+        window.toggleHideAssigned = () => {
+            hideAssigned = !hideAssigned;
+            renderPlanner();
         };
 
-
-        window.toggleTermCollapse = (termId) => { 
-            collapsedTerms.has(termId) ? collapsedTerms.delete(termId) : collapsedTerms.add(termId); 
-            renderPlanner(); 
+        window.toggleTermCollapse = (termId) => {
+            collapsedTerms.has(termId) ? collapsedTerms.delete(termId) : collapsedTerms.add(termId);
+            renderPlanner();
         };
 
-
-        window.toggleEventExpand = (eventId) => { 
-            expandedEvents.has(eventId) ? expandedEvents.delete(eventId) : expandedEvents.add(eventId); 
-            renderPlanner(); 
+        window.toggleEventExpand = (eventId) => {
+            expandedEvents.has(eventId) ? expandedEvents.delete(eventId) : expandedEvents.add(eventId);
+            renderPlanner();
         };
 
-
-        window.toggleBucket = (eventId) => { 
-            openBuckets.has(eventId) ? openBuckets.delete(eventId) : openBuckets.add(eventId); 
-            renderPlanner(); 
+        window.toggleBucket = (eventId) => {
+            openBuckets.has(eventId) ? openBuckets.delete(eventId) : openBuckets.add(eventId);
+            renderPlanner();
         };
 
-
-        window.updateField = async (id, field, value) => { 
+        window.updateField = async (id, field, value) => {
             const updates = { [field]: value };
             if (field === 'date') updates.termLabel = getTermLabel(value);
-            await updateDoc(doc(db, "events", id), updates); 
+            await updateDoc(doc(db, "events", id), updates);
         };
-
 
         window.toggleTeam = async (eventId, teamName) => {
             const eventRef = doc(db, "events", eventId);
@@ -168,12 +165,10 @@
             await updateDoc(eventRef, { teams: newTeams });
         };
 
-
-        window.addRole = async (eventId, roleName) => { 
-            if(!roleName) return; 
-            await updateDoc(doc(db, "events", eventId), { roles: arrayUnion(roleName) }); 
+        window.addRole = async (eventId, roleName) => {
+            if(!roleName) return;
+            await updateDoc(doc(db, "events", eventId), { roles: arrayUnion(roleName) });
         };
-
 
         window.removeRole = async (eventId, roleName) => {
             if(confirm(`Remove role "${roleName}"?`)) {
@@ -183,13 +178,11 @@
             }
         };
 
-
         window.assignPerson = async (eventId, role, personId, personName) => {
             const updates = {};
             updates[`assignments.${role}`] = { id: personId, name: personName };
             await updateDoc(doc(db, "events", eventId), updates);
         };
-
 
         window.unassignPerson = async (eventId, role) => {
             const updates = {};
@@ -197,31 +190,77 @@
             await updateDoc(doc(db, "events", eventId), updates);
         };
 
+        // Remove a single person from a multi-person role
+        window.unassignOnePerson = async (eventId, role, personId) => {
+            const ev = cachedEvents.find(e => e.id === eventId);
+            const raw = ev?.assignments?.[role];
+            const current = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+            const remaining = current.filter(p => p.id !== personId);
+            const updates = {};
+            updates[`assignments.${role}`] = remaining.length > 0 ? remaining : deleteField();
+            await updateDoc(doc(db, "events", eventId), updates);
+        };
+
+        // Called from data-attribute inputs — avoids inline JS string escaping issues
+        window.quickAssignFromEl = async (el) => {
+            const eventId = el.dataset.evid;
+            const role = el.dataset.role;
+            const name = el.value.trim();
+            if (!eventId || !role) return;
+            await quickAssign(eventId, role, name);
+        };
+
+        // Quick-assign from the header text inputs (Service Leader / Speaker)
+        window.quickAssign = async (eventId, role, name) => {
+            const updates = {};
+            if (!name || !name.trim()) {
+                updates[`assignments.${role}`] = deleteField();
+            } else {
+                const member = addressBook.find(m => m.name?.trim().toLowerCase() === name.trim().toLowerCase());
+                updates[`assignments.${role}`] = [{ id: member?.id || name.trim(), name: name.trim() }];
+            }
+            try {
+                await updateDoc(doc(db, "events", eventId), updates);
+                // Brief visual confirmation on the input
+                const inputs = document.querySelectorAll(`input[data-qid="${eventId}-${role}"]`);
+                inputs.forEach(el => { el.style.borderColor = '#3b7d23'; setTimeout(() => { el.style.borderColor = ''; }, 1500); });
+            } catch(e) {
+                console.error('quickAssign failed', e);
+                alert('Save failed: ' + e.message);
+            }
+        };
 
         window.deleteEvent = async (eventId) => {
             if(confirm("Permanently delete this service?")) await deleteDoc(doc(db, "events", eventId));
         };
 
-
         window.archiveTerm = async (termLabel) => {
             if(confirm(`Archive all services in ${termLabel}?`)) {
                 const toArchive = cachedEvents.filter(e => e.termLabel === termLabel);
-                for (const ev of toArchive) { 
-                    await updateDoc(doc(db, "events", ev.id), { archived: true }); 
+                for (const ev of toArchive) {
+                    await updateDoc(doc(db, "events", ev.id), { archived: true });
                 }
             }
         };
 
+        // ── UNARCHIVE ───────────────────────────────────────────────────
+        window.unarchiveTerm = async (termLabel) => {
+            if(confirm(`Restore all services in ${termLabel} back to active?`)) {
+                const toRestore = cachedEvents.filter(e => e.termLabel === termLabel && e.archived);
+                for (const ev of toRestore) {
+                    await updateDoc(doc(db, "events", ev.id), { archived: false });
+                }
+            }
+        };
 
         window.onDragStart = (e, personId, personName, eventId = null, role = null) => {
             e.dataTransfer.setData("personId", personId);
             e.dataTransfer.setData("personName", personName);
-            if(eventId && role) { 
-                e.dataTransfer.setData("sourceEventId", eventId); 
-                e.dataTransfer.setData("sourceRole", role); 
+            if(eventId && role) {
+                e.dataTransfer.setData("sourceEventId", eventId);
+                e.dataTransfer.setData("sourceRole", role);
             }
         };
-
 
         window.onDropRole = async (e, eventId, role) => {
             e.preventDefault();
@@ -229,12 +268,11 @@
             const personName = e.dataTransfer.getData("personName");
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
-            if(sourceEventId === eventId && sourceRole) { 
-                await unassignPerson(sourceEventId, sourceRole); 
+            if(sourceEventId === eventId && sourceRole) {
+                await unassignPerson(sourceEventId, sourceRole);
             }
             await assignPerson(eventId, role, personId, personName);
         };
-
 
         window.onDropBucket = async (e, eventId, targetStatus = null) => {
             e.preventDefault();
@@ -251,8 +289,8 @@
                 const snap = await getDocs(availQuery);
 
                 if (targetStatus === 'pending') {
-                    for (const d of snap.docs) { 
-                        await deleteDoc(doc(db, "availability", d.id)); 
+                    for (const d of snap.docs) {
+                        await deleteDoc(doc(db, "availability", d.id));
                     }
                 } else {
                     if (!snap.empty) {
@@ -264,7 +302,6 @@
             }
         };
 
-
         window.addSingleLine = async () => {
             const dateStr = new Date().toISOString().split('T')[0];
             await addDoc(collection(db, "events"), {
@@ -272,7 +309,6 @@
                 teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
             });
         };
-
 
         window.generateTerm = async () => {
             const term = document.getElementById('termSelect').value;
@@ -291,7 +327,6 @@
             }
         };
 
-
         window.addThursdayPractices = async () => {
             const term = document.getElementById('termSelect').value;
             if(!term) return alert("Select a Term");
@@ -309,13 +344,10 @@
             }
         };
 
-
-        // Sync a practice from its linked Sunday — no availability check needed
         window.autoFillPractice = async (practiceId, silent = false) => {
             const practice = cachedEvents.find(e => e.id === practiceId);
             if(!practice) return;
             const practiceDate = new Date(practice.date);
-            // Find Sunday within 4 days after practice (Thu→Sun = 3 days, allow 4 for flexibility)
             const sundayService = cachedEvents.find(e => {
                 const eDate = new Date(e.date);
                 const diff = (eDate - practiceDate) / (1000 * 60 * 60 * 24);
@@ -330,7 +362,6 @@
             roles.forEach(role => {
                 const sundayPerson = sundayService.assignments?.[role];
                 if(sundayPerson) {
-                    // Copy from Sunday regardless of practice availability
                     updates[`assignments.${role}`] = { id: sundayPerson.id, name: sundayPerson.name };
                 }
             });
@@ -339,7 +370,6 @@
             }
         };
 
-
         window.autoFillAllEvents = async () => {
             if (!confirm("Auto-populate all Sunday services and sync practices?")) return;
 
@@ -347,12 +377,14 @@
             const sundayEvents = activeEvents.filter(e => e.type === "Sunday Morning Worship");
             const practiceEvents = activeEvents.filter(e => e.type !== "Sunday Morning Worship");
 
-            // Build last-served tracker across whole term (not just monthly)
-            const lastServed = {}; // memberId -> Date of last Sunday served
+            const lastServed = {};
             sundayEvents.forEach(ev => {
-                Object.values(ev.assignments || {}).forEach(a => {
-                    const d = new Date(ev.date);
-                    if (!lastServed[a.id] || d > lastServed[a.id]) lastServed[a.id] = d;
+                Object.values(ev.assignments || {}).forEach(raw => {
+                    const people = Array.isArray(raw) ? raw : [raw];
+                    people.forEach(a => {
+                        const d = new Date(ev.date);
+                        if (!lastServed[a.id] || d > lastServed[a.id]) lastServed[a.id] = d;
+                    });
                 });
             });
             const monthlyCounts = {};
@@ -366,9 +398,8 @@
                     availability[ev.id]?.[m.id] === 'avail' &&
                     (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship")))
                 );
-                const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).map(a => a.id));
+                const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw.map(p=>p.id) : [raw.id]));
                 const assignments = { ...(ev.assignments || {}) };
-                // Use a live set of roles that we can extend during this loop
                 const liveRoles = new Set(ev.roles || []);
 
                 const tryAssign = (roleName, instrumentName, isPrimaryOnly) => {
@@ -382,16 +413,13 @@
                         return hasInst;
                     });
 
-                    // Sort: primary specialists first, then by longest gap since last served
                     candidates.sort((a, b) => {
                         const aYouth = a.markers?.includes("Youth Worship") ? 1 : 0;
                         const bYouth = b.markers?.includes("Youth Worship") ? 1 : 0;
                         if (aYouth !== bYouth) return aYouth - bYouth;
-                        // Prefer primary over secondary
                         const aPrimary = a.primaryInstruments?.includes(instrumentName) ? 0 : 1;
                         const bPrimary = b.primaryInstruments?.includes(instrumentName) ? 0 : 1;
                         if (aPrimary !== bPrimary) return aPrimary - bPrimary;
-                        // Prefer longer gap since last served (fairness)
                         const aLast = lastServed[a.id] ? (evDate - lastServed[a.id]) : Infinity;
                         const bLast = lastServed[b.id] ? (evDate - lastServed[b.id]) : Infinity;
                         return bLast - aLast;
@@ -409,16 +437,13 @@
                     return false;
                 };
 
-                // 1. Fill mandatory roles — primary instruments first, then secondary
                 MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, true));
                 MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, false));
 
-                // 2. Fill existing Singer slots
                 [...liveRoles].filter(r => r.startsWith("Singer")).forEach(r => {
                     tryAssign(r, "Sing", true) || tryAssign(r, "Sing", false);
                 });
 
-                // 3. Add additional singers from available pool (fix: track added singers in liveRoles)
                 const availableSingers = members.filter(m =>
                     !alreadyAssignedToday.has(m.id) &&
                     (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")) &&
@@ -433,7 +458,6 @@
                 });
 
                 for (const m of availableSingers) {
-                    // Find next available Singer slot not already in liveRoles
                     let nextIdx = 1;
                     while (liveRoles.has(`Singer ${nextIdx}`)) nextIdx++;
                     const newRole = `Singer ${nextIdx}`;
@@ -441,27 +465,20 @@
                     alreadyAssignedToday.add(m.id);
                     monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
                     lastServed[m.id] = evDate;
-                    liveRoles.add(newRole); // ← fix: add to liveRoles so next singer gets next slot
+                    liveRoles.add(newRole);
                 }
 
-                // 4. Add 2nd Guitar / 2nd Keyboard / Electric Guitar if extra players available
                 ["Guitar", "Keyboard"].forEach(inst => {
                     const rName = inst === "Guitar" ? "2nd Guitar" : "2nd Keys";
                     if (!liveRoles.has(rName)) {
-                        if (tryAssign(rName, inst, true) || tryAssign(rName, inst, false)) {
-                            liveRoles.add(rName);
-                        }
+                        if (tryAssign(rName, inst, true) || tryAssign(rName, inst, false)) liveRoles.add(rName);
                     }
                 });
 
-                // 5. Add Electric Guitar if available and not already assigned
                 if (!liveRoles.has("Electric Guitar")) {
-                    if (tryAssign("Electric Guitar", "Electric Guitar", true) || tryAssign("Electric Guitar", "Electric Guitar", false)) {
-                        liveRoles.add("Electric Guitar");
-                    }
+                    if (tryAssign("Electric Guitar", "Electric Guitar", true) || tryAssign("Electric Guitar", "Electric Guitar", false)) liveRoles.add("Electric Guitar");
                 }
 
-                // 6. Add other available instrumentalists (Violin, Trumpet, Congas, etc.)
                 const extraInstruments = [
                     { role: "Violin", inst: "Violin" },
                     { role: "Trumpet", inst: "Trumpet" },
@@ -470,19 +487,13 @@
                 ];
                 extraInstruments.forEach(({ role, inst }) => {
                     if (!liveRoles.has(role)) {
-                        if (tryAssign(role, inst, true) || tryAssign(role, inst, false)) {
-                            liveRoles.add(role);
-                        }
+                        if (tryAssign(role, inst, true) || tryAssign(role, inst, false)) liveRoles.add(role);
                     }
                 });
 
-                await updateDoc(doc(db, "events", ev.id), {
-                    assignments,
-                    roles: [...liveRoles]
-                });
+                await updateDoc(doc(db, "events", ev.id), { assignments, roles: [...liveRoles] });
             }
 
-            // After filling all Sundays, auto-sync all practices
             let practicesSynced = 0;
             for (const practice of practiceEvents) {
                 await autoFillPractice(practice.id, true);
@@ -491,7 +502,6 @@
 
             alert(`Auto-fill complete!\n\nSundays filled: ${sundayEvents.length}\nPractices synced: ${practicesSynced}`);
         };
-
 
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
@@ -509,16 +519,12 @@
                 termEvents.forEach(ev => {
                     const d = new Date(ev.date);
                     const key = d.toLocaleString("en-GB", { month: "long", year: "numeric" });
-                    if (!eventsByMonth[key]) {
-                        eventsByMonth[key] = [];
-                    }
+                    if (!eventsByMonth[key]) eventsByMonth[key] = [];
                     eventsByMonth[key].push(ev);
                 });
 
                 Object.keys(eventsByMonth).sort((a, b) => new Date(eventsByMonth[a][0].date) - new Date(eventsByMonth[b][0].date)).forEach((month, idx) => {
-                    if (idx > 0) {
-                        wallDoc.addPage();
-                    }
+                    if (idx > 0) wallDoc.addPage();
                     if (logo) {
                         const logoDisplayHeight = 60;
                         const logoDisplayWidth = (logoNaturalWidth / logoNaturalHeight) * logoDisplayHeight;
@@ -532,17 +538,12 @@
                     const startDay = new Date(yr, mth, 1).getDay(), daysInM = new Date(yr, mth + 1, 0).getDate();
                     const offset = startDay === 0 ? 6 : startDay - 1;
                     const rows = []; let week = Array(7).fill(null);
-                    for (let i = 0; i < offset; i++) {
-                        week[i] = { empty: true };
-                    }
+                    for (let i = 0; i < offset; i++) week[i] = { empty: true };
                     for (let d = 1; d <= daysInM; d++) {
                         const dateStr = `${yr}-${String(mth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                         const dayIdx = (d + offset - 1) % 7;
                         week[dayIdx] = { day: d, events: eventsByMonth[month].filter(e => e.date === dateStr) };
-                        if (dayIdx === 6 || d === daysInM) { 
-                            rows.push(week); 
-                            week = Array(7).fill(null); 
-                        }
+                        if (dayIdx === 6 || d === daysInM) { rows.push(week); week = Array(7).fill(null); }
                     }
 
                     wallDoc.autoTable({
@@ -551,7 +552,7 @@
                             if (!c || c.empty) return "";
                             let cellData = `DAY:${c.day}`;
                             c.events.forEach(ev => {
-                                const matches = Object.entries(ev.assignments || {}).filter(([r, p]) => hIds.includes(p.id)).map(([r, p]) => `${p.name.split(' ')[0]}: ${r}`);
+                                const matches = Object.entries(ev.assignments || {}).flatMap(([r,raw]) => { const pp=Array.isArray(raw)?raw:[raw]; return pp.filter(p=>hIds.includes(p.id)).map(p=>`${p.name.split(' ')[0]}: ${r}`); });
                                 if (matches.length > 0) cellData += `|S:${ev.type}|R:${matches.join(', ')}`;
                             });
                             return cellData;
@@ -562,21 +563,18 @@
                             if (data.section === 'body' && data.cell.raw !== "") {
                                 const segs = data.cell.raw.split('|'); let yPos = data.cell.y + 12;
                                 segs.forEach(seg => {
-                                    if (seg.startsWith("DAY:")) { 
-                                        wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(10); wallDoc.setTextColor(180, 180, 180); 
-                                        wallDoc.text(seg.replace("DAY:", ""), data.cell.x + 5, yPos); yPos += 12; 
-                                    }
-                                    else if (seg.startsWith("S:")) { 
-                                        const matches = Object.entries(termEvents.find(e => e.date === `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`)?.assignments || {}).filter(([r, p]) => hIds.includes(p.id));
+                                    if (seg.startsWith("DAY:")) {
+                                        wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(10); wallDoc.setTextColor(180, 180, 180);
+                                        wallDoc.text(seg.replace("DAY:", ""), data.cell.x + 5, yPos); yPos += 12;
+                                    } else if (seg.startsWith("S:")) {
+                                        const matches = Object.entries(termEvents.find(e => e.date === `${yr}-${String(mth + 1).padStart(2, '0')}-${String(data.cell.raw.split('|')[0].replace("DAY:", "")).padStart(2, '0')}`)?.assignments || {}).flatMap(([r,raw]) => { const pp=Array.isArray(raw)?raw:[raw]; return pp.filter(p=>hIds.includes(p.id)).map(p=>[r,p]); });
                                         if (matches.length > 0) {
-                                            wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99); 
-                                            wallDoc.text(wallDoc.splitTextToSize(seg.replace("S:", ""), 100), data.cell.x + 5, yPos); 
-                                            yPos += 18; 
+                                            wallDoc.setFont("helvetica", "bold"); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99);
+                                            wallDoc.text(wallDoc.splitTextToSize(seg.replace("S:", ""), 100), data.cell.x + 5, yPos); yPos += 18;
                                         }
-                                    }
-                                    else if (seg.startsWith("R:")) { 
-                                        wallDoc.setFont("helvetica", "normal"); wallDoc.setFontSize(7); wallDoc.setTextColor(0, 0, 0); 
-                                        wallDoc.text(wallDoc.splitTextToSize(seg.replace("R:", ""), 100), data.cell.x + 5, yPos); 
+                                    } else if (seg.startsWith("R:")) {
+                                        wallDoc.setFont("helvetica", "normal"); wallDoc.setFontSize(7); wallDoc.setTextColor(0, 0, 0);
+                                        wallDoc.text(wallDoc.splitTextToSize(seg.replace("R:", ""), 100), data.cell.x + 5, yPos);
                                     }
                                 });
                             }
@@ -593,7 +591,10 @@
                 const headId = member?.householdId || memberId;
                 const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
                 reportTitle = type === 'individual' ? `${member.name.toUpperCase()} ROTA` : `HOUSEHOLD ROTA`;
-                termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(a => type === 'individual' ? a.id === memberId : hIds.includes(a.id)));
+                termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(raw => {
+                    const people = Array.isArray(raw) ? raw : [raw];
+                    return people.some(a => type === 'individual' ? a.id === memberId : hIds.includes(a.id));
+                }));
             }
 
             if (logo) {
@@ -612,25 +613,21 @@
                     new Date(e.date).toLocaleDateString('en-GB'),
                     (e.startTime || '') + (e.startTime && e.endTime ? '–' : '') + (e.endTime || ''),
                     e.type,
-                    ...allRoles.map(r => e.assignments?.[r]?.name || "---")
+                    ...allRoles.map(r => { const raw = e.assignments?.[r]; if (!raw) return "---"; return Array.isArray(raw) ? raw.map(p=>p.name).join(", ") : raw.name; })
                 ]),
                 headStyles: { fillColor: [61, 98, 99] }, styles: { fontSize: 7 }
             });
             return docRef;
         };
 
-
         window.generatePDF = async (type, memberId) => {
             if ((type === 'individual' || type === 'household' || type === 'wall') && !addressBook.find(m => m.id === memberId)) {
                 return alert("Select your name first.");
             }
             const doc = await getPdfBlob(type, memberId);
-            if (!doc) {
-                return alert("No dates found.");
-            }
+            if (!doc) return alert("No dates found.");
             doc.save(`${type}_rota.pdf`);
         };
-
 
         window.exportToExcel = () => {
             const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -640,77 +637,52 @@
             XLSX.writeFile(wb, "EGBC_Rota.xlsx");
         };
 
-
-        // Build a proper RFC 5545 ICS string
         function buildICS(events, getMemberEvents) {
             const CRLF = "\r\n";
-            const pad = n => String(n).padStart(2, '0');
-
             const formatDateTime = (dateStr, timeStr) => {
-                // dateStr: "2026-07-13", timeStr: "08:00"
                 const [y, m, d] = dateStr.split('-');
-                if (timeStr) {
-                    const [h, min] = timeStr.split(':');
-                    return `${y}${m}${d}T${h}${min}00`;
-                }
+                if (timeStr) { const [h, min] = timeStr.split(':'); return `${y}${m}${d}T${h}${min}00`; }
                 return `${y}${m}${d}`;
             };
-
             const escapeICS = str => (str || '').replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
-
-            let lines = [
-                "BEGIN:VCALENDAR",
-                "VERSION:2.0",
-                "PRODID:-//EGBC Worship & AV//Rota//EN",
-                "CALSCALE:GREGORIAN",
-                "METHOD:PUBLISH",
-                "X-WR-CALNAME:EGBC Rota",
-                "X-WR-TIMEZONE:Europe/London",
-            ];
-
+            let lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//EGBC Worship & AV//Rota//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:EGBC Rota","X-WR-TIMEZONE:Europe/London"];
             events.forEach(ev => {
                 const { summary, description, dateStr, startTime, endTime } = getMemberEvents(ev);
                 const uid = `egbc-rota-${ev.id}-${dateStr}@esherchurch.org`;
                 const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
-                lines.push("BEGIN:VEVENT");
-                lines.push(`UID:${uid}`);
-                lines.push(`DTSTAMP:${dtstamp}`);
-
+                lines.push("BEGIN:VEVENT", `UID:${uid}`, `DTSTAMP:${dtstamp}`);
                 if (startTime) {
-                    lines.push(`DTSTART;TZID=Europe/London:${formatDateTime(dateStr, startTime)}`);
-                    lines.push(`DTEND;TZID=Europe/London:${formatDateTime(dateStr, endTime || startTime)}`);
+                    lines.push(`DTSTART;TZID=Europe/London:${formatDateTime(dateStr, startTime)}`, `DTEND;TZID=Europe/London:${formatDateTime(dateStr, endTime || startTime)}`);
                 } else {
-                    lines.push(`DTSTART;VALUE=DATE:${formatDateTime(dateStr, null)}`);
-                    lines.push(`DTEND;VALUE=DATE:${formatDateTime(dateStr, null)}`);
+                    lines.push(`DTSTART;VALUE=DATE:${formatDateTime(dateStr, null)}`, `DTEND;VALUE=DATE:${formatDateTime(dateStr, null)}`);
                 }
-
-                lines.push(`SUMMARY:${escapeICS(summary)}`);
-                lines.push(`DESCRIPTION:${escapeICS(description)}`);
-                lines.push("END:VEVENT");
+                lines.push(`SUMMARY:${escapeICS(summary)}`, `DESCRIPTION:${escapeICS(description)}`, "END:VEVENT");
             });
-
             lines.push("END:VCALENDAR");
             return lines.join(CRLF) + CRLF;
         }
 
+        // ── SEND ALL ROTAS — now respects term filter ───────────────────
         window.prepareDistributionPackage = async () => {
             const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
             const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
             const packageId = `rota-${Date.now()}`;
 
-            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
-            const termLabels = [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))].join(', ');
+            const selectedTerm = document.getElementById('sendTermSelect')?.value || '';
+            let activeEvents = cachedEvents.filter(e => !e.archived);
+            if (selectedTerm) activeEvents = activeEvents.filter(e => e.termLabel === selectedTerm);
+            activeEvents = activeEvents.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            const termLabels = selectedTerm || [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))].join(', ');
             const fullDoc = await getPdfBlob('full', null, activeEvents);
 
             const assignedIds = new Set();
-            activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(a => assignedIds.add(a.id)));
+            activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(raw => { const pp=Array.isArray(raw)?raw:[raw]; pp.forEach(a=>assignedIds.add(a.id)); }));
             const members = [...assignedIds].map(mId => addressBook.find(m => m.id === mId)).filter(m => m && m.email);
 
             if (members.length === 0) { alert("No team members found."); return; }
             if (!confirm(`Send rotas to ${members.length} team members for ${termLabels}?`)) return;
 
-            // Progress toast
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
             document.body.appendChild(toast);
@@ -718,16 +690,13 @@
             let sent = 0, failed = 0;
             const storageRefs = [];
 
-            // Helper: upload PDF blob to Storage and return base64
             const uploadAndEncode = async (blob, path) => {
                 const storageRef = ref(storage, path);
                 await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
                 storageRefs.push(storageRef);
                 const url = await getDownloadURL(storageRef);
                 const b64 = await fetch(url).then(r => r.blob()).then(b => new Promise(res => {
-                    const fr = new FileReader();
-                    fr.onload = () => res(fr.result.split(',')[1]);
-                    fr.readAsDataURL(b);
+                    const fr = new FileReader(); fr.onload = () => res(fr.result.split(',')[1]); fr.readAsDataURL(b);
                 }));
                 return b64;
             };
@@ -741,93 +710,72 @@
                 try {
                     const headId = member.householdId || member.id;
                     const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
-                    const personalEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
-                    const familyEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+                    const flatPeople = e => Object.values(e.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw : [raw]);
+                    const personalEvents = activeEvents.filter(e => flatPeople(e).some(a => a.id === mId));
+                    const familyEvents = activeEvents.filter(e => flatPeople(e).some(a => hIds.includes(a.id)));
 
                     const attachments = [];
 
-                    // Individual PDF
                     const indDoc = await getPdfBlob('individual', mId, activeEvents);
                     if (indDoc) {
                         const b64 = await uploadAndEncode(indDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Rota.pdf`);
                         attachments.push({ filename: `${safeName}_Individual_Rota.pdf`, content: b64 });
                     }
 
-                    // Household PDF
                     const hDoc = await getPdfBlob('household', mId, activeEvents);
                     if (hDoc) {
                         const b64 = await uploadAndEncode(hDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Household_Rota.pdf`);
                         attachments.push({ filename: `${safeName}_Household_Rota.pdf`, content: b64 });
                     }
 
-                    // Wall planner PDF
                     const wDoc = await getPdfBlob('wall', mId, activeEvents);
                     if (wDoc) {
                         const b64 = await uploadAndEncode(wDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Wall_Planner.pdf`);
                         attachments.push({ filename: `${safeName}_Wall_Planner.pdf`, content: b64 });
                     }
 
-                    // Full church rota PDF
                     if (fullDoc) {
                         const b64 = await uploadAndEncode(fullDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Full_Church_Rota.pdf`);
                         attachments.push({ filename: 'Full_Church_Rota.pdf', content: b64 });
                     }
 
-                    // Individual ICS — proper RFC 5545
+                    const rolesForMember = (ev, id) => Object.entries(ev.assignments || {}).filter(([r,raw]) => { const pp = Array.isArray(raw)?raw:[raw]; return pp.some(p=>p.id===id); }).map(([r])=>r).join(', ');
+                    const rolesForFamily = (ev, ids) => Object.entries(ev.assignments || {}).flatMap(([r,raw]) => { const pp=Array.isArray(raw)?raw:[raw]; return pp.filter(p=>ids.includes(p.id)).map(p=>`${p.name.split(' ')[0]}: ${r}`); }).join(', ');
+
                     if (personalEvents.length > 0) {
                         const icsStr = buildICS(personalEvents, ev => ({
-                            dateStr: ev.date,
-                            startTime: ev.startTime || null,
-                            endTime: ev.endTime || null,
-                            summary: `EGBC: ${Object.entries(ev.assignments || {}).filter(([r,p]) => p.id === mId).map(([r]) => r).join(', ')}`,
+                            dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
+                            summary: `EGBC: ${rolesForMember(ev, mId)}`,
                             description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                         }));
-                        const icsB64 = btoa(unescape(encodeURIComponent(icsStr)));
-                        attachments.push({ filename: `${safeName}_My_Rota.ics`, content: icsB64 });
+                        attachments.push({ filename: `${safeName}_My_Rota.ics`, content: btoa(unescape(encodeURIComponent(icsStr))) });
                     }
 
-                    // Household ICS — proper RFC 5545
                     if (familyEvents.length > 0) {
-                        const hIcsStr = buildICS(familyEvents, ev => {
-                            const familyRoles = Object.entries(ev.assignments || {}).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(', ');
-                            return {
-                                dateStr: ev.date,
-                                startTime: ev.startTime || null,
-                                endTime: ev.endTime || null,
-                                summary: `EGBC Family: ${familyRoles}`,
-                                description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
-                            };
-                        });
-                        const hIcsB64 = btoa(unescape(encodeURIComponent(hIcsStr)));
-                        attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: hIcsB64 });
+                        const hIcsStr = buildICS(familyEvents, ev => ({
+                            dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
+                            summary: `EGBC Family: ${rolesForFamily(ev, hIds)}`,
+                            description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
+                        }));
+                        attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: btoa(unescape(encodeURIComponent(hIcsStr))) });
                     }
 
-                    // Build serving dates table for email body
                     const dateRows = personalEvents.map(ev => {
-                        const roles = Object.entries(ev.assignments || {}).filter(([r,p]) => p.id === mId).map(([r]) => r).join(', ');
+                        const roles = rolesForMember(ev, mId);
                         const d = new Date(ev.date);
                         const dateStr = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
                         const timeStr = ev.startTime ? ` &bull; ${ev.startTime}–${ev.endTime || ''}` : '';
                         return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}${timeStr}</td><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:800;">${roles}</td></tr>`;
                     }).join('');
 
-                    const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
+                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background-color:#eaf2f2;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2">
-<tr><td align="center" style="padding:40px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
 <table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
   <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
     <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="vertical-align:bottom;">
-        <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Your Rota</p>
-        <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${termLabels}</p>
-      </td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;">
-        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
-          <img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
-        </div>
-      </td>
+      <td style="vertical-align:bottom;"><p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Your Rota</p><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${termLabels}</p></td>
+      <td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC"></div></td>
     </tr></table>
   </td></tr>
   <tr><td style="padding:36px 40px 0;">
@@ -835,10 +783,7 @@
     <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">Please find your rota attached for the upcoming term. We are really grateful for your faithful service and look forward to worshipping together with you.</p>
     <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Your Serving Dates</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;margin-bottom:32px;">
-      <tr bgcolor="#f4f9f9">
-        <td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date &amp; Time</td>
-        <td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Role</td>
-      </tr>
+      <tr bgcolor="#f4f9f9"><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date &amp; Time</td><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Role</td></tr>
       ${dateRows}
     </table>
     <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Your individual rota, household rota, wall planner, full church rota and calendar files (.ics) are all attached. The .ics files can be opened to automatically add your serving dates to Apple Calendar, Google Calendar or Outlook.</p>
@@ -851,28 +796,12 @@
       <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
     </tr></table>
   </td></tr>
-</table></td></tr></table>
-
-    <!-- PWA -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-      }
-    <\/script>
-</body></html>`;
+</table></td></tr></table></body></html>`;
 
                     toast.innerHTML = `Sending to <strong>${firstName}</strong>...<br><span style="font-weight:400;opacity:0.8;">${sent + 1} of ${members.length}</span>`;
-
                     const resp = await fetch(SEND_FUNCTION_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            to: [member.email],
-                            subject: `Your Worship & AV Rota — ${termLabels}`,
-                            html,
-                            replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org',
-                            attachments
-                        })
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments })
                     });
                     const result = await resp.json();
                     if (result.ok) sent++; else { console.error('Send failed for', member.name, result.error); failed++; }
@@ -880,21 +809,17 @@
                     console.error('Error for', member.name, e);
                     failed++;
                 }
-
                 await new Promise(r => setTimeout(r, 400));
             }
 
-            // Clean up temp Storage files
             toast.textContent = 'Cleaning up...';
             await Promise.allSettled(storageRefs.map(r => deleteObject(r)));
-
             toast.innerHTML = failed === 0
                 ? `✓ Rotas sent to all <strong>${sent}</strong> team members!`
                 : `Done: <strong>${sent}</strong> sent, <strong>${failed}</strong> failed`;
             toast.style.background = failed === 0 ? '#3B7D23' : '#e05555';
             setTimeout(() => toast.remove(), 6000);
         };
-
 
         window.sendSingleRota = async (memberId) => {
             if (!memberId) return alert("Please select a team member first.");
@@ -911,15 +836,20 @@
             document.body.appendChild(toast);
             toast.textContent = `Preparing rota for ${member.name}...`;
 
-            const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
-            const termLabels = [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))].join(', ');
+            const selectedTerm = document.getElementById('sendTermSelect')?.value || '';
+            let activeEvents = cachedEvents.filter(e => !e.archived);
+            if (selectedTerm) activeEvents = activeEvents.filter(e => e.termLabel === selectedTerm);
+            activeEvents = activeEvents.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            const termLabels = selectedTerm || [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))].join(', ');
             const mId = member.id;
             const safeName = member.name.replace(/\s+/g, '_');
             const firstName = member.name.split(' ')[0];
             const headId = member.householdId || member.id;
             const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
-            const personalEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => a.id === mId));
-            const familyEvents = activeEvents.filter(e => Object.values(e.assignments || {}).some(a => hIds.includes(a.id)));
+            const flatPeopleS = e => Object.values(e.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw : [raw]);
+            const personalEvents = activeEvents.filter(e => flatPeopleS(e).some(a => a.id === mId));
+            const familyEvents = activeEvents.filter(e => flatPeopleS(e).some(a => hIds.includes(a.id)));
             const fullDoc = await getPdfBlob('full', null, activeEvents);
             const storageRefs = [];
 
@@ -947,25 +877,29 @@
 
                 if (fullDoc) attachments.push({ filename: 'Full_Church_Rota.pdf', content: await uploadAndEncode(fullDoc.output('blob'), `rota-temp/${packageId}/${safeName}_Full_Church_Rota.pdf`) });
 
+                const rolesForMemberS = (ev, id) => Object.entries(ev.assignments || {}).filter(([r,raw]) => { const pp=Array.isArray(raw)?raw:[raw]; return pp.some(p=>p.id===id); }).map(([r])=>r).join(', ');
+                const rolesForFamilyS = (ev, ids) => Object.entries(ev.assignments || {}).flatMap(([r,raw]) => { const pp=Array.isArray(raw)?raw:[raw]; return pp.filter(p=>ids.includes(p.id)).map(p=>`${p.name.split(' ')[0]}: ${r}`); }).join(', ');
+
                 if (personalEvents.length > 0) {
                     const icsStr = buildICS(personalEvents, ev => ({
                         dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                        summary: `EGBC: ${Object.entries(ev.assignments || {}).filter(([r,p]) => p.id === mId).map(([r]) => r).join(', ')}`,
+                        summary: `EGBC: ${rolesForMemberS(ev, mId)}`,
                         description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                     }));
                     attachments.push({ filename: `${safeName}_My_Rota.ics`, content: btoa(unescape(encodeURIComponent(icsStr))) });
                 }
 
                 if (familyEvents.length > 0) {
-                    const hIcsStr = buildICS(familyEvents, ev => {
-                        const familyRoles = Object.entries(ev.assignments || {}).filter(([r,p]) => hIds.includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(', ');
-                        return { dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null, summary: `EGBC Family: ${familyRoles}`, description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}` };
-                    });
+                    const hIcsStr = buildICS(familyEvents, ev => ({
+                        dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
+                        summary: `EGBC Family: ${rolesForFamilyS(ev, hIds)}`,
+                        description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
+                    }));
                     attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: btoa(unescape(encodeURIComponent(hIcsStr))) });
                 }
 
                 const dateRows = personalEvents.map(ev => {
-                    const roles = Object.entries(ev.assignments || {}).filter(([r,p]) => p.id === mId).map(([r]) => r).join(', ');
+                    const roles = rolesForMemberS(ev, mId);
                     const d = new Date(ev.date);
                     const dateStr = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
                     const timeStr = ev.startTime ? ` &bull; ${ev.startTime}–${ev.endTime || ''}` : '';
@@ -1045,7 +979,6 @@
             if (emailList.length === 0) { alert("No team members found for that term."); return; }
             if (!confirm(`Send availability request for ${selectedTerm} to ${emailList.length} team members?`)) return;
 
-            // Build date list for email body
             const dateRows = termEvents
                 .filter(e => e.type === "Sunday Morning Worship")
                 .map(ev => {
@@ -1054,37 +987,28 @@
                     return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}</td></tr>`;
                 }).join('');
 
-            const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background-color:#eaf2f2;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2">
-<tr><td align="center" style="padding:40px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
 <table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
   <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
     <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="vertical-align:bottom;">
-        <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Availability Request</p>
-        <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${selectedTerm}</p>
-      </td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;">
-        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
-          <img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
-        </div>
-      </td>
+      <td style="vertical-align:bottom;"><p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Availability Request</p><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${selectedTerm}</p></td>
+      <td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC"></div></td>
     </tr></table>
   </td></tr>
   <tr><td style="padding:36px 40px 0;">
     <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi,</p>
-    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">We are planning the worship and AV rota for <strong>${selectedTerm}</strong> and would love to know your availability. Please take a moment to fill in the form — it only takes a couple of minutes!</p>
+    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">We are planning the worship and AV rota for <strong>${selectedTerm}</strong> and would love to know your availability.</p>
     <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Sundays This Term</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;margin-bottom:32px;">
       <tr bgcolor="#f4f9f9"><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date</td></tr>
       ${dateRows}
     </table>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:36px;"><tr><td align="center">
-      <a href="${FORM_LINK}" style="display:inline-block;background:#3d6263;color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:800;text-decoration:none;padding:16px 40px;border-radius:12px;letter-spacing:0.5px;">Fill In My Availability →</a>
+      <a href="${FORM_LINK}" style="display:inline-block;background:#3d6263;color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:800;text-decoration:none;padding:16px 40px;border-radius:12px;">Fill In My Availability →</a>
     </td></tr></table>
-    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Thank you so much for your faithful service — we really appreciate it.</p>
+    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Thank you so much for your faithful service.</p>
   </td></tr>
   <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
     <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
@@ -1093,8 +1017,7 @@
       <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
     </tr></table>
   </td></tr>
-</table></td></tr></table>
-</body></html>`;
+</table></td></tr></table></body></html>`;
 
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
@@ -1103,14 +1026,8 @@
 
             try {
                 const resp = await fetch(SEND_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: emailList,
-                        subject: `Availability Request — ${selectedTerm}`,
-                        html,
-                        replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org'
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: emailList, subject: `Availability Request — ${selectedTerm}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org' })
                 });
                 const result = await resp.json();
                 if (result.ok) {
@@ -1127,8 +1044,6 @@
             setTimeout(() => toast.remove(), 6000);
         };
 
-
-        // Time options helper
         function buildTimeOptions(selected) {
             let opts = '';
             for (let h = 0; h < 24; h++) {
@@ -1140,8 +1055,6 @@
             return opts;
         }
 
-
-        // Pre-populate sender email from localStorage
         setTimeout(() => {
             const savedSender = localStorage.getItem('egbc-sender-email') || '';
             const rotaEl = document.getElementById('rotaSenderEmail');
@@ -1149,17 +1062,34 @@
         }, 800);
 
         function renderPlanner() {
+            // Don't re-render if user is typing in an input/textarea
+            const active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && active.closest('#eventList')) return;
             const container = document.getElementById('eventList');
             container.innerHTML = '';
-            const grouped = {};
+
+            // ── Deduplicate: for each date+type keep the doc with the most assignments ──
+            const dedupMap = {};
             cachedEvents.forEach(ev => {
-                if(ev.archived) return; 
-                const termKey = ev.termLabel || getTermLabel(ev.date);
-                if (!grouped[termKey]) {
-                    grouped[termKey] = [];
+                if(ev.archived) return;
+                const key = `${ev.date}||${ev.type}`;
+                if (!dedupMap[key]) {
+                    dedupMap[key] = ev;
+                } else {
+                    const existingCount = Object.keys(dedupMap[key].assignments || {}).length;
+                    const newCount = Object.keys(ev.assignments || {}).length;
+                    if (newCount > existingCount) dedupMap[key] = ev;
                 }
+            });
+            const deduped = Object.values(dedupMap);
+
+            const grouped = {};
+            deduped.forEach(ev => {
+                const termKey = ev.termLabel || getTermLabel(ev.date);
+                if (!grouped[termKey]) grouped[termKey] = [];
                 grouped[termKey].push(ev);
             });
+
             Object.keys(grouped).sort().forEach(term => {
                 const isCollapsed = collapsedTerms.has(term);
                 let html = '<div class="mb-12">';
@@ -1173,9 +1103,7 @@
                 const byMonth = {};
                 termEventsSorted.forEach(ev => {
                     const month = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-                    if(!byMonth[month]) {
-                        byMonth[month] = [];
-                    }
+                    if(!byMonth[month]) byMonth[month] = [];
                     byMonth[month].push(ev);
                 });
 
@@ -1184,29 +1112,16 @@
                     const blocks = []; let current = [];
                     byMonth[month].forEach(ev => {
                         current.push(ev);
-                        if(ev.type === "Sunday Morning Worship") { 
-                            blocks.push(current); 
-                            current = []; 
-                        }
+                        if(ev.type === "Sunday Morning Worship") { blocks.push(current); current = []; }
                     });
-                    if(current.length > 0) {
-                        blocks.push(current);
-                    }
-                    blocks.forEach((block, idx) => {
-                        block.forEach(ev => { 
-                            html += generateEventHtml(ev, idx); 
-                        });
-                    });
+                    if(current.length > 0) blocks.push(current);
+                    blocks.forEach((block, idx) => { block.forEach(ev => { html += generateEventHtml(ev, idx); }); });
 
                     const stats = {};
                     byMonth[month].forEach(ev => {
                         if(ev.type === 'Sunday Morning Worship' && ev.assignments) {
                             const names = new Set(Object.values(ev.assignments).map(p => p.name));
-                            names.forEach(n => { 
-                                if(n) {
-                                    stats[n] = (stats[n] || 0) + 1; 
-                                }
-                            });
+                            names.forEach(n => { if(n) stats[n] = (stats[n] || 0) + 1; });
                         }
                     });
                     if(Object.keys(stats).length > 0) {
@@ -1222,22 +1137,66 @@
                 });
                 container.innerHTML += html + '</div></div>';
             });
+
+            // ── ARCHIVED TERMS SECTION ──────────────────────────────────
+            const archivedDedupMap = {};
+            cachedEvents.forEach(ev => {
+                if(!ev.archived) return;
+                const key = `${ev.date}||${ev.type}`;
+                if (!archivedDedupMap[key]) {
+                    archivedDedupMap[key] = ev;
+                } else {
+                    const existingCount = Object.keys(archivedDedupMap[key].assignments || {}).length;
+                    const newCount = Object.keys(ev.assignments || {}).length;
+                    if (newCount > existingCount) archivedDedupMap[key] = ev;
+                }
+            });
+            const archivedGrouped = {};
+            Object.values(archivedDedupMap).forEach(ev => {
+                const termKey = ev.termLabel || getTermLabel(ev.date);
+                if (!archivedGrouped[termKey]) archivedGrouped[termKey] = [];
+                archivedGrouped[termKey].push(ev);
+            });
+
+            if (Object.keys(archivedGrouped).length > 0) {
+                let archHtml = '<div class="mt-16 mb-4">';
+                archHtml += '<div class="flex items-center gap-4 mb-6">';
+                archHtml += '<div class="flex-1 h-px bg-[#d1dfdf]"></div>';
+                archHtml += '<span class="text-[11px] font-black uppercase tracking-widest text-[#3d6263] opacity-40">Archived Terms</span>';
+                archHtml += '<div class="flex-1 h-px bg-[#d1dfdf]"></div>';
+                archHtml += '</div>';
+
+                Object.keys(archivedGrouped).sort().forEach(term => {
+                    const count = archivedGrouped[term].length;
+                    archHtml += '<div class="flex items-center justify-between bg-[#f0f6f6] border border-[#d1dfdf] rounded-[1.5rem] px-6 py-4 mb-3">';
+                    archHtml += `<div class="flex items-center gap-4">`;
+                    archHtml += `<span class="text-[13px] font-bold text-[#3d6263] opacity-60">${term}</span>`;
+                    archHtml += `<span class="text-[11px] font-bold text-[#3d6263] opacity-40">${count} service${count !== 1 ? 's' : ''}</span>`;
+                    archHtml += `</div>`;
+                    archHtml += `<button onclick="unarchiveTerm('${term}')" class="bg-[#3d6263] text-white px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#2e4c4d] transition-all shadow-sm">↩ Restore</button>`;
+                    archHtml += '</div>';
+                });
+
+                archHtml += '</div>';
+                container.innerHTML += archHtml;
+            }
         }
 
-
         function generateEventHtml(ev, blockIdx) {
-            const assignedIds = Object.values(ev.assignments || {}).map(a => a.id);
+            const assignedIds = Object.values(ev.assignments || {}).flatMap(a => Array.isArray(a) ? a.map(p => p.id) : [a.id]);
             const members = addressBook.filter(m => (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship"))));
             const respondersAvail = members.filter(m => availability[ev.id]?.[m.id] === 'avail' && (!hideAssigned || !assignedIds.includes(m.id)));
             const declined = members.filter(m => (availability[ev.id]?.[m.id] === 'unavailable' || availability[ev.id]?.[m.id] === 'not-avail') && (!hideAssigned || !assignedIds.includes(m.id)));
             const pending = members.filter(m => !availability[ev.id]?.[m.id] && (!hideAssigned || !assignedIds.includes(m.id)));
             const isSunday = ev.type === "Sunday Morning Worship";
-            const mandatoryFilled = isSunday && MANDATORY_SUNDAY_ROLES.every(r => ev.assignments?.[r]);
+            const mandatoryFilled = isSunday && MANDATORY_SUNDAY_ROLES.every(r => {
+                const raw = ev.assignments?.[r];
+                return Array.isArray(raw) ? raw.length > 0 : !!raw;
+            });
             const rowClass = !isSunday ? 'bg-slate-50 border-dashed border-[#d1dfdf]' : (mandatoryFilled ? 'bg-white border-green-300' : (blockIdx % 2 === 0 ? 'bg-white border-[#d1dfdf]' : 'bg-[#f0f6f6]/30 border-[#d1dfdf]'));
             const dateBg = !isSunday ? 'bg-[#d1dfdf]' : 'bg-[#3d6263]';
             const sortedRoles = [...(ev.roles || []).filter(r => !AV_ROLES.includes(r)), ...(ev.roles || []).filter(r => AV_ROLES.includes(r))];
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
-
             const timeSelectStyle = 'bg-white border border-[#d1dfdf] text-[#3d6263] px-2 py-1 rounded-full font-bold text-[11px] outline-none';
             const startTimeHtml = `<select onchange="updateField('${ev.id}', 'startTime', this.value)" class="${timeSelectStyle}">${buildTimeOptions(ev.startTime || '08:00')}</select>`;
             const endTimeHtml = `<select onchange="updateField('${ev.id}', 'endTime', this.value)" class="${timeSelectStyle}">${buildTimeOptions(ev.endTime || '11:30')}</select>`;
@@ -1254,11 +1213,14 @@
             html += '<input type="date" value="' + ev.date + '" onchange="updateField(\'' + ev.id + '\', \'date\', this.value)" class="' + dateBg + ' ' + (!isSunday ? 'text-[#3d6263]' : 'text-white') + ' px-4 py-2 rounded-full font-bold text-[11px] shadow-sm">';
             html += timeGroupHtml;
             html += '<select onchange="updateField(\'' + ev.id + '\', \'type\', this.value)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">';
-            EVENT_TYPES.forEach(t => { 
-                html += '<option value="' + t + '" ' + (ev.type === t ? 'selected' : '') + '>' + t + '</option>'; 
-            });
+            EVENT_TYPES.forEach(t => { html += '<option value="' + t + '" ' + (ev.type === t ? 'selected' : '') + '>' + t + '</option>'; });
             html += '</select>';
-            html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\', \'description\', this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">' + (ev.description || '') + '</textarea>';
+            html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\', \'description\', this.value)" onclick="event.stopPropagation()" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">' + (ev.description || '') + '</textarea>';
+            // ── Service Leader & Speaker quick-fields ──
+            const svcLeaderVal = ev.serviceLeader || '';
+            const speakerVal = ev.speaker || '';
+            html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" onblur="updateField(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
+            html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" onblur="updateField(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
             html += '<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
             ["Core Team", "Worship Team", "AV Team", "Choir", "Youth"].forEach(t => {
                 html += '<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t + '</span></label>';
@@ -1275,48 +1237,53 @@
             html += '<div class="' + (expandedEvents.has(ev.id) || isSunday ? 'flex' : 'hidden') + ' mt-6 border-t border-[#f0f6f6] pt-6 flex-row gap-6 overflow-visible">';
             html += '<div class="flex flex-wrap gap-4 flex-grow">';
             sortedRoles.forEach(r => {
-                const assigned = ev.assignments?.[r] || null;
+                // Support both old single-object and new array format
+                const raw = ev.assignments?.[r];
+                const people = Array.isArray(raw) ? raw : (raw ? [raw] : []);
                 const isAV = AV_ROLES.includes(r);
-                const isPending = assigned && !availability[ev.id]?.[assigned.id];
-                const borderColor = isAV ? 'border-amber-400' : (assigned ? 'border-[#3d6263]' : 'border-[#d1dfdf]');
-                const nameColor = isPending ? 'text-orange-500' : 'text-[#3d6263]';
-                html += '<div ondragover="event.preventDefault()" ondrop="onDropRole(event, \'' + ev.id + '\', \'' + r + '\')" class="bg-white border-2 ' + (assigned ? 'border-solid' : 'border-dashed') + ' ' + borderColor + ' p-4 rounded-2xl min-w-[170px] group/role transition-all relative">';
+                const hasPeople = people.length > 0;
+                const borderColor = isAV ? 'border-amber-400' : (hasPeople ? 'border-[#3d6263]' : 'border-[#d1dfdf]');
+                html += '<div ondragover="event.preventDefault()" ondrop="onDropRole(event, \'' + ev.id + '\', \'' + r + '\')" class="bg-white border-2 ' + (hasPeople ? 'border-solid' : 'border-dashed') + ' ' + borderColor + ' p-4 rounded-2xl min-w-[170px] group/role transition-all relative">';
                 html += '<div class="text-[10px] font-black uppercase text-[#3d6263] opacity-40 mb-2 flex justify-between"><span>' + r + '</span><button onclick="removeRole(\'' + ev.id + '\', \'' + r + '\')" class="invisible group-hover/role:visible text-red-400 hover:text-red-600"><svg ' + iconStyles + ' viewBox="0 0 24 24" class="w-3.5 h-3.5"><path d="M6 18 18 6M6 6l12 12" /></svg></button></div>';
-                html += '<div draggable="true" ondragstart="onDragStart(event, \'' + (assigned?.id || '') + '\', \'' + (assigned?.name.replace(/'/g, "\\'") || '') + '\', \'' + ev.id + '\', \'' + r + '\')" class="text-[13px] font-bold ' + (assigned ? nameColor + ' cursor-grab' : 'text-[#d1dfdf] italic') + '">' + (assigned ? assigned.name : 'Unassigned') + '</div>';
+                if (hasPeople) {
+                    html += '<div class="flex flex-wrap gap-1">';
+                    people.forEach(p => {
+                        const isPending = !availability[ev.id]?.[p.id];
+                        const chipColor = isPending ? 'bg-[#f6efe1] text-[#b07d2e]' : 'bg-[#e7f0ef] text-[#3d6263]';
+                        const safeId = (p.id||'').replace(/'/g,"\\'");
+                        const safeName = (p.name||'').replace(/'/g,"\\'");
+                        html += '<div draggable="true" ondragstart="onDragStart(event,\'' + safeId + '\',\'' + safeName + '\',\'' + ev.id + '\',\'' + r + '\')" class="flex items-center gap-1 ' + chipColor + ' px-2 py-1 rounded-full text-[11px] font-bold cursor-grab">';
+                        html += '<span>' + p.name + '</span>';
+                        html += '<button onclick="event.stopPropagation();unassignOnePerson(\'' + ev.id + '\',\'' + r + '\',\'' + safeId + '\')" class="opacity-50 hover:opacity-100 ml-0.5 leading-none">&times;</button>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div class="text-[#d1dfdf] italic text-[13px] font-bold">Unassigned</div>';
+                }
                 html += '</div>';
             });
             html += '<select onchange="addRole(\'' + ev.id + '\', this.value); this.value=\'\';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>';
-            OPTIONAL_ROLES.forEach(opt => { 
-                html += '<option value="' + opt + '">' + opt + '</option>'; 
-            });
+            OPTIONAL_ROLES.forEach(opt => { html += '<option value="' + opt + '">' + opt + '</option>'; });
             html += '</select></div>';
 
             if (openBuckets.has(ev.id)) {
                 html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">';
                 html += '<div class="max-h-[400px] overflow-y-auto space-y-6">';
-
                 html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'avail\'); event.stopPropagation();">';
                 html += '<div class="text-[10px] font-black text-green-600 uppercase mb-3">Available</div>';
                 html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
-                respondersAvail.forEach(m => { 
-                    html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">' + m.name + '</div>'; 
-                });
+                respondersAvail.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-2 bg-green-50 text-green-700 rounded-xl text-[12px] font-bold border border-green-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div>';
-
                 html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'not-avail\'); event.stopPropagation();">';
                 html += '<div class="text-[10px] font-black text-red-600 uppercase mb-3">Declined</div>';
                 html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
-                declined.forEach(m => { 
-                    html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200 cursor-grab">' + m.name + '</div>'; 
-                });
+                declined.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-red-50 text-red-700 rounded-xl text-[11px] font-bold border border-red-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div>';
-
                 html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\', \'pending\'); event.stopPropagation();">';
                 html += '<div class="text-[10px] font-black text-gray-400 uppercase mb-3">Pending</div>';
                 html += '<div class="flex flex-wrap gap-2 min-h-[30px]">';
-                pending.forEach(m => { 
-                    html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">' + m.name + '</div>'; 
-                });
+                pending.forEach(m => { html += '<div draggable="true" ondragstart="onDragStart(event, \'' + m.id + '\', \'' + m.name.replace(/'/g, "\\'") + '\')" class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-xl text-[11px] font-bold border border-gray-200 cursor-grab">' + m.name + '</div>'; });
                 html += '</div></div></div></div>';
             }
             html += '</div></div>';
@@ -1324,9 +1291,6 @@
         }
     </script>
     <style>
-        /* ============================================================
-           EGBC shared design system (visual only — merged tokens)
-           ============================================================ */
         :root{
             --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9;
             --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
@@ -1341,10 +1305,7 @@
         }
         .max-h-\[400px\]::-webkit-scrollbar { width: 6px; }
         .max-h-\[400px\]::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 10px; }
-
         body { background:var(--canvas) !important; color:var(--body); font-family:'Montserrat', sans-serif; }
-
-        /* Neutral + brand colour remaps */
         .bg-\[\#f0f6f6\], .bg-\[\#f0f6f6\]\/30 { background-color:var(--surface-2) !important; }
         .border-\[\#d1dfdf\] { border-color:var(--hairline) !important; }
         .bg-\[\#d1dfdf\] { background-color:var(--hairline-strong) !important; }
@@ -1354,8 +1315,6 @@
         .text-\[\#d1dfdf\] { color:var(--faint) !important; }
         .bg-\[\#9bc34a\] { background-color:var(--success) !important; }
         .text-\[\#9bc34a\] { color:var(--success) !important; }
-
-        /* Availability buckets + role states → token palette */
         .bg-green-50 { background-color:var(--success-tint) !important; }
         .text-green-700, .text-green-600 { color:var(--success) !important; }
         .border-green-200 { border-color:#bfe0a8 !important; }
@@ -1369,32 +1328,18 @@
         .border-gray-200 { border-color:var(--hairline) !important; }
         .text-orange-500 { color:var(--gold) !important; }
         .border-amber-400 { border-color:var(--gold) !important; }
-
-        /* Typography — tame heavy weights + shouty tracking */
         .font-black { font-weight:800 !important; }
         .tracking-widest { letter-spacing:.08em !important; }
         .tracking-\[0\.2em\] { letter-spacing:.08em !important; }
-
-        /* Radii → tokens (pills/badges keep rounded-full) */
         .rounded-\[3rem\], .rounded-\[2\.5rem\], .rounded-\[2rem\], .rounded-3xl { border-radius:var(--r-lg) !important; }
         .rounded-t-\[2rem\], .rounded-t-2xl { border-top-left-radius:var(--r-lg) !important; border-top-right-radius:var(--r-lg) !important; }
         .rounded-b-\[2rem\], .rounded-b-2xl { border-bottom-left-radius:var(--r-lg) !important; border-bottom-right-radius:var(--r-lg) !important; }
         .rounded-\[1\.5rem\], .rounded-2xl, .rounded-xl { border-radius:var(--r-md) !important; }
         .rounded-lg { border-radius:var(--r-sm) !important; }
-
-        /* Shadows → tokens */
         .shadow-xl, .shadow-lg { box-shadow:var(--shadow) !important; }
         .shadow-md, .shadow-sm { box-shadow:var(--shadow-sm) !important; }
         .shadow-inner { box-shadow:inset 0 1px 2px rgba(20,32,31,.04) !important; }
-
-        /* Buttons → one system (text action buttons all carry .uppercase) */
-        button.uppercase{
-            border-radius:var(--r-md) !important;
-            font-weight:700 !important;
-            letter-spacing:.02em !important;
-            text-transform:none !important;
-            transition:background .15s ease, transform .05s ease, box-shadow .15s ease !important;
-        }
+        button.uppercase{ border-radius:var(--r-md) !important; font-weight:700 !important; letter-spacing:.02em !important; text-transform:none !important; transition:background .15s ease, transform .05s ease, box-shadow .15s ease !important; }
         button.uppercase:active{ transform:translateY(1px) !important; }
         button.uppercase:focus-visible{ outline:none !important; box-shadow:0 0 0 3px var(--brand-ring) !important; }
         button.uppercase.bg-\[\#3d6263\]{ background:var(--brand) !important; color:#fff !important; box-shadow:var(--shadow-sm) !important; }
@@ -1403,22 +1348,10 @@
         button.uppercase.bg-\[\#f0f6f6\]:hover{ background:#d8e6e4 !important; }
         button.uppercase.bg-white{ background:var(--surface) !important; color:var(--brand) !important; border:1px solid var(--hairline-strong) !important; }
         button.uppercase.bg-white:hover{ background:var(--surface-2) !important; }
-        button.uppercase.bg-\[\#9bc34a\]{ background:var(--success) !important; color:#fff !important; }
-        button.uppercase.bg-\[\#9bc34a\]:hover{ filter:brightness(.94) !important; }
-
-        /* Inputs / selects / textareas */
         input, select, textarea { font-family:'Montserrat', sans-serif; }
-        input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
-            border-color:var(--brand) !important;
-            box-shadow:0 0 0 3px var(--brand-ring) !important;
-            outline:none !important;
-        }
+        input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{ border-color:var(--brand) !important; box-shadow:0 0 0 3px var(--brand-ring) !important; outline:none !important; }
         .styled-input{ border:1px solid var(--hairline-strong); border-radius:var(--r-md); background:var(--surface); color:var(--brand); }
-
-        /* Readability: lift sub-11px labels to >=11px */
         .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size:11px !important; }
-
-        /* Loading shimmer skeleton (design-system component) */
         .sk{ background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sh 1.4s ease infinite; border-radius:6px; }
         @keyframes sh{ 0%{background-position:100% 0} 100%{background-position:0 0} }
         @media (prefers-reduced-motion:reduce){ .sk{ animation:none } }
@@ -1444,6 +1377,13 @@
                     <label class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] whitespace-nowrap">Sending as</label>
                     <input id="rotaSenderEmail" type="email" placeholder="your@email.com" class="styled-input text-sm flex-1 min-w-[180px] !py-1 !px-2" oninput="localStorage.setItem('egbc-sender-email',this.value)">
                 </div>
+                <!-- Term filter for send -->
+                <div class="flex items-center gap-3 bg-white border border-[#d1dfdf] rounded-2xl px-4 py-2">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] whitespace-nowrap">Send term</label>
+                    <select id="sendTermSelect" class="bg-[#f0f6f6] rounded-full px-4 py-1 text-[11px] font-bold border border-[#d1dfdf] text-[#3d6263] outline-none min-w-[160px]">
+                        <option value="">All active terms</option>
+                    </select>
+                </div>
                 <button onclick="prepareDistributionPackage()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[11px] uppercase shadow-lg hover:bg-black transition-all">🚀 SEND ALL ROTAS</button>
             </div>
             <div class="flex flex-wrap gap-5 bg-white p-5 rounded-[3rem] shadow-xl border border-[#d1dfdf] items-center">
@@ -1459,7 +1399,6 @@
         <div id="eventList"></div>
     </div>
 
-    <!-- Help button: opens instructions in a new tab -->
     <a href="https://esherchurch.github.io/availability-form/rotaplannerinstructions.html"
        target="_blank" rel="noopener noreferrer"
        title="How to use the planner"
@@ -1467,6 +1406,5 @@
        class="fixed bottom-6 right-6 w-9 h-9 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-black text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">
         ?
     </a>
-
 </body>
 </html>

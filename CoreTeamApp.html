@@ -1420,7 +1420,7 @@ function renderServiceRotaTable() {
   table.innerHTML = Object.entries(assignments).map(([role, person]) => `
     <div class="rota-assignment-row" style="flex-wrap:wrap;gap:6px;">
       <div class="rota-role-label" style="width:auto;min-width:100px;">${role}</div>
-      <div style="flex:1;font-size:13px;font-weight:700;color:var(--teal);">${person?.name || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
+      <div style="flex:1;font-size:13px;font-weight:700;color:var(--teal);">${personName(person) || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
       <input style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-family:var(--font);font-size:11px;font-weight:700;color:var(--teal);background:var(--bg);"
         placeholder="Role notes..." value="${(roleNotes[role]||'').replace(/"/g,'&quot;')}"
         oninput="setRoleNote('${role}',this.value)">
@@ -1942,13 +1942,13 @@ async function spSelectEvent() {
   if (index === '') return;
   const data = spEventsForDay[index];
   document.getElementById('spTypeNotes').value = data.description || '';
-  spLeader = data.assignments?.['Worship Leader']?.name || 'None';
+  spLeader = personName(data.assignments?.['Worship Leader']) || 'None';
   document.getElementById('spLeaderName').textContent = spLeader;
 
   const teamBody = document.getElementById('spTeamBody');
   teamBody.innerHTML = '';
   spSortAssignments(Object.entries(data.assignments || {})).forEach(([role, person]) => {
-    teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
+    teamBody.innerHTML += `<tr><td>${role}</td><td>${personName(person)}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
   });
 
   const q = db.collection('services').where('date', '==', data.date);
@@ -2322,6 +2322,8 @@ const OPTIONAL_ROLES_LIST = ['Sound','Words','Cameras','Violin','Congas','2nd Gu
 const MANDATORY_SUNDAY_ROLES = ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
 const EVENT_TYPES_LIST = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
 const AV_ROLES = ["Sound","Words","Cameras"];
+const personName = raw => Array.isArray(raw) ? raw.map(p => p.name).join(', ') : (raw?.name || '');
+const personId = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || '');
 
 let rotaCollapsedTerms = new Set();
 let rotaExpandedEvents = new Set();
@@ -2586,7 +2588,7 @@ function renderPlanner() {
         if (cur.length) blocks.push(cur);
         blocks.forEach((block,idx) => block.forEach(ev => { html += generateEventHtml(ev,idx); }));
         const stats={};
-        byMonth[month].forEach(ev => { if(ev.type==='Sunday Morning Worship'&&ev.assignments) [...new Set(Object.values(ev.assignments).map(p=>p.name))].forEach(n=>{if(n)stats[n]=(stats[n]||0)+1;}); });
+        byMonth[month].forEach(ev => { if(ev.type==='Sunday Morning Worship'&&ev.assignments) Object.values(ev.assignments).forEach(raw=>{const pp=Array.isArray(raw)?raw:[raw];pp.forEach(p=>{if(p?.name)stats[p.name]=(stats[p.name]||0)+1;});}); });
         if (Object.keys(stats).length) {
           html += '<div style="margin-top:10px;background:#f0f6f6;border-radius:10px;padding:10px;border:1px solid #d1dfdf;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;text-align:center;margin-bottom:8px;">Monthly Serving Totals</div><div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">';
           Object.entries(stats).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([n,c]) => { html+=`<div style="background:white;border:1px solid #d1dfdf;padding:3px 8px;border-radius:9999px;font-size:10px;font-weight:700;color:#3d6263;">${n}: <strong>${c}</strong></div>`; });
@@ -2601,7 +2603,7 @@ function renderPlanner() {
 }
 
 function generateEventHtml(ev, blockIdx) {
-  const assignedIds = Object.values(ev.assignments||{}).map(a=>a.id);
+  const assignedIds = Object.values(ev.assignments||{}).flatMap(raw=>Array.isArray(raw)?raw.map(p=>p.id):[raw?.id]).filter(Boolean);
   const members  = allMembers.filter(m => ev.teams?.some(t=>m.markers?.includes(t))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship")));
   const avail    = members.filter(m => rotaAvailability[ev.id]?.[m.id]==='avail'        && (!hideAssigned||!assignedIds.includes(m.id)));
   const declined = members.filter(m => (rotaAvailability[ev.id]?.[m.id]==='unavailable'||rotaAvailability[ev.id]?.[m.id]==='not-avail') && (!hideAssigned||!assignedIds.includes(m.id)));
@@ -2644,7 +2646,7 @@ function generateEventHtml(ev, blockIdx) {
       const sr = r.replace(/'/g,"\\'");
       html += `<div ondragover="event.preventDefault()" ondrop="onDropRole(event,'${ev.id}','${sr}')" style="background:white;border:2px ${asgn?'solid':'dashed'} ${border};border-radius:10px;padding:8px 10px;min-width:100px;">`;
       html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;opacity:0.4;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:11px;cursor:pointer;padding:0;">✕</button></div>`;
-      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:${asgn?'grab':'default'};">${asgn?asgn.name:'Unassigned'}</div>`;
+      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:${asgn?'grab':'default'};">${asgn?personName(asgn):'Unassigned'}</div>`;
       html += '</div>';
     });
     html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;

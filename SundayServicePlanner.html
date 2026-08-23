@@ -10,11 +10,9 @@
     <meta name="apple-mobile-web-app-title" content="EGBC Service Planner">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EGBC Sunday Worship Planner</title>
-
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-
 <style>
     :root { --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1; --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12); --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px; }
     body { font-family: 'Montserrat', sans-serif; background-color: var(--canvas); color: var(--body); }
@@ -50,10 +48,8 @@
     .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
     @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
     @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
-    /* Readability pass (additive, brand-safe): lift small faint labels to a legible minimum */
     .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size: 11px !important; }
 </style>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, setDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -66,6 +62,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+// ── Normalise assignments — handles both single {id,name} and array [{id,name}] formats
+const personName = raw => Array.isArray(raw) ? raw.map(p => p.name).join(', ') : (raw?.name || '');
+const personId   = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || '');
 
 let worshipLeaderName = "";
 let eventsForDay = [];
@@ -299,7 +299,6 @@ window.keyChanged = async (id) => {
         <a href="${songSelectLink}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a>
         ${ccli ? `<span class="text-[#3d6263] opacity-50 ml-auto">CCLI: ${ccli}</span>` : `<span class="text-[#d1dfdf] ml-auto">No CCLI</span>`}
     </div>`;
-
     if (keys.length > 0) {
         keys.forEach(k => {
             const selectedKey = k.trim().toLowerCase();
@@ -322,7 +321,6 @@ window.keyChanged = async (id) => {
         html += `<div class="text-xs text-[#3d6263] opacity-50 italic">Select up to 3 keys to see sheet music files</div>`;
     }
     html += `</div>`;
-
     const ptMatches = await getPlayThroughLinks(title, keys);
     if (ptMatches.length > 0) {
         html += `<div class="mt-3 p-3 bg-[#f0f6f6] rounded-xl border border-dashed border-[#3d6263]">`;
@@ -334,7 +332,6 @@ window.keyChanged = async (id) => {
         });
         html += `</div>`;
     }
-
     container.innerHTML = html;
 };
 
@@ -351,15 +348,12 @@ window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
     eventsForDay = [];
-    // Deduplicate by type — keep only the most recent doc per service type
-    // (multiple docs can exist for the same date/type if the rota was updated)
     const seen = {};
     snap.forEach(d => {
         const ev = d.data();
         if (ev.date !== date) return;
         if (ev.archived === true) return;
         const key = ev.type || "Unknown";
-        // Prefer non-archived, then just last-seen if all archived
         if (!seen[key] || (!ev.archived && seen[key].archived)) {
             seen[key] = { ...ev, _docData: d.data() };
         }
@@ -386,20 +380,33 @@ window.selectEvent = async () => {
     if (index === "") return;
     const data = eventsForDay[index];
     document.getElementById('serviceTypeNotes').value = data.description || "";
-    worshipLeaderName = data.assignments?.['Worship Leader']?.name || "None";
+
+    // Use personName() to handle both single object and array formats
+    worshipLeaderName = personName(data.assignments?.['Worship Leader']) || "None";
     document.getElementById('leaderName').innerText = worshipLeaderName;
+
     const teamBody = document.getElementById('teamBody');
     teamBody.innerHTML = '';
-    const findRole = re => { const k = Object.keys(data.assignments || {}).find(x => re.test(x)); const v = k ? data.assignments[k] : null; return v && v.name && v.name !== 'None' ? v.name : ''; };
+
+    const findRole = re => {
+        const k = Object.keys(data.assignments || {}).find(x => re.test(x));
+        const v = k ? data.assignments[k] : null;
+        const n = v ? personName(v) : '';
+        return n && n !== 'None' ? n : '';
+    };
+
     document.getElementById('roleServiceLeader').value = findRole(/service\s*lead|leading|host/i);
     document.getElementById('roleWorshipLeader').value = (worshipLeaderName && worshipLeaderName !== 'None') ? worshipLeaderName : findRole(/worship\s*lead/i);
     document.getElementById('roleSpeaker').value = findRole(/speak|preach|message|sermon/i);
     document.getElementById('roleReader').value = findRole(/read/i);
+
     let assignmentsArray = Object.entries(data.assignments || {});
     assignmentsArray = sortAssignments(assignmentsArray);
     assignmentsArray.forEach(([role, person]) => {
-        teamBody.innerHTML += `<tr><td class="w-1/4">${role}</td><td class="w-1/4">${person.name}</td><td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
+        const name = personName(person);
+        teamBody.innerHTML += `<tr><td class="w-1/4">${role}</td><td class="w-1/4">${name}</td><td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
     });
+
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const snap = await getDocs(q);
     if (!snap.empty) {
@@ -511,8 +518,6 @@ window.emailSchedule = async () => {
 <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2">
 <tr><td align="center" style="padding:40px 16px;">
 <table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
-
-  <!-- Single teal header block -->
   <tr><td bgcolor="#3d6263" style="padding:32px 40px 32px;">
     <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
       <td style="vertical-align:bottom;">
@@ -526,14 +531,9 @@ window.emailSchedule = async () => {
       </td>
     </tr></table>
   </td></tr>
-
-  <!-- Body -->
   <tr><td style="padding:36px 40px 0;">
-
   ${serviceNotes ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;"><tr><td width="4" bgcolor="#3d6263" style="font-size:0;border-radius:2px;">&nbsp;</td><td style="padding:14px 18px;background:#f4f9f9;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;line-height:1.7;"><strong>Service Notes</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</td></tr></table>` : ""}
   ${introText ? `<p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#444444;line-height:1.8;">${introText.replace(/\n/g, '<br>')}</p>` : ""}
-
-  <!-- Key roles -->
   ${(() => {
       const kr = [
         ["Service Leader", document.getElementById('roleServiceLeader').value.trim()],
@@ -545,16 +545,13 @@ window.emailSchedule = async () => {
       return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:26px;"><tr>` +
         kr.map(r => `<td style="padding:10px 12px;background:#f4f9f9;border-radius:10px;font-family:Arial,sans-serif;text-align:center;"><p style="margin:0 0 3px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#7a9e9f;">${r[0]}</p><p style="margin:0;font-size:13px;font-weight:800;color:#3d6263;">${r[1]}</p></td><td width="8" style="font-size:0;">&nbsp;</td>`).join("") + `</tr></table>`;
   })()}
-
-  <!-- Order of service -->
   <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Order of Service</p>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;">
     <tr bgcolor="#f4f9f9">
       <td width="42%" style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Song</td>
       <td width="10%" style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;text-align:center;">Key</td>
       <td width="48%" style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Resources</td>
-    </tr>
-`;
+    </tr>`;
 
     const blocks = document.querySelectorAll('.service-block');
     let songIdx = 1;
@@ -585,11 +582,9 @@ window.emailSchedule = async () => {
                     });
                 }
             }
-
             const ptEmailMatches = await getPlayThroughLinks(title, keys);
             if (ptEmailMatches.length > 0) {
-                resourcesHtml += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #d1dfdf;">`;
-                resourcesHtml += `<div style="font-size:10px; color:#3d6263; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">&#9654; Play Through</div>`;
+                resourcesHtml += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #d1dfdf;"><div style="font-size:10px; color:#3d6263; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">&#9654; Play Through</div>`;
                 ptEmailMatches.forEach(pt => {
                     const ptUrl = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle || pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
                     const inst = pt.instrument ? ` (${pt.instrument})` : '';
@@ -597,7 +592,6 @@ window.emailSchedule = async () => {
                 });
                 resourcesHtml += `</div>`;
             }
-
             htmlEmail += `
               <tr>
                 <td style="padding:14px 10px;border-bottom:1px solid #eaf2f2;vertical-align:top;font-family:Arial,sans-serif;">
@@ -610,15 +604,11 @@ window.emailSchedule = async () => {
             songIdx++;
         } else {
             const item = b.querySelector('.item-title').value;
-            if (item) {
-                htmlEmail += `<tr><td colspan="3" style="padding:10px 14px;background:#eaf2f2;font-family:Arial,sans-serif;font-size:11px;font-weight:800;color:#3d6263;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid #eaf2f2;">${item}</td></tr>`;
-            }
+            if (item) htmlEmail += `<tr><td colspan="3" style="padding:10px 14px;background:#eaf2f2;font-family:Arial,sans-serif;font-size:11px;font-weight:800;color:#3d6263;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid #eaf2f2;">${item}</td></tr>`;
         }
     }
 
     htmlEmail += `</table>
-
-  <!-- Team section -->
   <p style="margin:32px 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Our Team This Sunday</p>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;"><tbody>`;
 
@@ -636,10 +626,7 @@ window.emailSchedule = async () => {
         </tr>`;
     });
     htmlEmail += `</tbody></table>
-
   ${outroText ? `<p style="margin:24px 0 0;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">${outroText.replace(/\n/g, "<br>")}</p>` : ""}
-
-  <!-- Song summary link -->
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0 0;">
     <tr>
       <td width="4" bgcolor="#3d6263" style="font-size:0;border-radius:2px;">&nbsp;</td>
@@ -649,10 +636,7 @@ window.emailSchedule = async () => {
       </td>
     </tr>
   </table>
-
   </td></tr>
-
-  <!-- Footer -->
   <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
     <p style="margin:0 0 10px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;line-height:1.6;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;padding-top:10px;margin-top:4px;"><tr>
@@ -660,16 +644,8 @@ window.emailSchedule = async () => {
       <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
     </tr></table>
   </td></tr>
-
-</table>
-</td></tr></table>
-
-    <!-- PWA -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-      }
-    <\/script>
+</table></td></tr></table>
+<script>if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}<\/script>
 </body></html>`;
 
     const subject = "Sunday Worship Plan: " + date;
@@ -693,52 +669,22 @@ window.emailSchedule = async () => {
         statusEl.textContent = "Sending…";
         statusEl.style.color = "#3d6263";
         try {
-            const resp = await fetch(SEND_FUNCTION_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" })
-            });
+            const resp = await fetch(SEND_FUNCTION_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" }) });
             const result = await resp.json();
-            if (result.ok) {
-                statusEl.textContent = "✓ Sent successfully!";
-                statusEl.style.color = "#3B7D23";
-                setTimeout(() => modal.classList.remove('active'), 1800);
-            } else {
-                statusEl.textContent = "✗ Error: " + (result.error || "Unknown error");
-                statusEl.style.color = "#e05555";
-            }
-        } catch (e) {
-            statusEl.textContent = "✗ Network error: " + e.message;
-            statusEl.style.color = "#e05555";
-        }
+            if (result.ok) { statusEl.textContent = "✓ Sent successfully!"; statusEl.style.color = "#3B7D23"; setTimeout(() => modal.classList.remove('active'), 1800); }
+            else { statusEl.textContent = "✗ Error: " + (result.error || "Unknown error"); statusEl.style.color = "#e05555"; }
+        } catch (e) { statusEl.textContent = "✗ Network error: " + e.message; statusEl.style.color = "#e05555"; }
     }
-    document.getElementById('modalTeamBtn').onclick = async () => {
-        document.getElementById('modalTeamBtn').disabled = true;
-        document.getElementById('modalIndividualBtn').disabled = true;
-        await sendViaResend(teamRecipients, subject, htmlEmail);
-        document.getElementById('modalTeamBtn').disabled = false;
-        document.getElementById('modalIndividualBtn').disabled = false;
-    };
-    document.getElementById('modalIndividualBtn').onclick = async () => {
-        const email = individualSelect.value;
-        if (!email) { alert("Please select a person first."); return; }
-        document.getElementById('modalTeamBtn').disabled = true;
-        document.getElementById('modalIndividualBtn').disabled = true;
-        await sendViaResend([email], subject, htmlEmail);
-        document.getElementById('modalTeamBtn').disabled = false;
-        document.getElementById('modalIndividualBtn').disabled = false;
-    };
+    document.getElementById('modalTeamBtn').onclick = async () => { document.getElementById('modalTeamBtn').disabled = true; document.getElementById('modalIndividualBtn').disabled = true; await sendViaResend(teamRecipients, subject, htmlEmail); document.getElementById('modalTeamBtn').disabled = false; document.getElementById('modalIndividualBtn').disabled = false; };
+    document.getElementById('modalIndividualBtn').onclick = async () => { const email = individualSelect.value; if (!email) { alert("Please select a person first."); return; } document.getElementById('modalTeamBtn').disabled = true; document.getElementById('modalIndividualBtn').disabled = true; await sendViaResend([email], subject, htmlEmail); document.getElementById('modalTeamBtn').disabled = false; document.getElementById('modalIndividualBtn').disabled = false; };
     document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
-    // Pre-populate sender email from localStorage
     const savedSender = localStorage.getItem('egbc-sender-email') || '';
     document.getElementById('senderEmail').value = savedSender;
     modal.classList.add('active');
 };
 </script>
 </head>
-
 <body class="p-4 md:p-12">
-
 <div id="emailModal">
     <div id="emailModalBox">
         <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Worship Plan</h2>
@@ -757,9 +703,7 @@ window.emailSchedule = async () => {
         <div style="margin-top:12px; text-align:center;"><button id="modalCancelBtn" style="font-size:12px; font-weight:700; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button></div>
     </div>
 </div>
-
 <a id="helpBtn" href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html" target="_blank" rel="noopener" aria-label="Open instructions">?</a>
-
 <div class="max-w-[1200px] mx-auto space-y-10">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
         <div class="flex items-center gap-6">
@@ -774,12 +718,10 @@ window.emailSchedule = async () => {
             <input id="serviceTypeNotes" class="styled-input text-sm flex-1 md:min-w-[200px]" placeholder="General Notes">
         </div>
     </div>
-
     <div class="space-y-2">
         <label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] ml-4">Opening Remarks / Call to Worship</label>
         <textarea id="introBox" class="w-full styled-input !bg-white" placeholder="This text appears at the start of the team email, just below the service notes..." rows="1"></textarea>
     </div>
-
     <div class="bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
         <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight mb-6">Key Roles</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -791,7 +733,6 @@ window.emailSchedule = async () => {
         <datalist id="peopleList"></datalist>
         <p class="text-[11px] text-[#93a8a6] mt-3 font-semibold">Pre-filled from the rota where possible — type any name to override. Saved with the schedule; the projection software picks these up automatically.</p>
     </div>
-
     <div class="space-y-6">
         <div class="flex justify-between items-center px-4">
             <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight">Order of Service</h2>
@@ -803,9 +744,8 @@ window.emailSchedule = async () => {
         </div>
         <div id="service-order" class="space-y-2"></div>
     </div>
-
     <div class="bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
-        <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight mb-6">Service Team & Roles</h2>
+        <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight mb-6">Service Team &amp; Roles</h2>
         <div class="overflow-x-auto">
             <table class="rota-table">
                 <thead><tr><th>Role</th><th>Assigned Member</th><th>Role Specific Notes</th></tr></thead>
@@ -813,12 +753,10 @@ window.emailSchedule = async () => {
             </table>
         </div>
     </div>
-
     <div class="space-y-2">
         <label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] ml-4">Closing Remarks / Blessing</label>
         <textarea id="outroBox" class="w-full styled-input !bg-white" placeholder="This text appears at the end of the team email, after the team rota..." rows="1"></textarea>
     </div>
-
     <div class="flex justify-center gap-6 pt-6 pb-12">
         <button onclick="saveSchedule()" class="btn-primary w-48 shadow-lg shadow-[#d1dfdf]">Save Schedule</button>
         <button onclick="emailSchedule()" class="btn-secondary w-48">Email Team</button>
