@@ -179,19 +179,8 @@
         };
 
         window.assignPerson = async (eventId, role, personId, personName) => {
-            const ev = cachedEvents.find(e => e.id === eventId);
-            const raw = ev?.assignments?.[role];
-            // Support multiple people — store as array only if already has someone
-            const current = Array.isArray(raw) ? raw : (raw ? [raw] : []);
-            if (current.some(p => p.id === personId)) return;
             const updates = {};
-            // Always write as plain object for backwards compatibility with Service Planner / Core App
-            // Only use array if there's already someone assigned
-            if (current.length === 0) {
-                updates[`assignments.${role}`] = { id: personId, name: personName };
-            } else {
-                updates[`assignments.${role}`] = [...current, { id: personId, name: personName }];
-            }
+            updates[`assignments.${role}`] = { id: personId, name: personName };
             await updateDoc(doc(db, "events", eventId), updates);
         };
 
