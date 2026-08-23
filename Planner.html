@@ -1222,10 +1222,10 @@
             html += '</select>';
             html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\', \'description\', this.value)" onclick="event.stopPropagation()" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">' + (ev.description || '') + '</textarea>';
             // ── Service Leader & Speaker quick-fields ──
-            const svcLeaderVal = (ev.assignments?.['Service Leader']?.name || ev.assignments?.['service leader']?.name || '');
-            const speakerVal   = (ev.assignments?.['Speaker']?.name || ev.assignments?.['speaker']?.name || '');
-            html += '<input data-qid="' + ev.id + '-Service Leader" data-evid="' + ev.id + '" data-role="Service Leader" value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();window.quickAssignFromEl(this);}" onblur="window.quickAssignFromEl(this)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36 transition-colors">';
-            html += '<input data-qid="' + ev.id + '-Speaker" data-evid="' + ev.id + '" data-role="Speaker" value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();window.quickAssignFromEl(this);}" onblur="window.quickAssignFromEl(this)" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32 transition-colors">';
+            const svcLeaderVal = ev.serviceLeader || '';
+            const speakerVal = ev.speaker || '';
+            html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" onblur="updateField(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
+            html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" onblur="updateField(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
             html += '<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
             ["Core Team", "Worship Team", "AV Team", "Choir", "Youth"].forEach(t => {
                 html += '<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t + '</span></label>';
