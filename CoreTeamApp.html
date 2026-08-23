@@ -3049,19 +3049,7 @@ function endTour() {
 
 // Auto-trigger on first visit to each section
 const _touredSections = new Set();
-function maybeTriggerTour(section) {
-  if (_touredSections.has(section)) return;
-  _touredSections.add(section);
-  if (localStorage.getItem('egbc_planner_toured_' + section) === 'permanent') return;
-  if (!localStorage.getItem('egbc_planner_toured_' + section)) {
-    setTimeout(() => {
-      if (currentSection === section) {
-        startTour(false);
-        localStorage.setItem('egbc_planner_toured_' + section, '1');
-      }
-    }, 500);
-  }
-}
+function maybeTriggerTour(section){if(_touredSections.has(section))return;_touredSections.add(section);}
 </script>
 
 <!-- ══ TOUR OVERLAY ══ -->
