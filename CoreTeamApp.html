@@ -3014,6 +3014,15 @@ function showTourStep(steps) {
 
   document.getElementById('tour-overlay').classList.add('active');
 
+  // Size the tooltip first, then measure it - never assume fixed dimensions.
+  // No transform is used here: a leftover translate(-50%,-50%) from the
+  // centred fallback below would otherwise offset every later step, pushing
+  // it off the edge of the screen.
+  const M = 16;                                  // min gap to viewport edge
+  const vw = window.innerWidth, vh = window.innerHeight;
+  tooltip.style.transform = '';
+  tooltip.style.width = Math.min(280, vw - M*2) + 'px';
+
   if (el) {
     const rect = el.getBoundingClientRect();
     const pad  = 6;
@@ -3023,18 +3032,21 @@ function showTourStep(steps) {
     highlight.style.height = (rect.height + pad*2) + 'px';
     highlight.style.display = 'block';
 
-    // Position tooltip below or above
-    const tipTop = rect.bottom + pad + 12;
-    const tipLeft = Math.max(16, Math.min(rect.left, window.innerWidth - 300));
-    tooltip.style.top  = (tipTop + 200 > window.innerHeight ? rect.top - 180 : tipTop) + 'px';
-    tooltip.style.left = tipLeft + 'px';
-    tooltip.style.width = '280px';
+    const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+
+    // Prefer below the target, then above, then clamp into view.
+    let top = rect.bottom + pad + 12;
+    if (top + th > vh - M) {
+      const above = rect.top - pad - 12 - th;
+      top = above >= M ? above : Math.max(M, vh - M - th);
+    }
+    tooltip.style.top  = top + 'px';
+    tooltip.style.left = Math.max(M, Math.min(rect.left, vw - M - tw)) + 'px';
   } else {
     highlight.style.display = 'none';
-    tooltip.style.top  = '50%';
-    tooltip.style.left = '50%';
-    tooltip.style.transform = 'translate(-50%, -50%)';
-    tooltip.style.width = '280px';
+    const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+    tooltip.style.left = Math.max(M, (vw - tw) / 2) + 'px';
+    tooltip.style.top  = Math.max(M, (vh - th) / 2) + 'px';
   }
 }
 
