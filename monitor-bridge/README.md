@@ -12,7 +12,38 @@ the app, and forwards each fader move to the mixer as MIDI NRPN over TCP.
 
 ---
 
-## Setting it up
+## What goes on the bridge PC
+
+Any Windows PC that stays on the church network during the service. It does not
+need to be fast, and it does not need to be the AV machine — but it must stay
+switched on, and its IP address must not change.
+
+Three things go on it:
+
+1. **Node.js** — the LTS installer from [nodejs.org](https://nodejs.org)
+2. **This `monitor-bridge` folder**, plus `start-monitor-bridge.bat` from the
+   repo root. Nothing else from the site is needed. Easiest way: green **Code**
+   button on the repo → **Download ZIP** → unzip → keep those two.
+3. **A `config.json`** with the mixer's address — the setup script writes it.
+
+### The easy way
+
+Double-click **`setup-bridge.bat`**. It checks Node, installs the one
+dependency, finds this PC's address, asks for the mixer's IP and tests it,
+offers to make and trust the certificate, opens the firewall, writes
+`config.json`, and prints the exact settings to type into Monitor Setup.
+
+It asks before doing anything that changes the machine.
+
+### Afterwards
+
+Double-click **`start-monitor-bridge.bat`** before the service and leave the
+window open — closing it stops the faders working. Each fader move prints a
+line, so that window is also how you check it's doing anything.
+
+---
+
+## Setting it up by hand
 
 **On the mixer** — the SQ needs MIDI over TCP/IP reachable on the network:
 
