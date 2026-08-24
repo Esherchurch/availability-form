@@ -599,19 +599,125 @@ body {
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
   authDomain: "egbc-worship-planner.firebaseapp.com",
   projectId: "egbc-worship-planner"
 });
-const db = getFirestore(app);
+// Offline-first. Anything loaded once is served from disk next time, and the app
+// keeps working if the church wifi drops mid-service. Falls back to the plain
+// in-memory client where IndexedDB isn't available (private windows, old iOS).
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+} catch (e) {
+  db = getFirestore(app);
+}
 
 let eventsForDay = [], selectedEvent = null, currentService = null;
 let songs = [], index = 0, currentRole = "", currentDate = "", currentLeader = "";
 let selectedKeys = [], performanceMode = false, currentDocId = null;
 let wakeLock = null, originalData = { notes:"", inst:"", last:"" }, currentSongData = {};
+
+// ── PER-SERVICE CACHES ────────────────────────────────────────────────────
+// Cleared in loadService(). Each holds a PROMISE, so two callers racing for the
+// same song — you tapping ahead while the prefetch is still running — share one
+// read rather than firing two.
+const songDocCache  = new Map();
+const lastTimeCache = new Map();
+let   playthroughPromise = null;
+let   todayNotesPromise  = null;
+
+function clearServiceCaches() {
+  songDocCache.clear();
+  lastTimeCache.clear();
+  playthroughPromise = null;
+  todayNotesPromise  = null;
+}
+
+// Today's notes for this date + role cover EVERY song in the service, so this is
+// one read per service, not one per song. Invalidated after a save.
+function getTodayNotes() {
+  if (!todayNotesPromise) {
+    todayNotesPromise = getDocs(query(collection(db, "schedules"),
+      where("date", "==", currentDate), where("role", "==", currentRole)))
+      .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      .catch(() => []);
+  }
+  return todayNotesPromise;
+}
+
+const songSlug = title => title.toLowerCase().replace(/\s+/g, "-");
+
+function getSongDoc(title) {
+  const slug = songSlug(title);
+  if (!songDocCache.has(slug)) {
+    songDocCache.set(slug, getDoc(doc(db, "songs", slug))
+      .then(d => d.exists() ? d.data() : {})
+      .catch(() => ({})));
+  }
+  return songDocCache.get(slug);
+}
+
+// The playthrough list is identical for every song, so read it once per service
+// instead of once per song.
+function getPlaythroughs() {
+  if (!playthroughPromise) {
+    playthroughPromise = getDocs(collection(db, "kb_playthrough"))
+      .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      .catch(() => []);
+  }
+  return playthroughPromise;
+}
+
+// "Last time you played this" — a targeted, indexed query instead of downloading
+// every note ever saved. limit(2) because the newest hit may be today's own
+// entry, which we skip.
+async function fetchLastTime(title) {
+  try {
+    const snap = await getDocs(query(collection(db, "schedules"),
+      where("worshipLeader", "==", currentLeader),
+      where("role", "==", currentRole),
+      where("songTitle", "==", title),
+      orderBy("date", "desc"), limit(2)));
+    return snap.docs.map(d => d.data()).find(x => x.date !== currentDate) || null;
+  } catch (e) {
+    // Composite index not built yet — fall back to the old whole-collection scan
+    // so the feature keeps working. The console message carries Firestore's
+    // one-click link to create the index.
+    console.warn('[perf] schedules index missing, falling back to full scan:', e.message);
+    try {
+      const allSnap = await getDocs(collection(db, "schedules"));
+      let last = null;
+      allSnap.forEach(d => {
+        const x = d.data();
+        if (x.worshipLeader === currentLeader && x.role === currentRole &&
+            x.songTitle === title && x.date !== currentDate) {
+          if (!last || new Date(x.date) > new Date(last.date)) last = x;
+        }
+      });
+      return last;
+    } catch (e2) { return null; }
+  }
+}
+
+function getLastTime(title) {
+  if (!lastTimeCache.has(title)) lastTimeCache.set(title, fetchLastTime(title));
+  return lastTimeCache.get(title);
+}
+
+// Warm the next song's data while this one is on screen, so tapping through the
+// set feels instant.
+function prefetchNext(i) {
+  const nxt = songs[i + 1];
+  if (!nxt) return;
+  getSongDoc(nxt.title);
+  getLastTime(nxt.title);
+}
 
 // ── UTILS ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -648,11 +754,12 @@ window.autoGrow = el => {
 window.loadRota = async () => {
   const date = $('dateInput').value;
   if (!date) return;
-  const snap = await getDocs(collection(db, "events"));
+  // Ask Firestore for just this date's events rather than downloading them all.
+  const snap = await getDocs(query(collection(db, "events"), where("date", "==", date)));
   eventsForDay = [];
   snap.forEach(d => {
     const ev = d.data();
-    if (ev.date === date && !ev.archived) eventsForDay.push(ev);
+    if (!ev.archived) eventsForDay.push(ev);
   });
 
   const svcSelect = $('serviceSelect');
@@ -706,6 +813,7 @@ window.loadService = async () => {
     currentService = snap.docs[0].data();
     songs = currentService.order.filter(x => x.type === "song");
     if (!songs.length) { toast('No songs in this service'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
+    clearServiceCaches();
     buildMenu();
     $('startScreen').style.display = 'none';
     $('songScreen').style.display = 'flex';
@@ -770,53 +878,39 @@ async function showSong(i) {
     <div class="skel" style="height:130px;"></div>
     <div class="skel" style="height:60px;"></div>`;
 
-  // Fetch data
-  const songDoc = await getDoc(doc(db, "songs", s.title.toLowerCase().replace(/\s+/g, "-")));
-  const data = songDoc.exists() ? songDoc.data() : {};
-  const allFiles = data.files || [];
-  const youtubeUrl = data.youtube || "";
-
   // Playthrough links — instrumental roles only, must match selected key exactly
   const PT_ROLES = ["Keyboard","Keys","2nd Keys","Guitar","2nd Guitar","Electric Guitar","Bass"];
   const showPT = PT_ROLES.some(r => currentRole.toLowerCase().includes(r.toLowerCase()));
-  let ptMatches = [];
-  if (showPT && selectedKeys.length > 0) {
-    try {
-      const ptSnap = await getDocs(collection(db, "kb_playthrough"));
-      const seen = new Set();
-      ptSnap.forEach(ptDoc => {
-        const pt = ptDoc.data();
-        if (!pt.published) return;
-        const ptSong = (pt.songTitle||pt.title||'').toLowerCase().trim();
-        const titleNorm = s.title.toLowerCase().trim();
-        if (!(ptSong===titleNorm||ptSong.includes(titleNorm)||titleNorm.includes(ptSong))) return;
-        // Only show if the playthrough key exactly matches one of the selected keys
-        if (!selectedKeys.some(k => (pt.ourKey||'').toLowerCase()===k.toLowerCase())) return;
-        if (!seen.has(ptDoc.id)) { seen.add(ptDoc.id); ptMatches.push({...pt}); }
-      });
-    } catch(e) {}
-  }
+
+  // None of these depend on each other, so fetch them together: one round trip
+  // instead of four in a row.
+  const [data, allPt, todayNotes, last] = await Promise.all([
+    getSongDoc(s.title),
+    (showPT && selectedKeys.length > 0) ? getPlaythroughs() : Promise.resolve([]),
+    getTodayNotes(),
+    getLastTime(s.title)
+  ]);
+
+  // You tapped on while that was in flight — the newer song owns the screen now.
+  if (index !== i) return;
+
+  const allFiles = data.files || [];
+  const youtubeUrl = data.youtube || "";
+
+  const titleNorm = s.title.toLowerCase().trim();
+  const ptMatches = allPt.filter(pt => {
+    if (!pt.published) return false;
+    const ptSong = (pt.songTitle||pt.title||'').toLowerCase().trim();
+    if (!(ptSong===titleNorm||ptSong.includes(titleNorm)||titleNorm.includes(ptSong))) return false;
+    // Only show if the playthrough key exactly matches one of the selected keys
+    return selectedKeys.some(k => (pt.ourKey||'').toLowerCase()===k.toLowerCase());
+  });
 
   // Today's notes
   let yourNotes = s.notes || "";
   currentDocId = null;
-  const todaySnap = await getDocs(query(collection(db,"schedules"),
-    where("date","==",currentDate), where("role","==",currentRole)));
-  todaySnap.forEach(d => {
-    const n = d.data();
-    if (n.songTitle === s.title) { yourNotes = n.notes; currentDocId = d.id; }
-  });
-
-  // Last time notes
-  const allSnap = await getDocs(collection(db,"schedules"));
-  let last = null;
-  allSnap.forEach(d => {
-    const n = d.data();
-    if (n.worshipLeader===currentLeader && n.role===currentRole &&
-        n.songTitle===s.title && n.date!==currentDate) {
-      if (!last || new Date(n.date)>new Date(last.date)) last = n;
-    }
-  });
+  const mine = todayNotes.find(n => n.songTitle === s.title);
+  if (mine) { yourNotes = mine.notes; currentDocId = mine.id; }
 
   const roleNotes = currentService?.roleNotes?.[currentRole] || "";
   const lastNotes = last ? last.notes : "";
@@ -824,6 +918,7 @@ async function showSong(i) {
   currentSongData = { allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes };
 
   renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes);
+  prefetchNext(i);
 }
 
 function renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes) {
@@ -996,6 +1091,7 @@ window.save = async song => {
       });
       currentDocId = nd.id;
     }
+    todayNotesPromise = null;   // next song re-reads today's notes once
     toast('✓ Notes saved');
   } catch(e) {
     toast('Save failed — check connection');
@@ -1004,11 +1100,17 @@ window.save = async song => {
 };
 
 // ── PDF / VIDEO ───────────────────────────────────────────────────────────
-window.openPDF = url => {
-  let final = url;
+// No cache-buster: a stable URL means the second open of a chart comes from the
+// browser cache instead of the network.
+function viewerUrl(url) {
   if (url.includes("drive.google.com")||url.includes("firebasestorage.googleapis.com")) {
-    final = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true&cb=${Date.now()}`;
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   }
+  return url;
+}
+
+window.openPDF = url => {
+  const final = viewerUrl(url);
   const v = $('pdfViewer');
   v.innerHTML = '';
   v.style.display = 'block';
@@ -1051,14 +1153,24 @@ window.forceExternalYT = url => {
 window.closePDF = () => { const v=$('pdfViewer'); v.style.display='none'; v.innerHTML=''; };
 
 // ── CACHE ─────────────────────────────────────────────────────────────────
+// Warm the whole service's sheet music. Uses the shared song cache, so songs you
+// have already opened cost no extra reads. Note: Drive/Firebase PDFs are rendered
+// by Google's viewer server-side and can't be primed from here — dropping the
+// cache-buster in viewerUrl() is what makes those quick to reopen.
+const prefetched = new Set();
+function prefetchFile(url) {
+  if (!url || prefetched.has(url)) return;
+  prefetched.add(url);
+  const l = document.createElement('link');
+  l.rel = 'prefetch';
+  l.href = url;
+  document.head.appendChild(l);
+}
+
 window.cacheAllPDFs = async () => {
   for (const song of songs) {
-    const sd = await getDoc(doc(db,"songs",song.title.toLowerCase().replace(/\s+/g,"-")));
-    if (sd.exists()) {
-      (sd.data().files||[]).filter(f=>(song.keys||[]).includes(f.key)).forEach(f=>{
-        const img = new Image(); img.src = f.url;
-      });
-    }
+    const data = await getSongDoc(song.title);
+    (data.files||[]).filter(f=>(song.keys||[]).includes(f.key)).forEach(f => prefetchFile(f.url));
   }
 };
 </script>
