@@ -808,7 +808,10 @@ let mmConnected = false;     // socket open AND the bridge says the mixer is up
 let mmSocketOpen = false;
 let mmRetryTimer = null;
 let mmRetryDelay = 1000;
-let mmLevels = {};           // inputChannel -> 0..1, as last sent from this tablet
+let mmLevels = {};           // inputChannel -> 0..1
+let mmScanState = 'idle';    // idle | scanning | done | failed
+let mmScanNote = '';         // why we're showing what we're showing
+let mmScanTimer = null;
 
 async function loadMonitorSetup() {
   monitorCfg = null; myWedge = null; myChannels = []; mmLevels = {};
@@ -822,9 +825,9 @@ async function loadMonitorSetup() {
     myWedge = (monitorCfg.wedges || []).find(w => w.id === wedgeId) || null;
     if (!myWedge) return;
 
+    // The channel list now comes off the desk when the modal opens. A role
+    // group, if one exists, only narrows that list down.
     myChannels = channelsForRole(currentRole);
-    if (!myChannels.length) { myWedge = null; return; }
-
     mmLevels = loadStoredLevels();
     mmConnect();
     // This runs alongside the first song load rather than blocking it, so the
@@ -836,8 +839,10 @@ async function loadMonitorSetup() {
   }
 }
 
-// Role names on the rota are things like "Keyboard" or "Lead Vocal"; the config
-// may use any casing. Fall back to a group called "default".
+// An optional per-role list. If the AV team has set one up it trims what the
+// desk reports down to the channels that role should see; with none, the
+// performer gets everything routed into their wedge. Role names on the rota are
+// things like "Keyboard" or "Lead Vocal"; the config may use any casing.
 function channelsForRole(role) {
   const groups = monitorCfg?.channelGroups || [];
   const want = (role || '').toLowerCase().trim();
@@ -885,12 +890,16 @@ function mmConnect() {
     mmSocketOpen = true;
     mmRetryDelay = 1000;
     mmSetStatus();
+    // If the performer is sitting on the modal waiting, pick up where we left off.
+    if ($('monitorModal')?.classList.contains('open')) mmRequestScan();
   };
 
   mmSocket.onmessage = ev => {
     let msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
     if (msg.status) { mmConnected = mmSocketOpen && msg.status === 'connected'; mmSetStatus(); }
-    if (msg.error)  { toast('Monitor: ' + msg.error); }
+    if (msg.scan)   { applyScan(msg.scan); }
+    if (msg.error && msg.scanFailed) { mmScanFailed(msg.error); }
+    else if (msg.error) { toast('Monitor: ' + msg.error); }
   };
 
   mmSocket.onclose = () => {
@@ -950,6 +959,75 @@ function mmDbLabel(level) {
   return (db > -0.05 ? '0.0' : db.toFixed(1)) + ' dB';
 }
 
+// ── READING THE MIX OFF THE DESK ──────────────────────────────────────────
+// The mixer knows which channels are actually routed into this wedge and where
+// their sends are sitting, so ask it rather than making the AV team keep a
+// typed list in step with the desk. Names are the one thing MIDI cannot give
+// us — those come from the channel-name table in Monitor Setup, falling back
+// to "Ch 12".
+function mmRequestScan() {
+  if (!mmConnected || !myWedge) return;
+  mmScanState = 'scanning';
+  mmScanNote = '';
+  renderMonitorBody();
+  try {
+    mmSocket.send(JSON.stringify({ action: 'scanMix', auxBus: myWedge.auxBus }));
+  } catch (e) { return mmScanFailed('could not reach the bridge'); }
+
+  clearTimeout(mmScanTimer);
+  mmScanTimer = setTimeout(() => {
+    if (mmScanState === 'scanning') mmScanFailed('the desk did not answer');
+  }, 8000);
+}
+
+function applyScan(scan) {
+  clearTimeout(mmScanTimer);
+  if (!myWedge || scan.auxBus !== myWedge.auxBus) return;   // a scan for someone else
+
+  const names = monitorCfg?.channelNames || {};
+  const allowed = channelsForRole(currentRole);             // optional narrowing
+  const allowSet = allowed.length ? new Set(allowed.map(c => c.inputChannel)) : null;
+
+  const live = scan.channels
+    .filter(c => c.assigned)
+    .filter(c => !allowSet || allowSet.has(c.inputChannel))
+    .map(c => ({
+      inputChannel: c.inputChannel,
+      label: names[c.inputChannel] || names[String(c.inputChannel)]
+             || allowed.find(a => a.inputChannel === c.inputChannel)?.label
+             || ('Ch ' + c.inputChannel),
+      level: c.level,
+    }));
+
+  if (!live.length) {
+    mmScanState = 'done';
+    mmScanNote = 'The desk says nothing is routed into ' + myWedge.label + ' yet.';
+    myChannels = [];
+    renderMonitorBody();
+    return;
+  }
+
+  myChannels = live.map(c => ({ inputChannel: c.inputChannel, label: c.label }));
+  // Start the faders where the desk actually has them, not where this tablet
+  // last left them.
+  live.forEach(c => { if (c.level !== null) mmLevels[c.inputChannel] = c.level; });
+  storeLevels();
+
+  mmScanState = 'done';
+  mmScanNote = '';
+  renderMonitorBody();
+}
+
+function mmScanFailed(why) {
+  clearTimeout(mmScanTimer);
+  mmScanState = 'failed';
+  myChannels = channelsForRole(currentRole);
+  mmScanNote = myChannels.length
+    ? 'Could not read the desk (' + why + '), so these are the channels set up in Monitor Setup. Levels shown are what this tablet last sent.'
+    : 'Could not read the desk (' + why + '), and no channels have been set up for ' + currentRole + ' as a fallback.';
+  renderMonitorBody();
+}
+
 // Redraw the song that's on screen, keeping whatever is typed in the notes box.
 function rerenderCurrentSong() {
   if (!songs.length || !currentSongData.allFiles) return;
@@ -962,20 +1040,38 @@ function rerenderCurrentSong() {
 window.openMonitor = () => {
   if (!myWedge) return;
   $('mmWedge').textContent = myWedge.label + ' · Aux ' + myWedge.auxBus;
+  mmScanState = 'idle';
   renderMonitorBody();
   $('monitorModal').classList.add('open');
   mmSetStatus();
   if (!mmSocketOpen) mmConnect();
+  else mmRequestScan();
 };
+
+window.mmRescan = () => mmRequestScan();
 
 window.closeMonitor = () => $('monitorModal').classList.remove('open');
 
 function renderMonitorBody() {
   const body = $('mmBody');
-  if (!myChannels.length) {
-    body.innerHTML = '<div class="mm-empty">No channels have been set up for ' +
-      esc(currentRole) + '.<br>Ask the AV team to add them in Monitor Setup.</div>';
+
+  if (mmScanState === 'scanning') {
+    body.innerHTML = '<div class="mm-empty">Reading your mix off the desk…</div>';
     $('mmFoot').textContent = '';
+    return;
+  }
+
+  if (!myChannels.length) {
+    // Say the actual reason. "No channels set up" is the wrong thing to tell
+    // someone whose bridge is simply switched off.
+    const blocked = mmBlockedReason();
+    const why = blocked ? blocked
+      : !mmConnected ? 'Not connected to the mixer yet, so your channel list has not been read off the desk.'
+      : (mmScanNote || 'Nothing is routed into this wedge on the desk.');
+    body.innerHTML = '<div class="mm-empty">' + esc(why) +
+      '<br><br><button class="action-btn btn-monitor" onclick="mmRescan()">&#8635; Read the desk again</button></div>';
+    $('mmFoot').textContent = '';
+    mmSetStatus();
     return;
   }
 
@@ -984,6 +1080,7 @@ function renderMonitorBody() {
        The monitor bridge isn't reachable, so the faders are locked. Check the
        bridge PC is switched on and running, then reopen this.
      </div>` +
+    (mmScanNote ? '<div class="mm-offline">' + esc(mmScanNote) + '</div>' : '') +
     myChannels.map(c => {
       const lvl = mmLevels[c.inputChannel] ?? 0;
       return `<div class="mm-chan">
@@ -999,9 +1096,16 @@ function renderMonitorBody() {
       </div>`;
     }).join('');
 
-  $('mmFoot').textContent =
-    'Only your ' + myWedge.label + ' wedge is affected — nobody else hears these changes. ' +
-    'Positions shown are what this tablet last sent; the app cannot read levels back off the desk.';
+  $('mmFoot').innerHTML =
+    '<button class="action-btn btn-monitor" onclick="mmRescan()" style="margin-bottom:9px;">&#8635; Read the desk again</button><br>' +
+    'Only your ' + esc(myWedge.label) + ' wedge is affected — nobody else hears these changes. ' +
+    (mmScanState === 'done'
+      ? 'The channel list and starting levels were read from the mixer.'
+      : 'Levels shown are what this tablet last sent.');
+
+  // Every re-render rebuilds the faders, so re-apply the locked/unlocked state
+  // rather than leaving freshly created faders enabled while offline.
+  mmSetStatus();
 }
 
 // Live number while dragging, but nothing goes to the desk until you let go —

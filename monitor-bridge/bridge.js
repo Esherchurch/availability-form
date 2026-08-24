@@ -20,6 +20,7 @@ const path = require('path');
 const https = require('https');
 const { WebSocketServer } = require('ws');
 const sq = require('./sq5');
+const { NrpnParser } = require('./midi-parse');
 
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 function loadConfig() {
@@ -53,6 +54,77 @@ const cfg = loadConfig();
 const ts = () => new Date().toTimeString().slice(0, 8);
 const log = (...a) => console.log('[' + ts() + ']', ...a);
 
+// ── READING THE DESK BACK ───────────────────────────────────────────────────
+// Everything the mixer sends runs through one parser. Replies to a 'get' land
+// here as (parameter, value); a scan in progress picks up the ones it asked for.
+const answers = new Map();      // parameter -> value, most recent wins
+let scanCollecting = false;
+
+const parser = new NrpnParser((param, value) => {
+  if (scanCollecting) answers.set(param, value);
+});
+
+/*
+ * Ask the desk what's actually in a mix.
+ *
+ * For every input channel we request its assignment to this aux and its send
+ * level, then wait for the replies to arrive. The SQ answers asynchronously and
+ * gives no completion signal, so this is a collection window: send everything,
+ * wait, read what came back. Channels that don't answer are reported as unknown
+ * rather than guessed at.
+ */
+async function scanMix(auxBus) {
+  if (!sqConnected) throw new Error('mixer offline');
+  if (!Number.isInteger(auxBus) || auxBus < 1 || auxBus > sq.AUX_COUNT) {
+    throw new RangeError('auxBus must be an integer 1..' + sq.AUX_COUNT);
+  }
+
+  answers.clear();
+  scanCollecting = true;
+
+  // Paced in small batches. The desk copes with a burst, but 96 requests in one
+  // write is a lot to ask of a mixer that is also running a service.
+  const gets = [];
+  for (let ch = 1; ch <= sq.MAX_INPUT; ch++) {
+    gets.push(sq.encodeGet(cfg.midiChannel, sq.auxAssignParam(ch, auxBus)));
+    gets.push(sq.encodeGet(cfg.midiChannel, sq.auxSendParam(ch, auxBus)));
+  }
+  for (let i = 0; i < gets.length; i += 12) {
+    if (!sendToSQ(Buffer.concat(gets.slice(i, i + 12)))) {
+      scanCollecting = false;
+      throw new Error('mixer offline');
+    }
+    await sleep(25);
+  }
+
+  await sleep(SCAN_WINDOW_MS);
+  scanCollecting = false;
+
+  const channels = [];
+  for (let ch = 1; ch <= sq.MAX_INPUT; ch++) {
+    const assign = answers.get(sq.auxAssignParam(ch, auxBus));
+    const level  = answers.get(sq.auxSendParam(ch, auxBus));
+    if (assign === undefined && level === undefined) continue;   // silent channel
+    channels.push({
+      inputChannel: ch,
+      assigned: assign === undefined ? null : assign > 0,
+      value: level === undefined ? null : level,
+      db: level === undefined ? null : (level > 0 ? Number(sq.valueToDb(level).toFixed(1)) : null),
+      level: level === undefined ? null : Number(sq.valueToPosition(level, cfg.maxDb).toFixed(3)),
+    });
+  }
+
+  return {
+    auxBus,
+    answered: channels.length,
+    scanned: sq.MAX_INPUT,
+    channels,
+  };
+}
+
+const SCAN_WINDOW_MS = 900;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 // ── TCP LINK TO THE MIXER ───────────────────────────────────────────────────
 let sock = null;
 let sqConnected = false;
@@ -78,9 +150,9 @@ function connectToSQ() {
     setConnected(true);
   });
 
-  // The SQ talks back (metering, scene changes). We don't act on it, but the
-  // data has to be drained or the socket stalls.
-  sock.on('data', () => {});
+  // The SQ talks back - replies to our 'get' commands, plus whatever else it
+  // emits. Parse it so a mix scan can read the desk's real state.
+  sock.on('data', d => parser.push(d));
 
   sock.on('error', (err) => {
     if (sqConnected || reconnectDelay === 1000) log('SQ5 socket error:', err.message);
@@ -205,8 +277,27 @@ function reply(ws, obj) {
   }
 }
 
+let scanInFlight = null;
+
 function handle(ws, msg, who) {
   if (msg.action === 'ping') return reply(ws, { pong: true, status: sqConnected ? 'connected' : 'disconnected' });
+
+  if (msg.action === 'scanMix') {
+    // One scan at a time - two tablets opening at once would otherwise have
+    // their replies land in the same collection window and confuse each other.
+    if (!scanInFlight) {
+      const aux = Number(msg.auxBus);
+      log(who + ': scanning Aux' + aux + ' on the desk');
+      scanInFlight = scanMix(aux)
+        .then(r => { log('  Aux' + aux + ': ' + r.channels.filter(c => c.assigned).length +
+                         ' channels assigned, ' + r.answered + '/' + r.scanned + ' answered'); return r; })
+        .finally(() => { scanInFlight = null; });
+    }
+    scanInFlight
+      .then(r => reply(ws, { scan: r }))
+      .catch(e => reply(ws, { error: e.message, scanFailed: true }));
+    return;
+  }
 
   if (msg.action !== 'setLevel') {
     return reply(ws, { error: 'unknown action: ' + msg.action });

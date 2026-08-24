@@ -86,6 +86,10 @@ svg.stage { width:100%; height:auto; background:var(--surface-2); border:1px sol
 .chan input.n { width:74px; flex:none; }
 
 .empty { text-align:center; padding:26px 16px; color:var(--faint); font-size:13px; font-weight:600; }
+.name-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:8px; }
+.name-row { display:flex; gap:7px; align-items:center; }
+.name-row .num { flex:none; width:34px; text-align:center; font-size:11px; font-weight:800; color:var(--muted); background:var(--brand-tint); border-radius:var(--r-sm); padding:7px 0; }
+.name-row input { padding:8px 10px; font-size:13px; }
 label.check { display:flex; gap:11px; align-items:flex-start; font-size:12px; color:var(--body); line-height:1.5; cursor:pointer; padding:12px; border:1px solid var(--hairline); border-radius:var(--r-md); background:var(--surface-2); }
 label.check input { width:20px; height:20px; margin-top:1px; flex:none; accent-color:var(--brand); }
 #toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 20px; border-radius:var(--r-pill); font-size:13px; font-weight:700; display:none; z-index:200; box-shadow:var(--shadow-lg); }
@@ -180,8 +184,29 @@ label.check input { width:20px; height:20px; margin-top:1px; flex:none; accent-c
     </div>
 
     <div class="card">
-      <h2>Channels per role</h2>
-      <div class="hint">What each role can adjust in their own wedge. Role names must match the rota — "Keyboard", "Lead Vocal" and so on. A group named <strong>default</strong> is used for anyone with no group of their own.</div>
+      <h2>Channel names</h2>
+      <div class="hint">
+        The app reads <strong>which</strong> channels are in each wedge straight off
+        the mixer, but MIDI carries no channel names — so give the ones you use a
+        name here, matching the desk. Anything left blank shows as "Ch 12".
+        One-off job; only needs revisiting when the input list changes.
+      </div>
+      <div id="nameGrid" class="name-grid"></div>
+      <label class="check" style="margin-top:12px;">
+        <input type="checkbox" id="showAllNames" onchange="renderNames()">
+        <span>Show all 48 inputs (otherwise just the ones already named, plus a few spare)</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <h2>Channels per role <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted);">— optional</span></h2>
+      <div class="hint">
+        Leave this empty and each performer sees everything the desk has routed
+        into their wedge. Add a role here only to <em>narrow</em> that down — the
+        channels listed are the only ones that role will be shown. Role names must
+        match the rota ("Keyboard", "Lead Vocal"), and a group named
+        <strong>default</strong> covers anyone without one of their own.
+      </div>
       <div id="groupList"></div>
       <button class="btn btn-ghost btn-sm" onclick="addGroup()">+ Add role group</button>
       <div class="savebar">
@@ -235,29 +260,30 @@ async function loadConfig() {
     if (d.exists()) cfg = Object.assign(cfg, d.data());
   } catch (e) { toast('Could not load setup'); }
   if (!cfg.wedges?.length) {
-    // Sensible starting point — drag them to where the wedges actually are.
+    // EGBC's actual foldback map. Stage positions are a starting guess — drag
+    // them to where the wedges really stand and hit Save Setup.
     cfg.wedges = [
-      { id:'w1', label:'Vocals Left',  auxBus:1, svgX:120, svgY:200 },
-      { id:'w2', label:'Vocals Right', auxBus:2, svgX:280, svgY:200 },
-      { id:'w3', label:'Drums',        auxBus:3, svgX:200, svgY:80  },
-      { id:'w4', label:'Keys',         auxBus:4, svgX:340, svgY:140 },
+      { id:'w1', label:'Acoustic Guitar', auxBus:1, svgX:150, svgY:245 },
+      { id:'w2', label:'Bass (in-ear)',   auxBus:2, svgX:105, svgY:120 },
+      { id:'w3', label:'Worship Leader',  auxBus:3, svgX:240, svgY:250 },
+      { id:'w4', label:'Keyboard',        auxBus:4, svgX:370, svgY:150 },
+      { id:'w5', label:'Drums',           auxBus:5, svgX:240, svgY:75  },
+      { id:'w6', label:'Backing Singers', auxBus:6, svgX:330, svgY:245 },
+      { id:'w7', label:'Bass (wedge)',    auxBus:7, svgX:95,  svgY:200 },
+      { id:'w8', label:'Spare 1',         auxBus:8, svgX:415, svgY:85  },
     ];
   }
-  if (!cfg.channelGroups?.length) {
-    cfg.channelGroups = [{ role:'default', channels:[
-      { inputChannel:1, label:'Lead Vocal' },
-      { inputChannel:9, label:'Click Track' },
-    ]}];
-  }
+  cfg.channelGroups = cfg.channelGroups || [];
+  cfg.channelNames = cfg.channelNames || {};
   $('bridgeIp').value = cfg.bridgeIp || '';
   $('bridgePort').value = cfg.bridgePort || 3000;
   $('bridgeSecure').checked = !!cfg.bridgeSecure;
-  renderWedges(); renderGroups(); drawStage();
+  renderWedges(); renderGroups(); renderNames(); drawStage();
 }
 
 window.saveConfig = async () => {
   const btn = $('saveCfgBtn');
-  readWedgesFromForm(); readGroupsFromForm();
+  readWedgesFromForm(); readGroupsFromForm(); readNamesFromForm();
   cfg.bridgeIp = $('bridgeIp').value.trim();
   cfg.bridgePort = Number($('bridgePort').value) || 3000;
   cfg.bridgeSecure = $('bridgeSecure').checked;
@@ -321,6 +347,30 @@ window.removeWedge = i => {
 };
 
 // ── CHANNEL GROUPS ────────────────────────────────────────────────────────
+window.renderNames = () => {
+  const all = $('showAllNames')?.checked;
+  const named = Object.keys(cfg.channelNames || {}).map(Number).filter(n => n >= 1 && n <= 48);
+  // Show what's named already, plus a handful of blanks to fill in, unless the
+  // AV team asks for the full 48.
+  const upTo = all ? 48 : Math.min(48, Math.max(16, (named.length ? Math.max(...named) : 0) + 4));
+  let html = '';
+  for (let n = 1; n <= upTo; n++) {
+    html += '<div class="name-row" data-n="' + n + '">' +
+      '<span class="num">' + n + '</span>' +
+      '<input class="f n-name" value="' + esc(cfg.channelNames[n] || '') + '" placeholder="—">' +
+      '</div>';
+  }
+  $('nameGrid').innerHTML = html;
+};
+
+function readNamesFromForm() {
+  document.querySelectorAll('#nameGrid .name-row').forEach(el => {
+    const n = el.dataset.n;
+    const v = el.querySelector('.n-name').value.trim();
+    if (v) cfg.channelNames[n] = v; else delete cfg.channelNames[n];
+  });
+}
+
 function renderGroups() {
   $('groupList').innerHTML = cfg.channelGroups.map((g, gi) => `
     <div class="item" data-gi="${gi}">

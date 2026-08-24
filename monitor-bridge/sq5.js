@@ -141,9 +141,68 @@ function encodeAuxSend(midiChannel, inputChannel, auxBus, value) {
   return encodeNrpn(midiChannel, auxSendParam(inputChannel, auxBus), value);
 }
 
+/*
+ * Assignment (is this channel routed into that mix at all?) lives in a parallel
+ * block above the level block: level MSB 0x40 becomes assign MSB 0x60. That is
+ * +0x20 in the MSB, and an MSB step is worth 128, so the parameter numbers are
+ * 0x20 * 128 = 4096 apart - NOT 0x2000. Getting that wrong overflows the 14-bit
+ * address space and the assignment silently never matches.
+ *
+ * Checked against the document's assign examples: FX1Rtn->Aux7 assign is 66 1A
+ * (13082) and the matching level address is 8986, exactly 4096 lower.
+ */
+const ASSIGN_OFFSET = 0x20 * 128;   // 4096
+
+function auxAssignParam(inputChannel, auxBus) {
+  return auxSendParam(inputChannel, auxBus) + ASSIGN_OFFSET;
+}
+
+/*
+ * The 'get' command: the same address bytes, then a Data Increment (CC96) of
+ * 0x7F rather than a value. The mixer replies with a normal 4-message NRPN
+ * write carrying the current value.
+ */
+const CC_DATA_INC = 0x60;
+
+function encodeGet(midiChannel, param) {
+  const n = 0xB0 | ((Math.max(1, Math.min(16, midiChannel)) - 1) & 0x0F);
+  const p = param & 0x3FFF;
+  return Buffer.from([
+    n, CC_NRPN_MSB, (p >> 7) & 0x7F,
+    n, CC_NRPN_LSB, p & 0x7F,
+    n, CC_DATA_INC, 0x7F,
+  ]);
+}
+
+/** Given a level parameter number, which input/aux is it? null if out of range. */
+function decodeAuxSendParam(param) {
+  const off = param - (LEVEL_BASE + LR_BLOCK);
+  if (off < 0) return null;
+  const src = Math.floor(off / AUX_COUNT);
+  if (src >= MAX_INPUT) return null;            // groups and FX returns, not ours
+  return { inputChannel: src + 1, auxBus: (off % AUX_COUNT) + 1 };
+}
+
+/** dB -> fader position, the inverse of positionToDb. For showing desk levels. */
+function dbToPosition(db, topDb) {
+  const top = (topDb === undefined || topDb === null) ? 0 : Number(topDb);
+  if (!Number.isFinite(db)) return 0;
+  const drop = top - db;
+  if (drop <= 0) return 1;
+  if (drop >= TAPER_RANGE_DB) return 0;
+  return 1 - Math.sqrt(drop / TAPER_RANGE_DB);
+}
+
+/** 14-bit level value -> fader position. */
+function valueToPosition(value, topDb) {
+  if (value <= 0) return 0;
+  return dbToPosition(valueToDb(value), topDb);
+}
+
 module.exports = {
-  auxSendParam, encodeNrpn, encodeAuxSend,
-  dbToValue, valueToDb, positionToDb, levelToValue, clamp14,
+  auxSendParam, auxAssignParam, decodeAuxSendParam,
+  encodeNrpn, encodeAuxSend, encodeGet,
+  dbToValue, valueToDb, positionToDb, dbToPosition, levelToValue, valueToPosition, clamp14,
   LEVEL_BASE, LR_BLOCK, AUX_COUNT, MAX_INPUT, UNITY, MAX_VALUE, STEPS_PER_DB,
-  TAPER_RANGE_DB,
+  TAPER_RANGE_DB, ASSIGN_OFFSET,
 };

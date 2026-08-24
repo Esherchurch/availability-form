@@ -6,7 +6,7 @@
   "main": "bridge.js",
   "scripts": {
     "start": "node bridge.js",
-    "test": "node test-sq5.js"
+    "test": "node test-sq5.js && node test-midi.js && node test-bridge.js && node test-scan.js"
   },
   "dependencies": {
     "ws": "^8.18.0"

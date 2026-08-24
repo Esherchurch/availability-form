@@ -86,16 +86,53 @@ nssm start EGBCMonitorBridge
 
 ---
 
+## Reading the mix off the desk
+
+The mixer knows which channels are routed into each aux and where their sends
+are sitting, so the app asks it rather than making anyone keep a typed list in
+step with the desk. When a performer opens their monitor mix the tablet sends:
+
+```json
+{ "action": "scanMix", "auxBus": 3 }
+```
+
+and the bridge issues a `get` for the assignment and the level of all 48 inputs
+on that bus, collects the replies for about a second, and answers with what came
+back:
+
+```json
+{ "scan": { "auxBus": 3, "answered": 48, "scanned": 48, "channels": [
+  { "inputChannel": 1, "assigned": true, "value": 14840, "db": -3, "level": 0.776 },
+  { "inputChannel": 2, "assigned": false, "value": 0, "db": null, "level": 0 }
+] } }
+```
+
+The app shows the channels with `assigned: true`, starting each fader where the
+desk has it. `assigned: null` means that channel didn't answer.
+
+**Names are the one thing this can't give you.** The SQ MIDI protocol carries
+levels, mutes, pans and assignments — no strings anywhere. So channel names come
+from the one-off table in `MonitorStageMap.html`, and anything unnamed shows as
+"Ch 12". That table only needs revisiting when the input list changes.
+
+Scans are serialised — two tablets opening at once share one scan rather than
+having their replies land in each other's collection window.
+
 ## Checking it works
 
 ```
-npm test              addressing and level maths, against the protocol document
-node test-bridge.js   full round trip against a fake mixer, no hardware needed
+npm test              runs all four suites below
 ```
 
-Both run offline. `test-sq5.js` is the one that matters if Allen & Heath ever
-change the protocol — it checks every worked example printed in the SQ MIDI
-Protocol document.
+| suite | what it covers |
+|-------|----------------|
+| `test-sq5.js` | addressing and level maths, against every worked example in the protocol document |
+| `test-midi.js` | the inbound MIDI parser — split reads, running status, realtime bytes, SysEx |
+| `test-bridge.js` | full round trip against a fake mixer, including a mid-service disconnect and recovery |
+| `test-scan.js` | a mix scan against a fake desk that holds a routing table and answers `get` |
+
+All four run offline with no hardware. `test-sq5.js` and `test-midi.js` are the
+ones that matter if Allen & Heath ever change the protocol.
 
 To prove the real mixer end before touching the app, start the bridge and watch
 the log while you move a fader in the app. Each move prints the channel, the
@@ -190,7 +227,23 @@ genuinely want the extra range.
 
 ## Scope
 
-This version only ever writes **input-to-aux send levels**, and only for the
-channels the AV team has listed for that performer's role. It does not read
-anything back from the mixer, and cannot touch EQ, effects, master outputs, or
+The bridge only ever **writes** input-to-aux send levels, and only on the one
+aux bus feeding that performer's own wedge. It **reads** assignments and send
+levels for that same bus. It cannot touch EQ, effects, master outputs, mutes, or
 anyone else's mix.
+
+### EGBC's foldback map
+
+| Aux | Wedge |
+|-----|-------|
+| 1 | Acoustic guitar |
+| 2 | Bass — in-ear |
+| 3 | Worship leader |
+| 4 | Keyboard |
+| 5 | Drums |
+| 6 | Backing singers |
+| 7 | Bass — floor monitor |
+| 8 | Spare 1 |
+
+These are the defaults `MonitorStageMap.html` starts from; the stage positions
+are a guess and want dragging to where the wedges actually stand.
