@@ -595,6 +595,91 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-in { animation: fadeIn 0.2s ease; }
+
+/* ══ MONITOR MIX ══════════════════════════════════════════════════════════
+   Dark, because this gets opened on a stage in low light mid-service. Every
+   control is at least 48px so it works with a guitar still on. */
+.btn-monitor { background:#1f3a3b; color:#8fd6d8; }
+.btn-monitor.live { background:#3d6263; color:#fff; }
+
+#monitorModal {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(8,14,14,.55);
+  display: none;
+  align-items: flex-end;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+#monitorModal.open { display: flex; }
+
+.mm-sheet {
+  width: 100%; max-height: 92vh;
+  background: #131c1c; color: #e8f1f0;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px rgba(0,0,0,.5);
+  display: flex; flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (min-width: 640px) {
+  #monitorModal { align-items: center; justify-content: center; }
+  .mm-sheet { max-width: 560px; border-radius: 20px; max-height: 86vh; }
+}
+
+.mm-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid #263535;
+}
+.mm-title { font-size: 15px; font-weight: 900; letter-spacing: .2px; }
+.mm-wedge { font-size: 12px; font-weight: 700; color: #8fd6d8; margin-top: 2px; }
+.mm-status { display: flex; align-items: center; gap: 7px; margin-left: auto; font-size: 11px; font-weight: 700; color: #93a8a6; }
+.mm-dot { width: 10px; height: 10px; border-radius: 50%; background: #6b8281; flex: none; }
+.mm-dot.up   { background: #57c15a; box-shadow: 0 0 0 3px rgba(87,193,90,.18); }
+.mm-dot.warn { background: #d9a13a; box-shadow: 0 0 0 3px rgba(217,161,58,.18); }
+.mm-close {
+  width: 44px; height: 44px; flex: none; margin-left: 4px;
+  border: none; border-radius: 50%; background: #223030; color: #cfe3e2;
+  font-size: 18px; font-weight: 800; cursor: pointer;
+}
+.mm-close:hover { background: #2c3d3d; }
+
+.mm-body { overflow-y: auto; padding: 6px 18px 4px; -webkit-overflow-scrolling: touch; }
+
+.mm-chan { padding: 15px 0; border-bottom: 1px solid #1e2b2b; }
+.mm-chan:last-child { border-bottom: none; }
+.mm-chan-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 11px; }
+.mm-chan-name { font-size: 14px; font-weight: 800; color: #e8f1f0; }
+.mm-chan-db { margin-left: auto; font-size: 12px; font-weight: 800; color: #8fd6d8; font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
+
+.mm-fader {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 48px; background: transparent; cursor: pointer; display: block;
+}
+.mm-fader::-webkit-slider-runnable-track { height: 10px; border-radius: 5px; background: #24393a; }
+.mm-fader::-moz-range-track            { height: 10px; border-radius: 5px; background: #24393a; }
+.mm-fader::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #6fc9cb; border: 3px solid #0f1818; margin-top: -12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.45);
+}
+.mm-fader::-moz-range-thumb {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #6fc9cb; border: 3px solid #0f1818;
+  box-shadow: 0 2px 6px rgba(0,0,0,.45);
+}
+.mm-fader:disabled::-webkit-slider-thumb { background: #4a5c5c; }
+.mm-fader:disabled::-moz-range-thumb     { background: #4a5c5c; }
+.mm-fader:disabled { cursor: default; }
+
+.mm-scale { display: flex; justify-content: space-between; font-size: 9px; font-weight: 700; color: #5d7373; margin-top: -4px; padding: 0 3px; }
+
+.mm-offline {
+  margin: 10px 0 4px; padding: 12px 14px;
+  background: #2a2320; border: 1px solid #4a3a2c; border-radius: 12px;
+  font-size: 12px; font-weight: 600; color: #e0c08a; line-height: 1.5;
+}
+.mm-foot { padding: 12px 18px 16px; font-size: 11px; color: #6b8281; font-weight: 600; line-height: 1.5; border-top: 1px solid #1e2b2b; }
+.mm-empty { padding: 30px 18px; text-align: center; color: #6b8281; font-size: 13px; font-weight: 600; line-height: 1.6; }
 </style>
 
 <script type="module">
@@ -620,6 +705,7 @@ try {
 
 let eventsForDay = [], selectedEvent = null, currentService = null;
 let songs = [], index = 0, currentRole = "", currentDate = "", currentLeader = "";
+let currentServiceId = null;
 let selectedKeys = [], performanceMode = false, currentDocId = null;
 let wakeLock = null, originalData = { notes:"", inst:"", last:"" }, currentSongData = {};
 
@@ -710,6 +796,228 @@ function getLastTime(title) {
   return lastTimeCache.get(title);
 }
 
+// ── MONITOR MIX ───────────────────────────────────────────────────────────
+// Wedge control for whoever is holding this tablet. Everything here is
+// best-effort: if the bridge or the mixer is missing, the button simply doesn't
+// appear and nothing else in the app notices.
+let monitorCfg = null;       // egbc-config/monitor-mix
+let myWedge = null;          // the wedge this role is standing at, if any
+let myChannels = [];         // [{inputChannel,label}] this role may adjust
+let mmSocket = null;
+let mmConnected = false;     // socket open AND the bridge says the mixer is up
+let mmSocketOpen = false;
+let mmRetryTimer = null;
+let mmRetryDelay = 1000;
+let mmLevels = {};           // inputChannel -> 0..1, as last sent from this tablet
+
+async function loadMonitorSetup() {
+  monitorCfg = null; myWedge = null; myChannels = []; mmLevels = {};
+  try {
+    const snap = await getDoc(doc(db, "egbc-config", "monitor-mix"));
+    if (!snap.exists()) return;
+    monitorCfg = snap.data();
+
+    const wedgeId = (currentService?.monitorWedges || {})[currentRole];
+    if (!wedgeId) return;
+    myWedge = (monitorCfg.wedges || []).find(w => w.id === wedgeId) || null;
+    if (!myWedge) return;
+
+    myChannels = channelsForRole(currentRole);
+    if (!myChannels.length) { myWedge = null; return; }
+
+    mmLevels = loadStoredLevels();
+    mmConnect();
+    // This runs alongside the first song load rather than blocking it, so the
+    // song may already be on screen without the button. Put it there.
+    rerenderCurrentSong();
+  } catch (e) {
+    // No monitor setup, no permission, no network — the feature just stays off.
+    monitorCfg = null; myWedge = null;
+  }
+}
+
+// Role names on the rota are things like "Keyboard" or "Lead Vocal"; the config
+// may use any casing. Fall back to a group called "default".
+function channelsForRole(role) {
+  const groups = monitorCfg?.channelGroups || [];
+  const want = (role || '').toLowerCase().trim();
+  const match = groups.find(g => (g.role || '').toLowerCase().trim() === want)
+             || groups.find(g => (g.roles || []).some(r => (r || '').toLowerCase().trim() === want))
+             || groups.find(g => ['default', '*'].includes((g.role || '').toLowerCase().trim()));
+  return (match?.channels || []).filter(c => c.inputChannel >= 1 && c.inputChannel <= 48);
+}
+
+// The desk can't be read back, so remember what this tablet last sent.
+const mmStoreKey = () => 'egbc-mm-' + currentDate + '-' + currentRole;
+function loadStoredLevels() {
+  try { return JSON.parse(localStorage.getItem(mmStoreKey()) || '{}'); } catch (e) { return {}; }
+}
+function storeLevels() {
+  try { localStorage.setItem(mmStoreKey(), JSON.stringify(mmLevels)); } catch (e) {}
+}
+
+// ── BRIDGE SOCKET ─────────────────────────────────────────────────────────
+// A page served over HTTPS (which GitHub Pages always is) is not allowed to open
+// a plain ws:// socket — the browser blocks it outright. So the bridge has to be
+// running with a certificate, and the config has to say so. If it doesn't, say
+// what's wrong rather than retrying forever behind a grey dot.
+function mmBlockedReason() {
+  if (!monitorCfg?.bridgeIp) return 'No bridge address has been set in Monitor Setup.';
+  if (location.protocol === 'https:' && !monitorCfg.bridgeSecure) {
+    return 'This page is served over HTTPS, so the browser will not allow a plain ' +
+           'ws:// connection to the bridge. The bridge needs a certificate, and ' +
+           '"Bridge uses HTTPS" needs ticking in Monitor Setup.';
+  }
+  return null;
+}
+
+function mmConnect() {
+  if (mmBlockedReason()) { mmSetStatus(); return; }
+  if (mmSocket && (mmSocket.readyState === 0 || mmSocket.readyState === 1)) return;
+
+  const scheme = monitorCfg.bridgeSecure ? 'wss' : 'ws';
+  const url = scheme + '://' + monitorCfg.bridgeIp + ':' + (monitorCfg.bridgePort || 3000);
+  try {
+    mmSocket = new WebSocket(url);
+  } catch (e) { return mmScheduleRetry(); }
+
+  mmSocket.onopen = () => {
+    mmSocketOpen = true;
+    mmRetryDelay = 1000;
+    mmSetStatus();
+  };
+
+  mmSocket.onmessage = ev => {
+    let msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    if (msg.status) { mmConnected = mmSocketOpen && msg.status === 'connected'; mmSetStatus(); }
+    if (msg.error)  { toast('Monitor: ' + msg.error); }
+  };
+
+  mmSocket.onclose = () => {
+    mmSocketOpen = false; mmConnected = false;
+    mmSetStatus();
+    mmScheduleRetry();
+  };
+
+  // onerror always precedes onclose; let onclose do the retry.
+  mmSocket.onerror = () => {};
+}
+
+function mmScheduleRetry() {
+  if (mmRetryTimer || !myWedge || mmBlockedReason()) return;
+  mmRetryTimer = setTimeout(() => {
+    mmRetryTimer = null;
+    mmConnect();
+  }, mmRetryDelay);
+  mmRetryDelay = Math.min(mmRetryDelay * 2, 15000);
+}
+
+function mmSetStatus() {
+  const blocked = mmBlockedReason();
+  const dot = $('mmDot'), txt = $('mmStatusText');
+  if (dot) dot.className = 'mm-dot' + (mmConnected ? ' up' : (mmSocketOpen ? ' warn' : ''));
+  if (txt) txt.textContent = mmConnected ? 'Connected'
+    : blocked ? 'Not set up' : (mmSocketOpen ? 'Mixer offline' : 'Bridge offline');
+  document.querySelectorAll('.mm-fader').forEach(f => { f.disabled = !mmConnected; });
+  const off = $('mmOffline');
+  if (off) {
+    off.style.display = mmConnected ? 'none' : 'block';
+    off.textContent = blocked || "The monitor bridge isn't reachable, so the faders are locked. " +
+      "Check the bridge PC is switched on and running, then reopen this.";
+  }
+  // Keep the button on the song screen in step with the connection.
+  document.querySelectorAll('.btn-monitor').forEach(b => b.classList.toggle('live', mmConnected));
+}
+
+function mmSend(inputChannel, level) {
+  if (!mmConnected || !mmSocket || mmSocket.readyState !== 1) return;
+  try {
+    mmSocket.send(JSON.stringify({
+      action: 'setLevel',
+      inputChannel,
+      auxBus: myWedge.auxBus,
+      level: Math.max(0, Math.min(1, level)),
+    }));
+  } catch (e) { toast('Monitor: could not reach the bridge'); }
+}
+
+// Position -> dB, matching the taper the bridge applies (square law over 60 dB),
+// so the number on screen is the level the desk actually gets.
+function mmDbLabel(level) {
+  if (level <= 0) return '−∞';
+  const below = 1 - level;
+  const db = -60 * below * below;
+  return (db > -0.05 ? '0.0' : db.toFixed(1)) + ' dB';
+}
+
+// Redraw the song that's on screen, keeping whatever is typed in the notes box.
+function rerenderCurrentSong() {
+  if (!songs.length || !currentSongData.allFiles) return;
+  const cur = $('notes')?.value ?? currentSongData.yourNotes;
+  renderContent(songs[index], currentSongData.allFiles, currentSongData.youtubeUrl,
+    currentSongData.ptMatches, currentSongData.roleNotes, currentSongData.lastNotes, cur);
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────
+window.openMonitor = () => {
+  if (!myWedge) return;
+  $('mmWedge').textContent = myWedge.label + ' · Aux ' + myWedge.auxBus;
+  renderMonitorBody();
+  $('monitorModal').classList.add('open');
+  mmSetStatus();
+  if (!mmSocketOpen) mmConnect();
+};
+
+window.closeMonitor = () => $('monitorModal').classList.remove('open');
+
+function renderMonitorBody() {
+  const body = $('mmBody');
+  if (!myChannels.length) {
+    body.innerHTML = '<div class="mm-empty">No channels have been set up for ' +
+      esc(currentRole) + '.<br>Ask the AV team to add them in Monitor Setup.</div>';
+    $('mmFoot').textContent = '';
+    return;
+  }
+
+  body.innerHTML =
+    `<div class="mm-offline" id="mmOffline" style="display:none;">
+       The monitor bridge isn't reachable, so the faders are locked. Check the
+       bridge PC is switched on and running, then reopen this.
+     </div>` +
+    myChannels.map(c => {
+      const lvl = mmLevels[c.inputChannel] ?? 0;
+      return `<div class="mm-chan">
+        <div class="mm-chan-top">
+          <span class="mm-chan-name">${esc(c.label)}</span>
+          <span class="mm-chan-db" id="mmdb-${c.inputChannel}">${mmDbLabel(lvl)}</span>
+        </div>
+        <input class="mm-fader" type="range" min="0" max="1" step="0.005"
+          value="${lvl}" id="mmf-${c.inputChannel}"
+          oninput="mmDrag(${c.inputChannel}, this.value)"
+          onchange="mmRelease(${c.inputChannel}, this.value)">
+        <div class="mm-scale"><span>off</span><span>−15</span><span>0 dB</span></div>
+      </div>`;
+    }).join('');
+
+  $('mmFoot').textContent =
+    'Only your ' + myWedge.label + ' wedge is affected — nobody else hears these changes. ' +
+    'Positions shown are what this tablet last sent; the app cannot read levels back off the desk.';
+}
+
+// Live number while dragging, but nothing goes to the desk until you let go —
+// otherwise a single fader sweep floods the bridge with hundreds of messages.
+window.mmDrag = (ch, v) => {
+  const el = $('mmdb-' + ch);
+  if (el) el.textContent = mmDbLabel(Number(v));
+};
+
+window.mmRelease = (ch, v) => {
+  const level = Number(v);
+  mmLevels[ch] = level;
+  storeLevels();
+  mmSend(ch, level);
+};
+
 // Warm the next song's data while this one is on screen, so tapping through the
 // set feels instant.
 function prefetchNext(i) {
@@ -743,6 +1051,11 @@ window.goFull = () => {
   requestWakeLock();
   $('fsToggle').textContent = '☀ Active';
 };
+
+// Config comes out of Firestore, which anyone on the network can currently
+// write to. Don't hand its strings straight to innerHTML.
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 window.autoGrow = el => {
   if (!el) return;
@@ -811,9 +1124,11 @@ window.loadService = async () => {
     const snap = await getDocs(query(collection(db, "services"), where("date", "==", currentDate)));
     if (snap.empty) { toast('No service plan found for that date'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
     currentService = snap.docs[0].data();
+    currentServiceId = snap.docs[0].id;
     songs = currentService.order.filter(x => x.type === "song");
     if (!songs.length) { toast('No songs in this service'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
     clearServiceCaches();
+    loadMonitorSetup();          // not awaited — the songs matter more than the faders
     buildMenu();
     $('startScreen').style.display = 'none';
     $('songScreen').style.display = 'flex';
@@ -934,6 +1249,13 @@ function renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes,
   let row1 = `<button class="action-btn btn-perf-toggle ${pm?'active':''}" onclick="togglePerformance()">
     ${pm ? '✎ Edit Mode' : '🎵 Performance Mode'}
   </button>`;
+
+  // Only if the AV team has put this role on a wedge for this service. Shown in
+  // performance mode too — that is when it is actually wanted.
+  if (myWedge) {
+    row1 += `<button class="action-btn btn-monitor ${mmConnected?'live':''}" onclick="openMonitor()">
+      🎚 Monitor Mix</button>`;
+  }
 
   if (!pm) {
     if (youtubeUrl) row1 += `<button class="action-btn btn-yt" onclick="forceExternalYT('${youtubeUrl}')">▶ YouTube</button>`;
@@ -1233,6 +1555,25 @@ window.cacheAllPDFs = async () => {
 
 <!-- ══ PDF VIEWER ══ -->
 <div id="pdfViewer"></div>
+
+<!-- ══ MONITOR MIX ══ -->
+<div id="monitorModal" onclick="if(event.target===this)closeMonitor()">
+  <div class="mm-sheet">
+    <div class="mm-head">
+      <div>
+        <div class="mm-title">Your Monitor Mix</div>
+        <div class="mm-wedge" id="mmWedge">—</div>
+      </div>
+      <div class="mm-status">
+        <span class="mm-dot" id="mmDot"></span>
+        <span id="mmStatusText">Connecting…</span>
+      </div>
+      <button class="mm-close" onclick="closeMonitor()" aria-label="Close">✕</button>
+    </div>
+    <div class="mm-body" id="mmBody"></div>
+    <div class="mm-foot" id="mmFoot"></div>
+  </div>
+</div>
 
 <!-- ══ FULLSCREEN ══ -->
 <button id="fsToggle" onclick="goFull()">☀ Stay Awake</button>

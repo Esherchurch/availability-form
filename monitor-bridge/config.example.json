@@ -1,0 +1,11 @@
+{
+  "_comment": "Copy this file to config.json and set sqIp to the mixer's address. Environment variables override anything here: SQ5_IP, SQ5_PORT, SQ5_MIDI_CHANNEL, WS_PORT, SQ5_MAX_DB.",
+
+  "sqIp": "192.168.1.60",
+  "sqPort": 51325,
+  "midiChannel": 1,
+  "wsPort": 3000,
+
+  "_maxDb": "The level a fader at the very top reaches. 0 is unity and is the default. The mixer will go to +10, but letting performers push their own wedge 10 dB past unity is how you get feedback during a service - raise this deliberately or not at all.",
+  "maxDb": 0
+}

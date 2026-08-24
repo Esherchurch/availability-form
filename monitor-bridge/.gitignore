@@ -1,0 +1,5 @@
+node_modules/
+package-lock.json
+
+# Holds the mixer's IP for this particular building - keep it local.
+config.json
