@@ -262,15 +262,17 @@ async function loadConfig() {
   if (!cfg.wedges?.length) {
     // EGBC's actual foldback map. Stage positions are a starting guess — drag
     // them to where the wedges really stand and hit Save Setup.
+    // Laid out in three rows so nothing overlaps at default size. Drag them to
+    // where the wedges actually stand and hit Save Setup.
     cfg.wedges = [
-      { id:'w1', label:'Acoustic Guitar', auxBus:1, svgX:150, svgY:245 },
-      { id:'w2', label:'Bass (in-ear)',   auxBus:2, svgX:105, svgY:120 },
-      { id:'w3', label:'Worship Leader',  auxBus:3, svgX:240, svgY:250 },
-      { id:'w4', label:'Keyboard',        auxBus:4, svgX:370, svgY:150 },
-      { id:'w5', label:'Drums',           auxBus:5, svgX:240, svgY:75  },
-      { id:'w6', label:'Backing Singers', auxBus:6, svgX:330, svgY:245 },
-      { id:'w7', label:'Bass (wedge)',    auxBus:7, svgX:95,  svgY:200 },
-      { id:'w8', label:'Spare 1',         auxBus:8, svgX:415, svgY:85  },
+      { id:'w2', label:'Bass (in-ear)',   auxBus:2, svgX:110, svgY:78  },
+      { id:'w5', label:'Drums',           auxBus:5, svgX:240, svgY:78  },
+      { id:'w8', label:'Spare 1',         auxBus:8, svgX:372, svgY:78  },
+      { id:'w7', label:'Bass (wedge)',    auxBus:7, svgX:110, svgY:168 },
+      { id:'w4', label:'Keyboard',        auxBus:4, svgX:372, svgY:168 },
+      { id:'w1', label:'Acoustic Guitar', auxBus:1, svgX:110, svgY:255 },
+      { id:'w3', label:'Worship Leader',  auxBus:3, svgX:240, svgY:255 },
+      { id:'w6', label:'Backing Singers', auxBus:6, svgX:372, svgY:255 },
     ];
   }
   cfg.channelGroups = cfg.channelGroups || [];
@@ -278,7 +280,10 @@ async function loadConfig() {
   $('bridgeIp').value = cfg.bridgeIp || '';
   $('bridgePort').value = cfg.bridgePort || 3000;
   $('bridgeSecure').checked = !!cfg.bridgeSecure;
-  renderWedges(); renderGroups(); renderNames(); drawStage();
+  // renderPeople too: if the config lands after a service has been picked (slow
+  // network on a service morning), the rota pills would otherwise stay stale
+  // while the map updates.
+  renderWedges(); renderGroups(); renderNames(); renderPeople(); drawStage();
 }
 
 window.saveConfig = async () => {
@@ -454,6 +459,7 @@ window.pickService = async () => {
 };
 
 function renderPeople() {
+  if (!people.length) return;               // nothing picked yet
   $('peopleList').innerHTML = people.map((p, i) => {
     const w = cfg.wedges.find(x => x.id === p.wedgeId);
     return `<div class="person ${selectedPerson === i ? 'sel' : ''}" onclick="selectPerson(${i})">
@@ -530,14 +536,16 @@ function drawStage() {
 
     // A wedge, drawn as the trapezoid it is, angled up at the performer.
     const body = document.createElementNS(SVG_NS, 'path');
-    body.setAttribute('d', 'M-40 14 L-32 -14 L32 -14 L40 14 Z');
+    body.setAttribute('d', 'M-54 15 L-45 -15 L45 -15 L54 15 Z');
     body.setAttribute('class', 'wedge-body');
-    body.setAttribute('rx', '3');
     g.appendChild(body);
 
     const lbl = document.createElementNS(SVG_NS, 'text');
-    lbl.setAttribute('y', -1); lbl.setAttribute('class', 'wedge-label');
+    lbl.setAttribute('y', -2); lbl.setAttribute('class', 'wedge-label');
     lbl.textContent = w.label;
+    const full = document.createElementNS(SVG_NS, 'title');
+    full.textContent = w.label;              // hover shows the untrimmed name
+    lbl.appendChild(full);
     g.appendChild(lbl);
 
     const aux = document.createElementNS(SVG_NS, 'text');
@@ -545,16 +553,39 @@ function drawStage() {
     aux.textContent = 'Aux ' + w.auxBus;
     g.appendChild(aux);
 
+    let nm = null;
     if (who) {
-      const nm = document.createElementNS(SVG_NS, 'text');
-      nm.setAttribute('y', -22); nm.setAttribute('class', 'wedge-who');
+      nm = document.createElementNS(SVG_NS, 'text');
+      nm.setAttribute('y', -24); nm.setAttribute('class', 'wedge-who');
       nm.textContent = who.name || who.role;
       g.appendChild(nm);
     }
 
     attachWedgeHandlers(g, w, svg);
     svg.appendChild(g);
+
+    // Measuring only works once the node is in the document, so fit the text
+    // after appending. "Backing Singers" is wider than the wedge at 11px.
+    fitText(lbl, 96, 11);
+    if (nm) fitText(nm, 104, 10);
   });
+}
+
+// Shrink, then trim, until the label sits inside the wedge.
+function fitText(el, maxWidth, startSize) {
+  let size = startSize;
+  el.style.fontSize = size + 'px';
+  while (size > 8 && el.getComputedTextLength() > maxWidth) {
+    size -= 0.5;
+    el.style.fontSize = size + 'px';
+  }
+  if (el.getComputedTextLength() <= maxWidth) return;
+  const original = el.firstChild;           // the text node, before any <title>
+  let text = original.nodeValue;
+  while (text.length > 4 && el.getComputedTextLength() > maxWidth) {
+    text = text.slice(0, -1);
+    original.nodeValue = text.replace(/[\s(]+$/, '') + '…';
+  }
 }
 
 // Tap assigns; press-and-drag moves the wedge. We tell them apart by distance,
@@ -583,8 +614,8 @@ function attachWedgeHandlers(g, w, svg) {
     const p = toSvg(e);
     if (Math.abs(p.x - startX) > 5 || Math.abs(p.y - startY) > 5) moved = true;
     if (!moved) return;
-    w.svgX = Math.max(45, Math.min(435, Math.round(p.x)));
-    w.svgY = Math.max(35, Math.min(280, Math.round(p.y)));
+    w.svgX = Math.max(60, Math.min(420, Math.round(p.x)));
+    w.svgY = Math.max(40, Math.min(278, Math.round(p.y)));
     g.setAttribute('transform', `translate(${w.svgX},${w.svgY})`);
   });
 

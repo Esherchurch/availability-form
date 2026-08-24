@@ -540,24 +540,7 @@ body {
 }
 
 /* ══ FULLSCREEN ══ */
-#fsToggle {
-  position: fixed;
-  bottom: calc(var(--safe-bottom) + 10px);
-  right: 12px;
-  opacity: 0.2;
-  z-index: 800;
-  background: var(--teal);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 10px;
-  font-family: var(--font);
-  font-weight: 700;
-  border: none;
-  cursor: pointer;
-  text-transform: uppercase;
-  display: none;
-}
+
 
 /* Performance mode pill */
 .perf-pill {
@@ -1149,12 +1132,7 @@ document.addEventListener('visibilitychange', async () => {
   if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock();
 });
 
-window.goFull = () => {
-  const d = document.documentElement;
-  (d.requestFullscreen||d.mozRequestFullScreen||d.webkitRequestFullScreen||d.msRequestFullscreen).call(d);
-  requestWakeLock();
-  $('fsToggle').textContent = '☀ Active';
-};
+
 
 // Config comes out of Firestore, which anyone on the network can currently
 // write to. Don't hand its strings straight to innerHTML.
@@ -1236,7 +1214,11 @@ window.loadService = async () => {
     buildMenu();
     $('startScreen').style.display = 'none';
     $('songScreen').style.display = 'flex';
-    $('fsToggle').style.display = 'block';
+    // The app is wrapped now, so it is already fullscreen and there is no
+    // button to tap. Keep the half that still matters on stage: ask for the
+    // wake lock as soon as a service is open, so the screen does not sleep
+    // mid-song. (visibilitychange above re-takes it after a phone call.)
+    requestWakeLock();
     await showSong(0);
     window.cacheAllPDFs();
   } catch(e) {
@@ -1679,8 +1661,6 @@ window.cacheAllPDFs = async () => {
   </div>
 </div>
 
-<!-- ══ FULLSCREEN ══ -->
-<button id="fsToggle" onclick="goFull()">☀ Stay Awake</button>
 
 </body>
 </html>
