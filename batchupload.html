@@ -33,6 +33,11 @@ h2{ font-size:26px; font-weight:800; letter-spacing:-.02em; color:var(--ink); ma
   transition:border-color .2s, background .2s, color .2s;
 }
 .dropzone:hover, .dropzone.dragover{ border-color:var(--brand); background:var(--brand-tint); color:var(--brand); }
+.dropzone .dz-hint{ display:block; font-size:13px; font-weight:500; color:var(--faint); margin-top:6px; }
+.dropzone .dz-buttons{ margin-top:14px; }
+
+/* Hidden pickers — never overlay the page */
+.file-picker{ display:none; }
 
 #status{ font-size:13px; font-weight:500; color:var(--muted); margin:8px 0 14px; }
 
@@ -120,10 +125,17 @@ input:focus, select:focus{ outline:none; border-color:var(--brand); box-shadow:0
 <h2>Batch Music Importer</h2>
 
 <div class="dropzone" id="dropzone">
-Drag folder OR click to select
+  Drag files or a folder here
+  <span class="dz-hint">…or use the buttons below. Only PDFs are picked up.</span>
+  <span class="dz-buttons">
+    <button type="button" id="pickFilesBtn">Choose Files</button>
+    <button type="button" id="pickFolderBtn">Choose Folder</button>
+  </span>
 </div>
 
-<input type="file" id="fileInput" multiple webkitdirectory style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+<!-- Hidden pickers: one for individual files, one for whole folders -->
+<input type="file" id="fileInput" class="file-picker" multiple accept="application/pdf,.pdf">
+<input type="file" id="folderInput" class="file-picker" multiple webkitdirectory directory>
 
 <div id="status"></div>
 
@@ -244,27 +256,61 @@ function openYouTubeSearch(title){
 
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
+const folderInput = document.getElementById("folderInput");
 
-// File input is now directly clickable via label wrapper
-fileInput.onchange = e => handleFiles(Array.from(e.target.files));
-dropzone.addEventListener("dragover", e=>e.preventDefault());
+function isPdf(f){ return f && /\.pdf$/i.test(f.name); }
+
+// Buttons open the matching picker. stopPropagation so the dropzone click doesn't fire too.
+document.getElementById("pickFilesBtn").addEventListener("click", e=>{ e.stopPropagation(); fileInput.click(); });
+document.getElementById("pickFolderBtn").addEventListener("click", e=>{ e.stopPropagation(); folderInput.click(); });
+
+// Clicking the dropzone itself opens the individual-file picker.
+dropzone.addEventListener("click", ()=> fileInput.click());
+
+function pickerChanged(e){
+  const picked = Array.from(e.target.files || []).filter(isPdf);
+  e.target.value = "";               // allow re-selecting the same files/folder
+  if(!picked.length){
+    document.getElementById("status").textContent = "No PDFs found in that selection.";
+    return;
+  }
+  handleFiles(picked);
+}
+
+fileInput.addEventListener("change", pickerChanged);
+folderInput.addEventListener("change", pickerChanged);
+
+dropzone.addEventListener("dragover", e=>{ e.preventDefault(); dropzone.classList.add("dragover"); });
+dropzone.addEventListener("dragleave", ()=> dropzone.classList.remove("dragover"));
 
 dropzone.addEventListener("drop", async e=>{
   e.preventDefault();
+  dropzone.classList.remove("dragover");
   let files = [];
   let promises = [];
-  for(let item of e.dataTransfer.items){
-    let entry = item.webkitGetAsEntry();
+  const items = e.dataTransfer.items ? Array.from(e.dataTransfer.items) : [];
+  for(let item of items){
+    let entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
     if (entry) { promises.push(traverse(entry, files)); }
   }
   await Promise.all(promises);
+
+  // Fallback for browsers that don't expose directory entries
+  if(!files.length && e.dataTransfer.files){
+    files = Array.from(e.dataTransfer.files).filter(isPdf);
+  }
+
+  if(!files.length){
+    document.getElementById("status").textContent = "No PDFs found in that drop.";
+    return;
+  }
   handleFiles(files);
 });
 
 async function traverse(entry, files){
   if(entry.isFile){
     return new Promise(res=>{
-      entry.file(f=>{ if(f.name.endsWith(".pdf")) files.push(f); res(); });
+      entry.file(f=>{ if(isPdf(f)) files.push(f); res(); }, ()=>res());
     });
   } else if(entry.isDirectory){
     let reader = entry.createReader();
@@ -283,6 +329,7 @@ async function traverse(entry, files){
 }
 
 async function handleFiles(files){
+  document.getElementById("status").textContent = "Loading song library…";
   await loadSongs();
   rows = files.map(file=>{
     let detectedKey = detectKey(file.name);
@@ -291,7 +338,7 @@ async function handleFiles(files){
     let matches = getMatches(rawTitle);
     return {
       file, rawTitle,
-      title: file.name.replace(".pdf",""),
+      title: file.name.replace(/\.pdf$/i,""),
       key: detectedKey,
       type: detectedType,
       matches,
@@ -303,6 +350,7 @@ async function handleFiles(files){
       skip:false, force:false
     };
   });
+  document.getElementById("status").textContent = rows.length + " PDF(s) ready.";
   render();
 }
 
@@ -326,7 +374,7 @@ function render(){
       groupRow.className = "group-row";
       let td = document.createElement("td");
       td.colSpan = 11;
-      td.innerHTML = `${r.group}
+      td.innerHTML = `${escapeHtml(r.group)}
         <button onclick="applyToGroup(${i}, 'title')">Apply Title</button>
         <button onclick="applyToGroup(${i}, 'match')">Apply Match</button>
         <button onclick="applyToGroup(${i}, 'youtube')">Apply YouTube</button>
@@ -395,6 +443,7 @@ function render(){
 }
 
 async function processAll(){
+  if(!rows.length){ alert("Nothing to upload — choose some PDFs first."); return; }
   if(!confirm("Upload?")) return;
   let succeeded = [], failed = [];
   for(const r of rows){
