@@ -18,28 +18,29 @@ Any Windows PC that stays on the church network during the service. It does not
 need to be fast, and it does not need to be the AV machine — but it must stay
 switched on, and its IP address must not change.
 
-Three things go on it:
+Two things go on it:
 
 1. **Node.js** — the LTS installer from [nodejs.org](https://nodejs.org)
-2. **This `monitor-bridge` folder**, plus `start-monitor-bridge.bat` from the
-   repo root. Nothing else from the site is needed. Easiest way: green **Code**
-   button on the repo → **Download ZIP** → unzip → keep those two.
-3. **A `config.json`** with the mixer's address — the setup script writes it.
+2. **This one `monitor-bridge` folder.** Nothing else from the site is needed,
+   and everything the bridge uses lives inside it. Easiest way: green **Code**
+   button on the repo → **Download ZIP** → unzip → copy the `monitor-bridge`
+   folder across. Put it somewhere sensible like `C:\EGBC\monitor-bridge`.
 
-### The easy way
+### Then run the two files inside it
 
-Double-click **`setup-bridge.bat`**. It checks Node, installs the one
-dependency, finds this PC's address, asks for the mixer's IP and tests it,
-offers to make and trust the certificate, opens the firewall, writes
-`config.json`, and prints the exact settings to type into Monitor Setup.
+**`setup-bridge.bat`** — once. It checks Node, installs the one dependency,
+finds this PC's address, asks for the mixer's IP and tests it, offers to make
+and trust the certificate, opens the firewall, writes `config.json`, and prints
+the exact settings to type into Monitor Setup. It asks before doing anything
+that changes the machine, and it's safe to run again later.
 
-It asks before doing anything that changes the machine.
+**`start-bridge.bat`** — before each service. Leave the window open; closing it
+stops the faders working. Every fader move prints a line, so that window is
+also how you tell whether it's doing anything. It refuses to start with a clear
+message if setup hasn't been run.
 
-### Afterwards
-
-Double-click **`start-monitor-bridge.bat`** before the service and leave the
-window open — closing it stops the faders working. Each fader move prints a
-line, so that window is also how you check it's doing anything.
+(`start-monitor-bridge.bat` in the repo root is just a shortcut to the same
+thing, for when the whole site is checked out. The bridge PC doesn't need it.)
 
 ---
 
@@ -57,8 +58,8 @@ line, so that window is also how you check it's doing anything.
 1. Install [Node.js](https://nodejs.org) (18 or newer) if it isn't there.
 2. Copy `config.example.json` to `config.json` and set `sqIp` to the mixer's
    address, plus `midiChannel` if it isn't 1.
-3. Double-click `start-monitor-bridge.bat` in the repo root. First run installs
-   the one dependency, then it stays open showing a log.
+3. Run `npm install`, then double-click `start-bridge.bat`. It stays open
+   showing a log.
 
 The PC needs to allow inbound connections on port 3000 — Windows will prompt the
 first time; choose **Private networks**.

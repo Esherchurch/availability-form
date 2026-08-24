@@ -223,8 +223,8 @@ if ($tlsCert) {
 }
 
 Head 'Starting it'
-Say 'Double-click start-monitor-bridge.bat. Leave the window open during the'
-Say 'service - closing it stops the faders working.'
+Say 'Double-click start-bridge.bat, in this same folder. Leave the window open'
+Say 'during the service - closing it stops the faders working.'
 Say ''
 if (YesNo 'Start the bridge now?') {
   Say ''
