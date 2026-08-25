@@ -93,31 +93,81 @@ Say 'Give this PC a fixed IP, or a DHCP reservation on the router.'
 
 # ── 4. The mixer ────────────────────────────────────────────────────────────
 Head 'The mixer'
-Say 'On the SQ: Setup > Network shows its IP. Setup > General > MIDI shows the'
-Say 'MIDI channel, and NRPN Fader Law must be left on Linear Taper.'
-Say ''
 $existing = @{}
 if (Test-Path 'config.json') {
   try { $existing = Get-Content 'config.json' -Raw | ConvertFrom-Json } catch { $existing = @{} }
 }
-$defIp = '192.168.1.60'
-if ($existing.sqIp) { $defIp = $existing.sqIp }
-$defCh = '1'
-if ($existing.midiChannel) { $defCh = [string]$existing.midiChannel }
 
-$sqIp = Ask 'Mixer IP address' $defIp
-$midiChannel = [int](Ask 'MIDI channel' $defCh)
+# Rather than making someone read an IP off the mixer, look for it. Anything on
+# this network answering on 51325 is almost certainly the desk.
+function Find-Mixer([string]$fromIp) {
+  $prefix = $fromIp -replace '\.\d+$', ''
+  Say ('Looking for the mixer on ' + $prefix + '.1 - ' + $prefix + '.254 ...')
+  $pending = @()
+  foreach ($i in 1..254) {
+    $ip = ($prefix + '.' + $i)
+    if ($ip -eq $fromIp) { continue }
+    $c = New-Object System.Net.Sockets.TcpClient
+    try { $null = $c.BeginConnect($ip, 51325, $null, $null) } catch { continue }
+    $pending += [pscustomobject]@{ Ip = $ip; Client = $c }
+  }
+  Start-Sleep -Milliseconds 1200
+  $hits = @()
+  foreach ($p in $pending) {
+    if ($p.Client.Connected) { $hits += $p.Ip }
+    try { $p.Client.Close() } catch { }
+  }
+  return $hits
+}
+
+$sqIp = ''
+if ($existing.sqIp) {
+  Say ('config.json already has ' + $existing.sqIp)
+  if (YesNo 'Keep that address?') { $sqIp = $existing.sqIp }
+}
+
+if (-not $sqIp) {
+  if (YesNo 'Search the network for the mixer? (easier than reading it off the desk)') {
+    $hits = @(Find-Mixer $bridgeIp)
+    if ($hits.Count -eq 1) {
+      $sqIp = $hits[0]
+      Say ('Found something answering on ' + $sqIp + ' - that will be the mixer.')
+    } elseif ($hits.Count -gt 1) {
+      Say 'More than one device answered. Pick the mixer:'
+      $i = 1
+      foreach ($h in $hits) { Say ('  ' + $i + ') ' + $h); $i++ }
+      $pick = [int](Ask 'Number' '1')
+      $sqIp = $hits[$pick - 1]
+    } else {
+      Say ''
+      Say 'Nothing answered. Usually that means the mixer is switched off, is on a'
+      Say 'different network from this PC, or its network port is not plugged in.'
+    }
+  }
+}
+
+if (-not $sqIp) {
+  Say ''
+  Say 'To read it off the desk: press the Utility screen key, then the General'
+  Say 'tab, then the Network tab. That page shows the IP address.'
+  $sqIp = Ask 'Mixer IP address' '192.168.1.60'
+  Say ('Checking ' + $sqIp + ':51325 ...')
+  $reach = Test-NetConnection -ComputerName $sqIp -Port 51325 -WarningAction SilentlyContinue
+  if ($reach.TcpTestSucceeded) {
+    Say 'Mixer answered. Good.'
+  } else {
+    Say 'No answer on port 51325. Carrying on - you can fix this in config.json later.'
+  }
+}
 
 Say ''
-Say ('Checking ' + $sqIp + ':51325 ...')
-$reach = Test-NetConnection -ComputerName $sqIp -Port 51325 -WarningAction SilentlyContinue
-if ($reach.TcpTestSucceeded) {
-  Say 'Mixer answered. Good.'
-} else {
-  Say 'No answer from the mixer on port 51325.'
-  Say 'Check it is switched on, on the same network, and that the IP is right.'
-  Say 'Carrying on anyway - you can fix the IP in config.json later.'
-}
+Say 'MIDI channel: on the SQ press Utility, then the General tab, then the MIDI'
+Say 'tab. It shows MIDI Channel (almost always 1), and NRPN Fader Law, which'
+Say 'must be left on Linear Taper. If you have never changed either, press'
+Say 'Enter to accept 1.'
+$defCh = '1'
+if ($existing.midiChannel) { $defCh = [string]$existing.midiChannel }
+$midiChannel = [int](Ask 'MIDI channel' $defCh)
 
 # ── 5. Certificate ──────────────────────────────────────────────────────────
 Head 'Certificate'

@@ -48,9 +48,9 @@ thing, for when the whole site is checked out. The bridge PC doesn't need it.)
 
 **On the mixer** — the SQ needs MIDI over TCP/IP reachable on the network:
 
-1. `Setup` → `Network` — give the SQ a **fixed IP** (or a DHCP reservation on
+1. `Utility` → `General` → `Network` — give the SQ a **fixed IP** (or a DHCP reservation on
    the router). If its address moves, the bridge can't find it.
-2. `Setup` → `General` → `MIDI` — note the **MIDI Channel** (default 1) and
+2. `Utility` → `General` → `MIDI` — note the **MIDI Channel** (default 1) and
    leave **NRPN Fader Law** on **Linear Taper**, which is what this assumes.
 
 **On the bridge PC:**
