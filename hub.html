@@ -89,6 +89,7 @@
         <div id="pendingBanner" class="hidden mb-5 bg-[#f6efe1] border border-[#e8d9b8] rounded-2xl px-5 py-4">
           <span class="text-[12px] font-bold text-[#8a5f1e]"></span>
         </div>
+        <p class="text-[11px] opacity-45 mb-4 leading-relaxed">People appear here after they sign in for the first time. Anyone signing in with an address the address book does not hold needs linking to their record - they are listed first.</p>
         <div id="peopleList" class="space-y-3"></div>
       </div>
 
@@ -114,11 +115,10 @@
           <div class="grid md:grid-cols-4 gap-3">
             <input id="pgIcon" placeholder="Icon (emoji)" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
             <select id="pgTeam" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-bold text-sm"></select>
-            <select id="pgRole" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-bold text-sm">
-              <option value="member">Everyone on the team</option>
-              <option value="leader">Leaders and above</option>
-              <option value="admin">Admins only</option>
-            </select>
+            <label class="flex items-center gap-3 px-5 py-3 rounded-full border border-[#dde7e6] bg-white cursor-pointer">
+              <input type="checkbox" id="pgAdminOnly" class="w-4 h-4 accent-[#3d6263]">
+              <span class="text-[11px] font-black uppercase tracking-widest opacity-70">Admin only</span>
+            </label>
             <input id="pgOrder" type="number" placeholder="Order" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
           </div>
           <label class="flex items-center gap-3 px-1 cursor-pointer">
@@ -146,7 +146,7 @@ EGBCAuth.require().then(async profile=>{
   ME=profile;
   EGBCAuth.mountUserChip('userChip');
   document.getElementById('greeting').textContent=greetingFor(profile);
-  if(EGBCAuth.isAnyAdmin())document.getElementById('adminBtn').classList.remove('hidden');
+  if(EGBCAuth.isAdmin())document.getElementById('adminBtn').classList.remove('hidden');
   await loadPages();
   renderTabs();
   renderTiles();
@@ -159,9 +159,13 @@ function greetingFor(p){
   return first?`${part}, ${first}`:part;
 }
 
+/* Content tabs come from a person's own markers - administrators included.
+   Being Core Team does not hand you Kids Church; being ticked Kids Church does.
+   Admins get one extra tab holding the build and admin tools. */
 function myTeams(){
-  if(EGBCAuth.isOwner())return Object.keys(EGBCAuth.TEAMS);
-  return ME.teams||[];
+  const tabs=EGBCAuth.tabTeams();
+  if(EGBCAuth.isAdmin())tabs.push('Core Team');
+  return tabs;
 }
 
 /* ---- PAGES ---- */
@@ -192,10 +196,9 @@ function visibleTiles(){
   const teams=myTeams();
   return PAGES.filter(p=>{
     if(p.enabled===false)return false;
-    if(!teams.includes(p.team)&&!EGBCAuth.isOwner())return false;
     if(activeTeam&&p.team!==activeTeam)return false;
-    const need=p.minRole||'member';
-    if(need!=='member'&&!EGBCAuth.hasRole(p.team,need))return false;
+    if(!teams.includes(p.team))return false;
+    if(p.adminOnly&&!EGBCAuth.isAdmin())return false;
     return true;
   });
 }
@@ -215,7 +218,7 @@ function renderTiles(){
       </div>
       <h3 class="font-black text-base mb-1.5 leading-snug">${esc(p.title)}</h3>
       ${p.description?`<p class="text-[12px] opacity-55 leading-relaxed">${esc(p.description)}</p>`:''}
-      ${p.minRole&&p.minRole!=='member'?`<div class="text-[9px] font-black uppercase tracking-widest opacity-30 mt-3">${esc(p.minRole)} only</div>`:''}
+      ${p.adminOnly?'<div class="text-[9px] font-black uppercase tracking-widest opacity-30 mt-3">Admin only</div>':''}
     </a>`;
   }).join('');
 }
@@ -232,19 +235,70 @@ function adminTab(t){
   });
 }
 
+/* Administrators manage every team. Choir is included because it must stay
+   tickable - the rota filters on it - even though it has no tab of its own. */
 function adminTeams(){
-  if(EGBCAuth.isOwner())return Object.keys(EGBCAuth.TEAMS);
-  return (ME.teams||[]).filter(t=>EGBCAuth.isAdminOf(t));
+  return EGBCAuth.isAdmin()?Object.keys(EGBCAuth.TEAMS):[];
 }
+
+let BOOK=[];
 
 async function loadPeople(){
   const list=document.getElementById('peopleList');
   list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loading…</div>';
   try{
-    const snap=await db.collection('users').orderBy('email').get();
-    PEOPLE=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const [users,book]=await Promise.all([
+      db.collection('users').orderBy('email').get(),
+      db.collection('addressBook').get()
+    ]);
+    PEOPLE=users.docs.map(d=>({id:d.id,...d.data()}));
+    BOOK=book.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(m=>!m.archived)
+      .sort((a,b)=>(a.name||'').localeCompare(b.name||''));
     renderPeople();
   }catch(e){list.innerHTML=`<div class="text-sm text-red-600 py-4">Could not load people: ${esc(e.message)}</div>`;}
+}
+
+/* Someone signed in with an address the address book does not hold. Rather
+   than making them re-register, Core Team picks their record and the address
+   is stored against it, so it matches on every future sign-in. */
+async function linkPerson(uid,memberId){
+  if(!memberId)return;
+  const u=PEOPLE.find(x=>x.id===uid);
+  const m=BOOK.find(x=>x.id===memberId);
+  if(!u||!m)return;
+
+  if(!confirm(`Link the sign-in ${u.email} to ${m.name||'this record'}?\n\nThey will get whatever teams are ticked against that record.`))return;
+
+  try{
+    const extra=Array.isArray(m.signInEmails)?m.signInEmails.slice():[];
+    if(!extra.includes(u.email))extra.push(u.email);
+    await db.collection('addressBook').doc(memberId).update({signInEmails:extra});
+
+    const teams=Array.isArray(m.markers)?m.markers:[];
+    await db.collection('users').doc(uid).update({
+      memberId,
+      name:(m.name||u.name||'').trim(),
+      teams,
+      status:teams.length?'active':'pending'
+    });
+    await loadPeople();
+  }catch(e){alert('Could not link: '+e.message);}
+}
+
+async function unlinkPerson(uid){
+  const u=PEOPLE.find(x=>x.id===uid);
+  if(!u||!u.memberId)return;
+  if(!confirm(`Unlink ${u.email} from their address book record?`))return;
+  try{
+    const m=BOOK.find(x=>x.id===u.memberId);
+    if(m&&Array.isArray(m.signInEmails)&&m.signInEmails.includes(u.email)){
+      await db.collection('addressBook').doc(u.memberId)
+        .update({signInEmails:m.signInEmails.filter(e=>e!==u.email)});
+    }
+    await db.collection('users').doc(uid).update({memberId:null,teams:[],status:'pending'});
+    await loadPeople();
+  }catch(e){alert('Could not unlink: '+e.message);}
 }
 
 function renderPeople(){
@@ -252,14 +306,23 @@ function renderPeople(){
   const teams=adminTeams();
   const list=document.getElementById('peopleList');
 
-  const pending=PEOPLE.filter(p=>p.status!=='active');
+  const unmatched=PEOPLE.filter(p=>!p.memberId);
+  const noTeams=PEOPLE.filter(p=>p.memberId&&p.status!=='active');
   const banner=document.getElementById('pendingBanner');
-  if(pending.length){
+  const bits=[];
+  if(unmatched.length)bits.push(`${unmatched.length} sign-${unmatched.length===1?'in is':'ins are'} not linked to an address book record`);
+  if(noTeams.length)bits.push(`${noTeams.length} ${noTeams.length===1?'person has':'people have'} no teams ticked`);
+  if(bits.length){
     banner.classList.remove('hidden');
-    banner.querySelector('span').textContent=`${pending.length} ${pending.length===1?'person is':'people are'} waiting for team access.`;
+    banner.querySelector('span').textContent=bits.join(' · ')+'.';
   }else banner.classList.add('hidden');
 
-  const shown=PEOPLE.filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q));
+  const shown=PEOPLE
+    .filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q))
+    .sort((a,b)=>{
+      const rank=x=>!x.memberId?0:(x.status!=='active'?1:2);
+      return rank(a)-rank(b)||(a.name||a.email||'').localeCompare(b.name||b.email||'');
+    });
   if(!shown.length){list.innerHTML='<div class="text-sm opacity-50 italic py-4">Nobody matches that.</div>';return;}
 
   list.innerHTML=shown.map(p=>{
@@ -282,16 +345,33 @@ function renderPeople(){
     }).join('');
 
     const initials=(p.name||p.email||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    return `<div class="bg-[#f0f6f6] rounded-[1.25rem] border border-[#dde7e6] p-5">
-      <div class="flex items-start gap-4 flex-wrap">
-        <div class="w-10 h-10 rounded-full bg-[#3d6263] text-white flex items-center justify-center text-[11px] font-black flex-shrink-0">${initials}</div>
-        <div class="flex-grow min-w-[180px]">
-          <div class="font-black text-sm">${esc(p.name||'(no name)')}</div>
-          <div class="text-[11px] opacity-50">${esc(p.email)}${p.memberId?'':' · <span class="text-amber-600 font-bold">not in address book</span>'}</div>
-        </div>
-        ${p.status!=='active'?'<span class="bg-[#f6efe1] text-[#8a5f1e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Pending</span>':''}
+    const linked=!!p.memberId;
+
+    const picker=`<div class="mt-4 bg-white rounded-2xl border border-[#e8d9b8] p-4">
+      <div class="text-[11px] font-black uppercase tracking-widest text-[#8a5f1e] mb-1">Who is this?</div>
+      <div class="text-[11px] opacity-55 mb-3 leading-relaxed">They signed in with an address the address book does not hold. Pick their record and it will be remembered.</div>
+      <div class="flex gap-2 flex-wrap">
+        <select id="link-${p.id}" class="flex-grow min-w-[200px] px-4 py-2.5 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[12px]">
+          <option value="">Choose a person…</option>
+          ${BOOK.map(m=>`<option value="${m.id}">${esc(m.name||'(no name)')}${m.email?' — '+esc(m.email):''}</option>`).join('')}
+        </select>
+        <button onclick="linkPerson('${p.id}',document.getElementById('link-${p.id}').value)" class="bg-[#3d6263] text-white px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Link</button>
       </div>
-      <div class="flex gap-2 flex-wrap mt-4">${chips}</div>
+    </div>`;
+
+    return `<div class="bg-[#f0f6f6] rounded-[1.25rem] border ${linked?'border-[#dde7e6]':'border-[#e8d9b8]'} p-5">
+      <div class="flex items-start gap-4 flex-wrap">
+        <div class="w-10 h-10 rounded-full ${linked?'bg-[#3d6263]':'bg-[#b07d2e]'} text-white flex items-center justify-center text-[11px] font-black flex-shrink-0">${initials}</div>
+        <div class="flex-grow min-w-[180px]">
+          <div class="font-black text-sm">${esc(p.name||'(not linked yet)')}</div>
+          <div class="text-[11px] opacity-50">${esc(p.email)}</div>
+        </div>
+        ${!linked?'<span class="bg-[#f6efe1] text-[#8a5f1e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Needs linking</span>':
+          (p.status!=='active'?'<span class="bg-[#f6efe1] text-[#8a5f1e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">No teams</span>':
+          `<button onclick="unlinkPerson('${p.id}')" class="text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 hover:text-red-600 transition-all">Unlink</button>`)}
+      </div>
+      ${linked?`<div class="flex gap-2 flex-wrap mt-4">${chips}</div>
+        <div class="text-[10px] opacity-40 mt-3">Teams are ticked in the address book. Changing them here updates it there too.</div>`:picker}
     </div>`;
   }).join('');
 }
@@ -329,7 +409,9 @@ async function savePerson(p,teams,roles){
 
 function fillTeamSelect(){
   const sel=document.getElementById('pgTeam');
-  sel.innerHTML=adminTeams().map(t=>`<option value="${t}">${EGBCAuth.TEAMS[t].label}</option>`).join('');
+  sel.innerHTML=adminTeams()
+    .filter(t=>!EGBCAuth.TEAMS[t].parent)
+    .map(t=>`<option value="${t}">${EGBCAuth.TEAMS[t].label}</option>`).join('');
 }
 
 function renderPagesList(){
@@ -344,7 +426,7 @@ function renderPagesList(){
       <span class="text-lg">${esc(p.icon||'📄')}</span>
       <div class="flex-grow min-w-0">
         <div class="font-bold text-sm truncate">${esc(p.title)}</div>
-        <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(cfg.label)}${p.minRole&&p.minRole!=='member'?' · '+esc(p.minRole)+'+':''}${p.enabled===false?' · hidden':''}</div>
+        <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(cfg.label)}${p.adminOnly?' · admin only':''}${p.enabled===false?' · hidden':''}</div>
       </div>
       <button onclick="editPage('${p.id}')" class="bg-white border border-[#dde7e6] px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
     </div>`;
@@ -356,7 +438,7 @@ function newPage(){
   ['pgTitle','pgUrl','pgDesc','pgIcon'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('pgOrder').value=(PAGES.length+1)*10;
   document.getElementById('pgEnabled').checked=true;
-  document.getElementById('pgRole').value='member';
+  document.getElementById('pgAdminOnly').checked=false;
   document.getElementById('pgDelete').classList.add('hidden');
   document.getElementById('pageEditor').classList.remove('hidden');
 }
@@ -370,7 +452,7 @@ function editPage(id){
   document.getElementById('pgIcon').value=p.icon||'';
   document.getElementById('pgOrder').value=p.order||0;
   document.getElementById('pgTeam').value=p.team||'';
-  document.getElementById('pgRole').value=p.minRole||'member';
+  document.getElementById('pgAdminOnly').checked=!!p.adminOnly;
   document.getElementById('pgEnabled').checked=p.enabled!==false;
   document.getElementById('pgDelete').classList.remove('hidden');
   document.getElementById('pageEditor').classList.remove('hidden');
@@ -386,7 +468,7 @@ async function savePage(){
     description:document.getElementById('pgDesc').value.trim(),
     icon:document.getElementById('pgIcon').value.trim()||'📄',
     team:document.getElementById('pgTeam').value,
-    minRole:document.getElementById('pgRole').value,
+    adminOnly:document.getElementById('pgAdminOnly').checked,
     order:parseInt(document.getElementById('pgOrder').value,10)||0,
     enabled:document.getElementById('pgEnabled').checked
   };
@@ -409,51 +491,51 @@ async function deletePage(){
 
 /* Default registry, written once. Everything is editable afterwards. */
 const DEFAULT_PAGES=[
-  {team:'Worship Team',icon:'📋',title:'Worship Rota Planner',url:'Planner.html',description:'Build and send the term rota',minRole:'leader',order:10},
-  {team:'Worship Team',icon:'📅',title:'Sunday Service Planner',url:'SundayServicePlanner.html',description:'Running orders for Sunday',minRole:'leader',order:20},
-  {team:'Worship Team',icon:'👀',title:'View Rota',url:'view-only-rota.html',description:'Who is on, and when',minRole:'member',order:30},
-  {team:'Worship Team',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',minRole:'member',order:40},
-  {team:'Worship Team',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',minRole:'member',order:50},
-  {team:'Worship Team',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',minRole:'member',order:60},
-  {team:'Worship Team',icon:'▶',title:'Play Through',url:'EGBC-PlayThrough.html',description:'Practice recordings',minRole:'member',order:70},
-  {team:'Worship Team',icon:'🎓',title:'Worship Training',url:'EGBC-Training-Worship.html',description:'Training material',minRole:'member',order:80},
-  {team:'Worship Team',icon:'🎚',title:'Music Uploader',url:'music-uploader.html',description:'Add tracks to the library',minRole:'leader',order:90},
-  {team:'Worship Team',icon:'📜',title:'Team Charter',url:'Worshipteamcharter.html',description:'How we work together',minRole:'member',order:100},
+  /* Admin tab - Core Team only. Build tools and administration. */
+  {team:'Core Team',icon:'📋',title:'Rota Planner',url:'Planner.html',description:'Build and send the term rota',order:10},
+  {team:'Core Team',icon:'📅',title:'Service Planner',url:'SundayServicePlanner.html',description:'Build the Sunday running order',order:20},
+  {team:'Core Team',icon:'👥',title:'Address Book',url:'addressbook.html',description:'People, households and teams',order:30},
+  {team:'Core Team',icon:'✉',title:'Email Builder',url:'EmailBuilder2.html',description:'Compose and send to teams',order:40},
+  {team:'Core Team',icon:'🎚',title:'Music Uploader',url:'music-uploader.html',description:'Add tracks to the library',order:50},
+  {team:'Core Team',icon:'📦',title:'Batch Music Importer',url:'batchupload.html',description:'Bulk add to the song library',order:60},
+  {team:'Core Team',icon:'🗄',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',order:70},
+  {team:'Core Team',icon:'📱',title:'Core Team App',url:'CoreTeamApp.html',description:'Mobile app',order:80},
+  {team:'Core Team',icon:'🎓',title:'Training Hub',url:'trainingportalhub.html',description:'Practice copies of the build tools',order:90},
+  {team:'Core Team',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',order:100},
 
-  {team:'AV Team',icon:'🛠',title:'Troubleshoot AV',url:'EGBC-Troubleshoot-AV.html',description:'Search a problem, get the fix',minRole:'member',order:10},
-  {team:'AV Team',icon:'📘',title:'How To AV',url:'EGBC-HowTo-AV.html',description:'Step-by-step guides',minRole:'member',order:20},
-  {team:'AV Team',icon:'🔌',title:'AV Schematic',url:'schematic.html',description:'How it is all wired',minRole:'member',order:30},
-  {team:'AV Team',icon:'🎛',title:'Monitor & Stage Map',url:'MonitorStageMap.html',description:'Stage and monitor layout',minRole:'member',order:40},
-  {team:'AV Team',icon:'📦',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',minRole:'leader',order:50},
-  {team:'AV Team',icon:'🔁',title:'Handover',url:'Handover.html',description:'Week-to-week handover notes',minRole:'member',order:60},
+  /* Worship - Choir members land here too */
+  {team:'Worship Team',icon:'📜',title:'Team Charter',url:'Worshipteamcharter.html',description:'How we work together',order:10},
+  {team:'Worship Team',icon:'👀',title:'Live Rota',url:'view-only-rota.html',description:'Who is on, and when',order:20},
+  {team:'Worship Team',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',order:30},
+  {team:'Worship Team',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',order:40},
+  {team:'Worship Team',icon:'▶',title:'Play Through',url:'EGBC-PlayThrough.html',description:'Practice recordings',order:50},
+  {team:'Worship Team',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',order:60},
+  {team:'Worship Team',icon:'🎓',title:'Worship Training',url:'EGBC-Training-Worship.html',description:'Training material',order:70},
+  {team:'Worship Team',icon:'📌',title:'Suggestions Board',url:'stickynotes.html',description:'Ideas from the team',order:80},
+  {team:'Worship Team',icon:'📱',title:'Worship Hub App',url:'worshiphubapp.html',description:'Mobile app',order:90},
+  {team:'Worship Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:100},
 
-  {team:'Kids Church',icon:'📋',title:'Kids Church Rota',url:'kidschurch-rota.html',description:'Weekly leaders and helpers',minRole:'leader',order:10,enabled:false},
-  {team:'Kids Church',icon:'👀',title:'View Rota',url:'kidschurch-view.html',description:'Who is on, and when',minRole:'member',order:20,enabled:false},
-  {team:'Kids Church',icon:'📅',title:'Session Planning',url:'kidschurch-planning.html',description:'Themes and group allocation',minRole:'leader',order:30,enabled:false},
+  /* AV */
+  {team:'AV Team',icon:'📜',title:'AV Team Charter',url:'AVteamlandingpage.html',description:'How we work together',order:10},
+  {team:'AV Team',icon:'🛠',title:'Troubleshoot AV',url:'EGBC-Troubleshoot-AV.html',description:'Search a problem, get the fix',order:20},
+  {team:'AV Team',icon:'📘',title:'How To AV',url:'EGBC-HowTo-AV.html',description:'Step-by-step guides',order:30},
+  {team:'AV Team',icon:'🔌',title:'AV Schematic',url:'schematic.html',description:'How it is all wired',order:40},
+  {team:'AV Team',icon:'🎛',title:'Monitor Setup',url:'MonitorStageMap.html',description:'Stage and monitor layout',order:50},
+  {team:'AV Team',icon:'🔁',title:'Handover',url:'Handover.html',description:'Week-to-week handover notes',order:60},
+  {team:'AV Team',icon:'👀',title:'Live Rota',url:'view-only-rota.html',description:'Who is on, and when',order:70},
+  {team:'AV Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:80},
 
-  {team:'Youth Worship',icon:'📅',title:'Youth Service Planner',url:'youthserviceplanner.html',description:'Plan youth sessions',minRole:'leader',order:10},
-  {team:'Youth Worship',icon:'📱',title:'Youth App',url:'youthapp2.html',description:'Youth resources',minRole:'member',order:20},
-  {team:'Youth Worship',icon:'📜',title:'Youth Charter',url:'Youthcharter.html',description:'How we work together',minRole:'member',order:30},
+  /* Youth */
+  {team:'Youth Worship',icon:'📜',title:'Youth Charter',url:'Youthcharter.html',description:'How we work together',order:10},
+  {team:'Youth Worship',icon:'📅',title:'Youth Service Planner',url:'youthserviceplanner.html',description:'Plan youth services',order:20},
+  {team:'Youth Worship',icon:'📱',title:'Youth Hub App',url:'youthapp2.html',description:'Mobile app',order:30},
+  {team:'Youth Worship',icon:'👀',title:'Live Rota',url:'view-only-rota.html',description:'Who is on, and when',order:40},
+  {team:'Youth Worship',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:50},
 
-  {team:'Choir',icon:'👀',title:'View Rota',url:'view-only-rota.html',description:'Who is on, and when',minRole:'member',order:10},
-  {team:'Choir',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',minRole:'member',order:20},
-  {team:'Choir',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',minRole:'member',order:30},
-
-  {team:'Core Team',icon:'👥',title:'Address Book',url:'addressbook.html',description:'People and households',minRole:'admin',order:10},
-  {team:'Core Team',icon:'✉',title:'Email Builder',url:'EmailBuilder2.html',description:'Compose and send to teams',minRole:'leader',order:20},
-  {team:'Core Team',icon:'🎂',title:'Birthdays',url:'birthday.html',description:'Who to remember',minRole:'member',order:30},
-  {team:'Core Team',icon:'📌',title:'Core Team App',url:'CoreTeamApp.html',description:'Core team tools',minRole:'member',order:40},
-  {team:'Core Team',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',minRole:'member',order:50},
-
-  {team:'Lazers',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:10},
-  {team:'ReNu',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:10},
-
-  {team:'Worship Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
-  {team:'AV Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
-  {team:'Choir',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
-  {team:'Youth Worship',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
-  {team:'Kids Church',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
-  {team:'Core Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200}
+  /* Kids Church, Lazers, ReNu - rotas still to be built */
+  {team:'Kids Church',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:10},
+  {team:'Lazers',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:10},
+  {team:'ReNu',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:10}
 ];
 
 async function seedPages(){

@@ -56,17 +56,27 @@
      Service Planner and view-only-rota all match on these exact strings.
      Changing one here without changing it there breaks the rota.
 
-     "Kids Church", "Lazers" and "ReNu" are the new values.                              */
+     "Kids Church", "Lazers" and "ReNu" are the new values.
+
+     A team with a `parent` is still a real marker - view-only-rota.html
+     filters on markers.includes('Choir') - but it gets no tab of its own in
+     the hub. Its members see the parent team's pages instead.
+
+     Core Team carries `admin: true`. Ticking it makes someone an administrator
+     of the whole system - address book, linking sign-ins, the build tools. It
+     does NOT hand them every content tab: those still come from their own
+     markers, so a Core Team member only sees Kids Church if they are ticked
+     for Kids Church.                                                        */
 
   var TEAMS = {
     'Worship Team':  { label: 'Worship',      colour: '#3d6263' },
     'AV Team':       { label: 'AV',           colour: '#4a5f7a' },
-    'Choir':         { label: 'Choir',        colour: '#7a4a5f' },
+    'Choir':         { label: 'Choir',        colour: '#7a4a5f', parent: 'Worship Team' },
     'Youth Worship': { label: 'Youth',        colour: '#5f7a4a' },
     'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a' },
     'Lazers':        { label: 'Lazers',       colour: '#8a4a3d' },
     'ReNu':          { label: 'ReNu',         colour: '#3d6b5f' },
-    'Core Team':     { label: 'Core Team',    colour: '#6b4a7a' }
+    'Core Team':     { label: 'Admin',        colour: '#6b4a7a', admin: true }
   };
 
   /* ---- Roles -------------------------------------------------------
@@ -93,21 +103,50 @@
 
   function loadProfile(user) {
     return db.collection('users').doc(user.uid).get().then(function (snap) {
-      if (snap.exists) {
-        var d = snap.data();
-        return db.collection('users').doc(user.uid)
-          .update({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() })
-          .catch(function () {})
-          .then(function () { return d; });
+      if (!snap.exists) return provisionProfile(user);
+
+      var d = snap.data();
+
+      /* Someone linked since their last visit: pick the membership up now,
+         so they do not have to be told to sign out and back in. */
+      if (!d.memberId) {
+        return provisionProfile(user);
       }
-      return provisionProfile(user);
+
+      /* Markers are edited in the address book, so re-read them each load
+         rather than letting the mirrored copy drift. */
+      return db.collection('addressBook').doc(d.memberId).get().then(function (m) {
+        var patch = { lastSeen: firebase.firestore.FieldValue.serverTimestamp() };
+        if (m.exists) {
+          var md = m.data();
+          var teams = Array.isArray(md.markers) ? md.markers : [];
+          patch.teams = teams;
+          patch.name = (md.fullName || md.name || d.name || '').trim();
+          patch.status = teams.length ? 'active' : 'pending';
+        }
+        return db.collection('users').doc(user.uid).update(patch)
+          .catch(function () {})
+          .then(function () { return Object.assign({}, d, patch); });
+      }).catch(function () { return d; });
     });
+  }
+
+  /* Look a person up by their primary address book email, then by any extra
+     sign-in address Core Team has linked to them. People sign in with whatever
+     Google account is on their phone, which is often not the address the church
+     holds, so the second lookup is what stops them getting stuck. */
+  function findMember(email) {
+    return db.collection('addressBook').where('email', '==', email).limit(1).get()
+      .then(function (q) {
+        if (!q.empty) return q;
+        return db.collection('addressBook').where('signInEmails', 'array-contains', email).limit(1).get();
+      });
   }
 
   function provisionProfile(user) {
     var email = (user.email || '').toLowerCase().trim();
 
-    return db.collection('addressBook').where('email', '==', email).limit(1).get()
+    return findMember(email)
       .then(function (q) {
         var profile = {
           uid: user.uid,
@@ -166,9 +205,13 @@
 
             if (profile.status !== 'active') {
               EGBCAuth._blockPage(
-                'Waiting for approval',
-                'Your account is set up but has not been given access to any team yet. ' +
-                'Ask your team leader to add you, then reload this page.',
+                profile.memberId ? 'No teams yet' : 'We do not recognise that address',
+                profile.memberId
+                  ? 'You are in the address book but no teams are ticked against you yet. ' +
+                    'Ask a member of the Core Team to tick them, then reload this page.'
+                  : 'You have signed in with an address the church does not have on file. ' +
+                    'Ask a member of the Core Team to link it to your record - they can see it ' +
+                    'listed already. Once they do, reload this page.',
                 profile
               );
               return;
@@ -218,28 +261,48 @@
     profile: function () { return currentProfile; },
     user: function () { return currentUser; },
 
+    /* The teams that decide what a person can see. A child team (Choir)
+       resolves to its parent (Worship Team). The raw markers are left
+       untouched on the profile, because the rota still needs them. */
+    effectiveTeams: function () {
+      if (!currentProfile) return [];
+      var out = [];
+      (currentProfile.teams || []).forEach(function (t) {
+        var cfg = TEAMS[t];
+        var resolved = (cfg && cfg.parent) ? cfg.parent : t;
+        if (out.indexOf(resolved) === -1) out.push(resolved);
+      });
+      return out;
+    },
+
+    /* Content tabs. Children fold into their parent; Core Team is not a
+       content team, so it is handled separately as the Admin tab. */
+    tabTeams: function () {
+      return EGBCAuth.effectiveTeams().filter(function (t) {
+        return TEAMS[t] && !TEAMS[t].parent && !TEAMS[t].admin;
+      });
+    },
+
     inTeam: function (team) {
-      return !!(currentProfile && currentProfile.teams && currentProfile.teams.indexOf(team) !== -1);
+      return EGBCAuth.effectiveTeams().indexOf(team) !== -1;
     },
 
-    hasRole: function (team, role) {
-      return currentProfile ? roleAtLeast(currentProfile.roles, team, role) : false;
+    /* Two states only: administrator, or a member of the team. */
+    hasRole: function (team) {
+      return EGBCAuth.isAdmin() || EGBCAuth.inTeam(team);
     },
 
-    isOwner: function () {
-      return !!(currentProfile && currentProfile.roles && currentProfile.roles.owner);
-    },
-
-    isAdminOf: function (team) {
-      return EGBCAuth.hasRole(team, 'admin');
-    },
-
-    /* True if the user administers any team at all. */
-    isAnyAdmin: function () {
+    /* An administrator is anyone ticked Core Team. There is no layer above it. */
+    isAdmin: function () {
       if (!currentProfile) return false;
-      if (currentProfile.roles && currentProfile.roles.owner) return true;
-      return (currentProfile.teams || []).some(function (t) { return roleAtLeast(currentProfile.roles, t, 'admin'); });
+      return (currentProfile.teams || []).some(function (t) {
+        return TEAMS[t] && TEAMS[t].admin;
+      });
     },
+
+    isOwner: function () { return EGBCAuth.isAdmin(); },
+    isAnyAdmin: function () { return EGBCAuth.isAdmin(); },
+    isAdminOf: function () { return EGBCAuth.isAdmin(); },
 
     signOut: function () {
       return auth.signOut().then(function () { location.href = LOGIN_PAGE; });
@@ -254,9 +317,10 @@
       if (!el || !currentProfile) return;
       var initials = (currentProfile.name || currentProfile.email || '?')
         .split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+      var onHub = location.pathname.split('/').pop() === HUB_PAGE;
       el.innerHTML =
         '<div class="flex items-center gap-3">' +
-          '<a href="' + HUB_PAGE + '" class="text-[10px] font-black uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity">&larr; Hub</a>' +
+          (onHub ? '' : '<a href="' + HUB_PAGE + '" class="text-[10px] font-black uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity">&larr; Hub</a>') +
           '<div class="flex items-center gap-2 bg-white border border-[#d1dfdf] rounded-full pl-1.5 pr-4 py-1.5">' +
             '<div class="w-7 h-7 rounded-full bg-[#3d6263] text-white flex items-center justify-center text-[10px] font-black">' + initials + '</div>' +
             '<span class="text-[11px] font-bold">' + (currentProfile.name || currentProfile.email) + '</span>' +
