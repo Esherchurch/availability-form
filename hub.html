@@ -316,7 +316,9 @@ async function savePerson(p,teams,roles){
   try{
     await db.collection('users').doc(p.id).update(patch);
     if(p.memberId){
-      await db.collection('addressBook').doc(p.memberId).update({teams,roles}).catch(()=>{});
+      // Write back to `markers` - the field Planner, CoreTeamApp, EmailBuilder2
+      // and the Sunday Service Planner all read for team membership.
+      await db.collection('addressBook').doc(p.memberId).update({markers:teams,roles}).catch(()=>{});
     }
     Object.assign(p,patch);
     renderPeople();
@@ -407,37 +409,51 @@ async function deletePage(){
 
 /* Default registry, written once. Everything is editable afterwards. */
 const DEFAULT_PAGES=[
-  {team:'worship',icon:'📋',title:'Worship Rota Planner',url:'Planner.html',description:'Build and send the term rota',minRole:'leader',order:10},
-  {team:'worship',icon:'📅',title:'Sunday Service Planner',url:'SundayServicePlanner.html',description:'Running orders for Sunday',minRole:'leader',order:20},
-  {team:'worship',icon:'👀',title:'View Rota',url:'view-only-rota.html',description:'Who is on, and when',minRole:'member',order:30},
-  {team:'worship',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',minRole:'member',order:40},
-  {team:'worship',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',minRole:'member',order:50},
-  {team:'worship',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',minRole:'member',order:60},
-  {team:'worship',icon:'▶',title:'Play Through',url:'EGBC-PlayThrough.html',description:'Practice recordings',minRole:'member',order:70},
-  {team:'worship',icon:'🎓',title:'Worship Training',url:'EGBC-Training-Worship.html',description:'Training material',minRole:'member',order:80},
-  {team:'worship',icon:'🎚',title:'Music Uploader',url:'music-uploader.html',description:'Add tracks to the library',minRole:'leader',order:90},
-  {team:'worship',icon:'📜',title:'Team Charter',url:'Worshipteamcharter.html',description:'How we work together',minRole:'member',order:100},
+  {team:'Worship Team',icon:'📋',title:'Worship Rota Planner',url:'Planner.html',description:'Build and send the term rota',minRole:'leader',order:10},
+  {team:'Worship Team',icon:'📅',title:'Sunday Service Planner',url:'SundayServicePlanner.html',description:'Running orders for Sunday',minRole:'leader',order:20},
+  {team:'Worship Team',icon:'👀',title:'View Rota',url:'view-only-rota.html',description:'Who is on, and when',minRole:'member',order:30},
+  {team:'Worship Team',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',minRole:'member',order:40},
+  {team:'Worship Team',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',minRole:'member',order:50},
+  {team:'Worship Team',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',minRole:'member',order:60},
+  {team:'Worship Team',icon:'▶',title:'Play Through',url:'EGBC-PlayThrough.html',description:'Practice recordings',minRole:'member',order:70},
+  {team:'Worship Team',icon:'🎓',title:'Worship Training',url:'EGBC-Training-Worship.html',description:'Training material',minRole:'member',order:80},
+  {team:'Worship Team',icon:'🎚',title:'Music Uploader',url:'music-uploader.html',description:'Add tracks to the library',minRole:'leader',order:90},
+  {team:'Worship Team',icon:'📜',title:'Team Charter',url:'Worshipteamcharter.html',description:'How we work together',minRole:'member',order:100},
 
-  {team:'av',icon:'🛠',title:'Troubleshoot AV',url:'EGBC-Troubleshoot-AV.html',description:'Search a problem, get the fix',minRole:'member',order:10},
-  {team:'av',icon:'📘',title:'How To AV',url:'EGBC-HowTo-AV.html',description:'Step-by-step guides',minRole:'member',order:20},
-  {team:'av',icon:'🔌',title:'AV Schematic',url:'schematic.html',description:'How it is all wired',minRole:'member',order:30},
-  {team:'av',icon:'🎛',title:'Monitor & Stage Map',url:'MonitorStageMap.html',description:'Stage and monitor layout',minRole:'member',order:40},
-  {team:'av',icon:'📦',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',minRole:'leader',order:50},
-  {team:'av',icon:'🔁',title:'Handover',url:'Handover.html',description:'Week-to-week handover notes',minRole:'member',order:60},
+  {team:'AV Team',icon:'🛠',title:'Troubleshoot AV',url:'EGBC-Troubleshoot-AV.html',description:'Search a problem, get the fix',minRole:'member',order:10},
+  {team:'AV Team',icon:'📘',title:'How To AV',url:'EGBC-HowTo-AV.html',description:'Step-by-step guides',minRole:'member',order:20},
+  {team:'AV Team',icon:'🔌',title:'AV Schematic',url:'schematic.html',description:'How it is all wired',minRole:'member',order:30},
+  {team:'AV Team',icon:'🎛',title:'Monitor & Stage Map',url:'MonitorStageMap.html',description:'Stage and monitor layout',minRole:'member',order:40},
+  {team:'AV Team',icon:'📦',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',minRole:'leader',order:50},
+  {team:'AV Team',icon:'🔁',title:'Handover',url:'Handover.html',description:'Week-to-week handover notes',minRole:'member',order:60},
 
-  {team:'kids',icon:'📋',title:'Kids Church Rota',url:'kidschurch-rota.html',description:'Weekly leaders and helpers',minRole:'leader',order:10,enabled:false},
-  {team:'kids',icon:'👀',title:'View Rota',url:'kidschurch-view.html',description:'Who is on, and when',minRole:'member',order:20,enabled:false},
-  {team:'kids',icon:'📅',title:'Session Planning',url:'kidschurch-planning.html',description:'Themes and group allocation',minRole:'leader',order:30,enabled:false},
+  {team:'Kids Church',icon:'📋',title:'Kids Church Rota',url:'kidschurch-rota.html',description:'Weekly leaders and helpers',minRole:'leader',order:10,enabled:false},
+  {team:'Kids Church',icon:'👀',title:'View Rota',url:'kidschurch-view.html',description:'Who is on, and when',minRole:'member',order:20,enabled:false},
+  {team:'Kids Church',icon:'📅',title:'Session Planning',url:'kidschurch-planning.html',description:'Themes and group allocation',minRole:'leader',order:30,enabled:false},
 
-  {team:'youth',icon:'📅',title:'Youth Service Planner',url:'youthserviceplanner.html',description:'Plan youth sessions',minRole:'leader',order:10},
-  {team:'youth',icon:'📱',title:'Youth App',url:'youthapp2.html',description:'Youth resources',minRole:'member',order:20},
-  {team:'youth',icon:'📜',title:'Youth Charter',url:'Youthcharter.html',description:'How we work together',minRole:'member',order:30},
+  {team:'Youth Worship',icon:'📅',title:'Youth Service Planner',url:'youthserviceplanner.html',description:'Plan youth sessions',minRole:'leader',order:10},
+  {team:'Youth Worship',icon:'📱',title:'Youth App',url:'youthapp2.html',description:'Youth resources',minRole:'member',order:20},
+  {team:'Youth Worship',icon:'📜',title:'Youth Charter',url:'Youthcharter.html',description:'How we work together',minRole:'member',order:30},
 
-  {team:'core',icon:'👥',title:'Address Book',url:'addressbook.html',description:'People and households',minRole:'admin',order:10},
-  {team:'core',icon:'✉',title:'Email Builder',url:'EmailBuilder2.html',description:'Compose and send to teams',minRole:'leader',order:20},
-  {team:'core',icon:'🎂',title:'Birthdays',url:'birthday.html',description:'Who to remember',minRole:'member',order:30},
-  {team:'core',icon:'📌',title:'Core Team App',url:'CoreTeamApp.html',description:'Core team tools',minRole:'member',order:40},
-  {team:'core',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',minRole:'member',order:50}
+  {team:'Choir',icon:'👀',title:'View Rota',url:'view-only-rota.html',description:'Who is on, and when',minRole:'member',order:10},
+  {team:'Choir',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',minRole:'member',order:20},
+  {team:'Choir',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',minRole:'member',order:30},
+
+  {team:'Core Team',icon:'👥',title:'Address Book',url:'addressbook.html',description:'People and households',minRole:'admin',order:10},
+  {team:'Core Team',icon:'✉',title:'Email Builder',url:'EmailBuilder2.html',description:'Compose and send to teams',minRole:'leader',order:20},
+  {team:'Core Team',icon:'🎂',title:'Birthdays',url:'birthday.html',description:'Who to remember',minRole:'member',order:30},
+  {team:'Core Team',icon:'📌',title:'Core Team App',url:'CoreTeamApp.html',description:'Core team tools',minRole:'member',order:40},
+  {team:'Core Team',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',minRole:'member',order:50},
+
+  {team:'Lazers',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:10},
+  {team:'ReNu',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:10},
+
+  {team:'Worship Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
+  {team:'AV Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
+  {team:'Choir',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
+  {team:'Youth Worship',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
+  {team:'Kids Church',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200},
+  {team:'Core Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',minRole:'member',order:200}
 ];
 
 async function seedPages(){

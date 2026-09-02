@@ -49,6 +49,8 @@
             if(data.markers) data.markers.forEach(m => { const el = document.querySelector(`.marker[value="${m}"]`); if(el) el.checked = true; });
             if(data.primaryInstruments) data.primaryInstruments.forEach(i => { const el = document.querySelector(`.primary[value="${i}"]`); if(el) el.checked = true; });
             if(data.secondaryInstruments) data.secondaryInstruments.forEach(i => { const el = document.querySelector(`.secondary[value="${i}"]`); if(el) el.checked = true; });
+            if(data.kidsRolesPrimary) data.kidsRolesPrimary.forEach(i => { const el = document.querySelector(`.kidsprimary[value="${i}"]`); if(el) el.checked = true; });
+            if(data.kidsRolesSecondary) data.kidsRolesSecondary.forEach(i => { const el = document.querySelector(`.kidssecondary[value="${i}"]`); if(el) el.checked = true; });
 
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Update Member Details";
@@ -118,7 +120,9 @@
                 householdId: document.getElementById('relatedTo').value,
                 markers: Array.from(document.querySelectorAll('.marker:checked')).map(cb => cb.value),
                 primaryInstruments: Array.from(document.querySelectorAll('.primary:checked')).map(cb => cb.value),
-                secondaryInstruments: Array.from(document.querySelectorAll('.secondary:checked')).map(cb => cb.value)
+                secondaryInstruments: Array.from(document.querySelectorAll('.secondary:checked')).map(cb => cb.value),
+                kidsRolesPrimary: Array.from(document.querySelectorAll('.kidsprimary:checked')).map(cb => cb.value),
+                kidsRolesSecondary: Array.from(document.querySelectorAll('.kidssecondary:checked')).map(cb => cb.value)
             };
 
             try {
@@ -184,7 +188,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js"></script>
-<script src="egbc-guard.js" data-team="core" data-role="admin"></script>
+<script src="egbc-guard.js" data-team="Core Team" data-role="admin"></script>
 </head>
 <body class="p-8 lg:p-12">
     <div class="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-12">
@@ -222,6 +226,9 @@
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="AV Team"> AV TEAM</label>
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Choir"> CHOIR</label>
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Youth Worship"> YOUTH</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Kids Church"> KIDS CHURCH</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Lazers"> LAZERS</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="ReNu"> RENU</label>
                     </div>
                 </div>
 
@@ -264,6 +271,27 @@
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Trumpet"> Trumpet</label>
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Synth"> Synth</label>
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Electric Guitar"> Electric Guitar</label>
+                    </div>
+                </div>
+
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
+                    <label class="block text-[10px] font-extrabold text-[#7a5f4a] uppercase tracking-widest">Kids Church Roles</label>
+                    <p class="text-[9px] text-gray-400 font-semibold leading-relaxed">Younger = Nursery, Reception, Y1, Y2 &middot; Older = Y3, Y4, Y5.<br>Tick <strong>Usually</strong> for what they normally do, <strong>Can cover</strong> for anything they will step into.</p>
+
+                    <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-1">Usually</div>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Session Leader"> Session Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Group Leader (Younger)"> Group Leader &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Group Leader (Older)"> Group Leader &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Supporting Adult"> Supporting Adult</label>
+                    </div>
+
+                    <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-2">Can cover</div>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Session Leader"> Session Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Group Leader (Younger)"> Group Leader &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Group Leader (Older)"> Group Leader &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Supporting Adult"> Supporting Adult</label>
                     </div>
                 </div>
             </div>

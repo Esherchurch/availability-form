@@ -50,12 +50,23 @@
      Adding a team here makes it available everywhere: the hub filter,
      the admin screen, and the page registry.                          */
 
+  /* ---- Teams -------------------------------------------------------
+     These MUST match the values already stored in addressBook.markers
+     and events.teams. Planner, CoreTeamApp, EmailBuilder2, the Sunday
+     Service Planner and view-only-rota all match on these exact strings.
+     Changing one here without changing it there breaks the rota.
+
+     "Kids Church", "Lazers" and "ReNu" are the new values.                              */
+
   var TEAMS = {
-    worship: { label: 'Worship',     colour: '#3d6263' },
-    av:      { label: 'AV',          colour: '#4a5f7a' },
-    kids:    { label: 'Kids Church', colour: '#7a5f4a' },
-    youth:   { label: 'Youth',       colour: '#5f7a4a' },
-    core:    { label: 'Core Team',   colour: '#6b4a7a' }
+    'Worship Team':  { label: 'Worship',      colour: '#3d6263' },
+    'AV Team':       { label: 'AV',           colour: '#4a5f7a' },
+    'Choir':         { label: 'Choir',        colour: '#7a4a5f' },
+    'Youth Worship': { label: 'Youth',        colour: '#5f7a4a' },
+    'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a' },
+    'Lazers':        { label: 'Lazers',       colour: '#8a4a3d' },
+    'ReNu':          { label: 'ReNu',         colour: '#3d6b5f' },
+    'Core Team':     { label: 'Core Team',    colour: '#6b4a7a' }
   };
 
   /* ---- Roles -------------------------------------------------------
@@ -114,8 +125,10 @@
           var doc = q.docs[0];
           var m = doc.data();
           profile.memberId = doc.id;
-          profile.name = ((m.firstName || '') + ' ' + (m.lastName || '')).trim() || profile.name;
-          profile.teams = Array.isArray(m.teams) ? m.teams : [];
+          // The address book stores the person's name in `fullName` and their
+          // team membership in `markers` - the same field the rota reads.
+          profile.name = (m.fullName || m.name || '').trim() || profile.name;
+          profile.teams = Array.isArray(m.markers) ? m.markers : [];
           profile.roles = (m.roles && typeof m.roles === 'object') ? m.roles : {};
           profile.status = profile.teams.length ? 'active' : 'pending';
         }
