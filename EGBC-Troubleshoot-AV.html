@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,6 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
   <style>
     :root{
       --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
@@ -20,21 +21,30 @@
     h1{color:var(--ink)}
     ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:var(--r-pill)}
     .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-2px)!important;box-shadow:var(--shadow-lg)!important}
-    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:var(--r-lg)}
-    .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:var(--r-lg)}
+    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:var(--r-lg);background:#000}
+    .video-wrap iframe,.video-wrap video{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:var(--r-lg)}
     .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:var(--r-lg)}
     @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
     .tab-btn.active{background:var(--brand);color:#fff}.tab-btn{transition:all 0.15s}
     .admin-tab.hidden{display:none}
     mark{background:var(--gold-tint);color:var(--ink);border-radius:3px;padding:0 3px}
-    /* Design-system refinements layered over Tailwind utilities (visual only) */
     input:focus,textarea:focus,select:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px var(--brand-ring)!important}
     .hover\:bg-black:hover{background-color:var(--brand-dark)!important}
     .shadow-sm{box-shadow:var(--shadow-sm)!important}
     .shadow-md{box-shadow:var(--shadow)!important}
     .shadow-lg{box-shadow:var(--shadow)!important}
     .shadow-xl,.shadow-2xl{box-shadow:var(--shadow-lg)!important}
+    .drop-zone{border:2px dashed var(--hairline-strong);transition:all .15s}
+    .drop-zone.drag-over{border-color:var(--brand);background:var(--brand-tint)}
+    .cue-row{transition:background .12s}.cue-row:hover{background:var(--brand-tint)}
+    .progress-track{height:6px;background:var(--hairline);border-radius:var(--r-pill);overflow:hidden}
+    .progress-fill{height:100%;background:var(--brand);transition:width .2s;border-radius:var(--r-pill)}
   </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="av"></script>
 </head>
 <body class="p-6 lg:p-10 min-h-screen">
 <div class="max-w-6xl mx-auto">
@@ -92,37 +102,49 @@
       </div>
 
       <div id="admin-content" class="admin-tab">
-        <div class="grid md:grid-cols-2 gap-6">
-          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
-            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Item</h3>
-            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-2">
-              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Paste embed code from Stream</div>
-              <div class="text-[11px] text-[#3d6263] opacity-60">In Stream: open video → Share → Embed → copy full iframe code → paste below</div>
-              <textarea id="adminContentURL" rows="3" placeholder="Paste iframe embed code here…" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)" onpaste="setTimeout(()=>handleEmbedPaste(this),50)"></textarea>
-              <div id="pasteStatus" class="hidden text-[11px] font-black px-1"></div>
-            </div>
-            <div id="autoFilledSection" class="hidden space-y-3">
-              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60 pt-1">Step 2 — Review &amp; complete</div>
-              <input id="adminTitle" type="text" placeholder="Title (auto-filled from embed)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-              <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option></select>
-              <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
-              <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-              <div id="transcriptStatus" class="hidden text-[12px] font-semibold px-1"></div>
-              <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" placeholder="Paste transcript here (Stream > video > Transcript tab > select all > copy)"></textarea>
-              <div class="flex gap-3 pt-1">
-                <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
-                <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
-              </div>
-            </div>
-          </div>
-          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">How-To Bullets</h3>
-            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste embed code — troubleshooting steps will generate automatically.</div>
-            <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4"><div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div><span class="text-[11px] font-bold uppercase opacity-60">Generating bullets...</span></div>
-            <textarea id="adminBullets" rows="12" placeholder="Bullets will appear here for review..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
-            <button id="regenBtn" onclick="generateBullets()" class="hidden mt-3 w-full bg-white border border-[#d1dfdf] py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">↺ Regenerate Bullets</button>
-          </div>
+        <!-- BATCH DROP -->
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-4 bg-[#f0f6f6] border border-[#d1dfdf] rounded-full px-5 py-3">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" id="autoTranscribe" checked class="w-4 h-4 accent-[#3d6263]">
+            <span class="text-[11px] font-black uppercase tracking-widest opacity-70">Transcribe automatically</span>
+          </label>
+          <span id="engineStatus" class="text-[10px] font-black uppercase tracking-widest opacity-40">Speech engine loads on first use</span>
         </div>
+
+        <div id="batchDrop" class="drop-zone rounded-[1.5rem] px-6 py-12 text-center cursor-pointer bg-[#f0f6f6] mb-6" onclick="document.getElementById('batchFiles').click()">
+          <div class="text-4xl mb-3 opacity-30">📁</div>
+          <div class="text-sm font-black uppercase tracking-widest opacity-70">Drop your videos here</div>
+          <div class="text-[12px] opacity-50 mt-2 leading-relaxed">Transcripts are generated in the browser automatically.<br>If you already have .txt or .vtt files, drop those too and they will be paired by filename.</div>
+        </div>
+        <input id="batchFiles" type="file" accept="video/*,image/*,.txt,.vtt" multiple class="hidden" onchange="handleDroppedFiles(Array.from(this.files))">
+
+        <!-- QUEUE -->
+        <div id="queueSection" class="hidden">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Ready to publish — <span id="queueCount">0</span> item(s)</h3>
+            <div class="flex gap-2 items-center flex-wrap">
+              <select id="batchCategory" class="px-5 py-2.5 rounded-full border border-[#d1dfdf] bg-white font-bold text-[11px] outline-none"><option value="">No category</option></select>
+              <button onclick="publishQueue()" id="publishAllBtn" class="bg-[#3d6263] text-white px-7 py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Upload &amp; Publish All</button>
+              <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-5 py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
+            </div>
+          </div>
+          <div id="queueList" class="space-y-3"></div>
+        </div>
+
+        <!-- URL FALLBACK -->
+        <details class="mt-6">
+          <summary class="text-[10px] font-black uppercase tracking-widest opacity-40 cursor-pointer hover:opacity-70">Add by URL instead</summary>
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mt-3 space-y-3">
+            <input id="adminContentURL" type="text" placeholder="https://…" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <input id="adminTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option></select>
+            <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
+            <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <textarea id="adminTranscript" rows="3" placeholder="Transcript (optional)" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <textarea id="adminBullets" rows="4" placeholder="Bullets (optional)" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <button onclick="publishSingleUrl()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+          </div>
+        </details>
       </div>
 
       <div id="admin-categories" class="admin-tab hidden">
@@ -150,6 +172,7 @@
           <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
           <textarea id="editBullets" rows="6" placeholder="How-to bullets..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
           <textarea id="editDescription" rows="3" placeholder="Description..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <textarea id="editTranscript" rows="4" placeholder="Transcript..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
           <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Save Changes</button>
         </div>
       </div>
@@ -175,12 +198,13 @@
 const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
 firebase.initializeApp(firebaseConfig);
 const db=firebase.firestore();
+const storage=firebase.storage();
 const COLLECTION='kb_troubleshoot_av';
 const CAT_KEY='egbc_cats_troubleshoot_av';
-const SP_SITE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+const STORAGE_PATH='kb/troubleshoot-av';
 let allAssets=[],categories=JSON.parse(localStorage.getItem(CAT_KEY)||'[]'),currentQuery='';
 
-document.addEventListener('DOMContentLoaded',()=>{loadAssets();updateCatDropdowns();});
+document.addEventListener('DOMContentLoaded',()=>{loadAssets();updateCatDropdowns();initDropZones();});
 
 async function loadAssets(){
   showSkeletons();
@@ -196,6 +220,60 @@ async function loadAll(){
   try{const snap=await db.collection(COLLECTION).orderBy('createdAt','desc').get();return snap.docs.map(d=>({id:d.id,...d.data()}));}
   catch(e){return[];}
 }
+
+/* ── TRANSCRIPT CUES ─────────────────────────────────────────────────────
+   Transcripts are stored as "[HH:MM:SS] text" lines. Parsing them into cues
+   lets search jump straight to the moment in the video, rather than the start. */
+
+function parseCues(transcript){
+  if(!transcript)return[];
+  const cues=[];
+  transcript.split('\n').forEach(line=>{
+    const m=line.match(/^\s*\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)$/);
+    if(m){
+      const a=parseInt(m[1],10),b=parseInt(m[2],10),c=m[3]?parseInt(m[3],10):null;
+      const seconds=c===null?(a*60+b):(a*3600+b*60+c);
+      const text=(m[4]||'').trim();
+      if(text)cues.push({t:seconds,text});
+    }else{
+      const t=line.trim();
+      if(t)cues.push({t:null,text:t});
+    }
+  });
+  return cues;
+}
+
+function fmtTime(sec){
+  if(sec===null||sec===undefined)return'';
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60);
+  return h>0?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`;
+}
+
+function bestCue(asset,words){
+  const cues=parseCues(asset.transcript);
+  if(!cues.length)return null;
+  let best=null,bestScore=0;
+  cues.forEach((cue,i)=>{
+    const lower=cue.text.toLowerCase();
+    let score=0;
+    words.forEach(w=>{if(lower.includes(w))score+=1;});
+    if(score>bestScore){
+      bestScore=score;
+      let t=cue.t;
+      if(t===null){for(let j=i;j>=0;j--){if(cues[j].t!==null){t=cues[j].t;break;}}}
+      best={...cue,t,score};
+    }
+  });
+  return bestScore>0?best:null;
+}
+
+function isVideoURL(url){
+  if(!url)return false;
+  const u=url.toLowerCase();
+  return /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/.test(u)||u.includes('firebasestorage')||u.includes('storage.googleapis.com');
+}
+
+/* ── RENDER ──────────────────────────────────────────────────────────── */
 
 function renderContent(assets,highlight=''){
   const area=document.getElementById('contentArea');
@@ -226,41 +304,87 @@ function cardHTML(a,highlight=''){
   const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
   const tags=(a.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
   const title=highlight?hlText(escapeHtml(a.title||''),highlight):escapeHtml(a.title||'');
-  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}')">
+  const jump=a._cue&&a._cue.t!==null?`<div class="mb-3 inline-flex items-center gap-2 bg-[#e7f0ef] border border-[#d1dfdf] px-3 py-1.5 rounded-full"><span class="text-[10px] font-black uppercase tracking-widest text-[#3d6263]">▶ ${fmtTime(a._cue.t)}</span></div>`:'';
+  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}'${a._cue&&a._cue.t!==null?','+a._cue.t:''})">
     <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'📄'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.assetType||'Video'}</span></div>
     <h3 class="font-black text-base mb-3 leading-snug">${title}</h3>
-    ${a.description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.description}</p>`:''}
-    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.bullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
+    ${jump}
+    ${a._cue?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed italic">"${hlText(escapeHtml(a._cue.text),highlight)}"</p>`:(a.description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${escapeHtml(a.description)}</p>`:'')}
+    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${escapeHtml(b.replace(/^[•\-\*]\s*/,''))}</span></div>`).join('')}${(a.bullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
     ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}
   </div>`;
 }
 
-function openCard(id){
+function openCard(id,startAt){
   const a=allAssets.find(x=>x.id===id);if(!a)return;
   const bullets=(a.bullets||'').split('\n').filter(b=>b.trim());
   const hasURL=a.contentURL&&a.contentURL.trim();
-  const src=hasURL?(a.timestampStart?`${a.contentURL}${a.contentURL.includes('?')?'&':'?'}startTime=${a.timestampStart}`:a.contentURL):'';
+  const start=(startAt!==undefined&&startAt!==null)?startAt:(a.timestampStart||0);
+
+  let player='';
+  if(a.assetType==='Video'&&hasURL){
+    if(isVideoURL(a.contentURL)){
+      player=`<div class="video-wrap mb-4"><video id="kbVideo" controls playsinline preload="metadata" src="${escapeHtml(a.contentURL)}"></video></div>`;
+    }else{
+      // Legacy Stream / iframe embeds continue to work during migration
+      const src=start?`${a.contentURL}${a.contentURL.includes('?')?'&':'?'}startTime=${start}`:a.contentURL;
+      player=`<div class="video-wrap mb-4"><iframe src="${escapeHtml(src)}" allowfullscreen></iframe></div>`;
+    }
+  }
+
+  const cues=parseCues(a.transcript).filter(c=>c.t!==null);
+  const cueList=cues.length?`
+    <details class="mb-6" ${currentQuery?'open':''}>
+      <summary class="text-[10px] font-black uppercase tracking-widest opacity-50 cursor-pointer hover:opacity-80 mb-3">Transcript — ${cues.length} moments</summary>
+      <div class="bg-[#f0f6f6] rounded-[1.5rem] border border-[#d1dfdf] max-h-64 overflow-y-auto p-2">
+        ${cues.map(c=>`<div class="cue-row flex gap-3 items-start px-3 py-2 rounded-xl cursor-pointer" onclick="seekTo(${c.t})">
+          <span class="text-[10px] font-black text-[#3d6263] opacity-60 pt-0.5 flex-shrink-0 w-12">${fmtTime(c.t)}</span>
+          <span class="text-[12px] opacity-75 leading-relaxed">${hlText(escapeHtml(c.text),currentQuery)}</span>
+        </div>`).join('')}
+      </div>
+    </details>`:'';
+
   document.getElementById('modalContent').innerHTML=`
-    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">AV Troubleshoot${a.category?' — '+a.category:''}</div>
+    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">AV Troubleshoot${a.category?' — '+escapeHtml(a.category):''}</div>
     <h2 class="font-black text-2xl mb-6 leading-tight">${escapeHtml(a.title)}</h2>
-    ${(a.assetType==='Video')&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
-    ${a.assetType==='Image'&&hasURL?`<img src="${a.contentURL}" alt="${escapeHtml(a.title)}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
-    ${a.description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${a.description}</p>`:''}
-    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How To Fix It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div></div>`:''}
+    ${player}
+    ${a.assetType==='Image'&&hasURL?`<img src="${escapeHtml(a.contentURL)}" alt="${escapeHtml(a.title)}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
+    ${a.description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${escapeHtml(a.description)}</p>`:''}
+    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How To Fix It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${escapeHtml(b.replace(/^[•\-\*\d\.]\s*/,''))}</span></div>`).join('')}</div></div>`:''}
+    ${cueList}
     ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}`;
+
   document.getElementById('modal').classList.remove('hidden');
+
+  const vid=document.getElementById('kbVideo');
+  if(vid&&start){
+    vid.addEventListener('loadedmetadata',()=>{try{vid.currentTime=start;}catch(e){}},{once:true});
+  }
 }
 
-function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
+function seekTo(seconds){
+  const vid=document.getElementById('kbVideo');
+  if(!vid)return;
+  vid.currentTime=seconds;
+  vid.play().catch(()=>{});
+  vid.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal')){
+    const vid=document.getElementById('kbVideo');if(vid)vid.pause();
+    document.getElementById('modal').classList.add('hidden');
+  }
+}
+
+/* ── SEARCH ──────────────────────────────────────────────────────────── */
 
 function doSearch(){
   const query=document.getElementById('searchInput').value.trim();if(!query)return;
   currentQuery=query;
 
-  // Score each asset by relevance to query
   const words=query.toLowerCase().split(/\s+/).filter(w=>w.length>2);
   const scored=allAssets.map(a=>{
-    const h=`${a.title} ${a.tags} ${a.description} ${a.bullets} ${a.transcript}`.toLowerCase();
     let score=0;
     words.forEach(w=>{
       if((a.title||'').toLowerCase().includes(w)) score+=10;
@@ -269,14 +393,16 @@ function doSearch(){
       if((a.description||'').toLowerCase().includes(w)) score+=3;
       if((a.transcript||'').toLowerCase().includes(w)) score+=1;
     });
-    return{...a,_score:score};
+    const cue=score>0?bestCue(a,words):null;
+    if(cue)score+=cue.score*2;
+    return{...a,_score:score,_cue:cue};
   }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
 
   if(scored.length>0){
     showAssembledAnswer(query,scored);
     renderContent(scored,query);
   } else {
-    document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 text-sm font-semibold opacity-70">No results found for "<strong>${query}</strong>" — showing all content</div>`;
+    document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 text-sm font-semibold opacity-70">No results found for "<strong>${escapeHtml(query)}</strong>" — showing all content</div>`;
     document.getElementById('searchResults').classList.remove('hidden');
     renderContent(allAssets);
   }
@@ -284,17 +410,18 @@ function doSearch(){
 
 function showAssembledAnswer(query,results){
   const top=results.slice(0,4);
-
-  // Build step-by-step answer from top results
   let steps='';
   top.forEach((a,i)=>{
     const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
+    const hasJump=a._cue&&a._cue.t!==null;
+    const label={Video:'▶ Watch',Image:'📷 View',Note:'📝 Read'}[a.assetType]||'View';
     steps+=`<div class="flex gap-4 items-start mb-4">
       <span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span>
       <div class="flex-1">
         <div class="font-black text-sm text-[#3d6263] mb-1">${escapeHtml(a.title)}</div>
-        ${bullets.length?`<div class="text-[12px] opacity-70 space-y-1">${bullets.map(b=>`<div>• ${b.replace(/^[•\-\*]\s*/,'')}</div>`).join('')}</div>`:''}
-        <button onclick="openCard('${a.id}')" class="mt-2 bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-[#3d6263] hover:text-white transition-all">${{Video:'▶ Watch',Image:'📷 View',Note:'📝 Read'}[a.assetType]||'View'}</button>
+        ${hasJump?`<div class="text-[12px] opacity-70 italic mb-1">"${hlText(escapeHtml(a._cue.text),query)}"</div>`:''}
+        ${bullets.length?`<div class="text-[12px] opacity-70 space-y-1">${bullets.map(b=>`<div>• ${escapeHtml(b.replace(/^[•\-\*]\s*/,''))}</div>`).join('')}</div>`:''}
+        <button onclick="openCard('${a.id}'${hasJump?','+a._cue.t:''})" class="mt-2 bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-[#3d6263] hover:text-white transition-all">${hasJump?`▶ Jump to ${fmtTime(a._cue.t)}`:label}</button>
       </div>
     </div>`;
   });
@@ -303,7 +430,7 @@ function showAssembledAnswer(query,results){
     <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
       <div>
         <div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Best answer for</div>
-        <h2 class="font-black text-xl">"${query}"</h2>
+        <h2 class="font-black text-xl">"${escapeHtml(query)}"</h2>
       </div>
       <span class="text-[10px] font-black uppercase px-4 py-1.5 rounded-full bg-[#f0f6f6] border border-[#d1dfdf]">${results.length} resource${results.length!==1?'s':''} found</span>
     </div>
@@ -316,8 +443,11 @@ function showAssembledAnswer(query,results){
   document.getElementById('searchResults').innerHTML=html;
   document.getElementById('searchResults').classList.remove('hidden');
 }
+
 function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
 function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(allAssets);}
+
+/* ── ADMIN ───────────────────────────────────────────────────────────── */
 
 function toggleAdmin(){document.getElementById('adminPanel').classList.toggle('hidden');updateCatDropdowns();renderCategoryList();}
 function showAdminTab(tab){
@@ -329,86 +459,308 @@ function showAdminTab(tab){
   if(tab==='categories')renderCategoryList();
 }
 
-async function handleEmbedPaste(el){
-  const val=el.value.trim();if(!val)return;
-  const srcMatch=val.match(/src=["']([^"']+)["']/);
-  const embedURL=srcMatch?srcMatch[1]:(val.startsWith('http')?val:null);
-  if(!embedURL){setStatus('pasteStatus','✗ Paste the full iframe embed code from Stream','text-red-500 font-black');return;}
-  window._extractedURL=embedURL;
-  const titleMatch=val.match(/title=["']([^"']+)["']/);
-  if(titleMatch)document.getElementById('adminTitle').value=titleMatch[1].replace(/\.[^/.]+$/,'');
-  document.getElementById('autoFilledSection').classList.remove('hidden');
-  setStatus('pasteStatus','✓ Embed code recognised — fetching transcript...','text-green-700 font-black');
-  const uidMatch=embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
-  if(uidMatch)await fetchTranscript(uidMatch[1]);
-  else{setStatus('transcriptStatus','Paste transcript manually below if needed.','text-amber-600 font-semibold');document.getElementById('transcriptStatus').classList.remove('hidden');document.getElementById('adminTranscript').classList.remove('hidden');}
-}
+/* ── BATCH INTAKE ─────────────────────────────────────────────────────
+   Videos and transcripts are paired by filename stem, so dropping the whole
+   kb-ready folder produced by Prepare-KBVideo.ps1 builds the queue in one go. */
 
-async function fetchTranscript(uniqueId){
-  try{
-    const r=await fetch(`${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,{headers:{'Accept':'application/json'},credentials:'include'});
-    if(r.ok){
-      const data=await r.json();const items=data?.value||[];
-      if(items.length){
-        const tUrl=items[0].transcriptContentUrl||items[0]['@microsoft.graph.downloadUrl'];
-        if(tUrl){const vr=await fetch(tUrl,{credentials:'include'});if(vr.ok){const t=parseVTT(await vr.text());if(t){onTranscriptLoaded(t);return;}}}
-      }
+let uploadQueue=[];
+
+function initDropZones(){
+  const z=document.getElementById('batchDrop');
+  if(!z)return;
+  ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('drag-over');}));
+  ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('drag-over');}));
+  z.addEventListener('drop',async e=>{
+    e.preventDefault();
+    const items=Array.from(e.dataTransfer.items||[]);
+    const entries=items.map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
+    if(entries.length&&entries.some(en=>en.isDirectory)){
+      const files=[];
+      for(const en of entries)await walkEntry(en,files);
+      handleDroppedFiles(files);
+    }else{
+      handleDroppedFiles(Array.from(e.dataTransfer.files));
     }
-  }catch(e){console.log('Transcript fetch:',e.message);}
-  setStatus('transcriptStatus','In Stream: open video → Transcript tab → select all → copy → paste below. Bullets will generate automatically.','text-amber-600 font-semibold');
-  document.getElementById('transcriptStatus').classList.remove('hidden');
-  document.getElementById('adminTranscript').classList.remove('hidden');
-  document.getElementById('adminTranscript').oninput=async function(){if(this.value.trim().length>50){this.oninput=null;await generateBullets();setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');}};
+  });
 }
 
-async function onTranscriptLoaded(transcript){
-  document.getElementById('adminTranscript').value=transcript;
-  document.getElementById('adminTranscript').classList.remove('hidden');
-  document.getElementById('transcriptStatus').classList.add('hidden');
-  setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
-  await generateBullets();
-  setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+function walkEntry(entry,out){
+  return new Promise(resolve=>{
+    if(entry.isFile){
+      entry.file(f=>{out.push(f);resolve();},()=>resolve());
+    }else if(entry.isDirectory){
+      const reader=entry.createReader();
+      const readBatch=()=>reader.readEntries(async ents=>{
+        if(!ents.length)return resolve();
+        for(const en of ents)await walkEntry(en,out);
+        readBatch();
+      },()=>resolve());
+      readBatch();
+    }else resolve();
+  });
 }
 
-async function generateBullets(){
-  const transcript=document.getElementById('adminTranscript').value.trim();
-  if(!transcript)return;
-  document.getElementById('bulletsPreview').classList.add('hidden');
-  document.getElementById('bulletsGenerating').classList.remove('hidden');
-  document.getElementById('adminBullets').classList.add('hidden');
-  document.getElementById('regenBtn').classList.add('hidden');
-  // Extract key instructional sentences from transcript
-  const lines=transcript.split('\n').map(l=>l.replace(/^\[[\d:]+\]\s*/,'').trim()).filter(l=>l.length>20&&!l.match(/^\d+:\d+$/));
+function stemOf(name){return name.replace(/\.[^/.]+$/,'').toLowerCase();}
+function titleFromStem(stem){return stem.replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim().replace(/\b\w/g,c=>c.toUpperCase());}
+
+async function handleDroppedFiles(files){
+  if(!files||!files.length)return;
+
+  const media=files.filter(f=>f.type.startsWith('video/')||f.type.startsWith('image/'));
+  const texts=files.filter(f=>/\.(txt|vtt)$/i.test(f.name));
+
+  if(!media.length&&!texts.length){alert('No videos, images or transcripts found in what you dropped.');return;}
+
+  const textByStem={};
+  for(const t of texts)textByStem[stemOf(t.name)]=t;
+
+  for(const m of media){
+    const stem=stemOf(m.name);
+    const match=textByStem[stem];
+    let transcript='';
+    if(match){
+      const raw=await match.text();
+      transcript=(match.name.toLowerCase().endsWith('.vtt')||raw.trim().startsWith('WEBVTT'))?parseVTT(raw):raw.trim();
+      delete textByStem[stem];
+    }
+    uploadQueue.push({
+      id:'q'+Math.random().toString(36).slice(2,9),
+      file:m,
+      stem,
+      title:titleFromStem(stem),
+      assetType:m.type.startsWith('image/')?'Image':'Video',
+      transcript,
+      bullets:transcript?buildBullets(transcript):'',
+      tags:'',
+      status:transcript?'ready':'pending-transcript',
+      progress:0,
+      transcribeProgress:0
+    });
+  }
+
+  // Transcripts dropped without a matching video attach to an existing queue item
+  Object.keys(textByStem).forEach(async stem=>{
+    const target=uploadQueue.find(q=>q.stem===stem&&!q.transcript);
+    if(target){
+      const raw=await textByStem[stem].text();
+      target.transcript=raw.trim().startsWith('WEBVTT')?parseVTT(raw):raw.trim();
+      target.bullets=buildBullets(target.transcript);
+      target.status='ready';
+      renderQueue();
+    }
+  });
+
+  renderQueue();
+
+  if(document.getElementById('autoTranscribe').checked)transcribePending();
+}
+
+function renderQueue(){
+  const section=document.getElementById('queueSection');
+  const list=document.getElementById('queueList');
+  if(!uploadQueue.length){section.classList.add('hidden');return;}
+  section.classList.remove('hidden');
+  document.getElementById('queueCount').textContent=uploadQueue.length;
+
+  list.innerHTML=uploadQueue.map(q=>{
+    const cues=parseCues(q.transcript).filter(c=>c.t!==null).length;
+    const mb=(q.file.size/1048576).toFixed(1);
+    const badge={
+      'ready':`<span class="bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">${cues} moments</span>`,
+      'pending-transcript':'<span class="bg-[#f6efe1] text-[#b07d2e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[10px] font-black uppercase">Queued for transcription</span>',
+      'transcribing':`<span class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">Transcribing ${q.transcribeProgress||0}%</span>`,
+      'no-transcript':'<span class="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">No transcript</span>',
+      'uploading':'<span class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">Uploading</span>',
+      'done':'<span class="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">Published</span>',
+      'failed':'<span class="bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">Failed</span>'
+    }[q.status]||'';
+
+    return `<div class="bg-white rounded-[1.5rem] border border-[#d1dfdf] p-5">
+      <div class="flex items-start gap-4 flex-wrap">
+        <span class="text-2xl">${q.assetType==='Image'?'📷':'🎬'}</span>
+        <div class="flex-grow min-w-[200px]">
+          <input value="${escapeHtml(q.title)}" oninput="updateQueueItem('${q.id}','title',this.value)" class="w-full px-4 py-2 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-bold text-sm outline-none mb-2">
+          <div class="flex gap-2 items-center flex-wrap">
+            ${badge}
+            <span class="text-[10px] font-bold opacity-40">${escapeHtml(q.file.name)} · ${mb} MB</span>
+          </div>
+        </div>
+        <div class="flex gap-2 items-center flex-shrink-0">
+          ${q.assetType==='Video'&&q.status!=='transcribing'&&q.status!=='uploading'&&q.status!=='done'?`<button onclick="transcribeOne('${q.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">${q.transcript?'Re-transcribe':'Transcribe'}</button>`:''}
+          <button onclick="removeQueueItem('${q.id}')" class="text-[#d1dfdf] hover:text-red-500 font-black text-lg" title="Remove">✕</button>
+        </div>
+      </div>
+      ${q.status==='transcribing'?`<div class="progress-track mt-3"><div class="progress-fill" style="width:${q.transcribeProgress||0}%"></div></div>`:(q.status==='uploading'||q.progress>0?`<div class="progress-track mt-3"><div class="progress-fill" style="width:${q.progress}%"></div></div>`:'')}
+      <input value="${escapeHtml(q.tags)}" oninput="updateQueueItem('${q.id}','tags',this.value)" placeholder="Tags (comma separated) — optional" class="w-full mt-3 px-4 py-2 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[12px] outline-none">
+      <details class="mt-3">
+        <summary class="text-[10px] font-black uppercase tracking-widest opacity-40 cursor-pointer hover:opacity-70">Bullets &amp; transcript</summary>
+        <textarea rows="5" oninput="updateQueueItem('${q.id}','bullets',this.value)" placeholder="How-to bullets" class="w-full mt-2 px-4 py-3 rounded-2xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[12px] outline-none resize-none">${escapeHtml(q.bullets)}</textarea>
+        <textarea rows="4" oninput="updateQueueItem('${q.id}','transcript',this.value)" placeholder="Transcript — paste here if the script did not produce one" class="w-full mt-2 px-4 py-3 rounded-2xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[11px] outline-none resize-none">${escapeHtml(q.transcript)}</textarea>
+      </details>
+    </div>`;
+  }).join('');
+}
+
+function updateQueueItem(id,field,value){
+  const q=uploadQueue.find(x=>x.id===id);if(!q)return;
+  q[field]=value;
+  if(field==='transcript'){
+    q.bullets=buildBullets(value);
+    q.status=value.trim()?'ready':'no-transcript';
+    renderQueue();
+  }
+}
+
+function removeQueueItem(id){uploadQueue=uploadQueue.filter(x=>x.id!==id);renderQueue();}
+
+/* ── TRANSCRIPTION ───────────────────────────────────────────────────
+   Runs locally in the browser. Items are processed one at a time so the
+   machine is not overwhelmed on a large batch. */
+
+let transcribing=false;
+
+async function transcribePending(){
+  if(transcribing)return;
+  transcribing=true;
+  try{
+    while(true){
+      const next=uploadQueue.find(q=>q.status==='pending-transcript'&&q.assetType==='Video');
+      if(!next)break;
+      await runTranscription(next);
+    }
+  }finally{transcribing=false;}
+}
+
+async function transcribeOne(id){
+  const q=uploadQueue.find(x=>x.id===id);
+  if(!q||q.assetType!=='Video')return;
+  if(transcribing){q.status='pending-transcript';renderQueue();return;}
+  transcribing=true;
+  try{await runTranscription(q);}finally{transcribing=false;}
+  transcribePending();
+}
+
+async function runTranscription(q){
+  if(!window.KBTranscribe){
+    q.status='no-transcript';renderQueue();
+    return;
+  }
+  q.status='transcribing';q.transcribeProgress=0;renderQueue();
+  try{
+    const text=await window.KBTranscribe(q.file,pct=>{
+      if(pct!==null){q.transcribeProgress=pct;renderQueue();}
+    });
+    if(text&&text.trim()){
+      q.transcript=text.trim();
+      q.bullets=buildBullets(q.transcript);
+      q.status='ready';
+    }else{
+      q.status='no-transcript';
+    }
+  }catch(e){
+    console.error('Transcription failed for',q.file.name,e);
+    q.status='no-transcript';
+    q.transcribeError=e.message;
+  }
+  q.transcribeProgress=0;
+  renderQueue();
+}
+
+function buildBullets(transcript){
+  if(!transcript)return'';
+  const lines=transcript.split('\n').map(l=>l.replace(/^\s*\[[\d:]+\]\s*/,'').trim()).filter(l=>l.length>20&&!l.match(/^\d+:\d+$/));
   const instructional=lines.filter(l=>/\b(press|click|select|go to|open|choose|set|turn|make sure|check|you need|you can|will|should|next|then|now|first|after|here|this)\b/i.test(l));
   const source=instructional.length>=3?instructional:lines;
-  const bullets=source.slice(0,8).map(l=>'• '+l).join('\n');
-  document.getElementById('adminBullets').value=bullets||lines.slice(0,5).map(l=>'• '+l).join('\n');
-  document.getElementById('adminBullets').classList.remove('hidden');
-  document.getElementById('regenBtn').classList.remove('hidden');
-  document.getElementById('bulletsGenerating').classList.add('hidden');
+  return source.slice(0,8).map(l=>'• '+l).join('\n');
 }
 
-async function publishAsset(){
+async function publishQueue(){
+  if(!uploadQueue.length)return;
+  const btn=document.getElementById('publishAllBtn');
+  btn.disabled=true;btn.textContent='Uploading…';
+  const category=document.getElementById('batchCategory').value;
+
+  const oversized=uploadQueue.filter(q=>q.assetType==='Video'&&q.file.size>500*1048576);
+  if(oversized.length&&!confirm(`${oversized.length} file(s) are over 500 MB. Run Prepare-KBVideo.ps1 on them first?\n\nOK = upload anyway, Cancel = stop.`)){
+    btn.disabled=false;btn.textContent='Upload & Publish All';return;
+  }
+
+  if(uploadQueue.some(q=>q.status==='transcribing')){
+    alert('Still transcribing — wait for that to finish, or untick "Transcribe automatically" and publish without transcripts.');
+    btn.disabled=false;btn.textContent='Upload & Publish All';return;
+  }
+
+  for(const q of uploadQueue){
+    if(q.status==='done')continue;
+    q.status='uploading';renderQueue();
+    try{
+      const ext=q.file.name.split('.').pop().toLowerCase();
+      const path=`${STORAGE_PATH}/${Date.now()}-${q.stem.replace(/[^\w\-]/g,'-')}.${ext}`;
+      const task=storage.ref(path).put(q.file,{contentType:q.file.type,cacheControl:'public,max-age=31536000'});
+      task.on('state_changed',s=>{q.progress=Math.round((s.bytesTransferred/s.totalBytes)*100);renderQueue();});
+      await task;
+      const url=await storage.ref(path).getDownloadURL();
+
+      await db.collection(COLLECTION).add({
+        title:q.title.trim(),
+        assetType:q.assetType,
+        contentURL:url,
+        storagePath:path,
+        category,
+        tags:q.tags.trim(),
+        transcript:q.transcript.trim(),
+        bullets:q.bullets.trim(),
+        description:'',
+        published:true,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      q.status='done';q.progress=100;renderQueue();
+    }catch(e){
+      q.status='failed';q.error=e.message;renderQueue();
+      console.error('Upload failed for',q.file.name,e);
+    }
+  }
+
+  const failed=uploadQueue.filter(q=>q.status==='failed');
+  btn.disabled=false;btn.textContent='Upload & Publish All';
+  if(failed.length)alert(`${uploadQueue.length-failed.length} published. ${failed.length} failed — see the console for details.`);
+  else{alert('All published.');resetAdminForm();}
+  loadAssets();
+}
+
+async function publishSingleUrl(){
   const title=document.getElementById('adminTitle').value.trim();
-  const url=window._extractedURL||document.getElementById('adminContentURL').value.trim();
-  if(!title||!url){alert('Title and embed URL are required.');return;}
+  const url=document.getElementById('adminContentURL').value.trim();
+  if(!title||!url){alert('Title and URL are required.');return;}
   try{
-    await db.collection(COLLECTION).add({title,assetType:document.getElementById('adminAssetType').value,contentURL:url,category:document.getElementById('adminCategory').value,tags:document.getElementById('adminTags').value.trim(),transcript:document.getElementById('adminTranscript').value.trim(),bullets:document.getElementById('adminBullets').value.trim(),description:'',published:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await db.collection(COLLECTION).add({
+      title,
+      assetType:document.getElementById('adminAssetType').value,
+      contentURL:url,
+      storagePath:null,
+      category:document.getElementById('adminCategory').value,
+      tags:document.getElementById('adminTags').value.trim(),
+      transcript:document.getElementById('adminTranscript').value.trim(),
+      bullets:document.getElementById('adminBullets').value.trim(),
+      description:'',
+      published:true,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
     alert('Published!');resetAdminForm();loadAssets();
   }catch(e){alert('Publish failed: '+e.message);}
 }
 
 function resetAdminForm(){
+  uploadQueue=[];
+  renderQueue();
+  document.getElementById('queueSection').classList.add('hidden');
   ['adminTitle','adminContentURL','adminTags','adminTranscript','adminBullets'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('adminCategory').value='';
-  document.getElementById('autoFilledSection').classList.add('hidden');
-  document.getElementById('adminBullets').classList.add('hidden');
-  document.getElementById('regenBtn').classList.add('hidden');
-  document.getElementById('bulletsPreview').classList.remove('hidden');
-  document.getElementById('bulletsPreview').textContent='Paste embed code — troubleshooting steps will generate automatically.';
-  setStatus('pasteStatus','','');
-  window._extractedURL=null;
+  const bf=document.getElementById('batchFiles');if(bf)bf.value='';
+  const ac=document.getElementById('adminCategory');if(ac)ac.value='';
+  const bc=document.getElementById('batchCategory');if(bc)bc.value='';
 }
+
+/* ── CATEGORIES ──────────────────────────────────────────────────────── */
 
 function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(allAssets,currentQuery);}
 function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
@@ -417,25 +769,29 @@ function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;
 function renderCategoryList(){
   const l=document.getElementById('categoryList');if(!l)return;
   if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
-  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${c}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 transition-all">Delete</button></div>`).join('');
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${escapeHtml(c)}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 transition-all">Delete</button></div>`).join('');
 }
 function updateCatDropdowns(){
-  ['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});
+  ['adminCategory','editCategory','batchCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${escapeHtml(c)}"${c===v?' selected':''}>${escapeHtml(c)}</option>`).join('');});
 }
+
+/* ── MANAGE ──────────────────────────────────────────────────────────── */
 
 async function renderManageList(){
   const list=document.getElementById('manageList');if(!list)return;
   list.innerHTML='<div class="text-sm opacity-50 italic">Loading...</div>';
   const items=await loadAll();
   if(!items.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
-  list.innerHTML=items.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
+  list.innerHTML=items.map(a=>{
+    const legacy=a.contentURL&&!isVideoURL(a.contentURL)&&a.assetType==='Video';
+    return `<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
     <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝'}[a.assetType]||'📄'}</span>
-    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${escapeHtml(a.title)}</div><div class="text-[10px] opacity-50">${a.category||'Uncategorised'} · ${a.assetType} · ${a.published?'Published':'Unpublished'}</div></div>
+    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${escapeHtml(a.title)}</div><div class="text-[10px] opacity-50">${escapeHtml(a.category||'Uncategorised')} · ${a.assetType} · ${a.published?'Published':'Unpublished'}${legacy?' · <span class="text-amber-600 font-black">LEGACY EMBED</span>':''}</div></div>
     <div class="flex gap-2 flex-shrink-0">
       <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
       <button onclick="togglePublish('${a.id}',${a.published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.published?'bg-amber-50 text-amber-700 border-amber-200':'bg-green-50 text-green-700 border-green-200'}">${a.published?'Unpublish':'Publish'}</button>
     </div>
-  </div>`).join('');
+  </div>`;}).join('');
   window._manageItems=items;
 }
 
@@ -451,6 +807,7 @@ function editItem(id){
   document.getElementById('editTags').value=a.tags||'';
   document.getElementById('editBullets').value=a.bullets||'';
   document.getElementById('editDescription').value=a.description||'';
+  document.getElementById('editTranscript').value=a.transcript||'';
   updateCatDropdowns();
   document.getElementById('editCategory').value=a.category||'';
   const em=document.getElementById('editModal');em.classList.remove('hidden');em.scrollIntoView({behavior:'smooth'});
@@ -459,10 +816,19 @@ function closeEdit(){document.getElementById('editModal').classList.add('hidden'
 async function saveEdit(){
   const id=document.getElementById('editId').value;
   try{
-    await db.collection(COLLECTION).doc(id).update({title:document.getElementById('editTitle').value.trim(),category:document.getElementById('editCategory').value,tags:document.getElementById('editTags').value.trim(),bullets:document.getElementById('editBullets').value.trim(),description:document.getElementById('editDescription').value.trim()});
+    await db.collection(COLLECTION).doc(id).update({
+      title:document.getElementById('editTitle').value.trim(),
+      category:document.getElementById('editCategory').value,
+      tags:document.getElementById('editTags').value.trim(),
+      bullets:document.getElementById('editBullets').value.trim(),
+      description:document.getElementById('editDescription').value.trim(),
+      transcript:document.getElementById('editTranscript').value.trim()
+    });
     closeEdit();renderManageList();loadAssets();
   }catch(e){alert('Save failed: '+e.message);}
 }
+
+/* ── HELPERS ─────────────────────────────────────────────────────────── */
 
 function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
 
@@ -470,7 +836,139 @@ function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lin
 
 function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');});return text;}
+function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi'),'<mark>$1</mark>');});return text;}
+</script>
+<script type="module">
+/* ── IN-BROWSER SPEECH RECOGNITION ────────────────────────────────────
+   Whisper runs locally via Transformers.js — WebGPU where available,
+   WASM otherwise. The model downloads once (~150 MB) and is then cached
+   by the browser, so subsequent videos need no network at all.
+   Nothing is sent to any server. */
+
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+
+env.allowLocalModels = false;
+
+const MODEL = 'onnx-community/whisper-base.en';
+let transcriberPromise = null;
+let device = null;
+
+function setEngineStatus(msg){
+  const el = document.getElementById('engineStatus');
+  if (el) el.textContent = msg;
+}
+
+async function detectDevice(){
+  if (device) return device;
+  try {
+    if (navigator.gpu && await navigator.gpu.requestAdapter()) { device = 'webgpu'; return device; }
+  } catch (e) { /* fall through */ }
+  device = 'wasm';
+  return device;
+}
+
+async function getTranscriber(){
+  if (transcriberPromise) return transcriberPromise;
+
+  transcriberPromise = (async () => {
+    const dev = await detectDevice();
+    setEngineStatus(dev === 'webgpu' ? 'Loading speech engine (GPU)…' : 'Loading speech engine (CPU)…');
+
+    const options = {
+      device: dev,
+      progress_callback: (p) => {
+        if (p.status === 'progress' && p.total) {
+          const pct = Math.round((p.loaded / p.total) * 100);
+          setEngineStatus(`Downloading speech model — ${pct}%`);
+        } else if (p.status === 'ready') {
+          setEngineStatus(dev === 'webgpu' ? 'Speech engine ready (GPU)' : 'Speech engine ready (CPU)');
+        }
+      }
+    };
+    if (dev === 'webgpu') {
+      options.dtype = { encoder_model: 'fp32', decoder_model_merged: 'q4' };
+    }
+
+    const t = await pipeline('automatic-speech-recognition', MODEL, options);
+    setEngineStatus(dev === 'webgpu' ? 'Speech engine ready (GPU)' : 'Speech engine ready (CPU) — slower');
+    return t;
+  })();
+
+  return transcriberPromise;
+}
+
+/* Decode the file's audio track and resample to the 16 kHz mono that Whisper expects. */
+async function extractAudio(file){
+  const buffer = await file.arrayBuffer();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  let decoded;
+  try {
+    decoded = await ctx.decodeAudioData(buffer);
+  } finally {
+    ctx.close();
+  }
+
+  const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * 16000), 16000);
+  const source = offline.createBufferSource();
+  source.buffer = decoded;
+  source.connect(offline.destination);
+  source.start(0);
+  const rendered = await offline.startRendering();
+  return rendered.getChannelData(0);
+}
+
+function pad(n){ return String(n).padStart(2, '0'); }
+
+function chunksToTranscript(chunks){
+  return chunks
+    .filter(c => c.text && c.text.trim())
+    .map(c => {
+      const sec = Math.max(0, Math.floor((c.timestamp && c.timestamp[0]) || 0));
+      const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+      return `[${pad(h)}:${pad(m)}:${pad(s)}] ${c.text.trim()}`;
+    })
+    .join('\n');
+}
+
+window.KBTranscribe = async function(file, onProgress){
+  const transcriber = await getTranscriber();
+  const audio = await extractAudio(file);
+  const durationSec = audio.length / 16000;
+
+  const output = await transcriber(audio, {
+    return_timestamps: true,
+    chunk_length_s: 30,
+    stride_length_s: 5,
+    callback_function: (beams) => {
+      // Rough progress from how far through the audio the decoder has reached
+      try {
+        const b = beams && beams[0];
+        if (b && b.output_token_ids && onProgress) {
+          onProgress(null);
+        }
+      } catch (e) { /* progress is best-effort */ }
+    },
+    chunk_callback: (chunk) => {
+      if (onProgress && chunk && chunk.finalised !== undefined) {
+        const end = (chunk.offset || 0) + 30;
+        onProgress(Math.min(99, Math.round((end / durationSec) * 100)));
+      }
+    }
+  });
+
+  if (!output.chunks || !output.chunks.length) {
+    return (output.text || '').trim();
+  }
+  return chunksToTranscript(output.chunks);
+};
+
+window.KBTranscribeAvailable = true;
+
+detectDevice().then(d => {
+  setEngineStatus(d === 'webgpu'
+    ? 'Speech engine ready to load (GPU accelerated)'
+    : 'Speech engine ready to load (CPU — slower on long videos)');
+});
 </script>
 </body>
 </html>

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGBC Team Hub</title>
+<link rel="manifest" href="./manifest-hub.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="content">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<style>
+  :root{--canvas:#eef4f3;--surface:#fff;--ink:#14201f;--body:#3a4d4c;--muted:#6b8281;--faint:#93a8a6;--hairline:#dde7e6;--hairline-strong:#c9d8d6;--brand:#3d6263;--brand-dark:#2e4c4d;--brand-tint:#e7f0ef;
+    --shadow-sm:0 1px 2px rgba(20,32,31,.05);--shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);--shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12)}
+  body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
+  h1,h2{color:var(--ink)}
+  .tile{transition:transform .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
+  .tile:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+  .team-tab{transition:all .15s}
+  .team-tab.active{color:#fff}
+  input:focus,select:focus,textarea:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px rgba(61,98,99,.28)!important;outline:none}
+  .spin{animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+  .skel{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:sh 1.4s infinite;border-radius:1.25rem}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:999px}
+</style>
+</head>
+<body class="p-6 lg:p-10 min-h-screen">
+
+<div class="max-w-6xl mx-auto">
+
+  <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+    <div class="flex items-center gap-4">
+      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-14 h-14 rounded-full object-cover flex-shrink-0" style="border:2px solid #dde7e6">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">Esher Green Baptist Church</div>
+        <h1 class="text-3xl font-black tracking-tight">Team Hub</h1>
+        <p id="greeting" class="text-sm font-semibold opacity-60 mt-1"></p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <button id="adminBtn" onclick="openAdmin()" class="hidden bg-white border border-[#dde7e6] px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
+      <div id="userChip"></div>
+    </div>
+  </header>
+
+  <div id="teamTabs" class="flex gap-2 flex-wrap mb-8"></div>
+
+  <div id="tiles" class="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="skel h-36"></div><div class="skel h-36"></div><div class="skel h-36"></div>
+  </div>
+
+  <div id="noTiles" class="hidden text-center py-20">
+    <div class="text-5xl mb-4 opacity-30">🗂</div>
+    <div class="font-black uppercase opacity-40 tracking-widest text-sm">No pages for this team yet</div>
+    <div class="text-sm opacity-30 mt-2">An admin can add them from the Admin panel</div>
+  </div>
+
+  <!-- ============ ADMIN ============ -->
+  <div id="adminPanel" class="hidden fixed inset-0 bg-black/40 z-50 overflow-y-auto p-4 lg:p-10" onclick="if(event.target===this)closeAdmin()">
+    <div class="bg-white rounded-[2rem] shadow-2xl max-w-5xl mx-auto p-8">
+
+      <div class="flex justify-between items-center mb-6 border-b border-[#dde7e6] pb-6">
+        <h2 class="font-black uppercase tracking-widest text-sm">⚙ Hub Administration</h2>
+        <button onclick="closeAdmin()" class="w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
+      </div>
+
+      <div class="flex gap-2 mb-8 bg-[#f0f6f6] p-1.5 rounded-full w-fit flex-wrap">
+        <button onclick="adminTab('people')" id="ta-people" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest bg-[#3d6263] text-white">People</button>
+        <button onclick="adminTab('pages')" id="ta-pages" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest">Pages</button>
+      </div>
+
+      <!-- PEOPLE -->
+      <div id="tab-people">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-5">
+          <div>
+            <h3 class="font-black uppercase text-[11px] tracking-widest opacity-60">Team members</h3>
+            <p class="text-[12px] opacity-50 mt-1">Anyone who has signed in appears here. Tick the teams they belong to.</p>
+          </div>
+          <input id="peopleSearch" placeholder="Search…" oninput="renderPeople()" class="px-5 py-2.5 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[12px]">
+        </div>
+        <div id="pendingBanner" class="hidden mb-5 bg-[#f6efe1] border border-[#e8d9b8] rounded-2xl px-5 py-4">
+          <span class="text-[12px] font-bold text-[#8a5f1e]"></span>
+        </div>
+        <div id="peopleList" class="space-y-3"></div>
+      </div>
+
+      <!-- PAGES -->
+      <div id="tab-pages" class="hidden">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-5">
+          <div>
+            <h3 class="font-black uppercase text-[11px] tracking-widest opacity-60">Page registry</h3>
+            <p class="text-[12px] opacity-50 mt-1">Which tiles appear on the hub, and who sees them.</p>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="seedPages()" id="seedBtn" class="bg-white border border-[#dde7e6] px-5 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#f0f6f6] transition-all">Load defaults</button>
+            <button onclick="newPage()" class="bg-[#3d6263] text-white px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">+ Add page</button>
+          </div>
+        </div>
+        <div id="pageEditor" class="hidden bg-[#f0f6f6] rounded-[1.5rem] border-2 border-[#3d6263] p-6 mb-6 space-y-3">
+          <input type="hidden" id="pgId">
+          <div class="grid md:grid-cols-2 gap-3">
+            <input id="pgTitle" placeholder="Tile title" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-bold text-sm">
+            <input id="pgUrl" placeholder="filename.html" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
+          </div>
+          <input id="pgDesc" placeholder="One-line description" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
+          <div class="grid md:grid-cols-4 gap-3">
+            <input id="pgIcon" placeholder="Icon (emoji)" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
+            <select id="pgTeam" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-bold text-sm"></select>
+            <select id="pgRole" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-bold text-sm">
+              <option value="member">Everyone on the team</option>
+              <option value="leader">Leaders and above</option>
+              <option value="admin">Admins only</option>
+            </select>
+            <input id="pgOrder" type="number" placeholder="Order" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
+          </div>
+          <label class="flex items-center gap-3 px-1 cursor-pointer">
+            <input type="checkbox" id="pgEnabled" checked class="w-4 h-4 accent-[#3d6263]">
+            <span class="text-[11px] font-black uppercase tracking-widest opacity-70">Visible on the hub</span>
+          </label>
+          <div class="flex gap-3 pt-1 flex-wrap">
+            <button onclick="savePage()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Save</button>
+            <button onclick="cancelPage()" class="bg-white border border-[#dde7e6] px-6 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#f0f6f6] transition-all">Cancel</button>
+            <button onclick="deletePage()" id="pgDelete" class="hidden ml-auto text-red-500 px-5 py-3 rounded-full font-black text-[10px] uppercase tracking-widest border border-red-200 hover:bg-red-50 transition-all">Delete</button>
+          </div>
+        </div>
+        <div id="pagesList" class="space-y-2"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const db=firebase.firestore();
+let ME=null,PAGES=[],PEOPLE=[],activeTeam=null;
+
+EGBCAuth.require().then(async profile=>{
+  ME=profile;
+  EGBCAuth.mountUserChip('userChip');
+  document.getElementById('greeting').textContent=greetingFor(profile);
+  if(EGBCAuth.isAnyAdmin())document.getElementById('adminBtn').classList.remove('hidden');
+  await loadPages();
+  renderTabs();
+  renderTiles();
+});
+
+function greetingFor(p){
+  const h=new Date().getHours();
+  const part=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+  const first=(p.name||'').split(' ')[0];
+  return first?`${part}, ${first}`:part;
+}
+
+function myTeams(){
+  if(EGBCAuth.isOwner())return Object.keys(EGBCAuth.TEAMS);
+  return ME.teams||[];
+}
+
+/* ---- PAGES ---- */
+
+async function loadPages(){
+  try{
+    const snap=await db.collection('hubPages').orderBy('order').get();
+    PAGES=snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){console.error('Page load failed',e);PAGES=[];}
+}
+
+function renderTabs(){
+  const teams=myTeams();
+  const el=document.getElementById('teamTabs');
+  if(teams.length<=1){el.innerHTML='';activeTeam=teams[0]||null;return;}
+  activeTeam=activeTeam||teams[0];
+  el.innerHTML=teams.map(t=>{
+    const cfg=EGBCAuth.TEAMS[t]||{label:t,colour:'#3d6263'};
+    const on=t===activeTeam;
+    return `<button onclick="switchTeam('${t}')" class="team-tab ${on?'active':''} px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest border transition-all"
+      style="${on?`background:${cfg.colour};border-color:${cfg.colour}`:'background:#fff;border-color:#dde7e6'}">${cfg.label}</button>`;
+  }).join('');
+}
+
+function switchTeam(t){activeTeam=t;renderTabs();renderTiles();}
+
+function visibleTiles(){
+  const teams=myTeams();
+  return PAGES.filter(p=>{
+    if(p.enabled===false)return false;
+    if(!teams.includes(p.team)&&!EGBCAuth.isOwner())return false;
+    if(activeTeam&&p.team!==activeTeam)return false;
+    const need=p.minRole||'member';
+    if(need!=='member'&&!EGBCAuth.hasRole(p.team,need))return false;
+    return true;
+  });
+}
+
+function renderTiles(){
+  const tiles=visibleTiles();
+  const grid=document.getElementById('tiles');
+  const empty=document.getElementById('noTiles');
+  if(!tiles.length){grid.innerHTML='';empty.classList.remove('hidden');return;}
+  empty.classList.add('hidden');
+  grid.innerHTML=tiles.map(p=>{
+    const cfg=EGBCAuth.TEAMS[p.team]||{label:p.team,colour:'#3d6263'};
+    return `<a href="${esc(p.url)}" class="tile bg-white border border-[#dde7e6] rounded-[1.5rem] p-6 block">
+      <div class="flex items-start justify-between mb-4">
+        <span class="text-2xl">${esc(p.icon||'📄')}</span>
+        <span class="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full text-white" style="background:${cfg.colour}">${esc(cfg.label)}</span>
+      </div>
+      <h3 class="font-black text-base mb-1.5 leading-snug">${esc(p.title)}</h3>
+      ${p.description?`<p class="text-[12px] opacity-55 leading-relaxed">${esc(p.description)}</p>`:''}
+      ${p.minRole&&p.minRole!=='member'?`<div class="text-[9px] font-black uppercase tracking-widest opacity-30 mt-3">${esc(p.minRole)} only</div>`:''}
+    </a>`;
+  }).join('');
+}
+
+/* ---- ADMIN ---- */
+
+function openAdmin(){document.getElementById('adminPanel').classList.remove('hidden');document.body.style.overflow='hidden';loadPeople();renderPagesList();fillTeamSelect();}
+function closeAdmin(){document.getElementById('adminPanel').classList.add('hidden');document.body.style.overflow='';}
+function adminTab(t){
+  ['people','pages'].forEach(x=>{
+    document.getElementById('tab-'+x).classList.toggle('hidden',x!==t);
+    const b=document.getElementById('ta-'+x);
+    b.classList.toggle('bg-[#3d6263]',x===t);b.classList.toggle('text-white',x===t);
+  });
+}
+
+function adminTeams(){
+  if(EGBCAuth.isOwner())return Object.keys(EGBCAuth.TEAMS);
+  return (ME.teams||[]).filter(t=>EGBCAuth.isAdminOf(t));
+}
+
+async function loadPeople(){
+  const list=document.getElementById('peopleList');
+  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loading…</div>';
+  try{
+    const snap=await db.collection('users').orderBy('email').get();
+    PEOPLE=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderPeople();
+  }catch(e){list.innerHTML=`<div class="text-sm text-red-600 py-4">Could not load people: ${esc(e.message)}</div>`;}
+}
+
+function renderPeople(){
+  const q=(document.getElementById('peopleSearch').value||'').toLowerCase();
+  const teams=adminTeams();
+  const list=document.getElementById('peopleList');
+
+  const pending=PEOPLE.filter(p=>p.status!=='active');
+  const banner=document.getElementById('pendingBanner');
+  if(pending.length){
+    banner.classList.remove('hidden');
+    banner.querySelector('span').textContent=`${pending.length} ${pending.length===1?'person is':'people are'} waiting for team access.`;
+  }else banner.classList.add('hidden');
+
+  const shown=PEOPLE.filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q));
+  if(!shown.length){list.innerHTML='<div class="text-sm opacity-50 italic py-4">Nobody matches that.</div>';return;}
+
+  list.innerHTML=shown.map(p=>{
+    const chips=teams.map(t=>{
+      const cfg=EGBCAuth.TEAMS[t];
+      const on=(p.teams||[]).includes(t);
+      const role=(p.roles||{})[t]||'member';
+      return `<div class="flex items-center gap-2">
+        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border transition-all"
+          style="${on?`background:${cfg.colour};border-color:${cfg.colour};color:#fff`:'background:#fff;border-color:#dde7e6'}">
+          <input type="checkbox" ${on?'checked':''} onchange="toggleTeam('${p.id}','${t}',this.checked)" class="w-3.5 h-3.5 accent-white">
+          <span class="text-[10px] font-black uppercase tracking-widest">${cfg.label}</span>
+        </label>
+        ${on?`<select onchange="setRole('${p.id}','${t}',this.value)" class="px-3 py-1.5 rounded-full border border-[#dde7e6] bg-white text-[10px] font-black uppercase">
+          <option value="member"${role==='member'?' selected':''}>Member</option>
+          <option value="leader"${role==='leader'?' selected':''}>Leader</option>
+          <option value="admin"${role==='admin'?' selected':''}>Admin</option>
+        </select>`:''}
+      </div>`;
+    }).join('');
+
+    const initials=(p.name||p.email||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="bg-[#f0f6f6] rounded-[1.25rem] border border-[#dde7e6] p-5">
+      <div class="flex items-start gap-4 flex-wrap">
+        <div class="w-10 h-10 rounded-full bg-[#3d6263] text-white flex items-center justify-center text-[11px] font-black flex-shrink-0">${initials}</div>
+        <div class="flex-grow min-w-[180px]">
+          <div class="font-black text-sm">${esc(p.name||'(no name)')}</div>
+          <div class="text-[11px] opacity-50">${esc(p.email)}${p.memberId?'':' · <span class="text-amber-600 font-bold">not in address book</span>'}</div>
+        </div>
+        ${p.status!=='active'?'<span class="bg-[#f6efe1] text-[#8a5f1e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Pending</span>':''}
+      </div>
+      <div class="flex gap-2 flex-wrap mt-4">${chips}</div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleTeam(uid,team,on){
+  const p=PEOPLE.find(x=>x.id===uid);if(!p)return;
+  const teams=new Set(p.teams||[]);
+  const roles=Object.assign({},p.roles||{});
+  if(on){teams.add(team);if(!roles[team])roles[team]='member';}
+  else{teams.delete(team);delete roles[team];}
+  await savePerson(p,Array.from(teams),roles);
+}
+
+async function setRole(uid,team,role){
+  const p=PEOPLE.find(x=>x.id===uid);if(!p)return;
+  const roles=Object.assign({},p.roles||{});roles[team]=role;
+  await savePerson(p,p.teams||[],roles);
+}
+
+async function savePerson(p,teams,roles){
+  const patch={teams,roles,status:teams.length?'active':'pending'};
+  try{
+    await db.collection('users').doc(p.id).update(patch);
+    if(p.memberId){
+      await db.collection('addressBook').doc(p.memberId).update({teams,roles}).catch(()=>{});
+    }
+    Object.assign(p,patch);
+    renderPeople();
+  }catch(e){alert('Could not save: '+e.message);}
+}
+
+/* ---- PAGE REGISTRY ---- */
+
+function fillTeamSelect(){
+  const sel=document.getElementById('pgTeam');
+  sel.innerHTML=adminTeams().map(t=>`<option value="${t}">${EGBCAuth.TEAMS[t].label}</option>`).join('');
+}
+
+function renderPagesList(){
+  const teams=adminTeams();
+  const list=document.getElementById('pagesList');
+  const mine=PAGES.filter(p=>teams.includes(p.team));
+  document.getElementById('seedBtn').classList.toggle('hidden',PAGES.length>0);
+  if(!mine.length){list.innerHTML='<div class="text-sm opacity-50 italic py-4">No pages registered yet. Use “Load defaults” to start from the existing suite.</div>';return;}
+  list.innerHTML=mine.map(p=>{
+    const cfg=EGBCAuth.TEAMS[p.team]||{label:p.team,colour:'#3d6263'};
+    return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${p.enabled===false?'opacity-50':''}">
+      <span class="text-lg">${esc(p.icon||'📄')}</span>
+      <div class="flex-grow min-w-0">
+        <div class="font-bold text-sm truncate">${esc(p.title)}</div>
+        <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(cfg.label)}${p.minRole&&p.minRole!=='member'?' · '+esc(p.minRole)+'+':''}${p.enabled===false?' · hidden':''}</div>
+      </div>
+      <button onclick="editPage('${p.id}')" class="bg-white border border-[#dde7e6] px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
+    </div>`;
+  }).join('');
+}
+
+function newPage(){
+  document.getElementById('pgId').value='';
+  ['pgTitle','pgUrl','pgDesc','pgIcon'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('pgOrder').value=(PAGES.length+1)*10;
+  document.getElementById('pgEnabled').checked=true;
+  document.getElementById('pgRole').value='member';
+  document.getElementById('pgDelete').classList.add('hidden');
+  document.getElementById('pageEditor').classList.remove('hidden');
+}
+
+function editPage(id){
+  const p=PAGES.find(x=>x.id===id);if(!p)return;
+  document.getElementById('pgId').value=id;
+  document.getElementById('pgTitle').value=p.title||'';
+  document.getElementById('pgUrl').value=p.url||'';
+  document.getElementById('pgDesc').value=p.description||'';
+  document.getElementById('pgIcon').value=p.icon||'';
+  document.getElementById('pgOrder').value=p.order||0;
+  document.getElementById('pgTeam').value=p.team||'';
+  document.getElementById('pgRole').value=p.minRole||'member';
+  document.getElementById('pgEnabled').checked=p.enabled!==false;
+  document.getElementById('pgDelete').classList.remove('hidden');
+  document.getElementById('pageEditor').classList.remove('hidden');
+}
+
+function cancelPage(){document.getElementById('pageEditor').classList.add('hidden');}
+
+async function savePage(){
+  const id=document.getElementById('pgId').value;
+  const data={
+    title:document.getElementById('pgTitle').value.trim(),
+    url:document.getElementById('pgUrl').value.trim(),
+    description:document.getElementById('pgDesc').value.trim(),
+    icon:document.getElementById('pgIcon').value.trim()||'📄',
+    team:document.getElementById('pgTeam').value,
+    minRole:document.getElementById('pgRole').value,
+    order:parseInt(document.getElementById('pgOrder').value,10)||0,
+    enabled:document.getElementById('pgEnabled').checked
+  };
+  if(!data.title||!data.url||!data.team){alert('Title, filename and team are required.');return;}
+  try{
+    if(id)await db.collection('hubPages').doc(id).update(data);
+    else await db.collection('hubPages').add(data);
+    cancelPage();await loadPages();renderPagesList();renderTabs();renderTiles();
+  }catch(e){alert('Save failed: '+e.message);}
+}
+
+async function deletePage(){
+  const id=document.getElementById('pgId').value;
+  if(!id||!confirm('Remove this tile from the hub?'))return;
+  try{
+    await db.collection('hubPages').doc(id).delete();
+    cancelPage();await loadPages();renderPagesList();renderTiles();
+  }catch(e){alert('Delete failed: '+e.message);}
+}
+
+/* Default registry, written once. Everything is editable afterwards. */
+const DEFAULT_PAGES=[
+  {team:'worship',icon:'📋',title:'Worship Rota Planner',url:'Planner.html',description:'Build and send the term rota',minRole:'leader',order:10},
+  {team:'worship',icon:'📅',title:'Sunday Service Planner',url:'SundayServicePlanner.html',description:'Running orders for Sunday',minRole:'leader',order:20},
+  {team:'worship',icon:'👀',title:'View Rota',url:'view-only-rota.html',description:'Who is on, and when',minRole:'member',order:30},
+  {team:'worship',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',minRole:'member',order:40},
+  {team:'worship',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',minRole:'member',order:50},
+  {team:'worship',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',minRole:'member',order:60},
+  {team:'worship',icon:'▶',title:'Play Through',url:'EGBC-PlayThrough.html',description:'Practice recordings',minRole:'member',order:70},
+  {team:'worship',icon:'🎓',title:'Worship Training',url:'EGBC-Training-Worship.html',description:'Training material',minRole:'member',order:80},
+  {team:'worship',icon:'🎚',title:'Music Uploader',url:'music-uploader.html',description:'Add tracks to the library',minRole:'leader',order:90},
+  {team:'worship',icon:'📜',title:'Team Charter',url:'Worshipteamcharter.html',description:'How we work together',minRole:'member',order:100},
+
+  {team:'av',icon:'🛠',title:'Troubleshoot AV',url:'EGBC-Troubleshoot-AV.html',description:'Search a problem, get the fix',minRole:'member',order:10},
+  {team:'av',icon:'📘',title:'How To AV',url:'EGBC-HowTo-AV.html',description:'Step-by-step guides',minRole:'member',order:20},
+  {team:'av',icon:'🔌',title:'AV Schematic',url:'schematic.html',description:'How it is all wired',minRole:'member',order:30},
+  {team:'av',icon:'🎛',title:'Monitor & Stage Map',url:'MonitorStageMap.html',description:'Stage and monitor layout',minRole:'member',order:40},
+  {team:'av',icon:'📦',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',minRole:'leader',order:50},
+  {team:'av',icon:'🔁',title:'Handover',url:'Handover.html',description:'Week-to-week handover notes',minRole:'member',order:60},
+
+  {team:'kids',icon:'📋',title:'Kids Church Rota',url:'kidschurch-rota.html',description:'Weekly leaders and helpers',minRole:'leader',order:10,enabled:false},
+  {team:'kids',icon:'👀',title:'View Rota',url:'kidschurch-view.html',description:'Who is on, and when',minRole:'member',order:20,enabled:false},
+  {team:'kids',icon:'📅',title:'Session Planning',url:'kidschurch-planning.html',description:'Themes and group allocation',minRole:'leader',order:30,enabled:false},
+
+  {team:'youth',icon:'📅',title:'Youth Service Planner',url:'youthserviceplanner.html',description:'Plan youth sessions',minRole:'leader',order:10},
+  {team:'youth',icon:'📱',title:'Youth App',url:'youthapp2.html',description:'Youth resources',minRole:'member',order:20},
+  {team:'youth',icon:'📜',title:'Youth Charter',url:'Youthcharter.html',description:'How we work together',minRole:'member',order:30},
+
+  {team:'core',icon:'👥',title:'Address Book',url:'addressbook.html',description:'People and households',minRole:'admin',order:10},
+  {team:'core',icon:'✉',title:'Email Builder',url:'EmailBuilder2.html',description:'Compose and send to teams',minRole:'leader',order:20},
+  {team:'core',icon:'🎂',title:'Birthdays',url:'birthday.html',description:'Who to remember',minRole:'member',order:30},
+  {team:'core',icon:'📌',title:'Core Team App',url:'CoreTeamApp.html',description:'Core team tools',minRole:'member',order:40},
+  {team:'core',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',minRole:'member',order:50}
+];
+
+async function seedPages(){
+  if(!EGBCAuth.isOwner()){alert('Only an owner can load the defaults.');return;}
+  if(!confirm(`Add ${DEFAULT_PAGES.length} default tiles? You can edit or remove any of them afterwards.`))return;
+  const btn=document.getElementById('seedBtn');btn.disabled=true;btn.textContent='Adding…';
+  try{
+    const batch=db.batch();
+    DEFAULT_PAGES.forEach(p=>{
+      const ref=db.collection('hubPages').doc();
+      batch.set(ref,Object.assign({enabled:true},p));
+    });
+    await batch.commit();
+    await loadPages();renderPagesList();renderTabs();renderTiles();
+  }catch(e){alert('Could not load defaults: '+e.message);}
+  btn.disabled=false;btn.textContent='Load defaults';
+}
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+</script>
+</body>
+</html>

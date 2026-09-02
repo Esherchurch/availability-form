@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -768,7 +768,12 @@
                         return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}${timeStr}</td><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:800;">${roles}</td></tr>`;
                     }).join('');
 
-                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="worship" data-role="leader"></script>
+</head>
 <body style="margin:0;padding:0;background-color:#eaf2f2;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
 <table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
