@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Youth access — EGBC</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#5f7a4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{--canvas:#eef4f3;--ink:#14201f;--hairline:#dde7e6;--brand:#5f7a4a;--brand-dark:#475c37}
+  body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
+  input:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px rgba(95,122,74,.28)!important;outline:none}
+  #code{letter-spacing:.28em;text-transform:uppercase}
+  .spin{animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+<div class="w-full max-w-md">
+
+  <div class="text-center mb-8">
+    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-20 h-20 rounded-full object-cover mx-auto mb-5 shadow-lg" style="border:3px solid #fff">
+    <h1 class="text-2xl font-black tracking-tight text-[#14201f]">Youth</h1>
+    <p class="text-sm font-semibold opacity-50 mt-1">Esher Green Baptist Church</p>
+  </div>
+
+  <div class="bg-white rounded-[2rem] border border-[#dde7e6] shadow-lg p-8">
+
+    <div id="enterView">
+      <h2 class="font-black text-lg mb-2 text-center">Enter your access code</h2>
+      <p class="text-[13px] opacity-55 leading-relaxed text-center mb-6">
+        Your parent or guardian will have been emailed a code. Enter it once and this device stays signed in.
+      </p>
+
+      <input id="code" type="text" inputmode="text" autocomplete="off" spellcheck="false"
+        placeholder="XXXX-XXXX" maxlength="9"
+        class="w-full px-5 py-4 rounded-2xl border border-[#dde7e6] bg-[#f0f6f6] font-black text-center text-lg outline-none mb-4"
+        oninput="format(this)" onkeydown="if(event.key==='Enter')redeem()">
+
+      <button onclick="redeem()" id="goBtn"
+        class="w-full bg-[#5f7a4a] text-white py-4 rounded-full font-black text-[11px] uppercase tracking-widest hover:bg-black transition-all">
+        Continue
+      </button>
+
+      <div id="msg" class="hidden mt-5 text-[12px] font-bold text-center px-3 py-3 rounded-2xl"></div>
+
+      <p class="text-[11px] leading-relaxed opacity-40 mt-6 text-center">
+        Haven't got a code? Ask one of the youth leaders.
+      </p>
+    </div>
+
+    <div id="busyView" class="hidden text-center py-10">
+      <div class="w-10 h-10 rounded-full mx-auto mb-4 spin" style="border:3px solid #dde7e6;border-top-color:#5f7a4a"></div>
+      <p class="text-[11px] font-black uppercase tracking-widest opacity-50">Just a moment</p>
+    </div>
+
+    <div id="doneView" class="hidden text-center py-6">
+      <div class="text-4xl mb-4">✓</div>
+      <h2 class="font-black text-lg mb-2">You're in</h2>
+      <p id="doneName" class="text-sm opacity-60 leading-relaxed mb-6"></p>
+      <a href="youthapp2.html" class="inline-block bg-[#5f7a4a] text-white px-8 py-3.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Open Youth Hub</a>
+      <p class="text-[11px] opacity-40 mt-6 leading-relaxed">This device will stay signed in. You'll be sent a new code each term.</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.firestore();
+
+const WEEKS=12;
+
+function show(v){['enterView','busyView','doneView'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==v));}
+function msg(t,ok){const m=document.getElementById('msg');m.textContent=t;m.className='mt-5 text-[12px] font-bold text-center px-3 py-3 rounded-2xl '+(ok?'bg-green-50 text-green-800':'bg-red-50 text-red-700');m.classList.remove('hidden');}
+
+/* Insert the dash as they type, so the code looks like the emailed one. */
+function format(el){
+  let v=el.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+  el.value=v.length>4?v.slice(0,4)+'-'+v.slice(4):v;
+  document.getElementById('msg').classList.add('hidden');
+}
+
+/* Already redeemed on this device: skip straight through. */
+auth.onAuthStateChanged(async u=>{
+  if(!u)return;
+  try{
+    const g=await db.collection('youthAccess').doc(u.uid).get();
+    if(g.exists&&g.data().active&&g.data().expiresAt.toDate()>new Date()){
+      document.getElementById('doneName').textContent='Signed in as '+(g.data().memberName||'a member of the youth group')+'.';
+      show('doneView');
+    }
+  }catch(e){/* not redeemed yet, leave the form up */}
+});
+
+async function redeem(){
+  const code=document.getElementById('code').value.trim().toUpperCase();
+  if(!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)){msg('That does not look like a full code. It has eight characters.',false);return;}
+
+  show('busyView');
+
+  try{
+    /* The code is the doc id, so this is a direct lookup - nobody can list
+       the grants or fish for a valid one. */
+    const ref=db.collection('youthGrants').doc(code);
+    const snap=await ref.get();
+
+    if(!snap.exists){show('enterView');msg('We do not recognise that code. Check it against the email, or ask a leader for a new one.',false);return;}
+
+    const g=snap.data();
+    if(g.active===false){show('enterView');msg('That code has been cancelled. Ask a leader for a new one.',false);return;}
+    if(g.redeemedAt){show('enterView');msg('That code has already been used. Codes work once only - ask a leader for a new one.',false);return;}
+
+    const cred=await auth.signInAnonymously();
+    const uid=cred.user.uid;
+
+    const expires=new Date();
+    expires.setDate(expires.getDate()+WEEKS*7);
+
+    await db.collection('youthAccess').doc(uid).set({
+      memberId:g.memberId||null,
+      memberName:g.memberName||'',
+      grantCode:code,
+      redeemedAt:firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAt:firebase.firestore.Timestamp.fromDate(expires),
+      active:true
+    });
+
+    /* Burn the code. A forwarded copy is worthless from here. */
+    await ref.update({
+      redeemedAt:firebase.firestore.FieldValue.serverTimestamp(),
+      uid:uid
+    });
+
+    document.getElementById('doneName').textContent='Signed in as '+(g.memberName||'a member of the youth group')+'.';
+    show('doneView');
+
+  }catch(e){
+    console.error(e);
+    show('enterView');
+    msg('Something went wrong: '+e.message,false);
+  }
+}
+</script>
+</body>
+</html>

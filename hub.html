@@ -75,6 +75,7 @@
       <div class="flex gap-2 mb-8 bg-[#f0f6f6] p-1.5 rounded-full w-fit flex-wrap">
         <button onclick="adminTab('people')" id="ta-people" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest bg-[#3d6263] text-white">People</button>
         <button onclick="adminTab('pages')" id="ta-pages" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest">Pages</button>
+        <button onclick="adminTab('youth')" id="ta-youth" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest">Youth access</button>
       </div>
 
       <!-- PEOPLE -->
@@ -91,6 +92,32 @@
         </div>
         <p class="text-[11px] opacity-45 mb-4 leading-relaxed">People appear here after they sign in for the first time. Anyone signing in with an address the address book does not hold needs linking to their record - they are listed first.</p>
         <div id="peopleList" class="space-y-3"></div>
+      </div>
+
+      <!-- YOUTH ACCESS -->
+      <div id="tab-youth" class="hidden">
+        <div class="mb-5">
+          <h3 class="font-black uppercase text-[11px] tracking-widest opacity-60">Youth access codes</h3>
+          <p class="text-[12px] opacity-50 mt-1 leading-relaxed">Young people cannot have accounts, so a code is emailed to their parent instead. It works once, on one device, and lasts 12 weeks.</p>
+        </div>
+
+        <div id="youthExpiring" class="hidden mb-5 bg-[#f6efe1] border border-[#e8d9b8] rounded-2xl px-5 py-4">
+          <div class="text-[12px] font-bold text-[#8a5f1e] mb-2"></div>
+          <button onclick="renewExpiring()" class="bg-[#b07d2e] text-white px-5 py-2 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Send renewals</button>
+        </div>
+
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] border border-[#dde7e6] p-5 mb-6">
+          <div class="text-[11px] font-black uppercase tracking-widest opacity-60 mb-3">Send a new code</div>
+          <div class="flex gap-2 flex-wrap">
+            <select id="youthWho" class="flex-grow min-w-[220px] px-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-[12px]">
+              <option value="">Choose a young person…</option>
+            </select>
+            <button onclick="sendCode()" id="sendCodeBtn" class="bg-[#3d6263] text-white px-7 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Send code</button>
+          </div>
+          <div id="youthTo" class="text-[11px] opacity-55 mt-3 px-1"></div>
+        </div>
+
+        <div id="youthList" class="space-y-2"></div>
       </div>
 
       <!-- PAGES -->
@@ -228,11 +255,12 @@ function renderTiles(){
 function openAdmin(){document.getElementById('adminPanel').classList.remove('hidden');document.body.style.overflow='hidden';loadPeople();renderPagesList();fillTeamSelect();}
 function closeAdmin(){document.getElementById('adminPanel').classList.add('hidden');document.body.style.overflow='';}
 function adminTab(t){
-  ['people','pages'].forEach(x=>{
+  ['people','pages','youth'].forEach(x=>{
     document.getElementById('tab-'+x).classList.toggle('hidden',x!==t);
     const b=document.getElementById('ta-'+x);
     b.classList.toggle('bg-[#3d6263]',x===t);b.classList.toggle('text-white',x===t);
   });
+  if(t==='youth')loadYouth();
 }
 
 /* Administrators manage every team. Choir is included because it must stay
@@ -268,7 +296,11 @@ async function linkPerson(uid,memberId){
   const m=BOOK.find(x=>x.id===memberId);
   if(!u||!m)return;
 
-  if(!confirm(`Link the sign-in ${u.email} to ${m.name||'this record'}?\n\nThey will get whatever teams are ticked against that record.`))return;
+  const isAdminRecord=Array.isArray(m.markers)&&m.markers.includes('Core Team');
+  const warn=isAdminRecord
+    ? `\n\nWARNING: ${m.name||'this person'} is Core Team, so linking gives this sign-in FULL ADMINISTRATOR access to the address book and every tool. Only do this if you are certain ${u.email} belongs to them.`
+    : '\n\nThey will get whatever teams are ticked against that record.';
+  if(!confirm(`Link the sign-in ${u.email} to ${m.name||'this record'}?`+warn))return;
 
   try{
     const extra=Array.isArray(m.signInEmails)?m.signInEmails.slice():[];
@@ -284,6 +316,25 @@ async function linkPerson(uid,memberId){
     });
     await loadPeople();
   }catch(e){alert('Could not link: '+e.message);}
+}
+
+/* A shared family email can attach a sign-in to the wrong person. This puts
+   them back to the picker without losing the sign-in itself. */
+async function repoint(uid){
+  const u=PEOPLE.find(x=>x.id===uid);
+  if(!u)return;
+  if(!confirm(`Detach ${u.email} from ${u.name||'this record'}?\n\nYou can then link it to the right person.`))return;
+  try{
+    if(u.memberId){
+      const m=BOOK.find(x=>x.id===u.memberId);
+      if(m&&Array.isArray(m.signInEmails)&&m.signInEmails.includes(u.email)){
+        await db.collection('addressBook').doc(u.memberId)
+          .update({signInEmails:m.signInEmails.filter(e=>e!==u.email)});
+      }
+    }
+    await db.collection('users').doc(uid).update({memberId:null,teams:[],status:'pending'});
+    await loadPeople();
+  }catch(e){alert('Could not detach: '+e.message);}
 }
 
 async function unlinkPerson(uid){
@@ -347,13 +398,16 @@ function renderPeople(){
     const initials=(p.name||p.email||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const linked=!!p.memberId;
 
+    const cands=Array.isArray(p.candidates)?p.candidates:[];
     const picker=`<div class="mt-4 bg-white rounded-2xl border border-[#e8d9b8] p-4">
       <div class="text-[11px] font-black uppercase tracking-widest text-[#8a5f1e] mb-1">Who is this?</div>
-      <div class="text-[11px] opacity-55 mb-3 leading-relaxed">They signed in with an address the address book does not hold. Pick their record and it will be remembered.</div>
+      <div class="text-[11px] opacity-55 mb-3 leading-relaxed">${cands.length
+        ? 'This address is on '+cands.length+' records: <strong>'+cands.map(c=>esc(c.name)).join('</strong>, <strong>')+'</strong>. Only you can decide which of them signed in - check before choosing, since it grants that person\'s access.'
+        : 'They signed in with an address the address book does not hold. Pick their record and it will be remembered.'}</div>
       <div class="flex gap-2 flex-wrap">
         <select id="link-${p.id}" class="flex-grow min-w-[200px] px-4 py-2.5 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[12px]">
           <option value="">Choose a person…</option>
-          ${BOOK.map(m=>`<option value="${m.id}">${esc(m.name||'(no name)')}${m.email?' — '+esc(m.email):''}</option>`).join('')}
+          ${BOOK.map(m=>`<option value="${m.id}">${esc(m.name||'(no name)')}${Array.isArray(m.markers)&&m.markers.includes('Core Team')?' [ADMIN]':''}${m.email?' — '+esc(m.email):''}</option>`).join('')}
         </select>
         <button onclick="linkPerson('${p.id}',document.getElementById('link-${p.id}').value)" class="bg-[#3d6263] text-white px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Link</button>
       </div>
@@ -366,12 +420,16 @@ function renderPeople(){
           <div class="font-black text-sm">${esc(p.name||'(not linked yet)')}</div>
           <div class="text-[11px] opacity-50">${esc(p.email)}</div>
         </div>
+        ${p.status==='ambiguous'?'<span class="bg-[#f6efe1] text-[#8a5f1e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Shared address</span>':''}
         ${!linked?'<span class="bg-[#f6efe1] text-[#8a5f1e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Needs linking</span>':
           (p.status!=='active'?'<span class="bg-[#f6efe1] text-[#8a5f1e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">No teams</span>':
           `<button onclick="unlinkPerson('${p.id}')" class="text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 hover:text-red-600 transition-all">Unlink</button>`)}
       </div>
       ${linked?`<div class="flex gap-2 flex-wrap mt-4">${chips}</div>
-        <div class="text-[10px] opacity-40 mt-3">Teams are ticked in the address book. Changing them here updates it there too.</div>`:picker}
+        <div class="flex items-center justify-between gap-3 flex-wrap mt-3">
+          <div class="text-[10px] opacity-40">Teams are ticked in the address book. Changing them here updates it there too.</div>
+          <button onclick="repoint('${p.id}')" class="text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity">Wrong person?</button>
+        </div>`:picker}
     </div>`;
   }).join('');
 }
@@ -552,6 +610,215 @@ async function seedPages(){
     await loadPages();renderPagesList();renderTabs();renderTiles();
   }catch(e){alert('Could not load defaults: '+e.message);}
   btn.disabled=false;btn.textContent='Load defaults';
+}
+
+
+
+/* ---- YOUTH ACCESS ----------------------------------------------------
+   Young people cannot hold accounts, so a single-use code goes to the
+   parent's address instead. See YOUTH-ACCESS.md for why the simpler
+   options do not work. */
+
+const SEND_FUNCTION_URL='https://sendemail-irkwdhx3xq-uc.a.run.app';
+const GRANT_WEEKS=12;
+let YOUTH=[];
+
+/* Anyone in the address book with no team markers - i.e. not an adult on a
+   team - and a household we can email. That is the young people. */
+function youngPeople(){
+  return BOOK.filter(m=>(!Array.isArray(m.markers)||!m.markers.length)&&m.householdId);
+}
+
+function parentFor(member){
+  const head=BOOK.find(m=>m.id===member.householdId);
+  return head&&head.email?{email:head.email,name:head.name||''}:null;
+}
+
+async function loadYouth(){
+  const list=document.getElementById('youthList');
+  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loading…</div>';
+  if(!BOOK.length)await loadPeople();
+
+  try{
+    const [grants,access]=await Promise.all([
+      db.collection('youthGrants').orderBy('issuedAt','desc').get(),
+      db.collection('youthAccess').get()
+    ]);
+    const acc={};
+    access.docs.forEach(d=>{acc[d.data().grantCode]={uid:d.id,...d.data()};});
+    YOUTH=grants.docs.map(d=>({code:d.id,...d.data(),access:acc[d.id]||null}));
+    fillYouthPicker();
+    renderYouth();
+  }catch(e){
+    list.innerHTML=`<div class="text-sm text-red-600 py-4">Could not load: ${esc(e.message)}</div>`;
+  }
+}
+
+function fillYouthPicker(){
+  const sel=document.getElementById('youthWho');
+  const people=youngPeople().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  sel.innerHTML='<option value="">Choose a young person…</option>'+people.map(m=>{
+    const p=parentFor(m);
+    return `<option value="${m.id}"${p?'':' disabled'}>${esc(m.name||'(no name)')}${p?'':' — no parent email'}</option>`;
+  }).join('');
+  sel.onchange=()=>{
+    const m=BOOK.find(x=>x.id===sel.value);
+    const p=m?parentFor(m):null;
+    document.getElementById('youthTo').innerHTML=p
+      ?`The code will be emailed to <strong>${esc(p.name||'their household')}</strong> at ${esc(p.email)}.`
+      :'';
+  };
+}
+
+function daysLeft(g){
+  if(!g.access||!g.access.expiresAt)return null;
+  return Math.ceil((g.access.expiresAt.toDate()-new Date())/86400000);
+}
+
+function renderYouth(){
+  const list=document.getElementById('youthList');
+  if(!YOUTH.length){list.innerHTML='<div class="text-sm opacity-50 italic py-4">No codes sent yet.</div>';return;}
+
+  const soon=YOUTH.filter(g=>{const d=daysLeft(g);return g.active!==false&&d!==null&&d>0&&d<=14;});
+  const box=document.getElementById('youthExpiring');
+  if(soon.length){
+    box.classList.remove('hidden');
+    box.querySelector('div').textContent=`${soon.length} ${soon.length===1?'code expires':'codes expire'} within two weeks.`;
+  }else box.classList.add('hidden');
+
+  list.innerHTML=YOUTH.map(g=>{
+    const d=daysLeft(g);
+    let badge,tone;
+    if(g.active===false){badge='Revoked';tone='bg-red-50 text-red-700 border-red-200';}
+    else if(!g.redeemedAt){badge='Not used yet';tone='bg-[#f6efe1] text-[#8a5f1e] border-[#e8d9b8]';}
+    else if(d!==null&&d<=0){badge='Expired';tone='bg-gray-100 text-gray-500 border-gray-200';}
+    else if(d!==null&&d<=14){badge=d+' days left';tone='bg-[#f6efe1] text-[#8a5f1e] border-[#e8d9b8]';}
+    else {badge=d+' days left';tone='bg-green-50 text-green-700 border-green-200';}
+
+    return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${g.active===false?'opacity-50':''}">
+      <div class="flex-grow min-w-0">
+        <div class="font-bold text-sm truncate">${esc(g.memberName||'(unknown)')}</div>
+        <div class="text-[10px] opacity-50">${g.redeemedAt?'Used':'Sent'} · to ${esc(g.sentTo||'')}</div>
+      </div>
+      <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${tone}">${badge}</span>
+      ${g.active!==false?`<button onclick="revokeGrant('${g.code}')" class="text-[9px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">Revoke</button>`:''}
+      ${!g.redeemedAt&&g.active!==false?`<button onclick="resendCode('${g.code}')" class="text-[9px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Resend</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+/* Ambiguous characters left out so a code read off a phone screen is not
+   mistyped: no O/0, I/1, S/5, B/8. */
+function makeCode(){
+  const A='ACDEFGHJKLMNPQRTUVWXY2346789';
+  let out='';
+  for(let i=0;i<8;i++)out+=A[Math.floor(Math.random()*A.length)];
+  return out.slice(0,4)+'-'+out.slice(4);
+}
+
+function codeEmail(name,code,parentName){
+  return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
+    <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Hi${parentName?' '+esc(parentName):''},</p>
+    <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Here is an access code so ${esc(name)} can use the Youth Hub on their phone. It works once, on one device, and lasts twelve weeks - we will send a new one next term.</p>
+    <div style="background:#f0f6f6;border:1px solid #dde7e6;border-radius:16px;padding:24px;text-align:center;margin:24px 0">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#6b8281;margin-bottom:10px">Access code</div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:5px;color:#14201f">${code}</div>
+    </div>
+    <p style="text-align:center;margin:24px 0">
+      <a href="https://esherchurch.github.io/availability-form/youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:999px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;text-decoration:none">Enter the code</a>
+    </p>
+    <p style="font-size:13px;color:#6b8281;line-height:1.6">Please pass this to ${esc(name)} rather than forwarding the email. If you would rather they did not have access, simply do not use it - and let us know.</p>
+    <p style="font-size:12px;color:#93a8a6;line-height:1.6;margin-top:24px;border-top:1px solid #dde7e6;padding-top:16px">Sent by the youth team at Esher Green Baptist Church.</p>
+  </div>`;
+}
+
+async function issueCode(member,parent,silent){
+  const code=makeCode();
+  await db.collection('youthGrants').doc(code).set({
+    memberId:member.id,
+    memberName:member.name||'',
+    sentTo:parent.email,
+    issuedBy:ME.name||ME.email,
+    issuedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    redeemedAt:null,
+    uid:null,
+    active:true
+  });
+
+  const resp=await fetch(SEND_FUNCTION_URL,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      to:[parent.email],
+      subject:`Youth Hub access code for ${member.name||'your child'}`,
+      html:codeEmail(member.name||'your child',code,parent.name),
+      replyTo:'youth@esherchurch.org'
+    })
+  });
+  const r=await resp.json();
+  if(!r.ok)throw new Error(r.error||'The email did not send');
+  return code;
+}
+
+async function sendCode(){
+  const sel=document.getElementById('youthWho');
+  const member=BOOK.find(x=>x.id===sel.value);
+  if(!member){alert('Choose a young person first.');return;}
+  const parent=parentFor(member);
+  if(!parent){alert('No parent email on their household record.');return;}
+
+  if(!confirm(`Email an access code for ${member.name} to ${parent.email}?`))return;
+
+  const btn=document.getElementById('sendCodeBtn');btn.disabled=true;btn.textContent='Sending…';
+  try{
+    await issueCode(member,parent);
+    sel.value='';document.getElementById('youthTo').innerHTML='';
+    await loadYouth();
+  }catch(e){alert('Could not send: '+e.message);}
+  btn.disabled=false;btn.textContent='Send code';
+}
+
+async function resendCode(code){
+  const g=YOUTH.find(x=>x.code===code);
+  if(!g)return;
+  if(!confirm(`Resend the same code to ${g.sentTo}?`))return;
+  try{
+    const resp=await fetch(SEND_FUNCTION_URL,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to:[g.sentTo],subject:`Youth Hub access code for ${g.memberName||'your child'}`,html:codeEmail(g.memberName||'your child',code,''),replyTo:'youth@esherchurch.org'})
+    });
+    const r=await resp.json();
+    if(!r.ok)throw new Error(r.error||'The email did not send');
+    alert('Sent again.');
+  }catch(e){alert('Could not resend: '+e.message);}
+}
+
+async function revokeGrant(code){
+  const g=YOUTH.find(x=>x.code===code);
+  if(!g)return;
+  if(!confirm(`Revoke access for ${g.memberName||'this person'}?\n\nTheir device stops working straight away.`))return;
+  try{
+    await db.collection('youthGrants').doc(code).update({active:false});
+    if(g.access)await db.collection('youthAccess').doc(g.access.uid).update({active:false});
+    await loadYouth();
+  }catch(e){alert('Could not revoke: '+e.message);}
+}
+
+async function renewExpiring(){
+  const soon=YOUTH.filter(g=>{const d=daysLeft(g);return g.active!==false&&d!==null&&d>0&&d<=14;});
+  if(!soon.length)return;
+  if(!confirm(`Send ${soon.length} renewal code(s)? The old ones keep working until they expire.`))return;
+
+  let ok=0,failed=[];
+  for(const g of soon){
+    const member=BOOK.find(x=>x.id===g.memberId);
+    const parent=member?parentFor(member):null;
+    if(!member||!parent){failed.push(g.memberName||g.code);continue;}
+    try{await issueCode(member,parent);ok++;}
+    catch(e){failed.push(g.memberName||g.code);}
+  }
+  await loadYouth();
+  alert(failed.length?`${ok} sent. Could not send for: ${failed.join(', ')}.`:`${ok} renewal code(s) sent.`);
 }
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}

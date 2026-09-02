@@ -107,6 +107,9 @@
 
       var d = snap.data();
 
+      /* Still waiting to pick which person they are. */
+      if (d.status === 'ambiguous') return d;
+
       /* Someone linked since their last visit: pick the membership up now,
          so they do not have to be told to sign out and back in. */
       if (!d.memberId) {
@@ -135,46 +138,71 @@
      sign-in address Core Team has linked to them. People sign in with whatever
      Google account is on their phone, which is often not the address the church
      holds, so the second lookup is what stops them getting stuck. */
-  function findMember(email) {
-    return db.collection('addressBook').where('email', '==', email).limit(1).get()
-      .then(function (q) {
-        if (!q.empty) return q;
-        return db.collection('addressBook').where('signInEmails', 'array-contains', email).limit(1).get();
+  function findMembers(email) {
+    return Promise.all([
+      db.collection('addressBook').where('email', '==', email).get(),
+      db.collection('addressBook').where('signInEmails', 'array-contains', email).get()
+    ]).then(function (results) {
+      var seen = {}, out = [];
+      results.forEach(function (snap) {
+        snap.docs.forEach(function (d) {
+          if (seen[d.id]) return;
+          seen[d.id] = true;
+          var md = d.data();
+          if (md.archived) return;
+          /* Only people on a team are sign-in candidates. Young people are in
+             the address book but hold no markers, so a parent's address on a
+             child's record can never be mistaken for the child. */
+          if (!Array.isArray(md.markers) || !md.markers.length) return;
+          out.push({ id: d.id, data: md });
+        });
       });
+      return out;
+    });
+  }
+
+  function applyMember(uid, m) {
+    var teams = Array.isArray(m.data.markers) ? m.data.markers : [];
+    return {
+      memberId: m.id,
+      name: (m.data.name || m.data.fullName || '').trim(),
+      teams: teams,
+      status: teams.length ? 'active' : 'pending'
+    };
   }
 
   function provisionProfile(user) {
     var email = (user.email || '').toLowerCase().trim();
 
-    return findMember(email)
-      .then(function (q) {
-        var profile = {
-          uid: user.uid,
-          email: email,
-          name: user.displayName || '',
-          memberId: null,
-          teams: [],
-          roles: {},
-          status: 'pending',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-        };
+    return findMembers(email).then(function (matches) {
+      var profile = {
+        uid: user.uid,
+        email: email,
+        name: user.displayName || '',
+        memberId: null,
+        teams: [],
+        status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      };
 
-        if (!q.empty) {
-          var doc = q.docs[0];
-          var m = doc.data();
-          profile.memberId = doc.id;
-          // The address book stores the person's name in `fullName` and their
-          // team membership in `markers` - the same field the rota reads.
-          profile.name = (m.fullName || m.name || '').trim() || profile.name;
-          profile.teams = Array.isArray(m.markers) ? m.markers : [];
-          profile.roles = (m.roles && typeof m.roles === 'object') ? m.roles : {};
-          profile.status = profile.teams.length ? 'active' : 'pending';
-        }
+      /* One address, several people - a parent's email sits on their
+         children's records too. The person signing in must NOT pick which
+         of them they are: on a shared family address that would let a child
+         select the parent and inherit their access. An administrator links
+         it instead. */
+      if (matches.length > 1) {
+        profile.status = 'ambiguous';
+        profile.candidates = matches.map(function (m) {
+          return { id: m.id, name: (m.data.name || m.data.fullName || '(no name)').trim() };
+        });
+      } else if (matches.length === 1) {
+        Object.assign(profile, applyMember(user.uid, matches[0]));
+      }
 
-        return db.collection('users').doc(user.uid).set(profile)
-          .then(function () { return profile; });
-      });
+      return db.collection('users').doc(user.uid).set(profile)
+        .then(function () { return profile; });
+    });
   }
 
   /* ---- Public API -------------------------------------------------- */
@@ -204,16 +232,23 @@
             currentProfile = profile;
 
             if (profile.status !== 'active') {
-              EGBCAuth._blockPage(
-                profile.memberId ? 'No teams yet' : 'We do not recognise that address',
-                profile.memberId
-                  ? 'You are in the address book but no teams are ticked against you yet. ' +
-                    'Ask a member of the Core Team to tick them, then reload this page.'
-                  : 'You have signed in with an address the church does not have on file. ' +
-                    'Ask a member of the Core Team to link it to your record - they can see it ' +
-                    'listed already. Once they do, reload this page.',
-                profile
-              );
+              var title, message;
+              if (profile.status === 'ambiguous') {
+                title = 'More than one person uses this address';
+                message = 'That address appears against several people in the address book, ' +
+                          'so we cannot tell which of you is signing in. Ask a member of the ' +
+                          'Core Team to link it to the right person, then reload this page.';
+              } else if (profile.memberId) {
+                title = 'No teams yet';
+                message = 'You are in the address book but no teams are ticked against you yet. ' +
+                          'Ask a member of the Core Team to tick them, then reload this page.';
+              } else {
+                title = 'We do not recognise that address';
+                message = 'You have signed in with an address the church does not have on file. ' +
+                          'Ask a member of the Core Team to link it to your record - they can ' +
+                          'see it listed already. Once they do, reload this page.';
+              }
+              EGBCAuth._blockPage(title, message, profile);
               return;
             }
 
