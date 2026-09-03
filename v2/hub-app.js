@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v65';
+const HUB_BUILD = 'v66';
 
 const db = firebase.firestore();
 const storage = firebase.storage();
@@ -1201,7 +1201,7 @@ const REGISTRY = [
   /* -- core team, build tools ----------------------------------------- */
   { url: 'Planner.html', title: 'Master Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
     description: 'Build and send the rota' },
-  { url: 'SundayServicePlanner.html', title: 'Sunday Worship Planner', icon: '⛪', team: 'Core Team',
+  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: '⛪', team: 'Core Team',
     description: 'Plan the running order' },
   { url: 'music-uploader.html', title: 'Music Upload', icon: '\u{1F3B5}', team: 'Core Team',
     description: 'Add a song and its files' },
@@ -1209,9 +1209,9 @@ const REGISTRY = [
     description: 'Add many songs at once' },
 
   /* -- core team, administration -------------------------------------- */
-  { url: 'addressbook.html', title: 'Master Manager', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
+  { url: 'addressbook.html', title: 'Address Book', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
     description: 'People, households and teams' },
-  { url: 'EmailBuilder2.html', title: 'Email Builder', icon: '✉', team: 'Core Team',
+  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: '✉', team: 'Core Team',
     description: 'Write and send to a team' },
   { url: 'inventory-system-2.html', title: 'EGBC Inventory', icon: '\u{1F4E6}', team: 'Core Team',
     description: 'Equipment and where it lives' },
@@ -1219,8 +1219,10 @@ const REGISTRY = [
     description: 'The public form - this is the link to send out' },
   { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
     description: 'Take a copy of everything, or put one back' },
-  { url: 'CoreTeamApp.html', title: 'Core Team', icon: '\u{1F4F1}', team: 'Core Team',
-    description: 'The phone app' },
+  /* Its <title> is "EGBC Worship Planner", which collides with the Sunday
+     planner. Named for what it is instead. */
+  { url: 'CoreTeamApp.html', title: 'Core Team App', icon: '\u{1F4F1}', team: 'Core Team',
+    description: 'The phone app - rota editing by tapping' },
   { url: 'Coreteamcharter.html', title: 'Core Team Charter', icon: '\u{1F4DC}', team: 'Core Team',
     description: 'How the core team work' },
 
@@ -1233,8 +1235,10 @@ const REGISTRY = [
     description: 'Practice copy' },
   { url: 'trainingbatchimporter.html', title: 'Training - Batch Importer', icon: '\u{1F4DA}', team: 'Core Team',
     description: 'Practice copy' },
-  { url: 'trainingmusicdatabase.html', title: 'Training - Music Database', icon: '\u{1F4DA}', team: 'Core Team',
-    description: 'Practice copy' },
+  /* Its own title is "Song Library - TRAINING". It is not a separate music
+     database. */
+  { url: 'trainingmusicdatabase.html', title: 'Training - Song Library', icon: '\u{1F4DA}', team: 'Core Team',
+    description: 'Practice copy. Edits are kept in your browser only' },
 
   /* -- instructions ----------------------------------------------------
      These attach to the tool they explain rather than sitting as tiles of
@@ -1244,10 +1248,14 @@ const REGISTRY = [
     team: 'Core Team', helpFor: 'Planner.html' },
   { url: 'Serviceplannerinstructions.html', title: 'How to use the Sunday Planner', icon: '❓',
     team: 'Core Team', helpFor: 'SundayServicePlanner.html' },
-  { url: 'emailcompilerinstructions.html', title: 'How to use the Email Builder', icon: '❓',
+  { url: 'emailcompilerinstructions.html', title: 'How to use the Email Compiler', icon: '❓',
     team: 'Core Team', helpFor: 'EmailBuilder2.html' },
-  { url: 'uploaderinstructions.html', title: 'How to use Music Upload', icon: '❓',
-    team: 'Core Team', helpFor: 'music-uploader.html' }
+  /* This page is headed "Batch Music Importer - How to use". I had it on
+     music-uploader.html, which is a different tool - so the ? on Music Upload
+     opened the guide to something else. The old SharePoint menu made the same
+     mistake in reverse, labelling batchupload.html as "Music Uploader". */
+  { url: 'uploaderinstructions.html', title: 'How to use the Batch Music Importer', icon: '❓',
+    team: 'Core Team', helpFor: 'batchupload.html' }
 ];
 
 /* AVteamlandingpage carries no text of its own, so a tile pointing at it
@@ -1379,6 +1387,88 @@ async function seedRegistry() {
       `${tiles} as tiles, ${good.length - tiles} attached to the tool they explain.` +
       (bad.length ? `\n\n${bad.length} skipped - see above.` : ''));
   } catch (e) { alert('Could not add: ' + e.message); }
+}
+
+
+/* ---- REBUILD FROM THE VERIFIED LIST ---------------------------------
+   Adding is not enough on its own. The old SharePoint menu carries wrong
+   links - it has "Worship Planner" and "Rota Planner" pointing at the same
+   file, and labels batchupload.html as "Music Uploader" - and because
+   seedRegistry matches on url, it steps straight over every one of them.
+   The result looks complete and still sends people to the wrong page.
+
+   So this replaces the lot. Every url below has been checked against the
+   live site and every title read off the page itself.
+
+   Reversible: "Bring across the old menu" writes the old arrangement back
+   from portal/menuItems, which this never touches. */
+
+async function rebuildRegistry() {
+  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
+
+  const btn = document.getElementById('btnRebuild');
+  const was = btn ? btn.textContent : '';
+
+  let bad = [];
+  try {
+    if (btn) btn.textContent = 'Checking...';
+    bad = await checkUrls(REGISTRY.map(r => r.url),
+      (a, b) => { if (btn) btn.textContent = `Checking ${a}/${b}`; });
+  } catch (e) { /* offline - let the admin decide below */ }
+  if (btn) btn.textContent = was;
+
+  const badSet = new Set(bad);
+  const good = REGISTRY.filter(r => !badSet.has(r.url));
+  if (!good.length) { alert('None of the pages loaded. Nothing has been changed.'); return; }
+
+  /* Name what disappears, by name, before doing it. */
+  const keeping = new Set(good.map(r => r.url.toLowerCase()));
+  const dropped = PAGES.filter(p => p.url && !p.heading && !keeping.has((p.url || '').toLowerCase()));
+
+  let msg = `Replace all ${PAGES.length} entries with the ${good.length} checked ones?\n\n`;
+  if (bad.length) {
+    msg += `${bad.length} did not load and will be left out:\n` +
+           bad.map(u => '• ' + u).join('\n') + '\n\n';
+  }
+  if (dropped.length) {
+    msg += `These ${dropped.length} will no longer be listed:\n` +
+           dropped.slice(0, 12).map(p => `• ${p.title} (${p.url})`).join('\n') +
+           (dropped.length > 12 ? `\n• ...and ${dropped.length - 12} more` : '') + '\n\n';
+  }
+  msg += 'Nothing is deleted from the site - only the hub listing changes.\n' +
+         '"Bring across the old menu" puts the old arrangement back.';
+
+  if (!confirm(msg)) return;
+
+  try {
+    const batch = db.batch();
+    PAGES.forEach(p => batch.delete(db.collection('hubPages').doc(p.id)));
+    good.forEach((r, i) => {
+      const row = {
+        title: r.title,
+        url: r.url,
+        description: r.description || '',
+        icon: r.icon || '\u{1F4C4}',
+        team: r.team,
+        everyone: !!r.everyone,
+        adminOnly: !!r.adminOnly,
+        teams: r.teams || [],
+        order: (i + 1) * 10,
+        enabled: true
+      };
+      if (r.helpFor) row.helpFor = r.helpFor;
+      batch.set(db.collection('hubPages').doc(), row);
+    });
+    await batch.commit();
+
+    await loadPages();
+    renderTools();
+    renderAdminPages();
+
+    const tiles = good.filter(r => !r.helpFor).length;
+    alert(`Rebuilt: ${good.length} entries, ${tiles} of them tiles.` +
+      (bad.length ? `\n\n${bad.length} left out - see above.` : ''));
+  } catch (e) { alert('Could not rebuild: ' + e.message); }
 }
 
 
@@ -2283,9 +2373,10 @@ function renderAdminPages(){
           <span id="pagesCount" style="display:block;margin-top:4px;font-weight:700"></span>
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
-          <button class="btn solid" id="btnSeed" onclick="seedRegistry()">Add the missing pages</button>
+          <button class="btn solid" id="btnRebuild" onclick="rebuildRegistry()">Rebuild from the verified list</button>
+          <button class="btn" id="btnSeed" onclick="seedRegistry()">Add the missing pages</button>
           <button class="btn" id="btnCheckLinks" onclick="checkRegistryLinks()">Check every link</button>
+          <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
           <button class="btn" onclick="importAllCharters()">Bring across all charters</button>
           <button class="btn" onclick="markSharedPages()">Open shared pages to everyone</button>
           <button class="btn" onclick="newPage()">+ Add</button>

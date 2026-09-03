@@ -393,7 +393,17 @@
               return;
             }
 
-            if (opts.role && opts.team && !roleAtLeast(profile.roles, opts.team, opts.role)) {
+            /* The team check above lets a master admin through. This one did
+               not, so a master admin was refused any page marked
+               data-role="leader" - which is most of the build tools.
+
+               roleAtLeast only honours roles.owner, and master admin is held
+               in a separate field (masterAdmin), so it can never see it. The
+               team's own admin passes too: Karen administering Kids Church
+               should clear a leader gate on a Kids Church page. */
+            if (opts.role && opts.team &&
+                !roleAtLeast(profile.roles, opts.team, opts.role) &&
+                !EGBCAuth.isOwner() && !EGBCAuth.isAdminOf(opts.team)) {
               EGBCAuth._blockPage(
                 'Not enough permissions',
                 'This page needs ' + opts.role + ' access for ' +
@@ -568,6 +578,16 @@
     },
 
     _blockPage: function (title, message, profile) {
+      /* egbc-guard.js hides the body until the check passes, and puts a
+         splash on top of it. Both are still in place when we get here, so
+         writing the explanation into the body renders it invisible - which
+         is a blank teal screen and no way to tell what went wrong. Clear
+         them first. */
+      var hide = document.getElementById('egbc-guard-style');
+      if (hide && hide.parentNode) hide.parentNode.removeChild(hide);
+      var splash = document.getElementById('egbc-guard-splash');
+      if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+
       document.body.innerHTML =
         '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
         'font-family:Montserrat,system-ui,sans-serif;background:#eef4f3;color:#14201f">' +
