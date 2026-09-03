@@ -34,7 +34,30 @@
 
   <div class="bg-white rounded-[2rem] border border-[#dde7e6] shadow-lg p-8">
 
-    <div id="signinView">
+    <!-- Step 0: which route. Choosing "adult" grants nothing on its own -
+         they still have to get through Google or the emailed link. This only
+         decides which screen they see next. -->
+    <div id="chooseView">
+      <h2 class="font-black text-lg mb-2 text-center">Who's using this?</h2>
+      <p class="text-[13px] opacity-55 leading-relaxed text-center mb-6">
+        More than one person often shares an email address, so we need to know which of you it is.
+      </p>
+
+      <button onclick="route('adult')"
+        class="w-full text-left bg-white border border-[#dde7e6] rounded-2xl px-5 py-4 mb-3 hover:border-[#3d6263] transition-all">
+        <div class="font-black text-sm mb-1">I'm on a team</div>
+        <div class="text-[12px] opacity-55 leading-relaxed">Worship, AV, Choir, Kids Church, Youth or Core Team. Sign in with your email.</div>
+      </button>
+
+      <button onclick="route('young')"
+        class="w-full text-left bg-white border border-[#dde7e6] rounded-2xl px-5 py-4 hover:border-[#5f7a4a] transition-all">
+        <div class="font-black text-sm mb-1">I'm part of the youth group</div>
+        <div class="text-[12px] opacity-55 leading-relaxed">Your parent will have been emailed an access code. You'll only need it once.</div>
+      </button>
+    </div>
+
+    <div id="signinView" class="hidden">
+      <button onclick="route('choose')" class="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity mb-5">&larr; Back</button>
       <h2 class="font-black uppercase tracking-widest text-[11px] opacity-50 mb-6 text-center">Sign in</h2>
 
       <button onclick="signInGoogle()" id="googleBtn"
@@ -97,7 +120,12 @@ const auth=firebase.auth();
 const HUB='hub.html';
 const EMAIL_KEY='egbc_signin_email';
 
-function show(id){['signinView','sentView','loadingView'].forEach(v=>document.getElementById(v).classList.toggle('hidden',v!==id));}
+function show(id){['chooseView','signinView','sentView','loadingView'].forEach(v=>{const el=document.getElementById(v);if(el)el.classList.toggle('hidden',v!==id);});}
+
+function route(which){
+  if(which==='young'){location.href='youth-access.html';return;}
+  show(which==='choose'?'chooseView':'signinView');
+}
 function msg(text,ok){const m=document.getElementById('msg');m.textContent=text;m.className='mt-5 text-[12px] font-bold text-center px-3 py-3 rounded-2xl '+(ok?'bg-green-50 text-green-800':'bg-red-50 text-red-700');m.classList.remove('hidden');}
 function backToSignin(){show('signinView');}
 
@@ -119,6 +147,7 @@ if(auth.isSignInWithEmailLink(window.location.href)){
   }else{show('signinView');}
 }else{
   auth.onAuthStateChanged(u=>{if(u)location.href=destination();});
+  show('chooseView');
 }
 
 function sendLink(){

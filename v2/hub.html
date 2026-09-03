@@ -98,7 +98,7 @@
       <div id="tab-youth" class="hidden">
         <div class="mb-5">
           <h3 class="font-black uppercase text-[11px] tracking-widest opacity-60">Youth access codes</h3>
-          <p class="text-[12px] opacity-50 mt-1 leading-relaxed">Young people cannot have accounts, so a code is emailed to their parent instead. It works once, on one device, and lasts 12 weeks.</p>
+          <p class="text-[12px] opacity-50 mt-1 leading-relaxed">Young people cannot have accounts, so a code is emailed to their parent instead. It works once, on one device, and lasts 6 weeks.</p>
         </div>
 
         <div id="youthExpiring" class="hidden mb-5 bg-[#f6efe1] border border-[#e8d9b8] rounded-2xl px-5 py-4">
@@ -312,7 +312,9 @@ async function linkPerson(uid,memberId){
       memberId,
       name:(m.name||u.name||'').trim(),
       teams,
-      status:teams.length?'active':'pending'
+      status:teams.length?'active':'pending',
+      // A person decided this, so it is not re-checked on later sign-ins.
+      linkedBy:'admin'
     });
     await loadPeople();
   }catch(e){alert('Could not link: '+e.message);}
@@ -332,7 +334,7 @@ async function repoint(uid){
           .update({signInEmails:m.signInEmails.filter(e=>e!==u.email)});
       }
     }
-    await db.collection('users').doc(uid).update({memberId:null,teams:[],status:'pending'});
+    await db.collection('users').doc(uid).update({memberId:null,teams:[],status:'pending',linkedBy:firebase.firestore.FieldValue.delete()});
     await loadPeople();
   }catch(e){alert('Could not detach: '+e.message);}
 }
@@ -347,7 +349,7 @@ async function unlinkPerson(uid){
       await db.collection('addressBook').doc(u.memberId)
         .update({signInEmails:m.signInEmails.filter(e=>e!==u.email)});
     }
-    await db.collection('users').doc(uid).update({memberId:null,teams:[],status:'pending'});
+    await db.collection('users').doc(uid).update({memberId:null,teams:[],status:'pending',linkedBy:firebase.firestore.FieldValue.delete()});
     await loadPeople();
   }catch(e){alert('Could not unlink: '+e.message);}
 }
@@ -619,7 +621,7 @@ async function seedPages(){
    options do not work. */
 
 const SEND_FUNCTION_URL='https://sendemail-irkwdhx3xq-uc.a.run.app';
-const GRANT_WEEKS=12;
+const GRANT_WEEKS=6;
 let YOUTH=[];
 
 /* Anyone in the address book with no team markers - i.e. not an adult on a
@@ -719,7 +721,7 @@ function codeEmail(name,code,parentName){
   return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
     <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
     <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Hi${parentName?' '+esc(parentName):''},</p>
-    <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Here is an access code so ${esc(name)} can use the Youth Hub on their phone. It works once, on one device, and lasts twelve weeks - we will send a new one next term.</p>
+    <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Here is an access code so ${esc(name)} can use the Youth Hub on their phone. It works once, on one device, and lasts six weeks - we will send a new one after that.</p>
     <div style="background:#f0f6f6;border:1px solid #dde7e6;border-radius:16px;padding:24px;text-align:center;margin:24px 0">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#6b8281;margin-bottom:10px">Access code</div>
       <div style="font-size:26px;font-weight:900;letter-spacing:5px;color:#14201f">${code}</div>

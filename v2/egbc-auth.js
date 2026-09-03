@@ -120,7 +120,7 @@
 
       var d = snap.data();
 
-      /* Still waiting to pick which person they are. */
+      /* Still waiting for an administrator to say who this is. */
       if (d.status === 'ambiguous') return d;
 
       /* Someone linked since their last visit: pick the membership up now,
@@ -129,23 +129,51 @@
         return provisionProfile(user);
       }
 
-      /* Markers are edited in the address book, so re-read them each load
-         rather than letting the mirrored copy drift. */
-      return db.collection('addressBook').doc(d.memberId).get().then(function (m) {
-        var patch = { lastSeen: firebase.firestore.FieldValue.serverTimestamp() };
-        if (m.exists) {
-          var md = m.data();
-          var teams = Array.isArray(md.markers) ? md.markers : [];
-          patch.teams = teams;
-          patch.name = (md.fullName || md.name || d.name || '').trim();
-          patch.status = teams.length ? 'active' : 'pending';
-        }
-        return db.collection('users').doc(user.uid).update(patch)
-          .catch(function () {})
-          .then(function () { return Object.assign({}, d, patch); });
-      }).catch(function () { return d; });
+      /* An automatic match is a guess, and the address book changes. If a
+         second record now carries this address - a parent's email added to a
+         child's record, say - the guess is no longer safe and an
+         administrator has to decide. Links an admin made are left alone. */
+      if (d.linkedBy !== 'admin') {
+        return findMembers((user.email || '').toLowerCase().trim()).then(function (matches) {
+          if (matches.length > 1) {
+            var patch = {
+              status: 'ambiguous',
+              memberId: null,
+              teams: [],
+              candidates: matches.map(function (m) {
+                return { id: m.id, name: (m.data.name || m.data.fullName || '(no name)').trim() };
+              })
+            };
+            return db.collection('users').doc(user.uid).update(patch)
+              .catch(function () {})
+              .then(function () { return Object.assign({}, d, patch); });
+          }
+          return refreshFromBook(user, d);
+        }).catch(function () { return d; });
+      }
+
+      return refreshFromBook(user, d);
     });
   }
+
+  /* Markers are edited in the address book, so re-read them each load rather
+     than letting the mirrored copy drift. */
+  function refreshFromBook(user, d) {
+    return db.collection('addressBook').doc(d.memberId).get().then(function (m) {
+      var patch = { lastSeen: firebase.firestore.FieldValue.serverTimestamp() };
+      if (m.exists) {
+        var md = m.data();
+        var teams = Array.isArray(md.markers) ? md.markers : [];
+        patch.teams = teams;
+        patch.name = (md.name || md.fullName || d.name || '').trim();
+        patch.status = teams.length ? 'active' : 'pending';
+      }
+      return db.collection('users').doc(user.uid).update(patch)
+        .catch(function () {})
+        .then(function () { return Object.assign({}, d, patch); });
+    }).catch(function () { return d; });
+  }
+
 
   /* Look a person up by their primary address book email, then by any extra
      sign-in address Core Team has linked to them. People sign in with whatever
@@ -174,13 +202,17 @@
     });
   }
 
-  function applyMember(uid, m) {
+  function applyMember(uid, m, how) {
     var teams = Array.isArray(m.data.markers) ? m.data.markers : [];
     return {
       memberId: m.id,
       name: (m.data.name || m.data.fullName || '').trim(),
       teams: teams,
-      status: teams.length ? 'active' : 'pending'
+      status: teams.length ? 'active' : 'pending',
+      // 'auto' was matched on a unique email. 'admin' was chosen by a person.
+      // Only 'admin' is trusted permanently - an automatic match is re-checked
+      // on every load, because a second record can appear on that address later.
+      linkedBy: how || 'auto'
     };
   }
 
@@ -210,7 +242,7 @@
           return { id: m.id, name: (m.data.name || m.data.fullName || '(no name)').trim() };
         });
       } else if (matches.length === 1) {
-        Object.assign(profile, applyMember(user.uid, matches[0]));
+        Object.assign(profile, applyMember(user.uid, matches[0], 'auto'));
       }
 
       return db.collection('users').doc(user.uid).set(profile)
@@ -247,10 +279,12 @@
             if (profile.status !== 'active') {
               var title, message;
               if (profile.status === 'ambiguous') {
-                title = 'More than one person uses this address';
-                message = 'That address appears against several people in the address book, ' +
-                          'so we cannot tell which of you is signing in. Ask a member of the ' +
-                          'Core Team to link it to the right person, then reload this page.';
+                title = 'Which of you is this?';
+                message = 'That address is shared by more than one person on a team, so we ' +
+                          'cannot tell who has signed in. A member of the Core Team needs to ' +
+                          'link it to the right person - ask them, then reload this page.' +
+                          '<br><br>If you are in the youth group, you want an access code ' +
+                          'instead: <a href="youth-access.html" style="color:#5f7a4a;font-weight:800">enter a code</a>.';
               } else if (profile.memberId) {
                 title = 'No teams yet';
                 message = 'You are in the address book but no teams are ticked against you yet. ' +
