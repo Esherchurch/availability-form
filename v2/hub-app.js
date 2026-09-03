@@ -568,15 +568,14 @@ function renderNews() {
       const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
       return `<span class="t" style="background:${c.colour}">${esc(c.label)}</span>`;
     }).join('');
-    return `<div class="nw ${i === 0 ? 'on' : ''}" data-i="${i}" onclick="if(!event.target.closest('button'))openRead('${n.id}')">
+    return `<div class="nw ${i === 0 ? 'on' : ''}" data-i="${i}">
       <div class="m">
         ${tags || '<span class="t" style="background:#6b8281">Everyone</span>'}
         <span class="d">${when(n.createdAt)}</span>
         ${EDITING && canEditNews(n) ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
       </div>
       <h4>${esc(n.title)}</h4>
-      <div class="bd">${esc(textOf(n.body))}</div>
-      <div class="rd">Read it &rarr;</div>
+      <div class="bd">${safeHtml(n.body)}</div>
     </div>`;
   }).join('');
 
@@ -630,6 +629,8 @@ function toggleNewsExpanded() {
     c.addEventListener('mouseenter', stopRotation);
     c.addEventListener('mouseleave', startRotation);
     c.addEventListener('focusin', stopRotation);
+    c.addEventListener('wheel', () => { stopRotation(); clearTimeout(window._nwResume);
+      window._nwResume = setTimeout(startRotation, 6000); }, { passive: true });
   };
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', wire) : wire();
 })();
