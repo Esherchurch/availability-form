@@ -141,7 +141,12 @@
               memberId: null,
               teams: [],
               candidates: matches.map(function (m) {
-                return { id: m.id, name: (m.data.name || m.data.fullName || '(no name)').trim() };
+                var mk = Array.isArray(m.data.markers) ? m.data.markers : [];
+                return {
+                  id: m.id,
+                  name: (m.data.name || m.data.fullName || '(no name)').trim(),
+                  admin: mk.some(function (t) { return TEAMS[t] && TEAMS[t].admin; })
+                };
               })
             };
             return db.collection('users').doc(user.uid).update(patch)
@@ -191,10 +196,13 @@
           seen[d.id] = true;
           var md = d.data();
           if (md.archived) return;
-          /* Only people on a team are sign-in candidates. Young people are in
-             the address book but hold no markers, so a parent's address on a
-             child's record can never be mistaken for the child. */
-          if (!Array.isArray(md.markers) || !md.markers.length) return;
+          /* Under 16s cannot sign in - they use an access code emailed to a
+             parent. From 16 the church holds their own email and they sign in
+             like anyone else. This is an explicit flag, not inferred from
+             teams: an adult who runs youth work is on Youth Worship and is
+             plainly not under 16. Flagging them here also means a parent's
+             address on a child's record can never be mistaken for the child. */
+          if (md.isMinor === true) return;
           out.push({ id: d.id, data: md });
         });
       });
@@ -239,7 +247,12 @@
       if (matches.length > 1) {
         profile.status = 'ambiguous';
         profile.candidates = matches.map(function (m) {
-          return { id: m.id, name: (m.data.name || m.data.fullName || '(no name)').trim() };
+          var mk = Array.isArray(m.data.markers) ? m.data.markers : [];
+          return {
+            id: m.id,
+            name: (m.data.name || m.data.fullName || '(no name)').trim(),
+            admin: mk.some(function (t) { return TEAMS[t] && TEAMS[t].admin; })
+          };
         });
       } else if (matches.length === 1) {
         Object.assign(profile, applyMember(user.uid, matches[0], 'auto'));
@@ -248,6 +261,26 @@
       return db.collection('users').doc(user.uid).set(profile)
         .then(function () { return profile; });
     });
+  }
+
+  /* Choosing yourself from a shared address. Admin records are deliberately
+     not selectable: proving you control a shared family inbox must not be
+     enough to take Core Team access. Those still need an administrator. */
+  function chooseIdentity(memberId) {
+    var user = currentUser;
+    if (!user || !currentProfile) return;
+
+    var pick = (currentProfile.candidates || []).filter(function (c) { return c.id === memberId; })[0];
+    if (!pick || pick.admin) return;
+
+    db.collection('addressBook').doc(memberId).get().then(function (d) {
+      if (!d.exists) return;
+      var patch = applyMember(user.uid, { id: d.id, data: d.data() }, 'self');
+      patch.candidates = firebase.firestore.FieldValue.delete();
+      return db.collection('users').doc(user.uid).update(patch);
+    }).then(function () {
+      location.reload();
+    }).catch(function (e) { alert('Could not continue: ' + e.message); });
   }
 
   /* ---- Public API -------------------------------------------------- */
@@ -277,6 +310,11 @@
             currentProfile = profile;
 
             if (profile.status !== 'active') {
+              if (profile.status === 'ambiguous' && profile.candidates && profile.candidates.length) {
+                EGBCAuth._choosePage(profile);
+                return;
+              }
+
               var title, message;
               if (profile.status === 'ambiguous') {
                 title = 'Which of you is this?';
@@ -386,6 +424,8 @@
     isAnyAdmin: function () { return EGBCAuth.isAdmin(); },
     isAdminOf: function () { return EGBCAuth.isAdmin(); },
 
+    chooseIdentity: chooseIdentity,
+
     signOut: function () {
       return auth.signOut().then(function () { location.href = LOGIN_PAGE; });
     },
@@ -408,6 +448,51 @@
             '<span class="text-[11px] font-bold">' + (currentProfile.name || currentProfile.email) + '</span>' +
           '</div>' +
           '<button onclick="EGBCAuth.signOut()" class="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Sign out</button>' +
+        '</div>';
+    },
+
+    _choosePage: function (profile) {
+      var pickable = profile.candidates.filter(function (c) { return !c.admin; });
+      var locked   = profile.candidates.filter(function (c) { return c.admin; });
+
+      var body = pickable.map(function (c) {
+        return '<button onclick="EGBCAuth.chooseIdentity(\'' + c.id + '\')" ' +
+          'style="display:block;width:100%;background:#fff;border:1px solid #dde7e6;border-radius:16px;' +
+          'padding:16px 20px;margin-bottom:10px;font-family:inherit;font-size:15px;font-weight:700;' +
+          'color:#14201f;cursor:pointer;text-align:left">' + c.name + '</button>';
+      }).join('');
+
+      if (locked.length) {
+        body += '<div style="background:#f6efe1;border:1px solid #e8d9b8;border-radius:16px;padding:14px 18px;margin-top:6px">' +
+          '<div style="font-size:12px;font-weight:800;color:#8a5f1e;margin-bottom:4px">' +
+            locked.map(function (c) { return c.name; }).join(', ') +
+          '</div>' +
+          '<div style="font-size:11.5px;color:#8a5f1e;line-height:1.55">' +
+            (locked.length === 1 ? 'This one is' : 'These are') + ' on the Core Team, so ' +
+            (locked.length === 1 ? 'it has' : 'they have') + ' to be linked by an administrator rather than chosen here.' +
+          '</div></div>';
+      }
+
+      if (!pickable.length && locked.length) {
+        body = '<div style="background:#f6efe1;border:1px solid #e8d9b8;border-radius:16px;padding:16px 20px">' +
+          '<div style="font-size:13px;color:#8a5f1e;line-height:1.6">Every person on this address is on the Core Team, ' +
+          'so an administrator has to link it. Ask another member of the Core Team.</div></div>';
+      }
+
+      document.body.innerHTML =
+        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
+        'font-family:Montserrat,system-ui,sans-serif;background:#eef4f3;color:#14201f">' +
+          '<div style="background:#fff;border:1px solid #dde7e6;border-radius:24px;padding:44px;max-width:440px;' +
+          'box-shadow:0 18px 48px rgba(20,32,31,.12)">' +
+            '<h1 style="font-size:20px;font-weight:900;margin:0 0 12px;text-align:center">Which of you is this?</h1>' +
+            '<p style="font-size:14px;line-height:1.6;color:#3a4d4c;margin:0 0 24px;text-align:center">' +
+              'More than one person uses ' + profile.email + '. Pick yourself to carry on.</p>' +
+            body +
+            '<div style="text-align:center;margin-top:18px">' +
+              '<button onclick="EGBCAuth.signOut()" style="background:none;border:none;font-size:10px;font-weight:900;' +
+              'text-transform:uppercase;letter-spacing:.1em;color:#6b8281;cursor:pointer;font-family:inherit">Sign out</button>' +
+            '</div>' +
+          '</div>' +
         '</div>';
     },
 

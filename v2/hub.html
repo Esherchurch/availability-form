@@ -98,7 +98,7 @@
       <div id="tab-youth" class="hidden">
         <div class="mb-5">
           <h3 class="font-black uppercase text-[11px] tracking-widest opacity-60">Youth access codes</h3>
-          <p class="text-[12px] opacity-50 mt-1 leading-relaxed">Young people cannot have accounts, so a code is emailed to their parent instead. It works once, on one device, and lasts 6 weeks.</p>
+          <p class="text-[12px] opacity-50 mt-1 leading-relaxed">Under 16s cannot have accounts, so a code is emailed to their parent instead. From 16 they sign in normally. It works once, on one device, and lasts 6 weeks.</p>
         </div>
 
         <div id="youthExpiring" class="hidden mb-5 bg-[#f6efe1] border border-[#e8d9b8] rounded-2xl px-5 py-4">
@@ -624,10 +624,11 @@ const SEND_FUNCTION_URL='https://sendemail-irkwdhx3xq-uc.a.run.app';
 const GRANT_WEEKS=6;
 let YOUTH=[];
 
-/* Anyone in the address book with no team markers - i.e. not an adult on a
-   team - and a household we can email. That is the young people. */
+/* Anyone flagged Under 16 in the address book, with a household we can email.
+   Explicit rather than inferred - being on Youth Worship says nothing about
+   someone's age. From 16 they have their own email and sign in normally. */
 function youngPeople(){
-  return BOOK.filter(m=>(!Array.isArray(m.markers)||!m.markers.length)&&m.householdId);
+  return BOOK.filter(m=>m.isMinor===true&&m.householdId);
 }
 
 function parentFor(member){
@@ -658,6 +659,11 @@ async function loadYouth(){
 function fillYouthPicker(){
   const sel=document.getElementById('youthWho');
   const people=youngPeople().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(!people.length){
+    sel.innerHTML='<option value="">Nobody is flagged Under 16 yet</option>';
+    document.getElementById('youthTo').innerHTML='Tick <strong>Under 16</strong> against young people in the address book and they will appear here.';
+    return;
+  }
   sel.innerHTML='<option value="">Choose a young person…</option>'+people.map(m=>{
     const p=parentFor(m);
     return `<option value="${m.id}"${p?'':' disabled'}>${esc(m.name||'(no name)')}${p?'':' — no parent email'}</option>`;

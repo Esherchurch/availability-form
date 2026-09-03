@@ -51,6 +51,7 @@
             if(data.secondaryInstruments) data.secondaryInstruments.forEach(i => { const el = document.querySelector(`.secondary[value="${i}"]`); if(el) el.checked = true; });
             if(data.kidsRolesPrimary) data.kidsRolesPrimary.forEach(i => { const el = document.querySelector(`.kidsprimary[value="${i}"]`); if(el) el.checked = true; });
             if(data.kidsRolesSecondary) data.kidsRolesSecondary.forEach(i => { const el = document.querySelector(`.kidssecondary[value="${i}"]`); if(el) el.checked = true; });
+            document.getElementById('isMinor').checked = !!data.isMinor;
 
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Update Member Details";
@@ -122,7 +123,8 @@
                 primaryInstruments: Array.from(document.querySelectorAll('.primary:checked')).map(cb => cb.value),
                 secondaryInstruments: Array.from(document.querySelectorAll('.secondary:checked')).map(cb => cb.value),
                 kidsRolesPrimary: Array.from(document.querySelectorAll('.kidsprimary:checked')).map(cb => cb.value),
-                kidsRolesSecondary: Array.from(document.querySelectorAll('.kidssecondary:checked')).map(cb => cb.value)
+                kidsRolesSecondary: Array.from(document.querySelectorAll('.kidssecondary:checked')).map(cb => cb.value),
+                isMinor: document.getElementById('isMinor').checked
             };
 
             try {
@@ -229,6 +231,11 @@
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Kids Church"> KIDS CHURCH</label>
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Lazers"> LAZERS</label>
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="ReNu"> RENU</label>
+                    </div>
+
+                    <div class="pt-3 mt-1 border-t border-[#dde7e6]">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#8a5f1e]"><input type="checkbox" id="isMinor" class="w-3.5 h-3.5"> UNDER 16</label>
+                        <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mt-1.5">Under 16s cannot sign in - they use an access code emailed to a parent. From 16 we hold their own email and they sign in normally. Nothing to do with which teams they are on: an adult who runs youth work is not under 16.</p>
                     </div>
                 </div>
 
