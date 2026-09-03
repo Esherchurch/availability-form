@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v62';
+const HUB_BUILD = 'v64';
 
 const db = firebase.firestore();
 const storage = firebase.storage();
@@ -40,7 +40,7 @@ let TEAM = null;
 
 function availableTeams() {
   return EGBCAuth.isMaster()
-    ? Object.keys(EGBCAuth.TEAMS).filter(t => !EGBCAuth.TEAMS[t].parent && !EGBCAuth.TEAMS[t].admin)
+    ? Object.keys(EGBCAuth.TEAMS).filter(t => !EGBCAuth.TEAMS[t].parent)
     : EGBCAuth.tabTeams();
 }
 
@@ -257,6 +257,30 @@ const CHARTER_DEFAULTS = {
 
 /* Write every charter we have text for, in one go, rather than making
    somebody switch teams and press the same button three times. */
+/* Some Worship pages are for the whole church - the pin board, the live rota.
+   They stay under Worship but need to reach everyone, which is the `everyone`
+   flag. */
+const SHARED_PAGES = ['view-only-rota.html', 'stickynotes.html', 'resources.html', 'trainingportalhub.html'];
+
+async function markSharedPages() {
+  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
+
+  const hits = PAGES.filter(p => SHARED_PAGES.includes((p.url || '').toLowerCase()) && !p.everyone);
+  if (!hits.length) { alert('Nothing to change - the shared pages are already open to everyone.'); return; }
+
+  if (!confirm(`Open these to everyone, whatever team they are on?\n\n${hits.map(h => '\u2022 ' + h.title).join('\n')}`)) return;
+
+  try {
+    const batch = db.batch();
+    hits.forEach(h => batch.update(db.collection('hubPages').doc(h.id), { everyone: true }));
+    await batch.commit();
+    await loadPages();
+    renderTools();
+    renderAdminPages();
+    alert(`${hits.length} now open to everyone.`);
+  } catch (e) { alert('Could not update: ' + e.message); }
+}
+
 async function importAllCharters() {
   if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
   const ids = Object.keys(CHARTER_DEFAULTS);
@@ -894,7 +918,7 @@ function openNewsEditor(id) {
      goes to everybody and people stop reading them. Everyone is still there
      for the things that genuinely are church-wide, like the bulletin. */
   const areas = EGBCAuth.isMaster() ? Object.keys(EGBCAuth.TEAMS) : EGBCAuth.adminAreas();
-  const selectable = areas.filter(t => !EGBCAuth.TEAMS[t].admin && !EGBCAuth.TEAMS[t].parent);
+  const selectable = areas.filter(t => !EGBCAuth.TEAMS[t].parent);
 
   let on;
   if (n) {
@@ -1009,18 +1033,18 @@ async function importOldMenu() {
   const byId = {};
   clean.forEach(it => { byId[it.id] = it; });
 
-  const teamOf = it => {
+  /* The original menu has exactly two levels of visibility: `worship` and
+     `core`. `worship` does NOT mean the Worship Team - it means everyone
+     signed in. Rota, the music databases, Youth Worship and AV Team are all
+     marked worship, because they are shared. Only Core Team and what sits
+     under it is restricted. */
+  const isCore = it => {
     let cur = it, guard = 0;
     while (cur && guard++ < 8) {
-      if (cur.role === 'core') return 'Core Team';
+      if (cur.role === 'core') return true;
       cur = cur.parent ? byId[cur.parent] : null;
     }
-    const n = (it.name || '').toLowerCase();
-    if (n.includes('youth')) return 'Youth Worship';
-    if (n.includes('av')) return 'AV Team';
-    if (n.includes('choir')) return 'Choir';
-    if (n.includes('kids')) return 'Kids Church';
-    return 'Worship Team';
+    return false;
   };
 
   const tidyUrl = u => {
@@ -1039,12 +1063,14 @@ async function importOldMenu() {
     const url = tidyUrl(it.url);
     const hasKids = clean.some(x => x.parent === it.id);
     if (!url && !hasKids) return;
+    const core = isCore(it);
     rows.push({
       title: it.name || 'Untitled',
       url,
       description: '',
       icon: ICONS[it.icon] || '\u{1F4C4}',
-      team: teamOf(it),
+      team: core ? 'Core Team' : 'Worship Team',
+      everyone: !core,
       legacyId: it.id,
       legacyParent: it.parent,
       heading: !url,
@@ -1059,9 +1085,15 @@ async function importOldMenu() {
     return;
   }
 
-  if (!confirm(`Found ${pages} page${pages === 1 ? '' : 's'} and ${rows.length - pages} heading${rows.length - pages === 1 ? '' : 's'}.` +
-    (PAGES.length ? `\n\nThis replaces the ${PAGES.length} currently listed.` : '') +
-    '\n\nThe original menu is left untouched.')) return;
+  const shared = rows.filter(r => r.everyone && !r.heading).length;
+  const coreOnly = pages - shared;
+
+  if (!confirm(`Found ${pages} page${pages === 1 ? '' : 's'} and ${rows.length - pages} heading${rows.length - pages === 1 ? '' : 's'}.\n\n` +
+    `${shared} open to everyone\n${coreOnly} for Core Team only\n\n` +
+    'That is how the menu has them: everything marked "worship" is shared, ' +
+    'and only what sits under Core Team is restricted.' +
+    (PAGES.length ? `\n\nThis replaces the ${PAGES.length} currently listed.` : '')
+  )) return;
 
   try {
     const batch = db.batch();
@@ -1072,7 +1104,7 @@ async function importOldMenu() {
     await loadPages();
     renderTools();
     renderAdminPages();
-    alert(`${pages} page${pages === 1 ? '' : 's'} brought across. Your menu only covers part of the suite, so add whatever is missing.`);
+    alert(`${pages} brought across - ${shared} open to everyone, ${coreOnly} for Core Team.\n\nYour menu only covers part of the suite, so add whatever is missing.`);
   } catch (e) { alert('Could not import: ' + e.message); }
 }
 
@@ -1174,7 +1206,7 @@ function renderTools() {
 
   /* Current team first, help last. */
   const order = Object.keys(byTeam).sort((a, b) => {
-    const rank = k => k === TEAM ? 0 : (k === '__help' ? 2 : 1);
+    const rank = k => k === '__help' ? 0 : (k === TEAM ? 1 : 2);
     return rank(a) - rank(b);
   });
 
@@ -1182,7 +1214,7 @@ function renderTools() {
      once is the wall of text this replaced. Searching opens them all. */
   el.innerHTML = order.map((team, i) => {
     const c = team === '__help'
-      ? { label: 'Help & training', colour: '#6b8281' }
+      ? { label: 'Everyone', colour: '#6b8281' }
       : (EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' });
     const open = q ? true : (team === TEAM || (i === 0 && !order.includes(TEAM)));
     return `<button class="grp ${open ? 'open' : ''}" onclick="toggleGroup(this)" style="border-left:4px solid ${c.colour}">
@@ -1933,6 +1965,7 @@ function renderAdminPages(){
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
           <button class="btn" onclick="importAllCharters()">Bring across all charters</button>
+          <button class="btn" onclick="markSharedPages()">Open shared pages to everyone</button>
           <button class="btn solid" onclick="newPage()">+ Add</button>
         </div>
       </div>

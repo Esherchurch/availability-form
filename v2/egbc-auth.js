@@ -75,11 +75,10 @@
      filters on markers.includes('Choir') - but it gets no tab of its own in
      the hub. Its members see the parent team's pages instead.
 
-     Core Team carries `admin: true`. Ticking it makes someone an administrator
-     of the whole system - address book, linking sign-ins, the build tools. It
-     does NOT hand them every content tab: those still come from their own
-     markers, so a Core Team member only sees Kids Church if they are ticked
-     for Kids Church.                                                        */
+     Core Team is a team like any other - it has its own charter, its own
+     pages and its own tab. Administrator rights are a separate thing
+     entirely, set by `adminFor` and `masterAdmin` on the address book
+     record, so being on Core Team does not by itself grant them.            */
 
   var TEAMS = {
     'Worship Team':  { label: 'Worship',      colour: '#3d6263' },
@@ -89,7 +88,7 @@
     'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a' },
     'Lazers':        { label: 'Lazers',       colour: '#8a4a3d' },
     'ReNu':          { label: 'ReNu',         colour: '#3d6b5f' },
-    'Core Team':     { label: 'Admin',        colour: '#6b4a7a', admin: true }
+    'Core Team':     { label: 'Core Team',    colour: '#6b4a7a' }
   };
 
   /* ---- Roles -------------------------------------------------------
@@ -145,7 +144,7 @@
                 return {
                   id: m.id,
                   name: (m.data.name || m.data.fullName || '(no name)').trim(),
-                  admin: mk.some(function (t) { return TEAMS[t] && TEAMS[t].admin; })
+                  admin: m.data.masterAdmin === true || (Array.isArray(m.data.adminFor) && m.data.adminFor.length > 0)
                 };
               })
             };
@@ -255,11 +254,10 @@
       if (matches.length > 1) {
         profile.status = 'ambiguous';
         profile.candidates = matches.map(function (m) {
-          var mk = Array.isArray(m.data.markers) ? m.data.markers : [];
           return {
             id: m.id,
             name: (m.data.name || m.data.fullName || '(no name)').trim(),
-            admin: mk.some(function (t) { return TEAMS[t] && TEAMS[t].admin; })
+            admin: m.data.masterAdmin === true || (Array.isArray(m.data.adminFor) && m.data.adminFor.length > 0)
           };
         });
       } else if (matches.length === 1) {
@@ -288,7 +286,8 @@
       ? db.collection('users').where('status', '==', 'active').get().then(function (q) {
           var anyAdmin = q.docs.some(function (d) {
             var t = d.data().teams || [];
-            return t.some(function (x) { return TEAMS[x] && TEAMS[x].admin; });
+            var dd = d.data();
+            return dd.masterAdmin === true || (Array.isArray(dd.adminFor) && dd.adminFor.length > 0);
           });
           if (anyAdmin) {
             alert('An administrator needs to link this one. Ask another member of the Core Team.');
@@ -307,8 +306,8 @@
   function doChoose(user, memberId) {
     return db.collection('addressBook').doc(memberId).get().then(function (d) {
       if (!d.exists) return;
-      var mk = Array.isArray(d.data().markers) ? d.data().markers : [];
-      var isAdminRecord = mk.some(function (t) { return TEAMS[t] && TEAMS[t].admin; });
+      var isAdminRecord = d.data().masterAdmin === true ||
+                          (Array.isArray(d.data().adminFor) && d.data().adminFor.length > 0);
       var patch = applyMember(user.uid, { id: d.id, data: d.data() }, isAdminRecord ? 'admin' : 'self');
       patch.candidates = firebase.firestore.FieldValue.delete();
       return db.collection('users').doc(user.uid).update(patch);
@@ -446,12 +445,12 @@
        content team, so it is handled separately as the Admin tab. */
     tabTeams: function () {
       var out = EGBCAuth.effectiveTeams().filter(function (t) {
-        return TEAMS[t] && !TEAMS[t].parent && !TEAMS[t].admin;
+        return TEAMS[t] && !TEAMS[t].parent;
       });
       /* Karen administers Kids Church without being on the rota for it, so
          the areas someone manages are reachable too. */
       EGBCAuth.adminAreas().forEach(function (t) {
-        if (TEAMS[t] && !TEAMS[t].parent && !TEAMS[t].admin && out.indexOf(t) === -1) out.push(t);
+        if (TEAMS[t] && !TEAMS[t].parent && out.indexOf(t) === -1) out.push(t);
       });
       return out;
     },
