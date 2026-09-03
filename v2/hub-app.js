@@ -15,10 +15,12 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v67';
+const HUB_BUILD = 'v68';
 
-const db = firebase.firestore();
-const storage = firebase.storage();
+/* egbc-auth.js owns a named app now, so the page's own default app is left
+   alone. Reach for its handles, not firebase.firestore(). */
+const db = EGBCAuth.db;
+const storage = EGBCAuth.storage();
 
 const LOGO = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8';
 

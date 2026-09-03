@@ -39,9 +39,32 @@
   var LOGIN_PAGE = 'login.html';
   var HUB_PAGE = 'hub.html';
 
-  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-  var auth = firebase.auth();
-  var db = firebase.firestore();
+  /* Our own named app, never the default one.
+
+     Several pages build their own Firebase with the modular SDK and call
+     initializeApp themselves - SundayServicePlanner.html uses 10.7.1 with a
+     three-key config, this file uses 10.12.2 compat with five. Compat scripts
+     in the head always run before a page's module, whatever order they sit
+     in, so taking the default app name meant the page then called
+     initializeApp on an app that already existed with different options.
+     Firebase throws app/duplicate-app for that, the module dies on its first
+     line, and the page renders with none of its data - no speaker, no rota,
+     no error anyone would notice.
+
+     Keeping to our own app leaves every page's default app exactly as it was
+     before the guard existed. */
+  var APP_NAME = 'egbc';
+
+  function ownApp() {
+    for (var i = 0; i < firebase.apps.length; i++) {
+      if (firebase.apps[i].name === APP_NAME) return firebase.apps[i];
+    }
+    return firebase.initializeApp(FIREBASE_CONFIG, APP_NAME);
+  }
+
+  var app = ownApp();
+  var auth = firebase.auth(app);
+  var db = firebase.firestore(app);
 
   /* Local rules testing. Only ever fires when the pages are served from
      localhost, so this is inert on GitHub Pages and safe to ship.
@@ -505,6 +528,13 @@
 
     isOwner: function () { return EGBCAuth.isMaster(); },
     isAnyAdmin: function () { return EGBCAuth.isAdmin(); },
+
+    /* Everything that shares our sign-in must use these rather than
+       firebase.firestore() / firebase.storage(), which reach for the default
+       app - the one that now belongs to the page, not to us. */
+    app: app,
+    db: db,
+    storage: function () { return firebase.storage(app); },
 
     chooseIdentity: chooseIdentity,
 

@@ -73,9 +73,10 @@
 
 <script>
 const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
-firebase.initializeApp(firebaseConfig);
-const auth=firebase.auth();
-const db=firebase.firestore();
+/* The same named app egbc-auth.js uses - see login.html. */
+const app=firebase.apps.filter(a=>a.name==='egbc')[0]||firebase.initializeApp(firebaseConfig,'egbc');
+const auth=firebase.auth(app);
+const db=firebase.firestore(app);
 
 const WEEKS=6;
 

@@ -118,8 +118,9 @@
 </div>
 
 <script>
-const db=firebase.firestore();
-const storage=firebase.storage();
+/* egbc-auth.js owns a named app - use its handles, not the default app. */
+const db=EGBCAuth.db;
+const storage=EGBCAuth.storage();
 const COL='resources';
 
 let ME=null,ITEMS=[],activeTeam=null,activeFolder='',uploadQ=[],mode='file';
