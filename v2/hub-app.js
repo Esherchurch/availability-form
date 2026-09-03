@@ -806,9 +806,9 @@ function renderTools() {
     const c = EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' };
     return `<div style="margin-bottom:16px">
       <div class="grp" style="color:${c.colour}">${esc(c.label)}</div>
-      ${byTeam[team].map(p => `<a class="tool" href="${esc(p.url)}">
-        <span class="ic">${esc(p.icon || '&#128196;')}</span>
-        <span><span>${esc(p.title)}</span>${p.description ? `<span class="ds">${esc(p.description)}</span>` : ''}</span>
+      ${byTeam[team].map(p => `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
+        <span class="ic">${p.icon || '&#128196;'}</span>
+        <span class="nm">${esc(p.title)}</span>
       </a>`).join('')}
     </div>`;
   }).join('');
