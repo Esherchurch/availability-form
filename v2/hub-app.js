@@ -238,6 +238,7 @@ async function loadCharter() {
     CHARTER_OPEN = false;
     const body = document.getElementById('charterBody');
     body.classList.add('short');
+    card.style.display = '';
 
     /* Only offer to expand if there is more to see. */
     requestAnimationFrame(() => {
@@ -830,11 +831,22 @@ async function loadPages() {
   } catch (e) { console.error('Pages load failed', e); PAGES = []; }
 }
 
+/* Pages built for a phone or tablet. They are installed from the home screen
+   and are not much use in a desktop tools list. */
+const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html', 'performancenotes.html'];
+
+/* Charters live on the landing page now, so a link to them here is noise. */
+function isCharterPage(url) {
+  return Object.values(CHARTER_PAGE).some(c => c.url.toLowerCase() === (url || '').toLowerCase());
+}
+
 function visibleTools() {
   const mine = myTeams();
   const admin = EGBCAuth.adminAreas();
   return PAGES.filter(p => {
     if (p.enabled === false) return false;
+    if (p.mobileOnly || MOBILE_APPS.includes((p.url || '').toLowerCase())) return false;
+    if (isCharterPage(p.url)) return false;
     if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
     return mine.includes(p.team) || admin.includes(p.team);
   });
@@ -1009,7 +1021,7 @@ const DEFAULT_PAGES=[
   {team:'Core Team',icon:'🎚',title:'Music Uploader',url:'music-uploader.html',description:'Add tracks to the library',order:50},
   {team:'Core Team',icon:'📦',title:'Batch Music Importer',url:'batchupload.html',description:'Bulk add to the song library',order:60},
   {team:'Core Team',icon:'🗄',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',order:70},
-  {team:'Core Team',icon:'📱',title:'Core Team App',url:'CoreTeamApp.html',description:'Mobile app',order:80},
+  {team:'Core Team',icon:'📱',title:'Core Team App',url:'CoreTeamApp.html',description:'Mobile app',order:80,mobileOnly:true},
   {team:'Core Team',icon:'🎓',title:'Training Hub',url:'trainingportalhub.html',description:'Practice copies of the build tools',order:90},
   {team:'Core Team',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',order:100},
 
@@ -1019,10 +1031,10 @@ const DEFAULT_PAGES=[
   {team:'Worship Team',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',order:30},
   {team:'Worship Team',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',order:40},
   {team:'Worship Team',icon:'▶',title:'Play Through',url:'EGBC-PlayThrough.html',description:'Practice recordings',order:50},
-  {team:'Worship Team',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',order:60},
+  {team:'Worship Team',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',order:60,mobileOnly:true},
   {team:'Worship Team',icon:'🎓',title:'Worship Training',url:'EGBC-Training-Worship.html',description:'Training material',order:70},
   {team:'Worship Team',icon:'📌',title:'Suggestions Board',url:'stickynotes.html',description:'Ideas from the team',order:80},
-  {team:'Worship Team',icon:'📱',title:'Worship Hub App',url:'worshiphubapp.html',description:'Mobile app',order:90},
+  {team:'Worship Team',icon:'📱',title:'Worship Hub App',url:'worshiphubapp.html',description:'Mobile app',order:90,mobileOnly:true},
   {team:'Worship Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:100},
 
   /* AV */
@@ -1037,7 +1049,7 @@ const DEFAULT_PAGES=[
   /* Youth */
   {team:'Youth Worship',icon:'📜',title:'Youth Charter',url:'Youthcharter.html',description:'How we work together',order:10},
   {team:'Youth Worship',icon:'📅',title:'Youth Service Planner',url:'youthserviceplanner.html',description:'Plan youth services',order:20},
-  {team:'Youth Worship',icon:'📱',title:'Youth Hub App',url:'youthapp2.html',description:'Mobile app',order:30},
+  {team:'Youth Worship',icon:'📱',title:'Youth Hub App',url:'youthapp2.html',description:'Mobile app',order:30,mobileOnly:true},
   {team:'Youth Worship',icon:'👀',title:'Live Rota',url:'view-only-rota.html',description:'Who is on, and when',order:40},
   {team:'Youth Worship',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:50},
 
