@@ -224,40 +224,84 @@ async function loadCharter() {
   const cfg = CHARTER_PAGE[TEAM];
   if (!cfg) { card.style.display = 'none'; return; }
 
+  let d = null;
   try {
-    const d = (await db.collection('pageContent').doc(cfg.id).get()).data();
-    if (!d || !d.html) { card.style.display = 'none'; return; }
+    d = (await db.collection('pageContent').doc(cfg.id).get()).data();
+  } catch (e) { console.error('Charter load failed', e); }
 
-    const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM, colour: 'var(--brand)' };
-    document.getElementById('charterTeam').textContent = c.label;
-    document.getElementById('charterTeam').style.color = c.colour;
-    document.getElementById('charterTitle').textContent = d.title || 'Team Charter';
-    document.getElementById('charterBody').innerHTML = safeHtml(d.html);
-    document.getElementById('charterLink').href = cfg.url;
+  const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM, colour: 'var(--brand)' };
+  document.getElementById('charterTeam').textContent = c.label;
+  document.getElementById('charterTeam').style.color = c.colour;
+  document.getElementById('charterLink').href = cfg.url;
 
-    CHARTER_OPEN = false;
-    const body = document.getElementById('charterBody');
-    body.classList.add('short');
+  const body = document.getElementById('charterBody');
+  const more = document.getElementById('charterMore');
+  const edit = document.getElementById('charterEdit');
+
+  CHARTER_HTML = (d && d.html) || '';
+
+  if (!CHARTER_HTML) {
+    /* The charter pages hold their text as a default in the file and only
+       write to Firestore once someone edits there. So there may be nothing
+       stored yet even though the page looks full. */
+    if (!EGBCAuth.isAdminOf(TEAM)) { card.style.display = 'none'; return; }
+    document.getElementById('charterTitle').textContent = (d && d.title) || 'Team charter';
+    body.classList.remove('short');
+    body.innerHTML = `<p style="color:var(--faint);font-style:italic">
+        Nothing saved yet. The charter page shows its text from the file until someone
+        edits it, so there is nothing here to show. Open the full page and save it once,
+        or write it here.</p>`;
+    more.style.display = 'none';
+    if (edit) edit.style.display = '';
     card.style.display = '';
-
-    /* Only offer to expand if there is more to see. */
-    requestAnimationFrame(() => {
-      const more = document.getElementById('charterMore');
-      more.style.display = body.scrollHeight > 260 ? '' : 'none';
-      more.textContent = 'Read it all';
-    });
-
-    card.style.display = '';
-  } catch (e) {
-    console.error('Charter load failed', e);
-    card.style.display = 'none';
+    return;
   }
+
+  document.getElementById('charterTitle').textContent = (d && d.title) || 'Team charter';
+  body.innerHTML = safeHtml(CHARTER_HTML);
+  body.classList.add('short');
+  card.style.display = '';
+
+  requestAnimationFrame(() => {
+    more.style.display = body.scrollHeight > 260 ? '' : 'none';
+    more.textContent = 'Read it all';
+  });
 }
+
+let CHARTER_HTML = '';
 
 function toggleCharter() {
   CHARTER_OPEN = !CHARTER_OPEN;
   document.getElementById('charterBody').classList.toggle('short', !CHARTER_OPEN);
   document.getElementById('charterMore').textContent = CHARTER_OPEN ? 'Show less' : 'Read it all';
+}
+
+function editCharter() {
+  if (!EGBCAuth.isAdminOf(TEAM)) { alert('That is not one of your teams.'); return; }
+  document.getElementById('chModalTitle').textContent = `${TEAM} charter`;
+  document.getElementById('chTitle').value = document.getElementById('charterTitle').textContent || '';
+  document.getElementById('chBody').value = htmlToText(CHARTER_HTML);
+  document.getElementById('charterModal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCharterEditor() {
+  document.getElementById('charterModal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+async function saveCharter() {
+  const cfg = CHARTER_PAGE[TEAM];
+  if (!cfg) return;
+  const title = document.getElementById('chTitle').value.trim();
+  const html = textToHtml(document.getElementById('chBody').value);
+  try {
+    /* Written back to pageContent, so the charter page and the hub always
+       show the same words. */
+    await db.collection('pageContent').doc(cfg.id).set({ title, html }, { merge: true });
+    closeCharterEditor();
+    loadCharter();
+  } catch (e) { alert('Could not save: ' + e.message); }
 }
 
 /* ---- HERO AND BODY -----------------------------------------------
@@ -840,12 +884,89 @@ function isCharterPage(url) {
   return Object.values(CHARTER_PAGE).some(c => c.url.toLowerCase() === (url || '').toLowerCase());
 }
 
+
+/* ---- IMPORT THE EXISTING MENU ---------------------------------------
+   portal/menuItems is the real navigation: nested parent/child, with a
+   `role` of worship or core. Importing it keeps the structure people
+   already know instead of inventing a new arrangement. */
+
+async function importOldMenu() {
+  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
+
+  try {
+    const d = (await db.collection('portal').doc('menuItems').get()).data() || {};
+    const items = d.items || d.menu || (Array.isArray(d) ? d : null);
+    if (!items || !items.length) { alert('No menu found in portal/menuItems.'); return; }
+
+    const existing = PAGES.length;
+    if (!confirm(`Bring across ${items.length} menu entries?` +
+      (existing ? `\n\nThis replaces the ${existing} tiles currently listed.` : '') +
+      '\n\nThe original menu is left untouched.')) return;
+
+    /* Anything with no URL is a heading, not a page. Keep them, because they
+       are what gives the menu its shape. */
+    const byId = {};
+    items.forEach(it => { byId[it.id] = it; });
+
+    const teamOf = it => {
+      let cur = it, guard = 0;
+      while (cur && guard++ < 8) {
+        if (cur.role === 'core') return 'Core Team';
+        cur = cur.parent ? byId[cur.parent] : null;
+      }
+      const name = (it.name || '').toLowerCase();
+      if (name.includes('youth')) return 'Youth Worship';
+      if (name.includes('av')) return 'AV Team';
+      if (name.includes('choir')) return 'Choir';
+      if (name.includes('kids')) return 'Kids Church';
+      return 'Worship Team';
+    };
+
+    const tidyUrl = u => {
+      if (!u || u === 'landing') return '';
+      return u.replace(/^https?:\/\/esherchurch\.github\.io\/availability-form\/+/, '')
+              .replace(/^\/+/, '');
+    };
+
+    const ICONS = { home: '\u{1F3E0}', calendar: '\u{1F4C5}', music: '\u{1F3B5}', users: '\u{1F465}',
+                    mail: '\u2709', settings: '\u2699', book: '\u{1F4D8}', video: '\u{1F3AC}',
+                    tool: '\u{1F6E0}', file: '\u{1F4C4}' };
+
+    const batch = db.batch();
+    PAGES.forEach(p => batch.delete(db.collection('hubPages').doc(p.id)));
+
+    items.forEach((it, i) => {
+      const url = tidyUrl(it.url);
+      if (!url && !items.some(x => x.parent === it.id)) return;   // empty leaf, skip
+      batch.set(db.collection('hubPages').doc(), {
+        title: it.name || 'Untitled',
+        url,
+        description: '',
+        icon: ICONS[it.icon] || '\u{1F4C4}',
+        team: teamOf(it),
+        legacyId: it.id || '',
+        legacyParent: it.parent || '',
+        heading: !url,
+        order: (i + 1) * 10,
+        enabled: true
+      });
+    });
+
+    await batch.commit();
+    await loadPages();
+    renderTools();
+    renderAdminPages();
+    alert('Menu brought across. Check the grouping in Tools and adjust anything that landed in the wrong place.');
+  } catch (e) { alert('Could not import: ' + e.message); }
+}
+
 function visibleTools() {
   const mine = myTeams();
   const admin = EGBCAuth.adminAreas();
   return PAGES.filter(p => {
     if (p.enabled === false) return false;
     if (p.mobileOnly || MOBILE_APPS.includes((p.url || '').toLowerCase())) return false;
+    if (p.heading) return false;
     if (isCharterPage(p.url)) return false;
     if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
     /* Help and training is not a team's tool - anyone may need to learn how
@@ -891,12 +1012,35 @@ function renderTools() {
         <span class="cnt">${byTeam[team].length}</span>
       </button>
       <div class="grp-body ${open ? 'open' : ''}">
-        ${byTeam[team].map(p => `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
-          <span class="ic">${p.icon || '&#128196;'}</span>
-          <span class="nm">${esc(p.title)}</span>
-        </a>`).join('')}
+        ${nestTools(byTeam[team])}
       </div>`;
   }).join('');
+}
+
+/* The imported menu nests - Worship > Music Databases > Music Database. Keep
+   that shape: a sub-heading with its pages indented beneath. */
+function nestTools(list) {
+  const headings = PAGES.filter(p => p.heading);
+  const childrenOf = id => list.filter(p => p.legacyParent === id);
+  const top = list.filter(p => !p.legacyParent || !headings.some(h => h.legacyId === p.legacyParent));
+
+  const row = p => `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
+      <span class="ic">${p.icon || '&#128196;'}</span>
+      <span class="nm">${esc(p.title)}</span>
+    </a>`;
+
+  const sub = h => {
+    const kids = childrenOf(h.legacyId);
+    if (!kids.length) return '';
+    return `<div class="subgrp">
+        <div class="sublab">${esc(h.title)}</div>
+        ${kids.map(row).join('')}
+      </div>`;
+  };
+
+  const usedHeadings = headings.filter(h => childrenOf(h.legacyId).length);
+
+  return top.map(row).join('') + usedHeadings.map(sub).join('');
 }
 
 function toggleGroup(btn) {
@@ -1660,6 +1804,7 @@ function renderAdminPages(){
           What appears in the Tools panel, and who sees it.
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
           <button id="seedBtn" class="btn" onclick="seedPages()">Load defaults</button>
           <button class="btn solid" onclick="newPage()">+ Add</button>
         </div>

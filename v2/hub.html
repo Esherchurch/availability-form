@@ -93,7 +93,9 @@
   .grp .arw{font-size:11px;color:var(--faint);transition:transform .18s}
   .grp.open .arw{transform:rotate(90deg)}
   .grp-body{overflow:hidden;max-height:0;transition:max-height .22s ease;margin-bottom:9px}
-  .grp-body.open{max-height:1400px;margin-top:7px}
+  .grp-body.open{max-height:1800px;margin-top:7px}
+  .subgrp{margin:4px 0 9px 10px;padding-left:12px;border-left:2px solid var(--line)}
+  .sublab{font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:6px 0 7px 3px}
 
   /* ---- news ---- */
   .nw{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:9px;box-shadow:var(--sh-sm)}
@@ -242,6 +244,7 @@
       <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap">
         <span id="charterTeam" class="nm" style="font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase"></span>
         <span style="flex:1;height:1px;background:var(--line)"></span>
+        <button class="btn edit-only" id="charterEdit" style="display:none;padding:6px 13px" onclick="editCharter()">Edit</button>
         <a id="charterLink" class="btn" style="padding:6px 13px;text-decoration:none" href="#">Open full page</a>
       </div>
       <h2 id="charterTitle" style="font-size:22px;font-weight:900;margin-bottom:12px;letter-spacing:-.02em"></h2>
@@ -344,6 +347,26 @@
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:20px">
       <button class="btn solid" onclick="saveHero()">Save</button>
       <button class="btn" onclick="closeHeroEditor()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHARTER EDITOR -->
+<div class="modal" id="charterModal" onclick="if(event.target===this)closeCharterEditor()">
+  <div class="box" style="max-width:600px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h2 style="font-size:17px;font-weight:900" id="chModalTitle">Charter</h2>
+      <button class="btn" style="border:none;background:none;font-size:18px" onclick="closeCharterEditor()">&times;</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);font-weight:600;margin:0 0 18px;line-height:1.5">
+      This is what your team is expected to do, so it sits on the hub where people land.
+      Leave a blank line between paragraphs.
+    </p>
+    <input class="fld" id="chTitle" placeholder="Title">
+    <textarea class="fld" id="chBody" rows="14" placeholder="Who we are, how we serve, what we expect of each other&hellip;"></textarea>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:6px">
+      <button class="btn solid" onclick="saveCharter()">Save</button>
+      <button class="btn" onclick="closeCharterEditor()">Cancel</button>
     </div>
   </div>
 </div>
