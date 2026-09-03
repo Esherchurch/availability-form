@@ -2394,6 +2394,166 @@ window.removeRole = async (eventId, roleName) => {
   await db.collection('events').doc(eventId).update(updates);
 };
 
+// ══════════════════════════════════════════════════════════════════════════
+// TOUCH ROTA EDITING
+// Drag and drop does not fire on a touchscreen, so on a phone or tablet the
+// rota was read-only - assign, remove and swap were all unreachable. These
+// call exactly the same assignPerson / unassignPerson the drag handlers use.
+// ══════════════════════════════════════════════════════════════════════════
+
+let sheetState = null;
+
+function closeSheet() {
+  const el = document.getElementById('rota-sheet');
+  if (el) el.remove();
+  sheetState = null;
+}
+
+function sheetShell(title, sub, body) {
+  closeSheet();
+  const d = document.createElement('div');
+  d.id = 'rota-sheet';
+  d.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(20,32,31,.45);display:flex;align-items:flex-end;justify-content:center;';
+  d.onclick = e => { if (e.target === d) closeSheet(); };
+  d.innerHTML =
+    `<div style="background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(20,32,31,.2)">
+       <div style="padding:16px 20px 12px;border-bottom:1px solid #f0f6f6;flex-shrink:0">
+         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+           <div>
+             <div style="font-size:15px;font-weight:800;color:#14201f">${title}</div>
+             <div style="font-size:11px;color:#6b8281;margin-top:2px">${sub}</div>
+           </div>
+           <button onclick="closeSheet()" style="background:#f0f6f6;border:none;width:30px;height:30px;border-radius:50%;font-size:15px;color:#3d6263;cursor:pointer;flex-shrink:0">&times;</button>
+         </div>
+       </div>
+       <div style="padding:12px 16px 22px;overflow-y:auto">${body}</div>
+     </div>`;
+  document.body.appendChild(d);
+}
+
+function sheetBtn(label, note, onclick, tone) {
+  const c = tone === 'danger' ? '#b0392c' : tone === 'muted' ? '#6b8281' : '#14201f';
+  const bg = tone === 'danger' ? '#f7e7e4' : '#f6faf9';
+  return `<button onclick="${onclick}" style="display:block;width:100%;text-align:left;background:${bg};border:1px solid #e4eeed;border-radius:11px;padding:11px 14px;margin-bottom:7px;font-family:'Montserrat',sans-serif;cursor:pointer">
+    <div style="font-size:13px;font-weight:700;color:${c}">${label}</div>
+    ${note ? `<div style="font-size:11px;color:#93a8a6;margin-top:2px">${note}</div>` : ''}</button>`;
+}
+
+/* Everyone eligible for this event, ordered so the people who said yes
+   come first - which is the order you actually want to pick from. */
+function candidatesFor(ev, role) {
+  const teams = ev.teams || [];
+  const eligible = members.filter(m =>
+    !teams.length || (m.markers || []).some(t => teams.includes(t)) ||
+    (teams.includes('Youth') && (m.markers || []).includes('Youth Worship')));
+
+  const rank = m => {
+    const a = rotaAvailability[ev.id]?.[m.id];
+    if (a === 'avail') return 0;
+    if (!a) return 1;
+    return 2;
+  };
+  const plays = m => (m.primaryInstruments || []).includes(role) ? 0
+                   : (m.secondaryInstruments || []).includes(role) ? 1 : 2;
+
+  return eligible.sort((a, b) => plays(a) - plays(b) || rank(a) - rank(b) ||
+                                 (a.name || '').localeCompare(b.name || ''));
+}
+
+function availLabel(ev, m, role) {
+  const a = rotaAvailability[ev.id]?.[m.id];
+  const bits = [];
+  if ((m.primaryInstruments || []).includes(role)) bits.push('plays this');
+  else if ((m.secondaryInstruments || []).includes(role)) bits.push('can cover');
+  bits.push(a === 'avail' ? 'available' : (a ? 'not available' : 'no reply'));
+
+  const elsewhere = Object.entries(ev.assignments || {})
+    .find(([r, p]) => p && p.id === m.id && r !== role);
+  if (elsewhere) bits.push('already on ' + elsewhere[0]);
+  return bits.join(' \u00b7 ');
+}
+
+window.roleTap = (eventId, role) => {
+  const ev = cachedEvents.find(e => e.id === eventId);
+  if (!ev) return;
+  const asgn = ev.assignments?.[role] || null;
+
+  let body = '';
+  if (asgn) {
+    body += sheetBtn('Remove ' + personName(asgn), 'Leaves this role empty',
+                     `doUnassign('${eventId}','${role.replace(/'/g,"\\'")}')`, 'danger');
+    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:14px 0 8px 2px">Or replace with</div>';
+  } else {
+    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:2px 0 8px 2px">Assign</div>';
+  }
+
+  const list = candidatesFor(ev, role).filter(m => !asgn || m.id !== asgn.id);
+  if (!list.length) {
+    body += '<div style="font-size:12px;color:#93a8a6;padding:10px 2px">Nobody on this event\u2019s teams.</div>';
+  } else {
+    list.forEach(m => {
+      body += sheetBtn(m.name, availLabel(ev, m, role),
+        `doAssign('${eventId}','${role.replace(/'/g,"\\'")}','${m.id}','${(m.name||'').replace(/'/g,"\\'")}')`);
+    });
+  }
+
+  sheetShell(role, ev.date ? new Date(ev.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}) : '', body);
+};
+
+window.personTap = (eventId, personId, personName_) => {
+  const ev = cachedEvents.find(e => e.id === eventId);
+  if (!ev) return;
+
+  const current = Object.entries(ev.assignments || {}).find(([r, p]) => p && p.id === personId);
+  let body = '';
+
+  if (current) {
+    body += sheetBtn('Take off ' + current[0], 'They are on this event already',
+                     `doUnassign('${eventId}','${current[0].replace(/'/g,"\\'")}')`, 'danger');
+    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:14px 0 8px 2px">Or move to</div>';
+  } else {
+    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:2px 0 8px 2px">Put on</div>';
+  }
+
+  const roles = (ev.roles || []).filter(r => !current || r !== current[0]);
+  if (!roles.length) {
+    body += '<div style="font-size:12px;color:#93a8a6;padding:10px 2px">No roles on this event yet.</div>';
+  } else {
+    const m = members.find(x => x.id === personId) || {};
+    roles.forEach(r => {
+      const taken = ev.assignments?.[r];
+      body += sheetBtn(r, taken ? 'Replaces ' + personName(taken)
+                                : ((m.primaryInstruments||[]).includes(r) ? 'They play this' : 'Empty'),
+        `doAssign('${eventId}','${r.replace(/'/g,"\\'")}','${personId}','${(personName_||'').replace(/'/g,"\\'")}')`);
+    });
+  }
+
+  sheetShell(personName_, ev.date ? new Date(ev.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}) : '', body);
+};
+
+/* Assigning someone who is already on this event moves them rather than
+   duplicating - which is the swap people expect. */
+window.doAssign = async (eventId, role, personId, name) => {
+  closeSheet();
+  const ev = cachedEvents.find(e => e.id === eventId);
+  const existing = ev && Object.entries(ev.assignments || {})
+    .find(([r, p]) => p && p.id === personId && r !== role);
+  const displaced = ev && ev.assignments?.[role];
+
+  if (existing) {
+    await unassignPerson(eventId, existing[0]);
+    if (displaced && displaced.id !== personId) {
+      await assignPerson(eventId, existing[0], displaced.id, displaced.name);
+    }
+  }
+  await assignPerson(eventId, role, personId, name);
+};
+
+window.doUnassign = async (eventId, role) => {
+  closeSheet();
+  await unassignPerson(eventId, role);
+};
+
 window.assignPerson = async (eventId, role, personId, personName) => {
   const updates = {};
   updates[`assignments.${role}`] = { id: personId, name: personName };
@@ -2646,7 +2806,7 @@ function generateEventHtml(ev, blockIdx) {
       const sr = r.replace(/'/g,"\\'");
       html += `<div ondragover="event.preventDefault()" ondrop="onDropRole(event,'${ev.id}','${sr}')" style="background:white;border:2px ${asgn?'solid':'dashed'} ${border};border-radius:10px;padding:8px 10px;min-width:100px;">`;
       html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;opacity:0.4;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:11px;cursor:pointer;padding:0;">✕</button></div>`;
-      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:${asgn?'grab':'default'};">${asgn?personName(asgn):'Unassigned'}</div>`;
+      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" onclick="roleTap('${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:pointer;padding:2px 0;">${asgn?personName(asgn):'Tap to assign'}</div>`;
       html += '</div>';
     });
     html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;
@@ -2659,7 +2819,7 @@ function generateEventHtml(ev, blockIdx) {
         let b = `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}','${status}');event.stopPropagation();" style="margin-bottom:8px;">`;
         b += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:${col};margin-bottom:5px;">${label}</div>`;
         b += '<div style="display:flex;flex-wrap:wrap;gap:5px;min-height:24px;">';
-        items.forEach(m => { b+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}')"`+` style="padding:4px 8px;background:${bg2};color:${col};border:1px solid ${border2};border-radius:7px;font-size:11px;font-weight:700;cursor:grab;">${m.name}</div>`; });
+        items.forEach(m => { b+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}')" onclick="personTap('${ev.id}','${m.id}','${m.name.replace(/'/g,"\\'")}')"`+` style="padding:5px 9px;background:${bg2};color:${col};border:1px solid ${border2};border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">${m.name}</div>`; });
         b += '</div></div>'; return b;
       };
       html += bucket('Available', avail,    'avail',       '#166534','#f0fdf4','#86efac');
