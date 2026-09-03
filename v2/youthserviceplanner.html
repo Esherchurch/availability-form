@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-youthservice.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Youth Planner">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGBC Youth Service Planner</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<style>
+    :root { --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1; --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12); --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px; }
+    body { font-family: 'Montserrat', sans-serif; background-color: var(--canvas); color: var(--body); }
+
+    .styled-input {
+        background-color: var(--surface);
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--r-md);
+        padding: 0.7rem 0.95rem;
+        font-weight: 600;
+        color: var(--ink);
+        transition: all 0.18s;
+        height: auto;
+        overflow: hidden;
+    }
+    .styled-input:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px var(--brand-ring);
+    }
+    .styled-input::placeholder { color: var(--faint); font-weight: 500; }
+
+    .btn-primary {
+        display: inline-flex; align-items: center; justify-content: center;
+        background-color: var(--brand);
+        color: #fff;
+        padding: 11px 20px;
+        border-radius: var(--r-md);
+        font-weight: 700;
+        letter-spacing: 0;
+        border: 1px solid transparent;
+        transition: all 0.18s;
+    }
+    .btn-primary:hover { background-color: var(--brand-dark); }
+    .btn-primary:active { transform: translateY(1px); }
+    .btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+
+    .btn-secondary {
+        display: inline-flex; align-items: center; justify-content: center;
+        background-color: var(--brand-tint);
+        color: var(--brand);
+        border: 1px solid var(--hairline);
+        padding: 11px 20px;
+        border-radius: var(--r-md);
+        font-weight: 700;
+        letter-spacing: 0;
+        transition: all 0.18s;
+    }
+    .btn-secondary:hover { background-color: #dbe8e7; border-color: var(--hairline-strong); }
+    .btn-secondary:active { transform: translateY(1px); }
+    .btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+
+    .drag-handle {
+        cursor: grab;
+        color: var(--hairline-strong);
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .rota-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 0.5rem;
+    }
+    .rota-table th {
+        text-align: left;
+        padding: 0.6rem 1rem;
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 800;
+    }
+    .rota-table tr { background-color: var(--surface); }
+    .rota-table td {
+        padding: 1rem;
+        border-top: 1px solid var(--hairline);
+        border-bottom: 1px solid var(--hairline);
+        color: var(--body);
+    }
+    .rota-table tr td:first-child { border-left: 1px solid var(--hairline); border-radius: var(--r-md) 0 0 var(--r-md); font-weight: 700; color: var(--ink); }
+    .rota-table tr td:last-child { border-right: 1px solid var(--hairline); border-radius: 0 var(--r-md) var(--r-md) 0; }
+
+    textarea { resize: none; }
+
+    .collapse-btn {
+        transition: transform 0.2s;
+        font-size: 1.2rem;
+    }
+    .is-collapsed .collapse-btn {
+        transform: rotate(-90deg);
+    }
+
+    /* ── Serve count badge ── */
+    .serve-count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2rem;
+        height: 2rem;
+        border-radius: var(--r-pill);
+        font-size: 12px;
+        font-weight: 800;
+        padding: 0 0.5rem;
+        background-color: var(--brand-tint);
+        color: var(--brand);
+        border: 1px solid var(--hairline-strong);
+        transition: all 0.2s;
+    }
+    .serve-count-badge.is-peak {
+        background-color: var(--brand);
+        color: #ffffff;
+        border-color: var(--brand);
+        box-shadow: var(--shadow-sm);
+    }
+    .serve-count-badge.hidden-badge {
+        visibility: hidden;
+    }
+
+    /* ── Email modal overlay ── */
+    #emailModal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(20,32,31,0.45);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    #emailModal.active { display: flex; }
+    #emailModalBox {
+        background: var(--surface);
+        border-radius: var(--r-lg);
+        padding: 2rem;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: var(--shadow-lg);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ── Help button ── */
+    #helpBtn {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 900;
+        width: 38px;
+        height: 38px;
+        border-radius: var(--r-pill);
+        background: var(--surface);
+        border: 1px solid var(--hairline-strong);
+        color: var(--brand);
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+    #helpBtn:hover {
+        background: var(--brand);
+        color: #ffffff;
+        border-color: var(--brand);
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-1px);
+    }
+
+    /* ── Read-only overlay banner ── */
+    #readonlyBanner {
+        display: none;
+        position: sticky;
+        top: 0;
+        z-index: 500;
+        background: #fff8e6;
+        border-bottom: 2px solid #e0c060;
+        padding: 12px 24px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 800;
+        color: #7a5500;
+        letter-spacing: 0.02em;
+    }
+    #readonlyBanner.visible { display: block; }
+
+    /* ── Read-only state — grey out editable areas ── */
+    body.readonly-mode .styled-input,
+    body.readonly-mode textarea.styled-input,
+    body.readonly-mode input.styled-input,
+    body.readonly-mode select.styled-input {
+        background-color: #f4f8f8 !important;
+        color: #a0b0b0 !important;
+        cursor: not-allowed !important;
+        pointer-events: none;
+    }
+    body.readonly-mode .song-block,
+    body.readonly-mode .item-block {
+        opacity: 0.65;
+        pointer-events: none;
+    }
+    body.readonly-mode .drag-handle { cursor: not-allowed; }
+    body.readonly-mode #addSongBtn,
+    body.readonly-mode #addItemBtn,
+    body.readonly-mode #saveBtn,
+    body.readonly-mode #emailBtn {
+        opacity: 0.35;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    body.readonly-mode #introBox,
+    body.readonly-mode #outroBox,
+    body.readonly-mode #serviceTypeNotes {
+        background-color: #f4f8f8 !important;
+        color: #a0b0b0 !important;
+        cursor: not-allowed !important;
+        pointer-events: none;
+    }
+
+    .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
+    @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+    /* Readability pass (additive, brand-safe): lift small faint labels to a legible minimum */
+    .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size: 11px !important; }
+</style>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let worshipLeaderName = "";
+let eventsForDay = [];
+let addressBook = [];
+let isYouthService = false;
+
+const ALL_KEYS = [
+    "Ab", "A", "Am", "A#", "A#m", "Bb", "B", "Bm", "C", "Cm", "C#", "C#m", "Db", "D", "Dm", "D#", "D#m", "Eb", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "G", "Gm", "G#", "G#m"
+];
+
+function setReadonlyMode(readonly) {
+    const banner = document.getElementById('readonlyBanner');
+    if (readonly) {
+        document.body.classList.add('readonly-mode');
+        banner.classList.add('visible');
+    } else {
+        document.body.classList.remove('readonly-mode');
+        banner.classList.remove('visible');
+    }
+}
+
+function autoFitTextAreas() {
+    document.querySelectorAll('textarea.styled-input').forEach(textarea => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    });
+}
+
+window.onload = async () => {
+    Sortable.create(document.getElementById('service-order'), {
+        animation: 150,
+        handle: '.drag-handle',
+        onEnd: function() { updateSongNumbers(); },
+        // Disable drag when in readonly mode
+        filter: '.readonly-mode *',
+    });
+    setupDefaultOrder();
+    autoFitTextAreas();
+
+    document.getElementById('service-order').addEventListener('input', (e) => {
+        if (e.target.tagName.toLowerCase() === 'textarea') {
+            autoFitTextAreas();
+        }
+    });
+
+    try {
+        const emailSnap = await getDocs(collection(db, "addressBook"));
+        emailSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.email) addressBook.push(data);
+        });
+    } catch (e) { console.error("Address book load failed", e); }
+};
+
+document.addEventListener('input', (e) => {
+    if (e.target.id === 'introBox' || e.target.id === 'outroBox') {
+        autoFitTextAreas();
+    }
+});
+
+function setupDefaultOrder() {
+    addSong();
+    addSong();
+    addSong();
+    addItem("Welcome and Notices");
+    addSong();
+    addItem("Message");
+    addSong(); addSong(); addSong();
+}
+
+window.updateSongNumbers = () => {
+    const songs = document.querySelectorAll('.song-block');
+    songs.forEach((song, index) => {
+        const label = song.querySelector('.song-number');
+        if (label) label.innerText = "Song " + (index + 1);
+    });
+}
+
+window.toggleSong = (btn) => {
+    const block = btn.closest('.song-block');
+    const content = block.querySelector('.song-content');
+    block.classList.toggle('is-collapsed');
+    content.classList.toggle('hidden');
+    btn.innerText = content.classList.contains('hidden') ? "▶" : "▼";
+    if (!content.classList.contains('hidden')) autoFitTextAreas();
+};
+
+window.addSong = () => {
+    const container = document.getElementById('service-order');
+    const id = Math.random().toString(36).substr(2, 9);
+
+    const isFirst = container.querySelectorAll('.song-block').length === 0;
+    const collapseClass = isFirst ? "" : "is-collapsed";
+    const contentClass = isFirst ? "" : "hidden";
+    const arrow = isFirst ? "▼" : "▶";
+
+    const div = document.createElement('div');
+    div.className = `service-block song-block bg-white p-6 mb-4 rounded-[1.5rem] shadow-sm border border-white hover:border-[#d1dfdf] transition-colors ${collapseClass}`;
+
+    div.innerHTML = `
+        <div class="flex gap-4 items-center mb-2">
+            <div class="drag-handle">⠿</div>
+            <button onclick="toggleSong(this)" class="collapse-btn text-[#3d6263] font-bold w-6">${arrow}</button>
+            <span class="song-number text-[10px] font-extrabold uppercase tracking-widest text-[#3d6263] opacity-50 min-w-[50px]">Song</span>
+            <div class="relative flex-grow">
+                <input oninput="searchSong(this,'${id}')" class="song-title styled-input w-full" placeholder="Song title">
+                <div id="suggest-${id}" class="absolute bg-white shadow-xl rounded-xl w-full hidden z-50 mt-1 border border-[#d1dfdf] overflow-hidden"></div>
+            </div>
+            <div id="serving-container-${id}" class="serve-count-badge hidden-badge" title="Number of Sundays this song has been used"></div>
+            <div class="flex gap-1">
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 1</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 2</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+                <select onchange="keyChanged('${id}')" class="song-key styled-input w-24">
+                    <option value="">Key 3</option>
+                    ${ALL_KEYS.map(k => `<option>${k}</option>`).join('')}
+                </select>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove(); updateSongNumbers();" class="text-[#d1dfdf] hover:text-red-500 text-2xl font-bold">&times;</button>
+        </div>
+        <div class="song-content ml-14 space-y-4 ${contentClass}">
+            <textarea class="song-note styled-input w-full" placeholder="Notes for the band..." rows="1"></textarea>
+            <div id="keyinfo-${id}"></div>
+            <div id="files-${id}"></div>
+        </div>
+    `;
+    container.appendChild(div);
+    updateSongNumbers();
+    return id;
+};
+
+async function showKeyInfo(id, title) {
+    if (!title || title.trim() === "") return;
+    const container = document.getElementById(`keyinfo-${id}`);
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
+    if (!snap.exists()) return;
+    const data = snap.data();
+    const files = data.files || [];
+    const chordKeys = files.filter(f => f.type === "Chord Sheet" && f.key).map(f => f.key);
+    const uniqueKeys = [...new Set(chordKeys)];
+    let available = uniqueKeys.sort().join(", ") || "None";
+    const missing = ALL_KEYS.filter(k => !uniqueKeys.includes(k)).join(", ");
+    container.innerHTML = `
+        <div class="text-[10px] mt-2 bg-[#f0f6f6] p-3 rounded-lg flex flex-col gap-1">
+            <div><span class="text-[#3d6263] font-bold uppercase tracking-wider">Available:</span> <span class="text-[#3d6263]">${available}</span></div>
+            <div><span class="text-red-700 font-bold uppercase tracking-wider">Missing:</span> <span class="text-[#3d6263] opacity-60">${missing}</span></div>
+        </div>
+    `;
+
+    const servingHistory = data.servingHistory || [];
+    const sundayHistory = servingHistory.filter(s => s.day && s.day.toLowerCase() === 'sunday');
+    const display = document.getElementById(`serving-container-${id}`);
+
+    if (sundayHistory.length > 0) {
+        const counts = sundayHistory.map(s => s.count || 0);
+        const maxSunday = Math.max(...counts);
+        const latestCount = sundayHistory[0].count || 0;
+        display.innerText = latestCount;
+        display.classList.remove('hidden-badge');
+        display.title = latestCount === maxSunday
+            ? `Used ${latestCount} Sundays — highest ever, consider resting this song`
+            : `Used ${latestCount} Sundays`;
+        if (latestCount === maxSunday) {
+            display.classList.add('is-peak');
+        } else {
+            display.classList.remove('is-peak');
+        }
+    } else {
+        display.innerText = "";
+        display.classList.add('hidden-badge');
+        display.classList.remove('is-peak');
+    }
+}
+
+async function getPreferredKey(title, leader) {
+    const snap = await getDocs(collection(db, "services"));
+    let lastKey = "";
+    snap.forEach(doc => {
+        const data = doc.data();
+        if (data.worshipLeader !== leader) return;
+        (data.order || []).forEach(item => {
+            if (item.type === "song" && item.title === title) {
+                lastKey = item.keys || item.key || "";
+            }
+        });
+    });
+    return lastKey;
+}
+
+window.searchSong = async (input, id) => {
+    const val = input.value.toLowerCase().trim();
+    const box = document.getElementById(`suggest-${id}`);
+    if (val.length < 2) { box.classList.add('hidden'); return; }
+    const snap = await getDocs(collection(db, "songs"));
+    const words = val.split(" ");
+    const matches = snap.docs
+        .map(d => d.data())
+        .filter(song => {
+            const title = (song.title || "").toLowerCase();
+            const normalized = (song.normalized || "").toLowerCase();
+            const lyrics = (song.lyrics || "").toLowerCase();
+            return words.every(w => title.includes(w) || normalized.includes(w) || lyrics.includes(w));
+        })
+        .slice(0, 10);
+
+    if (matches.length === 0) {
+        const encoded = encodeURIComponent(input.value);
+        box.innerHTML = `
+            <div class="p-3 text-xs text-red-800 font-bold bg-[#f0f6f6]">Not in library</div>
+            <div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white">
+                <a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a>
+                <a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">▶ YouTube</a>
+                <a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">➕ Upload Song</a>
+            </div>
+        `;
+        box.classList.remove('hidden');
+        return;
+    }
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSong('${s.title.replace(/'/g, "\\'")}','${id}')" class="p-3 hover:bg-[#f0f6f6] cursor-pointer text-sm font-semibold text-[#3d6263] border-b border-[#d1dfdf] last:border-0">
+            ${s.title}
+        </div>
+    `).join('');
+    box.classList.remove('hidden');
+};
+
+window.selectSong = async (title, id) => {
+    const block = document.getElementById(`suggest-${id}`).closest('.song-block');
+    const noteArea = block.querySelector('.song-note');
+    block.querySelector('.song-title').value = title;
+    document.getElementById(`suggest-${id}`).classList.add('hidden');
+    document.getElementById(`keyinfo-${id}`).innerHTML = "";
+    document.getElementById(`files-${id}`).innerHTML = "";
+    await showKeyInfo(id, title);
+
+    if (worshipLeaderName && worshipLeaderName !== "None") {
+        const preferred = await getPreferredKey(title, worshipLeaderName);
+        if (preferred) {
+            const keyInputs = block.querySelectorAll('.song-key');
+            if (Array.isArray(preferred)) {
+                preferred.forEach((k, idx) => { if(keyInputs[idx]) keyInputs[idx].value = k; });
+            } else {
+                if(keyInputs[0]) keyInputs[0].value = preferred;
+            }
+        }
+        keyChanged(id);
+        if (!noteArea.value.trim()) {
+            try {
+                const historySnap = await getDocs(collection(db, "schedules"));
+                let lastNote = "", lastDate = "";
+                historySnap.forEach(d => {
+                    const data = d.data();
+                    if (data.worshipLeader === worshipLeaderName && data.songTitle === title) {
+                        if (!lastDate || data.date > lastDate) { lastDate = data.date; lastNote = data.notes; }
+                    }
+                });
+                if (lastNote) { noteArea.value = lastNote; autoFitTextAreas(); }
+            } catch (e) { console.error("Error fetching song history:", e); }
+        }
+    } else {
+        keyChanged(id);
+    }
+};
+
+window.keyChanged = async (id) => {
+    const block = document.getElementById(`files-${id}`).closest('.song-block');
+    const title = block.querySelector('.song-title').value;
+    const keys = Array.from(block.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
+    const container = document.getElementById(`files-${id}`);
+    if (!title) { container.innerHTML = ""; return; }
+    const docId = title.toLowerCase().replace(/\s+/g, "-");
+    const snap = await getDoc(doc(db, "songs", docId));
+    if (!snap.exists()) { container.innerHTML = ""; return; }
+    const data = snap.data();
+    const youtube = data.youtube || "";
+    const ccli = data.ccli || "";
+    const songSelectLink = ccli
+        ? `https://songselect.ccli.com/Songs/${ccli}`
+        : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+    const allFiles = data.files || [];
+
+    let html = `<div class="mt-4 p-4 bg-[#f0f6f6] rounded-xl border border-[#d1dfdf]">`;
+    html += `
+        <div class="text-[11px] mb-3 flex gap-4 flex-wrap font-bold">
+            ${youtube ? `<a href="${youtube}" target="_blank" class="text-red-700 hover:underline">🎬 YouTube Video</a>` : `<span class="text-[#d1dfdf]">No YouTube</span>`}
+            <a href="${songSelectLink}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a>
+            ${ccli ? `<span class="text-[#3d6263] opacity-50 ml-auto">CCLI: ${ccli}</span>` : `<span class="text-[#d1dfdf] ml-auto">No CCLI</span>`}
+        </div>
+    `;
+    if (keys.length > 0) {
+        keys.forEach(k => {
+            const selectedKey = k.trim().toLowerCase();
+            const files = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === selectedKey);
+            html += `<div class="mb-4 last:mb-0"><div class="text-xs font-bold text-[#3d6263] border-b border-[#d1dfdf] mb-2">Key: ${k}</div>`;
+            if (files.length === 0) {
+                html += `<div class="text-xs text-[#3d6263] opacity-60 italic">No files found for ${k}</div>`;
+            } else {
+                const grouped = {};
+                files.forEach(f => { if (!grouped[f.type]) grouped[f.type] = []; grouped[f.type].push(f); });
+                Object.keys(grouped).forEach(type => {
+                    html += `<div class="mt-2 text-[10px] text-[#3d6263] opacity-40 font-extrabold uppercase tracking-widest">${type}</div><div class="flex flex-wrap gap-2 mt-1">`;
+                    grouped[type].forEach(file => {
+                        html += `<a href="${file.url}" target="_blank" class="inline-block text-[11px] bg-[#3d6263] text-white px-3 py-1.5 rounded-lg font-bold shadow-sm hover:opacity-90">Open File</a>`;
+                    });
+                    html += `</div>`;
+                });
+            }
+            html += `</div>`;
+        });
+    } else {
+        html += `<div class="text-xs text-[#3d6263] opacity-50 italic">Select up to 3 keys to see sheet music files</div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+};
+
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+window.addItem = (val="") => {
+    const div = document.createElement('div');
+    div.className = "service-block item-block bg-[#f0f6f6] p-4 mb-4 rounded-2xl flex gap-4 items-center border border-transparent hover:border-[#d1dfdf] transition-colors";
+    div.innerHTML = `
+        <div class="drag-handle">⠿</div>
+        <div class="w-6"></div>
+        <input value="${escapeHtml(val)}" class="item-title flex-grow bg-transparent font-bold text-[#3d6263] focus:outline-none text-lg" placeholder="Service Item Name...">
+        <button onclick="this.parentElement.remove()" class="text-[#d1dfdf] hover:text-red-500 text-2xl font-bold">&times;</button>
+    `;
+    document.getElementById('service-order').appendChild(div);
+};
+
+window.loadRota = async () => {
+    const date = document.getElementById('serviceDate').value;
+    const snap = await getDocs(collection(db, "events"));
+    eventsForDay = [];
+    snap.forEach(d => {
+        const ev = d.data();
+        if (ev.date === date && ev.archived !== true) eventsForDay.push(ev);
+    });
+    const select = document.getElementById('eventSelect');
+    select.innerHTML = '<option value="">Select Service...</option>';
+    eventsForDay.forEach((ev, i) => {
+        const isYouth = (ev.description || ev.type || "").toLowerCase().includes("youth");
+        select.innerHTML += `<option value="${i}">${ev.type}${isYouth ? '' : ' (view only)'}</option>`;
+    });
+    // Reset readonly state when date changes
+    setReadonlyMode(false);
+};
+
+function sortAssignments(assignmentsArray) {
+    const techRoles = ["Sound", "Words", "Camera", "Cameras"];
+    return assignmentsArray.sort((a, b) => {
+        const roleA = a[0], roleB = b[0];
+        const isTechA = techRoles.includes(roleA), isTechB = techRoles.includes(roleB);
+        if (isTechA && !isTechB) return 1;
+        if (!isTechA && isTechB) return -1;
+        if (isTechA && isTechB) return techRoles.indexOf(roleA) - techRoles.indexOf(roleB);
+        return roleA.localeCompare(roleB);
+    });
+}
+
+window.selectEvent = async () => {
+    const index = document.getElementById('eventSelect').value;
+    if (index === "") return;
+    const data = eventsForDay[index];
+
+    // ── Youth check ──
+    isYouthService = (data.description || data.type || "").toLowerCase().includes("youth");
+    setReadonlyMode(!isYouthService);
+
+    document.getElementById('serviceTypeNotes').value = data.description || "";
+    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+    document.getElementById('leaderName').innerText = worshipLeaderName;
+
+    const teamBody = document.getElementById('teamBody');
+    teamBody.innerHTML = '';
+    let assignmentsArray = Object.entries(data.assignments || {});
+    assignmentsArray = sortAssignments(assignmentsArray);
+    assignmentsArray.forEach(([role, person]) => {
+        teamBody.innerHTML += `
+            <tr>
+                <td class="w-1/4">${role}</td>
+                <td class="w-1/4">${person.name}</td>
+                <td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td>
+            </tr>`;
+    });
+
+    const q = query(collection(db, "services"), where("date", "==", data.date));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+        const saved = snap.docs[0].data();
+        document.getElementById('introBox').value = saved.introText || "";
+        document.getElementById('outroBox').value = saved.outroText || "";
+        document.getElementById('serviceTypeNotes').value = saved.serviceNotes || "";
+
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+
+        if (saved.roleNotes) {
+            const rows = document.querySelectorAll('#teamBody tr');
+            rows.forEach(row => {
+                const role = row.children[0].innerText;
+                if (saved.roleNotes[role]) row.querySelector('.instr-note').value = saved.roleNotes[role];
+            });
+        }
+
+        (saved.order || []).forEach(item => {
+            if (item.type === "song") {
+                const id = addSong();
+                const last = container.lastChild;
+                last.querySelector('.song-title').value = item.title;
+                const keyInputs = last.querySelectorAll('.song-key');
+                if (Array.isArray(item.keys)) {
+                    item.keys.forEach((k, idx) => { if(keyInputs[idx]) keyInputs[idx].value = k; });
+                } else {
+                    if(keyInputs[0]) keyInputs[0].value = item.key || "";
+                }
+                last.querySelector('.song-note').value = item.notes;
+                showKeyInfo(id, item.title);
+                keyChanged(id);
+                const content = last.querySelector('.song-content');
+                content.classList.remove('hidden');
+                last.classList.remove('is-collapsed');
+                last.querySelector('.collapse-btn').innerText = "▼";
+            } else {
+                addItem(item.title);
+            }
+        });
+        updateSongNumbers();
+        autoFitTextAreas();
+    } else {
+        autoFitTextAreas();
+    }
+};
+
+window.saveSchedule = async () => {
+    if (!isYouthService) {
+        alert("⚠️ This is not a youth service — you can view it but cannot save changes.");
+        return;
+    }
+    const date = document.getElementById('serviceDate').value;
+    const introText = document.getElementById('introBox').value;
+    const outroText = document.getElementById('outroBox').value;
+    const serviceNotes = document.getElementById('serviceTypeNotes').value;
+
+    const roleNotes = {};
+    document.querySelectorAll('#teamBody tr').forEach(row => {
+        const role = row.children[0].innerText;
+        const note = row.querySelector('.instr-note').value;
+        if (note) roleNotes[role] = note;
+    });
+
+    const blocks = document.querySelectorAll('.service-block');
+    const order = [];
+    blocks.forEach(b => {
+        if (b.classList.contains('song-block')) {
+            order.push({
+                type: "song",
+                title: b.querySelector('.song-title').value,
+                keys: Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== ""),
+                notes: b.querySelector('.song-note').value
+            });
+        } else {
+            order.push({ type: "item", title: b.querySelector('.item-title').value });
+        }
+    });
+
+    const q = query(collection(db, "services"), where("date", "==", date));
+    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
+
+    try {
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            await updateDoc(doc(db, "services", snap.docs[0].id), serviceData);
+        } else {
+            await addDoc(collection(db, "services"), serviceData);
+        }
+        alert("✅ Youth service saved successfully.");
+    } catch (err) {
+        console.error("Failed to save youth service:", err);
+        alert("❌ Failed to save youth service: " + (err?.message || err));
+    }
+};
+
+async function saveSongSummaryToFirestore(date) {
+    const blocks = document.querySelectorAll('.service-block');
+    const items = [];
+    let songIdx = 1;
+    for (const b of blocks) {
+        if (b.classList.contains('song-block')) {
+            const title = b.querySelector('.song-title').value;
+            const keys = Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
+            const notes = b.querySelector('.song-note').value;
+            if (!title) continue;
+            const docId = title.toLowerCase().replace(/\s+/g, "-");
+            const snap = await getDoc(doc(db, "songs", docId));
+            let ccli = "";
+            if (snap.exists()) ccli = snap.data().ccli || "";
+            items.push({ type: "song", idx: songIdx, title, keys, notes, ccli });
+            songIdx++;
+        } else {
+            const title = b.querySelector('.item-title').value;
+            if (title) items.push({ type: "item", title });
+        }
+    }
+    await setDoc(doc(db, "songSummaries", date), {
+        date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString()
+    });
+    return `https://esherchurch.github.io/availability-form/song-summary.html?date=${date}`;
+}
+
+window.emailSchedule = async () => {
+    if (!isYouthService) {
+        alert("⚠️ This is not a youth service — you can view it but cannot send emails for it.");
+        return;
+    }
+    const date = document.getElementById('serviceDate').value || "TBC";
+    const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
+    const introText = document.getElementById('introBox').value || "";
+    const outroText = document.getElementById('outroBox').value || "";
+    const summaryUrl = await saveSongSummaryToFirestore(date);
+
+    let htmlEmail = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#eaf2f2;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2">
+<tr><td align="center" style="padding:32px 16px;">
+<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
+  <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:bottom;">
+        <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Youth Service Plan</p>
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${date}${worshipLeaderName && worshipLeaderName !== "None" ? " &bull; " + worshipLeaderName + " leading" : ""}</p>
+      </td>
+      <td style="vertical-align:top;text-align:right;padding-left:20px;">
+        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
+          <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
+        </div>
+      </td>
+    </tr></table>
+  </td></tr>
+  ${serviceNotes ? `<tr><td style="padding:20px 40px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#3d6263" style="font-size:0;line-height:0;">&nbsp;</td><td bgcolor="#f0f6f6" style="padding:14px 18px;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;line-height:1.6;"><strong>Service Notes</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</td></tr></table></td></tr>` : ""}
+  ${introText ? `<tr><td style="padding:20px 40px 0;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">${introText.replace(/\n/g, '<br>')}</td></tr>` : ""}
+  <tr><td style="padding:28px 40px 0;">
+    <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#3d6263;padding-bottom:10px;border-bottom:2px solid #3d6263;">Order of Service</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+      <tr bgcolor="#f0f6f6">
+        <td width="44%" style="padding:9px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#3d6263;font-weight:800;border-bottom:1px solid #d1dfdf;">Song</td>
+        <td width="10%" style="padding:9px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#3d6263;font-weight:800;border-bottom:1px solid #d1dfdf;text-align:center;">Key</td>
+        <td width="46%" style="padding:9px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#3d6263;font-weight:800;border-bottom:1px solid #d1dfdf;">Resources</td>
+      </tr>
+`;
+
+    const blocks = document.querySelectorAll('.service-block');
+    let songIdx = 1;
+    for (const b of blocks) {
+        if (b.classList.contains('song-block')) {
+            const title = b.querySelector('.song-title').value;
+            const keys = Array.from(b.querySelectorAll('.song-key')).map(s => s.value).filter(v => v !== "");
+            const notes = b.querySelector('.song-note').value;
+            if (!title) continue;
+            const docId = title.toLowerCase().replace(/\s+/g, "-");
+            const snap = await getDoc(doc(db, "songs", docId));
+            let resourcesHtml = "", linksHtml = "";
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">YouTube</font></a>`;
+                const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
+                if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
+                linksHtml += `<a href="${sSelect}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">SongSelect</font></a>`;
+                resourcesHtml += `<div style="margin-bottom: 8px;">${linksHtml}</div>`;
+                if (keys.length > 0) {
+                    keys.forEach(k => {
+                        const files = (data.files || []).filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
+                        if (files.length > 0) {
+                            resourcesHtml += `<div style="font-size: 10px; color: #3d6263; font-weight: bold; margin-top: 5px;">Key: ${k}</div>`;
+                            files.forEach(f => {
+                                resourcesHtml += `<div style="margin-top: 2px;"><a href="${f.url}" style="color: #3d6263; text-decoration: underline; font-size: 11px; font-weight: 600;"><font color="#3d6263">Download ${f.type}</font></a></div>`;
+                            });
+                        }
+                    });
+                }
+            }
+            htmlEmail += `
+              <tr>
+                <td style="padding:14px 10px;border-bottom:1px solid #f0f6f6;vertical-align:top;font-family:Arial,sans-serif;">
+                  <p style="margin:0 0 3px;font-size:14px;font-weight:800;color:#1e293b;">${songIdx}. ${title}</p>
+                  ${notes ? `<p style="margin:0;font-size:11px;font-style:italic;color:#64748b;line-height:1.5;">${notes}</p>` : ""}
+                </td>
+                <td style="padding:14px 10px;border-bottom:1px solid #f0f6f6;vertical-align:top;text-align:center;font-family:Arial,sans-serif;font-size:14px;font-weight:800;color:#3d6263;">${keys.join(", ") || "—"}</td>
+                <td style="padding:14px 10px;border-bottom:1px solid #f0f6f6;vertical-align:top;font-family:Arial,sans-serif;">${resourcesHtml}</td>
+              </tr>`;
+            songIdx++;
+        } else {
+            const item = b.querySelector('.item-title').value;
+            if (item) {
+                htmlEmail += `<tr><td colspan="3" style="padding:10px 14px;background-color:#f0f6f6;border-left:3px solid #3d6263;font-family:Arial,sans-serif;font-size:11px;font-weight:800;color:#3d6263;text-transform:uppercase;letter-spacing:1px;">${item}</td></tr>`;
+            }
+        }
+    }
+
+    htmlEmail += `</table></td></tr>
+  <tr><td style="padding:24px 40px 0;">
+    <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#3d6263;padding-bottom:10px;border-bottom:2px solid #3d6263;">Our Team This Service</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tbody>`;
+
+    let rosterNames = [];
+    const teamRows = Array.from(document.querySelectorAll('#teamBody tr'));
+    const rowsForEmail = teamRows.map(r => [r.children[0].innerText, r.children[1].innerText, r.querySelector('.instr-note').value]);
+    const sortedForEmail = sortAssignments(rowsForEmail);
+    sortedForEmail.forEach(([role, name, note]) => {
+        if(name && name !== "None") rosterNames.push(name.trim());
+        let roleColor = "#3d6263";
+        if (["Sound","Words","Camera","Cameras"].includes(role)) roleColor = "#3B7D23";
+        htmlEmail += `<tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f0f6f6;font-family:Arial,sans-serif;font-size:13px;font-weight:800;color:${roleColor};vertical-align:top;width:38%;">${role}</td>
+          <td style="padding:10px 0;border-bottom:1px solid #f0f6f6;font-family:Arial,sans-serif;font-size:13px;color:#333333;vertical-align:top;">${name}${note ? `<br><span style="font-size:11px;color:#888888;font-style:italic;">${note}</span>` : ""}</td>
+        </tr>`;
+    });
+    htmlEmail += `</tbody></table>
+  </td></tr>
+  ${outroText ? `<tr><td style="padding:20px 40px 0;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">${outroText.replace(/\n/g, "<br>")}</td></tr>` : ""}
+  <tr><td style="padding:20px 40px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td width="4" bgcolor="#3d6263" style="font-size:0;line-height:0;">&nbsp;</td>
+      <td bgcolor="#f0f6f6" style="padding:14px 18px;">
+        <p style="margin:0 0 6px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#3d6263;">Projection / Song Summary</p>
+        <a href="${summaryUrl}" style="font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:700;">View simplified song list (songs, CCLI &amp; notes) &rarr;</a>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
+    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
+    </tr></table>
+  </td></tr>
+</table></td></tr></table>
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    <\/script>
+</body></html>`;
+
+    const subject = "Youth Service Plan: " + date;
+    const modal = document.getElementById('emailModal');
+    const individualSelect = document.getElementById('modalIndividualSelect');
+    individualSelect.innerHTML = '<option value="">— Pick a person —</option>';
+    teamRows.forEach(row => {
+        const name = row.children[1].innerText.trim();
+        const found = addressBook.find(p => p.name?.trim() === name);
+        if (found && found.email) {
+            const opt = document.createElement('option');
+            opt.value = found.email;
+            opt.textContent = `${name} (${found.email})`;
+            individualSelect.appendChild(opt);
+        }
+    });
+
+    let teamRecipients = [];
+    addressBook.forEach(p => {
+        const isCore = p.markers && p.markers.includes("Core Team");
+        if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
+    });
+    teamRecipients = [...new Set(teamRecipients)];
+
+    const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
+
+    async function sendViaResend(toAddresses, emailSubject, emailHtml) {
+        const statusEl = document.getElementById('modalStatus');
+        statusEl.textContent = "Sending…";
+        statusEl.style.color = "#3d6263";
+        try {
+            const resp = await fetch(SEND_FUNCTION_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" })
+            });
+            const result = await resp.json();
+            if (result.ok) {
+                statusEl.textContent = "✓ Sent successfully!";
+                statusEl.style.color = "#3B7D23";
+                setTimeout(() => modal.classList.remove('active'), 1800);
+            } else {
+                statusEl.textContent = "✗ Error: " + (result.error || "Unknown error");
+                statusEl.style.color = "#e05555";
+            }
+        } catch (e) {
+            statusEl.textContent = "✗ Network error: " + e.message;
+            statusEl.style.color = "#e05555";
+        }
+    }
+
+    document.getElementById('modalTeamBtn').onclick = async () => {
+        document.getElementById('modalTeamBtn').disabled = true;
+        document.getElementById('modalIndividualBtn').disabled = true;
+        await sendViaResend(teamRecipients, subject, htmlEmail);
+        document.getElementById('modalTeamBtn').disabled = false;
+        document.getElementById('modalIndividualBtn').disabled = false;
+    };
+    document.getElementById('modalIndividualBtn').onclick = async () => {
+        const email = individualSelect.value;
+        if (!email) { alert("Please select a person first."); return; }
+        document.getElementById('modalTeamBtn').disabled = true;
+        document.getElementById('modalIndividualBtn').disabled = true;
+        await sendViaResend([email], subject, htmlEmail);
+        document.getElementById('modalTeamBtn').disabled = false;
+        document.getElementById('modalIndividualBtn').disabled = false;
+    };
+    document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
+    const savedSender = localStorage.getItem('egbc-sender-email') || '';
+    document.getElementById('senderEmail').value = savedSender;
+    modal.classList.add('active');
+};
+</script>
+</head>
+
+<body class="p-4 md:p-12">
+
+<!-- Read-only banner -->
+<div id="readonlyBanner">
+    👁️ View only — this is not a youth service. You can browse it as an example but cannot make changes.
+</div>
+
+<!-- Email modal -->
+<div id="emailModal">
+    <div id="emailModalBox">
+        <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Youth Service Plan</h2>
+        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:16px; font-weight:700;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:6px;">Your Email (reply-to)</label>
+            <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+        </div>
+        <button id="modalTeamBtn" class="btn-primary" style="width:100%; display:block; text-align:center; border:none; cursor:pointer; margin-bottom:20px;">Email Whole Team</button>
+        <div style="border-top:1px solid #d1dfdf; padding-top:20px;">
+            <p style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#3d6263; opacity:0.5; margin-bottom:8px;">Or email one person:</p>
+            <select id="modalIndividualSelect" class="styled-input" style="width:100%; margin-bottom:10px;"></select>
+            <button id="modalIndividualBtn" class="btn-secondary" style="width:100%; display:block; text-align:center; cursor:pointer;">Email This Person</button>
+        </div>
+        <div id="modalStatus" style="margin-top:14px; font-size:13px; font-weight:700; min-height:20px; text-align:center;"></div>
+        <div style="margin-top:12px; text-align:center;">
+            <button id="modalCancelBtn" style="font-size:12px; font-weight:700; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Discrete help button -->
+<a id="helpBtn"
+   href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html"
+   target="_blank"
+   rel="noopener"
+   aria-label="Open instructions">?</a>
+
+<div class="max-w-[1200px] mx-auto space-y-10">
+
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
+        <div class="flex items-center gap-6">
+            <div>
+                <h1 class="text-4xl font-extrabold text-[#14201f] tracking-tight">Youth Service Planner</h1>
+                <p class="text-[11px] font-extrabold text-[#6b8281] uppercase tracking-[0.08em] mt-2">Leader: <span id="leaderName" class="text-[#3d6263]">None</span></p>
+            </div>
+        </div>
+
+        <div class="flex gap-3 w-full md:w-auto overflow-x-auto">
+            <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input text-sm flex-1 md:min-w-[150px]">
+            <select id="eventSelect" onchange="selectEvent()" class="styled-input text-sm flex-1 md:min-w-[180px]">
+                <option value="">Select Service...</option>
+            </select>
+            <input id="serviceTypeNotes" class="styled-input text-sm flex-1 md:min-w-[200px]" placeholder="General Notes">
+        </div>
+    </div>
+
+    <div class="space-y-2">
+        <label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] ml-4">Opening Remarks</label>
+        <textarea id="introBox" class="w-full styled-input !bg-white" placeholder="This text appears at the start of the team email, just below the service notes..." rows="1"></textarea>
+    </div>
+
+    <div class="space-y-6">
+        <div class="flex justify-between items-center px-4">
+            <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight">Order of Service</h2>
+            <div class="flex gap-2">
+                <button id="addSongBtn" onclick="addSong()" class="btn-secondary text-sm !py-2">+ Add Song</button>
+                <button id="addItemBtn" onclick="addItem()" class="btn-secondary text-sm !py-2">+ Add Item</button>
+                <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">Songs Database</a>
+            </div>
+        </div>
+        <div id="service-order" class="space-y-2"></div>
+    </div>
+
+    <div class="bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
+        <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight mb-6">Service Team & Roles</h2>
+        <div class="overflow-x-auto">
+            <table class="rota-table">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Assigned Member</th>
+                        <th>Role Specific Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="teamBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="space-y-2">
+        <label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] ml-4">Closing Remarks</label>
+        <textarea id="outroBox" class="w-full styled-input !bg-white" placeholder="This text appears at the end of the team email, after the team rota..." rows="1"></textarea>
+    </div>
+
+    <div class="flex justify-center gap-6 pt-6 pb-12">
+        <button id="saveBtn" onclick="saveSchedule()" class="btn-primary w-48 shadow-lg shadow-[#d1dfdf]">Save Schedule</button>
+        <button id="emailBtn" onclick="emailSchedule()" class="btn-secondary w-48">Email Team</button>
+    </div>
+
+</div>
+</body>
+</html>

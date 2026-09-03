@@ -1,0 +1,209 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Song Summary – EGBC</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+        --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+        --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Montserrat', Arial, sans-serif;
+        background: var(--canvas);
+        color: var(--body);
+        padding: 40px 24px;
+        min-height: 100vh;
+        font-size: 16px;
+    }
+    .header { margin-bottom: 28px; }
+    h1 { font-size: 26px; font-weight: 800; color: var(--ink); margin-bottom: 6px; letter-spacing: -0.02em; }
+    .sub {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+        border-radius: var(--r-lg);
+        overflow: hidden;
+        border: 1px solid var(--hairline);
+        box-shadow: var(--shadow);
+    }
+    thead tr { background: var(--brand); color: white; }
+    thead th {
+        padding: 13px 16px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 800;
+    }
+    tbody tr { border-bottom: 1px solid var(--hairline); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 14px 16px; font-size: 13px; vertical-align: top; color: var(--body); }
+    td.num { color: var(--muted); font-weight: 800; font-size: 11px; width: 36px; }
+    td.title { font-weight: 600; color: var(--ink); }
+    td.ccli a { color: var(--brand); text-decoration: underline; font-weight: 700; }
+    td.notes { font-style: italic; color: var(--muted); font-size: 13px; }
+    /* Service item divider rows */
+    tr.service-item td {
+        background: var(--brand-tint);
+        border-left: 3px solid var(--brand);
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--brand);
+        padding: 8px 16px;
+    }
+    .footer {
+        margin-top: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--faint);
+        text-align: right;
+    }
+    .loading {
+        text-align: center;
+        padding: 60px 20px;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--muted);
+    }
+    .error {
+        background: var(--danger-tint);
+        border-left: 4px solid var(--danger);
+        padding: 16px 20px;
+        border-radius: var(--r-md);
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--danger);
+    }
+    /* Loading shimmer skeleton */
+    .sk{background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%);background-size:400% 100%;animation:sh 1.4s ease infinite;border-radius:6px;}
+    @keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+    @media (prefers-reduced-motion: reduce){ .sk{animation:none} }
+    @media print {
+        body { background: white; padding: 20px; }
+        table { box-shadow: none; }
+        .footer { display: none; }
+    }
+    @media (max-width: 600px) {
+        body { padding: 20px 12px; }
+        thead th, tbody td { padding: 10px 10px; }
+        td.ccli, td.keys { font-size: 11px; }
+    }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body>
+
+<div class="header">
+    <h1>Song Summary</h1>
+    <p class="sub" id="subline">Loading...</p>
+</div>
+
+<div id="content"><div class="loading">Loading song list...</div></div>
+
+<p class="footer" id="footer"></p>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+const params = new URLSearchParams(window.location.search);
+const date = params.get("date");
+
+if (!date) {
+    document.getElementById('subline').textContent = "No date specified";
+    document.getElementById('content').innerHTML = `<div class="error">No date provided in the URL. Link should look like: …/song-summary.html?date=2026-05-04</div>`;
+} else {
+    document.title = `Song Summary – ${date}`;
+
+    try {
+        const snap = await getDoc(doc(db, "songSummaries", date));
+
+        if (!snap.exists()) {
+            document.getElementById('subline').textContent = date;
+            document.getElementById('content').innerHTML = `<div class="error">No song summary found for ${escapeHtml(date)}. Make sure the worship plan has been emailed (which saves the summary) for this date.</div>`;
+        } else {
+            const data = snap.data();
+            const leader = data.worshipLeader || "—";
+
+            document.getElementById('subline').textContent = `${date} · Worship Leader: ${leader}`;
+            document.getElementById('footer').textContent = `EGBC Worship Planner · Printed ${new Date().toLocaleDateString()}`;
+
+            // Support both old format (songs array) and new format (items array)
+            const items = data.items || (data.songs || []).map(s => ({ type: "song", ...s }));
+
+            if (items.length === 0) {
+                document.getElementById('content').innerHTML = `<div class="error">No items found for this date.</div>`;
+            } else {
+                const rows = items.map(item => {
+                    if (item.type === "item") {
+                        // Service item — single full-width divider row
+                        return `<tr class="service-item"><td colspan="5">${escapeHtml(item.title)}</td></tr>`;
+                    } else {
+                        // Song row
+                        return `
+                            <tr>
+                                <td class="num">${escapeHtml(item.idx)}</td>
+                                <td class="title">${escapeHtml(item.title)}</td>
+                                <td class="ccli">${item.ccli
+                                    ? `<a href="https://songselect.ccli.com/Songs/${escapeHtml(item.ccli)}" target="_blank">${escapeHtml(item.ccli)}</a>`
+                                    : '<span style="opacity:0.35;">—</span>'}</td>
+                                <td class="keys">${(item.keys && item.keys.length) ? escapeHtml(item.keys.join(', ')) : '—'}</td>
+                                <td class="notes">${escapeHtml(item.notes || '')}</td>
+                            </tr>`;
+                    }
+                }).join('');
+
+                document.getElementById('content').innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Song</th>
+                                <th>CCLI</th>
+                                <th>Key(s)</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                `;
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        document.getElementById('subline').textContent = date;
+        document.getElementById('content').innerHTML = `<div class="error">Error loading data: ${e.message}</div>`;
+    }
+}
+</script>
+</body>
+</html>

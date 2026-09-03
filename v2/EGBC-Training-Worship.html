@@ -1,0 +1,481 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EGBC — Worship Training</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    :root{
+      --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+      --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+      --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+      --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+      --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+    }
+    body{background-color:var(--canvas);color:var(--brand);font-family:'Montserrat',sans-serif;-webkit-font-smoothing:antialiased}
+    h1{color:var(--ink)}
+    ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:var(--r-pill)}
+    .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-2px)!important;box-shadow:var(--shadow-lg)!important}
+    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:var(--r-lg)}
+    .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:var(--r-lg)}
+    .skeleton{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:var(--r-lg)}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .tab-btn.active{background:var(--brand);color:#fff}.tab-btn{transition:all 0.15s}
+    .admin-tab.hidden{display:none}
+    mark{background:var(--gold-tint);color:var(--ink);border-radius:3px;padding:0 3px}
+    /* Design-system refinements layered over Tailwind utilities (visual only) */
+    input:focus,textarea:focus,select:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px var(--brand-ring)!important}
+    .hover\:bg-black:hover{background-color:var(--brand-dark)!important}
+    .shadow-sm{box-shadow:var(--shadow-sm)!important}
+    .shadow-md{box-shadow:var(--shadow)!important}
+    .shadow-lg{box-shadow:var(--shadow)!important}
+    .shadow-xl,.shadow-2xl{box-shadow:var(--shadow-lg)!important}
+  </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body class="p-6 lg:p-10 min-h-screen">
+<div class="max-w-6xl mx-auto">
+
+  <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
+    <div>
+      <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC — Worship Knowledge Base</div>
+      <h1 class="text-3xl font-black tracking-tight">Worship Training</h1>
+      <p class="text-sm font-semibold opacity-60 mt-1">Training guides and techniques for worship</p>
+    </div>
+    <div class="flex gap-3 items-center flex-wrap">
+      <nav class="flex flex-col gap-1 bg-white p-3 rounded-[2rem] border border-[#d1dfdf] shadow-sm">
+        <span class="text-[9px] font-black uppercase tracking-widest px-4 opacity-50">Worship Knowledge Base</span>
+        <div class="flex gap-1">
+          <a href="https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Play Through</a>
+          <span class="px-5 py-2 rounded-full font-black text-[10px] uppercase bg-[#3d6263] text-white">Training</span>
+        </div>
+      </nav>
+      <button onclick="toggleAdmin()" class="bg-white border border-[#d1dfdf] px-6 py-2.5 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
+    </div>
+  </header>
+
+  <div class="bg-white rounded-[2rem] border border-[#d1dfdf] shadow-lg p-6 mb-8">
+    <div class="flex gap-3 items-center">
+      <div class="flex-grow relative">
+        <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" type="text" placeholder="What do you want to learn? e.g. 'vocal warm up'" class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40 outline-none" onkeydown="if(event.key==='Enter')doSearch()">
+      </div>
+      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
+      <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <span class="text-[10px] font-black uppercase opacity-40 self-center">Quick:</span>
+      <button onclick="quickSearch('vocal warm up')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Vocal warm up</button>
+      <button onclick="quickSearch('leading worship')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Leading worship</button>
+      <button onclick="quickSearch('guitar technique')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Guitar technique</button>
+      <button onclick="quickSearch('keys playing')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Keys playing</button>
+      <button onclick="quickSearch('stage presence')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Stage presence</button>
+    </div>
+  </div>
+
+  <div id="searchResults" class="hidden mb-6"></div>
+
+  <!-- ADMIN -->
+  <div id="adminPanel" class="hidden mb-8">
+    <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
+      <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
+        <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — Worship Training</h2>
+        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl">✕</button>
+      </div>
+      <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
+        <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase">Add Content</button>
+        <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Categories</button>
+        <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Manage</button>
+      </div>
+
+      <div id="admin-content" class="admin-tab">
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Item</h3>
+            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-2">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Paste embed code from Stream</div>
+              <div class="text-[11px] text-[#3d6263] opacity-60">In Stream: open video → Share → Embed → copy full iframe code → paste below</div>
+              <textarea id="adminContentURL" rows="3" placeholder="Paste iframe embed code here…" class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none" oninput="handleEmbedPaste(this)" onpaste="setTimeout(()=>handleEmbedPaste(this),50)"></textarea>
+              <div id="pasteStatus" class="hidden text-[11px] font-black px-1"></div>
+            </div>
+            <div id="autoFilledSection" class="hidden space-y-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60 pt-1">Step 2 — Review &amp; complete</div>
+              <input id="adminTitle" type="text" placeholder="Title (auto-filled from embed)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+              <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option></select>
+              <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
+              <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+              <div id="transcriptStatus" class="hidden text-[12px] font-semibold px-1"></div>
+              <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" placeholder="Paste transcript here (Stream > video > Transcript tab > select all > copy)"></textarea>
+              <div class="flex gap-3 pt-1">
+                <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+                <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
+              </div>
+            </div>
+          </div>
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">How-To Bullets</h3>
+            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste embed code — training bullet points will generate automatically.</div>
+            <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4"><div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div><span class="text-[11px] font-bold uppercase opacity-60">Generating bullets...</span></div>
+            <textarea id="adminBullets" rows="12" placeholder="Bullets will appear here for review..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <button id="regenBtn" onclick="generateBullets()" class="hidden mt-3 w-full bg-white border border-[#d1dfdf] py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">↺ Regenerate Bullets</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="admin-categories" class="admin-tab hidden">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-2">Page Categories</h3>
+          <p class="text-[12px] opacity-60 mb-4">Visual sections on this page only — add as many as you like.</p>
+          <div class="flex gap-3 mb-6">
+            <input id="newCatName" type="text" placeholder="New category name…" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
+            <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Add</button>
+          </div>
+          <div id="categoryList" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <div id="admin-manage" class="admin-tab hidden">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">All Content</h3>
+          <div id="manageList" class="space-y-2"></div>
+        </div>
+        <div id="editModal" class="hidden mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border-2 border-[#3d6263] space-y-3">
+          <div class="flex justify-between items-center mb-2"><h3 class="font-black uppercase text-[11px] tracking-widest">Edit Item</h3><button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black">✕</button></div>
+          <input type="hidden" id="editId">
+          <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
+          <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <textarea id="editBullets" rows="6" placeholder="How-to bullets..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <textarea id="editDescription" rows="3" placeholder="Description..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="contentArea"></div>
+  <div id="emptyState" class="hidden text-center py-20">
+    <div class="text-5xl mb-4">📭</div>
+    <div class="font-black uppercase opacity-40 tracking-widest text-sm">No content yet</div>
+    <div class="text-sm opacity-30 mt-2">Use the Admin panel to add videos, images and notes</div>
+  </div>
+</div>
+
+<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+  <div class="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
+    <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+const COLLECTION='kb_training_worship';
+const CAT_KEY='egbc_cats_training_worship';
+const SP_SITE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+let allAssets=[],categories=JSON.parse(localStorage.getItem(CAT_KEY)||'[]'),currentQuery='';
+
+document.addEventListener('DOMContentLoaded',()=>{loadAssets();updateCatDropdowns();});
+
+async function loadAssets(){
+  showSkeletons();
+  try{
+    const snap=await db.collection(COLLECTION).where('published','==',true).orderBy('createdAt','desc').get();
+    allAssets=snap.docs.map(d=>({id:d.id,...d.data()}));
+    console.log('KB: Loaded',allAssets.length,'assets');
+  }catch(e){console.log('KB load error:',e.message);allAssets=[];}
+  renderContent(allAssets);
+}
+
+async function loadAll(){
+  try{const snap=await db.collection(COLLECTION).orderBy('createdAt','desc').get();return snap.docs.map(d=>({id:d.id,...d.data()}));}
+  catch(e){return[];}
+}
+
+function renderContent(assets,highlight=''){
+  const area=document.getElementById('contentArea');
+  const empty=document.getElementById('emptyState');
+  if(!assets.length){area.innerHTML='';empty.classList.remove('hidden');return;}
+  empty.classList.add('hidden');
+  const grouped={},uncat=[];
+  assets.forEach(a=>{const c=(a.category||'').trim();if(c&&categories.includes(c)){if(!grouped[c])grouped[c]=[];grouped[c].push(a);}else uncat.push(a);});
+  let html='';
+  categories.forEach(cat=>{
+    const items=grouped[cat]||[];if(!items.length)return;
+    const sid='sec_'+safeid(cat);
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#3d6263] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm">${cat}</h2><span class="text-[10px] font-bold opacity-40">${items.length} item${items.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+  });
+  if(uncat.length){
+    const label=categories.length?'Uncategorised':'All Content';const sid='sec_uncategorised';
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#d1dfdf] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm opacity-50">${label}</h2><span class="text-[10px] font-bold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+  }
+  area.innerHTML=html;
+}
+
+function toggleSec(id){const el=document.getElementById(id);const chv=document.getElementById('chv_'+id);if(!el)return;const h=el.classList.toggle('hidden');if(chv)chv.style.transform=h?'rotate(-90deg)':'rotate(0deg)';}
+function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
+
+function cardHTML(a,highlight=''){
+  const icons={Video:'▶',Image:'📷',Note:'📝'};
+  const colors={Video:'bg-blue-50 text-blue-700',Image:'bg-green-50 text-green-700',Note:'bg-yellow-50 text-yellow-700'};
+  const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
+  const tags=(a.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
+  const title=highlight?hlText(escapeHtml(a.title||''),highlight):escapeHtml(a.title||'');
+  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}')">
+    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'📄'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.assetType||'Video'}</span></div>
+    <h3 class="font-black text-base mb-3 leading-snug">${title}</h3>
+    ${a.description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${a.description}</p>`:''}
+    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${b.replace(/^[•\-\*]\s*/,'')}</span></div>`).join('')}${(a.bullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
+    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}
+  </div>`;
+}
+
+function openCard(id){
+  const a=allAssets.find(x=>x.id===id);if(!a)return;
+  const bullets=(a.bullets||'').split('\n').filter(b=>b.trim());
+  const hasURL=a.contentURL&&a.contentURL.trim();
+  const src=hasURL?(a.timestampStart?`${a.contentURL}${a.contentURL.includes('?')?'&':'?'}startTime=${a.timestampStart}`:a.contentURL):'';
+  document.getElementById('modalContent').innerHTML=`
+    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">Worship Training${a.category?' — '+a.category:''}</div>
+    <h2 class="font-black text-2xl mb-6 leading-tight">${escapeHtml(a.title)}</h2>
+    ${(a.assetType==='Video')&&src?`<div class="video-wrap mb-6 bg-[#f0f6f6]"><iframe src="${src}" allowfullscreen></iframe></div>`:''}
+    ${a.assetType==='Image'&&hasURL?`<img src="${a.contentURL}" alt="${escapeHtml(a.title)}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
+    ${a.description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${a.description}</p>`:''}
+    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How To Do It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div></div>`:''}
+    ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}`;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.add('hidden');}
+
+function doSearch(){
+  const query=document.getElementById('searchInput').value.trim();if(!query)return;
+  currentQuery=query;
+
+  // Score each asset by relevance to query
+  const words=query.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+  const scored=allAssets.map(a=>{
+    const h=`${a.title} ${a.tags} ${a.description} ${a.bullets} ${a.transcript}`.toLowerCase();
+    let score=0;
+    words.forEach(w=>{
+      if((a.title||'').toLowerCase().includes(w)) score+=10;
+      if((a.tags||'').toLowerCase().includes(w)) score+=6;
+      if((a.bullets||'').toLowerCase().includes(w)) score+=4;
+      if((a.description||'').toLowerCase().includes(w)) score+=3;
+      if((a.transcript||'').toLowerCase().includes(w)) score+=1;
+    });
+    return{...a,_score:score};
+  }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
+
+  if(scored.length>0){
+    showAssembledAnswer(query,scored);
+    renderContent(scored,query);
+  } else {
+    document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 text-sm font-semibold opacity-70">No results found for "<strong>${query}</strong>" — showing all content</div>`;
+    document.getElementById('searchResults').classList.remove('hidden');
+    renderContent(allAssets);
+  }
+}
+
+function showAssembledAnswer(query,results){
+  const top=results.slice(0,4);
+
+  // Build step-by-step answer from top results
+  let steps='';
+  top.forEach((a,i)=>{
+    const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
+    steps+=`<div class="flex gap-4 items-start mb-4">
+      <span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span>
+      <div class="flex-1">
+        <div class="font-black text-sm text-[#3d6263] mb-1">${escapeHtml(a.title)}</div>
+        ${bullets.length?`<div class="text-[12px] opacity-70 space-y-1">${bullets.map(b=>`<div>• ${b.replace(/^[•\-\*]\s*/,'')}</div>`).join('')}</div>`:''}
+        <button onclick="openCard('${a.id}')" class="mt-2 bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-[#3d6263] hover:text-white transition-all">${{Video:'▶ Watch',Image:'📷 View',Note:'📝 Read'}[a.assetType]||'View'}</button>
+      </div>
+    </div>`;
+  });
+
+  const html=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg mb-8" id="assembledAnswer">
+    <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Best answer for</div>
+        <h2 class="font-black text-xl">"${query}"</h2>
+      </div>
+      <span class="text-[10px] font-black uppercase px-4 py-1.5 rounded-full bg-[#f0f6f6] border border-[#d1dfdf]">${results.length} resource${results.length!==1?'s':''} found</span>
+    </div>
+    <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Suggested steps</div>
+      ${steps}
+    </div>
+  </div>`;
+
+  document.getElementById('searchResults').innerHTML=html;
+  document.getElementById('searchResults').classList.remove('hidden');
+}
+function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
+function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(allAssets);}
+
+function toggleAdmin(){document.getElementById('adminPanel').classList.toggle('hidden');updateCatDropdowns();renderCategoryList();}
+function showAdminTab(tab){
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));
+  document.querySelectorAll('[id^="atab-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('admin-'+tab).classList.remove('hidden');
+  document.getElementById('atab-'+tab).classList.add('active');
+  if(tab==='manage')renderManageList();
+  if(tab==='categories')renderCategoryList();
+}
+
+async function handleEmbedPaste(el){
+  const val=el.value.trim();if(!val)return;
+  const srcMatch=val.match(/src=["']([^"']+)["']/);
+  const embedURL=srcMatch?srcMatch[1]:(val.startsWith('http')?val:null);
+  if(!embedURL){setStatus('pasteStatus','✗ Paste the full iframe embed code from Stream','text-red-500 font-black');return;}
+  window._extractedURL=embedURL;
+  const titleMatch=val.match(/title=["']([^"']+)["']/);
+  if(titleMatch)document.getElementById('adminTitle').value=titleMatch[1].replace(/\.[^/.]+$/,'');
+  document.getElementById('autoFilledSection').classList.remove('hidden');
+  setStatus('pasteStatus','✓ Embed code recognised — fetching transcript...','text-green-700 font-black');
+  const uidMatch=embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
+  if(uidMatch)await fetchTranscript(uidMatch[1]);
+  else{setStatus('transcriptStatus','Paste transcript manually below if needed.','text-amber-600 font-semibold');document.getElementById('transcriptStatus').classList.remove('hidden');document.getElementById('adminTranscript').classList.remove('hidden');}
+}
+
+async function fetchTranscript(uniqueId){
+  try{
+    const r=await fetch(`${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,{headers:{'Accept':'application/json'},credentials:'include'});
+    if(r.ok){
+      const data=await r.json();const items=data?.value||[];
+      if(items.length){
+        const tUrl=items[0].transcriptContentUrl||items[0]['@microsoft.graph.downloadUrl'];
+        if(tUrl){const vr=await fetch(tUrl,{credentials:'include'});if(vr.ok){const t=parseVTT(await vr.text());if(t){onTranscriptLoaded(t);return;}}}
+      }
+    }
+  }catch(e){console.log('Transcript fetch:',e.message);}
+  setStatus('transcriptStatus','In Stream: open video → Transcript tab → select all → copy → paste below. Bullets will generate automatically.','text-amber-600 font-semibold');
+  document.getElementById('transcriptStatus').classList.remove('hidden');
+  document.getElementById('adminTranscript').classList.remove('hidden');
+  document.getElementById('adminTranscript').oninput=async function(){if(this.value.trim().length>50){this.oninput=null;await generateBullets();setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');}};
+}
+
+async function onTranscriptLoaded(transcript){
+  document.getElementById('adminTranscript').value=transcript;
+  document.getElementById('adminTranscript').classList.remove('hidden');
+  document.getElementById('transcriptStatus').classList.add('hidden');
+  setStatus('pasteStatus','✓ Transcript loaded — generating bullets...','text-green-700 font-black');
+  await generateBullets();
+  setStatus('pasteStatus','✓ All done — review and publish when ready','text-green-700 font-black');
+}
+
+async function generateBullets(){
+  const transcript=document.getElementById('adminTranscript').value.trim();
+  if(!transcript)return;
+  document.getElementById('bulletsPreview').classList.add('hidden');
+  document.getElementById('bulletsGenerating').classList.remove('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  // Extract key instructional sentences from transcript
+  const lines=transcript.split('\n').map(l=>l.replace(/^\[[\d:]+\]\s*/,'').trim()).filter(l=>l.length>20&&!l.match(/^\d+:\d+$/));
+  const instructional=lines.filter(l=>/\b(press|click|select|go to|open|choose|set|turn|make sure|check|you need|you can|will|should|next|then|now|first|after|here|this)\b/i.test(l));
+  const source=instructional.length>=3?instructional:lines;
+  const bullets=source.slice(0,8).map(l=>'• '+l).join('\n');
+  document.getElementById('adminBullets').value=bullets||lines.slice(0,5).map(l=>'• '+l).join('\n');
+  document.getElementById('adminBullets').classList.remove('hidden');
+  document.getElementById('regenBtn').classList.remove('hidden');
+  document.getElementById('bulletsGenerating').classList.add('hidden');
+}
+
+async function publishAsset(){
+  const title=document.getElementById('adminTitle').value.trim();
+  const url=window._extractedURL||document.getElementById('adminContentURL').value.trim();
+  if(!title||!url){alert('Title and embed URL are required.');return;}
+  try{
+    await db.collection(COLLECTION).add({title,assetType:document.getElementById('adminAssetType').value,contentURL:url,category:document.getElementById('adminCategory').value,tags:document.getElementById('adminTags').value.trim(),transcript:document.getElementById('adminTranscript').value.trim(),bullets:document.getElementById('adminBullets').value.trim(),description:'',published:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    alert('Published!');resetAdminForm();loadAssets();
+  }catch(e){alert('Publish failed: '+e.message);}
+}
+
+function resetAdminForm(){
+  ['adminTitle','adminContentURL','adminTags','adminTranscript','adminBullets'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('adminCategory').value='';
+  document.getElementById('autoFilledSection').classList.add('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  document.getElementById('bulletsPreview').classList.remove('hidden');
+  document.getElementById('bulletsPreview').textContent='Paste embed code — training bullet points will generate automatically.';
+  setStatus('pasteStatus','','');
+  window._extractedURL=null;
+}
+
+function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(allAssets,currentQuery);}
+function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
+function renameCategory(idx){const n=prompt('Rename to:',categories[idx]);if(!n||n===categories[idx])return;categories[idx]=n;saveCategories();}
+function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;categories.splice(idx,1);saveCategories();}
+function renderCategoryList(){
+  const l=document.getElementById('categoryList');if(!l)return;
+  if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${c}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 transition-all">Delete</button></div>`).join('');
+}
+function updateCatDropdowns(){
+  ['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});
+}
+
+async function renderManageList(){
+  const list=document.getElementById('manageList');if(!list)return;
+  list.innerHTML='<div class="text-sm opacity-50 italic">Loading...</div>';
+  const items=await loadAll();
+  if(!items.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
+  list.innerHTML=items.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
+    <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝'}[a.assetType]||'📄'}</span>
+    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${escapeHtml(a.title)}</div><div class="text-[10px] opacity-50">${a.category||'Uncategorised'} · ${a.assetType} · ${a.published?'Published':'Unpublished'}</div></div>
+    <div class="flex gap-2 flex-shrink-0">
+      <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
+      <button onclick="togglePublish('${a.id}',${a.published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.published?'bg-amber-50 text-amber-700 border-amber-200':'bg-green-50 text-green-700 border-green-200'}">${a.published?'Unpublish':'Publish'}</button>
+    </div>
+  </div>`).join('');
+  window._manageItems=items;
+}
+
+async function togglePublish(id,current){
+  try{await db.collection(COLLECTION).doc(id).update({published:!current});renderManageList();loadAssets();}
+  catch(e){alert('Failed: '+e.message);}
+}
+
+function editItem(id){
+  const a=(window._manageItems||[]).find(x=>x.id===id);if(!a)return;
+  document.getElementById('editId').value=id;
+  document.getElementById('editTitle').value=a.title||'';
+  document.getElementById('editTags').value=a.tags||'';
+  document.getElementById('editBullets').value=a.bullets||'';
+  document.getElementById('editDescription').value=a.description||'';
+  updateCatDropdowns();
+  document.getElementById('editCategory').value=a.category||'';
+  const em=document.getElementById('editModal');em.classList.remove('hidden');em.scrollIntoView({behavior:'smooth'});
+}
+function closeEdit(){document.getElementById('editModal').classList.add('hidden');}
+async function saveEdit(){
+  const id=document.getElementById('editId').value;
+  try{
+    await db.collection(COLLECTION).doc(id).update({title:document.getElementById('editTitle').value.trim(),category:document.getElementById('editCategory').value,tags:document.getElementById('editTags').value.trim(),bullets:document.getElementById('editBullets').value.trim(),description:document.getElementById('editDescription').value.trim()});
+    closeEdit();renderManageList();loadAssets();
+  }catch(e){alert('Save failed: '+e.message);}
+}
+
+function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
+
+function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
+
+function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');});return text;}
+</script>
+</body>
+</html>

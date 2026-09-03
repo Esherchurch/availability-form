@@ -1,0 +1,3346 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+    <link rel="manifest" href="./manifest-worship.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#3d6263">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EGBC Worship Hub">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Worship Hub">
+<meta name="theme-color" content="#3d6263">
+<title>Worship Hub</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+<style>
+:root {
+  /* ── Design system tokens ── */
+  --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9;
+  --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+  --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+  --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+  --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+  --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+  --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+  --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+  /* ── Legacy aliases remapped onto the new palette ── */
+  --teal: var(--brand);
+  --teal-dark: var(--brand-dark);
+  --teal-light: var(--brand-tint);
+  --border: var(--hairline);
+  --bg: var(--canvas);
+  --white: var(--surface);
+  --green: var(--success);
+  --font: 'Montserrat', sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+#app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: calc(var(--safe-top) + 10px) 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  box-shadow: 0 2px 12px rgba(61,98,99,0.08);
+}
+
+#back-btn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--teal);
+  font-size: 18px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+}
+#back-btn.visible { display: flex; }
+
+#header-logo {
+  display: none;
+}
+
+#header-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
+#header-help {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--teal);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── MAIN CONTENT AREA ── */
+#app-content {
+  padding-top: calc(var(--safe-top) + 70px);
+  padding-bottom: calc(var(--safe-bottom) + 20px);
+  min-height: 100vh;
+}
+
+/* ── HOME SCREEN ── */
+#home-screen { display: block; }
+
+.home-news {
+  margin: 0 12px 16px;
+  background: var(--white);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.news-header-bar {
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.news-header-bar h3 {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+}
+
+.news-items-list { padding: 0; }
+
+.news-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--bg);
+}
+.news-item:last-child { border-bottom: none; }
+
+.news-item-date {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #a0b0b0;
+  margin-bottom: 3px;
+}
+
+.news-item-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.news-item-body {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-item-body img { max-width: 100%; border-radius: 8px; margin: 4px 0; }
+.news-item-body a { color: var(--teal); }
+
+.news-empty {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #a0b0b0;
+  font-weight: 600;
+}
+
+/* ── TILES ── */
+.tiles-heading {
+  padding: 0 16px 10px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--teal);
+  opacity: 0.5;
+}
+
+.tiles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 12px 20px;
+}
+
+.tile {
+  background: var(--white);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tile:active { transform: scale(0.97); }
+
+.tile-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.tile-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1.2;
+}
+
+.tile-desc {
+  font-size: 10px;
+  color: var(--teal);
+  opacity: 0.5;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tile-arrow {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  font-size: 16px;
+  color: var(--teal);
+  opacity: 0.2;
+}
+
+.tile-rota { border-top: 3px solid var(--teal); }
+.tile-board { border-top: 3px solid #f59e0b; }
+.tile-worship { border-top: 3px solid #8b5cf6; }
+.tile-av { border-top: 3px solid #ef4444; }
+.tile-upload { border-top: 3px solid var(--green); }
+.tile-library { border-top: 3px solid #2c6999; }
+.tile-news    { border-top: 3px solid #ef4444; }
+
+/* ── SECTION SCREENS ── */
+.section-screen {
+  display: none;
+  padding: 0 0 20px;
+}
+.section-screen.active { display: block; }
+
+/* ── SECTION: ROTA ── */
+.rota-term {
+  margin: 12px 12px 0;
+  background: var(--white);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.rota-term-header {
+  background: var(--teal);
+  color: var(--white);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.rota-term-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.rota-term-toggle {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.rota-event {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--bg);
+}
+.rota-event:last-child { border-bottom: none; }
+
+.rota-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.rota-date-badge {
+  background: var(--teal);
+  color: var(--white);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.rota-type {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rota-time {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.5;
+}
+
+.rota-roles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.rota-role-card {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.rota-role-label {
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 2px;
+}
+
+.rota-role-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rota-ics-bar {
+  margin: 12px;
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rota-ics-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.rota-ics-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+}
+
+.rota-ics-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-ics {
+  flex: 1;
+  padding: 11px;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  letter-spacing: 0.05em;
+}
+
+.btn-ics-individual { background: var(--teal); color: var(--white); }
+.btn-ics-household { background: var(--green); color: var(--white); }
+
+/* ── SECTION: SUGGESTIONS BOARD ── */
+.board-filters {
+  display: flex;
+  gap: 8px;
+  padding: 12px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.board-filters::-webkit-scrollbar { display: none; }
+
+.filter-pill {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.filter-pill.active { background: var(--teal); color: var(--white); border-color: var(--teal); }
+
+.board-pages {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.board-pages::-webkit-scrollbar { display: none; }
+
+.page-pill {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+}
+.page-pill.active { background: var(--teal); color: var(--white); border-color: var(--teal); }
+
+.board-add-btn {
+  margin: 12px 12px 0;
+  width: calc(100% - 24px);
+  padding: 13px;
+  background: var(--teal);
+  color: var(--white);
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.notes-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-card {
+  border-radius: 16px;
+  padding: 14px;
+  position: relative;
+}
+
+.note-card-song    { background: linear-gradient(135deg, #fef9c3, #fef08a); }
+.note-card-event   { background: linear-gradient(135deg, #fce7f3, #fda4af); }
+.note-card-av      { background: linear-gradient(135deg, #eff6ff, #93c5fd); }
+.note-card-general { background: linear-gradient(135deg, #f0fdf4, #86efac); }
+.note-card-prayer  { background: linear-gradient(135deg, #f5f3ff, #d8b4fe); }
+.note-card-other   { background: linear-gradient(135deg, #fff7ed, #fdba74); }
+
+.note-card-cat {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(0,0,0,0.4);
+  margin-bottom: 5px;
+}
+
+.note-card-title {
+  font-family: 'Caveat', cursive;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a0a00;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.note-card-body {
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  color: #2d1a00;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.note-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-card-meta {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(0,0,0,0.4);
+}
+
+.note-reactions {
+  display: flex;
+  gap: 5px;
+}
+
+.reaction-btn {
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 9999px;
+  padding: 3px 9px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font);
+  font-weight: 700;
+  color: rgba(0,0,0,0.6);
+}
+.reaction-btn.active { background: rgba(255,255,255,0.85); }
+
+/* ── SECTION: KNOWLEDGE BASE (Worship + AV) ── */
+.kb-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 12px 0;
+}
+
+.kb-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.kb-tab.active { background: var(--teal); color: var(--white); border-color: var(--teal); }
+
+.kb-search-box {
+  margin: 10px 12px 0;
+  position: relative;
+}
+
+.kb-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--white);
+  outline: none;
+}
+.kb-search-input:focus { border-color: var(--teal); }
+
+.kb-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--teal);
+  opacity: 0.4;
+  font-size: 16px;
+}
+
+.kb-quick-tags {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.kb-quick-tags::-webkit-scrollbar { display: none; }
+
+.kb-quick-tag {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+}
+
+.kb-cards {
+  padding: 10px 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kb-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.kb-card:active { transform: scale(0.98); }
+
+.kb-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.kb-card-type {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 9999px;
+}
+
+.kb-card-type-video { background: #eff6ff; color: #1d4ed8; }
+.kb-card-type-note  { background: #fefce8; color: #854d0e; }
+.kb-card-type-image { background: #f0fdf4; color: #166534; }
+
+.kb-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+
+.kb-card-bullets {
+  font-size: 11px;
+  color: var(--teal);
+  opacity: 0.6;
+  line-height: 1.5;
+}
+
+.kb-section-label {
+  padding: 14px 12px 4px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kb-section-label::before {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── SECTION: SONG LIBRARY ── */
+.library-search {
+  margin: 12px 12px 0;
+  position: relative;
+}
+
+.library-search input {
+  width: 100%;
+  padding: 13px 16px 13px 42px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--white);
+  outline: none;
+}
+.library-search input:focus { border-color: var(--teal); }
+
+.library-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--teal);
+  opacity: 0.4;
+  font-size: 16px;
+}
+
+.song-list { padding: 10px 12px 0; }
+
+.song-item {
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.song-item:active { transform: scale(0.98); }
+
+.song-item-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 4px;
+}
+
+.song-item-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.song-meta-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--bg);
+  color: var(--teal);
+  border: 1px solid var(--border);
+}
+
+/* Song usage stat badges */
+.song-usage-stats {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.stat-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stat-total  { background: #e8f0f0; color: #3d6263; }
+.stat-recent { background: #fff3e0; color: #e65100; }
+.stat-recent.warning { background: #fde8e8; color: #b22222; }
+.stat-last   { background: #f0f6f6; color: #5b8e8f; }
+.stat-never  { background: #f5f5f5; color: #aaa; }
+
+/* Song detail usage panel */
+.song-usage-panel {
+  display: flex;
+  gap: 0;
+  background: var(--bg);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+
+.song-usage-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 6px;
+  gap: 3px;
+}
+
+.song-usage-divider {
+  width: 1px;
+  background: var(--border);
+  align-self: stretch;
+}
+
+.song-usage-number {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--teal);
+  line-height: 1;
+}
+
+.song-usage-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--teal);
+  opacity: 0.5;
+  text-align: center;
+}
+
+.song-usage-last {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1;
+}
+
+.song-usage-warning {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b22222;
+  background: #fde8e8;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+/* Song detail */
+.song-detail { padding: 12px; }
+
+.song-detail-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.song-detail-links {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.song-detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.song-link-youtube { background: #ff0000; color: white; }
+.song-link-ccli    { background: var(--teal); color: white; }
+
+.song-detail-files { margin-top: 8px; }
+
+.song-files-heading {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.song-file-card {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.song-file-info { flex: 1; min-width: 0; }
+
+.song-file-key {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--teal);
+  text-transform: uppercase;
+}
+
+.song-file-type {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.6;
+}
+
+.song-file-open {
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ── SECTION: MUSIC UPLOADER ── */
+.uploader-wrap {
+  padding: 12px;
+}
+
+.uploader-info {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.uploader-info-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 6px;
+}
+
+.uploader-info-text {
+  font-size: 12px;
+  color: var(--teal);
+  opacity: 0.6;
+  line-height: 1.5;
+}
+
+.upload-form {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-field label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+}
+.form-input:focus { border-color: var(--teal); background: var(--white); }
+
+.form-select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+}
+
+.upload-file-area {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.2s;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.upload-file-area:active { border-color: var(--teal); background: var(--teal-light); }
+.upload-file-area input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  font-size: 0;
+}
+
+.upload-file-icon { font-size: 28px; margin-bottom: 8px; }
+
+.upload-file-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.6;
+}
+
+.upload-file-name {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.btn-upload {
+  width: 100%;
+  padding: 14px;
+  background: var(--teal);
+  color: var(--white);
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.btn-upload:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.upload-progress {
+  display: none;
+  background: var(--bg);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 8px;
+}
+.upload-progress-bar {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 8px;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.upload-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal);
+  text-align: center;
+  min-height: 16px;
+}
+
+/* ── MODAL (KB detail) ── */
+#kb-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 500;
+  align-items: flex-end;
+  justify-content: center;
+}
+#kb-modal.open { display: flex; }
+
+.kb-modal-box {
+  background: var(--white);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px 16px calc(var(--safe-bottom) + 20px);
+}
+
+.kb-modal-close {
+  float: right;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kb-modal-breadcrumb {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.4;
+  margin-bottom: 6px;
+}
+
+.kb-modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 14px;
+  line-height: 1.2;
+  clear: both;
+}
+
+.kb-modal-video {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  background: var(--bg);
+}
+.kb-modal-video iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.kb-modal-steps {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.kb-modal-steps-title {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+
+.kb-modal-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.kb-modal-step:last-child { margin-bottom: 0; }
+
+.kb-step-num {
+  width: 24px;
+  height: 24px;
+  background: var(--teal);
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kb-step-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal);
+  line-height: 1.4;
+  padding-top: 2px;
+}
+
+/* ── ADD NOTE MODAL ── */
+/* ── NOTE DETAIL MODAL ── */
+#note-detail-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 500;
+  align-items: flex-end; justify-content: center;
+}
+#note-detail-modal.open { display: flex; }
+.note-detail-box {
+  background: var(--white); border-radius: 24px 24px 0 0;
+  width: 100%; max-height: 85vh; overflow-y: auto;
+  padding: 20px 20px calc(var(--safe-bottom) + 24px);
+}
+.note-detail-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.note-detail-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg); border: none; font-size: 16px;
+  font-weight: 800; cursor: pointer; color: var(--teal);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.note-detail-cat-badge {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; padding: 4px 10px; border-radius: 9999px;
+  display: inline-block;
+}
+.note-detail-title {
+  font-size: 22px; font-weight: 800; color: var(--teal);
+  line-height: 1.2; margin-bottom: 10px;
+}
+.note-detail-body {
+  font-size: 15px; color: #333; line-height: 1.6;
+  white-space: pre-wrap; margin-bottom: 16px;
+}
+.note-detail-yt {
+  display: flex; align-items: center; gap: 10px;
+  background: #ff0000; color: white; border-radius: 12px;
+  padding: 12px 16px; text-decoration: none;
+  font-family: var(--font); font-size: 13px; font-weight: 800;
+  margin-bottom: 16px;
+}
+.note-detail-reactions {
+  display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;
+}
+.note-detail-reaction-btn {
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 9999px; padding: 8px 16px; font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font); font-weight: 800; color: var(--teal);
+}
+.note-detail-reaction-btn.active { background: var(--teal); color: white; border-color: var(--teal); }
+.note-detail-meta {
+  font-size: 11px; font-weight: 700; color: var(--teal);
+  opacity: 0.4; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.note-detail-delete {
+  margin-top: 20px; width: 100%; padding: 13px;
+  background: #fef2f2; color: #b22222; border: 1.5px solid #fca5a5;
+  border-radius: 12px; font-family: var(--font); font-size: 13px;
+  font-weight: 800; cursor: pointer; text-transform: uppercase;
+}
+
+#add-note-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 500;
+  align-items: flex-end;
+}
+#add-note-modal.open { display: flex; }
+
+.add-note-box {
+  background: var(--white);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  padding: 20px 16px calc(var(--safe-bottom) + 20px);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.add-note-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 16px;
+}
+
+.add-note-form { display: flex; flex-direction: column; gap: 12px; }
+
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.add-note-textarea {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--teal);
+  background: var(--bg);
+  outline: none;
+  resize: none;
+  min-height: 80px;
+}
+
+.add-note-btn-row { display: flex; gap: 8px; }
+
+.btn-cancel {
+  flex: 1;
+  padding: 13px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+}
+
+.btn-pin {
+  flex: 2;
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  background: var(--teal);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--white);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+/* ── ONBOARDING TOUR ── */
+#tour-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+#tour-overlay.active {
+  display: block;
+  pointer-events: all;
+}
+
+.tour-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tour-tooltip {
+  position: absolute;
+  background: var(--teal);
+  color: white;
+  border-radius: 16px;
+  padding: 16px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  pointer-events: all;
+  z-index: 3;
+  cursor: default;
+}
+
+.tour-tooltip-title {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.tour-tooltip-text {
+  font-size: 12px;
+  opacity: 0.85;
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.tour-btn-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tour-skip {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.6;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: white;
+  padding: 0;
+}
+
+.tour-next {
+  background: white;
+  color: var(--teal);
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tour-step-count {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+/* ── HIGHLIGHT BOX ── */
+.tour-highlight {
+  position: absolute;
+  border-radius: 12px;
+  box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3);
+  pointer-events: none;
+  z-index: 2;
+  transition: all 0.3s;
+}
+
+/* ── SHARED UTILS ── */
+.skeleton {
+  background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.loading-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--teal);
+  opacity: 0.4;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+.empty-state-icon { font-size: 40px; margin-bottom: 10px; }
+.empty-state-text { font-size: 13px; font-weight: 700; color: var(--teal); opacity: 0.4; }
+
+mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeIn 0.2s ease; }
+
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN SYSTEM LAYER — shared spec (visual only, additive)
+   Sentence case, token palette, unified buttons/cards/inputs,
+   airy spacing, soft shadows, ≥11px readable type.
+═══════════════════════════════════════════════════════════════ */
+
+/* Base */
+body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+/* Focus ring */
+:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); border-radius: var(--r-sm); }
+
+/* App chrome */
+#app-header { box-shadow: var(--shadow-sm); border-bottom: 1px solid var(--hairline); }
+#header-title { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
+#back-btn, #header-help { background: var(--surface-2); border: 1px solid var(--hairline-strong); color: var(--brand); }
+#back-btn:active, #header-help:active { transform: translateY(1px); }
+
+/* Section labels — the only uppercase permitted */
+.tiles-heading, .kb-section-label, .song-files-heading, .kb-modal-breadcrumb,
+.kb-modal-steps-title, .form-field label, .news-header-bar h3, .rota-ics-title {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+  color: var(--muted); opacity: 1;
+}
+
+/* Cards — surface, hairline, r-lg, soft shadow */
+.home-news, .kb-card, .song-item, .uploader-info, .upload-form, .rota-term, .rota-ics-bar {
+  border-radius: var(--r-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow);
+}
+.tile {
+  border-radius: var(--r-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow);
+}
+
+/* Tiles */
+.tile-icon { font-size: 26px; }
+.tile-name { color: var(--ink); font-size: 15px; letter-spacing: -0.01em; }
+.tile-desc { color: var(--muted); opacity: 1; font-size: 11px; }
+.tile-arrow { color: var(--faint); opacity: 1; }
+
+/* News */
+.news-header-bar { border-bottom: 1px solid var(--hairline); }
+.news-item { border-bottom: 1px solid var(--hairline); }
+.news-item-title { color: var(--ink); font-size: 14px; }
+.news-item-body { color: var(--body); }
+.news-item-date { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
+.news-empty { color: var(--muted); }
+
+/* Rota */
+.rota-term-title { letter-spacing: 0.08em; }
+.rota-role-card { background: var(--surface-2); border-radius: var(--r-sm); }
+.rota-role-label { font-size: 11px; opacity: 1; color: var(--muted); }
+.rota-role-name { color: var(--ink); font-size: 12px; }
+.rota-type { color: var(--brand); letter-spacing: 0.06em; }
+.rota-time { font-size: 11px; opacity: 1; color: var(--muted); }
+.rota-date-badge { font-size: 11px; background: var(--brand); }
+
+/* Note (sticky) cards — keep character, lift the fine print */
+.note-card { border-radius: var(--r-lg); }
+.note-card-cat { font-size: 11px; color: rgba(20,32,31,0.5); letter-spacing: 0.08em; }
+.note-card-meta { font-size: 11px; color: rgba(20,32,31,0.5); }
+
+/* Knowledge base */
+.kb-card { transition: transform 0.1s, box-shadow 0.15s; }
+.kb-card-title { color: var(--ink); }
+.kb-card-bullets { color: var(--muted); opacity: 1; }
+.kb-card-type { font-size: 11px; }
+.kb-section-label { opacity: 1; }
+.kb-modal-breadcrumb { opacity: 1; }
+.kb-step-num { font-size: 11px; background: var(--brand); }
+.kb-step-text { color: var(--body); }
+.kb-modal-title, .note-detail-title, .song-detail-title, .add-note-title { color: var(--ink); letter-spacing: -0.01em; }
+.kb-modal-steps { background: var(--surface-2); border-radius: var(--r-md); }
+
+/* Song library */
+.song-item-title { color: var(--ink); }
+.song-meta-badge { font-size: 11px; background: var(--brand-tint); color: var(--brand); border: none; }
+.song-files-heading { opacity: 1; }
+.song-file-card { background: var(--surface-2); border-radius: var(--r-md); }
+.song-file-key { font-size: 11px; color: var(--muted); }
+.song-file-type { color: var(--body); opacity: 1; font-size: 12px; }
+.song-usage-panel { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-md); }
+.song-usage-number { color: var(--brand); }
+.song-usage-label { font-size: 11px; opacity: 1; color: var(--muted); }
+.stat-badge { font-size: 11px; }
+.stat-never { color: #8a8a8a; }
+.song-usage-warning { font-size: 11px; }
+
+/* Inputs — hairline-strong, r-md, brand focus + ring */
+.form-input, .form-select, .kb-search-input, .library-search input, .rota-ics-select, .add-note-textarea {
+  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
+  color: var(--ink); background: var(--surface-2); font-weight: 600;
+}
+.form-input:focus, .form-select:focus, .kb-search-input:focus, .library-search input:focus,
+.rota-ics-select:focus, .add-note-textarea:focus {
+  border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); background: var(--surface);
+}
+.upload-file-area { border: 1.5px dashed var(--hairline-strong); border-radius: var(--r-md); background: var(--surface-2); }
+.uploader-info-text { color: var(--body); opacity: 1; }
+.uploader-info-title, .upload-file-name { color: var(--ink); }
+.form-field label { color: var(--muted); }
+
+/* Buttons — unified system, sentence case */
+.board-add-btn, .btn-upload, .btn-pin, .btn-cancel, .btn-ics, .song-file-open,
+.song-detail-link, .kb-tab, .filter-pill, .page-pill, .kb-quick-tag, .reaction-btn,
+.note-detail-reaction-btn, .note-detail-delete, .tour-next {
+  text-transform: none; letter-spacing: normal; font-weight: 700;
+  transition: background .15s, box-shadow .15s, transform .05s, border-color .15s;
+}
+.board-add-btn:active, .btn-upload:active, .btn-pin:active, .btn-cancel:active,
+.btn-ics:active, .song-file-open:active, .kb-tab:active, .filter-pill:active,
+.page-pill:active, .note-detail-delete:active { transform: translateY(1px); }
+.board-add-btn, .btn-upload, .btn-pin, .btn-cancel { border-radius: var(--r-md); padding: 11px 20px; }
+.btn-ics, .song-file-open { border-radius: var(--r-sm); }
+/* Primary */
+.board-add-btn, .btn-upload, .btn-pin, .btn-ics-individual {
+  background: var(--brand); color: #fff; border: none; box-shadow: var(--shadow-sm);
+}
+.board-add-btn:hover, .btn-upload:hover, .btn-pin:hover { background: var(--brand-dark); }
+.btn-ics-household { background: var(--success); }
+/* Secondary */
+.btn-cancel { background: var(--brand-tint); color: var(--brand); border: 1px solid transparent; }
+/* Danger */
+.note-detail-delete { background: var(--danger-tint); color: var(--danger); border: 1px solid transparent; border-radius: var(--r-md); }
+/* Tabs / pills active use brand */
+.kb-tab, .filter-pill, .page-pill { border-radius: var(--r-md); }
+.page-pill { border-radius: var(--r-pill); }
+.filter-pill, .kb-quick-tag { border-radius: var(--r-pill); }
+
+/* Tour */
+.tour-tooltip { border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
+.tour-next { color: var(--brand); }
+.tour-step-count { font-size: 11px; }
+
+/* Shimmer skeleton */
+.sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
+@keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+.skeleton { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; }
+.loading-state, .empty-state-text { color: var(--muted); opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .sk, .skeleton { animation: none; } }
+
+/* Caveat for sticky notes */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap">
+<style>
+/* ── FUN NOTICE BOARD — cork pinboard with tilted, pinned sticky notes ── */
+#notes-list {
+  display: block !important;
+  columns: 2; column-gap: 12px;
+  padding: 18px 14px 30px !important; margin-top: 6px;
+  border-radius: 16px;
+  background-color: #c9a568;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(0,0,0,.07) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 75% 55%, rgba(255,255,255,.12) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 45% 80%, rgba(0,0,0,.05) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 62% 18%, rgba(0,0,0,.05) 0 1.5px, transparent 2px);
+  background-size: 26px 26px, 30px 30px, 18px 18px, 22px 22px;
+  box-shadow: inset 0 2px 12px rgba(0,0,0,.22);
+}
+@media (min-width:520px){ #notes-list { columns: 3; } }
+#notes-list .note-card {
+  break-inside: avoid; display: inline-block; width: 100%;
+  margin: 0 0 16px !important; padding: 26px 15px 14px !important;
+  border-radius: 3px !important;
+  box-shadow: 0 7px 15px rgba(0,0,0,.22), 0 1px 3px rgba(0,0,0,.16) !important;
+  transition: rotate .18s ease, scale .18s ease, box-shadow .18s ease;
+  transform-origin: 50% 8px;
+  animation: noteDrop .34s cubic-bezier(.2,.85,.3,1.15) both;
+}
+/* resting tilt via the individual rotate property so the drop-in can animate translate independently */
+#notes-list .note-card:nth-child(4n+1){ rotate: -2.4deg; }
+#notes-list .note-card:nth-child(4n+2){ rotate: 1.7deg; }
+#notes-list .note-card:nth-child(4n+3){ rotate: -1deg; }
+#notes-list .note-card:nth-child(4n+4){ rotate: 2.6deg; }
+#notes-list .note-card:hover, #notes-list .note-card:active { rotate: 0deg; scale: 1.04; box-shadow: 0 16px 30px rgba(0,0,0,.30) !important; z-index: 6; }
+
+/* staggered drop-in as notes appear */
+@keyframes noteDrop { from { opacity: 0; translate: 0 -12px; } to { opacity: 1; translate: 0 0; } }
+#notes-list .note-card:nth-child(1){ animation-delay:0s; }
+#notes-list .note-card:nth-child(2){ animation-delay:.04s; }
+#notes-list .note-card:nth-child(3){ animation-delay:.08s; }
+#notes-list .note-card:nth-child(4){ animation-delay:.12s; }
+#notes-list .note-card:nth-child(5){ animation-delay:.16s; }
+#notes-list .note-card:nth-child(n+6){ animation-delay:.20s; }
+
+/* randomised sticky-note colours, independent of category */
+#notes-list .note-card:nth-child(7n+1){ background: linear-gradient(170deg,#fff7b0,#ffec87) !important; }
+#notes-list .note-card:nth-child(7n+2){ background: linear-gradient(170deg,#ffd3dd,#ffb3c4) !important; }
+#notes-list .note-card:nth-child(7n+3){ background: linear-gradient(170deg,#c6e6ff,#a6d5ff) !important; }
+#notes-list .note-card:nth-child(7n+4){ background: linear-gradient(170deg,#cdf3c8,#a9e9a3) !important; }
+#notes-list .note-card:nth-child(7n+5){ background: linear-gradient(170deg,#e7d2ff,#d3b3ff) !important; }
+#notes-list .note-card:nth-child(7n+6){ background: linear-gradient(170deg,#ffe0b3,#ffca82) !important; }
+#notes-list .note-card:nth-child(7n){   background: linear-gradient(170deg,#c4f2e6,#9fe9d6) !important; }
+
+/* folded paper corner */
+#notes-list .note-card::before {
+  content:''; position:absolute; right:0; bottom:0;
+  border-style:solid; border-width:0 0 15px 15px;
+  border-color: transparent transparent rgba(0,0,0,.12) transparent;
+}
+/* attachment — pushpin by default, washi tape on every 2nd note */
+#notes-list .note-card::after {
+  content:''; position:absolute; top:7px; left:50%; margin-left:-7px;
+  width:14px; height:14px; border-radius:50%;
+  background: radial-gradient(circle at 34% 28%, #ff9a9a, #c0392b 72%);
+  box-shadow: 0 2px 3px rgba(0,0,0,.4), inset 0 -1px 2px rgba(0,0,0,.35);
+}
+#notes-list .note-card:nth-child(6n+3)::after { background: radial-gradient(circle at 34% 28%, #8fd6ff, #2b7dc0 72%); }
+#notes-list .note-card:nth-child(6n+5)::after { background: radial-gradient(circle at 34% 28%, #ffe08a, #c08a2b 72%); }
+#notes-list .note-card:nth-child(2n)::after {
+  top:-9px; margin-left:-28px; width:56px; height:22px; border-radius:2px;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.4) 0 5px, rgba(255,255,255,.1) 5px 10px), rgba(122,182,176,.7);
+  box-shadow: 0 2px 4px rgba(0,0,0,.16); rotate: -5deg;
+}
+#notes-list .note-card:nth-child(4n)::after { background: repeating-linear-gradient(45deg, rgba(255,255,255,.4) 0 5px, rgba(255,255,255,.1) 5px 10px), rgba(232,170,120,.72); rotate: 4deg; }
+#notes-list .note-card-title { font-family:'Caveat',cursive; font-size:22px; line-height:1.15; color:#241100; }
+#notes-list .note-card-body  { font-family:'Caveat',cursive; font-size:17px; color:#3a2200; }
+#notes-list .note-card-cat   { font-family:'Caveat',cursive !important; font-size:14px !important; text-transform:none !important; letter-spacing:0 !important; color:rgba(0,0,0,.55) !important; font-weight:700; margin-bottom:2px; }
+#notes-list .note-card-meta  { color:rgba(0,0,0,.5) !important; font-size:11px !important; }
+#notes-list .empty-state { background:transparent !important; color:#5a3d17 !important; text-align:center; padding:44px 16px; }
+@media (prefers-reduced-motion: reduce){ #notes-list .note-card { transition:none; animation:none; } }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="app-header">
+  <button id="back-btn" onclick="goBack()">←</button>
+  <div id="header-title">Worship Hub</div>
+  <button id="header-help" onclick="startTour(true)" title="Help">?</button>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="app-content">
+
+  <!-- HOME SCREEN -->
+  <div id="home-screen">
+    <!-- Home header with logo -->
+    <div style="display:flex; align-items:center; gap:12px; padding:12px 16px 0;">
+      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+      <div>
+        <div style="font-size:16px;font-weight:900;color:var(--teal);line-height:1.1;">Worship Hub</div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">EGBC Worship &amp; AV</div>
+      </div>
+    </div>
+
+    <!-- Tool Tiles -->
+    <div class="tiles-heading" style="margin-top:12px;">Tools</div>
+    <div class="tiles-grid" id="tiles-grid">
+      <div class="tile tile-rota" onclick="openSection('rota')">
+        <div class="tile-icon">📋</div>
+        <div class="tile-name">Rota</div>
+        <div class="tile-desc">View serving schedule & download</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-board" onclick="openSection('board')">
+        <div class="tile-icon">📌</div>
+        <div class="tile-name">Notice Board</div>
+        <div class="tile-desc">Suggestions & ideas from the team</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-worship" onclick="openSection('worship')">
+        <div class="tile-icon">🎸</div>
+        <div class="tile-name">Worship Resources</div>
+        <div class="tile-desc">Play-through videos & training</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-av" onclick="openSection('av')">
+        <div class="tile-icon">🔧</div>
+        <div class="tile-name">AV Help</div>
+        <div class="tile-desc">Troubleshoot & how-to guides</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-upload" onclick="openSection('upload')">
+        <div class="tile-icon">🎵</div>
+        <div class="tile-name">Music Uploader</div>
+        <div class="tile-desc">Add sheet music to the library</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-library" onclick="openSection('library')">
+        <div class="tile-icon">📚</div>
+        <div class="tile-name">Song Library</div>
+        <div class="tile-desc">Browse & find sheet music</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <div class="tile tile-news" onclick="openSection('news')" id="tile-news">
+        <div class="tile-icon">📣</div>
+        <div class="tile-name">Latest News</div>
+        <div class="tile-desc">Team updates & announcements</div>
+        <div class="tile-arrow">›</div>
+        <div id="news-badge" style="display:none;position:absolute;top:12px;right:12px;background:#ef4444;color:white;font-size:10px;font-weight:800;min-width:20px;height:20px;border-radius:9999px;display:none;align-items:center;justify-content:center;padding:0 5px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROTA SECTION -->
+  <div id="section-rota" class="section-screen">
+    <div class="rota-ics-bar">
+      <div class="rota-ics-title">📥 Download My Rota</div>
+      <select class="rota-ics-select" id="rota-member-select">
+        <option value="">Select your name...</option>
+      </select>
+      <div class="rota-ics-buttons">
+        <button class="btn-ics btn-ics-individual" onclick="downloadICS('individual')">My Rota (.ics)</button>
+        <button class="btn-ics btn-ics-household" onclick="downloadICS('household')">Family Rota (.ics)</button>
+      </div>
+    </div>
+    <div style="margin:8px 12px 0;display:flex;align-items:center;gap:8px;">
+      <input type="date" id="rota-date-jump" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--font);font-size:13px;font-weight:700;color:var(--teal);background:var(--bg);outline:none;" onchange="jumpToRotaDate(this.value)">
+      <button onclick="jumpToRotaDate(document.getElementById('rota-date-jump').value)" style="padding:10px 16px;background:var(--teal);color:white;border:none;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;text-transform:uppercase;">Go</button>
+    </div>
+    <div id="rota-content"><div class="loading-state">Loading rota...</div></div>
+  </div>
+
+  <!-- BOARD SECTION -->
+  <div id="section-board" class="section-screen">
+    <div class="board-pages" id="board-pages"></div>
+    <div class="board-filters" id="board-filters">
+      <button class="filter-pill active" onclick="setBoardFilter('all',this)">📌 All</button>
+      <button class="filter-pill" onclick="setBoardFilter('song',this)">🎵 Songs</button>
+      <button class="filter-pill" onclick="setBoardFilter('event',this)">📅 Events</button>
+      <button class="filter-pill" onclick="setBoardFilter('av',this)">🎬 AV</button>
+      <button class="filter-pill" onclick="setBoardFilter('prayer',this)">🙏 Prayer</button>
+      <button class="filter-pill" onclick="setBoardFilter('general',this)">💡 General</button>
+      <button class="filter-pill" onclick="setBoardFilter('other',this)">📎 Other</button>
+    </div>
+    <button class="board-add-btn" onclick="openAddNote()">✏️ Add a Suggestion</button>
+    <div class="notes-list" id="notes-list"></div>
+  </div>
+
+  <!-- WORSHIP RESOURCES SECTION -->
+  <div id="section-worship" class="section-screen">
+    <div class="kb-tabs">
+      <button class="kb-tab active" id="tab-playthrough" onclick="switchKbTab('playthrough')">▶ Play Through</button>
+      <button class="kb-tab" id="tab-training" onclick="switchKbTab('training')">📖 Training</button>
+    </div>
+    <div class="kb-search-box">
+      <span class="kb-search-icon">🔍</span>
+      <input class="kb-search-input" id="worship-search" placeholder="Search songs, topics..." oninput="doKbSearch('worship')">
+    </div>
+    <div class="kb-quick-tags" id="worship-quick-tags">
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','Sovereign')">Sovereign</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','Way Maker')">Way Maker</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','vocal warm up')">Vocal warm up</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','guitar')">Guitar</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('worship','keyboard')">Keyboard</span>
+    </div>
+
+    <!-- Key filter for playthrough -->
+    <div id="key-filter-row" style="display:flex; gap:6px; padding:8px 12px 0; overflow-x:auto; scrollbar-width:none;">
+      <button class="kb-quick-tag" style="background:var(--teal);color:white;" id="key-all" onclick="setKbKey('all')">All Keys</button>
+      <button class="kb-quick-tag" id="key-A" onclick="setKbKey('A')">A</button>
+      <button class="kb-quick-tag" id="key-Bb" onclick="setKbKey('Bb')">B♭</button>
+      <button class="kb-quick-tag" id="key-B" onclick="setKbKey('B')">B</button>
+      <button class="kb-quick-tag" id="key-C" onclick="setKbKey('C')">C</button>
+      <button class="kb-quick-tag" id="key-D" onclick="setKbKey('D')">D</button>
+      <button class="kb-quick-tag" id="key-E" onclick="setKbKey('E')">E</button>
+      <button class="kb-quick-tag" id="key-F" onclick="setKbKey('F')">F</button>
+      <button class="kb-quick-tag" id="key-G" onclick="setKbKey('G')">G</button>
+    </div>
+
+    <div class="kb-cards" id="worship-cards"><div class="loading-state">Loading...</div></div>
+  </div>
+
+  <!-- AV HELP SECTION -->
+  <div id="section-av" class="section-screen">
+    <div class="kb-tabs">
+      <button class="kb-tab active" id="tab-troubleshoot" onclick="switchAvTab('troubleshoot')">🔧 Troubleshoot</button>
+      <button class="kb-tab" id="tab-howto" onclick="switchAvTab('howto')">📋 How To</button>
+    </div>
+    <div class="kb-search-box">
+      <span class="kb-search-icon">🔍</span>
+      <input class="kb-search-input" id="av-search" placeholder="Describe the problem or task..." oninput="doKbSearch('av')">
+    </div>
+    <div class="kb-quick-tags">
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','no sound')">No sound</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','camera')">Camera</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','black screen')">Black screen</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','mic feedback')">Mic feedback</span>
+      <span class="kb-quick-tag" onclick="quickKbSearch('av','mixing desk')">Mixing desk</span>
+    </div>
+    <div class="kb-cards" id="av-cards"><div class="loading-state">Loading...</div></div>
+  </div>
+
+  <!-- MUSIC UPLOADER SECTION -->
+  <div id="section-upload" class="section-screen">
+    <div class="uploader-wrap">
+      <div class="uploader-info">
+        <div class="uploader-info-title">Upload Sheet Music</div>
+        <div class="uploader-info-text">Add PDF sheet music to the song library. Upload up to 4 files at once. Files are matched to existing songs automatically.</div>
+      </div>
+
+      <div class="upload-form">
+        <div class="form-field">
+          <label>Song Title</label>
+          <input class="form-input" id="upload-song-title" type="text" placeholder="e.g. Way Maker" oninput="searchUploadSong()">
+          <div id="upload-song-matches" style="background:white;border:1px solid var(--border);border-radius:10px;margin-top:4px;overflow:hidden;"></div>
+          <div id="upload-match-status" style="margin-top:6px;"></div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label>Key</label>
+            <select class="form-select" id="upload-key" onchange="checkDuplicates()">
+              <option value="">Select Key</option>
+              <optgroup label="Major">
+                <option>C</option><option>C#</option><option>Db</option><option>D</option>
+                <option>Eb</option><option>E</option><option>F</option><option>F#</option>
+                <option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option>
+              </optgroup>
+              <optgroup label="Minor">
+                <option>Cm</option><option>Dm</option><option>Em</option><option>Fm</option>
+                <option>Gm</option><option>Am</option><option>Bm</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Type</label>
+            <select class="form-select" id="upload-type" onchange="checkDuplicates()">
+              <option value="">Select Type</option>
+              <option>Chord Sheet</option>
+              <option>Lead Sheet</option>
+              <option>Lyrics</option>
+              <option>Bass Tabs</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- File slots (up to 4) -->
+        <div id="upload-file-slots">
+          <!-- File slots rendered when section opens -->
+        </div>
+
+        <button class="btn-upload" id="upload-more-btn" onclick="addUploadSlot()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">+ Add Another File</button>
+
+        <div class="upload-progress" id="upload-progress"><div class="upload-progress-bar" id="upload-progress-bar"></div></div>
+        <div class="upload-status" id="upload-status"></div>
+
+        <button class="btn-upload" id="upload-submit-btn" onclick="submitUpload()">Upload to Library</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SONG LIBRARY SECTION -->
+  <div id="section-library" class="section-screen">
+    <div class="library-search">
+      <span class="library-search-icon">🔍</span>
+      <input type="text" placeholder="Search songs..." oninput="searchLibrary(this.value)" id="library-search-input">
+    </div>
+    <div class="song-list" id="song-list"><div class="loading-state">Loading songs...</div></div>
+    <div id="song-detail-panel" style="display:none;"></div>
+  </div>
+
+  <!-- NEWS SECTION -->
+  <div id="section-news" class="section-screen">
+    <div id="news-full-list" style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+      <div class="loading-state">Loading news...</div>
+    </div>
+  </div>
+
+</div><!-- end app-content -->
+
+<!-- KB DETAIL MODAL -->
+<div id="kb-modal">
+  <div class="kb-modal-box">
+    <button class="kb-modal-close" onclick="closeKbModal()">✕</button>
+    <div id="kb-modal-content"></div>
+  </div>
+</div>
+
+<!-- ADD NOTE MODAL -->
+<!-- NOTE DETAIL MODAL -->
+<div id="note-detail-modal">
+  <div class="note-detail-box">
+    <div class="note-detail-header">
+      <div id="note-detail-cat-badge" class="note-detail-cat-badge"></div>
+      <button class="note-detail-close" onclick="closeNoteDetail()">✕</button>
+    </div>
+    <div id="note-detail-title" class="note-detail-title"></div>
+    <div id="note-detail-body" class="note-detail-body"></div>
+    <div id="note-detail-yt-wrap"></div>
+    <div id="note-detail-reactions" class="note-detail-reactions"></div>
+    <div id="note-detail-meta" class="note-detail-meta"></div>
+    <button class="note-detail-delete" id="note-detail-delete-btn">🗑 Remove this note</button>
+  </div>
+</div>
+
+<div id="add-note-modal">
+  <div class="add-note-box">
+    <div class="add-note-title">📌 New Suggestion</div>
+    <div class="add-note-form">
+      <div class="form-row-2">
+        <div class="form-field">
+          <label>Your Name</label>
+          <input class="form-input" id="note-author" placeholder="First name">
+        </div>
+        <div class="form-field">
+          <label>Category</label>
+          <select class="form-select" id="note-cat" onchange="toggleNoteYT()">
+            <option value="song">🎵 Song</option>
+            <option value="event">📅 Event</option>
+            <option value="av">🎬 AV</option>
+            <option value="prayer">🙏 Prayer</option>
+            <option value="general">💡 General</option>
+            <option value="other">📎 Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Title</label>
+        <input class="form-input" id="note-title" placeholder="Give it a title...">
+      </div>
+      <div class="form-field">
+        <label>Details</label>
+        <textarea class="add-note-textarea" id="note-body" placeholder="Share your idea..."></textarea>
+      </div>
+      <div class="form-field" id="note-yt-field">
+        <label>YouTube Link (optional)</label>
+        <input class="form-input" id="note-yt" placeholder="https://youtube.com/...">
+      </div>
+      <div class="add-note-btn-row">
+        <button class="btn-cancel" onclick="closeAddNote()">Cancel</button>
+        <button class="btn-pin" onclick="saveNote()">📌 Pin It!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOUR OVERLAY -->
+<div id="tour-overlay">
+  <!-- Transparent full-screen tap-to-dismiss — sits BEHIND tooltip -->
+  <div style="position:absolute;inset:0;z-index:1;cursor:pointer;" onclick="endTour()"></div>
+  <div class="tour-backdrop"></div>
+  <div class="tour-highlight" id="tour-highlight"></div>
+  <div class="tour-tooltip" id="tour-tooltip">
+    <div class="tour-tooltip-title" id="tour-title"></div>
+    <div class="tour-tooltip-text" id="tour-text"></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.8;margin-bottom:12px;position:relative;z-index:10;">
+      <input type="checkbox" id="tour-dont-show"
+        style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;"
+        onchange="this.blur()">
+      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+    </div>
+    <div class="tour-btn-row">
+      <button class="tour-skip" onclick="endTour()">Skip</button>
+      <span class="tour-step-count" id="tour-count"></span>
+      <button class="tour-next" onclick="nextTourStep()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" style="position:fixed;bottom:calc(var(--safe-bottom)+20px);left:50%;transform:translateX(-50%);background:var(--teal);color:white;padding:10px 20px;border-radius:9999px;font-size:12px;font-weight:800;z-index:800;display:none;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"></div>
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentSection = 'home';
+let sectionHistory = [];
+let rotaEvents = [];
+let rotaAddressBook = [];
+let boardNotes = [];
+let boardPages = [{ id: 'main', title: 'General Board' }];
+let boardCurrentPage = 'main';
+let boardFilter = 'all';
+let worshipAssets = [];
+let trainingAssets = [];
+let troubleshootAssets = [];
+let howtoAssets = [];
+let currentKbWorshipTab = 'playthrough';
+let currentKbAvTab = 'troubleshoot';
+let currentKbKey = 'all';
+let allSongs = [];
+let uploadSlotCount = 1;
+let uploadFiles = {};
+let tourStepIndex = 0;
+
+const ADMIN_PIN = '1234';
+const CAT_META = {
+  song:    { label:'Song',    emoji:'🎵', cls:'note-card-song'    },
+  event:   { label:'Event',   emoji:'📅', cls:'note-card-event'   },
+  av:      { label:'AV/Tech', emoji:'🎬', cls:'note-card-av'      },
+  prayer:  { label:'Prayer',  emoji:'🙏', cls:'note-card-prayer'  },
+  general: { label:'General', emoji:'💡', cls:'note-card-general' },
+  other:   { label:'Other',   emoji:'📎', cls:'note-card-other'   },
+};
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+function openSection(name) {
+  sectionHistory.push(currentSection);
+  currentSection = name;
+  document.getElementById('home-screen').style.display = 'none';
+  document.querySelectorAll('.section-screen').forEach(s => s.classList.remove('active'));
+
+  const titles = {
+    rota: 'Rota', board: 'Notice Board', worship: 'Worship Resources',
+    av: 'AV Help', upload: 'Music Uploader', library: 'Song Library',
+    news: 'Latest News'
+  };
+  document.getElementById('header-title').textContent = titles[name] || 'Worship Hub';
+  document.getElementById('back-btn').classList.add('visible');
+  document.getElementById('section-' + name).classList.add('active');
+
+  // Load data for the section
+  if (name === 'rota' && rotaEvents.length === 0) loadRota();
+  if (name === 'board') loadBoard();
+  if (name === 'worship' && worshipAssets.length === 0 && trainingAssets.length === 0) loadWorshipAssets();
+  if (name === 'av' && troubleshootAssets.length === 0 && howtoAssets.length === 0) loadAvAssets();
+  if (name === 'upload' && allSongs.length === 0) loadSongs();
+  if (name === 'upload') initUploadSlots();
+  if (name === 'library' && allSongs.length === 0) loadSongs();
+  if (name === 'news') renderNewsSection();
+
+  // Auto-trigger tour on first visit
+  maybeTriggerSectionTour(name);
+}
+
+function goBack() {
+  const prev = sectionHistory.pop();
+  currentSection = prev || 'home';
+  document.querySelectorAll('.section-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('song-detail-panel').style.display = 'none';
+  document.getElementById('song-list').style.display = 'block';
+
+  if (currentSection === 'home') {
+    document.getElementById('home-screen').style.display = 'block';
+    document.getElementById('header-title').textContent = 'Worship Hub';
+    document.getElementById('back-btn').classList.remove('visible');
+  } else {
+    document.getElementById('section-' + currentSection).classList.add('active');
+  }
+}
+
+// ── NEWS ──────────────────────────────────────────────────────────────────
+async function loadNews() {
+  try {
+    const snap = await db.collection('portal').doc('dashboardContent').get();
+    const data = snap.exists ? snap.data() : {};
+    const items = (data.newsItems || []).slice().reverse();
+
+    // Work out unread count — compare latest item id to last seen id
+    const lastSeen = localStorage.getItem('egbc_news_last_seen');
+    const unread = lastSeen
+      ? items.filter(i => String(i.id) > String(lastSeen)).length
+      : items.length;
+
+    // Show badge on tile
+    const badge = document.getElementById('news-badge');
+    if (badge) {
+      if (unread > 0) {
+        badge.textContent = unread > 9 ? '9+' : unread;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Store items for the news section
+    window._newsItems = items;
+  } catch(e) {
+    window._newsItems = [];
+  }
+}
+
+function renderNewsSection() {
+  const items = window._newsItems || [];
+  const list = document.getElementById('news-full-list');
+
+  // Mark all as read — store the latest item id
+  if (items.length) {
+    const latestId = items[0].id;
+    localStorage.setItem('egbc_news_last_seen', String(latestId));
+    // Clear badge
+    const badge = document.getElementById('news-badge');
+    if (badge) badge.style.display = 'none';
+  }
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📣</div><div class="empty-state-text">No news yet</div></div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => `
+    <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;">
+      ${item.date ? `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#a0b0b0;margin-bottom:5px;">${item.date}</div>` : ''}
+      <div style="font-size:15px;font-weight:800;color:var(--teal);margin-bottom:8px;line-height:1.3;">${item.title || ''}</div>
+      <div style="font-size:13px;color:#555;line-height:1.6;">${item.body || ''}</div>
+    </div>
+  `).join('');
+}
+
+// ── ROTA ──────────────────────────────────────────────────────────────────
+function loadRota() {
+  const today = new Date().toISOString().split('T')[0];
+
+  db.collection('addressBook').onSnapshot(snap => {
+    rotaAddressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const sel = document.getElementById('rota-member-select');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Select your name...</option>';
+    rotaAddressBook.sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(m => {
+      sel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+    });
+    if (cur) sel.value = cur;
+  });
+
+  db.collection('events').orderBy('date').onSnapshot(snap => {
+    rotaEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => !e.archived && e.date >= today);
+    renderRota();
+  });
+}
+
+function renderRota() {
+  const container = document.getElementById('rota-content');
+  if (!rotaEvents.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No upcoming services</div></div>';
+    return;
+  }
+
+  const grouped = {};
+  rotaEvents.forEach(ev => {
+    const term = ev.termLabel || 'Current Rota';
+    if (!grouped[term]) grouped[term] = [];
+    grouped[term].push(ev);
+  });
+
+  let html = '';
+  Object.keys(grouped).sort().forEach(term => {
+    const collapsed = false;
+    html += `<div class="rota-term">
+      <div class="rota-term-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span class="rota-term-title">${term}</span>
+        <span class="rota-term-toggle">Hide</span>
+      </div>
+      <div>`;
+    grouped[term].forEach(ev => {
+      const dateStr = new Date(ev.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+      const roles = ev.roles || [];
+      html += `<div class="rota-event">
+        <div class="rota-event-meta">
+          <span class="rota-date-badge">${dateStr}</span>
+          <span class="rota-time">${ev.startTime || ''}</span>
+          <span class="rota-type">${ev.type}</span>
+        </div>
+        <div class="rota-roles-grid">
+          ${roles.map(r => {
+            const assigned = ev.assignments?.[r]?.name || '—';
+            return `<div class="rota-role-card"><div class="rota-role-label">${r}</div><div class="rota-role-name">${assigned}</div></div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function jumpToRotaDate(date) {
+  if (!date) return;
+  // Find the event card closest to this date
+  const target = rotaEvents.find(e => e.date >= date) || rotaEvents[rotaEvents.length - 1];
+  if (!target) return;
+  const dateStr = new Date(target.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+  // Find the badge element with that date text and scroll to it
+  const badges = document.querySelectorAll('.rota-date-badge');
+  for (const badge of badges) {
+    if (badge.textContent.trim() === dateStr) {
+      badge.closest('.rota-event').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Flash highlight
+      const card = badge.closest('.rota-event');
+      card.style.background = 'rgba(61,98,99,0.1)';
+      setTimeout(() => { card.style.background = ''; }, 1500);
+      return;
+    }
+  }
+  toast('Date not found in rota');
+}
+
+function downloadICS(type) {
+  const memberId = document.getElementById('rota-member-select').value;
+  if (!memberId) { toast('Please select your name first'); return; }
+  const member = rotaAddressBook.find(m => m.id === memberId);
+  if (!member) return;
+
+  let events = rotaEvents;
+  if (type === 'individual') {
+    events = rotaEvents.filter(e => Object.values(e.assignments||{}).some(a => a.id === memberId));
+  } else {
+    const relatedIds = [memberId, ...(member.relatedTo || [])];
+    events = rotaEvents.filter(e => Object.values(e.assignments||{}).some(a => relatedIds.includes(a.id)));
+  }
+
+  if (!events.length) { toast('No upcoming events found for you'); return; }
+
+  let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//EGBC//Worship Hub//EN\nCALSCALE:GREGORIAN\n';
+  events.forEach(e => {
+    const roles = type === 'individual'
+      ? Object.entries(e.assignments||{}).filter(([r,p]) => p.id === memberId).map(([r]) => r).join(', ')
+      : Object.entries(e.assignments||{}).filter(([r,p]) => [memberId,...(member.relatedTo||[])].includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(', ');
+    const date = e.date.replace(/-/g,'');
+    const uid = `${date}-${e.id}@egbc.worshiphub`;
+    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles || e.type}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description||''}\nEND:VEVENT\n`;
+  });
+  ics += 'END:VCALENDAR';
+
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `EGBC_${type}_rota.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Calendar file downloaded!');
+}
+
+// ── BOARD ─────────────────────────────────────────────────────────────────
+async function loadBoard() {
+  document.getElementById('notes-list').innerHTML = '<div class="loading-state">Loading board...</div>';
+  try {
+    const snap = await db.collection('worshipBoardState').doc('state').get();
+    if (snap.exists) {
+      const state = snap.data();
+      boardNotes = state.notes || [];
+      boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+    } else {
+      // Fall back to localStorage for backwards compat
+      const saved = localStorage.getItem('worshipBoard2');
+      if (saved) {
+        const state = JSON.parse(saved);
+        boardNotes = state.notes || [];
+        boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+      }
+    }
+  } catch(e) {
+    const saved = localStorage.getItem('worshipBoard2');
+    if (saved) {
+      const state = JSON.parse(saved);
+      boardNotes = state.notes || [];
+      boardPages = state.pages || [{ id: 'main', title: 'General Board' }];
+    }
+  }
+  renderBoardPages();
+  renderNotes();
+}
+
+function renderBoardPages() {
+  const bar = document.getElementById('board-pages');
+  bar.innerHTML = boardPages.map(p =>
+    `<button class="page-pill ${p.id === boardCurrentPage ? 'active' : ''}" onclick="setBoardPage('${p.id}')">${p.title}</button>`
+  ).join('');
+}
+
+function setBoardPage(id) {
+  boardCurrentPage = id;
+  renderBoardPages();
+  renderNotes();
+}
+
+function setBoardFilter(cat, el) {
+  boardFilter = cat;
+  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderNotes();
+}
+
+function renderNotes() {
+  let notes = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived);
+  if (boardFilter !== 'all') notes = notes.filter(n => n.cat === boardFilter);
+  notes.sort((a,b) => b.createdAt - a.createdAt);
+
+  const list = document.getElementById('notes-list');
+  if (!notes.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📌</div><div class="empty-state-text">No notes yet — be the first!</div></div>';
+    return;
+  }
+
+  const REACTIONS = [
+    { key:'love', emoji:'❤️' }, { key:'like', emoji:'👍' },
+    { key:'dislike', emoji:'👎' }, { key:'pray', emoji:'🙌' },
+  ];
+
+  list.innerHTML = notes.map(n => {
+    const meta = CAT_META[n.cat] || CAT_META.other;
+    const date = new Date(n.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+    const reactions = REACTIONS.map(r => {
+      const count = (n.reactions||{})[r.key] || 0;
+      const active = (n.myReactions||{})[r.key];
+      return `<button class="reaction-btn ${active?'active':''}" onclick="event.stopPropagation();react('${n.id}','${r.key}')">${r.emoji}${count ? `<span>${count}</span>` : ''}</button>`;
+    }).join('');
+    const bodyPreview = (n.body||'').length > 120 ? (n.body||'').substring(0,120)+'…' : (n.body||'');
+    return `
+    <div class="note-card ${meta.cls} fade-in" style="pointer-events:auto;cursor:pointer;" onclick="openNoteDetail('${n.id}')">
+      <div class="note-card-cat">${meta.emoji} ${meta.label}</div>
+      ${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}
+      ${n.body  ? `<div class="note-card-body">${esc(bodyPreview)}</div>`   : ''}
+      <div class="note-card-footer">
+        <div class="note-card-meta">${esc(n.author||'Anonymous')} · ${date}</div>
+        <div class="note-reactions">${reactions}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function react(noteId, key) {
+  const n = boardNotes.find(x => x.id === noteId); if (!n) return;
+  if (!n.reactions)   n.reactions   = {};
+  if (!n.myReactions) n.myReactions = {};
+  const had = n.myReactions[key];
+  n.reactions[key]   = Math.max(0, (n.reactions[key]||0) + (had ? -1 : 1));
+  n.myReactions[key] = !had;
+  renderNotes();
+  saveBoardState();
+}
+
+function openNoteDetail(noteId) {
+  const n = boardNotes.find(x => x.id === noteId);
+  if (!n) return;
+  const meta = CAT_META[n.cat] || CAT_META.other;
+  const date = new Date(n.createdAt).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const badge = document.getElementById('note-detail-cat-badge');
+  const badgeColors = {
+    song:    { bg:'#fef08a', color:'#7a5c00' },
+    event:   { bg:'#fda4af', color:'#7f1d1d' },
+    av:      { bg:'#93c5fd', color:'#1e3a5f' },
+    prayer:  { bg:'#d8b4fe', color:'#4c1d95' },
+    general: { bg:'#86efac', color:'#14532d' },
+    other:   { bg:'#fdba74', color:'#7c2d12' },
+  };
+  const bc = badgeColors[n.cat] || badgeColors.other;
+  badge.textContent = `${meta.emoji} ${meta.label}`;
+  badge.style.background = bc.bg;
+  badge.style.color = bc.color;
+  document.getElementById('note-detail-title').textContent = n.title || '';
+  const bodyEl = document.getElementById('note-detail-body');
+  bodyEl.textContent = n.body || '';
+  bodyEl.style.display = n.body ? 'block' : 'none';
+  const ytWrap = document.getElementById('note-detail-yt-wrap');
+  ytWrap.innerHTML = n.ytUrl ? `<a href="${esc(n.ytUrl)}" target="_blank" class="note-detail-yt">▶ Watch on YouTube</a>` : '';
+  const REACTIONS = [
+    { key:'love', emoji:'❤️', label:'Love' }, { key:'like', emoji:'👍', label:'Like' },
+    { key:'dislike', emoji:'👎', label:'Not sure' }, { key:'pray', emoji:'🙌', label:'Praying' }
+  ];
+  document.getElementById('note-detail-reactions').innerHTML = REACTIONS.map(r => {
+    const count = (n.reactions||{})[r.key] || 0;
+    const active = (n.myReactions||{})[r.key];
+    return `<button class="note-detail-reaction-btn ${active?'active':''}" onclick="reactFromDetail('${n.id}','${r.key}')">${r.emoji} ${r.label}${count ? ` · ${count}` : ''}</button>`;
+  }).join('');
+  document.getElementById('note-detail-meta').textContent = `Posted by ${n.author || 'Anonymous'} on ${date}`;
+  document.getElementById('note-detail-delete-btn').onclick = () => deleteNote(noteId);
+  document.getElementById('note-detail-modal').classList.add('open');
+}
+
+function closeNoteDetail() {
+  document.getElementById('note-detail-modal').classList.remove('open');
+}
+
+function reactFromDetail(noteId, key) {
+  react(noteId, key);
+  const n = boardNotes.find(x => x.id === noteId); if (!n) return;
+  const REACTIONS = [
+    { key:'love', emoji:'❤️', label:'Love' }, { key:'like', emoji:'👍', label:'Like' },
+    { key:'dislike', emoji:'👎', label:'Not sure' }, { key:'pray', emoji:'🙌', label:'Praying' }
+  ];
+  document.getElementById('note-detail-reactions').innerHTML = REACTIONS.map(r => {
+    const count = (n.reactions||{})[r.key] || 0;
+    const active = (n.myReactions||{})[r.key];
+    return `<button class="note-detail-reaction-btn ${active?'active':''}" onclick="reactFromDetail('${n.id}','${r.key}')">${r.emoji} ${r.label}${count ? ` · ${count}` : ''}</button>`;
+  }).join('');
+}
+
+async function deleteNote(noteId) {
+  if (!confirm('Remove this note from the board?')) return;
+  const n = boardNotes.find(x => x.id === noteId);
+  if (n) n.archived = true;
+  closeNoteDetail();
+  renderNotes();
+  toast('Note removed');
+  await saveBoardState();
+}
+
+async function saveBoardState() {
+  const state = { notes: boardNotes, pages: boardPages };
+  // Save to localStorage as backup
+  localStorage.setItem('worshipBoard2', JSON.stringify(state));
+  // Save to Firebase so all devices see changes
+  try {
+    await db.collection('worshipBoardState').doc('state').set(state);
+  } catch(e) {
+    console.log('Board save to Firebase failed, saved locally only');
+  }
+}
+
+function openAddNote() { document.getElementById('add-note-modal').classList.add('open'); }
+function closeAddNote() { document.getElementById('add-note-modal').classList.remove('open'); }
+function toggleNoteYT() {
+  const cat = document.getElementById('note-cat').value;
+  document.getElementById('note-yt-field').style.display = cat === 'song' ? 'block' : 'none';
+}
+
+async function saveNote() {
+  const title = document.getElementById('note-title').value.trim();
+  const body  = document.getElementById('note-body').value.trim();
+  if (!title && !body) { toast('Please add a title or details'); return; }
+  const existing = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived);
+  const i = existing.length;
+  boardNotes.push({
+    id: 'n'+Date.now(), pageId: boardCurrentPage,
+    author: document.getElementById('note-author').value.trim(),
+    cat:    document.getElementById('note-cat').value,
+    title, body,
+    ytUrl:     document.getElementById('note-yt').value.trim(),
+    reactions: {}, myReactions: {},
+    createdAt: Date.now(), archived: false,
+    x: 60+(i%5)*310+(i*37%40)-20,
+    y: 60+Math.floor(i/5)*340+(i*53%40)-20,
+    rot: (i*17%7)-3.5, zIndex: 10,
+  });
+  closeAddNote();
+  renderNotes();
+  toast('Saving... 📌');
+  await saveBoardState();
+  toast('Note pinned! 📌');
+  ['note-author','note-title','note-body','note-yt'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('note-cat').value='song';
+}
+
+// ── KB ASSETS ─────────────────────────────────────────────────────────────
+async function loadWorshipAssets() {
+  try {
+    const [ptSnap, trSnap] = await Promise.all([
+      db.collection('kb_playthrough').where('published','==',true).orderBy('createdAt','desc').get(),
+      db.collection('kb_training_worship').where('published','==',true).orderBy('createdAt','desc').get()
+    ]);
+    worshipAssets  = ptSnap.docs.map(d => ({id:d.id,...d.data()}));
+    trainingAssets = trSnap.docs.map(d => ({id:d.id,...d.data()}));
+  } catch(e) {
+    worshipAssets = []; trainingAssets = [];
+  }
+  renderWorshipCards();
+}
+
+async function loadAvAssets() {
+  try {
+    const [tsSnap, htSnap] = await Promise.all([
+      db.collection('kb_troubleshoot_av').where('published','==',true).orderBy('createdAt','desc').get(),
+      db.collection('kb_howto_av').where('published','==',true).orderBy('createdAt','desc').get()
+    ]);
+    troubleshootAssets = tsSnap.docs.map(d => ({id:d.id,...d.data()}));
+    howtoAssets        = htSnap.docs.map(d => ({id:d.id,...d.data()}));
+  } catch(e) {
+    troubleshootAssets = []; howtoAssets = [];
+  }
+  renderAvCards();
+}
+
+function switchKbTab(tab) {
+  currentKbWorshipTab = tab;
+  document.getElementById('tab-playthrough').classList.toggle('active', tab==='playthrough');
+  document.getElementById('tab-training').classList.toggle('active', tab==='training');
+  document.getElementById('key-filter-row').style.display = tab==='playthrough' ? 'flex' : 'none';
+  document.getElementById('worship-search').value = '';
+  renderWorshipCards();
+}
+
+function switchAvTab(tab) {
+  currentKbAvTab = tab;
+  document.getElementById('tab-troubleshoot').classList.toggle('active', tab==='troubleshoot');
+  document.getElementById('tab-howto').classList.toggle('active', tab==='howto');
+  document.getElementById('av-search').value = '';
+  renderAvCards();
+}
+
+function setKbKey(key) {
+  currentKbKey = key;
+  document.querySelectorAll('[id^="key-"]').forEach(b => {
+    b.style.background = '';
+    b.style.color = '';
+  });
+  const btn = document.getElementById('key-'+key);
+  if (btn) { btn.style.background = 'var(--teal)'; btn.style.color = 'white'; }
+  renderWorshipCards();
+}
+
+function renderWorshipCards(highlight='') {
+  const el = document.getElementById('worship-cards');
+  let assets = currentKbWorshipTab === 'playthrough' ? worshipAssets : trainingAssets;
+
+  if (currentKbKey !== 'all' && currentKbWorshipTab === 'playthrough') {
+    assets = assets.filter(a => a.ourKey === currentKbKey);
+  }
+
+  if (highlight) {
+    const words = highlight.toLowerCase().split(/\s+/).filter(w=>w.length>1);
+    assets = assets.map(a => {
+      let score = 0;
+      words.forEach(w => {
+        if((a.title||'').toLowerCase().includes(w)) score+=10;
+        if((a.songTitle||'').toLowerCase().includes(w)) score+=8;
+        if((a.tags||'').toLowerCase().includes(w)) score+=4;
+        if((a.bullets||'').toLowerCase().includes(w)) score+=2;
+      });
+      return {...a, _score:score};
+    }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
+  }
+
+  el.innerHTML = renderKbCards(assets, currentKbWorshipTab === 'playthrough' ? 'playthrough' : 'training', highlight);
+}
+
+function renderAvCards(highlight='') {
+  const el = document.getElementById('av-cards');
+  const assets = currentKbAvTab === 'troubleshoot' ? troubleshootAssets : howtoAssets;
+
+  let filtered = assets;
+  if (highlight) {
+    const words = highlight.toLowerCase().split(/\s+/).filter(w=>w.length>1);
+    filtered = assets.map(a => {
+      let score = 0;
+      words.forEach(w => {
+        if((a.title||'').toLowerCase().includes(w)) score+=10;
+        if((a.tags||'').toLowerCase().includes(w)) score+=6;
+        if((a.bullets||'').toLowerCase().includes(w)) score+=4;
+      });
+      return {...a, _score:score};
+    }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
+  }
+
+  el.innerHTML = renderKbCards(filtered, currentKbAvTab, highlight);
+}
+
+function renderKbCards(assets, context, highlight='') {
+  if (!assets.length) {
+    return '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No content yet</div></div>';
+  }
+  return assets.map(a => {
+    const bullets = (a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
+    const typeClass = a.assetType==='Video' ? 'kb-card-type-video' : a.assetType==='Note' ? 'kb-card-type-note' : 'kb-card-type-image';
+    const typeLabel = a.assetType || 'Video';
+    const titleText = highlight ? hlText(a.title||'', highlight) : (a.title||'');
+    const keyBadge = a.ourKey ? `<span style="background:var(--teal);color:white;padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;">Key: ${a.ourKey}</span>` : '';
+    return `<div class="kb-card fade-in" onclick="openKbCard('${a.id}','${context}')">
+      <div class="kb-card-top">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="kb-card-type ${typeClass}">${typeLabel}</span>
+          ${keyBadge}
+          ${a.songSection ? `<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;color:var(--teal);">${a.songSection}</span>` : ''}
+        </div>
+      </div>
+      <div class="kb-card-title">${titleText}</div>
+      ${bullets.length ? `<div class="kb-card-bullets">${bullets.map(b=>`• ${b.replace(/^[•\-\*]\s*/,'')}`).join('<br>')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function doKbSearch(type) {
+  const q = document.getElementById(type+'-search').value.trim();
+  if (type === 'worship') renderWorshipCards(q);
+  else renderAvCards(q);
+}
+
+function quickKbSearch(type, term) {
+  const id = type+'-search';
+  document.getElementById(id).value = term;
+  if (type === 'worship') renderWorshipCards(term);
+  else renderAvCards(term);
+}
+
+function openKbCard(id, context) {
+  let asset;
+  if (context === 'playthrough') asset = worshipAssets.find(a=>a.id===id);
+  else if (context === 'training') asset = trainingAssets.find(a=>a.id===id);
+  else if (context === 'troubleshoot') asset = troubleshootAssets.find(a=>a.id===id);
+  else if (context === 'howto') asset = howtoAssets.find(a=>a.id===id);
+  if (!asset) return;
+
+  const bullets = (asset.bullets||'').split('\n').filter(b=>b.trim());
+  const src = asset.contentURL || '';
+  const contextLabels = { playthrough:'Play Through', training:'Worship Training', troubleshoot:'AV Troubleshoot', howto:'How To AV' };
+  const stepsLabel = context==='troubleshoot' ? 'How To Fix It' : 'How To Do It';
+
+  const sections = asset.sectionMarkers || [];
+  const chordsPerSection = asset.chordsPerSection || {};
+
+  document.getElementById('kb-modal-content').innerHTML = `
+    <div class="kb-modal-breadcrumb">${contextLabels[context]||''}${asset.category ? ' — '+asset.category : ''}</div>
+    <div class="kb-modal-title">${asset.title||''}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+      ${asset.ourKey ? `<span style="background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;">Key: ${asset.ourKey}</span>` : ''}
+      ${asset.songSection ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.songSection}</span>` : ''}
+      ${asset.instrument ? `<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>` : ''}
+    </div>
+
+    ${src ? `
+    <a href="${src}" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;gap:12px;background:var(--teal);color:white;
+              border-radius:14px;padding:16px 18px;margin-bottom:14px;text-decoration:none;
+              font-family:var(--font);font-weight:800;font-size:15px;letter-spacing:0.02em;">
+      <span style="font-size:22px;line-height:1;">▶</span>
+      <span style="flex:1;">Watch Video</span>
+      <span style="font-size:11px;opacity:0.6;font-weight:700;">Opens in Chrome</span>
+    </a>` : ''}
+
+    ${sections.length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div>
+    </div>` : ''}
+
+    ${Object.keys(chordsPerSection).length ? `<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Chords by Section</div>
+      ${Object.entries(chordsPerSection).map(([sec,chords])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="background:var(--teal);color:white;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:800;">${sec}</span><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--teal);">${chords}</span></div>`).join('')}
+    </div>` : ''}
+
+    ${bullets.length ? `<div class="kb-modal-steps">
+      <div class="kb-modal-steps-title">${stepsLabel}</div>
+      ${bullets.map((b,i) => `<div class="kb-modal-step"><span class="kb-step-num">${i+1}</span><span class="kb-step-text">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}
+    </div>` : ''}
+
+    ${asset.description ? `<p style="font-size:13px;color:var(--teal);opacity:0.7;line-height:1.5;margin-top:12px;">${asset.description}</p>` : ''}
+
+    ${asset.tags ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">${asset.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--bg);padding:5px 12px;border-radius:9999px;font-size:10px;font-weight:700;color:var(--teal);border:1px solid var(--border);">${t}</span>`).join('')}</div>` : ''}
+  `;
+  document.getElementById('kb-modal').classList.add('open');
+}
+
+function closeKbModal() {
+  document.getElementById('kb-modal').classList.remove('open');
+}
+
+// ── SONG LIBRARY ──────────────────────────────────────────────────────────
+let servicesCache = null;
+
+async function getServicesCache() {
+  if (servicesCache) return servicesCache;
+  const snap = await db.collection('services').get();
+  servicesCache = snap.docs.map(d => d.data());
+  return servicesCache;
+}
+
+async function getSongUsageStats(songTitle) {
+  const services = await getServicesCache();
+  const title = (songTitle||'').trim().toLowerCase();
+  const matchingDates = [];
+  services.forEach(service => {
+    if (!service.date || !Array.isArray(service.order)) return;
+    const hasSong = service.order.some(item =>
+      item.type === 'song' && (item.title||'').trim().toLowerCase() === title
+    );
+    if (hasSong) matchingDates.push(service.date);
+  });
+  const uniqueDates = [...new Set(matchingDates)];
+  const totalCount = uniqueDates.length;
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const threeMonthStr = threeMonthsAgo.toISOString().split('T')[0];
+  const recentCount = uniqueDates.filter(d => d >= threeMonthStr).length;
+  const sortedDates = [...uniqueDates].sort();
+  const lastUsed = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null;
+  return { totalCount, recentCount, lastUsed };
+}
+
+function formatUsageDate(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
+async function loadSongs() {
+  try {
+    const [snap] = await Promise.all([
+      db.collection('songs').orderBy('normalized').get(),
+      getServicesCache()
+    ]);
+    allSongs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderSongList(allSongs);
+  } catch(e) {
+    document.getElementById('song-list').innerHTML = '<div class="loading-state">Could not load songs.</div>';
+  }
+}
+
+function renderSongList(songs) {
+  const list = document.getElementById('song-list');
+  if (!songs.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎵</div><div class="empty-state-text">No songs found</div></div>';
+    return;
+  }
+  list.innerHTML = songs.slice(0,100).map(s => {
+    const keys = [...new Set((s.files||[]).map(f=>f.key).filter(Boolean))];
+    const types = [...new Set((s.files||[]).map(f=>f.type).filter(Boolean))];
+    return `<div class="song-item" onclick="openSong('${s.id}')">
+      <div class="song-item-title">${s.title||''}</div>
+      <div class="song-item-meta">
+        ${keys.slice(0,4).map(k=>`<span class="song-meta-badge">${k}</span>`).join('')}
+        ${types.slice(0,2).map(t=>`<span class="song-meta-badge">${t}</span>`).join('')}
+        ${s.youtube ? '<span class="song-meta-badge">▶ YT</span>' : ''}
+        ${s.ccli ? '<span class="song-meta-badge">CCLI</span>' : ''}
+      </div>
+      <div class="song-usage-stats" id="list-stats-${s.id}">
+        <span class="stat-badge stat-never" style="font-size:9px;opacity:0.5;">Loading…</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Load usage stats asynchronously for each visible song
+  songs.slice(0,100).forEach(async s => {
+    const el = document.getElementById(`list-stats-${s.id}`);
+    if (!el) return;
+    try {
+      const stats = await getSongUsageStats(s.title);
+      if (!el) return;
+      if (stats.totalCount === 0) {
+        el.innerHTML = `<span class="stat-badge stat-never">Never used</span>`;
+      } else {
+        const recentCls = stats.recentCount >= 3 ? 'stat-recent warning' : 'stat-recent';
+        el.innerHTML =
+          `<span class="stat-badge stat-total">✦ ${stats.totalCount} total</span>` +
+          (stats.recentCount > 0 ? `<span class="stat-badge ${recentCls}">↺ ${stats.recentCount} recent</span>` : '') +
+          (stats.lastUsed ? `<span class="stat-badge stat-last">Last: ${formatUsageDate(stats.lastUsed)}</span>` : '');
+      }
+    } catch(e) {
+      if (el) el.innerHTML = '';
+    }
+  });
+}
+
+function searchLibrary(q) {
+  if (!q.trim()) { renderSongList(allSongs); return; }
+  const norm = q.toLowerCase().trim();
+  const filtered = allSongs.filter(s =>
+    (s.title||'').toLowerCase().includes(norm) ||
+    (s.normalized||'').includes(norm)
+  );
+  renderSongList(filtered);
+}
+
+function openSong(id) {
+  const s = allSongs.find(x => x.id === id);
+  if (!s) return;
+  const files = s.files || [];
+  const grouped = {};
+  files.forEach(f => {
+    if (!grouped[f.key]) grouped[f.key] = [];
+    grouped[f.key].push(f);
+  });
+
+  const ccliUrl = s.ccli
+    ? `https://songselect.ccli.com/Songs/${s.ccli}`
+    : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(s.title||'')}`;
+
+  let filesHtml = '<div class="song-detail-files">';
+  if (Object.keys(grouped).length) {
+    filesHtml += '<div class="song-files-heading">Sheet Music</div>';
+    Object.entries(grouped).forEach(([key, keyFiles]) => {
+      keyFiles.forEach(f => {
+        filesHtml += `<div class="song-file-card">
+          <div class="song-file-info">
+            <div class="song-file-key">Key: ${key}</div>
+            <div class="song-file-type">${f.type}</div>
+          </div>
+          <button class="song-file-open" onclick="openFile('${f.url}')">Open</button>
+        </div>`;
+      });
+    });
+  }
+  filesHtml += '</div>';
+
+  const panel = document.getElementById('song-detail-panel');
+  panel.innerHTML = `<div class="song-detail fade-in">
+    <div class="song-detail-title">${s.title||''}</div>
+    ${s.artist ? `<div style="font-size:13px;color:var(--teal);opacity:0.5;font-weight:700;margin-bottom:12px;">${s.artist}</div>` : ''}
+    <div class="song-usage-panel" id="detail-usage-panel">
+      <div class="song-usage-stat"><span class="song-usage-number" style="font-size:16px;opacity:0.4;">…</span><span class="song-usage-label">Loading</span></div>
+    </div>
+    <div class="song-detail-links">
+      ${s.youtube ? `<a href="${s.youtube}" target="_blank" rel="noopener" class="song-detail-link song-link-youtube">▶ YouTube</a>` : ''}
+      <a href="${ccliUrl}" target="_blank" rel="noopener" class="song-detail-link song-link-ccli">🔗 SongSelect</a>
+    </div>
+    ${filesHtml}
+  </div>`;
+
+  document.getElementById('song-list').style.display = 'none';
+  panel.style.display = 'block';
+  sectionHistory.push('library-list');
+
+  // Load usage stats for detail panel
+  getSongUsageStats(s.title).then(stats => {
+    const up = document.getElementById('detail-usage-panel');
+    if (!up) return;
+    if (stats.totalCount === 0) {
+      up.outerHTML = `<div style="font-size:11px;color:#aaa;font-weight:700;margin-bottom:14px;text-align:center;">This song hasn't been used yet</div>`;
+    } else {
+      const recentColor = stats.recentCount >= 3 ? '#b22222' : stats.recentCount >= 1 ? '#e65100' : 'var(--teal)';
+      const warning = stats.recentCount >= 2
+        ? `<div class="song-usage-warning">⚠ Used ${stats.recentCount}× in last 3 months</div>`
+        : '';
+      up.outerHTML = `
+        ${warning}
+        <div class="song-usage-panel">
+          <div class="song-usage-stat">
+            <span class="song-usage-number">${stats.totalCount}</span>
+            <span class="song-usage-label">All Time</span>
+          </div>
+          <div class="song-usage-divider"></div>
+          <div class="song-usage-stat">
+            <span class="song-usage-number" style="color:${recentColor}">${stats.recentCount}</span>
+            <span class="song-usage-label">Last 3 Months</span>
+          </div>
+          <div class="song-usage-divider"></div>
+          <div class="song-usage-stat">
+            <span class="song-usage-last">${stats.lastUsed ? formatUsageDate(stats.lastUsed) : '—'}</span>
+            <span class="song-usage-label">Last Used</span>
+          </div>
+        </div>`;
+    }
+  }).catch(() => {
+    const up = document.getElementById('detail-usage-panel');
+    if (up) up.remove();
+  });
+}
+
+function openFile(url) {
+  window.open(url, '_blank');
+}
+
+// Override goBack to handle song detail
+const _origGoBack = goBack;
+window.goBack = function() {
+  const last = sectionHistory[sectionHistory.length-1];
+  if (last === 'library-list') {
+    sectionHistory.pop();
+    document.getElementById('song-detail-panel').style.display = 'none';
+    document.getElementById('song-list').style.display = 'block';
+    return;
+  }
+  _origGoBack();
+};
+
+function initUploadSlots() {
+  // Only init once
+  if (document.getElementById('upload-file-input-0')) return;
+  document.getElementById('upload-file-slots').innerHTML = `
+    <div class="form-field">
+      <label>PDF File (1 of up to 4)</label>
+      <div class="upload-file-area">
+        <div class="upload-file-icon">📄</div>
+        <div class="upload-file-text">Tap to select PDF</div>
+        <div class="upload-file-name" id="upload-file-name-0"></div>
+        <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
+      </div>
+    </div>`;
+  uploadSlots = 1;
+  uploadFiles = {};
+}
+
+// ── MUSIC UPLOADER ────────────────────────────────────────────────────────
+let uploadSlots = 1;
+let uploadMatchedSong = null; // the matched Firebase song doc
+
+function fileSelected(index, input) {
+  if (input.files[0]) {
+    document.getElementById(`upload-file-name-${index}`).textContent = input.files[0].name;
+    uploadFiles[index] = input.files[0];
+  }
+}
+
+function addUploadSlot() {
+  if (uploadSlots >= 4) { toast('Maximum 4 files at once'); return; }
+  const container = document.getElementById('upload-file-slots');
+  const div = document.createElement('div');
+  div.className = 'form-field';
+  div.innerHTML = `
+    <label>PDF File (${uploadSlots+1} of up to 4)</label>
+    <div class="upload-file-area">
+      <div class="upload-file-icon">📄</div>
+      <div class="upload-file-text">Tap to select PDF</div>
+      <div class="upload-file-name" id="upload-file-name-${uploadSlots}"></div>
+      <input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" onchange="fileSelected(${uploadSlots},this)">
+    </div>
+  `;
+  container.appendChild(div);
+  uploadSlots++;
+  if (uploadSlots >= 4) document.getElementById('upload-more-btn').style.display = 'none';
+}
+
+// Search songs as user types title
+async function searchUploadSong() {
+  const val = document.getElementById('upload-song-title').value.trim();
+  const resultsEl = document.getElementById('upload-song-matches');
+  uploadMatchedSong = null;
+  document.getElementById('upload-match-status').innerHTML = '';
+
+  if (val.length < 2) { resultsEl.innerHTML = ''; return; }
+
+  const norm = val.toLowerCase();
+  const matches = allSongs.filter(s =>
+    (s.normalized||s.title||'').toLowerCase().includes(norm)
+  ).slice(0, 5);
+
+  if (!matches.length) {
+    resultsEl.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--teal);opacity:0.5;font-style:italic;">No match — will create new song entry</div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = matches.map(s =>
+    `<div onclick="selectUploadSong('${s.id}')" style="padding:10px 14px;border-bottom:1px solid var(--bg);font-size:13px;font-weight:700;color:var(--teal);cursor:pointer;">${s.title}</div>`
+  ).join('');
+}
+
+function selectUploadSong(id) {
+  const song = allSongs.find(s => s.id === id);
+  if (!song) return;
+  uploadMatchedSong = song;
+  document.getElementById('upload-song-title').value = song.title;
+  document.getElementById('upload-song-matches').innerHTML = '';
+  checkDuplicates();
+}
+
+function checkDuplicates() {
+  const key  = document.getElementById('upload-key').value;
+  const type = document.getElementById('upload-type').value;
+  const statusEl = document.getElementById('upload-match-status');
+
+  if (!uploadMatchedSong) {
+    statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ New song — will be created</div>`;
+    return;
+  }
+
+  const existingFiles = uploadMatchedSong.files || [];
+  const dups = existingFiles.filter(f => f.key === key && f.type === type);
+
+  if (dups.length && key && type) {
+    statusEl.innerHTML = `<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:12px;font-weight:700;color:#991b1b;">
+      ⚠ A ${type} in ${key} already exists for "${uploadMatchedSong.title}"
+      <br><label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:700;cursor:pointer;">
+        <input type="checkbox" id="upload-force" style="width:16px;height:16px;"> Replace existing file
+      </label>
+    </div>`;
+  } else if (uploadMatchedSong && key && type) {
+    statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ Matched to "${uploadMatchedSong.title}" — no duplicate for this key/type</div>`;
+  }
+}
+
+async function submitUpload() {
+  const titleInput = document.getElementById('upload-song-title').value.trim();
+  const key   = document.getElementById('upload-key').value;
+  const type  = document.getElementById('upload-type').value;
+
+  if (!titleInput) { toast('Please enter a song title'); return; }
+  if (!key)   { toast('Please select a key'); return; }
+  if (!type)  { toast('Please select a file type'); return; }
+  if (!Object.keys(uploadFiles).length) { toast('Please select at least one PDF'); return; }
+
+  // Check for duplicate and force flag
+  if (uploadMatchedSong) {
+    const existingFiles = uploadMatchedSong.files || [];
+    const dups = existingFiles.filter(f => f.key === key && f.type === type);
+    if (dups.length) {
+      const forceEl = document.getElementById('upload-force');
+      if (!forceEl || !forceEl.checked) {
+        toast('Tick "Replace existing file" to overwrite, or change key/type');
+        return;
+      }
+    }
+  }
+
+  const btn = document.getElementById('upload-submit-btn');
+  const prog = document.getElementById('upload-progress');
+  const bar  = document.getElementById('upload-progress-bar');
+  const status = document.getElementById('upload-status');
+
+  btn.disabled = true;
+  prog.style.display = 'block';
+  status.textContent = 'Uploading...';
+
+  try {
+    const finalTitle = uploadMatchedSong ? uploadMatchedSong.title : titleInput;
+    const id = finalTitle.toLowerCase().replace(/\s+/g,'-');
+    const docRef = db.collection('songs').doc(id);
+    const snap = await docRef.get();
+    let existingData = snap.exists ? snap.data() : {};
+    let files = existingData.files || [];
+
+    // Remove duplicates if force-replacing
+    const forceEl = document.getElementById('upload-force');
+    if (forceEl && forceEl.checked) {
+      files = files.filter(f => !(f.key === key && f.type === type));
+    }
+
+    const fileKeys = Object.keys(uploadFiles);
+    for (let i = 0; i < fileKeys.length; i++) {
+      const file = uploadFiles[fileKeys[i]];
+      bar.style.width = Math.round(((i+1)/fileKeys.length)*80) + '%';
+      status.textContent = `Uploading file ${i+1} of ${fileKeys.length}...`;
+
+      const ref = storage.ref(`songs/${id}/${file.name}`);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+      files.push({ name: file.name, url, type, key });
+    }
+
+    bar.style.width = '95%';
+    status.textContent = 'Saving to database...';
+
+    await docRef.set({
+      title: finalTitle,
+      normalized: finalTitle.toLowerCase(),
+      files,
+      ...(existingData.youtube ? { youtube: existingData.youtube } : {}),
+      ...(existingData.ccli    ? { ccli:    existingData.ccli    } : {}),
+    }, { merge: true });
+
+    bar.style.width = '100%';
+    status.textContent = '✓ Uploaded successfully!';
+    toast('Upload complete! 🎵');
+
+    setTimeout(() => {
+      prog.style.display = 'none';
+      bar.style.width = '0%';
+      status.textContent = '';
+      btn.disabled = false;
+      document.getElementById('upload-song-title').value = '';
+      document.getElementById('upload-key').value = '';
+      document.getElementById('upload-type').value = '';
+      document.getElementById('upload-song-matches').innerHTML = '';
+      document.getElementById('upload-match-status').innerHTML = '';
+      uploadFiles = {};
+      uploadSlots = 1;
+      uploadMatchedSong = null;
+      document.getElementById('upload-file-slots').innerHTML = `
+        <div class="form-field">
+          <label>PDF File (1 of up to 4)</label>
+          <div class="upload-file-area">
+            <div class="upload-file-icon">📄</div>
+            <div class="upload-file-text">Tap to select PDF</div>
+            <div class="upload-file-name" id="upload-file-name-0"></div>
+            <input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)">
+          </div>
+        </div>`;
+      document.getElementById('upload-more-btn').style.display = 'block';
+      allSongs = []; // refresh library next time
+    }, 2000);
+
+  } catch(e) {
+    status.textContent = '✗ Upload failed: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+// ── ONBOARDING TOUR ───────────────────────────────────────────────────────
+const TOUR_STEPS = {
+  home: [
+    { target: '#tiles-grid', title: 'Welcome to Worship Hub! 👋', text: 'Everything your team needs is here in one place. Tap any tile to open that section.' },
+    { target: '#tile-news', title: 'Latest News', text: 'Team updates from your leaders appear here. A red badge shows when there\'s something new you haven\'t read.' },
+    { target: '#header-help', title: 'Need help?', text: 'Tap ? on any screen to replay that screen\'s walkthrough. Tick "Don\'t show again" on any tour to stop it auto-showing.' },
+  ],
+  rota: [
+    { target: '#rota-content', title: 'Team Rota', text: 'The full serving schedule is shown here, grouped by term. Tap a term header to collapse or expand it.' },
+    { target: '#rota-date-jump', title: 'Jump to a Date', text: 'Pick any date to instantly scroll the rota to that week — useful when you\'re planning ahead.' },
+    { target: '.rota-ics-bar', title: 'Download Your Rota', text: 'Select your name from the list, then tap "My Rota" to download a .ics file you can import into Apple Calendar, Google Calendar or Outlook.' },
+    { target: '.btn-ics-household', title: 'Family Rota', text: 'The Family Rota includes everyone in your household who serves — one file covers you all.' },
+  ],
+  board: [
+    { target: '.board-add-btn', title: 'Add a Suggestion', text: 'Tap here to pin a new note to the board — a song idea, an event suggestion, a prayer request, anything.' },
+    { target: '#board-filters', title: 'Filter by Category', text: 'Use these chips to filter notes. Tap Songs to see only song suggestions, AV for tech ideas, and so on.' },
+    { target: '#board-pages', title: 'Topic Pages', text: 'Different pages keep topics separate — General Board, Easter Songs, and so on. Swipe left to see all pages.' },
+    { target: '.notes-list', title: 'React to Notes', text: 'Tap ❤️ 👍 👎 🙌 on any note to react. Your reactions are saved and visible to everyone.' },
+  ],
+  worship: [
+    { target: '.kb-tabs', title: 'Two Sections', text: 'This area has two sections — tap to switch between them.' },
+    { target: '#tab-playthrough', title: '▶ Play Through', text: 'Play Through shows videos of how we play each song — intros, chord progressions, full run-throughs. Great for practising at home.' },
+    { target: '#tab-training', title: '📖 Training', text: 'Training contains general worship guides — vocal technique, leading worship, instrument tips and more.' },
+    { target: '.kb-search-box', title: 'Search', text: 'Type a song name, section (e.g. "intro"), or topic to find the right video quickly.' },
+    { target: '#key-filter-row', title: 'Filter by Key', text: 'In Play Through mode, tap a key to show only videos in that key — handy when you\'re preparing for a specific service.' },
+    { target: '#worship-quick-tags', title: 'Quick Searches', text: 'Tap any of these chips for a one-tap search on common topics.' },
+  ],
+  av: [
+    { target: '.kb-tabs', title: 'Two Sections — Easy to Miss!', text: 'This page has two different sections. Make sure you\'re in the right one before you search.' },
+    { target: '#tab-troubleshoot', title: '🔧 Troubleshoot', text: 'Use Troubleshoot when something has gone wrong — no sound, black screen, feedback. Describe the problem and it finds fixes.' },
+    { target: '#tab-howto', title: '📋 How To', text: 'Use How To when you need to learn how to do something — set up the mixing desk, mic a choir, adjust EQ. Step-by-step guides.' },
+    { target: '.kb-search-box', title: 'Describe the Problem', text: 'Type what\'s happening in plain English — "no sound from guitar" or "camera not showing". It searches titles, steps and transcripts.' },
+    { target: '.kb-quick-tags', title: 'Quick Searches', text: 'Tap a chip for instant results on the most common AV problems.' },
+  ],
+  upload: [
+    { target: '.uploader-info', title: 'Music Uploader', text: 'Use this to add PDF sheet music to the song library so the whole team can access it.' },
+    { target: '#upload-song-title', title: 'Step 1 — Song Title', text: 'Start typing the song title. If it already exists in the library, matching results appear below — tap one to select it. This prevents duplicates.' },
+    { target: '#upload-key', title: 'Step 2 — Key & Type', text: 'Select the key and type of sheet music. If a file for that exact key and type already exists, you\'ll get a warning before uploading.' },
+    { target: '#upload-file-slots', title: 'Step 3 — Select PDF', text: 'Tap to choose your PDF file. You can add up to 4 files at once using the + Add Another File button — useful for uploading multiple keys in one go.' },
+    { target: '#upload-submit-btn', title: 'Upload', text: 'Tap Upload to Library when you\'re ready. The file goes to Firebase Storage and is immediately available to the whole team in the Song Library.' },
+  ],
+  library: [
+    { target: '.library-search', title: 'Search the Library', text: 'Type any part of a song title to filter the list. The full library loads automatically.' },
+    { target: '#song-list', title: 'Browse Songs', text: 'Each song shows available keys, file types, and usage stats — how often it\'s been used, how recently, and when it was last played.' },
+    { target: '#song-list', title: 'Song Detail', text: 'Inside a song you\'ll see full usage stats, YouTube and SongSelect links, plus Open buttons for each sheet music file.' },
+  ],
+  news: [
+    { target: '#news-full-list', title: 'Latest News', text: 'Team updates and announcements from your leaders, pulled directly from the main hub. New items show a red badge on the home tile.' },
+  ],
+};
+
+// Auto-trigger tour on first visit to each section
+const _sectionsAutoToured = new Set();
+function maybeTriggerSectionTour(section) {
+  if (_sectionsAutoToured.has(section)) return;
+  _sectionsAutoToured.add(section);
+  const key = 'egbc_hub_toured_' + section;
+  if (localStorage.getItem(key) === 'permanent') return;
+  if (!localStorage.getItem(key)) {
+    setTimeout(() => {
+      if (currentSection === section) {
+        startTour(false);
+        localStorage.setItem(key, '1');
+      }
+    }, 400);
+  }
+}
+
+function startTour(force) {
+  const section = currentSection === 'home' ? 'home' : currentSection;
+  // If permanently dismissed for this section, only show if explicitly triggered via ? button
+  if (!force && localStorage.getItem('egbc_hub_toured_' + section) === 'permanent') return;
+  const steps = TOUR_STEPS[section];
+  if (!steps || !steps.length) { toast('No tour for this screen'); return; }
+  tourStepIndex = 0;
+  // Reset the checkbox
+  const cb = document.getElementById('tour-dont-show');
+  if (cb) cb.checked = false;
+  showTourStep(steps);
+}
+
+function showTourStep(steps) {
+  const overlay = document.getElementById('tour-overlay');
+  const step = steps[tourStepIndex];
+  if (!step) { endTour(); return; }
+
+  const target = document.querySelector(step.target);
+  const tooltip = document.getElementById('tour-tooltip');
+  const highlight = document.getElementById('tour-highlight');
+
+  overlay.classList.add('active');
+  document.getElementById('tour-title').textContent = step.title;
+  document.getElementById('tour-text').textContent = step.text;
+  document.getElementById('tour-count').textContent = `${tourStepIndex+1} / ${steps.length}`;
+  document.getElementById('tour-next').textContent = tourStepIndex < steps.length-1 ? 'Next →' : 'Got it!';
+
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    highlight.style.left   = rect.left - 4 + 'px';
+    highlight.style.top    = rect.top - 4 + 'px';
+    highlight.style.width  = rect.width + 8 + 'px';
+    highlight.style.height = rect.height + 8 + 'px';
+    highlight.style.display = 'block';
+
+    // Position tooltip
+    const tooltipTop = rect.bottom + 12;
+    tooltip.style.top  = Math.min(tooltipTop, window.innerHeight - 160) + 'px';
+    tooltip.style.left = '20px';
+    tooltip.style.right = '20px';
+    tooltip.style.maxWidth = 'calc(100% - 40px)';
+  } else {
+    highlight.style.display = 'none';
+    tooltip.style.top  = '50%';
+    tooltip.style.left = '20px';
+    tooltip.style.right = '20px';
+    tooltip.style.transform = 'translateY(-50%)';
+  }
+}
+
+function nextTourStep() {
+  const section = currentSection === 'home' ? 'home' : currentSection;
+  const steps = TOUR_STEPS[section];
+  tourStepIndex++;
+  if (tourStepIndex >= steps.length) { endTour(); return; }
+  showTourStep(steps);
+}
+
+function endTour() {
+  const dontShow = document.getElementById('tour-dont-show');
+  if (dontShow && dontShow.checked) {
+    localStorage.setItem('egbc_hub_toured_' + (currentSection === 'home' ? 'home' : currentSection), 'permanent');
+  }
+  document.getElementById('tour-overlay').classList.remove('active');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2500);
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function hlText(text, q) {
+  if (!q) return text;
+  q.split(/\s+/).filter(w=>w.length>1).forEach(w => {
+    text = text.replace(new RegExp(`(${w})`,'gi'),'<mark>$1</mark>');
+  });
+  return text;
+}
+
+function fmtTime(s) {
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+loadNews();
+
+if (!localStorage.getItem('egbc_hub_toured_home')) {
+  setTimeout(() => {
+    startTour(false);
+    localStorage.setItem('egbc_hub_toured_home', '1');
+  }, 800);
+}
+
+</script>
+
+    <!-- PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calla Design</title>
+<meta name="theme-color" content="#7C5CD6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Calla Design">
+<link rel="manifest" href="./manifest-studio.json">
+<link rel="apple-touch-icon" href="calla-icon.png">
+<link rel="icon" href="calla-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#131019; --surface:#1c1930; --surface-2:#231f38; --ink:#F2EAE0; --body:#c6bdd6;
+    --muted:#A99E90; --faint:#7d7391; --hairline:#2c2842; --hairline-strong:#3a3454;
+    --brand:#9D7CF0; --brand-2:#7C5CD6; --brand-tint:rgba(157,124,240,.15); --gold:#d9b45f;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 40px rgba(0,0,0,.42);
+    --shadow-lg:0 2px 6px rgba(0,0,0,.35),0 30px 64px rgba(0,0,0,.55);
+    --r-xl:26px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    font-family:'Inter',system-ui,Segoe UI,sans-serif; color:var(--body);
+    background:
+      radial-gradient(70% 55% at 80% -12%, rgba(124,92,214,.30), transparent 60%),
+      radial-gradient(46% 42% at 4% 4%, rgba(157,124,240,.12), transparent 55%),
+      var(--bg);
+    min-height:100vh; -webkit-font-smoothing:antialiased; padding:clamp(28px,6vw,72px) 20px 76px;
+  }
+  .wrap{ max-width:1040px; margin:0 auto; }
+
+  /* Brand lockup */
+  .brand{ display:flex; flex-direction:column; align-items:flex-start; }
+  .mark{ filter:drop-shadow(0 8px 22px rgba(124,92,214,.45)); }
+  .wordmark{ font-family:'Lora',Georgia,serif; font-weight:600; font-size:clamp(48px,9vw,74px); line-height:1; letter-spacing:.3px; color:var(--ink); margin-top:20px; text-wrap:balance; }
+  .wordmark .c{ font-style:italic; color:var(--brand); }
+  .tagline{ font-size:12px; font-weight:600; letter-spacing:.3em; text-transform:uppercase; color:var(--muted); margin-top:14px; }
+  .lede{ font-size:clamp(15px,2vw,18px); line-height:1.6; color:var(--body); max-width:52ch; margin:20px 0 0; }
+
+  /* Install */
+  .install-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:26px; }
+  .install-btn{ display:inline-flex; align-items:center; gap:9px; font-family:inherit; font-size:14px; font-weight:700; color:#fff; background:linear-gradient(135deg,#9D7CF0,#7C5CD6); border:none; padding:12px 22px; border-radius:999px; cursor:pointer; box-shadow:0 10px 28px rgba(124,92,214,.4); transition:transform .12s, box-shadow .15s; }
+  .install-btn:hover{ transform:translateY(-2px); box-shadow:0 14px 34px rgba(124,92,214,.5); }
+  .install-btn:active{ transform:translateY(0); }
+  .install-note{ font-size:13px; color:var(--muted); max-width:34ch; }
+
+  /* Cards */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px; margin-top:clamp(38px,5vw,56px); }
+  .card{ position:relative; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-xl); padding:26px 24px 22px; box-shadow:var(--shadow); text-decoration:none; color:inherit; overflow:hidden; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+  .card::before{ content:""; position:absolute; inset:0 0 auto 0; height:4px; background:linear-gradient(90deg,var(--accent),transparent 82%); }
+  .card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:color-mix(in srgb, var(--accent) 55%, var(--hairline)); }
+  .badge{ width:54px; height:54px; border-radius:16px; display:flex; align-items:center; justify-content:center; background:var(--accent-tint); color:var(--accent); margin-bottom:18px; }
+  .badge svg{ width:28px; height:28px; }
+  .card h2{ font-family:'Lora',serif; font-weight:600; font-size:23px; color:var(--ink); margin:0 0 6px; }
+  .card p{ font-size:14px; line-height:1.6; color:var(--body); margin:0 0 18px; flex:1; }
+  .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px; }
+  .tag{ font-size:11px; font-weight:600; color:var(--muted); background:var(--surface-2); border:1px solid var(--hairline); padding:4px 10px; border-radius:999px; }
+  .open{ display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--accent); }
+  .open .arrow{ transition:transform .18s ease; }
+  .card:hover .open .arrow{ transform:translateX(4px); }
+
+  .footnote{ margin-top:42px; font-size:13px; color:var(--faint); text-align:center; }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <svg class="mark" width="66" height="66" viewBox="0 0 100 100" aria-label="Calla">
+        <defs><linearGradient id="hb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B49CF3"/><stop offset="1" stop-color="#7C5CD6"/></linearGradient></defs>
+        <rect x="5" y="5" width="90" height="90" rx="27" fill="url(#hb)"/>
+        <path d="M72.98 69.28 A30 30 0 1 1 72.98 30.72" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="4.6" stroke-linecap="round"/>
+        <polygon points="41,34 68,50 41,66" fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+      </svg>
+      <div class="wordmark"><span class="c">C</span>alla</div>
+      <div class="tagline">Design Studio</div>
+    </div>
+
+    <p class="lede">A little set of tools for making lovely things — invitations, websites, photos, social posts and films. Pick one to get started.</p>
+
+    <div class="install-row" id="installRow" hidden>
+      <button id="installBtn" class="install-btn">⤓ Install as an app</button>
+      <span class="install-note" id="installNote"></span>
+    </div>
+
+    <div class="grid">
+
+      <a class="card" href="birthday.html" style="--accent:#d9b45f;--accent-tint:rgba(217,180,95,.16);">
+        <div class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+        </div>
+        <h2>Invitation Maker</h2>
+        <p>Design a beautiful party invitation from 16 templates, add a photo and a big milestone number, then print one — or mail-merge a whole guest list from a spreadsheet.</p>
+        <div class="tags"><span class="tag">16 designs</span><span class="tag">Mail merge</span><span class="tag">Print / PDF</span></div>
+        <span class="open">Open<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" href="sitemaker.html" style="--accent:#5fb2b0;--accent-tint:rgba(95,178,176,.16);">
+        <div class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>
+        </div>
+        <h2>Website Maker</h2>
+        <p>Build a smart 3-page website — home, services and contact — from ready-made templates. Change colours, fonts and layout live, add your logo and photos, then download the finished site.</p>
+        <div class="tags"><span class="tag">3-page sites</span><span class="tag">Templates &amp; fonts</span><span class="tag">Download HTML</span></div>
+        <span class="open">Open<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" href="photoeditor.html" style="--accent:#6ba6da;--accent-tint:rgba(107,166,218,.16);">
+        <div class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.6"/><path d="M4 18l5-5 4 3 3-3 4 4"/></svg>
+        </div>
+        <h2>Photo Editor</h2>
+        <p>Crop, straighten and tidy a photo, then tune the light and colour or drop on a filter. Add a neat border and download it — perfect for prepping pictures for the other tools.</p>
+        <div class="tags"><span class="tag">Crop &amp; filters</span><span class="tag">Adjust light</span><span class="tag">Download PNG</span></div>
+        <span class="open">Open<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" href="socialmaker.html" style="--accent:#e0699a;--accent-tint:rgba(224,105,154,.16);">
+        <div class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.6M8.3 13.2l7.4 4.6"/></svg>
+        </div>
+        <h2>Social Media Maker</h2>
+        <p>Create branded posts, stories and banners for Instagram, Facebook and LinkedIn from business templates — offers, quotes, events and more. Add your logo and download ready to post.</p>
+        <div class="tags"><span class="tag">Post &amp; story sizes</span><span class="tag">Business templates</span><span class="tag">Download PNG</span></div>
+        <span class="open">Open<span class="arrow">→</span></span>
+      </a>
+
+      <a id="tile-movie" class="card" href="Videoeditor.html" style="--accent:#a88ef0;--accent-tint:rgba(168,142,240,.18);">
+        <div class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 4v16M17 4v16"/></svg>
+        </div>
+        <h2>Movie Maker</h2>
+        <p>Trim clips, drop in titles and music, and export a finished trailer or highlights reel — the Calla Video Editor, built for film projects.</p>
+        <div class="tags"><span class="tag">Trim &amp; join</span><span class="tag">Titles</span><span class="tag">Export video</span></div>
+        <span class="open">Open<span class="arrow">→</span></span>
+      </a>
+
+    </div>
+
+    <p class="footnote">Calla Design · everything runs in your browser</p>
+  </div>
+
+  <script>
+    // ── Install as an app ──
+    const installRow = document.getElementById('installRow');
+    const installBtn = document.getElementById('installBtn');
+    const installNote = document.getElementById('installNote');
+    let deferredPrompt = null;
+
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    const isElectron = !!(window.api && window.api.isElectron) || /electron/i.test(navigator.userAgent || '');
+
+    // In the installed desktop app: Movie Maker = the native editor, and there's no PWA install button.
+    if (isElectron) {
+      const mv = document.getElementById('tile-movie');
+      if (mv) mv.setAttribute('href', 'index.html');
+    }
+
+    if (!isStandalone && !isElectron) {
+      installRow.hidden = false;
+      if (isiOS) installNote.textContent = 'On iPhone/iPad: tap Share, then “Add to Home Screen”.';
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installRow.hidden = false;
+      installNote.textContent = '';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+      } else if (isiOS) {
+        installNote.textContent = 'On iPhone/iPad: tap Share, then “Add to Home Screen”.';
+      } else {
+        installNote.textContent = 'Open your browser menu and choose “Install app” / “Add to Home screen”.';
+      }
+    });
+
+    window.addEventListener('appinstalled', () => { installRow.hidden = true; });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

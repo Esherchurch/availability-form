@@ -1,0 +1,1862 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitation Maker · Calla Design</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cinzel+Decorative:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Marcellus&family=Prata&family=Italiana&family=Abril+Fatface&family=Yeseva+One&family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&family=Josefin+Sans:wght@300;400;600&family=Jost:wght@300;400;500;600&family=EB+Garamond:ital@0;1&family=Great+Vibes&family=Pinyon+Script&family=Sacramento&family=Parisienne&family=Dancing+Script:wght@500;700&family=Caveat:wght@500;700&family=Kanit:wght@600;800&family=Fredoka+One&family=Amatic+SC:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+      @page { size: A5 portrait; margin: 0; }
+      :root{
+        --canvas:#e7ecec; --surface:#ffffff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c;
+        --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+        --brand:#7C5CD6; --brand-dark:#5f45b0; --brand-tint:#efeafc; --brand-ring:rgba(124,92,214,.28);
+        --success:#3b7d23; --danger:#b0392c; --gold:#b07d2e;
+        --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+        --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+        --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+      }
+      *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body{ margin:0; padding:0; background:var(--canvas); color:var(--body); display:flex; flex-direction:row; min-height:100vh; font-family:'Montserrat',sans-serif; -webkit-font-smoothing:antialiased; }
+
+      /* ── Control panel ── */
+      #control-panel{ width:410px; flex-shrink:0; background:var(--surface); padding:22px; border-right:1px solid var(--hairline); overflow-y:auto; height:100vh; position:fixed; left:0; top:0; z-index:100; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:15px; }
+      /* Critical: stop flex from squashing the sections when the panel overflows (they must scroll, not shrink). */
+      #control-panel > *{ flex-shrink:0; }
+      .panel-head h2{ font-size:19px; font-weight:800; letter-spacing:-.01em; color:var(--ink); margin:0; }
+      .panel-head p{ font-size:12.5px; color:var(--muted); margin:4px 0 0; font-weight:500; }
+      .divider-rule{ border:0; border-top:1px solid var(--hairline); margin:2px 0; }
+      .form-group{ display:flex; flex-direction:column; gap:6px; }
+      .form-row{ display:flex; gap:10px; } .form-row .form-group{ flex:1; }
+      label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+      .cb-label{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--ink); text-transform:none; letter-spacing:0; cursor:pointer; }
+      .cb-label input{ width:16px; height:16px; accent-color:var(--brand); }
+      input[type=text], textarea, select, input[type=file]{ width:100%; background:var(--surface); border:1px solid var(--hairline-strong); color:var(--ink); padding:10px 12px; border-radius:var(--r-md); font-family:inherit; font-size:14px; outline:none; transition:border-color .15s, box-shadow .15s; }
+      textarea{ resize:vertical; line-height:1.5; }
+      select{ appearance:none; cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b8281' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:36px; }
+      input[type=range]{ width:100%; accent-color:var(--brand); cursor:pointer; }
+      input[type=color]{ width:100%; height:38px; padding:3px; border:1px solid var(--hairline-strong); border-radius:var(--r-md); background:var(--surface); cursor:pointer; }
+      input:focus, textarea:focus, select:focus{ border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
+      .info-box{ background:var(--brand-tint); border:1px solid var(--hairline-strong); padding:11px 13px; border-radius:var(--r-md); font-size:12px; color:var(--brand-dark); line-height:1.5; }
+      .info-box strong{ color:var(--brand); }
+      .section-label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--brand); margin-top:2px; display:flex; align-items:center; gap:7px; }
+      .section-label::after{ content:""; flex:1; height:1px; background:var(--hairline); }
+
+      /* Collapsible sections */
+      details.sect{ border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; }
+      details.sect > summary{ list-style:none; cursor:pointer; padding:11px 13px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink); background:var(--surface-2); display:flex; align-items:center; justify-content:space-between; }
+      details.sect > summary::-webkit-details-marker{ display:none; }
+      details.sect > summary::after{ content:"▾"; color:var(--muted); transition:transform .15s; }
+      details.sect[open] > summary::after{ transform:rotate(180deg); }
+      details.sect > .sect-body{ padding:13px; display:flex; flex-direction:column; gap:12px; }
+
+      /* Format tabs */
+      .fmt-tabs{ display:grid; grid-template-columns:repeat(2,1fr); gap:7px; }
+      .fmt-tab{ border:1px solid var(--hairline-strong); background:var(--surface); border-radius:var(--r-md); padding:9px 8px; cursor:pointer; text-align:center; transition:all .12s; }
+      .fmt-tab .ft-t{ font-size:12px; font-weight:800; color:var(--ink); display:block; }
+      .fmt-tab .ft-s{ font-size:10px; color:var(--muted); font-weight:600; }
+      .fmt-tab.active{ border-color:var(--brand); background:var(--brand-tint); box-shadow:0 0 0 2px var(--brand-ring); }
+
+      /* Buttons */
+      .btn{ border:none; padding:12px; font-size:13.5px; font-weight:800; letter-spacing:.02em; cursor:pointer; border-radius:var(--r-md); transition:background .15s, transform .1s, opacity .15s; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:7px; }
+      .btn:active{ transform:translateY(1px); }
+      .btn-primary{ background:var(--brand); color:#fff; } .btn-primary:hover{ background:var(--brand-dark); }
+      .btn-ghost{ background:var(--surface); color:var(--ink); border:1px solid var(--hairline-strong); } .btn-ghost:hover{ border-color:var(--brand); color:var(--brand); }
+      .btn-wa{ background:#25D366; color:#fff; } .btn-wa:hover{ background:#1eb457; }
+      .btn-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .btn-full{ grid-column:1/-1; }
+
+      /* Template gallery (thumbnails) */
+      .tpl-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; align-items:start; max-height:340px; overflow-y:auto; padding:2px 6px 2px 2px; border:1px solid var(--hairline); border-radius:var(--r-md); background:var(--surface-2); }
+      .tpl-hint{ font-size:10.5px; color:var(--muted); font-weight:600; margin:-4px 0 2px; }
+      .ai-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:6px; max-height:250px; overflow-y:auto; padding:2px; }
+      .ai-card{ border:1px solid var(--hairline-strong); border-radius:var(--r-md); padding:8px 9px; cursor:pointer; font-size:11px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:7px; background:var(--surface); transition:border-color .1s, background .1s; }
+      .ai-card:hover{ border-color:var(--brand); }
+      .ai-card.active{ border-color:var(--brand); background:var(--brand-tint); box-shadow:0 0 0 2px var(--brand-ring); }
+      .ai-card .em{ font-size:16px; line-height:1; }
+      .tpl-chip{ border:2px solid transparent; border-radius:var(--r-md); overflow:hidden; cursor:pointer; position:relative; aspect-ratio:148/210; box-shadow:var(--shadow-sm); transition:transform .1s; background:#111; }
+      .tpl-chip:hover{ transform:translateY(-2px); }
+      .tpl-chip.active{ border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-ring); }
+      .tpl-chip .card{ position:absolute !important; top:0; left:0; box-shadow:none !important; }
+      .tpl-chip .tpl-label{ position:absolute; bottom:0; left:0; right:0; z-index:5; background:rgba(0,0,0,.62); color:#fff; font-size:8.5px; font-weight:700; text-align:center; padding:2px; letter-spacing:.02em; }
+
+      /* ── Workspace ── */
+      #preview-container{ margin-left:410px; flex:1; display:flex; flex-direction:column; align-items:center; background:radial-gradient(circle at 50% 0%, #eef2f1 0%, #dfe6e5 100%); padding:40px 24px 90px; overflow-y:auto; gap:34px; min-height:100vh; }
+      .stage{ flex-shrink:0; position:relative; }
+
+      /* Toast */
+      #toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:12px 20px; border-radius:var(--r-pill); font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:all .25s; z-index:500; box-shadow:0 8px 30px rgba(0,0,0,.3); }
+      #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+      /* Modal (email preview) */
+      #modal-back{ position:fixed; inset:0; background:rgba(10,18,17,.55); z-index:600; display:none; align-items:center; justify-content:center; padding:24px; }
+      #modal-back.show{ display:flex; }
+      .modal{ background:var(--surface); border-radius:var(--r-lg); max-width:680px; width:100%; max-height:88vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,.4); }
+      .modal-head{ padding:16px 20px; border-bottom:1px solid var(--hairline); display:flex; align-items:center; justify-content:space-between; }
+      .modal-head h3{ margin:0; font-size:16px; color:var(--ink); font-weight:800; }
+      .modal-head button{ background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); line-height:1; }
+      .modal-body{ padding:20px; overflow-y:auto; background:var(--surface-2); }
+      .modal-foot{ padding:14px 20px; border-top:1px solid var(--hairline); display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+
+      /* ═══════════ INVITATION CARD (size-independent, em-scaled) ═══════════ */
+      .card{
+        position:relative; overflow:hidden; flex-shrink:0;
+        display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+        text-align:center; background:var(--bg); color:var(--body-c);
+        font-family:var(--fb),sans-serif;
+        /* width / height / font-size set inline per format */
+      }
+      .card *{ position:relative; z-index:2; }
+      .card .frame, .card .motif-layer{ z-index:1; }
+      /* Text block is absolutely placed so it can be moved/resized over the artwork. */
+      .card-inner{ position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+      .card-inner.split{ align-items:flex-start; text-align:left; }
+      .card-inner.alignright{ align-items:flex-end; text-align:right; }
+      .card-inner.split .ornament{ justify-content:flex-start; width:auto; margin-left:0; }
+      .card-inner.split .subhead.scriptsub{ text-align:left; }
+      .card-top, .card-bottom{ width:100%; display:flex; flex-direction:column; align-items:center; }
+
+      .eyebrow{ font-family:var(--fb),sans-serif; color:var(--accent); font-size:calc(.36em * var(--m-eyebrow,1)); letter-spacing:.28em; text-transform:uppercase; font-weight:600; line-height:1.5; }
+      .bignum{ font-family:var(--fd),serif; color:var(--accent); line-height:.86; font-weight:700; margin:.12em 0 .06em; font-size:calc(var(--numem,3.5em) * var(--m-num,1)); }
+      .headline{ font-family:var(--fd),serif; color:var(--ink-c); line-height:1.02; margin:.1em 0; font-size:calc(var(--headem,1.55em) * var(--m-name,1)); letter-spacing:var(--headls,.02em); text-transform:var(--headtt,none); font-weight:var(--headfw,600); }
+      .subhead{ font-family:var(--fb),sans-serif; color:var(--sub); font-size:calc(.42em * var(--m-sub,1)); letter-spacing:.14em; text-transform:uppercase; font-weight:600; margin-top:.5em; line-height:1.5; }
+      .subhead.script{ font-family:var(--fd),serif; text-transform:none; letter-spacing:0; font-size:calc(.9em * var(--m-sub,1)); }
+      .subhead.scriptsub{ font-family:'Great Vibes',cursive; text-transform:none; letter-spacing:0; font-size:calc(1.7em * var(--m-sub,1)); line-height:1.02; margin:.02em 0 .28em; color:var(--accent); font-weight:400; }
+
+      .ornament{ display:flex; align-items:center; justify-content:center; gap:.7em; margin:.75em 0; color:var(--accent); width:70%; }
+      .orn-line{ flex:1; height:1px; background:currentColor; opacity:.5; max-width:3em; }
+      .orn-sym{ font-size:.5em; letter-spacing:.2em; }
+
+      /* Photo is its own movable / resizable / zoomable layer, under the text. */
+      .card .photo-layer{ position:absolute; z-index:1; overflow:hidden; background:rgba(0,0,0,.15); box-shadow:0 .15em .5em rgba(0,0,0,.28); }
+      .card .photo-layer::before{ content:""; display:block; padding-top:66%; }
+      .card .photo-layer.round{ border-radius:999px; } .card .photo-layer.round::before{ padding-top:100%; }
+      .card .photo-layer.arch{ border-radius:999px 999px 0 0; } .card .photo-layer.arch::before{ padding-top:133%; }
+      .card .photo-layer.soft{ border-radius:.55em; }
+      /* photo frames */
+      .card .photo-layer.fr-white{ border:.42em solid #fff; }
+      .card .photo-layer.fr-gold{ border:.14em solid var(--accent); }
+      .card .photo-layer.fr-goldthick{ border:.34em solid var(--accent); }
+      .card .photo-layer.fr-polaroid{ border:.4em solid #fff; border-bottom-width:1.5em; background:#fff; }
+      .card .photo-layer.fr-shadow{ box-shadow:0 .3em .9em rgba(0,0,0,.55); }
+      .card .photo-layer.empty{ background:transparent; border:1.5px dashed var(--frame); box-shadow:none; }
+      .card .photo-layer img{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+      .card .photo-layer .photo-placeholder{ position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; font-size:.4em; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); }
+
+      .recipient{ font-family:var(--fd),serif; color:var(--accent); font-size:.72em; font-style:italic; line-height:1.2; margin-bottom:.1em; }
+      .details{ font-family:var(--fb),sans-serif; color:var(--body-c); font-size:calc(.4em * var(--m-details,1)); line-height:1.75; letter-spacing:.03em; margin-top:.4em; }
+      .details .d-when{ font-weight:700; }
+      .details .d-note{ margin-top:.5em; font-style:italic; opacity:.9; }
+      .details .d-line{ margin:.15em 0; }
+      .details .d-rsvp{ margin-top:.7em; opacity:.92; font-size:.94em; }
+
+      /* ── Frames (rendered as inset border elements → export-safe) ── */
+      .frame{ position:absolute; pointer-events:none; }
+      .frame.thin{ inset:.75em; border:1px solid var(--frame); }
+      .frame.double{ inset:.62em; border:.14em double var(--frame); }
+      .frame.doubleThin{ inset:.62em; border:1px solid var(--frame); box-shadow:inset 0 0 0 .28em var(--bg), inset 0 0 0 calc(.28em + 1px) var(--frame); }
+      .frame.block{ inset:0; border:.55em solid var(--frame); }
+      .frame.blockInset{ inset:.5em; border:.28em solid var(--frame); }
+      .frame.corners{ inset:.7em; }
+      .frame.corners::before,.frame.corners::after{ content:""; position:absolute; width:1.5em; height:1.5em; border-color:var(--frame); border-style:solid; }
+      .frame.corners::before{ top:0; left:0; border-width:1.5px 0 0 1.5px; }
+      .frame.corners::after{ bottom:0; right:0; border-width:0 1.5px 1.5px 0; }
+      .frame.rainbow{ inset:0; border:.5em solid transparent; border-image:linear-gradient(90deg,#ff595e,#ffca3a,#8ac926,#1982c4,#6a4c93) 1; }
+      .frame.softcard{ inset:.4em; border:1px solid var(--frame); border-radius:.6em; }
+
+      /* ── Motif layer (SVG decorations injected per template) ── */
+      .motif-layer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+      .motif-layer svg{ position:absolute; }
+      /* ── AI background scrim (keeps overlaid text legible over the generated image) ── */
+      .ai-scrim{ position:absolute; inset:0; z-index:1; pointer-events:none; background:linear-gradient(180deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,.28) 34%, rgba(0,0,0,.32) 62%, rgba(0,0,0,.66) 100%); }
+      .ai-scrim.split{ background:linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.5) 42%, rgba(0,0,0,.05) 74%, rgba(0,0,0,0) 100%); }
+
+      /* Font override utility classes handled via CSS vars (see JS) */
+
+      /* ── Responsive tool ── */
+      @media (max-width:940px){
+        body{ flex-direction:column; }
+        #control-panel{ position:static; width:100%; height:auto; border-right:none; border-bottom:1px solid var(--hairline); box-shadow:none; }
+        #preview-container{ margin-left:0; padding:24px 12px 70px; }
+      }
+
+      /* ── Print ── */
+      @media print{
+        #control-panel, #toast, #modal-back{ display:none !important; }
+        #preview-container{ margin-left:0 !important; padding:0 !important; background:none !important; display:block !important; gap:0 !important; }
+        .stage{ transform:none !important; margin:0 !important; }
+        .stage:not(.print-a5){ display:none !important; }
+        .card{ box-shadow:none !important; }
+        .card.a5{ width:148mm !important; height:210mm !important; font-size:4.93mm !important; margin:0 !important; page-break-after:always; }
+      }
+    </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Core Team"></script>
+</head>
+<body>
+
+    <div id="control-panel">
+        <div class="panel-head">
+            <h2>Invitation Maker</h2>
+            <p>Design once — then print, share on WhatsApp, or email your whole guest list.</p>
+        </div>
+
+        <!-- OUTPUT FORMAT -->
+        <div class="section-label">Format</div>
+        <div class="fmt-tabs" id="fmt-tabs">
+            <div class="fmt-tab active" data-fmt="a5"><span class="ft-t">🖨 Card</span><span class="ft-s">A5 print / PDF</span></div>
+            <div class="fmt-tab" data-fmt="wa"><span class="ft-t">📱 WhatsApp</span><span class="ft-s">1080×1350</span></div>
+            <div class="fmt-tab" data-fmt="story"><span class="ft-t">📲 Story</span><span class="ft-s">1080×1920</span></div>
+            <div class="fmt-tab" data-fmt="square"><span class="ft-t">⬛ Square</span><span class="ft-s">1080×1080 post</span></div>
+        </div>
+
+        <!-- OCCASION + TEMPLATE -->
+        <div class="section-label">Design</div>
+        <div class="form-group">
+            <label for="occasion-select">Occasion / event</label>
+            <select id="occasion-select"></select>
+        </div>
+        <!-- AI DESIGN PICKER (primary) -->
+        <details class="sect" open>
+            <summary>✨ Choose a design — made by AI</summary>
+            <div class="sect-body">
+                <div id="ai-status" class="info-box"></div>
+                <div class="section-label">Pick a look — AI creates it (~4¢ each)</div>
+                <div class="ai-grid" id="ai-presets"></div>
+                <div class="form-group" style="margin-top:4px;">
+                    <label for="ai-note">Ask AI to add or change something</label>
+                    <textarea id="ai-note" rows="2" placeholder="e.g. add pink roses and greenery · add gold balloons · make it beach themed · add champagne glasses"></textarea>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" id="ai-gen-btn" onclick="generateAiBg()">✨ Generate / re-roll</button>
+                    <button class="btn btn-ghost" onclick="clearAiBg()">Remove</button>
+                </div>
+                <div class="btn-row" style="margin-top:6px;">
+                    <button class="btn btn-ghost" id="ai-undo" onclick="aiUndo()" disabled>◀ Undo</button>
+                    <button class="btn btn-ghost" id="ai-redo" onclick="aiRedo()" disabled>Redo ▶</button>
+                </div>
+                <div id="ai-histn" style="font-size:10.5px;color:var(--muted);font-weight:600;text-align:center;margin-top:3px;"></div>
+                <div class="form-group" style="margin-top:6px;"><label for="ai-light">Lighten ↔ darken (no re-generate)</label><input type="range" id="ai-light" min="-50" max="50" value="0"></div>
+                <div class="info-box" style="background:var(--surface-2);color:var(--body);">💡 To tweak an image use this slider or <strong>Undo</strong> — clicking <strong>Generate</strong> makes a brand-new design.</div>
+            </div>
+        </details>
+
+        <!-- FREE INSTANT DESIGNS (vector fallback, collapsed) -->
+        <details class="sect">
+            <summary>Free instant designs (no AI)</summary>
+            <div class="sect-body">
+                <div class="tpl-hint">Click one to use straight away — free, no waiting. Good for a quick draft or if you'd rather not use AI.</div>
+                <div class="tpl-grid" id="tpl-grid"></div>
+            </div>
+        </details>
+
+        <!-- WORDING -->
+        <details class="sect" open>
+            <summary>Wording</summary>
+            <div class="sect-body">
+                <div class="form-group">
+                    <label for="input-host">Top line</label>
+                    <input type="text" id="input-host" value="Please join us to celebrate">
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:0 0 118px;">
+                        <label for="input-milestone">Big number / monogram</label>
+                        <input type="text" id="input-milestone" value="50" placeholder="e.g. 50 or J&amp;M">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-title">Main name / title</label>
+                        <input type="text" id="input-title" value="Natasha">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="input-subtitle">Subtitle</label>
+                    <input type="text" id="input-subtitle" value="50th Birthday Celebration">
+                </div>
+            </div>
+        </details>
+
+        <!-- EVENT DETAILS (structured) -->
+        <details class="sect" open>
+            <summary>Event details</summary>
+            <div class="sect-body">
+                <div class="form-row">
+                    <div class="form-group"><label for="input-date">Date</label><input type="text" id="input-date" value="Saturday 17th October"></div>
+                    <div class="form-group" style="flex:0 0 110px;"><label for="input-time">Time</label><input type="text" id="input-time" value="7:00pm"></div>
+                </div>
+                <div class="form-group"><label for="input-venue">Venue</label><input type="text" id="input-venue" value="The Riverside Rooms"></div>
+                <div class="form-group"><label for="input-address">Address <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--faint);">— press Enter for a new line</span></label><textarea id="input-address" rows="2">12 Church Lane
+Esher, Surrey</textarea></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="input-rsvp">RSVP</label><input type="text" id="input-rsvp" value="RSVP by 1st September"></div>
+                    <div class="form-group"><label for="input-note">Dress code</label><input type="text" id="input-note" value="Dress: black tie"></div>
+                </div>
+                <div class="form-group">
+                    <label for="input-notes">Extra notes <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--faint);">— added below the details, each line separate</span></label>
+                    <textarea id="input-notes" rows="2" placeholder="e.g. No gifts please, just your company&#10;Parking available on site"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="input-details">Or replace everything with free text (overrides the fields above)</label>
+                    <textarea id="input-details" rows="3" placeholder="Leave blank to use the fields above"></textarea>
+                </div>
+            </div>
+        </details>
+
+        <!-- CUSTOM COLOURS -->
+        <details class="sect">
+            <summary>Custom colours &amp; fonts</summary>
+            <div class="sect-body">
+                <label class="cb-label"><input type="checkbox" id="enable-color-override"> Override the template's colours</label>
+                <div class="form-row">
+                    <div class="form-group"><label for="color-bg">Background</label><input type="color" id="color-bg" value="#0a1220"></div>
+                    <div class="form-group"><label for="color-accent">Accent</label><input type="color" id="color-accent" value="#c9a24e"></div>
+                    <div class="form-group"><label for="color-text">Text</label><input type="color" id="color-text" value="#ffffff"></div>
+                </div>
+                <div class="form-group">
+                    <label for="font-override">Font override</label>
+                    <select id="font-override">
+                        <option value="default">— Keep template fonts —</option>
+                        <option value="Cinzel">Cinzel (grand serif)</option>
+                        <option value="Cormorant Garamond">Cormorant (refined serif)</option>
+                        <option value="Playfair Display">Playfair (literary serif)</option>
+                        <option value="Marcellus">Marcellus (calm caps serif)</option>
+                        <option value="Abril Fatface">Abril Fatface (bold display)</option>
+                        <option value="Montserrat">Montserrat (clean sans)</option>
+                        <option value="Poppins">Poppins (rounded sans)</option>
+                        <option value="Great Vibes">Great Vibes (elegant script)</option>
+                        <option value="Pinyon Script">Pinyon Script (fine script)</option>
+                        <option value="Dancing Script">Dancing Script (casual script)</option>
+                        <option value="Kanit">Kanit (bold athletic)</option>
+                        <option value="Fredoka One">Fredoka (fun round)</option>
+                    </select>
+                </div>
+            </div>
+        </details>
+
+        <!-- PHOTO -->
+        <details class="sect">
+            <summary>Photo — add, move, frame &amp; adjust</summary>
+            <div class="sect-body">
+                <div class="form-group">
+                    <label for="image-upload">Your photo</label>
+                    <input type="file" id="image-upload" accept="image/*" onchange="handleImage(event)">
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="photo-shape">Shape</label>
+                        <select id="photo-shape">
+                            <option value="rect">Rectangle</option>
+                            <option value="soft">Rounded</option>
+                            <option value="round">Circle</option>
+                            <option value="arch">Arch</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label for="photo-frame">Frame</label>
+                        <select id="photo-frame">
+                            <option value="none">None</option>
+                            <option value="white">White border</option>
+                            <option value="polaroid">Polaroid</option>
+                            <option value="gold">Thin accent line</option>
+                            <option value="goldthick">Thick accent</option>
+                            <option value="shadow">Drop shadow</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="section-label">Size &amp; position</div>
+                <div class="form-group"><label for="ph-w">Photo size</label><input type="range" id="ph-w" min="12" max="100" value="50"></div>
+                <div class="form-group"><label for="ph-x">Left ↔ right</label><input type="range" id="ph-x" min="0" max="100" value="50"></div>
+                <div class="form-group"><label for="ph-y">Up ↕ down</label><input type="range" id="ph-y" min="0" max="100" value="66"></div>
+                <div class="section-label">Zoom &amp; pan (inside the frame)</div>
+                <div class="form-group"><label for="ph-z">Zoom</label><input type="range" id="ph-z" min="100" max="300" value="100"></div>
+                <div class="form-group"><label for="ph-ox">Pan across</label><input type="range" id="ph-ox" min="0" max="100" value="50"></div>
+                <div class="form-group"><label for="ph-oy">Pan up / down</label><input type="range" id="ph-oy" min="0" max="100" value="50"></div>
+                <div class="section-label">Adjust</div>
+                <div class="form-group"><label for="ph-br">Brightness</label><input type="range" id="ph-br" min="50" max="160" value="100"></div>
+                <div class="form-group"><label for="ph-co">Contrast</label><input type="range" id="ph-co" min="50" max="180" value="100"></div>
+                <div class="form-group"><label for="ph-sa">Saturation</label><input type="range" id="ph-sa" min="0" max="200" value="100"></div>
+                <div class="form-group"><label for="ph-gs">Black &amp; white</label><input type="range" id="ph-gs" min="0" max="100" value="0"></div>
+                <button class="btn btn-ghost" onclick="resetPhoto()">Reset photo settings</button>
+            </div>
+        </details>
+
+        <!-- TEXT -->
+        <details class="sect" open>
+            <summary>Text — move, size, font &amp; colour</summary>
+            <div class="sect-body">
+                <div class="section-label">Whole text block</div>
+                <div class="info-box" style="background:var(--surface-2);color:var(--body);">Move the whole block clear of the artwork.</div>
+                <div class="form-group"><label for="txt-x">Left ↔ right</label><input type="range" id="txt-x" min="8" max="92" value="50"></div>
+                <div class="form-group"><label for="txt-y">Up ↕ down</label><input type="range" id="txt-y" min="8" max="92" value="50"></div>
+                <div class="form-group"><label for="txt-w">Block width</label><input type="range" id="txt-w" min="25" max="95" value="78"></div>
+                <div class="form-group"><label for="txt-s">Overall size</label><input type="range" id="txt-s" min="60" max="170" value="100"></div>
+
+                <div class="section-label">Style each part</div>
+                <div class="form-group"><label for="el-pick">Which part</label>
+                    <select id="el-pick">
+                        <option value="num">Big number</option>
+                        <option value="name">Name / title</option>
+                        <option value="sub">Subtitle</option>
+                        <option value="eyebrow">Top line</option>
+                        <option value="details">Details (date, venue, RSVP)</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="el-size">Size of this part</label><input type="range" id="el-size" min="30" max="260" value="100"></div>
+                <div class="form-group"><label for="el-font">Font</label>
+                    <select id="el-font">
+                        <option value="default">— Design default —</option>
+                        <option value="Cinzel">Cinzel (grand serif)</option>
+                        <option value="Cormorant Garamond">Cormorant (refined serif)</option>
+                        <option value="Playfair Display">Playfair (literary serif)</option>
+                        <option value="Marcellus">Marcellus (calm caps serif)</option>
+                        <option value="Abril Fatface">Abril Fatface (bold display)</option>
+                        <option value="Montserrat">Montserrat (clean sans)</option>
+                        <option value="Poppins">Poppins (rounded sans)</option>
+                        <option value="Great Vibes">Great Vibes (elegant script)</option>
+                        <option value="Pinyon Script">Pinyon Script (fine script)</option>
+                        <option value="Dancing Script">Dancing Script (casual script)</option>
+                        <option value="Kanit">Kanit (bold athletic)</option>
+                        <option value="Fredoka One">Fredoka (fun round)</option>
+                    </select>
+                </div>
+                <div class="form-group"><label class="cb-label"><input type="checkbox" id="el-colon"> Custom colour for this part</label><input type="color" id="el-col" value="#e8c96a"></div>
+                <div class="form-group"><label for="el-case">Letter case</label>
+                    <select id="el-case">
+                        <option value="">— Design default —</option>
+                        <option value="none">As typed (Mixed case)</option>
+                        <option value="uppercase">UPPERCASE</option>
+                        <option value="capitalize">Title Case</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="el-mx">Move this part ← →</label><input type="range" id="el-mx" min="-100" max="100" value="0"></div>
+                <div class="form-group"><label for="el-my">Move this part ↑ ↓</label><input type="range" id="el-my" min="-100" max="100" value="0"></div>
+                <button class="btn btn-ghost" onclick="resetTextPos()">Reset all text</button>
+            </div>
+        </details>
+
+        <!-- MAIL MERGE -->
+        <details class="sect">
+            <summary>Mail merge — guest list</summary>
+            <div class="sect-body">
+                <div class="form-group">
+                    <label for="excel-upload">Excel guest list (.xlsx)</label>
+                    <input type="file" id="excel-upload" accept=".xlsx, .xls" onchange="handleExcel(event)">
+                    <div class="info-box">Upload a spreadsheet with a <strong>Name</strong> column (and an optional <strong>Email</strong> column) — you'll get one personalised invitation per guest for printing, and you can email the whole list at once with Resend.</div>
+                </div>
+                <button class="btn btn-ghost" onclick="clearMerge()">Clear list</button>
+            </div>
+        </details>
+
+        <!-- EXPORT -->
+        <div class="section-label">Share &amp; export</div>
+        <div class="btn-row">
+            <button class="btn btn-primary btn-full" onclick="doPrint()">🖨 Print / Save as PDF</button>
+            <button class="btn btn-ghost" onclick="downloadImage()">🖼 Download image</button>
+            <button class="btn btn-wa" onclick="shareWhatsApp()">📱 WhatsApp</button>
+            <button class="btn btn-ghost" onclick="copyWhatsAppText()">📋 Copy message</button>
+            <button class="btn btn-ghost" onclick="openEmail()">✉ Email invite</button>
+            <button class="btn btn-ghost btn-full" onclick="downloadCalendar()">📅 Add-to-calendar file (.ics)</button>
+        </div>
+
+        <div class="section-label">Project</div>
+        <div class="btn-row">
+            <button class="btn btn-ghost" onclick="saveProject()">💾 Save project</button>
+            <label class="btn btn-ghost" style="cursor:pointer;">📂 Open project<input type="file" id="proj-open" accept=".callainv,.json" onchange="loadProjectFile(event)" style="display:none;"></label>
+        </div>
+
+    </div>
+
+    <div id="preview-container"></div>
+
+    <!-- Email modal -->
+    <div id="modal-back">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>✉ Email invitation</h3>
+                <button onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="resend-status" class="info-box" style="margin-bottom:14px;"></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="mail-fromname">From name</label><input type="text" id="mail-fromname" placeholder="e.g. Natasha"></div>
+                    <div class="form-group"><label for="mail-fromemail">From address</label><input type="text" id="mail-fromemail" placeholder="invites@yourdomain.com"></div>
+                </div>
+                <div class="form-group" style="margin-top:12px;"><label for="mail-subject">Subject</label><input type="text" id="mail-subject"></div>
+                <div class="form-group" style="margin-top:12px;">
+                    <label for="mail-to">Send to (comma-separated emails)</label>
+                    <textarea id="mail-to" rows="2" placeholder="guest1@example.com, guest2@example.com"></textarea>
+                    <label class="cb-label" id="mail-uselist-wrap" style="display:none;margin-top:4px;"><input type="checkbox" id="mail-uselist" checked onchange="fillToFromList()"> Use my uploaded guest list (<span id="mail-listcount">0</span> emails)</label>
+                </div>
+                <details class="sect" id="resend-settings" style="margin-top:14px;">
+                    <summary>Resend account &amp; API key</summary>
+                    <div class="sect-body">
+                        <div class="info-box">Emails are delivered with <strong>Resend</strong>. Paste your API key from resend.com and a sender address on a domain you've verified there. Stored only on this device.</div>
+                        <div class="form-group"><label for="mail-key">Resend API key</label><input type="text" id="mail-key" placeholder="re_xxxxxxxx"></div>
+                        <div class="form-group"><label for="mail-keyfrom">Default sender address</label><input type="text" id="mail-keyfrom" placeholder="invites@yourdomain.com"></div>
+                        <button class="btn btn-ghost" onclick="saveResendKey()">Save</button>
+                    </div>
+                </details>
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 8px;">Preview</div>
+                <div id="email-preview"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-primary" id="btn-send-resend" onclick="sendResend()">📨 Send via Resend</button>
+                <button class="btn btn-ghost" onclick="downloadEmailHtml()">⬇ Download .html</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+    /* ══════════════════════════════════════════════════════════════════
+       TEMPLATE LIBRARY  (data-driven themes)
+       Each template only sets colour/type/frame/motif — sizing is shared,
+       so every design renders identically to print, WhatsApp, story & square.
+       Fields:
+         id, name, occasion, tag(gallery pill)
+         bg      : full CSS background value
+         accent  : accent / lines / number colour
+         ink     : main headline colour
+         sub     : subtitle colour
+         body    : details colour
+         fd      : display font family   fb : body font family
+         frame   : thin|double|doubleThin|block|blockInset|corners|rainbow|softcard|none
+         orn     : ornament symbol ('' = hide)
+         motif   : botanical|deco|hearts|stars|balloons|sparkle|petals|leaves|snow|''
+         numem/headem/headtt/headls/headfw : optional sizing overrides
+         subScript : true → subtitle in display font (script look)
+       ══════════════════════════════════════════════════════════════════ */
+    const TEMPLATES = [
+      /* ─── Flagship gold-foil (matches the classic Zazzle 50th look) ─── */
+      { id:'gold50', name:'Gold Confetti', occasion:'Milestone', tag:'Gold foil',
+        bg:'#0a0a0a', accent:'#e8c96a', ink:'#f0dfa4', sub:'#e8c96a', body:'#e6d6a0',
+        fd:'Playfair Display', fb:'Montserrat', frame:'none', orn:'', foil:true, scriptSub:true,
+        numem:'4.8em', headem:'1.45em', headtt:'uppercase', headls:'.18em', headfw:600 },
+      { id:'rosegoldconf', name:'Rose Gold Confetti', occasion:'Milestone', tag:'Rose foil',
+        bg:'#0d0b0c', accent:'#e6b89c', ink:'#f0d6c6', sub:'#e6b89c', body:'#ecd3c6',
+        fd:'Playfair Display', fb:'Montserrat', frame:'none', orn:'', foil:true, scriptSub:true,
+        numem:'4.8em', headem:'1.45em', headtt:'uppercase', headls:'.18em', headfw:600 },
+      { id:'silverconf', name:'Silver Confetti', occasion:'Milestone', tag:'Silver foil',
+        bg:'#0c0c0e', accent:'#cfd6de', ink:'#e8ecf1', sub:'#cfd6de', body:'#dfe4ea',
+        fd:'Playfair Display', fb:'Montserrat', frame:'none', orn:'', foil:true, scriptSub:true,
+        numem:'4.8em', headem:'1.45em', headtt:'uppercase', headls:'.18em', headfw:600 },
+
+      /* ─── Glitter-gown "Fifty & Fabulous" (split layout: text left, sparkly gown right) ─── */
+      { id:'gown50', name:'Fabulous Gown', occasion:'Milestone', tag:'Gown',
+        bg:'#0a0a0a', accent:'#e8c96a', ink:'#f0dfa4', sub:'#e8c96a', body:'#e6d6a0',
+        fd:'Playfair Display', fb:'Montserrat', frame:'none', orn:'', foil:true, scriptSub:true, split:true,
+        numem:'3.2em', headem:'1.3em', headtt:'uppercase', headls:'.14em', headfw:600 },
+      { id:'gownred', name:'Red & Gold Gown', occasion:'Milestone', tag:'Gown',
+        bg:'radial-gradient(120% 120% at 62% 38%, #9a1622 0%, #4c0a12 100%)', accent:'#e8c96a', ink:'#f6e2c0', sub:'#e8c96a', body:'#f0dcc0',
+        fd:'Playfair Display', fb:'Montserrat', frame:'none', orn:'', foil:true, scriptSub:true, split:true,
+        numem:'3.2em', headem:'1.3em', headtt:'uppercase', headls:'.14em', headfw:600 },
+      { id:'gowndiamond', name:'Diamond Gown', occasion:'Milestone', tag:'Gown',
+        bg:'#0a0a0a', accent:'#dfe4ea', ink:'#f0f2f6', sub:'#dfe4ea', body:'#e6e9ee',
+        fd:'Playfair Display', fb:'Montserrat', frame:'none', orn:'', foil:true, scriptSub:true, split:true,
+        numem:'3.2em', headem:'1.3em', headtt:'uppercase', headls:'.14em', headfw:600 },
+
+      /* ─── Elegant / milestone ─── */
+      { id:'royal', name:'Midnight & Gold', occasion:'Milestone', tag:'Milestone',
+        bg:'radial-gradient(120% 100% at 50% 0%, #1a2942 0%, #0a1220 70%)', accent:'#c9a24e', ink:'#ffffff', sub:'#b9c4d6', body:'#d7ddea',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'double', orn:'✦', motif:'', headtt:'uppercase', headls:'.18em', numem:'3.6em' },
+      { id:'noir', name:'Champagne Noir', occasion:'Milestone', tag:'Formal',
+        bg:'#0c0c0c', accent:'#cbb682', ink:'#ffffff', sub:'#9c9488', body:'#d8d2c6',
+        fd:'Cormorant Garamond', fb:'Montserrat', frame:'doubleThin', orn:'◆', motif:'', numem:'4.2em', headfw:500, headls:'.05em' },
+      { id:'gatsby', name:'Gatsby Deco', occasion:'Milestone', tag:'Art deco',
+        bg:'#0a0a0a', accent:'#d4b968', ink:'#ffffff', sub:'#c9b06a', body:'#e8e2d0',
+        fd:'Cinzel Decorative', fb:'Josefin Sans', frame:'corners', orn:'❖', motif:'deco', headtt:'uppercase', headls:'.22em' },
+      { id:'emerald', name:'Emerald & Gold', occasion:'Milestone', tag:'Formal',
+        bg:'radial-gradient(120% 100% at 50% 0%, #12362c 0%, #071d16 75%)', accent:'#cba457', ink:'#f3efe2', sub:'#a9c4b6', body:'#dfe8e0',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'thin', orn:'✦', motif:'', headtt:'uppercase', headls:'.16em' },
+      { id:'burgundy', name:'Burgundy Crest', occasion:'Milestone', tag:'Classic',
+        bg:'radial-gradient(120% 100% at 50% 0%, #601521 0%, #3d0b12 80%)', accent:'#d4af37', ink:'#fdf6e9', sub:'#e7c9a0', body:'#f4e9dd',
+        fd:'Playfair Display', fb:'Montserrat', frame:'blockInset', orn:'✦', motif:'', headtt:'uppercase', headls:'.1em', headfw:700 },
+      { id:'editorial', name:'Modern Editorial', occasion:'Milestone', tag:'Minimal',
+        bg:'#ffffff', accent:'#b08d4f', ink:'#111111', sub:'#8a8a8a', body:'#555555',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'none', orn:'', motif:'', numem:'4.4em', headtt:'uppercase', headls:'.06em', headfw:800, headem:'1.4em' },
+      { id:'winter', name:'Winter Sparkle', occasion:'Festive', tag:'Winter',
+        bg:'radial-gradient(120% 100% at 50% 0%, #1e3a5f 0%, #0a1a2e 75%)', accent:'#cddff0', ink:'#ffffff', sub:'#a9c0d8', body:'#dce8f2',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'thin', orn:'❄', motif:'snow', headtt:'uppercase', headls:'.16em' },
+
+      /* ─── Wedding / engagement / anniversary ─── */
+      { id:'ivory', name:'Ivory Vows', occasion:'Wedding', tag:'Wedding',
+        bg:'#f7f4ee', accent:'#a68a5b', ink:'#3a352c', sub:'#9a8f7a', body:'#5a5245',
+        fd:'Pinyon Script', fb:'EB Garamond', frame:'thin', orn:'❦', motif:'leaves', numem:'3.2em', headem:'2.6em', headfw:400, subScript:false },
+      { id:'archboho', name:'Boho Arch', occasion:'Wedding', tag:'Boho',
+        bg:'linear-gradient(180deg,#efe4d6 0%,#e3cdb5 100%)', accent:'#9c6b4a', ink:'#4a3527', sub:'#a07d5f', body:'#5c4636',
+        fd:'Marcellus', fb:'Jost', frame:'none', orn:'', motif:'arch', headtt:'uppercase', headls:'.2em', photoArch:true },
+      { id:'sagegold', name:'Sage & Gold', occasion:'Wedding', tag:'Wedding',
+        bg:'#e7ece1', accent:'#8a7b3f', ink:'#39412e', sub:'#7c8968', body:'#4f5840',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'doubleThin', orn:'❧', motif:'leaves', headem:'2.2em', headfw:600 },
+      { id:'engaged', name:'Save the Date', occasion:'Wedding', tag:'Save the date',
+        bg:'linear-gradient(160deg,#f6e9e4 0%,#f0d7cf 100%)', accent:'#b5817a', ink:'#5b3f3b', sub:'#a37f79', body:'#6d504b',
+        fd:'Parisienne', fb:'Montserrat', frame:'none', orn:'♡', motif:'', numem:'2.6em', headem:'2.8em', headfw:400 },
+      { id:'anniv', name:'Golden Anniversary', occasion:'Anniversary', tag:'Anniversary',
+        bg:'radial-gradient(120% 100% at 50% 0%, #2a2417 0%, #14110a 80%)', accent:'#e3c766', ink:'#fbf3dd', sub:'#c9b48a', body:'#eaded0',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'double', orn:'∞', motif:'', headtt:'uppercase', headls:'.16em' },
+
+      /* ─── Baby / christening ─── */
+      { id:'babyblue', name:'Little Star (Blue)', occasion:'Baby', tag:'Baby shower',
+        bg:'linear-gradient(180deg,#eaf3fb 0%,#d5e8f7 100%)', accent:'#5b8bc4', ink:'#33506e', sub:'#7ba0c8', body:'#46617d',
+        fd:'Dancing Script', fb:'Poppins', frame:'softcard', orn:'★', motif:'stars', headem:'2.6em', headfw:700 },
+      { id:'babypink', name:'Sweet Pea (Pink)', occasion:'Baby', tag:'Baby shower',
+        bg:'linear-gradient(180deg,#fdeef2 0%,#f8d8e2 100%)', accent:'#d17a9a', ink:'#7a4257', sub:'#c78aa1', body:'#8a5568',
+        fd:'Dancing Script', fb:'Poppins', frame:'softcard', orn:'❀', motif:'petals', headem:'2.6em', headfw:700 },
+      { id:'reveal', name:'Gender Reveal', occasion:'Baby', tag:'Reveal',
+        bg:'linear-gradient(120deg,#8ec5e8 0%,#f6b6cd 100%)', accent:'#ffffff', ink:'#ffffff', sub:'#fff3f6', body:'#ffffff',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'?', motif:'', headfw:400, headem:'1.9em' },
+      { id:'christening', name:'Christening Dove', occasion:'Baby', tag:'Christening',
+        bg:'#f6f8fb', accent:'#9ab0c8', ink:'#3d4a5a', sub:'#8ea2b8', body:'#54606f',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'thin', orn:'✝', motif:'', headem:'2.3em', headfw:600 },
+
+      /* ─── Parties / social ─── */
+      { id:'cocktail', name:'Cocktail Hour', occasion:'Party', tag:'Drinks',
+        bg:'radial-gradient(120% 100% at 50% 0%, #2b1b3d 0%, #150d20 80%)', accent:'#e8a0c0', ink:'#ffffff', sub:'#c9a0d8', body:'#ecd9e8',
+        fd:'Italiana', fb:'Jost', frame:'corners', orn:'🍸', motif:'', headtt:'uppercase', headls:'.2em' },
+      { id:'dinner', name:'Supper Club', occasion:'Party', tag:'Dinner',
+        bg:'#1c1c1a', accent:'#c9a86a', ink:'#f4efe4', sub:'#a89d86', body:'#ded6c6',
+        fd:'Prata', fb:'Jost', frame:'thin', orn:'✦', motif:'', headem:'2em', headfw:400 },
+      { id:'housewarming', name:'Housewarming', occasion:'Party', tag:'Housewarming',
+        bg:'#f4efe6', accent:'#c07a3e', ink:'#4a3826', sub:'#a07c58', body:'#5c4835',
+        fd:'Yeseva One', fb:'Jost', frame:'softcard', orn:'⌂', motif:'', headem:'2.1em', headfw:400 },
+      { id:'nye', name:"New Year's Eve", occasion:'Festive', tag:'NYE',
+        bg:'radial-gradient(circle at 50% 25%, #1b1533 0%, #05040c 75%)', accent:'#e9c65a', ink:'#ffffff', sub:'#c9b8f0', body:'#ece6f5',
+        fd:'Bebas Neue', fb:'Montserrat', frame:'doubleThin', orn:'✧', motif:'sparkle', headtt:'uppercase', headls:'.08em', headem:'2.2em' },
+      { id:'xmas', name:'Christmas Party', occasion:'Festive', tag:'Christmas',
+        bg:'radial-gradient(120% 100% at 50% 0%, #143024 0%, #0a1c14 80%)', accent:'#d9a441', ink:'#f6efe0', sub:'#b6cbb4', body:'#e3ecdf',
+        fd:'Cinzel', fb:'Montserrat', frame:'double', orn:'❆', motif:'snow', headtt:'uppercase', headls:'.14em' },
+
+      /* ─── Corporate / business ─── */
+      { id:'corporate', name:'Corporate Event', occasion:'Business', tag:'Corporate',
+        bg:'#0e1726', accent:'#7C5CD6', ink:'#ffffff', sub:'#9fb0c7', body:'#cdd6e2',
+        fd:'Poppins', fb:'Jost', frame:'blockInset', orn:'', motif:'', headtt:'uppercase', headls:'.06em', headfw:700, headem:'1.7em', numem:'3.2em' },
+      { id:'launch', name:'Product Launch', occasion:'Business', tag:'Launch',
+        bg:'linear-gradient(150deg,#7C5CD6 0%,#4b2e9e 100%)', accent:'#ffd84d', ink:'#ffffff', sub:'#e6dcff', body:'#f1ecff',
+        fd:'Bebas Neue', fb:'Poppins', frame:'none', orn:'', motif:'', headtt:'uppercase', headls:'.05em', headem:'2.4em' },
+      { id:'gala', name:'Charity Gala', occasion:'Business', tag:'Gala',
+        bg:'radial-gradient(120% 100% at 50% 0%, #2a2340 0%, #12102a 80%)', accent:'#d9b877', ink:'#ffffff', sub:'#bcb0d8', body:'#e4dcf0',
+        fd:'Prata', fb:'Jost', frame:'double', orn:'✦', motif:'', headem:'2em', headfw:400 },
+
+      /* ─── Graduation / retirement ─── */
+      { id:'grad', name:'Graduation', occasion:'Achievement', tag:'Graduation',
+        bg:'radial-gradient(120% 100% at 50% 0%, #14243f 0%, #0a1424 80%)', accent:'#e3c766', ink:'#ffffff', sub:'#9fb4d0', body:'#d5e0ee',
+        fd:'Cinzel', fb:'Montserrat', frame:'thin', orn:'🎓', motif:'', headtt:'uppercase', headls:'.14em' },
+      { id:'retire', name:'Retirement', occasion:'Achievement', tag:'Retirement',
+        bg:'linear-gradient(180deg,#eef3ef 0%,#dbe7de 100%)', accent:'#5f8a6a', ink:'#33443a', sub:'#7a9584', body:'#48594e',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'doubleThin', orn:'❧', motif:'leaves', headem:'2.2em', headfw:600 },
+
+      /* ─── Memorial ─── */
+      { id:'memorial', name:'In Loving Memory', occasion:'Memorial', tag:'Memorial',
+        bg:'#f5f4f1', accent:'#8a8578', ink:'#3c3a34', sub:'#8a8578', body:'#55524a',
+        fd:'Cormorant Garamond', fb:'EB Garamond', frame:'thin', orn:'✝', motif:'', headem:'2.3em', headfw:500 },
+
+      /* ─── Kids ─── */
+      { id:'rainbow', name:'Rainbow Party', occasion:'Kids', tag:'Kids',
+        bg:'#fffdf7', accent:'#ff924c', ink:'#6a4c93', sub:'#8ac926', body:'#444444',
+        fd:'Fredoka One', fb:'Poppins', frame:'rainbow', orn:'★', motif:'balloons', headfw:400, headem:'2em' },
+      { id:'safari', name:'Safari Adventure', occasion:'Kids', tag:'Kids',
+        bg:'#f4f0e6', accent:'#d2691e', ink:'#2e8b57', sub:'#8b5a2b', body:'#3a3a30',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'🦁', motif:'leaves', headfw:400, headem:'2em' },
+      { id:'galactic', name:'Super Galactic', occasion:'Kids', tag:'Kids',
+        bg:'radial-gradient(circle at 50% 20%, #101034 0%, #020208 70%)', accent:'#00e5ff', ink:'#00e5ff', sub:'#c9c9ff', body:'#eeeeff',
+        fd:'Bebas Neue', fb:'Poppins', frame:'thin', orn:'★', motif:'stars', headtt:'uppercase', headls:'.06em', headem:'2.2em' },
+      { id:'princess', name:'Princess Party', occasion:'Kids', tag:'Kids',
+        bg:'linear-gradient(180deg,#fdeef7 0%,#f6d5ec 100%)', accent:'#d46fae', ink:'#8a3d74', sub:'#c77fb2', body:'#8a5b7d',
+        fd:'Dancing Script', fb:'Poppins', frame:'softcard', orn:'♛', motif:'sparkle', headem:'2.6em', headfw:700 },
+      { id:'dino', name:'Dino Roar', occasion:'Kids', tag:'Kids',
+        bg:'#eaf1e2', accent:'#e08a3c', ink:'#3f7d4f', sub:'#7a9a5a', body:'#3e4a36',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'🦕', motif:'', headfw:400, headem:'2em' },
+
+      /* ─── Fun / bright / trend ─── */
+      { id:'tropical', name:'Tropical Fiesta', occasion:'Party', tag:'Tropical',
+        bg:'linear-gradient(160deg,#ff8a5c 0%,#ff5e7e 45%,#ffb347 100%)', accent:'#ffffff', ink:'#ffffff', sub:'#fff5e0', body:'#ffffff',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'🌴', motif:'', headfw:400, headem:'2em' },
+      { id:'confetti', name:'Confetti Pop', occasion:'Party', tag:'Party',
+        bg:'radial-gradient(circle,#ffd84d 2.5px,transparent 3px) 0 0/2.4em 2.4em, radial-gradient(circle,#ff6ec7 2.5px,transparent 3px) 1.2em 1.2em/2.4em 2.4em, radial-gradient(circle,#5ce1e6 2.5px,transparent 3px) .6em 1.8em/3em 3em, linear-gradient(160deg,#241a52,#140f30)', accent:'#ffd84d', ink:'#ffffff', sub:'#c9c2ff', body:'#eeeeee',
+        fd:'Bebas Neue', fb:'Poppins', frame:'doubleThin', orn:'✦', motif:'', headtt:'uppercase', headem:'2.2em' },
+      { id:'y2k', name:'Y2K Retro', occasion:'Party', tag:'Retro',
+        bg:'linear-gradient(135deg,#ff5df2 0%,#00e5ff 100%)', accent:'#ffffff', ink:'#12043a', sub:'#3a1466', body:'#20114a',
+        fd:'Bebas Neue', fb:'Poppins', frame:'block', orn:'✧', motif:'', headtt:'uppercase', headls:'.04em', headem:'2.4em' },
+      { id:'terracotta', name:'Terracotta Sun', occasion:'Party', tag:'Boho',
+        bg:'linear-gradient(180deg,#e8b98f 0%,#c97b4a 100%)', accent:'#5a2f1c', ink:'#3d2114', sub:'#7a4326', body:'#4a2a19',
+        fd:'Marcellus', fb:'Jost', frame:'corners', orn:'☀', motif:'arch', headtt:'uppercase', headls:'.18em' },
+      { id:'football', name:'Championship', occasion:'Kids', tag:'Sport',
+        bg:'linear-gradient(135deg,#134a29 0%,#082212 100%)', accent:'#ffcc00', ink:'#ffffff', sub:'#ffe27a', body:'#f0f0f0',
+        fd:'Kanit', fb:'Montserrat', frame:'block', orn:'⚽', motif:'', headtt:'uppercase', headfw:800, headem:'2.1em' },
+
+      /* ─── Festive / cultural ─── */
+      { id:'eid', name:'Eid Celebration', occasion:'Festive', tag:'Eid',
+        bg:'radial-gradient(120% 100% at 50% 0%, #123a3a 0%, #06201f 80%)', accent:'#e3c766', ink:'#f4efe0', sub:'#a9c9c4', body:'#dce8e4',
+        fd:'Marcellus', fb:'Jost', frame:'double', orn:'☾', motif:'', headtt:'uppercase', headls:'.16em' },
+      { id:'diwali', name:'Festival of Lights', occasion:'Festive', tag:'Diwali',
+        bg:'radial-gradient(120% 100% at 50% 0%, #4a1e5c 0%, #1c0a24 80%)', accent:'#ffb347', ink:'#fff2dd', sub:'#e0a9d8', body:'#f3e3d4',
+        fd:'Yeseva One', fb:'Poppins', frame:'double', orn:'✦', motif:'sparkle', headem:'2.1em', headfw:400 },
+
+      /* ─── More elegant / formal (broaden the pool) ─── */
+      { id:'navygold', name:'Navy & Gold', occasion:'Milestone', tag:'Formal',
+        bg:'radial-gradient(120% 100% at 50% 0%, #17233f 0%, #0b1222 80%)', accent:'#e3c766', ink:'#ffffff', sub:'#a9b6cf', body:'#dce3ef',
+        fd:'Cinzel', fb:'Cormorant Garamond', frame:'double', orn:'✦', headtt:'uppercase', headls:'.16em' },
+      { id:'onyx', name:'Onyx & Silver', occasion:'Milestone', tag:'Formal',
+        bg:'radial-gradient(120% 100% at 50% 0%, #2a2d34 0%, #111317 80%)', accent:'#c9ced6', ink:'#ffffff', sub:'#aab2bd', body:'#dfe3ea',
+        fd:'Marcellus', fb:'Jost', frame:'double', orn:'◆', headtt:'uppercase', headls:'.16em' },
+      { id:'summerball', name:'Midsummer Ball', occasion:'Formal', tag:'Ball',
+        bg:'radial-gradient(120% 100% at 50% 0%, #1e2b4a 0%, #0e1830 80%)', accent:'#e6c56a', ink:'#ffffff', sub:'#b7c4e0', body:'#e0e7f4',
+        fd:'Prata', fb:'Jost', frame:'double', orn:'✦', headem:'2em', headfw:400 },
+      { id:'blushgold', name:'Blush & Gold', occasion:'Pretty', tag:'Floral',
+        bg:'linear-gradient(165deg,#fbeef0 0%,#f4dbe0 100%)', accent:'#c0896a', ink:'#5b4550', sub:'#b58aa0', body:'#6d5560',
+        fd:'Playfair Display', fb:'Jost', frame:'thin', orn:'❀', headem:'2.1em', headfw:600 },
+      { id:'garden', name:'Garden Party', occasion:'Pretty', tag:'Floral',
+        bg:'#eef3e6', accent:'#7a8f4a', ink:'#3a462c', sub:'#7e9059', body:'#4d5940',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'thin', orn:'❧', headem:'2.2em', headfw:600 },
+
+      /* ─── Funny / cheeky ─── */
+      { id:'overhill', name:'Over the Hill', occasion:'Fun', tag:'Funny',
+        bg:'#111111', accent:'#c6ff3d', ink:'#ffffff', sub:'#c6ff3d', body:'#e8e8e8',
+        fd:'Bebas Neue', fb:'Poppins', frame:'blockInset', orn:'', headtt:'uppercase', headem:'2.2em', numem:'4em' },
+      { id:'aged', name:'Aged to Perfection', occasion:'Fun', tag:'Funny',
+        bg:'#efe3c8', accent:'#7a3b2e', ink:'#3d2a1c', sub:'#8a5a3a', body:'#4a3826',
+        fd:'Yeseva One', fb:'Jost', frame:'doubleThin', orn:'❦', headem:'2em', headfw:400 },
+      { id:'oldie', name:'Officially Ancient', occasion:'Fun', tag:'Funny',
+        bg:'#d9c9a8', accent:'#b23a2e', ink:'#3a2f22', sub:'#7a5a3a', body:'#3a2f22',
+        fd:'Amatic SC', fb:'Poppins', frame:'softcard', orn:'★', headem:'2.9em', headfw:700 },
+      { id:'winefun', name:'Wine About It', occasion:'Fun', tag:'Funny',
+        bg:'#4a1626', accent:'#e3b04b', ink:'#f6e9d6', sub:'#d99a9a', body:'#eeddcc',
+        fd:'Playfair Display', fb:'Jost', frame:'doubleThin', orn:'🍷', headem:'2em', headfw:600 },
+      { id:'partypop', name:"Let's Get Silly", occasion:'Fun', tag:'Funny',
+        bg:'linear-gradient(135deg,#ff5e7e 0%,#ffca3a 100%)', accent:'#ffffff', ink:'#ffffff', sub:'#fff3f6', body:'#ffffff',
+        fd:'Fredoka One', fb:'Poppins', frame:'block', orn:'🎉', headfw:400, headem:'2em' },
+
+      /* ─── Photo-forward (designed around a picture) ─── */
+      { id:'photoluxe', name:'Photo · Editorial', occasion:'Photo', tag:'Photo',
+        bg:'#111111', accent:'#e8c877', ink:'#ffffff', sub:'#c9c1b2', body:'#eeeae0',
+        fd:'Cormorant Garamond', fb:'Jost', frame:'thin', orn:'', photoHero:true, headem:'2.2em', headfw:600 },
+      { id:'photomono', name:'Photo · Modern', occasion:'Photo', tag:'Photo',
+        bg:'#1a1a1a', accent:'#ffffff', ink:'#ffffff', sub:'#bbbbbb', body:'#eaeaea',
+        fd:'Bebas Neue', fb:'Poppins', frame:'none', orn:'', photoHero:true, headtt:'uppercase', headem:'2.4em' },
+      { id:'photoblush', name:'Photo · Blush', occasion:'Photo', tag:'Photo',
+        bg:'#f6e6ea', accent:'#b76e79', ink:'#5b3f45', sub:'#b76e79', body:'#6d505a',
+        fd:'Pinyon Script', fb:'Jost', frame:'thin', orn:'', photoHero:true, headem:'2.7em', headfw:400 },
+      { id:'photopolar', name:'Photo · Polaroid', occasion:'Photo', tag:'Photo',
+        bg:'#f4f1ea', accent:'#c07a3e', ink:'#2f2a22', sub:'#8a6a4a', body:'#4a4436',
+        fd:'Caveat', fb:'Poppins', frame:'softcard', orn:'', photoHero:true, headem:'2.6em', headfw:700 },
+    ];
+
+    const FONT_STACK = { serifs:['Cinzel','Cinzel Decorative','Cormorant Garamond','Playfair Display','Marcellus','Prata','Italiana','EB Garamond','Abril Fatface','Yeseva One'] };
+    function fontFallback(f){ return FONT_STACK.serifs.includes(f) ? "'"+f+"',serif" : (['Great Vibes','Pinyon Script','Sacramento','Parisienne','Dancing Script','Caveat'].includes(f) ? "'"+f+"',cursive" : "'"+f+"',sans-serif"); }
+
+    /* Format definitions: [w, h, unit, baseFontDivisor, previewWidthPx, className] */
+    const FORMATS = {
+      a5:    { w:148, h:210, unit:'mm', base:30, pw:360, cls:'a5', label:'A5 card' },
+      wa:    { w:1080, h:1350, unit:'px', base:30, pw:340, cls:'wa', label:'WhatsApp' },
+      story: { w:1080, h:1920, unit:'px', base:32, pw:300, cls:'story', label:'Story' },
+      square:{ w:1080, h:1080, unit:'px', base:28, pw:380, cls:'square', label:'Square' },
+    };
+
+    /* ── State ── */
+    let state = {
+      fmt:'a5',
+      tpl:'gold50',
+      cat:'b50',
+      image:'',
+      aiBg:'',   /* AI-generated background (data URL); overlays editable text on top */
+      aiPreset:null,   /* the chosen AI design concept (drives prompt + text layout/theme) */
+      aiAdjust:{ light:0 },       /* non-destructive lighten(+)/darken(-) overlay on the AI bg */
+      aiHistory:[], aiHistIdx:-1, /* keep recent generations so Undo can recover them */
+      text:{ x:null, y:50, w:null, scale:1 },   /* text block position/width/size (null = template default) */
+      elem: freshElem(),                          /* per-part size/font/colour overrides */
+      imageOriginal:'',                          /* untouched upload; adjustments are re-applied from this */
+      photo:{ x:null, y:null, w:null, zoom:1, ox:50, oy:50 },
+      photoAdj:{ brightness:100, contrast:100, saturate:100, grayscale:0 },
+      photoShape:'', photoFrame:'none',
+      recipients:[{name:'',email:''}],   /* one card per recipient; email used for Resend */
+    };
+
+    /* Approximate a colour's name for AI prompts */
+    function _accentWord(hex){ const p=hexToRgb(hex), r=p[0],g=p[1],b=p[2]; const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+      if(d<22){ const L=(mx+mn)/2; return L>175?'silver':(L>90?'pewter grey':'charcoal black'); }
+      let h; if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0)h+=360;
+      if(h<18||h>=345) return 'deep red';
+      if(h<48) return (mx>180?'gold':'rose gold');
+      if(h<72) return 'gold';
+      if(h<160) return 'emerald green';
+      if(h<200) return 'teal';
+      if(h<255) return 'navy blue';
+      if(h<292) return 'royal purple';
+      return 'blush pink';
+    }
+    /* ══════════ AI DESIGN LIBRARY — 20+ distinct photographic looks per occasion ══════════
+       Each preset = a concept the AI renders. layout = where the text sits (so decoration
+       is kept clear of it); pal = dark→light text, light→dark text. */
+    const AI_LAYOUT = {
+      left:  { x:28, y:50, w:48, align:'left',   reserve:'Keep the entire LEFT HALF completely plain and empty for text; place ALL decoration on the right side only.' },
+      right: { x:72, y:50, w:48, align:'right',  reserve:'Keep the entire RIGHT HALF completely plain and empty for text; place ALL decoration on the left side only.' },
+      center:{ x:50, y:50, w:82, align:'center', reserve:'Keep the CENTRAL area plain and clear for text; place decoration around the outer edges and corners only.' },
+      bottom:{ x:50, y:31, w:82, align:'center', reserve:'Keep the TOP TWO-THIRDS completely plain and clear for text; place ALL decoration across the BOTTOM third only.' },
+      top:   { x:50, y:70, w:82, align:'center', reserve:'Keep the BOTTOM TWO-THIRDS plain and clear for text; place decoration across the TOP only.' },
+    };
+    const AI_THEME = {
+      dark:  { accent:'#e8c96a', ink:'#ffffff', body:'#efe7d2', sub:'#e8c96a' },
+      light: { accent:'#a9803a', ink:'#2b2b2b', body:'#3f3f3f', sub:'#8a6a30' },
+    };
+    const AI_PRESETS = [
+      { id:'goldgown',   name:'Gold Sequin Gown',   emoji:'👗', pal:'dark',  layout:'left',   motif:'a glamorous floor-length gold sequin evening gown standing elegantly on the right, gold foil confetti sparkling at the top, glossy black background' },
+      { id:'rosegown',   name:'Rose Gold Gown',     emoji:'👗', pal:'dark',  layout:'left',   motif:'a glamorous rose-gold sequin evening gown on the right, soft rose-gold glitter falling from the top, black background' },
+      { id:'silvergown', name:'Silver Diamanté Gown',emoji:'💎', pal:'dark', layout:'left',   motif:'a glamorous silver diamanté sequin evening gown on the right, sparkling diamond dust and soft bokeh, black background' },
+      { id:'redrose',    name:'Red Gown & Roses',   emoji:'🌹', pal:'light', layout:'left',   motif:'a deep red glitter sequin gown on the right with a lavish cluster of realistic red roses and gold foliage across the bottom, elegant ivory background' },
+      { id:'pinkroses',  name:'Pink Roses & Greenery',emoji:'🌸',pal:'light',layout:'bottom', motif:'a lavish arrangement of realistic blush-pink roses, peonies and green eucalyptus foliage across the bottom, soft ivory background with delicate gold accents' },
+      { id:'whitelily',  name:'White Lilies & Gold',emoji:'🤍', pal:'dark',  layout:'bottom', motif:'elegant realistic white lilies and gold-painted leaves across the bottom, glossy black background, gold foil' },
+      { id:'champagne',  name:'Champagne Celebration',emoji:'🥂',pal:'dark', layout:'center', motif:'elegant champagne coupe glasses with golden bubbles and a splash, warm gold bokeh lights, glossy black background, luxurious' },
+      { id:'champtower', name:'Champagne Tower',    emoji:'🍾', pal:'dark',  layout:'right',  motif:'a sparkling champagne coupe tower with cascading bubbles and gold bokeh on the left, black background, glamorous' },
+      { id:'goldballoon',name:'Black & Gold Balloons',emoji:'🎈',pal:'dark', layout:'center', motif:'a cluster of glossy black and metallic gold helium balloons with gold confetti gathered in the top corners, black background' },
+      { id:'balloonarch',name:'Balloon Arch',       emoji:'🎈', pal:'light', layout:'bottom', motif:'a beautiful blush, cream and gold balloon garland arch across the top and down the sides, soft neutral background' },
+      { id:'confetti',   name:'Gold Foil Confetti', emoji:'✨', pal:'dark',  layout:'center', motif:'gold metallic foil confetti and fine glitter scattered densely across the top and trailing down the edges, glossy black background' },
+      { id:'artdeco',    name:'Art Deco Glamour',   emoji:'🥃', pal:'dark',  layout:'center', motif:'an elegant symmetrical art-deco gold geometric border with a fan sunburst, 1920s Gatsby style, black background with gold foil' },
+      { id:'marble',     name:'Marble & Gold',      emoji:'🏛', pal:'light', layout:'center', motif:'luxurious white marble texture with elegant gold veins and a thin gold geometric border frame' },
+      { id:'emeraldrose',name:'Emerald & Roses',    emoji:'🌿', pal:'dark',  layout:'bottom', motif:'deep emerald-green background with realistic ivory and blush roses and gold-painted foliage across the bottom, gold foil' },
+      { id:'navyfloral', name:'Navy & Gold Florals',emoji:'🔵', pal:'dark',  layout:'bottom', motif:'deep navy-blue background with realistic white and blush florals and gold foliage arranged across the bottom' },
+      { id:'burgundy',   name:'Burgundy & Gold',    emoji:'🍷', pal:'dark',  layout:'bottom', motif:'rich burgundy background with realistic dark-red roses and gold foliage clustered across the bottom, luxurious' },
+      { id:'sunflower',  name:'Sunflower Rustic',   emoji:'🌻', pal:'light', layout:'bottom', motif:'cheerful realistic sunflowers, eucalyptus and rustic greenery across the bottom, warm cream background' },
+      { id:'tropical',   name:'Tropical & Gold',    emoji:'🌴', pal:'dark',  layout:'center', motif:'lush realistic tropical monstera and palm leaves with gold accents framing the corners, dark moody background' },
+      { id:'peony',      name:'Blush Peonies',      emoji:'🌷', pal:'light', layout:'center', motif:'soft realistic blush peonies and garden roses framing the outer edges, delicate ivory watercolour background' },
+      { id:'sparkler',   name:'Sparklers & Bokeh',  emoji:'🎇', pal:'dark',  layout:'center', motif:'glowing gold sparklers and soft firework light bursts with warm bokeh, glossy black background, celebratory' },
+      { id:'disco',      name:'Disco Glam',         emoji:'🪩', pal:'dark',  layout:'center', motif:'a glamorous silver disco ball with sparkling light reflections and colourful bokeh, dark party background' },
+      { id:'velvet',     name:'Velvet & Baroque',   emoji:'👑', pal:'dark',  layout:'center', motif:'deep jewel-tone velvet texture with an ornate gold baroque frame, regal and luxurious' },
+      { id:'butterfly',  name:'Butterflies & Florals',emoji:'🦋',pal:'light',layout:'bottom', motif:'delicate gold butterflies with soft pastel florals across the bottom, dreamy light background' },
+      { id:'minimal',    name:'Minimal Gold',       emoji:'➖', pal:'light', layout:'center', motif:'a minimalist ivory background with a single fine gold line border and one small elegant gold botanical sprig, modern and understated' },
+      /* ─── Funny / cheeky ─── */
+      { id:'overhill',   name:'Over the Hill 😆',   emoji:'🎈', pal:'dark',  layout:'center', motif:'a tongue-in-cheek "over the hill" birthday scene with cheeky black and gold balloons, a comedic party banner and scattered party props, playful dark background' },
+      { id:'wineclock',  name:"Wine O'Clock",       emoji:'🍷', pal:'dark',  layout:'right',  motif:'a fun arrangement of red wine bottles, a big glass of red wine and grapes with a cheeky celebratory vibe on the left, moody warm background' },
+      { id:'oldkit',     name:'Old-Age Survival Kit',emoji:'👓',pal:'light', layout:'center', motif:'a humorous flat-lay of a comedic "old age survival kit" — reading glasses, a hip flask, boiled sweets, candles and a cheeky birthday badge — neatly arranged on a bright pastel background' },
+      { id:'ginfun',     name:'Gin Lover',          emoji:'🍸', pal:'dark',  layout:'bottom', motif:'a playful arrangement of gin bottles, botanical garnishes, lime slices and ice cubes with a fun celebratory vibe across the bottom, dark moody background' },
+      { id:'leopard',    name:'Leopard Glam',       emoji:'🐆', pal:'dark',  layout:'center', motif:'a bold fun leopard-print and hot-pink glam background with gold sparkle and confetti, sassy and playful' },
+      { id:'partyanimal',name:'Party Animal',       emoji:'🦩', pal:'light', layout:'bottom', motif:'a fun colourful party scene with inflatable flamingos, confetti, streamers and balloons across the bottom, bright cheerful background' },
+    ];
+    function presetById(id){ return AI_PRESETS.find(p=>p.id===id); }
+    function aiScrimCss(layout, pal){
+      const d = pal==='light'; const c = a => d ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+      switch(layout){
+        case 'left':  return `background:linear-gradient(90deg, ${c(d?.72:.78)} 0%, ${c(d?.45:.5)} 40%, ${c(0)} 72%);`;
+        case 'right': return `background:linear-gradient(270deg, ${c(d?.72:.78)} 0%, ${c(d?.45:.5)} 40%, ${c(0)} 72%);`;
+        case 'bottom':return `background:linear-gradient(180deg, ${c(d?.6:.66)} 0%, ${c(d?.28:.3)} 44%, ${c(0)} 74%);`;
+        case 'top':   return `background:linear-gradient(0deg, ${c(d?.6:.66)} 0%, ${c(d?.28:.3)} 44%, ${c(0)} 74%);`;
+        default:      return `background:linear-gradient(180deg, ${c(.5)} 0%, ${c(.18)} 38%, ${c(.26)} 70%, ${c(.55)} 100%);`;
+      }
+    }
+    function buildImagePrompt(userNote){
+      const cat=curCat();
+      let motif, layout;
+      if(state.aiPreset){ motif=state.aiPreset.motif; layout=state.aiPreset.layout; }
+      else { const tpl=tplById(state.tpl); const acc=_accentWord(tpl.accent); const bgc=_accentWord(firstHex(tpl.bg));
+             motif=`a ${bgc} background with refined ${acc} foil decorative accents framing the edges`; layout=tpl.split?'left':'center'; }
+      const L = AI_LAYOUT[layout] || AI_LAYOUT.center;
+      const extra = userNote ? (` MOST IMPORTANT — the customer specifically asks for: ${userNote}. Feature this prominently and make sure it clearly appears.`) : '';
+      return `Ultra-luxury ${cat.label} invitation background. ${motif}.${extra} Photographic, premium and tasteful, high-end stationery aesthetic, soft studio lighting, subtle bokeh, rich metallic foil texture. ${L.reserve} IMPORTANT: absolutely NO text, no letters, no numbers, no words and no logos anywhere in the image. Portrait orientation.`;
+    }
+
+    /* ══════════ Categories — occasion presets (default wording + a 20+ pool of suitable styles) ══════════ */
+    const _u = a => Array.from(new Set(a));
+    const G = {
+      darkGold:['gold50','gown50','gownred','rosegoldconf','silverconf','gowndiamond','royal','navygold','onyx','noir','emerald','burgundy','gatsby','winter','gala','anniv','summerball','cocktail','nye'],
+      lightElegant:['ivory','sagegold','engaged','blushgold','garden','christening','retire','babypink'],
+      modern:['editorial','corporate','launch','y2k','terracotta','photomono'],
+      floral:['emerald','burgundy','royal','navygold','blushgold','garden','ivory','sagegold','princess','babypink'],
+      fun:['tropical','confetti','rainbow','partypop','y2k'],
+      funny:['overhill','aged','oldie','winefun','partypop'],
+      photo:['photoluxe','photomono','photoblush','photopolar'],
+      kids:['rainbow','safari','galactic','princess','dino','football','confetti','tropical','babyblue'],
+      festive:['xmas','nye','winter','eid','diwali','confetti','navygold','gala'],
+      somber:['memorial','ivory','sagegold','garden','blushgold','christening','editorial','onyx','navygold','winter','emerald','noir','photoluxe','photoblush','anniv','retire','gala','burgundy','summerball','grad','dinner','royal'],
+    };
+    const ADULT = _u([...G.darkGold,...G.lightElegant,...G.modern,...G.funny,...G.photo,...G.fun]);
+    const CORP  = _u([...G.modern,...G.darkGold,...G.photo,'gala']);
+    const KIDSP = _u([...G.kids,...G.fun,...G.funny,...G.photo,'babypink','blushgold','reveal']);
+    const WED   = _u([...G.floral,...G.lightElegant,...G.darkGold,...G.photo]);
+    const bday = (num,name,label,sub) => ({ id:'b'+num, group:'Birthdays', label, styles:ADULT, fields:{host:'Please join us to celebrate',milestone:''+num,title:name,subtitle:sub} });
+    const CATEGORIES = [
+      { id:'kids', group:'Birthdays', label:'Kids Birthday', styles:KIDSP, fields:{host:"You're invited to",milestone:'7',title:'Ruby',subtitle:'Birthday Party'} },
+      bday(18,'Alex','18th Birthday','18th Birthday Party'),
+      bday(21,'Alex','21st Birthday','21st Birthday Celebration'),
+      bday(30,'Alex','30th Birthday','30th Birthday Celebration'),
+      bday(40,'Sarah','40th Birthday','40th Birthday Celebration'),
+      bday(50,'Natasha','50th Birthday','50th Birthday Celebration'),
+      bday(60,'Natasha','60th Birthday','60th Birthday Celebration'),
+      bday(70,'George','70th Birthday','70th Birthday Celebration'),
+      bday(80,'George','80th Birthday','80th Birthday Celebration'),
+      bday(90,'George','90th Birthday','90th Birthday Celebration'),
+      bday(100,'George','100th Birthday','100th Birthday Celebration'),
+      { id:'bgen', group:'Birthdays', label:'Birthday · any age', styles:ADULT, fields:{host:'Please join us to celebrate',milestone:'',title:'Natasha',subtitle:'Birthday Celebration'} },
+
+      { id:'wedding', group:'Weddings', label:'Wedding', styles:WED, fields:{host:'Request the pleasure of your company',milestone:'',title:'Anna & James',subtitle:'Together with their families'} },
+      { id:'engagement', group:'Weddings', label:'Engagement', styles:WED, fields:{host:"You're invited to celebrate the engagement of",milestone:'',title:'Anna & James',subtitle:'Engagement Party'} },
+      { id:'savedate', group:'Weddings', label:'Save the Date', styles:WED, fields:{host:'Save the Date',milestone:'',title:'Anna & James',subtitle:'Are getting married'} },
+      { id:'anniversary', group:'Weddings', label:'Anniversary', styles:_u([...G.darkGold,...G.floral,...G.photo,...G.lightElegant]), fields:{host:'Please join us to celebrate',milestone:'50',title:'Anna & James',subtitle:'50th Wedding Anniversary'} },
+
+      { id:'baby', group:'Family', label:'Baby Shower', styles:_u([...G.lightElegant,...G.floral,'babyblue','babypink','reveal',...G.photo,...G.funny]), fields:{host:'Please join us for a',milestone:'',title:'Baby Shower',subtitle:'A little one is on the way'} },
+      { id:'reveal', group:'Family', label:'Gender Reveal', styles:_u(['reveal','babyblue','babypink',...G.fun,...G.photo,...G.funny,...G.lightElegant]), fields:{host:'Come and find out…',milestone:'',title:'Boy or Girl?',subtitle:'Gender Reveal Party'} },
+      { id:'christening', group:'Family', label:'Christening', styles:_u(['christening',...G.lightElegant,...G.floral,...G.photo,...G.darkGold]), fields:{host:'You are warmly invited to the christening of',milestone:'',title:'Sophie',subtitle:'Christening Celebration'} },
+      { id:'graduation', group:'Achievements', label:'Graduation', styles:_u(['grad',...G.darkGold,...G.modern,...G.photo,...G.funny,...G.fun]), fields:{host:"You're invited to celebrate the graduation of",milestone:'2026',title:'Alex',subtitle:'Graduation Celebration'} },
+      { id:'retirement', group:'Achievements', label:'Retirement', styles:_u(['retire',...G.lightElegant,...G.darkGold,...G.photo,...G.funny]), fields:{host:'Please join us to celebrate the retirement of',milestone:'',title:'George',subtitle:'Happy Retirement'} },
+
+      { id:'launch', group:'Business', label:'Product Launch', styles:CORP, fields:{host:"You're invited to the launch of",milestone:'',title:'Product Name',subtitle:'Launch Event'} },
+      { id:'corporate', group:'Business', label:'Corporate Event', styles:CORP, fields:{host:"You're invited to",milestone:'',title:'Company Event',subtitle:'An Evening Reception'} },
+      { id:'galac', group:'Business', label:'Charity Gala', styles:_u(['gala',...G.darkGold,...G.photo,'launch','corporate','summerball']), fields:{host:"You're invited to the",milestone:'',title:'Charity Gala',subtitle:'An Evening of Giving'} },
+
+      { id:'summerball', group:'Parties', label:'Summer Ball', styles:_u(['summerball',...G.darkGold,...G.floral,...G.photo]), fields:{host:"You're invited to the",milestone:'',title:'Summer Ball',subtitle:'An Evening of Celebration'} },
+      { id:'dinner', group:'Parties', label:'Dinner Party', styles:_u(['dinner',...G.darkGold,...G.lightElegant,...G.modern,...G.photo]), fields:{host:"You're invited to dinner",milestone:'',title:'Supper Club',subtitle:'An Intimate Evening'} },
+      { id:'cocktailp', group:'Parties', label:'Cocktail Party', styles:_u(['cocktail',...G.darkGold,...G.fun,...G.photo,...G.funny]), fields:{host:'Join us for',milestone:'',title:'Cocktails',subtitle:'Drinks & Canapés'} },
+      { id:'housewarming', group:'Parties', label:'Housewarming', styles:_u(['housewarming',...G.lightElegant,...G.fun,...G.modern,...G.photo,...G.funny]), fields:{host:"We've moved! Come and see",milestone:'',title:'Housewarming',subtitle:'Our New Home'} },
+
+      { id:'christmas', group:'Seasonal', label:'Christmas Party', styles:_u(['xmas',...G.festive,...G.darkGold,...G.photo,...G.funny]), fields:{host:"You're invited to our",milestone:'',title:'Christmas Party',subtitle:'Festive Celebration'} },
+      { id:'nyep', group:'Seasonal', label:"New Year's Eve", styles:_u(['nye',...G.festive,...G.darkGold,...G.fun,...G.photo]), fields:{host:'Ring in the New Year',milestone:'',title:"New Year's Eve",subtitle:'Celebration'} },
+      { id:'eidp', group:'Seasonal', label:'Eid', styles:_u(['eid',...G.darkGold,...G.floral,...G.photo]), fields:{host:'',milestone:'',title:'Eid Mubarak',subtitle:'Join us to celebrate'} },
+      { id:'diwalip', group:'Seasonal', label:'Diwali', styles:_u(['diwali',...G.darkGold,...G.festive,...G.photo]), fields:{host:'',milestone:'',title:'Happy Diwali',subtitle:'Festival of Lights'} },
+
+      { id:'funeral', group:'Memorial', label:'Funeral / Memorial', styles:G.somber, fields:{host:'',milestone:'',title:'In Loving Memory',subtitle:'A Celebration of Life'} },
+    ];
+    function curCat(){ return CATEGORIES.find(c=>c.id===state.cat) || CATEGORIES[5]; }
+    function applyCatFields(cat){ const f=cat.fields||{}; ['host','milestone','title','subtitle'].forEach(k=>{ if(f[k]!==undefined) document.getElementById('input-'+k).value=f[k]; }); }
+
+    /* ══════════ Decorative artwork (export-safe inline SVG) ══════════
+       Real ornamental art per template — gold botanical corner frames, art-deco
+       framing, eucalyptus sprigs, floral corners — so cards read as designed. */
+
+    // Which art each template wears (by id). '' = clean / typographic only.
+    const ART = {
+      gold50:'goldconfetti', rosegoldconf:'goldconfetti', silverconf:'goldconfetti',
+      gown50:'gown', gownred:'gown', gowndiamond:'gownconf',
+      royal:'floral', noir:'floral', gatsby:'deco', emerald:'floral', burgundy:'floral',
+      editorial:'', winter:'snow',
+      ivory:'sprig', archboho:'arch', sagegold:'sprig', engaged:'floral', anniv:'floral',
+      babyblue:'stars', babypink:'floral', reveal:'balloons', christening:'sprig',
+      cocktail:'deco', dinner:'sprig', housewarming:'sprig', nye:'deco', xmas:'sprig',
+      corporate:'', launch:'', gala:'floral', grad:'flourish', retire:'sprig', memorial:'sprig',
+      rainbow:'balloons', safari:'leaves', galactic:'stars', princess:'floral', dino:'leaves',
+      tropical:'leaves', confetti:'confetti', y2k:'sparkle', terracotta:'arch', football:'',
+      eid:'crescent', diwali:'sparkle',
+      navygold:'floral', onyx:'floral', summerball:'floral', blushgold:'floral', garden:'sprig',
+      overhill:'', aged:'flourish', oldie:'confetti', winefun:'flourish', partypop:'confetti',
+      photoluxe:'', photomono:'', photoblush:'floral', photopolar:''
+    };
+    function artFor(tpl, c){
+      const k = Object.prototype.hasOwnProperty.call(ART, tpl.id) ? ART[tpl.id] : 'flourish';
+      return k ? renderArt(k, c) : '';
+    }
+
+    // ── primitives (metallic-foil gradients + realistic foliage) ──
+    // A single vertical foil gradient (dark→metal→highlight→metal→dark) derived from the accent,
+    // injected once per card so every shape referencing url(#cgold) looks like polished metal.
+    function _metalDefs(c){
+      const hi=mixHex(c,'#ffffff',0.82), md=mixHex(c,'#ffffff',0.28), lo=mixHex(c,'#000000',0.52), lo2=mixHex(c,'#000000',0.24);
+      return `<svg width="0" height="0" style="position:absolute;width:0;height:0" aria-hidden="true"><defs>`
+        + `<linearGradient id="cgold" x1="0" y1="0" x2="0.55" y2="1">`
+        + `<stop offset="0" stop-color="${lo}"/><stop offset="0.22" stop-color="${c}"/><stop offset="0.44" stop-color="${hi}"/>`
+        + `<stop offset="0.56" stop-color="${md}"/><stop offset="0.8" stop-color="${c}"/><stop offset="1" stop-color="${lo2}"/>`
+        + `</linearGradient></defs></svg>`;
+    }
+    const GOLD='url(#cgold)';
+    // Metallic-foil TEXT (CSS gradient clip) — shiny like the reference invites; falls back to solid accent.
+    function _foilCss(c){ const hi=mixHex(c,'#ffffff',0.72), md=mixHex(c,'#ffffff',0.15), lo=mixHex(c,'#000000',0.42);
+      return `background:linear-gradient(168deg,${lo} 0%,${c} 22%,${hi} 46%,${md} 58%,${c} 74%,${lo} 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:${c};`; }
+    // Scattered gold-foil confetti dots, denser toward the top (deterministic so it doesn't jitter on edits).
+    // Glitter/sequin gown silhouette (foil gradient body + scattered sparkle glints), for the right panel.
+    function _gown(c){ const glint=mixHex(c,'#ffffff',0.7); let sp='';
+      for(let i=0;i<30;i++){ const r1=(Math.sin((i+1)*7.7)*.5+.5), r2=(Math.sin((i+1)*13.3+2)*.5+.5), r3=(Math.sin((i+3)*5.1)*.5+.5);
+        const y=16+r1*178; const hw=5+(y/200)*30; const x=42+(r2*2-1)*hw; const s=(0.4+r3*1.2);
+        sp+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${s.toFixed(2)}" fill="${glint}"/>`; }
+      const path='M36 15 Q 50 21 64 15 C 62 30 58 40 57 54 C 55 74 62 132 77 193 C 56 203 30 203 7 197 C 22 132 45 74 43 54 C 42 40 38 30 36 15 Z';
+      return `<svg viewBox="0 0 84 206" style="POS"><path d="${path}" fill="${GOLD}"/>${sp}</svg>`;
+    }
+    function goldConfetti(c){ let s=''; const N=120;
+      const rnd=(i,k)=>{ const v=Math.sin((i+1)*12.9898+k*78.233)*43758.5453; return v-Math.floor(v); };
+      for(let i=0;i<N;i++){ const x=rnd(i,1)*96+2; const yb=rnd(i,2); const y=Math.pow(yb,2.1)*96+0.5; const sz=(0.45+rnd(i,3)*rnd(i,5)*2.0);
+        s+=`<svg width="${sz.toFixed(2)}%" viewBox="0 0 10 10" style="top:${y.toFixed(1)}%;left:${x.toFixed(1)}%"><circle cx="5" cy="5" r="5" fill="${GOLD}"/></svg>`; }
+      return s;
+    }
+    // realistic tapered leaf: pointed almond body + curved midrib + herringbone veins
+    function _leaf(len,vein){ const w=len*0.3;
+      let veins='';
+      [0.3,0.48,0.66].forEach(t=>{ const bx=(len*t).toFixed(1), tx=(len*(t+0.13)).toFixed(1), vy=(w*0.5).toFixed(1), sw=Math.max(0.3,len*0.013).toFixed(2);
+        veins+=`<path d="M${bx} 0 L${tx} -${vy}" stroke="${vein}" stroke-width="${sw}" fill="none" opacity=".4"/><path d="M${bx} 0 L${tx} ${vy}" stroke="${vein}" stroke-width="${sw}" fill="none" opacity=".4"/>`; });
+      return `<path d="M0 0 C ${(len*0.26)} ${-w}, ${(len*0.72)} ${-w}, ${len} 0 C ${(len*0.72)} ${w}, ${(len*0.26)} ${w}, 0 0 Z" fill="${GOLD}"/>`
+        + `<path d="M${(len*0.05).toFixed(1)} 0 Q ${(len*0.52).toFixed(1)} ${(-w*0.12).toFixed(1)} ${(len*0.95).toFixed(1)} 0" fill="none" stroke="${vein}" stroke-width="${Math.max(0.4,len*0.02).toFixed(2)}" opacity=".5"/>`
+        + veins;
+    }
+    function _leafAt(x,y,rot,len,vein){ return `<g transform="translate(${x} ${y}) rotate(${rot})">${_leaf(len,vein)}</g>`; }
+    // small foil blossom (6 petals + centre)
+    function _bloom(x,y,r,vein){ let s=`<g transform="translate(${x} ${y})">`; for(let i=0;i<6;i++) s+=`<ellipse cx="0" cy="${-r}" rx="${r*0.5}" ry="${r}" fill="${GOLD}" transform="rotate(${i*60})"/>`; return s+`<circle r="${r*0.62}" fill="${vein}" opacity=".4"/><circle r="${r*0.32}" fill="${GOLD}"/></g>`; }
+
+    // ornate botanical corner spray (oriented for top-left; flipped for others)
+    function _cornerSpray(c){ const v=mixHex(c,'#000000',0.5);
+      return `<svg viewBox="0 0 140 140" style="POS" preserveAspectRatio="xMinYMin meet">
+        <path d="M10 10 C 46 26, 74 50, 92 98" fill="none" stroke="${GOLD}" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M10 10 C 26 46, 50 74, 98 92" fill="none" stroke="${GOLD}" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M10 10 C 40 12, 58 16, 74 26" fill="none" stroke="${GOLD}" stroke-width="1.1" stroke-linecap="round"/>
+        <path d="M10 10 C 12 40, 16 58, 26 74" fill="none" stroke="${GOLD}" stroke-width="1.1" stroke-linecap="round"/>
+        ${_leafAt(47,26,22,31,v)}${_leafAt(67,47,40,27,v)}${_leafAt(87,77,56,23,v)}
+        ${_leafAt(26,47,68,31,v)}${_leafAt(47,67,50,27,v)}${_leafAt(77,87,34,23,v)}
+        ${_leafAt(61,17,6,22,v)}${_leafAt(17,61,84,22,v)}
+        ${_bloom(20,20,8,v)}${_bloom(40,28,4.8,v)}${_bloom(28,40,4.8,v)}
+      </svg>`;
+    }
+    // eucalyptus sprig (vertical, hangs down; flipped for the bottom one)
+    function _sprig(c){ const v=mixHex(c,'#000000',0.5); let lv='';
+      [26,45,64,83,102,121].forEach((y,i)=>{ const len=22-i*1.7; lv+=_leafAt(20,y,-40,len,v)+_leafAt(20,y,-140,len,v); });
+      return `<svg viewBox="0 0 40 150" style="POS"><path d="M20 2 C 20 50, 20 100, 20 146" fill="none" stroke="${GOLD}" stroke-width="1.5"/>${lv}<circle cx="20" cy="148" r="2.4" fill="${GOLD}"/></svg>`;
+    }
+
+    function renderArt(kind, c){
+      switch(kind){
+        case 'floral': {
+          const s = p => _cornerSpray(c).replace('POS', p);
+          return s('top:-1.5%;left:-1.5%;width:31%')
+               + s('top:-1.5%;right:-1.5%;width:31%;transform:scaleX(-1)')
+               + s('bottom:-1.5%;left:-1.5%;width:31%;transform:scaleY(-1)')
+               + s('bottom:-1.5%;right:-1.5%;width:31%;transform:scale(-1,-1)');
+        }
+        case 'sprig':
+          return _sprig(c).replace('POS','top:.8em;left:50%;width:11%;transform:translateX(-50%)')
+               + _sprig(c).replace('POS','bottom:.8em;left:50%;width:11%;transform:translateX(-50%) rotate(180deg)');
+        case 'deco': {
+          let rays=''; for(let i=-4;i<=4;i++) rays+=`<line x1="60" y1="44" x2="${60+i*12}" y2="6" stroke="${c}" stroke-width="1.1" opacity=".8"/>`;
+          const sun = p => `<svg viewBox="0 0 120 48" style="${p}">${rays}</svg>`;
+          const corner = `<g fill="none" stroke="${c}" stroke-width="1.2" opacity=".85"><path d="M4 36 L4 12 L12 12 L12 4 L36 4"/><path d="M11 30 L11 19 L19 19 L19 11 L30 11"/></g>`;
+          const cn = p => `<svg viewBox="0 0 42 42" style="${p};width:14%">${corner}</svg>`;
+          return sun('top:1.1em;left:50%;width:32%;transform:translateX(-50%)')
+               + sun('bottom:1.1em;left:50%;width:32%;transform:translateX(-50%) scaleY(-1)')
+               + cn('top:.7em;left:.7em') + cn('top:.7em;right:.7em;transform:scaleX(-1)')
+               + cn('bottom:.7em;left:.7em;transform:scaleY(-1)') + cn('bottom:.7em;right:.7em;transform:scale(-1,-1)');
+        }
+        case 'arch':
+          return `<svg viewBox="0 0 100 152" style="top:4.5%;left:11%;width:78%" preserveAspectRatio="xMidYMin meet"><path d="M5 152 L5 56 A45 45 0 0 1 95 56 L95 152" fill="none" stroke="${c}" stroke-width="0.7" opacity=".5"/></svg>`
+               + _sprig(c).replace('POS','bottom:7%;left:50%;width:8%;transform:translateX(-50%) rotate(180deg)');
+        case 'stars': return starsField(c,10);
+        case 'snow': return snowField(c,16);
+        case 'sparkle': return sparkleField(c,8);
+        case 'flourish': return flourishTB(c);
+        case 'goldconfetti': return goldConfetti(c);
+        case 'gown': return _gown(c).replace('POS','right:0;bottom:2%;width:44%');
+        case 'gownconf': return goldConfetti(c) + _gown(c).replace('POS','right:0;bottom:2%;width:44%');
+        case 'confetti': return confettiField(c);
+        case 'balloons': return balloonsArt(c);
+        case 'leaves': return leavesCorners(c);
+        case 'crescent': return `<svg viewBox="0 0 60 60" style="top:1em;right:1.5em;width:13%"><path d="M42 8 A22 22 0 1 0 42 52 A17 17 0 1 1 42 8 Z" fill="${c}" opacity=".55"/></svg>` + starsField(c,5);
+        default: return '';
+      }
+    }
+
+    function flourishTB(c){
+      const fl = `<svg viewBox="0 0 240 40" style="POS"><g fill="none" stroke="${c}" stroke-width="1.4" stroke-linecap="round" opacity=".85"><path d="M120 20 C 96 20 92 8 74 10 C 58 12 54 24 66 26 C 76 27 78 18 68 17"/><path d="M120 20 C 144 20 148 8 166 10 C 182 12 186 24 174 26 C 164 27 162 18 172 17"/></g><path d="M120 12 L128 20 L120 28 L112 20 Z" fill="${c}"/><circle cx="86" cy="20" r="2" fill="${c}"/><circle cx="154" cy="20" r="2" fill="${c}"/></svg>`;
+      return fl.replace('POS','top:1.5em;left:50%;width:42%;transform:translateX(-50%)')
+           + fl.replace('POS','bottom:1.5em;left:50%;width:42%;transform:translateX(-50%) scaleY(-1)');
+    }
+    function leavesCorners(c){
+      const g = p => `<svg viewBox="0 0 60 60" style="${p};width:19%">${_leafAt(7,53,-48,50,c,'.5')}${_leafAt(7,53,-22,38,c,'.4')}${_leafAt(7,53,-72,34,c,'.4')}</svg>`;
+      return g('top:0;left:0')+g('top:0;right:0;transform:scaleX(-1)')+g('bottom:0;left:0;transform:scaleY(-1)')+g('bottom:0;right:0;transform:scale(-1,-1)');
+    }
+    function balloonsArt(c){
+      const cl = p => `<svg viewBox="0 0 120 100" style="${p};width:25%">`
+        + `<ellipse cx="26" cy="24" rx="15" ry="18" fill="${c}" opacity=".5"/><line x1="26" y1="42" x2="30" y2="70" stroke="${c}" stroke-width="1" opacity=".4"/>`
+        + `<ellipse cx="54" cy="18" rx="13" ry="16" fill="${c}" opacity=".38"/><line x1="54" y1="34" x2="52" y2="66" stroke="${c}" stroke-width="1" opacity=".35"/>`
+        + `<ellipse cx="40" cy="40" rx="12" ry="15" fill="${c}" opacity=".3"/><line x1="40" y1="55" x2="41" y2="72" stroke="${c}" stroke-width="1" opacity=".3"/></svg>`;
+      return cl('top:.5em;left:.5em') + cl('top:.5em;right:.5em;transform:scaleX(-1)');
+    }
+    function starsField(c,n){ let s=''; const pos=[[8,12],[22,26],[85,10],[70,30],[14,80],[90,72],[50,90],[35,15],[78,86],[60,60]]; for(let i=0;i<n;i++){const p=pos[i%pos.length]; const sz=(i%3)+3; s+=`<svg width="${sz}%" viewBox="0 0 24 24" style="top:${p[1]}%;left:${p[0]}%"><path d="M12 0 L14 9 L24 12 L14 15 L12 24 L10 15 L0 12 L10 9 Z" fill="${c}" opacity=".${5+(i%4)}"/></svg>`;} return s; }
+    function snowField(c,n){ let s=''; for(let i=0;i<n;i++){const x=(i*37+11)%94+2; const y=(i*53+7)%92+2; const sz=(i%3)+1.4; s+=`<svg width="${sz}%" viewBox="0 0 10 10" style="top:${y}%;left:${x}%"><circle cx="5" cy="5" r="4" fill="${c}" opacity=".${3+(i%4)}"/></svg>`;} return s; }
+    function sparkleField(c,n){ let s=''; const pos=[[12,16],[82,14],[68,34],[20,74],[88,80],[46,88],[30,44],[58,20]]; for(let i=0;i<n;i++){const p=pos[i%pos.length]; const sz=(i%3)+2.5; s+=`<svg width="${sz}%" viewBox="0 0 24 24" style="top:${p[1]}%;left:${p[0]}%"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" fill="${c}" opacity=".${5+(i%4)}"/></svg>`;} return s; }
+    function confettiField(c){ let s=''; const pts=[[10,12],[26,8],[80,10],[70,26],[16,80],[88,74],[46,92],[60,86],[34,20],[90,40],[8,52],[52,10]]; pts.forEach((p,i)=>{ const t=i%3; const sz=2+t; s+=`<svg viewBox="0 0 12 12" style="top:${p[1]}%;left:${p[0]}%;width:${sz}%;transform:rotate(${i*40}deg)">${t===0?`<rect width="11" height="4" rx="1" fill="${c}" opacity=".75"/>`:t===1?`<circle cx="6" cy="6" r="4.5" fill="${c}" opacity=".75"/>`:`<path d="M6 0 L12 6 L6 12 L0 6 Z" fill="${c}" opacity=".75"/>`}</svg>`; }); return s; }
+
+    /* ══════════ Build one card element ══════════ */
+    function tplById(id){ return TEMPLATES.find(t=>t.id===id) || TEMPLATES[0]; }
+
+    function getFields(){
+      return {
+        host: val('input-host'),
+        milestone: val('input-milestone').trim(),
+        title: val('input-title'),
+        subtitle: val('input-subtitle'),
+        date: val('input-date'),
+        time: val('input-time'),
+        venue: val('input-venue'),
+        address: val('input-address'),
+        rsvp: val('input-rsvp'),
+        note: val('input-note'),
+        notes: val('input-notes'),
+        freetext: val('input-details').trim(),
+      };
+    }
+    function splitLines(s){ return s ? String(s).split('\n').map(x=>x.trim()).filter(Boolean) : []; }
+    function val(id){ return document.getElementById(id).value; }
+
+    function detailsHtml(f){
+      if(f.freetext) return f.freetext.split('\n').map(l=>`<div class="d-line">${escapeHtml(l)}</div>`).join('');
+      let h='';
+      const when=[f.date,f.time].filter(Boolean).join(' · ');
+      if(when) h+=`<div class="d-line d-when">${escapeHtml(when)}</div>`;
+      splitLines(f.venue).forEach(l=>h+=`<div class="d-line">${escapeHtml(l)}</div>`);
+      splitLines(f.address).forEach(l=>h+=`<div class="d-line">${escapeHtml(l)}</div>`);
+      const foot=[f.rsvp,f.note].filter(Boolean).join(' · ');
+      if(foot) h+=`<div class="d-line d-rsvp">${escapeHtml(foot)}</div>`;
+      splitLines(f.notes).forEach(l=>h+=`<div class="d-line d-note">${escapeHtml(l)}</div>`);
+      return h;
+    }
+
+    function buildCard(tpl, fmt, recipient){
+      const F = FORMATS[fmt];
+      const f = getFields();
+      const colorsOn = document.getElementById('enable-color-override').checked;
+      const fontOv = document.getElementById('font-override').value;
+      const E = state.elem || freshElem();
+      const elemCss = e => (e.font?`font-family:${fontFallback(e.font)};`:'')
+        + (e.color?`color:${e.color};-webkit-text-fill-color:${e.color};background:none;`:'')
+        + (e.case?`text-transform:${e.case};`:'')
+        + ((e.x||e.y)?`transform:translate(${((e.x||0)*0.15).toFixed(2)}em,${((e.y||0)*0.15).toFixed(2)}em);`:'');
+      const attr = css => css ? ` style="${css}"` : '';
+
+      let accent=tpl.accent, ink=tpl.ink, body=tpl.body, sub=tpl.sub, bg=tpl.bg, frameC=tpl.accent;
+      if(colorsOn){
+        bg = val('color-bg'); accent = val('color-accent'); ink = val('color-text'); body = val('color-text'); sub = val('color-accent'); frameC = accent;
+      }
+      let fd=fontFallback(tpl.fd), fb=fontFallback(tpl.fb);
+      if(fontOv!=='default'){ fd=fontFallback(fontOv); }
+
+      // AI design preset overrides text theme + layout so wording sits in the reserved clear area.
+      const aiOn = !!state.aiBg;
+      const aiP = aiOn ? state.aiPreset : null;
+      const aiL = aiP ? (AI_LAYOUT[aiP.layout] || AI_LAYOUT.center) : null;
+      if(aiP && !colorsOn){ const th=AI_THEME[aiP.pal]||AI_THEME.dark; accent=th.accent; ink=th.ink; body=th.body; sub=th.sub; frameC=th.accent; }
+
+      const card = document.createElement('div');
+      card.className = 'card '+F.cls;
+      const baseUnit = (F.w / F.base) + F.unit;
+      card.style.cssText = `width:${F.w}${F.unit};height:${F.h}${F.unit};font-size:${baseUnit};`
+        + `--bg:${bg};--accent:${accent};--ink-c:${ink};--sub:${sub};--body-c:${body};--frame:${frameC};`
+        + `--fd:${fd};--fb:${fb};`
+        + `box-shadow:0 18px 50px rgba(20,32,31,.28);`
+        + (tpl.numem?`--numem:${tpl.numem};`:'')
+        + (tpl.headem?`--headem:${tpl.headem};`:'')
+        + (tpl.headtt?`--headtt:${tpl.headtt};`:'')
+        + (tpl.headls?`--headls:${tpl.headls};`:'')
+        + (tpl.headfw?`--headfw:${tpl.headfw};`:'')
+        + `--m-eyebrow:${E.eyebrow.size};--m-num:${E.num.size};--m-sub:${E.sub.size};--m-name:${E.name.size};--m-details:${E.details.size};`;
+
+      if(aiOn){ card.style.backgroundImage=`url("${state.aiBg}")`; card.style.backgroundSize='cover'; card.style.backgroundPosition='center'; card.style.backgroundRepeat='no-repeat'; }
+      const orn = tpl.orn ? `<div class="ornament"><span class="orn-line"></span><span class="orn-sym">${tpl.orn}</span><span class="orn-line"></span></div>` : '';
+      const frameEl = (tpl.frame && tpl.frame!=='none' && !aiOn) ? `<div class="frame ${tpl.frame}"></div>` : '';
+      const artHtml = aiOn ? '' : artFor(tpl, accent);
+      const motif = artHtml ? `<div class="motif-layer">${_metalDefs(accent)}${artHtml}</div>` : '';
+      const scrim = aiOn ? `<div class="ai-scrim" style="${aiScrimCss(aiP?aiP.layout:(tpl.split?'left':'center'), aiP?aiP.pal:'dark')}"></div>` : '';
+      const washV = (aiOn && state.aiAdjust && state.aiAdjust.light) ? state.aiAdjust.light : 0;
+      const wash = washV ? `<div class="ai-scrim" style="background:${washV>0?`rgba(255,255,255,${(washV/100).toFixed(2)})`:`rgba(0,0,0,${(-washV/100).toFixed(2)})`};"></div>` : '';
+      const foil = tpl.foil && !colorsOn;
+
+      // Photo only appears when the user actually adds one (no empty grey box).
+      // ── Photo layer: movable, resizable, zoomable (sits under the text) ──
+      const shapeCls = (state.photoShape || (tpl.photoArch ? 'arch' : 'rect')).replace('rect','');
+      const frameCls = state.photoFrame && state.photoFrame!=='none' ? ('fr-'+state.photoFrame) : '';
+      const P = state.photo || {};
+      const pdef = tpl.photoHero ? {x:50,y:32,w:76} : {x:50,y:66,w:50};
+      const px=(P.x!=null?P.x:pdef.x), py=(P.y!=null?P.y:pdef.y), pw=(P.w!=null?P.w:pdef.w);
+      const pz=(P.zoom!=null?P.zoom:1), pox=(P.ox!=null?P.ox:50), poy=(P.oy!=null?P.oy:50);
+      const showPhoto = state.image || tpl.photoHero;
+      const photoLayer = showPhoto
+        ? `<div class="photo-layer ${shapeCls} ${frameCls} ${state.image?'':'empty'}" style="left:${px}%;top:${py}%;width:${pw}%;transform:translate(-50%,-50%);">`
+          + (state.image
+              ? `<img src="${state.image}" alt="" style="transform:scale(${pz});object-position:${pox}% ${poy}%;">`
+              : `<span class="photo-placeholder">＋ Add your photo</span>`)
+          + `</div>`
+        : '';
+
+      const recipBlock = recipient ? `<div class="recipient">${escapeHtml(recipient)}</div>` : '';
+      // Per-part styling (size handled by --m-* vars; font/colour applied inline; foil kept unless a custom colour is set).
+      const numStyle  = attr((foil && !E.num.color ? _foilCss(accent) : '') + elemCss(E.num));
+      const subCls    = tpl.subScript ? 'subhead script' : (tpl.scriptSub ? 'subhead scriptsub' : 'subhead');
+      const subStyle  = attr((tpl.scriptSub && foil && !E.sub.color ? _foilCss(accent) : '') + elemCss(E.sub));
+      const ebStyle   = attr(elemCss(E.eyebrow));
+      const nameStyle = attr(elemCss(E.name));
+      const detStyle  = attr(elemCss(E.details));
+
+      // Text block placement (movable/resizable so it never collides with the artwork)
+      const T = state.text || {};
+      const dtx = aiL?aiL.x:(tpl.split?30:50), dty = aiL?aiL.y:50, dtw = aiL?aiL.w:(tpl.split?52:78);
+      const tx = (T.x!=null? T.x : dtx);
+      const ty = (T.y!=null? T.y : dty);
+      const tw = (T.w!=null? T.w : dtw);
+      const ts = (T.scale!=null? T.scale : 1);
+      const innerStyle = `left:${tx}%;top:${ty}%;width:${tw}%;transform:translate(-50%,-50%);font-size:${ts}em;`;
+      const alignCls = aiL ? (aiL.align==='left'?'split':(aiL.align==='right'?'alignright':'')) : (tpl.split?'split':'');
+
+      card.innerHTML = `
+        ${frameEl}${motif}${wash}${scrim}${photoLayer}
+        <div class="card-inner ${alignCls}" style="${innerStyle}">
+          ${f.host?`<div class="eyebrow"${ebStyle}>${escapeHtml(f.host)}</div>`:''}
+          ${f.milestone?`<div class="bignum"${numStyle}>${escapeHtml(f.milestone)}</div>`:''}
+          ${f.subtitle&&tpl.scriptSub?`<div class="${subCls}"${subStyle}>${escapeHtml(f.subtitle)}</div>`:''}
+          ${f.title?`<div class="headline"${nameStyle}>${escapeHtml(f.title)}</div>`:''}
+          ${f.subtitle&&!tpl.scriptSub?`<div class="${subCls}"${subStyle}>${escapeHtml(f.subtitle)}</div>`:''}
+          ${orn}
+          ${recipBlock}
+          <div class="details"${detStyle}>${detailsHtml(f)}</div>
+        </div>`;
+      return card;
+    }
+
+    /* ══════════ Render preview ══════════ */
+    function render(){
+      const container = document.getElementById('preview-container');
+      container.innerHTML='';
+      const tpl = tplById(state.tpl);
+      const F = FORMATS[state.fmt];
+      const cardWpx = F.unit==='mm' ? F.w*3.7795 : F.w;    /* mm→px @96dpi */
+      const cardHpx = F.unit==='mm' ? F.h*3.7795 : F.h;
+      // Fill the workspace: fit the card to available width & height, allow upscaling.
+      const cw = container.clientWidth || (window.innerWidth - 410);
+      const many = state.recipients.length > 1;
+      const availW = Math.max(300, cw - 96);
+      const availH = Math.max(360, window.innerHeight - 130) * (many ? 0.8 : 1);
+      let scale = Math.min(availW / cardWpx, availH / cardHpx, 2.2);
+      if(many) scale = Math.min(scale, 0.9);
+
+      state.recipients.forEach(rec=>{
+        const card = buildCard(tpl, state.fmt, rec.name);
+        const stage = document.createElement('div');
+        stage.className = 'stage' + (state.fmt==='a5'?' print-a5':'');
+        stage.appendChild(card);
+        stage.style.width = (cardWpx*scale)+'px';
+        stage.style.height = (cardHpx*scale)+'px';
+        card.style.transformOrigin='top left';
+        card.style.transform = `scale(${scale})`;
+        container.appendChild(stage);
+      });
+    }
+    let _rzT; window.addEventListener('resize', ()=>{ clearTimeout(_rzT); _rzT=setTimeout(render, 120); });
+
+    /* ══════════ Category select + template gallery ══════════ */
+    function buildCategorySelect(){
+      const sel=document.getElementById('occasion-select');
+      const groups=_u(CATEGORIES.map(c=>c.group));
+      sel.innerHTML = groups.map(g=>`<optgroup label="${g}">`
+        + CATEGORIES.filter(c=>c.group===g).map(c=>`<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('')
+        + `</optgroup>`).join('');
+      sel.value = state.cat;
+    }
+    function buildGallery(){
+      const grid=document.getElementById('tpl-grid');
+      const list = curCat().styles.map(id=>tplById(id)).filter(Boolean);
+      grid.innerHTML='';
+      const savedAi=state.aiBg; state.aiBg='';          // thumbnails always show the vector design
+      const cardW=148*3.7795;
+      list.forEach(t=>{
+        const chip=document.createElement('div');
+        chip.className='tpl-chip'+(t.id===state.tpl?' active':'');
+        chip.title=t.name;
+        chip.onclick=()=>{ state.tpl=t.id; state.aiBg=''; state.aiPreset=null; buildAiPresets(); state.text={x:null,y:50,w:null,scale:1}; state.elem=freshElem(); syncTextSliders(); syncElemControls(); buildGallery(); render(); };
+        chip.appendChild(buildCard(t,'a5',''));         // real miniature of the actual design
+        const label=document.createElement('div'); label.className='tpl-label'; label.textContent=t.tag;
+        chip.appendChild(label);
+        grid.appendChild(chip);
+      });
+      state.aiBg=savedAi;
+      requestAnimationFrame(()=>{
+        grid.querySelectorAll('.tpl-chip').forEach(chip=>{
+          const w = chip.clientWidth || 110;
+          chip.style.height = Math.round(w*210/148)+'px';   // explicit height (aspect-ratio alone collapses in a scrolling grid)
+          const m=chip.querySelector('.card'); if(!m) return;
+          m.style.transformOrigin='top left'; m.style.transform=`scale(${w/cardW})`;
+        });
+      });
+    }
+
+    /* ══════════ Format tabs ══════════ */
+    document.getElementById('fmt-tabs').addEventListener('click', e=>{
+      const tab=e.target.closest('.fmt-tab'); if(!tab) return;
+      state.fmt=tab.dataset.fmt;
+      document.querySelectorAll('.fmt-tab').forEach(t=>t.classList.toggle('active', t===tab));
+      render();
+    });
+    document.getElementById('occasion-select').addEventListener('change', e=>{
+      state.cat=e.target.value;
+      const cat=curCat();
+      applyCatFields(cat);
+      if(!cat.styles.includes(state.tpl)) state.tpl=cat.styles[0];
+      buildGallery(); render();
+    });
+
+    /* live text updates */
+    let _galT;
+    ['input-host','input-milestone','input-title','input-subtitle','input-date','input-time','input-venue','input-address','input-rsvp','input-note','input-notes','input-details']
+      .forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ render(); if(id==='input-milestone'||id==='input-title'||id==='input-subtitle'){ clearTimeout(_galT); _galT=setTimeout(buildGallery, 350); } }));
+    ['enable-color-override','color-bg','color-accent','color-text','font-override']
+      .forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ if(id==='color-bg'||id==='color-accent'||id==='color-text') document.getElementById('enable-color-override').checked=true; render(); }));
+
+    /* ── Photo: shape, frame, placement, zoom/pan, adjustments ── */
+    function photoDefaults(){ const t=tplById(state.tpl); return t.photoHero?{x:50,y:32,w:76}:{x:50,y:66,w:50}; }
+    function syncPhotoControls(){
+      const d=photoDefaults(), P=state.photo, A=state.photoAdj;
+      document.getElementById('ph-w').value = (P.w!=null?P.w:d.w);
+      document.getElementById('ph-x').value = (P.x!=null?P.x:d.x);
+      document.getElementById('ph-y').value = (P.y!=null?P.y:d.y);
+      document.getElementById('ph-z').value = Math.round((P.zoom||1)*100);
+      document.getElementById('ph-ox').value = P.ox; document.getElementById('ph-oy').value = P.oy;
+      document.getElementById('ph-br').value = A.brightness; document.getElementById('ph-co').value = A.contrast;
+      document.getElementById('ph-sa').value = A.saturate;   document.getElementById('ph-gs').value = A.grayscale;
+      document.getElementById('photo-shape').value = state.photoShape || 'rect';
+      document.getElementById('photo-frame').value = state.photoFrame || 'none';
+    }
+    function resetPhoto(){
+      state.photo={x:null,y:null,w:null,zoom:1,ox:50,oy:50};
+      state.photoAdj={brightness:100,contrast:100,saturate:100,grayscale:0};
+      state.photoShape=''; state.photoFrame='none';
+      syncPhotoControls(); applyPhotoAdjust();
+    }
+    // Re-render the photo through a canvas with the adjustments baked in (so print/export match).
+    let _adjT;
+    function applyPhotoAdjust(){
+      if(!state.imageOriginal){ render(); return; }
+      const A=state.photoAdj;
+      const img=new Image();
+      img.onload=()=>{
+        const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+        const ctx=c.getContext('2d');
+        ctx.filter=`brightness(${A.brightness}%) contrast(${A.contrast}%) saturate(${A.saturate}%) grayscale(${A.grayscale}%)`;
+        ctx.drawImage(img,0,0);
+        try{ state.image=c.toDataURL('image/jpeg',0.92); }catch(e){ state.image=state.imageOriginal; }
+        render();
+      };
+      img.onerror=()=>{ state.image=state.imageOriginal; render(); };
+      img.src=state.imageOriginal;
+    }
+    ['ph-w','ph-x','ph-y','ph-z','ph-ox','ph-oy'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
+      state.photo.w=+document.getElementById('ph-w').value;
+      state.photo.x=+document.getElementById('ph-x').value;
+      state.photo.y=+document.getElementById('ph-y').value;
+      state.photo.zoom=(+document.getElementById('ph-z').value)/100;
+      state.photo.ox=+document.getElementById('ph-ox').value;
+      state.photo.oy=+document.getElementById('ph-oy').value;
+      render();
+    }));
+    ['ph-br','ph-co','ph-sa','ph-gs'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
+      state.photoAdj.brightness=+document.getElementById('ph-br').value;
+      state.photoAdj.contrast=+document.getElementById('ph-co').value;
+      state.photoAdj.saturate=+document.getElementById('ph-sa').value;
+      state.photoAdj.grayscale=+document.getElementById('ph-gs').value;
+      clearTimeout(_adjT); _adjT=setTimeout(applyPhotoAdjust,120);
+    }));
+    ['photo-shape','photo-frame'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{
+      state.photoShape=document.getElementById('photo-shape').value;
+      state.photoFrame=document.getElementById('photo-frame').value;
+      render();
+    }));
+
+    /* ── Text: whole-block position + per-part size/font/colour ── */
+    function freshElem(){ const e=()=>({size:1,font:'',color:'',x:0,y:0,case:''}); return { eyebrow:e(), num:e(), sub:e(), name:e(), details:e() }; }
+    function textDefaults(){ const t=tplById(state.tpl); return { x:(t.split?30:50), y:50, w:(t.split?52:78), scale:1 }; }
+    function syncTextSliders(){ const d=textDefaults(), T=state.text;
+      document.getElementById('txt-x').value = (T.x!=null?T.x:d.x);
+      document.getElementById('txt-y').value = (T.y!=null?T.y:d.y);
+      document.getElementById('txt-w').value = (T.w!=null?T.w:d.w);
+      document.getElementById('txt-s').value = Math.round((T.scale!=null?T.scale:1)*100);
+    }
+    function curElem(){ return state.elem[document.getElementById('el-pick').value]; }
+    function syncElemControls(){ const e=curElem();
+      document.getElementById('el-size').value = Math.round((e.size||1)*100);
+      document.getElementById('el-font').value = e.font || 'default';
+      document.getElementById('el-colon').checked = !!e.color;
+      if(e.color) document.getElementById('el-col').value = e.color;
+      document.getElementById('el-case').value = e.case || '';
+      document.getElementById('el-mx').value = e.x || 0;
+      document.getElementById('el-my').value = e.y || 0;
+    }
+    function resetTextPos(){ state.text={x:null,y:50,w:null,scale:1}; state.elem=freshElem(); syncTextSliders(); syncElemControls(); render(); }
+    ['txt-x','txt-y','txt-w','txt-s'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>{
+      state.text.x=+document.getElementById('txt-x').value;
+      state.text.y=+document.getElementById('txt-y').value;
+      state.text.w=+document.getElementById('txt-w').value;
+      state.text.scale=(+document.getElementById('txt-s').value)/100;
+      render();
+    }));
+    document.getElementById('el-pick').addEventListener('change', syncElemControls);
+    document.getElementById('el-size').addEventListener('input', ()=>{ curElem().size=(+document.getElementById('el-size').value)/100; render(); });
+    document.getElementById('el-font').addEventListener('change', ()=>{ const v=document.getElementById('el-font').value; curElem().font=(v==='default'?'':v); render(); });
+    document.getElementById('el-colon').addEventListener('change', ()=>{ curElem().color=document.getElementById('el-colon').checked?document.getElementById('el-col').value:''; render(); });
+    document.getElementById('el-col').addEventListener('input', ()=>{ document.getElementById('el-colon').checked=true; curElem().color=document.getElementById('el-col').value; render(); });
+    document.getElementById('el-case').addEventListener('change', ()=>{ curElem().case=document.getElementById('el-case').value; render(); });
+    document.getElementById('el-mx').addEventListener('input', ()=>{ curElem().x=+document.getElementById('el-mx').value; render(); });
+    document.getElementById('el-my').addEventListener('input', ()=>{ curElem().y=+document.getElementById('el-my').value; render(); });
+    document.getElementById('ai-light').addEventListener('input', ()=>{ state.aiAdjust.light=+document.getElementById('ai-light').value; render(); });
+
+    /* ══════════ Image / Excel handlers ══════════ */
+    function handleImage(event){
+      const file=event.target.files[0]; if(!file) return;
+      const reader=new FileReader();
+      reader.onload=()=>{ state.imageOriginal=reader.result; syncPhotoControls(); applyPhotoAdjust(); };
+      reader.readAsDataURL(file);
+    }
+    function handleExcel(event){
+      const file=event.target.files[0]; if(!file) return;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws);
+        const guests=rows.map(r=>({
+          name: r.Name||r.name||r.NAME||'',
+          email: r.Email||r.email||r.EMAIL||r['E-mail']||''
+        })).filter(g=>g.name||g.email);
+        if(guests.length){
+          state.recipients=guests;
+          const withEmail=guests.filter(g=>g.email).length;
+          toast(`${guests.length} guests loaded${withEmail?` · ${withEmail} with email`:''}`);
+        }
+        else { alert("No 'Name' or 'Email' column found — showing a single invitation."); state.recipients=[{name:'',email:''}]; }
+        render();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    function clearMerge(){ state.recipients=[{name:'',email:''}]; document.getElementById('excel-upload').value=''; render(); toast('Guest list cleared'); }
+    function guestEmails(){ return state.recipients.map(r=>r.email).filter(Boolean); }
+
+    /* ══════════ Save / open project (.callainv) ══════════ */
+    const PROJ_INPUTS = ['input-host','input-milestone','input-title','input-subtitle','input-date','input-time','input-venue','input-address','input-rsvp','input-note','input-notes','input-details','color-bg','color-accent','color-text','font-override'];
+    function collectProject(){
+      const inputs={}; PROJ_INPUTS.forEach(id=>{ const el=document.getElementById(id); if(el) inputs[id]=el.value; });
+      inputs['enable-color-override']=document.getElementById('enable-color-override').checked;
+      return { app:'calla-invitation', v:1, s:{
+        fmt:state.fmt, cat:state.cat, tpl:state.tpl, text:state.text, elem:state.elem,
+        photo:state.photo, photoAdj:state.photoAdj, photoShape:state.photoShape, photoFrame:state.photoFrame,
+        aiBg:state.aiBg, aiPreset:(state.aiPreset?state.aiPreset.id:null), aiAdjust:state.aiAdjust,
+        image:state.image, imageOriginal:state.imageOriginal, recipients:state.recipients
+      }, inputs };
+    }
+    function saveProject(){
+      try{
+        const data=JSON.stringify(collectProject());
+        const name=((document.getElementById('input-title').value||'invitation').replace(/[^\w\- ]/g,'').trim()||'invitation');
+        const blob=new Blob([data],{type:'application/json'});
+        const link=document.createElement('a'); link.download=name+'.callainv'; link.href=URL.createObjectURL(blob); link.click();
+        toast('Project saved ✓');
+      }catch(e){ toast('Could not save project'); }
+    }
+    function loadProjectFile(ev){
+      const file=ev.target.files[0]; if(!file) return;
+      const r=new FileReader();
+      r.onload=()=>{ try{ applyProject(JSON.parse(r.result)); toast('Project opened ✓'); }catch(e){ toast('That file could not be opened'); } };
+      r.readAsText(file);
+      ev.target.value='';
+    }
+    function applyProject(p){
+      if(!p || !p.s) throw new Error('bad');
+      const s=p.s;
+      state.fmt=s.fmt||'a5'; state.cat=s.cat||'b50'; state.tpl=s.tpl||'gold50';
+      state.text=s.text||{x:null,y:50,w:null,scale:1};
+      state.elem=Object.assign(freshElem(), s.elem||{});
+      state.photo=s.photo||{x:null,y:null,w:null,zoom:1,ox:50,oy:50};
+      state.photoAdj=s.photoAdj||{brightness:100,contrast:100,saturate:100,grayscale:0};
+      state.photoShape=s.photoShape||''; state.photoFrame=s.photoFrame||'none';
+      state.aiBg=s.aiBg||''; state.aiPreset=s.aiPreset?presetById(s.aiPreset):null;
+      state.aiAdjust=s.aiAdjust||{light:0};
+      state.aiHistory=s.aiBg?[s.aiBg]:[]; state.aiHistIdx=s.aiBg?0:-1;
+      state.image=s.image||''; state.imageOriginal=s.imageOriginal||'';
+      state.recipients=(s.recipients&&s.recipients.length)?s.recipients:[{name:'',email:''}];
+      if(p.inputs){ Object.keys(p.inputs).forEach(id=>{ const el=document.getElementById(id); if(!el) return; if(el.type==='checkbox') el.checked=!!p.inputs[id]; else el.value=p.inputs[id]; }); }
+      document.querySelectorAll('.fmt-tab').forEach(t=>t.classList.toggle('active', t.dataset.fmt===state.fmt));
+      const sl=document.getElementById('ai-light'); if(sl) sl.value=state.aiAdjust.light||0;
+      buildCategorySelect(); buildGallery(); buildAiPresets(); updateAiHistBtns();
+      syncTextSliders(); syncElemControls(); syncPhotoControls(); refreshAiStatus();
+      render();
+    }
+
+    /* ══════════ AI background (OpenAI Images via desktop IPC) ══════════ */
+    function aiSize(){ const F=FORMATS[state.fmt]; if(F.w===F.h) return '1024x1024'; return (F.w<F.h)?'1024x1536':'1536x1024'; }
+    async function generateAiBg(){
+      if(!window.api || !window.api.imgGenerate){ toast('AI backgrounds need the desktop app'); return; }
+      const note=document.getElementById('ai-note').value.trim();
+      const prompt=buildImagePrompt(note);
+      const btn=document.getElementById('ai-gen-btn'); const old=btn.textContent; btn.textContent='Generating… (~20s)'; btn.disabled=true;
+      try{
+        const res=await window.api.imgGenerate({ prompt, size:aiSize() });
+        if(res && res.ok && (res.dataUrl||res.url)){ pushAiHistory(res.dataUrl||res.url); render(); toast('AI background applied ✓'); }
+        else if(res && res.error==='no-key'){ toast('Add your OpenAI key first (Movie Maker → Voiceover)'); }
+        else { toast('AI failed: '+((res&&res.error)||'unknown')); }
+      }catch(e){ toast('AI failed'); }
+      finally{ btn.textContent=old; btn.disabled=false; }
+    }
+    // Keep the last 8 generations so Undo can recover a previous one.
+    function pushAiHistory(url){
+      state.aiHistory = state.aiHistory.slice(0, state.aiHistIdx+1);
+      state.aiHistory.push(url);
+      if(state.aiHistory.length>8){ state.aiHistory.shift(); }
+      state.aiHistIdx = state.aiHistory.length-1;
+      state.aiBg = url; state.aiAdjust={light:0};
+      const sl=document.getElementById('ai-light'); if(sl) sl.value=0;
+      updateAiHistBtns();
+    }
+    function aiUndo(){ if(state.aiHistIdx>0){ state.aiHistIdx--; state.aiBg=state.aiHistory[state.aiHistIdx]; render(); updateAiHistBtns(); toast('Went back a version'); } }
+    function aiRedo(){ if(state.aiHistIdx<state.aiHistory.length-1){ state.aiHistIdx++; state.aiBg=state.aiHistory[state.aiHistIdx]; render(); updateAiHistBtns(); } }
+    function updateAiHistBtns(){
+      const u=document.getElementById('ai-undo'), r=document.getElementById('ai-redo'), n=document.getElementById('ai-histn');
+      if(!u) return; const has=state.aiHistory.length;
+      u.disabled=state.aiHistIdx<=0; r.disabled=state.aiHistIdx>=has-1;
+      u.style.opacity=u.disabled?'.4':''; r.style.opacity=r.disabled?'.4':'';
+      if(n) n.textContent = has? `version ${state.aiHistIdx+1} of ${has}` : '';
+    }
+    function clearAiBg(){ state.aiBg=''; state.aiPreset=null; state.aiAdjust={light:0}; buildAiPresets(); render(); toast('AI background removed'); }
+    function buildAiPresets(){
+      const grid=document.getElementById('ai-presets'); if(!grid) return;
+      grid.innerHTML='';
+      AI_PRESETS.forEach(p=>{
+        const el=document.createElement('div');
+        el.className='ai-card'+(state.aiPreset&&state.aiPreset.id===p.id?' active':'');
+        el.innerHTML=`<span class="em">${p.emoji}</span><span>${escapeHtml(p.name)}</span>`;
+        el.onclick=()=>pickAiPreset(p.id);
+        grid.appendChild(el);
+      });
+    }
+    function pickAiPreset(id){
+      if(!window.api || !window.api.imgGenerate){ toast('AI designs need the desktop app'); return; }
+      state.aiPreset=presetById(id); buildAiPresets(); generateAiBg();
+    }
+    async function refreshAiStatus(){
+      const box=document.getElementById('ai-status'); if(!box) return;
+      if(!window.api || !window.api.imgGenerate){ box.innerHTML='🖥 <strong>AI backgrounds need the Calla Design desktop app.</strong>'; const b=document.getElementById('ai-gen-btn'); if(b){ b.disabled=true; b.style.opacity='.5'; b.style.cursor='not-allowed'; } return; }
+      try{ const has=await window.api.imgHasKey(); box.innerHTML = has ? '✅ <strong>AI ready</strong> — generates a premium photographic background from the selected design.' : '🔑 Add your <strong>OpenAI key</strong> (Movie Maker → 🎙 Voiceover settings) to enable AI backgrounds.'; }catch(e){ box.textContent='Could not check AI status.'; }
+    }
+
+    /* ══════════ Export to image (html2canvas) ══════════ */
+    async function renderCanvas(recipient){
+      const tpl=tplById(state.tpl);
+      // Build an unscaled, full-resolution card off-screen
+      const holder=document.createElement('div');
+      holder.style.cssText='position:fixed;left:-99999px;top:0;';
+      const card=buildCard(tpl, state.fmt, recipient);
+      card.style.boxShadow='none';
+      holder.appendChild(card); document.body.appendChild(holder);
+      // Wait for fonts, but never hang the export if the promise stalls.
+      await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1800))]);
+      const F=FORMATS[state.fmt];
+      // Render at exact PIXEL dimensions (html2canvas is unreliable with mm units — this is
+      // why the email image, which uses the px 'wa' format, was sharp but A5 export wasn't).
+      const hiW = F.unit==='mm' ? F.w/25.4*300 : F.w*2;      // 300 dpi print / 2× social
+      const hasPhoto = !!state.aiBg || !!state.image;         // AI images max ~1024–1536px — don't over-upscale
+      const pxW = Math.round(hasPhoto ? Math.min(hiW, 1536) : hiW);
+      const pxH = Math.round(pxW * (F.h / F.w));
+      card.style.width = pxW+'px';
+      card.style.height = pxH+'px';
+      card.style.fontSize = (pxW / F.base) + 'px';
+      const canvas=await html2canvas(card,{ backgroundColor:null, scale:1, useCORS:true, logging:false, imageTimeout:0, width:pxW, height:pxH, windowWidth:pxW, windowHeight:pxH });
+      holder.remove();
+      return canvas;
+    }
+    async function downloadImage(){
+      toast('Rendering image…');
+      try{
+        const canvas=await renderCanvas(state.recipients[0].name);
+        const link=document.createElement('a');
+        link.download=`invitation-${state.tpl}-${state.fmt}.png`;
+        link.href=canvas.toDataURL('image/png');
+        link.click();
+        toast('Image downloaded ✓');
+      }catch(err){ console.error(err); toast('Could not render image'); }
+    }
+    async function canvasToBlob(canvas, type='image/png', q=0.92){
+      return new Promise(res=>canvas.toBlob(res,type,q));
+    }
+
+    /* ══════════ WhatsApp ══════════ */
+    function buildWhatsAppText(){
+      const f=getFields();
+      const em = { Milestone:'🎉', Wedding:'💍', Baby:'👶', Party:'🥂', Festive:'✨', Business:'📣', Achievement:'🎓', Memorial:'🕊', Kids:'🎈', Anniversary:'💛' }[tplById(state.tpl).occasion] || '🎉';
+      let t = `${em} *You're Invited!* ${em}\n\n`;
+      if(f.host) t+=`${f.host}\n`;
+      const titleLine=[f.milestone,f.title].filter(Boolean).join(' · ');
+      if(titleLine) t+=`*${titleLine}*\n`;
+      if(f.subtitle) t+=`${f.subtitle}\n`;
+      t+=`\n`;
+      if(f.freetext){ t+=f.freetext+'\n'; }
+      else {
+        const when=[f.date,f.time].filter(Boolean).join(', ');
+        if(when) t+=`🗓 ${when}\n`;
+        const where=[f.venue,(f.address||'').replace(/\n/g,', ')].filter(Boolean).join(', ');
+        if(where) t+=`📍 ${where}\n`;
+        if(f.note) t+=`👗 ${f.note}\n`;
+        if(f.rsvp) t+=`✉ ${f.rsvp}\n`;
+        splitLines(f.notes).forEach(l=>t+=`${l}\n`);
+      }
+      const gc=googleCalUrl(f);
+      if(gc) t+=`\n📅 *Add to your calendar:*\n${gc}\n`;
+      t+=`\nHope you can make it! 💜`;
+      return t;
+    }
+    async function shareWhatsApp(){
+      const text=buildWhatsAppText();
+      toast('Preparing…');
+      const savedFmt=state.fmt; state.fmt='wa';   // WhatsApp always uses the 4:5 image (crisp, like the email)
+      try{
+        try{
+          const canvas=await renderCanvas(state.recipients[0].name);
+          const blob=await canvasToBlob(canvas,'image/jpeg',0.92);
+          const file=new File([blob],'invitation.jpg',{type:'image/jpeg'});
+          if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({ files:[file], text }); return; }
+        }catch(err){}
+        try{
+          const canvas=await renderCanvas(state.recipients[0].name);
+          const link=document.createElement('a'); link.download='invitation.jpg'; link.href=canvas.toDataURL('image/jpeg',0.92); link.click();
+        }catch(e){}
+        window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+        toast('Image saved — attach it in WhatsApp');
+      } finally { state.fmt=savedFmt; render(); }
+    }
+    // Robust copy that works in the desktop app (clipboard API is blocked on file://).
+    function copyText(text){
+      return new Promise(resolve=>{
+        const fallback=()=>{ try{ const ta=document.createElement('textarea'); ta.value=text; ta.style.cssText='position:fixed;left:-9999px;top:0'; document.body.appendChild(ta); ta.focus(); ta.select(); const ok=document.execCommand('copy'); ta.remove(); resolve(ok); }catch(e){ resolve(false); } };
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>resolve(true)).catch(fallback); }
+        else fallback();
+      });
+    }
+    async function copyWhatsAppText(){
+      const ok=await copyText(buildWhatsAppText());
+      toast(ok?'Message copied ✓ — paste it into WhatsApp':'Could not copy automatically');
+    }
+
+    /* ══════════ Email invitation — email-safe HTML, delivered via Resend ══════════ */
+    let lastEmail={ sendHtml:'', fileHtml:'', text:'', imageData:'' };
+
+    /* Colour helpers so the email can pick up the template's mood (email-safe). */
+    function firstHex(bg){ const m=String(bg).match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})/); return m?('#'+m[1]):'#111111'; }
+    function hexToRgb(h){ h=String(h).replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+    function relLum(h){ const p=hexToRgb(h).map(v=>{v/=255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4);}); return 0.2126*p[0]+0.7152*p[1]+0.0722*p[2]; }
+    function isLight(h){ return relLum(h)>0.45; }
+    function mixHex(h,target,amt){ const a=hexToRgb(h),b=hexToRgb(target); const c=a.map((v,i)=>Math.round(v+(b[i]-v)*amt)); return '#'+c.map(v=>v.toString(16).padStart(2,'0')).join(''); }
+
+    /* Table-based, all-inline, template-matched HTML that renders across Gmail/Outlook/Apple Mail.
+       imgSrc = 'cid:invite' when sending via Resend (inline attachment),
+                or a data: URI for the in-app preview / downloadable .html file. */
+    function emailHtml(imgSrc){
+      const f=getFields(), tpl=tplById(state.tpl);
+      const colorsOn=document.getElementById('enable-color-override').checked;
+      const when=[f.date,f.time].filter(Boolean).join(' · ');
+      const where=[f.venue,f.address].filter(Boolean).join(', ');
+      const gcal=googleCalUrl(f);
+
+      // Template-derived palette (email-safe solids)
+      const cardBg = colorsOn ? val('color-bg') : firstHex(tpl.bg);
+      const accent = colorsOn ? val('color-accent') : tpl.accent;
+      const dark   = !isLight(cardBg);
+      const ink    = colorsOn ? val('color-text') : (tpl.ink || (dark?'#ffffff':'#1a1a1a'));
+      const bodyC  = colorsOn ? val('color-text') : (tpl.body || (dark?'#dfe3ea':'#4a4a4a'));
+      const subC   = colorsOn ? accent : (tpl.sub || mixHex(ink,cardBg,0.35));
+      const muted  = dark ? mixHex(ink,cardBg,0.5) : '#9a9a9a';
+      const hair   = dark ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.1)';
+      const pageBg = dark ? '#0e0e12' : '#efece6';
+      const btnTxt = isLight(accent) ? '#161616' : '#ffffff';
+      const serif  = fontFallback(colorsOn?tpl.fd:tpl.fd).endsWith('sans-serif') ? false : true;
+      const headFont = serif ? "Georgia,'Times New Roman',serif" : "'Helvetica Neue',Helvetica,Arial,sans-serif";
+      const bodyFont = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+      const lineC  = mixHex(accent, cardBg, 0.4);
+      // Use the template's ornament, but fall back to ✦ for multi-byte emoji that render poorly in email.
+      const ornSym = (tpl.orn && tpl.orn.length===1 && /[‐-⯿!-~]/.test(tpl.orn)) ? tpl.orn : '✦';
+
+      const row=(k,v)=>v?`<tr>
+        <td valign="top" style="padding:6px 14px 6px 0;font-family:${bodyFont};font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:${accent};white-space:nowrap;">${k}</td>
+        <td valign="top" style="padding:6px 0;font-family:${bodyFont};font-size:15px;line-height:1.5;color:${bodyC};">${escapeHtml(v)}</td></tr>`:'';
+
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"></head>
+<body style="margin:0;padding:0;background:${pageBg};">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">You're invited — ${escapeHtml([f.milestone,f.title].filter(Boolean).join(' '))}${when?'. '+escapeHtml(when):''}.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${pageBg}" style="background:${pageBg};"><tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="${cardBg}" style="max-width:600px;width:100%;background:${cardBg};border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.22);">
+  <tr><td height="5" style="height:5px;line-height:5px;font-size:0;background:${accent};">&nbsp;</td></tr>
+  <tr><td align="center" style="padding:0;font-size:0;line-height:0;"><img src="${imgSrc}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" alt="You're invited"></td></tr>
+  <tr><td align="center" style="padding:36px 44px 0;text-align:center;">
+    <p style="margin:0 0 12px;font-family:${bodyFont};font-size:11px;letter-spacing:4px;text-transform:uppercase;color:${accent};font-weight:bold;">You're Invited</p>
+    <h1 style="margin:0;font-family:${headFont};font-size:30px;line-height:1.15;color:${ink};font-weight:${serif?'normal':'bold'};letter-spacing:${serif?'.5px':'0'};">${escapeHtml([f.milestone,f.title].filter(Boolean).join(' · '))||'Please join us'}</h1>
+    ${f.subtitle?`<p style="margin:10px 0 0;font-family:${headFont};font-size:16px;line-height:1.4;color:${subC};font-style:${serif?'italic':'normal'};">${escapeHtml(f.subtitle)}</p>`:''}
+  </td></tr>
+  <tr><td align="center" style="padding:20px 0 6px;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td valign="middle"><div style="width:54px;height:1px;line-height:1px;font-size:0;background:${lineC};">&#8202;</div></td>
+      <td valign="middle" style="padding:0 15px;font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${accent};line-height:1;">${ornSym}</td>
+      <td valign="middle"><div style="width:54px;height:1px;line-height:1px;font-size:0;background:${lineC};">&#8202;</div></td>
+    </tr></table>
+  </td></tr>
+  <tr><td align="center" style="padding:10px 44px 6px;text-align:center;">
+    <div style="font-family:${headFont};color:${bodyC};font-size:16px;line-height:1.9;">
+      ${when?`<div style="color:${ink};font-weight:bold;font-size:17px;">${escapeHtml(when)}</div>`:''}
+      ${f.venue?`<div>${escapeHtml(f.venue)}</div>`:''}
+      ${f.address?`<div style="color:${subC};">${escapeHtml(f.address)}</div>`:''}
+    </div>
+    ${(f.note||f.rsvp)?`<div style="margin-top:14px;font-family:${bodyFont};font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:${accent};line-height:1.6;">${escapeHtml([f.note,f.rsvp].filter(Boolean).join('  ·  '))}</div>`:''}
+  </td></tr>
+  <tr><td align="center" style="padding:24px 36px 34px;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${accent}" style="border-radius:8px;mso-padding-alt:14px 30px;">
+      <a href="${gcal}" target="_blank" style="display:inline-block;color:${btnTxt};text-decoration:none;font-family:${bodyFont};font-size:14px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;padding:15px 34px;">Add to Calendar</a>
+    </td></tr></table>
+  </td></tr>
+  <tr><td align="center" style="padding:0 0 22px;font-family:${bodyFont};font-size:11px;letter-spacing:.5px;color:${muted};">Made with Calla Design · Invitation Maker</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+    }
+
+    async function buildEmailAssets(){
+      // Render the invite image at WhatsApp 4:5 ratio (nice in email), regardless of current preview format.
+      const savedFmt=state.fmt; state.fmt='wa';
+      let canvas; try{ canvas=await renderCanvas(''); } finally { state.fmt=savedFmt; }
+      const imgData=canvas.toDataURL('image/jpeg',0.9);
+      lastEmail.imageData=imgData;
+      lastEmail.sendHtml=emailHtml('cid:invite');
+      lastEmail.fileHtml=emailHtml(imgData);
+      lastEmail.text=buildWhatsAppText().replace(/\*/g,'');
+      return lastEmail;
+    }
+
+    async function openEmail(){
+      toast('Building email…');
+      try{
+        await buildEmailAssets();
+        document.getElementById('email-preview').innerHTML=lastEmail.fileHtml;
+        // Prefill send form
+        const f=getFields();
+        setValIf('mail-fromname', [f.title].filter(Boolean).join(' ').replace(/[A-Z]{2,}/g,m=>m[0]+m.slice(1).toLowerCase()) || 'Your name');
+        setValIf('mail-subject', `You're invited: ${[f.milestone,f.title].filter(Boolean).join(' ')}`.trim());
+        const emails=guestEmails();
+        const wrap=document.getElementById('mail-uselist-wrap');
+        if(emails.length){ wrap.style.display='flex'; document.getElementById('mail-listcount').textContent=emails.length; document.getElementById('mail-uselist').checked=true; fillToFromList(); }
+        else { wrap.style.display='none'; }
+        await refreshResendStatus();
+        document.getElementById('modal-back').classList.add('show');
+      }catch(e){ console.error(e); toast('Could not build email'); }
+    }
+    function setValIf(id,v){ const el=document.getElementById(id); if(el && !el.value) el.value=v; }
+    function fillToFromList(){
+      if(document.getElementById('mail-uselist').checked){ document.getElementById('mail-to').value=guestEmails().join(', '); }
+    }
+    function closeModal(){ document.getElementById('modal-back').classList.remove('show'); }
+
+    async function refreshResendStatus(){
+      const box=document.getElementById('resend-status');
+      const btn=document.getElementById('btn-send-resend');
+      if(!window.api || !window.api.resendSend){
+        box.innerHTML='📧 <strong>Sending needs the Calla Design desktop app.</strong> On the web you can still download the email as an <strong>.html</strong> file to attach or forward.';
+        btn.disabled=true; btn.style.opacity='.45'; btn.style.cursor='not-allowed';
+        document.getElementById('resend-settings').style.display='none';
+        return;
+      }
+      document.getElementById('resend-settings').style.display='';
+      btn.disabled=false; btn.style.opacity=''; btn.style.cursor='';
+      try{
+        const st=await window.api.resendHasKey();
+        if(st && st.hasKey){
+          box.innerHTML='✅ <strong>Resend connected.</strong> Ready to send your invitation.';
+          if(st.from) setValIf('mail-fromemail', st.from);
+        } else {
+          box.innerHTML='🔑 <strong>Add your Resend API key</strong> below to send. It\'s free to start at resend.com.';
+          document.getElementById('resend-settings').open=true;
+        }
+      }catch(e){ box.textContent='Could not check Resend status.'; }
+    }
+    async function saveResendKey(){
+      if(!window.api || !window.api.resendSetKey){ toast('Desktop app only'); return; }
+      const key=document.getElementById('mail-key').value.trim();
+      const from=document.getElementById('mail-keyfrom').value.trim();
+      await window.api.resendSetKey({ key, from });
+      document.getElementById('mail-key').value='';
+      toast('Saved ✓'); refreshResendStatus();
+    }
+    async function sendResend(){
+      if(!window.api || !window.api.resendSend){ toast('Sending needs the desktop app — downloading .html instead'); downloadEmailHtml(); return; }
+      const from=document.getElementById('mail-fromemail').value.trim();
+      const fromName=document.getElementById('mail-fromname').value.trim();
+      const to=document.getElementById('mail-to').value.split(',').map(s=>s.trim()).filter(Boolean);
+      const subject=document.getElementById('mail-subject').value.trim()||"You're invited";
+      if(!from){ toast('Add a from address'); document.getElementById('resend-settings').open=true; return; }
+      if(!to.length){ toast('Add at least one recipient email'); return; }
+      const fromField=fromName?`${fromName} <${from}>`:from;
+      const btn=document.getElementById('btn-send-resend'); const old=btn.textContent;
+      btn.textContent='Sending…'; btn.disabled=true;
+      try{
+        const res=await window.api.resendSend({ from:fromField, to, subject, html:lastEmail.sendHtml, imageDataUrl:lastEmail.imageData });
+        if(res && res.ok){ toast(`Sent to ${res.sent} recipient${res.sent===1?'':'s'} ✓`); closeModal(); }
+        else if(res && res.error==='no-key'){ toast('Add your Resend API key first'); document.getElementById('resend-settings').open=true; }
+        else { toast('Send failed: '+((res&&res.error)||'unknown')); }
+      }catch(e){ toast('Send failed'); }
+      finally{ btn.textContent=old; btn.disabled=false; }
+    }
+    function downloadEmailHtml(){
+      const blob=new Blob([lastEmail.fileHtml],{type:'text/html'});
+      const link=document.createElement('a'); link.download='invitation-email.html'; link.href=URL.createObjectURL(blob); link.click();
+      toast('Email .html downloaded ✓');
+    }
+
+    /* ══════════ Calendar (.ics + Google) ══════════ */
+    function parseDateGuess(f){
+      const ds=String(f.date||''), ts=String(f.time||'');
+      const months=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+      const dl=ds.toLowerCase();
+      let mon=-1; for(let i=0;i<12;i++){ if(dl.includes(months[i])){ mon=i; break; } }
+      const dayM=ds.match(/\b(\d{1,2})(?:st|nd|rd|th)?\b/);
+      const yearM=ds.match(/\b(20\d{2})\b/);
+      if(mon<0 || !dayM) return null;
+      const day=parseInt(dayM[1],10);
+      let year=yearM?parseInt(yearM[1],10):(new Date()).getFullYear();
+      let hh=19, mm=0;
+      const tm=ts.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+      if(tm){ hh=parseInt(tm[1],10); mm=tm[2]?parseInt(tm[2],10):0; const ap=(tm[3]||'').toLowerCase(); if(ap==='pm'&&hh<12) hh+=12; if(ap==='am'&&hh===12) hh=0; }
+      let d=new Date(year, mon, day, hh, mm, 0);
+      if(!yearM && d.getTime() < Date.now()-86400000){ d=new Date(year+1, mon, day, hh, mm, 0); }  // no year given & already passed → next year
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Local (floating) time so calendars show the time exactly as entered.
+    function icsStamp(d){ const p=n=>String(n).padStart(2,'0'); return ''+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'T'+p(d.getHours())+p(d.getMinutes())+'00'; }
+    function googleCalUrl(f){
+      const d=parseDateGuess(f);
+      const title=[f.milestone,f.title,f.subtitle].filter(Boolean).join(' ').trim() || 'Invitation';
+      const loc=[f.venue,f.address].filter(Boolean).join(', ');
+      let dates='';
+      if(d){ const end=new Date(d.getTime()+3*3600*1000); dates=`&dates=${icsStamp(d)}/${icsStamp(end)}`; }
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}${dates}&location=${encodeURIComponent(loc)}&details=${encodeURIComponent(f.rsvp||'')}`;
+    }
+    function downloadCalendar(){
+      const f=getFields();
+      const d=parseDateGuess(f);
+      const title=[f.milestone,f.title,f.subtitle].filter(Boolean).join(' ').trim()||'Invitation';
+      const loc=[f.venue,f.address].filter(Boolean).join(', ');
+      let dtLines='';
+      if(d){ const end=new Date(d.getTime()+3*3600*1000); dtLines=`DTSTART:${icsStamp(d)}\nDTEND:${icsStamp(end)}\n`; }
+      const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Calla Design//Invitation Maker//EN\nBEGIN:VEVENT\n${dtLines}SUMMARY:${title}\nLOCATION:${loc}\nDESCRIPTION:${(f.rsvp||'').replace(/,/g,'\\,')}\nEND:VEVENT\nEND:VCALENDAR`;
+      const blob=new Blob([ics],{type:'text/calendar'});
+      const link=document.createElement('a'); link.download='invitation.ics'; link.href=URL.createObjectURL(blob); link.click();
+      toast(d?'Calendar file saved ✓':'Saved (add a clear date/time for auto-fill)');
+    }
+
+    /* ══════════ Print ══════════ */
+    function doPrint(){
+      const prev=state.fmt;
+      if(prev!=='a5'){ state.fmt='a5'; document.querySelectorAll('.fmt-tab').forEach(t=>t.classList.toggle('active',t.dataset.fmt==='a5')); render(); }
+      setTimeout(()=>window.print(), 60);
+    }
+
+    /* ══════════ Utils ══════════ */
+    function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    let toastTimer;
+    function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+
+    /* ══════════ Init ══════════ */
+    buildCategorySelect();
+    buildGallery();
+    syncTextSliders();
+    syncElemControls();
+    syncPhotoControls();
+    buildAiPresets();
+    updateAiHistBtns();
+    refreshAiStatus();
+    document.fonts.ready.then(()=>{ buildGallery(); render(); });
+    render();
+    </script>
+</body>
+</html>

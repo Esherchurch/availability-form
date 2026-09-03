@@ -1,0 +1,326 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EGBC Address Book - Master Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain: "egbc-worship-planner.firebaseapp.com",
+            projectId: "egbc-worship-planner",
+            storageBucket: "egbc-worship-planner.firebasestorage.app",
+            messagingSenderId: "199442060489",
+            appId: "1:199442060489:web:7eaf85a76334c753db6918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const addressBookRef = collection(db, "addressBook");
+
+        let editingId = null;
+        let memberCache = {};
+
+        function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+        // 1. DELETE - look up member by id (Unicode-safe, no btoa)
+        window.deleteMember = async (id) => {
+            const m = memberCache[id];
+            const name = m ? m.name : '';
+            if(confirm(`Remove ${name} permanently?`)) await deleteDoc(doc(db, "addressBook", id));
+        };
+
+        // 2. EDIT - look up member by id (Unicode-safe, no btoa)
+        window.editMember = (id) => {
+            const data = memberCache[id];
+            if(!data) return;
+            editingId = id;
+            document.getElementById('fullName').value = data.name;
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('freq').value = data.maxFrequency;
+            document.getElementById('relatedTo').value = data.householdId || '';
+            
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            if(data.markers) data.markers.forEach(m => { const el = document.querySelector(`.marker[value="${m}"]`); if(el) el.checked = true; });
+            if(data.primaryInstruments) data.primaryInstruments.forEach(i => { const el = document.querySelector(`.primary[value="${i}"]`); if(el) el.checked = true; });
+            if(data.secondaryInstruments) data.secondaryInstruments.forEach(i => { const el = document.querySelector(`.secondary[value="${i}"]`); if(el) el.checked = true; });
+            if(data.kidsRolesPrimary) data.kidsRolesPrimary.forEach(i => { const el = document.querySelector(`.kidsprimary[value="${i}"]`); if(el) el.checked = true; });
+            if(data.kidsRolesSecondary) data.kidsRolesSecondary.forEach(i => { const el = document.querySelector(`.kidssecondary[value="${i}"]`); if(el) el.checked = true; });
+
+            const btn = document.getElementById('saveBtn');
+            btn.innerText = "Update Member Details";
+            btn.classList.replace('bg-[#3d6263]', 'bg-[#9bc34a]');
+            window.scrollTo(0,0);
+        };
+
+        // 3. LIVE SYNC
+        onSnapshot(query(addressBookRef, orderBy("name")), (snapshot) => {
+            const select = document.getElementById('relatedTo');
+            const tableBody = document.getElementById('memberListBody');
+            select.innerHTML = '<option value="">None / New Household</option>';
+            tableBody.innerHTML = '';
+            
+            const allMembers = [];
+            memberCache = {};
+            snapshot.forEach((d) => allMembers.push({id: d.id, ...d.data()}));
+
+            allMembers.forEach((member) => {
+                memberCache[member.id] = member;
+
+                const opt = document.createElement('option');
+                opt.value = member.id;
+                opt.text = member.name;
+                select.add(opt);
+
+                let householdDisplay = "—";
+                if (member.householdId) {
+                    const head = allMembers.find(m => m.id === member.householdId);
+                    if (head) householdDisplay = head.name + " Family";
+                }
+
+                const row = `
+                    <tr class="border-b border-[#d1dfdf] hover:bg-[#f0f6f6] transition-colors text-sm">
+                        <td class="p-4">
+                            <div class="font-bold text-[#3d6263]">${escapeHtml(member.name)}</div>
+                            <div class="text-[11px] text-[#3d6263] font-bold opacity-70">${member.email ? escapeHtml(member.email) : '—'}</div>
+                        </td>
+                        <td class="p-4 text-xs font-bold text-gray-500">${escapeHtml(householdDisplay)}</td>
+                        <td class="p-4">
+                            <div class="text-[11px] text-[#3d6263] font-extrabold uppercase tracking-tighter">P: ${member.primaryInstruments ? escapeHtml(member.primaryInstruments.join(', ')) : ''}</div>
+                            <div class="text-[10px] text-gray-400 italic">S: ${member.secondaryInstruments ? escapeHtml(member.secondaryInstruments.join(', ')) : ''}</div>
+                        </td>
+                        <td class="p-4 text-center font-bold text-[#3d6263]">${escapeHtml(member.maxFrequency)}</td>
+                        <td class="p-4 text-right space-x-3">
+                            <button onclick="editMember('${member.id}')" class="text-[#3d6263] font-bold text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
+                            <button onclick="deleteMember('${member.id}')" class="text-red-300 hover:text-red-500 font-bold text-xl leading-none">×</button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        });
+
+        // 4. SAVE / UPDATE
+        window.saveMember = async () => {
+            const btn = document.getElementById('saveBtn');
+            const name = document.getElementById('fullName').value;
+            const email = document.getElementById('email').value;
+            if(!name || !email) { alert("Name and Email required"); return; }
+            btn.disabled = true;
+
+            const payload = {
+                name: name,
+                email: email.toLowerCase().trim(),
+                maxFrequency: document.getElementById('freq').value,
+                householdId: document.getElementById('relatedTo').value,
+                markers: Array.from(document.querySelectorAll('.marker:checked')).map(cb => cb.value),
+                primaryInstruments: Array.from(document.querySelectorAll('.primary:checked')).map(cb => cb.value),
+                secondaryInstruments: Array.from(document.querySelectorAll('.secondary:checked')).map(cb => cb.value),
+                kidsRolesPrimary: Array.from(document.querySelectorAll('.kidsprimary:checked')).map(cb => cb.value),
+                kidsRolesSecondary: Array.from(document.querySelectorAll('.kidssecondary:checked')).map(cb => cb.value)
+            };
+
+            try {
+                if(editingId) {
+                    await updateDoc(doc(db, "addressBook", editingId), payload);
+                    editingId = null;
+                } else {
+                    await addDoc(addressBookRef, { ...payload, createdAt: new Date() });
+                }
+                document.getElementById('fullName').value = '';
+                document.getElementById('email').value = '';
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                btn.innerText = "Add to Address Book";
+                btn.classList.remove('bg-[#9bc34a]');
+                btn.classList.add('bg-[#3d6263]');
+                btn.disabled = false;
+            } catch (e) { console.error(e); btn.disabled = false; }
+        };
+    </script>
+    <style>
+        :root{
+            --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+            --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+            --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+        }
+        body { background-color: var(--canvas); font-family: 'Montserrat', sans-serif; color: var(--body); font-size: 16px; }
+        .card { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow); }
+        .instr-grid { height: 160px; overflow-y: auto; border: 1px solid var(--hairline-strong); padding: 12px; border-radius: var(--r-md); background: var(--surface-2); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--brand); border-radius: var(--r-pill); }
+        .sticky-footer {
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(to top, white 80%, white 100%);
+            padding-top: 20px;
+            margin-top: 10px;
+        }
+
+        /* Inputs → system: token radius, hairline border, brand focus ring */
+        input, select { border-radius: var(--r-md) !important; border-color: var(--hairline-strong) !important; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+        input:focus, select:focus { border-color: var(--brand) !important; box-shadow: 0 0 0 3px var(--brand-ring); outline: none; }
+
+        /* Legibility: lift faint greys to muted and bump sub-11px text */
+        .text-\[10px\] { font-size: 11px !important; }
+        .text-gray-400 { color: var(--muted) !important; }
+        .text-gray-500 { color: var(--muted) !important; }
+        .text-gray-600 { color: var(--body) !important; }
+        .text-red-300 { color: var(--danger) !important; }
+
+        /* Directory table: airy rows, hairline dividers, wrap cramped cells */
+        .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        #memberListBody td div { word-break: break-word; }
+        #memberListBody tr { border-color: var(--hairline) !important; }
+        #memberListBody td { padding: 16px !important; }
+
+        @media (max-width: 768px) {
+            table { min-width: 560px; }
+            #memberListBody td { padding: 12px 10px !important; }
+            thead th { padding-bottom: 1rem !important; }
+        }
+    </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Core Team" data-role="admin"></script>
+</head>
+<body class="p-8 lg:p-12">
+    <div class="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-12">
+        
+        <div class="xl:col-span-1 card p-8 h-[90vh] sticky top-12 flex flex-col">
+            <h1 class="text-3xl font-extrabold text-[#14201f] tracking-tight mb-8 shrink-0">Member Entry</h1>
+            
+            <div class="space-y-6 overflow-y-auto pr-2 flex-grow">
+                <div>
+                    <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Full Name</label>
+                    <input type="text" id="fullName" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-bold outline-none focus:border-[#9bc34a]">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Email Address</label>
+                    <input type="email" id="email" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-bold outline-none focus:border-[#9bc34a]">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Max / Mo</label>
+                        <input type="number" id="freq" value="2" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-center font-bold outline-none focus:border-[#9bc34a]">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Household</label>
+                        <select id="relatedTo" class="w-full bg-[#f0f6f6] border border-[#d1dfdf] p-3 rounded-full text-xs font-bold text-[#3d6263] outline-none focus:border-[#9bc34a]">
+                            <option value="">None / New</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
+                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Teams</label>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-bold text-gray-600">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Core Team"> CORE</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Worship Team"> WORSHIP</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="AV Team"> AV TEAM</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Choir"> CHOIR</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Youth Worship"> YOUTH</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Kids Church"> KIDS CHURCH</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Lazers"> LAZERS</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="ReNu"> RENU</label>
+                    </div>
+                </div>
+
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
+                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Primary)</label>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Worship Leader"> Worship Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Sound"> Sound</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Words"> Words</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Cameras"> Cameras</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Sing"> Sing</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Guitar"> Guitar</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Keyboard"> Keyboard</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Drums"> Drums</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Bass"> Bass</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Congas"> Congas</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Percussion"> Percussion</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Violin"> Violin</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Trumpet"> Trumpet</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Synth"> Synth</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Electric Guitar"> Electric Guitar</label>
+                    </div>
+                </div>
+
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
+                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Secondary)</label>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Worship Leader"> Worship Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Sound"> Sound</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Words"> Words</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Cameras"> Cameras</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Sing"> Sing</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Guitar"> Guitar</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Keyboard"> Keyboard</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Drums"> Drums</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Bass"> Bass</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Congas"> Congas</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Percussion"> Percussion</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Violin"> Violin</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Trumpet"> Trumpet</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Synth"> Synth</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Electric Guitar"> Electric Guitar</label>
+                    </div>
+                </div>
+
+                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
+                    <label class="block text-[10px] font-extrabold text-[#7a5f4a] uppercase tracking-widest">Kids Church Roles</label>
+                    <p class="text-[9px] text-gray-400 font-semibold leading-relaxed">Younger = Nursery, Reception, Y1, Y2 &middot; Older = Y3, Y4, Y5.<br>Tick <strong>Usually</strong> for what they normally do, <strong>Can cover</strong> for anything they will step into.</p>
+
+                    <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-1">Usually</div>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Session Leader"> Session Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Group Leader (Younger)"> Group Leader &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Group Leader (Older)"> Group Leader &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Supporting Adult"> Supporting Adult</label>
+                    </div>
+
+                    <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-2">Can cover</div>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Session Leader"> Session Leader</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Group Leader (Younger)"> Group Leader &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Group Leader (Older)"> Group Leader &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Supporting Adult"> Supporting Adult</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sticky-footer shrink-0">
+                <button id="saveBtn" onclick="saveMember()" class="w-full bg-[#3d6263] text-white font-bold py-3 rounded-xl text-sm shadow-lg hover:bg-[#9bc34a] transition-all">
+                    Add to Address Book
+                </button>
+            </div>
+        </div>
+
+        <div class="xl:col-span-3 card p-10">
+            <h2 class="text-3xl font-extrabold text-[#14201f] tracking-tight mb-8 border-b border-[#dde7e6] pb-8">Team Directory</h2>
+            <div class="table-container">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-[10px] uppercase font-extrabold text-gray-400 tracking-[0.08em] border-b border-[#dde7e6]">
+                            <th class="pb-6">Member / Email</th>
+                            <th class="pb-6">Family</th>
+                            <th class="pb-6">Instruments</th>
+                            <th class="pb-6 text-center">Freq</th>
+                            <th class="pb-6"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="memberListBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

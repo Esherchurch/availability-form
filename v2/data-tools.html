@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data tools — EGBC</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{--canvas:#eef4f3;--ink:#14201f;--hairline:#dde7e6;--brand:#3d6263;--danger:#b0392c}
+  body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
+  h1,h2{color:var(--ink)}
+  input:focus,textarea:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px rgba(61,98,99,.28)!important;outline:none}
+  .log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.65}
+  .progress-track{height:6px;background:var(--hairline);border-radius:999px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--brand);transition:width .2s;border-radius:999px}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#c9d8d6;border-radius:999px}
+</style>
+</head>
+<body class="p-6 lg:p-10 min-h-screen">
+<div class="max-w-4xl mx-auto">
+
+  <header class="mb-8">
+    <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC</div>
+    <h1 class="text-3xl font-black tracking-tight">Data tools</h1>
+    <p class="text-sm font-semibold opacity-60 mt-1">Back up, restore, and copy between Firebase projects</p>
+  </header>
+
+  <!-- SOURCE -->
+  <div class="bg-white rounded-[1.5rem] border border-[#dde7e6] shadow-sm p-6 mb-5">
+    <h2 class="font-black uppercase text-[11px] tracking-widest opacity-60 mb-4">1 · Back up</h2>
+    <p class="text-[12px] opacity-55 leading-relaxed mb-4">
+      Reads every collection from <strong>egbc-worship-planner</strong> and downloads it as a single JSON file.
+      Read-only — nothing is changed. Worth doing before any significant change, and periodically regardless.
+    </p>
+
+    <div id="colList" class="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5 mb-5"></div>
+
+    <div class="flex gap-3 flex-wrap items-center">
+      <button onclick="runExport()" id="expBtn" class="bg-[#3d6263] text-white px-7 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Back up now</button>
+      <button onclick="toggleAll()" class="bg-white border border-[#dde7e6] px-5 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#f0f6f6] transition-all">Select all / none</button>
+      <span id="expCount" class="text-[11px] font-bold opacity-45"></span>
+    </div>
+
+    <div id="expProgress" class="hidden mt-4">
+      <div class="progress-track"><div id="expFill" class="progress-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- RESTORE -->
+  <div class="bg-white rounded-[1.5rem] border-2 border-[#e8d9b8] shadow-sm p-6 mb-5">
+    <h2 class="font-black uppercase text-[11px] tracking-widest text-[#8a5f1e] mb-4">2 · Restore or copy</h2>
+    <div class="bg-[#f6efe1] border border-[#e8d9b8] rounded-2xl px-5 py-4 mb-5">
+      <p class="text-[12px] font-bold text-[#8a5f1e] leading-relaxed">
+        This writes data. Point it at a <strong>test project</strong> unless you are deliberately restoring live.
+        Documents with matching IDs are overwritten. Nothing is deleted.
+      </p>
+    </div>
+
+    <label class="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-2 px-1">Target project</label>
+    <div class="grid md:grid-cols-2 gap-3 mb-4">
+      <input id="tgtProject" placeholder="projectId e.g. egbc-worship-planner-test" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[13px]">
+      <input id="tgtKey" placeholder="apiKey" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[13px]">
+    </div>
+    <p class="text-[11px] opacity-45 mb-5 px-1">Both are on the Firebase console under Project settings → General → Your apps. They are public values, not secrets.</p>
+
+    <label class="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-2 px-1">Backup file</label>
+    <input id="restoreFile" type="file" accept=".json" class="w-full px-5 py-3 rounded-2xl border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[12px] mb-4" onchange="loadBackup(this.files[0])">
+
+    <div id="restoreSummary" class="hidden text-[12px] opacity-70 leading-relaxed mb-4 px-1"></div>
+
+    <div class="flex gap-3 flex-wrap items-center">
+      <button onclick="runRestore(true)" id="dryBtn" class="bg-white border border-[#dde7e6] px-6 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#f0f6f6] transition-all">Dry run</button>
+      <button onclick="runRestore(false)" id="resBtn" class="bg-[#b07d2e] text-white px-7 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Write to target</button>
+    </div>
+
+    <div id="resProgress" class="hidden mt-4">
+      <div class="progress-track"><div id="resFill" class="progress-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="bg-white rounded-[1.5rem] border border-[#dde7e6] shadow-sm p-6">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="font-black uppercase text-[11px] tracking-widest opacity-60">Log</h2>
+      <button onclick="document.getElementById('log').innerHTML=''" class="text-[10px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity">Clear</button>
+    </div>
+    <div id="log" class="log bg-[#f0f6f6] rounded-2xl border border-[#dde7e6] p-4 max-h-80 overflow-y-auto opacity-70">Ready.</div>
+  </div>
+</div>
+
+<script>
+/* Every collection the suite uses, found by scanning all 47 pages.
+   vox_projects is excluded - it belongs to VOX London, not EGBC. */
+const COLLECTIONS=[
+  'addressBook','events','songs','services','schedules','availability',
+  'portal','pageContent','worshipBoardState','emailDrafts','inventory',
+  'kb_playthrough','kb_howto_av','kb_troubleshoot_av','kb_training_worship',
+  'av_schematic','training_portal','hub_resources','boards',
+  /* added by the hub */
+  'users','hubPages','resources','youthGrants','youthAccess','news'
+];
+
+const srcConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
+const srcApp=firebase.initializeApp(srcConfig);
+const srcDb=srcApp.firestore();
+
+let BACKUP=null;
+
+function log(m,tone){
+  const el=document.getElementById('log');
+  const c=tone==='err'?'color:#b0392c':tone==='ok'?'color:#3b7d23':'';
+  el.innerHTML+=`<div style="${c}">${new Date().toLocaleTimeString('en-GB')}  ${m}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+/* ---- collection checkboxes ---- */
+document.getElementById('colList').innerHTML=COLLECTIONS.map(c=>
+  `<label class="flex items-center gap-2 cursor-pointer">
+    <input type="checkbox" class="col w-3.5 h-3.5 accent-[#3d6263]" value="${c}" checked onchange="count()">
+    <span class="text-[11px] font-bold opacity-70">${c}</span>
+  </label>`).join('');
+
+function chosen(){return Array.from(document.querySelectorAll('.col:checked')).map(c=>c.value);}
+function count(){document.getElementById('expCount').textContent=chosen().length+' of '+COLLECTIONS.length+' selected';}
+function toggleAll(){
+  const boxes=Array.from(document.querySelectorAll('.col'));
+  const on=boxes.every(b=>b.checked);
+  boxes.forEach(b=>b.checked=!on);
+  count();
+}
+count();
+
+/* ---- Firestore values do not survive JSON on their own ---- */
+function encode(v){
+  if(v===null||v===undefined)return v;
+  if(v.toDate&&typeof v.toDate==='function')return{__t:'ts',v:v.toDate().toISOString()};
+  if(v.latitude!==undefined&&v.longitude!==undefined)return{__t:'geo',lat:v.latitude,lng:v.longitude};
+  if(v.path&&v.id&&v.parent)return{__t:'ref',v:v.path};
+  if(Array.isArray(v))return v.map(encode);
+  if(typeof v==='object'){const o={};for(const k in v)o[k]=encode(v[k]);return o;}
+  return v;
+}
+function decode(v,fb){
+  if(v===null||v===undefined)return v;
+  if(typeof v==='object'&&v.__t==='ts')return fb.firestore.Timestamp.fromDate(new Date(v.v));
+  if(typeof v==='object'&&v.__t==='geo')return new fb.firestore.GeoPoint(v.lat,v.lng);
+  if(typeof v==='object'&&v.__t==='ref')return null; // references are not portable between projects
+  if(Array.isArray(v))return v.map(x=>decode(x,fb));
+  if(typeof v==='object'){const o={};for(const k in v)o[k]=decode(v[k],fb);return o;}
+  return v;
+}
+
+/* ---- EXPORT ---- */
+async function runExport(){
+  const cols=chosen();
+  if(!cols.length){alert('Nothing selected.');return;}
+
+  const btn=document.getElementById('expBtn');btn.disabled=true;btn.textContent='Backing up…';
+  document.getElementById('expProgress').classList.remove('hidden');
+  log('Backup started — '+cols.length+' collections');
+
+  const out={
+    project:srcConfig.projectId,
+    takenAt:new Date().toISOString(),
+    collections:{}
+  };
+  let done=0,total=0;
+
+  for(const c of cols){
+    try{
+      const snap=await srcDb.collection(c).get();
+      out.collections[c]=snap.docs.map(d=>({id:d.id,data:encode(d.data())}));
+      total+=snap.size;
+      log(`  ${c} — ${snap.size} document${snap.size===1?'':'s'}`, snap.size?'ok':null);
+    }catch(e){
+      out.collections[c]=[];
+      log(`  ${c} — failed: ${e.message}`,'err');
+    }
+    done++;
+    document.getElementById('expFill').style.width=Math.round(done/cols.length*100)+'%';
+  }
+
+  const stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  const blob=new Blob([JSON.stringify(out,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`egbc-backup-${stamp}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  log(`Backup complete — ${total} documents, ${(blob.size/1048576).toFixed(2)} MB`,'ok');
+  btn.disabled=false;btn.textContent='Back up now';
+}
+
+/* ---- RESTORE ---- */
+async function loadBackup(file){
+  if(!file)return;
+  try{
+    BACKUP=JSON.parse(await file.text());
+    const cols=Object.keys(BACKUP.collections||{});
+    const n=cols.reduce((a,c)=>a+BACKUP.collections[c].length,0);
+    document.getElementById('restoreSummary').innerHTML=
+      `<strong>${n}</strong> documents across <strong>${cols.length}</strong> collections, taken from <strong>${esc(BACKUP.project||'?')}</strong> on ${new Date(BACKUP.takenAt).toLocaleString('en-GB')}.`;
+    document.getElementById('restoreSummary').classList.remove('hidden');
+    log(`Loaded ${file.name} — ${n} documents`);
+  }catch(e){
+    log('Could not read that file: '+e.message,'err');
+    BACKUP=null;
+  }
+}
+
+async function runRestore(dry){
+  if(!BACKUP){alert('Choose a backup file first.');return;}
+  const pid=document.getElementById('tgtProject').value.trim();
+  const key=document.getElementById('tgtKey').value.trim();
+  if(!pid||!key){alert('Enter the target project id and api key.');return;}
+
+  if(!dry){
+    if(pid===srcConfig.projectId){
+      if(!confirm('That is the LIVE project.\n\nRestoring over live data will overwrite documents that share an id. Are you certain?'))return;
+    }
+    if(!confirm(`Write ${Object.keys(BACKUP.collections).length} collections into ${pid}?`))return;
+  }
+
+  const btn=document.getElementById(dry?'dryBtn':'resBtn');
+  btn.disabled=true;const label=btn.textContent;btn.textContent=dry?'Checking…':'Writing…';
+  document.getElementById('resProgress').classList.remove('hidden');
+  log(dry?'Dry run — nothing will be written':'Writing to '+pid);
+
+  let tgtDb;
+  try{
+    let app;
+    try{app=firebase.app('target');}
+    catch(e){app=firebase.initializeApp({apiKey:key,projectId:pid},'target');}
+    tgtDb=app.firestore();
+  }catch(e){
+    log('Could not connect to target: '+e.message,'err');
+    btn.disabled=false;btn.textContent=label;return;
+  }
+
+  const cols=Object.keys(BACKUP.collections);
+  let done=0,written=0,failed=0;
+
+  for(const c of cols){
+    const docs=BACKUP.collections[c];
+    if(!docs.length){done++;continue;}
+
+    if(dry){
+      log(`  ${c} — would write ${docs.length}`);
+      written+=docs.length;
+    }else{
+      /* Batched in 400s - Firestore caps a batch at 500 operations. */
+      for(let i=0;i<docs.length;i+=400){
+        const batch=tgtDb.batch();
+        docs.slice(i,i+400).forEach(d=>batch.set(tgtDb.collection(c).doc(d.id),decode(d.data,firebase)));
+        try{await batch.commit();written+=Math.min(400,docs.length-i);}
+        catch(e){failed++;log(`  ${c} — batch failed: ${e.message}`,'err');}
+      }
+      log(`  ${c} — ${docs.length} written`,'ok');
+    }
+    done++;
+    document.getElementById('resFill').style.width=Math.round(done/cols.length*100)+'%';
+  }
+
+  log(dry?`Dry run complete — ${written} documents would be written`:`Done — ${written} written${failed?', '+failed+' batches failed':''}`, failed?'err':'ok');
+  btn.disabled=false;btn.textContent=label;
+}
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+</script>
+</body>
+</html>

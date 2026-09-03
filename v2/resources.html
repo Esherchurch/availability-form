@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resources — EGBC</title>
+<link rel="manifest" href="./manifest-hub.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="content">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<style>
+  :root{--canvas:#eef4f3;--ink:#14201f;--body:#3a4d4c;--muted:#6b8281;--hairline:#dde7e6;--hairline-strong:#c9d8d6;--brand:#3d6263;--brand-tint:#e7f0ef;
+    --shadow-sm:0 1px 2px rgba(20,32,31,.05);--shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);--shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12)}
+  body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
+  h1,h2{color:var(--ink)}
+  .res-card{transition:transform .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
+  .res-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+  input:focus,select:focus,textarea:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px rgba(61,98,99,.28)!important;outline:none}
+  .drop-zone{border:2px dashed var(--hairline-strong);transition:all .15s}
+  .drop-zone.drag-over{border-color:var(--brand);background:var(--brand-tint)}
+  .progress-track{height:6px;background:var(--hairline);border-radius:999px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--brand);transition:width .2s;border-radius:999px}
+  .skel{background:linear-gradient(90deg,#e8f0f0 25%,#d1dfdf 50%,#e8f0f0 75%);background-size:200% 100%;animation:sh 1.4s infinite;border-radius:1.25rem}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  mark{background:#f6efe1;color:var(--ink);border-radius:3px;padding:0 3px}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:999px}
+</style>
+</head>
+<body class="p-6 lg:p-10 min-h-screen">
+
+<div class="max-w-6xl mx-auto">
+
+  <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+    <div class="flex items-center gap-4">
+      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-14 h-14 rounded-full object-cover flex-shrink-0" style="border:2px solid #dde7e6">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC Team Hub</div>
+        <h1 class="text-3xl font-black tracking-tight">Resources</h1>
+        <p class="text-sm font-semibold opacity-60 mt-1">Documents, guides and links for your teams</p>
+      </div>
+    </div>
+    <div id="userChip"></div>
+  </header>
+
+  <div class="flex gap-3 items-center flex-wrap mb-6">
+    <div class="flex-grow relative min-w-[240px]">
+      <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="search" placeholder="Search resources…" oninput="render()" class="w-full pl-12 pr-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
+    </div>
+    <button id="addBtn" onclick="openEditor()" class="hidden bg-[#3d6263] text-white px-7 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all whitespace-nowrap">+ Add resource</button>
+  </div>
+
+  <div id="teamTabs" class="flex gap-2 flex-wrap mb-6"></div>
+  <div id="folderTabs" class="flex gap-2 flex-wrap mb-8"></div>
+
+  <!-- UPLOAD -->
+  <div id="uploadArea" class="hidden mb-8">
+    <div id="dropZone" class="drop-zone rounded-[1.5rem] px-6 py-10 text-center cursor-pointer bg-white" onclick="document.getElementById('files').click()">
+      <div class="text-3xl mb-2 opacity-30">📎</div>
+      <div class="text-[13px] font-black uppercase tracking-widest opacity-70">Drop files here</div>
+      <div class="text-[12px] opacity-45 mt-1">PDFs, Word, Excel, images, anything · or click to browse</div>
+    </div>
+    <input id="files" type="file" multiple class="hidden" onchange="queueFiles(Array.from(this.files))">
+    <div id="queue" class="space-y-3 mt-4"></div>
+  </div>
+
+  <!-- EDITOR -->
+  <div id="editor" class="hidden bg-white rounded-[1.5rem] border-2 border-[#3d6263] p-6 mb-8 space-y-3">
+    <div class="flex justify-between items-center mb-1">
+      <h3 class="font-black uppercase text-[11px] tracking-widest">Add a resource</h3>
+      <button onclick="closeEditor()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-lg">✕</button>
+    </div>
+    <div class="flex gap-2 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
+      <button onclick="editorMode('file')" id="em-file" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest bg-[#3d6263] text-white">Upload files</button>
+      <button onclick="editorMode('link')" id="em-link" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest">Add a link</button>
+    </div>
+
+    <div id="linkFields" class="hidden space-y-3 pt-2">
+      <input id="lkTitle" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-sm">
+      <input id="lkUrl" placeholder="https://…" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm">
+      <input id="lkDesc" placeholder="One-line description — optional" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm">
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-3 pt-2">
+      <select id="edTeam" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-sm"></select>
+      <input id="edFolder" list="folderOptions" placeholder="Folder (e.g. Policies)" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm">
+      <datalist id="folderOptions"></datalist>
+      <select id="edRole" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-sm">
+        <option value="member">Everyone on the team</option>
+        <option value="leader">Leaders and above</option>
+        <option value="admin">Admins only</option>
+      </select>
+    </div>
+
+    <div id="linkSave" class="hidden pt-1">
+      <button onclick="saveLink()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Save link</button>
+    </div>
+  </div>
+
+  <div id="list" class="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    <div class="skel h-28"></div><div class="skel h-28"></div><div class="skel h-28"></div>
+  </div>
+
+  <div id="empty" class="hidden text-center py-20">
+    <div class="text-5xl mb-4 opacity-30">📂</div>
+    <div class="font-black uppercase opacity-40 tracking-widest text-sm">Nothing here yet</div>
+    <div id="emptyHint" class="text-sm opacity-30 mt-2"></div>
+  </div>
+</div>
+
+<script>
+const db=firebase.firestore();
+const storage=firebase.storage();
+const COL='resources';
+
+let ME=null,ITEMS=[],activeTeam=null,activeFolder='',uploadQ=[],mode='file';
+
+EGBCAuth.require().then(async p=>{
+  ME=p;
+  EGBCAuth.mountUserChip('userChip');
+  initDrop();
+  await load();
+  renderTeams();
+  render();
+});
+
+function myTeams(){return EGBCAuth.isOwner()?Object.keys(EGBCAuth.TEAMS):(ME.teams||[]);}
+function canAdd(team){return EGBCAuth.isOwner()||EGBCAuth.hasRole(team,'leader');}
+
+async function load(){
+  try{
+    const snap=await db.collection(COL).orderBy('uploadedAt','desc').get();
+    ITEMS=snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){console.error('Load failed',e);ITEMS=[];}
+}
+
+/* ---- tabs ---- */
+
+function renderTeams(){
+  const teams=myTeams();
+  activeTeam=activeTeam||teams[0]||null;
+  const el=document.getElementById('teamTabs');
+  el.innerHTML=teams.length<=1?'':teams.map(t=>{
+    const c=EGBCAuth.TEAMS[t]||{label:t,colour:'#3d6263'};
+    const on=t===activeTeam;
+    return `<button onclick="switchTeam('${t}')" class="px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest border transition-all"
+      style="${on?`background:${c.colour};border-color:${c.colour};color:#fff`:'background:#fff;border-color:#dde7e6'}">${c.label}</button>`;
+  }).join('');
+  document.getElementById('addBtn').classList.toggle('hidden',!activeTeam||!canAdd(activeTeam));
+  fillTeamSelect();
+}
+
+function switchTeam(t){activeTeam=t;activeFolder='';renderTeams();render();}
+
+function foldersFor(team){
+  const set=new Set();
+  ITEMS.filter(i=>i.team===team&&i.folder).forEach(i=>set.add(i.folder));
+  return Array.from(set).sort();
+}
+
+function renderFolders(){
+  const f=foldersFor(activeTeam);
+  const el=document.getElementById('folderTabs');
+  if(!f.length){el.innerHTML='';return;}
+  const chip=(val,label)=>{
+    const on=activeFolder===val;
+    return `<button onclick="activeFolder='${val.replace(/'/g,"\\'")}';render()" class="px-5 py-2 rounded-full font-bold text-[11px] border transition-all ${on?'bg-[#3d6263] text-white border-[#3d6263]':'bg-white border-[#dde7e6] hover:bg-[#f0f6f6]'}">${esc(label)}</button>`;
+  };
+  el.innerHTML=chip('','All')+f.map(x=>chip(x,x)).join('');
+}
+
+/* ---- render ---- */
+
+function visible(){
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  return ITEMS.filter(i=>{
+    if(i.team!==activeTeam)return false;
+    if(activeFolder&&i.folder!==activeFolder)return false;
+    const need=i.minRole||'member';
+    if(need!=='member'&&!EGBCAuth.hasRole(i.team,need)&&!EGBCAuth.isOwner())return false;
+    if(q){
+      const hay=[(i.title||''),(i.description||''),(i.folder||''),(i.fileName||'')].join(' ').toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  });
+}
+
+function render(){
+  renderFolders();
+  const items=visible();
+  const list=document.getElementById('list');
+  const empty=document.getElementById('empty');
+  const q=document.getElementById('search').value;
+
+  if(!items.length){
+    list.innerHTML='';
+    empty.classList.remove('hidden');
+    document.getElementById('emptyHint').textContent=q?'Nothing matches that search':
+      (canAdd(activeTeam)?'Add the first resource for this team':'Ask your team leader to add resources here');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.innerHTML=items.map(i=>{
+    const editable=canAdd(i.team);
+    return `<div class="res-card bg-white border border-[#dde7e6] rounded-[1.25rem] p-5">
+      <div class="flex items-start gap-3 mb-3">
+        <span class="text-2xl flex-shrink-0">${iconFor(i)}</span>
+        <div class="flex-grow min-w-0">
+          <a href="${esc(i.url)}" target="_blank" rel="noopener" class="font-black text-sm leading-snug hover:underline block">${hl(esc(i.title),q)}</a>
+          <div class="text-[10px] opacity-45 mt-1">${i.folder?esc(i.folder)+' · ':''}${i.kind==='link'?'Link':fmtSize(i.size)}${i.minRole&&i.minRole!=='member'?' · '+esc(i.minRole)+'+':''}</div>
+        </div>
+      </div>
+      ${i.description?`<p class="text-[12px] opacity-60 leading-relaxed mb-3">${hl(esc(i.description),q)}</p>`:''}
+      <div class="flex gap-2 items-center flex-wrap">
+        <a href="${esc(i.url)}" target="_blank" rel="noopener" class="bg-[#f0f6f6] border border-[#dde7e6] px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#3d6263] hover:text-white transition-all">${i.kind==='link'?'Open':'Download'}</a>
+        ${editable?`<button onclick="renameItem('${i.id}')" class="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 px-2 transition-opacity">Rename</button>
+        <button onclick="removeItem('${i.id}')" class="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 px-2 transition-colors ml-auto">Delete</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function iconFor(i){
+  if(i.kind==='link')return'🔗';
+  const n=(i.fileName||'').toLowerCase();
+  if(/\.pdf$/.test(n))return'📕';
+  if(/\.(docx?|odt)$/.test(n))return'📘';
+  if(/\.(xlsx?|csv|ods)$/.test(n))return'📗';
+  if(/\.(pptx?|odp)$/.test(n))return'📙';
+  if(/\.(png|jpe?g|gif|webp|svg)$/.test(n))return'🖼';
+  if(/\.(mp4|mov|webm|avi)$/.test(n))return'🎬';
+  if(/\.(mp3|wav|m4a|aac)$/.test(n))return'🎵';
+  if(/\.(zip|rar|7z)$/.test(n))return'🗜';
+  return'📄';
+}
+
+function fmtSize(b){
+  if(!b)return'';
+  if(b<1024)return b+' B';
+  if(b<1048576)return (b/1024).toFixed(0)+' KB';
+  return (b/1048576).toFixed(1)+' MB';
+}
+
+/* ---- editor ---- */
+
+function openEditor(){
+  document.getElementById('editor').classList.remove('hidden');
+  document.getElementById('uploadArea').classList.remove('hidden');
+  fillTeamSelect();
+  fillFolderOptions();
+  editorMode('file');
+}
+function closeEditor(){
+  document.getElementById('editor').classList.add('hidden');
+  document.getElementById('uploadArea').classList.add('hidden');
+  uploadQ=[];renderQueue();
+}
+function editorMode(m){
+  mode=m;
+  document.getElementById('em-file').classList.toggle('bg-[#3d6263]',m==='file');
+  document.getElementById('em-file').classList.toggle('text-white',m==='file');
+  document.getElementById('em-link').classList.toggle('bg-[#3d6263]',m==='link');
+  document.getElementById('em-link').classList.toggle('text-white',m==='link');
+  document.getElementById('linkFields').classList.toggle('hidden',m!=='link');
+  document.getElementById('linkSave').classList.toggle('hidden',m!=='link');
+  document.getElementById('uploadArea').classList.toggle('hidden',m!=='file');
+}
+
+function fillTeamSelect(){
+  const sel=document.getElementById('edTeam');
+  const teams=myTeams().filter(canAdd);
+  sel.innerHTML=teams.map(t=>`<option value="${t}"${t===activeTeam?' selected':''}>${EGBCAuth.TEAMS[t].label}</option>`).join('');
+}
+function fillFolderOptions(){
+  document.getElementById('folderOptions').innerHTML=foldersFor(activeTeam).map(f=>`<option value="${esc(f)}">`).join('');
+}
+
+/* ---- upload ---- */
+
+function initDrop(){
+  const z=document.getElementById('dropZone');
+  ['dragenter','dragover'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.add('drag-over');}));
+  ['dragleave','drop'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.remove('drag-over');}));
+  z.addEventListener('drop',ev=>{ev.preventDefault();queueFiles(Array.from(ev.dataTransfer.files));});
+}
+
+function queueFiles(files){
+  if(!files.length)return;
+  files.forEach(f=>uploadQ.push({
+    id:'u'+Math.random().toString(36).slice(2,9),
+    file:f,
+    title:f.name.replace(/\.[^/.]+$/,'').replace(/[-_]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),
+    progress:0,status:'ready'
+  }));
+  renderQueue();
+}
+
+function renderQueue(){
+  const el=document.getElementById('queue');
+  if(!uploadQ.length){el.innerHTML='';return;}
+  el.innerHTML=uploadQ.map(q=>`
+    <div class="bg-white rounded-[1.25rem] border border-[#dde7e6] p-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-xl">${iconFor({fileName:q.file.name})}</span>
+        <input value="${esc(q.title)}" oninput="setQ('${q.id}',this.value)" class="flex-grow min-w-[180px] px-4 py-2 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-[13px]">
+        <span class="text-[10px] font-bold opacity-40">${fmtSize(q.file.size)}</span>
+        ${q.status==='done'?'<span class="text-[10px] font-black uppercase text-green-700">Uploaded</span>':
+          q.status==='failed'?'<span class="text-[10px] font-black uppercase text-red-600">Failed</span>':
+          `<button onclick="dropQ('${q.id}')" class="text-[#d1dfdf] hover:text-red-500 font-black">✕</button>`}
+      </div>
+      ${q.status==='uploading'?`<div class="progress-track mt-3"><div class="progress-fill" style="width:${q.progress}%"></div></div>`:''}
+    </div>`).join('')
+    +`<button onclick="uploadAll()" id="upBtn" class="w-full bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Upload ${uploadQ.filter(q=>q.status!=='done').length} file(s)</button>`;
+}
+
+function setQ(id,v){const q=uploadQ.find(x=>x.id===id);if(q)q.title=v;}
+function dropQ(id){uploadQ=uploadQ.filter(x=>x.id!==id);renderQueue();}
+
+async function uploadAll(){
+  const team=document.getElementById('edTeam').value;
+  const folder=document.getElementById('edFolder').value.trim();
+  const minRole=document.getElementById('edRole').value;
+  if(!team){alert('Pick a team.');return;}
+
+  const btn=document.getElementById('upBtn');btn.disabled=true;btn.textContent='Uploading…';
+
+  for(const q of uploadQ){
+    if(q.status==='done')continue;
+    q.status='uploading';renderQueue();
+    try{
+      const safe=q.file.name.replace(/[^\w.\-]/g,'-');
+      const path=`resources/${team}/${Date.now()}-${safe}`;
+      const task=storage.ref(path).put(q.file,{contentType:q.file.type||'application/octet-stream'});
+      task.on('state_changed',s=>{q.progress=Math.round((s.bytesTransferred/s.totalBytes)*100);renderQueue();});
+      await task;
+      const url=await storage.ref(path).getDownloadURL();
+
+      await db.collection(COL).add({
+        kind:'file',
+        title:q.title.trim()||q.file.name,
+        description:'',
+        fileName:q.file.name,
+        storagePath:path,
+        url,
+        size:q.file.size,
+        team,folder,minRole,
+        uploadedBy:ME.name||ME.email,
+        uploadedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      q.status='done';q.progress=100;renderQueue();
+    }catch(e){
+      console.error('Upload failed',q.file.name,e);
+      q.status='failed';renderQueue();
+    }
+  }
+
+  btn.disabled=false;
+  const failed=uploadQ.filter(q=>q.status==='failed').length;
+  if(failed)alert(`${failed} file(s) failed. See the console for details.`);
+  else{uploadQ=[];closeEditor();}
+  await load();renderTeams();render();
+}
+
+async function saveLink(){
+  const team=document.getElementById('edTeam').value;
+  const title=document.getElementById('lkTitle').value.trim();
+  const url=document.getElementById('lkUrl').value.trim();
+  if(!title||!url){alert('Title and URL are required.');return;}
+  try{
+    await db.collection(COL).add({
+      kind:'link',
+      title,
+      url,
+      description:document.getElementById('lkDesc').value.trim(),
+      team,
+      folder:document.getElementById('edFolder').value.trim(),
+      minRole:document.getElementById('edRole').value,
+      uploadedBy:ME.name||ME.email,
+      uploadedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    ['lkTitle','lkUrl','lkDesc'].forEach(i=>document.getElementById(i).value='');
+    closeEditor();await load();renderTeams();render();
+  }catch(e){alert('Save failed: '+e.message);}
+}
+
+async function renameItem(id){
+  const it=ITEMS.find(x=>x.id===id);if(!it)return;
+  const t=prompt('Title:',it.title);if(t===null)return;
+  const d=prompt('Description (leave blank for none):',it.description||'');if(d===null)return;
+  try{
+    await db.collection(COL).doc(id).update({title:t.trim(),description:d.trim()});
+    await load();render();
+  }catch(e){alert('Could not save: '+e.message);}
+}
+
+async function removeItem(id){
+  const it=ITEMS.find(x=>x.id===id);if(!it)return;
+  if(!confirm(`Delete "${it.title}"? This cannot be undone.`))return;
+  try{
+    await db.collection(COL).doc(id).delete();
+    if(it.storagePath){
+      await storage.ref(it.storagePath).delete().catch(e=>console.warn('File remains in storage:',e.message));
+    }
+    await load();renderTeams();render();
+  }catch(e){alert('Delete failed: '+e.message);}
+}
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function hl(t,q){if(!q)return t;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{t=t.replace(new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>');});return t;}
+</script>
+</body>
+</html>

@@ -1,0 +1,983 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worship &amp; AV Hub</title>
+    <style>
+        :root {
+            --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9;
+            --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+            --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+            --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+            --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4;
+            --gold:#b07d2e; --gold-tint:#f6efe1;
+            --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+            --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+            --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+            --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+            /* legacy aliases */
+            --pale-teal: var(--canvas);
+            --border-teal: var(--hairline);
+            --accent-teal: var(--brand);
+            --white: var(--surface);
+            --brand-green: var(--success);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--canvas); color: var(--body); display: flex; height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+        /* ── SIDEBAR ── */
+        #sidebar { width: 64px; background: var(--surface); border-right: 1px solid var(--hairline); display: flex; flex-direction: column; transition: width 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 1000; flex-shrink: 0; }
+        #sidebar.pinned { width: 260px; }
+        #sidebar-pin { width: 64px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-bottom: 1px solid var(--hairline); flex-shrink: 0; color: var(--brand); transition: background 0.2s; }
+        #sidebar-pin:hover { background: var(--surface-2); }
+        #sidebar.pinned #sidebar-pin { background: var(--surface-2); }
+        #sidebar-pin svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+        #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
+        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 260px; position: relative; }
+        .nav-row { display: flex; align-items: center; height: 48px; color: var(--body); cursor: pointer; border-left: 3px solid transparent; transition: color 0.15s, background 0.15s, border-color 0.15s; }
+        .nav-row:hover { color: var(--ink); background: var(--surface-2); border-left-color: var(--hairline-strong); }
+        .nav-row.active { color: #ffffff; background: var(--brand); border-left-color: var(--brand-dark); }
+        .nav-icon { min-width: 64px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+        .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+        .nav-text { font-family: 'Montserrat', sans-serif; font-weight: 700; text-transform: none; font-size: 13px; letter-spacing: -0.01em; white-space: nowrap; flex-grow: 1; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+        #sidebar.pinned .nav-text { opacity: 1; }
+        .nav-row.active .nav-text { color: #ffffff; }
+        .nav-row.active .chevron { color: #ffffff; }
+        .chevron { width: 36px; display: flex; justify-content: center; align-items: center; opacity: 0; transition: transform 0.2s, opacity 0.15s; flex-shrink: 0; }
+        #sidebar.pinned .chevron { opacity: 0.6; }
+        .has-children.open > .nav-row .chevron { transform: rotate(180deg); opacity: 1; }
+        .child-container { overflow: hidden; transition: height 0.2s cubic-bezier(0.4,0,0.2,1); height: 0; background: var(--surface-2); }
+        .child-container.open { height: auto; }
+        .indent-1 .nav-row { height: 40px; }
+        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 13px; letter-spacing: 0; }
+        .indent-2 .nav-row { height: 40px; }
+        .indent-2 .nav-text { font-weight: 500; text-transform: none; font-size: 13px; }
+        .edit-trigger { display: none; padding: 0 8px; color: var(--faint); cursor: pointer; flex-shrink: 0; font-size: 13px; }
+        #sidebar.pinned .admin-active .edit-trigger { display: block; }
+
+        /* ── MAIN ── */
+        #main-container { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; width: 100%; }
+        header { height: 110px; background: var(--surface); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--hairline); flex-shrink: 0; }
+        #dept-logo { height: 85px; width: auto; max-width: 300px; transition: opacity 0.3s ease; }
+        #app-viewport { flex-grow: 1; position: relative; background: var(--white); overflow: hidden; }
+        #app-frame { width: 100%; height: 100%; border: none; background: var(--white); }
+        #sync-status { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-top: 5px; transition: color 0.3s; }
+        #sync-status.syncing { color: var(--gold); }
+        #sync-status.synced  { color: var(--success); }
+        #sync-status.error   { color: var(--danger); }
+        #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--hairline); }
+        .admin-btn { width: 100%; padding: 10px; background: var(--brand); color: white; border: none; border-radius: var(--r-sm); cursor: pointer; font-size: 12px; font-weight: 700; font-family: 'Montserrat', sans-serif; margin-bottom: 6px; transition: background 0.15s, transform 0.05s; }
+        .admin-btn:active { transform: translateY(1px); }
+        .admin-btn:hover { filter: brightness(0.96); }
+
+        /* ── DASHBOARD LANDING ── */
+        #landing-content { position: absolute; inset: 0; background: var(--canvas); display: flex; flex-direction: column; overflow-y: auto; z-index: 5; }
+        #hero-section { position: relative; min-height: 140px; background: var(--brand); display: flex; align-items: flex-end; padding: 24px 40px; overflow: hidden; flex-shrink: 0; }
+        #hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 30%; opacity: 0.35; transition: opacity 0.3s; }
+        #hero-text { position: relative; z-index: 1; }
+        #hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.025em; color: #fff; line-height: 1.15; }
+        #hero-subtitle { font-size: 14px; color: rgba(255,255,255,0.92); margin-top: 6px; }
+        #hero-edit-btn { position: absolute; top: 12px; right: 16px; z-index: 2; background: rgba(255,255,255,0.16); color: #fff; border: 1px solid rgba(255,255,255,0.32); border-radius: var(--r-sm); padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; display: none; }
+        #dashboard-body { display: grid; grid-template-columns: 1fr 480px; gap: 0; flex-grow: 1; min-height: 0; }
+        #dashboard-main { padding: 30px 40px; overflow-y: auto; }
+        #dashboard-sidebar-panel { border-left: 1px solid var(--hairline); background: var(--surface); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+        #body-content-area { color: var(--body); font-size: 15px; line-height: 1.7; }
+        #body-content-area h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 10px; }
+        #body-content-area p { margin-bottom: 12px; }
+        #body-content-area img { max-width: 100%; border-radius: var(--r-sm); margin: 8px 0; }
+        #body-edit-btn { margin-bottom: 14px; background: none; color: var(--brand); border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; display: none; transition: background 0.15s; }
+        #body-edit-btn:hover { background: var(--surface-2); }
+
+        /* ── NEWS PANEL ── */
+        #news-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--hairline); flex-shrink: 0; }
+        #news-header h3 { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+        #news-add-btn { background: var(--brand); color: #fff; border: none; border-radius: var(--r-sm); padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; display: none; transition: background 0.15s; }
+        #news-add-btn:hover { background: var(--brand-dark); }
+        #news-track-wrapper { flex-grow: 1; overflow: hidden; position: relative; min-width: 0; }
+        #news-track { display: flex; flex-direction: column; gap: 0; will-change: transform; }
+        .news-card { border-bottom: 1px solid var(--hairline); padding: 18px 20px; background: var(--surface); position: relative; flex-shrink: 0; min-width: 0; box-sizing: border-box; }
+        .news-card-date { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
+        .news-card-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 6px; }
+        .news-card-body { font-size: 13px; color: var(--body); line-height: 1.55; overflow: hidden; word-break: break-word; }
+        .news-card-body * { max-width: 100% !important; box-sizing: border-box; }
+        .news-card-body img { max-width: 100% !important; width: auto; height: auto; border-radius: var(--r-sm); margin: 6px 0; display: block; }
+        .news-card-body table { width: 100% !important; table-layout: fixed; }
+        .news-card-body a { color: var(--brand); }
+        .news-card-edit-btn { position: absolute; top: 10px; right: 10px; background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); padding: 4px 9px; font-size: 12px; color: var(--muted); cursor: pointer; display: none; }
+        body.admin-mode .news-card-edit-btn { display: block; }
+        body.admin-mode #hero-edit-btn { display: block; }
+        body.admin-mode #body-edit-btn { display: block; }
+        body.admin-mode #news-add-btn  { display: block; }
+
+        /* ── MODALS ── */
+        .modal-overlay { display: none; position: absolute; inset: 0; background: rgba(20,32,31,0.5); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 28px; width: 600px; max-width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+        .modal-box h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 18px; }
+        .modal-box label { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 14px 0 6px; }
+        .modal-box input, .modal-box select, .modal-box textarea { width: 100%; padding: 11px 14px; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); outline: none; font-family: inherit; font-size: 15px; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+        .modal-box input:focus, .modal-box select:focus, .modal-box textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+        .modal-box textarea { min-height: 180px; resize: vertical; font-size: 12.5px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+        .modal-btn-row { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 11px; border: 1px solid transparent; border-radius: var(--r-md); cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'Montserrat', sans-serif; transition: background 0.15s, transform 0.05s; }
+        .modal-btn:active { transform: translateY(1px); }
+        .modal-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+        .modal-btn.primary { background: var(--brand); color: #fff; }
+        .modal-btn.primary:hover { background: var(--brand-dark); }
+        .modal-btn.danger  { background: var(--danger); color: #fff; }
+        .modal-btn.danger:hover { background: #953024; }
+        .modal-btn.cancel  { background: var(--brand-tint); color: var(--brand); }
+        .modal-btn.cancel:hover { background: var(--surface-2); border-color: var(--hairline-strong); }
+        .tab-row { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--hairline-strong); }
+        .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 700; background: none; border: none; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .tab-btn.active { color: var(--brand); border-bottom-color: var(--brand); }
+
+        /* ── ICON PICKER ── */
+        #icon-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .icon-picker-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 6px 8px;
+            border: 1px solid var(--hairline-strong);
+            border-radius: var(--r-md);
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--surface-2);
+        }
+        .icon-picker-option:hover { border-color: var(--brand); background: var(--brand-tint); }
+        .icon-picker-option.selected { border-color: var(--brand); background: var(--brand); color: white; }
+        .icon-picker-option svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+        .icon-picker-option span { font-size: 11px; font-weight: 700; text-transform: none; letter-spacing: 0; color: inherit; text-align: center; line-height: 1.2; }
+        .icon-picker-option.selected span { color: white; }
+
+        /* ── RICH TEXT EDITOR ── */
+        .rte-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-bottom: none; border-radius: var(--r-md) var(--r-md) 0 0; margin-top: 10px; }
+        .rte-btn { padding: 5px 9px; background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); cursor: pointer; font-size: 12px; font-weight: 700; color: var(--brand); transition: all 0.15s; line-height: 1.4; }
+        .rte-btn:hover { background: var(--brand); color: white; border-color: var(--brand); }
+        .rte-btn.active { background: var(--brand); color: white; }
+        .rte-btn.separator { background: none; border: none; border-left: 1px solid var(--hairline-strong); padding: 0 2px; cursor: default; color: transparent; border-radius: 0; }
+        .rte-select { padding: 5px 7px; border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); font-size: 12px; color: var(--brand); background: var(--surface); cursor: pointer; outline: none; }
+        .rte-area { width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto; border: 1px solid var(--hairline-strong); border-radius: 0 0 var(--r-md) var(--r-md); padding: 14px; font-family: 'Montserrat', sans-serif; font-size: 14px; line-height: 1.6; color: var(--ink); outline: none; }
+        .rte-area:focus { border-color: var(--brand); }
+        .rte-area img { max-width: 100%; border-radius: var(--r-sm); cursor: pointer; }
+        .rte-area img.selected { outline: 3px solid var(--brand); border-radius: var(--r-sm); }
+        #img-resize-bar { display: none; align-items: center; gap: 10px; padding: 8px 10px; background: var(--brand); color: white; border-radius: 0 0 var(--r-md) var(--r-md); font-size: 12px; font-weight: 700; }
+        #img-resize-bar.visible { display: flex; }
+        #img-size-slider { flex-grow: 1; accent-color: white; }
+        #img-size-label { min-width: 40px; text-align: right; }
+        .source-textarea { width: 100%; min-height: 200px; max-height: 340px; overflow-y: auto; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); padding: 12px; margin-top: 10px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5; color: var(--ink); outline: none; resize: vertical; }
+        .source-textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+        .paste-zone { min-height: 200px; max-height: 340px; overflow-y: auto; border: 1px dashed var(--hairline-strong); border-radius: var(--r-md); padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.6; color: var(--ink); outline: none; transition: border-color 0.2s; }
+        .paste-zone:focus { border-color: var(--brand); border-style: solid; box-shadow: 0 0 0 3px var(--brand-ring); }
+        .paste-zone:empty:before { content: attr(placeholder); color: var(--faint); pointer-events: none; }
+        .paste-zone img { max-width: 100%; border-radius: var(--r-sm); }
+
+        /* ── ACCESSIBILITY ── */
+        :focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+        .nav-row:focus-visible { outline: 3px solid var(--brand); outline-offset: -3px; box-shadow: none; }
+        button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+
+        /* ── MENU MODAL ── */
+        #menu-modal-overlay { display: none; position: absolute; inset: 0; background: rgba(20,32,31,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        #menu-modal-overlay.open { display: flex; }
+        .menu-modal-box { background: var(--surface); border: 1px solid var(--hairline); padding: 30px; border-radius: var(--r-lg); width: 480px; max-width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+        .menu-modal-box label { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 12px 0 6px; }
+        .menu-modal-box input, .menu-modal-box select { width: 100%; padding: 11px 14px; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); outline: none; font-family: inherit; font-size: 15px; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+        .menu-modal-box input:focus, .menu-modal-box select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+        .range-row { display: flex; align-items: center; gap: 10px; }
+        .range-row input[type=range] { flex-grow: 1; accent-color: var(--brand); }
+        .range-row span { min-width: 40px; font-size: 13px; color: var(--brand); font-weight: 700; text-align: right; }
+
+        /* ── RESPONSIVE (additive — stacks the two-column dashboard on small screens) ── */
+        @media (max-width: 900px) {
+            header { height: auto; min-height: 76px; padding: 12px 16px; }
+            #dept-logo { height: 56px; }
+            #hero-section { padding: 16px 20px; }
+            #hero-title { font-size: 24px; }
+            #dashboard-body { grid-template-columns: 1fr; }
+            #dashboard-main { padding: 20px 16px; }
+            #dashboard-sidebar-panel { border-left: none; border-top: 1px solid var(--border-teal); min-height: 320px; }
+            .modal-box, .menu-modal-box { width: 100%; }
+        }
+    </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body>
+
+<nav id="sidebar">
+    <div id="sidebar-pin" onclick="toggleSidebarPin()" title="Pin sidebar open">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </div>
+    <div id="nav-list"></div>
+    <div id="admin-controls">
+        <button class="admin-btn" onclick="openMenuModal(null)">+ Add Page / Sub</button>
+        <button class="admin-btn" onclick="openDashboardEditor()" style="background:var(--brand-dark);">&#10002; Edit Dashboard</button>
+        <button class="admin-btn" style="background:var(--danger);" onclick="resetMenu()">Reset System</button>
+    </div>
+</nav>
+
+<div id="main-container">
+    <header>
+        <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
+        <div style="text-align: right">
+            <div id="secret-trigger" onclick="handleSecret()" style="font-size: 11px; color: #2a4e4e; text-transform: uppercase; cursor: pointer;">Secure Portal</div>
+            <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
+            <div id="sync-status">Connecting&hellip;</div>
+        </div>
+    </header>
+
+    <main id="app-viewport">
+
+        <div id="landing-content">
+            <div id="hero-section">
+                <div id="hero-bg"></div>
+                <div id="hero-text">
+                    <div id="hero-title">Welcome</div>
+                    <div id="hero-subtitle">Select a tool from the menu to get started.</div>
+                </div>
+                <button id="hero-edit-btn" onclick="openHeroEditor()">&#10002; Edit Banner</button>
+            </div>
+
+            <div id="dashboard-body">
+                <div id="dashboard-main">
+                    <button id="body-edit-btn" onclick="openBodyEditor()">&#10002; Edit Content</button>
+                    <div id="body-content-area">
+                        <h2>Dashboard</h2>
+                        <p style="color:#2a4e4e; font-size:15px;">Select a tool to begin.</p>
+                    </div>
+                </div>
+                <div id="dashboard-sidebar-panel">
+                    <div id="news-header">
+                        <h3>Latest News</h3>
+                        <button id="news-add-btn" onclick="openNewsEditor(null)">+ Add</button>
+                    </div>
+                    <div id="news-track-wrapper">
+                        <div id="news-track"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HERO EDITOR -->
+            <div class="modal-overlay" id="hero-modal">
+                <div class="modal-box">
+                    <h3>Edit Banner</h3>
+                    <label>Title</label><input type="text" id="he-title" placeholder="Welcome">
+                    <label>Subtitle</label><input type="text" id="he-subtitle" placeholder="Short tagline&hellip;">
+                    <label>Background Image URL (optional)</label><input type="text" id="he-img" placeholder="https://&hellip;" oninput="previewHeroBg()">
+                    <label>Image vertical position</label>
+                    <div class="range-row">
+                        <input type="range" id="he-pos" min="0" max="100" value="30" oninput="previewHeroPos(this.value)">
+                        <span id="he-pos-label">30%</span>
+                    </div>
+                    <div id="he-preview" style="height:80px;border-radius:8px;background:var(--accent-teal);margin-top:8px;background-size:cover;background-position:center 30%;opacity:0.8;transition:background-position 0.2s;"></div>
+                    <div class="modal-btn-row">
+                        <button class="modal-btn cancel" onclick="closeModal('hero-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveHero()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BODY EDITOR -->
+            <div class="modal-overlay" id="body-modal">
+                <div class="modal-box">
+                    <h3>Edit Dashboard Content</h3>
+                    <div class="tab-row">
+                        <button class="tab-btn active" id="body-tab-rich" onclick="switchBodyTab('rich')">&#10022; Rich Editor</button>
+                        <button class="tab-btn" id="body-tab-source" onclick="switchBodyTab('source')">Source HTML</button>
+                    </div>
+                    <div id="rte-toolbar-wrap">
+                        <div class="rte-toolbar">
+                            <select class="rte-select" onchange="execCmd('formatBlock',this.value);this.value=''">
+                                <option value="">Format&hellip;</option><option value="p">Paragraph</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option><option value="h4">Heading 4</option>
+                            </select>
+                            <select class="rte-select" id="font-size-sel" onchange="execCmd('fontSize',this.value);this.value=''">
+                                <option value="">Size&hellip;</option><option value="1">Small</option><option value="3">Normal</option><option value="4">Large</option><option value="5">X-Large</option><option value="6">XX-Large</option>
+                            </select>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
+                            <button class="rte-btn" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
+                            <button class="rte-btn" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('justifyLeft')">&#8678;</button>
+                            <button class="rte-btn" onclick="execCmd('justifyCenter')">&#9776;</button>
+                            <button class="rte-btn" onclick="execCmd('justifyRight')">&#8680;</button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('insertUnorderedList')">&#8226; List</button>
+                            <button class="rte-btn" onclick="execCmd('insertOrderedList')">1. List</button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="insertLink()">&#128279;</button>
+                            <button class="rte-btn" onclick="insertImageUrl()">&#128444;</button>
+                            <span class="rte-btn separator">|</span>
+                            <input type="color" id="rte-color" style="width:28px;height:28px;padding:1px;border:1px solid var(--border-teal);border-radius:4px;cursor:pointer;" onchange="execCmd('foreColor',this.value)">
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('undo')">&#8617;</button>
+                            <button class="rte-btn" onclick="execCmd('redo')">&#8618;</button>
+                            <button class="rte-btn" onclick="execCmd('removeFormat')" style="font-size:10px;">Clear</button>
+                        </div>
+                        <div id="rte-area" class="rte-area" contenteditable="true"></div>
+                        <div id="img-resize-bar">
+                            <span>Image size:</span>
+                            <input type="range" id="img-size-slider" min="5" max="100" value="100" oninput="resizeSelectedImg(this.value)">
+                            <span id="img-size-label">100%</span>
+                            <button onclick="deSelectImg()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:700;">Done</button>
+                        </div>
+                    </div>
+                    <textarea id="body-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here&hellip;"></textarea>
+                    <div class="modal-btn-row">
+                        <button class="modal-btn cancel" onclick="closeModal('body-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveBodyContent()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEWS EDITOR -->
+            <div class="modal-overlay" id="news-modal">
+                <div class="modal-box">
+                    <h3 id="news-modal-title">Add News</h3>
+                    <input type="hidden" id="ne-id">
+                    <label>Headline</label><input type="text" id="ne-title" placeholder="What's the news?">
+                    <label>Date label (optional)</label><input type="text" id="ne-date" placeholder="e.g. Sunday 4 May">
+                    <div class="tab-row" style="margin-top:12px;">
+                        <button class="tab-btn active" id="news-tab-paste" onclick="switchNewsTab('paste')">&#10022; Paste from email</button>
+                        <button class="tab-btn" id="news-tab-source" onclick="switchNewsTab('source')">Source HTML</button>
+                    </div>
+                    <div id="ne-paste-zone" contenteditable="true" class="paste-zone" placeholder="Click here, then paste from your email editor (Ctrl+V / Cmd+V)&hellip;"></div>
+                    <textarea id="ne-source" class="source-textarea" style="display:none;" placeholder="Or type / paste raw HTML here&hellip;"></textarea>
+                    <div style="font-size:12px; color:#3d5a5a; margin-top:8px;">Tip: copy from your email editor and paste directly into the box above &mdash; images and formatting are preserved.</div>
+                    <div class="modal-btn-row">
+                        <button class="modal-btn danger" id="ne-delete-btn" style="display:none;" onclick="deleteNewsItem()">Delete</button>
+                        <button class="modal-btn cancel" onclick="closeModal('news-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveNewsItem()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DASHBOARD SETTINGS -->
+            <div class="modal-overlay" id="dash-settings-modal">
+                <div class="modal-box">
+                    <h3>Dashboard Settings</h3>
+                    <p style="font-size:13px; color:#2a4e4e; margin-bottom:16px;">Quick access to all dashboard editors.</p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">&#10002; Edit Hero Banner</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">&#10002; Edit Main Content</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openNewsEditor(null)" style="background:var(--accent-teal);">+ Add News Item</button>
+                    </div>
+                    <div class="modal-btn-row" style="margin-top:10px;">
+                        <button class="modal-btn cancel" onclick="closeModal('dash-settings-modal')">Close</button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end landing-content -->
+
+        <iframe id="app-frame" style="display:none;" src="" allow="clipboard-read; clipboard-write; camera; microphone; fullscreen; file-system-access" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads allow-top-navigation-by-user-activation"></iframe>
+
+        <!-- MENU MODAL -->
+        <div id="menu-modal-overlay">
+            <div class="menu-modal-box">
+                <h3 id="menuModalTitle" style="color: var(--accent-teal);">Page Settings</h3>
+                <input type="hidden" id="editId">
+                <label>Name</label><input type="text" id="nodeName">
+                <label>Link (URL)</label><input type="text" id="nodeUrl">
+                <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
+                <label>Parent Item</label><select id="nodeParent"><option value="">Top Level</option></select>
+                <label>Icon</label>
+                <!-- Hidden input stores selected value -->
+                <input type="hidden" id="nodeIcon" value="home">
+                <!-- Visual icon picker grid -->
+                <div id="icon-picker-grid"></div>
+                <label>Access Level</label>
+                <select id="nodeRole">
+                    <option value="worship">Team (Worship/AV)</option>
+                    <option value="core">Core (Admin Only)</option>
+                </select>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button id="deleteBtn" class="admin-btn" style="background:var(--danger); display:none;" onclick="deletePage()">Delete</button>
+                    <button class="admin-btn" style="background:var(--brand-tint); color:var(--brand);" onclick="closeMenuModal()">Cancel</button>
+                    <button class="admin-btn" onclick="savePage()">Save</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app",
+    appId: "1:199442060489:web:7eaf85a76334c753db6918"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const MENU_DOC      = db.collection('portal').doc('menuItems');
+const DASHBOARD_DOC = db.collection('portal').doc('dashboardContent');
+
+function setSyncStatus(state, text) {
+    const el = document.getElementById('sync-status');
+    el.className = state; el.textContent = text;
+}
+
+const DEFAULT_MENU = [
+    {"id":"1","name":"Dashboard","url":"landing","icon":"home","parent":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","role":"worship"},
+    {"id":"1777068277958","name":"Rota","url":"https://esherchurch.github.io/availability-form/view-only-rota.html","logo":"","parent":"","icon":"calendar","role":"worship"},
+    {"id":"1777067389206","name":"Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933729776.png?alt=media&token=c19ff5ea-a7d2-44eb-a8ce-d611097461be","parent":"","icon":"home","role":"worship"},
+    {"id":"1777068093291","name":"Music Databases","url":"","logo":"","parent":"1777067389206","icon":"music","role":"worship"},
+    {"id":"1777068195895","name":"Music Database","url":"https://esherchurch.github.io/availability-form/Library.html","logo":"","parent":"1777068093291","icon":"music","role":"worship"},
+    {"id":"3","name":"Music Uploader","url":"https://esherchurch.github.io/availability-form//batchupload.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777068093291","icon":"music","role":"worship"},
+    {"id":"1777067117446","name":"Youth Worship","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=3c5e7d7e-9ec1-4edc-a46b-feb17042e0a3","parent":"","icon":"youth","role":"worship"},
+    {"id":"1777067480746","name":"AV Team","url":"","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936402880.png?alt=media&token=133146bc-0b5c-4b82-b82a-38bd47cc8b61","parent":"","icon":"av","role":"worship"},
+    {"id":"1777067863602","name":"Core Team","url":"","logo":"","parent":"","icon":"core","role":"core"},
+    {"id":"1777067920382","name":"Worship Leaders","url":"","logo":"","parent":"1777067863602","icon":"leader","role":"core"},
+    {"id":"2","name":"Worship Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300","parent":"1777067920382","icon":"calendar","role":"core"},
+    {"id":"1777067978288","name":"Heart and Direction","url":"","logo":"","parent":"1777067863602","icon":"heart","role":"core"},
+    {"id":"1777068996894","name":"Rota Planner","url":"https://esherchurch.github.io/availability-form/Planner.html","logo":"","parent":"1777067863602","icon":"calendar","role":"core"}
+];
+
+const DEFAULT_DASHBOARD = {
+    hero: { title: "Welcome", subtitle: "Select a tool from the menu to get started.", bgImage: "", bgPosition: 30 },
+    bodyHtml: '<h2>Dashboard</h2><p style="color:#2a4e4e; font-size:15px;">Select a tool to begin.</p>',
+    newsItems: []
+};
+
+let menuItems = [];
+let dashData  = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD));
+
+function toStrId(id) { return String(id); }
+
+async function loadAll() {
+    setSyncStatus('syncing', 'Loading…');
+    try {
+        const [menuSnap, dashSnap] = await Promise.all([MENU_DOC.get(), DASHBOARD_DOC.get()]);
+        if (menuSnap.exists && menuSnap.data().items) {
+            menuItems = menuSnap.data().items.map(item => ({
+                ...item,
+                id:     toStrId(item.id),
+                parent: (!item.parent || item.parent === 'none') ? '' : String(item.parent)
+            }));
+        } else {
+            menuItems = DEFAULT_MENU;
+            await MENU_DOC.set({ items: menuItems });
+        }
+        dashData  = (dashSnap.exists && dashSnap.data()) ? dashSnap.data() : DEFAULT_DASHBOARD;
+        if (!dashSnap.exists) await DASHBOARD_DOC.set(dashData);
+        setSyncStatus('synced', '✓ Synced');
+        renderMenu();
+        renderDashboard();
+    } catch (err) {
+        console.error(err);
+        setSyncStatus('error', '⚠ Offline – changes won\'t save');
+        menuItems = DEFAULT_MENU;
+        dashData  = DEFAULT_DASHBOARD;
+        renderMenu();
+        renderDashboard();
+    }
+}
+
+async function saveMenuToDb() {
+    setSyncStatus('syncing', 'Saving…');
+    try { await MENU_DOC.set({ items: menuItems }); setSyncStatus('synced', '✓ Saved'); }
+    catch (e) { setSyncStatus('error', '⚠ Save failed'); }
+}
+
+async function saveDashToDb() {
+    setSyncStatus('syncing', 'Saving…');
+    try { await DASHBOARD_DOC.set(dashData); setSyncStatus('synced', '✓ Saved'); }
+    catch (e) { setSyncStatus('error', '⚠ Save failed'); }
+}
+
+// ── RENDER DASHBOARD ──
+function renderDashboard() {
+    stopNewsScroll();
+    const h = dashData.hero || {};
+    document.getElementById('hero-title').textContent    = h.title    || 'Welcome';
+    document.getElementById('hero-subtitle').textContent = h.subtitle || '';
+    const bg = document.getElementById('hero-bg');
+    const pos = h.bgPosition !== undefined ? h.bgPosition : 30;
+    if (h.bgImage) {
+        bg.style.backgroundImage    = `url('${h.bgImage}')`;
+        bg.style.backgroundPosition = `center ${pos}%`;
+        bg.style.opacity            = '0.35';
+    } else { bg.style.backgroundImage = ''; bg.style.opacity = '0'; }
+    document.getElementById('body-content-area').innerHTML = dashData.bodyHtml || '';
+    renderNews();
+}
+
+// ── NEWS ──
+let newsScrollRAF = null, newsScrollPos = 0, newsScrollPaused = false;
+const NEWS_SCROLL_SPEED = 0.5;
+
+function renderNews() {
+    const items = (dashData.newsItems || []).slice().reverse();
+    const track  = document.getElementById('news-track');
+    track.innerHTML = '';
+    if (!items.length) { track.innerHTML = '<div style="padding:24px 20px; color:#2a4e4e; font-size:14px; text-align:center;">No news yet.</div>'; stopNewsScroll(); return; }
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'news-card';
+        card.innerHTML = `<div class="news-card-date">${item.date||''}</div><div class="news-card-title">${item.title||''}</div><div class="news-card-body">${item.body||''}</div><button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">&#10002;</button>`;
+        track.appendChild(card);
+    });
+    newsScrollPos = 0; track.style.transform = 'translateY(0)';
+    startNewsScroll();
+}
+
+function stopNewsScroll() { if (newsScrollRAF) { cancelAnimationFrame(newsScrollRAF); newsScrollRAF = null; } }
+function startNewsScroll() {
+    stopNewsScroll(); newsScrollPos = 0;
+    const wrapper = document.getElementById('news-track-wrapper');
+    const track   = document.getElementById('news-track');
+    if (!wrapper || !track) return;
+    track.querySelectorAll('.news-card-clone').forEach(c => c.remove());
+    function kick() {
+        const wrapperH = wrapper.clientHeight, trackH = track.scrollHeight;
+        if (wrapperH < 10 || trackH < 10) return false;
+        if (trackH <= wrapperH) return true;
+        Array.from(track.children).forEach(c => { const clone = c.cloneNode(true); clone.classList.add('news-card-clone'); track.appendChild(clone); });
+        const halfH = track.scrollHeight / 2;
+        function step() { if (!newsScrollPaused) { newsScrollPos += NEWS_SCROLL_SPEED; if (newsScrollPos >= halfH) newsScrollPos = 0; track.style.transform = `translateY(-${newsScrollPos}px)`; } newsScrollRAF = requestAnimationFrame(step); }
+        newsScrollRAF = requestAnimationFrame(step);
+        return true;
+    }
+    if (!kick()) { const ro = new ResizeObserver((e,obs) => { if (e[0].contentRect.height > 10) { obs.disconnect(); kick(); } }); ro.observe(wrapper); }
+}
+(function(){ const w = document.getElementById('news-track-wrapper'); if (w) { w.addEventListener('mouseenter', () => { newsScrollPaused = true; }); w.addEventListener('mouseleave', () => { newsScrollPaused = false; }); } })();
+
+// ── HERO EDITOR ──
+function openHeroEditor() {
+    const h = dashData.hero || {};
+    document.getElementById('he-title').value    = h.title    || '';
+    document.getElementById('he-subtitle').value = h.subtitle || '';
+    document.getElementById('he-img').value      = h.bgImage  || '';
+    const pos = h.bgPosition !== undefined ? h.bgPosition : 30;
+    document.getElementById('he-pos').value      = pos;
+    document.getElementById('he-pos-label').textContent = pos + '%';
+    previewHeroBg();
+    openModal('hero-modal');
+}
+function previewHeroBg() {
+    const url = document.getElementById('he-img').value;
+    const pos = document.getElementById('he-pos').value;
+    const prev = document.getElementById('he-preview');
+    if (url) { prev.style.backgroundImage = `url('${url}')`; prev.style.backgroundPosition = `center ${pos}%`; prev.style.opacity = '0.9'; }
+    else { prev.style.backgroundImage = ''; prev.style.backgroundColor = 'var(--accent-teal)'; }
+}
+function previewHeroPos(val) { document.getElementById('he-pos-label').textContent = val + '%'; previewHeroBg(); }
+async function saveHero() {
+    dashData.hero = { title: document.getElementById('he-title').value, subtitle: document.getElementById('he-subtitle').value, bgImage: document.getElementById('he-img').value, bgPosition: parseInt(document.getElementById('he-pos').value) };
+    await saveDashToDb(); renderDashboard(); closeModal('hero-modal');
+}
+
+// ── RICH TEXT EDITOR ──
+let _selectedImg = null;
+function execCmd(cmd, val) { document.getElementById('rte-area').focus(); document.execCommand(cmd, false, val || null); }
+function insertLink() { const url = prompt('Link URL:', 'https://'); if (url) execCmd('createLink', url); }
+function insertImageUrl() { const url = prompt('Image URL:', 'https://'); if (url) { document.getElementById('rte-area').focus(); document.execCommand('insertHTML', false, `<img src="${url}" style="max-width:100%;border-radius:6px;" />`); } }
+function resizeSelectedImg(pct) { if (!_selectedImg) return; _selectedImg.style.width = pct + '%'; _selectedImg.style.maxWidth = '100%'; document.getElementById('img-size-label').textContent = pct + '%'; }
+function deSelectImg() { if (_selectedImg) { _selectedImg.classList.remove('selected'); _selectedImg = null; } document.getElementById('img-resize-bar').classList.remove('visible'); }
+document.addEventListener('click', function(e) {
+    const rte = document.getElementById('rte-area');
+    if (!rte) return;
+    if (e.target.tagName === 'IMG' && rte.contains(e.target)) {
+        if (_selectedImg) _selectedImg.classList.remove('selected');
+        _selectedImg = e.target; _selectedImg.classList.add('selected');
+        const currentPct = _selectedImg.style.width ? parseInt(_selectedImg.style.width) : 100;
+        document.getElementById('img-size-slider').value = currentPct;
+        document.getElementById('img-size-label').textContent = currentPct + '%';
+        document.getElementById('img-resize-bar').classList.add('visible');
+    } else if (!e.target.closest('#img-resize-bar')) { deSelectImg(); }
+});
+function openBodyEditor() {
+    const rte = document.getElementById('rte-area');
+    rte.innerHTML = dashData.bodyHtml || '';
+    document.getElementById('body-source').value = dashData.bodyHtml || '';
+    switchBodyTab('rich'); openModal('body-modal');
+}
+function switchBodyTab(tab) {
+    const isRich = tab === 'rich';
+    if (!isRich) { document.getElementById('body-source').value = document.getElementById('rte-area').innerHTML; }
+    else { document.getElementById('rte-area').innerHTML = document.getElementById('body-source').value; }
+    document.getElementById('rte-toolbar-wrap').style.display = isRich ? '' : 'none';
+    document.getElementById('body-source').style.display      = isRich ? 'none' : '';
+    document.getElementById('body-tab-rich').classList.toggle('active', isRich);
+    document.getElementById('body-tab-source').classList.toggle('active', !isRich);
+}
+async function saveBodyContent() {
+    const isRich = document.getElementById('rte-toolbar-wrap').style.display !== 'none';
+    dashData.bodyHtml = isRich ? document.getElementById('rte-area').innerHTML : document.getElementById('body-source').value;
+    await saveDashToDb(); renderDashboard(); closeModal('body-modal');
+}
+
+// ── NEWS EDITOR ──
+function setupPasteZone(zoneId) {
+    const zone = document.getElementById(zoneId); if (!zone || zone._pasteReady) return; zone._pasteReady = true;
+    zone.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const html = e.clipboardData.getData('text/html');
+        if (html) { zone.innerHTML = ''; const tmp = document.createElement('div'); tmp.innerHTML = cleanEmailHtml(html); while (tmp.firstChild) zone.appendChild(tmp.firstChild); }
+        else { zone.innerText = e.clipboardData.getData('text/plain'); }
+    });
+}
+function cleanEmailHtml(html) {
+    const div = document.createElement('div'); div.innerHTML = html;
+    div.querySelectorAll('meta, style, script, head, link').forEach(el => el.remove());
+    const emailBody = div.querySelector('.email-body'); if (emailBody) return emailBody.innerHTML;
+    const emailInner = div.querySelector('.email-inner, td.email-inner'); if (emailInner) return emailInner.innerHTML;
+    return div.innerHTML;
+}
+function getPasteZoneHtml(id) { return document.getElementById(id).innerHTML; }
+function setPasteZoneHtml(id, html) { document.getElementById(id).innerHTML = html || ''; }
+function syncPasteToSource(p, s) { document.getElementById(s).value = document.getElementById(p).innerHTML; }
+function syncSourceToPaste(p, s) { document.getElementById(p).innerHTML = document.getElementById(s).value; }
+
+function openNewsEditor(id) {
+    const item = id ? (dashData.newsItems || []).find(n => toStrId(n.id) === toStrId(id)) : null;
+    setupPasteZone('ne-paste-zone');
+    document.getElementById('ne-id').value    = item ? toStrId(item.id) : '';
+    document.getElementById('ne-title').value = item ? item.title : '';
+    document.getElementById('ne-date').value  = item ? (item.date || '') : '';
+    setPasteZoneHtml('ne-paste-zone', item ? item.body : '');
+    document.getElementById('ne-source').value = item ? item.body : '';
+    document.getElementById('news-modal-title').textContent = item ? 'Edit News' : 'Add News';
+    document.getElementById('ne-delete-btn').style.display  = item ? 'block' : 'none';
+    switchNewsTab('paste');
+    openModal('news-modal');
+}
+function switchNewsTab(tab) {
+    const isPaste = tab === 'paste';
+    if (!isPaste) syncPasteToSource('ne-paste-zone', 'ne-source'); else syncSourceToPaste('ne-paste-zone', 'ne-source');
+    document.getElementById('ne-paste-zone').style.display = isPaste ? '' : 'none';
+    document.getElementById('ne-source').style.display     = isPaste ? 'none' : '';
+    document.getElementById('news-tab-paste').classList.toggle('active', isPaste);
+    document.getElementById('news-tab-source').classList.toggle('active', !isPaste);
+}
+async function saveNewsItem() {
+    if (!dashData.newsItems) dashData.newsItems = [];
+    const rawId = document.getElementById('ne-id').value;
+    const isPaste = document.getElementById('ne-paste-zone').style.display !== 'none';
+    const body = isPaste ? getPasteZoneHtml('ne-paste-zone') : document.getElementById('ne-source').value;
+    const newId = rawId ? toStrId(rawId) : toStrId(Date.now());
+    const data = { id: newId, title: document.getElementById('ne-title').value, date: document.getElementById('ne-date').value, body };
+    if (rawId) {
+        const idx = dashData.newsItems.findIndex(n => toStrId(n.id) === toStrId(rawId));
+        if (idx >= 0) dashData.newsItems[idx] = data; else dashData.newsItems.push(data);
+    } else { dashData.newsItems.push(data); }
+    await saveDashToDb(); renderDashboard(); closeModal('news-modal');
+}
+async function deleteNewsItem() {
+    const id = document.getElementById('ne-id').value;
+    dashData.newsItems = (dashData.newsItems || []).filter(n => toStrId(n.id) !== toStrId(id));
+    await saveDashToDb(); renderDashboard(); closeModal('news-modal');
+}
+
+function openDashboardEditor() { openModal('dash-settings-modal'); }
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── ICONS ──
+// Extended icon set including pinboard and resources
+const ICONS = {
+    home:      `<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
+    calendar:  `<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
+    music:     `<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
+    worship:   `<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
+    av:        `<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
+    youth:     `<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
+    trouble:   `<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
+    training:  `<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
+    social:    `<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
+    core:      `<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    leader:    `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
+    heart:     `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+    // ── NEW: Pin Board — pin shape, open stroke only ──
+    pinboard:  `<svg viewBox="0 0 24 24"><path d="M9 4v6l-2 4h10l-2-4V4M12 14v6M8 4h8"/></svg>`,
+    // ── NEW: Resources / open book ──
+    resources: `<svg viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
+    // ── NEW: Folder — open stroke outline ──
+    folder:    `<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`,
+    // ── NEW: Star — open stroke outline ──
+    star:      `<svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>`,
+    // ── NEW: Bell — open stroke outline ──
+    bell:      `<svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0"/></svg>`,
+    // ── NEW: Upload — open stroke outline ──
+    upload:    `<svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>`,
+    // ── NEW: Video — open stroke circle + play triangle ──
+    video:     `<svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>`,
+    // ── NEW: Settings / Cog — open stroke outline ──
+    settings:  `<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+};
+
+// Icon labels for the picker UI
+const ICON_LABELS = {
+    home: 'Home', calendar: 'Calendar', music: 'Music', worship: 'Worship',
+    av: 'AV', youth: 'Youth', trouble: 'Tools', training: 'Book',
+    social: 'Chat', core: 'Shield', leader: 'Mic', heart: 'Heart',
+    pinboard: 'Pin Board', resources: 'Resources', folder: 'Folder',
+    star: 'Featured', bell: 'News', upload: 'Upload', video: 'Video',
+    settings: 'Settings'
+};
+
+// Build the icon picker grid
+function buildIconPicker(selectedIcon) {
+    const grid = document.getElementById('icon-picker-grid');
+    grid.innerHTML = '';
+    Object.keys(ICONS).forEach(key => {
+        const opt = document.createElement('div');
+        opt.className = 'icon-picker-option' + (key === selectedIcon ? ' selected' : '');
+        opt.dataset.icon = key;
+        opt.innerHTML = ICONS[key] + `<span>${ICON_LABELS[key] || key}</span>`;
+        opt.onclick = () => {
+            document.querySelectorAll('.icon-picker-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            document.getElementById('nodeIcon').value = key;
+        };
+        grid.appendChild(opt);
+    });
+}
+
+const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+
+const urlParams = new URLSearchParams(window.location.search);
+const userRole  = urlParams.get('role') || 'worship';
+
+function renderMenu() {
+    const list = document.getElementById('nav-list');
+    const parentSelect = document.getElementById('nodeParent');
+    list.innerHTML = '';
+    parentSelect.innerHTML = '<option value="">Top Level</option>';
+
+    const normParent = v => (!v || v === 'none') ? '' : String(v);
+
+    const buildTree = (parentId, level = 0) => {
+        const children = menuItems.filter(i => {
+            if (normParent(i.parent) !== normParent(parentId)) return false;
+            if (userRole === 'core') return true;
+            return i.role === 'worship' || !i.role;
+        });
+        children.forEach(item => {
+            const hasSubs = menuItems.some(i => normParent(i.parent) === normParent(item.id));
+            const wrapper = document.createElement('div');
+            wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
+            wrapper.dataset.id = item.id;
+            const safeUrl  = (item.url  || '').replace(/'/g, '&#39;');
+            const safeLogo = (item.logo || DEFAULT_LOGO).replace(/'/g, '&#39;');
+            const safeId   = String(item.id).replace(/'/g, '&#39;');
+            wrapper.innerHTML = `<div class="nav-row" onclick="handleItemClick(event, '${safeId}', '${safeUrl}', '${safeLogo}')"><div class="edit-trigger" onclick="event.stopPropagation(); openMenuModal(\'${safeId}\')">&#9998;</div><div class="nav-icon">${ICONS[item.icon] || ICONS.home}</div><span class="nav-text">${item.name}</span>${hasSubs ? '<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>' : ''}</div><div class="child-container" id="child-of-${item.id}"></div>`;
+            const targetContainer = (!parentId || parentId === '') ? list : document.getElementById(`child-of-${parentId}`);
+            if (targetContainer) targetContainer.appendChild(wrapper);
+            if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
+            buildTree(item.id, level + 1);
+        });
+    };
+    buildTree('');
+}
+
+function toggleSidebarPin() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('pinned');
+    localStorage.setItem('sidebar-pinned', sidebar.classList.contains('pinned') ? '1' : '0');
+}
+
+function initSidebar() {
+    if (localStorage.getItem('sidebar-pinned') === '1') {
+        document.getElementById('sidebar').classList.add('pinned');
+    }
+}
+
+function setChildHeight(container, open) {
+    if (open) {
+        container.style.height = container.scrollHeight + 'px';
+        container.classList.add('open');
+        // After transition, set to auto so it doesn't clip if content changes
+        container.addEventListener('transitionend', function handler() {
+            if (container.classList.contains('open')) container.style.height = 'auto';
+            container.removeEventListener('transitionend', handler);
+        });
+        // Let already-open ancestor menus grow so a nested sub-menu isn't clipped/hidden
+        let p = container.parentElement;
+        while (p) {
+            if (p.classList && p.classList.contains('child-container') && p.classList.contains('open')) p.style.height = 'auto';
+            p = p.parentElement;
+        }
+    } else {
+        // Collapse: set explicit height first, then animate to 0
+        container.style.height = container.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+            container.style.height = '0';
+            container.classList.remove('open');
+        });
+    }
+}
+
+function updateFocusState() {}
+function closeAllMenus() {
+    document.querySelectorAll('.has-children.open').forEach(wrapper => {
+        wrapper.classList.remove('open');
+        const container = wrapper.querySelector('.child-container');
+        if (container) setChildHeight(container, false);
+    });
+}
+
+function handleItemClick(event, id, url, logo) {
+    const wrapper = event.currentTarget.parentElement;
+    if (wrapper.classList.contains('has-children')) {
+        const isOpening = !wrapper.classList.contains('open');
+        // Close siblings at same level
+        wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children.open').forEach(p => {
+            if (p !== wrapper) {
+                p.classList.remove('open');
+                const c = p.querySelector('.child-container');
+                if (c) setChildHeight(c, false);
+            }
+        });
+        const container = wrapper.querySelector('.child-container');
+        if (isOpening) {
+            wrapper.classList.add('open');
+            if (container) setChildHeight(container, true);
+            // Auto-pin sidebar when opening a menu
+            document.getElementById('sidebar').classList.add('pinned');
+        } else {
+            wrapper.classList.remove('open');
+            if (container) setChildHeight(container, false);
+        }
+    }
+    // Mark active
+    document.querySelectorAll('.nav-row').forEach(r => r.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    // Only collapse the menu for an actual end page — NOT for a category that has
+    // sub-links (otherwise clicking it would hide the sub-links it just opened).
+    const isParentItem = wrapper.classList.contains('has-children');
+    if (url && url !== '#' && url !== 'landing') { navigate(url, logo); if (!isParentItem) collapseSidebarAfterNav(); }
+    else if (url === 'landing') { showLanding(logo); if (!isParentItem) collapseSidebarAfterNav(); }
+}
+
+// After choosing a page, collapse the menu instead of leaving it pinned open
+// (previously you had to tap the pin/hamburger to close it manually).
+function collapseSidebarAfterNav() {
+    closeAllMenus();
+    document.getElementById('sidebar').classList.remove('pinned');
+}
+
+function navigate(url, logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('landing-content').style.display = 'none';
+    const frame = document.getElementById('app-frame');
+    frame.style.display = 'block';
+    frame.src = url;
+}
+
+function showLanding(logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('app-frame').style.display = 'none';
+    document.getElementById('landing-content').style.display = 'flex';
+}
+
+let clickCount = 0;
+function handleSecret() {
+    if (userRole !== 'core') return;
+    clickCount++;
+    if (clickCount >= 3) {
+        const isAdminVisible = document.getElementById('admin-controls').style.display === 'block';
+        if (isAdminVisible) { document.getElementById('admin-controls').style.display = 'none'; document.getElementById('secret-trigger').style.color = '#a0b0b0'; document.getElementById('nav-list').classList.remove('admin-active'); document.body.classList.remove('admin-mode'); clickCount = 0; }
+        else { document.getElementById('admin-controls').style.display = 'block'; document.getElementById('secret-trigger').style.color = '#9bc34a'; document.getElementById('nav-list').classList.add('admin-active'); document.body.classList.add('admin-mode'); }
+        renderMenu();
+    }
+}
+
+function openMenuModal(id) {
+    document.getElementById('editId').value = id !== null && id !== undefined ? toStrId(id) : '';
+    let currentIcon = 'home';
+    if (id !== null && id !== undefined) {
+        const item = menuItems.find(i => i.id === toStrId(id));
+        if (!item) return;
+        document.getElementById('nodeName').value   = item.name   || '';
+        document.getElementById('nodeUrl').value    = item.url    || '';
+        document.getElementById('nodeLogo').value   = item.logo   || '';
+        document.getElementById('nodeParent').value = item.parent || '';
+        document.getElementById('nodeIcon').value   = item.icon   || 'home';
+        document.getElementById('nodeRole').value   = item.role   || 'worship';
+        currentIcon = item.icon || 'home';
+        document.getElementById('deleteBtn').style.display = 'block';
+        document.getElementById('menuModalTitle').textContent = 'Edit Page';
+    } else {
+        document.getElementById('nodeName').value   = '';
+        document.getElementById('nodeUrl').value    = '';
+        document.getElementById('nodeLogo').value   = '';
+        document.getElementById('nodeParent').value = '';
+        document.getElementById('nodeIcon').value   = 'home';
+        document.getElementById('nodeRole').value   = 'worship';
+        document.getElementById('deleteBtn').style.display = 'none';
+        document.getElementById('menuModalTitle').textContent = 'Add New Page';
+    }
+    buildIconPicker(currentIcon);
+    document.getElementById('menu-modal-overlay').classList.add('open');
+}
+function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }
+
+async function savePage() {
+    const editId = document.getElementById('editId').value.trim();
+    const data = {
+        id:     editId !== '' ? editId : toStrId(Date.now()),
+        name:   document.getElementById('nodeName').value,
+        url:    document.getElementById('nodeUrl').value,
+        logo:   document.getElementById('nodeLogo').value,
+        parent: document.getElementById('nodeParent').value || '',
+        icon:   document.getElementById('nodeIcon').value,
+        role:   document.getElementById('nodeRole').value
+    };
+    if (editId !== '') {
+        const idx = menuItems.findIndex(i => i.id === editId);
+        if (idx >= 0) { menuItems[idx] = data; } else { menuItems.push(data); }
+    } else { menuItems.push(data); }
+    await saveMenuToDb();
+    renderMenu();
+    closeMenuModal();
+}
+
+async function deletePage() {
+    const editId = document.getElementById('editId').value.trim();
+    if (!editId) return;
+    if (!confirm('Delete this page and all its children?')) return;
+    const toRemove = new Set();
+    function collectIds(id) {
+        toRemove.add(id);
+        menuItems.filter(i => i.parent === id).forEach(child => collectIds(child.id));
+    }
+    collectIds(editId);
+    menuItems = menuItems.filter(i => !toRemove.has(i.id));
+    await saveMenuToDb();
+    renderMenu();
+    closeMenuModal();
+}
+
+async function resetMenu() {
+    if (confirm("Factory Reset? This will restore the default menu for ALL users.")) {
+        menuItems = DEFAULT_MENU;
+        await saveMenuToDb();
+        renderMenu();
+    }
+}
+
+loadAll();
+initSidebar();
+</script>
+</body>
+</html>

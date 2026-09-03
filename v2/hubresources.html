@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EGBC Hub · Resources</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9;
+      --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+      --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+      --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+      --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4;
+      --gold:#b07d2e; --gold-tint:#f6efe1;
+      --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+      --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+      --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+      --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+      /* legacy aliases */
+      --teal:var(--brand); --teal-mid:var(--muted); --teal-light:var(--hairline);
+      --bg:var(--canvas); --white:var(--surface);
+      --radius-lg:var(--r-lg); --radius-md:var(--r-md); --radius-sm:var(--r-sm); --radius-pill:var(--r-pill);
+    }
+    body { font-family: 'Montserrat', sans-serif; background: var(--canvas); color: var(--body); min-height: 100vh; padding: 24px; -webkit-font-smoothing: antialiased; }
+
+    .page-header { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 24px 28px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: var(--shadow); }
+    .page-header h1 { font-size: 1.625rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); line-height: 1.1; }
+    .page-header p  { font-size: 0.8125rem; color: var(--muted); margin-top: 5px; font-weight: 500; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    .admin-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--brand-tint); border: 1px solid var(--hairline-strong); color: var(--brand); font-size: 0.6875rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 14px; border-radius: var(--r-pill); }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.875rem; letter-spacing: 0; padding: 11px 20px; border-radius: var(--r-md); border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.05s; white-space: nowrap; line-height: 1.1; }
+    .btn:active { transform: translateY(1px); }
+    .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+    .btn-primary   { background: var(--brand);  color: #fff; }
+    .btn-primary:hover   { background: var(--brand-dark); }
+    .btn-secondary { background: var(--brand-tint); color: var(--brand); }
+    .btn-secondary:hover { background: var(--surface); border-color: var(--hairline-strong); }
+    .btn-danger    { background: var(--danger); color: #fff; }
+    .btn-danger:hover    { background: #953024; }
+    .btn-warning   { background: transparent; color: var(--brand); border: 1px solid var(--hairline-strong); }
+    .btn-warning:hover   { background: var(--surface-2); }
+    .btn-sm        { font-size: 0.8125rem; padding: 8px 14px; border-radius: var(--r-sm); }
+    .btn-icon      { padding: 8px 12px; }
+    .btn:disabled  { opacity: 0.45; pointer-events: none; }
+
+    .layout { display: flex; gap: 20px; align-items: flex-start; }
+    .panel-list { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+    .section-label { font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 0 4px; margin-top: 6px; }
+
+    .resource-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 20px 24px; display: flex; align-items: center; gap: 18px; box-shadow: var(--shadow); transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s; }
+    .resource-card.admin-clickable { cursor: pointer; }
+    .resource-card.admin-clickable:hover { border-color: var(--hairline-strong); box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+
+    .card-icon { width: 52px; height: 52px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; overflow: hidden; }
+    .card-icon img { width: 100%; height: 100%; object-fit: contain; padding: 7px; border-radius: inherit; }
+    .card-body { flex: 1; min-width: 0; }
+    .card-name { font-weight: 700; font-size: 1rem; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 3px; }
+    .card-desc { font-size: 0.8125rem; color: var(--muted); font-weight: 500; margin-bottom: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .badge { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.02em; padding: 3px 10px; border-radius: var(--r-pill); }
+    .badge-apk     { background: var(--brand-tint); color: var(--brand); }
+    .badge-link    { background: var(--gold-tint); color: var(--gold); }
+    .badge-version { background: var(--surface-2); color: var(--muted); border: 1px solid var(--hairline); }
+    .badge-size    { background: var(--surface-2); color: var(--muted); border: 1px solid var(--hairline); }
+    .card-actions  { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+
+    .panel-editor { width: 360px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 24px; position: sticky; top: 24px; box-shadow: var(--shadow); }
+    .panel-editor h3 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); border-bottom: 1px solid var(--hairline); padding-bottom: 14px; margin-bottom: 18px; }
+
+    label { display: block; font-weight: 800; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 7px; padding-left: 2px; }
+    input[type=text], input[type=url], input[type=password], textarea, select { width: 100%; padding: 11px 14px; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); font-family: 'Montserrat', sans-serif; font-size: 0.9375rem; font-weight: 500; color: var(--ink); background: var(--surface); outline: none; margin-bottom: 16px; transition: border-color 0.15s, box-shadow 0.15s; }
+    input:focus, textarea:focus, select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+    textarea { resize: vertical; min-height: 76px; }
+    select   { appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b8281' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px; }
+
+    .status-msg { font-size: 0.8125rem; font-weight: 600; color: var(--muted); min-height: 16px; padding-left: 2px; margin-top: -8px; margin-bottom: 12px; }
+    .status-msg.error   { color: var(--danger); }
+    .status-msg.success { color: var(--success); }
+    .editor-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+
+    /* Modals */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(20,32,31,0.5); display: none; align-items: center; justify-content: center; z-index: 300; padding: 20px; backdrop-filter: blur(2px); }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 28px; max-width: 400px; width: 100%; position: relative; box-shadow: var(--shadow-lg); }
+    .modal h3 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 6px; }
+    .modal .subtitle { font-size: 0.8125rem; color: var(--muted); font-weight: 500; margin-bottom: 22px; }
+    .modal-close { position: absolute; top: 16px; right: 18px; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 6px 12px; font-family: 'Montserrat', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--muted); cursor: pointer; transition: background 0.15s, color 0.15s; }
+    .modal-close:hover { background: var(--hairline); color: var(--ink); }
+
+    .qr-modal-overlay { position: fixed; inset: 0; background: rgba(20,32,31,0.5); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; backdrop-filter: blur(2px); }
+    .qr-modal-overlay.open { display: flex; }
+    .qr-modal { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 28px; max-width: 360px; width: 100%; text-align: center; position: relative; box-shadow: var(--shadow-lg); }
+    .qr-modal h3 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 4px; }
+    .qr-modal .qr-subtitle { font-size: 0.8125rem; color: var(--muted); font-weight: 500; margin-bottom: 22px; }
+    #qr-canvas-wrap { display: inline-block; padding: 16px; background: #fff; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); margin-bottom: 18px; }
+    #qr-canvas-wrap canvas, #qr-canvas-wrap img { display: block; }
+    .qr-url { font-size: 0.8125rem; color: var(--body); font-weight: 500; word-break: break-all; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-md); padding: 10px 14px; margin-bottom: 16px; text-align: left; }
+    .qr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+    .ios-steps { display: flex; flex-direction: column; gap: 14px; }
+    .ios-step  { display: flex; align-items: flex-start; gap: 14px; }
+    .step-num  { width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 0.8125rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .step-text { font-size: 0.875rem; font-weight: 500; color: var(--body); line-height: 1.5; padding-top: 4px; }
+    .step-text strong { color: var(--ink); font-weight: 700; }
+    .step-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-sm); font-size: 0.9rem; vertical-align: middle; margin: 0 2px; }
+    .modal-link-url { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-md); padding: 12px 16px; font-size: 0.8125rem; font-weight: 600; color: var(--brand); word-break: break-all; margin-bottom: 20px; }
+
+    .empty-state { background: var(--surface); border: 1px dashed var(--hairline-strong); border-radius: var(--r-lg); padding: 48px 24px; text-align: center; }
+    .empty-state p { font-size: 0.9375rem; font-weight: 600; color: var(--muted); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--hairline); border-top-color: var(--brand); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 32px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Loading skeleton (nicer than a lone spinner) */
+    .skeleton-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 20px 24px; display: flex; align-items: center; gap: 18px; box-shadow: var(--shadow); }
+    .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 6px; }
+    .sk-icon { width: 52px; height: 52px; border-radius: var(--r-md); flex-shrink: 0; }
+    .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 9px; }
+    .sk-line { height: 12px; }
+    @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) { .sk, .spinner { animation: none; } }
+
+    @media (max-width: 768px) {
+      .layout { flex-direction: column; }
+      .panel-editor { width: 100%; position: static; }
+      .page-header { padding: 20px 22px; }
+      .resource-card { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Hub Resources</h1>
+    <p>App downloads, web tools &amp; links for the EGBC team</p>
+  </div>
+  <div class="header-actions">
+    <div id="admin-badge" style="display:none;" class="admin-badge">🔑 Admin Mode</div>
+    <button id="add-resource-btn" class="btn btn-primary btn-sm" onclick="showAddForm()" style="display:none;">+ Add Resource</button>
+    <button class="btn btn-warning btn-sm" id="admin-toggle-btn" onclick="toggleAdmin()">Admin Login</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="panel-list" id="resource-list"></div>
+
+  <div class="panel-editor" id="editor-panel" style="display:none;">
+    <h3 id="editor-title">Add New Resource</h3>
+    <label>Name</label>
+    <input type="text" id="f-name" placeholder="e.g. Worship Hub">
+    <label>Description</label>
+    <textarea id="f-desc" placeholder="Short description of what this is for…"></textarea>
+    <label>Type</label>
+    <select id="f-type" onchange="onTypeChange()">
+      <option value="pwa">📱 App (PWA)</option>
+      <option value="link">🔗 Web Link / PWA</option>
+    </select>
+    <label>Version</label>
+    <input type="text" id="f-version" placeholder="e.g. v1.0.0">
+    <div id="apk-section">
+      <label>App / Page URL</label>
+      <input type="url" id="f-manual-url" placeholder="e.g. https://esherchurch.github.io/availability-form/worshiphubapp.html">
+      <p style="font-size:0.75rem;font-weight:500;color:var(--muted);padding-left:2px;margin-top:-10px;margin-bottom:16px;">e.g. https://esherchurch.github.io/availability-form/worshiphubapp.html</p>
+    </div>
+    <div id="link-section" style="display:none;">
+      <label>URL</label>
+      <input type="url" id="f-url" placeholder="https://...">
+    </div>
+    <div class="editor-actions">
+      <button class="btn btn-primary" id="save-btn" onclick="saveResource()">Save Resource</button>
+      <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="delete-btn" onclick="deleteResource()" style="display:none;">Delete Resource</button>
+    </div>
+    <div class="status-msg" id="save-status"></div>
+  </div>
+</div>
+
+<!-- Admin Login Modal -->
+<div class="modal-overlay" id="admin-login-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAdminModal()">Close</button>
+    <h3>🔑 Admin Login</h3>
+    <p class="subtitle">Enter the admin password to add or edit resources.</p>
+    <label>Password</label>
+    <input type="password" id="admin-password-input" placeholder="Enter password…" onkeydown="if(event.key==='Enter')submitAdminLogin()">
+    <div class="status-msg error" id="admin-login-error"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitAdminLogin()">Login</button>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="qr-modal-overlay" id="qr-modal">
+  <div class="qr-modal">
+    <button class="modal-close" onclick="closeQrModal()">Close</button>
+    <h3 id="qr-title">Scan to Download</h3>
+    <p class="qr-subtitle">Point any phone camera at this code</p>
+    <div id="qr-canvas-wrap"></div>
+    <div class="qr-url" id="qr-url-display"></div>
+    <div class="qr-actions">
+      <button class="btn btn-secondary btn-sm" onclick="downloadQr()">⬇ Save QR Image</button>
+    </div>
+  </div>
+</div>
+
+<!-- Install Modal -->
+<div class="modal-overlay" id="install-modal">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeInstallModal()">Close</button>
+    <h3 id="install-modal-title">Install App</h3>
+    <p class="subtitle">Add this app to your home screen — works like a native app, no App Store needed.</p>
+    <div class="modal-link-url" id="install-modal-url"></div>
+
+    <div style="display:flex;gap:10px;margin:16px 0;">
+      <button onclick="showInstallTab('android')" id="tab-android" class="btn btn-primary btn-sm" style="flex:1;">🤖 Android</button>
+      <button onclick="showInstallTab('ios')" id="tab-ios" class="btn btn-secondary btn-sm" style="flex:1;">🍎 iPhone</button>
+    </div>
+
+    <div id="install-tab-android">
+      <div class="ios-steps">
+        <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Chrome</strong> on your Android phone — tap the button below or scan the QR code.</div></div>
+        <div class="ios-step"><div class="step-num">2</div><div class="step-text">Tap the <strong>three dots menu ⋮</strong> in the top right of Chrome.</div></div>
+        <div class="ios-step"><div class="step-num">3</div><div class="step-text">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>.</div></div>
+        <div class="ios-step"><div class="step-num">4</div><div class="step-text">Tap <strong>Install</strong>. It opens full screen just like a native app.</div></div>
+      </div>
+      <a id="install-link-android" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Open in Chrome →</a>
+    </div>
+
+    <div id="install-tab-ios" style="display:none;">
+      <div class="ios-steps">
+        <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Safari</strong> on your iPhone — must be Safari, not Chrome.</div></div>
+        <div class="ios-step"><div class="step-num">2</div><div class="step-text">Tap the <strong>Share button ⬆</strong> at the bottom of the screen.</div></div>
+        <div class="ios-step"><div class="step-num">3</div><div class="step-text">Scroll down and tap <strong>"Add to Home Screen" ＋</strong>.</div></div>
+        <div class="ios-step"><div class="step-num">4</div><div class="step-text">Give it a name and tap <strong>Add</strong>.</div></div>
+      </div>
+      <a id="install-link-ios" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Open in Safari →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.appspot.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let currentId = null;
+let isAdmin   = false;
+const ADMIN_PW = 'Surreykt10';
+
+const SKELETON = '<div class="section-label" style="opacity:.55;">Loading resources…</div>' +
+  Array(4).fill('<div class="skeleton-card"><div class="sk sk-icon"></div><div class="sk-lines"><div class="sk sk-line" style="width:42%;"></div><div class="sk sk-line" style="width:72%;"></div><div class="sk sk-line" style="width:28%;"></div></div></div>').join('');
+
+// ── Admin ──
+function toggleAdmin() {
+  if (isAdmin) {
+    isAdmin = false;
+    document.getElementById('admin-badge').style.display      = 'none';
+    document.getElementById('add-resource-btn').style.display = 'none';
+    document.getElementById('admin-toggle-btn').textContent   = 'Admin Login';
+    document.getElementById('admin-toggle-btn').className     = 'btn btn-warning btn-sm';
+    document.getElementById('editor-panel').style.display     = 'none';
+    loadResources();
+  } else {
+    document.getElementById('admin-password-input').value    = '';
+    document.getElementById('admin-login-error').textContent = '';
+    document.getElementById('admin-login-modal').classList.add('open');
+    setTimeout(() => document.getElementById('admin-password-input').focus(), 150);
+  }
+}
+
+function submitAdminLogin() {
+  const pw = document.getElementById('admin-password-input').value;
+  if (pw === ADMIN_PW) {
+    isAdmin = true;
+    document.getElementById('admin-login-modal').classList.remove('open');
+    document.getElementById('admin-badge').style.display      = 'inline-flex';
+    document.getElementById('add-resource-btn').style.display = 'inline-flex';
+    document.getElementById('admin-toggle-btn').textContent   = 'Log Out';
+    document.getElementById('admin-toggle-btn').className     = 'btn btn-secondary btn-sm';
+    loadResources();
+  } else {
+    document.getElementById('admin-login-error').textContent = 'Incorrect password. Try again.';
+    document.getElementById('admin-password-input').value    = '';
+    document.getElementById('admin-password-input').focus();
+  }
+}
+
+function closeAdminModal() {
+  document.getElementById('admin-login-modal').classList.remove('open');
+}
+document.getElementById('admin-login-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAdminModal();
+});
+
+// ── Load resources ──
+async function loadResources() {
+  const list = document.getElementById('resource-list');
+  list.innerHTML = SKELETON;
+  try {
+    const snap = await db.collection('hub_resources').orderBy('order').get();
+    if (snap.empty) {
+      list.innerHTML = `<div class="empty-state"><p>${isAdmin ? 'No resources yet. Click "+ Add Resource" to get started.' : 'No resources yet.'}</p></div>`;
+      return;
+    }
+    list.innerHTML = '';
+    const apps = [], links = [], seen = new Set();
+    const isApp = d => d.type === 'apk' || d.type === 'pwa';
+    const urlKey = d => (d.url || d.downloadUrl || '').trim().replace(/\/+$/, '').toLowerCase();
+    const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Apps first so an installable app wins over a duplicate plain link of the same URL,
+    // then skip any entry whose URL was already shown (removes duplicates across sections).
+    docs.filter(isApp).forEach(d => { const k = urlKey(d); if (k && seen.has(k)) return; if (k) seen.add(k); apps.push(d); });
+    docs.filter(d => !isApp(d)).forEach(d => { const k = urlKey(d); if (k && seen.has(k)) return; if (k) seen.add(k); links.push(d); });
+    if (apps.length)  { list.innerHTML += `<div class="section-label">Apps — open, or add to your home screen</div>`; apps.forEach(r => list.innerHTML += cardHTML(r)); }
+    if (links.length) { list.innerHTML += `<div class="section-label" style="margin-top:10px;">Web Links &amp; Tools</div>`; links.forEach(r => list.innerHTML += cardHTML(r)); }
+  } catch(e) {
+    list.innerHTML = `<div class="empty-state"><p>Error loading resources: ${e.message}</p></div>`;
+  }
+}
+
+function cardHTML(r) {
+  const isApp     = r.type === 'apk' || r.type === 'pwa';
+  const appUrl    = r.url || r.downloadUrl || '';
+  const iconInner = (r.icon || r.iconUrl)
+      ? `<img src="${escHtml(r.icon || r.iconUrl)}" alt="">`
+      : (isApp ? '📱' : '🔗');
+  const typeBadge = isApp ? '<span class="badge badge-apk">App</span>' : '<span class="badge badge-link">Web</span>';
+  const version   = r.version ? `<span class="badge badge-version">${escHtml(r.version)}</span>` : '';
+
+  const openLink = `<a href="${escHtml(appUrl)}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">Open →</a>`;
+  const qrBtn    = `<button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>`;
+  const actionBtn = isApp
+    ? `${openLink}
+       <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();showInstallModal('${escHtml(appUrl)}','${escHtml(r.name)}')">How to install</button>
+       ${qrBtn}`
+    : `${openLink}
+       ${qrBtn}`;
+
+  const cardClass = isAdmin ? 'resource-card admin-clickable' : 'resource-card';
+  const cardClick = isAdmin ? `onclick="editResource('${r.id}')"` : '';
+
+  return `<div class="${cardClass}" ${cardClick}>
+    <div class="card-icon">${iconInner}</div>
+    <div class="card-body">
+      <div class="card-name">${escHtml(r.name)}</div>
+      <div class="card-desc">${escHtml(r.description || '')}</div>
+      <div class="card-meta">${typeBadge}${version}</div>
+    </div>
+    <div class="card-actions">${actionBtn}</div>
+  </div>`;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ── Editor ──
+function showAddForm() {
+  if (!isAdmin) return;
+  currentId = null;
+  ['f-name','f-desc','f-version','f-url','f-manual-url'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-type').value = 'pwa';
+  document.getElementById('save-status').textContent  = '';
+  document.getElementById('editor-title').textContent = 'Add New Resource';
+  document.getElementById('delete-btn').style.display = 'none';
+  onTypeChange();
+  document.getElementById('editor-panel').style.display = 'block';
+}
+
+async function editResource(id) {
+  if (!isAdmin) return;
+  const docSnap = await db.collection('hub_resources').doc(id).get();
+  const data    = docSnap.data();
+  currentId     = id;
+  document.getElementById('f-name').value       = data.name        || '';
+  document.getElementById('f-desc').value       = data.description || '';
+  document.getElementById('f-version').value    = data.version     || '';
+  document.getElementById('f-type').value       = data.type        || 'apk';
+  document.getElementById('f-url').value        = data.url         || '';
+  document.getElementById('f-manual-url').value = data.downloadUrl || '';
+  document.getElementById('save-status').textContent  = '';
+  document.getElementById('editor-title').textContent = 'Edit Resource';
+  document.getElementById('delete-btn').style.display = 'block';
+  onTypeChange();
+  document.getElementById('editor-panel').style.display = 'block';
+}
+
+function cancelEdit() {
+  currentId = null;
+  document.getElementById('editor-panel').style.display = 'none';
+}
+
+function onTypeChange() {
+  const t = document.getElementById('f-type').value;
+  document.getElementById('apk-section').style.display  = (t === 'apk' || t === 'pwa') ? 'block' : 'none';
+  document.getElementById('link-section').style.display = t === 'link' ? 'block' : 'none';
+}
+
+async function saveResource() {
+  if (!isAdmin) return;
+  const name    = document.getElementById('f-name').value.trim();
+  const desc    = document.getElementById('f-desc').value.trim();
+  const version = document.getElementById('f-version').value.trim();
+  const type    = document.getElementById('f-type').value;
+  const url     = document.getElementById('f-url').value.trim();
+  const status  = document.getElementById('save-status');
+  if (!name) { status.textContent = 'Please enter a name.'; status.className = 'status-msg error'; return; }
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; status.textContent = 'Saving…'; status.className = 'status-msg';
+  try {
+    let data = { name, description: desc, version, type, updatedAt: new Date().toISOString() };
+    if (type === 'apk' || type === 'pwa') {
+      const manualUrl = document.getElementById('f-manual-url').value.trim();
+      if (!manualUrl && !currentId) { status.textContent = 'Please paste a download URL.'; status.className = 'status-msg error'; btn.disabled = false; return; }
+      if (manualUrl) data.downloadUrl = manualUrl;
+    } else {
+      if (!url) { status.textContent = 'Please enter a URL.'; status.className = 'status-msg error'; btn.disabled = false; return; }
+      data.url = url;
+    }
+    if (currentId) {
+      await db.collection('hub_resources').doc(currentId).update(data);
+    } else {
+      const snap = await db.collection('hub_resources').get();
+      data.order = snap.size;
+      await db.collection('hub_resources').add(data);
+    }
+    status.textContent = '✓ Saved!'; status.className = 'status-msg success';
+    await loadResources();
+    setTimeout(() => { document.getElementById('editor-panel').style.display = 'none'; }, 900);
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message; status.className = 'status-msg error';
+  }
+  btn.disabled = false;
+}
+
+async function deleteResource() {
+  if (!isAdmin || !currentId) return;
+  if (!confirm('Delete this resource? This cannot be undone.')) return;
+  try {
+    await db.collection('hub_resources').doc(currentId).delete();
+    document.getElementById('editor-panel').style.display = 'none';
+    await loadResources();
+  } catch(e) { alert('Error deleting: ' + e.message); }
+}
+
+// ── QR ──
+function showQr(url, name) {
+  document.getElementById('qr-title').textContent       = name || 'Scan to Open';
+  document.getElementById('qr-url-display').textContent = url;
+  const wrap = document.getElementById('qr-canvas-wrap');
+  wrap.innerHTML = '';
+  new QRCode(wrap, { text: url, width: 220, height: 220, colorDark: '#3d6263', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  document.getElementById('qr-modal').classList.add('open');
+}
+function closeQrModal() { document.getElementById('qr-modal').classList.remove('open'); }
+function downloadQr() {
+  const canvas = document.querySelector('#qr-canvas-wrap canvas');
+  const img    = document.querySelector('#qr-canvas-wrap img');
+  const name   = (document.getElementById('qr-title').textContent || 'qr').replace(/\s+/g,'-').toLowerCase();
+  const src    = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+  if (!src) return;
+  const a = document.createElement('a'); a.download = `${name}-qr.png`; a.href = src; a.click();
+}
+document.getElementById('qr-modal').addEventListener('click', function(e) { if (e.target === this) closeQrModal(); });
+
+// ── iOS ──
+function openLinkModal(url) {
+  document.getElementById('modal-url').textContent   = url;
+  document.getElementById('modal-open-link').href    = url;
+  document.getElementById('ios-modal').classList.add('open');
+}
+function showInstallModal(url, name) {
+  document.getElementById('install-modal-title').textContent = name;
+  document.getElementById('install-modal-url').textContent = url;
+  document.getElementById('install-link-android').href = url;
+  document.getElementById('install-link-ios').href = url;
+  document.getElementById('install-modal').classList.add('open');
+  showInstallTab('android');
+}
+function closeInstallModal() {
+  document.getElementById('install-modal').classList.remove('open');
+}
+function showInstallTab(tab) {
+  document.getElementById('install-tab-android').style.display = tab === 'android' ? 'block' : 'none';
+  document.getElementById('install-tab-ios').style.display = tab === 'ios' ? 'block' : 'none';
+  document.getElementById('tab-android').className = tab === 'android' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  document.getElementById('tab-android').style.flex = '1';
+  document.getElementById('tab-ios').className = tab === 'ios' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  document.getElementById('tab-ios').style.flex = '1';
+}
+
+// Legacy - keep openLinkModal working
+function openLinkModal(url, name) { showInstallModal(url, name); }
+function closeModal() { closeInstallModal(); }
+
+function closeModal2() { document.getElementById('ios-modal').classList.remove('open'); }
+var iosModalEl = document.getElementById('ios-modal');
+if (iosModalEl) iosModalEl.addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+// ── Init ──
+loadResources();
+</script>
+</body>
+</html>

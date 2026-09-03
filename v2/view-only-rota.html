@@ -1,0 +1,303 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EGBC Live Rota</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+            authDomain: "egbc-worship-planner.firebaseapp.com",
+            projectId: "egbc-worship-planner",
+            storageBucket: "egbc-worship-planner.firebasestorage.app",
+            messagingSenderId: "199442060489",
+            appId: "1:199442060489:web:7eaf85a76334c753db6918"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        let cachedEvents = [];
+        let addressBook = [];
+        let collapsedTerms = new Set();
+        let logoBase64 = null;
+
+        const getLogoBase64 = () => {
+            return new Promise(async (resolve) => {
+                if (logoBase64) return resolve(logoBase64);
+                try {
+                    const url = await getDownloadURL(ref(storage, '1774936285076.png'));
+                    const img = new Image();
+                    img.setAttribute('crossOrigin', 'anonymous');
+                    img.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = img.width; canvas.height = img.height;
+                        const ctx = canvas.getContext("2d");
+                        ctx.drawImage(img, 0, 0);
+                        logoBase64 = canvas.toDataURL("image/png");
+                        resolve(logoBase64);
+                    };
+                    img.src = url + "?c=" + new Date().getTime();
+                } catch (e) { resolve(null); }
+            });
+        };
+        getLogoBase64();
+
+        onSnapshot(collection(db, "addressBook"), (snap) => {
+            addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const select = document.getElementById('memberPdfSelect');
+            if (select) {
+                select.innerHTML = '<option value="">Select Member...</option>';
+                addressBook.sort((a,b) => a.name.localeCompare(b.name)).forEach(m => {
+                    select.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                });
+            }
+        });
+
+        onSnapshot(query(collection(db, "events"), orderBy("date")), (snap) => {
+            cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderRota();
+        });
+
+        window.toggleTermCollapse = (term) => {
+            collapsedTerms.has(term) ? collapsedTerms.delete(term) : collapsedTerms.add(term);
+            renderRota();
+        };
+
+        window.generatePDF = async (type, memberId) => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); 
+            const activeLogo = await getLogoBase64();
+            const today = new Date().toISOString().split('T')[0];
+            let termEvents = cachedEvents.filter(e => !e.archived && e.date >= today);
+            let titleText = "FULL ROTA";
+            
+            if (type === 'individual') {
+                if (!memberId) return alert("Select your name first.");
+                const member = addressBook.find(m => m.id === memberId);
+                termEvents = termEvents.filter(e => {
+                    const isAssigned = Object.values(e.assignments || {}).some(a => a.id === memberId);
+                    const isInChoir = member.markers?.includes('Choir') && e.roles?.includes('Choir');
+                    return isAssigned || isInChoir;
+                });
+                titleText = `${member.name.toUpperCase()} - ROTA`;
+            } else if (type === 'household') {
+                if (!memberId) return alert("Select your name first.");
+                const member = addressBook.find(m => m.id === memberId);
+                const hIds = [memberId, ...(member.relatedTo || [])];
+                termEvents = termEvents.filter(e => {
+                    const isAssigned = Object.values(e.assignments || {}).some(a => hIds.includes(a.id));
+                    const houseMembers = addressBook.filter(m => hIds.includes(m.id));
+                    const choirRequirement = houseMembers.some(m => m.markers?.includes('Choir')) && e.roles?.includes('Choir');
+                    return isAssigned || choirRequirement;
+                });
+                titleText = `HOUSEHOLD ROTA: ${member.name.toUpperCase()}`;
+            }
+
+            if (termEvents.length === 0) return alert("No upcoming dates found.");
+
+            if (activeLogo) {
+                const props = doc.getImageProperties(activeLogo);
+                doc.addImage(activeLogo, 'PNG', 260, 10, 25, (props.height * 25) / props.width); 
+            }
+            
+            doc.setFillColor(240, 246, 246); doc.roundedRect(12, 12, 230, 10, 4, 4, 'F');
+            doc.setTextColor(61, 98, 99); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
+            doc.text(titleText, 16, 19);
+
+            const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
+            const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]];
+            const tableBody = termEvents.map(e => {
+                const row = [new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), e.type]; 
+                allRoles.forEach(role => row.push(e.assignments?.[role]?.name || (role === 'Choir' && (e.roles || []).includes('Choir') ? 'Choir' : '---')));
+                return row;
+            });
+
+            doc.autoTable({
+                startY: 35, head: headers, body: tableBody, theme: 'plain',
+                headStyles: { fillColor: [61, 98, 99], textColor: [255, 255, 255], fontSize: 7, halign: 'center' },
+                styles: { fontSize: 7.5, halign: 'center' },
+                margin: { horizontal: 10 },
+                didDrawPage: (data) => {
+                    doc.setDrawColor(209, 223, 223); doc.roundedRect(10, 35, 277, data.cursor.y - 35, 4, 4, 'D');
+                }
+            });
+            doc.save(`EGBC_${type}_rota.pdf`);
+        };
+
+        function renderRota() {
+            const container = document.getElementById('rotaContent');
+            container.innerHTML = '';
+            const grouped = {};
+            const today = new Date().toISOString().split('T')[0];
+
+            cachedEvents.forEach(ev => {
+                if(ev.archived || ev.date < today) return; 
+                const term = ev.termLabel || "Current Rota";
+                if (!grouped[term]) grouped[term] = [];
+                grouped[term].push(ev);
+            });
+
+            Object.keys(grouped).sort().forEach(term => {
+                const isCollapsed = collapsedTerms.has(term);
+                let termHtml = `
+                    <div class="mb-6">
+                        <div onclick="toggleTermCollapse('${term}')" class="flex justify-between items-center bg-[#3d6263] text-white px-6 py-3 rounded-t-2xl shadow-sm cursor-pointer">
+                            <h2 class="uppercase font-bold tracking-widest text-[11px] font-montserrat">${term}</h2>
+                            <span class="text-[9px] font-bold uppercase">${isCollapsed ? 'Show' : 'Hide'}</span>
+                        </div>
+                        <div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-3 border-x border-b border-[#d1dfdf] rounded-b-2xl shadow-sm">`;
+                
+                grouped[term].forEach(ev => {
+                    termHtml += `
+                        <div class="bg-[#f0f6f6] rounded-xl p-4 mb-3 border border-[#d1dfdf]">
+                            <div class="flex flex-wrap items-center gap-3 mb-3 border-b border-[#d1dfdf] pb-2">
+                                <span class="bg-[#3d6263] text-white px-3 py-1 rounded-full font-bold text-[9px]">
+                                    ${new Date(ev.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                </span>
+                                <span class="text-[#3d6263] font-black text-[9px] uppercase">${ev.startTime || '08:00'}</span>
+                                <span class="text-[#3d6263] font-extrabold text-[11px] uppercase tracking-tight">${ev.type}</span>
+                                <span class="italic text-[#3d6263] text-[10px] flex-grow text-right">${ev.description || ''}</span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                ${(ev.roles || []).map(role => {
+                                    const assigned = ev.assignments?.[role]?.name || (role === 'Choir' ? '<span class="text-[#9bc34a]">Choir</span>' : '---');
+                                    return `
+                                        <div class="bg-white p-2 border border-[#d1dfdf] rounded-lg shadow-sm">
+                                            <div class="text-[7px] font-black uppercase text-[#3d6263] opacity-50">${role}</div>
+                                            <div class="text-[10px] font-bold text-[#3d6263] truncate">${assigned}</div>
+                                        </div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                });
+                container.innerHTML += termHtml + `</div></div>`;
+            });
+        }
+    </script>
+    <style>
+        /* ============================================================
+           EGBC shared design system (visual only — merged tokens)
+           ============================================================ */
+        :root{
+            --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9;
+            --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+            --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+            --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+            --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4;
+            --gold:#b07d2e; --gold-tint:#f6efe1;
+            --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+            --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+            --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+            --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+        }
+        body { color:var(--body); font-family:'Montserrat', sans-serif; }
+        body.bg-\[\#f0f6f6\] { background:var(--canvas) !important; }
+
+        /* Neutral + brand colour remaps */
+        .bg-\[\#f0f6f6\], .bg-\[\#f0f6f6\]\/30 { background-color:var(--surface-2) !important; }
+        .border-\[\#d1dfdf\] { border-color:var(--hairline) !important; }
+        .bg-\[\#d1dfdf\] { background-color:var(--hairline-strong) !important; }
+        .text-\[\#3d6263\] { color:var(--brand) !important; }
+        .bg-\[\#3d6263\] { background-color:var(--brand) !important; }
+        .border-\[\#3d6263\] { border-color:var(--brand) !important; }
+        .text-\[\#d1dfdf\] { color:var(--faint) !important; }
+        .bg-\[\#9bc34a\] { background-color:var(--success) !important; }
+        .text-\[\#9bc34a\] { color:var(--success) !important; }
+
+        /* Typography — tame heavy weights + shouty tracking */
+        .font-black { font-weight:800 !important; }
+        .tracking-widest { letter-spacing:.08em !important; }
+
+        /* Radii → tokens (pills/badges keep rounded-full) */
+        .rounded-\[3rem\], .rounded-\[2rem\], .rounded-3xl { border-radius:var(--r-lg) !important; }
+        .rounded-t-\[2rem\], .rounded-t-2xl { border-top-left-radius:var(--r-lg) !important; border-top-right-radius:var(--r-lg) !important; }
+        .rounded-b-\[2rem\], .rounded-b-2xl { border-bottom-left-radius:var(--r-lg) !important; border-bottom-right-radius:var(--r-lg) !important; }
+        .rounded-2xl, .rounded-xl { border-radius:var(--r-md) !important; }
+        .rounded-lg { border-radius:var(--r-sm) !important; }
+
+        /* Shadows → tokens */
+        .shadow-xl, .shadow-lg { box-shadow:var(--shadow) !important; }
+        .shadow-md, .shadow-sm { box-shadow:var(--shadow-sm) !important; }
+
+        /* Buttons → one system (text action buttons all carry .uppercase) */
+        button.uppercase{
+            border-radius:var(--r-md) !important;
+            font-weight:700 !important;
+            letter-spacing:.02em !important;
+            text-transform:none !important;
+            transition:background .15s ease, transform .05s ease, box-shadow .15s ease !important;
+        }
+        button.uppercase:active{ transform:translateY(1px) !important; }
+        button.uppercase:focus-visible{ outline:none !important; box-shadow:0 0 0 3px var(--brand-ring) !important; }
+        button.uppercase.bg-\[\#3d6263\]{ background:var(--brand) !important; color:#fff !important; box-shadow:var(--shadow-sm) !important; }
+        button.uppercase.bg-\[\#3d6263\]:hover{ background:var(--brand-dark) !important; }
+        button.uppercase.bg-\[\#f0f6f6\]{ background:var(--brand-tint) !important; color:var(--brand) !important; border-color:transparent !important; }
+        button.uppercase.bg-\[\#f0f6f6\]:hover{ background:#d8e6e4 !important; }
+        button.uppercase.bg-\[\#9bc34a\]{ background:var(--success) !important; color:#fff !important; }
+        button.uppercase.bg-\[\#9bc34a\]:hover{ filter:brightness(.94) !important; }
+
+        /* Inputs / selects */
+        input, select, textarea { font-family:'Montserrat', sans-serif; }
+        select:focus, input:focus{
+            border-color:var(--brand) !important;
+            box-shadow:0 0 0 3px var(--brand-ring) !important;
+            outline:none !important;
+        }
+
+        /* Readability pass (additive, brand-safe): lift tiny sub-11px labels */
+        .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size: 11px !important; }
+
+        /* Loading shimmer skeleton (design-system component) */
+        .sk{ background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sh 1.4s ease infinite; border-radius:6px; }
+        @keyframes sh{ 0%{background-position:100% 0} 100%{background-position:0 0} }
+        @media (prefers-reduced-motion:reduce){ .sk{ animation:none } }
+
+        /* Clean printing: hide download chrome, white page, keep brand colours legible */
+        @media print {
+            @page { margin: 12mm; }
+            header { display: none !important; }
+            body { background: #ffffff !important; }
+            body.bg-\[\#f0f6f6\] { background: #ffffff !important; }
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body class="p-2 md:p-6 bg-[#f0f6f6] font-montserrat">
+    <div class="w-full mx-auto">
+        <header class="flex flex-wrap items-center justify-end gap-3 mb-6 bg-white p-4 rounded-3xl border border-[#d1dfdf] shadow-sm">
+            <span class="text-[9px] font-black uppercase text-[#3d6263] tracking-widest mr-auto ml-2">Rota Downloads</span>
+            
+            <button onclick="generatePDF('full')" class="bg-[#f0f6f6] text-[#3d6263] px-5 py-2 rounded-full font-black text-[9px] uppercase hover:bg-[#d1dfdf] transition-all">Full Rota PDF</button>
+            <div class="h-4 w-[1px] bg-[#d1dfdf] mx-1"></div>
+            
+            <select id="memberPdfSelect" class="bg-[#f0f6f6] rounded-full px-4 py-2 text-[10px] font-bold uppercase border border-[#d1dfdf] outline-none"></select>
+            <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Individual PDF</button>
+            <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-[#9bc34a] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Household PDF</button>
+        </header>
+
+        <div id="rotaContent">
+            <div class="flex justify-center py-20 text-[#3d6263] italic text-sm">Loading Rota...</div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youth Worship & AV Charter</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <style>
+        :root {
+            --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+            --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+            --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+            --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+            --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+            /* legacy aliases kept so existing inline var() references still resolve */
+            --pale-teal:#eef4f3; --border-teal:#dde7e6; --accent-teal:#3d6263; --white:#ffffff; --brand-green:#3b7d23;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--canvas); color: var(--body); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+        /* ── ADMIN BAR ── */
+        #admin-bar {
+            background: var(--brand);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 500;
+            border-bottom: 1px solid var(--brand-dark);
+        }
+        .admin-bar-label {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.72);
+            margin-right: 4px;
+        }
+        .admin-bar-btn {
+            padding: 8px 14px;
+            border-radius: var(--r-sm);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.28);
+            background: rgba(255,255,255,0.14);
+            color: #fff;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .admin-bar-btn:hover { background: rgba(255,255,255,0.26); }
+        .admin-bar-btn.green { background: var(--success); border-color: var(--success); }
+        .admin-bar-btn.red   { background: var(--danger); border-color: var(--danger); }
+        .admin-bar-btn.login { background: rgba(255,255,255,0.14); }
+        #admin-mode-badge {
+            display: none;
+            font-size: 11px;
+            font-weight: 800;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-left: auto;
+            background: rgba(255,255,255,0.16);
+            padding: 5px 12px;
+            border-radius: var(--r-pill);
+        }
+
+        /* ── PAGE BODY ── */
+        .page-wrap { max-width: 1100px; margin: 0 auto; padding: 40px 24px 72px; }
+
+        /* ── PHOTO GALLERY ── */
+        #photo-gallery-section {
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-lg);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+        .section-heading {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+        #photo-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0;
+            align-items: flex-end;
+            min-height: 20px;
+        }
+        #photo-gallery:empty + .gallery-empty-hint { display: block; }
+        .gallery-empty-hint {
+            display: none;
+            font-size: 13px;
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        /* Tilted photo frames */
+        .photo-frame-wrap {
+            position: relative;
+            display: inline-block;
+            margin: 8px 6px;
+            transition: transform 0.2s ease, z-index 0s;
+        }
+        .photo-frame-wrap:nth-child(4n+1) { transform: rotate(-2.5deg); margin-top: 16px; }
+        .photo-frame-wrap:nth-child(4n+2) { transform: rotate(2deg);    margin-top: 4px; }
+        .photo-frame-wrap:nth-child(4n+3) { transform: rotate(-1.5deg); margin-top: 20px; }
+        .photo-frame-wrap:nth-child(4n+4) { transform: rotate(2.5deg);  margin-top: 8px; }
+        .photo-frame-wrap:hover { transform: rotate(0deg) scale(1.05); z-index: 20; }
+
+        .photo-frame {
+            background: var(--surface);
+            padding: 8px 8px 26px;
+            box-shadow: var(--shadow);
+            border-radius: var(--r-sm);
+            border: 1px solid var(--hairline);
+        }
+        .photo-frame img {
+            display: block;
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 2px;
+        }
+
+        /* Admin delete overlay */
+        .photo-delete-btn {
+            display: none;
+            position: absolute;
+            top: -7px; right: -7px;
+            width: 22px; height: 22px;
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            z-index: 10;
+            box-shadow: var(--shadow-sm);
+        }
+        body.admin-mode .photo-delete-btn { display: flex; }
+
+        /* Add photo tile */
+        #photo-add-tile {
+            display: none;
+            width: 150px;
+            height: 184px;
+            border: 2px dashed var(--hairline-strong);
+            border-radius: var(--r-md);
+            background: var(--surface-2);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            margin: 8px 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0;
+            color: var(--muted);
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
+        }
+        #photo-add-tile:hover { border-color: var(--brand); background: var(--surface); color: var(--brand); }
+        #photo-add-tile span { font-size: 22px; }
+        body.admin-mode #photo-add-tile { display: flex; }
+
+        /* ── CONTENT PANEL ── */
+        #content-panel {
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        #content-panel-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--hairline);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        #content-panel-header h3 {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+        #content-display {
+            padding: 32px 36px;
+            min-height: 120px;
+            font-size: 16px;
+            color: var(--body);
+            line-height: 1.7;
+        }
+        /* Styles for content inside the display area */
+        #content-display h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 14px; }
+        #content-display h3 { font-size: 18px; font-weight: 700; color: var(--ink); margin: 26px 0 8px; }
+        #content-display h4 { font-size: 15px; font-weight: 700; color: var(--ink); margin: 18px 0 6px; }
+        #content-display p  { margin-bottom: 14px; }
+        #content-display ul, #content-display ol { padding-left: 22px; margin-bottom: 14px; }
+        #content-display li { margin-bottom: 7px; }
+        #content-display strong { color: var(--ink); font-weight: 700; }
+        #content-display a { color: var(--brand); }
+        #content-display hr { border: none; border-top: 1px solid var(--hairline); margin: 24px 0; }
+        #content-display blockquote { border-left: 3px solid var(--brand); background: var(--surface-2); padding: 12px 18px; border-radius: 0 var(--r-sm) var(--r-sm) 0; margin: 16px 0; color: var(--body); font-style: italic; }
+        #content-display img { max-width: 100%; border-radius: var(--r-md); margin: 10px 0; }
+        #content-display table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        #content-display th { background: var(--brand); color: #fff; padding: 10px 12px; font-size: 11px; text-align: left; font-weight: 700; letter-spacing: 0.04em; }
+        #content-display td { padding: 10px 12px; border-bottom: 1px solid var(--hairline); font-size: 14px; }
+        #content-display tr:nth-child(even) td { background: var(--surface-2); }
+
+        .content-empty { padding: 48px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+
+        /* HTML editor */
+        #html-editor-wrap {
+            display: none;
+            padding: 20px 24px 24px;
+            flex-direction: column;
+            gap: 12px;
+            border-top: 1px solid var(--hairline);
+        }
+        #html-textarea {
+            width: 100%;
+            min-height: 260px;
+            padding: 14px;
+            border: 1px solid var(--hairline-strong);
+            border-radius: var(--r-md);
+            font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+            font-size: 12px;
+            color: var(--ink);
+            background: var(--surface-2);
+            outline: none;
+            resize: vertical;
+            line-height: 1.5;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        #html-textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+        .editor-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .editor-btn {
+            padding: 11px 20px;
+            border-radius: var(--r-md);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: background 0.15s;
+        }
+        .editor-btn.primary { background: var(--brand); color: #fff; }
+        .editor-btn.primary:hover { background: var(--brand-dark); }
+        .editor-btn.cancel  { background: var(--brand-tint); color: var(--brand); }
+        .editor-btn.danger  { background: var(--danger); color: #fff; }
+
+        /* ── PASSWORD MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(20,32,31,0.45);
+            z-index: 900;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-lg);
+            padding: 28px;
+            width: 380px;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal-box h3 { font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+        .modal-box p  { font-size: 14px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+        .modal-box label { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 12px 0 6px; }
+        .modal-box input { width: 100%; padding: 11px 12px; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); outline: none; font-family: inherit; font-size: 14px; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+        .modal-box input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+        .modal-error { font-size: 12px; color: var(--danger); min-height: 16px; margin: 8px 0 10px; }
+        .modal-btn-row { display: flex; gap: 10px; margin-top: 16px; }
+        .modal-btn { flex: 1; padding: 11px; border: none; border-radius: var(--r-md); cursor: pointer; font-size: 13px; font-weight: 700; transition: background 0.15s; }
+        .modal-btn.primary { background: var(--brand); color: #fff; }
+        .modal-btn.primary:hover { background: var(--brand-dark); }
+        .modal-btn.cancel  { background: var(--brand-tint); color: var(--brand); }
+
+        /* ── TOAST ── */
+        #toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            background: var(--ink); color: #fff;
+            padding: 11px 22px; border-radius: var(--r-pill);
+            font-size: 13px; font-weight: 600;
+            letter-spacing: 0;
+            z-index: 800; display: none; white-space: nowrap;
+            box-shadow: var(--shadow-lg);
+        }
+    </style>
+</head>
+<body>
+
+<!-- Admin bar -->
+<div id="admin-bar">
+    <span class="admin-bar-label">Charter</span>
+    <div id="admin-locked-controls">
+        <button class="admin-bar-btn login" onclick="openPwModal()">&#128273; Admin Edit</button>
+    </div>
+    <div id="admin-unlocked-controls" style="display:none; gap:8px; flex-wrap:wrap;">
+        <button class="admin-bar-btn" onclick="toggleTitleEdit()">&#10002; Edit Title</button>
+        <button class="admin-bar-btn" onclick="openHtmlEditor()">&#128196; Edit Content</button>
+        <button class="admin-bar-btn green" onclick="document.getElementById('photo-file-input').click()">&#128444; Add Photos</button>
+        <button class="admin-bar-btn red" onclick="logoutAdmin()">Log Out</button>
+    </div>
+    <span id="admin-mode-badge">&#128273; Admin Mode</span>
+</div>
+
+<input type="file" id="photo-file-input" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(event)">
+
+<!-- Page body -->
+<div class="page-wrap">
+    <div style="padding:0 0 20px;">
+        <div id="page-title-display" style="font-size:36px;font-weight:800;color:var(--ink);letter-spacing:-0.025em;line-height:1.15;"></div>
+        <input type="text" id="page-title-input" placeholder="Page title&hellip;" style="display:none;font-size:30px;font-weight:800;color:var(--ink);border:1px solid var(--hairline-strong);border-radius:var(--r-md);padding:8px 14px;font-family:'Montserrat',sans-serif;outline:none;min-width:280px;letter-spacing:-0.02em;">
+    </div>
+
+    <!-- Photos -->
+    <div id="photo-gallery-section" style="display:none">
+        <div class="section-heading">Photos</div>
+        <div id="photo-gallery"></div>
+        <div class="gallery-empty-hint" id="gallery-hint">No photos yet. Log in as admin to add photos.</div>
+        <div id="photo-add-tile" onclick="document.getElementById('photo-file-input').click()">
+            <span>&#128444;</span>
+            Add Photos
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content-panel">
+        <div id="content-panel-header">
+            <h3>Charter Content</h3>
+        </div>
+        <div id="content-display">
+            <div class="content-empty">No content yet. Log in as admin and click "Edit Content" to add HTML.</div>
+        </div>
+        <div id="html-editor-wrap">
+            <textarea id="html-textarea" placeholder="Paste your HTML content here&hellip;"></textarea>
+            <div class="editor-btn-row">
+                <button class="editor-btn primary" onclick="applyHtml()">&#10003; Apply &amp; Save</button>
+                <button class="editor-btn cancel" onclick="closeHtmlEditor()">Cancel</button>
+                <button class="editor-btn danger" onclick="clearContent()">Clear Content</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Password modal -->
+<div class="modal-overlay" id="pw-modal">
+    <div class="modal-box">
+        <h3>Admin Access</h3>
+        <p>Enter the admin password to edit this page.</p>
+        <label>Password</label>
+        <input type="password" id="pw-input" placeholder="Password&hellip;" onkeydown="if(event.key==='Enter')checkPassword()">
+        <div class="modal-error" id="pw-error"></div>
+        <div class="modal-btn-row">
+            <button class="modal-btn cancel" onclick="closePwModal()">Cancel</button>
+            <button class="modal-btn primary" onclick="checkPassword()">Unlock</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+const PAGE_ID  = 'youth-charter';
+const ADMIN_PW = 'Surreykt10';
+
+// Shared storage — admin edits are now saved to Firebase so everyone sees them
+// (previously saved to this browser's localStorage only).
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+const DOC_REF = db.collection('pageContent').doc(PAGE_ID);
+
+let isAdmin = false;
+let isEditingTitle = false;
+let photos  = [];
+
+// ── INIT ──
+window.addEventListener('load', loadSaved);
+
+async function loadSaved() {
+    let saved = {};
+    try { const snap = await DOC_REF.get(); if (snap.exists) saved = snap.data() || {}; }
+    catch (e) { console.error('Charter load failed', e); }
+    const title = saved.title || 'Youth Worship & AV Charter';
+    document.getElementById('page-title-display').textContent = title;
+    document.getElementById('page-title-input').value = title;
+    document.title = title;
+    const defaultHtml = `<h2>Youth Worship &amp; AV Team Charter</h2>
+<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>
+
+<h3>Who We Are</h3>
+<p>We serve with love, joy, and unity — on instruments, with our voices, or on the AV team. Every one of us matters.</p>
+
+<h3>When We Don't Agree</h3>
+<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>
+
+<h3>Living Like Jesus Outside of Sundays</h3>
+<p>Because we're on a team that people can see, our lives should show that we follow Jesus — not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>
+<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>
+<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>
+
+<h3>How We Serve</h3>
+<ul>
+<li><strong>We show up ready</strong> — prepared and on time</li>
+<li><strong>We stay flexible</strong> — things change, and that's okay</li>
+<li><strong>We encourage each other</strong> — words build up, not tear down</li>
+<li><strong>We follow the leader</strong> — with trust and unity</li>
+<li><strong>We work with AV as one team</strong> — everyone counts</li>
+<li><strong>We pray together</strong> — because this is about more than music</li>
+</ul>
+
+<h3>Sundays</h3>
+<ul>
+<li>We arrive early</li>
+<li>We support the leader</li>
+<li>We help create a joyful atmosphere</li>
+<li>We worship wholeheartedly</li>
+<li>We serve visibly and kindly</li>
+</ul>`;
+    const htmlContent = saved.html || defaultHtml;
+    document.getElementById('content-display').innerHTML = htmlContent;
+    document.getElementById('html-textarea').value = htmlContent;
+    photos = saved.photos || [];
+    renderPhotos();
+}
+
+async function saveAll() {
+    try {
+        await DOC_REF.set({
+            title:  document.getElementById('page-title-display').textContent,
+            html:   document.getElementById('content-display').innerHTML,
+            photos: photos,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.error('Charter save failed', e);
+        toast('Save failed — check your connection');
+    }
+}
+
+// ── ADMIN ──
+// Admin mode is entered by a hidden gesture: 3 quick clicks on the RIGHT of the top bar (no password).
+(function(){
+  var bar = document.getElementById('admin-bar');
+  var locked = document.getElementById('admin-locked-controls');
+  if (locked) locked.style.display = 'none';
+  if (!bar) return;
+  var clicks = 0, timer = null;
+  bar.addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('button')) return;
+    var r = bar.getBoundingClientRect();
+    if (e.clientX < r.right - r.width * 0.4) return;
+    clicks++; clearTimeout(timer); timer = setTimeout(function(){ clicks = 0; }, 1200);
+    if (clicks >= 3 && !isAdmin) { clicks = 0; unlockAdmin(); }
+  });
+})();
+function unlockAdmin(){
+  isAdmin = true;
+  var u = document.getElementById('admin-unlocked-controls'); if (u) u.style.display = 'flex';
+  var b = document.getElementById('admin-mode-badge'); if (b) b.style.display = 'block';
+  var h = document.getElementById('gallery-hint'); if (h) h.style.display = (typeof photos !== 'undefined' && photos.length) ? 'none' : 'block';
+  document.body.classList.add('admin-mode');
+  if (typeof renderPhotos === 'function') renderPhotos();
+  if (typeof toast === 'function') toast('Admin mode unlocked');
+}
+function openPwModal() {
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-error').textContent = '';
+    document.getElementById('pw-modal').classList.add('open');
+    setTimeout(() => document.getElementById('pw-input').focus(), 150);
+}
+function closePwModal() {
+    document.getElementById('pw-modal').classList.remove('open');
+}
+document.getElementById('pw-modal').addEventListener('click', function(e) {
+    if (e.target === this) closePwModal();
+});
+
+function checkPassword() {
+    if (document.getElementById('pw-input').value === ADMIN_PW) {
+        isAdmin = true;
+        closePwModal();
+        document.getElementById('admin-locked-controls').style.display   = 'none';
+        document.getElementById('admin-unlocked-controls').style.display = 'flex';
+        document.getElementById('admin-mode-badge').style.display        = 'block';
+        document.getElementById('gallery-hint').style.display = photos.length ? 'none' : 'block';
+        document.body.classList.add('admin-mode');
+        renderPhotos();
+        toast('Admin mode unlocked');
+    } else {
+        document.getElementById('pw-error').textContent = 'Incorrect password.';
+        document.getElementById('pw-input').value = '';
+        document.getElementById('pw-input').focus();
+    }
+}
+
+function logoutAdmin() {
+    isAdmin = false;
+    document.getElementById('admin-locked-controls').style.display   = 'none';
+    document.getElementById('admin-unlocked-controls').style.display = 'none';
+    document.getElementById('admin-mode-badge').style.display        = 'none';
+    document.body.classList.remove('admin-mode');
+    if (isEditingTitle) cancelTitleEdit();
+    closeHtmlEditor();
+    renderPhotos();
+    toast('Logged out');
+}
+
+// ── TITLE ──
+function toggleTitleEdit() {
+    if (!isAdmin) return;
+    isEditingTitle ? saveTitleEdit() : startTitleEdit();
+}
+function startTitleEdit() {
+    isEditingTitle = true;
+    document.getElementById('page-title-display').style.display = 'none';
+    document.getElementById('page-title-input').style.display   = 'block';
+    document.getElementById('page-title-input').focus();
+    document.getElementById('page-title-input').select();
+}
+function saveTitleEdit() {
+    const val = document.getElementById('page-title-input').value.trim() || 'Untitled';
+    document.getElementById('page-title-display').textContent = val;
+    document.getElementById('page-title-display').style.display = '';
+    document.getElementById('page-title-input').style.display   = 'none';
+    document.title = val;
+    isEditingTitle = false;
+    saveAll();
+    toast('Title saved');
+}
+function cancelTitleEdit() {
+    document.getElementById('page-title-display').style.display = '';
+    document.getElementById('page-title-input').style.display   = 'none';
+    isEditingTitle = false;
+}
+document.getElementById('page-title-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter')  saveTitleEdit();
+    if (e.key === 'Escape') cancelTitleEdit();
+});
+
+// ── HTML EDITOR ──
+function openHtmlEditor() {
+    if (!isAdmin) return;
+    const current = document.getElementById('content-display').innerHTML;
+    const isEmpty = current.includes('content-empty') || current.trim() === '';
+    document.getElementById('html-textarea').value = isEmpty ? '' : current;
+    document.getElementById('html-editor-wrap').style.display = 'flex';
+    document.getElementById('html-textarea').focus();
+}
+function closeHtmlEditor() {
+    document.getElementById('html-editor-wrap').style.display = 'none';
+}
+function applyHtml() {
+    const html = document.getElementById('html-textarea').value.trim();
+    document.getElementById('content-display').innerHTML = html ||
+        '<div class="content-empty">No content yet. Log in as admin and click &ldquo;Edit Content&rdquo; to add HTML.</div>';
+    closeHtmlEditor();
+    saveAll();
+    toast('Content saved &#10003;');
+}
+function clearContent() {
+    if (!confirm('Clear all content?')) return;
+    document.getElementById('html-textarea').value = '';
+    document.getElementById('content-display').innerHTML =
+        '<div class="content-empty">No content yet. Log in as admin and click &ldquo;Edit Content&rdquo; to add HTML.</div>';
+    closeHtmlEditor();
+    saveAll();
+    toast('Content cleared');
+}
+
+// ── PHOTOS ──
+function handlePhotoUpload(event) {
+    const files = Array.from(event.target.files);
+    if (!files.length) return;
+    toast('Uploading photo' + (files.length > 1 ? 's' : '') + '…');
+    Promise.all(files.map(file => {
+        const ref = storage.ref(`charter_photos/${PAGE_ID}/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`);
+        return ref.put(file)
+            .then(() => ref.getDownloadURL())
+            .then(url => { photos.push({ url: url, name: file.name }); })
+            .catch(err => { console.error('Photo upload failed', err); });
+    })).then(() => {
+        renderPhotos();
+        saveAll();
+        toast(`${files.length} photo${files.length > 1 ? 's' : ''} added`);
+        document.getElementById('gallery-hint').style.display = 'none';
+    });
+    event.target.value = '';
+}
+
+function renderPhotos() {
+    const gallery = document.getElementById('photo-gallery');
+    gallery.innerHTML = '';
+    photos.forEach((photo, index) => {
+        const wrap  = document.createElement('div');
+        wrap.className = 'photo-frame-wrap';
+        const frame = document.createElement('div');
+        frame.className = 'photo-frame';
+        const img   = document.createElement('img');
+        img.src = photo.url || photo.dataUrl;
+        img.alt = photo.name || 'Photo';
+        frame.appendChild(img);
+        if (isAdmin) {
+            const del = document.createElement('button');
+            del.className = 'photo-delete-btn';
+            del.innerHTML = '&times;';
+            del.title = 'Remove photo';
+            del.addEventListener('click', e => { e.stopPropagation(); removePhoto(index); });
+            wrap.appendChild(del);
+        }
+        wrap.appendChild(frame);
+        gallery.appendChild(wrap);
+    });
+    // Hide the Photos panel from visitors when empty — show only if there are photos or you're in admin mode.
+    const _sec = document.getElementById('photo-gallery-section');
+    if (_sec) _sec.style.display = (photos.length > 0 || isAdmin) ? '' : 'none';
+    const _hint = document.getElementById('gallery-hint');
+    if (_hint) _hint.style.display = 'none';
+}
+
+function removePhoto(index) {
+    if (!confirm('Remove this photo?')) return;
+    photos.splice(index, 1);
+    renderPhotos();
+    saveAll();
+    toast('Photo removed');
+}
+
+// ── TOAST ──
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.innerHTML = msg; t.style.display = 'block';
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2500);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,570 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>Batch Music Importer — TRAINING</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+  --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+  --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+  --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+  --train:#92400e; --train-dark:#78350f; --train-accent:#b45309;
+}
+* { box-sizing: border-box; }
+body { font-family:'Montserrat',sans-serif; padding:0; margin:0; background:var(--canvas); color:var(--body); font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+h2{ font-size:26px; font-weight:800; letter-spacing:-.02em; color:var(--ink); margin:0 0 18px; }
+
+/* ── Training banner (amber identity retained) ── */
+#training-banner {
+    position: sticky; top: 0; z-index: 900;
+    background: linear-gradient(90deg, var(--train), var(--train-accent), var(--train));
+    background-size: 200% 100%; animation: tsh 3s ease-in-out infinite;
+    color: white; font-family:'Montserrat',sans-serif; font-weight: 800;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 11px 22px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px;
+    box-shadow: 0 2px 14px rgba(146,64,14,0.32);
+}
+@keyframes tsh { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+.tpill { background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); border-radius:var(--r-pill); padding:2px 10px; font-size:10px; }
+#exit-btn { background:white; color:var(--train); border:none; border-radius:var(--r-pill); padding:7px 16px; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex-shrink:0; transition:background .15s; }
+#exit-btn:hover { background:#fef3c7; }
+
+#main { padding: 28px; max-width:1320px; margin:0 auto; }
+
+.dropzone {
+    border:2px dashed var(--hairline-strong);
+    padding:36px;
+    text-align:center;
+    border-radius:var(--r-lg);
+    cursor:pointer;
+    margin-bottom:16px;
+    background:var(--surface);
+    color:var(--muted);
+    font-weight:600;
+    transition:border-color .2s, background .2s, color .2s;
+}
+.dropzone:hover, .dropzone.dragover { border-color:var(--train-accent); background:#fdf6ee; color:var(--train); }
+
+#status{ font-size:13px; font-weight:500; color:var(--muted); margin:8px 0 14px; }
+
+/* Table */
+table { border-collapse:separate; border-spacing:0; width:100%; font-size:13px; margin-top:6px; background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow); }
+thead th{ background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; text-align:left; padding:12px 10px; border-bottom:1px solid var(--hairline); white-space:nowrap; }
+td{ padding:9px 10px; border-bottom:1px solid var(--hairline); vertical-align:middle; color:var(--body); }
+tbody tr:last-child td{ border-bottom:none; }
+
+.status-new{ background:var(--success-tint); }
+.status-exists{ background:var(--danger-tint); }
+.status-review{ background:var(--gold-tint); }
+.status-skipped{ background:var(--surface-2); }
+
+input, select {
+    width:100%; font-family:inherit; font-size:13px; color:var(--ink);
+    background:var(--surface); border:1px solid var(--hairline-strong);
+    border-radius:var(--r-sm); padding:7px 9px;
+    transition:border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
+
+/* Generic (in-table) buttons */
+button {
+    font-family:inherit; font-weight:700; font-size:12px;
+    border-radius:var(--r-sm); border:1px solid var(--hairline-strong);
+    background:var(--surface); color:var(--body);
+    padding:5px 10px; margin:2px; cursor:pointer;
+    transition:background .15s, border-color .15s, color .15s, transform .05s;
+}
+button:hover{ background:var(--surface-2); border-color:var(--brand); color:var(--brand); }
+button:active{ transform:translateY(1px); }
+button:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--brand-ring); }
+
+.group-row td{ background:var(--brand-tint); font-weight:700; color:var(--brand-dark); }
+.conf-high{ color:var(--success); font-weight:700; }
+.conf-medium{ color:var(--gold); font-weight:700; }
+.conf-low{ color:var(--danger); font-weight:700; }
+
+/* Toast */
+#training-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--train); color: white; padding: 10px 22px; border-radius: var(--r-pill);
+    font-weight: 800; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    z-index: 2000; display: none; border: 2px dashed #fbbf24; pointer-events: none;
+    box-shadow: 0 4px 20px rgba(146,64,14,0.36);
+}
+
+/* Help button */
+#helpBtn {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    width: 38px; height: 38px; border-radius: var(--r-pill);
+    background: var(--surface); border: 1px solid var(--hairline-strong); color: var(--brand);
+    font-family:'Montserrat',sans-serif; font-weight: 800; font-size: 15px; cursor: pointer;
+    box-shadow: var(--shadow); transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; text-decoration: none;
+}
+#helpBtn:hover { background:var(--brand); color:#ffffff; border-color:var(--brand); box-shadow:var(--shadow-lg); transform:translateY(-1px); }
+
+.library-link {
+    display: inline-block;
+    margin-bottom: 16px;
+    background: var(--brand);
+    color: white;
+    padding: 9px 20px;
+    border-radius: var(--r-md);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+    transition: background .15s;
+}
+.library-link:hover { background: var(--brand-dark); }
+
+/* Training upload CTA (amber dashed identity retained) */
+.upload-btn {
+    background: var(--train);
+    color: white;
+    padding: 11px 24px;
+    border: 2px dashed #fbbf24;
+    border-radius: var(--r-md);
+    font-family:inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 16px;
+    transition: background .15s, transform .05s;
+}
+.upload-btn:hover { background: var(--train-dark); color:#fff; border-color:#fbbf24; }
+.upload-btn:active { transform:translateY(1px); }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team" data-role="leader"></script>
+</head>
+
+<body>
+
+<div id="training-banner">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span>🎓 Training Mode</span>
+        <span class="tpill">Read-only Firebase</span>
+        <span class="tpill">Uploads saved to browser only</span>
+    </div>
+    <button id="exit-btn" onclick="exitTraining()">✕ Exit Training</button>
+</div>
+
+<div id="main">
+
+<a href="egbc-song-library-training.html" class="library-link">→ View Training Song Library</a>
+
+<h2>Batch Music Importer — Training</h2>
+
+<div class="dropzone" id="dropzone">
+    Drag folder OR click to select PDF files
+</div>
+
+<input type="file" id="fileInput" multiple webkitdirectory style="display:none">
+
+<div id="status"></div>
+
+<button class="upload-btn" onclick="processAll()">💾 Upload (Training Only)</button>
+
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Title</th>
+<th>Key</th>
+<th>Type</th>
+<th>Match</th>
+<th>Confidence</th>
+<th>YouTube</th>
+<th>CCLI</th>
+<th>Assist</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+
+</div>
+
+<div id="training-toast"></div>
+
+<a id="helpBtn"
+   href="https://esherchurch.github.io/availability-form/uploaderinstructions.html"
+   target="_blank" rel="noopener" aria-label="Open instructions">?</a>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// TRAINING MODE — Batch Music Importer
+//
+// Firebase: READ ONLY — loads existing songs for matching
+// Uploads: saved to sessionStorage under EGBC_TR_SONGS key
+//          shared with the training Song Library page
+// Nothing written to Firebase Storage or Firestore
+// ═══════════════════════════════════════════════════════════════════════════
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const TS_SONGS_KEY = "EGBC_TR_SONGS"; // shared with library page
+
+let songs = [];
+let rows = [];
+
+const KEYS = ["C","Cm","C#","C#m","Db","Dbm","D","Dm","Eb","Ebm","E","Em","F","Fm","F#","F#m","Gb","Gbm","G","Gm","Ab","Abm","A","Am","Bb","Bbm","B","Bm"];
+const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
+
+// ── Training session storage helpers ──────────────────────────────────────
+function loadTrainingSongs() {
+    try { return JSON.parse(sessionStorage.getItem(TS_SONGS_KEY) || '[]'); }
+    catch(e) { return []; }
+}
+function saveTrainingSongs(list) {
+    try { sessionStorage.setItem(TS_SONGS_KEY, JSON.stringify(list)); }
+    catch(e) { showToast("⚠️ Session storage full"); }
+}
+
+function showToast(msg) {
+    const t = document.getElementById('training-toast');
+    t.innerText = msg; t.style.display = 'block';
+    clearTimeout(window._tt);
+    window._tt = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function exitTraining() {
+    if (!confirm("Exit training mode? All practice uploads will be cleared.")) return;
+    try { sessionStorage.clear(); } catch(e) {}
+    document.open();
+    document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f6f6;margin:0;}</style></head><body><div style="text-align:center;color:#3d6263;"><h2 style="font-weight:800;">Training session ended.</h2><p style="font-size:14px;opacity:0.6;">All practice data has been cleared.</p></div></body></html>`);
+    document.close();
+}
+
+// ── Song matching helpers (identical to live) ─────────────────────────────
+function getConfidence(matches) {
+    if (!matches || matches.length === 0) return "low";
+    let top = matches[0];
+    if (top.score >= 0.7) return "high";
+    if (top.score >= 0.4) return "medium";
+    return "low";
+}
+
+function detectKey(name) {
+    let lower = name.toLowerCase().replace(".pdf","");
+    const searchOrder = ["C#","Db","Eb","F#","Gb","Ab","Bb","C","D","E","F","G","A","B"];
+    for (let k of searchOrder) {
+        let regex = new RegExp(`\\b${k.replace('#','\\#')}\\b| ${k.replace('#','\\#')}$`,'i');
+        if (regex.test(lower)) return k;
+    }
+    for (let k of searchOrder) {
+        if (lower.includes(k.toLowerCase())) return k;
+    }
+    return "";
+}
+
+function detectType(name) {
+    let lower = name.toLowerCase();
+    if (lower.includes("chord")) return "Chord Sheet";
+    if (lower.includes("lead"))  return "Lead Sheet";
+    if (lower.includes("lyric")) return "Lyrics";
+    if (lower.includes("bass"))  return "Bass Tabs";
+    return "";
+}
+
+function cleanTitle(name) {
+    return name.toLowerCase()
+        .replace(".pdf","")
+        .replace(/\(.*?\)/g,"")
+        .replace(/\bin [a-g](#|b)?m?\b/g,"")
+        .replace(/\bkey [a-g](#|b)?m?\b/g,"")
+        .replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
+        .replace(/\b[a-g](#|b)?m?\b/g,"")
+        .replace(/[^a-z0-9 ]/g,"")
+        .replace(/\s+/g," ")
+        .trim();
+}
+
+function getMatches(title) {
+    const words = title.split(" ");
+    return songs.map(s => {
+        const sWords = s.title.toLowerCase().split(" ");
+        let overlap = words.filter(w => sWords.includes(w));
+        let score = sWords.length > 0 ? overlap.length / sWords.length : 0;
+        return { song: s, score };
+    })
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 5);
+}
+
+function applyToGroup(index, field) {
+    let group = rows[index].group;
+    let value = rows[index][field];
+    rows.forEach(r => { if (r.group === group) r[field] = value; });
+    render();
+}
+
+function openYouTubeSearch(title) {
+    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`, '_blank');
+}
+
+// ── File handling ──────────────────────────────────────────────────────────
+const dropzone  = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+dropzone.onclick = () => fileInput.click();
+fileInput.onchange = e => handleFiles(Array.from(e.target.files));
+dropzone.addEventListener("dragover", e => e.preventDefault());
+dropzone.addEventListener("drop", async e => {
+    e.preventDefault();
+    let files = [], promises = [];
+    for (let item of e.dataTransfer.items) {
+        let entry = item.webkitGetAsEntry();
+        if (entry) promises.push(traverse(entry, files));
+    }
+    await Promise.all(promises);
+    handleFiles(files);
+});
+
+async function traverse(entry, files) {
+    if (entry.isFile) {
+        return new Promise(res => {
+            entry.file(f => { if (f.name.endsWith(".pdf")) files.push(f); res(); });
+        });
+    } else if (entry.isDirectory) {
+        let reader = entry.createReader();
+        return new Promise(async resolve => {
+            let readEntries = async () => {
+                reader.readEntries(async entries => {
+                    if (entries.length > 0) {
+                        for (let e of entries) await traverse(e, files);
+                        await readEntries();
+                    } else resolve();
+                });
+            };
+            await readEntries();
+        });
+    }
+}
+
+async function loadSongs() {
+    const snap = await db.collection("songs").get();
+    songs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Also merge in any training songs already uploaded this session
+    const trainingSongs = loadTrainingSongs();
+    trainingSongs.forEach(ts => {
+        if (!songs.find(s => s.id === ts.id)) songs.push(ts);
+    });
+}
+
+async function handleFiles(files) {
+    document.getElementById("status").innerText = "Loading song library for matching...";
+    await loadSongs();
+    document.getElementById("status").innerText = `${files.length} files loaded. Review below then click Upload.`;
+    rows = files.map(file => {
+        let detectedKey  = detectKey(file.name);
+        let detectedType = detectType(file.name);
+        let rawTitle     = cleanTitle(file.name);
+        let matches      = getMatches(rawTitle);
+        return {
+            file, rawTitle,
+            title:      file.name.replace(".pdf",""),
+            key:        detectedKey,
+            type:       detectedType,
+            matches,
+            match:      matches[0]?.song || null,
+            youtube:    matches[0]?.song?.youtube || "",
+            ccli:       matches[0]?.song?.ccli    || "",
+            confidence: getConfidence(matches),
+            group:      cleanTitle(file.name),
+            skip: false, force: false
+        };
+    });
+    render();
+}
+
+function getStatus(r) {
+    if (r.skip) return "SKIPPED";
+    if (!r.key || !r.type) return "REVIEW";
+    if (!r.match) return "NEW";
+    // Check training songs too
+    const allSongs = [...songs, ...loadTrainingSongs()];
+    let existing = allSongs.find(s => s.id === r.match.id || s.title === r.match.title);
+    let dup = (existing?.files || []).find(f => f.key === r.key && f.type === r.type);
+    if (dup && !r.force) return "EXISTS";
+    return "NEW";
+}
+
+function render() {
+    const tbody = document.getElementById("table");
+    tbody.innerHTML = "";
+    let lastGroup = null;
+    rows.sort((a,b) => a.group.localeCompare(b.group));
+    rows.forEach((r, i) => {
+        if (r.group !== lastGroup) {
+            let groupRow = document.createElement("tr");
+            groupRow.className = "group-row";
+            let td = document.createElement("td");
+            td.colSpan = 11;
+            td.innerHTML = `${r.group}
+                <button onclick="applyToGroup(${i},'title')">Apply Title</button>
+                <button onclick="applyToGroup(${i},'match')">Apply Match</button>
+                <button onclick="applyToGroup(${i},'youtube')">Apply YouTube</button>
+                <button onclick="applyToGroup(${i},'ccli')">Apply CCLI</button>`;
+            groupRow.appendChild(td);
+            tbody.appendChild(groupRow);
+            lastGroup = r.group;
+        }
+
+        let status = getStatus(r);
+        let tr = document.createElement("tr");
+        tr.className = "status-" + status.toLowerCase();
+        tr.innerHTML = `
+            <td>${r.file.name}</td>
+            <td><input value="${r.title}"></td>
+            <td>
+                <select>
+                    <option value="">Key</option>
+                    ${KEYS.map(k => `<option ${r.key===k?"selected":""}>${k}</option>`).join("")}
+                </select>
+            </td>
+            <td>
+                <select>
+                    <option value="">Type</option>
+                    ${TYPES.map(t => `<option ${r.type===t?"selected":""}>${t}</option>`).join("")}
+                </select>
+            </td>
+            <td>
+                <select>
+                    <option value="">— New Song —</option>
+                    ${r.matches.map(m => `<option value="${m.song.id}" ${r.match?.id===m.song.id?"selected":""}>${m.song.title}</option>`).join("")}
+                </select>
+            </td>
+            <td class="conf-${r.confidence}">${r.confidence}</td>
+            <td><input value="${r.youtube}"></td>
+            <td><input value="${r.ccli}"></td>
+            <td>
+                <button onclick="openYouTubeSearch('${r.title.replace(/'/g,"\\'")}')">Find YouTube</button>
+                <button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
+            </td>
+            <td>${status}</td>
+            <td>
+                <button onclick="rows[${i}].skip=!rows[${i}].skip;render()">${r.skip?'Undo':'Skip'}</button>
+                <button onclick="rows[${i}].force=true;render()">Force</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+
+        const inputs = tr.querySelectorAll("input, select");
+        inputs[0].onchange = e => { r.title = e.target.value; render(); };
+        inputs[1].onchange = e => { r.key   = e.target.value; render(); };
+        inputs[2].onchange = e => { r.type  = e.target.value; render(); };
+        inputs[3].onchange = e => {
+            if (!e.target.value) { r.match = null; }
+            else {
+                let m = r.matches.find(x => x.song.id === e.target.value);
+                r.match = m.song;
+                r.youtube = m.song.youtube || "";
+                r.ccli    = m.song.ccli    || "";
+            }
+            render();
+        };
+        inputs[4].onchange = e => { r.youtube = e.target.value; };
+        inputs[5].onchange = e => { r.ccli    = e.target.value; };
+    });
+}
+
+// ── TRAINING UPLOAD: sessionStorage only, no Firebase writes ──────────────
+async function processAll() {
+    if (!confirm("Upload to training session? (Nothing will be written to the live system)")) return;
+
+    let trainingSongs = loadTrainingSongs();
+    let uploadCount = 0;
+    let skipCount   = 0;
+
+    for (const r of rows) {
+        let status = getStatus(r);
+        if (status === "SKIPPED" || status === "EXISTS") { skipCount++; continue; }
+        if (status === "REVIEW") { alert("Please fix missing key/type for: " + r.file.name); return; }
+
+        // Determine the song title and ID
+        let finalTitle = r.match ? r.match.title : r.title;
+        let id = finalTitle.toLowerCase().replace(/\s+/g,"-");
+
+        // Build a fake URL so the library can display it
+        // We use a blob URL from the actual file so it's viewable in this session
+        let fakeUrl = "";
+        try {
+            fakeUrl = URL.createObjectURL(r.file);
+        } catch(e) {
+            fakeUrl = "#training-file-not-viewable";
+        }
+
+        // Find or create the song entry in training storage
+        let existing = trainingSongs.find(s => s.id === id);
+        if (!existing) {
+            // Check if it exists in real Firebase songs
+            const realSong = songs.find(s => s.id === id || s.title === finalTitle);
+            if (realSong) {
+                // Copy real song into training and add file
+                existing = JSON.parse(JSON.stringify(realSong));
+                existing._trainingOverride = true;
+                trainingSongs.push(existing);
+            } else {
+                // Brand new song
+                existing = {
+                    id,
+                    title: finalTitle,
+                    normalized: finalTitle.toLowerCase(),
+                    youtube: r.youtube,
+                    ccli: r.ccli,
+                    files: [],
+                    _trainingNew: true,
+                    _trainingOverride: true
+                };
+                trainingSongs.push(existing);
+            }
+        }
+
+        // Add the file entry
+        if (!existing.files) existing.files = [];
+        existing.files.push({
+            name: r.file.name,
+            url: fakeUrl,
+            type: r.type,
+            key: r.key,
+            _training: true
+        });
+
+        // Update youtube/ccli if provided
+        if (r.youtube) existing.youtube = r.youtube;
+        if (r.ccli)    existing.ccli    = r.ccli;
+
+        uploadCount++;
+    }
+
+    saveTrainingSongs(trainingSongs);
+
+    showToast(`✅ ${uploadCount} file(s) uploaded to training session`);
+    document.getElementById("status").innerText = `Training upload complete — ${uploadCount} uploaded, ${skipCount} skipped. Open the Training Song Library to see them.`;
+
+    // Re-render to show updated statuses
+    await loadSongs();
+    render();
+}
+</script>
+</body>
+</html>

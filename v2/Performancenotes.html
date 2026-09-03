@@ -1,0 +1,1671 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Performance">
+<meta name="theme-color" content="#3d6263">
+<title>EGBC Performance Notes</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  /* Design system tokens */
+  --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+  --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+  --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+  --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+  /* Legacy aliases remapped to design tokens */
+  --teal:       #3d6263;
+  --teal-dark:  #2e4c4d;
+  --teal-light: #e7f0ef;
+  --border:     #dde7e6;
+  --bg:         #eef4f3;
+  --white:      #ffffff;
+  --font:       'Montserrat', sans-serif;
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow: hidden;
+}
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--teal);
+  color: white;
+  padding: 10px 22px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 9000;
+  display: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(61,98,99,0.3);
+  pointer-events: none;
+}
+
+/* ══ START SCREEN ══ */
+#startScreen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-top: var(--safe-top);
+  padding-bottom: calc(var(--safe-bottom) + 20px);
+}
+
+.start-hero {
+  background: var(--teal);
+  padding: 36px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.start-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255,255,255,0.3);
+}
+
+.start-hero-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: white;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.start-hero-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-align: center;
+}
+
+.start-form {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.start-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.6;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.start-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--teal);
+  background: var(--white);
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.2s;
+}
+.start-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--brand-ring); }
+
+.btn-load {
+  width: 100%;
+  padding: 16px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-load:active { transform: scale(0.98); background: var(--teal-dark); }
+.btn-load:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ══ SONG SCREEN ══ */
+#songScreen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  flex-direction: column;
+  padding-top: var(--safe-top);
+}
+
+.song-topbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 58px;
+}
+
+.topbar-menu-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--teal);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+}
+
+.song-title-bar {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.song-title-main {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.song-counter {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--teal);
+  opacity: 0.4;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+.topbar-nav { display: flex; gap: 6px; flex-shrink: 0; }
+
+.nav-arrow {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.nav-arrow:active { transform: scale(0.93); background: var(--teal-dark); }
+.nav-arrow:disabled { opacity: 0.25; cursor: default; }
+
+.song-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 12px calc(var(--safe-bottom) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: transform 0.1s, opacity 0.15s;
+  white-space: nowrap;
+}
+.action-btn:active { transform: scale(0.95); }
+
+.btn-perf-toggle { background: var(--teal); color: white; }
+.btn-perf-toggle.active { background: #7c3aed; }
+.btn-yt     { background: #ff0000; color: white; }
+.btn-pt     { background: #7c3aed; color: white; }
+.btn-file   { background: var(--teal-light); color: var(--teal); border: 1.5px solid var(--border); }
+.btn-trans  { background: var(--bg); color: var(--teal); border: 1.5px solid var(--border); }
+
+.key-section {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
+
+.key-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.key-chip {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--teal);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.key-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
+
+.notes-section {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.notes-section:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px var(--brand-ring); }
+
+.notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px 16px;
+  font-family: var(--font);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--teal);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  line-height: 1.6;
+  display: block;
+}
+
+.perf-mode .notes-textarea {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  min-height: 220px;
+  padding: 20px !important;
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .notes-textarea { font-size: 24px !important; }
+  .perf-mode .notes-textarea { font-size: 40px !important; }
+}
+
+.info-box {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+.info-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.info-box-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  opacity: 0.5;
+}
+
+.info-box-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal);
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
+.btn-append {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btn-append.has-notes  { background: var(--teal); color: white; }
+.btn-append.no-notes   { background: var(--bg); color: #94a3b8; cursor: not-allowed; border: 1px solid var(--border); }
+
+.btn-save {
+  width: 100%;
+  padding: 15px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-save:active { transform: scale(0.98); background: var(--teal-dark); }
+.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.translate-wrap { position: relative; }
+.translate-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(61,98,99,0.15);
+  z-index: 100;
+  min-width: 180px;
+}
+.translate-wrap.open .translate-menu { display: block; }
+.translate-item {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg);
+}
+.translate-item:last-child { border-bottom: none; }
+.translate-item:hover { background: var(--bg); }
+
+/* ══ MENU ══ */
+#menu {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: 300px;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 4px 0 24px rgba(61,98,99,0.12);
+  padding-top: var(--safe-top);
+}
+#menu.open { transform: translateX(0); }
+
+.menu-header {
+  background: var(--teal);
+  padding: 20px 20px 16px;
+  color: white;
+}
+.menu-header-title { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
+.menu-header-sub   { font-size: 10px; font-weight: 700; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.1em; }
+
+.menu-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--teal);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.1s;
+}
+.menu-item:hover { background: var(--bg); }
+.menu-item.active { background: var(--teal-light); font-weight: 800; }
+
+.menu-item-num {
+  width: 26px;
+  height: 26px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.menu-item.active .menu-item-num { background: var(--teal); color: white; }
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: none;
+  z-index: 900;
+  backdrop-filter: blur(2px);
+}
+#overlay.show { display: block; }
+
+/* ══ PDF VIEWER ══ */
+#pdfViewer {
+  position: fixed;
+  inset: 0;
+  background: white;
+  display: none;
+  z-index: 9999;
+}
+
+.close-viewer-btn {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  left: 12px;
+  background: #ef4444;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  z-index: 10001;
+}
+
+/* ══ FULLSCREEN ══ */
+
+
+/* Performance mode pill */
+.perf-pill {
+  display: none;
+  position: fixed;
+  top: calc(var(--safe-top) + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7c3aed;
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  z-index: 500;
+  pointer-events: none;
+}
+
+/* Shimmer skeleton */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skel {
+  background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.2s ease; }
+
+/* ══ MONITOR MIX ══════════════════════════════════════════════════════════
+   Dark, because this gets opened on a stage in low light mid-service. Every
+   control is at least 48px so it works with a guitar still on. */
+.btn-monitor { background:#1f3a3b; color:#8fd6d8; }
+.btn-monitor.live { background:#3d6263; color:#fff; }
+
+#monitorModal {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(8,14,14,.55);
+  display: none;
+  align-items: flex-end;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+#monitorModal.open { display: flex; }
+
+.mm-sheet {
+  width: 100%; max-height: 92vh;
+  background: #131c1c; color: #e8f1f0;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px rgba(0,0,0,.5);
+  display: flex; flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (min-width: 640px) {
+  #monitorModal { align-items: center; justify-content: center; }
+  .mm-sheet { max-width: 560px; border-radius: 20px; max-height: 86vh; }
+}
+
+.mm-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid #263535;
+}
+.mm-title { font-size: 15px; font-weight: 900; letter-spacing: .2px; }
+.mm-wedge { font-size: 12px; font-weight: 700; color: #8fd6d8; margin-top: 2px; }
+.mm-status { display: flex; align-items: center; gap: 7px; margin-left: auto; font-size: 11px; font-weight: 700; color: #93a8a6; }
+.mm-dot { width: 10px; height: 10px; border-radius: 50%; background: #6b8281; flex: none; }
+.mm-dot.up   { background: #57c15a; box-shadow: 0 0 0 3px rgba(87,193,90,.18); }
+.mm-dot.warn { background: #d9a13a; box-shadow: 0 0 0 3px rgba(217,161,58,.18); }
+.mm-close {
+  width: 44px; height: 44px; flex: none; margin-left: 4px;
+  border: none; border-radius: 50%; background: #223030; color: #cfe3e2;
+  font-size: 18px; font-weight: 800; cursor: pointer;
+}
+.mm-close:hover { background: #2c3d3d; }
+
+.mm-body { overflow-y: auto; padding: 6px 18px 4px; -webkit-overflow-scrolling: touch; }
+
+.mm-chan { padding: 15px 0; border-bottom: 1px solid #1e2b2b; }
+.mm-chan:last-child { border-bottom: none; }
+.mm-chan-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 11px; }
+.mm-chan-name { font-size: 14px; font-weight: 800; color: #e8f1f0; }
+.mm-chan-db { margin-left: auto; font-size: 12px; font-weight: 800; color: #8fd6d8; font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
+
+.mm-fader {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 48px; background: transparent; cursor: pointer; display: block;
+}
+.mm-fader::-webkit-slider-runnable-track { height: 10px; border-radius: 5px; background: #24393a; }
+.mm-fader::-moz-range-track            { height: 10px; border-radius: 5px; background: #24393a; }
+.mm-fader::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #6fc9cb; border: 3px solid #0f1818; margin-top: -12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.45);
+}
+.mm-fader::-moz-range-thumb {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #6fc9cb; border: 3px solid #0f1818;
+  box-shadow: 0 2px 6px rgba(0,0,0,.45);
+}
+.mm-fader:disabled::-webkit-slider-thumb { background: #4a5c5c; }
+.mm-fader:disabled::-moz-range-thumb     { background: #4a5c5c; }
+.mm-fader:disabled { cursor: default; }
+
+.mm-scale { display: flex; justify-content: space-between; font-size: 9px; font-weight: 700; color: #5d7373; margin-top: -4px; padding: 0 3px; }
+
+.mm-offline {
+  margin: 10px 0 4px; padding: 12px 14px;
+  background: #2a2320; border: 1px solid #4a3a2c; border-radius: 12px;
+  font-size: 12px; font-weight: 600; color: #e0c08a; line-height: 1.5;
+}
+.mm-foot { padding: 12px 18px 16px; font-size: 11px; color: #6b8281; font-weight: 600; line-height: 1.5; border-top: 1px solid #1e2b2b; }
+.mm-empty { padding: 30px 18px; text-align: center; color: #6b8281; font-size: 13px; font-weight: 600; line-height: 1.6; }
+</style>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner"
+});
+// Offline-first. Anything loaded once is served from disk next time, and the app
+// keeps working if the church wifi drops mid-service. Falls back to the plain
+// in-memory client where IndexedDB isn't available (private windows, old iOS).
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+} catch (e) {
+  db = getFirestore(app);
+}
+
+let eventsForDay = [], selectedEvent = null, currentService = null;
+let songs = [], index = 0, currentRole = "", currentDate = "", currentLeader = "";
+let currentServiceId = null;
+let selectedKeys = [], performanceMode = false, currentDocId = null;
+let wakeLock = null, originalData = { notes:"", inst:"", last:"" }, currentSongData = {};
+
+// ── PER-SERVICE CACHES ────────────────────────────────────────────────────
+// Cleared in loadService(). Each holds a PROMISE, so two callers racing for the
+// same song — you tapping ahead while the prefetch is still running — share one
+// read rather than firing two.
+const songDocCache  = new Map();
+const lastTimeCache = new Map();
+let   playthroughPromise = null;
+let   todayNotesPromise  = null;
+
+function clearServiceCaches() {
+  songDocCache.clear();
+  lastTimeCache.clear();
+  playthroughPromise = null;
+  todayNotesPromise  = null;
+}
+
+// Today's notes for this date + role cover EVERY song in the service, so this is
+// one read per service, not one per song. Invalidated after a save.
+function getTodayNotes() {
+  if (!todayNotesPromise) {
+    todayNotesPromise = getDocs(query(collection(db, "schedules"),
+      where("date", "==", currentDate), where("role", "==", currentRole)))
+      .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      .catch(() => []);
+  }
+  return todayNotesPromise;
+}
+
+const songSlug = title => title.toLowerCase().replace(/\s+/g, "-");
+
+function getSongDoc(title) {
+  const slug = songSlug(title);
+  if (!songDocCache.has(slug)) {
+    songDocCache.set(slug, getDoc(doc(db, "songs", slug))
+      .then(d => d.exists() ? d.data() : {})
+      .catch(() => ({})));
+  }
+  return songDocCache.get(slug);
+}
+
+// The playthrough list is identical for every song, so read it once per service
+// instead of once per song.
+function getPlaythroughs() {
+  if (!playthroughPromise) {
+    playthroughPromise = getDocs(collection(db, "kb_playthrough"))
+      .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      .catch(() => []);
+  }
+  return playthroughPromise;
+}
+
+// "Last time you played this" — a targeted, indexed query instead of downloading
+// every note ever saved. limit(2) because the newest hit may be today's own
+// entry, which we skip.
+async function fetchLastTime(title) {
+  try {
+    const snap = await getDocs(query(collection(db, "schedules"),
+      where("worshipLeader", "==", currentLeader),
+      where("role", "==", currentRole),
+      where("songTitle", "==", title),
+      orderBy("date", "desc"), limit(2)));
+    return snap.docs.map(d => d.data()).find(x => x.date !== currentDate) || null;
+  } catch (e) {
+    // Composite index not built yet — fall back to the old whole-collection scan
+    // so the feature keeps working. The console message carries Firestore's
+    // one-click link to create the index.
+    console.warn('[perf] schedules index missing, falling back to full scan:', e.message);
+    try {
+      const allSnap = await getDocs(collection(db, "schedules"));
+      let last = null;
+      allSnap.forEach(d => {
+        const x = d.data();
+        if (x.worshipLeader === currentLeader && x.role === currentRole &&
+            x.songTitle === title && x.date !== currentDate) {
+          if (!last || new Date(x.date) > new Date(last.date)) last = x;
+        }
+      });
+      return last;
+    } catch (e2) { return null; }
+  }
+}
+
+function getLastTime(title) {
+  if (!lastTimeCache.has(title)) lastTimeCache.set(title, fetchLastTime(title));
+  return lastTimeCache.get(title);
+}
+
+// ── MONITOR MIX ───────────────────────────────────────────────────────────
+// Wedge control for whoever is holding this tablet. Everything here is
+// best-effort: if the bridge or the mixer is missing, the button simply doesn't
+// appear and nothing else in the app notices.
+let monitorCfg = null;       // egbc-config/monitor-mix
+let myWedge = null;          // the wedge this role is standing at, if any
+let myChannels = [];         // [{inputChannel,label}] this role may adjust
+let mmSocket = null;
+let mmConnected = false;     // socket open AND the bridge says the mixer is up
+let mmSocketOpen = false;
+let mmRetryTimer = null;
+let mmRetryDelay = 1000;
+let mmLevels = {};           // inputChannel -> 0..1
+let mmScanState = 'idle';    // idle | scanning | done | failed
+let mmScanNote = '';         // why we're showing what we're showing
+let mmScanTimer = null;
+
+async function loadMonitorSetup() {
+  monitorCfg = null; myWedge = null; myChannels = []; mmLevels = {};
+  try {
+    const snap = await getDoc(doc(db, "egbc-config", "monitor-mix"));
+    if (!snap.exists()) return;
+    monitorCfg = snap.data();
+
+    const wedgeId = (currentService?.monitorWedges || {})[currentRole];
+    if (!wedgeId) return;
+    myWedge = (monitorCfg.wedges || []).find(w => w.id === wedgeId) || null;
+    if (!myWedge) return;
+
+    // The channel list now comes off the desk when the modal opens. A role
+    // group, if one exists, only narrows that list down.
+    myChannels = channelsForRole(currentRole);
+    mmLevels = loadStoredLevels();
+    mmConnect();
+    // This runs alongside the first song load rather than blocking it, so the
+    // song may already be on screen without the button. Put it there.
+    rerenderCurrentSong();
+  } catch (e) {
+    // No monitor setup, no permission, no network — the feature just stays off.
+    monitorCfg = null; myWedge = null;
+  }
+}
+
+// An optional per-role list. If the AV team has set one up it trims what the
+// desk reports down to the channels that role should see; with none, the
+// performer gets everything routed into their wedge. Role names on the rota are
+// things like "Keyboard" or "Lead Vocal"; the config may use any casing.
+function channelsForRole(role) {
+  const groups = monitorCfg?.channelGroups || [];
+  const want = (role || '').toLowerCase().trim();
+  const match = groups.find(g => (g.role || '').toLowerCase().trim() === want)
+             || groups.find(g => (g.roles || []).some(r => (r || '').toLowerCase().trim() === want))
+             || groups.find(g => ['default', '*'].includes((g.role || '').toLowerCase().trim()));
+  return (match?.channels || []).filter(c => c.inputChannel >= 1 && c.inputChannel <= 48);
+}
+
+// The desk can't be read back, so remember what this tablet last sent.
+const mmStoreKey = () => 'egbc-mm-' + currentDate + '-' + currentRole;
+function loadStoredLevels() {
+  try { return JSON.parse(localStorage.getItem(mmStoreKey()) || '{}'); } catch (e) { return {}; }
+}
+function storeLevels() {
+  try { localStorage.setItem(mmStoreKey(), JSON.stringify(mmLevels)); } catch (e) {}
+}
+
+// ── BRIDGE SOCKET ─────────────────────────────────────────────────────────
+// A page served over HTTPS (which GitHub Pages always is) is not allowed to open
+// a plain ws:// socket — the browser blocks it outright. So the bridge has to be
+// running with a certificate, and the config has to say so. If it doesn't, say
+// what's wrong rather than retrying forever behind a grey dot.
+function mmBlockedReason() {
+  if (!monitorCfg?.bridgeIp) return 'No bridge address has been set in Monitor Setup.';
+  if (location.protocol === 'https:' && !monitorCfg.bridgeSecure) {
+    return 'This page is served over HTTPS, so the browser will not allow a plain ' +
+           'ws:// connection to the bridge. The bridge needs a certificate, and ' +
+           '"Bridge uses HTTPS" needs ticking in Monitor Setup.';
+  }
+  return null;
+}
+
+function mmConnect() {
+  if (mmBlockedReason()) { mmSetStatus(); return; }
+  if (mmSocket && (mmSocket.readyState === 0 || mmSocket.readyState === 1)) return;
+
+  const scheme = monitorCfg.bridgeSecure ? 'wss' : 'ws';
+  const url = scheme + '://' + monitorCfg.bridgeIp + ':' + (monitorCfg.bridgePort || 3000);
+  try {
+    mmSocket = new WebSocket(url);
+  } catch (e) { return mmScheduleRetry(); }
+
+  mmSocket.onopen = () => {
+    mmSocketOpen = true;
+    mmRetryDelay = 1000;
+    mmSetStatus();
+    // If the performer is sitting on the modal waiting, pick up where we left off.
+    if ($('monitorModal')?.classList.contains('open')) mmRequestScan();
+  };
+
+  mmSocket.onmessage = ev => {
+    let msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    if (msg.status) { mmConnected = mmSocketOpen && msg.status === 'connected'; mmSetStatus(); }
+    if (msg.scan)   { applyScan(msg.scan); }
+    if (msg.error && msg.scanFailed) { mmScanFailed(msg.error); }
+    else if (msg.error) { toast('Monitor: ' + msg.error); }
+  };
+
+  mmSocket.onclose = () => {
+    mmSocketOpen = false; mmConnected = false;
+    mmSetStatus();
+    mmScheduleRetry();
+  };
+
+  // onerror always precedes onclose; let onclose do the retry.
+  mmSocket.onerror = () => {};
+}
+
+function mmScheduleRetry() {
+  if (mmRetryTimer || !myWedge || mmBlockedReason()) return;
+  mmRetryTimer = setTimeout(() => {
+    mmRetryTimer = null;
+    mmConnect();
+  }, mmRetryDelay);
+  mmRetryDelay = Math.min(mmRetryDelay * 2, 15000);
+}
+
+function mmSetStatus() {
+  const blocked = mmBlockedReason();
+  const dot = $('mmDot'), txt = $('mmStatusText');
+  if (dot) dot.className = 'mm-dot' + (mmConnected ? ' up' : (mmSocketOpen ? ' warn' : ''));
+  if (txt) txt.textContent = mmConnected ? 'Connected'
+    : blocked ? 'Not set up' : (mmSocketOpen ? 'Mixer offline' : 'Bridge offline');
+  document.querySelectorAll('.mm-fader').forEach(f => { f.disabled = !mmConnected; });
+  const off = $('mmOffline');
+  if (off) {
+    off.style.display = mmConnected ? 'none' : 'block';
+    off.textContent = blocked || "The monitor bridge isn't reachable, so the faders are locked. " +
+      "Check the bridge PC is switched on and running, then reopen this.";
+  }
+  // Keep the button on the song screen in step with the connection.
+  document.querySelectorAll('.btn-monitor').forEach(b => b.classList.toggle('live', mmConnected));
+}
+
+function mmSend(inputChannel, level) {
+  if (!mmConnected || !mmSocket || mmSocket.readyState !== 1) return;
+  try {
+    mmSocket.send(JSON.stringify({
+      action: 'setLevel',
+      inputChannel,
+      auxBus: myWedge.auxBus,
+      level: Math.max(0, Math.min(1, level)),
+    }));
+  } catch (e) { toast('Monitor: could not reach the bridge'); }
+}
+
+// Position -> dB, matching the taper the bridge applies (square law over 60 dB),
+// so the number on screen is the level the desk actually gets.
+function mmDbLabel(level) {
+  if (level <= 0) return '−∞';
+  const below = 1 - level;
+  const db = -60 * below * below;
+  return (db > -0.05 ? '0.0' : db.toFixed(1)) + ' dB';
+}
+
+// ── READING THE MIX OFF THE DESK ──────────────────────────────────────────
+// The mixer knows which channels are actually routed into this wedge and where
+// their sends are sitting, so ask it rather than making the AV team keep a
+// typed list in step with the desk. Names are the one thing MIDI cannot give
+// us — those come from the channel-name table in Monitor Setup, falling back
+// to "Ch 12".
+function mmRequestScan() {
+  if (!mmConnected || !myWedge) return;
+  mmScanState = 'scanning';
+  mmScanNote = '';
+  renderMonitorBody();
+  try {
+    mmSocket.send(JSON.stringify({ action: 'scanMix', auxBus: myWedge.auxBus }));
+  } catch (e) { return mmScanFailed('could not reach the bridge'); }
+
+  clearTimeout(mmScanTimer);
+  mmScanTimer = setTimeout(() => {
+    if (mmScanState === 'scanning') mmScanFailed('the desk did not answer');
+  }, 8000);
+}
+
+function applyScan(scan) {
+  clearTimeout(mmScanTimer);
+  if (!myWedge || scan.auxBus !== myWedge.auxBus) return;   // a scan for someone else
+
+  const names = monitorCfg?.channelNames || {};
+  const allowed = channelsForRole(currentRole);             // optional narrowing
+  const allowSet = allowed.length ? new Set(allowed.map(c => c.inputChannel)) : null;
+
+  const live = scan.channels
+    .filter(c => c.assigned)
+    .filter(c => !allowSet || allowSet.has(c.inputChannel))
+    .map(c => ({
+      inputChannel: c.inputChannel,
+      label: names[c.inputChannel] || names[String(c.inputChannel)]
+             || allowed.find(a => a.inputChannel === c.inputChannel)?.label
+             || ('Ch ' + c.inputChannel),
+      level: c.level,
+    }));
+
+  if (!live.length) {
+    mmScanState = 'done';
+    mmScanNote = 'The desk says nothing is routed into ' + myWedge.label + ' yet.';
+    myChannels = [];
+    renderMonitorBody();
+    return;
+  }
+
+  myChannels = live.map(c => ({ inputChannel: c.inputChannel, label: c.label }));
+  // Start the faders where the desk actually has them, not where this tablet
+  // last left them.
+  live.forEach(c => { if (c.level !== null) mmLevels[c.inputChannel] = c.level; });
+  storeLevels();
+
+  mmScanState = 'done';
+  mmScanNote = '';
+  renderMonitorBody();
+}
+
+function mmScanFailed(why) {
+  clearTimeout(mmScanTimer);
+  mmScanState = 'failed';
+  myChannels = channelsForRole(currentRole);
+  mmScanNote = myChannels.length
+    ? 'Could not read the desk (' + why + '), so these are the channels set up in Monitor Setup. Levels shown are what this tablet last sent.'
+    : 'Could not read the desk (' + why + '), and no channels have been set up for ' + currentRole + ' as a fallback.';
+  renderMonitorBody();
+}
+
+// Redraw the song that's on screen, keeping whatever is typed in the notes box.
+function rerenderCurrentSong() {
+  if (!songs.length || !currentSongData.allFiles) return;
+  const cur = $('notes')?.value ?? currentSongData.yourNotes;
+  renderContent(songs[index], currentSongData.allFiles, currentSongData.youtubeUrl,
+    currentSongData.ptMatches, currentSongData.roleNotes, currentSongData.lastNotes, cur);
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────
+window.openMonitor = () => {
+  if (!myWedge) return;
+  $('mmWedge').textContent = myWedge.label + ' · Aux ' + myWedge.auxBus;
+  mmScanState = 'idle';
+  renderMonitorBody();
+  $('monitorModal').classList.add('open');
+  mmSetStatus();
+  if (!mmSocketOpen) mmConnect();
+  else mmRequestScan();
+};
+
+window.mmRescan = () => mmRequestScan();
+
+window.closeMonitor = () => $('monitorModal').classList.remove('open');
+
+function renderMonitorBody() {
+  const body = $('mmBody');
+
+  if (mmScanState === 'scanning') {
+    body.innerHTML = '<div class="mm-empty">Reading your mix off the desk…</div>';
+    $('mmFoot').textContent = '';
+    return;
+  }
+
+  if (!myChannels.length) {
+    // Say the actual reason. "No channels set up" is the wrong thing to tell
+    // someone whose bridge is simply switched off.
+    const blocked = mmBlockedReason();
+    const why = blocked ? blocked
+      : !mmConnected ? 'Not connected to the mixer yet, so your channel list has not been read off the desk.'
+      : (mmScanNote || 'Nothing is routed into this wedge on the desk.');
+    body.innerHTML = '<div class="mm-empty">' + esc(why) +
+      '<br><br><button class="action-btn btn-monitor" onclick="mmRescan()">&#8635; Read the desk again</button></div>';
+    $('mmFoot').textContent = '';
+    mmSetStatus();
+    return;
+  }
+
+  body.innerHTML =
+    `<div class="mm-offline" id="mmOffline" style="display:none;">
+       The monitor bridge isn't reachable, so the faders are locked. Check the
+       bridge PC is switched on and running, then reopen this.
+     </div>` +
+    (mmScanNote ? '<div class="mm-offline">' + esc(mmScanNote) + '</div>' : '') +
+    myChannels.map(c => {
+      const lvl = mmLevels[c.inputChannel] ?? 0;
+      return `<div class="mm-chan">
+        <div class="mm-chan-top">
+          <span class="mm-chan-name">${esc(c.label)}</span>
+          <span class="mm-chan-db" id="mmdb-${c.inputChannel}">${mmDbLabel(lvl)}</span>
+        </div>
+        <input class="mm-fader" type="range" min="0" max="1" step="0.005"
+          value="${lvl}" id="mmf-${c.inputChannel}"
+          oninput="mmDrag(${c.inputChannel}, this.value)"
+          onchange="mmRelease(${c.inputChannel}, this.value)">
+        <div class="mm-scale"><span>off</span><span>−15</span><span>0 dB</span></div>
+      </div>`;
+    }).join('');
+
+  $('mmFoot').innerHTML =
+    '<button class="action-btn btn-monitor" onclick="mmRescan()" style="margin-bottom:9px;">&#8635; Read the desk again</button><br>' +
+    'Only your ' + esc(myWedge.label) + ' wedge is affected — nobody else hears these changes. ' +
+    (mmScanState === 'done'
+      ? 'The channel list and starting levels were read from the mixer.'
+      : 'Levels shown are what this tablet last sent.');
+
+  // Every re-render rebuilds the faders, so re-apply the locked/unlocked state
+  // rather than leaving freshly created faders enabled while offline.
+  mmSetStatus();
+}
+
+// Live number while dragging, but nothing goes to the desk until you let go —
+// otherwise a single fader sweep floods the bridge with hundreds of messages.
+window.mmDrag = (ch, v) => {
+  const el = $('mmdb-' + ch);
+  if (el) el.textContent = mmDbLabel(Number(v));
+};
+
+window.mmRelease = (ch, v) => {
+  const level = Number(v);
+  mmLevels[ch] = level;
+  storeLevels();
+  mmSend(ch, level);
+};
+
+// Warm the next song's data while this one is on screen, so tapping through the
+// set feels instant.
+function prefetchNext(i) {
+  const nxt = songs[i + 1];
+  if (!nxt) return;
+  getSongDoc(nxt.title);
+  getLastTime(nxt.title);
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function toast(msg, dur = 2200) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._tt);
+  window._tt = setTimeout(() => { t.style.display = 'none'; }, dur);
+}
+
+const requestWakeLock = async () => {
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+};
+document.addEventListener('visibilitychange', async () => {
+  if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock();
+});
+
+
+
+// Config comes out of Firestore, which anyone on the network can currently
+// write to. Don't hand its strings straight to innerHTML.
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+window.autoGrow = el => {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+};
+
+// ── START SCREEN ──────────────────────────────────────────────────────────
+window.loadRota = async () => {
+  const date = $('dateInput').value;
+  if (!date) return;
+  // Ask Firestore for just this date's events rather than downloading them all.
+  const snap = await getDocs(query(collection(db, "events"), where("date", "==", date)));
+  eventsForDay = [];
+  snap.forEach(d => {
+    const ev = d.data();
+    if (!ev.archived) eventsForDay.push(ev);
+  });
+
+  const svcSelect = $('serviceSelect');
+  svcSelect.innerHTML = '<option value="">Select Service</option>';
+  eventsForDay.forEach((ev, i) => {
+    svcSelect.innerHTML += `<option value="${i}">${ev.type}</option>`;
+  });
+
+  if (eventsForDay.length === 0) {
+    toast('No services found for that date');
+    svcSelect.style.display = 'none';
+    $('roleSelect').style.display = 'none';
+    return;
+  }
+
+  svcSelect.style.display = 'block';
+
+  if (eventsForDay.length === 1) {
+    svcSelect.value = "0";
+    selectService();
+  }
+};
+
+window.selectService = () => {
+  const i = $('serviceSelect').value;
+  if (i === "") return;
+  selectedEvent = eventsForDay[i];
+  currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
+  const roleSelect = $('roleSelect');
+  roleSelect.innerHTML = '<option value="">Choose your instrument…</option>';
+  Object.keys(selectedEvent.assignments || {}).forEach(r => {
+    roleSelect.innerHTML += `<option>${r}</option>`;
+  });
+  roleSelect.style.display = 'block';
+};
+
+window.loadService = async () => {
+  const btn = $('loadBtn');
+  currentDate = $('dateInput').value;
+  currentRole = $('roleSelect').value;
+
+  if (!currentDate) { toast('Please pick a date first'); return; }
+  if (!currentRole || currentRole === '') { toast('Please choose your instrument'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+
+  try {
+    const snap = await getDocs(query(collection(db, "services"), where("date", "==", currentDate)));
+    if (snap.empty) { toast('No service plan found for that date'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
+    currentService = snap.docs[0].data();
+    currentServiceId = snap.docs[0].id;
+    songs = currentService.order.filter(x => x.type === "song");
+    if (!songs.length) { toast('No songs in this service'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
+    clearServiceCaches();
+    loadMonitorSetup();          // not awaited — the songs matter more than the faders
+    buildMenu();
+    $('startScreen').style.display = 'none';
+    $('songScreen').style.display = 'flex';
+    // The app is wrapped now, so it is already fullscreen and there is no
+    // button to tap. Keep the half that still matters on stage: ask for the
+    // wake lock as soon as a service is open, so the screen does not sleep
+    // mid-song. (visibilitychange above re-takes it after a phone call.)
+    requestWakeLock();
+    await showSong(0);
+    window.cacheAllPDFs();
+  } catch(e) {
+    toast('Could not load — check your connection');
+    btn.disabled = false;
+    btn.textContent = 'Load Service';
+  }
+};
+
+// ── MENU ──────────────────────────────────────────────────────────────────
+function buildMenu() {
+  const menu = $('menu');
+  menu.innerHTML = `<div class="menu-header">
+    <div class="menu-header-title">Song List</div>
+    <div class="menu-header-sub">${songs.length} songs · ${currentDate}</div>
+  </div>`;
+  songs.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'menu-item' + (i === index ? ' active' : '');
+    div.id = `mi-${i}`;
+    div.innerHTML = `<span class="menu-item-num">${i+1}</span>${s.title}`;
+    div.onclick = () => { showSong(i); toggleMenu(); };
+    menu.appendChild(div);
+  });
+}
+
+function updateMenuActive() {
+  document.querySelectorAll('.menu-item').forEach((el, i) => {
+    el.classList.toggle('active', i === index);
+    const num = el.querySelector('.menu-item-num');
+    if (num) num.style.background = i === index ? 'var(--teal)' : '';
+    if (num) num.style.color = i === index ? 'white' : '';
+  });
+}
+
+window.toggleMenu = () => { $('menu').classList.toggle('open'); $('overlay').classList.toggle('show'); };
+window.closeMenu  = () => { $('menu').classList.remove('open'); $('overlay').classList.remove('show'); };
+
+// ── SHOW SONG ─────────────────────────────────────────────────────────────
+async function showSong(i) {
+  index = i;
+  const s = songs[i];
+  selectedKeys = [...(s.keys || [])];
+
+  // Immediate topbar update
+  $('songTitleMain').textContent = s.title;
+  $('songCounter').textContent = `${i+1} of ${songs.length}`;
+  $('prevBtn').disabled = i === 0;
+  $('nextBtn').disabled = i === songs.length - 1;
+  updateMenuActive();
+
+  // Skeleton
+  $('songContent').innerHTML = `
+    <div style="display:flex;gap:8px;">
+      <div class="skel" style="height:40px;flex:1;"></div>
+      <div class="skel" style="height:40px;width:90px;"></div>
+    </div>
+    <div class="skel" style="height:130px;"></div>
+    <div class="skel" style="height:60px;"></div>`;
+
+  // Playthrough links — instrumental roles only, must match selected key exactly
+  const PT_ROLES = ["Keyboard","Keys","2nd Keys","Guitar","2nd Guitar","Electric Guitar","Bass"];
+  const showPT = PT_ROLES.some(r => currentRole.toLowerCase().includes(r.toLowerCase()));
+
+  // None of these depend on each other, so fetch them together: one round trip
+  // instead of four in a row.
+  const [data, allPt, todayNotes, last] = await Promise.all([
+    getSongDoc(s.title),
+    (showPT && selectedKeys.length > 0) ? getPlaythroughs() : Promise.resolve([]),
+    getTodayNotes(),
+    getLastTime(s.title)
+  ]);
+
+  // You tapped on while that was in flight — the newer song owns the screen now.
+  if (index !== i) return;
+
+  const allFiles = data.files || [];
+  const youtubeUrl = data.youtube || "";
+
+  const titleNorm = s.title.toLowerCase().trim();
+  const ptMatches = allPt.filter(pt => {
+    if (!pt.published) return false;
+    const ptSong = (pt.songTitle||pt.title||'').toLowerCase().trim();
+    if (!(ptSong===titleNorm||ptSong.includes(titleNorm)||titleNorm.includes(ptSong))) return false;
+    // Only show if the playthrough key exactly matches one of the selected keys
+    return selectedKeys.some(k => (pt.ourKey||'').toLowerCase()===k.toLowerCase());
+  });
+
+  // Today's notes
+  let yourNotes = s.notes || "";
+  currentDocId = null;
+  const mine = todayNotes.find(n => n.songTitle === s.title);
+  if (mine) { yourNotes = mine.notes; currentDocId = mine.id; }
+
+  const roleNotes = currentService?.roleNotes?.[currentRole] || "";
+  const lastNotes = last ? last.notes : "";
+  originalData = { notes: yourNotes, inst: roleNotes, last: lastNotes };
+  currentSongData = { allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes };
+
+  renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes);
+  prefetchNext(i);
+}
+
+function renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes, yourNotes) {
+  const files = allFiles.filter(f => selectedKeys.includes(f.key));
+  const hasLast = !!(lastNotes && lastNotes.trim());
+  const pm = performanceMode;
+
+  // Perf pill
+  const pill = document.querySelector('.perf-pill');
+  if (pill) pill.style.display = pm ? 'block' : 'none';
+
+  // Resource buttons row
+  let row1 = `<button class="action-btn btn-perf-toggle ${pm?'active':''}" onclick="togglePerformance()">
+    ${pm ? '✎ Edit Mode' : '🎵 Performance Mode'}
+  </button>`;
+
+  // Only if the AV team has put this role on a wedge for this service. Shown in
+  // performance mode too — that is when it is actually wanted.
+  if (myWedge) {
+    row1 += `<button class="action-btn btn-monitor ${mmConnected?'live':''}" onclick="openMonitor()">
+      🎚 Monitor Mix</button>`;
+  }
+
+  if (!pm) {
+    if (youtubeUrl) row1 += `<button class="action-btn btn-yt" onclick="forceExternalYT('${youtubeUrl}')">▶ YouTube</button>`;
+    ptMatches.forEach(pt => {
+      const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+      const lbl = pt.instrument ? `▶ ${pt.ourKey} (${pt.instrument})` : `▶ ${pt.ourKey}`;
+      row1 += `<button class="action-btn btn-pt" onclick="openPDF('${url}')">${lbl}</button>`;
+    });
+    row1 += `<div class="translate-wrap" id="tw">
+      <button class="action-btn btn-trans" onclick="document.getElementById('tw').classList.toggle('open')">A/ES ▾</button>
+      <div class="translate-menu">
+        <div class="translate-item" onclick="translateAll('es');document.getElementById('tw').classList.remove('open')">English → Spanish</div>
+        <div class="translate-item" onclick="translateAll('en');document.getElementById('tw').classList.remove('open')">Spanish → English</div>
+        <div class="translate-item" onclick="translateAll('revert');document.getElementById('tw').classList.remove('open')">↩ Original</div>
+      </div>
+    </div>`;
+  }
+
+  // Files row
+  let filesRow = '';
+  if (files.length) {
+    filesRow = `<div class="action-row fade-in">${files.map(f =>
+      `<button class="action-btn btn-file" onclick="openPDF('${f.url}')">${f.type} · ${f.key}</button>`
+    ).join('')}</div>`;
+  }
+
+  // Key selector (edit mode only)
+  let keysHtml = '';
+  if (!pm && allFiles.length) {
+    const allKeys = [...new Set(allFiles.map(f=>f.key).filter(Boolean))];
+    keysHtml = `<div class="key-section fade-in">
+      <div class="section-label">Select Keys for Sheet Music</div>
+      <div class="key-chips">
+        ${allKeys.map(k => `
+          <label class="key-chip ${selectedKeys.includes(k)?'selected':''}">
+            <input type="checkbox" style="display:none" ${selectedKeys.includes(k)?'checked':''}
+              onchange="toggleKey('${k}',this.checked)">
+            ${k}
+          </label>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Info boxes (edit mode only)
+  let infoHtml = '';
+  if (!pm) {
+    if (roleNotes) {
+      infoHtml += `<div class="info-box fade-in">
+        <div class="info-box-label">Instrument Notes</div>
+        <div class="info-box-text" id="instNotesText">${roleNotes}</div>
+      </div>`;
+    }
+    infoHtml += `<div class="info-box fade-in">
+      <div class="info-box-header">
+        <div class="info-box-label">Last Time You Played This</div>
+        <button class="btn-append ${hasLast?'has-notes':'no-notes'}"
+          onclick="${hasLast?'appendLastNotes()':''}"
+          title="${hasLast?'Append to your notes':'No previous notes'}">
+          ⬆ Append
+        </button>
+      </div>
+      <div class="info-box-text" id="lastNotesText">${
+        lastNotes || '<span style="opacity:0.4;font-style:italic;font-size:12px;">Nothing saved from previous times</span>'
+      }</div>
+    </div>`;
+  }
+
+  $('songContent').innerHTML = `
+    <div class="${pm?'perf-mode':''} fade-in" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="action-row">${row1}</div>
+      ${filesRow}
+      ${keysHtml}
+      <div class="notes-section">
+        <textarea id="notes" class="notes-textarea ${pm?'perf-mode':''}"
+          placeholder="Your notes for this song…"
+          oninput="autoGrow(this)">${yourNotes}</textarea>
+      </div>
+      ${infoHtml}
+      ${!pm ? `<button class="btn-save fade-in" id="saveBtn" onclick="save('${s.title}')">Save Notes</button>` : ''}
+    </div>`;
+
+  setTimeout(() => {
+    const ta = $('notes');
+    if (ta) autoGrow(ta);
+  }, 50);
+}
+
+// ── TOGGLE PERFORMANCE MODE ───────────────────────────────────────────────
+window.togglePerformance = () => {
+  performanceMode = !performanceMode;
+  const cur = $('notes')?.value ?? currentSongData.yourNotes;
+  renderContent(songs[index], currentSongData.allFiles, currentSongData.youtubeUrl,
+    currentSongData.ptMatches, currentSongData.roleNotes, currentSongData.lastNotes, cur);
+};
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+window.next = () => { if (index < songs.length-1) showSong(index+1); };
+window.prev = () => { if (index > 0) showSong(index-1); };
+
+window.toggleKey = (k, on) => {
+  if (on) { if (!selectedKeys.includes(k)) selectedKeys.push(k); }
+  else selectedKeys = selectedKeys.filter(x => x !== k);
+  const si = songs.findIndex(s => s.title === songs[index].title);
+  if (si !== -1) songs[si].keys = selectedKeys;
+  showSong(index);
+};
+
+// ── TRANSLATE ─────────────────────────────────────────────────────────────
+window.translateAll = async lang => {
+  const mainEl = $('notes'), instEl = $('instNotesText'), lastEl = $('lastNotesText');
+  if (lang === 'revert') {
+    if (mainEl) { mainEl.value = originalData.notes; autoGrow(mainEl); }
+    if (instEl) instEl.innerText = originalData.inst;
+    if (lastEl) lastEl.innerText = originalData.last;
+    return;
+  }
+  toast('Translating…', 5000);
+  const chunk = async text => {
+    if (!text?.trim()) return "";
+    try {
+      const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`);
+      const d = await r.json();
+      return d[0].map(i=>i[0]||'').join('');
+    } catch { return text; }
+  };
+  if (mainEl) { mainEl.value = await chunk(mainEl.value); autoGrow(mainEl); }
+  if (instEl) instEl.innerText = await chunk(instEl.innerText);
+  if (lastEl) lastEl.innerText = await chunk(lastEl.innerText);
+  toast('Translated ✓');
+};
+
+// ── APPEND LAST NOTES ─────────────────────────────────────────────────────
+window.appendLastNotes = () => {
+  const last = $('lastNotesText')?.innerText;
+  const ta = $('notes');
+  if (!last?.trim() || !ta) return;
+  const sep = ta.value && !ta.value.endsWith('\n') ? '\n' : '';
+  ta.value += sep + last;
+  autoGrow(ta);
+  ta.focus();
+};
+
+// ── SAVE ──────────────────────────────────────────────────────────────────
+window.save = async song => {
+  const btn = $('saveBtn');
+  const txt = $('notes')?.value || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    if (currentDocId) {
+      await updateDoc(doc(db,"schedules",currentDocId), { notes: txt });
+    } else {
+      const nd = await addDoc(collection(db,"schedules"), {
+        date: currentDate, role: currentRole,
+        worshipLeader: currentLeader, songTitle: song, notes: txt
+      });
+      currentDocId = nd.id;
+    }
+    todayNotesPromise = null;   // next song re-reads today's notes once
+    toast('✓ Notes saved');
+  } catch(e) {
+    toast('Save failed — check connection');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Save Notes'; }
+};
+
+// ── PDF / VIDEO ───────────────────────────────────────────────────────────
+// No cache-buster: a stable URL means the second open of a chart comes from the
+// browser cache instead of the network.
+function viewerUrl(url) {
+  if (url.includes("drive.google.com")||url.includes("firebasestorage.googleapis.com")) {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+  return url;
+}
+
+window.openPDF = url => {
+  const final = viewerUrl(url);
+  const v = $('pdfViewer');
+  v.innerHTML = '';
+  v.style.display = 'block';
+
+  const loader = document.createElement('div');
+  loader.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--teal);font-weight:800;font-family:Montserrat,sans-serif;font-size:14px;';
+  loader.textContent = 'Loading…';
+
+  const close = document.createElement('button');
+  close.className = 'close-viewer-btn';
+  close.textContent = '✕ Close';
+  close.onclick = closePDF;
+
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'width:100%;height:100%;border:none;background:white;display:none;';
+  iframe.src = final;
+  iframe.onload = () => { loader.style.display='none'; iframe.style.display='block'; };
+
+  v.appendChild(close); v.appendChild(loader); v.appendChild(iframe);
+};
+
+window.forceExternalYT = url => {
+  const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (!m) return;
+  const v = $('pdfViewer');
+  v.innerHTML = '';
+  v.style.display = 'block';
+  const close = document.createElement('button');
+  close.className = 'close-viewer-btn';
+  close.textContent = '✕ Close';
+  close.onclick = closePDF;
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'width:100%;height:100%;border:none;background:black;';
+  iframe.src = `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0`;
+  iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+  iframe.allowFullscreen = true;
+  v.appendChild(close); v.appendChild(iframe);
+};
+
+window.closePDF = () => { const v=$('pdfViewer'); v.style.display='none'; v.innerHTML=''; };
+
+// ── CACHE ─────────────────────────────────────────────────────────────────
+// Warm the whole service's sheet music. Uses the shared song cache, so songs you
+// have already opened cost no extra reads. Note: Drive/Firebase PDFs are rendered
+// by Google's viewer server-side and can't be primed from here — dropping the
+// cache-buster in viewerUrl() is what makes those quick to reopen.
+const prefetched = new Set();
+function prefetchFile(url) {
+  if (!url || prefetched.has(url)) return;
+  prefetched.add(url);
+  const l = document.createElement('link');
+  l.rel = 'prefetch';
+  l.href = url;
+  document.head.appendChild(l);
+}
+
+window.cacheAllPDFs = async () => {
+  for (const song of songs) {
+    const data = await getSongDoc(song.title);
+    (data.files||[]).filter(f=>(song.keys||[]).includes(f.key)).forEach(f => prefetchFile(f.url));
+  }
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body>
+
+<div id="toast"></div>
+<div class="perf-pill">Performance Mode</div>
+
+<!-- ══ START SCREEN ══ -->
+<div id="startScreen">
+  <div class="start-hero">
+    <img class="start-logo"
+      src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
+      alt="EGBC" onerror="this.style.display='none'">
+    <div class="start-hero-title">Performance Notes</div>
+    <div class="start-hero-sub">EGBC Worship &amp; AV</div>
+  </div>
+
+  <div class="start-form">
+    <div>
+      <label class="start-label">Date</label>
+      <input type="date" id="dateInput" class="start-input" onchange="loadRota()">
+    </div>
+    <div>
+      <label class="start-label">Service</label>
+      <select id="serviceSelect" class="start-input" onchange="selectService()" style="display:none;">
+        <option value="">Select Service</option>
+      </select>
+    </div>
+    <div>
+      <label class="start-label">Your Instrument / Role</label>
+      <select id="roleSelect" class="start-input" style="display:none;">
+        <option value="">Choose your instrument…</option>
+      </select>
+    </div>
+    <button id="loadBtn" class="btn-load" onclick="loadService()">Load Service</button>
+  </div>
+</div>
+
+<!-- ══ SONG SCREEN ══ -->
+<div id="songScreen">
+  <div class="song-topbar">
+    <button class="topbar-menu-btn" onclick="toggleMenu()">☰</button>
+    <div class="song-title-bar">
+      <div class="song-title-main" id="songTitleMain">—</div>
+      <div class="song-counter" id="songCounter">—</div>
+    </div>
+    <div class="topbar-nav">
+      <button class="nav-arrow" id="prevBtn" onclick="prev()" disabled>‹</button>
+      <button class="nav-arrow" id="nextBtn" onclick="next()" disabled>›</button>
+    </div>
+  </div>
+  <div class="song-content" id="songContent"></div>
+</div>
+
+<!-- ══ SLIDE MENU ══ -->
+<div id="menu"></div>
+<div id="overlay" onclick="closeMenu()"></div>
+
+<!-- ══ PDF VIEWER ══ -->
+<div id="pdfViewer"></div>
+
+<!-- ══ MONITOR MIX ══ -->
+<div id="monitorModal" onclick="if(event.target===this)closeMonitor()">
+  <div class="mm-sheet">
+    <div class="mm-head">
+      <div>
+        <div class="mm-title">Your Monitor Mix</div>
+        <div class="mm-wedge" id="mmWedge">—</div>
+      </div>
+      <div class="mm-status">
+        <span class="mm-dot" id="mmDot"></span>
+        <span id="mmStatusText">Connecting…</span>
+      </div>
+      <button class="mm-close" onclick="closeMonitor()" aria-label="Close">✕</button>
+    </div>
+    <div class="mm-body" id="mmBody"></div>
+    <div class="mm-foot" id="mmFoot"></div>
+  </div>
+</div>
+
+
+</body>
+</html>

@@ -1,0 +1,376 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>Music Upload</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+  --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+  --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
+  --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+}
+*{ box-sizing:border-box; }
+body{ font-family:'Montserrat',sans-serif; padding:40px; max-width:760px; margin:0 auto; background:var(--canvas); color:var(--body); font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+h2{ font-size:26px; font-weight:800; letter-spacing:-.02em; color:var(--ink); margin:0 0 20px; }
+
+/* Text fields */
+#title, #youtube, #ccli{
+  width:100%; max-width:420px; font-family:inherit; font-size:15px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--hairline-strong);
+  border-radius:var(--r-md); padding:11px 14px; margin-bottom:12px;
+  transition:border-color .15s, box-shadow .15s;
+}
+#title:focus, #youtube:focus, #ccli:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
+
+.dropzone{
+  position:relative; display:flex; align-items:center; justify-content:center;
+  border:2px dashed var(--hairline-strong);
+  padding:44px;
+  text-align:center;
+  border-radius:var(--r-lg);
+  cursor:pointer;
+  background:var(--surface-2);
+  color:var(--muted);
+  font-weight:600;
+  margin:8px 0 4px;
+  transition:border-color .2s, background .2s, color .2s;
+}
+.dropzone:hover, .dropzone.dragover{ border-color:var(--brand); background:var(--brand-tint); color:var(--brand); }
+
+#suggestions{
+  border:1px solid var(--hairline); max-width:420px; max-height:240px; overflow:auto;
+  border-radius:var(--r-md); background:var(--surface); box-shadow:var(--shadow-sm);
+}
+#suggestions:empty{ border:none; box-shadow:none; }
+.suggestion-item{ padding:9px 12px; cursor:pointer; font-size:14px; color:var(--body); border-bottom:1px solid var(--hairline); }
+.suggestion-item:last-child{ border-bottom:none; }
+.suggestion-item:hover{ background:var(--brand-tint); color:var(--brand); }
+
+/* Buttons */
+button{
+  font-family:inherit; font-weight:700; font-size:14px;
+  border-radius:var(--r-md); border:1px solid var(--brand);
+  background:var(--brand); color:#fff;
+  padding:11px 20px; margin-top:16px; cursor:pointer;
+  transition:background .15s, border-color .15s, transform .05s;
+}
+button:hover{ background:var(--brand-dark); border-color:var(--brand-dark); }
+button:active{ transform:translateY(1px); }
+button:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--brand-ring); }
+
+/* Table */
+table{ margin-top:20px; border-collapse:separate; border-spacing:0; width:100%; font-size:13px; background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow); }
+thead th{ background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; text-align:left; padding:12px; border-bottom:1px solid var(--hairline); }
+td{ padding:9px 12px; border-bottom:1px solid var(--hairline); vertical-align:middle; color:var(--body); }
+tbody tr:last-child td{ border-bottom:none; }
+td select{
+  width:100%; font-family:inherit; font-size:13px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--hairline-strong);
+  border-radius:var(--r-sm); padding:7px 9px;
+  transition:border-color .15s, box-shadow .15s;
+}
+td select:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-ring); }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team" data-role="leader"></script>
+</head>
+
+<body>
+
+<h2>Upload Song</h2>
+
+<input id="title" placeholder="Song Title" oninput="suggestSongs()"><br>
+<div id="suggestions"></div><br>
+
+<input id="youtube" placeholder="YouTube link"><br><br>
+<input id="ccli" placeholder="CCLI"><br><br>
+
+<label for="fileInput" class="dropzone" id="dropzone">
+    <span>Drag &amp; Drop or tap here to select files</span>
+    <input type="file" id="fileInput" multiple style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+</label>
+
+<table id="fileTable">
+<thead>
+<tr>
+<th>File</th>
+<th>Type</th>
+<th>Key</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<button onclick="upload()">Upload</button>
+
+<script>
+
+const firebaseConfig = {
+apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+authDomain: "egbc-worship-planner.firebaseapp.com",
+projectId: "egbc-worship-planner",
+storageBucket: "egbc-worship-planner.firebasestorage.app"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const storage = firebase.storage();
+const db = firebase.firestore();
+
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+let files = [];
+
+const ALL_KEYS = [
+"C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B",
+"Cm", "C#m", "Dbm", "Dm", "D#m", "Ebm", "Em", "Fm", "F#m", "Gbm", "Gm", "G#m", "Abm", "Am", "A#m", "Bbm", "Bm"
+];
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+
+fileInput.addEventListener("change", (e) => {
+addFiles(e.target.files);
+});
+
+dropzone.addEventListener("dragover", e => {
+e.preventDefault();
+});
+
+dropzone.addEventListener("dragenter", e => {
+e.preventDefault();
+dropzone.classList.add("dragover");
+});
+
+dropzone.addEventListener("dragleave", e => {
+if (e.target === dropzone) dropzone.classList.remove("dragover");
+});
+
+dropzone.addEventListener("drop", e => {
+e.preventDefault();
+dropzone.classList.remove("dragover");
+addFiles(e.dataTransfer.files);
+});
+
+// =======================
+// ADD FILES
+// =======================
+function addFiles(newFiles) {
+for (const file of newFiles) {
+files.push({
+file: file,
+type: "",
+key: detectKey(file.name)
+});
+}
+renderFiles();
+}
+
+// =======================
+// SMART KEY DETECTION
+// =======================
+function detectKey(name) {
+const lower = name.toLowerCase();
+
+for (const key of ALL_KEYS) {
+if (lower.includes(` ${key.toLowerCase()}`) || lower.includes(`(${key.toLowerCase()})`)) {
+return key;
+}
+}
+
+return "";
+}
+
+// =======================
+// RENDER TABLE
+// =======================
+function renderFiles() {
+const tbody = document.querySelector("#fileTable tbody");
+
+tbody.innerHTML = files.map((f, i) => `
+       <tr>
+           <td>${escapeHtml(f.file.name)}</td>
+
+           <td>
+               <select onchange="updateType(${i}, this.value)">
+                   <option value="">Type</option>
+                   <option ${f.type==="Lead Sheet"?"selected":""}>Lead Sheet</option>
+                   <option ${f.type==="Chord Sheet"?"selected":""}>Chord Sheet</option>
+                   <option ${f.type==="Lyrics"?"selected":""}>Lyrics</option>
+                   <option ${f.type==="Bass Tabs"?"selected":""}>Bass Tabs</option>
+               </select>
+           </td>
+
+           <td>
+               <select onchange="updateKey(${i}, this.value)">
+                   <option value="">Key</option>
+                   ${ALL_KEYS.map(k => `<option ${f.key===k?"selected":""} value="${k}">${k}</option>`).join('')}
+               </select>
+           </td>
+       </tr>
+   `).join("");
+}
+
+function updateType(i, val) {
+files[i].type = val;
+}
+
+function updateKey(i, val) {
+files[i].key = val;
+}
+
+// =======================
+// SUGGEST SONGS
+// =======================
+function normalizeTitle(title) {
+return title.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+async function suggestSongs() {
+const input = document.getElementById("title").value;
+const norm = normalizeTitle(input);
+
+if (norm.length < 2) {
+document.getElementById("suggestions").innerHTML = "";
+return;
+}
+
+const snapshot = await db.collection("songs").get();
+
+const matches = snapshot.docs
+.map(doc => ({ id: doc.id, ...doc.data() }))
+.filter(song => {
+const songNorm = song.normalized || normalizeTitle(song.title);
+return songNorm.includes(norm);
+});
+
+const box = document.getElementById("suggestions");
+
+    // Fix: Using data attributes or simple ID strings to avoid breaking the onclick handler
+    box.innerHTML = matches.map(s => `
+        <div onclick="selectSuggestion('${s.id}')">
+            ${s.title}
+        </div>
+    `).join("");
+    box.innerHTML = "";
+
+    matches.forEach(s => {
+        const div = document.createElement("div");
+        div.className = "suggestion-item";
+        div.textContent = s.title;
+        // This avoids all quote/parentheses issues
+        div.addEventListener("click", () => {
+            selectSuggestion(s.id);
+        });
+        box.appendChild(div);
+    });
+}
+
+// =======================
+// SELECT SONG
+// =======================
+async function selectSuggestion(id) {
+const docRef = db.collection("songs").doc(id);
+const snap = await docRef.get();
+
+if (snap.exists) {
+const data = snap.data();
+document.getElementById("title").value = data.title;
+document.getElementById("suggestions").innerHTML = "";
+document.getElementById("youtube").value = data.youtube || "";
+document.getElementById("ccli").value = data.ccli || "";
+}
+}
+
+// =======================
+// UPLOAD
+// =======================
+async function upload() {
+
+const title = document.getElementById("title").value.trim();
+const youtube = document.getElementById("youtube").value;
+const ccli = document.getElementById("ccli").value;
+
+if (!title || files.length === 0) {
+alert("Add title and files");
+return;
+}
+
+// validate all rows
+for (const f of files) {
+if (!f.type || !f.key) {
+alert("Each file needs a type and key");
+return;
+}
+}
+
+// Match the reader's id scheme (SundayServicePlanner.html): title.toLowerCase().replace(/\s+/g,"-")
+// plus sanitizing "/" and "\" which are illegal in Firestore doc ids / Storage paths.
+const docId = title.toLowerCase().replace(/[\\/]/g, "-").replace(/\s+/g, "-");
+const docRef = db.collection("songs").doc(docId);
+
+let existing = await docRef.get();
+let existingData = existing.exists ? existing.data() : {};
+
+let uploadedFiles = existingData.files || [];
+
+let succeeded = 0;
+let failed = [];
+
+for (const f of files) {
+try {
+const ref = storage.ref(`songs/${docId}/${f.file.name}`);
+await ref.put(f.file);
+
+const url = await ref.getDownloadURL();
+
+uploadedFiles.push({
+name: f.file.name,
+url: url,
+type: f.type,
+key: f.key
+});
+succeeded++;
+} catch (err) {
+failed.push(f.file.name + " — " + (err && err.message ? err.message : err));
+}
+}
+
+try {
+await docRef.set({
+title,
+normalized: normalizeTitle(title),
+youtube: youtube,
+ccli: ccli,
+files: uploadedFiles
+}, { merge: true });
+} catch (err) {
+alert("Files uploaded but saving the song record failed: " + (err && err.message ? err.message : err));
+return;
+}
+
+if (failed.length) {
+alert("Upload finished.\nSucceeded: " + succeeded + "\nFailed: " + failed.length + "\n\n" + failed.join("\n"));
+} else {
+alert("Upload complete!");
+}
+
+files = [];
+renderFiles();
+}
+
+</script>
+
+</body>
+</html>

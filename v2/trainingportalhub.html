@@ -1,0 +1,701 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worship &amp; AV — Training Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9;
+            --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+            --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+            --brand-teal:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+            --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4;
+            --gold:#b07d2e; --gold-dark:#8f6423; --gold-tint:#f6efe1;
+            --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+            --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+            --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+            --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+            /* legacy aliases — training hub keeps a warm gold accent to signal the training environment */
+            --pale:        var(--canvas);
+            --border:      var(--hairline);
+            --accent:      var(--brand-teal);
+            --accent-mid:  var(--brand-dark);
+            --accent-light:var(--gold-tint);
+            --white:       var(--surface);
+            --brand:       var(--gold);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--canvas); color: var(--body); display: flex; height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+        /* ── SIDEBAR ── */
+        #sidebar { width: 70px; background: var(--surface); border-right: 1px solid var(--hairline); display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1000; }
+        #sidebar:hover { width: 280px; }
+        #nav-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
+        .nav-item-wrapper { display: flex; flex-direction: column; min-width: 280px; position: relative; }
+        .nav-row { display: flex; align-items: center; height: 45px; color: var(--body); cursor: pointer; border-left: 3px solid transparent; transition: color 0.2s, background 0.2s, border-color 0.2s, opacity 0.25s; }
+        .nav-row:hover { background: var(--surface-2); color: var(--ink); border-left-color: var(--gold); }
+        .nav-icon { min-width: 70px; display: flex; justify-content: center; align-items: center; }
+        .nav-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+        .nav-text { font-weight: 700; text-transform: none; font-size: 13px; letter-spacing: -0.01em; opacity: 0; transition: opacity 0.2s; white-space: nowrap; flex-grow: 1; }
+        #sidebar:hover .nav-text { opacity: 1; }
+        .chevron { width: 40px; display: flex; justify-content: center; opacity: 0; transition: transform 0.3s, opacity 0.2s; }
+        #sidebar:hover .chevron { opacity: 0.5; }
+        .has-children.open > .nav-row .chevron { transform: rotate(180deg); }
+        .child-container { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: var(--surface-2); }
+        .has-children.open > .child-container { max-height: 1200px; }
+        #sidebar:not(:hover) .child-container { max-height: 0 !important; }
+        .indent-1 .nav-text { font-weight: 600; text-transform: none; font-size: 13px; }
+        .indent-2 .nav-text { font-weight: 500; text-transform: none; font-size: 13px; }
+        .edit-trigger { display: none; padding: 0 10px; color: var(--faint); cursor: pointer; }
+        #sidebar:hover .admin-active .edit-trigger { display: block; }
+        #nav-list.has-open > .nav-item-wrapper { opacity: 0.2; transition: opacity 0.25s ease; }
+        #nav-list.has-open > .nav-item-wrapper.open { opacity: 1; }
+        #sidebar:not(:hover) #nav-list.has-open > .nav-item-wrapper { opacity: 1; }
+
+        /* ── MAIN ── */
+        #main-container { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #app-viewport { flex-grow: 1; position: relative; background: var(--white); overflow: hidden; }
+
+        header {
+            height: 90px; background: var(--brand-teal);
+            padding: 0 40px; display: flex; align-items: center;
+            justify-content: space-between; border-bottom: 3px solid var(--gold); flex-shrink: 0;
+        }
+
+        #dept-logo { height: auto; width: auto; max-height: 60px; max-width: 280px; transition: opacity 0.3s ease; border-radius: var(--r-sm); background: rgba(255,255,255,0.12); padding: 6px 10px; }
+
+        .header-right { text-align: right; }
+        .training-badge {
+            display: inline-block; background: var(--gold); color: #fff;
+            font-size: 11px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.08em; padding: 4px 12px; border-radius: var(--r-pill);
+            margin-bottom: 5px;
+        }
+        .portal-name { font-size: 14px; color: rgba(255,255,255,0.92); font-weight: 700; }
+        #sync-status { font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-top: 4px; transition: color 0.3s; }
+        #sync-status.syncing { color: #f0d9a8; }
+        #sync-status.synced  { color: #b6e59a; }
+        #sync-status.error   { color: #f2b4ab; }
+
+        #admin-controls { display: none; padding: 15px; border-top: 1px solid var(--hairline); }
+        .admin-btn { width: 100%; padding: 10px; background: var(--brand-teal); color: white; border: none; border-radius: var(--r-sm); cursor: pointer; font-size: 12px; font-weight: 700; font-family: 'Montserrat', sans-serif; margin-bottom: 6px; transition: background 0.15s, transform 0.05s; }
+        .admin-btn:active { transform: translateY(1px); }
+        .admin-btn:hover { filter: brightness(0.96); }
+
+        /* ── DASHBOARD LANDING ── */
+        #landing-content {
+            position: absolute; inset: 0; background: var(--pale);
+            display: flex; flex-direction: column; overflow-y: auto; z-index: 5;
+        }
+
+        /* Hero banner */
+        #hero-section {
+            position: relative; min-height: 160px; background: var(--brand-teal);
+            display: flex; align-items: flex-end; padding: 24px 40px 32px; overflow: hidden; flex-shrink: 0;
+        }
+        #hero-bg {
+            position: absolute; inset: 0; background-size: cover; background-position: center 30%;
+            opacity: 0.35; transition: opacity 0.3s;
+        }
+        /* Training stripe overlay on hero */
+        #hero-section::after {
+            content: '🎓 Training environment — changes here do not affect the live system';
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: var(--gold); color: #fff;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.01em; text-align: center; padding: 5px;
+        }
+        #hero-text { position: relative; z-index: 1; }
+        #hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.025em; color: #fff; line-height: 1.15; }
+        #hero-subtitle { font-size: 14px; color: rgba(255,255,255,0.88); margin-top: 6px; }
+        #hero-edit-btn {
+            position: absolute; top: 12px; right: 16px; z-index: 2;
+            background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.35);
+            border-radius: var(--r-sm); padding: 7px 12px; font-size: 12px; font-weight: 700;
+            cursor: pointer; display: none;
+        }
+
+        /* Single column body (no news feed) */
+        #dashboard-body { padding: 30px 40px; overflow-y: auto; flex-grow: 1; }
+
+        #body-content-area { color: var(--body); font-size: 15px; line-height: 1.7; max-width: 900px; }
+        #body-content-area h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 10px; }
+        #body-content-area p { margin-bottom: 12px; }
+        #body-content-area img { max-width: 100%; border-radius: var(--r-sm); margin: 8px 0; }
+        #body-content-area a { color: var(--brand-teal); }
+
+        #body-edit-btn {
+            margin-bottom: 14px; background: none; color: var(--brand-teal);
+            border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); padding: 7px 12px;
+            font-size: 12px; font-weight: 700; cursor: pointer; display: none; transition: background 0.15s;
+        }
+        #body-edit-btn:hover { background: var(--surface-2); }
+
+        body.admin-mode #hero-edit-btn { display: block; }
+        body.admin-mode #body-edit-btn { display: block; }
+
+        /* ── MODALS ── */
+        .modal-overlay { display: none; position: absolute; inset: 0; background: rgba(20,32,31,0.5); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 28px; width: 600px; max-width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); border-top: 4px solid var(--gold); }
+        .modal-box h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 18px; }
+        .modal-box label { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 14px 0 6px; }
+        .modal-box input, .modal-box select, .modal-box textarea { width: 100%; padding: 11px 14px; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); outline: none; font-family: inherit; font-size: 15px; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+        .modal-box input:focus, .modal-box select:focus, .modal-box textarea:focus { border-color: var(--brand-teal); box-shadow: 0 0 0 3px var(--brand-ring); }
+        .modal-box textarea { min-height: 180px; resize: vertical; font-size: 12.5px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+        .modal-btn-row { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 11px; border: 1px solid transparent; border-radius: var(--r-md); cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'Montserrat', sans-serif; transition: background 0.15s, transform 0.05s; }
+        .modal-btn:active { transform: translateY(1px); }
+        .modal-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+        .modal-btn.primary { background: var(--brand-teal); color: #fff; }
+        .modal-btn.primary:hover { background: var(--brand-dark); }
+        .modal-btn.danger  { background: var(--danger); color: #fff; }
+        .modal-btn.danger:hover { background: #953024; }
+        .modal-btn.cancel  { background: var(--brand-tint); color: var(--brand-teal); }
+        .modal-btn.cancel:hover { background: var(--surface-2); border-color: var(--hairline-strong); }
+        .tab-row { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--hairline-strong); }
+        .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 700; background: none; border: none; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .tab-btn.active { color: var(--brand-teal); border-bottom-color: var(--brand-teal); }
+
+        /* ── RICH TEXT EDITOR ── */
+        .rte-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-bottom: none; border-radius: var(--r-md) var(--r-md) 0 0; margin-top: 10px; }
+        .rte-btn { padding: 5px 9px; background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); cursor: pointer; font-size: 12px; font-weight: 700; color: var(--brand-teal); transition: all 0.15s; line-height: 1.4; }
+        .rte-btn:hover { background: var(--brand-teal); color: white; border-color: var(--brand-teal); }
+        .rte-btn.separator { background: none; border: none; border-left: 1px solid var(--hairline-strong); padding: 0 2px; cursor: default; color: transparent; border-radius: 0; }
+        .rte-select { padding: 5px 7px; border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); font-size: 12px; color: var(--brand-teal); background: var(--surface); cursor: pointer; outline: none; }
+        .rte-area { width: 100%; min-height: 280px; max-height: 400px; overflow-y: auto; border: 1px solid var(--hairline-strong); border-radius: 0 0 var(--r-md) var(--r-md); padding: 14px; font-family: 'Montserrat', sans-serif; font-size: 14px; line-height: 1.6; color: var(--ink); outline: none; }
+        .rte-area:focus { border-color: var(--brand-teal); }
+        .rte-area img { max-width: 100%; border-radius: var(--r-sm); cursor: pointer; }
+        .rte-area img.selected { outline: 3px solid var(--brand-teal); border-radius: var(--r-sm); }
+        #img-resize-bar { display: none; align-items: center; gap: 10px; padding: 8px 10px; background: var(--brand-teal); color: white; border-radius: 0 0 var(--r-md) var(--r-md); font-size: 12px; font-weight: 700; }
+        #img-resize-bar.visible { display: flex; }
+        #img-size-slider { flex-grow: 1; accent-color: white; }
+        #img-size-label { min-width: 40px; text-align: right; }
+        .source-textarea { width: 100%; min-height: 200px; max-height: 340px; overflow-y: auto; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); padding: 12px; margin-top: 10px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5; color: var(--ink); outline: none; resize: vertical; }
+        .source-textarea:focus { border-color: var(--brand-teal); box-shadow: 0 0 0 3px var(--brand-ring); }
+        .range-row { display: flex; align-items: center; gap: 10px; }
+        .range-row input[type=range] { flex-grow: 1; accent-color: var(--brand-teal); }
+        .range-row span { min-width: 40px; font-size: 13px; color: var(--brand-teal); font-weight: 700; text-align: right; }
+
+        /* ── MENU MODAL ── */
+        #menu-modal-overlay { display: none; position: absolute; inset: 0; background: rgba(20,32,31,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        #menu-modal-overlay.open { display: flex; }
+        .menu-modal-box { background: var(--surface); border: 1px solid var(--hairline); padding: 30px; border-radius: var(--r-lg); width: 450px; max-width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto; border-top: 4px solid var(--gold); box-shadow: var(--shadow-lg); }
+        .menu-modal-box label { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 12px 0 6px; }
+        .menu-modal-box input, .menu-modal-box select { width: 100%; padding: 11px 14px; border: 1px solid var(--hairline-strong); border-radius: var(--r-md); outline: none; font-family: inherit; font-size: 15px; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+        .menu-modal-box input:focus, .menu-modal-box select:focus { border-color: var(--brand-teal); box-shadow: 0 0 0 3px var(--brand-ring); }
+
+        /* ── ACCESSIBILITY (additive) ── */
+        :focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+        button:focus-visible, a:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
+        .nav-row:focus-visible { outline: 3px solid var(--brand-teal); outline-offset: -3px; box-shadow: none; }
+
+        /* ── RESPONSIVE (additive — stacks hover-only sidebar above content, tap-friendly nav) ── */
+        @media (max-width: 900px) {
+            body { flex-direction: column; height: auto; min-height: 100vh; overflow-y: auto; }
+            #sidebar { width: 100%; flex-direction: column; border-right: none; border-bottom: 1px solid var(--border); }
+            #sidebar:hover { width: 100%; }
+            .nav-item-wrapper { min-width: 0; }
+            .nav-text { opacity: 1 !important; }
+            .chevron { opacity: 0.5 !important; }
+            #sidebar:not(:hover) .has-children.open > .child-container { max-height: 1200px !important; }
+            #main-container { height: auto; overflow: visible; }
+            #app-viewport { overflow: visible; min-height: 70vh; }
+            header { height: auto; min-height: 70px; padding: 12px 16px; }
+            #hero-section { padding: 18px 20px; }
+            #hero-title { font-size: 24px; }
+            #dashboard-body { padding: 20px 16px; }
+            .modal-box, .menu-modal-box { width: 100%; }
+        }
+    </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<nav id="sidebar" onmouseleave="closeAllMenus()">
+    <div id="nav-list"></div>
+    <div id="admin-controls">
+        <button class="admin-btn" onclick="openMenuModal()">+ Add Page / Sub</button>
+        <button class="admin-btn" onclick="openDashboardEditor()" style="background:var(--accent-mid);">✎ Edit Dashboard</button>
+        <button class="admin-btn" style="background:var(--danger);" onclick="resetMenu()">↺ Reset to Default Links</button>
+    </div>
+</nav>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<div id="main-container">
+    <header>
+        <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media&token=048b453f-2339-4ddd-9c6e-b86aaf33ede2">
+        <a href="https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV"
+           style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);color:white;text-decoration:none;border-radius:9999px;padding:7px 16px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;transition:all 0.2s;flex-shrink:0;"
+           onmouseover="this.style.background='rgba(255,255,255,0.28)'"
+           onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+            ← Hub Home
+        </a>
+        <div class="header-right">
+            <div class="training-badge">🎓 Training Environment</div>
+            <div class="portal-name">Worship &amp; AV Training Hub</div>
+            <div id="secret-trigger" onclick="handleSecret()" style="cursor:pointer;">
+                <div id="sync-status">Connecting…</div>
+            </div>
+        </div>
+    </header>
+
+    <main id="app-viewport">
+
+        <!-- ── DASHBOARD ── -->
+        <div id="landing-content">
+
+            <div id="hero-section">
+                <div id="hero-bg"></div>
+                <div id="hero-text">
+                    <div id="hero-title">Training Hub</div>
+                    <div id="hero-subtitle">Practice the full workflow safely — nothing here affects the live system.</div>
+                </div>
+                <button id="hero-edit-btn" onclick="openHeroEditor()">✎ Edit Banner</button>
+            </div>
+
+            <div id="dashboard-body">
+                <button id="body-edit-btn" onclick="openBodyEditor()">✎ Edit Content</button>
+                <div id="body-content-area">
+                    <h2>Welcome to the Training Hub</h2>
+                    <p style="color:var(--muted);">Select a training tool from the menu to get started. All tools here are fully functional but save to a separate training database — nothing you do will affect the live system.</p>
+                </div>
+            </div>
+
+            <!-- ── HERO EDITOR MODAL ── -->
+            <div class="modal-overlay" id="hero-modal">
+                <div class="modal-box">
+                    <h3>Edit Training Banner</h3>
+                    <label>Title</label>
+                    <input type="text" id="he-title" placeholder="Training Hub">
+                    <label>Subtitle</label>
+                    <input type="text" id="he-subtitle" placeholder="Short tagline…">
+                    <label>Background Image URL (optional)</label>
+                    <input type="text" id="he-img" placeholder="https://…" oninput="previewHeroBg()">
+                    <label>Image vertical position</label>
+                    <div class="range-row">
+                        <input type="range" id="he-pos" min="0" max="100" value="30" oninput="previewHeroPos(this.value)">
+                        <span id="he-pos-label">30%</span>
+                    </div>
+                    <div id="he-preview" style="height:80px;border-radius:8px;background:var(--accent);margin-top:8px;background-size:cover;background-position:center 30%;opacity:0.8;transition:background-position 0.2s;"></div>
+                    <div class="modal-btn-row">
+                        <button class="modal-btn cancel" onclick="closeModal('hero-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveHero()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── BODY EDITOR MODAL ── -->
+            <div class="modal-overlay" id="body-modal">
+                <div class="modal-box">
+                    <h3>Edit Training Dashboard Content</h3>
+                    <div class="tab-row">
+                        <button class="tab-btn active" id="body-tab-rich" onclick="switchBodyTab('rich')">✦ Rich Editor</button>
+                        <button class="tab-btn" id="body-tab-source" onclick="switchBodyTab('source')">Source HTML</button>
+                    </div>
+                    <div id="rte-toolbar-wrap">
+                        <div class="rte-toolbar">
+                            <select class="rte-select" onchange="execCmd('formatBlock',this.value);this.value=''">
+                                <option value="">Format…</option>
+                                <option value="p">Paragraph</option>
+                                <option value="h2">Heading 2</option>
+                                <option value="h3">Heading 3</option>
+                                <option value="h4">Heading 4</option>
+                            </select>
+                            <select class="rte-select" onchange="execCmd('fontSize',this.value);this.value=''">
+                                <option value="">Size…</option>
+                                <option value="1">Small</option>
+                                <option value="3">Normal</option>
+                                <option value="4">Large</option>
+                                <option value="5">X-Large</option>
+                            </select>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('bold')"><b>B</b></button>
+                            <button class="rte-btn" onclick="execCmd('italic')"><i>I</i></button>
+                            <button class="rte-btn" onclick="execCmd('underline')"><u>U</u></button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('justifyLeft')">⬅</button>
+                            <button class="rte-btn" onclick="execCmd('justifyCenter')">☰</button>
+                            <button class="rte-btn" onclick="execCmd('justifyRight')">➡</button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('insertUnorderedList')">• List</button>
+                            <button class="rte-btn" onclick="execCmd('insertOrderedList')">1. List</button>
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="insertLink()">🔗</button>
+                            <button class="rte-btn" onclick="insertImageUrl()">🖼</button>
+                            <span class="rte-btn separator">|</span>
+                            <input type="color" id="rte-color" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);border-radius:4px;cursor:pointer;" onchange="execCmd('foreColor',this.value)">
+                            <span class="rte-btn separator">|</span>
+                            <button class="rte-btn" onclick="execCmd('undo')">↩</button>
+                            <button class="rte-btn" onclick="execCmd('redo')">↪</button>
+                            <button class="rte-btn" onclick="execCmd('removeFormat')" style="font-size:10px;">Clear</button>
+                        </div>
+                        <div id="rte-area" class="rte-area" contenteditable="true"></div>
+                        <div id="img-resize-bar">
+                            <span>Image size:</span>
+                            <input type="range" id="img-size-slider" min="5" max="100" value="100" oninput="resizeSelectedImg(this.value)">
+                            <span id="img-size-label">100%</span>
+                            <button onclick="deSelectImg()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:700;">Done</button>
+                        </div>
+                    </div>
+                    <textarea id="body-source" class="source-textarea" style="display:none;"></textarea>
+                    <div class="modal-btn-row">
+                        <button class="modal-btn cancel" onclick="closeModal('body-modal')">Cancel</button>
+                        <button class="modal-btn primary" onclick="saveBodyContent()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── DASHBOARD SETTINGS MODAL ── -->
+            <div class="modal-overlay" id="dash-settings-modal">
+                <div class="modal-box">
+                    <h3>Training Dashboard Settings</h3>
+                    <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">Edit the training hub dashboard.</p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">✎ Edit Hero Banner</button>
+                        <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">✎ Edit Main Content</button>
+                    </div>
+                    <div class="modal-btn-row" style="margin-top:10px;">
+                        <button class="modal-btn cancel" onclick="closeModal('dash-settings-modal')">Close</button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end #landing-content -->
+
+        <!-- ── IFRAME ── -->
+        <iframe id="app-frame" style="display:none; width:100%; height:100%; border:none; background:white;" src="" allow="popups popups-to-escape-sandbox"></iframe>
+
+        <!-- ── MENU MODAL ── -->
+        <div id="menu-modal-overlay">
+            <div class="menu-modal-box">
+                <h3 id="menuModalTitle" style="color:var(--accent);">Page Settings</h3>
+                <input type="hidden" id="editId">
+                <label>Name</label><input type="text" id="nodeName">
+                <label>Link (URL)</label><input type="text" id="nodeUrl">
+                <label>Custom Logo (Optional)</label><input type="text" id="nodeLogo">
+                <label>Parent Item</label><select id="nodeParent"><option value="none">Top Level</option></select>
+                <label>Icon</label>
+                <select id="nodeIcon">
+                    <option value="home">Home</option><option value="calendar">Calendar</option>
+                    <option value="music">Music</option><option value="worship">Worship</option>
+                    <option value="av">AV</option><option value="youth">Youth</option>
+                    <option value="trouble">Tools</option><option value="training">Book</option>
+                    <option value="social">Social</option><option value="core">Shield</option>
+                    <option value="leader">Mic</option><option value="heart">Heart</option>
+                </select>
+                <label>Access Level</label>
+                <select id="nodeRole">
+                    <option value="worship">Team (Worship/AV)</option>
+                    <option value="core">Core (Admin Only)</option>
+                </select>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button id="deleteBtn" class="admin-btn" style="background:var(--danger); display:none;" onclick="deletePage()">Delete</button>
+                    <button class="admin-btn" style="background:#ccc;" onclick="closeMenuModal()">Cancel</button>
+                    <button class="admin-btn" onclick="savePage()">Save</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ═══════════════ FIREBASE ═══════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+    authDomain: "egbc-worship-planner.firebaseapp.com",
+    projectId: "egbc-worship-planner",
+    storageBucket: "egbc-worship-planner.firebasestorage.app",
+    appId: "1:199442060489:web:7eaf85a76334c753db6918"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── SEPARATE FIREBASE COLLECTIONS — never touches live portal ──────────────
+const MENU_DOC      = db.collection('training_portal').doc('menuItems');
+const DASHBOARD_DOC = db.collection('training_portal').doc('dashboardContent');
+
+function setSyncStatus(state, text) {
+    const el = document.getElementById('sync-status');
+    el.className = state; el.textContent = text;
+}
+
+// ── DEFAULT TRAINING MENU — points to training versions of all tools ────────
+const DEFAULT_MENU = [
+    { id: 1, name: "Dashboard", url: "landing", icon: "home", parent: "none", logo: "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media&token=048b453f-2339-4ddd-9c6e-b86aaf33ede2", role: "worship" },
+    { id: 2, name: "Worship Planning", url: "", icon: "worship", parent: "none", logo: "", role: "worship" },
+    { id: 3, name: "Service Planner", url: "https://esherchurch.github.io/availability-form/training%20Sunday%20planner.html", icon: "calendar", parent: "2", logo: "", role: "worship" },
+    { id: 5, name: "Rota", url: "", icon: "calendar", parent: "none", logo: "", role: "worship" },
+    { id: 6, name: "Rota Planner", url: "https://esherchurch.github.io/availability-form/trainingrotaplanner.html", icon: "calendar", parent: "5", logo: "", role: "worship" },
+    { id: 7, name: "Music", url: "", icon: "music", parent: "none", logo: "", role: "worship" },
+    { id: 8, name: "Music Importer", url: "https://esherchurch.github.io/availability-form/trainingbatchimporter.html", icon: "music", parent: "7", logo: "", role: "worship" },
+    { id: 9, name: "Song Library", url: "https://esherchurch.github.io/availability-form/trainingmusicdatabase.html", icon: "music", parent: "7", logo: "", role: "worship" }
+];
+
+const DEFAULT_DASHBOARD = {
+    hero: {
+        title: "Training Hub",
+        subtitle: "Practice the full workflow safely — nothing here affects the live system.",
+        bgImage: "", bgPosition: 30
+    },
+    bodyHtml: `<h2>Welcome to the Training Hub</h2><p style="color:#7a6a5a;">Select a training tool from the menu to get started. All tools here are fully functional but save to a separate training database — nothing you do will affect the live system.</p>`
+};
+
+let menuItems = [];
+let dashData  = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD));
+
+async function loadAll() {
+    setSyncStatus('syncing', 'Loading…');
+    try {
+        const [menuSnap, dashSnap] = await Promise.all([MENU_DOC.get(), DASHBOARD_DOC.get()]);
+        menuItems = (menuSnap.exists && menuSnap.data().items) ? menuSnap.data().items : DEFAULT_MENU;
+        if (!menuSnap.exists) await MENU_DOC.set({ items: menuItems });
+        dashData  = (dashSnap.exists && dashSnap.data()) ? dashSnap.data() : DEFAULT_DASHBOARD;
+        if (!dashSnap.exists) await DASHBOARD_DOC.set(dashData);
+        setSyncStatus('synced', '✓ Synced');
+        renderMenu();
+        renderDashboard();
+    } catch(err) {
+        console.error(err);
+        setSyncStatus('error', '⚠ Offline');
+        menuItems = DEFAULT_MENU;
+        dashData  = DEFAULT_DASHBOARD;
+        renderMenu();
+        renderDashboard();
+    }
+}
+
+async function saveMenuToDb() {
+    setSyncStatus('syncing', 'Saving…');
+    try { await MENU_DOC.set({ items: menuItems }); setSyncStatus('synced', '✓ Saved'); }
+    catch(e) { setSyncStatus('error', '⚠ Save failed'); }
+}
+async function saveDashToDb() {
+    setSyncStatus('syncing', 'Saving…');
+    try { await DASHBOARD_DOC.set(dashData); setSyncStatus('synced', '✓ Saved'); }
+    catch(e) { setSyncStatus('error', '⚠ Save failed'); }
+}
+
+// ── RENDER DASHBOARD ────────────────────────────────────────────────────────
+function renderDashboard() {
+    const h = dashData.hero || {};
+    document.getElementById('hero-title').textContent    = h.title    || 'Training Hub';
+    document.getElementById('hero-subtitle').textContent = h.subtitle || '';
+    const bg = document.getElementById('hero-bg');
+    const pos = h.bgPosition !== undefined ? h.bgPosition : 30;
+    if (h.bgImage) {
+        bg.style.backgroundImage    = `url('${h.bgImage}')`;
+        bg.style.backgroundPosition = `center ${pos}%`;
+        bg.style.opacity            = '0.35';
+    } else {
+        bg.style.backgroundImage = ''; bg.style.opacity = '0';
+    }
+    document.getElementById('body-content-area').innerHTML = dashData.bodyHtml || '';
+}
+
+// ── HERO EDITOR ──────────────────────────────────────────────────────────────
+function openHeroEditor() {
+    const h = dashData.hero || {};
+    document.getElementById('he-title').value    = h.title    || '';
+    document.getElementById('he-subtitle').value = h.subtitle || '';
+    document.getElementById('he-img').value      = h.bgImage  || '';
+    const pos = h.bgPosition !== undefined ? h.bgPosition : 30;
+    document.getElementById('he-pos').value = pos;
+    document.getElementById('he-pos-label').textContent = pos + '%';
+    previewHeroBg();
+    openModal('hero-modal');
+}
+function previewHeroBg() {
+    const url = document.getElementById('he-img').value;
+    const pos = document.getElementById('he-pos').value;
+    const prev = document.getElementById('he-preview');
+    if (url) { prev.style.backgroundImage = `url('${url}')`; prev.style.backgroundPosition = `center ${pos}%`; prev.style.opacity = '0.9'; }
+    else { prev.style.backgroundImage = ''; prev.style.backgroundColor = 'var(--accent)'; }
+}
+function previewHeroPos(val) { document.getElementById('he-pos-label').textContent = val + '%'; previewHeroBg(); }
+async function saveHero() {
+    dashData.hero = {
+        title:      document.getElementById('he-title').value,
+        subtitle:   document.getElementById('he-subtitle').value,
+        bgImage:    document.getElementById('he-img').value,
+        bgPosition: parseInt(document.getElementById('he-pos').value)
+    };
+    await saveDashToDb(); renderDashboard(); closeModal('hero-modal');
+}
+
+// ── RICH TEXT EDITOR ─────────────────────────────────────────────────────────
+let _selectedImg = null;
+function execCmd(cmd, val) { document.getElementById('rte-area').focus(); document.execCommand(cmd, false, val || null); }
+function insertLink() { const url = prompt('Link URL:', 'https://'); if (url) execCmd('createLink', url); }
+function insertImageUrl() { const url = prompt('Image URL:', 'https://'); if (url) { document.getElementById('rte-area').focus(); document.execCommand('insertHTML', false, `<img src="${url}" style="max-width:100%;border-radius:6px;" />`); } }
+function resizeSelectedImg(pct) { if (!_selectedImg) return; _selectedImg.style.width = pct + '%'; _selectedImg.style.maxWidth = '100%'; document.getElementById('img-size-label').textContent = pct + '%'; }
+function deSelectImg() { if (_selectedImg) { _selectedImg.classList.remove('selected'); _selectedImg = null; } document.getElementById('img-resize-bar').classList.remove('visible'); }
+
+document.addEventListener('click', function(e) {
+    const rte = document.getElementById('rte-area'); if (!rte) return;
+    if (e.target.tagName === 'IMG' && rte.contains(e.target)) {
+        if (_selectedImg) _selectedImg.classList.remove('selected');
+        _selectedImg = e.target; _selectedImg.classList.add('selected');
+        const pct = _selectedImg.style.width ? parseInt(_selectedImg.style.width) : 100;
+        document.getElementById('img-size-slider').value = pct;
+        document.getElementById('img-size-label').textContent = pct + '%';
+        document.getElementById('img-resize-bar').classList.add('visible');
+    } else if (!e.target.closest('#img-resize-bar')) { deSelectImg(); }
+});
+
+function openBodyEditor() {
+    document.getElementById('rte-area').innerHTML = dashData.bodyHtml || '';
+    document.getElementById('body-source').value  = dashData.bodyHtml || '';
+    switchBodyTab('rich'); openModal('body-modal');
+}
+function switchBodyTab(tab) {
+    const isRich = tab === 'rich';
+    if (!isRich) { document.getElementById('body-source').value = document.getElementById('rte-area').innerHTML; }
+    else { document.getElementById('rte-area').innerHTML = document.getElementById('body-source').value; }
+    document.getElementById('rte-toolbar-wrap').style.display = isRich ? '' : 'none';
+    document.getElementById('body-source').style.display      = isRich ? 'none' : '';
+    document.getElementById('body-tab-rich').classList.toggle('active', isRich);
+    document.getElementById('body-tab-source').classList.toggle('active', !isRich);
+}
+async function saveBodyContent() {
+    const isRich = document.getElementById('rte-toolbar-wrap').style.display !== 'none';
+    dashData.bodyHtml = isRich ? document.getElementById('rte-area').innerHTML : document.getElementById('body-source').value;
+    await saveDashToDb(); renderDashboard(); closeModal('body-modal');
+}
+
+function openDashboardEditor() { openModal('dash-settings-modal'); }
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openMenuModal()  { document.getElementById('menu-modal-overlay').classList.add('open'); }
+function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }
+
+// ── ICONS ─────────────────────────────────────────────────────────────────────
+const DEFAULT_LOGO = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media&token=048b453f-2339-4ddd-9c6e-b86aaf33ede2";
+const ICONS = {
+    home:`<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg>`,
+    calendar:`<svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7H5v12z"/></svg>`,
+    music:`<svg viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2m14-3c0 1.1-.9 2-2 2s-2-.9-2-2"/></svg>`,
+    worship:`<svg viewBox="0 0 24 24"><path d="M12 2v20M7 7h10"/></svg>`,
+    av:`<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>`,
+    youth:`<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m15-12a4 4 0 11-8 0 4 4 0 018 0zm6 12v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/></svg>`,
+    trouble:`<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>`,
+    training:`<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V3H6.5A2.5 2.5 0 004 5.5v14z"/></svg>`,
+    social:`<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`,
+    core:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    leader:`<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>`,
+    heart:`<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+};
+
+// Training hub — admin always available, no role gating needed
+const userRole = 'core';
+
+function renderMenu() {
+    const list = document.getElementById('nav-list');
+    const parentSelect = document.getElementById('nodeParent');
+    list.innerHTML = ''; parentSelect.innerHTML = '<option value="none">Top Level</option>';
+    const buildTree = (parentId, level = 0) => {
+        const children = menuItems.filter(i => {
+            if (i.parent != parentId) return false;
+            if (userRole === 'core') return true;
+            return i.role === 'worship' || !i.role;
+        });
+        children.forEach(item => {
+            const hasSubs = menuItems.some(i => i.parent == item.id);
+            const wrapper = document.createElement('div');
+            wrapper.className = `nav-item-wrapper indent-${level} ${hasSubs ? 'has-children' : ''}`;
+            wrapper.dataset.id = item.id;
+            wrapper.innerHTML = `<div class="nav-row" onclick="handleItemClick(event,'${item.id}','${item.url}','${item.logo||DEFAULT_LOGO}')"><div class="nav-icon">${ICONS[item.icon]||ICONS.home}</div><span class="nav-text">${item.name}</span>${hasSubs?'<div class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>':''}<div class="edit-trigger" onclick="event.stopPropagation();openEdit(${item.id})">&#9998;</div></div><div class="child-container" id="child-of-${item.id}"></div>`;
+            const target = parentId === 'none' ? list : document.getElementById(`child-of-${parentId}`);
+            if (target) target.appendChild(wrapper);
+            if (level < 2) parentSelect.innerHTML += `<option value="${item.id}">${'-'.repeat(level)} ${item.name}</option>`;
+            buildTree(item.id, level + 1);
+        });
+    };
+    buildTree('none');
+}
+
+function updateFocusState() { const nl = document.getElementById('nav-list'); nl.classList.toggle('has-open', !!nl.querySelector('.has-children.open')); }
+function closeAllMenus() { document.querySelectorAll('.has-children.open').forEach(m => m.classList.remove('open')); updateFocusState(); }
+function handleItemClick(event, id, url, logo) {
+    const wrapper = event.currentTarget.parentElement;
+    if (wrapper.classList.contains('has-children')) {
+        const isOpening = !wrapper.classList.contains('open');
+        wrapper.parentElement.querySelectorAll(':scope > .nav-item-wrapper.has-children').forEach(p => p.classList.remove('open'));
+        if (isOpening) wrapper.classList.add('open');
+        updateFocusState();
+    }
+    if (url && url !== '#' && url !== 'landing') navigate(url, logo);
+    else if (url === 'landing') showLanding(logo);
+}
+function navigate(url, logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('landing-content').style.display = 'none';
+    const frame = document.getElementById('app-frame');
+    frame.style.display = 'block'; frame.src = url;
+}
+function showLanding(logoUrl) {
+    document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
+    document.getElementById('app-frame').style.display = 'none';
+    document.getElementById('landing-content').style.display = 'flex';
+}
+
+let clickCount = 0;
+function handleSecret() {
+    clickCount++;
+    if (clickCount >= 3) {
+        const isVisible = document.getElementById('admin-controls').style.display === 'block';
+        if (isVisible) {
+            document.getElementById('admin-controls').style.display = 'none';
+            document.getElementById('nav-list').classList.remove('admin-active');
+            document.body.classList.remove('admin-mode');
+            clickCount = 0;
+        } else {
+            document.getElementById('admin-controls').style.display = 'block';
+            document.getElementById('nav-list').classList.add('admin-active');
+            document.body.classList.add('admin-mode');
+        }
+        renderMenu();
+    }
+}
+
+function openEdit(id) {
+    const item = menuItems.find(i => i.id == id);
+    document.getElementById('editId').value    = id;
+    document.getElementById('nodeName').value  = item.name;
+    document.getElementById('nodeUrl').value   = item.url;
+    document.getElementById('nodeLogo').value  = item.logo || '';
+    document.getElementById('nodeParent').value= item.parent;
+    document.getElementById('nodeIcon').value  = item.icon;
+    document.getElementById('nodeRole').value  = item.role || 'worship';
+    document.getElementById('deleteBtn').style.display = 'block';
+    openMenuModal();
+}
+async function savePage() {
+    const id = document.getElementById('editId').value;
+    const data = { id: id ? parseInt(id) : Date.now(), name: document.getElementById('nodeName').value, url: document.getElementById('nodeUrl').value, logo: document.getElementById('nodeLogo').value, parent: document.getElementById('nodeParent').value, icon: document.getElementById('nodeIcon').value, role: document.getElementById('nodeRole').value };
+    if (id) menuItems[menuItems.findIndex(i => i.id == id)] = data; else menuItems.push(data);
+    await saveMenuToDb(); renderMenu(); closeMenuModal();
+}
+async function deletePage() {
+    const id = document.getElementById('editId').value;
+    menuItems = menuItems.filter(i => i.id != id && i.parent != id);
+    await saveMenuToDb(); renderMenu(); closeMenuModal();
+}
+async function resetMenu() {
+    if (confirm("Reset training menu to defaults?")) { menuItems = DEFAULT_MENU; await saveMenuToDb(); renderMenu(); }
+}
+
+loadAll();
+</script>
+</body>
+</html>

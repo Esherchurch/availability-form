@@ -1,0 +1,1123 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EGBC — Play Through</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    :root{
+      --brand:#3d6263;--brand-dark:#2e4c4d;--surface:#fff;--canvas:#f0f6f6;
+      --ink:#14201f;--muted:#6b8281;--hairline:#dde7e6;--hairline-strong:#c9d8d6;--brand-ring:rgba(61,98,99,.28);
+      --shadow-sm:0 1px 2px rgba(20,32,31,.05);--shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);--shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+    }
+    body{background-color:var(--canvas);color:var(--brand);font-family:'Montserrat',sans-serif}
+    ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:10px}::-webkit-scrollbar-thumb:hover{background:var(--brand)}
+    input:focus,textarea:focus,select:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px var(--brand-ring)}
+    .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+    .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:1rem}
+    .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:1rem}
+    .skeleton{background:linear-gradient(90deg,#eef4f3 25%,#dde7e6 50%,#eef4f3 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:1rem}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .tab-btn.active{background:var(--brand);color:white}.tab-btn{transition:all 0.15s}
+    .key-btn.active{background:var(--brand);color:white}.key-btn{transition:all 0.15s}
+    .admin-tab.hidden{display:none}
+    mark{background:#f6efc2;color:inherit;border-radius:3px;padding:0 3px}
+    .jump-btn{transition:all 0.15s}.jump-btn:hover{background:var(--brand);color:white}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .drop-zone{border:2px dashed var(--hairline-strong);border-radius:1rem;padding:1.5rem;text-align:center;cursor:pointer;transition:all 0.2s}
+    .drop-zone:hover,.drop-zone.drag-over{border-color:var(--brand);background:#e8f4f4}
+    .drop-zone.analysing{border-color:var(--brand);background:#e8f4f4;cursor:wait}
+    .chord-section{background:white;border:1px solid var(--hairline);border-radius:0.85rem;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem}
+    .chord-badge{background:var(--brand);color:white;border-radius:9999px;padding:0.2rem 0.75rem;font-size:10px;font-weight:900;letter-spacing:.04em;white-space:nowrap}
+    .chord-value{font-family:monospace;font-size:12px;color:var(--brand);font-weight:700}
+    .analyse-progress{height:5px;background:var(--hairline);border-radius:9999px;overflow:hidden;margin-top:0.5rem}
+    .analyse-progress-bar{height:100%;background:var(--brand);border-radius:9999px;transition:width 0.3s}
+  </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team"></script>
+</head>
+<body class="p-6 lg:p-10 min-h-screen">
+<div class="max-w-6xl mx-auto">
+
+  <!-- HEADER -->
+  <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
+    <div>
+      <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC — Worship Knowledge Base</div>
+      <h1 class="text-3xl font-black uppercase tracking-tight">Play Through</h1>
+      <p class="text-sm font-semibold opacity-60 mt-1">Our arrangements — how we play it</p>
+    </div>
+    <div class="flex gap-3 items-center flex-wrap">
+      <nav class="flex flex-col gap-1 bg-white p-3 rounded-[2rem] border border-[#d1dfdf] shadow-sm">
+        <span class="text-[9px] font-black uppercase tracking-widest px-4 opacity-50">Worship Knowledge Base</span>
+        <div class="flex gap-1">
+          <a href="https://esherchurch.github.io/availability-form/EGBC-Training-Worship.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Training</a>
+          <span class="px-5 py-2 rounded-full font-black text-[10px] uppercase bg-[#3d6263] text-white">Play Through</span>
+        </div>
+      </nav>
+      <button onclick="toggleAdmin()" class="bg-white border border-[#d1dfdf] px-6 py-2.5 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
+    </div>
+  </header>
+
+  <!-- SEARCH -->
+  <div class="bg-white rounded-[2rem] border border-[#d1dfdf] shadow-lg p-6 mb-6">
+    <div class="flex gap-3 items-center">
+      <div class="flex-grow relative">
+        <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" type="text" placeholder="Search a song or section… e.g. 'Sovereign intro in A'"
+          class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40 outline-none"
+          onkeydown="if(event.key==='Enter')doSearch()">
+      </div>
+      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
+      <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <span class="text-[10px] font-black uppercase opacity-40 self-center">Quick:</span>
+      <button onclick="quickSearch('Sovereign intro')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Sovereign intro</button>
+      <button onclick="quickSearch('Way Maker')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Way Maker</button>
+      <button onclick="quickSearch('songs in G')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Songs in G</button>
+      <button onclick="quickSearch('keyboard intro')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Keyboard intro</button>
+      <button onclick="quickSearch('guitar chorus')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Guitar chorus</button>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="flex flex-wrap gap-3 mb-8 items-center">
+    <div class="flex gap-1 bg-white p-1.5 rounded-full border border-[#d1dfdf] shadow-sm">
+      <button onclick="setSection('all')" id="sec-all" class="tab-btn active px-5 py-2 rounded-full font-black text-[10px] uppercase">All Songs</button>
+      <button onclick="setSection('Intro')" id="sec-Intro" class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase">Intros</button>
+      <button onclick="setSection('Chorus')" id="sec-Chorus" class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase">Chorus</button>
+      <button onclick="setSection('Full Song')" id="sec-FullSong" class="tab-btn px-5 py-2 rounded-full font-black text-[10px] uppercase">Full Songs</button>
+    </div>
+    <div class="flex gap-1 bg-white p-1.5 rounded-full border border-[#d1dfdf] shadow-sm flex-wrap items-center">
+      <span class="text-[9px] font-black uppercase opacity-40 px-2">Key:</span>
+      <button onclick="setKey('all')" id="key-all" class="key-btn active px-3 py-2 rounded-full font-black text-[10px]">All</button>
+      <button onclick="setKey('A')"  id="key-A"  class="key-btn px-3 py-2 rounded-full font-black text-[10px]">A</button>
+      <button onclick="setKey('Bb')" id="key-Bb" class="key-btn px-3 py-2 rounded-full font-black text-[10px]">B♭</button>
+      <button onclick="setKey('B')"  id="key-B"  class="key-btn px-3 py-2 rounded-full font-black text-[10px]">B</button>
+      <button onclick="setKey('C')"  id="key-C"  class="key-btn px-3 py-2 rounded-full font-black text-[10px]">C</button>
+      <button onclick="setKey('D')"  id="key-D"  class="key-btn px-3 py-2 rounded-full font-black text-[10px]">D</button>
+      <button onclick="setKey('E')"  id="key-E"  class="key-btn px-3 py-2 rounded-full font-black text-[10px]">E</button>
+      <button onclick="setKey('F')"  id="key-F"  class="key-btn px-3 py-2 rounded-full font-black text-[10px]">F</button>
+      <button onclick="setKey('G')"  id="key-G"  class="key-btn px-3 py-2 rounded-full font-black text-[10px]">G</button>
+    </div>
+  </div>
+
+  <div id="searchResults" class="hidden mb-6"></div>
+
+  <!-- ADMIN PANEL -->
+  <div id="adminPanel" class="hidden mb-8">
+    <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
+      <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
+        <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — Play Through</h2>
+        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl">✕</button>
+      </div>
+      <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
+        <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase">Add Content</button>
+        <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Categories</button>
+        <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Manage</button>
+      </div>
+
+      <!-- ADD CONTENT -->
+      <div id="admin-content" class="admin-tab">
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] space-y-3">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Add New Song / Section</h3>
+
+            <!-- STEP 1: Embed -->
+            <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-2">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 1 — Paste embed code from Stream</div>
+              <textarea id="adminContentURL" rows="3" placeholder="Paste iframe embed code here…"
+                class="w-full px-4 py-3 rounded-xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none resize-none"
+                oninput="handleEmbedPaste(this)" onpaste="setTimeout(()=>handleEmbedPaste(this),50)"></textarea>
+              <div id="pasteStatus" class="hidden text-[11px] font-black px-1"></div>
+            </div>
+
+            <div id="autoFilledSection" class="hidden space-y-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60 pt-1">Step 2 — Song details</div>
+              <input id="adminTitle" type="text" placeholder="Title (auto-filled)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+              <div class="grid grid-cols-2 gap-2">
+                <input id="adminSongTitle" type="text" placeholder="Song Title e.g. Sovereign" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+                <select id="adminOurKey" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+                  <option value="">Key…</option>
+                  <option>A</option><option>Bb</option><option>B</option><option>C</option>
+                  <option>Db</option><option>D</option><option>Eb</option><option>E</option>
+                  <option>F</option><option>F#</option><option>G</option><option>Ab</option>
+                </select>
+                <select id="adminSongSection" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+                  <option value="">Section…</option>
+                  <option>Full Song</option><option>Intro</option><option>Verse</option>
+                  <option>Chorus</option><option>Bridge</option><option>Return</option><option>Outro</option>
+                </select>
+                <select id="adminInstrument" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none">
+                  <option value="">Instrument…</option>
+                  <option>Guitar</option><option>Keyboard</option><option>Both</option>
+                </select>
+              </div>
+              <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
+              <input id="adminTags" type="text" placeholder="Tags (comma separated) — optional" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+              <div class="bg-[#f0f6f6] rounded-2xl border border-[#d1dfdf] p-3 space-y-1">
+                <div class="text-[10px] font-black uppercase tracking-widest opacity-50">Direct video path (auto-generated)</div>
+                <input id="adminDirectURL" type="text" placeholder="Auto-filled from filename…" class="w-full px-4 py-2 rounded-full border border-[#d1dfdf] bg-white font-semibold text-xs outline-none">
+                <div class="text-[10px] opacity-40">Used for instant section seeking. Edit if filename differs.</div>
+              </div>
+
+              <!-- STEP 3: Chord Detection -->
+              <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
+                <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Step 3 — Chord Detection</div>
+                <div class="text-[11px] text-[#3d6263] opacity-60">Drop your video/audio file here. Chords are detected locally — the file is never uploaded anywhere.</div>
+                <div id="adminDropZone" class="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleFileDrop(event,'admin')" onclick="document.getElementById('adminFileInput').click()">
+                  <div class="text-2xl mb-1">🎵</div>
+                  <div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div>
+                  <div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>
+                </div>
+                <input id="adminFileInput" type="file" accept="video/*,audio/*" class="hidden" onchange="handleFileSelect(event,'admin')">
+                <div id="adminAnalyseProgress" class="hidden">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-4 h-4 rounded-full animate-spin flex-shrink-0" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+                    <span id="adminAnalyseStatus" class="text-[11px] font-bold uppercase opacity-60">Analysing audio…</span>
+                  </div>
+                  <div class="analyse-progress"><div id="adminProgressBar" class="analyse-progress-bar" style="width:0%"></div></div>
+                </div>
+                <div id="adminChordsResult" class="hidden space-y-2"></div>
+              </div>
+
+              <div id="transcriptStatus" class="hidden text-[12px] font-semibold px-1"></div>
+              <textarea id="adminTranscript" rows="3" class="hidden w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" placeholder="Paste transcript here — Stream > video > Transcript tab > select all > copy"></textarea>
+
+              <div class="flex gap-3 pt-1">
+                <button onclick="publishAsset()" class="flex-1 bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+                <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-6 py-3 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">Play-Through Notes &amp; Section Markers</h3>
+            <div id="bulletsPreview" class="text-sm opacity-50 italic">Paste embed code — section markers and play-through notes will generate automatically from the transcript.</div>
+            <div id="bulletsGenerating" class="hidden flex items-center gap-3 mt-4">
+              <div class="w-5 h-5 rounded-full animate-spin" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+              <span class="text-[11px] font-bold uppercase opacity-60">Generating notes...</span>
+            </div>
+            <textarea id="adminBullets" rows="10" placeholder="Play-through notes will appear here..." class="hidden w-full mt-4 px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+            <div id="sectionMarkersPreview" class="hidden mt-4 space-y-2"></div>
+            <button id="regenBtn" onclick="generateBullets()" class="hidden mt-3 w-full bg-white border border-[#d1dfdf] py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">↺ Regenerate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATEGORIES -->
+      <div id="admin-categories" class="admin-tab hidden">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-2">Page Categories</h3>
+          <p class="text-[12px] opacity-60 mb-4">Visual sections on this page only.</p>
+          <div class="flex gap-3 mb-6">
+            <input id="newCatName" type="text" placeholder="New category name…" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
+            <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Add</button>
+          </div>
+          <div id="categoryList" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <!-- MANAGE -->
+      <div id="admin-manage" class="admin-tab hidden">
+        <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
+          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">All Content</h3>
+          <div id="manageList" class="space-y-2"></div>
+        </div>
+        <div id="editModal" class="hidden mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border-2 border-[#3d6263] space-y-3">
+          <div class="flex justify-between items-center mb-2"><h3 class="font-black uppercase text-[11px] tracking-widest">Edit Item</h3><button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black">✕</button></div>
+          <input type="hidden" id="editId">
+          <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <div class="grid grid-cols-2 gap-2">
+            <input id="editSongTitle" type="text" placeholder="Song Title" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <select id="editOurKey" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">Key…</option><option>A</option><option>Bb</option><option>B</option><option>C</option><option>Db</option><option>D</option><option>Eb</option><option>E</option><option>F</option><option>F#</option><option>G</option><option>Ab</option></select>
+            <select id="editSongSection" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">Section…</option><option>Full Song</option><option>Intro</option><option>Verse</option><option>Chorus</option><option>Bridge</option><option>Return</option><option>Outro</option></select>
+            <select id="editInstrument" class="px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">Instrument…</option><option>Guitar</option><option>Keyboard</option><option>Both</option></select>
+          </div>
+          <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
+          <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <div class="bg-[#f0f6f6] rounded-2xl border border-[#d1dfdf] p-3 space-y-1">
+            <div class="text-[10px] font-black uppercase tracking-widest opacity-50">Direct video path</div>
+            <input id="editDirectURL" type="text" placeholder="https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/filename.mp4" class="w-full px-4 py-2 rounded-full border border-[#d1dfdf] bg-white font-semibold text-xs outline-none">
+          </div>
+          <textarea id="editBullets" rows="4" placeholder="Play-through notes..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Transcript (used for section timestamps)</div>
+            <textarea id="editTranscript" rows="4" placeholder="Paste transcript to update section markers…" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none" oninput="parseEditTranscript(this.value)" onpaste="setTimeout(()=>parseEditTranscript(this.value),50)"></textarea>
+            <div id="editSectionMarkersPreview" class="hidden mt-2 space-y-1"></div>
+          </div>
+
+          <!-- CHORD DETECTION IN EDIT -->
+          <div class="bg-white rounded-2xl border-2 border-[#3d6263] p-4 space-y-3">
+            <div class="text-[10px] font-black uppercase tracking-widest text-[#3d6263] opacity-60">Add / Update Chord Detection</div>
+            <div class="text-[11px] text-[#3d6263] opacity-60">Drop the original video/audio file to detect chords per section. File is analysed locally and discarded.</div>
+            <div id="editDropZone" class="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleFileDrop(event,'edit')" onclick="document.getElementById('editFileInput').click()">
+              <div class="text-2xl mb-1">🎵</div>
+              <div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div>
+              <div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>
+            </div>
+            <input id="editFileInput" type="file" accept="video/*,audio/*" class="hidden" onchange="handleFileSelect(event,'edit')">
+            <div id="editAnalyseProgress" class="hidden">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-4 h-4 rounded-full animate-spin flex-shrink-0" style="border:2px solid #d1dfdf;border-top-color:#3d6263"></div>
+                <span id="editAnalyseStatus" class="text-[11px] font-bold uppercase opacity-60">Analysing audio…</span>
+              </div>
+              <div class="analyse-progress"><div id="editProgressBar" class="analyse-progress-bar" style="width:0%"></div></div>
+            </div>
+            <div id="editChordsResult" class="hidden space-y-2"></div>
+          </div>
+
+          <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="contentArea"></div>
+  <div id="emptyState" class="hidden text-center py-20">
+    <div class="text-5xl mb-4">🎸</div>
+    <div class="font-black uppercase opacity-40 tracking-widest text-sm">No songs yet</div>
+    <div class="text-sm opacity-30 mt-2">Use the Admin panel to add play-through videos</div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+  <div class="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
+    <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060449:web:7eaf85a76334c753db6918"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+const COLLECTION='kb_playthrough';
+const CAT_KEY='egbc_cats_playthrough';
+const SP_SITE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+
+let allAssets=[],categories=JSON.parse(localStorage.getItem(CAT_KEY)||'[]'),currentQuery='',currentSection='all',currentKey='all';
+
+// Chord detection state
+let adminDetectedChords={};
+let editDetectedChords={};
+
+document.addEventListener('DOMContentLoaded',()=>{
+  loadAssets().then(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const paramSong=params.get('song');
+    const paramKey=params.get('key');
+    if(paramSong||paramKey){
+      if(paramKey){
+        currentKey=paramKey;
+        document.querySelectorAll('.key-btn').forEach(b=>b.classList.remove('active'));
+        const kb=document.getElementById('key-'+paramKey);
+        if(kb)kb.classList.add('active');
+      }
+      const filtered=allAssets.filter(a=>{
+        const songMatch=!paramSong||(a.songTitle||'').toLowerCase()===paramSong.toLowerCase()||(a.title||'').toLowerCase().includes(paramSong.toLowerCase());
+        const keyMatch=!paramKey||(a.ourKey||'').toLowerCase()===paramKey.toLowerCase();
+        return songMatch&&keyMatch;
+      });
+      if(filtered.length){
+        document.getElementById('searchResults').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] px-6 py-4 mb-6 flex items-center justify-between gap-4 flex-wrap"><div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Showing play-throughs for</div><div class="font-black text-lg">${escapeHtml(paramSong||'')}${paramKey?' — Key: '+escapeHtml(paramKey):''}</div></div><button onclick="clearSearch()" class="bg-[#f0f6f6] border border-[#d1dfdf] px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Show All</button></div>`;
+        document.getElementById('searchResults').classList.remove('hidden');
+        renderContent(filtered);
+      }
+    }
+  });
+  updateCatDropdowns();
+});
+
+async function loadAssets(){
+  showSkeletons();
+  try{
+    const snap=await db.collection(COLLECTION).where('published','==',true).orderBy('createdAt','desc').get();
+    allAssets=snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){console.log('KB load error:',e.message);allAssets=[];}
+  renderContent(allAssets);
+  return allAssets;
+}
+
+async function loadAll(){
+  try{const snap=await db.collection(COLLECTION).orderBy('createdAt','desc').get();return snap.docs.map(d=>({id:d.id,...d.data()}));}
+  catch(e){return[];}
+}
+
+function getFiltered(){
+  let assets=allAssets;
+  if(currentSection!=='all')assets=assets.filter(a=>a.songSection===currentSection);
+  if(currentKey!=='all')assets=assets.filter(a=>a.ourKey===currentKey);
+  return assets;
+}
+
+function renderContent(assets,highlight=''){
+  const area=document.getElementById('contentArea');
+  const empty=document.getElementById('emptyState');
+  if(!assets.length){area.innerHTML='';empty.classList.remove('hidden');return;}
+  empty.classList.add('hidden');
+  const grouped={},uncat=[];
+  assets.forEach(a=>{const c=(a.category||'').trim();if(c&&categories.includes(c)){if(!grouped[c])grouped[c]=[];grouped[c].push(a);}else uncat.push(a);});
+  let html='';
+  categories.forEach(cat=>{
+    const items=grouped[cat]||[];if(!items.length)return;
+    const sid='sec_'+safeid(cat);
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#3d6263] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm">${cat}</h2><span class="text-[10px] font-bold opacity-40">${items.length} item${items.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+  });
+  if(uncat.length){
+    const label=categories.length?'Uncategorised':'All Songs';const sid='sec_uncategorised';
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#d1dfdf] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm opacity-50">${label}</h2><span class="text-[10px] font-bold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+  }
+  area.innerHTML=html;
+}
+
+function toggleSec(id){const el=document.getElementById(id);const chv=document.getElementById('chv_'+id);if(!el)return;const h=el.classList.toggle('hidden');if(chv)chv.style.transform=h?'rotate(-90deg)':'rotate(0deg)';}
+function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
+
+function cardHTML(a,highlight=''){
+  const sections=a.sectionMarkers||[];
+  const chordsPerSection=a.chordsPerSection||{};
+  const hasSectionChords=Object.keys(chordsPerSection).length>0;
+  const title=highlight?hlText(a.title||'',highlight):(a.title||'');
+  return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}')">
+    <div class="flex justify-between items-start mb-3">
+      <span class="text-xl">${{Guitar:'🎸',Keyboard:'🎹',Both:'🎸🎹'}[a.instrument]||'▶'}</span>
+      <div class="flex gap-1 flex-wrap justify-end">
+        ${a.ourKey?`<span class="bg-[#3d6263] text-white px-3 py-1 rounded-full text-[10px] font-black">Key: ${a.ourKey}</span>`:''}
+        ${a.songSection?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1 rounded-full text-[10px] font-bold">${a.songSection}</span>`:''}
+      </div>
+    </div>
+    <h3 class="font-black text-base mb-1 leading-snug">${title}</h3>
+    ${a.songTitle&&a.songTitle!==a.title?`<div class="text-[11px] opacity-50 mb-2">${a.songTitle}</div>`:''}
+    ${hasSectionChords?`<div class="space-y-1.5 mb-3">${Object.entries(chordsPerSection).slice(0,3).map(([sec,chords])=>`<div class="flex items-center gap-2"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`).join('')}</div>`:a.detectedChords?`<div class="font-mono text-[11px] text-[#3d6263] opacity-60 mb-3 bg-[#f0f6f6] px-3 py-1.5 rounded-lg inline-block">${a.detectedChords}</div>`:''}
+    ${sections.length?`<div class="flex flex-wrap gap-1.5">${sections.slice(0,4).map(s=>`<div class="bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5"><span class="text-[#3d6263] font-mono">${fmtTime(s.seconds)}</span>${s.label}</div>`).join('')}</div>`:''}
+  </div>`;
+}
+
+function openCard(id,startTime=null){
+  const a=allAssets.find(x=>x.id===id);if(!a)return;
+  const sections=a.sectionMarkers||[];
+  const chordsPerSection=a.chordsPerSection||{};
+  const hasSectionChords=Object.keys(chordsPerSection).length>0;
+  const hasURL=a.contentURL&&a.contentURL.trim();
+  let src='';
+  if(hasURL){
+    const ts=startTime||a.timestampStart;
+    src=ts?`${a.contentURL}${a.contentURL.includes('?')?'&':'?'}startTime=${ts}`:a.contentURL;
+  }
+  document.getElementById('modalContent').innerHTML=`
+    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">Play Through${a.category?' — '+a.category:''}</div>
+    <h2 class="font-black text-2xl mb-3 leading-tight">${a.title}</h2>
+    <div class="flex flex-wrap gap-2 mb-6">
+      ${a.ourKey?`<span class="bg-[#3d6263] text-white px-4 py-2 rounded-full text-[11px] font-black">Key: ${a.ourKey}</span>`:''}
+      ${a.songSection?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.songSection}</span>`:''}
+      ${a.instrument?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.instrument}</span>`:''}
+      ${a.tempo?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold">${a.tempo} BPM</span>`:''}
+    </div>
+    ${src?`<div class="video-wrap mb-6 bg-[#f0f6f6]" id="videoWrap"><iframe id="videoFrame" src="${src}" allowfullscreen></iframe></div>`:``}
+    ${sections.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-4 border border-[#d1dfdf] mb-6">
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Sections</div>
+      <div class="flex flex-wrap gap-2">${sections.map(s=>`<div class="bg-white border border-[#d1dfdf] px-4 py-2 rounded-full text-[11px] font-bold flex items-center gap-2"><span class="text-[#3d6263] font-mono">${fmtTime(s.seconds)}</span>${s.label}</div>`).join('')}</div>
+    </div>`:''}
+    ${hasSectionChords?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Chords by Section</div>
+      <div class="space-y-2">${Object.entries(chordsPerSection).map(([sec,chords])=>`<div class="chord-section"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`).join('')}</div>
+    </div>`:a.detectedChords?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Detected Chords</div><div class="font-mono font-bold">${a.detectedChords}</div></div>`:''}
+    ${(a.bullets||'').split('\n').filter(b=>b.trim()).length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6">
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How We Play It</div>
+      <div class="space-y-3">${(a.bullets||'').split('\n').filter(b=>b.trim()).map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>
+    </div>`:''}`;
+  window._currentVideoBaseURL = src ? src.split('?')[0] : '';
+  window._currentDirectURL = a.directURL||'';
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function openCardAtTime(id,seconds){openCard(id,seconds);}
+
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal')){
+    document.getElementById('modal').classList.add('hidden');
+    const frame=document.getElementById('videoFrame');
+    if(frame) frame.src='';
+  }
+}
+
+// ─── CHORD DETECTION ───────────────────────────────────────────────────────
+// Uses Web Audio API + chromagram-based chord detection
+// No external library needed — pure browser Web Audio + FFT
+
+const CHORD_TEMPLATES = {
+  'C':  [1,0,0,0,1,0,0,1,0,0,0,0],
+  'C#': [0,1,0,0,0,1,0,0,1,0,0,0],
+  'D':  [0,0,1,0,0,0,1,0,0,1,0,0],
+  'Eb': [0,0,0,1,0,0,0,1,0,0,1,0],
+  'E':  [0,0,0,0,1,0,0,0,1,0,0,1],
+  'F':  [1,0,0,0,0,1,0,0,0,1,0,0],
+  'F#': [0,1,0,0,0,0,1,0,0,0,1,0],
+  'G':  [0,0,1,0,0,0,0,1,0,0,0,1],
+  'Ab': [1,0,0,1,0,0,0,0,1,0,0,0],
+  'A':  [0,1,0,0,1,0,0,0,0,1,0,0],
+  'Bb': [0,0,1,0,0,1,0,0,0,0,1,0],
+  'B':  [0,0,0,1,0,0,1,0,0,0,0,1],
+  'Cm': [1,0,0,1,0,0,0,1,0,0,0,0],
+  'C#m':[0,1,0,0,1,0,0,0,1,0,0,0],
+  'Dm': [0,0,1,0,0,1,0,0,0,1,0,0],
+  'Ebm':[0,0,0,1,0,0,1,0,0,0,1,0],
+  'Em': [0,0,0,0,1,0,0,1,0,0,0,1],
+  'Fm': [1,0,0,0,0,1,0,0,1,0,0,0],
+  'F#m':[0,1,0,0,0,0,1,0,0,1,0,0],
+  'Gm': [0,0,1,0,0,0,0,1,0,0,1,0],
+  'Abm':[1,0,0,1,0,0,0,0,1,0,0,0],
+  'Am': [0,1,0,0,1,0,0,0,0,1,0,0],
+  'Bbm':[0,0,1,0,0,1,0,0,0,0,1,0],
+  'Bm': [0,0,0,1,0,0,1,0,0,0,0,1],
+};
+
+function matchChord(chroma){
+  let best='',bestScore=-1;
+  for(const [name,tmpl] of Object.entries(CHORD_TEMPLATES)){
+    let score=0;
+    for(let i=0;i<12;i++) score+=chroma[i]*tmpl[i];
+    if(score>bestScore){bestScore=score;best=name;}
+  }
+  return best;
+}
+
+function computeChroma(freqData,sampleRate,fftSize){
+  const chroma=new Array(12).fill(0);
+  const nyquist=sampleRate/2;
+  const binHz=nyquist/(fftSize/2);
+  for(let i=1;i<fftSize/2;i++){
+    const freq=i*binHz;
+    if(freq<80||freq>2000)continue;
+    const midi=Math.round(12*(Math.log2(freq/440))+69);
+    const pc=((midi%12)+12)%12;
+    const amp=freqData[i]/255;
+    chroma[pc]+=amp*amp;
+  }
+  // Normalise
+  const mx=Math.max(...chroma)||1;
+  return chroma.map(v=>v/mx);
+}
+
+async function analyseAudio(file, context, sectionMarkers){
+  const arrayBuffer = await file.arrayBuffer();
+  const audioBuffer = await context.decodeAudioData(arrayBuffer);
+  const channelData = audioBuffer.getChannelData(0);
+  const sampleRate = audioBuffer.sampleRate;
+  const duration = audioBuffer.duration;
+
+  const fftSize = 4096;
+  const hopSize = fftSize / 2;
+  const frameCount = Math.floor((channelData.length - fftSize) / hopSize);
+
+  // Build offline context for FFT
+  const offlineCtx = new OfflineAudioContext(1, channelData.length, sampleRate);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = audioBuffer;
+
+  const analyser = offlineCtx.createAnalyser();
+  analyser.fftSize = fftSize;
+  source.connect(analyser);
+  analyser.connect(offlineCtx.destination);
+
+  // Process in chunks using Web Audio FFT via manual approach
+  // We'll use a sliding window approach on the raw PCM data
+  const chordTimeline = []; // [{time, chord}]
+
+  const windowSize = fftSize;
+  const step = Math.floor(sampleRate * 0.5); // analyse every 0.5 seconds
+
+  for(let offset = 0; offset + windowSize < channelData.length; offset += step){
+    const time = offset / sampleRate;
+
+    // Compute power spectrum manually via DFT on windowed segment
+    const window = channelData.slice(offset, offset + windowSize);
+
+    // Apply Hann window
+    const windowed = new Float32Array(windowSize);
+    for(let i=0;i<windowSize;i++){
+      windowed[i] = window[i] * 0.5*(1-Math.cos(2*Math.PI*i/(windowSize-1)));
+    }
+
+    // Compute chroma from frequency bins using simplified approach
+    // Map each PCM sample to chromagram via pitch class energy
+    const chroma = new Array(12).fill(0);
+    const nyquist = sampleRate / 2;
+
+    // Use 256-point DFT for speed (sufficient for chord detection)
+    const dftSize = 256;
+    const dftStep = Math.floor(windowSize / dftSize);
+    const re = new Float32Array(dftSize);
+    const im = new Float32Array(dftSize);
+
+    // Downsample
+    const downsampled = new Float32Array(dftSize);
+    for(let i=0;i<dftSize;i++) downsampled[i] = windowed[i*dftStep]||0;
+
+    // DFT
+    for(let k=0;k<dftSize/2;k++){
+      let r=0,img=0;
+      for(let n=0;n<dftSize;n++){
+        const angle = 2*Math.PI*k*n/dftSize;
+        r += downsampled[n]*Math.cos(angle);
+        img -= downsampled[n]*Math.sin(angle);
+      }
+      const freq = k * (sampleRate/dftStep) / dftSize;
+      const mag = Math.sqrt(r*r+img*img);
+      if(freq>=80&&freq<=2000){
+        const midi = Math.round(12*(Math.log2(freq/440))+69);
+        const pc = ((midi%12)+12)%12;
+        chroma[pc] += mag;
+      }
+    }
+
+    // Normalise chroma
+    const mx = Math.max(...chroma)||1;
+    const normChroma = chroma.map(v=>v/mx);
+    const chord = matchChord(normChroma);
+    chordTimeline.push({time, chord});
+  }
+
+  // Now group chords by section using sectionMarkers
+  // sectionMarkers: [{label, seconds}]
+  const result = {};
+
+  if(sectionMarkers && sectionMarkers.length > 0){
+    const sorted = [...sectionMarkers].sort((a,b)=>a.seconds-b.seconds);
+    for(let i=0;i<sorted.length;i++){
+      const start = sorted[i].seconds;
+      const end = i+1 < sorted.length ? sorted[i+1].seconds : duration;
+      const label = sorted[i].label;
+
+      // Get chords in this section in time order
+      const sectionChords = chordTimeline
+        .filter(c=>c.time>=start&&c.time<end)
+        .map(c=>c.chord);
+      // Only analyse chords for specific sections — not verses/chorus
+      const labelLower = label.toLowerCase();
+      const shouldAnalyse = ['intro','bridge','interlude','return','viva','outro','tag','instrumental'].some(k=>labelLower.startsWith(k));
+      if(!sectionChords.length || !shouldAnalyse) continue;
+
+      // Deduplicate consecutive same chords to get ordered progression
+      const progression = [];
+      sectionChords.forEach(c=>{
+        if(!progression.length||progression[progression.length-1]!==c) progression.push(c);
+      });
+
+      // Keep top 4 by frequency, but in order of first appearance
+      const freq={};
+      sectionChords.forEach(c=>{freq[c]=(freq[c]||0)+1;});
+      const top4 = new Set(Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]));
+      const final=[];
+      progression.forEach(c=>{if(top4.has(c)&&!final.includes(c))final.push(c);});
+
+      if(final.length) result[label] = final.join(' – ');
+    }
+  } else {
+    // No section markers — overall chord progression
+    const freq={};
+    chordTimeline.forEach(c=>{freq[c.chord]=(freq[c.chord]||0)+1;});
+    const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
+    if(top.length) result['Full Song'] = top.join(' – ');
+  }
+
+  return result;
+}
+
+function handleFileDrop(event, context){
+  event.preventDefault();
+  const zone = document.getElementById(context+'DropZone');
+  zone.classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if(file) processAudioFile(file, context);
+}
+
+function handleFileSelect(event, context){
+  const file = event.target.files[0];
+  if(file) processAudioFile(file, context);
+}
+
+async function processAudioFile(file, context){
+  const zone = document.getElementById(context+'DropZone');
+  const progress = document.getElementById(context+'AnalyseProgress');
+  const statusEl = document.getElementById(context+'AnalyseStatus');
+  const bar = document.getElementById(context+'ProgressBar');
+  const resultEl = document.getElementById(context+'ChordsResult');
+
+  zone.classList.add('analysing');
+  zone.innerHTML = `<div class="text-[11px] font-bold opacity-60">📁 ${file.name}</div>`;
+  progress.classList.remove('hidden');
+  resultEl.classList.add('hidden');
+
+  // Animate progress bar
+  let pct = 0;
+  const interval = setInterval(()=>{
+    pct = Math.min(pct + 2, 85);
+    bar.style.width = pct+'%';
+  }, 200);
+
+  try {
+    statusEl.textContent = 'Decoding audio…';
+    const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+    // Get current section markers depending on context
+    const markers = context === 'admin' ? (window._sectionMarkers||[]) : (window._editSectionMarkers||[]);
+
+    statusEl.textContent = 'Analysing chords per section…';
+    const chordsPerSection = await analyseAudio(file, audioCtx, markers);
+    audioCtx.close();
+
+    clearInterval(interval);
+    bar.style.width = '100%';
+
+    // Store result
+    if(context==='admin') adminDetectedChords = chordsPerSection;
+    else editDetectedChords = chordsPerSection;
+
+    // Display result
+    setTimeout(()=>{
+      progress.classList.add('hidden');
+      zone.classList.remove('analysing');
+      zone.innerHTML = `<div class="text-green-700 font-black text-[11px]">✓ Analysis complete</div><div class="text-[10px] opacity-50 mt-1">${file.name}</div>`;
+
+      if(Object.keys(chordsPerSection).length){
+        resultEl.innerHTML = Object.entries(chordsPerSection).map(([sec,chords])=>
+          `<div class="chord-section"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`
+        ).join('');
+        resultEl.classList.remove('hidden');
+      } else {
+        resultEl.innerHTML = '<div class="text-[11px] opacity-50 italic">No sections detected — chords saved as Full Song</div>';
+        resultEl.classList.remove('hidden');
+      }
+    }, 400);
+
+  } catch(e) {
+    clearInterval(interval);
+    progress.classList.add('hidden');
+    zone.classList.remove('analysing');
+    zone.innerHTML = `<div class="text-red-500 font-black text-[11px]">✗ Could not read file — try MP3 or WAV</div>`;
+    console.log('Audio analysis error:', e.message);
+  }
+}
+
+// ─── SECTION + KEY FILTERS ─────────────────────────────────────────────────
+function setSection(sec){
+  currentSection=sec;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+(sec==='Full Song'?'FullSong':sec)).classList.add('active');
+  renderContent(getFiltered(),currentQuery);
+}
+function setKey(key){
+  currentKey=key;
+  document.querySelectorAll('.key-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('key-'+key).classList.add('active');
+  renderContent(getFiltered(),currentQuery);
+}
+
+// ─── SEARCH ────────────────────────────────────────────────────────────────
+function doSearch(){
+  const query=document.getElementById('searchInput').value.trim();if(!query)return;
+  currentQuery=query;
+  const words=query.toLowerCase().split(/\s+/).filter(w=>w.length>1);
+  let assets=getFiltered();
+  const scored=assets.map(a=>{
+    let score=0;
+    words.forEach(w=>{
+      if((a.songTitle||'').toLowerCase().includes(w)) score+=12;
+      if((a.title||'').toLowerCase().includes(w)) score+=10;
+      if((a.ourKey||'').toLowerCase()===w) score+=8;
+      if((a.songSection||'').toLowerCase().includes(w)) score+=6;
+      if((a.tags||'').toLowerCase().includes(w)) score+=4;
+      if((a.bullets||'').toLowerCase().includes(w)) score+=2;
+      // Search chord data
+      const chordStr=Object.values(a.chordsPerSection||{}).join(' ')+(a.detectedChords||'');
+      if(chordStr.toLowerCase().includes(w)) score+=3;
+    });
+    return{...a,_score:score};
+  }).filter(a=>a._score>0).sort((a,b)=>b._score-a._score);
+
+  if(scored.length){
+    showAssembledAnswer(query,scored);
+    renderContent(scored,query);
+  }else{
+    document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 text-sm font-semibold opacity-70">No results for "<strong>${query}</strong>"</div>`;
+    document.getElementById('searchResults').classList.remove('hidden');
+    renderContent(assets);
+  }
+}
+
+function showAssembledAnswer(query,results){
+  const top=results.slice(0,3);
+  let steps='';
+  top.forEach((a,i)=>{
+    const sections=a.sectionMarkers||[];
+    const chordsPerSection=a.chordsPerSection||{};
+    steps+=`<div class="flex gap-4 items-start mb-5">
+      <span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span>
+      <div class="flex-1">
+        <div class="font-black text-sm mb-1">${a.title}${a.ourKey?` <span class="text-[#3d6263] opacity-60 font-bold">— Key: ${a.ourKey}</span>`:''}</div>
+        ${Object.keys(chordsPerSection).length?`<div class="space-y-1 mb-2">${Object.entries(chordsPerSection).slice(0,3).map(([sec,chords])=>`<div class="flex items-center gap-2"><span class="chord-badge">${sec}</span><span class="chord-value text-[11px]">${chords}</span></div>`).join('')}</div>`:''}
+        <div class="flex flex-wrap gap-2">
+          ${sections.slice(0,3).map(s=>`<button onclick="openCardAtTime('${a.id}',${s.seconds})" class="jump-btn bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1.5 hover:bg-[#3d6263] hover:text-white transition-all"><span>▶</span>${s.label} <span class="opacity-40">${fmtTime(s.seconds)}</span></button>`).join('')}
+          ${!sections.length?`<button onclick="openCard('${a.id}')" class="jump-btn bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1.5 rounded-full text-[10px] font-bold hover:bg-[#3d6263] hover:text-white transition-all">▶ Watch</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('searchResults').innerHTML=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg mb-8">
+    <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
+      <div><div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Results for</div><h2 class="font-black text-xl">"${query}"</h2></div>
+      <span class="text-[10px] font-black uppercase px-4 py-1.5 rounded-full bg-[#f0f6f6] border border-[#d1dfdf]">${results.length} match${results.length!==1?'es':''}</span>
+    </div>
+    <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">${steps}</div>
+  </div>`;
+  document.getElementById('searchResults').classList.remove('hidden');
+}
+
+function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
+function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(getFiltered());}
+
+// ─── TIMESTAMP HELPERS (used by both add and edit forms) ──────────────────
+function parseTimestamp(line){
+  const clean = line.replace(/^[\s•\-\*]+/,'');
+  const bracketFull = clean.match(/^\[(\d{1,2}):(\d{2}):(\d{2})\]/);
+  if(bracketFull) return parseInt(bracketFull[1])*3600+parseInt(bracketFull[2])*60+parseInt(bracketFull[3]);
+  const bracketShort = clean.match(/^\[(\d{1,2}):(\d{2})\]/);
+  if(bracketShort) return parseInt(bracketShort[1])*60+parseInt(bracketShort[2]);
+  const dotFull = clean.match(/^(\d{2})\.(\d{2})\.(\d{2})/);
+  if(dotFull) return parseInt(dotFull[1])*3600+parseInt(dotFull[2])*60+parseInt(dotFull[3]);
+  const dotShort = clean.match(/^(\d{1,2})\.(\d{2})\s/);
+  if(dotShort) return parseInt(dotShort[1])*60+parseInt(dotShort[2]);
+  return null;
+}
+function stripTimestamp(line){
+  return line
+    .replace(/^[\s•\-\*]+/,'')
+    .replace(/^\[[\d:]+\]\s*/,'')
+    .replace(/^\d{2}\.\d{2}\.\d{2}\s*/,'')
+    .replace(/^\d{1,2}\.\d{2}\s/,'')
+    .trim();
+}
+
+// ─── ADMIN ─────────────────────────────────────────────────────────────────
+function toggleAdmin(){document.getElementById('adminPanel').classList.toggle('hidden');updateCatDropdowns();renderCategoryList();}
+function showAdminTab(tab){
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.add('hidden'));
+  document.querySelectorAll('[id^="atab-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('admin-'+tab).classList.remove('hidden');
+  document.getElementById('atab-'+tab).classList.add('active');
+  if(tab==='manage')renderManageList();
+  if(tab==='categories')renderCategoryList();
+}
+
+async function handleEmbedPaste(el){
+  const val=el.value.trim();if(!val)return;
+  const srcMatch=val.match(/src=["']([^"']+)["']/);
+  const embedURL=srcMatch?srcMatch[1]:(val.startsWith('http')?val:null);
+  if(!embedURL){setStatus('pasteStatus','✗ Paste the full iframe embed code from Stream','text-red-500 font-black');return;}
+  window._extractedURL=embedURL;
+  const titleMatch=val.match(/title=["']([^"']+)["']/);
+  if(titleMatch){
+    const name=titleMatch[1].replace(/\.[^/.]+$/,'');
+    document.getElementById('adminTitle').value=name;
+    const parts=name.replace(/[_\-]/g,' ').split(' ');
+    if(parts.length>0&&!document.getElementById('adminSongTitle').value)
+      document.getElementById('adminSongTitle').value=parts[0];
+  }
+  document.getElementById('autoFilledSection').classList.remove('hidden');
+  setStatus('pasteStatus','✓ Embed code recognised — fetching transcript...','text-green-700 font-black');
+  // Auto-generate direct file path from title
+  if(titleMatch){
+    const filename=titleMatch[1].trim();
+    const BASE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/';
+    document.getElementById('adminDirectURL').value=BASE+filename;
+  }
+  const uidMatch=embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
+  if(uidMatch)await fetchTranscript(uidMatch[1]);
+  else{setStatus('transcriptStatus','Paste transcript manually below.','text-amber-600 font-semibold');document.getElementById('transcriptStatus').classList.remove('hidden');document.getElementById('adminTranscript').classList.remove('hidden');}
+}
+
+async function fetchTranscript(uniqueId){
+  try{
+    const r=await fetch(`${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,{headers:{'Accept':'application/json'},credentials:'include'});
+    if(r.ok){
+      const data=await r.json();const items=data?.value||[];
+      if(items.length){
+        const tUrl=items[0].transcriptContentUrl||items[0]['@microsoft.graph.downloadUrl'];
+        if(tUrl){const vr=await fetch(tUrl,{credentials:'include'});if(vr.ok){const t=parseVTT(await vr.text());if(t){onTranscriptLoaded(t);return;}}}
+      }
+    }
+  }catch(e){console.log('Transcript:',e.message);}
+  setStatus('transcriptStatus','In Stream: Transcript tab → select all → copy → paste below. Notes will generate automatically.','text-amber-600 font-semibold');
+  document.getElementById('transcriptStatus').classList.remove('hidden');
+  document.getElementById('adminTranscript').classList.remove('hidden');
+  document.getElementById('adminTranscript').oninput=async function(){if(this.value.trim().length>50){this.oninput=null;await generateBullets();setStatus('pasteStatus','✓ Transcript loaded — now drop your video file for chord detection','text-green-700 font-black');}};
+}
+
+async function onTranscriptLoaded(transcript){
+  document.getElementById('adminTranscript').value=transcript;
+  document.getElementById('adminTranscript').classList.remove('hidden');
+  document.getElementById('transcriptStatus').classList.add('hidden');
+  setStatus('pasteStatus','✓ Transcript loaded — generating section markers...','text-green-700 font-black');
+  await generateBullets();
+  setStatus('pasteStatus','✓ Sections detected — now drop your video file below for chord detection','text-green-700 font-black');
+}
+
+async function generateBullets(){
+  const transcript=document.getElementById('adminTranscript').value.trim();
+  if(!transcript)return;
+  document.getElementById('bulletsPreview').classList.add('hidden');
+  document.getElementById('bulletsGenerating').classList.remove('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  document.getElementById('sectionMarkersPreview').classList.add('hidden');
+
+  // Sections to detect — NO verses
+  // ALL sections detected for timestamps/jump buttons
+  const SECTION_KEYWORDS=['intro','verse','chorus','bridge','interlude','return','viva','outro','tag','instrumental'];
+  // Only THESE sections get chord analysis
+  const CHORD_SECTIONS=new Set(['intro','bridge','interlude','return','viva','outro','tag','instrumental']);
+
+
+  const sectionMarkers=[];
+  const lines=transcript.split('\n');
+
+  lines.forEach(line=>{
+    const seconds = parseTimestamp(line);
+    if(seconds===null) return;
+    const text = stripTimestamp(line).toLowerCase();
+    const matched = SECTION_KEYWORDS.find(k=>text===k||text.startsWith(k+' ')||text.startsWith(k+'\t'));
+    if(matched){
+      const label = stripTimestamp(line);
+      sectionMarkers.push({label:label.charAt(0).toUpperCase()+label.slice(1), seconds});
+    }
+  });
+
+  const introLine=lines.slice(0,5).join(' ').toLowerCase();
+  const keyMatch=introLine.match(/\bin\s+([a-g][b#]?)\b/i);
+  if(keyMatch&&!document.getElementById('adminOurKey').value){
+    const key=keyMatch[1].charAt(0).toUpperCase()+keyMatch[1].slice(1);
+    document.getElementById('adminOurKey').value=key;
+  }
+
+  document.getElementById('adminBullets').value='';
+  document.getElementById('adminBullets').classList.remove('hidden');
+
+  if(sectionMarkers.length){
+    document.getElementById('sectionMarkersPreview').innerHTML=`
+      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Detected sections — drop your video file below to get chords for each</div>
+      <div class="flex flex-wrap gap-2">${sectionMarkers.map(s=>`<span class="bg-[#3d6263] text-white px-3 py-1.5 rounded-full text-[10px] font-bold">▶ ${s.label} ${fmtTime(s.seconds)}</span>`).join('')}</div>`;
+    document.getElementById('sectionMarkersPreview').classList.remove('hidden');
+  }
+
+  window._sectionMarkers=sectionMarkers;
+  document.getElementById('regenBtn').classList.remove('hidden');
+  document.getElementById('bulletsGenerating').classList.add('hidden');
+}
+
+async function publishAsset(){
+  const title=document.getElementById('adminTitle').value.trim();
+  const url=window._extractedURL||document.getElementById('adminContentURL').value.trim();
+  if(!title||!url){alert('Title and embed URL are required.');return;}
+
+  // Build detectedChords flat string from chordsPerSection
+  const chordsPerSection=adminDetectedChords||{};
+  const detectedChords=Object.entries(chordsPerSection).map(([s,c])=>`${s}: ${c}`).join(' | ');
+
+  try{
+    await db.collection(COLLECTION).add({
+      title,
+      contentURL:url,
+      songTitle:document.getElementById('adminSongTitle').value.trim(),
+      ourKey:document.getElementById('adminOurKey').value,
+      songSection:document.getElementById('adminSongSection').value,
+      instrument:document.getElementById('adminInstrument').value,
+      category:document.getElementById('adminCategory').value,
+      tags:document.getElementById('adminTags').value.trim(),
+      directURL:document.getElementById('adminDirectURL').value.trim(),
+      transcript:document.getElementById('adminTranscript').value.trim(),
+      bullets:document.getElementById('adminBullets').value.trim(),
+      sectionMarkers:window._sectionMarkers||[],
+      chordsPerSection,
+      detectedChords,
+      tempo:null,
+      description:'',
+      published:true,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    alert('Published!');resetAdminForm();loadAssets();
+  }catch(e){alert('Publish failed: '+e.message);}
+}
+
+function resetAdminForm(){
+  ['adminTitle','adminSongTitle','adminTags','adminTranscript','adminBullets','adminContentURL'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['adminOurKey','adminSongSection','adminInstrument','adminCategory'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('autoFilledSection').classList.add('hidden');
+  document.getElementById('adminBullets').classList.add('hidden');
+  document.getElementById('regenBtn').classList.add('hidden');
+  document.getElementById('sectionMarkersPreview').classList.add('hidden');
+  document.getElementById('bulletsPreview').classList.remove('hidden');
+  document.getElementById('bulletsPreview').textContent='Paste embed code — section markers will appear here, then drop your video for chord detection.';
+  document.getElementById('adminDropZone').innerHTML='<div class="text-2xl mb-1">🎵</div><div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div><div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
+  document.getElementById('adminAnalyseProgress').classList.add('hidden');
+  document.getElementById('adminChordsResult').classList.add('hidden');
+  setStatus('pasteStatus','','');
+  window._extractedURL=null;window._sectionMarkers=[];adminDetectedChords={};
+}
+
+// ─── CATEGORIES ────────────────────────────────────────────────────────────
+function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(getFiltered(),currentQuery);}
+function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
+function renameCategory(idx){const n=prompt('Rename to:',categories[idx]);if(!n||n===categories[idx])return;categories[idx]=n;saveCategories();}
+function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;categories.splice(idx,1);saveCategories();}
+function renderCategoryList(){
+  const l=document.getElementById('categoryList');if(!l)return;
+  if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${c}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 transition-all">Delete</button></div>`).join('');
+}
+function updateCatDropdowns(){
+  ['adminCategory','editCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${c}"${c===v?' selected':''}>${c}</option>`).join('');});
+}
+
+// ─── MANAGE ────────────────────────────────────────────────────────────────
+async function renderManageList(){
+  const list=document.getElementById('manageList');if(!list)return;
+  list.innerHTML='<div class="text-sm opacity-50 italic">Loading...</div>';
+  const items=await loadAll();
+  if(!items.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
+  list.innerHTML=items.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
+    <span class="text-lg">${{Guitar:'🎸',Keyboard:'🎹',Both:'🎸🎹'}[a.instrument]||'▶'}</span>
+    <div class="flex-grow min-w-0">
+      <div class="font-bold text-sm truncate">${a.title}</div>
+      <div class="text-[10px] opacity-50">${a.songSection||''} ${a.ourKey?'· Key: '+a.ourKey:''} · ${a.instrument||''} · ${Object.keys(a.chordsPerSection||{}).length?'Chords detected ✓':'No chords'} · ${a.published?'Published':'Unpublished'}</div>
+    </div>
+    <div class="flex gap-2 flex-shrink-0">
+      <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
+      <button onclick="togglePublish('${a.id}',${a.published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.published?'bg-amber-50 text-amber-700 border-amber-200':'bg-green-50 text-green-700 border-green-200'}">${a.published?'Unpublish':'Publish'}</button>
+    </div>
+  </div>`).join('');
+  window._manageItems=items;
+}
+
+async function togglePublish(id,current){
+  try{await db.collection(COLLECTION).doc(id).update({published:!current});renderManageList();loadAssets();}
+  catch(e){alert('Failed: '+e.message);}
+}
+
+function editItem(id){
+  const a=(window._manageItems||[]).find(x=>x.id===id);if(!a)return;
+  document.getElementById('editId').value=id;
+  document.getElementById('editTitle').value=a.title||'';
+  document.getElementById('editSongTitle').value=a.songTitle||'';
+  document.getElementById('editTags').value=a.tags||'';
+  document.getElementById('editDirectURL').value=a.directURL||generateDirectURL(a.title||'');
+  document.getElementById('editBullets').value=a.bullets||'';
+  updateCatDropdowns();
+  document.getElementById('editCategory').value=a.category||'';
+  document.getElementById('editOurKey').value=a.ourKey||'';
+  document.getElementById('editSongSection').value=a.songSection||'';
+  document.getElementById('editInstrument').value=a.instrument||'';
+
+  // Load transcript and re-parse section markers fresh
+  document.getElementById('editTranscript').value=a.transcript||'';
+  if(a.transcript) parseEditTranscript(a.transcript);
+  else window._editSectionMarkers=a.sectionMarkers||[];
+
+  // Show existing chords if any
+  const existingChords=a.chordsPerSection||{};
+  const resultEl=document.getElementById('editChordsResult');
+  if(Object.keys(existingChords).length){
+    editDetectedChords=existingChords;
+    resultEl.innerHTML='<div class="text-[10px] font-black uppercase opacity-50 mb-2">Current chords (drop file to update)</div>'+Object.entries(existingChords).map(([sec,chords])=>`<div class="chord-section"><span class="chord-badge">${sec}</span><span class="chord-value">${chords}</span></div>`).join('');
+    resultEl.classList.remove('hidden');
+  } else {
+    editDetectedChords={};
+    resultEl.classList.add('hidden');
+  }
+
+  const em=document.getElementById('editModal');em.classList.remove('hidden');em.scrollIntoView({behavior:'smooth'});
+}
+
+function parseEditTranscript(transcript){
+  if(!transcript||!transcript.trim()) return;
+  const SECTION_KEYWORDS=['intro','verse','chorus','bridge','interlude','return','viva','outro','tag','instrumental'];
+  const sectionMarkers=[];
+  const lines=transcript.split('\n');
+  lines.forEach(line=>{
+    const seconds=parseTimestamp(line);
+    if(seconds===null) return;
+    const text=stripTimestamp(line).toLowerCase();
+    const matched=SECTION_KEYWORDS.find(k=>text===k||text.startsWith(k+' ')||text.startsWith(k+'\t'));
+    if(matched){
+      const label=stripTimestamp(line);
+      sectionMarkers.push({label:label.charAt(0).toUpperCase()+label.slice(1),seconds});
+    }
+  });
+  window._editSectionMarkers=sectionMarkers;
+  const preview=document.getElementById('editSectionMarkersPreview');
+  if(sectionMarkers.length){
+    preview.innerHTML='<div class="text-[10px] font-black uppercase opacity-50 mb-1">Sections detected — drop video to get chords</div><div class="flex flex-wrap gap-1.5">'+sectionMarkers.map(s=>`<span class="bg-[#3d6263] text-white px-3 py-1.5 rounded-full text-[10px] font-bold">${s.label} ${fmtTime(s.seconds)}</span>`).join('')+'</div>';
+    preview.classList.remove('hidden');
+  } else {
+    preview.classList.add('hidden');
+  }
+}
+
+function closeEdit(){
+  document.getElementById('editModal').classList.add('hidden');
+  editDetectedChords={};
+  document.getElementById('editDropZone').innerHTML='<div class="text-2xl mb-1">🎵</div><div class="font-black text-[11px] uppercase opacity-60">Drop video or audio file</div><div class="text-[10px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
+}
+
+async function saveEdit(){
+  const id=document.getElementById('editId').value;
+  const chordsPerSection=editDetectedChords||{};
+  const detectedChords=Object.entries(chordsPerSection).map(([s,c])=>`${s}: ${c}`).join(' | ');
+  try{
+    await db.collection(COLLECTION).doc(id).update({
+      title:document.getElementById('editTitle').value.trim(),
+      songTitle:document.getElementById('editSongTitle').value.trim(),
+      category:document.getElementById('editCategory').value,
+      tags:document.getElementById('editTags').value.trim(),
+      bullets:document.getElementById('editBullets').value.trim(),
+      ourKey:document.getElementById('editOurKey').value,
+      songSection:document.getElementById('editSongSection').value,
+      instrument:document.getElementById('editInstrument').value,
+      directURL:document.getElementById('editDirectURL').value.trim(),
+      transcript:document.getElementById('editTranscript').value.trim(),
+      sectionMarkers:window._editSectionMarkers||[],
+      chordsPerSection,
+      detectedChords,
+    });
+    closeEdit();renderManageList();loadAssets();
+  }catch(e){alert('Save failed: '+e.message);}
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────
+const SP_VIDEO_BASE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/';
+function generateDirectURL(title){
+  if(!title)return'';
+  // Try to construct filename from title e.g. "Gratitude in F" → "Gratitude in F.mp4"
+  const name=title.replace(/\s*[-–]\s*(intro|verse|chorus|bridge|interlude|return|outro|full song).*/i,'').trim();
+  return SP_VIDEO_BASE+name+'.mp4';
+}
+function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
+function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
+function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
+function fmtTime(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{const rw=w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');text=text.replace(new RegExp(`(${rw})`,'gi'),'<mark>$1</mark>');});return text;}
+</script>
+</body>
+</html>

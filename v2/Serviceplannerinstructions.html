@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worship Planner — How to Use | Worship & AV Hub</title>
+<style>
+  :root{
+    --canvas:#eef4f3;--surface:#fff;--surface-2:#f6faf9;--ink:#14201f;--body:#3a4d4c;--muted:#6b8281;--faint:#93a8a6;
+    --hairline:#dde7e6;--hairline-strong:#c9d8d6;--brand:#3d6263;--brand-dark:#2e4c4d;--brand-tint:#e7f0ef;--brand-ring:rgba(61,98,99,.28);
+    --success:#3b7d23;--success-tint:#e7f1e0;--danger:#b0392c;--danger-tint:#f7e7e4;--gold:#b07d2e;--gold-tint:#f6efe1;
+    --shadow-sm:0 1px 2px rgba(20,32,31,.05);--shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);--shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
+    --r-sm:8px;--r-md:12px;--r-lg:18px;--r-pill:999px;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:0; background:var(--brand); font-family:'Segoe UI', Arial, sans-serif; color:var(--body); }
+
+  .site-header { height:90px; background:var(--surface); padding:0 40px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--hairline); box-shadow:var(--shadow-sm); }
+
+  .tut-outer { background:var(--brand); padding:28px 20px 48px; min-height:calc(100vh - 90px); }
+  .tut-inner { background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-lg); padding:32px; max-width:760px; margin:0 auto; box-shadow:var(--shadow-lg); }
+
+  .chapter-nav { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:22px; }
+  .chapter-pill { font-size:13px; font-weight:700; padding:6px 14px; border-radius:var(--r-pill); cursor:pointer; border:1px solid var(--hairline-strong); color:var(--muted); background:var(--surface-2); transition:all .15s; font-family:inherit; }
+  .chapter-pill:hover { border-color:var(--brand); color:var(--brand); }
+  .chapter-pill.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+
+  .tut-heading { margin:0 0 6px; font-size:26px; font-weight:800; letter-spacing:-.02em; color:var(--ink); text-transform:none; }
+  .tut-subheading { margin:0 0 22px; font-size:13px; font-weight:500; color:var(--muted); }
+
+  .progress-bar-bg { height:6px; background:var(--hairline); border-radius:var(--r-pill); margin-bottom:1.5rem; overflow:hidden; }
+  .progress-bar-fill { height:6px; background:var(--brand); border-radius:var(--r-pill); transition:width .35s ease; }
+
+  .step-badge { display:inline-block; font-size:12px; font-weight:700; color:var(--brand); background:var(--brand-tint); border-radius:var(--r-pill); padding:5px 12px; margin-bottom:12px; }
+  .step-title { font-size:20px; font-weight:800; letter-spacing:-.015em; color:var(--ink); margin:0 0 10px; }
+  .step-desc { font-size:16px; font-weight:400; line-height:1.7; color:var(--body); margin:0 0 1.25rem; }
+
+  .sim-area { border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; margin-bottom:1.25rem; background:var(--surface); box-shadow:var(--shadow-sm); }
+  .sim-topbar { background:var(--surface-2); border-bottom:1px solid var(--hairline); padding:11px 16px; font-size:13px; font-weight:700; color:var(--brand); }
+  .sim-body { padding:16px; }
+
+  .highlight { outline:2.5px solid var(--brand); outline-offset:1px; border-radius:var(--r-sm); animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{ outline-color:var(--brand); } 50%{ outline-color:var(--brand-ring); } }
+
+  .tip-box { background:var(--brand-tint); border:1px solid var(--hairline-strong); border-radius:var(--r-md); padding:12px 15px; font-size:13px; font-weight:500; color:var(--brand-dark); margin-bottom:1.25rem; line-height:1.6; }
+  .tip-box::before { content: "💡 "; }
+  .warn-box { background:var(--gold-tint); border:1px solid #e6cc96; border-radius:var(--r-md); padding:12px 15px; font-size:13px; font-weight:500; color:#7a5500; margin-bottom:1.25rem; line-height:1.6; }
+  .warn-box::before { content: "⚠️ "; }
+
+  .nav-row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+  .nav-btn { background:var(--surface); border:1px solid var(--hairline-strong); border-radius:var(--r-md); padding:11px 20px; font-size:14px; font-weight:700; cursor:pointer; color:var(--brand); font-family:inherit; transition:all .15s; }
+  .nav-btn:hover { background:var(--surface-2); border-color:var(--brand); }
+  .nav-btn.primary { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .nav-btn.primary:hover { background:var(--brand-dark); border-color:var(--brand-dark); }
+  .step-counter { font-size:13px; font-weight:500; color:var(--muted); text-align:center; }
+
+  .sim-btn-primary { display:inline-block; background:var(--brand); color:#fff; padding:8px 16px; border-radius:var(--r-md); font-size:12px; font-weight:700; cursor:default; }
+  .sim-btn-secondary { display:inline-block; background:var(--brand-tint); color:var(--brand); border:1px solid var(--hairline-strong); padding:8px 16px; border-radius:var(--r-md); font-size:12px; font-weight:700; cursor:default; }
+  .sim-input { display:inline-block; background:var(--surface); border:1px solid var(--hairline-strong); border-radius:var(--r-md); padding:7px 12px; font-size:13px; font-weight:700; color:var(--brand); }
+  .sim-select { display:inline-block; background:var(--surface); border:1px solid var(--hairline-strong); border-radius:var(--r-md); padding:7px 12px; font-size:13px; font-weight:700; color:var(--brand); }
+  .sim-tag { display:inline-block; background:var(--brand-tint); border:1px solid var(--hairline); border-radius:var(--r-sm); padding:3px 10px; font-size:11px; font-weight:700; color:var(--brand); margin:2px; }
+  .sim-song-block { background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-md); padding:14px 16px; margin-bottom:10px; }
+  .sim-item-block { background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--r-md); padding:10px 16px; margin-bottom:8px; font-weight:700; font-size:13px; color:var(--brand); display:flex; align-items:center; gap:10px; }
+  .drag-handle-sim { color:var(--faint); font-size:18px; cursor:grab; }
+  .song-num { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  .conf-teal { background:var(--brand-tint); color:var(--brand); }
+  .rota-table { width:100%; border-collapse:separate; border-spacing:0 4px; font-size:13px; }
+  .rota-table th { text-align:left; padding:8px 10px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
+  .rota-table td { padding:10px 12px; background:var(--surface); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline); color:var(--ink); }
+  .rota-table td:first-child { border-left:1px solid var(--hairline); border-radius:var(--r-md) 0 0 var(--r-md); font-weight:700; color:var(--brand); }
+  .rota-table td:last-child { border-right:1px solid var(--hairline); border-radius:0 var(--r-md) var(--r-md) 0; }
+  .rota-tech td:first-child { color:var(--success); }
+  .modal-sim { background:var(--surface); border-radius:var(--r-lg); padding:20px; border:1px solid var(--hairline); max-width:340px; margin:0 auto; box-shadow:var(--shadow-lg); }
+
+  .finish-box { text-align:center; padding:2rem 0; }
+  .finish-box h2 { font-size:26px; font-weight:800; letter-spacing:-.02em; color:var(--ink); margin:0 0 10px; }
+  .finish-box p { color:var(--body); font-size:16px; line-height:1.7; margin:0 0 1.25rem; }
+</style>
+</head>
+<body>
+
+<div class="site-header">
+  <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300"
+       style="height: 75px; width: auto; margin-top: 8px;" alt="Church logo">
+  <div style="text-align: right; margin-top: 8px;">
+    <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800;">Secure Portal</div>
+    <div style="font-size: 13px; color: var(--brand); font-weight: 700;">Worship & AV Hub</div>
+  </div>
+</div>
+
+<div class="tut-outer">
+  <div class="tut-inner">
+
+    <p class="tut-heading">Sunday Worship Planner — How to use</p>
+    <p class="tut-subheading">Click any chapter to jump ahead, or use Next to work through from the beginning.</p>
+
+    <div class="chapter-nav" id="chapterNav"></div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog"></div></div>
+    <div id="step-content"></div>
+
+    <div class="nav-row">
+      <button class="nav-btn" id="btn-prev" onclick="changeStep(-1)">← Back</button>
+      <span class="step-counter" id="step-ctr"></span>
+      <button class="nav-btn primary" id="btn-next" onclick="changeStep(1)">Next →</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const chapters = [
+  { label: "Overview" },
+  { label: "Setup" },
+  { label: "Order of Service" },
+  { label: "Songs" },
+  { label: "Team" },
+  { label: "Saving & Emailing" },
+];
+
+const steps = [
+
+  // ── CHAPTER 1: OVERVIEW ──
+  {
+    chapter: 0,
+    badge: "Chapter 1 — Overview",
+    title: "What is the Sunday Worship Planner?",
+    desc: "The Worship Planner is where you build the full plan for a Sunday service. You can plan the songs, arrange the order of service, see who's on the team, add notes for each person, and then send the whole plan to the team by email — all from one page.",
+    tip: "Nothing is sent or saved until you press a button. You can plan freely without worrying about sending something by accident.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Sunday Worship Planner — at a glance</div>
+        <div class="sim-body" style="text-align:center; padding:24px 16px">
+          <p style="font-size:28px;margin:0 0 10px">🎵</p>
+          <p style="font-size:14px;color:#4a6060;margin:0 0 20px">Plan your whole service in one place</p>
+          <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap">
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">📅</div>Pick the date & service</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">🎶</div>Build the order of service</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">👥</div>See the team rota</div>
+            <div style="text-align:center;font-size:12px;color:#4a6060"><div style="font-size:20px">💾</div>Save & email the plan</div>
+          </div>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 2: SETUP ──
+  {
+    chapter: 1,
+    badge: "Chapter 2 — Setup",
+    title: "Step 1: Pick the date",
+    desc: "At the top of the page you'll see a date picker. Click on it and choose the Sunday you're planning for. As soon as you pick a date, the planner automatically looks up what services are happening that day.",
+    tip: "Always start by picking the date first — everything else on the page depends on it.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Top bar — date picker</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <div>
+              <p style="font-size:11px;color:#7a9a9a;font-weight:700;margin:0 0 4px;text-transform:uppercase">1. Click here first</p>
+              <input type="date" class="sim-input highlight" value="2025-06-15" style="min-width:150px">
+            </div>
+            <div style="opacity:0.3">
+              <p style="font-size:11px;color:#7a9a9a;font-weight:700;margin:0 0 4px;text-transform:uppercase">2. Then this appears</p>
+              <span class="sim-select">Select Service...</span>
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 1,
+    badge: "Chapter 2 — Setup",
+    title: "Step 2: Choose the service",
+    desc: "Once you've picked a date, a dropdown appears showing the services happening that day — for example \"Morning Service\" or \"Evening Service\". Click on the one you want to plan for.<br><br>The page will then load the team rota and any previously saved plan for that service automatically.",
+    tip: "If the dropdown is empty after picking a date, it means no services have been set up in the rota for that day yet. Check with whoever manages the rota.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Choosing a service</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+            <div>
+              <p style="font-size:11px;color:#7a9a9a;font-weight:700;margin:0 0 4px;text-transform:uppercase">Date chosen</p>
+              <span class="sim-input">15 June 2025</span>
+            </div>
+            <div>
+              <p style="font-size:11px;color:#7a9a9a;font-weight:700;margin:0 0 4px;text-transform:uppercase">Now pick the service</p>
+              <select class="sim-select highlight" style="min-width:180px">
+                <option>Select Service...</option>
+                <option selected>Morning Service</option>
+                <option>Evening Service</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding:10px 14px;background:#e6f0f0;border-radius:8px;font-size:13px;color:#3d6263;font-weight:700">
+            ✓ Team rota loaded &nbsp;·&nbsp; Worship Leader: <strong>Sarah</strong>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 1,
+    badge: "Chapter 2 — Setup",
+    title: "General Notes for the service",
+    desc: "Next to the date and service dropdowns, there's a \"General Notes\" field. This fills in automatically from the main rota when you select the service — so you'll usually see something already there.<br><br>You can edit it if you need to add or change anything. These notes appear at the top of the team email.",
+    tip: "Because this comes from the rota, you usually won't need to touch it — just check it looks right before sending.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">General Notes — auto-filled from the rota</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <span class="sim-input" style="min-width:150px">15 June 2025</span>
+            <span class="sim-select">Morning Service</span>
+            <input class="sim-input highlight" value="Communion this week" style="min-width:220px">
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">↑ This filled in automatically from the rota — you can still edit it if needed</p>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 3: ORDER OF SERVICE ──
+  {
+    chapter: 2,
+    badge: "Chapter 3 — Order of Service",
+    title: "What is the Order of Service?",
+    desc: "The Order of Service is the running list of everything that happens during the service — songs, the message, welcome and notices, and anything else. You build it by adding songs and service items, and you can drag them into the right order.",
+    tip: "A default order is set up for you when you load the page — you can add, remove, or rearrange anything.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Example order of service</div>
+        <div class="sim-body">
+          <div class="sim-song-block" style="display:flex;gap:10px;align-items:center">
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 1</span>
+            <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">How Great Is Our God</span>
+            <span class="sim-tag">G</span>
+          </div>
+          <div class="sim-song-block" style="display:flex;gap:10px;align-items:center">
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 2</span>
+            <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">Amazing Grace</span>
+            <span class="sim-tag">D</span>
+          </div>
+          <div class="sim-item-block"><span class="drag-handle-sim">⠿</span><span>Welcome and Notices</span></div>
+          <div class="sim-song-block" style="display:flex;gap:10px;align-items:center">
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 3</span>
+            <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">In Christ Alone</span>
+            <span class="sim-tag">E</span>
+          </div>
+          <div class="sim-item-block"><span class="drag-handle-sim">⠿</span><span>Message</span></div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 2,
+    badge: "Chapter 3 — Order of Service",
+    title: "Adding songs and service items",
+    desc: "Use the two buttons above the order of service list to add things:<br><br><strong>+ Add Song</strong> — adds a new song slot where you can search for a song from the library.<br><br><strong>+ Add Item</strong> — adds a text item like \"Welcome\", \"Message\", \"Communion\" or anything else that's not a song.<br><br>Each item can be deleted using the × button on the right.",
+    tip: "Service items (like Welcome and Message) are just labels — type whatever you like in them.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Add Song and Add Item buttons</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+            <span class="sim-btn-secondary highlight">+ Add Song</span>
+            <span class="sim-btn-secondary">+ Add Item</span>
+          </div>
+          <div class="sim-song-block" style="display:flex;gap:10px;align-items:center;border:2px dashed #3d6263">
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 4</span>
+            <input class="sim-input" placeholder="Song title" style="flex:1;min-width:120px">
+            <span style="color:#d1dfdf;font-size:18px;font-weight:700">×</span>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:8px 0 0">A new song slot appears — ready for you to type in</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 2,
+    badge: "Chapter 3 — Order of Service",
+    title: "Reordering with drag and drop",
+    desc: "You can drag any song or item into a different position. Each row has a dotted drag handle (⠿) on the left — click and hold that, then drag the row up or down to where you want it.<br><br>The song numbers update automatically when you rearrange.",
+    tip: "On a touchscreen, press and hold the drag handle for a moment before dragging.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Drag to reorder — grab the ⠿ handle</div>
+        <div class="sim-body">
+          <div class="sim-song-block" style="display:flex;gap:10px;align-items:center;border:2px solid #3d6263;background:#e6f0f0">
+            <span class="drag-handle-sim highlight" style="color:#3d6263;font-size:22px">⠿</span>
+            <span class="song-num">Song 2</span>
+            <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">Amazing Grace</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← being dragged</span>
+          </div>
+          <div class="sim-item-block" style="opacity:0.4"><span class="drag-handle-sim">⠿</span><span>Welcome and Notices</span></div>
+          <div class="sim-song-block" style="display:flex;gap:10px;align-items:center;opacity:0.4">
+            <span class="drag-handle-sim">⠿</span><span class="song-num">Song 3</span>
+            <span style="font-size:13px;font-weight:700;color:#3d6263;flex:1">In Christ Alone</span>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">Grab the ⠿ handle and drag — song numbers update automatically</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 2,
+    badge: "Chapter 3 — Order of Service",
+    title: "Opening and Closing Remarks",
+    desc: "At the top and bottom of the page there are two text boxes:<br><br><strong>Opening Remarks</strong> — this becomes the introduction at the top of the team email, just below the service notes. Use it for a personal message to the team, a call to worship, or anything you want them to read before seeing the order of service.<br><br><strong>Closing Remarks</strong> — this appears at the very end of the email, after the team rota. Use it for a blessing, closing encouragement, or any final reminders.",
+    tip: "Think of these as your personal message wrapping the email — the opening sets the tone, the closing sends the team off well.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Opening & Closing Remarks — email intro and ending</div>
+        <div class="sim-body">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:#3d6263;opacity:0.6;margin:0 0 6px">Opening Remarks</p>
+          <textarea class="sim-input highlight" style="width:100%;min-height:55px;font-size:12px;font-weight:400;color:#4a6060;resize:none" readonly>Hi team — really looking forward to worshipping together this Sunday. Let's make sure we arrive by 9:15 for sound check...</textarea>
+          <div style="margin:10px 0;padding:8px 12px;background:#e6f0f0;border-radius:8px;font-size:11px;color:#3d6263;font-weight:700">↑ Appears at the top of the email, just below the service notes</div>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:#3d6263;opacity:0.6;margin:12px 0 6px">Closing Remarks</p>
+          <textarea class="sim-input" style="width:100%;min-height:45px;font-size:12px;font-weight:400;color:#4a6060;resize:none;opacity:0.7" readonly>May the Lord bless you and keep you. See you Sunday!</textarea>
+          <div style="margin:10px 0;padding:8px 12px;background:#f4f8f8;border-radius:8px;font-size:11px;color:#3d6263;font-weight:700">↑ Appears at the very end of the email, after the team rota</div>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 4: SONGS ──
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Songs",
+    title: "Searching for a song",
+    desc: "When you add a song slot, click in the title field and start typing. After 2 letters, a list of matching songs from the library appears below — click on the one you want to select it.<br><br>If the song isn't in the library, you'll see links to search SongSelect and YouTube, and an option to upload the song.",
+    tip: "You can search by any word in the title — you don't have to start from the beginning. For example, typing \"great\" will find \"How Great Is Our God\".",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Song search dropdown</div>
+        <div class="sim-body">
+          <div class="sim-song-block">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+              <span class="drag-handle-sim">⠿</span><span class="song-num">Song 1</span>
+              <div style="position:relative;flex:1">
+                <input class="sim-input highlight" value="how gr" style="width:100%">
+                <div style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #d1dfdf;border-radius:10px;margin-top:4px;z-index:10;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1)">
+                  <div style="padding:10px 12px;font-size:13px;font-weight:700;color:#3d6263;border-bottom:1px solid #eee;background:#e6f0f0">How Great Is Our God</div>
+                  <div style="padding:10px 12px;font-size:13px;font-weight:700;color:#3d6263;border-bottom:1px solid #eee">How Great Thou Art</div>
+                  <div style="padding:10px 12px;font-size:13px;font-weight:700;color:#3d6263">Great Is Thy Faithfulness</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:50px 0 0">↑ Click a result to select that song</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Songs",
+    title: "The Songs Database Viewer",
+    desc: "The <strong>Songs Database Viewer</strong> button opens the full song library in a new tab. Use it to browse every song that's been added to the system and check details before you start planning.<br><br>The viewer has two ways to search:<br><br><strong>Search Titles</strong> — type any part of a title to filter the list.<br><br><strong>Search Lyrics</strong> — type a lyric phrase and press Enter to find songs by their words. Handy when you know the tune but can't remember the title!<br><br>Click any song in the left-hand list to see its full details on the right — including the artist, CCLI number, a direct link to CCLI SongSelect, and a link to watch it on YouTube.",
+    tip: "The Songs Database Viewer is also useful for quickly looking up a CCLI number, or for checking whether a song has been added to the library before trying to use it in the planner.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Songs Database Viewer — overview</div>
+        <div class="sim-body">
+          <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+            <span class="sim-btn-secondary highlight" style="font-size:11px;padding:6px 16px;cursor:pointer">Songs Database Viewer</span>
+            <span style="font-size:11px;color:#7a9a9a;font-style:italic">← opens in a new tab</span>
+          </div>
+          <div style="display:flex;border:1px solid #d1dfdf;border-radius:10px;overflow:hidden;font-size:12px;min-height:180px">
+            <div style="width:155px;min-width:155px;background:#fff;border-right:1px solid #d1dfdf;padding:10px;">
+              <div style="margin-bottom:6px">
+                <div style="font-size:9px;font-weight:700;color:#3d6263;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.08em">Search Titles</div>
+                <input class="sim-input" placeholder="Search songs..." style="width:100%;font-size:11px;padding:5px 8px;border-radius:9999px;">
+              </div>
+              <div style="margin-bottom:10px">
+                <div style="font-size:9px;font-weight:700;color:#3d6263;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.08em">Search Lyrics</div>
+                <input class="sim-input" placeholder="Find by lyrics..." style="width:100%;font-size:11px;padding:5px 8px;border-radius:9999px;">
+              </div>
+              <div style="padding:8px;font-size:11px;font-weight:700;color:#3d6263;border-bottom:1px solid #f0f0f0;background:#e6f0f0;border-radius:6px;margin-bottom:2px">Amazing Grace</div>
+              <div style="padding:8px;font-size:11px;font-weight:700;color:#3d6263;border-bottom:1px solid #f0f0f0;">Great Is Thy Faithfulness</div>
+              <div style="padding:8px;font-size:11px;font-weight:700;color:#3d6263;">How Great Is Our God</div>
+            </div>
+            <div style="flex:1;background:#fff;padding:14px;">
+              <div style="font-size:15px;font-weight:800;color:#3d6263;margin-bottom:12px">Amazing Grace</div>
+              <div style="font-size:9px;font-weight:700;color:#3d6263;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Artist</div>
+              <div style="font-size:12px;font-weight:700;color:#1a2e2e;background:#f4f8f8;border-radius:8px;padding:5px 10px;margin-bottom:8px">John Newton / Traditional</div>
+              <div style="font-size:9px;font-weight:700;color:#3d6263;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">CCLI Number</div>
+              <div style="font-size:12px;font-weight:700;color:#1a2e2e;background:#f4f8f8;border-radius:8px;padding:5px 10px;margin-bottom:6px">22025</div>
+              <a style="font-size:11px;font-weight:700;color:#007bff;display:block;margin-bottom:4px;text-decoration:underline">📄 View on CCLI SongSelect</a>
+              <a style="font-size:11px;font-weight:700;color:#007bff;display:block;text-decoration:underline">▶ Watch on YouTube</a>
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Songs",
+    title: "Choosing the key",
+    desc: "Each song has three key dropdowns — Key 1, Key 2, Key 3. You can set up to three keys at once, which is useful when different musicians play in different keys.<br><br>As soon as you pick a key, the planner shows the available sheet music files for that key directly below — with a link to open each one.",
+    tip: "You don't have to fill all three key boxes. Just use as many as you need — often just one is enough.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Selecting keys for a song</div>
+        <div class="sim-body">
+          <div class="sim-song-block">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="song-num">Song 1</span>
+              <span style="font-weight:700;color:#3d6263;font-size:13px;flex:1">How Great Is Our God</span>
+              <select class="sim-input highlight" style="width:80px"><option>G</option></select>
+              <select class="sim-input" style="width:80px;opacity:0.5"><option>Key 2</option></select>
+              <select class="sim-input" style="width:80px;opacity:0.5"><option>Key 3</option></select>
+            </div>
+            <div style="margin-top:12px;padding:12px;background:#f0f6f6;border-radius:10px;border:1px solid #d1dfdf">
+              <div style="font-size:10px;font-weight:700;color:#3d6263;margin-bottom:8px">Key: G</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <a style="display:inline-block;background:#3d6263;color:#fff;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;text-decoration:none">Open Chord Sheet</a>
+                <a style="display:inline-block;background:#3d6263;color:#fff;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;text-decoration:none">Open Lead Sheet</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Songs",
+    title: "Available & missing keys",
+    desc: "Below the key dropdowns, the planner shows you which keys are available in the library for that song, and which are missing.<br><br><strong>Available</strong> — keys that have sheet music files uploaded already.<br><strong>Missing</strong> — keys that don't have files yet.<br><br>This helps you know if you need to upload a new file before the service.",
+    tip: "If a key you need is showing as missing, use the Batch Music Importer to upload the file before the service.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Available and missing keys panel</div>
+        <div class="sim-body">
+          <div style="background:#f0f6f6;padding:12px;border-radius:10px;font-size:12px">
+            <div style="margin-bottom:4px"><span style="color:#3d6263;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.1em">Available:</span> <span style="color:#3d6263">C, D, E, G, A</span></div>
+            <div><span style="color:#c0392b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.1em">Missing:</span> <span style="color:#3d6263;opacity:0.5">Ab, Am, Bb, Bm, Cm, Db, Dm, Eb, Em, F, Fm, F#, Gb, Gm</span></div>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">This appears automatically when you select a song — no action needed unless you need a missing key</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Songs",
+    title: "Song notes and the serve count",
+    desc: "Each song has a notes box where you can type instructions for the band — things like \"Start slow\", \"Instrumental break after verse 2\", or \"Key change on final chorus\".<br><br>Next to the song title you'll see a <strong>number badge</strong>. This shows how many Sundays that song has been used recently. If the badge is highlighted in dark teal, it means this is the highest serve count that song has had — a useful nudge that you might want to give it a rest for a few weeks.",
+    tip: "Notes you've written for a song before are remembered and filled in automatically next time you use the same song with the same worship leader.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Song notes and serve count badge</div>
+        <div class="sim-body">
+          <div class="sim-song-block">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+              <span class="song-num">Song 2</span>
+              <span style="font-weight:700;color:#3d6263;font-size:13px;flex:1">Amazing Grace</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="conf-teal highlight" style="font-size:14px;font-weight:700;padding:4px 12px;border-radius:8px;background:#3d6263;color:#fff">12</span>
+                <span style="font-size:11px;color:#7a9a9a">← Sundays played<br><span style="color:#3d6263;font-weight:700">Dark = highest ever</span></span>
+              </div>
+            </div>
+            <textarea class="sim-input highlight" style="width:100%;font-size:12px;font-weight:400;resize:none;min-height:40px" readonly>Start slow and build — key change to E on final chorus</textarea>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:8px 0 0">The dark teal badge means this song is at its highest serve count — consider resting it for a few weeks</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 3,
+    badge: "Chapter 4 — Songs",
+    title: "Expanding and collapsing song details",
+    desc: "To keep the page tidy, each song can be collapsed down to just the title. Click the small arrow (▼ or ▶) on the left of a song row to expand or collapse its details.<br><br>The first song is always expanded when you add it. Others collapse automatically to save space.",
+    tip: "Collapse songs you've finished editing to make it easier to see the overall order of service at a glance.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Collapse / expand a song</div>
+        <div class="sim-body">
+          <div class="sim-song-block">
+            <div style="display:flex;gap:10px;align-items:center">
+              <span class="drag-handle-sim">⠿</span>
+              <span class="highlight" style="font-weight:700;color:#3d6263;font-size:14px;width:24px;text-align:center;cursor:pointer">▼</span>
+              <span class="song-num">Song 1</span>
+              <span style="font-weight:700;color:#3d6263;flex:1">How Great Is Our God</span>
+              <span class="sim-tag">G</span>
+            </div>
+            <div style="margin-top:10px;margin-left:44px;padding:10px;background:#f0f6f6;border-radius:8px;font-size:12px;color:#4a6060">
+              ↑ Notes and sheet music links shown here when expanded
+            </div>
+          </div>
+          <div class="sim-song-block" style="opacity:0.6">
+            <div style="display:flex;gap:10px;align-items:center">
+              <span class="drag-handle-sim">⠿</span>
+              <span style="font-weight:700;color:#3d6263;font-size:14px;width:24px;text-align:center">▶</span>
+              <span class="song-num">Song 2</span>
+              <span style="font-weight:700;color:#3d6263;flex:1">Amazing Grace</span>
+              <span class="sim-tag">D</span>
+            </div>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:8px 0 0">Song 2 is collapsed — click ▶ to expand it</p>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 5: TEAM ──
+  {
+    chapter: 4,
+    badge: "Chapter 5 — Service Team",
+    title: "The team rota",
+    desc: "The Service Team section shows everyone who is rostered for that Sunday — automatically loaded from the rota when you select the service.<br><br>It shows each person's role and name. Worship roles (like Worship Leader, Guitar, Keys) appear first. Tech roles like Sound, Words, and Camera appear at the bottom in green.",
+    tip: "You don't need to add or remove people here — the team list comes straight from the rota system.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Service Team & Roles</div>
+        <div class="sim-body">
+          <table class="rota-table">
+            <thead><tr><th>Role</th><th>Person</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Worship Leader</td><td>Sarah</td><td><input class="sim-input" style="width:100%;font-size:12px" placeholder="Specific instructions..."></td></tr>
+              <tr><td>Guitar</td><td>James</td><td><input class="sim-input" style="width:100%;font-size:12px" placeholder="Specific instructions..."></td></tr>
+              <tr><td>Keys</td><td>Ruth</td><td><input class="sim-input" style="width:100%;font-size:12px" placeholder="Specific instructions..."></td></tr>
+              <tr class="rota-tech"><td>Sound</td><td>David</td><td><input class="sim-input" style="width:100%;font-size:12px" placeholder="Specific instructions..."></td></tr>
+              <tr class="rota-tech"><td>Words</td><td>Emma</td><td><input class="sim-input" style="width:100%;font-size:12px" placeholder="Specific instructions..."></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 4,
+    badge: "Chapter 5 — Service Team",
+    title: "Adding role-specific notes",
+    desc: "Next to each person's name, there's a notes field. Use this to leave instructions just for that person — for example:<br><br>• For the <strong>Words</strong> person: \"Use the new template this week\"<br>• For the <strong>Sound</strong> person: \"Extra mic needed for spoken word\"<br>• For the <strong>Worship Leader</strong>: \"Please start 2 mins early\"<br><br>These notes appear in the email next to that person's name.",
+    tip: "These notes are saved when you save the schedule, so they'll still be there if you come back to edit later.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Role-specific notes</div>
+        <div class="sim-body">
+          <table class="rota-table">
+            <thead><tr><th>Role</th><th>Person</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr class="rota-tech"><td>Words</td><td>Emma</td><td><input class="sim-input highlight" style="width:100%;font-size:12px" value="Use the new lyric template this week"></td></tr>
+              <tr class="rota-tech"><td>Sound</td><td>David</td><td><input class="sim-input" style="width:100%;font-size:12px" value="Extra lapel mic needed for speaker"></td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:#7a9a9a;margin:10px 0 0">These notes go straight into the team email next to the person's name</p>
+        </div>
+      </div>`
+  },
+
+  // ── CHAPTER 6: SAVING & EMAILING ──
+  {
+    chapter: 5,
+    badge: "Chapter 6 — Saving & Emailing",
+    title: "Saving the schedule",
+    desc: "When you're happy with the plan, click <strong>Save Schedule</strong> at the bottom of the page. This saves everything — the songs, keys, notes, team notes, and remarks — so you can come back and edit it later.<br><br>If you select the same date and service again in the future, everything you saved will load back in automatically.",
+    tip: "Save regularly as you work — especially after making changes to songs or notes.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Save and Email buttons</div>
+        <div class="sim-body" style="text-align:center;padding:20px">
+          <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+            <span class="sim-btn-primary highlight" style="padding:12px 28px;font-size:13px">Save Schedule</span>
+            <span class="sim-btn-secondary" style="padding:12px 28px;font-size:13px">Email Team</span>
+          </div>
+          <p style="font-size:12px;color:#7a9a9a;margin:14px 0 0">Save first, then email when you're ready to send</p>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 5,
+    badge: "Chapter 6 — Saving & Emailing",
+    title: "Emailing the team",
+    desc: "When you're ready to send the plan out, click <strong>Email Team</strong>. A popup appears asking who you want to send to:<br><br><strong>Email Whole Team</strong> — sends to everyone on the rota for that service, plus anyone marked as Core Team in the address book.<br><br><strong>Email One Person</strong> — use the dropdown to pick a specific person and send just to them.",
+    tip: "The plan is automatically copied to your clipboard when you click either send option — you can paste it into any email client.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">Send Worship Plan — popup</div>
+        <div class="sim-body">
+          <div class="modal-sim">
+            <p style="font-size:16px;font-weight:700;color:#3d6263;margin:0 0 4px">Send Worship Plan</p>
+            <p style="font-size:11px;color:#7a9a9a;font-weight:700;margin:0 0 16px">Plan will be copied to clipboard. Choose who to email.</p>
+            <span class="sim-btn-primary highlight" style="display:block;text-align:center;padding:10px;margin-bottom:16px;font-size:12px">Email Whole Team</span>
+            <div style="border-top:1px solid #d1dfdf;padding-top:14px">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#3d6263;opacity:0.5;margin:0 0 8px">Or email one person:</p>
+              <select class="sim-input" style="width:100%;margin-bottom:10px;font-size:12px">
+                <option>— Pick a person —</option>
+                <option>James (james@example.com)</option>
+                <option>Emma (emma@example.com)</option>
+              </select>
+              <span class="sim-btn-secondary" style="display:block;text-align:center;padding:8px;font-size:12px">Email This Person</span>
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    chapter: 5,
+    badge: "Chapter 6 — Saving & Emailing",
+    title: "What the team receives",
+    desc: "The email sent to the team includes everything in the plan:<br><br>• The date and worship leader's name<br>• Any general service notes<br>• The full order of service with keys and links to sheet music<br>• YouTube and SongSelect links for each song<br>• The full team rota with any role-specific notes<br>• Your opening and closing remarks",
+    tip: "The words/projection team gets a simplified song list — showing just the songs, CCLI numbers, keys, and notes in a clean format. They can access it via the Songs Database Viewer.",
+    render: () => `
+      <div class="sim-area">
+        <div class="sim-topbar">What's included in the email</div>
+        <div class="sim-body">
+          <div style="border:1px solid #d1dfdf;border-radius:10px;overflow:hidden;font-size:12px">
+            <div style="background:#f4f8f8;padding:10px 14px;font-weight:700;color:#3d6263;font-size:13px">Sunday Worship Plan — 15 June 2025</div>
+            <div style="padding:12px 14px;border-bottom:1px solid #eee;color:#4a6060">Worship Leader: Sarah &nbsp;·&nbsp; Communion this week</div>
+            <div style="padding:12px 14px;border-bottom:1px solid #eee">
+              <p style="font-weight:700;color:#3d6263;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 8px">Order of Service</p>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span style="font-weight:700;color:#1a2e2e">1. How Great Is Our God</span><span style="color:#3d6263;font-weight:700">G</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span style="font-weight:700;color:#1a2e2e">2. Amazing Grace</span><span style="color:#3d6263;font-weight:700">D</span></div>
+              <div style="padding:6px 0 6px 8px;border-left:3px solid #3d6263;font-weight:700;font-size:11px;text-transform:uppercase;color:#3d6263;margin-top:4px">Message</div>
+            </div>
+            <div style="padding:12px 14px;color:#4a6060;font-size:11px">
+              + Team rota &nbsp;·&nbsp; Role notes &nbsp;·&nbsp; Sheet music links &nbsp;·&nbsp; Opening & closing remarks
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+
+];
+
+let current = 0;
+
+function buildChapterNav() {
+  const nav = document.getElementById('chapterNav');
+  nav.innerHTML = '';
+  chapters.forEach((ch, i) => {
+    const pill = document.createElement('button');
+    pill.className = 'chapter-pill' + (i === steps[current].chapter ? ' active' : '');
+    pill.textContent = ch.label;
+    pill.onclick = () => jumpToChapter(i);
+    nav.appendChild(pill);
+  });
+}
+
+function jumpToChapter(chIdx) {
+  const idx = steps.findIndex(s => s.chapter === chIdx);
+  if (idx !== -1) { current = idx; render(); }
+}
+
+function render() {
+  const s = steps[current];
+  const pct = Math.round(((current + 1) / steps.length) * 100);
+  document.getElementById('prog').style.width = pct + '%';
+  document.getElementById('step-ctr').textContent = `Step ${current + 1} of ${steps.length}`;
+  document.getElementById('btn-prev').style.visibility = current === 0 ? 'hidden' : 'visible';
+  document.getElementById('btn-next').style.display = '';
+  document.getElementById('btn-prev').style.display = '';
+  document.getElementById('btn-next').textContent = current === steps.length - 1 ? 'Finish ✓' : 'Next →';
+  buildChapterNav();
+
+  document.getElementById('step-content').innerHTML = `
+    <span class="step-badge">${s.badge}</span>
+    <p class="step-title">${s.title}</p>
+    <p class="step-desc">${s.desc}</p>
+    ${s.render()}
+    <div class="tip-box">${s.tip}</div>
+  `;
+}
+
+function changeStep(dir) {
+  if (current + dir < 0) return;
+  if (current + dir >= steps.length) {
+    document.getElementById('step-content').innerHTML = `
+      <div class="finish-box">
+        <h2>All done! 🎉</h2>
+        <p>You now know how to use the Sunday Worship Planner from start to finish.<br>Use the chapter buttons above to jump back to any section at any time.</p>
+        <button class="nav-btn primary" onclick="current=0;render()">Start again from the beginning</button>
+      </div>
+      <div class="tip-box" style="margin-top:1.5rem">Remember: nothing is sent or saved until you press a button — so you can explore the planner freely without worrying about making a mistake.</div>
+    `;
+    document.getElementById('btn-next').style.display = 'none';
+    document.getElementById('btn-prev').style.display = 'none';
+    document.getElementById('step-ctr').textContent = 'Complete ✓';
+    document.getElementById('prog').style.width = '100%';
+    buildChapterNav();
+    return;
+  }
+  current += dir;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
