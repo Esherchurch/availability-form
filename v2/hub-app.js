@@ -210,14 +210,80 @@ function htmlToText(h) {
    The charter is what the team is expected to do, so it belongs on the page
    people land on. Behind a link it becomes "I have never seen that". */
 
+/* Every team gets a charter on its own hub landing page - the hub IS the
+   landing page. Four already have a standalone page; the rest do not need
+   one, because the charter lives here. */
 const CHARTER_PAGE = {
   'Worship Team': { id: 'wider-worship-charter', url: 'Worshipteamcharter.html' },
   'AV Team':      { id: 'av-team-charter',       url: 'AVteamlandingpage.html' },
   'Youth Worship':{ id: 'youth-charter',         url: 'Youthcharter.html' },
-  'Core Team':    { id: 'core-team-charter',     url: 'Coreteamcharter.html' }
+  'Core Team':    { id: 'core-team-charter',     url: 'Coreteamcharter.html' },
+  'Choir':        { id: 'choir-charter' },
+  'Kids Church':  { id: 'kids-church-charter' },
+  'Lazers':       { id: 'lazers-charter' },
+  'ReNu':         { id: 'renu-charter' }
 };
 
 let CHARTER_OPEN = false;
+
+
+/* ---- CHARTER DEFAULTS ----------------------------------------------
+   The charter pages hold their text as a default inside the file, so it
+   never reached Firestore. These are those exact defaults, lifted from
+   the pages, so they can be written once and then edited normally.
+   AVteamlandingpage.html has no default text - it starts empty. */
+
+const CHARTER_DEFAULTS = {
+ "wider-worship-charter": {
+  "title": "Worship & AV Team Charter",
+  "html": "<h2>Worship &amp; AV Team Charter</h2>\n<blockquote>We are worshippers first, team members second, musicians and technicians third.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We are a family of worshippers who serve together with humility, joy, and unity. Every person — musician, vocalist, or AV — plays a vital role in helping the church encounter God.</p>\n\n<h3>When We Disagree</h3>\n<p>We understand that we may not always share the same theological views or ways of doing things. When differences arise, we commit to talking with love, respect, and humility, keeping Jesus at the centre. Unity is not about agreeing on everything — it's about choosing love in everything.</p>\n\n<h3>Living as Followers of Jesus</h3>\n<p>As people who serve visibly, our lives should reflect the way of Jesus — not perfectly, but sincerely. We aim to honour Him in our relationships, decisions, and behaviour.</p>\n<p>We recognise that lifestyle choices shaped by a hedonistic or self-centred approach to life do not align with the calling of serving in worship ministry. This applies to choices, not to identity or things people cannot control.</p>\n<p>We choose to grow, to be accountable, and to live lives that point others to Jesus.</p>\n\n<h3>How We Serve Together</h3>\n<ul>\n<li><strong>We prepare well</strong> — learning our parts, listening to the set, and arriving ready</li>\n<li><strong>We stay flexible</strong> — songs and arrangements may change</li>\n<li><strong>We honour one another</strong> — with kindness and encouragement</li>\n<li><strong>We communicate early</strong> — about availability or challenges</li>\n<li><strong>We follow the worship leader's direction</strong> — with unity and trust</li>\n<li><strong>We partner with AV as one team</strong> — not two</li>\n<li><strong>We pray together</strong> — because worship is spiritual before it is musical</li>\n</ul>\n\n<h3>Sunday Expression</h3>\n<ul>\n<li>We arrive prepared, prayerful, and ready to bless the church</li>\n<li>We support the worship leader and each other with unity</li>\n<li>We respond to the Holy Spirit with sensitivity and trust</li>\n<li>We serve with cheerful hearts, remembering our goal is to help others see Jesus</li>\n</ul>"
+ },
+ "core-team-charter": {
+  "title": "Core Team Charter",
+  "html": "<h2>Core Team Charter</h2>\n<blockquote>We lead not by talent or title, but by character, humility, and a servant heart.</blockquote>\n\n<h3>Our Identity &amp; How We Carry Ourselves</h3>\n<p>The Core Team exists to set the culture of the Worship &amp; AV Ministry. We model what we want the whole team to become: worshippers first, musicians second, servants always.</p>\n\n<h3>When We Disagree</h3>\n<p>We recognise that we may not always share the same theological views or ministry preferences. When differences arise, we commit to speaking with love, humility, and respect, keeping Jesus at the centre of every conversation. Our unity is not built on sameness, but on Christ-like love (John 13:35).</p>\n\n<h3>Visible Lives of Discipleship</h3>\n<p>Because we serve in a visible ministry, our lives should reflect the character and way of Jesus — not perfectly, but sincerely. We commit to living in a way that honours Christ in our relationships, choices, and conduct.</p>\n<p>We recognise that certain lifestyle choices that reflect a hedonistic or self-centred way of living are not compatible with the calling of leading others in worship. This applies to behaviours we choose, not to aspects of identity or circumstances people cannot control.</p>\n<p>We choose integrity, accountability, and holiness, seeking to grow in Christ.</p>\n\n<h3>How We Lead</h3>\n<ul>\n<li><strong>Servant leadership</strong> — we lead by example, not position</li>\n<li><strong>Visible support on Sundays</strong> — present, engaged, and encouraging</li>\n<li><strong>Teachable spirits</strong> — always willing to learn and grow</li>\n<li><strong>Culture carriers</strong> — we set the tone for the whole team</li>\n<li><strong>Spiritual sensitivity</strong> — attuned to God and to one another</li>\n</ul>\n\n<h3>Our Commitment</h3>\n<ul>\n<li>We lead by example</li>\n<li>We protect unity</li>\n<li>We champion others</li>\n<li>We communicate clearly</li>\n<li>We honour AV as equal partners</li>\n<li>We steward Sundays with prayer</li>\n</ul>"
+ },
+ "youth-charter": {
+  "title": "Youth Worship & AV Charter",
+  "html": "<h2>Youth Worship &amp; AV Team Charter</h2>\n<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We serve with love, joy, and unity — on instruments, with our voices, or on the AV team. Every one of us matters.</p>\n\n<h3>When We Don't Agree</h3>\n<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>\n\n<h3>Living Like Jesus Outside of Sundays</h3>\n<p>Because we're on a team that people can see, our lives should show that we follow Jesus — not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>\n<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>\n<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>\n\n<h3>How We Serve</h3>\n<ul>\n<li><strong>We show up ready</strong> — prepared and on time</li>\n<li><strong>We stay flexible</strong> — things change, and that's okay</li>\n<li><strong>We encourage each other</strong> — words build up, not tear down</li>\n<li><strong>We follow the leader</strong> — with trust and unity</li>\n<li><strong>We work with AV as one team</strong> — everyone counts</li>\n<li><strong>We pray together</strong> — because this is about more than music</li>\n</ul>\n\n<h3>Sundays</h3>\n<ul>\n<li>We arrive early</li>\n<li>We support the leader</li>\n<li>We help create a joyful atmosphere</li>\n<li>We worship wholeheartedly</li>\n<li>We serve visibly and kindly</li>\n</ul>"
+ }
+};
+
+/* Write every charter we have text for, in one go, rather than making
+   somebody switch teams and press the same button three times. */
+async function importAllCharters() {
+  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
+  const ids = Object.keys(CHARTER_DEFAULTS);
+  if (!confirm(`Bring across ${ids.length} charters exactly as they appear on the charter pages?\n\nAnything already saved is left alone.`)) return;
+
+  let done = 0, skipped = 0;
+  for (const id of ids) {
+    try {
+      const existing = (await db.collection('pageContent').doc(id).get()).data();
+      if (existing && existing.html) { skipped++; continue; }
+      await db.collection('pageContent').doc(id)
+        .set({ title: CHARTER_DEFAULTS[id].title, html: CHARTER_DEFAULTS[id].html }, { merge: true });
+      done++;
+    } catch (e) { console.error('Charter import failed for', id, e); }
+  }
+  loadCharter();
+  alert(`${done} brought across${skipped ? `, ${skipped} already had text and were left alone` : ''}.`);
+}
+
+async function importCharter() {
+  const cfg = CHARTER_PAGE[TEAM];
+  if (!cfg) return;
+  if (!EGBCAuth.isAdminOf(TEAM)) { alert('That is not one of your teams.'); return; }
+
+  const def = CHARTER_DEFAULTS[cfg.id];
+  if (!def) { alert('There is no saved text for this team to bring across - write it here instead.'); return; }
+
+  if (!confirm(`Bring across the ${TEAM} charter as it appears on the charter page?\n\nYou can edit it afterwards.`)) return;
+
+  try {
+    await db.collection('pageContent').doc(cfg.id).set({ title: def.title, html: def.html }, { merge: true });
+    loadCharter();
+  } catch (e) { alert('Could not bring it across: ' + e.message); }
+}
 
 async function loadCharter() {
   const card = document.getElementById('charterCard');
@@ -232,7 +298,9 @@ async function loadCharter() {
   const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM, colour: 'var(--brand)' };
   document.getElementById('charterTeam').textContent = c.label;
   document.getElementById('charterTeam').style.color = c.colour;
-  document.getElementById('charterLink').href = cfg.url;
+  const link = document.getElementById('charterLink');
+  if (cfg.url) { link.href = cfg.url; link.style.display = ''; }
+  else { link.style.display = 'none'; }
 
   const body = document.getElementById('charterBody');
   const more = document.getElementById('charterMore');
@@ -245,19 +313,25 @@ async function loadCharter() {
        write to Firestore once someone edits there. So there may be nothing
        stored yet even though the page looks full. */
     if (!EGBCAuth.isAdminOf(TEAM)) { card.style.display = 'none'; return; }
-    document.getElementById('charterTitle').textContent = (d && d.title) || 'Team charter';
+    document.getElementById('charterTitle').textContent = (d && d.title) || `${c.label} charter`;
     body.classList.remove('short');
-    body.innerHTML = `<p style="color:var(--faint);font-style:italic">
-        Nothing saved yet. The charter page shows its text from the file until someone
-        edits it, so there is nothing here to show. Open the full page and save it once,
-        or write it here.</p>`;
+    const canImport = !!CHARTER_DEFAULTS[cfg.id];
+    body.innerHTML = (canImport
+        ? `<p style="color:var(--faint);font-style:italic;margin-bottom:14px">
+             The charter page keeps its text inside the file, so it never reached the
+             database. Bring it across and it will show here from now on.</p>
+           <button class="btn solid" onclick="importCharter()">Bring across the existing charter</button>`
+        : `<p style="color:var(--faint);font-style:italic;margin-bottom:14px">
+             No charter for ${esc(c.label)} yet. This is where people land, so it is
+             worth setting out what the team is expected to do.</p>
+           <button class="btn solid" onclick="editCharter()">Write the charter</button>`);
     more.style.display = 'none';
     if (edit) edit.style.display = '';
     card.style.display = '';
     return;
   }
 
-  document.getElementById('charterTitle').textContent = (d && d.title) || 'Team charter';
+  document.getElementById('charterTitle').textContent = (d && d.title) || `${c.label} charter`;
   body.innerHTML = safeHtml(CHARTER_HTML);
   body.classList.add('short');
   card.style.display = '';
@@ -1168,52 +1242,7 @@ function when(ts) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-const DEFAULT_PAGES=[
-  /* Admin tab - Core Team only. Build tools and administration. */
-  {team:'Core Team',icon:'📋',title:'Rota Planner',url:'Planner.html',description:'Build and send the term rota',order:10},
-  {team:'Core Team',icon:'📅',title:'Service Planner',url:'SundayServicePlanner.html',description:'Build the Sunday running order',order:20},
-  {team:'Core Team',icon:'👥',title:'Address Book',url:'addressbook.html',description:'People, households and teams',order:30},
-  {team:'Core Team',icon:'✉',title:'Email Builder',url:'EmailBuilder2.html',description:'Compose and send to teams',order:40},
-  {team:'Core Team',icon:'🎚',title:'Music Uploader',url:'music-uploader.html',description:'Add tracks to the library',order:50},
-  {team:'Core Team',icon:'📦',title:'Batch Music Importer',url:'batchupload.html',description:'Bulk add to the song library',order:60},
-  {team:'Core Team',icon:'🗄',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',order:70},
-  {team:'Core Team',icon:'📱',title:'Core Team App',url:'CoreTeamApp.html',description:'Mobile app',order:80,mobileOnly:true},
-  {team:'Core Team',icon:'🎓',title:'Training Hub',url:'trainingportalhub.html',description:'How to use the system',order:900,everyone:true},
-  {team:'Core Team',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',order:100},
 
-  /* Worship - Choir members land here too */
-  {team:'Worship Team',icon:'📜',title:'Team Charter',url:'Worshipteamcharter.html',description:'How we work together',order:10},
-  {team:'Worship Team',icon:'👀',title:'Live Rota',url:'view-only-rota.html',description:'Who is on, and when',order:20},
-  {team:'Worship Team',icon:'🎵',title:'Song Library',url:'sundayplannersonglibrary.html',description:'Songs, keys and usage',order:30},
-  {team:'Worship Team',icon:'📖',title:'Library',url:'Library.html',description:'Sheet music and resources',order:40},
-  {team:'Worship Team',icon:'▶',title:'Play Through',url:'EGBC-PlayThrough.html',description:'Practice recordings',order:50},
-  {team:'Worship Team',icon:'📝',title:'Performance Notes',url:'Performancenotes.html',description:'Notes from recent services',order:60,mobileOnly:true},
-  {team:'Worship Team',icon:'🎓',title:'Worship Training',url:'EGBC-Training-Worship.html',description:'Training material',order:70},
-  {team:'Worship Team',icon:'📌',title:'Suggestions Board',url:'stickynotes.html',description:'Ideas from the team',order:80},
-  {team:'Worship Team',icon:'📱',title:'Worship Hub App',url:'worshiphubapp.html',description:'Mobile app',order:90,mobileOnly:true},
-  {team:'Worship Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:100},
-
-  /* AV */
-  {team:'AV Team',icon:'📜',title:'AV Team Charter',url:'AVteamlandingpage.html',description:'How we work together',order:10},
-  {team:'AV Team',icon:'🛠',title:'Troubleshoot AV',url:'EGBC-Troubleshoot-AV.html',description:'Search a problem, get the fix',order:20},
-  {team:'AV Team',icon:'📘',title:'How To AV',url:'EGBC-HowTo-AV.html',description:'Step-by-step guides',order:30},
-  {team:'AV Team',icon:'🔌',title:'AV Schematic',url:'schematic.html',description:'How it is all wired',order:40},
-  {team:'AV Team',icon:'🎛',title:'Monitor Setup',url:'MonitorStageMap.html',description:'Stage and monitor layout',order:50},
-  {team:'AV Team',icon:'👀',title:'Live Rota',url:'view-only-rota.html',description:'Who is on, and when',order:70},
-  {team:'AV Team',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:80},
-
-  /* Youth */
-  {team:'Youth Worship',icon:'📜',title:'Youth Charter',url:'Youthcharter.html',description:'How we work together',order:10},
-  {team:'Youth Worship',icon:'📅',title:'Youth Service Planner',url:'youthserviceplanner.html',description:'Plan youth services',order:20},
-  {team:'Youth Worship',icon:'📱',title:'Youth Hub App',url:'youthapp2.html',description:'Mobile app',order:30,mobileOnly:true},
-  {team:'Youth Worship',icon:'👀',title:'Live Rota',url:'view-only-rota.html',description:'Who is on, and when',order:40},
-  {team:'Youth Worship',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:50},
-
-  /* Kids Church, Lazers, ReNu - rotas still to be built */
-  {team:'Kids Church',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:10},
-  {team:'Lazers',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:10},
-  {team:'ReNu',icon:'📁',title:'Resources',url:'resources.html',description:'Documents and guides',order:10}
-];
 
 let BOOK=[];
 
@@ -1438,8 +1467,7 @@ function renderPagesList(){
   const teams=adminTeams();
   const list=document.getElementById('pagesList');
   const mine=PAGES.filter(p=>teams.includes(p.team));
-  document.getElementById('seedBtn').classList.toggle('hidden',PAGES.length>0);
-  if(!mine.length){list.innerHTML='<div class="text-sm opacity-50 italic py-4">No pages registered yet. Use “Load defaults” to start from the existing suite.</div>';return;}
+  if(!mine.length){list.innerHTML='<div class="empty"><div class="t">Nothing registered yet</div><div style="font-size:12px;font-weight:600;margin-top:6px">Use <strong>Bring across the old menu</strong> to start from the menu people already know.</div></div>';return;}
   list.innerHTML=mine.map(p=>{
     const cfg=EGBCAuth.TEAMS[p.team]||{label:p.team,colour:'#3d6263'};
     return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${p.enabled===false?'opacity-50':''}">
@@ -1535,21 +1563,6 @@ async function deletePage(){
 }
 
 
-async function seedPages(){
-  if(!EGBCAuth.isOwner()){alert('Only an owner can load the defaults.');return;}
-  if(!confirm(`Add ${DEFAULT_PAGES.length} default tiles? You can edit or remove any of them afterwards.`))return;
-  const btn=document.getElementById('seedBtn');btn.disabled=true;btn.textContent='Adding…';
-  try{
-    const batch=db.batch();
-    DEFAULT_PAGES.forEach(p=>{
-      const ref=db.collection('hubPages').doc();
-      batch.set(ref,Object.assign({enabled:true},p));
-    });
-    await batch.commit();
-    await loadPages();renderPagesList();renderTools();
-  }catch(e){alert('Could not load defaults: '+e.message);}
-  btn.disabled=false;btn.textContent='Load defaults';
-}
 
 
 function youngPeople(){
@@ -1805,7 +1818,7 @@ function renderAdminPages(){
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
-          <button id="seedBtn" class="btn" onclick="seedPages()">Load defaults</button>
+          <button class="btn" onclick="importAllCharters()">Bring across all charters</button>
           <button class="btn solid" onclick="newPage()">+ Add</button>
         </div>
       </div>
