@@ -119,6 +119,52 @@ async function loadNews() {
   }
 }
 
+
+/* Notice bodies are HTML - the old feed held pasted emails, complete with
+   <meta> and <style>. Render the formatting, drop anything structural or
+   executable, and flatten the rest so a whole email does not bring its own
+   layout into a 330px column. */
+function safeHtml(raw) {
+  if (!raw) return '';
+  const doc = new DOMParser().parseFromString(raw, 'text/html');
+
+  doc.querySelectorAll('script,style,meta,link,title,iframe,object,embed,form,input,button').forEach(n => n.remove());
+
+  doc.querySelectorAll('*').forEach(n => {
+    [...n.attributes].forEach(a => {
+      const keep = a.name === 'href' || a.name === 'src' || a.name === 'alt';
+      if (!keep || /^javascript:/i.test(a.value)) n.removeAttribute(a.name);
+    });
+    if (n.tagName === 'A') { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
+  });
+
+  // Email HTML is nearly always tables; unwrap them into plain blocks.
+  doc.querySelectorAll('table,tbody,thead,tr').forEach(n => n.replaceWith(...n.childNodes));
+  doc.querySelectorAll('td,th').forEach(n => {
+    const d = doc.createElement('div');
+    d.append(...n.childNodes);
+    n.replaceWith(d);
+  });
+
+  return doc.body.innerHTML;
+}
+
+/* Plain text, for working out whether something needs collapsing. */
+function textOf(raw) {
+  const d = new DOMParser().parseFromString(raw || '', 'text/html');
+  return (d.body.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function toggleNews(id) {
+  const el = document.getElementById('nb-' + id);
+  const btn = document.getElementById('nt-' + id);
+  const open = el.dataset.open === '1';
+  el.style.maxHeight = open ? '82px' : 'none';
+  el.style.webkitMaskImage = open ? 'linear-gradient(#000 55%,transparent)' : '';
+  el.dataset.open = open ? '0' : '1';
+  btn.textContent = open ? 'Read more' : 'Show less';
+}
+
 function renderNews() {
   const pinned = NEWS.filter(n => n.pinned && !(n.requireAck && ACKED.has(n.id)));
   const rest = NEWS.filter(n => !pinned.includes(n));
@@ -128,7 +174,7 @@ function renderNews() {
     return `<div class="pin">
       <div class="tag">&#9733; Please read</div>
       <h3>${esc(n.title)}</h3>
-      <div class="bd">${esc(n.body).replace(/\n/g, '<br>')}</div>
+      <div class="bd">${safeHtml(n.body)}</div>
       ${n.requireAck ? `<button class="btn gold" onclick="ackNews('${n.id}')">I've read it</button>
         ${EGBCAuth.isAdmin() ? `<span class="seen">${seen} so far</span>` : ''}` : ''}
     </div>`;
@@ -141,6 +187,7 @@ function renderNews() {
   }
 
   list.innerHTML = rest.map(n => {
+    const long = textOf(n.body).length > 240;
     const tags = (n.teams || []).map(t => {
       const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
       return `<span class="t" style="background:${c.colour}">${esc(c.label)}</span>`;
@@ -152,7 +199,7 @@ function renderNews() {
         ${EGBCAuth.isAdmin() ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
       </div>
       <h4>${esc(n.title)}</h4>
-      <div class="bd">${esc(n.body).replace(/\n/g, '<br>')}</div>
+      <div class="bd">${safeHtml(n.body)}</div>
     </div>`;
   }).join('');
 }

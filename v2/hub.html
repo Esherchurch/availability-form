@@ -48,7 +48,7 @@
           justify-content:center;font-size:9px;font-weight:900;flex-shrink:0}
 
   /* ---- hero ---- */
-  .hero{position:relative;min-height:190px;display:flex;align-items:flex-end;padding:26px 30px;overflow:hidden;background:var(--brand)}
+  .hero{position:relative;min-height:200px;display:flex;align-items:flex-end;padding:34px 30px 28px;overflow:hidden;background:var(--brand)}
   .hero .bg{position:absolute;inset:0;background-size:cover;opacity:.36}
   .hero .in{position:relative;max-width:760px}
   .hero h1{font-size:clamp(24px,4vw,34px);font-weight:900;color:#fff;letter-spacing:-.02em;line-height:1.1}
@@ -86,7 +86,15 @@
   .nw .t{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;padding:2px 9px;border-radius:99px;color:#fff}
   .nw .d{font-size:10px;color:var(--faint);font-weight:700}
   .nw h4{font-size:13.5px;font-weight:800;margin:0 0 4px;line-height:1.35}
-  .nw .bd{font-size:12px;color:#5b6f6e;line-height:1.55}
+  .nw .bd{font-size:12px;color:#5b6f6e;line-height:1.55;overflow-wrap:anywhere}
+  .nw .bd img{max-width:100%;height:auto;border-radius:8px;margin:7px 0}
+  .nw .bd p{margin:0 0 7px}
+  .nw .bd a{color:var(--brand);font-weight:700}
+  .nw .bd *{font-size:12px!important;line-height:1.55!important;font-family:inherit!important;
+            max-width:100%!important;width:auto!important;color:inherit!important;background:none!important}
+  .nw .bd b,.nw .bd strong{font-weight:800!important;color:var(--ink)!important}
+  .pin .bd img{max-width:100%;height:auto;border-radius:10px;margin:8px 0}
+  .pin .bd *{max-width:100%!important;width:auto!important;font-family:inherit!important}
   .nw .del{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#d99;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;margin-left:auto}
   .nw .del:hover{color:#b0392c}
 
