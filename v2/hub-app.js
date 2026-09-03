@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v58';
+const HUB_BUILD = 'v62';
 
 const db = firebase.firestore();
 const storage = firebase.storage();
@@ -219,11 +219,13 @@ function htmlToText(h) {
    landing page. Four already have a standalone page; the rest do not need
    one, because the charter lives here. */
 const CHARTER_PAGE = {
+  /* Worship and AV share one - it is the "Worship & AV Team Charter", which
+     is why AVteamlandingpage.html carries no text of its own. Choir folds
+     into Worship, so it never lands here under its own name. */
   'Worship Team': { id: 'wider-worship-charter', url: 'Worshipteamcharter.html' },
-  'AV Team':      { id: 'av-team-charter',       url: 'AVteamlandingpage.html' },
+  'AV Team':      { id: 'wider-worship-charter', url: 'Worshipteamcharter.html' },
   'Youth Worship':{ id: 'youth-charter',         url: 'Youthcharter.html' },
   'Core Team':    { id: 'core-team-charter',     url: 'Coreteamcharter.html' },
-  'Choir':        { id: 'choir-charter' },
   'Kids Church':  { id: 'kids-church-charter' },
   'Lazers':       { id: 'lazers-charter' },
   'ReNu':         { id: 'renu-charter' }
@@ -1104,6 +1106,26 @@ function visibleTools() {
 function renderTools() {
   const el = document.getElementById('toolList');
   if (!el) return;
+
+  /* Also offered here, because the one in the bar can end up underneath the
+     overlay depending on the browser. */
+  const sw = document.getElementById('panelTeam');
+  if (sw) {
+    const teams = availableTeams();
+    const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM || '-', colour: 'var(--brand)' };
+    sw.innerHTML = teams.length > 1
+      ? `<button class="switch-row" onclick="openTeamPicker()" style="border-left:4px solid ${c.colour}">
+           <span style="flex:1">
+             <span class="lbl">Team</span><br>
+             <span class="val">${esc(c.label)}</span>
+           </span>
+           <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--brand)">Switch</span>
+         </button>`
+      : '';
+  }
+
+  const bd = document.getElementById('panelBuild');
+  if (bd) bd.textContent = `build ${HUB_BUILD}`;
 
   const q = (document.getElementById('toolSearch').value || '').toLowerCase();
 
