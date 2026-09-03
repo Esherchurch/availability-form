@@ -481,7 +481,7 @@ async function loadNews() {
     renderNews();
   } catch (e) {
     console.error('News load failed', e);
-    document.getElementById('newsList').innerHTML =
+    document.getElementById('newsTrack').innerHTML =
       '<div class="empty"><div class="i">&#128226;</div><div class="t">No news yet</div></div>';
   }
 }
@@ -546,101 +546,109 @@ function renderNews() {
     </div>`;
   }).join('');
 
-  const list = document.getElementById('newsList');
-  const dots = document.getElementById('newsDots');
+  const track = document.getElementById('newsTrack');
 
   if (!rest.length) {
-    list.innerHTML = '<div class="empty"><div class="i">&#128226;</div><div class="t">Nothing new</div></div>';
-    dots.innerHTML = '';
-    stopRotation();
+    track.innerHTML = '<div class="empty"><div class="i">&#128226;</div><div class="t">Nothing new</div></div>';
+    stopNewsScroll();
     return;
   }
 
-  /* Notices from the team in context first, so the one most likely to matter
-     is the one showing when the page loads. */
+  /* Notices for the team in context lead, then the rest. */
   const ordered = rest.slice().sort((a, b) => {
     const mine = n => (n.teams || []).includes(TEAM) ? 0 : 1;
     return mine(a) - mine(b);
   });
 
-  list.innerHTML = ordered.map((n, i) => {
-    const tags = (n.teams || []).map(t => {
-      const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
-      return `<span class="t" style="background:${c.colour}">${esc(c.label)}</span>`;
-    }).join('');
-    return `<div class="nw ${i === 0 ? 'on' : ''}" data-i="${i}">
-      <div class="m">
-        ${tags || '<span class="t" style="background:#6b8281">Everyone</span>'}
-        <span class="d">${when(n.createdAt)}</span>
-        ${EDITING && canEditNews(n) ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
-      </div>
-      <h4>${esc(n.title)}</h4>
-      <div class="bd">${safeHtml(n.body)}</div>
-    </div>`;
+  track.innerHTML = ordered.map(n => newsCard(n)).join('');
+  startNewsScroll();
+}
+
+function newsCard(n) {
+  const tags = (n.teams || []).map(t => {
+    const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
+    return `<span class="t" style="background:${c.colour}">${esc(c.label)}</span>`;
   }).join('');
-
-  NEWS_N = ordered.length;
-  NEWS_I = 0;
-
-  dots.innerHTML = (NEWS_N > 1
-    ? ordered.map((_, i) => `<button class="dot ${i === 0 ? 'on' : ''}" onclick="showNews(${i}, true)" title="${esc(ordered[i].title)}"></button>`).join('')
-    : '') +
-    `<button class="more" onclick="toggleNewsExpanded()" id="newsMore">${NEWS_N > 1 ? 'Show all ' + NEWS_N : ''}</button>`;
-
-  startRotation();
+  return `<div class="nw">
+    <div class="m">
+      ${tags || '<span class="t" style="background:#6b8281">Everyone</span>'}
+      <span class="d">${when(n.createdAt)}</span>
+      ${EDITING && canEditNews(n) ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
+    </div>
+    <h4>${esc(n.title)}</h4>
+    <div class="bd">${safeHtml(n.body)}</div>
+  </div>`;
 }
 
-/* One notice at a time in a fixed frame, so the feed never pushes the page
-   down however much gets posted - and several get seen rather than one. */
-let NEWS_I = 0, NEWS_N = 0, NEWS_TIMER = null, NEWS_OPEN = false;
+/* Continuous vertical scroll, as the original portal does it. The whole track
+   is duplicated so when the first copy has passed, the second is already in
+   place and the jump back to zero is invisible. */
 
-function showNews(i, byHand) {
-  if (NEWS_OPEN) return;
-  NEWS_I = (i + NEWS_N) % NEWS_N;
-  document.querySelectorAll('#newsList .nw').forEach(el =>
-    el.classList.toggle('on', +el.dataset.i === NEWS_I));
-  document.querySelectorAll('#newsDots .dot').forEach((d, j) =>
-    d.classList.toggle('on', j === NEWS_I));
-  if (byHand) startRotation();
+const NEWS_SCROLL_SPEED = 0.5;
+let newsScrollPos = 0, newsScrollRAF = null, newsScrollPaused = false;
+
+function stopNewsScroll() {
+  if (newsScrollRAF) { cancelAnimationFrame(newsScrollRAF); newsScrollRAF = null; }
 }
 
-function startRotation() {
-  stopRotation();
-  if (NEWS_N < 2 || NEWS_OPEN) return;
-  NEWS_TIMER = setInterval(() => showNews(NEWS_I + 1), 9000);
-}
-function stopRotation() { if (NEWS_TIMER) { clearInterval(NEWS_TIMER); NEWS_TIMER = null; } }
+function startNewsScroll() {
+  stopNewsScroll();
+  newsScrollPos = 0;
 
-function toggleNewsExpanded() {
-  NEWS_OPEN = !NEWS_OPEN;
-  const list = document.getElementById('newsList');
-  list.classList.toggle('expanded', NEWS_OPEN);
-  document.querySelectorAll('#newsList .nw').forEach(el => el.classList.add('on'));
-  document.getElementById('newsMore').textContent = NEWS_OPEN ? 'Show less' : 'Show all ' + NEWS_N;
-  document.querySelectorAll('#newsDots .dot').forEach(d => d.style.display = NEWS_OPEN ? 'none' : '');
-  if (NEWS_OPEN) stopRotation(); else { showNews(0); startRotation(); }
+  const wrapper = document.getElementById('newsWrapper');
+  const track = document.getElementById('newsTrack');
+  if (!wrapper || !track) return;
+
+  track.querySelectorAll('.news-clone').forEach(c => c.remove());
+  track.style.transform = 'translateY(0)';
+
+  const kick = () => {
+    const wrapperH = wrapper.clientHeight, trackH = track.scrollHeight;
+    if (wrapperH < 10 || trackH < 10) return false;
+    if (trackH <= wrapperH) return true;   // it all fits; nothing to scroll
+
+    Array.from(track.children).forEach(c => {
+      const clone = c.cloneNode(true);
+      clone.classList.add('news-clone');
+      track.appendChild(clone);
+    });
+
+    const halfH = track.scrollHeight / 2;
+    const step = () => {
+      if (!newsScrollPaused) {
+        newsScrollPos += NEWS_SCROLL_SPEED;
+        if (newsScrollPos >= halfH) newsScrollPos = 0;
+        track.style.transform = `translateY(-${newsScrollPos}px)`;
+      }
+      newsScrollRAF = requestAnimationFrame(step);
+    };
+    newsScrollRAF = requestAnimationFrame(step);
+    return true;
+  };
+
+  /* The wrapper may still be zero-height on first paint. */
+  if (!kick()) {
+    const ro = new ResizeObserver((e, obs) => {
+      if (e[0].contentRect.height > 10) { obs.disconnect(); kick(); }
+    });
+    ro.observe(wrapper);
+  }
 }
 
-/* Reading something should not have it slide away underneath you. */
 (function () {
   const wire = () => {
-    const c = document.getElementById('newsCarousel');
-    if (!c) return;
-    c.addEventListener('mouseenter', stopRotation);
-    c.addEventListener('mouseleave', startRotation);
-    c.addEventListener('focusin', stopRotation);
-    c.addEventListener('wheel', () => { stopRotation(); clearTimeout(window._nwResume);
-      window._nwResume = setTimeout(startRotation, 6000); }, { passive: true });
+    const w = document.getElementById('newsWrapper');
+    if (!w) return;
+    w.addEventListener('mouseenter', () => { newsScrollPaused = true; });
+    w.addEventListener('mouseleave', () => { newsScrollPaused = false; });
   };
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', wire) : wire();
 })();
 
-/* The panel shows a few lines that fit; the whole thing opens on a click, so
-   nothing is ever half-readable. */
+
 function openRead(id) {
   const n = NEWS.find(x => x.id === id);
   if (!n) return;
-  stopRotation();
 
   document.getElementById('rdMeta').innerHTML =
     ((n.teams || []).map(t => {
@@ -659,7 +667,6 @@ function openRead(id) {
 function closeRead() {
   document.getElementById('readModal').classList.remove('on');
   document.body.style.overflow = '';
-  startRotation();
 }
 
 async function ackNews(id) {

@@ -98,27 +98,14 @@
   .nw .del{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#d99;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;margin-left:auto}
   .nw .del:hover{color:#b0392c}
 
-  /* news carousel - fixed height so the page does not grow with the feed,
-     and several notices get seen rather than one long scroll */
-  #newsCarousel{position:relative}
-  #newsList{position:relative;height:300px;overflow:hidden}
-  #newsList .nw{position:absolute;inset:0;margin:0;overflow:hidden;display:flex;flex-direction:column;
-                opacity:0;transform:translateY(7px);transition:opacity .3s,transform .3s;pointer-events:none}
-  #newsList .nw.on{opacity:1;transform:none;pointer-events:auto}
-  /* The panel is a fixed height so the page never grows. A notice longer than
-     the panel scrolls inside it rather than being cut off. */
-  #newsList .nw .bd{flex:1;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
-  #newsList .nw .bd::-webkit-scrollbar{width:5px}
-  #newsList .nw .bd::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px}
-  #newsList.expanded{height:auto;min-height:300px}
-  #newsList.expanded .nw{position:relative;inset:auto;opacity:1;transform:none;pointer-events:auto;margin-bottom:9px;display:block}
-  #newsList.expanded .nw .bd{overflow:visible}
-  .dots{display:flex;gap:6px;justify-content:center;align-items:center;margin-top:11px;flex-wrap:wrap}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--line-2);border:none;padding:0;cursor:pointer;transition:.15s}
-  .dot.on{background:var(--brand);width:20px;border-radius:99px}
-  .dots .more{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
-              background:none;border:none;cursor:pointer;font-family:inherit;margin-left:7px}
-  .dots .more:hover{color:var(--brand)}
+  /* News is a continuous vertical marquee, as it has always been - every
+     notice creeps past, so a must-read gets read without anyone clicking.
+     The track is duplicated so the loop has no seam. */
+  #newsWrapper{height:calc(100vh - 300px);min-height:280px;max-height:620px;overflow:hidden;position:relative}
+  #newsWrapper::after{content:'';position:absolute;left:0;right:0;bottom:0;height:34px;pointer-events:none;
+                      background:linear-gradient(transparent,var(--canvas))}
+  #newsTrack{display:flex;flex-direction:column;will-change:transform}
+  #newsTrack .nw{flex-shrink:0}
 
   /* ---- tools panel ---- */
   .scrim{position:fixed;inset:0;background:rgba(20,32,31,.4);z-index:80;opacity:0;pointer-events:none;transition:.2s}
@@ -240,9 +227,8 @@
       <div class="lab" style="margin:0">Latest</div>
       <button class="btn edit-only" id="newsAdd" style="display:none;padding:6px 13px" onclick="openNewsEditor()">+ Post</button>
     </div>
-    <div id="newsCarousel">
-      <div id="newsList"><div class="skel" style="height:230px"></div></div>
-      <div id="newsDots" class="dots"></div>
+    <div id="newsWrapper">
+      <div id="newsTrack"><div class="skel" style="height:230px"></div></div>
     </div>
   </div>
 </div>
