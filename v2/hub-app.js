@@ -115,6 +115,7 @@ function toggleEditMode() {
   document.getElementById('editModeBtn').classList.toggle('on', EDITING);
   document.getElementById('editModeBtn').textContent = EDITING ? 'Done' : 'Edit mode';
   renderTeamPanels();
+  renderNews();
 }
 
 /* ---- TEAM PANELS ---------------------------------------------------
@@ -329,6 +330,15 @@ function toggleNews(id) {
   btn.textContent = open ? 'Read more' : 'Show less';
 }
 
+/* Karen may remove a Kids Church notice, not an AV one. Church-wide notices
+   belong to master admins. */
+function canEditNews(n) {
+  if (EGBCAuth.isMaster()) return true;
+  const teams = n.teams || [];
+  if (!teams.length) return false;
+  return teams.some(t => EGBCAuth.isAdminOf(t));
+}
+
 function renderNews() {
   const pinned = NEWS.filter(n => n.pinned && !(n.requireAck && ACKED.has(n.id)));
   const rest = NEWS.filter(n => !pinned.includes(n));
@@ -340,7 +350,7 @@ function renderNews() {
       <h3>${esc(n.title)}</h3>
       <div class="bd">${safeHtml(n.body)}</div>
       ${n.requireAck ? `<button class="btn gold" onclick="ackNews('${n.id}')">I've read it</button>
-        ${EGBCAuth.isAdmin() ? `<span class="seen">${seen} so far</span>` : ''}` : ''}
+        ${EDITING && canEditNews(n) ? `<span class="seen">${seen} so far</span>` : ''}` : ''}
     </div>`;
   }).join('');
 
@@ -360,7 +370,7 @@ function renderNews() {
       <div class="m">
         ${tags || '<span class="t" style="background:#6b8281">Everyone</span>'}
         <span class="d">${when(n.createdAt)}</span>
-        ${EGBCAuth.isAdmin() ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
+        ${EDITING && canEditNews(n) ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
       </div>
       <h4>${esc(n.title)}</h4>
       <div class="bd">${safeHtml(n.body)}</div>
