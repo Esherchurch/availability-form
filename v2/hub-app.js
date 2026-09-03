@@ -964,7 +964,11 @@ const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html',
 
 /* Charters live on the landing page now, so a link to them here is noise. */
 function isCharterPage(url) {
-  return Object.values(CHARTER_PAGE).some(c => c.url.toLowerCase() === (url || '').toLowerCase());
+  const u = (url || '').toLowerCase();
+  if (!u) return false;
+  /* Choir, Kids Church, Lazers and ReNu have a charter but no standalone
+     page, so their entries carry no url. */
+  return Object.values(CHARTER_PAGE).some(c => c.url && c.url.toLowerCase() === u);
 }
 
 
@@ -1091,7 +1095,7 @@ function renderTools() {
   let tools = [];
   try {
     tools = visibleTools().filter(p =>
-      !q || (p.title + ' ' + (p.description || '')).toLowerCase().includes(q));
+      !q || ((p.title || '') + ' ' + (p.description || '')).toLowerCase().includes(q));
   } catch (e) {
     console.error('Tools render failed', e);
     el.innerHTML = `<div class="empty"><div class="t">Could not build the list</div>
