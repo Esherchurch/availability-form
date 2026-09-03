@@ -31,6 +31,7 @@
         // 1. DELETE - look up member by id (Unicode-safe, no btoa)
         window.deleteMember = async (id) => {
             const m = memberCache[id];
+            if(m && !canEditMember(m)){ alert('That person is not on a team you administer.'); return; }
             const name = m ? m.name : '';
             if(confirm(`Remove ${name} permanently?`)) await deleteDoc(doc(db, "addressBook", id));
         };
@@ -39,6 +40,7 @@
         window.editMember = (id) => {
             const data = memberCache[id];
             if(!data) return;
+            if(!canEditMember(data)){ alert('That person is not on a team you administer.'); return; }
             editingId = id;
             document.getElementById('fullName').value = data.name;
             document.getElementById('email').value = data.email || '';
@@ -52,6 +54,12 @@
             if(data.kidsRolesPrimary) data.kidsRolesPrimary.forEach(i => { const el = document.querySelector(`.kidsprimary[value="${i}"]`); if(el) el.checked = true; });
             if(data.kidsRolesSecondary) data.kidsRolesSecondary.forEach(i => { const el = document.querySelector(`.kidssecondary[value="${i}"]`); if(el) el.checked = true; });
             document.getElementById('isMinor').checked = !!data.isMinor;
+            document.getElementById('masterAdmin').checked = !!data.masterAdmin;
+            document.querySelectorAll('.teamcap').forEach(i => {
+                const c = data.teamCaps || {};
+                i.value = (c[i.dataset.team] === undefined) ? '' : c[i.dataset.team];
+            });
+            if(data.adminFor) data.adminFor.forEach(i => { const el = document.querySelector(`.adminfor[value="${i}"]`); if(el) el.checked = true; });
 
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Update Member Details";
@@ -60,7 +68,17 @@
         };
 
         // 3. LIVE SYNC
+        // The snapshot is kept so the list can be redrawn once we know who is
+        // signed in - it usually arrives before authentication resolves.
+        let lastSnapshot = null;
+        window.redrawMembers = () => { if (lastSnapshot) renderSnapshot(lastSnapshot); };
+
         onSnapshot(query(addressBookRef, orderBy("name")), (snapshot) => {
+            lastSnapshot = snapshot;
+            renderSnapshot(snapshot);
+        });
+
+        function renderSnapshot(snapshot) {
             const select = document.getElementById('relatedTo');
             const tableBody = document.getElementById('memberListBody');
             select.innerHTML = '<option value="">None / New Household</option>';
@@ -97,14 +115,16 @@
                         </td>
                         <td class="p-4 text-center font-bold text-[#3d6263]">${escapeHtml(member.maxFrequency)}</td>
                         <td class="p-4 text-right space-x-3">
-                            <button onclick="editMember('${member.id}')" class="text-[#3d6263] font-bold text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
-                            <button onclick="deleteMember('${member.id}')" class="text-red-300 hover:text-red-500 font-bold text-xl leading-none">×</button>
+                            ${canEditMember(member)
+                              ? `<button onclick="editMember('${member.id}')" class="text-[#3d6263] font-bold text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
+                                 <button onclick="deleteMember('${member.id}')" class="text-red-300 hover:text-red-500 font-bold text-xl leading-none">&times;</button>`
+                              : `<span class="text-[10px] text-gray-300 font-bold uppercase" title="Not one of your teams">&mdash;</span>`}
                         </td>
                     </tr>
                 `;
                 tableBody.innerHTML += row;
             });
-        });
+        }
 
         // 4. SAVE / UPDATE
         window.saveMember = async () => {
@@ -124,7 +144,16 @@
                 secondaryInstruments: Array.from(document.querySelectorAll('.secondary:checked')).map(cb => cb.value),
                 kidsRolesPrimary: Array.from(document.querySelectorAll('.kidsprimary:checked')).map(cb => cb.value),
                 kidsRolesSecondary: Array.from(document.querySelectorAll('.kidssecondary:checked')).map(cb => cb.value),
-                isMinor: document.getElementById('isMinor').checked
+                isMinor: document.getElementById('isMinor').checked,
+                adminFor: Array.from(document.querySelectorAll('.adminfor:checked')).map(cb => cb.value),
+                masterAdmin: document.getElementById('masterAdmin').checked,
+                teamCaps: (() => {
+                    const caps = {};
+                    document.querySelectorAll('.teamcap').forEach(i => {
+                        if (i.value !== '') caps[i.dataset.team] = parseInt(i.value, 10);
+                    });
+                    return caps;
+                })()
             };
 
             try {
@@ -143,6 +172,63 @@
                 btn.disabled = false;
             } catch (e) { console.error(e); btn.disabled = false; }
         };
+
+// -- WHAT THIS ADMIN MAY CHANGE -------------------------------------------
+// A master admin changes anything. A team admin adds and removes people from
+// the teams they manage and nothing else, so checkboxes for other teams are
+// disabled rather than hidden - which makes the limit visible.
+
+/* A team admin may only edit people on the teams they administer. Everyone
+   stays visible, because households and families cross teams and hiding half
+   of them would break those links - but Edit and Delete are withheld on
+   records outside their areas. */
+function canEditMember(m){
+  if(typeof EGBCAuth==='undefined'||!EGBCAuth.profile())return true;
+  if(EGBCAuth.isMaster())return true;
+  const mine=EGBCAuth.adminAreas();
+  const theirs=Array.isArray(m.markers)?m.markers:[];
+  // A brand new person belongs to nobody yet, so any admin may set them up.
+  if(!theirs.length)return true;
+  return theirs.some(t=>mine.includes(t));
+}
+
+function applyAdminScope(){
+  if(typeof EGBCAuth==='undefined'||!EGBCAuth.profile())return;
+
+  const master=EGBCAuth.isMaster();
+  const mine=EGBCAuth.adminAreas();
+
+  document.querySelectorAll('.marker').forEach(cb=>{
+    const allowed=master||mine.includes(cb.value);
+    cb.disabled=!allowed;
+    const l=cb.closest('label');
+    if(l){l.style.opacity=allowed?'':'0.35';l.title=allowed?'':'You do not administer this team';}
+  });
+
+  // Granting admin rights is a master admin's job only, or people could
+  // promote themselves.
+  document.querySelectorAll('.adminfor').forEach(cb=>{
+    cb.disabled=!master;
+    const l=cb.closest('label');
+    if(l)l.style.opacity=master?'':'0.35';
+  });
+  ['masterAdmin','isMinor'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.disabled=!master;
+      const l=el.closest('label');
+      if(l)l.style.opacity=master?'':'0.35';
+    }
+  });
+}
+
+document.addEventListener('egbc-ready',()=>{
+  applyAdminScope();
+  // The list is drawn before auth resolves, so redraw it now that we know
+  // whose records this person may touch.
+  if(typeof window.redrawMembers==='function')window.redrawMembers();
+});
+
     </script>
     <style>
         :root{
@@ -190,7 +276,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js"></script>
-<script src="egbc-guard.js" data-team="Core Team" data-role="admin"></script>
+<script src="egbc-guard.js" data-admin="any"></script>
 </head>
 <body class="p-8 lg:p-12">
     <div class="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-12">
@@ -210,7 +296,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Max / Mo</label>
-                        <input type="number" id="freq" value="2" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-center font-bold outline-none focus:border-[#9bc34a]">
+                        <input type="number" id="freq" value="2" min="0" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-center font-bold outline-none focus:border-[#9bc34a]">
                     </div>
                     <div>
                         <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Household</label>
@@ -219,6 +305,20 @@
                         </select>
                     </div>
                 </div>
+
+                <details class="pt-1">
+                    <summary class="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#3d6263]">Most per team &mdash; optional</summary>
+                    <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mt-2 mb-3">Max / Mo above is the total across everything. Use these to stop one team taking all of it &mdash; three a month with a cap of two on each means two and one, either way round. Blank means no separate limit.</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Worship</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Worship Team" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">AV Team</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="AV Team" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Choir</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Choir" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Youth</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Youth Worship" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Kids Church</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Kids Church" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Lazers</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Lazers" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">ReNu</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="ReNu" placeholder="&mdash;"></div>
+                    </div>
+                </details>
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Teams</label>
@@ -233,8 +333,26 @@
                         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="ReNu"> RENU</label>
                     </div>
 
-                    <div class="pt-3 mt-1 border-t border-[#dde7e6]">
-                        <label class="flex items-center gap-2 cursor-pointer text-[#8a5f1e]"><input type="checkbox" id="isMinor" class="w-3.5 h-3.5"> UNDER 16</label>
+                    <div class="pt-3 mt-1 border-t border-[#dde7e6] space-y-3">
+                        <div>
+                            <label class="block text-[10px] font-extrabold text-[#6b4a7a] uppercase tracking-widest mb-1">Admin for</label>
+                            <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mb-2">Which areas they manage - pages, resources and people. Core Team usually means Worship and AV. Leave blank for ordinary members.</p>
+                            <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Worship Team"> WORSHIP</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="AV Team"> AV TEAM</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Choir"> CHOIR</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Youth Worship"> YOUTH</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Kids Church"> KIDS CHURCH</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Lazers"> LAZERS</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="ReNu"> RENU</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Core Team"> CORE TEAM</label>
+                            </div>
+                        </div>
+
+                        <label class="flex items-center gap-2 cursor-pointer text-[#6b4a7a] pt-1"><input type="checkbox" id="masterAdmin" class="w-3.5 h-3.5"> MASTER ADMIN</label>
+                        <p class="text-[9px] text-gray-400 font-semibold leading-relaxed -mt-2">Everything, everywhere, including making other people admins. Very few people.</p>
+
+                        <label class="flex items-center gap-2 cursor-pointer text-[#8a5f1e] pt-1"><input type="checkbox" id="isMinor" class="w-3.5 h-3.5"> UNDER 16</label>
                         <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mt-1.5">Under 16s cannot sign in - they use an access code emailed to a parent. From 16 we hold their own email and they sign in normally. Nothing to do with which teams they are on: an adult who runs youth work is not under 16.</p>
                     </div>
                 </div>

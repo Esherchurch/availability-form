@@ -27,6 +27,7 @@
   var script = document.currentScript;
   var team = script ? script.getAttribute('data-team') : null;
   var role = script ? script.getAttribute('data-role') : null;
+  var adminAny = script ? script.getAttribute('data-admin') === 'any' : false;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');
@@ -71,6 +72,7 @@
     var opts = {};
     if (team) opts.team = team;
     if (role) opts.role = role;
+    if (adminAny) opts.adminAny = true;
 
     EGBCAuth.require(opts).then(function (profile) {
       reveal();

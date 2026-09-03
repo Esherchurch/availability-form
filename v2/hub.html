@@ -191,7 +191,7 @@ function greetingFor(p){
    Admins get one extra tab holding the build and admin tools. */
 function myTeams(){
   const tabs=EGBCAuth.tabTeams();
-  if(EGBCAuth.isAdmin())tabs.push('Core Team');
+  if(EGBCAuth.isAdminOf('Core Team')||EGBCAuth.isMaster())tabs.push('Core Team');
   return tabs;
 }
 
@@ -260,13 +260,21 @@ function adminTab(t){
     const b=document.getElementById('ta-'+x);
     b.classList.toggle('bg-[#3d6263]',x===t);b.classList.toggle('text-white',x===t);
   });
-  if(t==='youth')loadYouth();
+  if(t==='youth'){
+    if(!canIssueCodes()){
+      document.getElementById('tab-youth').innerHTML='<div class="text-sm opacity-50 italic py-6">Access codes are issued by whoever administers Kids Church, Youth, Lazers or ReNu.</div>';
+      return;
+    }
+    loadYouth();
+  }
 }
 
 /* Administrators manage every team. Choir is included because it must stay
    tickable - the rota filters on it - even though it has no tab of its own. */
+/* Only the areas this person manages. A master admin gets everything;
+   Karen gets Kids Church; Core Team get Worship and AV. */
 function adminTeams(){
-  return EGBCAuth.isAdmin()?Object.keys(EGBCAuth.TEAMS):[];
+  return EGBCAuth.adminAreas();
 }
 
 let BOOK=[];
@@ -452,6 +460,12 @@ async function setRole(uid,team,role){
 }
 
 async function savePerson(p,teams,roles){
+  if(!EGBCAuth.isMaster()){
+    const mine=EGBCAuth.adminAreas();
+    const touched=[...new Set([...(p.teams||[]),...teams])];
+    const outside=touched.filter(t=>!mine.includes(t));
+    if(outside.length){alert('You can only change teams you administer. Not yours: '+outside.join(', '));return;}
+  }
   const patch={teams,roles,status:teams.length?'active':'pending'};
   try{
     await db.collection('users').doc(p.id).update(patch);
@@ -629,6 +643,12 @@ let YOUTH=[];
    someone's age. From 16 they have their own email and sign in normally. */
 function youngPeople(){
   return BOOK.filter(m=>m.isMinor===true&&m.householdId);
+}
+
+/* Karen issues codes for Kids Church, Marcia for Youth. */
+function canIssueCodes(){
+  return EGBCAuth.isMaster()||['Kids Church','Youth Worship','Lazers','ReNu']
+    .some(t=>EGBCAuth.isAdminOf(t));
 }
 
 function parentFor(member){

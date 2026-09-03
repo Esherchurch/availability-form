@@ -169,9 +169,12 @@
       if (m.exists) {
         var md = m.data();
         var teams = Array.isArray(md.markers) ? md.markers : [];
+        var adminFor = Array.isArray(md.adminFor) ? md.adminFor : [];
         patch.teams = teams;
+        patch.adminFor = adminFor;
+        patch.masterAdmin = md.masterAdmin === true;
         patch.name = (md.name || md.fullName || d.name || '').trim();
-        patch.status = teams.length ? 'active' : 'pending';
+        patch.status = (teams.length || adminFor.length || md.masterAdmin === true) ? 'active' : 'pending';
       }
       return db.collection('users').doc(user.uid).update(patch)
         .catch(function () {})
@@ -212,11 +215,16 @@
 
   function applyMember(uid, m, how) {
     var teams = Array.isArray(m.data.markers) ? m.data.markers : [];
+    var adminFor = Array.isArray(m.data.adminFor) ? m.data.adminFor : [];
     return {
       memberId: m.id,
       name: (m.data.name || m.data.fullName || '').trim(),
       teams: teams,
-      status: teams.length ? 'active' : 'pending',
+      adminFor: adminFor,
+      masterAdmin: m.data.masterAdmin === true,
+      // Someone can administer an area without being a member of it - Karen
+      // runs Kids Church, Marcia runs Youth - so status counts either.
+      status: (teams.length || adminFor.length || m.data.masterAdmin === true) ? 'active' : 'pending',
       // 'auto' was matched on a unique email. 'admin' was chosen by a person.
       // Only 'admin' is trusted permanently - an automatic match is re-checked
       // on every load, because a second record can appear on that address later.
@@ -363,6 +371,19 @@
               return;
             }
 
+            /* Pages open to anyone who administers something - the address
+               book, for instance, where Karen manages Kids Church and the
+               Core Team manage Worship and AV. */
+            if (opts.adminAny && !EGBCAuth.isAdmin()) {
+              EGBCAuth._blockPage(
+                'Admins only',
+                'This page is for people who manage a team. If you think you should ' +
+                'have access, ask a member of the Core Team.',
+                profile
+              );
+              return;
+            }
+
             if (opts.team && !EGBCAuth.inTeam(opts.team) && !EGBCAuth.isOwner()) {
               EGBCAuth._blockPage(
                 'No access to this page',
@@ -424,31 +445,57 @@
     /* Content tabs. Children fold into their parent; Core Team is not a
        content team, so it is handled separately as the Admin tab. */
     tabTeams: function () {
-      return EGBCAuth.effectiveTeams().filter(function (t) {
+      var out = EGBCAuth.effectiveTeams().filter(function (t) {
         return TEAMS[t] && !TEAMS[t].parent && !TEAMS[t].admin;
       });
+      /* Karen administers Kids Church without being on the rota for it, so
+         the areas someone manages are reachable too. */
+      EGBCAuth.adminAreas().forEach(function (t) {
+        if (TEAMS[t] && !TEAMS[t].parent && !TEAMS[t].admin && out.indexOf(t) === -1) out.push(t);
+      });
+      return out;
     },
 
     inTeam: function (team) {
       return EGBCAuth.effectiveTeams().indexOf(team) !== -1;
     },
 
-    /* Two states only: administrator, or a member of the team. */
+    /* Can act on this area: either they administer it, or they are on it. */
     hasRole: function (team) {
-      return EGBCAuth.isAdmin() || EGBCAuth.inTeam(team);
+      return EGBCAuth.isAdminOf(team) || EGBCAuth.inTeam(team);
     },
 
-    /* An administrator is anyone ticked Core Team. There is no layer above it. */
+    /* Three levels.
+         masterAdmin  - everything, everywhere, including making admins
+         adminFor[]   - manages those areas only
+         member       - their own team's pages, plus anything open to everyone  */
+
+    isMaster: function () {
+      return !!(currentProfile && currentProfile.masterAdmin === true);
+    },
+
+    /* Manages this particular area. */
+    isAdminOf: function (team) {
+      if (!currentProfile) return false;
+      if (currentProfile.masterAdmin === true) return true;
+      return (currentProfile.adminFor || []).indexOf(team) !== -1;
+    },
+
+    /* Manages anything at all - used to decide whether to show admin at all. */
     isAdmin: function () {
       if (!currentProfile) return false;
-      return (currentProfile.teams || []).some(function (t) {
-        return TEAMS[t] && TEAMS[t].admin;
-      });
+      return currentProfile.masterAdmin === true || (currentProfile.adminFor || []).length > 0;
     },
 
-    isOwner: function () { return EGBCAuth.isAdmin(); },
+    /* Every area this person administers. */
+    adminAreas: function () {
+      if (!currentProfile) return [];
+      if (currentProfile.masterAdmin === true) return Object.keys(TEAMS);
+      return (currentProfile.adminFor || []).slice();
+    },
+
+    isOwner: function () { return EGBCAuth.isMaster(); },
     isAnyAdmin: function () { return EGBCAuth.isAdmin(); },
-    isAdminOf: function () { return EGBCAuth.isAdmin(); },
 
     chooseIdentity: chooseIdentity,
 

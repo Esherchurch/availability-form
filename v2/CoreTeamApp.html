@@ -2707,11 +2707,119 @@ window.gatherTermAvailability = async () => {
   const terms = [...new Set(cachedEvents.filter(e=>!e.archived).map(e=>e.termLabel))];
   const sel = prompt(`Gather availability for which term?\n\n${terms.join('\n')}`, terms[0]);
   if (!sel) return;
-  const emails = new Set();
-  cachedEvents.filter(e=>!e.archived&&e.termLabel===sel).forEach(ev => {
-    allMembers.forEach(m => { if (m.markers?.some(r=>ev.teams?.includes(r))||(ev.teams?.includes("Youth")&&m.markers?.includes("Youth Worship"))) emails.add(m.email); });
+
+  const termEvents = cachedEvents.filter(e=>!e.archived&&e.termLabel===sel);
+  if (!termEvents.length) { alert('No events in that term.'); return; }
+
+  /* Who is needed, and for which dates. Someone on Worship and Kids Church is
+     one person needed on the union of both sets of dates - they should be
+     asked once, about all of them. */
+  const needed = {};
+  termEvents.forEach(ev => {
+    allMembers.forEach(m => {
+      const onIt = m.markers?.some(r=>ev.teams?.includes(r))
+                || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship"));
+      if (!onIt || !m.email) return;
+      if (!needed[m.id]) needed[m.id] = { member: m, dates: new Set() };
+      needed[m.id].dates.add(ev.date);
+    });
   });
-  window.location.href = `mailto:av@esherchurch.org?bcc=${[...emails].join(';')}&subject=Availability Request&body=Please click here: https://esherchurch.github.io/availability-form/`;
+
+  /* What has already gone out. Karen sending after Martin must not ask the
+     same people again - unless dates have been added since they were asked. */
+  const reqRef = db.collection('availabilityRequests').doc(sel);
+  let already = {};
+  try {
+    const snap = await reqRef.get();
+    if (snap.exists) already = snap.data().sent || {};
+  } catch (e) { console.warn('Could not read previous requests', e); }
+
+  const toSend = [], topUp = [], skipped = [];
+  Object.values(needed).forEach(n => {
+    const prev = already[n.member.id];
+    if (!prev) { toSend.push(n); return; }
+    const asked = new Set(prev.dates || []);
+    const fresh = [...n.dates].filter(d => !asked.has(d));
+    if (fresh.length) topUp.push({ ...n, fresh });
+    else skipped.push(n);
+  });
+
+  const total = toSend.length + topUp.length;
+  if (!total) {
+    alert(`Everyone needed for ${sel} has already been asked - ${skipped.length} ${skipped.length===1?'person':'people'}.\n\nNobody will be emailed again.`);
+    return;
+  }
+
+  const lines = [
+    `${sel}`,
+    ``,
+    `${toSend.length} to ask for the first time`,
+    topUp.length ? `${topUp.length} to ask about newly added dates` : null,
+    skipped.length ? `${skipped.length} already asked - will be skipped` : null,
+    ``,
+    `Send now?`
+  ].filter(Boolean).join('\n');
+  if (!confirm(lines)) return;
+
+  loader(true, 'Sending…');
+
+  const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
+  const fmt = d => new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+
+  const body = (n, onlyNew) => {
+    const dates = (onlyNew ? n.fresh : [...n.dates]).sort();
+    return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
+      <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Hi ${n.member.name.split(' ')[0]},</p>
+      <p style="font-size:15px;color:#3a4d4c;line-height:1.6">${onlyNew
+        ? `A few more dates have been added to ${sel}. Could you let us know about these ones?`
+        : `Could you let us know which Sundays you are around for in ${sel}?`}</p>
+      <div style="background:#f0f6f6;border:1px solid #dde7e6;border-radius:14px;padding:16px 20px;margin:18px 0">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#6b8281;margin-bottom:8px">${dates.length} date${dates.length===1?'':'s'}</div>
+        <div style="font-size:14px;color:#14201f;line-height:1.9">${dates.map(fmt).join(' &middot; ')}</div>
+      </div>
+      <p style="text-align:center;margin:24px 0">
+        <a href="https://esherchurch.github.io/availability-form/" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;text-decoration:none">Fill in your availability</a>
+      </p>
+      <p style="font-size:13px;color:#6b8281;line-height:1.6">One form covers everything you are on - worship, AV, Kids Church - so you only need to do this once.</p>
+    </div>`;
+  };
+
+  const sentPatch = { ...already };
+  let ok = 0; const failed = [];
+
+  for (const n of [...toSend, ...topUp]) {
+    const onlyNew = !!n.fresh;
+    try {
+      const resp = await fetch(SEND_FUNCTION_URL, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          to:[n.member.email],
+          subject:`Availability for ${sel}`,
+          html: body(n, onlyNew),
+          replyTo:'av@esherchurch.org'
+        })
+      });
+      const r = await resp.json();
+      if (!r.ok) throw new Error(r.error || 'send failed');
+      sentPatch[n.member.id] = {
+        at: new Date().toISOString(),
+        by: (typeof ME !== 'undefined' && ME?.name) || 'unknown',
+        dates: [...n.dates]
+      };
+      ok++;
+    } catch (e) {
+      console.error('Availability email failed for', n.member.name, e);
+      failed.push(n.member.name);
+    }
+  }
+
+  try { await reqRef.set({ term: sel, sent: sentPatch }, { merge: true }); }
+  catch (e) { console.warn('Could not record who was asked', e); }
+
+  loader(false);
+  toast(failed.length ? `${ok} sent, ${failed.length} failed` : `${ok} sent \u2713`);
+  if (failed.length) alert('Could not send to: ' + failed.join(', '));
 };
 
 function buildTimeOptions(sel) {
