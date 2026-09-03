@@ -332,7 +332,9 @@ async function loadCharter() {
   }
 
   document.getElementById('charterTitle').textContent = (d && d.title) || `${c.label} charter`;
-  body.innerHTML = safeHtml(CHARTER_HTML);
+  /* The charter text starts with its own heading, which would repeat the
+     title above it. Drop the first one. */
+  body.innerHTML = stripLeadingHeading(safeHtml(CHARTER_HTML));
   body.classList.add('short');
   card.style.display = '';
 
@@ -343,6 +345,13 @@ async function loadCharter() {
 }
 
 let CHARTER_HTML = '';
+
+function stripLeadingHeading(html) {
+  const d = new DOMParser().parseFromString(html, 'text/html');
+  const first = d.body.firstElementChild;
+  if (first && /^H[1-3]$/.test(first.tagName)) first.remove();
+  return d.body.innerHTML;
+}
 
 function toggleCharter() {
   CHARTER_OPEN = !CHARTER_OPEN;
@@ -967,72 +976,95 @@ function isCharterPage(url) {
 async function importOldMenu() {
   if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
 
+  let items;
   try {
     const d = (await db.collection('portal').doc('menuItems').get()).data() || {};
-    const items = d.items || d.menu || (Array.isArray(d) ? d : null);
-    if (!items || !items.length) { alert('No menu found in portal/menuItems.'); return; }
+    items = d.items || d.menu || (Array.isArray(d) ? d : null);
+  } catch (e) { alert('Could not read the menu: ' + e.message); return; }
 
-    const existing = PAGES.length;
-    if (!confirm(`Bring across ${items.length} menu entries?` +
-      (existing ? `\n\nThis replaces the ${existing} tiles currently listed.` : '') +
-      '\n\nThe original menu is left untouched.')) return;
+  if (!items || !items.length) { alert('No menu found in portal/menuItems.'); return; }
 
-    /* Anything with no URL is a heading, not a page. Keep them, because they
-       are what gives the menu its shape. */
-    const byId = {};
-    items.forEach(it => { byId[it.id] = it; });
+  /* 'none' is how the original stores "no parent" - treating it as a real id
+     orphans the item and it never renders. */
+  const clean = items.map(it => ({
+    id: String(it.id || ''),
+    name: it.name || '',
+    url: it.url || '',
+    icon: it.icon || '',
+    role: it.role || '',
+    parent: (!it.parent || it.parent === 'none') ? '' : String(it.parent)
+  }));
 
-    const teamOf = it => {
-      let cur = it, guard = 0;
-      while (cur && guard++ < 8) {
-        if (cur.role === 'core') return 'Core Team';
-        cur = cur.parent ? byId[cur.parent] : null;
-      }
-      const name = (it.name || '').toLowerCase();
-      if (name.includes('youth')) return 'Youth Worship';
-      if (name.includes('av')) return 'AV Team';
-      if (name.includes('choir')) return 'Choir';
-      if (name.includes('kids')) return 'Kids Church';
-      return 'Worship Team';
-    };
+  const byId = {};
+  clean.forEach(it => { byId[it.id] = it; });
 
-    const tidyUrl = u => {
-      if (!u || u === 'landing') return '';
-      return u.replace(/^https?:\/\/esherchurch\.github\.io\/availability-form\/+/, '')
-              .replace(/^\/+/, '');
-    };
+  const teamOf = it => {
+    let cur = it, guard = 0;
+    while (cur && guard++ < 8) {
+      if (cur.role === 'core') return 'Core Team';
+      cur = cur.parent ? byId[cur.parent] : null;
+    }
+    const n = (it.name || '').toLowerCase();
+    if (n.includes('youth')) return 'Youth Worship';
+    if (n.includes('av')) return 'AV Team';
+    if (n.includes('choir')) return 'Choir';
+    if (n.includes('kids')) return 'Kids Church';
+    return 'Worship Team';
+  };
 
-    const ICONS = { home: '\u{1F3E0}', calendar: '\u{1F4C5}', music: '\u{1F3B5}', users: '\u{1F465}',
-                    mail: '\u2709', settings: '\u2699', book: '\u{1F4D8}', video: '\u{1F3AC}',
-                    tool: '\u{1F6E0}', file: '\u{1F4C4}' };
+  const tidyUrl = u => {
+    if (!u || u === 'landing' || u === '#') return '';
+    return u.replace(/^https?:\/\/esherchurch\.github\.io\/availability-form\/+/, '').replace(/^\/+/, '');
+  };
 
+  const ICONS = { home: '\u{1F3E0}', calendar: '\u{1F4C5}', music: '\u{1F3B5}', users: '\u{1F465}',
+                  mail: '\u2709', settings: '\u2699', book: '\u{1F4D8}', video: '\u{1F3AC}',
+                  tool: '\u{1F6E0}', file: '\u{1F4C4}' };
+
+  /* Build the whole thing before touching anything, so a menu that yields
+     nothing cannot wipe what is already there. */
+  const rows = [];
+  clean.forEach((it, i) => {
+    const url = tidyUrl(it.url);
+    const hasKids = clean.some(x => x.parent === it.id);
+    if (!url && !hasKids) return;
+    rows.push({
+      title: it.name || 'Untitled',
+      url,
+      description: '',
+      icon: ICONS[it.icon] || '\u{1F4C4}',
+      team: teamOf(it),
+      legacyId: it.id,
+      legacyParent: it.parent,
+      heading: !url,
+      order: (i + 1) * 10,
+      enabled: true
+    });
+  });
+
+  const pages = rows.filter(r => !r.heading).length;
+  if (!pages) {
+    alert(`Found ${items.length} menu entries but none of them point at a page, so nothing has been changed.\n\nThe menu may only contain headings.`);
+    return;
+  }
+
+  if (!confirm(`Found ${pages} page${pages === 1 ? '' : 's'} and ${rows.length - pages} heading${rows.length - pages === 1 ? '' : 's'}.` +
+    (PAGES.length ? `\n\nThis replaces the ${PAGES.length} currently listed.` : '') +
+    '\n\nThe original menu is left untouched.')) return;
+
+  try {
     const batch = db.batch();
     PAGES.forEach(p => batch.delete(db.collection('hubPages').doc(p.id)));
-
-    items.forEach((it, i) => {
-      const url = tidyUrl(it.url);
-      if (!url && !items.some(x => x.parent === it.id)) return;   // empty leaf, skip
-      batch.set(db.collection('hubPages').doc(), {
-        title: it.name || 'Untitled',
-        url,
-        description: '',
-        icon: ICONS[it.icon] || '\u{1F4C4}',
-        team: teamOf(it),
-        legacyId: it.id || '',
-        legacyParent: it.parent || '',
-        heading: !url,
-        order: (i + 1) * 10,
-        enabled: true
-      });
-    });
-
+    rows.forEach(r => batch.set(db.collection('hubPages').doc(), r));
     await batch.commit();
+
     await loadPages();
     renderTools();
     renderAdminPages();
-    alert('Menu brought across. Check the grouping in Tools and adjust anything that landed in the wrong place.');
+    alert(`${pages} page${pages === 1 ? '' : 's'} brought across. Your menu only covers part of the suite, so add whatever is missing.`);
   } catch (e) { alert('Could not import: ' + e.message); }
 }
+
 
 function visibleTools() {
   const mine = myTeams();
@@ -1057,7 +1089,11 @@ function renderTools() {
 
   const el = document.getElementById('toolList');
   if (!tools.length) {
-    el.innerHTML = `<div class="empty"><div class="i">&#128269;</div><div class="t">${q ? 'Nothing matches' : 'No tools yet'}</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="i">&#128269;</div>
+      <div class="t">${q ? 'Nothing matches' : 'No tools yet'}</div>
+      ${!q && EGBCAuth.isAdmin() ? `<div style="font-size:12px;font-weight:600;margin-top:8px;line-height:1.5">
+        Nothing is registered yet. Open <strong>&#9881; &rarr; Tools</strong> and bring across the old menu.</div>` : ''}
+    </div>`;
     return;
   }
 
@@ -1466,6 +1502,13 @@ function fillTeamSelect(){
 function renderPagesList(){
   const teams=adminTeams();
   const list=document.getElementById('pagesList');
+  const cnt=document.getElementById('pagesCount');
+  if(cnt){
+    const pages=PAGES.filter(p=>!p.heading).length, heads=PAGES.length-pages;
+    cnt.textContent=PAGES.length
+      ? `${pages} page${pages===1?'':'s'}${heads?` and ${heads} heading${heads===1?'':'s'}`:''} registered.`
+      : 'Nothing registered - the Tools panel will be empty.';
+  }
   const mine=PAGES.filter(p=>teams.includes(p.team));
   if(!mine.length){list.innerHTML='<div class="empty"><div class="t">Nothing registered yet</div><div style="font-size:12px;font-weight:600;margin-top:6px">Use <strong>Bring across the old menu</strong> to start from the menu people already know.</div></div>';return;}
   list.innerHTML=mine.map(p=>{
@@ -1815,6 +1858,7 @@ function renderAdminPages(){
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.6;max-width:480px">
           What appears in the Tools panel, and who sees it.
+          <span id="pagesCount" style="display:block;margin-top:4px;font-weight:700"></span>
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
