@@ -271,11 +271,37 @@
     if (!user || !currentProfile) return;
 
     var pick = (currentProfile.candidates || []).filter(function (c) { return c.id === memberId; })[0];
-    if (!pick || pick.admin) return;
+    if (!pick) return;
 
-    db.collection('addressBook').doc(memberId).get().then(function (d) {
+    /* Admin records normally need an administrator to link them. But if there
+       is no administrator yet, saying "ask an administrator" is a deadlock -
+       so the first one is allowed to identify themselves. */
+    var allowed = pick.admin
+      ? db.collection('users').where('status', '==', 'active').get().then(function (q) {
+          var anyAdmin = q.docs.some(function (d) {
+            var t = d.data().teams || [];
+            return t.some(function (x) { return TEAMS[x] && TEAMS[x].admin; });
+          });
+          if (anyAdmin) {
+            alert('An administrator needs to link this one. Ask another member of the Core Team.');
+            return false;
+          }
+          return true;
+        }).catch(function () { return true; })
+      : Promise.resolve(true);
+
+    allowed.then(function (ok) {
+      if (!ok) return;
+      return doChoose(user, memberId);
+    });
+  }
+
+  function doChoose(user, memberId) {
+    return db.collection('addressBook').doc(memberId).get().then(function (d) {
       if (!d.exists) return;
-      var patch = applyMember(user.uid, { id: d.id, data: d.data() }, 'self');
+      var mk = Array.isArray(d.data().markers) ? d.data().markers : [];
+      var isAdminRecord = mk.some(function (t) { return TEAMS[t] && TEAMS[t].admin; });
+      var patch = applyMember(user.uid, { id: d.id, data: d.data() }, isAdminRecord ? 'admin' : 'self');
       patch.candidates = firebase.firestore.FieldValue.delete();
       return db.collection('users').doc(user.uid).update(patch);
     }).then(function () {
@@ -463,20 +489,19 @@
       }).join('');
 
       if (locked.length) {
-        body += '<div style="background:#f6efe1;border:1px solid #e8d9b8;border-radius:16px;padding:14px 18px;margin-top:6px">' +
-          '<div style="font-size:12px;font-weight:800;color:#8a5f1e;margin-bottom:4px">' +
-            locked.map(function (c) { return c.name; }).join(', ') +
-          '</div>' +
+        body += locked.map(function (c) {
+          return '<button onclick="EGBCAuth.chooseIdentity(\'' + c.id + '\')" ' +
+            'style="display:block;width:100%;background:#f6efe1;border:1px solid #e8d9b8;border-radius:16px;' +
+            'padding:16px 20px;margin-bottom:10px;font-family:inherit;font-size:15px;font-weight:700;' +
+            'color:#8a5f1e;cursor:pointer;text-align:left">' + c.name +
+            '<div style="font-size:11px;font-weight:600;margin-top:3px;opacity:.8">Core Team</div></button>';
+        }).join('');
+        body += '<div style="background:#fff;border:1px solid #e8d9b8;border-radius:16px;padding:14px 18px;margin-top:2px">' +
+          '<div style="font-size:12px;font-weight:800;color:#8a5f1e;margin-bottom:4px">Core Team</div>' +
           '<div style="font-size:11.5px;color:#8a5f1e;line-height:1.55">' +
-            (locked.length === 1 ? 'This one is' : 'These are') + ' on the Core Team, so ' +
-            (locked.length === 1 ? 'it has' : 'they have') + ' to be linked by an administrator rather than chosen here.' +
+            (locked.length === 1 ? 'This one is' : 'These are') + ' on the Core Team. Tap to continue - ' +
+            'if another administrator already exists, they will need to do the linking instead.' +
           '</div></div>';
-      }
-
-      if (!pickable.length && locked.length) {
-        body = '<div style="background:#f6efe1;border:1px solid #e8d9b8;border-radius:16px;padding:16px 20px">' +
-          '<div style="font-size:13px;color:#8a5f1e;line-height:1.6">Every person on this address is on the Core Team, ' +
-          'so an administrator has to link it. Ask another member of the Core Team.</div></div>';
       }
 
       document.body.innerHTML =
