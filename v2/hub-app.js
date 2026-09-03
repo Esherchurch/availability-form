@@ -522,16 +522,6 @@ function textOf(raw) {
   return (d.body.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
-function toggleNews(id) {
-  const el = document.getElementById('nb-' + id);
-  const btn = document.getElementById('nt-' + id);
-  const open = el.dataset.open === '1';
-  el.style.maxHeight = open ? '82px' : 'none';
-  el.style.webkitMaskImage = open ? 'linear-gradient(#000 55%,transparent)' : '';
-  el.dataset.open = open ? '0' : '1';
-  btn.textContent = open ? 'Read more' : 'Show less';
-}
-
 /* Karen may remove a Kids Church notice, not an AV one. Church-wide notices
    belong to master admins. */
 function canEditNews(n) {
@@ -557,18 +547,28 @@ function renderNews() {
   }).join('');
 
   const list = document.getElementById('newsList');
+  const dots = document.getElementById('newsDots');
+
   if (!rest.length) {
     list.innerHTML = '<div class="empty"><div class="i">&#128226;</div><div class="t">Nothing new</div></div>';
+    dots.innerHTML = '';
+    stopRotation();
     return;
   }
 
-  list.innerHTML = rest.map(n => {
-    const long = textOf(n.body).length > 240;
+  /* Notices from the team in context first, so the one most likely to matter
+     is the one showing when the page loads. */
+  const ordered = rest.slice().sort((a, b) => {
+    const mine = n => (n.teams || []).includes(TEAM) ? 0 : 1;
+    return mine(a) - mine(b);
+  });
+
+  list.innerHTML = ordered.map((n, i) => {
     const tags = (n.teams || []).map(t => {
       const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
       return `<span class="t" style="background:${c.colour}">${esc(c.label)}</span>`;
     }).join('');
-    return `<div class="nw">
+    return `<div class="nw ${i === 0 ? 'on' : ''}" data-i="${i}">
       <div class="m">
         ${tags || '<span class="t" style="background:#6b8281">Everyone</span>'}
         <span class="d">${when(n.createdAt)}</span>
@@ -578,7 +578,60 @@ function renderNews() {
       <div class="bd">${safeHtml(n.body)}</div>
     </div>`;
   }).join('');
+
+  NEWS_N = ordered.length;
+  NEWS_I = 0;
+
+  dots.innerHTML = (NEWS_N > 1
+    ? ordered.map((_, i) => `<button class="dot ${i === 0 ? 'on' : ''}" onclick="showNews(${i}, true)" title="${esc(ordered[i].title)}"></button>`).join('')
+    : '') +
+    `<button class="more" onclick="toggleNewsExpanded()" id="newsMore">${NEWS_N > 1 ? 'Show all ' + NEWS_N : ''}</button>`;
+
+  startRotation();
 }
+
+/* One notice at a time in a fixed frame, so the feed never pushes the page
+   down however much gets posted - and several get seen rather than one. */
+let NEWS_I = 0, NEWS_N = 0, NEWS_TIMER = null, NEWS_OPEN = false;
+
+function showNews(i, byHand) {
+  if (NEWS_OPEN) return;
+  NEWS_I = (i + NEWS_N) % NEWS_N;
+  document.querySelectorAll('#newsList .nw').forEach(el =>
+    el.classList.toggle('on', +el.dataset.i === NEWS_I));
+  document.querySelectorAll('#newsDots .dot').forEach((d, j) =>
+    d.classList.toggle('on', j === NEWS_I));
+  if (byHand) startRotation();
+}
+
+function startRotation() {
+  stopRotation();
+  if (NEWS_N < 2 || NEWS_OPEN) return;
+  NEWS_TIMER = setInterval(() => showNews(NEWS_I + 1), 9000);
+}
+function stopRotation() { if (NEWS_TIMER) { clearInterval(NEWS_TIMER); NEWS_TIMER = null; } }
+
+function toggleNewsExpanded() {
+  NEWS_OPEN = !NEWS_OPEN;
+  const list = document.getElementById('newsList');
+  list.classList.toggle('expanded', NEWS_OPEN);
+  document.querySelectorAll('#newsList .nw').forEach(el => el.classList.add('on'));
+  document.getElementById('newsMore').textContent = NEWS_OPEN ? 'Show less' : 'Show all ' + NEWS_N;
+  document.querySelectorAll('#newsDots .dot').forEach(d => d.style.display = NEWS_OPEN ? 'none' : '');
+  if (NEWS_OPEN) stopRotation(); else { showNews(0); startRotation(); }
+}
+
+/* Reading something should not have it slide away underneath you. */
+(function () {
+  const wire = () => {
+    const c = document.getElementById('newsCarousel');
+    if (!c) return;
+    c.addEventListener('mouseenter', stopRotation);
+    c.addEventListener('mouseleave', startRotation);
+    c.addEventListener('focusin', stopRotation);
+  };
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', wire) : wire();
+})();
 
 async function ackNews(id) {
   if (!ME || !ME.memberId) { alert('We do not know who you are yet.'); return; }
