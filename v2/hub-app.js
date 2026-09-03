@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v66';
+const HUB_BUILD = 'v67';
 
 const db = firebase.firestore();
 const storage = firebase.storage();

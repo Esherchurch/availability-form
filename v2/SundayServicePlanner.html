@@ -1,6 +1,11 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team" data-role="leader"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-service.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -513,12 +518,7 @@ window.emailSchedule = async () => {
     const summaryUrl = await saveSongSummaryToFirestore(date);
 
     let htmlEmail = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js"></script>
-<script src="egbc-guard.js" data-team="Worship Team" data-role="leader"></script>
-</head>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background-color:#eaf2f2;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2">
 <tr><td align="center" style="padding:40px 16px;">

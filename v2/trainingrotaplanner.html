@@ -1,6 +1,11 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js"></script>
+<script src="egbc-guard.js" data-team="Worship Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Master Rota Planner — TRAINING</title>
@@ -267,12 +272,7 @@
             try{sessionStorage.clear();}catch(e){}
             try{localStorage.clear();}catch(e){}
             document.open();
-            document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f6f6;margin:0;}</style><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js"></script>
-<script src="egbc-guard.js" data-team="Worship Team" data-role="leader"></script>
-</head><body><div style="text-align:center;color:#3d6263;"><h2 style="font-weight:800;">Training session ended.</h2><p style="font-size:14px;opacity:0.6;">All practice data has been cleared.</p></div></body></html>`);
+            document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f6f6;margin:0;}</style></head><body><div style="text-align:center;color:#3d6263;"><h2 style="font-weight:800;">Training session ended.</h2><p style="font-size:14px;opacity:0.6;">All practice data has been cleared.</p></div></body></html>`);
             document.close();
         };
 
