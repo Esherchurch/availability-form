@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v71';
+const HUB_BUILD = 'v72';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -1016,7 +1016,12 @@ async function loadPages() {
 }
 
 /* Pages built for a phone or tablet. They are installed from the home screen
-   and are not much use in a desktop tools list. */
+   and are not much use in a desktop tools list. They are downloaded from
+   hubresources.html ("Apps and downloads"), which is why they need no tiles.
+
+   Performancenotes.html is the exception worth knowing about: nothing links
+   to it, so it is registered - but it stays out of the tools list while it
+   is named here. Take it out of this list if it should be a tile. */
 const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html', 'performancenotes.html'];
 
 /* Charters live on the landing page now, so a link to them here is noise. */
@@ -1170,122 +1175,87 @@ const WORSHIP_AV = ['Worship Team', 'AV Team'];
 
 const REGISTRY = [
 
-  /* -- everyone signed in -------------------------------------------- */
-  { url: 'view-only-rota.html', title: 'Live Rota', icon: '\u{1F4C5}', team: 'Worship Team', everyone: true,
+  /* -- the live menu, as it actually is ------------------------------
+     Read off portal/menuItems in the browser rather than reconstructed
+     from filenames. "worship" in that data means everyone signed in, not
+     the Worship Team, which is why almost all of these are `everyone`. */
+
+  { url: 'view-only-rota.html', title: 'Rota', icon: '\u{1F4C5}', team: 'Worship Team', everyone: true,
     description: 'Who is on, and when' },
-  { url: 'resources.html', title: 'Team Resources', icon: '\u{1F4C1}', team: 'Worship Team', everyone: true,
-    description: 'Documents and links for your teams' },
-  /* One page for every team, like the hub itself. It shows whichever team
-     you are on, so it is a single entry rather than one per team. */
-  { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
-    description: 'Watch your team\'s videos, and search inside them' },
-
-  /* -- worship -------------------------------------------------------
-     The song library goes to AV as well: Worship need the songs, AV need
-     the lyrics. It stops there - Kids Church and Lazers do not see it. */
-  { url: 'Library.html', title: 'Song Library', icon: '\u{1F3B5}', team: 'Worship Team', teams: WORSHIP_AV,
-    description: 'Every song, with keys and usage' },
-  { url: 'sundayplannersonglibrary.html', title: 'Song Library - quick view', icon: '\u{1F3B5}',
-    team: 'Worship Team', teams: WORSHIP_AV, description: 'Cut-down list for a Sunday' },
-  { url: 'song-summary.html', title: 'Song Summary', icon: '\u{1F4CA}', team: 'Worship Team', teams: WORSHIP_AV,
-    description: 'What we have sung, and how often' },
-  { url: 'Performancenotes.html', title: 'Performance Notes', icon: '\u{1F4DD}', team: 'Worship Team',
-    description: 'Notes against a service' },
-  { url: 'EGBC-PlayThrough.html', title: 'Play Through', icon: '\u{1F3AC}', team: 'Worship Team',
-    description: 'Practice videos' },
-  { url: 'EGBC-Training-Worship.html', title: 'Worship Training', icon: '\u{1F4D8}', team: 'Worship Team',
-    description: 'Training material for the worship team' },
-  { url: 'stickynotes.html', title: 'Suggestions Board', icon: '\u{1F4CC}', team: 'Worship Team', everyone: true,
-    description: 'Song suggestions and notices' },
-  { url: 'worshiphubapp.html', title: 'Worship Hub', icon: '\u{1F4F1}', team: 'Worship Team',
-    description: 'The phone app' },
-  { url: 'Worshipteamcharter.html', title: 'Worship & AV Team Charter', icon: '\u{1F4DC}', team: 'Worship Team',
+  { url: 'Worshipteamcharter.html', title: 'Worship & AV', icon: '\u{1F4DC}', team: 'Worship Team', everyone: true,
     description: 'How we serve together' },
-  /* Registered only because it is still the sole editor for the news feed.
-     It comes out the day that moves into the hub. */
-  { url: 'EGBCWorship&AV.html', title: 'Worship & AV Hub (old)', icon: '\u{1F310}', team: 'Worship Team',
-    adminOnly: true, description: 'The old SharePoint hub - still the only news editor' },
-
-  /* -- AV ------------------------------------------------------------- */
-  { url: 'EGBC-Troubleshoot-AV.html', title: 'AV Troubleshoot', icon: '\u{1F6E0}', team: 'AV Team',
-    description: 'When something is not working' },
-  { url: 'EGBC-HowTo-AV.html', title: 'How To AV', icon: '\u{1F4D8}', team: 'AV Team',
+  { url: 'EGBC-PlayThrough.html', title: 'Play-Through', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
+    description: 'Practice videos' },
+  { url: 'EGBC-Training-Worship.html', title: 'Worship Training', icon: '\u{1F4D8}', team: 'Worship Team', everyone: true,
+    description: 'Training material for the worship team' },
+  /* The one visibility change you asked for: the song library goes to
+     Worship and AV rather than everyone. AV need the lyrics. */
+  { url: 'Library.html', title: 'Music Database', icon: '\u{1F3B5}', team: 'Worship Team', teams: WORSHIP_AV,
+    description: 'Every song, with keys and usage' },
+  { url: 'batchupload.html', title: 'Music Uploader', icon: '\u{1F4E4}', team: 'Worship Team', everyone: true,
+    description: 'Add music to the library' },
+  { url: 'EGBC-HowTo-AV.html', title: 'How-To AV', icon: '\u{1F4D8}', team: 'AV Team', everyone: true,
     description: 'Running the desk, step by step' },
+  { url: 'EGBC-Troubleshoot-AV.html', title: 'AV Troubleshoot', icon: '\u{1F6E0}', team: 'AV Team', everyone: true,
+    description: 'When something is not working' },
+  { url: 'Youthcharter.html', title: 'Youth', icon: '\u{1F4DC}', team: 'Youth Worship', everyone: true,
+    description: 'How the youth team serve' },
+  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: '⛪', team: 'Youth Worship', everyone: true,
+    description: 'Planning a youth-led service' },
+  { url: 'stickynotes.html', title: "Idea's pin board", icon: '\u{1F4CC}', team: 'Worship Team', everyone: true,
+    description: 'Song suggestions and ideas' },
+  /* Not superseded by resources.html - this is where the phone apps are
+     downloaded from, which is why worshiphubapp, CoreTeamApp, youthapp2
+     and Performancenotes need no tiles of their own. */
+  { url: 'hubresources.html', title: 'Apps and downloads', icon: '\u{1F4F2}', team: 'Worship Team', everyone: true,
+    description: 'Get the apps on your phone or tablet' },
+
+  { url: 'Coreteamcharter.html', title: 'Core Team', icon: '\u{1F4DC}', team: 'Core Team',
+    description: 'How the core team work' },
+  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: '✉', team: 'Core Team',
+    description: 'Write and send to a team' },
+  { url: 'Planner.html', title: 'Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
+    description: 'Build and send the rota' },
+  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: '⛪', team: 'Core Team',
+    description: 'Plan the running order' },
+  { url: 'addressbook.html', title: 'Address Book', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
+    description: 'People, households and teams' },
+
+  /* -- reachable only from SharePoint today --------------------------
+     Nothing in the repo links to these, and they are not in the menu.
+     They are the pages that genuinely disappear when the old site goes,
+     which is the whole point of the registry. */
+
+  { url: 'inventory-system-2.html', title: 'EGBC Inventory', icon: '\u{1F4E6}', team: 'AV Team',
+    description: 'Equipment and where it lives' },
   { url: 'schematic.html', title: 'AV Infrastructure Mapper', icon: '\u{1F50C}', team: 'AV Team',
     description: 'What is plugged into what' },
   { url: 'MonitorStageMap.html', title: 'Monitor Setup', icon: '\u{1F39A}', team: 'AV Team',
     description: 'Stage monitor positions and mixes' },
-  /* AV read the Worship & AV charter, so this page carries no text of its
-     own. It is the AV landing page, not a tool - see AV_CHARTER_PAGES. */
   { url: 'AVteamlandingpage.html', title: 'AV Team Charter', icon: '\u{1F4DC}', team: 'AV Team',
     description: 'Shared with the worship team' },
-
-  /* -- youth worship, adult leaders ----------------------------------- */
-  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: '⛪', team: 'Youth Worship',
-    description: 'Planning a youth-led service' },
-  { url: 'youthapp2.html', title: 'Youth Hub', icon: '\u{1F4F1}', team: 'Youth Worship',
-    description: 'The phone app' },
-  { url: 'Youthcharter.html', title: 'Youth Charter', icon: '\u{1F4DC}', team: 'Youth Worship',
-    description: 'How the youth team serve' },
-
-  /* -- core team, build tools ----------------------------------------- */
-  { url: 'Planner.html', title: 'Master Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
-    description: 'Build and send the rota' },
-  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: '⛪', team: 'Core Team',
-    description: 'Plan the running order' },
-  { url: 'music-uploader.html', title: 'Music Upload', icon: '\u{1F3B5}', team: 'Core Team',
-    description: 'Add a song and its files' },
-  { url: 'batchupload.html', title: 'Batch Music Importer', icon: '\u{1F4E4}', team: 'Core Team',
-    description: 'Add many songs at once' },
-
-  /* -- core team, administration -------------------------------------- */
-  { url: 'addressbook.html', title: 'Address Book', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
-    description: 'People, households and teams' },
-  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: '✉', team: 'Core Team',
-    description: 'Write and send to a team' },
-  { url: 'inventory-system-2.html', title: 'EGBC Inventory', icon: '\u{1F4E6}', team: 'Core Team',
-    description: 'Equipment and where it lives' },
+  /* Listed so it is not lost, but it will not show as a tile while it is
+     in MOBILE_APPS - see the note there. */
+  { url: 'Performancenotes.html', title: 'Performance Notes', icon: '\u{1F4DD}', team: 'Worship Team',
+    description: 'On-stage view: your part, your monitor mix' },
+  /* Its own SharePoint button today. The shadow site behind it - the four
+     training copies - is reached from this page, so they need no entries. */
+  { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Worship Team', everyone: true,
+    description: 'Practice copies of the main tools' },
+  /* Still the only editor for the news feed, so it cannot go yet. */
+  { url: 'EGBCWorship&AV.html', title: 'Worship & AV Hub (old)', icon: '\u{1F310}', team: 'Core Team', adminOnly: true,
+    description: 'The old portal - still the only news editor' },
   { url: 'index.html', title: 'Availability Form', icon: '\u{1F4CB}', team: 'Core Team',
     description: 'The public form - this is the link to send out' },
+
+  /* -- shipped in the hub package, never registered ------------------- */
+
+  { url: 'resources.html', title: 'Team Resources', icon: '\u{1F4C1}', team: 'Worship Team', everyone: true,
+    description: 'Documents and links for your teams' },
+  { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
+    description: 'Watch your team\'s videos, and search inside them' },
   { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
-    description: 'Take a copy of everything, or put one back' },
-  /* Its <title> is "EGBC Worship Planner", which collides with the Sunday
-     planner. Named for what it is instead. */
-  { url: 'CoreTeamApp.html', title: 'Core Team App', icon: '\u{1F4F1}', team: 'Core Team',
-    description: 'The phone app - rota editing by tapping' },
-  { url: 'Coreteamcharter.html', title: 'Core Team Charter', icon: '\u{1F4DC}', team: 'Core Team',
-    description: 'How the core team work' },
-
-  /* -- core team, training copies -------------------------------------- */
-  { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Core Team', everyone: true,
-    description: 'Practice copies of the main tools' },
-  { url: 'trainingrotaplanner.html', title: 'Training - Rota Planner', icon: '\u{1F4DA}', team: 'Core Team',
-    description: 'Practice copy. Nothing here reaches the real rota' },
-  { url: 'training Sunday planner.html', title: 'Training - Sunday Planner', icon: '\u{1F4DA}', team: 'Core Team',
-    description: 'Practice copy' },
-  { url: 'trainingbatchimporter.html', title: 'Training - Batch Importer', icon: '\u{1F4DA}', team: 'Core Team',
-    description: 'Practice copy' },
-  /* Its own title is "Song Library - TRAINING". It is not a separate music
-     database. */
-  { url: 'trainingmusicdatabase.html', title: 'Training - Song Library', icon: '\u{1F4DA}', team: 'Core Team',
-    description: 'Practice copy. Edits are kept in your browser only' },
-
-  /* -- instructions ----------------------------------------------------
-     These attach to the tool they explain rather than sitting as tiles of
-     their own. Nothing in the repo linked to any of them, so they existed
-     without being findable. */
-  { url: 'rotaplannerinstructions.html', title: 'How to use the Rota Planner', icon: '❓',
-    team: 'Core Team', helpFor: 'Planner.html' },
-  { url: 'Serviceplannerinstructions.html', title: 'How to use the Sunday Planner', icon: '❓',
-    team: 'Core Team', helpFor: 'SundayServicePlanner.html' },
-  { url: 'emailcompilerinstructions.html', title: 'How to use the Email Compiler', icon: '❓',
-    team: 'Core Team', helpFor: 'EmailBuilder2.html' },
-  /* This page is headed "Batch Music Importer - How to use". I had it on
-     music-uploader.html, which is a different tool - so the ? on Music Upload
-     opened the guide to something else. The old SharePoint menu made the same
-     mistake in reverse, labelling batchupload.html as "Music Uploader". */
-  { url: 'uploaderinstructions.html', title: 'How to use the Batch Music Importer', icon: '❓',
-    team: 'Core Team', helpFor: 'batchupload.html' }
+    description: 'Take a copy of everything, or put one back' }
 ];
 
 /* AVteamlandingpage carries no text of its own, so a tile pointing at it
@@ -1420,86 +1390,6 @@ async function seedRegistry() {
 }
 
 
-/* ---- REBUILD FROM THE VERIFIED LIST ---------------------------------
-   Adding is not enough on its own. The old SharePoint menu carries wrong
-   links - it has "Worship Planner" and "Rota Planner" pointing at the same
-   file, and labels batchupload.html as "Music Uploader" - and because
-   seedRegistry matches on url, it steps straight over every one of them.
-   The result looks complete and still sends people to the wrong page.
-
-   So this replaces the lot. Every url below has been checked against the
-   live site and every title read off the page itself.
-
-   Reversible: "Bring across the old menu" writes the old arrangement back
-   from portal/menuItems, which this never touches. */
-
-async function rebuildRegistry() {
-  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
-
-  const btn = document.getElementById('btnRebuild');
-  const was = btn ? btn.textContent : '';
-
-  let bad = [];
-  try {
-    if (btn) btn.textContent = 'Checking...';
-    bad = await checkUrls(REGISTRY.map(r => r.url),
-      (a, b) => { if (btn) btn.textContent = `Checking ${a}/${b}`; });
-  } catch (e) { /* offline - let the admin decide below */ }
-  if (btn) btn.textContent = was;
-
-  const badSet = new Set(bad);
-  const good = REGISTRY.filter(r => !badSet.has(r.url));
-  if (!good.length) { alert('None of the pages loaded. Nothing has been changed.'); return; }
-
-  /* Name what disappears, by name, before doing it. */
-  const keeping = new Set(good.map(r => r.url.toLowerCase()));
-  const dropped = PAGES.filter(p => p.url && !p.heading && !keeping.has((p.url || '').toLowerCase()));
-
-  let msg = `Replace all ${PAGES.length} entries with the ${good.length} checked ones?\n\n`;
-  if (bad.length) {
-    msg += `${bad.length} did not load and will be left out:\n` +
-           bad.map(u => '• ' + u).join('\n') + '\n\n';
-  }
-  if (dropped.length) {
-    msg += `These ${dropped.length} will no longer be listed:\n` +
-           dropped.slice(0, 12).map(p => `• ${p.title} (${p.url})`).join('\n') +
-           (dropped.length > 12 ? `\n• ...and ${dropped.length - 12} more` : '') + '\n\n';
-  }
-  msg += 'Nothing is deleted from the site - only the hub listing changes.\n' +
-         '"Bring across the old menu" puts the old arrangement back.';
-
-  if (!confirm(msg)) return;
-
-  try {
-    const batch = db.batch();
-    PAGES.forEach(p => batch.delete(db.collection('hubPages').doc(p.id)));
-    good.forEach((r, i) => {
-      const row = {
-        title: r.title,
-        url: r.url,
-        description: r.description || '',
-        icon: r.icon || '\u{1F4C4}',
-        team: r.team,
-        everyone: !!r.everyone,
-        adminOnly: !!r.adminOnly,
-        teams: r.teams || [],
-        order: (i + 1) * 10,
-        enabled: true
-      };
-      if (r.helpFor) row.helpFor = r.helpFor;
-      batch.set(db.collection('hubPages').doc(), row);
-    });
-    await batch.commit();
-
-    await loadPages();
-    renderTools();
-    renderAdminPages();
-
-    const tiles = good.filter(r => !r.helpFor).length;
-    alert(`Rebuilt: ${good.length} entries, ${tiles} of them tiles.` +
-      (bad.length ? `\n\n${bad.length} left out - see above.` : ''));
-  } catch (e) { alert('Could not rebuild: ' + e.message); }
-}
 
 
 /* An entry may name several teams. The song library is the case that forced
@@ -1646,9 +1536,11 @@ function nestTools(list) {
   const childrenOf = id => list.filter(p => p.legacyParent === id);
   const top = list.filter(p => !p.legacyParent || !headings.some(h => h.legacyId === p.legacyParent));
 
-  /* An instruction page belongs on the tool it explains, not beside it. The
-     four we have were never linked from anywhere, so nobody could find them
-     even though they exist. */
+  /* An instruction page can be hung on the tool it explains rather than
+     sitting beside it as a tile. Nothing uses this at the moment: the four
+     instruction pages are already linked from their own tools - Planner,
+     SundayServicePlanner, EmailBuilder2 and batchupload each link to theirs -
+     so they need no registry entry. Kept for a page that has no such link. */
   const mine = myTeams(), admin = EGBCAuth.adminAreas();
   const mayOpen = p => {
     if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
@@ -2403,8 +2295,7 @@ function renderAdminPages(){
           <span id="pagesCount" style="display:block;margin-top:4px;font-weight:700"></span>
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn solid" id="btnRebuild" onclick="rebuildRegistry()">Rebuild from the verified list</button>
-          <button class="btn" id="btnSeed" onclick="seedRegistry()">Add the missing pages</button>
+          <button class="btn solid" id="btnSeed" onclick="seedRegistry()">Add the missing pages</button>
           <button class="btn" id="btnCheckLinks" onclick="checkRegistryLinks()">Check every link</button>
           <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
           <button class="btn" onclick="importAllCharters()">Bring across all charters</button>
