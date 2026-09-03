@@ -77,6 +77,7 @@ function applyTeam() {
     btn.style.color = c.colour;
   }
   loadHero();
+  loadCharter();
   renderTeamPanels();
   renderNews();
   renderTools();
@@ -204,6 +205,59 @@ function htmlToText(h) {
     || (d.body.textContent || '').trim();
 }
 
+
+/* ---- CHARTER -------------------------------------------------------
+   The charter is what the team is expected to do, so it belongs on the page
+   people land on. Behind a link it becomes "I have never seen that". */
+
+const CHARTER_PAGE = {
+  'Worship Team': { id: 'wider-worship-charter', url: 'Worshipteamcharter.html' },
+  'AV Team':      { id: 'av-team-charter',       url: 'AVteamlandingpage.html' },
+  'Youth Worship':{ id: 'youth-charter',         url: 'Youthcharter.html' },
+  'Core Team':    { id: 'core-team-charter',     url: 'Coreteamcharter.html' }
+};
+
+let CHARTER_OPEN = false;
+
+async function loadCharter() {
+  const card = document.getElementById('charterCard');
+  const cfg = CHARTER_PAGE[TEAM];
+  if (!cfg) { card.style.display = 'none'; return; }
+
+  try {
+    const d = (await db.collection('pageContent').doc(cfg.id).get()).data();
+    if (!d || !d.html) { card.style.display = 'none'; return; }
+
+    const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM, colour: 'var(--brand)' };
+    document.getElementById('charterTeam').textContent = c.label;
+    document.getElementById('charterTeam').style.color = c.colour;
+    document.getElementById('charterTitle').textContent = d.title || 'Team Charter';
+    document.getElementById('charterBody').innerHTML = safeHtml(d.html);
+    document.getElementById('charterLink').href = cfg.url;
+
+    CHARTER_OPEN = false;
+    const body = document.getElementById('charterBody');
+    body.classList.add('short');
+
+    /* Only offer to expand if there is more to see. */
+    requestAnimationFrame(() => {
+      const more = document.getElementById('charterMore');
+      more.style.display = body.scrollHeight > 260 ? '' : 'none';
+      more.textContent = 'Read it all';
+    });
+
+    card.style.display = '';
+  } catch (e) {
+    console.error('Charter load failed', e);
+    card.style.display = 'none';
+  }
+}
+
+function toggleCharter() {
+  CHARTER_OPEN = !CHARTER_OPEN;
+  document.getElementById('charterBody').classList.toggle('short', !CHARTER_OPEN);
+  document.getElementById('charterMore').textContent = CHARTER_OPEN ? 'Show less' : 'Read it all';
+}
 
 /* ---- HERO AND BODY -----------------------------------------------
    Kept on portal/dashboardContent, the same document the old hub page
@@ -802,16 +856,29 @@ function renderTools() {
 
   const order = Object.keys(byTeam).sort((a, b) => (a === TEAM ? -1 : 0) - (b === TEAM ? -1 : 0));
 
-  el.innerHTML = order.map(team => {
+  /* One group open at a time - the team you are in. Everything expanded at
+     once is the wall of text this replaced. Searching opens them all. */
+  el.innerHTML = order.map((team, i) => {
     const c = EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' };
-    return `<div style="margin-bottom:16px">
-      <div class="grp" style="color:${c.colour}">${esc(c.label)}</div>
-      ${byTeam[team].map(p => `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
-        <span class="ic">${p.icon || '&#128196;'}</span>
-        <span class="nm">${esc(p.title)}</span>
-      </a>`).join('')}
-    </div>`;
+    const open = q ? true : (team === TEAM || (i === 0 && !order.includes(TEAM)));
+    return `<button class="grp ${open ? 'open' : ''}" onclick="toggleGroup(this)" style="border-left:4px solid ${c.colour}">
+        <span class="arw">&#9654;</span>
+        <span>${esc(c.label)}</span>
+        <span class="cnt">${byTeam[team].length}</span>
+      </button>
+      <div class="grp-body ${open ? 'open' : ''}">
+        ${byTeam[team].map(p => `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
+          <span class="ic">${p.icon || '&#128196;'}</span>
+          <span class="nm">${esc(p.title)}</span>
+        </a>`).join('')}
+      </div>`;
   }).join('');
+}
+
+function toggleGroup(btn) {
+  const body = btn.nextElementSibling;
+  const open = btn.classList.toggle('open');
+  body.classList.toggle('open', open);
 }
 
 function openTools() {
