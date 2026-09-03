@@ -848,6 +848,9 @@ function visibleTools() {
     if (p.mobileOnly || MOBILE_APPS.includes((p.url || '').toLowerCase())) return false;
     if (isCharterPage(p.url)) return false;
     if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
+    /* Help and training is not a team's tool - anyone may need to learn how
+       the system works. */
+    if (p.everyone) return true;
     return mine.includes(p.team) || admin.includes(p.team);
   });
 }
@@ -864,14 +867,23 @@ function renderTools() {
   }
 
   const byTeam = {};
-  tools.forEach(p => { (byTeam[p.team] = byTeam[p.team] || []).push(p); });
+  tools.forEach(p => {
+    const key = p.everyone ? '__help' : p.team;
+    (byTeam[key] = byTeam[key] || []).push(p);
+  });
 
-  const order = Object.keys(byTeam).sort((a, b) => (a === TEAM ? -1 : 0) - (b === TEAM ? -1 : 0));
+  /* Current team first, help last. */
+  const order = Object.keys(byTeam).sort((a, b) => {
+    const rank = k => k === TEAM ? 0 : (k === '__help' ? 2 : 1);
+    return rank(a) - rank(b);
+  });
 
   /* One group open at a time - the team you are in. Everything expanded at
      once is the wall of text this replaced. Searching opens them all. */
   el.innerHTML = order.map((team, i) => {
-    const c = EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' };
+    const c = team === '__help'
+      ? { label: 'Help & training', colour: '#6b8281' }
+      : (EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' });
     const open = q ? true : (team === TEAM || (i === 0 && !order.includes(TEAM)));
     return `<button class="grp ${open ? 'open' : ''}" onclick="toggleGroup(this)" style="border-left:4px solid ${c.colour}">
         <span class="arw">&#9654;</span>
@@ -1022,7 +1034,7 @@ const DEFAULT_PAGES=[
   {team:'Core Team',icon:'📦',title:'Batch Music Importer',url:'batchupload.html',description:'Bulk add to the song library',order:60},
   {team:'Core Team',icon:'🗄',title:'Inventory',url:'inventory-system-2.html',description:'Kit register',order:70},
   {team:'Core Team',icon:'📱',title:'Core Team App',url:'CoreTeamApp.html',description:'Mobile app',order:80,mobileOnly:true},
-  {team:'Core Team',icon:'🎓',title:'Training Hub',url:'trainingportalhub.html',description:'Practice copies of the build tools',order:90},
+  {team:'Core Team',icon:'🎓',title:'Training Hub',url:'trainingportalhub.html',description:'How to use the system',order:900,everyone:true},
   {team:'Core Team',icon:'📜',title:'Core Team Charter',url:'Coreteamcharter.html',description:'How we work together',order:100},
 
   /* Worship - Choir members land here too */
