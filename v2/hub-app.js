@@ -568,14 +568,15 @@ function renderNews() {
       const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
       return `<span class="t" style="background:${c.colour}">${esc(c.label)}</span>`;
     }).join('');
-    return `<div class="nw ${i === 0 ? 'on' : ''}" data-i="${i}">
+    return `<div class="nw ${i === 0 ? 'on' : ''}" data-i="${i}" onclick="if(!event.target.closest('button'))openRead('${n.id}')">
       <div class="m">
         ${tags || '<span class="t" style="background:#6b8281">Everyone</span>'}
         <span class="d">${when(n.createdAt)}</span>
         ${EDITING && canEditNews(n) ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
       </div>
       <h4>${esc(n.title)}</h4>
-      <div class="bd">${safeHtml(n.body)}</div>
+      <div class="bd">${esc(textOf(n.body))}</div>
+      <div class="rd">Read it &rarr;</div>
     </div>`;
   }).join('');
 
@@ -632,6 +633,33 @@ function toggleNewsExpanded() {
   };
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', wire) : wire();
 })();
+
+/* The panel shows a few lines that fit; the whole thing opens on a click, so
+   nothing is ever half-readable. */
+function openRead(id) {
+  const n = NEWS.find(x => x.id === id);
+  if (!n) return;
+  stopRotation();
+
+  document.getElementById('rdMeta').innerHTML =
+    ((n.teams || []).map(t => {
+      const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
+      return `<span class="t" style="background:${c.colour};font-size:9px;font-weight:900;text-transform:uppercase;
+              letter-spacing:.08em;padding:3px 10px;border-radius:99px;color:#fff">${esc(c.label)}</span>`;
+    }).join('') || '<span class="t" style="background:#6b8281;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;padding:3px 10px;border-radius:99px;color:#fff">Everyone</span>') +
+    `<span style="font-size:11px;color:var(--faint);font-weight:700">${when(n.createdAt)}</span>`;
+
+  document.getElementById('rdTitle').textContent = n.title;
+  document.getElementById('rdBody').innerHTML = safeHtml(n.body);
+  document.getElementById('readModal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRead() {
+  document.getElementById('readModal').classList.remove('on');
+  document.body.style.overflow = '';
+  startRotation();
+}
 
 async function ackNews(id) {
   if (!ME || !ME.memberId) { alert('We do not know who you are yet.'); return; }

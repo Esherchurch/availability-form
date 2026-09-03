@@ -101,14 +101,17 @@
   /* news carousel - fixed height so the page does not grow with the feed,
      and several notices get seen rather than one long scroll */
   #newsCarousel{position:relative}
-  #newsList{position:relative;height:290px;overflow:hidden}
+  #newsList{position:relative;height:186px;overflow:hidden}
   #newsList .nw{position:absolute;inset:0;margin:0;overflow:hidden;display:flex;flex-direction:column;
                 opacity:0;transform:translateY(7px);transition:opacity .3s,transform .3s;pointer-events:none}
   #newsList .nw.on{opacity:1;transform:none;pointer-events:auto}
-  #newsList .nw .bd{flex:1;overflow:hidden;-webkit-mask-image:linear-gradient(#000 78%,transparent)}
-  #newsList.expanded{height:auto;min-height:290px}
+  #newsList .nw{cursor:pointer}
+  #newsList .nw:hover{border-color:var(--brand)}
+  #newsList .nw .bd{flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+  #newsList .nw .rd{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--brand);margin-top:8px}
+  #newsList.expanded{height:auto;min-height:186px}
   #newsList.expanded .nw{position:relative;inset:auto;opacity:1;transform:none;pointer-events:auto;margin-bottom:9px;display:block}
-  #newsList.expanded .nw .bd{overflow:visible;-webkit-mask-image:none}
+  #newsList.expanded .nw .bd{overflow:visible;-webkit-line-clamp:unset;display:block}
   .dots{display:flex;gap:6px;justify-content:center;align-items:center;margin-top:11px;flex-wrap:wrap}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--line-2);border:none;padding:0;cursor:pointer;transition:.15s}
   .dot.on{background:var(--brand);width:20px;border-radius:99px}
@@ -255,6 +258,20 @@
     <div id="toolList"></div>
   </div>
 </aside>
+
+<!-- FULL NOTICE -->
+<div class="modal" id="readModal" onclick="if(event.target===this)closeRead()">
+  <div class="box" style="max-width:620px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px">
+      <div>
+        <div id="rdMeta" style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:8px"></div>
+        <h2 id="rdTitle" style="font-size:20px;font-weight:900;line-height:1.25"></h2>
+      </div>
+      <button class="btn" style="border:none;background:none;font-size:20px;flex-shrink:0" onclick="closeRead()">&times;</button>
+    </div>
+    <div class="rich" id="rdBody" style="max-height:64vh;overflow-y:auto"></div>
+  </div>
+</div>
 
 <!-- BANNER EDITOR -->
 <div class="modal" id="heroModal" onclick="if(event.target===this)closeHeroEditor()">
