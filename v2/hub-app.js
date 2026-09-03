@@ -160,17 +160,50 @@ function renderTeamPanels() {
 
 async function editTeamPanel(team) {
   if (!EGBCAuth.isAdminOf(team)) { alert('That is not one of your teams.'); return; }
+  PANEL_TEAM = team;
   const d = TEAMCONTENT[team] || {};
-  const title = prompt(`Heading for the ${team} panel (blank for none):`, d.title || '');
-  if (title === null) return;
-  const body = prompt('Content. HTML is allowed - <p>, <b>, <a href>, <img src>:', d.body || '');
-  if (body === null) return;
+  document.getElementById('pnModalTitle').textContent = `${team} panel`;
+  document.getElementById('pnTitle').value = d.title || '';
+  document.getElementById('pnBody').value = htmlToText(d.body || '');
+  document.getElementById('panelModal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+let PANEL_TEAM = null;
+
+function closePanelEditor() {
+  document.getElementById('panelModal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+async function savePanel() {
+  if (!PANEL_TEAM) return;
+  const title = document.getElementById('pnTitle').value.trim();
+  const body = textToHtml(document.getElementById('pnBody').value);
   try {
-    await db.collection('teamContent').doc(team).set({ title, body, updatedBy: ME.name || ME.email }, { merge: true });
-    TEAMCONTENT[team] = { ...d, title, body };
+    await db.collection('teamContent').doc(PANEL_TEAM)
+      .set({ title, body, updatedBy: ME.name || ME.email }, { merge: true });
+    TEAMCONTENT[PANEL_TEAM] = { ...(TEAMCONTENT[PANEL_TEAM] || {}), title, body };
+    closePanelEditor();
     renderTeamPanels();
   } catch (e) { alert('Could not save: ' + e.message); }
 }
+
+/* Nobody should have to type HTML. Blank lines become paragraphs on the way
+   in, and paragraphs become blank lines on the way back out for editing. */
+function textToHtml(t) {
+  return (t || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+    .map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+}
+
+function htmlToText(h) {
+  if (!h) return '';
+  const d = new DOMParser().parseFromString(h, 'text/html');
+  d.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
+  return [...d.body.children].map(el => (el.textContent || '').trim()).filter(Boolean).join('\n\n')
+    || (d.body.textContent || '').trim();
+}
+
 
 /* ---- HERO AND BODY -----------------------------------------------
    Kept on portal/dashboardContent, the same document the old hub page
@@ -196,8 +229,14 @@ async function loadHero() {
     if (c && c.colour) hero.style.background = c.colour;
 
     const bg = document.getElementById('heroBg');
+    const usingTeam = !!t.heroImage;
+    const zoom = usingTeam ? (t.heroZoom || 100) : (church.zoom || 100);
+    const px = usingTeam ? (t.heroX === undefined ? 50 : t.heroX) : (church.bgX === undefined ? 50 : church.bgX);
+    const py = usingTeam ? (t.heroY === undefined ? 30 : t.heroY) : (church.bgPosition === undefined ? 30 : church.bgPosition);
     bg.style.backgroundImage = img ? `url('${img}')` : '';
-    bg.style.backgroundPosition = `center ${church.bgPosition || 30}%`;
+    bg.style.backgroundSize = `${zoom}% auto`;
+    bg.style.backgroundRepeat = 'no-repeat';
+    bg.style.backgroundPosition = `${px}% ${py}%`;
 
     document.getElementById('bodyContent').innerHTML = d.body ||
       '<p style="color:var(--faint);font-style:italic">Nothing here yet.</p>';
@@ -208,36 +247,199 @@ async function loadHero() {
   }
 }
 
-async function editHero() {
-  const teamMode = TEAM && EGBCAuth.isAdminOf(TEAM) && !EGBCAuth.isMaster();
-  const forTeam = teamMode || (EGBCAuth.isMaster() && TEAM &&
-    confirm(`Edit the banner for ${TEAM} only?\n\nOK = just this team.  Cancel = the church-wide banner everyone falls back to.`));
+/* Banner editing. Karen is not going to open Firebase, so the picture is
+   uploaded here - drag one in or pick one - and the URL never appears. */
 
-  if (forTeam) {
-    const t = TEAMCONTENT[TEAM] || {};
-    const title = prompt(`Banner heading for ${TEAM}:`, t.heroTitle || ''); if (title === null) return;
-    const sub = prompt('Line underneath:', t.heroSub || ''); if (sub === null) return;
-    const img = prompt('Background image URL (blank to use the church-wide one):', t.heroImage || ''); if (img === null) return;
-    try {
-      await db.collection('teamContent').doc(TEAM)
-        .set({ heroTitle: title, heroSub: sub, heroImage: img }, { merge: true });
-      TEAMCONTENT[TEAM] = { ...t, heroTitle: title, heroSub: sub, heroImage: img };
-      loadHero();
-    } catch (e) { alert('Could not save: ' + e.message); }
-    return;
+let HERO_SCOPE = 'team';   // 'team' or 'church'
+let HERO_IMG = '';
+/* Framing: zoom as a percentage, and the focal point as 0-100 across and down.
+   Stored so the same crop is used on the real banner. */
+let HERO_ZOOM = 100, HERO_X = 50, HERO_Y = 30;
+
+function editHero() {
+  const canTeam = TEAM && EGBCAuth.isAdminOf(TEAM);
+  HERO_SCOPE = canTeam ? 'team' : 'church';
+
+  if (canTeam && EGBCAuth.isMaster()) {
+    HERO_SCOPE = confirm(
+      `Which banner?\n\nOK - just ${TEAM}\nCancel - the church-wide one, used by any team without their own`
+    ) ? 'team' : 'church';
   }
 
-  const d = (await db.collection('portal').doc('dashboardContent').get()).data() || {};
-  const h = d.hero || {};
-  const title = prompt('Church-wide banner heading:', h.title || 'EGBC Team Hub'); if (title === null) return;
-  const sub = prompt('Line underneath:', h.subtitle || ''); if (sub === null) return;
-  const img = prompt('Background image URL (leave blank for none):', h.bgImage || ''); if (img === null) return;
+  const t = TEAMCONTENT[TEAM] || {};
+  document.getElementById('heroModalTitle').textContent =
+    HERO_SCOPE === 'team' ? `${TEAM} banner` : 'Church-wide banner';
+  document.getElementById('heroScope').textContent = HERO_SCOPE === 'team'
+    ? `Only ${TEAM} see this one.`
+    : 'Every team without a banner of their own falls back to this.';
+
+  if (HERO_SCOPE === 'team') {
+    document.getElementById('hrTitle').value = t.heroTitle || '';
+    document.getElementById('hrSub').value = t.heroSub || '';
+    setHeroPreview(t.heroImage || '', t.heroZoom, t.heroX, t.heroY);
+  } else {
+    db.collection('portal').doc('dashboardContent').get().then(d => {
+      const h = (d.data() || {}).hero || {};
+      document.getElementById('hrTitle').value = h.title || '';
+      document.getElementById('hrSub').value = h.subtitle || '';
+      setHeroPreview(h.bgImage || '', h.zoom, h.bgX, h.bgPosition);
+    });
+  }
+
+  document.getElementById('heroModal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeHeroEditor() {
+  document.getElementById('heroModal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+function setHeroPreview(url, zoom, x, y) {
+  HERO_IMG = url || '';
+  if (zoom !== undefined) HERO_ZOOM = zoom || 100;
+  if (x !== undefined) HERO_X = (x === null || x === undefined) ? 50 : x;
+  if (y !== undefined) HERO_Y = (y === null || y === undefined) ? 30 : y;
+
+  const has = !!HERO_IMG;
+  document.getElementById('hrStage').style.display = has ? '' : 'none';
+  document.getElementById('hrControls').style.display = has ? '' : 'none';
+  document.getElementById('hrClear').style.display = has ? '' : 'none';
+  document.getElementById('hrDrop').style.padding = has ? '14px' : '22px';
+  document.getElementById('hrIcon').style.display = has ? 'none' : '';
+  document.getElementById('hrLabel').textContent = has
+    ? 'Click to choose a different photo'
+    : 'Drop a photo here, or click to choose one';
+
+  document.getElementById('hrZoom').value = HERO_ZOOM;
+  drawStage();
+}
+
+/* The preview is the banner's real shape, so what is dragged into place is
+   exactly what everyone sees. */
+function drawStage() {
+  const img = document.getElementById('hrStageImg');
+  if (!img) return;
+  HERO_ZOOM = parseInt(document.getElementById('hrZoom').value, 10) || 100;
+  img.style.backgroundImage = HERO_IMG ? `url('${HERO_IMG}')` : '';
+  img.style.backgroundSize = `${HERO_ZOOM}% auto`;
+  img.style.backgroundPosition = `${HERO_X}% ${HERO_Y}%`;
+  document.getElementById('hrStageTitle').textContent =
+    document.getElementById('hrTitle').value || 'Heading';
+  document.getElementById('hrStageSub').textContent =
+    document.getElementById('hrSub').value || '';
+}
+
+function resetHeroFraming() {
+  HERO_ZOOM = 100; HERO_X = 50; HERO_Y = 30;
+  document.getElementById('hrZoom').value = 100;
+  drawStage();
+}
+
+function clearHeroImage() { setHeroPreview('', 100, 50, 30); }
+
+/* Drag the photo about inside the frame. */
+(function () {
+  const wire = () => {
+    const st = document.getElementById('hrStage');
+    if (!st) return;
+    let dragging = false, sx = 0, sy = 0, ox = 50, oy = 30;
+
+    const down = e => {
+      if (!HERO_IMG) return;
+      dragging = true; st.style.cursor = 'grabbing';
+      const p = e.touches ? e.touches[0] : e;
+      sx = p.clientX; sy = p.clientY; ox = HERO_X; oy = HERO_Y;
+      e.preventDefault();
+    };
+    const move = e => {
+      if (!dragging) return;
+      const p = e.touches ? e.touches[0] : e;
+      const r = st.getBoundingClientRect();
+      HERO_X = Math.max(0, Math.min(100, ox - ((p.clientX - sx) / r.width) * 100));
+      HERO_Y = Math.max(0, Math.min(100, oy - ((p.clientY - sy) / r.height) * 100));
+      drawStage();
+      e.preventDefault();
+    };
+    const up = () => { dragging = false; st.style.cursor = 'grab'; };
+
+    st.addEventListener('mousedown', down);
+    st.addEventListener('touchstart', down, { passive: false });
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchend', up);
+  };
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', wire) : wire();
+})();
+
+async function uploadHeroImage(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('That is not an image.'); return; }
+  if (file.size > 8 * 1024 * 1024) { alert('That photo is over 8 MB. Please use a smaller one.'); return; }
+
+  const prog = document.getElementById('hrProgress');
+  const bar = document.getElementById('hrBar');
+  const stat = document.getElementById('hrStatus');
+  prog.style.display = '';
+  stat.textContent = 'Uploading';
+
   try {
-    await db.collection('portal').doc('dashboardContent')
-      .set({ hero: { title, subtitle: sub, bgImage: img, bgPosition: h.bgPosition || 30 } }, { merge: true });
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const who = HERO_SCOPE === 'team' ? TEAM.replace(/[^\w]/g, '-').toLowerCase() : 'church';
+    const path = `banners/${who}-${Date.now()}.${ext}`;
+
+    const task = storage.ref(path).put(file, { contentType: file.type, cacheControl: 'public,max-age=31536000' });
+    task.on('state_changed', sn => {
+      bar.style.width = Math.round((sn.bytesTransferred / sn.totalBytes) * 100) + '%';
+    });
+    await task;
+
+    setHeroPreview(await storage.ref(path).getDownloadURL(), 100, 50, 30);
+    stat.textContent = 'Done';
+    setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0%'; }, 900);
+  } catch (e) {
+    stat.textContent = 'Failed';
+    alert('Could not upload that photo: ' + e.message);
+  }
+}
+
+async function saveHero() {
+  const title = document.getElementById('hrTitle').value.trim();
+  const sub = document.getElementById('hrSub').value.trim();
+
+  try {
+    if (HERO_SCOPE === 'team') {
+      const patch = { heroTitle: title, heroSub: sub, heroImage: HERO_IMG,
+                      heroZoom: HERO_ZOOM, heroX: HERO_X, heroY: HERO_Y };
+      await db.collection('teamContent').doc(TEAM).set(patch, { merge: true });
+      TEAMCONTENT[TEAM] = { ...(TEAMCONTENT[TEAM] || {}), ...patch };
+    } else {
+      await db.collection('portal').doc('dashboardContent')
+        .set({ hero: { title, subtitle: sub, bgImage: HERO_IMG,
+                       zoom: HERO_ZOOM, bgX: HERO_X, bgPosition: HERO_Y } }, { merge: true });
+    }
+    closeHeroEditor();
     loadHero();
   } catch (e) { alert('Could not save: ' + e.message); }
 }
+
+/* Drag and drop onto the picture area */
+(function () {
+  const wire = () => {
+    const z = document.getElementById('hrDrop');
+    if (!z) return;
+    ['dragenter', 'dragover'].forEach(ev => z.addEventListener(ev, e => {
+      e.preventDefault(); z.style.borderColor = 'var(--brand)'; z.style.background = 'var(--tint)';
+    }));
+    ['dragleave', 'drop'].forEach(ev => z.addEventListener(ev, e => {
+      e.preventDefault(); z.style.borderColor = ''; z.style.background = '';
+    }));
+    z.addEventListener('drop', e => { e.preventDefault(); uploadHeroImage(e.dataTransfer.files[0]); });
+  };
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', wire) : wire();
+})();
+
 
 async function editBody() {
   const d = (await db.collection('portal').doc('dashboardContent').get()).data() || {};
