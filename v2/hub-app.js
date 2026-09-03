@@ -15,10 +15,34 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v68';
+const HUB_BUILD = 'v69';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
-   alone. Reach for its handles, not firebase.firestore(). */
+   alone. Reach for its handles, not firebase.firestore().
+
+   If a cached egbc-auth.js is a version behind, EGBCAuth.db is undefined and
+   every read below fails silently - the hub then sits on its loading
+   skeletons for ever with nothing to say for itself. Fail loudly instead. */
+if (typeof EGBCAuth === 'undefined' || !EGBCAuth.db) {
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+      'padding:24px;font-family:Montserrat,system-ui,sans-serif;background:#eef4f3;color:#14201f">' +
+        '<div style="background:#fff;border:1px solid #dde7e6;border-radius:24px;padding:48px;' +
+        'max-width:440px;text-align:center;box-shadow:0 18px 48px rgba(20,32,31,.12)">' +
+          '<h1 style="font-size:19px;font-weight:900;margin:0 0 12px">Half of this page is out of date</h1>' +
+          '<p style="font-size:14px;line-height:1.6;color:#3a4d4c;margin:0 0 24px">' +
+          'Your browser is holding an old copy of one of the scripts. A hard refresh ' +
+          '(Ctrl and F5 together) should clear it.</p>' +
+          '<button onclick="location.reload(true)" style="background:#3d6263;color:#fff;border:none;' +
+          'padding:12px 28px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;' +
+          'letter-spacing:.1em;cursor:pointer;font-family:inherit">Reload</button>' +
+        '</div>' +
+      '</div>';
+  });
+  throw new Error('hub-app.js: egbc-auth.js is missing or out of date');
+}
+
 const db = EGBCAuth.db;
 const storage = EGBCAuth.storage();
 
