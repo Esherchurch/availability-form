@@ -58,31 +58,38 @@
 
     <div id="signinView" class="hidden">
       <button onclick="route('choose')" class="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity mb-5">&larr; Back</button>
-      <h2 class="font-black uppercase tracking-widest text-[11px] opacity-50 mb-6 text-center">Sign in</h2>
 
-      <button onclick="signInGoogle()" id="googleBtn"
-        class="w-full flex items-center justify-center gap-3 bg-white border border-[#dde7e6] py-3.5 rounded-full font-bold text-sm hover:bg-[#f0f6f6] transition-all mb-5">
-        <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z"/><path fill="#EA4335" d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.46 14.97.5 12 .5A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        Continue with Google
+      <h2 class="font-black text-lg mb-2 text-center">Sign in</h2>
+      <p class="text-[13px] opacity-55 leading-relaxed text-center mb-6">
+        No password needed. We'll email you a link that signs you straight in.
+      </p>
+
+      <label class="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-2 px-1">Your email address</label>
+      <input id="emailInput" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"
+        class="w-full px-5 py-4 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm outline-none mb-3"
+        onkeydown="if(event.key==='Enter')sendLink()">
+      <button onclick="sendLink()" id="linkBtn"
+        class="w-full bg-[#3d6263] text-white py-4 rounded-full font-black text-[11px] uppercase tracking-widest hover:bg-black transition-all">
+        Email me a sign-in link
       </button>
 
-      <div class="flex items-center gap-3 mb-5">
+      <p class="text-[11px] leading-relaxed opacity-45 mt-4 text-center">
+        Use whichever address the church has for you.
+      </p>
+
+      <div class="flex items-center gap-3 my-6">
         <div class="h-px flex-1 bg-[#dde7e6]"></div>
         <span class="text-[10px] font-black uppercase tracking-widest opacity-30">or</span>
         <div class="h-px flex-1 bg-[#dde7e6]"></div>
       </div>
 
-      <label class="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-2 px-1">Email a sign-in link</label>
-      <input id="emailInput" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"
-        class="w-full px-5 py-3.5 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm outline-none mb-3"
-        onkeydown="if(event.key==='Enter')sendLink()">
-      <button onclick="sendLink()" id="linkBtn"
-        class="w-full bg-[#3d6263] text-white py-3.5 rounded-full font-black text-[11px] uppercase tracking-widest hover:bg-black transition-all">
-        Send me a link
+      <button onclick="signInGoogle()" id="googleBtn"
+        class="w-full flex items-center justify-center gap-3 bg-white border border-[#dde7e6] py-3 rounded-full font-bold text-[13px] hover:bg-[#f0f6f6] transition-all">
+        <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z"/><path fill="#EA4335" d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.46 14.97.5 12 .5A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
       </button>
-
-      <p class="text-[11px] leading-relaxed opacity-45 mt-6 text-center">
-        No password needed. Use whichever email address the church has for you.
+      <p class="text-[10px] leading-relaxed opacity-35 mt-3 text-center">
+        Only if the church has your Gmail address.
       </p>
 
       <div id="msg" class="hidden mt-5 text-[12px] font-bold text-center px-3 py-3 rounded-2xl"></div>
@@ -146,8 +153,11 @@ if(auth.isSignInWithEmailLink(window.location.href)){
       .catch(e=>{show('signinView');msg(friendly(e),false);});
   }else{show('signinView');}
 }else{
-  auth.onAuthStateChanged(u=>{if(u)location.href=destination();});
   show('chooseView');
+  auth.getRedirectResult()
+    .then(r=>{if(r&&r.user)location.href=destination();})
+    .catch(e=>{if(e.code)msg(friendly(e),false);});
+  auth.onAuthStateChanged(u=>{if(u)location.href=destination();});
 }
 
 function sendLink(){
@@ -170,12 +180,32 @@ function sendLink(){
   });
 }
 
+/* An installed PWA opens a popup with no Google session, so the account
+   picker never appears and it demands a password instead - which passkey
+   users do not have. Redirecting uses the real browser session. */
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
 function signInGoogle(){
   const provider=new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({prompt:'select_account'});
+
+  if(isStandalone()||/Android|iPhone|iPad/i.test(navigator.userAgent)){
+    show('loadingView');
+    auth.signInWithRedirect(provider).catch(e=>{show('signinView');msg(friendly(e),false);});
+    return;
+  }
+
   auth.signInWithPopup(provider)
     .then(()=>{location.href=destination();})
-    .catch(e=>{if(e.code!=='auth/popup-closed-by-user')msg(friendly(e),false);});
+    .catch(e=>{
+      if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'){
+        auth.signInWithRedirect(provider).catch(x=>msg(friendly(x),false));
+      }else if(e.code!=='auth/popup-closed-by-user'){
+        msg(friendly(e),false);
+      }
+    });
 }
 
 function friendly(e){
