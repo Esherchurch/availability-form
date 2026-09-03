@@ -137,9 +137,42 @@
   .empty{text-align:center;padding:44px 20px;color:var(--faint)}
   .empty .i{font-size:34px;opacity:.4;margin-bottom:10px}
   .empty .t{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em}
+
+  /* team picker */
+  .pick{position:fixed;inset:0;z-index:120;background:var(--canvas);display:none;align-items:center;justify-content:center;padding:24px}
+  .pick.on{display:flex}
+  .pick-box{background:#fff;border:1px solid var(--line);border-radius:26px;padding:44px 40px;max-width:440px;width:100%;
+            box-shadow:var(--sh-lg);text-align:center}
+  .pick-box img{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:var(--sh);margin-bottom:20px}
+  .pick-box h1{font-size:21px;font-weight:900;margin-bottom:8px}
+  .pick-box p{font-size:13.5px;color:var(--muted);line-height:1.6;margin:0 0 24px;font-weight:600}
+  .pick-t{display:flex;align-items:center;gap:13px;width:100%;background:#fff;border:1px solid var(--line);
+          border-left:4px solid var(--brand);border-radius:15px;padding:15px 19px;margin-bottom:9px;cursor:pointer;
+          font-family:inherit;text-align:left;transition:.14s}
+  .pick-t:hover{transform:translateX(3px);box-shadow:var(--sh)}
+  .pick-t .nm{font-size:15px;font-weight:800;color:var(--ink)}
+  .pick-t .ct{font-size:11px;color:var(--faint);font-weight:600;margin-top:2px}
+
+  /* team panels */
+  .tp{background:#fff;border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:16px;
+      padding:20px 24px;margin-top:16px;box-shadow:var(--sh-sm)}
+  .tp .hd{display:flex;align-items:center;gap:9px;margin-bottom:11px;flex-wrap:wrap}
+  .tp .nm{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+  body.editing .edit-only{display:inline-block!important}
+  body.editing .tp{border-style:dashed}
+  #editModeBtn.on{background:var(--gold);color:#fff;border-color:var(--gold)}
 </style>
 </head>
 <body>
+
+<div class="pick" id="teamPicker">
+  <div class="pick-box">
+    <img id="pickLogo" alt="EGBC">
+    <h1 id="pickTitle">Which team today?</h1>
+    <p id="pickSub">You're on more than one. You can switch whenever you like.</p>
+    <div id="pickList"></div>
+  </div>
+</div>
 
 <div class="bar">
   <a class="brand" href="hub.html">
@@ -150,7 +183,9 @@
     </div>
   </a>
   <div style="display:flex;align-items:center;gap:9px">
+    <button class="btn" id="teamSwitch" style="display:none" onclick="openTeamPicker()"></button>
     <button class="btn solid" onclick="openTools()">&#9776;&nbsp; Tools</button>
+    <button class="btn" id="editModeBtn" style="display:none" onclick="toggleEditMode()">Edit mode</button>
     <button class="btn" id="adminBtn" style="display:none" onclick="openAdmin()">&#9881;</button>
     <div class="avatar" id="av"></div>
     <button class="btn" onclick="EGBCAuth.signOut()" style="border:none;background:none;padding:6px 4px;color:var(--muted)">Sign out</button>
@@ -159,7 +194,7 @@
 
 <div class="hero" id="hero">
   <div class="bg" id="heroBg"></div>
-  <button class="edit" id="heroEdit" style="display:none" onclick="editHero()">Edit banner</button>
+  <button class="edit edit-only" id="heroEdit" style="display:none" onclick="editHero()">Edit banner</button>
   <div class="in">
     <h1 id="heroTitle">&nbsp;</h1>
     <p id="heroSub"></p>
@@ -172,14 +207,16 @@
 
     <div class="card" id="bodyCard">
       <div class="rich" id="bodyContent"><div class="skel" style="height:15px;width:45%;margin-bottom:12px"></div><div class="skel" style="height:12px;margin-bottom:7px"></div><div class="skel" style="height:12px;width:80%"></div></div>
-      <button class="btn" id="bodyEdit" style="display:none;margin-top:16px" onclick="editBody()">Edit this</button>
+      <button class="btn edit-only" id="bodyEdit" style="display:none;margin-top:16px" onclick="editBody()">Edit this</button>
     </div>
+
+    <div id="teamPanels"></div>
   </div>
 
   <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
       <div class="lab" style="margin:0">Latest</div>
-      <button class="btn" id="newsAdd" style="display:none;padding:6px 13px" onclick="openNewsEditor()">+ Post</button>
+      <button class="btn edit-only" id="newsAdd" style="display:none;padding:6px 13px" onclick="openNewsEditor()">+ Post</button>
     </div>
     <div id="newsList"><div class="skel" style="height:74px;margin-bottom:9px"></div><div class="skel" style="height:74px"></div></div>
   </div>
@@ -209,7 +246,10 @@
     <input class="fld" id="nwTitle" placeholder="Title">
     <textarea class="fld" id="nwBody" rows="4" placeholder="What do people need to know?"></textarea>
 
-    <div class="lab" style="margin:14px 0 8px">Who sees it</div>
+    <div class="lab" style="margin:14px 0 6px">Who sees it</div>
+    <p style="font-size:11px;color:var(--faint);font-weight:600;margin:0 0 9px;line-height:1.5">
+      Pick the teams this is for. <strong>Everyone</strong> is for genuinely church-wide things &mdash; the bulletin, a whole-church event.
+    </p>
     <div id="nwTeams" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px"></div>
 
     <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-bottom:10px">

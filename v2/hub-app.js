@@ -22,20 +22,154 @@ let ME = null, PAGES = [], NEWS = [], ACKED = new Set();
 
 document.getElementById('logo').src = LOGO;
 
+/* ---- WHICH TEAM ----------------------------------------------------
+   People on one team never see a choice. People on several land on
+   whichever they used last, with a switcher in the bar.
+
+   The mode changes what you see FIRST - banner, panel, tool order. It
+   never changes what exists: notices from every team you are on always
+   appear, because a mode that hides things is how somebody ends up not
+   knowing they were on the rota. */
+
+const TEAM_KEY = 'egbc_hub_team';
+let TEAM = null;
+
+function availableTeams() {
+  return EGBCAuth.isMaster()
+    ? Object.keys(EGBCAuth.TEAMS).filter(t => !EGBCAuth.TEAMS[t].parent && !EGBCAuth.TEAMS[t].admin)
+    : EGBCAuth.tabTeams();
+}
+
+function openTeamPicker() {
+  const teams = availableTeams();
+  document.getElementById('pickLogo').src = LOGO;
+  document.getElementById('pickTitle').textContent = TEAM ? 'Switch team' : 'Which team today?';
+  document.getElementById('pickSub').textContent = TEAM
+    ? 'Notices from all your teams show either way.'
+    : "You're on more than one. You can switch whenever you like.";
+
+  document.getElementById('pickList').innerHTML = teams.map(t => {
+    const c = EGBCAuth.TEAMS[t] || { label: t, colour: 'var(--brand)' };
+    const n = PAGES.filter(p => p.team === t && p.enabled !== false).length;
+    return `<button class="pick-t" style="border-left-color:${c.colour}" onclick="chooseTeam('${t}')">
+      <span style="width:34px;height:34px;border-radius:50%;background:${c.colour};flex-shrink:0"></span>
+      <span><span class="nm">${esc(c.label)}</span><span class="ct">${n} tool${n === 1 ? '' : 's'}</span></span>
+    </button>`;
+  }).join('');
+
+  document.getElementById('teamPicker').classList.add('on');
+}
+
+function chooseTeam(t) {
+  TEAM = t;
+  localStorage.setItem(TEAM_KEY, t);
+  document.getElementById('teamPicker').classList.remove('on');
+  applyTeam();
+}
+
+function applyTeam() {
+  const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM, colour: 'var(--brand)' };
+  const btn = document.getElementById('teamSwitch');
+  if (availableTeams().length > 1) {
+    btn.style.display = '';
+    btn.textContent = c.label;
+    btn.style.borderColor = c.colour;
+    btn.style.color = c.colour;
+  }
+  loadHero();
+  renderTeamPanels();
+  renderNews();
+  renderTools();
+}
+
 EGBCAuth.require().then(async profile => {
   ME = profile;
   document.getElementById('av').textContent = initials(profile.name || profile.email);
 
   if (EGBCAuth.isAdmin()) {
     document.getElementById('adminBtn').style.display = '';
-    document.getElementById('newsAdd').style.display = '';
-    document.getElementById('bodyEdit').style.display = '';
+    document.getElementById('editModeBtn').style.display = '';
   }
-  if (EGBCAuth.isMaster()) document.getElementById('heroEdit').style.display = '';
 
-  await Promise.all([loadHero(), loadNews(), loadPages()]);
-  renderTools();
+  await Promise.all([loadNews(), loadPages(), loadTeamPanels()]);
+
+  const teams = availableTeams();
+  const saved = localStorage.getItem(TEAM_KEY);
+  if (teams.length === 1) { TEAM = teams[0]; }
+  else if (saved && teams.includes(saved)) { TEAM = saved; }
+
+  if (!TEAM && teams.length > 1) openTeamPicker();
+  else applyTeam();
 });
+
+/* Editing is off until asked for. Admins spend most of their time reading
+   the page like everyone else, and Edit buttons scattered about make it look
+   like a construction site. */
+let EDITING = false;
+
+function toggleEditMode() {
+  EDITING = !EDITING;
+  document.body.classList.toggle('editing', EDITING);
+  const he = document.getElementById('heroEdit');
+  if (he) he.style.display = (EDITING && (EGBCAuth.isMaster() || (TEAM && EGBCAuth.isAdminOf(TEAM)))) ? '' : 'none';
+  document.getElementById('editModeBtn').classList.toggle('on', EDITING);
+  document.getElementById('editModeBtn').textContent = EDITING ? 'Done' : 'Edit mode';
+  renderTeamPanels();
+}
+
+/* ---- TEAM PANELS ---------------------------------------------------
+   The hero and welcome are church-wide - this is the whole church's hub,
+   not Worship and AV's. Anything team-specific goes in a panel below,
+   one per team, so someone on Worship and Kids Church sees both rather
+   than having to pick. */
+
+let TEAMCONTENT = {};
+
+async function loadTeamPanels() {
+  try {
+    const snap = await db.collection('teamContent').get();
+    snap.docs.forEach(d => { TEAMCONTENT[d.id] = d.data(); });
+  } catch (e) { console.error('Team panels failed', e); }
+  renderTeamPanels();
+}
+
+function renderTeamPanels() {
+  const el = document.getElementById('teamPanels');
+  if (!el) return;
+
+  /* Current team first, then anything else they are on - so a Kids Church
+     notice is never out of sight just because Samy is in Worship mode. */
+  const mine = availableTeams().sort((a, b) => (a === TEAM ? -1 : 0) - (b === TEAM ? -1 : 0));
+
+  el.innerHTML = mine.map(t => {
+    const c = EGBCAuth.TEAMS[t] || { label: t, colour: 'var(--brand)' };
+    const d = TEAMCONTENT[t] || {};
+    const canEdit = EGBCAuth.isAdminOf(t);
+    if (!d.body && !(EDITING && canEdit)) return '';
+    return `<div class="tp" style="border-left-color:${c.colour}">
+      <div class="hd">
+        <span class="nm" style="color:${c.colour}">${esc(c.label)}</span>
+        ${EDITING && canEdit ? `<button class="btn" style="padding:5px 12px;margin-left:auto" onclick="editTeamPanel('${t}')">Edit</button>` : ''}
+      </div>
+      ${d.title ? `<h3 style="font-size:18px;font-weight:900;margin-bottom:8px">${esc(d.title)}</h3>` : ''}
+      <div class="rich">${d.body ? safeHtml(d.body) : '<p style="color:var(--faint);font-style:italic">Nothing for this team yet.</p>'}</div>
+    </div>`;
+  }).join('');
+}
+
+async function editTeamPanel(team) {
+  if (!EGBCAuth.isAdminOf(team)) { alert('That is not one of your teams.'); return; }
+  const d = TEAMCONTENT[team] || {};
+  const title = prompt(`Heading for the ${team} panel (blank for none):`, d.title || '');
+  if (title === null) return;
+  const body = prompt('Content. HTML is allowed - <p>, <b>, <a href>, <img src>:', d.body || '');
+  if (body === null) return;
+  try {
+    await db.collection('teamContent').doc(team).set({ title, body, updatedBy: ME.name || ME.email }, { merge: true });
+    TEAMCONTENT[team] = { ...d, title, body };
+    renderTeamPanels();
+  } catch (e) { alert('Could not save: ' + e.message); }
+}
 
 /* ---- HERO AND BODY -----------------------------------------------
    Kept on portal/dashboardContent, the same document the old hub page
@@ -44,27 +178,57 @@ EGBCAuth.require().then(async profile => {
 async function loadHero() {
   try {
     const d = (await db.collection('portal').doc('dashboardContent').get()).data() || {};
-    const h = d.hero || {};
-    document.getElementById('heroTitle').textContent = h.title || 'Welcome';
-    document.getElementById('heroSub').textContent = h.subtitle || '';
-    if (h.bgImage) {
-      const bg = document.getElementById('heroBg');
-      bg.style.backgroundImage = `url('${h.bgImage}')`;
-      bg.style.backgroundPosition = `center ${h.bgPosition || 30}%`;
-    }
+    const church = d.hero || {};
+    const t = (TEAMCONTENT[TEAM] || {});
+
+    /* A team's own banner wins where it has one, so Kids Church do not land
+       on a photograph of the worship band. */
+    const title = t.heroTitle || church.title || 'EGBC Team Hub';
+    const sub = t.heroSub !== undefined && t.heroSub !== '' ? t.heroSub : (church.subtitle || '');
+    const img = t.heroImage || church.bgImage || '';
+
+    document.getElementById('heroTitle').textContent = title;
+    document.getElementById('heroSub').textContent = sub;
+
+    const hero = document.getElementById('hero');
+    const c = EGBCAuth.TEAMS[TEAM];
+    if (c && c.colour) hero.style.background = c.colour;
+
+    const bg = document.getElementById('heroBg');
+    bg.style.backgroundImage = img ? `url('${img}')` : '';
+    bg.style.backgroundPosition = `center ${church.bgPosition || 30}%`;
+
     document.getElementById('bodyContent').innerHTML = d.body ||
       '<p style="color:var(--faint);font-style:italic">Nothing here yet.</p>';
   } catch (e) {
     console.error('Hero load failed', e);
-    document.getElementById('heroTitle').textContent = 'Welcome';
+    document.getElementById('heroTitle').textContent = 'EGBC Team Hub';
     document.getElementById('bodyContent').innerHTML = '';
   }
 }
 
 async function editHero() {
+  const teamMode = TEAM && EGBCAuth.isAdminOf(TEAM) && !EGBCAuth.isMaster();
+  const forTeam = teamMode || (EGBCAuth.isMaster() && TEAM &&
+    confirm(`Edit the banner for ${TEAM} only?\n\nOK = just this team.  Cancel = the church-wide banner everyone falls back to.`));
+
+  if (forTeam) {
+    const t = TEAMCONTENT[TEAM] || {};
+    const title = prompt(`Banner heading for ${TEAM}:`, t.heroTitle || ''); if (title === null) return;
+    const sub = prompt('Line underneath:', t.heroSub || ''); if (sub === null) return;
+    const img = prompt('Background image URL (blank to use the church-wide one):', t.heroImage || ''); if (img === null) return;
+    try {
+      await db.collection('teamContent').doc(TEAM)
+        .set({ heroTitle: title, heroSub: sub, heroImage: img }, { merge: true });
+      TEAMCONTENT[TEAM] = { ...t, heroTitle: title, heroSub: sub, heroImage: img };
+      loadHero();
+    } catch (e) { alert('Could not save: ' + e.message); }
+    return;
+  }
+
   const d = (await db.collection('portal').doc('dashboardContent').get()).data() || {};
   const h = d.hero || {};
-  const title = prompt('Banner heading:', h.title || 'Welcome'); if (title === null) return;
+  const title = prompt('Church-wide banner heading:', h.title || 'EGBC Team Hub'); if (title === null) return;
   const sub = prompt('Line underneath:', h.subtitle || ''); if (sub === null) return;
   const img = prompt('Background image URL (leave blank for none):', h.bgImage || ''); if (img === null) return;
   try {
@@ -233,14 +397,30 @@ function openNewsEditor(id) {
   document.getElementById('nwAck').checked = n ? !!n.requireAck : false;
 
   /* An admin may only post to areas they manage - Karen to Kids Church,
-     Core Team to Worship and AV. */
+     Core Team to Worship and AV.
+
+     The team you are currently in is preselected, not Everyone. Broadcasting
+     to the whole church should be a deliberate act - otherwise every notice
+     goes to everybody and people stop reading them. Everyone is still there
+     for the things that genuinely are church-wide, like the bulletin. */
   const areas = EGBCAuth.isMaster() ? Object.keys(EGBCAuth.TEAMS) : EGBCAuth.adminAreas();
-  const on = new Set(n ? (n.teams || []) : []);
+  const selectable = areas.filter(t => !EGBCAuth.TEAMS[t].admin && !EGBCAuth.TEAMS[t].parent);
+
+  let on;
+  if (n) {
+    on = new Set(n.teams || []);
+  } else if (TEAM && selectable.includes(TEAM)) {
+    on = new Set([TEAM]);
+  } else {
+    on = new Set();
+  }
+
   document.getElementById('nwTeams').innerHTML =
-    `<button class="chip ${!on.size ? 'on' : ''}" data-team="" onclick="pickTeam(this)">Everyone</button>` +
-    areas.filter(t => !EGBCAuth.TEAMS[t].admin).map(t =>
+    selectable.map(t =>
       `<button class="chip ${on.has(t) ? 'on' : ''}" data-team="${t}" onclick="pickTeam(this)">${esc(EGBCAuth.TEAMS[t].label)}</button>`
-    ).join('');
+    ).join('') +
+    `<button class="chip ${!on.size ? 'on' : ''}" data-team="" onclick="pickTeam(this)"
+      style="margin-left:6px;border-style:dashed">Everyone</button>`;
 
   document.getElementById('newsModal').classList.add('on');
 }
@@ -262,6 +442,8 @@ async function saveNews() {
 
   const teams = Array.from(document.querySelectorAll('#nwTeams .chip.on'))
     .map(c => c.dataset.team).filter(Boolean);
+
+  if (!teams.length && !confirm('This will go to everyone in the church, on every team.\n\nPost it church-wide?')) return;
 
   const data = {
     title, body, teams,
@@ -317,7 +499,9 @@ function renderTools() {
   const byTeam = {};
   tools.forEach(p => { (byTeam[p.team] = byTeam[p.team] || []).push(p); });
 
-  el.innerHTML = Object.keys(byTeam).map(team => {
+  const order = Object.keys(byTeam).sort((a, b) => (a === TEAM ? -1 : 0) - (b === TEAM ? -1 : 0));
+
+  el.innerHTML = order.map(team => {
     const c = EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' };
     return `<div style="margin-bottom:16px">
       <div class="grp" style="color:${c.colour}">${esc(c.label)}</div>
