@@ -1083,16 +1083,32 @@ function visibleTools() {
 }
 
 function renderTools() {
-  const q = (document.getElementById('toolSearch').value || '').toLowerCase();
-  const tools = visibleTools().filter(p =>
-    !q || (p.title + ' ' + (p.description || '')).toLowerCase().includes(q));
-
   const el = document.getElementById('toolList');
+  if (!el) return;
+
+  const q = (document.getElementById('toolSearch').value || '').toLowerCase();
+
+  let tools = [];
+  try {
+    tools = visibleTools().filter(p =>
+      !q || (p.title + ' ' + (p.description || '')).toLowerCase().includes(q));
+  } catch (e) {
+    console.error('Tools render failed', e);
+    el.innerHTML = `<div class="empty"><div class="t">Could not build the list</div>
+      <div style="font-size:11px;font-weight:600;margin-top:8px">${esc(e.message)}</div></div>`;
+    return;
+  }
+
+  console.info(`Tools: ${PAGES.length} registered, ${tools.length} visible, team ${TEAM}`);
+
   if (!tools.length) {
     el.innerHTML = `<div class="empty"><div class="i">&#128269;</div>
-      <div class="t">${q ? 'Nothing matches' : 'No tools yet'}</div>
-      ${!q && EGBCAuth.isAdmin() ? `<div style="font-size:12px;font-weight:600;margin-top:8px;line-height:1.5">
-        Nothing is registered yet. Open <strong>&#9881; &rarr; Tools</strong> and bring across the old menu.</div>` : ''}
+      <div class="t">${q ? 'Nothing matches' : 'Nothing here'}</div>
+      ${!q ? `<div style="font-size:12px;font-weight:600;margin-top:10px;line-height:1.6">
+        ${PAGES.length
+          ? `${PAGES.length} registered, but none for <strong>${esc(TEAM || 'this team')}</strong>.`
+          : 'Nothing is registered yet.'}
+        ${EGBCAuth.isAdmin() ? '<br>Open <strong>&#9881;</strong> and go to <strong>Tools</strong>.' : ''}</div>` : ''}
     </div>`;
     return;
   }
@@ -1160,6 +1176,7 @@ function toggleGroup(btn) {
 }
 
 function openTools() {
+  renderTools();
   document.getElementById('scrim').classList.add('on');
   document.getElementById('panel').classList.add('on');
   document.body.style.overflow = 'hidden';
