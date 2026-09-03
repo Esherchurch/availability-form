@@ -13,6 +13,10 @@
    document, which had both problems.
    =================================================================== */
 
+/* Shown in any error message, so it is obvious which copy of this file the
+   browser is actually running. */
+const HUB_BUILD = 'v58';
+
 const db = firebase.firestore();
 const storage = firebase.storage();
 
@@ -41,6 +45,7 @@ function availableTeams() {
 }
 
 function openTeamPicker() {
+  closeTools();
   const teams = availableTeams();
   document.getElementById('pickLogo').src = LOGO;
   document.getElementById('pickTitle').textContent = TEAM ? 'Switch team' : 'Which team today?';
@@ -72,7 +77,7 @@ function applyTeam() {
   const btn = document.getElementById('teamSwitch');
   if (availableTeams().length > 1) {
     btn.style.display = '';
-    btn.textContent = c.label;
+    btn.innerHTML = esc(c.label) + ' <span style="opacity:.5;font-size:9px">&#9662;</span>';
     btn.style.borderColor = c.colour;
     btn.style.color = c.colour;
   }
@@ -1070,6 +1075,16 @@ async function importOldMenu() {
 }
 
 
+function visibleOne(p) {
+  if (p.enabled === false) return false;
+  if (p.mobileOnly || MOBILE_APPS.includes((p.url || '').toLowerCase())) return false;
+  if (p.heading) return false;
+  if (isCharterPage(p.url)) return false;
+  if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
+  if (p.everyone) return true;
+  return myTeams().includes(p.team) || EGBCAuth.adminAreas().includes(p.team);
+}
+
 function visibleTools() {
   const mine = myTeams();
   const admin = EGBCAuth.adminAreas();
@@ -1098,8 +1113,20 @@ function renderTools() {
       !q || ((p.title || '') + ' ' + (p.description || '')).toLowerCase().includes(q));
   } catch (e) {
     console.error('Tools render failed', e);
+
+    /* Work out which entry is at fault, so this is fixable rather than just
+       reported. */
+    let culprit = '';
+    for (const p of PAGES) {
+      try { visibleOne(p); }
+      catch (x) { culprit = `${p.title || '(no title)'} - ${JSON.stringify(p).slice(0, 160)}`; break; }
+    }
+
     el.innerHTML = `<div class="empty"><div class="t">Could not build the list</div>
-      <div style="font-size:11px;font-weight:600;margin-top:8px">${esc(e.message)}</div></div>`;
+      <div style="font-size:11px;font-weight:600;margin-top:8px">${esc(e.message)}</div>
+      <div style="font-size:10px;margin-top:6px;opacity:.7">build ${HUB_BUILD} &middot; ${PAGES.length} registered</div>
+      ${culprit ? `<div style="font-size:10px;margin-top:8px;text-align:left;word-break:break-all">${esc(culprit)}</div>` : ''}
+    </div>`;
     return;
   }
 
