@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v69';
+const HUB_BUILD = 'v71';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -1175,6 +1175,10 @@ const REGISTRY = [
     description: 'Who is on, and when' },
   { url: 'resources.html', title: 'Team Resources', icon: '\u{1F4C1}', team: 'Worship Team', everyone: true,
     description: 'Documents and links for your teams' },
+  /* One page for every team, like the hub itself. It shows whichever team
+     you are on, so it is a single entry rather than one per team. */
+  { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
+    description: 'Watch your team\'s videos, and search inside them' },
 
   /* -- worship -------------------------------------------------------
      The song library goes to AV as well: Worship need the songs, AV need

@@ -1,0 +1,937 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGBC — Team Videos</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202609032159"></script>
+<script src="egbc-guard.js?v=202609032159"></script>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap">
+<style>
+  :root{
+    --brand:#3d6263; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6;
+    --line:#dde7e6; --surface:#fff; --surface-2:#f0f6f6; --ground:#eef4f3; --tint:#e4eeed;
+    --danger:#b0392c;
+    --r:14px; --r-lg:20px;
+    --sh-sm:0 2px 8px rgba(20,32,31,.05);
+    --sh-lg:0 18px 48px rgba(20,32,31,.12);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--body);
+       font-family:Montserrat,system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  /* ---- header ---- */
+  header{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40}
+  .hrow{display:flex;align-items:center;gap:16px;padding:16px 0;flex-wrap:wrap}
+  .brand{display:flex;flex-direction:column;gap:2px;margin-right:auto;min-width:0}
+  .brand .sup{font-size:9px;font-weight:900;letter-spacing:.22em;text-transform:uppercase;color:var(--brand)}
+  .brand h1{margin:0;font-size:21px;font-weight:900;letter-spacing:-.02em;color:var(--ink)}
+  .btn{font-family:inherit;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+       padding:11px 20px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
+       color:var(--brand);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;
+       transition:.12s;white-space:nowrap}
+  .btn:hover{border-color:var(--brand);background:var(--tint)}
+  .btn.solid{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btn.solid:hover{background:#345253}
+  .btn.big{font-size:12px;padding:16px 30px}
+  .btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+  /* ---- team strip ---- */
+  .teams{display:flex;gap:8px;padding:0 0 14px;flex-wrap:wrap}
+  .tchip{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px;
+         border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);
+         cursor:pointer;font-family:inherit;transition:.12s}
+  .tchip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+  /* ---- search ---- */
+  .search{margin:26px 0 22px}
+  .search input{width:100%;padding:17px 24px;font-size:15px;font-family:inherit;font-weight:600;
+                border:1px solid var(--line);border-radius:999px;background:var(--surface);
+                outline:none;color:var(--ink);box-shadow:var(--sh-sm)}
+  .search input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(61,98,99,.18)}
+  .hint{font-size:12px;color:var(--faint);margin:9px 0 0 24px;font-weight:600}
+
+  /* ---- grid ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px;padding-bottom:60px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;
+        cursor:pointer;transition:.12s;display:flex;flex-direction:column;text-align:left;
+        font-family:inherit;padding:0;color:inherit}
+  .card:hover{border-color:var(--brand);box-shadow:var(--sh-lg);transform:translateY(-2px)}
+  .card:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .thumb{aspect-ratio:16/9;background:var(--surface-2);display:flex;align-items:center;justify-content:center;
+         font-size:32px;color:var(--faint);border-bottom:1px solid var(--line)}
+  .cbody{padding:16px 18px;display:flex;flex-direction:column;gap:7px;flex:1}
+  .cbody .t{font-size:14.5px;font-weight:800;color:var(--ink);line-height:1.35;letter-spacing:-.01em}
+  .cmeta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+  .pill{font-size:8.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;
+        border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface-2)}
+  .pill.work{background:#f7efdd;border-color:#e3cfa4;color:#8a5f1c}
+  .pill.off{background:#f9e9e6;border-color:#eccbc4;color:var(--danger)}
+
+  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-lg);
+         padding:56px 30px;text-align:center;color:var(--muted);font-weight:600}
+
+  /* ---- add panel ---- */
+  .adder{background:var(--surface);border:2px solid var(--brand);border-radius:var(--r-lg);
+         padding:26px;margin:0 0 24px;box-shadow:var(--sh-sm)}
+  .drop{border:2px dashed var(--line);border-radius:var(--r);padding:38px 24px;text-align:center;
+        transition:.12s;background:var(--surface-2)}
+  .drop.over{border-color:var(--brand);background:var(--tint)}
+  .drop p{margin:12px 0 0;font-size:12.5px;color:var(--muted);font-weight:600}
+
+  .job{border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-top:16px;
+       display:flex;flex-direction:column;gap:11px;background:var(--surface-2)}
+  .job .jt{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .job input.name{flex:1;min-width:180px;padding:11px 16px;border:1px solid var(--line);border-radius:999px;
+                  font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);background:#fff;outline:none}
+  .job input.name:focus{border-color:var(--brand)}
+  .bar{height:8px;background:var(--line);border-radius:999px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--brand);width:0;transition:width .25s}
+  .jstat{font-size:11.5px;font-weight:800;color:var(--muted)}
+  .jstat.done{color:#3d6b45}
+  .jstat.err{color:var(--danger)}
+
+  /* ---- modal ---- */
+  .modal{position:fixed;inset:0;background:rgba(20,32,31,.5);z-index:110;display:none;overflow-y:auto;padding:22px}
+  .modal.on{display:block}
+  .box{background:var(--surface);border-radius:22px;max-width:900px;margin:0 auto;padding:26px;box-shadow:var(--sh-lg)}
+  .vwrap{position:relative;padding-bottom:56.25%;height:0;border-radius:var(--r);overflow:hidden;background:#000;margin-bottom:18px}
+  .vwrap video,.vwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+  .cue{display:flex;gap:12px;padding:9px 12px;border-radius:10px;cursor:pointer;align-items:flex-start}
+  .cue:hover{background:var(--surface-2)}
+  .cue .ts{font-size:11px;font-weight:900;color:var(--brand);min-width:52px;font-variant-numeric:tabular-nums}
+  .cue .tx{font-size:13.5px;color:var(--body)}
+  .cue mark{background:#f7efdd;color:var(--ink);padding:0 2px;border-radius:3px}
+  details summary{cursor:pointer;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+                  color:var(--muted);padding:10px 0}
+
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .sp{margin-left:auto}
+  .lab{font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .fld{width:100%;padding:11px 16px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);
+       font-family:inherit;font-size:13px;font-weight:600;outline:none;color:var(--ink)}
+  textarea.fld{border-radius:14px;resize:vertical;line-height:1.6;font-weight:500}
+  .hidden{display:none!important}
+
+  @media (max-width:600px){
+    .grid{grid-template-columns:1fr}
+    .brand h1{font-size:18px}
+    .btn.big{width:100%;justify-content:center}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="hrow">
+      <div class="brand">
+        <div class="sup" id="teamSup">Esher Green Baptist Church</div>
+        <h1 id="pageTitle">Team Videos</h1>
+      </div>
+      <a class="btn" href="hub.html">&#8592; Hub</a>
+      <span id="userChip"></span>
+    </div>
+    <div class="teams" id="teamStrip"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="search">
+    <input id="q" type="text" placeholder="Search what people say in the videos…" autocomplete="off">
+    <p class="hint" id="searchHint">Type a word and it finds the moment it was said.</p>
+  </div>
+
+  <!-- Sections are made by the team's own admin, not by adding a page.
+       A new topic should never need a new file, an installer entry and a
+       registry row - that just puts Martin back in the middle of it. -->
+  <div class="teams" id="sectionStrip"></div>
+
+  <!-- Simple add panel: only rendered for admins of this team -->
+  <div id="adder" class="adder hidden">
+    <div class="row" style="margin-bottom:16px">
+      <div>
+        <div class="lab">Add a video</div>
+        <div style="font-size:13px;color:var(--muted);font-weight:600" id="adderTeamNote"></div>
+      </div>
+      <button class="btn sp hidden" id="moreBtn" onclick="toggleMore()">More options</button>
+    </div>
+
+    <div class="drop" id="drop">
+      <button class="btn solid big" onclick="document.getElementById('picker').click()">Choose a video</button>
+      <p>or drag one here &middot; up to <span id="capLabel">200</span> MB</p>
+      <input type="file" id="picker" accept="video/*" multiple class="hidden">
+    </div>
+
+    <div id="jobs"></div>
+
+    <!-- Master-admin extras, hidden by default -->
+    <div id="more" class="hidden" style="margin-top:20px;border-top:1px solid var(--line);padding-top:20px">
+      <div class="lab" style="margin-bottom:9px">Add by link instead (YouTube, or a file already online)</div>
+      <input class="fld" id="linkTitle" placeholder="Name">
+      <input class="fld" id="linkUrl" placeholder="https://…">
+      <textarea class="fld" id="linkTranscript" rows="4" placeholder="Transcript (optional) — one line per cue, e.g. [0:14] what was said"></textarea>
+      <button class="btn solid" onclick="addByLink()">Add link</button>
+    </div>
+  </div>
+
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty hidden">Nothing here yet.</div>
+
+</div>
+
+<!-- video modal -->
+<div class="modal" id="modal" onclick="closeModal(event)">
+  <div class="box" onclick="event.stopPropagation()">
+    <div class="row" style="margin-bottom:16px">
+      <h2 id="mTitle" style="margin:0;font-size:19px;font-weight:900;color:var(--ink);letter-spacing:-.01em"></h2>
+      <button class="btn sp" onclick="closeModal()">Close</button>
+    </div>
+    <div id="mPlayer"></div>
+    <div id="mCues"></div>
+    <div id="mAdmin" class="hidden" style="margin-top:20px;border-top:1px solid var(--line);padding-top:18px">
+      <div class="lab" style="margin-bottom:9px">Edit</div>
+      <input class="fld" id="eTitle" placeholder="Name">
+      <select class="fld" id="eSection"></select>
+      <div class="row">
+        <button class="btn solid" onclick="saveEdit()">Save</button>
+        <button class="btn" onclick="togglePublished()" id="pubBtn">Hide from the team</button>
+        <button class="btn sp" style="color:var(--danger);border-color:#f0d4d0" onclick="removeVideo()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   EGBC — Team Videos
+
+   One page for every team, the way hub.html is one page for every team.
+   Cloning it per team is what turned How To AV and Worship Training into
+   two files that have to be fixed twice, so this reads the team instead.
+
+   Who can do what:
+     anyone signed in        sees their own teams' videos
+     admin of this team      can add one
+     master admin            can add by link, rename, hide and delete
+
+   The admin check runs twice on purpose - once to decide what to show,
+   and again before every write. Hiding a button is not a permission.
+   Until the Firestore rules are deployed it is still only a lock on the
+   browser side; the rules are what actually enforce this.
+   ===================================================================== */
+
+const COLLECTION   = 'teamVideos';
+const SECTIONS_DOC = 'videoSections';     /* one document per team */
+const STORAGE_ROOT = 'kb/videos';
+const TEAM_KEY     = 'egbc_hub_team';     /* shared with hub.html on purpose */
+const MAX_MB       = 200;                 /* above this it goes to Martin */
+
+let db, storage;
+let TEAM = null;
+let ALL = [];
+let SECTIONS = [];
+let SECTION = '';                          /* '' means everything */
+let current = null;
+let query = '';
+
+/* ---- helpers ------------------------------------------------------- */
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const slug = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+function pad(n){ return String(n).padStart(2, '0'); }
+function fmtTime(s){ const m = Math.floor(s / 60); return `${m}:${pad(Math.floor(s % 60))}`; }
+function mb(bytes){ return (bytes / 1048576).toFixed(1); }
+
+function myTeams(){
+  return EGBCAuth.isMaster()
+    ? Object.keys(EGBCAuth.TEAMS).filter(t => !EGBCAuth.TEAMS[t].parent)
+    : EGBCAuth.effectiveTeams();
+}
+
+function canAdd(){ return !!TEAM && EGBCAuth.isAdminOf(TEAM); }
+
+/* Only a video file we can actually play in a page. */
+function isPlayableFile(f){
+  return f && (f.type.startsWith('video/') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(f.name));
+}
+
+/* A direct file, versus something to drop in an iframe. */
+function isVideoURL(url){
+  if (!url) return false;
+  const u = url.toLowerCase();
+  return /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/.test(u)
+      || u.includes('firebasestorage') || u.includes('storage.googleapis.com');
+}
+
+/* Accepts [M:SS] or [HH:MM:SS] at the start of a line, which is what
+   KBTranscribe writes and what the other knowledge base pages use. */
+function parseCues(transcript){
+  if (!transcript) return [];
+  const out = [];
+  transcript.split('\n').forEach(line => {
+    const m = line.match(/^\s*\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)$/);
+    if (!m) return;
+    const a = parseInt(m[1], 10), b = parseInt(m[2], 10), c = m[3] ? parseInt(m[3], 10) : null;
+    const t = c === null ? (a * 60 + b) : (a * 3600 + b * 60 + c);
+    const text = (m[4] || '').trim();
+    if (text) out.push({ t, text });
+  });
+  return out;
+}
+
+/* ---- start --------------------------------------------------------- */
+
+document.addEventListener('egbc-ready', () => {
+  db = EGBCAuth.db;
+  storage = EGBCAuth.storage();
+
+  document.getElementById('capLabel').textContent = MAX_MB;
+
+  const teams = myTeams();
+  if (!teams.length){
+    document.getElementById('empty').textContent =
+      'You are not on a team yet. Ask a member of the Core Team to add you.';
+    document.getElementById('empty').classList.remove('hidden');
+    return;
+  }
+
+  const saved = localStorage.getItem(TEAM_KEY);
+  TEAM = (saved && teams.includes(saved)) ? saved : teams[0];
+
+  renderTeamStrip(teams);
+  applyTeam();
+
+  document.getElementById('q').addEventListener('input', e => {
+    query = e.target.value.trim();
+    render();
+  });
+
+  initDropZone();
+  document.getElementById('picker').addEventListener('change', e => {
+    takeFiles(Array.from(e.target.files || []));
+    e.target.value = '';
+  });
+});
+
+function renderTeamStrip(teams){
+  const el = document.getElementById('teamStrip');
+  if (teams.length < 2){ el.classList.add('hidden'); return; }
+  el.innerHTML = teams.map(t =>
+    `<button class="tchip${t === TEAM ? ' on' : ''}" onclick="switchTeam('${esc(t)}')">${esc((EGBCAuth.TEAMS[t] || {}).label || t)}</button>`
+  ).join('');
+}
+
+function switchTeam(t){
+  TEAM = t;
+  localStorage.setItem(TEAM_KEY, t);
+  renderTeamStrip(myTeams());
+  applyTeam();
+}
+
+function applyTeam(){
+  const cfg = EGBCAuth.TEAMS[TEAM] || { label: TEAM };
+  document.getElementById('teamSup').textContent = cfg.label;
+  document.getElementById('pageTitle').textContent = cfg.label + ' Videos';
+  document.title = 'EGBC — ' + cfg.label + ' Videos';
+
+  const adder = document.getElementById('adder');
+  adder.classList.toggle('hidden', !canAdd());
+  document.getElementById('moreBtn').classList.toggle('hidden', !EGBCAuth.isMaster());
+  document.getElementById('more').classList.add('hidden');
+
+  SECTION = '';
+  loadSections();
+  loadVideos();
+}
+
+/* ---- sections ------------------------------------------------------- */
+
+async function loadSections(){
+  try {
+    const snap = await db.collection(SECTIONS_DOC).doc(slug(TEAM)).get();
+    SECTIONS = (snap.exists && Array.isArray(snap.data().names)) ? snap.data().names : [];
+  } catch (e){
+    SECTIONS = [];
+    console.error('Could not load sections', e);
+  }
+  renderSectionStrip();
+  updateAdderNote();
+}
+
+async function saveSections(){
+  if (!canAdd()) return;
+  await db.collection(SECTIONS_DOC).doc(slug(TEAM)).set({
+    team: TEAM, names: SECTIONS
+  }, { merge: true });
+}
+
+function renderSectionStrip(){
+  const el = document.getElementById('sectionStrip');
+  const chips = [];
+
+  chips.push(`<button class="tchip${SECTION === '' ? ' on' : ''}" onclick="chooseSection('')">All</button>`);
+  SECTIONS.forEach(n => {
+    chips.push(`<button class="tchip${SECTION === n ? ' on' : ''}" onclick="chooseSection('${esc(n).replace(/'/g, "\\'")}')">${esc(n)}</button>`);
+  });
+
+  if (canAdd()){
+    chips.push(`<button class="tchip" onclick="addSection()" title="Make a new section">+ Section</button>`);
+    if (SECTION){
+      chips.push(`<button class="tchip" onclick="renameSection()">Rename</button>`);
+      chips.push(`<button class="tchip" onclick="deleteSection()">Remove</button>`);
+    }
+  }
+
+  el.innerHTML = chips.join('');
+  el.classList.toggle('hidden', chips.length < 2);
+}
+
+function chooseSection(n){
+  SECTION = n;
+  renderSectionStrip();
+  updateAdderNote();
+  render();
+}
+
+function updateAdderNote(){
+  const cfg = EGBCAuth.TEAMS[TEAM] || { label: TEAM };
+  const note = document.getElementById('adderTeamNote');
+  if (!note) return;
+  note.textContent = SECTION
+    ? 'It goes into ' + SECTION + ', on the ' + cfg.label + ' page.'
+    : 'It goes straight onto the ' + cfg.label + ' page.';
+}
+
+async function addSection(){
+  if (!canAdd()) return;
+  const n = (prompt('What do you want to call the new section?\n\nFor example: Tutorials') || '').trim();
+  if (!n) return;
+  if (SECTIONS.some(s => s.toLowerCase() === n.toLowerCase())){
+    alert('There is already a section called that.');
+    return;
+  }
+  SECTIONS.push(n);
+  try {
+    await saveSections();
+    SECTION = n;
+    renderSectionStrip();
+    updateAdderNote();
+    render();
+  } catch (e){
+    SECTIONS = SECTIONS.filter(s => s !== n);
+    alert('Could not add that section: ' + e.message);
+  }
+}
+
+async function renameSection(){
+  if (!canAdd() || !SECTION) return;
+  const old = SECTION;
+  const n = (prompt('Rename this section to:', old) || '').trim();
+  if (!n || n === old) return;
+
+  SECTIONS = SECTIONS.map(s => s === old ? n : s);
+  try {
+    await saveSections();
+    /* Move the videos with it, so nothing is orphaned by a rename. */
+    const hits = ALL.filter(v => v.category === old);
+    for (const v of hits){
+      await db.collection(COLLECTION).doc(v.id).update({ category: n });
+    }
+    SECTION = n;
+    await loadVideos();
+    renderSectionStrip();
+    updateAdderNote();
+  } catch (e){
+    alert('Could not rename that: ' + e.message);
+    loadSections();
+  }
+}
+
+async function deleteSection(){
+  if (!canAdd() || !SECTION) return;
+  const inIt = ALL.filter(v => v.category === SECTION).length;
+  const msg = inIt
+    ? `Remove the section "${SECTION}"?\n\nThe ${inIt} video${inIt === 1 ? '' : 's'} in it stay on the page - they just move back to All.`
+    : `Remove the empty section "${SECTION}"?`;
+  if (!confirm(msg)) return;
+
+  const gone = SECTION;
+  SECTIONS = SECTIONS.filter(s => s !== gone);
+  try {
+    await saveSections();
+    /* Videos are never deleted with a section. Only their label clears. */
+    const hits = ALL.filter(v => v.category === gone);
+    for (const v of hits){
+      await db.collection(COLLECTION).doc(v.id).update({ category: '' });
+    }
+    SECTION = '';
+    await loadVideos();
+    renderSectionStrip();
+    updateAdderNote();
+  } catch (e){
+    alert('Could not remove that: ' + e.message);
+    loadSections();
+  }
+}
+
+/* ---- load and render ----------------------------------------------- */
+
+async function loadVideos(){
+  try {
+    const snap = await db.collection(COLLECTION)
+      .where('team', '==', TEAM)
+      .orderBy('createdAt', 'desc')
+      .get();
+    ALL = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  } catch (e){
+    /* An index may not exist yet on a brand new collection. Fall back to
+       an unordered read rather than showing nothing at all. */
+    try {
+      const snap = await db.collection(COLLECTION).where('team', '==', TEAM).get();
+      ALL = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      ALL.sort((a, b) => (b.createdAt && b.createdAt.seconds || 0) - (a.createdAt && a.createdAt.seconds || 0));
+    } catch (e2){
+      ALL = [];
+      console.error('Could not load videos', e2);
+    }
+  }
+  render();
+}
+
+function visible(){
+  const master = EGBCAuth.isMaster();
+  return ALL.filter(v => master || EGBCAuth.isAdminOf(TEAM) || v.published !== false);
+}
+
+function matches(v){
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (v.title || '').toLowerCase().includes(q)
+      || (v.transcript || '').toLowerCase().includes(q);
+}
+
+/* A video whose section was removed still shows under All rather than
+   vanishing. Nothing should disappear because a label changed. */
+function inSection(v){
+  return !SECTION || (v.category || '') === SECTION;
+}
+
+function render(){
+  const list = visible().filter(inSection).filter(matches);
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+
+  if (!list.length){
+    grid.innerHTML = '';
+    empty.textContent = query
+      ? 'Nothing matches "' + query + '".'
+      : (SECTION ? 'Nothing in ' + SECTION + ' yet.' : 'Nothing here yet.');
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  grid.innerHTML = list.map(v => {
+    const cues = parseCues(v.transcript);
+    const hit = query ? cues.find(c => c.text.toLowerCase().includes(query.toLowerCase())) : null;
+    const pills = [];
+    if (v.transcriptStatus === 'pending')  pills.push('<span class="pill work">Transcript coming</span>');
+    if (v.transcriptStatus === 'failed')   pills.push('<span class="pill work">No transcript</span>');
+    if (v.published === false)             pills.push('<span class="pill off">Hidden</span>');
+    if (!SECTION && v.category) pills.push('<span class="pill">' + esc(v.category) + '</span>');
+    if (hit) pills.push('<span class="pill">Says it at ' + fmtTime(hit.t) + '</span>');
+
+    return `<button class="card" onclick="openVideo('${v.id}')">
+      <div class="thumb">&#9654;</div>
+      <div class="cbody">
+        <div class="t">${esc(v.title || 'Untitled')}</div>
+        ${hit ? `<div style="font-size:12.5px;color:var(--muted)">&ldquo;${esc(hit.text.slice(0, 90))}&hellip;&rdquo;</div>` : ''}
+        <div class="cmeta">${pills.join('')}</div>
+      </div>
+    </button>`;
+  }).join('');
+}
+
+/* ---- viewing ------------------------------------------------------- */
+
+function openVideo(id){
+  const v = ALL.find(x => x.id === id);
+  if (!v) return;
+  current = v;
+
+  document.getElementById('mTitle').textContent = v.title || 'Untitled';
+
+  const player = document.getElementById('mPlayer');
+  if (isVideoURL(v.contentURL)){
+    player.innerHTML = `<div class="vwrap"><video id="theVideo" controls playsinline preload="metadata" src="${esc(v.contentURL)}"></video></div>`;
+  } else if (v.contentURL){
+    player.innerHTML = `<div class="vwrap"><iframe src="${esc(v.contentURL)}" allowfullscreen></iframe></div>`;
+  } else {
+    player.innerHTML = '<p style="color:var(--muted)">This video has no file attached.</p>';
+  }
+
+  const cues = parseCues(v.transcript);
+  const native = isVideoURL(v.contentURL);
+  document.getElementById('mCues').innerHTML = cues.length
+    ? `<details ${query ? 'open' : ''}>
+         <summary>What is said (${cues.length} lines)</summary>
+         <div>${cues.map(c => {
+           let t = esc(c.text);
+           if (query){
+             const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+             t = t.replace(re, '<mark>$1</mark>');
+           }
+           /* Only offer the jump where it can actually work. An iframe
+              cannot be seeked, and a row that looks clickable and does
+              nothing just reads as the page being broken. */
+           return native
+             ? `<div class="cue" onclick="seekTo(${c.t})"><span class="ts">${fmtTime(c.t)}</span><span class="tx">${t}</span></div>`
+             : `<div class="cue" style="cursor:default"><span class="ts">${fmtTime(c.t)}</span><span class="tx">${t}</span></div>`;
+         }).join('')}</div>
+       </details>`
+    : (v.transcriptStatus === 'pending'
+        ? '<p style="color:var(--muted);font-size:13px">The transcript is still being made. It will appear here shortly.</p>'
+        : '');
+
+  const canEdit = EGBCAuth.isMaster();
+  document.getElementById('mAdmin').classList.toggle('hidden', !canEdit);
+  if (canEdit){
+    document.getElementById('eTitle').value = v.title || '';
+    const sel = document.getElementById('eSection');
+    sel.innerHTML = '<option value="">No section</option>' +
+      SECTIONS.map(n => `<option value="${esc(n)}"${(v.category || '') === n ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    document.getElementById('pubBtn').textContent =
+      v.published === false ? 'Show to the team' : 'Hide from the team';
+  }
+
+  document.getElementById('modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function seekTo(sec){
+  const vid = document.getElementById('theVideo');
+  if (!vid) return;
+  vid.currentTime = sec;
+  vid.play().catch(() => {});
+  vid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function closeModal(e){
+  if (e && e.target !== document.getElementById('modal')) return;
+  const vid = document.getElementById('theVideo');
+  if (vid) vid.pause();
+  document.getElementById('mPlayer').innerHTML = '';
+  document.getElementById('modal').classList.remove('on');
+  document.body.style.overflow = '';
+  current = null;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ---- adding -------------------------------------------------------- */
+
+function toggleMore(){ document.getElementById('more').classList.toggle('hidden'); }
+
+function initDropZone(){
+  const zone = document.getElementById('drop');
+  if (!zone) return;
+  ['dragenter','dragover'].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.add('over');
+  }));
+  ['dragleave','drop'].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.remove('over');
+  }));
+  zone.addEventListener('drop', e => {
+    takeFiles(Array.from((e.dataTransfer && e.dataTransfer.files) || []));
+  });
+}
+
+function takeFiles(files){
+  if (!canAdd()){ alert('You do not have permission to add videos to this team.'); return; }
+  files.filter(isPlayableFile).forEach(startUpload);
+
+  const rejected = files.filter(f => !isPlayableFile(f));
+  if (rejected.length){
+    alert('These are not videos, so they were skipped:\n\n' +
+      rejected.map(f => '• ' + f.name).join('\n'));
+  }
+}
+
+/* Title from the filename, so nothing has to be typed to get started. */
+function titleFromFile(name){
+  const stem = name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+  return stem.charAt(0).toUpperCase() + stem.slice(1);
+}
+
+function jobCard(uid){
+  const el = document.createElement('div');
+  el.className = 'job';
+  el.id = 'job-' + uid;
+  return el;
+}
+
+async function startUpload(file){
+  if (file.size > MAX_MB * 1048576){
+    alert(`"${file.name}" is ${mb(file.size)} MB, which is too big to add here ` +
+          `(the limit is ${MAX_MB} MB).\n\nSend it to Martin and he will put it up for you.`);
+    return;
+  }
+
+  const uid = 'j' + Date.now() + Math.floor(Math.random() * 1000);
+  const box = jobCard(uid);
+  document.getElementById('jobs').appendChild(box);
+
+  const title = titleFromFile(file.name);
+  box.innerHTML = `
+    <div class="jt">
+      <input class="name" id="nm-${uid}" value="${esc(title)}">
+    </div>
+    <div class="bar"><i id="bar-${uid}"></i></div>
+    <div class="jstat" id="st-${uid}">Starting…</div>`;
+
+  const setBar = p => { const b = document.getElementById('bar-' + uid); if (b) b.style.width = p + '%'; };
+  const say = (msg, cls) => {
+    const s = document.getElementById('st-' + uid);
+    if (s){ s.textContent = msg; s.className = 'jstat' + (cls ? ' ' + cls : ''); }
+  };
+
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+  const path = `${STORAGE_ROOT}/${slug(TEAM)}/${Date.now()}-${slug(title) || 'video'}.${ext}`;
+
+  let docRef = null;
+
+  try {
+    /* Checked again here, not just when the button was drawn. */
+    if (!canAdd()) throw new Error('You do not have permission to add videos to this team.');
+
+    say('Uploading…');
+    const task = storage.ref(path).put(file, {
+      contentType: file.type || 'video/mp4',
+      cacheControl: 'public,max-age=31536000'
+    });
+    task.on('state_changed', s => setBar(Math.round((s.bytesTransferred / s.totalBytes) * 100)));
+    await task;
+    const url = await storage.ref(path).getDownloadURL();
+
+    /* Published before transcription, so it is usable straight away and
+       she can close the tab. The transcript catches up on its own. */
+    say('Putting it on the page…');
+    docRef = await db.collection(COLLECTION).add({
+      title: document.getElementById('nm-' + uid).value.trim() || title,
+      team: TEAM,
+      contentURL: url,
+      storagePath: path,
+      sizeBytes: file.size,
+      category: SECTION,
+      transcript: '',
+      transcriptStatus: 'pending',
+      published: true,
+      createdBy: (EGBCAuth.profile() && EGBCAuth.profile().email) || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    setBar(100);
+    say('Done — it is on the page. Making the transcript now, which can take a minute.', 'done');
+    await loadVideos();
+
+    /* Whisper lives in the module below and may not have finished loading
+       on a slow connection. The video is already live either way. */
+    if (typeof window.KBTranscribe !== 'function'){
+      await docRef.update({ transcriptStatus: 'failed' });
+      say('Done — on the page. The transcript could not be made on this device.', 'done');
+      await loadVideos();
+      return;
+    }
+
+    const transcript = await window.KBTranscribe(file, p => {
+      if (p != null) say('Making the transcript — ' + p + '%');
+    });
+
+    await docRef.update({
+      transcript: transcript || '',
+      transcriptStatus: transcript ? 'done' : 'failed'
+    });
+    say('All done — you can search inside this video now.', 'done');
+    await loadVideos();
+
+  } catch (err){
+    console.error(err);
+    if (docRef){
+      /* The video is up; only the transcript failed. Say so plainly rather
+         than making it look like the whole thing went wrong. */
+      try { await docRef.update({ transcriptStatus: 'failed' }); } catch (e){}
+      say('The video is on the page, but the transcript could not be made.', 'done');
+      await loadVideos();
+    } else {
+      say('That did not work: ' + err.message, 'err');
+    }
+  }
+}
+
+async function addByLink(){
+  if (!EGBCAuth.isMaster()){ alert('Only a master admin can add by link.'); return; }
+  const title = document.getElementById('linkTitle').value.trim();
+  const url = document.getElementById('linkUrl').value.trim();
+  if (!title || !url){ alert('Give it a name and a link.'); return; }
+  try {
+    await db.collection(COLLECTION).add({
+      title, team: TEAM,
+      contentURL: url,
+      storagePath: null,
+      category: SECTION,
+      transcript: document.getElementById('linkTranscript').value.trim(),
+      transcriptStatus: 'done',
+      published: true,
+      createdBy: (EGBCAuth.profile() && EGBCAuth.profile().email) || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    ['linkTitle','linkUrl','linkTranscript'].forEach(id => document.getElementById(id).value = '');
+    await loadVideos();
+    alert('Added.');
+  } catch (e){ alert('Could not add: ' + e.message); }
+}
+
+/* ---- editing (master only) ----------------------------------------- */
+
+async function saveEdit(){
+  if (!EGBCAuth.isMaster() || !current) return;
+  const title = document.getElementById('eTitle').value.trim();
+  if (!title){ alert('It needs a name.'); return; }
+  const category = document.getElementById('eSection').value;
+  try {
+    await db.collection(COLLECTION).doc(current.id).update({ title, category });
+    await loadVideos();
+    closeModal();
+  } catch (e){ alert('Could not save: ' + e.message); }
+}
+
+async function togglePublished(){
+  if (!EGBCAuth.isMaster() || !current) return;
+  try {
+    await db.collection(COLLECTION).doc(current.id).update({ published: current.published === false });
+    await loadVideos();
+    closeModal();
+  } catch (e){ alert('Could not change that: ' + e.message); }
+}
+
+async function removeVideo(){
+  if (!EGBCAuth.isMaster() || !current) return;
+  if (!confirm(`Delete "${current.title}" for good?\n\nThe video file is deleted too. This cannot be undone.`)) return;
+  const v = current;
+  try {
+    if (v.storagePath){
+      try { await storage.ref(v.storagePath).delete(); }
+      catch (e){ console.warn('File already gone or not removable', e); }
+    }
+    await db.collection(COLLECTION).doc(v.id).delete();
+    await loadVideos();
+    closeModal();
+  } catch (e){ alert('Could not delete: ' + e.message); }
+}
+</script>
+
+<script type="module">
+/* =====================================================================
+   Speech to text, entirely in this browser.
+
+   Lifted from EGBC-Troubleshoot-AV.html unchanged, so there is one
+   implementation to fix rather than two. The model downloads once and is
+   then cached by the browser; nothing is ever sent to a server.
+   ===================================================================== */
+
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+
+env.allowLocalModels = false;
+
+const MODEL = 'onnx-community/whisper-base.en';
+let transcriberPromise = null;
+let device = null;
+
+async function detectDevice(){
+  if (device) return device;
+  try {
+    if (navigator.gpu && await navigator.gpu.requestAdapter()){ device = 'webgpu'; return device; }
+  } catch (e){ /* fall through to CPU */ }
+  device = 'wasm';
+  return device;
+}
+
+async function getTranscriber(){
+  if (transcriberPromise) return transcriberPromise;
+  transcriberPromise = (async () => {
+    const dev = await detectDevice();
+    const options = { device: dev };
+    if (dev === 'webgpu'){
+      options.dtype = { encoder_model: 'fp32', decoder_model_merged: 'q4' };
+    }
+    return pipeline('automatic-speech-recognition', MODEL, options);
+  })();
+  return transcriberPromise;
+}
+
+/* Decode the audio track and resample to the 16 kHz mono Whisper wants. */
+async function extractAudio(file){
+  const buffer = await file.arrayBuffer();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  let decoded;
+  try { decoded = await ctx.decodeAudioData(buffer); }
+  finally { ctx.close(); }
+
+  const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * 16000), 16000);
+  const source = offline.createBufferSource();
+  source.buffer = decoded;
+  source.connect(offline.destination);
+  source.start(0);
+  const rendered = await offline.startRendering();
+  return rendered.getChannelData(0);
+}
+
+function pad(n){ return String(n).padStart(2, '0'); }
+
+function chunksToTranscript(chunks){
+  return chunks
+    .filter(c => c.text && c.text.trim())
+    .map(c => {
+      const sec = Math.max(0, Math.floor((c.timestamp && c.timestamp[0]) || 0));
+      const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+      return `[${pad(h)}:${pad(m)}:${pad(s)}] ${c.text.trim()}`;
+    })
+    .join('\n');
+}
+
+window.KBTranscribe = async function(file, onProgress){
+  const transcriber = await getTranscriber();
+  const audio = await extractAudio(file);
+  const durationSec = audio.length / 16000;
+
+  const output = await transcriber(audio, {
+    return_timestamps: true,
+    chunk_length_s: 30,
+    stride_length_s: 5,
+    chunk_callback: (chunk) => {
+      if (onProgress && chunk && chunk.finalised !== undefined){
+        const end = (chunk.offset || 0) + 30;
+        onProgress(Math.min(99, Math.round((end / durationSec) * 100)));
+      }
+    }
+  });
+
+  if (!output.chunks || !output.chunks.length) return (output.text || '').trim();
+  return chunksToTranscript(output.chunks);
+};
+</script>
+
+</body>
+</html>

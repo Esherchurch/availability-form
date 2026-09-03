@@ -529,11 +529,11 @@
     isOwner: function () { return EGBCAuth.isMaster(); },
     isAnyAdmin: function () { return EGBCAuth.isAdmin(); },
 
-    /* Everything that shares our sign-in must use these rather than
-       firebase.firestore() / firebase.storage(), which reach for the default
-       app - the one that now belongs to the page, not to us. */
+    /* Everything that shares our sign-in must use EGBCAuth.db (declared
+       above) and these, rather than firebase.firestore() / firebase.storage(),
+       which reach for the default app - the one that now belongs to the page,
+       not to us. */
     app: app,
-    db: db,
     storage: function () { return firebase.storage(app); },
 
     chooseIdentity: chooseIdentity,
