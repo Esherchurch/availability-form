@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v64';
+const HUB_BUILD = 'v65';
 
 const db = firebase.firestore();
 const storage = firebase.storage();
@@ -999,7 +999,12 @@ function isCharterPage(url) {
   if (!u) return false;
   /* Choir, Kids Church, Lazers and ReNu have a charter but no standalone
      page, so their entries carry no url. */
-  return Object.values(CHARTER_PAGE).some(c => c.url && c.url.toLowerCase() === u);
+  if (Object.values(CHARTER_PAGE).some(c => c.url && c.url.toLowerCase() === u)) return true;
+  /* AVteamlandingpage is the AV charter page. It is not in CHARTER_PAGE,
+     because AV point at the shared Worship & AV charter - which left it as
+     the one charter that still showed as a tile, leading to a page with no
+     text on it. */
+  return EXTRA_CHARTER_PAGES.includes(u);
 }
 
 
@@ -1109,29 +1114,315 @@ async function importOldMenu() {
 }
 
 
-function visibleOne(p) {
+/* ---- THE REST OF THE SUITE ------------------------------------------
+   The old menu covers about a dozen pages. The other thirty-odd were
+   reachable only from SharePoint, which means the day SharePoint goes off
+   they exist but nobody can get to them - and nobody reports a page that
+   never errors, they just stop using it.
+
+   This is the migration checklist. Adding is additive: anything already
+   registered, by url, is left exactly as it is. Run it as often as you
+   like; run it again after adding a page by hand.
+
+   Deliberately absent, so their absence is a decision rather than an
+   oversight:
+     studio, sitemaker, socialmaker, photoeditor - Calla Design. A
+       production suite, not EGBC team content.
+     birthday, Videoeditor                       - out of scope.
+     Handover                                    - not part of this suite.
+     hubresources                                - superseded by resources.html,
+       and it carries a password in plain source.
+     SharepointHeader                            - the iframe header inside the
+       old site. Dies with it.
+   None of them are guarded or deleted by leaving them out. They stay
+   reachable by bookmark exactly as they are today.
+
+   hub, login and youth-access are absent too - they are the way in, not
+   destinations. */
+
+const WORSHIP_AV = ['Worship Team', 'AV Team'];
+
+const REGISTRY = [
+
+  /* -- everyone signed in -------------------------------------------- */
+  { url: 'view-only-rota.html', title: 'Live Rota', icon: '\u{1F4C5}', team: 'Worship Team', everyone: true,
+    description: 'Who is on, and when' },
+  { url: 'resources.html', title: 'Team Resources', icon: '\u{1F4C1}', team: 'Worship Team', everyone: true,
+    description: 'Documents and links for your teams' },
+
+  /* -- worship -------------------------------------------------------
+     The song library goes to AV as well: Worship need the songs, AV need
+     the lyrics. It stops there - Kids Church and Lazers do not see it. */
+  { url: 'Library.html', title: 'Song Library', icon: '\u{1F3B5}', team: 'Worship Team', teams: WORSHIP_AV,
+    description: 'Every song, with keys and usage' },
+  { url: 'sundayplannersonglibrary.html', title: 'Song Library - quick view', icon: '\u{1F3B5}',
+    team: 'Worship Team', teams: WORSHIP_AV, description: 'Cut-down list for a Sunday' },
+  { url: 'song-summary.html', title: 'Song Summary', icon: '\u{1F4CA}', team: 'Worship Team', teams: WORSHIP_AV,
+    description: 'What we have sung, and how often' },
+  { url: 'Performancenotes.html', title: 'Performance Notes', icon: '\u{1F4DD}', team: 'Worship Team',
+    description: 'Notes against a service' },
+  { url: 'EGBC-PlayThrough.html', title: 'Play Through', icon: '\u{1F3AC}', team: 'Worship Team',
+    description: 'Practice videos' },
+  { url: 'EGBC-Training-Worship.html', title: 'Worship Training', icon: '\u{1F4D8}', team: 'Worship Team',
+    description: 'Training material for the worship team' },
+  { url: 'stickynotes.html', title: 'Suggestions Board', icon: '\u{1F4CC}', team: 'Worship Team', everyone: true,
+    description: 'Song suggestions and notices' },
+  { url: 'worshiphubapp.html', title: 'Worship Hub', icon: '\u{1F4F1}', team: 'Worship Team',
+    description: 'The phone app' },
+  { url: 'Worshipteamcharter.html', title: 'Worship & AV Team Charter', icon: '\u{1F4DC}', team: 'Worship Team',
+    description: 'How we serve together' },
+  /* Registered only because it is still the sole editor for the news feed.
+     It comes out the day that moves into the hub. */
+  { url: 'EGBCWorship&AV.html', title: 'Worship & AV Hub (old)', icon: '\u{1F310}', team: 'Worship Team',
+    adminOnly: true, description: 'The old SharePoint hub - still the only news editor' },
+
+  /* -- AV ------------------------------------------------------------- */
+  { url: 'EGBC-Troubleshoot-AV.html', title: 'AV Troubleshoot', icon: '\u{1F6E0}', team: 'AV Team',
+    description: 'When something is not working' },
+  { url: 'EGBC-HowTo-AV.html', title: 'How To AV', icon: '\u{1F4D8}', team: 'AV Team',
+    description: 'Running the desk, step by step' },
+  { url: 'schematic.html', title: 'AV Infrastructure Mapper', icon: '\u{1F50C}', team: 'AV Team',
+    description: 'What is plugged into what' },
+  { url: 'MonitorStageMap.html', title: 'Monitor Setup', icon: '\u{1F39A}', team: 'AV Team',
+    description: 'Stage monitor positions and mixes' },
+  /* AV read the Worship & AV charter, so this page carries no text of its
+     own. It is the AV landing page, not a tool - see AV_CHARTER_PAGES. */
+  { url: 'AVteamlandingpage.html', title: 'AV Team Charter', icon: '\u{1F4DC}', team: 'AV Team',
+    description: 'Shared with the worship team' },
+
+  /* -- youth worship, adult leaders ----------------------------------- */
+  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: '⛪', team: 'Youth Worship',
+    description: 'Planning a youth-led service' },
+  { url: 'youthapp2.html', title: 'Youth Hub', icon: '\u{1F4F1}', team: 'Youth Worship',
+    description: 'The phone app' },
+  { url: 'Youthcharter.html', title: 'Youth Charter', icon: '\u{1F4DC}', team: 'Youth Worship',
+    description: 'How the youth team serve' },
+
+  /* -- core team, build tools ----------------------------------------- */
+  { url: 'Planner.html', title: 'Master Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
+    description: 'Build and send the rota' },
+  { url: 'SundayServicePlanner.html', title: 'Sunday Worship Planner', icon: '⛪', team: 'Core Team',
+    description: 'Plan the running order' },
+  { url: 'music-uploader.html', title: 'Music Upload', icon: '\u{1F3B5}', team: 'Core Team',
+    description: 'Add a song and its files' },
+  { url: 'batchupload.html', title: 'Batch Music Importer', icon: '\u{1F4E4}', team: 'Core Team',
+    description: 'Add many songs at once' },
+
+  /* -- core team, administration -------------------------------------- */
+  { url: 'addressbook.html', title: 'Master Manager', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
+    description: 'People, households and teams' },
+  { url: 'EmailBuilder2.html', title: 'Email Builder', icon: '✉', team: 'Core Team',
+    description: 'Write and send to a team' },
+  { url: 'inventory-system-2.html', title: 'EGBC Inventory', icon: '\u{1F4E6}', team: 'Core Team',
+    description: 'Equipment and where it lives' },
+  { url: 'index.html', title: 'Availability Form', icon: '\u{1F4CB}', team: 'Core Team',
+    description: 'The public form - this is the link to send out' },
+  { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
+    description: 'Take a copy of everything, or put one back' },
+  { url: 'CoreTeamApp.html', title: 'Core Team', icon: '\u{1F4F1}', team: 'Core Team',
+    description: 'The phone app' },
+  { url: 'Coreteamcharter.html', title: 'Core Team Charter', icon: '\u{1F4DC}', team: 'Core Team',
+    description: 'How the core team work' },
+
+  /* -- core team, training copies -------------------------------------- */
+  { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Core Team', everyone: true,
+    description: 'Practice copies of the main tools' },
+  { url: 'trainingrotaplanner.html', title: 'Training - Rota Planner', icon: '\u{1F4DA}', team: 'Core Team',
+    description: 'Practice copy. Nothing here reaches the real rota' },
+  { url: 'training Sunday planner.html', title: 'Training - Sunday Planner', icon: '\u{1F4DA}', team: 'Core Team',
+    description: 'Practice copy' },
+  { url: 'trainingbatchimporter.html', title: 'Training - Batch Importer', icon: '\u{1F4DA}', team: 'Core Team',
+    description: 'Practice copy' },
+  { url: 'trainingmusicdatabase.html', title: 'Training - Music Database', icon: '\u{1F4DA}', team: 'Core Team',
+    description: 'Practice copy' },
+
+  /* -- instructions ----------------------------------------------------
+     These attach to the tool they explain rather than sitting as tiles of
+     their own. Nothing in the repo linked to any of them, so they existed
+     without being findable. */
+  { url: 'rotaplannerinstructions.html', title: 'How to use the Rota Planner', icon: '❓',
+    team: 'Core Team', helpFor: 'Planner.html' },
+  { url: 'Serviceplannerinstructions.html', title: 'How to use the Sunday Planner', icon: '❓',
+    team: 'Core Team', helpFor: 'SundayServicePlanner.html' },
+  { url: 'emailcompilerinstructions.html', title: 'How to use the Email Builder', icon: '❓',
+    team: 'Core Team', helpFor: 'EmailBuilder2.html' },
+  { url: 'uploaderinstructions.html', title: 'How to use Music Upload', icon: '❓',
+    team: 'Core Team', helpFor: 'music-uploader.html' }
+];
+
+/* AVteamlandingpage carries no text of its own, so a tile pointing at it
+   leads to a blank page. It belongs on the AV landing page like the other
+   charters. */
+const EXTRA_CHARTER_PAGES = ['avteamlandingpage.html'];
+
+
+/* ---- IS THE FILENAME RIGHT? -----------------------------------------
+   Casing and spaces are fatal on GitHub Pages and silent in the browser -
+   a wrong name gives a 404 nobody reports. Rather than trust this list,
+   ask the server. */
+
+async function headCheck(url) {
+  try {
+    const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    return r.ok;
+  } catch (e) { return false; }
+}
+
+/* Small batches - forty at once upsets some browsers, and this is not a
+   race. */
+async function checkUrls(urls, onProgress) {
+  const bad = [];
+  for (let i = 0; i < urls.length; i += 6) {
+    const slice = urls.slice(i, i + 6);
+    const results = await Promise.all(slice.map(headCheck));
+    slice.forEach((u, n) => { if (!results[n]) bad.push(u); });
+    if (onProgress) onProgress(Math.min(i + 6, urls.length), urls.length);
+  }
+  return bad;
+}
+
+async function checkRegistryLinks() {
+  if (!EGBCAuth.isAdmin()) { alert('Only an admin can do this.'); return; }
+  const urls = PAGES.filter(p => p.url && !p.heading).map(p => p.url);
+  if (!urls.length) { alert('Nothing registered yet.'); return; }
+
+  const btn = document.getElementById('btnCheckLinks');
+  const was = btn ? btn.textContent : '';
+  const say = (a, b) => { if (btn) btn.textContent = `Checking ${a}/${b}`; };
+
+  try {
+    const bad = await checkUrls(urls, say);
+    if (btn) btn.textContent = was;
+    if (!bad.length) { alert(`All ${urls.length} links work.`); return; }
+    alert(`${bad.length} of ${urls.length} do not load:\n\n` +
+      bad.map(u => '• ' + u).join('\n') +
+      '\n\nUsually the filename is spelt or capitalised differently in the repo. ' +
+      'Edit the entry rather than deleting it.');
+  } catch (e) {
+    if (btn) btn.textContent = was;
+    alert('Could not check: ' + e.message);
+  }
+}
+
+
+/* ---- ADD THE MISSING PAGES ------------------------------------------ */
+
+async function seedRegistry() {
+  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
+
+  const have = new Set(PAGES.map(p => (p.url || '').toLowerCase()).filter(Boolean));
+  const missing = REGISTRY.filter(r => !have.has(r.url.toLowerCase()));
+
+  if (!missing.length) {
+    alert(`Nothing to add - all ${REGISTRY.length} pages are already registered.`);
+    return;
+  }
+
+  const btn = document.getElementById('btnSeed');
+  const was = btn ? btn.textContent : '';
+
+  /* Check before writing, not after. A registry full of 404s is worse than
+     an incomplete one, because it looks finished. */
+  let bad = [];
+  try {
+    if (btn) btn.textContent = 'Checking...';
+    bad = await checkUrls(missing.map(r => r.url),
+      (a, b) => { if (btn) btn.textContent = `Checking ${a}/${b}`; });
+  } catch (e) { /* offline or blocked - fall through and let the admin decide */ }
+  if (btn) btn.textContent = was;
+
+  const badSet = new Set(bad);
+  const good = missing.filter(r => !badSet.has(r.url));
+
+  let msg = `${missing.length} page${missing.length === 1 ? '' : 's'} not yet registered.\n\n`;
+  if (bad.length) {
+    msg += `${bad.length} of them did not load and will be SKIPPED:\n` +
+           bad.map(u => '• ' + u).join('\n') +
+           '\n\nThat is almost always a filename spelt differently in the repo.\n\n';
+  }
+  if (!good.length) { alert(msg + 'Nothing left to add.'); return; }
+  msg += `Add the remaining ${good.length}?\n\n` +
+         `Nothing already registered is changed, and nothing is deleted.`;
+  if (!confirm(msg)) return;
+
+  /* Order after whatever is already there, so an import that ran first keeps
+     its arrangement. */
+  let next = PAGES.reduce((m, p) => Math.max(m, p.order || 0), 0) + 10;
+
+  try {
+    const batch = db.batch();
+    good.forEach(r => {
+      const row = {
+        title: r.title,
+        url: r.url,
+        description: r.description || '',
+        icon: r.icon || '\u{1F4C4}',
+        team: r.team,
+        everyone: !!r.everyone,
+        adminOnly: !!r.adminOnly,
+        order: next,
+        enabled: true
+      };
+      if (r.teams) row.teams = r.teams;
+      if (r.helpFor) row.helpFor = r.helpFor;
+      batch.set(db.collection('hubPages').doc(), row);
+      next += 10;
+    });
+    await batch.commit();
+
+    await loadPages();
+    renderTools();
+    renderAdminPages();
+
+    const tiles = good.filter(r => !r.helpFor).length;
+    alert(`${good.length} added.\n\n` +
+      `${tiles} as tiles, ${good.length - tiles} attached to the tool they explain.` +
+      (bad.length ? `\n\n${bad.length} skipped - see above.` : ''));
+  } catch (e) { alert('Could not add: ' + e.message); }
+}
+
+
+/* An entry may name several teams. The song library is the case that forced
+   it: Worship need the songs and AV need the lyrics, but Kids Church and
+   Lazers should not see either. `everyone` was too wide and one `team` was
+   too narrow, so `teams` sits between them.
+
+   `team` stays the single owning team - it decides which group the tile
+   appears under and which admin may edit the entry. `teams`, when present,
+   only widens who can SEE it. */
+function pageTeams(p) {
+  if (Array.isArray(p.teams) && p.teams.length) return p.teams;
+  return p.team ? [p.team] : [];
+}
+
+/* Reasons an entry exists but is not a tile of its own. */
+function isTile(p) {
   if (p.enabled === false) return false;
   if (p.mobileOnly || MOBILE_APPS.includes((p.url || '').toLowerCase())) return false;
   if (p.heading) return false;
+  if (p.helpFor) return false;        /* shows as ? on the tool it explains */
   if (isCharterPage(p.url)) return false;
+  return true;
+}
+
+function visibleOne(p) {
+  if (!isTile(p)) return false;
   if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
   if (p.everyone) return true;
-  return myTeams().includes(p.team) || EGBCAuth.adminAreas().includes(p.team);
+  const mine = myTeams(), admin = EGBCAuth.adminAreas();
+  return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
 }
 
 function visibleTools() {
   const mine = myTeams();
   const admin = EGBCAuth.adminAreas();
   return PAGES.filter(p => {
-    if (p.enabled === false) return false;
-    if (p.mobileOnly || MOBILE_APPS.includes((p.url || '').toLowerCase())) return false;
-    if (p.heading) return false;
-    if (isCharterPage(p.url)) return false;
+    if (!isTile(p)) return false;
     if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
     /* Help and training is not a team's tool - anyone may need to learn how
        the system works. */
     if (p.everyone) return true;
-    return mine.includes(p.team) || admin.includes(p.team);
+    return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
   });
 }
 
@@ -1235,10 +1526,37 @@ function nestTools(list) {
   const childrenOf = id => list.filter(p => p.legacyParent === id);
   const top = list.filter(p => !p.legacyParent || !headings.some(h => h.legacyId === p.legacyParent));
 
-  const row = p => `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
+  /* An instruction page belongs on the tool it explains, not beside it. The
+     four we have were never linked from anywhere, so nobody could find them
+     even though they exist. */
+  const mine = myTeams(), admin = EGBCAuth.adminAreas();
+  const mayOpen = p => {
+    if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
+    if (p.everyone) return true;
+    return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
+  };
+
+  const help = {};
+  PAGES.forEach(p => {
+    /* Only offer the ? to someone who can actually open it. Today every
+       instruction page and its tool are both Core Team, so this never
+       bites - but a help page narrower than its tool would otherwise put a
+       dead link on the tile. */
+    if (p.helpFor && p.enabled !== false && p.url && mayOpen(p)) {
+      help[String(p.helpFor).toLowerCase()] = p;
+    }
+  });
+
+  const row = p => {
+    const tile = `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
       <span class="ic">${p.icon || '&#128196;'}</span>
       <span class="nm">${esc(p.title)}</span>
     </a>`;
+    const h = help[(p.url || '').toLowerCase()];
+    if (!h) return tile;
+    return `<div class="toolrow">${tile}<a class="toolhelp" href="${esc(h.url)}"
+      title="${esc(h.title)}" aria-label="${esc(h.title)}">?</a></div>`;
+  };
 
   const sub = h => {
     const kids = childrenOf(h.legacyId);
@@ -1615,11 +1933,20 @@ function renderPagesList(){
   if(!mine.length){list.innerHTML='<div class="empty"><div class="t">Nothing registered yet</div><div style="font-size:12px;font-weight:600;margin-top:6px">Use <strong>Bring across the old menu</strong> to start from the menu people already know.</div></div>';return;}
   list.innerHTML=mine.map(p=>{
     const cfg=EGBCAuth.TEAMS[p.team]||{label:p.team,colour:'#3d6263'};
+    /* Say who sees it and why it might not be a tile, so an entry that looks
+       missing from the Tools panel explains itself here. */
+    const seen = p.everyone ? 'everyone'
+      : (Array.isArray(p.teams) && p.teams.length>1
+          ? p.teams.map(t=>(EGBCAuth.TEAMS[t]||{label:t}).label).join(' + ')
+          : cfg.label);
+    const why = p.helpFor ? ` · help for ${p.helpFor}`
+      : (isCharterPage(p.url) ? ' · on the landing page'
+      : (MOBILE_APPS.includes((p.url||'').toLowerCase()) ? ' · phone app' : ''));
     return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${p.enabled===false?'opacity-50':''}">
       <span class="text-lg">${esc(p.icon||'📄')}</span>
       <div class="flex-grow min-w-0">
         <div class="font-bold text-sm truncate">${esc(p.title)}</div>
-        <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(cfg.label)}${p.adminOnly?' · admin only':''}${p.enabled===false?' · hidden':''}</div>
+        <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(seen)}${p.adminOnly?' · admin only':''}${esc(why)}${p.enabled===false?' · hidden':''}</div>
       </div>
       <button onclick="editPage('${p.id}')" class="bg-white border border-[#dde7e6] px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
     </div>`;
@@ -1633,6 +1960,7 @@ function newPage(){
   document.getElementById('pgOrder').value=(PAGES.length+1)*10;
   document.getElementById('pgEnabled').checked=true;
   document.getElementById('pgAdminOnly').checked=false;
+  document.getElementById('pgSeenBy').value='team';
   document.getElementById('pgDelete').classList.add('hidden');
   document.getElementById('pageEditor').classList.remove('hidden');
 }
@@ -1649,6 +1977,8 @@ function editPage(id){
   document.getElementById('pgTeam').value=p.team||'';
   document.getElementById('pgAdminOnly').checked=!!p.adminOnly;
   document.getElementById('pgEnabled').checked=p.enabled!==false;
+  document.getElementById('pgSeenBy').value =
+    p.everyone ? 'all' : ((Array.isArray(p.teams) && p.teams.length>1) ? 'pair' : 'team');
   document.getElementById('pgDelete').classList.remove('hidden');
   document.getElementById('pageEditor').classList.remove('hidden');
 }
@@ -1656,8 +1986,12 @@ function editPage(id){
 
 function cancelPage(){document.getElementById('pageEditor').classList.add('hidden');}
 
+/* This was defined twice, identically. The second won, so an edit to the
+   first did nothing at all - which is the sort of thing that eats an
+   afternoon. One copy now. */
 async function savePage(){
   const id=document.getElementById('pgId').value;
+  const seen=document.getElementById('pgSeenBy').value;   /* team | pair | all */
   const data={
     title:document.getElementById('pgTitle').value.trim(),
     url:document.getElementById('pgUrl').value.trim(),
@@ -1666,29 +2000,15 @@ async function savePage(){
     team:document.getElementById('pgTeam').value,
     adminOnly:document.getElementById('pgAdminOnly').checked,
     order:parseInt(document.getElementById('pgOrder').value,10)||0,
-    enabled:document.getElementById('pgEnabled').checked
+    enabled:document.getElementById('pgEnabled').checked,
+    everyone:seen==='all'
   };
-  if(!data.title||!data.url||!data.team){alert('Title, filename and team are required.');return;}
-  try{
-    if(id)await db.collection('hubPages').doc(id).update(data);
-    else await db.collection('hubPages').add(data);
-    cancelPage();await loadPages();renderPagesList();renderTools();
-  }catch(e){alert('Save failed: '+e.message);}
-}
 
+  /* Written every time, including the empty case, so narrowing an entry back
+     to one team actually takes. update() merges, so a field left out here
+     keeps whatever it had - which is why this cannot be conditional. */
+  data.teams = seen==='pair' ? WORSHIP_AV : [];
 
-async function savePage(){
-  const id=document.getElementById('pgId').value;
-  const data={
-    title:document.getElementById('pgTitle').value.trim(),
-    url:document.getElementById('pgUrl').value.trim(),
-    description:document.getElementById('pgDesc').value.trim(),
-    icon:document.getElementById('pgIcon').value.trim()||'📄',
-    team:document.getElementById('pgTeam').value,
-    adminOnly:document.getElementById('pgAdminOnly').checked,
-    order:parseInt(document.getElementById('pgOrder').value,10)||0,
-    enabled:document.getElementById('pgEnabled').checked
-  };
   if(!data.title||!data.url||!data.team){alert('Title, filename and team are required.');return;}
   try{
     if(id)await db.collection('hubPages').doc(id).update(data);
@@ -1964,9 +2284,11 @@ function renderAdminPages(){
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
+          <button class="btn solid" id="btnSeed" onclick="seedRegistry()">Add the missing pages</button>
+          <button class="btn" id="btnCheckLinks" onclick="checkRegistryLinks()">Check every link</button>
           <button class="btn" onclick="importAllCharters()">Bring across all charters</button>
           <button class="btn" onclick="markSharedPages()">Open shared pages to everyone</button>
-          <button class="btn solid" onclick="newPage()">+ Add</button>
+          <button class="btn" onclick="newPage()">+ Add</button>
         </div>
       </div>
       <div id="pageEditor" style="display:none;background:var(--surface-2);border:2px solid var(--brand);border-radius:18px;padding:20px;margin-bottom:18px">
@@ -1981,6 +2303,11 @@ function renderAdminPages(){
           <select class="fld" id="pgTeam"></select>
           <input class="fld" id="pgOrder" type="number" placeholder="Order">
         </div>
+        <select class="fld" id="pgSeenBy">
+          <option value="team">Seen by that team only</option>
+          <option value="pair">Seen by Worship and AV</option>
+          <option value="all">Seen by everyone signed in</option>
+        </select>
         <label style="display:flex;gap:9px;align-items:center;cursor:pointer;margin:4px 0 12px">
           <input type="checkbox" id="pgAdminOnly" style="width:16px;height:16px;accent-color:var(--brand)">
           <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Admins only</span>
