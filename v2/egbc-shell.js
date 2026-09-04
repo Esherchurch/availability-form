@@ -41,28 +41,35 @@
       '--egbc-faint:#93a8a6;--egbc-line:#dde7e6;--egbc-brand:#3d6263;--egbc-brand-dark:#2e4c4d;',
       '--egbc-tint:#e7f0ef;--egbc-page:' + (WIDTHS[width] || WIDTHS.page) + '}',
 
+      /* A white bar on the suite's near-white page measured 1.11:1 against it -
+         no separation at all, so it read as part of the page and was missed at
+         a glance. A solid brand band is unmistakably chrome, and every label on
+         it clears WCAG AA. */
       '#egbc-bar{position:sticky;top:0;z-index:9000;display:flex;align-items:center;justify-content:space-between;',
-      'gap:12px;padding:9px 18px;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);',
-      'border-bottom:1px solid var(--egbc-line);font-family:Montserrat,system-ui,sans-serif}',
+      'gap:12px;padding:11px 18px;background:var(--egbc-brand);',
+      'box-shadow:0 2px 14px rgba(20,32,31,.22);font-family:Montserrat,system-ui,sans-serif}',
 
       '#egbc-bar .eb-l{display:flex;align-items:center;gap:11px;min-width:0}',
-      '#egbc-bar img{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--egbc-line);flex-shrink:0}',
-      '#egbc-bar .eb-k{font-size:8.5px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;',
-      'color:var(--egbc-faint);line-height:1.4;white-space:nowrap}',
-      '#egbc-bar .eb-n{font-size:14px;font-weight:900;color:var(--egbc-ink);line-height:1.2;',
+      '#egbc-bar img{width:34px;height:34px;border-radius:50%;object-fit:cover;',
+      'border:2px solid rgba(255,255,255,.4);background:#fff;flex-shrink:0}',
+      '#egbc-bar .eb-k{font-size:9px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;',
+      'color:#cfe2e1;line-height:1.4;white-space:nowrap}',
+      '#egbc-bar .eb-n{font-size:15px;font-weight:900;color:#fff;line-height:1.25;',
       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
 
       '#egbc-bar .eb-r{display:flex;align-items:center;gap:8px;flex-shrink:0}',
-      '#egbc-bar a.eb-b,#egbc-bar button.eb-b{font-family:inherit;font-size:10px;font-weight:900;',
-      'letter-spacing:.1em;text-transform:uppercase;padding:9px 16px;border-radius:99px;',
-      'border:1px solid var(--egbc-line);background:#fff;color:var(--egbc-brand);cursor:pointer;',
+      '#egbc-bar a.eb-b,#egbc-bar button.eb-b{font-family:inherit;font-size:10.5px;font-weight:900;',
+      'letter-spacing:.1em;text-transform:uppercase;padding:10px 17px;border-radius:99px;',
+      'border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;cursor:pointer;',
       'text-decoration:none;transition:.15s;white-space:nowrap}',
-      '#egbc-bar a.eb-b:hover,#egbc-bar button.eb-b:hover{background:var(--egbc-brand);color:#fff;border-color:var(--egbc-brand)}',
-      '#egbc-bar a.eb-home{background:var(--egbc-brand);color:#fff;border-color:var(--egbc-brand)}',
-      '#egbc-bar a.eb-home:hover{background:#000;border-color:#000}',
-      '#egbc-bar .eb-av{width:28px;height:28px;border-radius:50%;background:var(--egbc-brand);color:#fff;',
-      'display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;flex-shrink:0}',
-      '#egbc-bar .eb-who{font-size:11px;font-weight:700;color:var(--egbc-body);white-space:nowrap}',
+      '#egbc-bar a.eb-b:hover,#egbc-bar button.eb-b:hover{background:#fff;color:var(--egbc-brand);border-color:#fff}',
+      '#egbc-bar a.eb-b:focus-visible,#egbc-bar button.eb-b:focus-visible{outline:2px solid #fff;outline-offset:2px}',
+      /* The menu is the point of the bar, so it is the one solid button. */
+      '#egbc-bar button.eb-nav{background:#fff;color:var(--egbc-brand);border-color:#fff}',
+      '#egbc-bar button.eb-nav:hover{background:var(--egbc-tint);border-color:var(--egbc-tint)}',
+      '#egbc-bar .eb-av{width:29px;height:29px;border-radius:50%;background:#fff;color:var(--egbc-brand);',
+      'display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:900;flex-shrink:0}',
+      '#egbc-bar .eb-who{font-size:11.5px;font-weight:700;color:#e4efee;white-space:nowrap}',
 
       /* Even out the page width without touching the page's own layout. */
       'body>.egbc-w,body>main,body>.container,body>.wrap{max-width:var(--egbc-page);margin-left:auto;margin-right:auto}',
@@ -132,7 +139,7 @@
     if (profile) {
       right += '<div class="eb-av">' + initials(profile.name || profile.email) + '</div>' +
                '<span class="eb-who">' + (profile.name || profile.email) + '</span>' +
-               '<button class="eb-b" style="border:none;background:none;color:var(--egbc-muted);padding:8px 4px" ' +
+               '<button class="eb-b" style="border:none;background:none;color:#cfe2e1;padding:8px 4px" ' +
                'onclick="EGBCAuth.signOut()">Sign out</button>';
     }
 
