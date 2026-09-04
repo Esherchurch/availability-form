@@ -341,6 +341,97 @@
 
   /* ---- Public API -------------------------------------------------- */
 
+  /* ---- View as ------------------------------------------------------
+     A master admin cannot otherwise find out what anybody else's version of
+     the site looks like - which pages are in the menu, what the hub shows,
+     what is refused. Short of holding a second account and a second email
+     address, this is the only way to check it.
+
+     It overrides what the rest of the suite is told about the signed-in
+     person, so every page follows without knowing this exists. It changes
+     what is SHOWN, never what is permitted: the Firestore rules, once
+     deployed, still see the real account, and anything edited while
+     previewing is edited by the real person under their own name.
+
+     Held in sessionStorage, so it dies with the tab. */
+
+  var VIEW_KEY = 'egbc_view_as';
+
+  function reallyMaster() {
+    return !!(currentProfile && currentProfile.masterAdmin === true);
+  }
+
+  function viewAs() {
+    if (!reallyMaster()) return null;
+    try {
+      var raw = sessionStorage.getItem(VIEW_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  /* Sits at the bottom of every page rather than the top, where it would
+     fight the navigation bar. Fixed, so it is on screen whatever the page
+     does - including the "no access" screen, which is one of the things a
+     master admin most needs to be able to see. */
+  function mountViewAsBar() {
+    if (!reallyMaster()) return;
+
+    var bar = document.getElementById('egbc-viewas');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'egbc-viewas';
+      document.body.appendChild(bar);
+    }
+
+    var v = viewAs();
+    bar.style.cssText =
+      'position:fixed;left:0;right:0;bottom:0;z-index:9900;display:flex;align-items:center;' +
+      'gap:10px;flex-wrap:wrap;padding:9px 16px;font-family:Montserrat,system-ui,sans-serif;' +
+      'font-size:11px;font-weight:800;box-shadow:0 -3px 14px rgba(20,32,31,.18);' +
+      (v ? 'background:#b07d2e;color:#fff' : 'background:#eef4f3;color:#3d6263;border-top:1px solid #dde7e6');
+
+    var teams = Object.keys(TEAMS).filter(function (t) { return !TEAMS[t].parent; });
+    var opts = teams.map(function (t) {
+      return '<option value="' + t + '"' + (v && v.team === t ? ' selected' : '') + '>' +
+             (TEAMS[t].label || t) + '</option>';
+    }).join('');
+
+    bar.innerHTML =
+      '<span style="text-transform:uppercase;letter-spacing:.1em">' +
+        (v ? 'Seeing the site as a ' + (TEAMS[v.team] ? TEAMS[v.team].label : v.team) +
+             ' ' + (v.admin ? 'admin' : 'member')
+           : 'View the site as') +
+      '</span>' +
+      '<select id="egbc-va-team" style="font-family:inherit;font-size:11px;font-weight:800;' +
+        'border-radius:99px;padding:5px 12px;border:1px solid rgba(0,0,0,.15)">' +
+        '<option value="">Myself</option>' + opts +
+      '</select>' +
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
+        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + '> as an admin' +
+      '</label>' +
+      (v ? '<button id="egbc-va-off" style="font-family:inherit;font-size:11px;font-weight:800;' +
+           'border-radius:99px;padding:5px 14px;border:none;cursor:pointer;background:#fff;' +
+           'color:#b07d2e;margin-left:auto">Back to myself</button>' : '');
+
+    function apply() {
+      var team = document.getElementById('egbc-va-team').value;
+      var asAdmin = document.getElementById('egbc-va-admin').checked;
+      try {
+        if (team) sessionStorage.setItem(VIEW_KEY, JSON.stringify({ team: team, admin: asAdmin }));
+        else sessionStorage.removeItem(VIEW_KEY);
+      } catch (e) {}
+      location.reload();
+    }
+
+    document.getElementById('egbc-va-team').onchange = apply;
+    document.getElementById('egbc-va-admin').onchange = apply;
+    var off = document.getElementById('egbc-va-off');
+    if (off) off.onclick = function () {
+      try { sessionStorage.removeItem(VIEW_KEY); } catch (e) {}
+      location.reload();
+    };
+  }
+
   var EGBCAuth = {
 
     auth: auth,
@@ -436,6 +527,7 @@
               return;
             }
 
+            mountViewAsBar();
             resolve(profile);
           }).catch(function (e) {
             console.error('EGBCAuth profile load failed', e);
@@ -451,8 +543,9 @@
         auth.onAuthStateChanged(function (user) {
           if (!user) { resolve(null); return; }
           currentUser = user;
-          loadProfile(user).then(function (p) { currentProfile = p; resolve(p); })
-            .catch(function () { resolve(null); });
+          loadProfile(user).then(function (p) {
+            currentProfile = p; mountViewAsBar(); resolve(p);
+          }).catch(function () { resolve(null); });
         });
       });
     },
@@ -464,6 +557,8 @@
        resolves to its parent (Worship Team). The raw markers are left
        untouched on the profile, because the rota still needs them. */
     effectiveTeams: function () {
+      var v = viewAs();
+      if (v) return [v.team];
       if (!currentProfile) return [];
       var out = [];
       (currentProfile.teams || []).forEach(function (t) {
@@ -503,11 +598,18 @@
          member       - their own team's pages, plus anything open to everyone  */
 
     isMaster: function () {
-      return !!(currentProfile && currentProfile.masterAdmin === true);
+      if (viewAs()) return false;
+      return reallyMaster();
     },
+
+    /* For the preview bar itself, which must survive being someone else. */
+    isReallyMaster: reallyMaster,
+    viewingAs: viewAs,
 
     /* Manages this particular area. */
     isAdminOf: function (team) {
+      var v = viewAs();
+      if (v) return !!v.admin && v.team === team;
       if (!currentProfile) return false;
       if (currentProfile.masterAdmin === true) return true;
       return (currentProfile.adminFor || []).indexOf(team) !== -1;
@@ -515,12 +617,16 @@
 
     /* Manages anything at all - used to decide whether to show admin at all. */
     isAdmin: function () {
+      var v = viewAs();
+      if (v) return !!v.admin;
       if (!currentProfile) return false;
       return currentProfile.masterAdmin === true || (currentProfile.adminFor || []).length > 0;
     },
 
     /* Every area this person administers. */
     adminAreas: function () {
+      var v = viewAs();
+      if (v) return v.admin ? [v.team] : [];
       if (!currentProfile) return [];
       if (currentProfile.masterAdmin === true) return Object.keys(TEAMS);
       return (currentProfile.adminFor || []).slice();
@@ -636,6 +742,10 @@
             '</div>' +
           '</div>' +
         '</div>';
+
+      /* The bar lives in the body this just replaced. Put it back - being
+         refused is one of the things most worth previewing. */
+      mountViewAsBar();
     }
   };
 
