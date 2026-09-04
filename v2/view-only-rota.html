@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041717" data-title="Rota"></script>
+<script src="egbc-shell.js?v=202609041745" data-title="Rota"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609041717"></script>
-<script src="egbc-guard.js?v=202609041717"></script>
+<script src="egbc-auth.js?v=202609041745"></script>
+<script src="egbc-guard.js?v=202609041745"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Live Rota</title>
@@ -14,6 +14,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <!-- The same generator the Rota Planner uses for the term email, so what
+         you download here is what people were sent. -->
+    <script src="egbc-rota-pdf.js?v=202609041745"></script>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -141,86 +144,40 @@
             return (Array.isArray(v) ? v : [v]).map(x => x && x.id).filter(Boolean);
         }
 
+        /* One generator for all four documents, shared with the Rota
+           Planner - see egbc-rota-pdf.js. The download and the emailed copy
+           are now the same file, which they were not before: this page used
+           to look households up by a field the address book does not
+           maintain, left the time column out, and had no wall planner. */
         window.generatePDF = async (type, memberId) => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('l', 'mm', 'a4'); 
-            const activeLogo = await getLogoBase64();
+            if (type !== 'full' && !addressBook.find(m => m.id === memberId)) {
+                return alert('Select your name first.');
+            }
+
             const today = new Date().toISOString().split('T')[0];
-            let termEvents = cachedEvents.filter(e => !e.archived && e.date >= today);
-            let titleText = "FULL ROTA";
-            let focusIds = null;   /* whose rota this is, for the two personal PDFs */
-            
-            if (type === 'individual') {
-                if (!memberId) return alert("Select your name first.");
-                const member = addressBook.find(m => m.id === memberId);
-                focusIds = [memberId];
-                termEvents = termEvents.filter(e => {
-                    const isAssigned = Object.values(e.assignments || {}).some(a => idsIn(a).includes(memberId));
-                    const isInChoir = member.markers?.includes('Choir') && e.roles?.includes('Choir');
-                    return isAssigned || isInChoir;
+            const events = cachedEvents.filter(e => !e.archived && e.date >= today);
+
+            let doc;
+            try {
+                doc = EGBCRotaPdf.build({
+                    type, memberId, addressBook, events,
+                    logo: await getLogoBase64(),
+                    avRoles: (typeof EGBCAuth !== 'undefined' && EGBCAuth.AV_ROLES) || [],
+                    /* Only the full rota is narrowed to the reader's teams. */
+                    roleFilter: visibleRoles
                 });
-                titleText = `${member.name.toUpperCase()} - ROTA`;
-            } else if (type === 'household') {
-                if (!memberId) return alert("Select your name first.");
-                const member = addressBook.find(m => m.id === memberId);
-                const hIds = [memberId, ...(member.relatedTo || [])];
-                focusIds = hIds;
-                termEvents = termEvents.filter(e => {
-                    const isAssigned = Object.values(e.assignments || {}).some(a => idsIn(a).some(id => hIds.includes(id)));
-                    const houseMembers = addressBook.filter(m => hIds.includes(m.id));
-                    const choirRequirement = houseMembers.some(m => m.markers?.includes('Choir')) && e.roles?.includes('Choir');
-                    return isAssigned || choirRequirement;
-                });
-                titleText = `HOUSEHOLD ROTA: ${member.name.toUpperCase()}`;
+            } catch (e) {
+                console.error(e);
+                return alert('Could not build that PDF: ' + e.message);
             }
 
-            if (termEvents.length === 0) return alert("No upcoming dates found.");
+            if (!doc) return alert('No upcoming dates found.');
 
-            if (activeLogo) {
-                const props = doc.getImageProperties(activeLogo);
-                doc.addImage(activeLogo, 'PNG', 260, 10, 25, (props.height * 25) / props.width); 
-            }
-            
-            doc.setFillColor(240, 246, 246); doc.roundedRect(12, 12, 230, 10, 4, 4, 'F');
-            doc.setTextColor(61, 98, 99); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
-            doc.text(titleText, 16, 19);
-
-            /* Which columns to print.
-
-               The full rota is scoped to the teams you are on - that is the
-               point of it. A personal or household rota is not: it is the
-               answer to "what are we on for", so it shows every role this
-               household actually serves, whichever department it belongs to.
-               Scoping those by the reader's own teams is how a household PDF
-               for somebody on Worship, Core and Kids Church came out showing
-               five empty Kids Church columns. */
-            const allRoles = focusIds
-                ? [...new Set(termEvents.flatMap(e =>
-                      Object.keys(e.assignments || {})
-                            .filter(role => idsIn(e.assignments[role]).some(id => focusIds.includes(id)))
-                    ).concat(
-                      termEvents.some(e => (e.roles || []).includes('Choir')) &&
-                      addressBook.filter(m => focusIds.includes(m.id)).some(m => m.markers?.includes('Choir'))
-                        ? ['Choir'] : []
-                    ))]
-                : [...new Set(termEvents.flatMap(e => visibleRoles(e)))];
-            const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]];
-            const tableBody = termEvents.map(e => {
-                const row = [new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), e.type]; 
-                allRoles.forEach(role => row.push(e.assignments?.[role]?.name || (role === 'Choir' && (e.roles || []).includes('Choir') ? 'Choir' : '---')));
-                return row;
-            });
-
-            doc.autoTable({
-                startY: 35, head: headers, body: tableBody, theme: 'plain',
-                headStyles: { fillColor: [61, 98, 99], textColor: [255, 255, 255], fontSize: 7, halign: 'center' },
-                styles: { fontSize: 7.5, halign: 'center' },
-                margin: { horizontal: 10 },
-                didDrawPage: (data) => {
-                    doc.setDrawColor(209, 223, 223); doc.roundedRect(10, 35, 277, data.cursor.y - 35, 4, 4, 'D');
-                }
-            });
-            doc.save(`EGBC_${type}_rota.pdf`);
+            const who = (addressBook.find(m => m.id === memberId) || {}).name || 'EGBC';
+            const name = type === 'full' ? 'EGBC_full_rota'
+                       : who.replace(/[^A-Za-z0-9]+/g, '_') + '_' +
+                         (type === 'wall' ? 'wall_planner' : type + '_rota');
+            doc.save(name + '.pdf');
         };
 
         function renderRota() {
@@ -391,6 +348,7 @@
             <select id="memberPdfSelect" class="bg-[#f0f6f6] rounded-full px-4 py-2 text-[10px] font-bold uppercase border border-[#d1dfdf] outline-none"></select>
             <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Individual PDF</button>
             <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-[#9bc34a] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Household PDF</button>
+            <button onclick="generatePDF('wall', document.getElementById('memberPdfSelect').value)" class="bg-[#b07d2e] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Wall Planner</button>
         </header>
 
         <div id="rotaContent">
