@@ -45,9 +45,18 @@
          no separation at all, so it read as part of the page and was missed at
          a glance. A solid brand band is unmistakably chrome, and every label on
          it clears WCAG AA. */
-      '#egbc-bar{position:sticky;top:0;z-index:9000;display:flex;align-items:center;justify-content:space-between;',
-      'gap:12px;padding:11px 18px;background:var(--egbc-brand);',
-      'box-shadow:0 2px 14px rgba(20,32,31,.22);font-family:Montserrat,system-ui,sans-serif}',
+      /* Inset and rounded, not full-bleed. Every panel on these pages is a
+         rounded card with a margin, so a square edge-to-edge band sat in a
+         different visual language from everything under it. */
+      /* No horizontal margin of its own: the page's existing gutter positions
+         it, so the bar lines up with whatever that page's panels line up with
+         rather than sitting a few pixels inside them. Widths across the suite
+         run from 560px to 1900px, so a fixed inset could never match them all. */
+      '#egbc-bar{position:sticky;top:12px;z-index:9000;display:flex;align-items:center;',
+      'justify-content:space-between;gap:12px;margin:12px 0 0;padding:11px 18px;',
+      'border-radius:18px;background:var(--egbc-brand);',
+      'box-shadow:0 4px 18px rgba(20,32,31,.24);font-family:Montserrat,system-ui,sans-serif}',
+      '@media(max-width:700px){#egbc-bar{margin:8px 0 0;top:8px;border-radius:14px}}',
 
       '#egbc-bar .eb-l{display:flex;align-items:center;gap:11px;min-width:0}',
       '#egbc-bar img{width:34px;height:34px;border-radius:50%;object-fit:cover;',
@@ -268,8 +277,11 @@
      Only elements at top:0 are touched - a sticky table heading further
      down the page is left exactly where it is. */
   function pushDownStickyHeaders(bar) {
-    var h = bar.offsetHeight;
-    if (!h) return;
+    /* The bar floats, so what matters is where its bottom edge sits, not
+       just how tall it is: its own top offset counts too. */
+    var bcs = window.getComputedStyle(bar);
+    var h = bar.offsetHeight + (parseFloat(bcs.top) || 0) + 8;
+    if (!bar.offsetHeight) return;
 
     var all = document.body.querySelectorAll('*');
     for (var i = 0; i < all.length; i++) {
