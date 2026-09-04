@@ -357,6 +357,35 @@
 
   var VIEW_KEY = 'egbc_view_as';
 
+  /* ---- Who owns a rota slot -----------------------------------------
+     The rota is one list of roles shared by every department, so several
+     pages need to answer "whose is this?" - the planner, the read-only
+     rota, and anything added later. Defined once here rather than copied
+     into each, because a copy is a thing that drifts. */
+
+  var AV_ROLES = ['Sound', 'Words', 'Cameras'];
+
+  var KIDS_ROLES = ['Session Leader',
+    'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+    'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)',
+    'Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'];
+
+  function roleTeam(r) {
+    if (AV_ROLES.indexOf(r) !== -1) return 'AV Team';
+    if (KIDS_ROLES.indexOf(r) !== -1 || /^Helper \d+$/.test(r)) return 'Kids Church';
+    return 'Worship Team';
+  }
+
+  /* Worship and AV serve the same service and share a charter, so someone
+     on one sees the other's slots on the rota. Kids Church does not: that
+     is the whole point of scoping it. */
+  function teamsVisibleTo(teams) {
+    var out = teams.slice();
+    if (out.indexOf('Worship Team') !== -1 && out.indexOf('AV Team') === -1) out.push('AV Team');
+    if (out.indexOf('AV Team') !== -1 && out.indexOf('Worship Team') === -1) out.push('Worship Team');
+    return out;
+  }
+
   function reallyMaster() {
     return !!(currentProfile && currentProfile.masterAdmin === true);
   }
@@ -607,6 +636,18 @@
 
     /* For the preview bar itself, which must survive being someone else. */
     isReallyMaster: reallyMaster,
+    roleTeam: roleTeam,
+    KIDS_ROLES: KIDS_ROLES,
+    AV_ROLES: AV_ROLES,
+
+    /* Every rota slot this person should see. null means all of them. */
+    visibleRoleTeams: function () {
+      if (EGBCAuth.isMaster()) return null;
+      var mine = EGBCAuth.effectiveTeams() || [];
+      var admin = EGBCAuth.adminAreas() || [];
+      admin.forEach(function (t) { if (mine.indexOf(t) === -1) mine.push(t); });
+      return mine.length ? teamsVisibleTo(mine) : null;
+    },
     viewingAs: viewAs,
 
     /* Manages this particular area. */

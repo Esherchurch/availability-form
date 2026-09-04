@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609040906" data-title="Rota"></script>
+<script src="egbc-shell.js?v=202609041014" data-title="Rota"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609040906"></script>
-<script src="egbc-guard.js?v=202609040906"></script>
+<script src="egbc-auth.js?v=202609041014"></script>
+<script src="egbc-guard.js?v=202609041014"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Live Rota</title>
@@ -121,7 +121,23 @@
             doc.setTextColor(61, 98, 99); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
             doc.text(titleText, 16, 19);
 
-            const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
+            /* Show a person the slots for the teams they are actually on. On one
+           team you see one team's rows - Kids Church sees Kids Church, which
+           on a week nobody has filled in yet is correctly a list of blanks.
+           On two you see both, because your own duties should never depend on
+           which page you happened to open.
+
+           A master admin, and anyone previewing as somebody else, is handled
+           inside EGBCAuth so this needs no special case. */
+        function visibleRoles(ev) {
+            const all = ev.roles || [];
+            if (typeof EGBCAuth === 'undefined' || !EGBCAuth.visibleRoleTeams) return all;
+            const mine = EGBCAuth.visibleRoleTeams();
+            if (!mine) return all;
+            return all.filter(r => mine.includes(EGBCAuth.roleTeam(r)));
+        }
+
+        const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
             const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]];
             const tableBody = termEvents.map(e => {
                 const row = [new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), e.type]; 
@@ -176,7 +192,7 @@
                                 <span class="italic text-[#3d6263] text-[10px] flex-grow text-right">${ev.description || ''}</span>
                             </div>
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                                ${(ev.roles || []).map(role => {
+                                ${visibleRoles(ev).map(role => {
                                     const assigned = ev.assignments?.[role]?.name || (role === 'Choir' ? '<span class="text-[#9bc34a]">Choir</span>' : '---');
                                     return `
                                         <div class="bg-white p-2 border border-[#d1dfdf] rounded-lg shadow-sm">

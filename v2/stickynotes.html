@@ -1,15 +1,15 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609040906" data-title="Ideas pin board"></script>
+<script src="egbc-shell.js?v=202609041014" data-title="Ideas pin board"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609040906"></script>
-<script src="egbc-guard.js?v=202609040906"></script>
+<script src="egbc-auth.js?v=202609041014"></script>
+<script src="egbc-guard.js?v=202609041014"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Worship Suggestions Board</title>
+<title>Suggestions Board</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -52,6 +52,12 @@
   .header-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
   /* sync indicator */
+  .board-picker {
+    font-family: var(--font); font-size: .72rem; font-weight: 800; color: var(--teal);
+    background: var(--teal-light); border: 1px solid var(--brand-ring);
+    border-radius: var(--r-pill); padding: 8px 14px; cursor: pointer;
+  }
+
   #syncDot {
     width: 8px; height: 8px; border-radius: 50%;
     background: #d1dfdf; flex-shrink: 0;
@@ -235,11 +241,13 @@
   <div class="header-left">
     <div class="logo-icon">✝️</div>
     <div>
-      <div class="header-title">Worship Board</div>
-      <div class="header-subtitle">Suggestions &amp; Ideas</div>
+      <div class="header-title" id="boardTitle">Board</div>
+      <div class="header-subtitle" id="boardSub">Suggestions &amp; Ideas</div>
     </div>
   </div>
   <div class="header-actions">
+    <select id="boardPicker" class="board-picker" style="display:none"
+            onchange="switchBoard(this.value)" title="Which board"></select>
     <div id="syncDot" title="Sync status"></div>
     <span id="adminBadge" class="admin-badge" style="display:none">Admin</span>
     <button class="btn btn-primary" onclick="openNoteModal()">✏️ Add Note</button>
@@ -405,12 +413,84 @@ const firebaseConfig = {
   projectId: "egbc-worship-planner",
   storageBucket: "egbc-worship-planner.firebasestorage.app"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const BOARD_DOC = db.collection('worshipBoardState').doc('state');
+/* One page, several boards. Signing in is handled by the guard, which has
+   already run by the time this executes, so the shared connection is used
+   rather than opening a second one. */
+let db;
+if (typeof EGBCAuth !== 'undefined' && EGBCAuth.db) {
+  db = EGBCAuth.db;
+} else {
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+}
+
+/* ── THE BOARDS ───────────────────────────────────────────────
+
+   Kids Church and the youth get their own board rather than a corner of
+   the worship one: separate notes, separate pages, separate archive. The
+   worship board keeps the document it has always used, so nothing that is
+   already pinned up moves.
+
+   Which board you land on is decided by who you are, not by the link, so
+   the one tile on the hub takes each person to their own. Anyone who is on
+   more than one - and any master admin - gets the picker in the header. */
+
+const BOARDS = [
+  { id:'worship', doc:'state',       title:'Worship Board',      sub:'Suggestions &amp; Ideas',
+    teams:['Worship Team', 'AV Team', 'Choir'] },
+  { id:'kids',    doc:'kids-church', title:'Kids Church Board',  sub:'Suggestions &amp; Ideas',
+    teams:['Kids Church'] },
+  { id:'youth',   doc:'youth',       title:'Youth Board',        sub:'Suggestions &amp; Ideas',
+    teams:['Youth Worship'] },
+];
+
+let board = BOARDS[0];
+let BOARD_DOC = null;
+let LOCAL_KEY = 'worshipBoard2';
+
+function canSee(b) {
+  if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) {
+    return b.id === 'worship';
+  }
+  if (EGBCAuth.isMaster()) return true;
+  return b.teams.some(t => EGBCAuth.hasRole(t));
+}
+
+/* The worship board keeps its old local cache key so an offline copy made
+   before today still loads; the new boards get their own, because one
+   shared key would spill Kids Church notes onto the worship board the next
+   time Firebase was unreachable. */
+function localKey(b) { return b.id === 'worship' ? 'worshipBoard2' : 'egbcBoard_' + b.id; }
+
+function chooseBoard() {
+  const mine = BOARDS.filter(canSee);
+  const asked = new URLSearchParams(location.search).get('board');
+  const wanted = mine.find(b => b.id === asked);
+  if (asked && !wanted) toast('That board is another team\'s');
+  board = wanted || mine[0] || BOARDS[0];
+
+  BOARD_DOC = db.collection('worshipBoardState').doc(board.doc);
+  LOCAL_KEY = localKey(board);
+
+  document.getElementById('boardTitle').textContent = board.title;
+  document.getElementById('boardSub').innerHTML     = board.sub;
+  document.title = board.title;
+
+  const pick = document.getElementById('boardPicker');
+  if (mine.length > 1) {
+    pick.innerHTML = mine.map(b =>
+      `<option value="${b.id}"${b.id === board.id ? ' selected' : ''}>${b.title}</option>`).join('');
+    pick.style.display = '';
+  } else {
+    pick.style.display = 'none';
+  }
+}
+
+function switchBoard(id) {
+  location.search = '?board=' + id;
+}
 
 // ── CONFIG ────────────────────────────────────────────────────────────────
-const ADMIN_PIN = '1234';
 
 const CAT_META = {
   song:    { label:'Song',    emoji:'🎵', cls:'note-song'    },
@@ -428,6 +508,17 @@ const REACTIONS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────
+function blankState() {
+  return {
+    pages: [{ id:'main', title:'General Board', desc:'' }],
+    notes: [],
+    currentPage: 'main',
+    currentFilter: 'all',
+    showArchive: false,
+    editingNoteId: null,
+  };
+}
+
 let state = {
   pages: [{ id:'main', title:'General Board', desc:'' }],
   notes: [],
@@ -461,7 +552,7 @@ async function loadState() {
       state.editingNoteId = null;
     } else {
       // First time — migrate from localStorage if anything there
-      const local = localStorage.getItem('worshipBoard2');
+      const local = localStorage.getItem(LOCAL_KEY);
       if (local) {
         const parsed = JSON.parse(local);
         state = { ...state, ...parsed };
@@ -475,7 +566,7 @@ async function loadState() {
     console.warn('Firebase load failed, using localStorage:', e.message);
     setSyncStatus('error');
     try {
-      const local = localStorage.getItem('worshipBoard2');
+      const local = localStorage.getItem(LOCAL_KEY);
       if (local) state = { ...state, ...JSON.parse(local) };
     } catch(e2) {}
   }
@@ -485,7 +576,7 @@ async function loadState() {
 // Debounced — waits 800ms after last change before saving, to avoid hammering Firebase on drag
 function saveState() {
   // Always save locally immediately as backup
-  localStorage.setItem('worshipBoard2', JSON.stringify(state));
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(state));
   // Debounce Firebase save
   clearTimeout(saveTimer);
   setSyncStatus('syncing');
@@ -774,26 +865,34 @@ function toggleArchiveView() {
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────
+/* Admin.
+
+   This used to be a PIN typed into a box, and the PIN was in the page
+   source. Now it is whoever administers that board's team - so Karen
+   manages the Kids Church board because she is set as its admin in the
+   address book, and nobody manages a board that is not theirs. */
+
+function mayAdmin() {
+  if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) return false;
+  if (EGBCAuth.isMaster()) return true;
+  return board.teams.some(t => EGBCAuth.isAdminOf(t));
+}
+
+function paintAdmin() {
+  const btn = document.getElementById('adminBtn');
+  btn.style.display = mayAdmin() ? '' : 'none';
+  btn.textContent = isAdmin ? '🔓 Editing' : '🔐 Manage pages';
+  document.getElementById('adminBadge').style.display = isAdmin ? 'inline' : 'none';
+}
+
 function toggleAdmin() {
-  if (isAdmin) {
-    isAdmin = false;
-    document.getElementById('adminBadge').style.display = 'none';
-    document.getElementById('adminBtn').textContent = '🔐 Admin';
-    renderPages(); renderNotes(); toast('Logged out');
-  } else {
-    openModal('adminModal');
-    setTimeout(() => document.getElementById('adminPin').focus(), 100);
-  }
+  if (!mayAdmin()) { toast('Only this board\'s admins can change its pages'); return; }
+  isAdmin = !isAdmin;
+  paintAdmin(); renderPages(); renderNotes();
 }
-function doAdminLogin() {
-  if (document.getElementById('adminPin').value === ADMIN_PIN) {
-    isAdmin = true;
-    document.getElementById('adminBadge').style.display = 'inline';
-    document.getElementById('adminBtn').textContent = '🔓 Logout';
-    document.getElementById('adminPin').value = '';
-    closeModal('adminModal'); renderPages(); renderNotes(); toast('Welcome, Admin 🔓');
-  } else { toast('Incorrect PIN'); }
-}
+
+/* The old PIN box is still in the markup; this keeps its button harmless. */
+function doAdminLogin() { closeModal('adminModal'); }
 
 // ── REPORT ────────────────────────────────────────────────────────────────
 function openReportModal() {
@@ -875,6 +974,10 @@ document.querySelectorAll('.modal-overlay').forEach(o =>
 
 // ── SEED DATA (only if Firebase has nothing) ──────────────────────────────
 function seedData() {
+  /* Example notes belong to the board that has always had them. A brand new
+     Kids Church board opens empty rather than with four worship notes on
+     it, which would only need deleting. */
+  if (board.id !== 'worship') return;
   if (state.notes.length > 0) return;
   state.notes = [
     { id:'s1', pageId:'main', cat:'song',    author:'Sarah',       title:'Way Maker',               body:'This song has been really moving our congregation. Would love to sing this in our next service.', ytUrl:'https://www.youtube.com/watch?v=c9Qbq-IrcVs', link:'', linkLabel:'', imgUrl:'', reactions:{love:3,like:5,dislike:0,pray:2}, myReactions:{}, createdAt:Date.now()-172800000, archived:false, x:60,  y:60,  rot:-1.5, zIndex:10 },
@@ -886,9 +989,26 @@ function seedData() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
+/* The guard signs the person in before the page is shown, but it resolves
+   on its own clock, so wait for it rather than reading a profile that is
+   not there yet. The timeout is so a Firebase outage leaves a usable board
+   instead of a permanent spinner. */
+function whenSignedIn() {
+  return new Promise(resolve => {
+    if (typeof EGBCAuth === 'undefined') return resolve(null);
+    if (EGBCAuth.profile && EGBCAuth.profile()) return resolve(EGBCAuth.profile());
+    document.addEventListener('egbc-ready', e => resolve(e.detail), { once: true });
+    setTimeout(() => resolve(null), 8000);
+  });
+}
+
 (async () => {
+  await whenSignedIn();
+  chooseBoard();
+  state = blankState();
   await loadState();
   seedData();
+  paintAdmin();
   renderPages();
   renderNotes();
   setTimeout(() => {

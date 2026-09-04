@@ -290,9 +290,15 @@
 
       var cs = window.getComputedStyle(el);
       if (cs.position !== 'sticky' && cs.position !== 'fixed') continue;
-      if (parseFloat(cs.top) !== 0) continue;
 
-      el.style.top = h + 'px';
+      /* Pages stack these: the pin board has a header at top 0, its page
+         switcher at 64, and a filter row under that. Moving only the top one
+         dropped it straight onto the switcher. Shift the whole stack by the
+         same amount so the gaps between them survive. */
+      var top = parseFloat(cs.top);
+      if (isNaN(top) || top < 0 || top > 200) continue;
+
+      el.style.top = (top + h) + 'px';
       /* A fixed full-height panel (a slide-over, a modal) would now hang off
          the bottom, so give back the height we took. */
       if (cs.position === 'fixed' && parseFloat(cs.bottom) === 0) {
