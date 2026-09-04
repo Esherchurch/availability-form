@@ -1,3 +1,13 @@
 
 # EGBC hub installer backups
 _backup-*/
+
+# Installed only to run the Firestore rules tests. Twenty thousand files,
+# none of them ours.
+node_modules/
+v2/node_modules/
+
+# Written by the emulator when it runs
+*-debug.log
+firebase-debug.*.log
+.firebase/

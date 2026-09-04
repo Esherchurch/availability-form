@@ -1,4 +1,4 @@
-Sept 04, 2026 2:24:13 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start
+Sept 04, 2026 2:31:07 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start
 INFO: Started WebSocket server on ws://127.0.0.1:9151
 API endpoint: http://127.0.0.1:8181
 If you are using a library that supports the FIRESTORE_EMULATOR_HOST environment variable, run:
@@ -12,15 +12,15 @@ If you are running a Firestore in Datastore Mode project, run:
 Note: Support for Datastore Mode is in preview. If you encounter any bugs please file at https://github.com/firebase/firebase-tools/issues.
 Dev App Server is now running.
 
-Sept 04, 2026 2:24:14 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Sept 04, 2026 2:31:08 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected non-HTTP/2 connection.
-Sept 04, 2026 2:24:14 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Sept 04, 2026 2:31:08 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Sept 04, 2026 2:24:15 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Sept 04, 2026 2:31:09 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Sept 04, 2026 2:24:15 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Sept 04, 2026 2:31:09 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Sept 04, 2026 2:24:16 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Sept 04, 2026 2:31:09 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 false for 'create' @ L136, false for 'create' @ L351, false for 'update' @ L136, false for 'update' @ L351
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -51,7 +51,7 @@ false for 'create' @ L136, false for 'create' @ L351, false for 'update' @ L136,
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Sept 04, 2026 2:31:09 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 evaluation error at L107:23 for 'create' @ L107, false for 'create' @ L351, evaluation error at L107:23 for 'update' @ L107, false for 'update' @ L351, false for 'update' @ L107, false for 'update' @ L351
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -82,7 +82,7 @@ evaluation error at L107:23 for 'create' @ L107, false for 'create' @ L351, eval
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Sept 04, 2026 2:31:10 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 evaluation error at L175:29 for 'create' @ L175, false for 'create' @ L351, evaluation error at L175:29 for 'update' @ L175, false for 'update' @ L351, false for 'update' @ L175, false for 'update' @ L351
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -113,7 +113,7 @@ evaluation error at L175:29 for 'create' @ L175, false for 'create' @ L351, eval
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Sept 04, 2026 2:31:10 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 evaluation error at L266:24 for 'create' @ L266, false for 'create' @ L351, evaluation error at L267:32 for 'update' @ L267, false for 'update' @ L351, false for 'create' @ L266, false for 'create' @ L351
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -144,7 +144,7 @@ evaluation error at L266:24 for 'create' @ L266, false for 'create' @ L351, eval
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Sept 04, 2026 2:31:10 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 evaluation error at L266:24 for 'create' @ L266, false for 'create' @ L351, evaluation error at L267:32 for 'update' @ L267, false for 'update' @ L351, false for 'create' @ L266, false for 'create' @ L351
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -175,7 +175,7 @@ evaluation error at L266:24 for 'create' @ L266, false for 'create' @ L351, eval
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Sept 04, 2026 2:31:10 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 evaluation error at L284:23 for 'create' @ L284, false for 'create' @ L351, evaluation error at L284:23 for 'update' @ L284, false for 'update' @ L351, false for 'create' @ L284, false for 'create' @ L351
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -206,7 +206,7 @@ evaluation error at L284:23 for 'create' @ L284, false for 'create' @ L351, eval
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Sept 04, 2026 2:31:10 PM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 evaluation error at L299:23 for 'create' @ L299, false for 'create' @ L351, evaluation error at L299:23 for 'update' @ L299, false for 'update' @ L351, false for 'update' @ L299, false for 'update' @ L351
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -237,7 +237,7 @@ evaluation error at L299:23 for 'create' @ L299, false for 'create' @ L351, eval
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM io.netty.channel.DefaultChannelPipeline onUnhandledInboundException
+Sept 04, 2026 2:31:10 PM io.netty.channel.DefaultChannelPipeline onUnhandledInboundException
 WARNING: An exceptionCaught() event was fired, and it reached at the tail of the pipeline. It usually means the last handler in the pipeline did not handle the exception.
 java.net.SocketException: Connection reset
 	at java.base/sun.nio.ch.SocketChannelImpl.throwConnectionReset(Unknown Source)
@@ -255,7 +255,7 @@ java.net.SocketException: Connection reset
 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
 	at java.base/java.lang.Thread.run(Unknown Source)
 
-Sept 04, 2026 2:24:16 PM io.netty.channel.DefaultChannelPipeline onUnhandledInboundException
+Sept 04, 2026 2:31:10 PM io.netty.channel.DefaultChannelPipeline onUnhandledInboundException
 WARNING: An exceptionCaught() event was fired, and it reached at the tail of the pipeline. It usually means the last handler in the pipeline did not handle the exception.
 java.net.SocketException: Connection reset
 	at java.base/sun.nio.ch.SocketChannelImpl.throwConnectionReset(Unknown Source)
