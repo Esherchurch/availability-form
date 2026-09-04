@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041014" data-title="Rota"></script>
+<script src="egbc-shell.js?v=202609041019" data-title="Rota"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609041014"></script>
-<script src="egbc-guard.js?v=202609041014"></script>
+<script src="egbc-auth.js?v=202609041019"></script>
+<script src="egbc-guard.js?v=202609041019"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Live Rota</title>
@@ -38,6 +38,65 @@
         let collapsedTerms = new Set();
         let logoBase64 = null;
 
+        /* ---- What this person is allowed to see -------------------------
+
+           One rota, several departments. Kids Church sees Kids Church rows,
+           which on a week nobody has filled in yet is correctly a list of
+           blanks. Someone on two teams sees both, because your own duties
+           should never depend on which page you happened to open. A master
+           admin sees everything, and so does the preview bar, both handled
+           inside EGBCAuth rather than here. */
+
+        function visibleTeams() {
+            if (typeof EGBCAuth === 'undefined' || !EGBCAuth.visibleRoleTeams) return null;
+            const mine = EGBCAuth.visibleRoleTeams();
+            if (!mine) return null;
+            const out = mine.slice();
+            /* Choir is part of Worship rather than a team of its own. */
+            if (out.includes('Worship Team') && !out.includes('Choir')) out.push('Choir');
+            return out;
+        }
+
+        function visibleRoles(ev) {
+            const all = ev.roles || [];
+            const mine = visibleTeams();
+            if (!mine) return all;
+            return all.filter(r => mine.includes(EGBCAuth.roleTeam(r)));
+        }
+
+        /* The name list for the PDFs. Sending the rota out is a departmental
+           job, so Karen picks from Kids Church and not from the whole church.
+           Your own name stays in the list whatever team you are on, because
+           the household PDF is built from it. */
+        function visibleMembers() {
+            const mine = visibleTeams();
+            if (!mine) return addressBook;
+            const me = (typeof EGBCAuth !== 'undefined' && EGBCAuth.profile) ? EGBCAuth.profile() : null;
+            return addressBook.filter(m => {
+                if (me && me.memberId === m.id) return true;
+                return (Array.isArray(m.markers) ? m.markers : []).some(t => mine.includes(t));
+            });
+        }
+
+        function refreshMemberList() {
+            const select = document.getElementById('memberPdfSelect');
+            if (!select) return;
+            const was = select.value;
+            select.innerHTML = '<option value="">Select Member...</option>';
+            visibleMembers()
+                .slice()
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                .forEach(m => { select.innerHTML += `<option value="${m.id}">${m.name}</option>`; });
+            if (was) select.value = was;
+        }
+
+        /* Signing in resolves after this script runs, so whatever was drawn
+           first was drawn without knowing who was looking. Draw it again. */
+        document.addEventListener('egbc-ready', () => {
+            refreshMemberList();
+            renderRota();
+        });
+
         const getLogoBase64 = () => {
             return new Promise(async (resolve) => {
                 if (logoBase64) return resolve(logoBase64);
@@ -61,13 +120,7 @@
 
         onSnapshot(collection(db, "addressBook"), (snap) => {
             addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const select = document.getElementById('memberPdfSelect');
-            if (select) {
-                select.innerHTML = '<option value="">Select Member...</option>';
-                addressBook.sort((a,b) => a.name.localeCompare(b.name)).forEach(m => {
-                    select.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-                });
-            }
+            refreshMemberList();
         });
 
         onSnapshot(query(collection(db, "events"), orderBy("date")), (snap) => {
@@ -121,23 +174,7 @@
             doc.setTextColor(61, 98, 99); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
             doc.text(titleText, 16, 19);
 
-            /* Show a person the slots for the teams they are actually on. On one
-           team you see one team's rows - Kids Church sees Kids Church, which
-           on a week nobody has filled in yet is correctly a list of blanks.
-           On two you see both, because your own duties should never depend on
-           which page you happened to open.
-
-           A master admin, and anyone previewing as somebody else, is handled
-           inside EGBCAuth so this needs no special case. */
-        function visibleRoles(ev) {
-            const all = ev.roles || [];
-            if (typeof EGBCAuth === 'undefined' || !EGBCAuth.visibleRoleTeams) return all;
-            const mine = EGBCAuth.visibleRoleTeams();
-            if (!mine) return all;
-            return all.filter(r => mine.includes(EGBCAuth.roleTeam(r)));
-        }
-
-        const allRoles = [...new Set(termEvents.flatMap(e => e.roles || []))];
+            const allRoles = [...new Set(termEvents.flatMap(e => visibleRoles(e)))];
             const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]];
             const tableBody = termEvents.map(e => {
                 const row = [new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), e.type]; 
