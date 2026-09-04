@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041631" data-title="Rota"></script>
+<script src="egbc-shell.js?v=202609041717" data-title="Rota"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609041631"></script>
-<script src="egbc-guard.js?v=202609041631"></script>
+<script src="egbc-auth.js?v=202609041717"></script>
+<script src="egbc-guard.js?v=202609041717"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Live Rota</title>
@@ -133,6 +133,14 @@
             renderRota();
         };
 
+        /* A role can hold one person or several - the planner stores two
+           singers as an array. Anything that asks "is this person on?" has to
+           cope with both, or half a household's duties go missing. */
+        function idsIn(v) {
+            if (!v) return [];
+            return (Array.isArray(v) ? v : [v]).map(x => x && x.id).filter(Boolean);
+        }
+
         window.generatePDF = async (type, memberId) => {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('l', 'mm', 'a4'); 
@@ -140,12 +148,14 @@
             const today = new Date().toISOString().split('T')[0];
             let termEvents = cachedEvents.filter(e => !e.archived && e.date >= today);
             let titleText = "FULL ROTA";
+            let focusIds = null;   /* whose rota this is, for the two personal PDFs */
             
             if (type === 'individual') {
                 if (!memberId) return alert("Select your name first.");
                 const member = addressBook.find(m => m.id === memberId);
+                focusIds = [memberId];
                 termEvents = termEvents.filter(e => {
-                    const isAssigned = Object.values(e.assignments || {}).some(a => a.id === memberId);
+                    const isAssigned = Object.values(e.assignments || {}).some(a => idsIn(a).includes(memberId));
                     const isInChoir = member.markers?.includes('Choir') && e.roles?.includes('Choir');
                     return isAssigned || isInChoir;
                 });
@@ -154,8 +164,9 @@
                 if (!memberId) return alert("Select your name first.");
                 const member = addressBook.find(m => m.id === memberId);
                 const hIds = [memberId, ...(member.relatedTo || [])];
+                focusIds = hIds;
                 termEvents = termEvents.filter(e => {
-                    const isAssigned = Object.values(e.assignments || {}).some(a => hIds.includes(a.id));
+                    const isAssigned = Object.values(e.assignments || {}).some(a => idsIn(a).some(id => hIds.includes(id)));
                     const houseMembers = addressBook.filter(m => hIds.includes(m.id));
                     const choirRequirement = houseMembers.some(m => m.markers?.includes('Choir')) && e.roles?.includes('Choir');
                     return isAssigned || choirRequirement;
@@ -174,7 +185,25 @@
             doc.setTextColor(61, 98, 99); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
             doc.text(titleText, 16, 19);
 
-            const allRoles = [...new Set(termEvents.flatMap(e => visibleRoles(e)))];
+            /* Which columns to print.
+
+               The full rota is scoped to the teams you are on - that is the
+               point of it. A personal or household rota is not: it is the
+               answer to "what are we on for", so it shows every role this
+               household actually serves, whichever department it belongs to.
+               Scoping those by the reader's own teams is how a household PDF
+               for somebody on Worship, Core and Kids Church came out showing
+               five empty Kids Church columns. */
+            const allRoles = focusIds
+                ? [...new Set(termEvents.flatMap(e =>
+                      Object.keys(e.assignments || {})
+                            .filter(role => idsIn(e.assignments[role]).some(id => focusIds.includes(id)))
+                    ).concat(
+                      termEvents.some(e => (e.roles || []).includes('Choir')) &&
+                      addressBook.filter(m => focusIds.includes(m.id)).some(m => m.markers?.includes('Choir'))
+                        ? ['Choir'] : []
+                    ))]
+                : [...new Set(termEvents.flatMap(e => visibleRoles(e)))];
             const headers = [['DATE', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]];
             const tableBody = termEvents.map(e => {
                 const row = [new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), e.type]; 
