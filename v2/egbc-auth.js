@@ -376,13 +376,29 @@
     return 'Worship Team';
   }
 
-  /* Worship and AV serve the same service and share a charter, so someone
-     on one sees the other's slots on the rota. Kids Church does not: that
-     is the whole point of scoping it. */
+  /* Which teams' slots a person sees on the rota.
+
+     Worship and AV serve the same service and share a charter, so someone
+     on one sees the other's slots. Youth Worship has no roles of its own -
+     the young people play drums, keys and violin on ordinary Sunday
+     mornings - so scoping them to "Youth Worship" showed them a rota with
+     nothing in it while they were actually on it. They see the worship
+     rota, because that is the rota they serve on.
+
+     Kids Church is the one that stays separate. That is the whole point of
+     scoping it - and someone on Kids Church AND Worship gets both, because
+     the list is a union of everything they are on. */
+
+  var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship'];
+
   function teamsVisibleTo(teams) {
     var out = teams.slice();
-    if (out.indexOf('Worship Team') !== -1 && out.indexOf('AV Team') === -1) out.push('AV Team');
-    if (out.indexOf('AV Team') !== -1 && out.indexOf('Worship Team') === -1) out.push('Worship Team');
+    var onWorshipSide = WORSHIP_SIDE.some(function (t) { return out.indexOf(t) !== -1; });
+    if (onWorshipSide) {
+      ['Worship Team', 'AV Team'].forEach(function (t) {
+        if (out.indexOf(t) === -1) out.push(t);
+      });
+    }
     return out;
   }
 

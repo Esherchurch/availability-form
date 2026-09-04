@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041121" data-title="Rota"></script>
+<script src="egbc-shell.js?v=202609041123" data-title="Rota"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609041121"></script>
-<script src="egbc-guard.js?v=202609041121"></script>
+<script src="egbc-auth.js?v=202609041123"></script>
+<script src="egbc-guard.js?v=202609041123"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Live Rota</title>
@@ -207,6 +207,14 @@
                 grouped[term].push(ev);
             });
 
+            /* A term where none of this person's teams has a single slot.
+               The dates are still worth showing - that is what a Kids
+               Church helper should see before Karen has filled it in - but
+               a column of blank cards with no explanation reads as broken
+               rather than as empty. */
+            const nothingForMe = term =>
+                grouped[term].every(ev => visibleRoles(ev).length === 0);
+
             Object.keys(grouped).sort().forEach(term => {
                 const isCollapsed = collapsedTerms.has(term);
                 let termHtml = `
@@ -216,6 +224,13 @@
                             <span class="text-[9px] font-bold uppercase">${isCollapsed ? 'Show' : 'Hide'}</span>
                         </div>
                         <div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-3 border-x border-b border-[#d1dfdf] rounded-b-2xl shadow-sm">`;
+
+                if (nothingForMe(term)) {
+                    termHtml += `
+                        <div class="bg-[#f0f6f6] border border-[#d1dfdf] rounded-xl px-4 py-3 mb-3 text-[10px] font-bold uppercase tracking-wider text-[#6b8281]">
+                            Nothing on this rota for your team yet
+                        </div>`;
+                }
                 
                 grouped[term].forEach(ev => {
                     termHtml += `
