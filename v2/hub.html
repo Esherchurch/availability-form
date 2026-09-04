@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202609032245"></script>
+<script src="egbc-auth.js?v=202609040724"></script>
 <style>
   :root{
     --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c;
@@ -228,7 +228,7 @@
   </a>
   <div style="display:flex;align-items:center;gap:9px">
     <button class="btn" id="teamSwitch" style="display:none" onclick="openTeamPicker()" title="Switch team"></button>
-    <button class="btn solid" onclick="openTools()">&#9776;&nbsp; Tools</button>
+    <button class="btn solid" onclick="openTools()">&#9776;&nbsp; Where to?</button>
     <button class="btn" id="editModeBtn" style="display:none" onclick="toggleEditMode()">Edit mode</button>
     <button class="btn" id="adminBtn" style="display:none" onclick="openAdmin()">&#9881;</button>
     <div class="avatar" id="av"></div>
@@ -286,12 +286,12 @@
 <div class="scrim" id="scrim" onclick="closeTools()"></div>
 <aside class="panel" id="panel">
   <div class="hd">
-    <div style="font-size:14px;font-weight:900;color:var(--ink)">Tools</div>
+    <div style="font-size:14px;font-weight:900;color:var(--ink)">Where to?</div>
     <button class="btn" style="border:none;background:none;padding:4px 8px;font-size:16px" onclick="closeTools()">&times;</button>
   </div>
   <div class="bd">
     <div id="panelTeam"></div>
-    <input id="toolSearch" placeholder="Search&hellip;" oninput="renderTools()" autocomplete="off">
+    <input id="toolSearch" placeholder="Search for a page&hellip;" oninput="renderTools()" autocomplete="off">
     <div id="toolList"></div>
     <div id="panelBuild" style="font-size:9px;color:var(--faint);text-align:center;margin-top:20px;font-weight:700"></div>
   </div>
@@ -459,7 +459,7 @@
     </div>
     <div style="display:flex;gap:4px;background:var(--surface-2);padding:5px;border-radius:99px;width:fit-content;margin-bottom:22px;flex-wrap:wrap">
       <button class="tab on" id="ta-people" onclick="adminTab('people')">People</button>
-      <button class="tab" id="ta-pages" onclick="adminTab('pages')">Tools</button>
+      <button class="tab" id="ta-pages" onclick="adminTab('pages')">Pages</button>
       <button class="tab" id="ta-news" onclick="adminTab('news')">Notices</button>
       <button class="tab" id="ta-youth" onclick="adminTab('youth')">Youth codes</button>
     </div>
@@ -470,6 +470,6 @@
   </div>
 </div>
 
-<script src="hub-app.js?v=202609032245"></script>
+<script src="hub-app.js?v=202609040724"></script>
 </body>
 </html>

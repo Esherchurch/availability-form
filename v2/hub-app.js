@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v72';
+const HUB_BUILD = 'v73';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -1494,7 +1494,7 @@ function renderTools() {
         ${PAGES.length
           ? `${PAGES.length} registered, but none for <strong>${esc(TEAM || 'this team')}</strong>.`
           : 'Nothing is registered yet.'}
-        ${EGBCAuth.isAdmin() ? '<br>Open <strong>&#9881;</strong> and go to <strong>Tools</strong>.' : ''}</div>` : ''}
+        ${EGBCAuth.isAdmin() ? '<br>Open <strong>&#9881;</strong> and go to <strong>Pages</strong>.' : ''}</div>` : ''}
     </div>`;
     return;
   }
@@ -1939,14 +1939,14 @@ function renderPagesList(){
     const pages=PAGES.filter(p=>!p.heading).length, heads=PAGES.length-pages;
     cnt.textContent=PAGES.length
       ? `${pages} page${pages===1?'':'s'}${heads?` and ${heads} heading${heads===1?'':'s'}`:''} registered.`
-      : 'Nothing registered - the Tools panel will be empty.';
+      : 'Nothing registered - the menu will be empty.';
   }
   const mine=PAGES.filter(p=>teams.includes(p.team));
   if(!mine.length){list.innerHTML='<div class="empty"><div class="t">Nothing registered yet</div><div style="font-size:12px;font-weight:600;margin-top:6px">Use <strong>Bring across the old menu</strong> to start from the menu people already know.</div></div>';return;}
   list.innerHTML=mine.map(p=>{
     const cfg=EGBCAuth.TEAMS[p.team]||{label:p.team,colour:'#3d6263'};
     /* Say who sees it and why it might not be a tile, so an entry that looks
-       missing from the Tools panel explains itself here. */
+       missing from the menu explains itself here. */
     const seen = p.everyone ? 'everyone'
       : (Array.isArray(p.teams) && p.teams.length>1
           ? p.teams.map(t=>(EGBCAuth.TEAMS[t]||{label:t}).label).join(' + ')
@@ -2291,7 +2291,7 @@ function renderAdminPages(){
     el.innerHTML=`
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.6;max-width:480px">
-          What appears in the Tools panel, and who sees it.
+          What appears in the menu, and who sees it.
           <span id="pagesCount" style="display:block;margin-top:4px;font-weight:700"></span>
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
