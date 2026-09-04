@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041745" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202609041833" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609041745"></script>
-<script src="egbc-guard.js?v=202609041745" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
+<script src="egbc-auth.js?v=202609041833"></script>
+<script src="egbc-guard.js?v=202609041833" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -691,6 +691,36 @@
             alert(`Auto-fill complete!\n\nSundays filled: ${sundayEvents.length}\nPractices synced: ${practicesSynced}`);
         };
 
+        /* Everyone in a person's household.
+
+           The address book records households two ways. Natasha and Daniel
+           point at Martin; Martin points back at Natasha. Asking "who is the
+           head, and who points at them" starts from Martin, lands on Natasha
+           as the head, and collects only the people pointing at her - so
+           Daniel, one link further out, was missing from Martin's rota and
+           his wall planner while appearing on both of theirs.
+
+           Deciding a head by hand for every family is a rule people have to
+           remember. Following every link instead, in both directions until
+           nothing new turns up, needs nobody to know anything: a household
+           is just the group of people joined by those pointers. */
+        function householdOf(memberId) {
+            const seen = new Set([memberId]);
+            const queue = [memberId];
+            while (queue.length) {
+                const id = queue.shift();
+                const person = addressBook.find(m => m.id === id);
+                if (person?.householdId && !seen.has(person.householdId)) {
+                    seen.add(person.householdId);
+                    queue.push(person.householdId);
+                }
+                addressBook.forEach(m => {
+                    if (m.householdId === id && !seen.has(m.id)) { seen.add(m.id); queue.push(m.id); }
+                });
+            }
+            return addressBook.filter(m => seen.has(m.id)).map(m => m.id);
+        }
+
         const getPdfBlob = async (type, memberId, specificEvents = null) => {
             const { jsPDF } = window.jspdf;
             const logo = await getLogoBase64();
@@ -700,8 +730,7 @@
             if (type === "wall") {
                 const wallDoc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
                 const member = addressBook.find(m => m.id === memberId);
-                const headId = member?.householdId || memberId;
-                const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+                const hIds = householdOf(memberId);
 
                 const eventsByMonth = {};
                 termEvents.forEach(ev => {
@@ -776,8 +805,7 @@
             let reportTitle = "FULL ROTA";
             if (type === 'individual' || type === 'household') {
                 const member = addressBook.find(m => m.id === memberId);
-                const headId = member?.householdId || memberId;
-                const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+                const hIds = householdOf(memberId);
                 reportTitle = type === 'individual' ? `${member.name.toUpperCase()} ROTA` : `HOUSEHOLD ROTA`;
                 termEvents = termEvents.filter(e => Object.values(e.assignments || {}).some(raw => {
                     const people = Array.isArray(raw) ? raw : [raw];
@@ -913,8 +941,7 @@
                 toast.innerHTML = `Preparing <strong>${firstName}</strong>...<br><span style="font-weight:400;opacity:0.8;">${sent + 1} of ${members.length}</span>`;
 
                 try {
-                    const headId = member.householdId || member.id;
-                    const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+                    const hIds = householdOf(member.id);
                     const flatPeople = e => Object.values(e.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw : [raw]);
                     const personalEvents = activeEvents.filter(e => flatPeople(e).some(a => a.id === mId));
                     const familyEvents = activeEvents.filter(e => flatPeople(e).some(a => hIds.includes(a.id)));
@@ -1050,8 +1077,7 @@
             const mId = member.id;
             const safeName = member.name.replace(/\s+/g, '_');
             const firstName = member.name.split(' ')[0];
-            const headId = member.householdId || member.id;
-            const hIds = addressBook.filter(m => m.id === headId || m.householdId === headId).map(m => m.id);
+            const hIds = householdOf(member.id);
             const flatPeopleS = e => Object.values(e.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw : [raw]);
             const personalEvents = activeEvents.filter(e => flatPeopleS(e).some(a => a.id === mId));
             const familyEvents = activeEvents.filter(e => flatPeopleS(e).some(a => hIds.includes(a.id)));

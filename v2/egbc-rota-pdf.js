@@ -17,9 +17,10 @@
    now, used by both.
 
    A household is worked out from `householdId`, the field the address book
-   actually maintains: the head of the house, plus everyone pointing at
-   them. Roles can hold one person or several - two singers are stored as an
-   array - so every lookup copes with both shapes.
+   actually maintains - following the links in both directions, because the
+   book records households two ways (see householdIds below). Roles can hold
+   one person or several - two singers are stored as an array - so every
+   lookup copes with both shapes.
 
    Needs jsPDF and the autoTable plugin on the page.
    =================================================================== */
@@ -33,13 +34,42 @@
     return (Array.isArray(raw) ? raw : [raw]).filter(Boolean);
   }
 
-  /* The head of the house, plus everyone in it. */
+  /* Everyone in this person's household.
+
+     The address book records a household two different ways. The Prossers
+     have a head: Natasha and Daniel both point at Martin, and Martin points
+     at nobody. Samy and David point at each other. Following one link from
+     the person - "find the head, then everyone under the head" - handles the
+     first shape and loses people in the second, and would drop a child from
+     a mixture of the two.
+
+     So follow every link, both directions, until nothing new turns up. A
+     household is simply the group of people joined by those pointers. */
   function householdIds(addressBook, memberId) {
-    var me = addressBook.find(function (m) { return m.id === memberId; });
-    var headId = (me && me.householdId) || memberId;
-    return addressBook
-      .filter(function (m) { return m.id === headId || m.householdId === headId; })
-      .map(function (m) { return m.id; });
+    var seen = {}, queue = [memberId];
+    seen[memberId] = true;
+
+    while (queue.length) {
+      var id = queue.shift();
+      var person = addressBook.find(function (m) { return m.id === id; });
+
+      /* Who they point at. */
+      if (person && person.householdId && !seen[person.householdId]) {
+        seen[person.householdId] = true;
+        queue.push(person.householdId);
+      }
+
+      /* Who points at them. */
+      addressBook.forEach(function (m) {
+        if (m.householdId === id && !seen[m.id]) {
+          seen[m.id] = true;
+          queue.push(m.id);
+        }
+      });
+    }
+
+    /* Only ids that are really in the book - a pointer can outlive a record. */
+    return addressBook.filter(function (m) { return seen[m.id]; }).map(function (m) { return m.id; });
   }
 
   function logoSize(doc, logo, w, h, wanted) {
