@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v83';
+const HUB_BUILD = 'v84';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -1238,9 +1238,12 @@ const REGISTRY = [
      in MOBILE_APPS - see the note there. */
   { url: 'Performancenotes.html', title: 'Performance Notes', icon: '\u{1F4DD}', team: 'Worship Team',
     description: 'On-stage view: your part, your monitor mix' },
-  /* Its own SharePoint button today. The shadow site behind it - the four
-     training copies - is reached from this page, so they need no entries. */
-  { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Worship Team', everyone: true,
+  /* A whole shadow copy of the site, so someone can learn the rota planner
+     without touching live data. Nothing points at it while the real tools
+     are still being finished, so it is registered but hidden - `hidden`
+     writes enabled:false, which keeps it off both the hub and the Where to?
+     menu without losing the entry. Turn it back on when the rest is done. */
+  { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Core Team', hidden: true,
     description: 'Practice copies of the main tools' },
   /* Still the only editor for the news feed, so it cannot go yet. */
   { url: 'EGBCWorship&AV.html', title: 'Worship & AV Hub (old)', icon: '\u{1F310}', team: 'Core Team', adminOnly: true,
@@ -1369,7 +1372,7 @@ async function seedRegistry() {
         everyone: !!r.everyone,
         adminOnly: !!r.adminOnly,
         order: next,
-        enabled: true
+        enabled: !r.hidden
       };
       if (r.teams) row.teams = r.teams;
       if (r.helpFor) row.helpFor = r.helpFor;
