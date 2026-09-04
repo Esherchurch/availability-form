@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609040844" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202609040849" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609040844"></script>
-<script src="egbc-guard.js?v=202609040844" data-team="Worship Team" data-role="leader"></script>
+<script src="egbc-auth.js?v=202609040849"></script>
+<script src="egbc-guard.js?v=202609040849" data-team="Worship Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -80,12 +80,63 @@
            not loaded, in which case hiding things would be worse than showing
            them. */
         function myRotaTeams() {
+            /* A master admin can borrow someone else's lens to check what they
+               will actually see. It changes only what is shown, never what you
+               are allowed to do - anything you edit while looking through it is
+               still edited by you, under your own name. */
+            const as = sessionStorage.getItem('egbc_view_as');
+            if (as && isMasterAdmin()) return [as];
+
             if (typeof EGBCAuth === 'undefined') return null;
             try {
                 if (EGBCAuth.isMaster()) return null;
                 const areas = EGBCAuth.adminAreas() || [];
                 return areas.length ? areas : null;
             } catch (e) { return null; }
+        }
+
+        function isMasterAdmin() {
+            try { return typeof EGBCAuth !== 'undefined' && EGBCAuth.isMaster(); }
+            catch (e) { return false; }
+        }
+
+        window.setViewAs = (team) => {
+            if (team) sessionStorage.setItem('egbc_view_as', team);
+            else sessionStorage.removeItem('egbc_view_as');
+            renderViewAs();
+            renderPlanner();
+        };
+
+        /* Deliberately loud. Forgetting you are looking through someone
+           else's eyes and concluding the rota is broken would waste an hour. */
+        function renderViewAs() {
+            if (!isMasterAdmin()) return;
+            const as = sessionStorage.getItem('egbc_view_as');
+            let bar = document.getElementById('viewAsBar');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'viewAsBar';
+                bar.style.cssText = 'position:sticky;top:0;z-index:8000;display:flex;align-items:center;' +
+                    'gap:12px;flex-wrap:wrap;padding:10px 18px;font-family:Montserrat,sans-serif;' +
+                    'font-size:11px;font-weight:800';
+                document.body.insertBefore(bar, document.body.firstChild);
+            }
+            const teams = ['Kids Church', 'Worship Team', 'AV Team'];
+            const opts = teams.map(t =>
+                '<option value="' + t + '"' + (as === t ? ' selected' : '') + '>' + t + '</option>').join('');
+            bar.style.background = as ? '#b07d2e' : '#f0f6f6';
+            bar.style.color = as ? '#fff' : '#3d6263';
+            bar.innerHTML =
+                '<span style="text-transform:uppercase;letter-spacing:.1em">' +
+                  (as ? 'You are looking at this as a ' + as + ' admin would' : 'Viewing as yourself') +
+                '</span>' +
+                '<select onchange="setViewAs(this.value)" style="font-family:inherit;font-size:11px;' +
+                  'font-weight:800;border-radius:99px;padding:5px 12px;border:1px solid rgba(0,0,0,.15)">' +
+                  '<option value="">Myself (everything)</option>' + opts +
+                '</select>' +
+                (as ? '<button onclick="setViewAs(\'\')" style="font-family:inherit;font-size:11px;' +
+                      'font-weight:800;border-radius:99px;padding:5px 14px;border:none;cursor:pointer;' +
+                      'background:#fff;color:#b07d2e">Back to myself</button>' : '');
         }
 
         function canEditRole(r) {
@@ -261,6 +312,7 @@
             renderPlanner();
             populateSendTermSelect();
             loadSignoffs().then(renderPlanner);
+            renderViewAs();
         });
 
         // ── POPULATE TERM SELECT IN SEND MODAL ─────────────────────────
