@@ -283,6 +283,10 @@
     var h = bar.offsetHeight + (parseFloat(bcs.top) || 0) + 8;
     if (!bar.offsetHeight) return;
 
+    /* Any page that wants to size something against the remaining screen can
+       read this rather than guessing at the bar's height. */
+    document.documentElement.style.setProperty('--egbc-bar', h + 'px');
+
     var all = document.body.querySelectorAll('*');
     for (var i = 0; i < all.length; i++) {
       var el = all[i];
@@ -299,6 +303,17 @@
       if (isNaN(top) || top < 0 || top > 200) continue;
 
       el.style.top = (top + h) + 'px';
+
+      /* A tall sticky column - the address book's entry form is one - was
+         sized against the whole screen. Pushed down by the bar, its foot now
+         hangs below the fold, which is why the Save button had to be scrolled
+         to. Take the same height back off it. */
+      if (cs.position === 'sticky') {
+        var tall = el.getBoundingClientRect().height;
+        if (tall && tall + top + h > window.innerHeight) {
+          el.style.maxHeight = 'calc(100vh - ' + (top + h + 24) + 'px)';
+        }
+      }
       /* A fixed full-height panel (a slide-over, a modal) would now hang off
          the bottom, so give back the height we took. */
       if (cs.position === 'fixed' && parseFloat(cs.bottom) === 0) {

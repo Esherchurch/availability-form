@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041459" data-title="Address Book"></script>
+<script src="egbc-shell.js?v=202609041537" data-title="Address Book"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609041459"></script>
-<script src="egbc-guard.js?v=202609041459" data-admin="any"></script>
+<script src="egbc-auth.js?v=202609041537"></script>
+<script src="egbc-guard.js?v=202609041537" data-admin="any"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Address Book - Master Manager</title>
@@ -70,7 +70,15 @@
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Update Member Details";
             btn.classList.replace('bg-[#3d6263]', 'bg-[#9bc34a]');
-            window.scrollTo(0,0);
+
+            /* The form has its own scroll, and it kept whatever position it
+               was left at - so opening somebody could land you halfway down
+               the record, past the team ticks, looking at a section that
+               happened to be empty. Send both back to the top: the page, and
+               the panel the fields are in. */
+            window.scrollTo(0, 0);
+            const pane = document.querySelector('#entryFields');
+            if (pane) pane.scrollTop = 0;
         };
 
         // 3. LIVE SYNC
@@ -244,7 +252,12 @@ document.addEventListener('egbc-ready',()=>{
         }
         body { background-color: var(--canvas); font-family: 'Montserrat', sans-serif; color: var(--body); font-size: 16px; }
         .card { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow); }
-        .instr-grid { height: 160px; overflow-y: auto; border: 1px solid var(--hairline-strong); padding: 12px; border-radius: var(--r-md); background: var(--surface-2); }
+        /* These used to be four 160px boxes, each with its own scrollbar,
+           inside a panel that also scrolled. Editing somebody meant scrolling
+           through instruments, then AV, then two sets of kids roles, before
+           the Save button came into view - and a mouse wheel over any of them
+           moved the inner box rather than the form. One scroll now, not five. */
+        .instr-grid { border: 1px solid var(--hairline-strong); padding: 12px; border-radius: var(--r-md); background: var(--surface-2); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--brand); border-radius: var(--r-pill); }
         .sticky-footer {
@@ -282,10 +295,13 @@ document.addEventListener('egbc-ready',()=>{
 <body class="p-8 lg:p-12">
     <div class="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-12">
         
-        <div class="xl:col-span-1 card p-8 h-[90vh] sticky top-12 flex flex-col">
+        <!-- The height allows for the navigation bar, which the shell
+             reports as --egbc-bar, so the Save button stays on screen. -->
+        <div class="xl:col-span-1 card p-8 sticky top-12 flex flex-col"
+             style="height: calc(100vh - 6rem - var(--egbc-bar, 0px))">
             <h1 class="text-3xl font-extrabold text-[#14201f] tracking-tight mb-8 shrink-0">Member Entry</h1>
             
-            <div class="space-y-6 overflow-y-auto pr-2 flex-grow">
+            <div id="entryFields" class="space-y-6 overflow-y-auto pr-2 flex-grow">
                 <div>
                     <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Full Name</label>
                     <input type="text" id="fullName" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-bold outline-none focus:border-[#9bc34a]">
@@ -430,6 +446,7 @@ document.addEventListener('egbc-ready',()=>{
                 </div>
             </div>
 
+            <!-- Always in view: it is the only way to save an edit. -->
             <div class="sticky-footer shrink-0">
                 <button id="saveBtn" onclick="saveMember()" class="w-full bg-[#3d6263] text-white font-bold py-3 rounded-xl text-sm shadow-lg hover:bg-[#9bc34a] transition-all">
                     Add to Address Book

@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041459" data-title="Backup and Restore"></script>
+<script src="egbc-shell.js?v=202609041537" data-title="Backup and Restore"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609041459"></script>
-<script src="egbc-guard.js?v=202609041459" data-team="Core Team" data-role="admin"></script>
+<script src="egbc-auth.js?v=202609041537"></script>
+<script src="egbc-guard.js?v=202609041537" data-team="Core Team" data-role="admin"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Data tools — EGBC</title>
@@ -87,6 +87,23 @@
     </div>
   </div>
 
+  <!-- DUPLICATE DATES -->
+  <div class="bg-white rounded-[1.5rem] border border-[#dde7e6] shadow-sm p-6 mb-6">
+    <h2 class="font-black uppercase text-[11px] tracking-widest opacity-60 mb-4">3 &middot; Tidy duplicate dates</h2>
+    <p class="text-[12px] opacity-70 leading-relaxed mb-4">
+      A glitch in an earlier version wrote the same Sunday several times over.
+      This finds them. Empty copies can go in one press; where more than one
+      copy has people on it, you choose which to keep and the others are
+      archived rather than deleted, so nothing is lost.
+    </p>
+    <div class="flex flex-wrap gap-3 items-center">
+      <button onclick="scanDupes()" id="dupBtn" class="bg-[#3d6263] text-white px-7 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Find duplicates</button>
+      <button onclick="archiveEmpties()" id="dupEmptyBtn" class="hidden bg-[#b07d2e] text-white px-6 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Archive the empty copies</button>
+      <span id="dupCount" class="text-[11px] font-bold opacity-45"></span>
+    </div>
+    <div id="dupReport" class="mt-5 text-[12px]"></div>
+  </div>
+
   <!-- LOG -->
   <div class="bg-white rounded-[1.5rem] border border-[#dde7e6] shadow-sm p-6">
     <div class="flex justify-between items-center mb-3">
@@ -106,7 +123,8 @@ const COLLECTIONS=[
   'kb_playthrough','kb_howto_av','kb_troubleshoot_av','kb_training_worship',
   'av_schematic','training_portal','hub_resources','boards',
   /* added by the hub */
-  'users','hubPages','resources','youthGrants','youthAccess','news'
+  'users','hubPages','resources','youthGrants','youthAccess','news',
+  'teamVideos','videoSections','rotaSignoff','availabilityRequests','teamContent'
 ];
 
 const srcConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
@@ -273,6 +291,130 @@ async function runRestore(dry){
 
   log(dry?`Dry run complete — ${written} documents would be written`:`Done — ${written} written${failed?', '+failed+' batches failed':''}`, failed?'err':'ok');
   btn.disabled=false;btn.textContent=label;
+}
+
+/* ---- duplicate dates -------------------------------------------------
+
+   Two questions, kept apart on purpose. A copy with nothing on it is
+   rubbish and can go without anybody thinking about it. A copy with people
+   assigned is somebody's work, and only a person can say which one was the
+   real rota - so those are listed with the names on them and archived only
+   when you pick a keeper.
+
+   Archived, never deleted: the suite already hides archived events
+   everywhere, and an archive can be undone. */
+
+let DUPES = [];
+
+function evContent(e){
+  return Object.keys(e.assignments||{}).length > 0
+      || !!(e.description||'').trim()
+      || !!e.serviceLeader || !!e.speaker;
+}
+
+function evNames(e){
+  return Object.values(e.assignments||{})
+    .map(v => Array.isArray(v) ? v.map(x=>x&&x.name).filter(Boolean).join(', ') : (v && v.name))
+    .filter(Boolean);
+}
+
+async function scanDupes(){
+  const btn = document.getElementById('dupBtn');
+  const was = btn.textContent; btn.textContent = 'Looking...'; btn.disabled = true;
+  try {
+    const snap = await srcDb.collection('events').get();
+    const live = snap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>e.archived!==true);
+    const byDate = {};
+    live.forEach(e => (byDate[e.date]=byDate[e.date]||[]).push(e));
+    DUPES = Object.entries(byDate)
+      .filter(([d,a]) => a.length > 1)
+      .sort((a,b)=>a[0].localeCompare(b[0]))
+      .map(([date,copies]) => ({ date, copies }));
+    renderDupes();
+    log('Scanned ' + Object.keys(byDate).length + ' dates, ' + DUPES.length + ' with more than one copy.');
+  } catch (e){
+    log('Could not scan: ' + e.message, 'err');
+  }
+  btn.textContent = was; btn.disabled = false;
+}
+
+function renderDupes(){
+  const el = document.getElementById('dupReport');
+  const emptyCount = DUPES.reduce((n,d) =>
+    n + (d.copies.some(evContent) ? d.copies.filter(c=>!evContent(c)).length : 0), 0);
+
+  document.getElementById('dupCount').textContent =
+    DUPES.length ? DUPES.length + ' dates, ' + emptyCount + ' empty copies' : 'nothing duplicated';
+  document.getElementById('dupEmptyBtn').classList.toggle('hidden', emptyCount === 0);
+
+  if (!DUPES.length){ el.innerHTML = '<p class="opacity-60">Every date appears once. Nothing to do.</p>'; return; }
+
+  el.innerHTML = DUPES.map(d => {
+    const withContent = d.copies.filter(evContent);
+    const rows = d.copies.map(c => {
+      const names = evNames(c);
+      const tag = evContent(c)
+        ? '<span class="font-black uppercase text-[9px] tracking-widest text-[#3d6263]">has people</span>'
+        : '<span class="font-black uppercase text-[9px] tracking-widest opacity-40">empty</span>';
+      const keep = withContent.length > 1 && evContent(c)
+        ? '<button onclick="keepOnly(\'' + d.date + '\',\'' + c.id + '\')" class="ml-auto bg-[#3d6263] text-white px-4 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest hover:bg-black transition-all">Keep this one</button>'
+        : '';
+      return '<div class="flex items-center gap-3 flex-wrap py-1.5 border-t border-[#dde7e6]">'
+           + tag
+           + '<span class="opacity-70">' + (c.roles||[]).length + ' roles, '
+           + Object.keys(c.assignments||{}).length + ' filled</span>'
+           + (c.description ? '<span class="italic opacity-60">' + esc(c.description) + '</span>' : '')
+           + (names.length ? '<span class="opacity-50">' + esc(names.slice(0,4).join(' &middot; ')) + '</span>' : '')
+           + keep + '</div>';
+    }).join('');
+    const note = withContent.length > 1
+      ? '<span class="text-[#b07d2e] font-bold">needs you to choose</span>'
+      : '<span class="opacity-50">the empty ones can go</span>';
+    return '<div class="mb-4"><div class="flex gap-3 items-baseline"><b>' + d.date + '</b>'
+         + '<span class="opacity-50">' + d.copies.length + ' copies</span>' + note + '</div>' + rows + '</div>';
+  }).join('');
+}
+
+async function archiveEmpties(){
+  const targets = [];
+  DUPES.forEach(d => {
+    if (!d.copies.some(evContent)) return;
+    d.copies.filter(c=>!evContent(c)).forEach(c => targets.push(c));
+  });
+  if (!targets.length) return;
+  if (!confirm('Archive ' + targets.length + ' empty duplicate copies?\n\n' +
+               'They disappear from the rota and the planner. Nothing is deleted, ' +
+               'and any of them can be brought back from the archived terms list.')) return;
+  await archiveThese(targets, 'duplicate empty copy');
+}
+
+async function keepOnly(date, keepId){
+  const day = DUPES.find(d => d.date === date);
+  if (!day) return;
+  const losers = day.copies.filter(c => c.id !== keepId);
+  if (!confirm('Keep one copy of ' + date + ' and archive the other ' + losers.length + '?\n\n' +
+               'Nothing is deleted - archived events can be restored.')) return;
+  await archiveThese(losers, 'duplicate of ' + date);
+}
+
+async function archiveThese(list, why){
+  try {
+    /* Firestore batches cap at 500 writes; nothing here comes close, but
+       chunking costs one line and removes the ceiling. */
+    for (let i = 0; i < list.length; i += 400){
+      const batch = srcDb.batch();
+      list.slice(i, i+400).forEach(e =>
+        batch.update(srcDb.collection('events').doc(e.id), {
+          archived: true,
+          archivedReason: why + ', tidied ' + new Date().toISOString().slice(0,10)
+        }));
+      await batch.commit();
+    }
+    log('Archived ' + list.length + ' duplicate event' + (list.length===1?'':'s') + '.', 'ok');
+    await scanDupes();
+  } catch (e){
+    log('Could not archive: ' + e.message, 'err');
+  }
 }
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}

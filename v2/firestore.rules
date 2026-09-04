@@ -114,7 +114,8 @@ service cloud.firestore {
     // signInEmails holds any extra addresses Core Team has linked to this
     // person, so a Gmail sign-in still resolves to their record.
     match /addressBook/{personId} {
-      allow read: if active();
+      // Open, for the availability form. See the note above.
+      allow read: if true;
       allow write: if isAdmin();
     }
 
@@ -125,15 +126,21 @@ service cloud.firestore {
     // events.teams is an array of team names, e.g. ["Worship Team","AV Team"].
     // A leader of any team on the event may write it.
     match /events/{eventId} {
-      allow read: if active();
+      // Open, for the availability form: it has to show which Sundays there
+      // are before anyone can say which ones they can do.
+      allow read: if true;
       allow write: if isAdmin()
                    || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team']));
     }
 
     match /availability/{docId} {
       allow read: if active();
-      // Anyone active may submit their own availability.
-      allow create, update: if active();
+      // Open, for the availability form. There is no account behind it, so
+      // there is no identity to check the answer against - but an answer has
+      // to look like an answer, which stops the collection being used as
+      // free storage by anything that finds it.
+      allow create, update: if request.resource.data.keys().hasAll(['memberId'])
+                            && request.resource.data.memberId is string;
       allow delete: if canAct('Kids Church');
     }
 

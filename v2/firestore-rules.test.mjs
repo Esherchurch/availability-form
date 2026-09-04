@@ -74,10 +74,18 @@ async function check(name, expect, fn) {
   }
 }
 
-// The public availability form, which is the whole question about deploying.
-await check('public form reads the address book', 'deny', () => getDocs(collection(anon(), 'addressBook')));
-await check('public form reads the dates', 'deny', () => getDoc(doc(anon(), 'events', 'e1')));
-await check('public form submits availability', 'deny', () => setDoc(doc(anon(), 'availability', 'a1'), { free: true }));
+/* The availability form has no sign-in, by decision: it goes to the whole
+   team once a term and a password box would lose the people it is for. So
+   these three have to work without an account - and nothing else does. */
+await check('public form reads the address book', 'allow', () => getDocs(collection(anon(), 'addressBook')));
+await check('public form reads the dates', 'allow', () => getDoc(doc(anon(), 'events', 'e1')));
+await check('public form submits an answer', 'allow', () => setDoc(doc(anon(), 'availability', 'a1'), { memberId: 'm_u_samy', status: 'yes' }));
+await check('an answer has to look like an answer', 'deny', () => setDoc(doc(anon(), 'availability', 'junk'), { anything: 'goes' }));
+await check('the form cannot read anyone\'s answers back', 'deny', () => getDoc(doc(anon(), 'availability', 'a1')));
+await check('the form cannot edit the address book', 'deny', () => setDoc(doc(anon(), 'addressBook', 'm_u_samy'), { name: 'Nope' }));
+await check('the form cannot edit the rota', 'deny', () => setDoc(doc(anon(), 'events', 'e1'), { date: 'x' }));
+await check('the form cannot read the boards', 'deny', () => getDoc(doc(anon(), 'worshipBoardState', 'state')));
+await check('the form cannot read the videos', 'deny', () => getDoc(doc(anon(), 'teamVideos', 'v_kids')));
 
 // Signed in, on a team.
 await check('team member reads the rota', 'allow', () => getDoc(doc(as('samy'), 'events', 'e1')));
@@ -85,8 +93,10 @@ await check('team member reads the address book', 'allow', () => getDocs(collect
 await check('team member cannot rewrite the registry', 'deny', () => setDoc(doc(as('samy'), 'hubPages', 'p1'), { title: 'x' }));
 await check('master rewrites the registry', 'allow', () => updateDoc(doc(as('martin'), 'hubPages', 'p1'), { title: 'Rota' }));
 
-// Someone in the book but with nothing ticked yet.
-await check('pending person is kept out', 'deny', () => getDoc(doc(as('pending'), 'events', 'e1')));
+/* Someone in the book but with no teams ticked yet. The rota itself is open
+   now, so this has to test something that is actually gated. */
+await check('pending person is kept out', 'deny', () => getDoc(doc(as('pending'), 'worshipBoardState', 'state')));
+await check('pending person cannot see the videos', 'deny', () => getDoc(doc(as('pending'), 'teamVideos', 'v_kids')));
 
 // The pin boards, which is what the three-board split was for.
 await check('worship reads the worship board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'state')));
