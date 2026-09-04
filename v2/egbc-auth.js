@@ -500,8 +500,11 @@
             if (opts.team && !EGBCAuth.inTeam(opts.team) && !EGBCAuth.isOwner()) {
               EGBCAuth._blockPage(
                 'No access to this page',
-                'This page belongs to the ' + (TEAMS[opts.team] ? TEAMS[opts.team].label : opts.team) +
-                ' team, and you are not on it.',
+                /* The label already carries the noun where it needs one -
+                   "Core Team", "Kids Church" - so appending "team" produced
+                   "the Core Team team". */
+                'This page is for ' + (TEAMS[opts.team] ? TEAMS[opts.team].label : opts.team) +
+                ', and you are not on that team.',
                 profile
               );
               return;
