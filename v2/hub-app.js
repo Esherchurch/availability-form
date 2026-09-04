@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v87';
+const HUB_BUILD = 'v88';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -1214,7 +1214,10 @@ const REGISTRY = [
     description: 'How the core team work' },
   { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: '✉', team: 'Core Team',
     description: 'Write and send to a team' },
+  /* One file holds every department's rota, so it belongs to all of them.
+     adminOnly keeps it off an ordinary member's hub - it sends email. */
   { url: 'Planner.html', title: 'Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
+    teams: ['Core Team', 'Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
     description: 'Build and send the rota' },
   { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: '⛪', team: 'Core Team',
     description: 'Plan the running order' },
@@ -1418,9 +1421,13 @@ function isTile(p) {
   return true;
 }
 
+/* adminOnly used to look at the single `team` field, so a page listed for
+   several teams only showed to admins of the first - which is how the rota
+   planner stayed invisible to the person who administers Kids Church. All
+   three checks below now count any team the page belongs to. */
 function visibleOne(p) {
   if (!isTile(p)) return false;
-  if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
+  if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
   if (p.everyone) return true;
   const mine = myTeams(), admin = EGBCAuth.adminAreas();
   return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
@@ -1431,7 +1438,7 @@ function visibleTools() {
   const admin = EGBCAuth.adminAreas();
   return PAGES.filter(p => {
     if (!isTile(p)) return false;
-    if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
+    if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
     /* Help and training is not a team's tool - anyone may need to learn how
        the system works. */
     if (p.everyone) return true;
@@ -1546,7 +1553,7 @@ function nestTools(list) {
      so they need no registry entry. Kept for a page that has no such link. */
   const mine = myTeams(), admin = EGBCAuth.adminAreas();
   const mayOpen = p => {
-    if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
+    if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
     if (p.everyone) return true;
     return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
   };

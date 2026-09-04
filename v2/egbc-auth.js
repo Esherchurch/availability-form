@@ -122,6 +122,14 @@
 
   var ROLES = ['member', 'leader', 'admin', 'owner'];
 
+  /* "Worship", or "Worship, Kids Church or Youth" - used in the refusal
+     messages, which are the only place a person meets this list. */
+  function labelList(teams) {
+    var names = teams.map(function (t) { return (TEAMS[t] && TEAMS[t].label) || t; });
+    if (names.length < 2) return names[0] || 'this team';
+    return names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1];
+  }
+
   function roleAtLeast(userRoles, team, needed) {
     if (!userRoles) return false;
     if (userRoles.owner) return true;
@@ -385,11 +393,15 @@
      nothing in it while they were actually on it. They see the worship
      rota, because that is the rota they serve on.
 
+     Core Team is here too. They administer Worship and AV, and several of
+     them serve, so scoping them to "Core Team" - which owns no rota slots -
+     showed the people who run the rota a rota with nothing in it.
+
      Kids Church is the one that stays separate. That is the whole point of
      scoping it - and someone on Kids Church AND Worship gets both, because
      the list is a union of everything they are on. */
 
-  var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship'];
+  var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship', 'Core Team'];
 
   function teamsVisibleTo(teams) {
     var out = teams.slice();
@@ -542,14 +554,28 @@
               return;
             }
 
-            if (opts.team && !EGBCAuth.inTeam(opts.team) && !EGBCAuth.isOwner()) {
+            /* A page can name more than one team, comma separated. The rota
+               planner is the reason: it is one file holding every
+               department's rota, so Karen has to be able to open it for Kids
+               Church without being on the worship team. Being on - or
+               administering - any one of the listed teams is enough. */
+            var wanted = opts.team ? String(opts.team).split(',').map(function (t) {
+              return t.trim();
+            }).filter(Boolean) : [];
+
+            var mayEnter = !wanted.length || EGBCAuth.isOwner() ||
+              wanted.some(function (t) {
+                return EGBCAuth.inTeam(t) || EGBCAuth.isAdminOf(t);
+              });
+
+            if (!mayEnter) {
               EGBCAuth._blockPage(
                 'No access to this page',
                 /* The label already carries the noun where it needs one -
                    "Core Team", "Kids Church" - so appending "team" produced
                    "the Core Team team". */
-                'This page is for ' + (TEAMS[opts.team] ? TEAMS[opts.team].label : opts.team) +
-                ', and you are not on that team.',
+                'This page is for ' + labelList(wanted) +
+                ', and you are not on ' + (wanted.length > 1 ? 'any of those teams.' : 'that team.'),
                 profile
               );
               return;
@@ -563,13 +589,15 @@
                in a separate field (masterAdmin), so it can never see it. The
                team's own admin passes too: Karen administering Kids Church
                should clear a leader gate on a Kids Church page. */
-            if (opts.role && opts.team &&
-                !roleAtLeast(profile.roles, opts.team, opts.role) &&
-                !EGBCAuth.isOwner() && !EGBCAuth.isAdminOf(opts.team)) {
+            var hasRank = !opts.role || !wanted.length || EGBCAuth.isOwner() ||
+              wanted.some(function (t) {
+                return roleAtLeast(profile.roles, t, opts.role) || EGBCAuth.isAdminOf(t);
+              });
+
+            if (!hasRank) {
               EGBCAuth._blockPage(
                 'Not enough permissions',
-                'This page needs ' + opts.role + ' access for ' +
-                (TEAMS[opts.team] ? TEAMS[opts.team].label : opts.team) + '.',
+                'This page needs ' + opts.role + ' access for ' + labelList(wanted) + '.',
                 profile
               );
               return;
