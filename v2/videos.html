@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041046" data-title="Team Videos"></script>
+<script src="egbc-shell.js?v=202609041121" data-title="Team Videos"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EGBC — Team Videos</title>
@@ -10,8 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202609041046"></script>
-<script src="egbc-guard.js?v=202609041046"></script>
+<script src="egbc-auth.js?v=202609041121"></script>
+<script src="egbc-guard.js?v=202609041121"></script>
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap">
 <style>
@@ -210,6 +210,8 @@
     <div id="mAdmin" class="hidden" style="margin-top:20px;border-top:1px solid var(--line);padding-top:18px">
       <div class="lab" style="margin-bottom:9px">Edit</div>
       <input class="fld" id="eTitle" placeholder="Name">
+      <div class="lab" style="margin:14px 0 9px">Move to</div>
+      <select class="fld" id="eTeam" onchange="teamChanged()"></select>
       <select class="fld" id="eSection"></select>
       <div class="row">
         <button class="btn solid" onclick="saveEdit()">Save</button>
@@ -403,6 +405,18 @@ async function loadSections(){
   }
   renderSectionStrip();
   updateAdderNote();
+}
+
+/* The sections of a team other than the one being looked at, so a video
+   can be moved into one of them without switching pages first. */
+async function sectionsFor(team){
+  try {
+    const snap = await db.collection(SECTIONS_DOC).doc(slug(team)).get();
+    return (snap.exists && Array.isArray(snap.data().names)) ? snap.data().names : [];
+  } catch (e){
+    console.error('Could not load sections for ' + team, e);
+    return [];
+  }
 }
 
 async function saveSections(){
@@ -644,9 +658,15 @@ function openVideo(id){
   document.getElementById('mAdmin').classList.toggle('hidden', !canEdit);
   if (canEdit){
     document.getElementById('eTitle').value = v.title || '';
-    const sel = document.getElementById('eSection');
-    sel.innerHTML = '<option value="">No section</option>' +
-      SECTIONS.map(n => `<option value="${esc(n)}"${(v.category || '') === n ? ' selected' : ''}>${esc(n)}</option>`).join('');
+
+    /* Every team, not just yours: a video put on the wrong page needs to
+       be able to get off it. */
+    const teamSel = document.getElementById('eTeam');
+    teamSel.innerHTML = Object.keys(EGBCAuth.TEAMS)
+      .filter(t => !EGBCAuth.TEAMS[t].parent)
+      .map(t => `<option value="${esc(t)}"${v.team === t ? ' selected' : ''}>${esc(EGBCAuth.TEAMS[t].label || t)}</option>`)
+      .join('');
+    fillSectionPicker(v.team, v.category || '');
     document.getElementById('pubBtn').textContent =
       v.published === false ? 'Show to the team' : 'Hide from the team';
   }
@@ -858,15 +878,40 @@ async function addByLink(){
 
 /* ---- editing (master only) ----------------------------------------- */
 
+/* Sections belong to a team, so the second picker is refilled whenever the
+   first one changes. Nothing is written until Save. */
+async function fillSectionPicker(team, selected){
+  const sel = document.getElementById('eSection');
+  sel.innerHTML = '<option value="">Loading…</option>';
+  const names = (team === TEAM) ? SECTIONS : await sectionsFor(team);
+  sel.innerHTML = '<option value="">No section</option>' +
+    names.map(n => `<option value="${esc(n)}"${selected === n ? ' selected' : ''}>${esc(n)}</option>`).join('');
+}
+
+function teamChanged(){
+  fillSectionPicker(document.getElementById('eTeam').value, '');
+}
+
+
 async function saveEdit(){
   if (!EGBCAuth.isMaster() || !current) return;
   const title = document.getElementById('eTitle').value.trim();
   if (!title){ alert('It needs a name.'); return; }
   const category = document.getElementById('eSection').value;
+  const team = document.getElementById('eTeam').value || current.team;
+
+  /* The file itself stays where it was uploaded. The folder it sits in is
+     only a filing convention - what decides who sees a video is the team
+     on this record, and moving the blob would break every link to it. */
   try {
-    await db.collection(COLLECTION).doc(current.id).update({ title, category });
+    await db.collection(COLLECTION).doc(current.id).update({ title, category, team });
+    const moved = team !== current.team;
     await loadVideos();
     closeModal();
+    if (moved){
+      alert(`Moved to ${(EGBCAuth.TEAMS[team] || {}).label || team}` +
+            (category ? ', in ' + category : '') + '.');
+    }
   } catch (e){ alert('Could not save: ' + e.message); }
 }
 
