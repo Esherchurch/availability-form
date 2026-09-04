@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041025" data-title="Team Videos"></script>
+<script src="egbc-shell.js?v=202609041046" data-title="Team Videos"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EGBC — Team Videos</title>
@@ -10,8 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202609041025"></script>
-<script src="egbc-guard.js?v=202609041025"></script>
+<script src="egbc-auth.js?v=202609041046"></script>
+<script src="egbc-guard.js?v=202609041046"></script>
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap">
 <style>
@@ -138,7 +138,6 @@
         <div class="sup" id="teamSup">Esher Green Baptist Church</div>
         <h1 id="pageTitle">Team Videos</h1>
       </div>
-      <span id="userChip"></span>
     </div>
     <div class="teams" id="teamStrip"></div>
   </div>
@@ -156,6 +155,13 @@
        registry row - that just puts Martin back in the middle of it. -->
   <div class="teams" id="sectionStrip"></div>
 
+  <!-- Closed until it is wanted. What people come to this page for is the
+       videos, not the uploader, and a panel with no way out reads as a
+       screen you are stuck on. -->
+  <div id="addRow" class="row hidden" style="margin-bottom:18px">
+    <button class="btn solid" onclick="openAdder()">Add a video</button>
+  </div>
+
   <!-- Simple add panel: only rendered for admins of this team -->
   <div id="adder" class="adder hidden">
     <div class="row" style="margin-bottom:16px">
@@ -163,7 +169,10 @@
         <div class="lab">Add a video</div>
         <div style="font-size:13px;color:var(--muted);font-weight:600" id="adderTeamNote"></div>
       </div>
-      <button class="btn sp hidden" id="moreBtn" onclick="toggleMore()">More options</button>
+      <div class="row" style="gap:8px">
+        <button class="btn sp hidden" id="moreBtn" onclick="toggleMore()">More options</button>
+        <button class="btn sp" onclick="closeAdder()">Close</button>
+      </div>
     </div>
 
     <div class="drop" id="drop">
@@ -263,6 +272,29 @@ function myTeams(){
 
 function canAdd(){ return !!TEAM && EGBCAuth.isAdminOf(TEAM); }
 
+/* ---- the add panel opens and shuts ---------------------------------- */
+
+function openAdder(){
+  if (!canAdd()) return;
+  document.getElementById('adder').classList.remove('hidden');
+  document.getElementById('addRow').classList.add('hidden');
+  document.getElementById('adder').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeAdder(){
+  /* An upload still running keeps the panel open - closing it would look
+     like the video had been abandoned. Finished cards are cleared. */
+  const jobs = document.getElementById('jobs');
+  if (jobs.querySelector('.job:not(.finished)')){
+    alert('That video is still uploading. It will say when it is done.');
+    return;
+  }
+  jobs.innerHTML = '';
+  document.getElementById('adder').classList.add('hidden');
+  document.getElementById('more').classList.add('hidden');
+  document.getElementById('addRow').classList.toggle('hidden', !canAdd());
+}
+
 /* Only a video file we can actually play in a page. */
 function isPlayableFile(f){
   return f && (f.type.startsWith('video/') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(f.name));
@@ -347,8 +379,10 @@ function applyTeam(){
   document.getElementById('pageTitle').textContent = cfg.label + ' Videos';
   document.title = 'EGBC — ' + cfg.label + ' Videos';
 
-  const adder = document.getElementById('adder');
-  adder.classList.toggle('hidden', !canAdd());
+  /* Switching team closes the panel: whatever was half typed belonged to
+     the team you have just left. */
+  document.getElementById('addRow').classList.toggle('hidden', !canAdd());
+  document.getElementById('adder').classList.add('hidden');
   document.getElementById('moreBtn').classList.toggle('hidden', !EGBCAuth.isMaster());
   document.getElementById('more').classList.add('hidden');
 
@@ -707,6 +741,25 @@ async function startUpload(file){
     if (s){ s.textContent = msg; s.className = 'jstat' + (cls ? ' ' + cls : ''); }
   };
 
+  /* The last thing a job says. Marks the card finished and gives it the
+     button that takes it away again - without one, a completed upload sat
+     on the screen with no way back to the videos. */
+  const finish = (msg, cls) => {
+    say(msg, cls);
+    box.classList.add('finished');
+    const jt = box.querySelector('.jt');
+    if (jt && !jt.querySelector('.jdone')){
+      const b = document.createElement('button');
+      b.className = 'btn sp jdone';
+      b.textContent = 'Close';
+      b.onclick = () => {
+        box.remove();
+        if (!document.getElementById('jobs').children.length) closeAdder();
+      };
+      jt.appendChild(b);
+    }
+  };
+
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
   const path = `${STORAGE_ROOT}/${slug(TEAM)}/${Date.now()}-${slug(title) || 'video'}.${ext}`;
 
@@ -750,7 +803,7 @@ async function startUpload(file){
        on a slow connection. The video is already live either way. */
     if (typeof window.KBTranscribe !== 'function'){
       await docRef.update({ transcriptStatus: 'failed' });
-      say('Done — on the page. The transcript could not be made on this device.', 'done');
+      finish('Done — on the page. The transcript could not be made on this device.', 'done');
       await loadVideos();
       return;
     }
@@ -763,7 +816,7 @@ async function startUpload(file){
       transcript: transcript || '',
       transcriptStatus: transcript ? 'done' : 'failed'
     });
-    say('All done — you can search inside this video now.', 'done');
+    finish('All done — you can search inside this video now.', 'done');
     await loadVideos();
 
   } catch (err){
@@ -772,10 +825,10 @@ async function startUpload(file){
       /* The video is up; only the transcript failed. Say so plainly rather
          than making it look like the whole thing went wrong. */
       try { await docRef.update({ transcriptStatus: 'failed' }); } catch (e){}
-      say('The video is on the page, but the transcript could not be made.', 'done');
+      finish('The video is on the page, but the transcript could not be made.', 'done');
       await loadVideos();
     } else {
-      say('That did not work: ' + err.message, 'err');
+      finish('That did not work: ' + err.message, 'err');
     }
   }
 }
