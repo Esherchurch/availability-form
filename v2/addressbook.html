@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609040800" data-title="Address Book"></script>
+<script src="egbc-shell.js?v=202609040844" data-title="Address Book"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609040800"></script>
-<script src="egbc-guard.js?v=202609040800" data-admin="any"></script>
+<script src="egbc-auth.js?v=202609040844"></script>
+<script src="egbc-guard.js?v=202609040844" data-admin="any"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Address Book - Master Manager</title>
@@ -402,22 +402,30 @@ document.addEventListener('egbc-ready',()=>{
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-extrabold text-[#7a5f4a] uppercase tracking-widest">Kids Church Roles</label>
-                    <p class="text-[9px] text-gray-400 font-semibold leading-relaxed">Younger = Nursery, Reception, Y1, Y2 &middot; Older = Y3, Y4, Y5.<br>Tick <strong>Usually</strong> for what they normally do, <strong>Can cover</strong> for anything they will step into.</p>
+                    <p class="text-[9px] text-gray-400 font-semibold leading-relaxed">Younger = Nursery, Reception, Y1, Y2 &middot; Older = Y3, Y4, Y5 &middot; Cr&egrave;che = under 3s.<br>Tick <strong>Usually</strong> for what they normally do, <strong>Can cover</strong> for what they will step into.<br>Helpers are not tied to a group &mdash; which group they take is decided when the week is planned.</p>
 
                     <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-1">Usually</div>
                     <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Session Leader"> Session Leader</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Group Leader (Younger)"> Group Leader &mdash; Younger</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Group Leader (Older)"> Group Leader &mdash; Older</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Supporting Adult"> Supporting Adult</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Younger)"> Leader &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Older)"> Leader &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Creche)"> Leader &mdash; Cr&egrave;che</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Assistant (Younger)"> Assistant &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Assistant (Older)"> Assistant &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Assistant (Creche)"> Assistant &mdash; Cr&egrave;che</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Helper"> Helper</label>
                     </div>
 
                     <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-2">Can cover</div>
                     <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Session Leader"> Session Leader</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Group Leader (Younger)"> Group Leader &mdash; Younger</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Group Leader (Older)"> Group Leader &mdash; Older</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Supporting Adult"> Supporting Adult</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Younger)"> Leader &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Older)"> Leader &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Creche)"> Leader &mdash; Cr&egrave;che</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Assistant (Younger)"> Assistant &mdash; Younger</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Assistant (Older)"> Assistant &mdash; Older</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Assistant (Creche)"> Assistant &mdash; Cr&egrave;che</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Helper"> Helper</label>
                     </div>
                 </div>
             </div>

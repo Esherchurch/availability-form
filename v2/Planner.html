@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609040800" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202609040844" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202609040800"></script>
-<script src="egbc-guard.js?v=202609040800" data-team="Worship Team" data-role="leader"></script>
+<script src="egbc-auth.js?v=202609040844"></script>
+<script src="egbc-guard.js?v=202609040844" data-team="Worship Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -46,6 +46,144 @@
         const MANDATORY_SUNDAY_ROLES = ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass", "Sound", "Words", "Cameras"];
         const EVENT_TYPES = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service', 'Midnight Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
         const AV_ROLES = ["Sound", "Words", "Cameras"];
+
+        /* ---- Kids Church ------------------------------------------------
+           Slots on the rota, which are not quite the same as the abilities
+           held in the address book: a person ticks "Helper" once, but a week
+           can carry up to five helper slots. Which group each helper takes is
+           decided when the week is planned, not here - that is how Karen and
+           Simon work, and forcing it at rota stage would break it. */
+        const KIDS_FIXED_ROLES = ['Session Leader',
+            'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+            'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)'];
+        const KIDS_HELPER_SLOTS = ['Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'];
+        const KIDS_ROLES = [...KIDS_FIXED_ROLES, ...KIDS_HELPER_SLOTS];
+
+        /* The standard Sunday. Provisional until Karen confirms it - change
+           this line and nothing else. */
+        const KIDS_MANDATORY_ROLES = ['Session Leader',
+            'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)', 'Helper 1'];
+
+        /* A rota slot maps to the ability ticked in the address book.
+           "Helper 4" is just a Helper. */
+        const roleAbility = r => /^Helper \d+$/.test(r) ? 'Helper' : r;
+
+        /* Which team owns a slot. This is what makes one rota show each
+           person only their own part of it. */
+        function roleTeam(r) {
+            if (AV_ROLES.includes(r)) return 'AV Team';
+            if (KIDS_ROLES.includes(r) || /^Helper \d+$/.test(r)) return 'Kids Church';
+            return 'Worship Team';
+        }
+
+        /* null means "everything" - a master admin, or a page where auth has
+           not loaded, in which case hiding things would be worse than showing
+           them. */
+        function myRotaTeams() {
+            if (typeof EGBCAuth === 'undefined') return null;
+            try {
+                if (EGBCAuth.isMaster()) return null;
+                const areas = EGBCAuth.adminAreas() || [];
+                return areas.length ? areas : null;
+            } catch (e) { return null; }
+        }
+
+        function canEditRole(r) {
+            const mine = myRotaTeams();
+            return !mine || mine.includes(roleTeam(r));
+        }
+
+        /* Every team that actually has a slot somewhere in this term. A term
+           with no Kids Church slots needs no Kids Church sign-off, so nothing
+           changes for Worship until Kids Church starts using it. */
+        function teamsInTerm(termLabel) {
+            const out = new Set();
+            cachedEvents.filter(e => e.termLabel === termLabel && !e.archived)
+                .forEach(e => (e.roles || []).forEach(r => out.add(roleTeam(r))));
+            return [...out];
+        }
+
+        /* ---- sign-off ---------------------------------------------------
+           One rota, built by several people at different times. Sending it
+           before everyone has finished means someone on two teams gets an
+           email with half their duties on it. Each team says when its part is
+           done, and sending waits for all of them. */
+        let signoffs = {};        /* "Autumn 2026__Kids Church" -> {by, at} */
+
+        const signoffKey = (term, team) => term + '__' + team;
+
+        async function loadSignoffs() {
+            try {
+                const snap = await getDocs(collection(db, "rotaSignoff"));
+                signoffs = {};
+                snap.forEach(d => { signoffs[d.id] = d.data(); });
+            } catch (e) { console.warn('sign-off read failed', e); }
+        }
+
+        window.setSignoff = async (termLabel, team, ready) => {
+            const key = signoffKey(termLabel, team);
+            try {
+                if (ready) {
+                    const who = (typeof EGBCAuth !== 'undefined' && EGBCAuth.profile && EGBCAuth.profile())
+                        ? (EGBCAuth.profile().name || EGBCAuth.profile().email) : 'someone';
+                    await setDoc(doc(db, "rotaSignoff", key), {
+                        term: termLabel, team: team, by: who, at: new Date()
+                    });
+                } else {
+                    await deleteDoc(doc(db, "rotaSignoff", key));
+                }
+                await loadSignoffs();
+                renderEvents();
+            } catch (e) { alert('Could not save that: ' + e.message); }
+        };
+
+        /* Any change to a team's part of a term withdraws that team's
+           sign-off. Without this a sign-off would describe the rota as it was
+           when someone pressed the button, which is not the same thing. */
+        async function clearSignoff(eventId, team) {
+            const ev = cachedEvents.find(e => e.id === eventId);
+            if (!ev || !ev.termLabel) return;
+            const teams = team ? [team] : teamsInTerm(ev.termLabel);
+            for (const t of teams) {
+                const key = signoffKey(ev.termLabel, t);
+                if (!signoffs[key]) continue;
+                try { await deleteDoc(doc(db, "rotaSignoff", key)); delete signoffs[key]; }
+                catch (e) { console.warn('sign-off clear failed', e); }
+            }
+        }
+
+        /* Who still has to finish before this term can go out. */
+        function outstandingTeams(termLabel) {
+            return teamsInTerm(termLabel).filter(t => !signoffs[signoffKey(termLabel, t)]);
+        }
+
+        function signoffStrip(term) {
+            const teams = teamsInTerm(term);
+            if (!teams.length) return '';
+            const mine = myRotaTeams();
+            let h = '<div class="flex items-center gap-2 flex-wrap">';
+            teams.forEach(t => {
+                const done = signoffs[signoffKey(term, t)];
+                const canPress = !mine || mine.includes(t);
+                const label = t.replace(' Team', '');
+                if (done) {
+                    const title = 'Signed off by ' + (done.by || 'someone').replace(/"/g, '');
+                    h += '<button title="' + title + '" ' +
+                         (canPress ? 'onclick="setSignoff(\'' + term + '\',\'' + t + '\',false)"' : 'disabled') +
+                         ' class="text-[10px] bg-white text-[#3d6263] px-4 py-1 rounded-full uppercase font-bold">'
+                       + '&#10003; ' + label + '</button>';
+                } else if (canPress) {
+                    h += '<button onclick="setSignoff(\'' + term + '\',\'' + t + '\',true)" ' +
+                         'class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40">'
+                       + label + ' not done</button>';
+                } else {
+                    h += '<span class="text-[10px] bg-white/10 px-4 py-1 rounded-full uppercase font-bold opacity-70">'
+                       + label + ' waiting</span>';
+                }
+            });
+            h += '</div>';
+            return h;
+        }
 
         let collapsedTerms = new Set();
         let expandedEvents = new Set();
@@ -122,6 +260,7 @@
             cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             renderPlanner();
             populateSendTermSelect();
+            loadSignoffs().then(renderPlanner);
         });
 
         // ── POPULATE TERM SELECT IN SEND MODAL ─────────────────────────
@@ -167,13 +306,33 @@
             const eventSnap = await getDoc(eventRef);
             if (!eventSnap.exists()) return;
             const currentTeams = eventSnap.data().teams || [];
-            const newTeams = currentTeams.includes(teamName) ? currentTeams.filter(t => t !== teamName) : [...currentTeams, teamName];
-            await updateDoc(eventRef, { teams: newTeams });
+            const adding = !currentTeams.includes(teamName);
+            const newTeams = adding ? [...currentTeams, teamName] : currentTeams.filter(t => t !== teamName);
+            const updates = { teams: newTeams };
+
+            /* Ticking Kids Church puts its standard slots on the week, the way
+               a new Sunday already arrives with the worship ones. Unticking
+               takes back only the empty ones - anybody already rostered stays,
+               so a mis-click cannot quietly wipe Karen's work. */
+            if (teamName === 'Kids Church') {
+                const ev = eventSnap.data();
+                const roles = new Set(ev.roles || []);
+                if (adding) {
+                    KIDS_MANDATORY_ROLES.forEach(r => roles.add(r));
+                } else {
+                    KIDS_ROLES.forEach(r => { if (!ev.assignments?.[r]) roles.delete(r); });
+                }
+                updates.roles = [...roles];
+            }
+
+            await updateDoc(eventRef, updates);
+            if (teamName === 'Kids Church') await clearSignoff(eventId, 'Kids Church');
         };
 
         window.addRole = async (eventId, roleName) => {
             if(!roleName) return;
             await updateDoc(doc(db, "events", eventId), { roles: arrayUnion(roleName) });
+            await clearSignoff(eventId, roleTeam(roleName));
         };
 
         window.removeRole = async (eventId, roleName) => {
@@ -181,6 +340,7 @@
                 const updates = { roles: arrayRemove(roleName) };
                 updates[`assignments.${roleName}`] = deleteField();
                 await updateDoc(doc(db, "events", eventId), updates);
+                await clearSignoff(eventId, roleTeam(roleName));
             }
         };
 
@@ -394,10 +554,14 @@
                 });
             });
             const monthlyCounts = {};
+            /* The same tally, split by department. maxFrequency limits the
+               total; teamCaps limits how much of it any one team may take. */
+            const teamCounts = {};
 
             for (const ev of sundayEvents) {
                 const monthKey = new Date(ev.date).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
                 if (!monthlyCounts[monthKey]) monthlyCounts[monthKey] = {};
+                if (!teamCounts[monthKey]) teamCounts[monthKey] = {};
 
                 const evDate = new Date(ev.date);
                 const members = addressBook.filter(m =>
@@ -410,9 +574,22 @@
 
                 const tryAssign = (roleName, instrumentName, isPrimaryOnly) => {
                     if (assignments[roleName]) return false;
+                    /* Never fill a slot belonging to a department you do not
+                       run. Karen pressing AutoFill must not touch worship. */
+                    if (!canEditRole(roleName)) return false;
                     let candidates = members.filter(m => {
                         if (alreadyAssignedToday.has(m.id)) return false;
                         if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) return false;
+                        /* maxFrequency is the total across everything. teamCaps
+                           is how much of that total any one department may use,
+                           which is what stops three Kids Church weeks eating a
+                           month that was meant to cover worship as well. */
+                        const cap = (m.teamCaps || {})[roleTeam(roleName)];
+                        if (cap !== undefined) {
+                            const usedHere = (teamCounts[monthKey] && teamCounts[monthKey][m.id]
+                                && teamCounts[monthKey][m.id][roleTeam(roleName)]) || 0;
+                            if (usedHere >= cap) return false;
+                        }
                         const hasInst = isPrimaryOnly
                             ? m.primaryInstruments?.includes(instrumentName)
                             : (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName));
@@ -436,6 +613,9 @@
                         assignments[roleName] = { id: chosen.id, name: chosen.name };
                         alreadyAssignedToday.add(chosen.id);
                         monthlyCounts[monthKey][chosen.id] = (monthlyCounts[monthKey][chosen.id] || 0) + 1;
+                        const rt = roleTeam(roleName);
+                        if (!teamCounts[monthKey][chosen.id]) teamCounts[monthKey][chosen.id] = {};
+                        teamCounts[monthKey][chosen.id][rt] = (teamCounts[monthKey][chosen.id][rt] || 0) + 1;
                         lastServed[chosen.id] = evDate;
                         liveRoles.add(roleName);
                         return true;
@@ -687,6 +867,23 @@
             const members = [...assignedIds].map(mId => addressBook.find(m => m.id === mId)).filter(m => m && m.email);
 
             if (members.length === 0) { alert("No team members found."); return; }
+
+            /* The failsafe. One rota, several people filling it in at
+               different times - so someone on two teams would otherwise get an
+               email with half their duties on it, depending purely on who
+               happened to send first. */
+            const termsToCheck = selectedTerm
+                ? [selectedTerm]
+                : [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))];
+            const notReady = [];
+            termsToCheck.forEach(t => outstandingTeams(t).forEach(team => notReady.push(team + ' - ' + t)));
+            if (notReady.length) {
+                alert('Not ready to send yet.\n\nStill to confirm their part:\n\n'
+                    + notReady.map(x => '  ' + x).join('\n')
+                    + '\n\nEach team marks itself done on the term heading. This stops\n'
+                    + 'anyone on two teams getting a rota with half their duties missing.');
+                return;
+            }
             if (!confirm(`Send rotas to ${members.length} team members for ${termLabels}?`)) return;
 
             const toast = document.createElement('div');
@@ -1101,6 +1298,7 @@
                 let html = '<div class="mb-12">';
                 html += '<div class="flex justify-between items-center bg-[#3d6263] text-white px-8 py-5 rounded-t-[2rem] shadow-lg">';
                 html += '<button onclick="toggleTermCollapse(\'' + term + '\')" class="uppercase font-bold tracking-widest font-montserrat flex items-center gap-2">' + term + '</button>';
+                html += signoffStrip(term);
                 html += '<button onclick="archiveTerm(\'' + term + '\')" class="text-[10px] bg-white/20 px-4 py-1 rounded-full uppercase font-bold hover:bg-white/40 transition-all">Archive</button>';
                 html += '</div>';
                 html += '<div class="' + (isCollapsed ? 'hidden' : 'block') + ' bg-white p-6 border-x border-b border-gray-200 rounded-b-[2rem] shadow-inner">';
@@ -1201,7 +1399,11 @@
             });
             const rowClass = !isSunday ? 'bg-slate-50 border-dashed border-[#d1dfdf]' : (mandatoryFilled ? 'bg-white border-green-300' : (blockIdx % 2 === 0 ? 'bg-white border-[#d1dfdf]' : 'bg-[#f0f6f6]/30 border-[#d1dfdf]'));
             const dateBg = !isSunday ? 'bg-[#d1dfdf]' : 'bg-[#3d6263]';
-            const sortedRoles = [...(ev.roles || []).filter(r => !AV_ROLES.includes(r)), ...(ev.roles || []).filter(r => AV_ROLES.includes(r))];
+            /* One rota, but each person edits only their department's part
+               of it. A master admin sees the lot. */
+            const visibleRoles = (ev.roles || []).filter(canEditRole);
+            const sortedRoles = [...visibleRoles.filter(r => !AV_ROLES.includes(r)), ...visibleRoles.filter(r => AV_ROLES.includes(r))];
+            const hiddenRoleCount = (ev.roles || []).length - visibleRoles.length;
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
             const timeSelectStyle = 'bg-white border border-[#d1dfdf] text-[#3d6263] px-2 py-1 rounded-full font-bold text-[11px] outline-none';
             const startTimeHtml = `<select onchange="updateField('${ev.id}', 'startTime', this.value)" class="${timeSelectStyle}">${buildTimeOptions(ev.startTime || '08:00')}</select>`;
@@ -1228,7 +1430,7 @@
             html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" onblur="updateField(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
             html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" onblur="updateField(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
             html += '<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
-            ["Core Team", "Worship Team", "AV Team", "Choir", "Youth"].forEach(t => {
+            ["Core Team", "Worship Team", "AV Team", "Choir", "Youth", "Kids Church"].forEach(t => {
                 html += '<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t + '</span></label>';
             });
             html += '</div>';
@@ -1270,8 +1472,18 @@
                 html += '</div>';
             });
             html += '<select onchange="addRole(\'' + ev.id + '\', this.value); this.value=\'\';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>';
-            OPTIONAL_ROLES.forEach(opt => { html += '<option value="' + opt + '">' + opt + '</option>'; });
-            html += '</select></div>';
+            [...OPTIONAL_ROLES, ...KIDS_ROLES]
+                .filter(canEditRole)
+                .filter(opt => !(ev.roles || []).includes(opt))
+                .forEach(opt => { html += '<option value="' + opt + '">' + opt + '</option>'; });
+            html += '</select>';
+            /* Say that other departments have slots here, without showing
+               them. Otherwise a half-empty week looks like a mistake. */
+            if (hiddenRoleCount > 0) {
+                html += '<div class="self-center text-[10px] font-bold uppercase tracking-wider text-[#93a8a6] px-3">'
+                     + hiddenRoleCount + ' more handled by another team</div>';
+            }
+            html += '</div>';
 
             if (openBuckets.has(ev.id)) {
                 html += '<div ondragover="event.preventDefault()" ondrop="onDropBucket(event, \'' + ev.id + '\')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]">';
