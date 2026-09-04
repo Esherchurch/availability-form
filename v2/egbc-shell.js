@@ -76,6 +76,16 @@
       /* The menu is the point of the bar, so it is the one solid button. */
       '#egbc-bar button.eb-nav{background:#fff;color:var(--egbc-brand);border-color:#fff}',
       '#egbc-bar button.eb-nav:hover{background:var(--egbc-tint);border-color:var(--egbc-tint)}',
+      '#egbc-nav .en-g{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;',
+      'font:inherit;font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;',
+      'color:var(--egbc-ink);background:#fff;border:1px solid var(--egbc-line);border-radius:12px;',
+      'padding:13px 15px;margin:0 0 2px}',
+      '#egbc-nav .en-g:hover{border-color:var(--egbc-brand)}',
+      '#egbc-nav .en-g .en-cnt{margin-left:auto;font-size:10px;font-weight:800;color:var(--egbc-faint);letter-spacing:0}',
+      '#egbc-nav .en-g .en-arw{font-size:11px;color:var(--egbc-faint);transition:transform .18s}',
+      '#egbc-nav .en-g.open .en-arw{transform:rotate(90deg)}',
+      '#egbc-nav .en-b{overflow:hidden;max-height:0;transition:max-height .22s ease;margin-bottom:9px}',
+      '#egbc-nav .en-b.open{max-height:2400px;margin-top:7px}',
       '#egbc-bar .eb-av{width:29px;height:29px;border-radius:50%;background:#fff;color:var(--egbc-brand);',
       'display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:900;flex-shrink:0}',
       '#egbc-bar .eb-who{font-size:11.5px;font-weight:700;color:#e4efee;white-space:nowrap}',
@@ -164,9 +174,43 @@
 
     document.body.insertBefore(d, document.body.firstChild);
     pushDownStickyHeaders(d);
+    checkFresh();
 
     var nb = document.getElementById('egbc-nav-btn');
     if (nb) nb.addEventListener('click', openNav);
+  }
+
+  /* ---- is this page the one that was installed? ----------------------
+
+     Every page's script tags carry a stamp put there by the installer, so
+     the code refreshes the moment a new build lands. The HTML around them
+     has no stamp of its own, so a browser can sit on yesterday's page while
+     running today's scripts - which is how the address book kept its old
+     layout after the fix had shipped, and why the build number said one
+     thing while the page said another.
+
+     So: read our own stamp, ask the site what the current one is, and if
+     they disagree load the page once with the new stamp on the end. That URL
+     has not been seen before, so the cached copy is not used. Once per
+     stamp, so a mistake here cannot turn into a reload loop. */
+
+  function checkFresh() {
+    var me = document.querySelector('script[src*="egbc-shell.js"]');
+    var mine = me && (me.getAttribute('src').split('?v=')[1] || '');
+    if (!mine) return;
+
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (v) {
+        if (!v || !v.stamp || String(v.stamp) === String(mine)) return;
+        var key = 'egbc_fresh_' + v.stamp;
+        try {
+          if (sessionStorage.getItem(key)) return;
+          sessionStorage.setItem(key, '1');
+        } catch (e) { return; }
+        location.replace(location.pathname + '?v=' + v.stamp + location.hash);
+      })
+      .catch(function () {});
   }
 
   /* ---- the menu, on every page -------------------------------------- */
@@ -200,16 +244,72 @@
     return p;
   }
 
+  /* The same exclusions the hub makes. A charter is read on the landing
+     page, a phone app is installed rather than browsed to, and an
+     instruction page hangs off the tool it explains - so all three are noise
+     in a list of places to go. */
+  var NAV_SKIP = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html',
+                  'performancenotes.html', 'worshipteamcharter.html',
+                  'youthcharter.html', 'coreteamcharter.html',
+                  'avteamlandingpage.html', 'egbcworship&av.html'];
+
+  function pageTeams(p) {
+    if (p.teams && p.teams.length) return p.teams;
+    return p.team ? [p.team] : [];
+  }
+
   function maySee(p) {
     if (p.enabled === false || p.heading || !p.url) return false;
-    if (p.adminOnly && !EGBCAuth.isAdminOf(p.team)) return false;
+    if (p.helpFor) return false;
+    if (NAV_SKIP.indexOf(decodeURIComponent(p.url).toLowerCase()) !== -1) return false;
+    /* Was asking about the single `team` field, so a page belonging to
+       several only showed to admins of the first. */
+    if (p.adminOnly && !pageTeams(p).some(function (t) { return EGBCAuth.isAdminOf(t); })) return false;
     if (p.everyone) return true;
     if (EGBCAuth.isMaster()) return true;
-    var list = (p.teams && p.teams.length) ? p.teams : (p.team ? [p.team] : []);
     var mine = EGBCAuth.effectiveTeams();
     var admin = EGBCAuth.adminAreas();
-    return list.some(function (t) { return mine.indexOf(t) !== -1 || admin.indexOf(t) !== -1; });
+    return pageTeams(p).some(function (t) { return mine.indexOf(t) !== -1 || admin.indexOf(t) !== -1; });
   }
+
+  /* ---- grouped the way the hub groups them ---------------------------
+
+     This list was flat, and on a master admin's screen that is forty-odd
+     pages in one column with the old ones mixed in. The hub already solved
+     it: headings you can fold, a count on each, everyone's pages at the top.
+     Same shape here, so the two do not feel like different products. */
+
+  var SHARED = '__shared';
+
+  function groupOf(p) {
+    if (p.everyone) return SHARED;
+    var list = pageTeams(p);
+    return list.length ? list[0] : SHARED;
+  }
+
+  function groupInfo(key) {
+    if (key === SHARED) return { label: 'Everyone', colour: '#6b8281' };
+    var t = EGBCAuth.TEAMS && EGBCAuth.TEAMS[key];
+    return { label: (t && t.label) || key, colour: (t && t.colour) || '#6b8281' };
+  }
+
+  /* Everyone first, then your own areas, then the rest alphabetically. */
+  function groupOrder(keys) {
+    var mine = (EGBCAuth.effectiveTeams() || []).concat(EGBCAuth.adminAreas() || []);
+    return keys.sort(function (a, b) {
+      if (a === SHARED) return -1;
+      if (b === SHARED) return 1;
+      var am = mine.indexOf(a) !== -1, bm = mine.indexOf(b) !== -1;
+      if (am !== bm) return am ? -1 : 1;
+      return groupInfo(a).label.localeCompare(groupInfo(b).label);
+    });
+  }
+
+  window.egbcToggleGroup = function (btn) {
+    btn.classList.toggle('open');
+    var body = btn.nextElementSibling;
+    if (body) body.classList.toggle('open');
+  };
 
   function renderNav(q) {
     var list = document.getElementById('egbc-nav-list');
@@ -224,13 +324,44 @@
 
     if (!rows.length) { list.innerHTML = '<div class="en-e">Nothing matches that.</div>'; return; }
 
-    list.innerHTML = rows.map(function (p) {
+    var item = function (p) {
       var on = decodeURIComponent(p.url).toLowerCase() === decodeURIComponent(here);
       return '<a class="en-i' + (on ? ' on' : '') + '" href="' + p.url + '">' +
                '<span class="en-ic">' + (p.icon || '\u{1F4C4}') + '</span>' +
                '<span class="en-t">' + String(p.title || '').replace(/</g, '&lt;') +
                (on ? ' <em>you are here</em>' : '') + '</span>' +
              '</a>';
+    };
+
+    /* Searching flattens it. When you are hunting for one page, headings are
+       in the way. */
+    if (q) { list.innerHTML = rows.map(item).join(''); return; }
+
+    var buckets = {};
+    rows.forEach(function (p) {
+      var k = groupOf(p);
+      (buckets[k] = buckets[k] || []).push(p);
+    });
+
+    /* The group holding the page you are on opens itself, along with the
+       shared one. Everything expanded at once is the wall this replaced. */
+    var hereGroup = null;
+    rows.forEach(function (p) {
+      if (decodeURIComponent(p.url).toLowerCase() === decodeURIComponent(here)) hereGroup = groupOf(p);
+    });
+
+    list.innerHTML = groupOrder(Object.keys(buckets)).map(function (k, i) {
+      var g = groupInfo(k);
+      var open = (k === SHARED) || k === hereGroup || (i === 0);
+      return '<button class="en-g' + (open ? ' open' : '') + '" onclick="egbcToggleGroup(this)"' +
+               ' style="border-left:4px solid ' + g.colour + '">' +
+               '<span class="en-arw">&#9654;</span>' +
+               '<span>' + g.label.replace(/</g, '&lt;') + '</span>' +
+               '<span class="en-cnt">' + buckets[k].length + '</span>' +
+             '</button>' +
+             '<div class="en-b' + (open ? ' open' : '') + '">' +
+               buckets[k].map(item).join('') +
+             '</div>';
     }).join('');
   }
 
