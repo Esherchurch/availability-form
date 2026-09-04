@@ -1,0 +1,354 @@
+rules_version = '2';
+
+// EGBC Worship Planner — Firestore rules
+//
+// Deploy:  firebase deploy --only firestore:rules --project egbc-worship-planner
+//
+// ORDER OF ROLLOUT MATTERS. Deploy these only once everyone who needs access
+// has signed in at least once and been given their teams in the hub admin
+// panel. Deploying earlier locks the team out mid-term.
+//
+// ADMINISTRATORS are anyone ticked "Core Team" in the address book. There is
+// no separate owner role and no console step: tick Core Team against yourself
+// in addressbook.html before deploying these rules, and sign in once so the
+// lookup runs.
+//
+// Content tabs come from a person's own markers. Being Core Team makes you an
+// administrator; it does not hand you the Kids Church tab.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ----------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function active() {
+      return signedIn() && me().status == 'active';
+    }
+
+    function onTeam(team) {
+      return active() && (team in me().teams);
+    }
+
+    // Three levels, all set in the address book and mirrored onto users/{uid}:
+    //   masterAdmin  - everything, everywhere, including making admins
+    //   adminFor[]   - manages those areas only
+    //   member       - their own team's pages, plus anything open to everyone
+
+    function isMaster() {
+      return active() && me().get('masterAdmin', false) == true;
+    }
+
+    function adminOf(team) {
+      return isMaster() || (active() && team in me().get('adminFor', []));
+    }
+
+    // Manages something, anything. Use adminOf(team) wherever the area is known.
+    function isAdmin() {
+      return isMaster() || (active() && me().get('adminFor', []).size() > 0);
+    }
+
+    // May change that team's content. Used by the knowledge base, the video
+    // library and the resource shelf.
+    //
+    // This was called in three places and never defined, which does not fail
+    // quietly - the whole ruleset refuses to compile, so nothing could have
+    // been deployed at all. Caught by running the rules in the emulator.
+    //
+    // There is no separate "leader" tier here on purpose: the users document
+    // mirrors teams, adminFor and masterAdmin from the address book, and
+    // never carried a roles map, so admin is the only tier above member that
+    // exists in the data.
+    function canAct(team) {
+      return adminOf(team);
+    }
+
+    // ---- users ------------------------------------------------------
+    // A person may read and create their own record, but never grant
+    // themselves teams or roles. Only an owner or a team admin can do that.
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || active());
+
+      allow create: if signedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.teams.size() == 0;
+
+      // Own record: only the heartbeat field may change.
+      allow update: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['lastSeen', 'name']);
+
+      // Admins may change teams, roles and status.
+      // Master admins may change anything. A team admin may change teams and
+      // status, but only for areas they administer - and never adminFor or
+      // masterAdmin, so admin rights cannot be self-granted or handed on.
+      allow update: if isMaster();
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['teams', 'status', 'name', 'lastSeen', 'memberId', 'linkedBy'])
+                    && me().get('adminFor', []).hasAny(request.resource.data.get('teams', []));
+
+      allow delete: if isAdmin();
+    }
+
+    // ---- hub page registry ------------------------------------------
+
+    match /hubPages/{pageId} {
+      allow read: if active();
+      allow write: if isAdmin() && adminOf(request.resource.data.team);
+    }
+
+    // ---- address book -----------------------------------------------
+    // Personal data. Readable by any active member so rotas and directories
+    // work; writable only by team admins.
+
+    // signInEmails holds any extra addresses Core Team has linked to this
+    // person, so a Gmail sign-in still resolves to their record.
+    match /addressBook/{personId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    // ---- rota, services, availability -------------------------------
+    // Ministry-scoped. A document carries a `ministry` field naming the team
+    // it belongs to; leaders of that team may write it.
+
+    // events.teams is an array of team names, e.g. ["Worship Team","AV Team"].
+    // A leader of any team on the event may write it.
+    match /events/{eventId} {
+      allow read: if active();
+      allow write: if isAdmin()
+                   || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team']));
+    }
+
+    match /availability/{docId} {
+      allow read: if active();
+      // Anyone active may submit their own availability.
+      allow create, update: if active();
+      allow delete: if canAct('Kids Church');
+    }
+
+    // ---- knowledge base ---------------------------------------------
+
+    match /kb_troubleshoot_av/{docId} {
+      allow read: if active();
+      allow write: if canAct('AV Team');
+    }
+
+    match /kb_howto_av/{docId} {
+      allow read: if active();
+      allow write: if canAct('AV Team');
+    }
+
+    // ---- songs and library ------------------------------------------
+
+    match /songs/{docId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    // ---- team panels ---------------------------------------------------
+    // A block of welcome content per team, shown on the landing page under the
+    // church-wide one. Someone on Worship and Kids Church sees both.
+
+    match /teamContent/{team} {
+      allow read: if active();
+      allow write: if adminOf(team);
+    }
+
+    // ---- pin boards ----------------------------------------------------
+    // One document per board: 'state' is the worship one and keeps its name,
+    // with Kids Church and the youth alongside it. Each is readable and
+    // writable only by the teams it belongs to, so a note pinned to the Kids
+    // Church board is not church-wide reading.
+
+    match /worshipBoardState/{boardId} {
+      allow read, write: if isMaster()
+        || (boardId == 'kids-church'
+            && (onTeam('Kids Church') || adminOf('Kids Church')))
+        || (boardId == 'youth'
+            && (onTeam('Youth Worship') || adminOf('Youth Worship')))
+        || (boardId == 'state'
+            && (onTeam('Worship Team') || onTeam('AV Team') || onTeam('Choir')
+                || adminOf('Worship Team')));
+    }
+
+    // ---- news ---------------------------------------------------------
+    // One document per notice, with a `teams` array. An empty array means
+    // everyone; otherwise only people on one of those teams see it, which is
+    // what keeps youth notices carrying places and times away from others.
+
+    match /news/{itemId} {
+      allow read: if active();
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+
+      // Anyone active may add themselves to ackedBy, and nothing else -
+      // that is the "I have read it" button.
+      allow update: if isAdmin()
+                    || (active()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ackedBy'])
+                        && request.resource.data.ackedBy.hasAll(resource.data.get('ackedBy', [])));
+    }
+
+    // ---- availability requests ---------------------------------------
+    // Who has already been asked about a term, so a second send from another
+    // team does not ask the same people again.
+
+    match /availabilityRequests/{term} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    // ---- youth access ------------------------------------------------
+    // Young people cannot have accounts - the church does not hold minors'
+    // email addresses. Instead a single-use code is emailed to a parent and
+    // redeemed once on the young person's own device, which is then bound to
+    // an anonymous Firebase account. See YOUTH-ACCESS.md.
+
+    function youthGranted() {
+      return request.auth != null
+             && exists(/databases/$(database)/documents/youthAccess/$(request.auth.uid))
+             && get(/databases/$(database)/documents/youthAccess/$(request.auth.uid)).data.active == true
+             && get(/databases/$(database)/documents/youthAccess/$(request.auth.uid)).data.expiresAt > request.time;
+    }
+
+    match /youthGrants/{code} {
+      // The code IS the secret: a direct get by exact id is how it is redeemed.
+      // Listing is closed, so nobody can fish for a valid one.
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, delete: if isAdmin();
+
+      // Redemption: mark it used, once, binding it to the redeemer.
+      allow update: if isAdmin()
+                    || (request.auth != null
+                        && resource.data.active == true
+                        && resource.data.redeemedAt == null
+                        && request.resource.data.uid == request.auth.uid
+                        && request.resource.data.diff(resource.data)
+                             .affectedKeys().hasOnly(['redeemedAt', 'uid']));
+    }
+
+    match /youthAccess/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow update, delete: if isAdmin();
+
+      // Created only by the person redeeming, and only against a live,
+      // unredeemed code.
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.data.active == true
+                    && exists(/databases/$(database)/documents/youthGrants/$(request.resource.data.grantCode))
+                    && get(/databases/$(database)/documents/youthGrants/$(request.resource.data.grantCode)).data.active == true
+                    && get(/databases/$(database)/documents/youthGrants/$(request.resource.data.grantCode)).data.redeemedAt == null;
+    }
+
+    // ---- the video library ------------------------------------------
+    // One collection for every team, with the team on each record - the same
+    // shape as the news feed. A person sees their own teams' videos; the
+    // team's admin is the one who can add and remove them, which is what
+    // lets Karen put a video up without going through the Core Team.
+
+    match /teamVideos/{videoId} {
+      allow read: if isMaster()
+                  || (active() && (onTeam(resource.data.team)
+                                   || adminOf(resource.data.team)));
+      allow create: if canAct(request.resource.data.team);
+      allow update, delete: if canAct(resource.data.team);
+    }
+
+    // The sections a team has made for its own videos - one document per
+    // team, holding a list of names.
+    match /videoSections/{teamSlug} {
+      allow read: if active();
+      allow write: if canAct(request.resource.data.team);
+    }
+
+    // ---- the rota sign-off ------------------------------------------
+    // One document per term and team, saying that department has finished.
+    // Anyone who administers a team may sign that team off; the planner
+    // clears them again on the next edit.
+
+    match /rotaSignoff/{key} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    // ---- documents and links ----------------------------------------
+
+    match /resources/{itemId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    // ---- the rest of the knowledge base ------------------------------
+    // Play-through and worship training sit alongside the two AV ones above.
+
+    match /kb_playthrough/{docId} {
+      allow read: if active();
+      allow write: if canAct('Worship Team');
+    }
+
+    match /kb_training_worship/{docId} {
+      allow read: if active();
+      allow write: if canAct('Worship Team');
+    }
+
+    // ---- service plans -----------------------------------------------
+    // What the Sunday Service Planner saves, and what the projection
+    // software reads back. Everyone signed in can see the plan for a
+    // Sunday; building one is a worship job.
+
+    match /services/{serviceId} {
+      allow read: if active();
+      allow write: if canAct('Worship Team') || canAct('Youth Worship');
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if active();
+      allow write: if canAct('Worship Team') || canAct('Youth Worship');
+    }
+
+    // ---- older shared content ----------------------------------------
+    // The legacy portal menu, the page content blocks and the saved email
+    // drafts. Readable by the team, changed by whoever manages something.
+
+    match /portal/{docId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    match /pageContent/{docId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    match /emailDrafts/{draftId} {
+      allow read, write: if isAdmin();
+    }
+
+    // The practice copies of the tools write here rather than into the real
+    // collections. Anyone learning the system may scribble on it.
+    match /training_portal/{docId} {
+      allow read, write: if active();
+    }
+
+    // ---- everything else --------------------------------------------
+    // Closed by default. Add an explicit rule per collection as you migrate
+    // each tool onto authentication.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

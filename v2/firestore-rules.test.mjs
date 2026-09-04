@@ -9,9 +9,20 @@ import {
 } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
 
+/* Read the port from firebase.json rather than repeating it here. They used
+   to be two numbers that had to agree, and when 8080 turned out to be taken
+   on a real machine only one of them moved. */
+const cfg = JSON.parse(fs.readFileSync('firebase.json', 'utf8'));
+const PORT = cfg?.emulators?.firestore?.port ?? 8080;
+
+/* firebase.json has singleProjectMode on, so the project the tests talk to
+   has to be the one the emulator was started with. emulators:exec puts it in
+   the environment; the fallback matches the --project in EMULATOR.md. */
+const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || 'demo-egbc';
+
 const env = await initializeTestEnvironment({
-  projectId: 'egbc-rules-test',
-  firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 },
+  projectId: PROJECT,
+  firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: PORT },
 });
 
 /* ---- the people we are testing as -------------------------------- */

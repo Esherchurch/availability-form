@@ -11,7 +11,8 @@
       "port": 9099
     },
     "firestore": {
-      "port": 8080
+      "comment": "Not 8080 - the monitor bridge and most local dev servers sit there, and the emulator refuses to start rather than share.",
+      "port": 8181
     },
     "storage": {
       "port": 9199

@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// EGBC Worship Planner — Firebase Storage rules
+//
+// Deploy from the project folder with:
+//   firebase deploy --only storage --project egbc-worship-planner
+//
+// Knowledge Base media (AV how-to and troubleshooting videos) is readable by
+// anyone with the link. These are internal AV instruction videos with no
+// personal data and no third-party copyright, so open read is acceptable and
+// avoids every viewer needing an account.
+//
+// Writes are capped at 500 MB and restricted to video and image types, so a
+// stray upload cannot run up a bill.
+//
+// PlayThrough recordings are NOT covered by this and should stay out of the
+// kb/ path until authentication exists — those are recordings of copyrighted
+// worship songs and need gating.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Knowledge Base media ──────────────────────────────────────────
+    match /kb/{page}/{fileName} {
+      allow read: if true;
+      allow write: if request.resource.size < 500 * 1024 * 1024
+                   && (request.resource.contentType.matches('video/.*')
+                       || request.resource.contentType.matches('image/.*'));
+      allow delete: if false;
+    }
+
+    // ── Banner photos ─────────────────────────────────────────────────
+    // Uploaded from the hub by team admins. Readable by anyone, since the
+    // banner is the first thing on the page before rules are even consulted.
+
+    match /banners/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 8 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
+    // ── Team resources ────────────────────────────────────────────────
+    // Documents and files uploaded through resources.html. Signed-in only —
+    // these include charters, policies and schemes of work.
+
+    match /resources/{team}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 100 * 1024 * 1024;
+      allow delete: if request.auth != null;
+    }
+
+    // ── PlayThrough recordings ────────────────────────────────────────
+    // Recordings of copyrighted worship songs. Signed-in only — never public.
+
+    match /playthrough/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 500 * 1024 * 1024;
+      allow delete: if false;
+    }
+
+    // ── Rota PDFs (existing behaviour) ────────────────────────────────
+    match /rotas/{fileName} {
+      allow read: if true;
+      allow write: if request.resource.size < 25 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    // ── Everything else is closed ─────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
