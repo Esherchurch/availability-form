@@ -33,6 +33,7 @@
   var openTrack = null;
   var dragFrom = null;
   var importTab = 'order';
+  var tlZoom = 100;                // timeline width, percent
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) {
@@ -371,7 +372,8 @@
       return;
     }
     var total = lay.totalSec || 1;
-    var html = '<div class="tl-ruler">' + rulerHtml(total) + '</div><div class="tl-body">';
+    var html = '<div class="tl-scroll"><div style="width:' + tlZoom + '%">' +
+               '<div class="tl-ruler">' + rulerHtml(total) + '</div><div class="tl-body">';
 
     lay.tracks.forEach(function (lt, i) {
       var t = project.tracks[i];
@@ -397,7 +399,7 @@
               'title="' + esc(junctionLabel(j)) + '"></div>';
     });
 
-    html += '</div>';
+    html += '</div></div></div>';
     el.innerHTML = html;
   }
 
@@ -420,6 +422,16 @@
 
   function renderTracks() {
     var el = $('tracks');
+
+    /* Rescue the junction panel before rebuilding. It gets MOVED into a row
+       below, so it is a child of #tracks by the time this runs again — and
+       setting innerHTML would destroy the element, along with every handler
+       delegated to it. The controls then render into a node that is no longer
+       in the document, which looks exactly like a dead panel. */
+    var panel = $('junction');
+    var home = $('junctionHome');
+    if (panel && home && el.contains(panel)) home.appendChild(panel);
+
     if (!project.tracks.length) { el.innerHTML = ''; return; }
     el.innerHTML = project.tracks.map(function (t, i) {
       var lt = lay.tracks[i];
@@ -452,13 +464,52 @@
           '</span>' +
         '</div>' +
         (openTrack === i ? trackEditorHtml(t, i) : '') +
-      '</div>';
+      '</div>' +
+      junctionRowHtml(i);
     }).join('');
+
+    /* The junction editor is not rebuilt here — the existing #junction element
+       is physically MOVED into the open row, so renderJunctionEditor() and every
+       handler delegated to it carry on working untouched. Only its parent
+       changes. */
+    if (openJunction != null && panel) {
+      var slot = document.querySelector('.jrow[data-jrow="' + openJunction + '"] .jrow-slot');
+      if (slot) slot.appendChild(panel);
+    }
+
     project.tracks.forEach(function (t, i) {
       if (openTrack !== i) return;
       var cv = document.querySelector('.trk[data-track="' + i + '"] canvas');
       if (cv) drawWave(cv, t);
     });
+  }
+
+  /* A transition row between every pair of tracks. This is where anyone
+     actually looks for it — the timeline markers are 3 px wide and were the
+     only way in. */
+  function junctionRowHtml(i) {
+    if (i >= project.tracks.length - 1) return '';
+    var j = lay.junctions[i];
+    if (!j) return '';
+    var open = openJunction === i;
+    var name = { 'blend': 'Blend', 'throw-bridge': 'Beat bridge', 'hard-cut': 'Hard cut' }[j.type] || j.type;
+    var s = j.settings || {};
+    var detail;
+    if (j.type === 'hard-cut') detail = s.gapMs ? s.gapMs + ' ms gap' : 'straight cut';
+    else if (j.type === 'blend') detail = (s.bars || 16) + ' bars';
+    else detail = (s.beatBars == null ? 16 : s.beatBars) + ' bars of beat alone';
+
+    return '<div class="jrow' + (open ? ' open' : '') + '" data-jrow="' + i + '">' +
+      '<button class="jrow-btn" data-act="open-jrow" data-junction="' + i + '">' +
+        '<span class="jrow-caret">' + (open ? '▾' : '▸') + '</span>' +
+        '<span class="jrow-kind j-' + j.type + '">' + name + '</span>' +
+        '<span class="jrow-detail">' + esc(detail) +
+          (j.targetBpm ? ' · ' + j.targetBpm + ' BPM' : '') + '</span>' +
+        (j.renderable ? '' : '<span class="pill lo">no tempo match</span>') +
+        '<span class="jrow-hint">' + (open ? 'Close' : 'Edit transition') + '</span>' +
+      '</button>' +
+      '<div class="jrow-slot"></div>' +
+    '</div>';
   }
 
   function trackEditorHtml(t, i) {
@@ -804,6 +855,19 @@
 
     $('suggestBtn').onclick = showSuggestion;
 
+    /* Timeline zoom as a control, not a keystroke. At 100% a 47-track set puts
+       each junction marker 3 px wide; widening the strip makes them clickable
+       without anyone having to know about Ctrl and the plus key. */
+    var zoomEl = $('tlZoom');
+    if (zoomEl) {
+      zoomEl.oninput = function () {
+        tlZoom = parseInt(zoomEl.value, 10) || 100;
+        var out = $('tlZoomVal');
+        if (out) out.textContent = tlZoom + '%';
+        renderTimeline();
+      };
+    }
+
     // Offline badge: the tool is fully usable without a connection, so this is
     // information rather than a warning.
     var setOnline = function () {
@@ -854,9 +918,14 @@
     // Track list: open/close, field edits, waveform clicks, buttons.
     var tracksEl = $('tracks');
     tracksEl.addEventListener('click', function (e) {
-      var act = e.target.dataset.act;
+      /* Resolve the action from the nearest element that carries one, not from
+         whichever pixel was hit. A button with a label and a caret inside it
+         reports the span as e.target, and reading dataset.act off that does
+         nothing at all — indistinguishable from a dead control. */
+      var actEl = e.target.closest ? e.target.closest('[data-act]') : null;
+      var act = actEl ? actEl.dataset.act : null;
       if (act) {
-        var i = +e.target.dataset.track;
+        var i = +actEl.dataset.track;
         if (act === 'half') { setMultiplier(i, 0.5); }
         if (act === 'double') { setMultiplier(i, 2); }
         if (act === 'checkgrid') { checkGrid(i); }
@@ -875,11 +944,20 @@
           touch();
         }
         if (act === 'swap') { openSwap(i); }
+        if (act === 'open-jrow') {
+          var jn = +actEl.dataset.junction;
+          openJunction = (openJunction === jn) ? null : jn;
+          openTrack = null;
+          renderAll();
+          var row = document.querySelector('.jrow[data-jrow="' + jn + '"]');
+          if (row && openJunction != null) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          return;
+        }
         if (act === 'regions-on') { startRegions(i); }
         if (act === 'regions-off') { project.tracks[i].regions = null; touch(); }
         if (act === 'region-add') { addRegion(i); }
-        if (act === 'region-del') { delRegion(i, +e.target.dataset.region); }
-        if (act === 'region-up') { moveRegion(i, +e.target.dataset.region); }
+        if (act === 'region-del') { delRegion(i, +actEl.dataset.region); }
+        if (act === 'region-up') { moveRegion(i, +actEl.dataset.region); }
         if (act === 'cut-sample') {
           var sel = document.querySelector('[data-act="cut-bars"][data-track="' + i + '"]');
           var bars = sel ? parseInt(sel.value, 10) : 4;

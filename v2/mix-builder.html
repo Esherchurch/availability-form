@@ -116,6 +116,10 @@
   .tl-bpm{display:block; font-size:9px; font-weight:700; color:var(--muted); line-height:1.2}
   .tl-junction{position:absolute; top:0; width:3px; height:56px; margin-left:-1px; cursor:pointer;
     background:var(--brand-dark); z-index:2; border-radius:2px}
+  /* The line stays thin; the thing you have to hit does not. Without this the
+     marker is a 3 px target however far the zoom slider is pushed, because
+     zooming spreads the markers apart but does not widen them. */
+  .tl-junction::before{content:''; position:absolute; top:0; bottom:0; left:-7px; right:-7px}
   .tl-junction:hover{box-shadow:0 0 0 3px var(--brand-ring)}
   .tl-junction.j-hard-cut{background:var(--danger)}
   .tl-junction.j-throw-bridge{background:var(--gold)}
@@ -198,6 +202,36 @@
 
   .offline-badge{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
     color:var(--gold); background:var(--gold-tint); padding:4px 10px; border-radius:var(--r-pill)}
+
+  /* Junction rows — the transition between two tracks, in the Tracks list */
+  .jrow{position:relative; margin:0 0 0 22px; padding:0 0 0 14px;
+    border-left:2px dashed var(--hairline-strong)}
+  .jrow.open{border-left-color:var(--brand)}
+  .jrow-btn{display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    background:var(--surface-2); color:var(--body); border:1px solid var(--hairline);
+    border-radius:var(--r-md); padding:9px 12px; margin:6px 0; cursor:pointer;
+    font-family:inherit; font-size:12px; font-weight:700}
+  .jrow-btn:hover{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark)}
+  .jrow.open .jrow-btn{background:var(--brand-tint); border-color:var(--brand)}
+  .jrow-btn > *{pointer-events:none}
+  .jrow-caret{color:var(--muted); width:12px}
+  .jrow-kind{font-weight:800; color:var(--ink)}
+  .jrow-kind.j-hard-cut{color:var(--danger)}
+  .jrow-kind.j-throw-bridge{color:var(--gold)}
+  .jrow-detail{color:var(--muted); font-weight:600; flex:1}
+  .jrow-hint{color:var(--brand); font-weight:800; font-size:11px; text-transform:uppercase;
+    letter-spacing:.06em}
+  .jrow-slot:empty{display:none}
+  .jrow-slot .card{margin:4px 0 12px}
+
+  /* Timeline zoom */
+  .tl-tools{display:flex; align-items:center; gap:10px; margin:0 0 8px; flex-wrap:wrap}
+  .tl-tools label{font-size:11px; font-weight:800; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--muted)}
+  .tl-tools input[type=range]{width:220px; padding:0}
+  .tl-zoomval{font-size:12px; font-weight:700; color:var(--muted);
+    font-variant-numeric:tabular-nums; min-width:46px}
+  .tl-scroll{overflow-x:auto; overflow-y:hidden; padding-bottom:6px}
 
   /* Regions */
   .regions{margin-top:14px; padding-top:12px; border-top:1px solid var(--hairline)}
@@ -284,11 +318,18 @@
   <div class="card">
     <span class="lbl">The set</span>
     <div id="summary"></div>
+    <div class="tl-tools">
+      <label for="tlZoom">Timeline zoom</label>
+      <input type="range" id="tlZoom" min="100" max="1000" step="25" value="100"
+             aria-label="Timeline zoom">
+      <span class="tl-zoomval" id="tlZoomVal">100%</span>
+      <span style="font-size:12px;color:var(--muted)">Widen the timeline to click a junction directly, or use the transition rows in Tracks below.</span>
+    </div>
     <div id="timeline"></div>
     <div id="warnings"></div>
   </div>
 
-  <div id="junction" class="card hidden"></div>
+  <div id="junctionHome"><div id="junction" class="card hidden"></div></div>
 
   <div class="card">
     <span class="lbl">Tracks</span>
