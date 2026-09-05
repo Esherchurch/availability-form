@@ -933,6 +933,95 @@ onmessage = e => {
      resolution a kick's fundamental looks sustained and the separator deletes
      it. Separation stays available as an aggressive alternative, with its low
      end preserved, but it is not the default and should not be. */
+  /* The bridge's outgoing treatment, in ONE place.
+     ------------------------------------------------------------------
+     Lifted out of renderBridge() below without changing a number, because two
+     paths need it and keeping two copies is exactly how the full render ended
+     up with a version that cut the mids for a whole track:
+
+       - renderBridge()                  — audition, both tracks in one buffer
+       - mix-render.js renderTrackStream — full render, one track per stream
+
+     Same automation either way. Anything changed here changes both.
+
+     Three peaking bells cover roughly 400 Hz – 5 kHz, where voices and chords
+     sit. NOTHING below 300 Hz or above 6 kHz is touched, so the kick, the bass,
+     the hats and the crack of the snare all survive — those top-end transients
+     are what make it read as a beat rather than a muffled rumble. A peaking
+     filter at 0 dB is exactly unity, so everything before brAt is untouched.
+
+       off      the OfflineAudioContext the graph is being built in
+       source   the outgoing track's source node. The throw is tapped from it
+                BEFORE the filters, so it carries the full-range last note
+                rather than a filtered version of it.
+       chain    the node the filters hang off (usually source itself)
+       o        { barSec, beatSec, brAt, fadeSec, midCutDb, highCutDb,
+                  throwing, reverbBars }
+     Returns the last node of the filtered chain, to connect onward. */
+  function applyBridgeOut(off, source, chain, o) {
+    var brAt = o.brAt, fadeSec = o.fadeSec;
+    var midCut = o.midCutDb == null ? 24 : o.midCutDb;
+    var highCut = o.highCutDb == null ? 0 : o.highCutDb;
+
+    var m1 = off.createBiquadFilter(); m1.type = 'peaking'; m1.frequency.value = 700; m1.Q.value = 1.0;
+    var m2 = off.createBiquadFilter(); m2.type = 'peaking'; m2.frequency.value = 1800; m2.Q.value = 1.0;
+    var m3 = off.createBiquadFilter(); m3.type = 'peaking'; m3.frequency.value = 3500; m3.Q.value = 1.0;
+    var hs = off.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 7000;
+
+    if (o.throwing) {
+      var send = off.createGain();
+      var conv = off.createConvolver();
+      conv.buffer = makeIR(off, (o.reverbBars == null ? 2 : o.reverbBars) * o.barSec, 2.5);
+      var wet = off.createGain(); wet.gain.value = 0.85;
+      source.connect(send).connect(conv).connect(wet).connect(off.destination);
+      // Opens for the final beat, shuts at the cut; the tail rings on over the
+      // beat carrying underneath.
+      send.gain.setValueAtTime(0, 0);
+      send.gain.setValueAtTime(0, Math.max(0, brAt - o.beatSec - 0.001));
+      send.gain.linearRampToValueAtTime(1, Math.max(0.001, brAt - o.beatSec));
+      send.gain.setValueAtTime(1, Math.max(0.002, brAt));
+      send.gain.linearRampToValueAtTime(0, brAt + 0.02);
+    }
+
+    var bands = [[m1, midCut], [m2, midCut], [m3, midCut * 0.7], [hs, highCut]];
+    for (var i = 0; i < bands.length; i++) {
+      var f = bands[i][0], depth = bands[i][1];
+      f.gain.setValueAtTime(0, 0);
+      if (depth <= 0) continue;
+      f.gain.setValueCurveAtTime(rampCurve(256, 0, -depth), brAt, fadeSec);
+      f.gain.setValueAtTime(-depth, brAt + fadeSec + 0.001);
+    }
+
+    chain.connect(m1).connect(m2).connect(m3).connect(hs);
+    return hs;
+  }
+
+  /** How a bridge describes itself in a report. Shared for the same reason. */
+  function bridgeNote(o) {
+    return (o.throwing ? (o.reverbBars == null ? 2 : o.reverbBars) + '-bar reverb throw, '
+                       : (o.fadeBars == null ? 4 : o.fadeBars) + '-bar fade, ') +
+           'mids cut ' + (o.midCutDb == null ? 24 : o.midCutDb) + ' dB, highs ' +
+           (o.highCutDb ? 'cut ' + o.highCutDb + ' dB' : 'kept');
+  }
+
+  /* How many beat-alone bars actually fit in a track of `durSec`, given the
+     fade and the overlap that sit either side of them.
+
+     This exists because the full render used to clamp a bridge that did not fit
+     with Math.max(0, ...), which starts the mid-cut ramp at sample zero and
+     holds it for the entire track — a four-minute record with its mids gone and
+     no error anywhere. Shortening the beat-alone section is the honest answer:
+     the bridge still happens, it is just as long as there is room for. */
+  function fitBeatBars(durSec, barSec, wantBeatBars, fadeSec, overlapBars, maxFraction) {
+    var frac = maxFraction == null ? 0.5 : maxFraction;
+    var room = Math.max(0, durSec * frac - fadeSec - (overlapBars || 0) * barSec);
+    var fits = Math.floor(room / barSec);
+    return {
+      beatBars: Math.max(0, Math.min(wantBeatBars, fits)),
+      shortened: fits < wantBeatBars
+    };
+  }
+
   function renderBridge(opts) {
     var ctx = opts.ctx, a = opts.a, b = opts.b, target = opts.targetBpm;
     var bridgeBars = opts.beatBars == null ? 8 : opts.beatBars;
@@ -997,25 +1086,17 @@ onmessage = e => {
 
     if (method === 'eq') {
       var sA = off.createBufferSource(); sA.buffer = bufA;
-      var m1 = off.createBiquadFilter(); m1.type = 'peaking'; m1.frequency.value = 700; m1.Q.value = 1.0;
-      var m2 = off.createBiquadFilter(); m2.type = 'peaking'; m2.frequency.value = 1800; m2.Q.value = 1.0;
-      var m3 = off.createBiquadFilter(); m3.type = 'peaking'; m3.frequency.value = 3500; m3.Q.value = 1.0;
-      var hs = off.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 7000;
       var gA = off.createGain();
-      sA.connect(m1).connect(m2).connect(m3).connect(hs).connect(gA).connect(off.destination);
 
-      if (throwing) addThrow(bufA, aStart, null);
+      // The filters and the throw come from applyBridgeOut, which the full
+      // render calls too. One implementation, two callers.
+      var tail = applyBridgeOut(off, sA, sA, {
+        barSec: barSec, beatSec: spb, brAt: brAt, fadeSec: fadeSec,
+        midCutDb: midCut, highCutDb: highCut,
+        throwing: throwing, reverbBars: reverbBars
+      });
+      tail.connect(gA).connect(off.destination);
 
-      // A peaking filter at 0 dB is exactly unity, so everything before the
-      // bridge is untouched by these.
-      var bands = [[m1, midCut], [m2, midCut], [m3, midCut * 0.7], [hs, highCut]];
-      for (var i = 0; i < bands.length; i++) {
-        var f = bands[i][0], depth = bands[i][1];
-        f.gain.setValueAtTime(0, 0);
-        if (depth <= 0) continue;
-        f.gain.setValueCurveAtTime(rampCurve(256, 0, -depth), brAt, fadeSec);
-        f.gain.setValueAtTime(-depth, brAt + fadeSec + 0.001);
-      }
       gA.gain.setValueAtTime(1, 0);
       if (overlapBars > 0) gA.gain.setValueCurveAtTime(equalPower(128, false), bEnterAt, overlapBars * barSec);
       else {
@@ -1023,8 +1104,8 @@ onmessage = e => {
         gA.gain.linearRampToValueAtTime(0, brAt + bridgeSec);
       }
       sA.start(0, aStart, bridgeSec + preRoll);
-      note = (throwing ? reverbBars + '-bar reverb throw, ' : fadeBars + '-bar fade, ') +
-             'mids cut ' + midCut + ' dB, highs ' + (highCut ? 'cut ' + highCut + ' dB' : 'kept');
+      note = bridgeNote({ throwing: throwing, reverbBars: reverbBars, fadeBars: fadeBars,
+                          midCutDb: midCut, highCutDb: highCut });
 
     } else {
       // Separation, but the low end is never touched. Straight HPSS deletes the
@@ -1195,6 +1276,9 @@ onmessage = e => {
     REGION_JOIN_SEC: REGION_JOIN_SEC,
     renderBlend: renderBlend,
     renderBridge: renderBridge,
+    applyBridgeOut: applyBridgeOut,
+    bridgeNote: bridgeNote,
+    fitBeatBars: fitBeatBars,
     renderHardCut: renderHardCut,
     renderJunction: renderJunction,
     TYPES: Object.keys(RENDERERS)

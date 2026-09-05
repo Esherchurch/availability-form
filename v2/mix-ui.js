@@ -1427,6 +1427,25 @@
             }).join('') +
           '</div>'
         : '') +
+      (function () {
+        var bridged = (rep.tracks || []).filter(function (t) { return t.bridge; });
+        if (!bridged.length) return '';
+        return '<div class="rep">' +
+          '<div class="rep-head">Beat bridges — ' + bridged.length + '</div>' +
+          '<div class="rep-scroll">' +
+          bridged.map(function (t) {
+            var b = t.bridge;
+            return '<div class="rep-row">' +
+              '<span class="n">' + (t.index + 1) + '</span>' +
+              '<span class="t">' + esc(t.title) + '</span>' +
+              '<span class="m">' + b.beatBars + ' bars of beat from ' + fmt(b.brAtSec) + '</span>' +
+              '<span class="m">' + esc(b.note) + '</span>' +
+              (b.zeroOverlap ? '<span class="pill">no overlap</span>' : '') +
+              (b.shortened ? '<span class="pill lo">cut to fit, was ' + b.wantedBeatBars + '</span>' : '') +
+            '</div>';
+          }).join('') +
+          '</div></div>';
+      })() +
       '<div class="rep">' +
         '<div class="rep-head">Seams — ' + rep.seams.length + ' junctions, ' +
           'none spliced</div>' +

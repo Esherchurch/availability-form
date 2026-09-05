@@ -159,9 +159,13 @@
       var j = lay.junctions[k];
       var s = j.settings || {};
       var overlap = 0, gap = 0;
+      var type = j.type, bridgeBpm = null, zeroOverlap = false, substituted = false;
+
       if (j.type === 'hard-cut') {
+        // A deliberate choice, not a failure. Left alone.
         gap = (s.gapMs || 0) / 1000;
       } else if (j.targetBpm) {
+        bridgeBpm = j.targetBpm;
         var barSec = 60 / j.targetBpm * 4;
         overlap = j.type === 'blend'
           ? (s.bars || 16) * barSec
@@ -170,9 +174,40 @@
         // A bridge's B only overlaps for overlapBars; the beat-alone part is
         // still track A playing, so only the true overlap shortens the set.
         if (j.type !== 'blend') overlap = (s.overlapBars == null ? 1 : s.overlapBars) * barSec;
+      } else {
+        /* No common tempo — layout could not get the two inside the stretch
+           budget. That is NOT a render outcome: butting two tracks together
+           exposes both outros and is what produced four seconds of silence
+           between records.
+
+           It becomes a BRIDGE WITH ZERO OVERLAP instead. The music cuts on a
+           bar line, the beat runs on alone to the end of the bar, A stops, and
+           B starts on the next one. No tempo match is needed because the two
+           never sound together — and the beat still carries the ear across to
+           B's entry, which is the whole point of a bridge.
+
+           It runs at the OUTGOING track's own tempo, so neither record is
+           stretched at this junction. */
+        type = 'throw-bridge';
+        zeroOverlap = true;
+        substituted = true;
+        bridgeBpm = MP.effectiveBpm(tracks[k]) || null;
+        overlap = 0;
+        gap = 0;
+        plan.problems.push({
+          junction: k, kind: 'zero-overlap-bridge',
+          message: 'Junction ' + (k + 1) + ': "' + (tracks[k].title || tracks[k].file) +
+                   '" and "' + (tracks[k + 1].title || tracks[k + 1].file) +
+                   '" are too far apart to beat-match, so this is a bridge with no ' +
+                   'overlap — the beat carries alone into the next track rather than ' +
+                   'the two butting together.'
+        });
       }
+
       plan.junctions.push({
-        index: k, type: j.type, settings: s, targetBpm: j.targetBpm,
+        index: k, type: type, requestedType: j.type, substituted: substituted,
+        settings: s, targetBpm: j.targetBpm, bridgeBpm: bridgeBpm,
+        zeroOverlap: zeroOverlap,
         overlapSec: overlap, requestedOverlapSec: overlap, gapSec: gap,
         clamped: false, renderable: j.renderable
       });
@@ -317,6 +352,17 @@
 
     var chain = node;
     var CURVE = 256;
+    var applied = { bridge: null };
+
+    /* Declared BEFORE anything reads them. These sat below the incoming block,
+       and `var` hoists the declaration but not the value — so `inOverlap > 0`
+       evaluated `undefined > 0`, which is false, and the incoming bass swap has
+       never run on any blend in any render. It failed silently instead of
+       throwing only because the condition was false. */
+    var safe = function (t) { return Math.max(0, Math.min(dur, isFinite(t) ? t : 0)); };
+    var outOverlap = jOut ? Math.max(0, Math.min(jOut.overlapSec, dur)) : 0;
+    var inOverlap = jIn ? Math.max(0, Math.min(jIn.overlapSec, dur)) : 0;
+    var outStart = safe(dur - outOverlap);
 
     // --- incoming: this track arriving under the previous one
     if (jIn && jIn.type === 'blend' && inOverlap > 0) {
@@ -329,56 +375,43 @@
       chain.connect(bassIn); chain = bassIn;
     }
 
-    // --- outgoing: the treatment this track gets as it leaves
-    /* buildPlan clamps overlaps to fit, but this graph is where a bad number
-       becomes a thrown RangeError rather than a wrong sound, so every time fed
-       to an AudioParam is clamped into the buffer here too. */
-    var safe = function (t) { return Math.max(0, Math.min(dur, isFinite(t) ? t : 0)); };
-    var outOverlap = jOut ? Math.max(0, Math.min(jOut.overlapSec, dur)) : 0;
-    var inOverlap = jIn ? Math.max(0, Math.min(jIn.overlapSec, dur)) : 0;
-    var outStart = safe(dur - outOverlap);
-    if (jOut && jOut.type !== 'hard-cut' && jOut.type !== 'blend' && jOut.targetBpm) {
-      // Bridge: the mids come out so the beat carries on alone, then B arrives.
+    /* --- outgoing: the beat bridge.
+       Keyed on bridgeBpm, not targetBpm, so a junction with no common tempo
+       still bridges. It just does it at this track's own tempo with no overlap,
+       because the two records never sound together. */
+    if (jOut && jOut.type !== 'hard-cut' && jOut.type !== 'blend' && jOut.bridgeBpm) {
       var s = jOut.settings;
-      var barSec = 60 / jOut.targetBpm * 4;
-      var beatBars = s.beatBars == null ? 16 : s.beatBars;
+      var barSec = 60 / jOut.bridgeBpm * 4;
       var throwing = (s.cutStyle || 'throw') === 'throw';
       var fadeSec = throwing ? 0.03 : (s.fadeBars == null ? 4 : s.fadeBars) * barSec;
-      var midCut = s.midCutDb == null ? 24 : s.midCutDb;
-      var highCut = s.highCutDb == null ? 0 : s.highCutDb;
-      var brAt = safe(dur - (beatBars * barSec + (s.overlapBars == null ? 1 : s.overlapBars) * barSec));
+      var overlapBars = jOut.zeroOverlap ? 0 : (s.overlapBars == null ? 1 : s.overlapBars);
 
-      var m1 = off.createBiquadFilter(); m1.type = 'peaking'; m1.frequency.value = 700; m1.Q.value = 1;
-      var m2 = off.createBiquadFilter(); m2.type = 'peaking'; m2.frequency.value = 1800; m2.Q.value = 1;
-      var m3 = off.createBiquadFilter(); m3.type = 'peaking'; m3.frequency.value = 3500; m3.Q.value = 1;
-      var hs = off.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 7000;
-      var bands = [[m1, midCut], [m2, midCut], [m3, midCut * 0.7], [hs, highCut]];
-      bands.forEach(function (bd) {
-        bd[0].gain.setValueAtTime(0, 0);
-        if (bd[1] > 0) {
-          bd[0].gain.setValueCurveAtTime(DSP.rampCurve(CURVE, 0, -bd[1]), brAt, Math.max(0.01, Math.min(fadeSec, dur - brAt)));
-          bd[0].gain.setValueAtTime(-bd[1], safe(brAt + fadeSec + 0.001));
-        }
-      });
+      /* Shorten the beat-alone section rather than let the ramp start at sample
+         zero. The previous code clamped brAt with Math.max(0, …), which cut the
+         mids for an entire track and reported nothing. */
+      var fit = DSP.fitBeatBars(dur, barSec, s.beatBars == null ? 16 : s.beatBars,
+                                fadeSec, overlapBars, 0.5);
+      var beatBars = fit.beatBars;
+      var bridgeSec = fadeSec + beatBars * barSec + overlapBars * barSec;
+      var brAt = Math.max(0, dur - bridgeSec);
 
-      if (throwing) {
-        // Tapped before the filters so the throw carries the full-range last
-        // note, not a filtered version of it.
-        var send = off.createGain();
-        var conv = off.createConvolver();
-        conv.buffer = DSP.makeIR(off, (s.reverbBars == null ? 2 : s.reverbBars) * barSec, 2.5);
-        var wet = off.createGain(); wet.gain.value = 0.85;
-        node.connect(send).connect(conv).connect(wet).connect(off.destination);
-        var beat = 60 / jOut.targetBpm;
-        send.gain.setValueAtTime(0, 0);
-        send.gain.setValueAtTime(0, safe(brAt - beat - 0.001));
-        send.gain.linearRampToValueAtTime(1, Math.max(0.001, safe(brAt - beat)));
-        send.gain.setValueAtTime(1, safe(brAt));
-        send.gain.linearRampToValueAtTime(0, safe(brAt + 0.02));
+      applied.bridge = {
+        beatBars: beatBars, wantedBeatBars: (s.beatBars == null ? 16 : s.beatBars),
+        shortened: fit.shortened, brAtSec: +brAt.toFixed(2), barSec: barSec,
+        bpm: jOut.bridgeBpm, zeroOverlap: !!jOut.zeroOverlap,
+        note: DSP.bridgeNote({ throwing: throwing, reverbBars: s.reverbBars,
+                               fadeBars: s.fadeBars, midCutDb: s.midCutDb,
+                               highCutDb: s.highCutDb })
+      };
+
+      if (beatBars > 0 || fadeSec > 0.02) {
+        // The same automation the audition path uses. One implementation.
+        chain = DSP.applyBridgeOut(off, node, chain, {
+          barSec: barSec, beatSec: 60 / jOut.bridgeBpm, brAt: brAt, fadeSec: fadeSec,
+          midCutDb: s.midCutDb, highCutDb: s.highCutDb,
+          throwing: throwing, reverbBars: s.reverbBars
+        });
       }
-
-      chain.connect(m1).connect(m2).connect(m3).connect(hs);
-      chain = hs;
     }
 
     var gain = off.createGain();
@@ -411,7 +444,9 @@
 
     chain.connect(gain).connect(off.destination);
     node.start(0);
-    return off.startRendering();
+    return off.startRendering().then(function (buffer) {
+      return { buffer: buffer, applied: applied };
+    });
   }
 
   /* ------------------------------------------- streaming WAV writer --- */
@@ -562,7 +597,8 @@
       }
       await tick();
 
-      var streamed = await renderTrackStream(ctx, { plan: pt, buffer: buf, jIn: jIn, jOut: jOut });
+      var rendered = await renderTrackStream(ctx, { plan: pt, buffer: buf, jIn: jIn, jOut: jOut });
+      var streamed = rendered.buffer;
       var L = streamed.getChannelData(0), R = streamed.numberOfChannels > 1 ? streamed.getChannelData(1) : L;
       var n = streamed.length;
 
@@ -623,8 +659,18 @@
         ramped: Math.abs(pt.r0 - pt.r1) > 0.0005,
         stretchInPct: +((pt.r0 - 1) * 100).toFixed(2),
         stretchOutPct: +((pt.r1 - 1) * 100).toFixed(2),
-        outSec: +pt.outSec.toFixed(2)
+        outSec: +pt.outSec.toFixed(2),
+        bridge: rendered.applied.bridge
       });
+      if (rendered.applied.bridge && rendered.applied.bridge.shortened) {
+        report.warnings.push({
+          track: i,
+          message: 'Bridge out of "' + pt.title + '" shortened from ' +
+                   rendered.applied.bridge.wantedBeatBars + ' to ' +
+                   rendered.applied.bridge.beatBars + ' beat-alone bars — the track is not ' +
+                   'long enough for the full bridge.'
+        });
+      }
       if (jOut) {
         report.seams.push({
           junction: i, type: jOut.type,

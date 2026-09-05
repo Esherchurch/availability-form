@@ -171,6 +171,102 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
     } catch (e) { cancelled = !!e.cancelled; }
     log.push(['cancel stops the render', cancelled ? 'threw Cancelled' : 'did not cancel', cancelled]);
 
+    /* ---- an out-of-budget junction must BRIDGE, never butt.
+       Two tracks far enough apart that layout finds no common tempo. The old
+       behaviour was overlap 0 AND gap 0, which butted them together and exposed
+       both outros — seconds of silence between records. */
+    {
+      const far = new Map();
+      far.set('f0', loop(96, 20, 70));
+      far.set('f1', loop(128, 20, 105));
+      const ft = [96, 128].map((bpm, i) => ({
+        id: 'f' + i, title: 'F' + (i + 1), file: 'f' + i + '.mp3', fileSize: 20 + i,
+        sourceBpm: bpm, bpmMultiplier: 1, downbeatSec: 0,
+        entrySec: 0, exitSec: 19.5, durationSec: 20, linked: true, regions: null
+      }));
+      const fp = Object.assign(MP.emptyProject('far'), { tracks: ft });
+      MP.rebuildJunctions(fp, {});
+      fp.junctions[0] = MP.defaultJunction('blend');        // user asked for a blend
+
+      const fplan = MR.buildPlan(fp);
+      const fj = fplan.junctions[0];
+      log.push(['no common tempo is detected',
+                'targetBpm ' + (fj.targetBpm === null ? 'null' : fj.targetBpm),
+                fj.targetBpm === null]);
+      log.push(['it becomes a bridge, not a butt join',
+                fj.type + ', substituted=' + fj.substituted + ', zeroOverlap=' + fj.zeroOverlap,
+                fj.type === 'throw-bridge' && fj.substituted === true && fj.zeroOverlap === true]);
+      log.push(['the bridge runs at the outgoing track\'s own tempo',
+                fj.bridgeBpm + ' BPM (A is 96)', Math.abs(fj.bridgeBpm - 96) < 0.01]);
+      log.push(['the substitution is reported',
+                fplan.problems.filter(p => p.kind === 'zero-overlap-bridge').length + ' logged',
+                fplan.problems.some(p => p.kind === 'zero-overlap-bridge')]);
+
+      const fres = await MR.render(fp, far, { ctx });
+      const fm = await MR.measure(fres.blob, sr);
+      log.push(['no exposed gap between the two records',
+                'longest silence ' + fm.longestSilenceSec.toFixed(3) + 's',
+                fm.longestSilenceSec < 0.3]);
+      const fb = fres.report.tracks[0].bridge;
+      log.push(['the outgoing track actually got a bridge',
+                fb ? fb.beatBars + ' beat-alone bars starting ' + fb.brAtSec + 's' : 'none',
+                !!fb && fb.beatBars > 0 && fb.zeroOverlap === true]);
+    }
+
+    /* ---- brAt must never collapse to zero.
+       A bridge longer than its track used to clamp to sample zero and cut the
+       mids for the whole thing. It must shorten the beat-alone bars instead. */
+    {
+      const sh = new Map();
+      sh.set('h0', loop(120, 12, 90));        // a 12 s track
+      sh.set('h1', loop(122, 20, 100));
+      const st = [[120, 12], [122, 20]].map((v, i) => ({
+        id: 'h' + i, title: 'H' + (i + 1), file: 'h' + i + '.mp3', fileSize: 30 + i,
+        sourceBpm: v[0], bpmMultiplier: 1, downbeatSec: 0,
+        entrySec: 0, exitSec: v[1] - 0.5, durationSec: v[1], linked: true, regions: null
+      }));
+      const spj = Object.assign(MP.emptyProject('short'), { tracks: st });
+      MP.rebuildJunctions(spj, {});
+      // 16 beat-alone bars at 120 BPM is 32 s, far longer than the 12 s track.
+      spj.junctions[0] = Object.assign(MP.defaultJunction('throw-bridge'), { beatBars: 16 });
+
+      const sres = await MR.render(spj, sh, { ctx });
+      const sb = sres.report.tracks[0].bridge;
+      log.push(['a bridge too long for its track is shortened, not clamped',
+                sb ? sb.wantedBeatBars + ' -> ' + sb.beatBars + ' bars, brAt ' + sb.brAtSec + 's' : 'none',
+                !!sb && sb.shortened === true && sb.brAtSec > 0]);
+      log.push(['the shortening is reported',
+                sres.report.warnings.filter(w => /shortened/.test(w.message || '')).length + ' warning',
+                sres.report.warnings.some(w => /shortened/.test(w.message || ''))]);
+
+      /* The symptom was mids cut for the ENTIRE track. Compare the high-frequency
+         share at the start against inside the bridge — the start must be clean. */
+      const ab2 = await sres.blob.arrayBuffer();
+      const v2 = new DataView(ab2);
+      const grab = (fromSec, lenSec) => {
+        const out = new Float32Array(Math.floor(lenSec * sr));
+        for (let i = 0; i < out.length; i++) {
+          const off = 44 + (Math.floor(fromSec * sr) + i) * 4;
+          out[i] = (off + 1 < ab2.byteLength) ? v2.getInt16(off, true) / 32768 : 0;
+        }
+        return out;
+      };
+      const hiShare = (seg) => {
+        let tot = 0;
+        for (let i = 0; i < seg.length; i++) tot += seg[i] * seg[i];
+        const hi = DSP.hpFiltfilt(seg, 400, sr);
+        let h = 0;
+        for (let i = 0; i < hi.length; i++) h += hi[i] * hi[i];
+        return tot > 0 ? h / tot : 0;
+      };
+      const atStart = hiShare(grab(1, 2));
+      const atBridge = hiShare(grab(sb.brAtSec + 0.5, 1.5));
+      log.push(['the mids are untouched at the start of the track',
+                'HF share ' + (atStart * 100).toFixed(1) + '% at 1s vs ' +
+                (atBridge * 100).toFixed(1) + '% inside the bridge',
+                atStart > atBridge * 1.4]);
+    }
+
     // --- refuses to render what it cannot
     let refused = false, msg = '';
     try {
@@ -179,6 +275,41 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
       await MR.render(bad, buffers, { ctx });
     } catch (e) { refused = true; msg = (e.message || '').split('\n')[0]; }
     log.push(['refuses a set with unlinked audio', msg, refused]);
+
+    /* ---- the incoming bass swap must actually run.
+       `inOverlap` used to be read above its own `var` declaration, so the test
+       was `undefined > 0` and this branch never executed on any blend, in any
+       render, silently. Rendered alone, the incoming track's low end must be
+       suppressed for the first half of the overlap and back by the end. */
+    {
+      const bb = loop(120, 20, 60);
+      const pt = {
+        index: 0, id: 'b0', title: 'B', sourceFromSec: 0, sourceToSec: 19.5,
+        regions: null, barSec: 2, sourceSec: 19.5,
+        r0: 1, r1: 1, tempoIn: 120, tempoOut: 120, sourceBpm: 120,
+        outSec: 19.5, startSec: 0
+      };
+      const jInBlend = { type: 'blend', overlapSec: 8, gapSec: 0, targetBpm: 120,
+                         bridgeBpm: 120, settings: { bars: 4, bassCutDb: 20 } };
+      const out = await MR.renderTrackStream(ctx, { plan: pt, buffer: bb, jIn: jInBlend, jOut: null });
+      const d = out.buffer.getChannelData(0);
+      const lowShare = (fromSec, lenSec) => {
+        const seg = d.subarray(Math.floor(fromSec * sr), Math.floor((fromSec + lenSec) * sr));
+        let tot = 0;
+        for (let i = 0; i < seg.length; i++) tot += seg[i] * seg[i];
+        const hi = DSP.hpFiltfilt(seg, 220, sr);
+        let h = 0;
+        for (let i = 0; i < hi.length; i++) h += hi[i] * hi[i];
+        return tot > 0 ? Math.max(0, (tot - h) / tot) : 0;
+      };
+      // 1-2 s is inside the first half of the 8 s overlap (bass cut 20 dB);
+      // 12-13 s is well past it (bass restored).
+      const early = lowShare(1, 1), late = lowShare(12, 1);
+      log.push(['the incoming bass swap runs',
+                'low-end share ' + (early * 100).toFixed(1) + '% during the swap vs ' +
+                (late * 100).toFixed(1) + '% after it',
+                early < late * 0.8]);
+    }
 
     // --- the report
     const rep = res.report;
