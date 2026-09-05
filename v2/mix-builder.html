@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mix Builder — EGBC</title>
-<link rel="manifest" href="manifest-mix.json">
 <meta name="theme-color" content="#3d6263">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -203,6 +202,11 @@
   .offline-badge{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
     color:var(--gold); background:var(--gold-tint); padding:4px 10px; border-radius:var(--r-pill)}
 
+  .trk-caret{color:var(--muted); width:12px; font-size:11px}
+  .trk-hint{color:var(--brand); font-weight:800; font-size:11px; text-transform:uppercase;
+    letter-spacing:.06em; white-space:nowrap}
+  .trk.open .trk-caret{color:var(--brand)}
+
   /* Junction rows — the transition between two tracks, in the Tracks list */
   .jrow{position:relative; margin:0 0 0 22px; padding:0 0 0 14px;
     border-left:2px dashed var(--hairline-strong)}
@@ -286,6 +290,13 @@
   </div>
 
   <div id="suggestPanel" class="card hidden"></div>
+
+  <div id="desktopBar" class="row hidden" style="margin:0 0 16px">
+    <button id="folderBtn">Audio folder…</button>
+    <button class="ghost" id="openProjBtn">Open project…</button>
+    <button class="ghost" id="saveAsBtn">Save project as…</button>
+    <span style="font-size:12px;color:var(--muted)">Your music is read from disk. Nothing is copied, and the folder is remembered.</span>
+  </div>
 
   <div id="importPanel" class="card hidden">
     <div class="seg" style="margin-top:0">
@@ -388,14 +399,30 @@
 <script src="mix-dsp.js"></script>
 <script src="mix-project.js"></script>
 <script src="mix-render.js"></script>
+<script src="mix-desktop.js"></script>
 <script src="mix-ui.js"></script>
 <script>
   MixUI.init();
-  // Registered last so a failure here can never stop the tool loading.
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw-mix.js').catch(function () {});
-    });
+
+  /* The service worker is gone. It is not enough to stop registering it and
+     delete the file: a browser that registered it once keeps the old worker
+     alive and keeps serving the shell it cached, so edits appear not to land —
+     which cost most of a day. This actively tears down any worker and cache
+     left over from a previous visit, so an existing install heals itself on the
+     next load rather than needing a hard reload or a cleared profile.
+
+     Kept deliberately: this page is now the renderer of a desktop app, where
+     offline is the default and there is nothing to cache. Removing it is safe
+     to leave in place indefinitely. */
+  if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      regs.forEach(function (r) { r.unregister(); });
+    }).catch(function () {});
+  }
+  if (window.caches && caches.keys) {
+    caches.keys().then(function (names) {
+      names.forEach(function (n) { if (n.indexOf('mix-') === 0) caches.delete(n); });
+    }).catch(function () {});
   }
 </script>
 </body>

@@ -494,6 +494,10 @@
       return '<div class="trk' + (openTrack === i ? ' open' : '') + '" data-track="' + i + '"' +
              ' draggable="true">' +
         '<div class="trk-head">' +
+          /* The row opens to a waveform, the beat grid and the entry/mix-out
+             markers — but nothing said so, so it read as a dead list and the
+             waveform looked absent rather than collapsed. */
+          '<span class="trk-caret">' + (openTrack === i ? '▾' : '▸') + '</span>' +
           '<span class="trk-num">' + (i + 1) + '</span>' +
           '<button class="pin' + (t.pinned ? ' on' : '') + '" data-act="pin" data-track="' + i + '"' +
             ' title="' + (t.pinned ? 'Pinned — the sequencer will not move this'
@@ -506,6 +510,7 @@
           '<span class="pill">' + (lt.effectiveBpm ? lt.effectiveBpm.toFixed(1) : '?') + ' BPM' +
             (lt.halfTime ? ' (half-time)' : '') + '</span>' +
           '<span class="pill quiet">' + fmt(lt.bodySec) + '</span>' +
+          '<span class="trk-hint">' + (openTrack === i ? 'Close' : 'Waveform &amp; markers') + '</span>' +
           '<span class="trk-tools">' +
             '<button data-act="up" data-track="' + i + '"' + (i === 0 ? ' disabled' : '') +
               ' title="Move up">↑</button>' +
@@ -649,13 +654,33 @@
   }
 
   function drawWave(cv, t) {
-    if (!t.peaks) return;
     var dpr = window.devicePixelRatio || 1;
     var w = cv.clientWidth, h = 88;
     cv.width = w * dpr; cv.height = h * dpr;
     var g = cv.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
+
+    /* Peaks are written during ingest, but a project reaches here without them
+       easily enough — seeded from a running order, or saved before they were
+       stored. This used to `return` on that, leaving a blank white rectangle
+       that looks exactly like a missing feature rather than missing data.
+       If the audio is in memory, derive them now: a few milliseconds, and the
+       waveform then appears whenever the audio is actually there. */
+    if (!t.peaks && monos.has(t.id)) {
+      t.peaks = Array.from(DSP.peaks(monos.get(t.id), 1400));
+    }
+    if (!t.peaks) {
+      g.fillStyle = '#f7fbfa'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#93a8a6';
+      g.font = '600 12px Montserrat, -apple-system, sans-serif';
+      g.textAlign = 'center';
+      g.fillText(t.linked ? 'Waveform loading…'
+                          : 'Load this track’s audio to see its waveform',
+                 w / 2, h / 2 + 4);
+      g.textAlign = 'left';
+      return;
+    }
 
     g.fillStyle = '#c3d6d4';
     var n = t.peaks.length;
@@ -1156,6 +1181,7 @@
     wireSuggest();
     wireRender();
     wireSamples();
+    wireDesktop();
 
     window.addEventListener('resize', function () {
       if (openTrack == null) return;
@@ -1316,6 +1342,90 @@
         touch();
       }
     });
+  }
+
+  /* ------------------------------------------------- desktop app --- */
+  /* Only active inside Electron. Everything below delegates to the existing
+     ingest and re-link code — the audio just arrives from a path on disk
+     instead of a drop, and the folder is remembered with the project so
+     reopening restores the set without importing anything again. */
+
+  function desktop() { return global.MixDesktop; }
+
+  async function chooseAudioFolder() {
+    var D = desktop();
+    if (!D) return;
+    var folder = await D.pickFolder();
+    if (!folder) return;
+    project.audioFolder = folder;
+    save();
+    await loadFromFolder(folder, true);
+  }
+
+  /** Read the folder and hand the files to the same ingest path a drop uses. */
+  async function loadFromFolder(folder, announce) {
+    var D = desktop();
+    if (!D || !folder) return;
+    setStatus('Reading ' + folder + '…');
+    var entries = await D.scanFolder(folder);
+    if (!entries.length) {
+      setStatus('No audio files in ' + folder, true);
+      return;
+    }
+    setStatus('Found ' + entries.length + ' audio files. Loading…');
+    var files = [];
+    for (var i = 0; i < entries.length; i++) {
+      try { files.push(await D.fileFor(entries[i])); }
+      catch (err) { setStatus('Could not read ' + entries[i].name, true); }
+    }
+    if (!files.length) return;
+    await ingestFiles(files);
+    if (announce) {
+      setStatus(files.length + ' tracks loaded from ' + folder +
+                '. The folder is saved with the project — reopening will not ask again.');
+    }
+  }
+
+  /* On launch, if the project remembers a folder, put the audio back without
+     asking. This is the whole point of being a desktop app: no re-linking. */
+  async function restoreAudioOnLaunch() {
+    var D = desktop();
+    if (!D || !project.audioFolder || !project.tracks.length) return;
+    setStatus('Restoring audio from ' + project.audioFolder + '…');
+    var entries = await D.scanFolder(project.audioFolder);
+    if (!entries.length) {
+      setStatus('The folder ' + project.audioFolder + ' is not there any more. ' +
+                'Use "Audio folder" to point at it again.', true);
+      return;
+    }
+    var files = [];
+    for (var i = 0; i < entries.length; i++) {
+      try { files.push(await D.fileFor(entries[i])); } catch (err) {}
+    }
+    if (files.length) await relinkFiles(files);
+  }
+
+  function wireDesktop() {
+    var D = desktop();
+    var bar = $('desktopBar');
+    if (!D || !bar) return;
+    bar.classList.remove('hidden');
+    $('folderBtn').onclick = chooseAudioFolder;
+    $('saveAsBtn').onclick = async function () {
+      var p = await D.saveProjectAs(project);
+      if (p) setStatus('Project saved to ' + p);
+    };
+    $('openProjBtn').onclick = async function () {
+      var p = await D.openProjectFile();
+      if (!p) return;
+      project = p;
+      buffers.clear(); monos.clear(); segments.clear();
+      closePanels();
+      recompute(); renderAll();
+      $('nameInput').value = project.name || '';
+      await restoreAudioOnLaunch();
+      touch();
+    };
   }
 
   /* --------------------------------------------------- samples --- */
@@ -1782,6 +1892,7 @@
       wire();
       renderAll();
       loadSamples();
+      restoreAudioOnLaunch();
       if (project.tracks.length) {
         var n = project.tracks.length;
         setStatus('Project reopened — ' + n + ' tracks, every setting intact. ' +

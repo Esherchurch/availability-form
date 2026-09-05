@@ -1,0 +1,49 @@
+{
+  "name": "mix-builder",
+  "productName": "Mix Builder",
+  "version": "1.0.0",
+  "description": "Beat-matched disco mix builder — timeline, transitions and render",
+  "main": "main.js",
+  "author": "Martin Prosser",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.martin.mixbuilder",
+    "productName": "Mix Builder",
+    "files": [
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../v2",
+        "to": "app-page",
+        "filter": [
+          "mix-builder.html",
+          "mix-dsp.js",
+          "mix-project.js",
+          "mix-render.js",
+          "mix-ui.js",
+          "mix-desktop.js"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "../v2/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
+  }
+}

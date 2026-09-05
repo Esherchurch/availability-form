@@ -35,7 +35,6 @@ edit the path at the top of each file if it lives elsewhere. Edge works too.
 | `test-order.js` | Reordering, benching, replacing and the sequencer. Asserts that a configured junction follows its pair when a track moves, that a swap is reversible, that pinned tracks never move, and that section direction is read correctly. No browser. |
 | `dsp-test.js` | End to end through the DSP. Synthesises drum loops at known tempos, then asserts on detected BPM, stretch accuracy measured from kick spacing, blend/bridge/hard-cut renders, peak safety, the bridge's low-end energy, and the WAV header. |
 | `smoke.js` | The page boots, the three modules load, a project round-trips through IndexedDB, the timeline paints 47 tracks and 46 junctions, and clicking a junction opens its editor. |
-| `test-offline-ui.js` | Registers the service worker, saves a project, then **stops the server and cuts the network** and asserts the page still reloads, the project is intact, and edits still save. Then drives the live reorder buttons, the bench, swap, and the suggestion panel. |
 | `render-test.js` | The full render end to end: plan, tempo ramps, progress, cancel, range export, duration, peak safety, and the **click check** — the largest sample-to-sample jump in the mix must not exceed what the source material itself reaches. |
 | `render-scale.js` | The same at 47 tracks, reporting realtime factor and peak heap. Catches what only shows up at scale — a default 16-bar blend not fitting a short track was found here. |
 | `seam-probe.js` | Diagnostic. Measures whether a stretched buffer can be spliced to anything. Its answer is why the render overlaps rather than concatenates. |
@@ -44,15 +43,6 @@ edit the path at the top of each file if it lives elsewhere. Edge works too.
 | `sample-test.js` | The sample library and placements. The assertion that matters: one sample gets different stretch ratios at different junctions, read from the ramp. |
 | `seam-probe.js` | Diagnostic. Whether a stretched buffer can be spliced to anything. Its answer is why the render overlaps rather than concatenates. |
 | `stretch-diag.js` | Diagnostic, not an assertion. Prints measured output tempo against target across several ratios. Reach for it when a stretch looks wrong. |
-
-## One thing the emulator cannot test
-
-`test-offline-ui.js` cuts the network with Chrome's offline emulation and stops
-the server, which genuinely proves the shell and the project survive — it
-measures zero requests served afterwards. But `navigator.onLine` reads **true**
-in the reloaded page under emulation, so asserting the offline badge after a
-reload would be testing the emulator rather than the page. The badge is
-therefore tested by dispatching the real `offline` / `online` events instead.
 
 ## The two assertions worth understanding
 
@@ -90,3 +80,15 @@ scan at about −34 dBFS — has been lost three separate times, each time makin
 every track unrenderable with entry and mix-out identical. It now lives in one
 function, `defaultMixOut()` in `mix-ui.js`, with fallbacks so it can never
 return a zero-length range.
+
+## Retired
+
+`test-offline-ui.js` covered the service worker and PWA offline shell. Both
+were deleted when the tool became an Electron app: offline is the default for a
+desktop app, and the worker had spent a day serving a stale cached shell so that
+edits appeared not to land. The test hung on `navigator.serviceWorker.ready`
+once the worker was gone, which is the correct outcome for a test of something
+that no longer exists.
+
+The desktop build has its own checks in the scratchpad rather than here, since
+they need to launch Electron rather than a page.
