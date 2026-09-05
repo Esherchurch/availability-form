@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mix Analyser — beat detection &amp; blend lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#eef4f3; --surface:#fff; --ink:#14201f; --body:#3a4d4c;
+    --muted:#6b8281; --hairline:#dde7e6; --brand:#3d6263; --brand-dark:#2e4c4d;
+    --brand-tint:#e7f0ef; --success:#3b7d23; --danger:#b0392c; --gold:#b07d2e;
+    --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--canvas); color:var(--body);
+    font-family:Montserrat,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:14px; line-height:1.5;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 20px 80px}
+  h1{font-size:26px; font-weight:800; color:var(--ink); margin:0 0 6px; letter-spacing:-.01em}
+  h2{font-size:18px; font-weight:700; color:var(--ink); margin:0 0 4px}
+  .lede{color:var(--muted); margin:0 0 24px; max-width:62ch}
+  .lbl{
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--muted); display:block; margin-bottom:6px;
+  }
+  .card{
+    background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-lg);
+    padding:20px; margin-bottom:18px; box-shadow:0 1px 3px rgba(20,32,31,.05);
+  }
+  #drop{
+    border:2px dashed var(--hairline); border-radius:var(--r-lg); background:var(--surface);
+    padding:44px 20px; text-align:center; cursor:pointer; transition:.15s;
+    margin-bottom:22px;
+  }
+  #drop:hover,#drop.over{border-color:var(--brand); background:var(--brand-tint)}
+  #drop strong{display:block; color:var(--ink); font-size:16px; font-weight:700; margin-bottom:4px}
+  #drop span{color:var(--muted); font-size:13px}
+  button{
+    font-family:inherit; font-size:12px; font-weight:700; letter-spacing:.03em;
+    background:var(--brand); color:#fff; border:0; border-radius:var(--r-pill);
+    padding:9px 16px; cursor:pointer; transition:.15s;
+  }
+  button:hover{background:var(--brand-dark)}
+  button:disabled{background:var(--hairline); color:var(--muted); cursor:not-allowed}
+  button.ghost{background:transparent; color:var(--brand); border:1px solid var(--hairline)}
+  button.ghost:hover{background:var(--brand-tint); border-color:var(--brand)}
+  input[type=number],input[type=text],select{
+    font-family:inherit; font-size:13px; color:var(--ink); background:var(--surface);
+    border:1px solid var(--hairline); border-radius:var(--r-sm); padding:7px 9px; width:100%;
+  }
+  input:focus,select:focus{outline:2px solid var(--brand-tint); border-color:var(--brand)}
+  table{width:100%; border-collapse:collapse}
+  .trk{border-bottom:1px solid var(--hairline); padding:16px 0}
+  .trk:last-child{border-bottom:0}
+  .trk-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:10px}
+  .trk-title{font-weight:700; color:var(--ink); font-size:15px; flex:1; min-width:220px}
+  .pill{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em;
+    text-transform:uppercase; padding:3px 10px; border-radius:var(--r-pill);
+    background:var(--brand-tint); color:var(--brand-dark);
+  }
+  .pill.hi{background:#e4f0de; color:var(--success)}
+  .pill.mid{background:#f6ecd9; color:var(--gold)}
+  .pill.lo{background:#f6e0dd; color:var(--danger)}
+  canvas.wave{
+    width:100%; height:88px; display:block; background:#f7fbfa;
+    border:1px solid var(--hairline); border-radius:var(--r-sm); margin-bottom:10px;
+  }
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; align-items:end}
+  .status{
+    font-size:12px; color:var(--muted); min-height:18px; margin-top:8px;
+  }
+  .status.err{color:var(--danger)}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px}
+  .note{
+    font-size:12px; color:var(--muted); background:var(--brand-tint);
+    border-radius:var(--r-md); padding:12px 14px; margin-top:14px;
+  }
+  .hidden{display:none}
+  progress{width:100%; height:6px; accent-color:var(--brand)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Mix Analyser</h1>
+  <p class="lede">
+    Drag in audio files. It detects tempo, the beat grid and the first downbeat, then lets you
+    audition a beat-matched blend between any two tracks and export it. Everything runs locally in
+    this page — nothing is uploaded anywhere.
+  </p>
+
+  <div id="drop">
+    <strong>Drop audio files here</strong>
+    <span>or click to choose &nbsp;·&nbsp; mp3, wav, m4a, flac, ogg, aac</span>
+    <input id="file" type="file" accept="audio/*" multiple class="hidden">
+  </div>
+
+  <div id="tracks"></div>
+
+  <div id="lab" class="card hidden">
+    <h2>Blend lab</h2>
+    <p style="color:var(--muted); margin:0 0 16px; font-size:13px">
+      Stretches both tracks to a common tempo, aligns downbeats, and crossfades with a bass swap.
+    </p>
+    <div class="grid">
+      <div>
+        <label class="lbl" for="deckA">Outgoing (A)</label>
+        <select id="deckA"></select>
+      </div>
+      <div>
+        <label class="lbl" for="deckB">Incoming (B)</label>
+        <select id="deckB"></select>
+      </div>
+      <div>
+        <label class="lbl" for="target">Target BPM</label>
+        <input id="target" type="number" step="0.01" value="120">
+      </div>
+      <div>
+        <label class="lbl" for="bars">Blend length (bars)</label>
+        <input id="bars" type="number" min="2" max="64" step="2" value="16">
+      </div>
+      <div>
+        <label class="lbl" for="bassCut">Bass swap (dB)</label>
+        <input id="bassCut" type="number" min="0" max="36" step="1" value="20">
+      </div>
+    </div>
+    <div class="row">
+      <button id="render">Render blend</button>
+      <button id="play" class="ghost" disabled>Play</button>
+      <button id="stop" class="ghost" disabled>Stop</button>
+      <button id="dl" class="ghost" disabled>Download WAV</button>
+    </div>
+    <div id="labStatus" class="status"></div>
+    <div class="note">
+      <strong>Stretch budget.</strong> Keep each track within about 6% of its own tempo or it starts
+      to sound processed. The target BPM box turns red past that. If two tracks are too far apart,
+      that join wants a hard cut, not a blend.
+    </div>
+  </div>
+
+  <div class="note" style="background:var(--surface); border:1px solid var(--hairline)">
+    <strong style="color:var(--ink)">Checking a grid by ear.</strong> Detection is only as good as the
+    recording. Press <em>Check grid</em> on any track to hear 8 bars from the detected downbeat with a
+    click on every beat. If the click drifts off the snare, correct the BPM or downbeat by hand — the
+    fields are editable and everything downstream re-reads them.
+  </div>
+
+</div>
+
+<script>
+/* ============================================================================
+   Mix Analyser — self-contained. No dependencies, no build step.
+   Pipeline:  decode -> spectral flux onset envelope -> autocorrelation tempo
+              -> beat phase -> downbeat -> WSOLA time-stretch -> blend render
+   ========================================================================== */
+
+const AC = window.AudioContext || window.webkitAudioContext;
+let ctx = null;
+const tracks = [];
+let lastRender = null;      // AudioBuffer of the most recent blend
+let playingSrc = null;
+
+const $ = id => document.getElementById(id);
+const fmtTime = s => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
+
+/* ---------------------------------------------------------------- worker --- */
+/* Analysis runs off the main thread so the UI never locks up. */
+
+const workerSrc = `
+function fft(re, im){
+  const n = re.length;
+  for (let i=1, j=0; i<n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; }
+  }
+  for (let len=2; len<=n; len<<=1){
+    const ang = -2*Math.PI/len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i=0; i<n; i+=len){
+      let cr = 1, ci = 0;
+      for (let k=0; k<len/2; k++){
+        const ur=re[i+k], ui=im[i+k];
+        const vr=re[i+k+len/2]*cr - im[i+k+len/2]*ci;
+        const vi=re[i+k+len/2]*ci + im[i+k+len/2]*cr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi;
+        re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const ncr = cr*wr - ci*wi; ci = cr*wi + ci*wr; cr = ncr;
+      }
+    }
+  }
+}
+
+function onsetEnvelope(x, sr){
+  const N = 1024, hop = 512, half = N/2;
+  const win = new Float32Array(N);
+  for (let i=0;i<N;i++) win[i] = 0.5 - 0.5*Math.cos(2*Math.PI*i/(N-1));
+  const frames = Math.max(0, Math.floor((x.length - N)/hop));
+  const env = new Float32Array(frames);
+  let prev = new Float32Array(half);
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let f=0; f<frames; f++){
+    const off = f*hop;
+    for (let i=0;i<N;i++){ re[i] = x[off+i]*win[i]; im[i] = 0; }
+    fft(re, im);
+    let flux = 0;
+    const cur = new Float32Array(half);
+    for (let k=0;k<half;k++){
+      const m = Math.sqrt(re[k]*re[k] + im[k]*im[k]);
+      cur[k] = m;
+      const d = m - prev[k];
+      if (d > 0) flux += d;
+    }
+    env[f] = flux;
+    prev = cur;
+    if ((f & 255) === 0) postMessage({type:'progress', v: f/frames});
+  }
+  // Half-wave rectify against a moving mean to remove slow loudness drift.
+  const W = 20, out = new Float32Array(frames);
+  for (let f=0; f<frames; f++){
+    let a=0, n=0;
+    for (let k=Math.max(0,f-W); k<Math.min(frames,f+W); k++){ a+=env[k]; n++; }
+    const d = env[f] - a/n;
+    out[f] = d > 0 ? d : 0;
+  }
+  return { env: out, fps: sr/hop };
+}
+
+function estimateTempo(env, fps){
+  const minB = 70, maxB = 200;
+  const minLag = Math.floor(fps*60/maxB), maxLag = Math.ceil(fps*60/minB);
+  const scores = [];
+  for (let lag=minLag; lag<=maxLag; lag++){
+    let s = 0, n = 0;
+    for (let i=0; i+lag<env.length; i++){ s += env[i]*env[i+lag]; n++; }
+    s /= (n || 1);
+    const bpm = 60*fps/lag;
+    // Favour the 90-150 range: most octave errors resolve correctly this way.
+    const w = Math.exp(-0.5*Math.pow(Math.log(bpm/120)/0.30, 2));
+    scores.push({ lag, bpm, raw: s, score: s*w });
+  }
+  scores.sort((a,b)=>b.score-a.score);
+  const best = scores[0];
+  const mean = scores.reduce((a,b)=>a+b.raw,0)/scores.length;
+  const confidence = Math.max(0, Math.min(1, (best.raw/(mean||1) - 1)/3));
+  return { bpm: best.bpm, lag: best.lag, confidence };
+}
+
+function findPhase(env, lag){
+  let bestOff = 0, bestScore = -1;
+  for (let off=0; off<lag; off++){
+    let s = 0;
+    for (let i=off; i<env.length; i+=lag) s += env[i];
+    if (s > bestScore){ bestScore = s; bestOff = off; }
+  }
+  return bestOff;
+}
+
+function findDownbeat(env, lag, phase){
+  // Of the four beats in a bar, the bar's first beat usually carries most energy.
+  let bestP = 0, bestScore = -1;
+  for (let p=0; p<4; p++){
+    let s = 0;
+    for (let i=phase + p*lag; i<env.length; i += lag*4) s += env[i];
+    if (s > bestScore){ bestScore = s; bestP = p; }
+  }
+  return phase + bestP*lag;
+}
+
+onmessage = e => {
+  const { mono, sr } = e.data;
+  const x = new Float32Array(mono);
+  const { env, fps } = onsetEnvelope(x, sr);
+  const t = estimateTempo(env, fps);
+  const phase = findPhase(env, t.lag);
+  const db = findDownbeat(env, t.lag, phase);
+  postMessage({
+    type: 'done',
+    bpm: t.bpm,
+    confidence: t.confidence,
+    firstBeatSec: phase/fps,
+    downbeatSec: db/fps
+  });
+};
+`;
+
+function analyse(mono, sr, onProgress){
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([workerSrc], { type: 'text/javascript' });
+    const w = new Worker(URL.createObjectURL(blob));
+    w.onmessage = ev => {
+      if (ev.data.type === 'progress'){ onProgress(ev.data.v); return; }
+      w.terminate();
+      resolve(ev.data);
+    };
+    w.onerror = err => { w.terminate(); reject(err); };
+    const copy = mono.slice();
+    w.postMessage({ mono: copy.buffer, sr }, [copy.buffer]);
+  });
+}
+
+/* ------------------------------------------------------------- utilities --- */
+
+function toMono(buf){
+  const n = buf.length;
+  const out = new Float32Array(n);
+  const chans = buf.numberOfChannels;
+  for (let c=0; c<chans; c++){
+    const d = buf.getChannelData(c);
+    for (let i=0; i<n; i++) out[i] += d[i]/chans;
+  }
+  return out;
+}
+
+function peaks(mono, buckets){
+  const out = new Float32Array(buckets);
+  const size = Math.floor(mono.length/buckets) || 1;
+  for (let b=0; b<buckets; b++){
+    let m = 0;
+    const start = b*size, end = Math.min(mono.length, start+size);
+    for (let i=start; i<end; i++){ const a = Math.abs(mono[i]); if (a > m) m = a; }
+    out[b] = m;
+  }
+  return out;
+}
+
+/* WSOLA time-stretch. ratio > 1 makes the output shorter (faster).
+   Preserves pitch; comfortable up to roughly +/-10%. */
+function stretch(buf, ratio){
+  if (Math.abs(ratio - 1) < 0.0005) return buf;
+  const N = 2048, Hs = N/4, Ha = Math.round(Hs*ratio), search = 256;
+  const chans = buf.numberOfChannels;
+  const outLen = Math.ceil(buf.length/ratio) + N;
+  const out = ctx.createBuffer(chans, outLen, buf.sampleRate);
+
+  const win = new Float32Array(N);
+  for (let i=0;i<N;i++) win[i] = 0.5 - 0.5*Math.cos(2*Math.PI*i/(N-1));
+
+  // Alignment offsets are computed once from a mono sum, then applied to every
+  // channel, so the stereo image cannot drift apart.
+  const ref = toMono(buf);
+  const offsets = [];
+  let ap = 0, prevTail = null;
+  for (let sp = 0; sp + N < outLen; sp += Hs){
+    let delta = 0;
+    if (prevTail){
+      let best = -Infinity;
+      for (let d = -search; d <= search; d++){
+        const a = ap + d;
+        if (a < 0 || a + Hs >= ref.length) continue;
+        let acc = 0;
+        for (let i=0; i<Hs; i+=4) acc += prevTail[i]*ref[a+i];
+        if (acc > best){ best = acc; delta = d; }
+      }
+    }
+    const a = Math.max(0, Math.min(ref.length - N - 1, ap + delta));
+    offsets.push(a);
+    prevTail = ref.subarray(a + Hs, a + Hs + Hs);
+    ap = a + Ha;
+    if (ap + N >= ref.length) break;
+  }
+
+  for (let c=0; c<chans; c++){
+    const src = buf.getChannelData(c);
+    const dst = out.getChannelData(c);
+    const norm = new Float32Array(outLen);
+    for (let f=0; f<offsets.length; f++){
+      const a = offsets[f], sp = f*Hs;
+      for (let i=0; i<N; i++){
+        const v = src[a+i];
+        if (v === undefined) break;
+        dst[sp+i] += v*win[i];
+        norm[sp+i] += win[i];
+      }
+    }
+    for (let i=0; i<outLen; i++) if (norm[i] > 1e-6) dst[i] /= norm[i];
+  }
+  return out;
+}
+
+function equalPower(n, rising){
+  const a = new Float32Array(n);
+  for (let i=0; i<n; i++){
+    const t = i/(n-1);
+    a[i] = rising ? Math.sin(t*Math.PI/2) : Math.cos(t*Math.PI/2);
+  }
+  return a;
+}
+
+function rampCurve(n, from, to){
+  const a = new Float32Array(n);
+  for (let i=0; i<n; i++) a[i] = from + (to-from)*(i/(n-1));
+  return a;
+}
+
+function encodeWav(buf){
+  const chans = buf.numberOfChannels, len = buf.length, sr = buf.sampleRate;
+  const bytes = 44 + len*chans*2;
+  const ab = new ArrayBuffer(bytes);
+  const v = new DataView(ab);
+  const str = (o,s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  str(0,'RIFF'); v.setUint32(4, bytes-8, true); str(8,'WAVE');
+  str(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true);
+  v.setUint16(22,chans,true); v.setUint32(24,sr,true);
+  v.setUint32(28, sr*chans*2, true); v.setUint16(32, chans*2, true); v.setUint16(34,16,true);
+  str(36,'data'); v.setUint32(40, len*chans*2, true);
+  const data = [];
+  for (let c=0;c<chans;c++) data.push(buf.getChannelData(c));
+  let o = 44;
+  for (let i=0;i<len;i++){
+    for (let c=0;c<chans;c++){
+      let s = Math.max(-1, Math.min(1, data[c][i]));
+      v.setInt16(o, s < 0 ? s*0x8000 : s*0x7fff, true);
+      o += 2;
+    }
+  }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+
+/* ----------------------------------------------------------------- intake --- */
+
+const drop = $('drop'), fileInput = $('file');
+drop.onclick = () => fileInput.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => {
+  e.preventDefault(); drop.classList.remove('over');
+  ingest([...e.dataTransfer.files].filter(f => f.type.startsWith('audio') || /\.(mp3|wav|m4a|flac|ogg|aac)$/i.test(f.name)));
+};
+fileInput.onchange = () => ingest([...fileInput.files]);
+
+async function ingest(files){
+  if (!ctx) ctx = new AC();
+  for (const f of files) await addTrack(f);
+}
+
+async function addTrack(file){
+  const t = {
+    id: 't' + Date.now() + Math.random().toString(36).slice(2,6),
+    name: file.name.replace(/\.[^.]+$/, ''),
+    buffer: null, mono: null, peaks: null,
+    bpm: 0, confidence: 0, firstBeatSec: 0, downbeatSec: 0
+  };
+  tracks.push(t);
+  renderTrack(t);
+  const el = document.getElementById(t.id);
+  const status = el.querySelector('.status');
+
+  try {
+    status.textContent = 'Decoding…';
+    const ab = await file.arrayBuffer();
+    t.buffer = await ctx.decodeAudioData(ab);
+    t.mono = toMono(t.buffer);
+    t.peaks = peaks(t.mono, 1400);
+
+    status.textContent = 'Analysing…';
+    const res = await analyse(t.mono, t.buffer.sampleRate, v => {
+      status.textContent = 'Analysing… ' + Math.round(v*100) + '%';
+    });
+    t.bpm = Math.round(res.bpm*100)/100;
+    t.confidence = res.confidence;
+    t.firstBeatSec = res.firstBeatSec;
+    t.downbeatSec = res.downbeatSec;
+    status.textContent = '';
+    renderTrack(t);
+    refreshDecks();
+  } catch (err){
+    status.textContent = 'Could not decode this file. ' + (err.message || err);
+    status.classList.add('err');
+  }
+}
+
+/* ---------------------------------------------------------------- display --- */
+
+function confClass(c){ return c >= 0.6 ? 'hi' : c >= 0.3 ? 'mid' : 'lo'; }
+function confWord(c){ return c >= 0.6 ? 'strong' : c >= 0.3 ? 'fair' : 'weak'; }
+
+function renderTrack(t){
+  let el = document.getElementById(t.id);
+  if (!el){
+    el = document.createElement('div');
+    el.id = t.id;
+    el.className = 'card trk';
+    $('tracks').appendChild(el);
+  }
+  const ready = t.bpm > 0;
+  el.innerHTML = `
+    <div class="trk-head">
+      <div class="trk-title">${escapeHtml(t.name)}</div>
+      ${ready ? `<span class="pill ${confClass(t.confidence)}">${confWord(t.confidence)} · ${Math.round(t.confidence*100)}%</span>` : ''}
+      ${t.buffer ? `<span class="pill">${fmtTime(t.buffer.duration)}</span>` : ''}
+    </div>
+    <canvas class="wave" data-for="${t.id}"></canvas>
+    ${ready ? `
+    <div class="grid">
+      <div>
+        <label class="lbl">Detected BPM</label>
+        <input type="number" step="0.01" value="${t.bpm}" data-f="bpm" data-t="${t.id}">
+      </div>
+      <div>
+        <label class="lbl">First downbeat (s)</label>
+        <input type="number" step="0.001" value="${t.downbeatSec.toFixed(3)}" data-f="downbeatSec" data-t="${t.id}">
+      </div>
+      <div>
+        <label class="lbl">&nbsp;</label>
+        <button class="ghost" data-act="half" data-t="${t.id}">Halve BPM</button>
+      </div>
+      <div>
+        <label class="lbl">&nbsp;</label>
+        <button class="ghost" data-act="double" data-t="${t.id}">Double BPM</button>
+      </div>
+      <div>
+        <label class="lbl">&nbsp;</label>
+        <button data-act="check" data-t="${t.id}">Check grid</button>
+      </div>
+    </div>` : ''}
+    <div class="status"></div>
+  `;
+  if (t.peaks) drawWave(el.querySelector('canvas'), t);
+}
+
+function drawWave(cv, t){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = 88;
+  cv.width = w*dpr; cv.height = h*dpr;
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  g.clearRect(0,0,w,h);
+
+  g.fillStyle = '#c3d6d4';
+  const n = t.peaks.length;
+  for (let i=0;i<w;i++){
+    const p = t.peaks[Math.floor(i/w*n)] || 0;
+    const bh = Math.max(1, p*h*0.92);
+    g.fillRect(i, (h-bh)/2, 1, bh);
+  }
+  if (t.bpm > 0 && t.buffer){
+    const dur = t.buffer.duration, spb = 60/t.bpm;
+    let beat = 0;
+    for (let s = t.downbeatSec; s < dur; s += spb, beat++){
+      const x = s/dur*w;
+      const bar = beat % 4 === 0;
+      g.fillStyle = bar ? 'rgba(61,98,99,.55)' : 'rgba(61,98,99,.18)';
+      g.fillRect(x, bar ? 0 : h*0.35, 1, bar ? h : h*0.3);
+    }
+  }
+}
+
+window.addEventListener('resize', () => tracks.forEach(t => {
+  const el = document.getElementById(t.id);
+  if (el && t.peaks) drawWave(el.querySelector('canvas'), t);
+}));
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* Delegated handlers: fields and per-track buttons. */
+$('tracks').addEventListener('input', e => {
+  const f = e.target.dataset.f;
+  if (!f) return;
+  const t = tracks.find(x => x.id === e.target.dataset.t);
+  if (!t) return;
+  t[f] = parseFloat(e.target.value) || 0;
+  drawWave(document.getElementById(t.id).querySelector('canvas'), t);
+  refreshDecks();
+});
+
+$('tracks').addEventListener('click', async e => {
+  const act = e.target.dataset.act;
+  if (!act) return;
+  const t = tracks.find(x => x.id === e.target.dataset.t);
+  if (!t) return;
+  if (act === 'half'){ t.bpm = Math.round(t.bpm/2*100)/100; renderTrack(t); refreshDecks(); }
+  if (act === 'double'){ t.bpm = Math.round(t.bpm*2*100)/100; renderTrack(t); refreshDecks(); }
+  if (act === 'check') await checkGrid(t);
+});
+
+/* --------------------------------------------------------- grid audition --- */
+
+async function checkGrid(t){
+  const el = document.getElementById(t.id);
+  const status = el.querySelector('.status');
+  status.classList.remove('err');
+  status.textContent = 'Rendering 8 bars with clicks…';
+
+  const spb = 60/t.bpm, bars = 8, dur = spb*4*bars;
+  const start = Math.min(t.downbeatSec, Math.max(0, t.buffer.duration - dur));
+  const sr = t.buffer.sampleRate;
+  const off = new OfflineAudioContext(2, Math.ceil(dur*sr), sr);
+
+  const src = off.createBufferSource();
+  src.buffer = t.buffer;
+  const g = off.createGain();
+  g.gain.value = 0.7;
+  src.connect(g).connect(off.destination);
+  src.start(0, start, dur);
+
+  for (let b=0; b<bars*4; b++){
+    const at = b*spb;
+    if (at >= dur) break;
+    const o = off.createOscillator(), cg = off.createGain();
+    o.frequency.value = (b % 4 === 0) ? 1600 : 900;
+    cg.gain.setValueAtTime(0.0001, at);
+    cg.gain.exponentialRampToValueAtTime(0.35, at + 0.002);
+    cg.gain.exponentialRampToValueAtTime(0.0001, at + 0.045);
+    o.connect(cg).connect(off.destination);
+    o.start(at); o.stop(at + 0.06);
+  }
+
+  const rendered = await off.startRendering();
+  stopPlayback();
+  playingSrc = ctx.createBufferSource();
+  playingSrc.buffer = rendered;
+  playingSrc.connect(ctx.destination);
+  playingSrc.start();
+  status.textContent = 'Playing 8 bars from ' + start.toFixed(2) + 's. Clicks should land on the beat.';
+}
+
+/* --------------------------------------------------------------- decks --- */
+
+function refreshDecks(){
+  const ready = tracks.filter(t => t.bpm > 0);
+  $('lab').classList.toggle('hidden', ready.length < 2);
+  for (const id of ['deckA','deckB']){
+    const sel = $(id), prev = sel.value;
+    sel.innerHTML = ready.map(t => `<option value="${t.id}">${escapeHtml(t.name)} — ${t.bpm} BPM</option>`).join('');
+    if (ready.some(t => t.id === prev)) sel.value = prev;
+    else if (id === 'deckB' && ready.length > 1) sel.selectedIndex = 1;
+  }
+  suggestTarget();
+}
+
+function suggestTarget(){
+  const a = tracks.find(t => t.id === $('deckA').value);
+  const b = tracks.find(t => t.id === $('deckB').value);
+  if (!a || !b) return;
+  $('target').value = (Math.round((a.bpm + b.bpm)/2*100)/100);
+  checkBudget();
+}
+
+function checkBudget(){
+  const a = tracks.find(t => t.id === $('deckA').value);
+  const b = tracks.find(t => t.id === $('deckB').value);
+  const tgt = parseFloat($('target').value);
+  if (!a || !b || !tgt) return;
+  const ra = Math.abs(tgt/a.bpm - 1), rb = Math.abs(tgt/b.bpm - 1);
+  const bad = ra > 0.06 || rb > 0.06;
+  $('target').style.borderColor = bad ? 'var(--danger)' : 'var(--hairline)';
+  $('labStatus').textContent = bad
+    ? `Stretch is ${(Math.max(ra,rb)*100).toFixed(1)}% — past the comfortable range. This join probably wants a hard cut.`
+    : `Stretch: A ${(ra*100).toFixed(1)}%, B ${(rb*100).toFixed(1)}%. Both comfortable.`;
+}
+
+$('deckA').onchange = suggestTarget;
+$('deckB').onchange = suggestTarget;
+$('target').oninput = checkBudget;
+
+/* ---------------------------------------------------------- blend render --- */
+
+$('render').onclick = async () => {
+  const a = tracks.find(t => t.id === $('deckA').value);
+  const b = tracks.find(t => t.id === $('deckB').value);
+  const target = parseFloat($('target').value);
+  const bars = parseInt($('bars').value, 10);
+  const bassCut = parseFloat($('bassCut').value);
+  if (!a || !b || !target || a === b){
+    $('labStatus').textContent = 'Pick two different tracks and a target BPM.';
+    return;
+  }
+
+  const btn = $('render');
+  btn.disabled = true;
+  $('labStatus').textContent = 'Stretching A…';
+  await new Promise(r => setTimeout(r, 10));
+
+  const ratioA = target/a.bpm, ratioB = target/b.bpm;
+  const bufA = stretch(a.buffer, ratioA);
+  $('labStatus').textContent = 'Stretching B…';
+  await new Promise(r => setTimeout(r, 10));
+  const bufB = stretch(b.buffer, ratioB);
+
+  const spb = 60/target;
+  const barSec = spb*4;
+  const blendSec = bars*barSec;
+  const preRoll = 8*barSec;
+  const postRoll = 8*barSec;
+
+  // Downbeat positions after stretching.
+  const dbA = a.downbeatSec/ratioA;
+  const dbB = b.downbeatSec/ratioB;
+
+  // Blend starts on a bar line near the end of A, leaving room for the blend.
+  const barsInA = Math.floor((bufA.duration - dbA - blendSec)/barSec);
+  if (barsInA < 4){
+    $('labStatus').textContent = 'Track A is too short for that blend length.';
+    btn.disabled = false;
+    return;
+  }
+  const blendStartA = dbA + barsInA*barSec;
+  const aStart = Math.max(0, blendStartA - preRoll);
+
+  const sr = bufA.sampleRate;
+  const total = (blendStartA - aStart) + blendSec + postRoll;
+  const off = new OfflineAudioContext(2, Math.ceil(total*sr), sr);
+
+  const blendAt = blendStartA - aStart;   // time in the output where the blend begins
+  const CURVE = 256;
+
+  // --- Deck A: plays through the pre-roll, then fades and loses its bass.
+  const sA = off.createBufferSource(); sA.buffer = bufA;
+  const gA = off.createGain();
+  const eqA = off.createBiquadFilter();
+  eqA.type = 'lowshelf'; eqA.frequency.value = 220; eqA.gain.value = 0;
+  sA.connect(eqA).connect(gA).connect(off.destination);
+  gA.gain.setValueAtTime(1, 0);
+  gA.gain.setValueCurveAtTime(equalPower(CURVE, false), blendAt, blendSec);
+  eqA.gain.setValueAtTime(0, 0);
+  eqA.gain.setValueCurveAtTime(rampCurve(CURVE, 0, -bassCut), blendAt, blendSec*0.5);
+  sA.start(0, aStart, Math.min(bufA.duration - aStart, blendAt + blendSec));
+
+  // --- Deck B: enters on its own downbeat, bass held back until halfway.
+  const sB = off.createBufferSource(); sB.buffer = bufB;
+  const gB = off.createGain();
+  const eqB = off.createBiquadFilter();
+  eqB.type = 'lowshelf'; eqB.frequency.value = 220; eqB.gain.value = -bassCut;
+  sB.connect(eqB).connect(gB).connect(off.destination);
+  gB.gain.setValueAtTime(0, 0);
+  gB.gain.setValueCurveAtTime(equalPower(CURVE, true), blendAt, blendSec);
+  gB.gain.setValueAtTime(1, blendAt + blendSec + 0.001);
+  eqB.gain.setValueAtTime(-bassCut, 0);
+  eqB.gain.setValueCurveAtTime(rampCurve(CURVE, -bassCut, 0), blendAt + blendSec*0.5, blendSec*0.5);
+  sB.start(blendAt, dbB, Math.min(bufB.duration - dbB, blendSec + postRoll));
+
+  $('labStatus').textContent = 'Rendering…';
+  lastRender = await off.startRendering();
+
+  btn.disabled = false;
+  $('play').disabled = $('stop').disabled = $('dl').disabled = false;
+  $('labStatus').textContent =
+    `Rendered ${fmtTime(lastRender.duration)} at ${target} BPM. ` +
+    `Blend starts at ${fmtTime(blendAt)}, runs ${bars} bars. ` +
+    `A stretched ${((ratioA-1)*100).toFixed(1)}%, B ${((ratioB-1)*100).toFixed(1)}%.`;
+};
+
+function stopPlayback(){
+  if (playingSrc){ try { playingSrc.stop(); } catch(e){} playingSrc = null; }
+}
+
+$('play').onclick = () => {
+  if (!lastRender) return;
+  stopPlayback();
+  playingSrc = ctx.createBufferSource();
+  playingSrc.buffer = lastRender;
+  playingSrc.connect(ctx.destination);
+  playingSrc.start();
+};
+$('stop').onclick = stopPlayback;
+
+$('dl').onclick = () => {
+  if (!lastRender) return;
+  const url = URL.createObjectURL(encodeWav(lastRender));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'blend.wav';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+};
+</script>
+</body>
+</html>
