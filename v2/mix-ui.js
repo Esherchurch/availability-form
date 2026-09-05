@@ -172,7 +172,7 @@
       peaks: res.peaks,
       linked: true, regions: null
     };
-    t.exitSec = snapToBar(t, res.contentEndSec);
+    t.exitSec = defaultMixOut(t, mono, buf.sampleRate, res.contentEndSec);
     return t;
   }
 
@@ -288,10 +288,27 @@
           m.track.downbeatSec = a.downbeatSec;
           m.track.entrySec = m.track.entrySec || a.downbeatSec;
           m.track.confidence = a.confidence;
-          if (!m.track.exitSec) {
-            m.track.exitSec = snapToBar(m.track,
-              cached ? cached.contentEndSec : DSP.contentEndSec(monos.get(m.track.id), buf.sampleRate));
-          }
+        }
+
+        /* Re-linking does NOT overwrite a mix-out you set — but it does repair
+           one that cannot work. This whole block used to sit behind
+           `if (!downbeatSec)`, so once a track had been analysed once a broken
+           mix-out could never heal: reopening the project re-linked the audio
+           and left the bad value in place forever.
+
+           A value with room between entry and mix-out is yours and is left
+           alone. One that is missing, NaN, or at/before the entry point is not
+           a setting, it is a track that will not play, and it gets re-derived. */
+        if (hasNoRange(m.track)) {
+          var had = m.track.exitSec;
+          var key2 = MP.analysisKey(m.file, buf.duration);
+          var cached2 = await MP.getAnalysis(key2);
+          m.track.exitSec = defaultMixOut(m.track, monos.get(m.track.id), buf.sampleRate,
+                                          cached2 ? cached2.contentEndSec : null);
+          setStatus('"' + m.track.title + '" had no playable range (mix-out ' +
+                    (isFinite(had) ? had.toFixed(2) + 's' : 'unset') +
+                    ', entry ' + (m.track.entrySec || 0).toFixed(2) + 's). Mix-out reset to the ' +
+                    'last audible bar at ' + m.track.exitSec.toFixed(2) + 's.');
         }
       } catch (err) {
         setStatus('Could not decode ' + m.file.name, true);
@@ -308,11 +325,47 @@
   }
 
   function snapToBar(t, sec) {
+    if (!isFinite(sec)) return sec;          // never turn a bad input into NaN
     var bpm = (t.sourceBpm || 0) * (t.bpmMultiplier || 1);
     if (!bpm) return sec;
+    var db = isFinite(t.downbeatSec) ? t.downbeatSec : 0;
     var bar = 60 / bpm * 4;
-    var k = Math.round((sec - t.downbeatSec) / bar);
-    return Math.max(0, t.downbeatSec + k * bar);
+    var k = Math.round((sec - db) / bar);
+    if (!isFinite(k)) return sec;
+    return Math.max(0, db + k * bar);
+  }
+
+  /* THE MIX-OUT DEFAULT — the last audible bar, never the end of the file.
+     ------------------------------------------------------------------
+     §9 of the brief: the very first bridge sounded like a straight cut because
+     it had worked perfectly — into the fade-out and trailing silence at the end
+     of the MP3, where there was nothing left to hear. Every transition works
+     backwards from this value.
+
+     It has now been lost three times, so it lives in exactly one function with
+     a floor under it. A mix-out at or before the entry point means the track
+     has no playable range and will not render at all — which is how three songs
+     ended up with entry and mix-out identical. Rather than hand that on, fall
+     back in order: snapped last audible bar, raw content end, file length. A
+     default that is slightly wrong is recoverable by moving a marker; a
+     zero-length track is not. */
+  function defaultMixOut(t, mono, sr, cachedContentEnd) {
+    var contentEnd = (cachedContentEnd != null && isFinite(cachedContentEnd))
+      ? cachedContentEnd
+      : (mono ? DSP.contentEndSec(mono, sr) : 0);
+    if (!isFinite(contentEnd) || contentEnd <= 0) contentEnd = t.durationSec || 0;
+
+    var entry = isFinite(t.entrySec) ? t.entrySec : 0;
+    var out = snapToBar(t, contentEnd);
+    if (!isFinite(out) || out <= entry + 1) out = contentEnd;
+    if (!isFinite(out) || out <= entry + 1) out = t.durationSec || (entry + 1);
+    return out;
+  }
+
+  /** A track with no room between entry and mix-out cannot render. */
+  function hasNoRange(t) {
+    var entry = isFinite(t.entrySec) ? t.entrySec : 0;
+    return !isFinite(t.exitSec) || t.exitSec <= entry + 0.5;
   }
 
   function setStatus(msg, isErr) {
@@ -639,11 +692,18 @@
 
     var warn = '';
     if (!j.renderable) {
-      warn = '<div class="warn">These two are ' +
-        (Math.max(j.stretchA || 0, j.stretchB || 0) * 100).toFixed(1) +
-        '% apart after clamping — past the ' + (project.maxStretch * 100).toFixed(0) +
-        '% budget, so there is no common tempo to beat-match at. A hard cut is the honest answer here.' +
-        ' <button class="ghost" data-act="accept-hardcut">Make it a hard cut</button></div>';
+      // Reads apartPct straight off the junction — the same value the timeline
+      // warning prints, so the two cannot say different things.
+      warn = '<div class="warn"><strong>These two records are too far apart in tempo to play ' +
+        'over each other.</strong> ' + esc(a.title) + ' runs at ' + Math.round(j.bpmA || 0) +
+        ' BPM and ' + esc(b.title) + ' at ' + Math.round(j.bpmB || 0) + ' BPM. Pulling them ' +
+        'together would mean stretching one by ' +
+        (j.apartPct == null ? '?' : j.apartPct.toFixed(0)) + '%, and past about ' +
+        (project.maxStretch * 100).toFixed(0) + '% a record starts to sound processed — so a ' +
+        'blend will not work here.<br><br>Left as it is, the music will cut and the beat will ' +
+        'carry on alone into ' + esc(b.title) + '. That works without the two ever having to ' +
+        'match. You can also stop dead between them instead.' +
+        ' <button class="ghost" data-act="accept-hardcut">Stop dead instead</button></div>';
     }
 
     el.innerHTML =

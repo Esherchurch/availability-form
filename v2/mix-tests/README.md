@@ -80,3 +80,13 @@ node xlsx2json.js ../../../disco_mix_running_order_3.xlsx running-order.json
 
 Doing the conversion here rather than in the browser is deliberate — it keeps
 SheetJS and its 900 KB out of a codebase that has no build step.
+
+## The mix-out default
+
+`reach-test.js` asserts that a freshly ingested and a freshly re-linked track
+both come out with a mix-out that is **after** the entry point and **before** the
+end of the file. That default — the last audible bar, found by a backward RMS
+scan at about −34 dBFS — has been lost three separate times, each time making
+every track unrenderable with entry and mix-out identical. It now lives in one
+function, `defaultMixOut()` in `mix-ui.js`, with fallbacks so it can never
+return a zero-length range.

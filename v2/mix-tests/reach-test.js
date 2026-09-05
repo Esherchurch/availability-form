@@ -45,15 +45,103 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
     const MP = window.MixProject;
     const p = MP.emptyProject('reach test');
     p.tracks = [120, 124, 128].map((bpm, i) => ({
-      id: 'r' + i, title: 'Track ' + (i + 1), file: 'r' + i + '.mp3', fileSize: 100 + i,
+      id: 'r' + i, title: 'Track ' + (i + 1), file: 'r' + i + '.wav', fileSize: 100 + i,
       sourceBpm: bpm, bpmMultiplier: 1, downbeatSec: 0,
-      entrySec: 0, exitSec: 200, durationSec: 210, linked: false, regions: null
+      entrySec: 0.757, exitSec: 0.757, durationSec: 210, linked: false, regions: null
     }));
     MP.rebuildJunctions(p, {});
     await MP.saveProject(p, true);
   });
   await page.reload({ waitUntil: 'networkidle0' });
   await new Promise(r => setTimeout(r, 700));
+
+  /* ---- the mix-out default, which has been lost three times.
+     Ingest real audio through the page's own path and check the track comes out
+     playable: mix-out after the entry, before the end of the file, and on the
+     last audible bar rather than in the trailing silence. */
+  console.log('\n— the mix-out default —');
+  const defaults = await page.evaluate(async () => {
+    const DSP = window.MixDSP;
+    const ctx = new AudioContext(), sr = ctx.sampleRate;
+    // 30 s: 20 s of music, then a fade and 8 s of digital silence, like an MP3.
+    const n = Math.floor(sr * 30);
+    const buf = ctx.createBuffer(2, n, sr);
+    for (let c = 0; c < 2; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < Math.floor(sr * 20); i++) {
+        const t = i / sr;
+        let env = 1;
+        if (t > 18) env = Math.max(0, (20 - t) / 2);      // 2 s fade
+        d[i] = env * (0.35 * Math.sin(2 * Math.PI * 110 * t) +
+                      0.3 * Math.exp(-((i % Math.floor(sr * 0.5)) / (sr * 0.02))) *
+                            Math.sin(2 * Math.PI * 55 * t));
+      }
+      // last 10 s left as digital silence
+    }
+    const mono = DSP.toMono(buf);
+    const contentEnd = DSP.contentEndSec(mono, sr);
+    return { durationSec: buf.duration, contentEndSec: contentEnd };
+  });
+  ok(defaults.contentEndSec > 15 && defaults.contentEndSec < 21,
+     'the backward RMS scan finds the last audible bar at ' +
+     defaults.contentEndSec.toFixed(1) + 's, not the file end at ' +
+     defaults.durationSec.toFixed(1) + 's');
+
+  /* Drop real audio onto the page, exactly as re-opening a project and
+     re-linking the folder does. The tracks are seeded with the broken range
+     that was reported — entry and mix-out identical — and re-linking must
+     repair it. */
+  const dropped = await page.evaluate(async () => {
+    const DSP = window.MixDSP;
+    const ctx = new AudioContext(), sr = ctx.sampleRate;
+    const make = (bpm) => {
+      const n = Math.floor(sr * 30);
+      const buf = ctx.createBuffer(2, n, sr);
+      const spb = 60 / bpm;
+      for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < Math.floor(sr * 20); i++) {
+          const t = i / sr;
+          d[i] = (t > 18 ? Math.max(0, (20 - t) / 2) : 1) * 0.3 * Math.sin(2 * Math.PI * 110 * t);
+        }
+        for (let b = 0; b * spb < 20; b++) {
+          const at = Math.floor(b * spb * sr);
+          for (let k = 0; k < sr * 0.08 && at + k < n; k++)
+            d[at + k] += 0.5 * Math.exp(-k / (sr * 0.02)) * Math.sin(2 * Math.PI * 55 * k / sr);
+        }
+        // final 10 s left as digital silence, like an encoder's trailing pad
+      }
+      return buf;
+    };
+    const dt = new DataTransfer();
+    [120, 124, 128].forEach((bpm, i) => {
+      const blob = DSP.encodeWav(make(bpm));
+      dt.items.add(new File([blob], 'r' + i + '.wav', { type: 'audio/wav' }));
+    });
+    const zone = document.getElementById('drop');
+    zone.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    // Analysis runs in a Worker; give it room.
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      const p = await window.MixProject.loadProject();
+      if (p.tracks.every(t => t.exitSec > (t.entrySec || 0) + 0.5)) break;
+    }
+    const p = await window.MixProject.loadProject();
+    return p.tracks.map(t => ({
+      title: t.title, entry: +(t.entrySec || 0).toFixed(3), exit: +(t.exitSec || 0).toFixed(3),
+      dur: t.durationSec,
+      playable: isFinite(t.exitSec) && t.exitSec > (t.entrySec || 0) + 0.5
+    }));
+  });
+
+  const unplayable = dropped.filter(r => !r.playable);
+  ok(unplayable.length === 0,
+     'a broken range is repaired when the audio is re-linked' +
+     (unplayable.length
+       ? ': ' + unplayable.map(r => r.title + ' entry ' + r.entry + ' = mix-out ' + r.exit).join('; ')
+       : ' (' + dropped.map(r => r.entry + '→' + r.exit).join(', ') + ')'));
+  ok(dropped.every(r => !r.dur || r.exit < r.dur - 1),
+     'and the mix-out is the last audible bar, not the end of the file');
 
   console.log('\n— is there anything between the tracks? —');
   const rows = await page.$$('.jrow-btn');

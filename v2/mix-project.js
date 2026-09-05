@@ -116,16 +116,25 @@
       // reported at all. Reporting one would hand the renderer a stretch it has
       // already been told is too far, and the render would sound processed.
       // A hard cut is proposed; the user's own choice of type is left alone.
-      var proposed = null;
+      var proposed = null, apartPct = null;
       if (j.type === 'hard-cut') {
         target = null; stretchA = 0; stretchB = 0; reachable = true;
       } else if (!reachable) {
         proposed = 'hard-cut';
+        /* Kept ON the junction so the timeline warning and the junction panel
+           read the same number. They used to disagree — 12.6% in one, 0.0% in
+           the other — because this message was built here from the real values
+           and then stretchA/stretchB were nulled on the next line, leaving the
+           panel to read `null || 0`. One source, no drift. */
+        apartPct = Math.max(stretchA, stretchB) * 100;
         out.warnings.push({
           junction: i,
-          message: '"' + (a.title || a.file) + '" to "' + (b.title || b.file) + '" is ' +
-                   (Math.max(stretchA, stretchB) * 100).toFixed(1) + '% apart after clamping — ' +
-                   'past the ' + (maxStretch * 100).toFixed(0) + '% budget. A hard cut is proposed.'
+          message: '"' + (a.title || a.file) + '" at ' + Math.round(bpmA) + ' BPM and "' +
+                   (b.title || b.file) + '" at ' + Math.round(bpmB) + ' BPM are too far apart ' +
+                   'in tempo to play over each other. Bringing them together would mean ' +
+                   'stretching one of them by ' + apartPct.toFixed(0) + '%, which is enough to ' +
+                   'make a record sound processed — so a blend will not work here. Instead the ' +
+                   'music cuts and the beat carries on alone into the next track.'
         });
         target = null; stretchA = null; stretchB = null;
       }
@@ -135,6 +144,7 @@
         type: j.type, proposedType: proposed,
         targetBpm: target ? Math.round(target * 100) / 100 : null,
         stretchA: stretchA, stretchB: stretchB, reachable: reachable,
+        apartPct: apartPct, bpmA: bpmA, bpmB: bpmB,
         renderable: reachable || j.type === 'hard-cut',
         settings: j
       });
