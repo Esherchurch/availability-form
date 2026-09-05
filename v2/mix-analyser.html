@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mix Analyser — beat detection &amp; blend lab</title>
+<title>Mix Analyser — beat detection, blends &amp; drum bridges</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -23,7 +23,7 @@
   .wrap{max-width:1180px; margin:0 auto; padding:28px 20px 80px}
   h1{font-size:26px; font-weight:800; color:var(--ink); margin:0 0 6px; letter-spacing:-.01em}
   h2{font-size:18px; font-weight:700; color:var(--ink); margin:0 0 4px}
-  .lede{color:var(--muted); margin:0 0 24px; max-width:62ch}
+  .lede{color:var(--muted); margin:0 0 24px; max-width:64ch}
   .lbl{
     font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
     color:var(--muted); display:block; margin-bottom:6px;
@@ -34,8 +34,7 @@
   }
   #drop{
     border:2px dashed var(--hairline); border-radius:var(--r-lg); background:var(--surface);
-    padding:44px 20px; text-align:center; cursor:pointer; transition:.15s;
-    margin-bottom:22px;
+    padding:44px 20px; text-align:center; cursor:pointer; transition:.15s; margin-bottom:22px;
   }
   #drop:hover,#drop.over{border-color:var(--brand); background:var(--brand-tint)}
   #drop strong{display:block; color:var(--ink); font-size:16px; font-weight:700; margin-bottom:4px}
@@ -54,9 +53,7 @@
     border:1px solid var(--hairline); border-radius:var(--r-sm); padding:7px 9px; width:100%;
   }
   input:focus,select:focus{outline:2px solid var(--brand-tint); border-color:var(--brand)}
-  table{width:100%; border-collapse:collapse}
   .trk{border-bottom:1px solid var(--hairline); padding:16px 0}
-  .trk:last-child{border-bottom:0}
   .trk-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:10px}
   .trk-title{font-weight:700; color:var(--ink); font-size:15px; flex:1; min-width:220px}
   .pill{
@@ -69,20 +66,22 @@
   .pill.lo{background:#f6e0dd; color:var(--danger)}
   canvas.wave{
     width:100%; height:88px; display:block; background:#f7fbfa;
-    border:1px solid var(--hairline); border-radius:var(--r-sm); margin-bottom:10px;
+    border:1px solid var(--hairline); border-radius:var(--r-sm); margin-bottom:10px; cursor:crosshair;
   }
-  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; align-items:end}
-  .status{
-    font-size:12px; color:var(--muted); min-height:18px; margin-top:8px;
-  }
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; align-items:end}
+  .status{font-size:12px; color:var(--muted); min-height:18px; margin-top:8px}
   .status.err{color:var(--danger)}
-  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px}
   .note{
     font-size:12px; color:var(--muted); background:var(--brand-tint);
     border-radius:var(--r-md); padding:12px 14px; margin-top:14px;
   }
+  .note strong{color:var(--brand-dark)}
   .hidden{display:none}
-  progress{width:100%; height:6px; accent-color:var(--brand)}
+  .seg{display:flex; gap:0; border:1px solid var(--hairline); border-radius:var(--r-pill); overflow:hidden; width:fit-content}
+  .seg button{border-radius:0; background:transparent; color:var(--body); padding:9px 18px}
+  .seg button.on{background:var(--brand); color:#fff}
+  hr.sep{border:0; border-top:1px solid var(--hairline); margin:18px 0}
 </style>
 </head>
 <body>
@@ -91,8 +90,9 @@
   <h1>Mix Analyser</h1>
   <p class="lede">
     Drag in audio files. It detects tempo, the beat grid and the first downbeat, then lets you
-    audition a beat-matched blend between any two tracks and export it. Everything runs locally in
-    this page — nothing is uploaded anywhere.
+    audition a transition between any two tracks — either a beat-matched blend, or a drum bridge
+    that strips the outgoing track down to its beat before the next one arrives.
+    Everything runs locally in this page; nothing is uploaded anywhere.
   </p>
 
   <div id="drop">
@@ -104,10 +104,16 @@
   <div id="tracks"></div>
 
   <div id="lab" class="card hidden">
-    <h2>Blend lab</h2>
+    <h2>Transition lab</h2>
     <p style="color:var(--muted); margin:0 0 16px; font-size:13px">
-      Stretches both tracks to a common tempo, aligns downbeats, and crossfades with a bass swap.
+      Stretches both tracks to a common tempo and aligns their downbeats, then joins them.
     </p>
+
+    <div class="seg" style="margin-bottom:18px">
+      <button id="tBlend" class="on" data-t="blend">Blend</button>
+      <button id="tBridge" data-t="bridge">Drum bridge</button>
+    </div>
+
     <div class="grid">
       <div>
         <label class="lbl" for="deckA">Outgoing (A)</label>
@@ -122,6 +128,19 @@
         <input id="target" type="number" step="0.01" value="120">
       </div>
       <div>
+        <label class="lbl" for="aExit">A mixes out at (s)</label>
+        <input id="aExit" type="number" step="0.001" value="0">
+      </div>
+      <div>
+        <label class="lbl" for="bEntry">B enters at (s in source)</label>
+        <input id="bEntry" type="number" step="0.001" value="0">
+      </div>
+    </div>
+
+    <hr class="sep">
+
+    <div id="blendCtl" class="grid">
+      <div>
         <label class="lbl" for="bars">Blend length (bars)</label>
         <input id="bars" type="number" min="2" max="64" step="2" value="16">
       </div>
@@ -130,49 +149,106 @@
         <input id="bassCut" type="number" min="0" max="36" step="1" value="20">
       </div>
     </div>
+
+    <div id="bridgeCtl" class="grid hidden">
+      <div>
+        <label class="lbl" for="cutStyle">1 · Music out</label>
+        <select id="cutStyle">
+          <option value="throw" selected>Cut + reverb throw</option>
+          <option value="fade">Filter fade</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl" for="reverbBars">Reverb tail (bars)</label>
+        <input id="reverbBars" type="number" min="1" max="8" step="0.5" value="2">
+      </div>
+      <div>
+        <label class="lbl" for="fadeBars">Fade length (bars)</label>
+        <input id="fadeBars" type="number" min="1" max="16" step="1" value="4">
+      </div>
+      <div>
+        <label class="lbl" for="bridgeBars">2 · Then beat alone for (bars)</label>
+        <input id="bridgeBars" type="number" min="1" max="32" step="1" value="8">
+      </div>
+      <div>
+        <label class="lbl" for="method">Beat isolation</label>
+        <select id="method">
+          <option value="eq" selected>EQ filter — clean</option>
+          <option value="sep">Separation — aggressive</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl" for="midCut">Mids cut (dB)</label>
+        <input id="midCut" type="number" min="6" max="40" step="1" value="24">
+      </div>
+      <div>
+        <label class="lbl" for="highCut">Highs cut (dB)</label>
+        <input id="highCut" type="number" min="0" max="24" step="1" value="0">
+      </div>
+      <div>
+        <label class="lbl" for="removal">Separation strength</label>
+        <input id="removal" type="number" min="1" max="4" step="0.5" value="2">
+      </div>
+      <div>
+        <label class="lbl" for="overlapBars">B overlaps beat by (bars)</label>
+        <input id="overlapBars" type="number" min="0" max="8" step="1" value="1">
+      </div>
+      <div>
+        <label class="lbl" for="beatTrim">Beat level trim (dB)</label>
+        <input id="beatTrim" type="number" min="-12" max="12" step="1" value="0" disabled
+               title="No longer needed — the beat keeps its own level because nothing is removed from the low end.">
+      </div>
+    </div>
+
     <div class="row">
-      <button id="render">Render blend</button>
+      <button id="render">Render transition</button>
       <button id="play" class="ghost" disabled>Play</button>
       <button id="stop" class="ghost" disabled>Stop</button>
       <button id="dl" class="ghost" disabled>Download WAV</button>
     </div>
     <div id="labStatus" class="status"></div>
-    <div class="note">
+
+    <div class="note" id="labNote">
       <strong>Stretch budget.</strong> Keep each track within about 6% of its own tempo or it starts
-      to sound processed. The target BPM box turns red past that. If two tracks are too far apart,
-      that join wants a hard cut, not a blend.
+      to sound processed. The target BPM box turns red past that.
     </div>
   </div>
 
   <div class="note" style="background:var(--surface); border:1px solid var(--hairline)">
-    <strong style="color:var(--ink)">Checking a grid by ear.</strong> Detection is only as good as the
-    recording. Press <em>Check grid</em> on any track to hear 8 bars from the detected downbeat with a
-    click on every beat. If the click drifts off the snare, correct the BPM or downbeat by hand — the
-    fields are editable and everything downstream re-reads them.
+    <strong style="color:var(--ink)">Setting points on a waveform.</strong>
+    <em>Click</em> to set the entry point — gold line — for skipping a quiet intro.
+    <em>Shift-click</em> to set the mix-out point — red line — which is where a blend or a drum
+    bridge begins working backwards from. Both snap to the nearest bar.
+    The mix-out point defaults to the last audible bar, not the end of the file, because most
+    releases have a fade-out and trailing silence that would otherwise become your "beat".
+    And press <em>Check grid</em> to hear 8 bars from the detected downbeat with a click on every
+    beat; if the click drifts off the snare, correct the BPM or downbeat by hand.
   </div>
 
 </div>
 
 <script>
 /* ============================================================================
-   Mix Analyser — self-contained. No dependencies, no build step.
-   Pipeline:  decode -> spectral flux onset envelope -> autocorrelation tempo
-              -> beat phase -> downbeat -> WSOLA time-stretch -> blend render
+   Mix Analyser
+   decode -> spectral flux onsets -> autocorrelation tempo -> beat phase
+          -> downbeat -> WSOLA stretch -> blend OR HPSS drum bridge -> render
+   No dependencies. No build step.
    ========================================================================== */
 
 const AC = window.AudioContext || window.webkitAudioContext;
 let ctx = null;
 const tracks = [];
-let lastRender = null;      // AudioBuffer of the most recent blend
+let lastRender = null;
 let playingSrc = null;
+let mode = 'blend';
 
 const $ = id => document.getElementById(id);
 const fmtTime = s => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
 
-/* ---------------------------------------------------------------- worker --- */
-/* Analysis runs off the main thread so the UI never locks up. */
+/* ------------------------------------------------------- shared FFT source --- */
+/* Injected into both workers so neither needs an import. */
 
-const workerSrc = `
+const FFT_SRC = `
 function fft(re, im){
   const n = re.length;
   for (let i=1, j=0; i<n; i++){
@@ -196,11 +272,25 @@ function fft(re, im){
     }
   }
 }
+function ifft(re, im){
+  const n = re.length;
+  for (let i=0;i<n;i++) im[i] = -im[i];
+  fft(re, im);
+  for (let i=0;i<n;i++){ re[i] /= n; im[i] = -im[i]/n; }
+}
+function hann(N){
+  const w = new Float32Array(N);
+  for (let i=0;i<N;i++) w[i] = 0.5 - 0.5*Math.cos(2*Math.PI*i/(N-1));
+  return w;
+}
+`;
 
+/* --------------------------------------------------------- analysis worker --- */
+
+const analysisSrc = FFT_SRC + `
 function onsetEnvelope(x, sr){
   const N = 1024, hop = 512, half = N/2;
-  const win = new Float32Array(N);
-  for (let i=0;i<N;i++) win[i] = 0.5 - 0.5*Math.cos(2*Math.PI*i/(N-1));
+  const win = hann(N);
   const frames = Math.max(0, Math.floor((x.length - N)/hop));
   const env = new Float32Array(frames);
   let prev = new Float32Array(half);
@@ -217,11 +307,9 @@ function onsetEnvelope(x, sr){
       const d = m - prev[k];
       if (d > 0) flux += d;
     }
-    env[f] = flux;
-    prev = cur;
+    env[f] = flux; prev = cur;
     if ((f & 255) === 0) postMessage({type:'progress', v: f/frames});
   }
-  // Half-wave rectify against a moving mean to remove slow loudness drift.
   const W = 20, out = new Float32Array(frames);
   for (let f=0; f<frames; f++){
     let a=0, n=0;
@@ -231,48 +319,41 @@ function onsetEnvelope(x, sr){
   }
   return { env: out, fps: sr/hop };
 }
-
 function estimateTempo(env, fps){
-  const minB = 70, maxB = 200;
-  const minLag = Math.floor(fps*60/maxB), maxLag = Math.ceil(fps*60/minB);
+  const minLag = Math.floor(fps*60/200), maxLag = Math.ceil(fps*60/70);
   const scores = [];
   for (let lag=minLag; lag<=maxLag; lag++){
     let s = 0, n = 0;
     for (let i=0; i+lag<env.length; i++){ s += env[i]*env[i+lag]; n++; }
     s /= (n || 1);
     const bpm = 60*fps/lag;
-    // Favour the 90-150 range: most octave errors resolve correctly this way.
     const w = Math.exp(-0.5*Math.pow(Math.log(bpm/120)/0.30, 2));
     scores.push({ lag, bpm, raw: s, score: s*w });
   }
   scores.sort((a,b)=>b.score-a.score);
   const best = scores[0];
   const mean = scores.reduce((a,b)=>a+b.raw,0)/scores.length;
-  const confidence = Math.max(0, Math.min(1, (best.raw/(mean||1) - 1)/3));
-  return { bpm: best.bpm, lag: best.lag, confidence };
+  return { bpm: best.bpm, lag: best.lag,
+           confidence: Math.max(0, Math.min(1, (best.raw/(mean||1) - 1)/3)) };
 }
-
 function findPhase(env, lag){
-  let bestOff = 0, bestScore = -1;
+  let bestOff = 0, best = -1;
   for (let off=0; off<lag; off++){
     let s = 0;
     for (let i=off; i<env.length; i+=lag) s += env[i];
-    if (s > bestScore){ bestScore = s; bestOff = off; }
+    if (s > best){ best = s; bestOff = off; }
   }
   return bestOff;
 }
-
 function findDownbeat(env, lag, phase){
-  // Of the four beats in a bar, the bar's first beat usually carries most energy.
-  let bestP = 0, bestScore = -1;
+  let bestP = 0, best = -1;
   for (let p=0; p<4; p++){
     let s = 0;
     for (let i=phase + p*lag; i<env.length; i += lag*4) s += env[i];
-    if (s > bestScore){ bestScore = s; bestP = p; }
+    if (s > best){ best = s; bestP = p; }
   }
   return phase + bestP*lag;
 }
-
 onmessage = e => {
   const { mono, sr } = e.data;
   const x = new Float32Array(mono);
@@ -280,42 +361,205 @@ onmessage = e => {
   const t = estimateTempo(env, fps);
   const phase = findPhase(env, t.lag);
   const db = findDownbeat(env, t.lag, phase);
-  postMessage({
-    type: 'done',
-    bpm: t.bpm,
-    confidence: t.confidence,
-    firstBeatSec: phase/fps,
-    downbeatSec: db/fps
-  });
+  postMessage({ type:'done', bpm:t.bpm, confidence:t.confidence,
+                firstBeatSec: phase/fps, downbeatSec: db/fps });
 };
 `;
 
-function analyse(mono, sr, onProgress){
+/* ------------------------------------------------------------- HPSS worker --- */
+/* Harmonic/percussive separation by median filtering the spectrogram.
+   The mask is computed once from the mono sum and applied to every channel,
+   so the stereo image cannot drift apart. Masks sum to 1, therefore
+   harmonic + percussive reconstructs the original exactly — which is what
+   makes the drum bridge seamless. */
+
+const hpssSrc = FFT_SRC + `
+const N = 2048, HOP = 512, HALF = N/2 + 1;
+
+function analyse(x, win){
+  const frames = Math.max(1, Math.floor((x.length - N)/HOP) + 1);
+  const RE = [], IM = [];
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let f=0; f<frames; f++){
+    const off = f*HOP;
+    for (let i=0;i<N;i++){ const v = x[off+i]; re[i] = (v===undefined?0:v)*win[i]; im[i] = 0; }
+    fft(re, im);
+    RE.push(re.slice(0, HALF));
+    IM.push(im.slice(0, HALF));
+  }
+  return { RE, IM, frames };
+}
+
+function synth(RE, IM, win, len){
+  const frames = RE.length;
+  const out = new Float32Array(len);
+  const norm = new Float32Array(len);
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let f=0; f<frames; f++){
+    for (let k=0;k<HALF;k++){ re[k] = RE[f][k]; im[k] = IM[f][k]; }
+    for (let k=HALF;k<N;k++){ re[k] = RE[f][N-k]; im[k] = -IM[f][N-k]; }
+    ifft(re, im);
+    const off = f*HOP;
+    for (let i=0;i<N;i++){
+      if (off+i >= len) break;
+      out[off+i] += re[i]*win[i];
+      norm[off+i] += win[i]*win[i];
+    }
+  }
+  // Hann-squared at 4x overlap sums to ~1.5 in steady state. Clamping the divisor
+  // means the first and last frames taper away instead of being amplified.
+  for (let i=0;i<len;i++) out[i] /= Math.max(norm[i], 0.4);
+  return out;
+}
+
+function median(arr, n){
+  // small n: insertion sort a scratch copy
+  const a = arr.slice(0, n).sort((x,y)=>x-y);
+  return a[n >> 1];
+}
+
+onmessage = e => {
+  const { chans, sr, p } = e.data;
+  const win = hann(N);
+  const L = chans.map(c => new Float32Array(c));
+  const len = L[0].length;
+
+  // mono sum drives the mask
+  const mono = new Float32Array(len);
+  for (const c of L) for (let i=0;i<len;i++) mono[i] += c[i]/L.length;
+
+  postMessage({ type:'progress', v:0.05, msg:'analysing' });
+  const M = analyse(mono, win);
+  const frames = M.frames;
+  const S = [];
+  for (let f=0; f<frames; f++){
+    const row = new Float32Array(HALF);
+    for (let k=0;k<HALF;k++) row[k] = Math.hypot(M.RE[f][k], M.IM[f][k]);
+    S.push(row);
+  }
+
+  const KT = 17, KF = 17, ht = KT >> 1, hf = KF >> 1;
+  const H = [], P = [];
+  const scratch = new Float32Array(Math.max(KT, KF));
+
+  postMessage({ type:'progress', v:0.3, msg:'separating' });
+  for (let f=0; f<frames; f++){
+    const hr = new Float32Array(HALF), pr = new Float32Array(HALF);
+    for (let k=0;k<HALF;k++){
+      // horizontal (time) median -> harmonic
+      let n = 0;
+      for (let d=-ht; d<=ht; d++){
+        const ff = f+d;
+        if (ff >= 0 && ff < frames) scratch[n++] = S[ff][k];
+      }
+      hr[k] = median(scratch, n);
+      // vertical (frequency) median -> percussive
+      n = 0;
+      for (let d=-hf; d<=hf; d++){
+        const kk = k+d;
+        if (kk >= 0 && kk < HALF) scratch[n++] = S[f][kk];
+      }
+      pr[k] = median(scratch, n);
+    }
+    H.push(hr); P.push(pr);
+    if ((f & 63) === 0) postMessage({ type:'progress', v: 0.3 + 0.5*f/frames, msg:'separating' });
+  }
+
+  postMessage({ type:'progress', v:0.82, msg:'rebuilding' });
+  const harmCh = [], percCh = [];
+  for (let c=0; c<L.length; c++){
+    const A = analyse(L[c], win);
+    const HR = [], HI = [], PR = [], PI = [];
+    for (let f=0; f<A.frames; f++){
+      const hr = new Float32Array(HALF), hi = new Float32Array(HALF);
+      const pr = new Float32Array(HALF), pi = new Float32Array(HALF);
+      const g = Math.min(f, frames-1);
+      for (let k=0;k<HALF;k++){
+        const hp = Math.pow(H[g][k], p), pp = Math.pow(P[g][k], p);
+        const mh = (hp + pp) > 1e-20 ? hp/(hp+pp) : 0.5;
+        hr[k] = A.RE[f][k]*mh;      hi[k] = A.IM[f][k]*mh;
+        pr[k] = A.RE[f][k]*(1-mh);  pi[k] = A.IM[f][k]*(1-mh);
+      }
+      HR.push(hr); HI.push(hi); PR.push(pr); PI.push(pi);
+    }
+    harmCh.push(synth(HR, HI, win, len));
+    percCh.push(synth(PR, PI, win, len));
+  }
+
+  const transfer = [];
+  for (const c of harmCh) transfer.push(c.buffer);
+  for (const c of percCh) transfer.push(c.buffer);
+  postMessage({ type:'done',
+                harmonic: harmCh.map(c=>c.buffer),
+                percussive: percCh.map(c=>c.buffer),
+                len }, transfer);
+};
+`;
+
+function runWorker(src, payload, transfer, onProgress){
   return new Promise((resolve, reject) => {
-    const blob = new Blob([workerSrc], { type: 'text/javascript' });
+    const blob = new Blob([src], { type:'text/javascript' });
     const w = new Worker(URL.createObjectURL(blob));
     w.onmessage = ev => {
-      if (ev.data.type === 'progress'){ onProgress(ev.data.v); return; }
-      w.terminate();
-      resolve(ev.data);
+      if (ev.data.type === 'progress'){ onProgress && onProgress(ev.data); return; }
+      w.terminate(); resolve(ev.data);
     };
     w.onerror = err => { w.terminate(); reject(err); };
-    const copy = mono.slice();
-    w.postMessage({ mono: copy.buffer, sr }, [copy.buffer]);
+    w.postMessage(payload, transfer);
   });
+}
+
+function analyse(mono, sr, onProgress){
+  const copy = mono.slice();
+  return runWorker(analysisSrc, { mono: copy.buffer, sr }, [copy.buffer],
+                   d => onProgress(d.v));
+}
+
+async function hpss(buf, p, onProgress){
+  const chans = [];
+  const transfer = [];
+  for (let c=0; c<buf.numberOfChannels; c++){
+    const copy = buf.getChannelData(c).slice();
+    chans.push(copy.buffer); transfer.push(copy.buffer);
+  }
+  const res = await runWorker(hpssSrc, { chans, sr: buf.sampleRate, p }, transfer, onProgress);
+  const mk = arrs => {
+    const out = ctx.createBuffer(arrs.length, res.len, buf.sampleRate);
+    arrs.forEach((ab, i) => out.copyToChannel(new Float32Array(ab), i));
+    return out;
+  };
+  return { harmonic: mk(res.harmonic), percussive: mk(res.percussive) };
 }
 
 /* ------------------------------------------------------------- utilities --- */
 
 function toMono(buf){
-  const n = buf.length;
-  const out = new Float32Array(n);
-  const chans = buf.numberOfChannels;
+  const n = buf.length, out = new Float32Array(n), chans = buf.numberOfChannels;
   for (let c=0; c<chans; c++){
     const d = buf.getChannelData(c);
     for (let i=0; i<n; i++) out[i] += d[i]/chans;
   }
   return out;
+}
+
+/* Last moment the track is actually audible. Releases fade out and encoders
+   leave trailing silence; anchoring a transition to buffer.duration means
+   mixing out of nothing. */
+function contentEndSec(mono, sr){
+  const W = 2048, thresh = 0.02;      // about -34 dBFS RMS
+  for (let i = mono.length - W; i > 0; i -= W){
+    let s = 0;
+    for (let k=0; k<W; k++){ const v = mono[i+k]; s += v*v; }
+    if (Math.sqrt(s/W) > thresh) return (i + W)/sr;
+  }
+  return mono.length/sr;
+}
+
+function rms(buf){
+  const d = buf.getChannelData(0);
+  let s = 0;
+  for (let i=0; i<d.length; i++) s += d[i]*d[i];
+  return Math.sqrt(s/Math.max(1, d.length));
 }
 
 function peaks(mono, buckets){
@@ -330,8 +574,18 @@ function peaks(mono, buckets){
   return out;
 }
 
-/* WSOLA time-stretch. ratio > 1 makes the output shorter (faster).
-   Preserves pitch; comfortable up to roughly +/-10%. */
+function slice(buf, startSec, durSec){
+  const sr = buf.sampleRate;
+  const s = Math.max(0, Math.floor(startSec*sr));
+  const n = Math.min(buf.length - s, Math.floor(durSec*sr));
+  const out = ctx.createBuffer(buf.numberOfChannels, Math.max(1, n), sr);
+  for (let c=0; c<buf.numberOfChannels; c++){
+    out.copyToChannel(buf.getChannelData(c).subarray(s, s+n), c);
+  }
+  return out;
+}
+
+/* WSOLA time-stretch. ratio > 1 makes the output shorter (faster). Pitch preserved. */
 function stretch(buf, ratio){
   if (Math.abs(ratio - 1) < 0.0005) return buf;
   const N = 2048, Hs = N/4, Ha = Math.round(Hs*ratio), search = 256;
@@ -342,8 +596,6 @@ function stretch(buf, ratio){
   const win = new Float32Array(N);
   for (let i=0;i<N;i++) win[i] = 0.5 - 0.5*Math.cos(2*Math.PI*i/(N-1));
 
-  // Alignment offsets are computed once from a mono sum, then applied to every
-  // channel, so the stereo image cannot drift apart.
   const ref = toMono(buf);
   const offsets = [];
   let ap = 0, prevTail = null;
@@ -367,8 +619,7 @@ function stretch(buf, ratio){
   }
 
   for (let c=0; c<chans; c++){
-    const src = buf.getChannelData(c);
-    const dst = out.getChannelData(c);
+    const src = buf.getChannelData(c), dst = out.getChannelData(c);
     const norm = new Float32Array(outLen);
     for (let f=0; f<offsets.length; f++){
       const a = offsets[f], sp = f*Hs;
@@ -379,9 +630,78 @@ function stretch(buf, ratio){
         norm[sp+i] += win[i];
       }
     }
-    for (let i=0; i<outLen; i++) if (norm[i] > 1e-6) dst[i] /= norm[i];
+    // Hann at 4x overlap sums to ~2.0 in steady state; clamp so the tail of the
+    // stretched buffer fades out rather than being multiplied up into distortion.
+    for (let i=0; i<outLen; i++) dst[i] /= Math.max(norm[i], 0.5);
   }
   return out;
+}
+
+/* Two clips summed can exceed full scale — modern masters sit near 0 dBFS, so a
+   crossfade or an overlap clips on export. Float render headroom is unlimited;
+   this pulls the finished buffer back under 0 dBFS before playback or WAV. */
+function finalise(buf){
+  let peak = 0;
+  for (let c=0; c<buf.numberOfChannels; c++){
+    const d = buf.getChannelData(c);
+    for (let i=0; i<d.length; i++){ const a = Math.abs(d[i]); if (a > peak) peak = a; }
+  }
+  if (peak > 0.99){
+    const g = 0.98/peak;
+    for (let c=0; c<buf.numberOfChannels; c++){
+      const d = buf.getChannelData(c);
+      for (let i=0; i<d.length; i++) d[i] *= g;
+    }
+    return { peak, reducedDb: 20*Math.log10(g) };
+  }
+  return { peak, reducedDb: 0 };
+}
+
+/* Zero-phase high-pass (RBJ biquad run forwards then backwards). Phase matters
+   here because the result gets subtracted from the original — a phase-shifted
+   subtraction would comb-filter instead of cancelling. */
+function hpFiltfilt(data, fc, sr){
+  const w0 = 2*Math.PI*fc/sr, cw = Math.cos(w0), sw = Math.sin(w0);
+  const alpha = sw/(2*Math.SQRT1_2);
+  const a0 = 1 + alpha;
+  const b0 = (1+cw)/2/a0, b1 = -(1+cw)/a0, b2 = (1+cw)/2/a0;
+  const a1 = (-2*cw)/a0, a2 = (1-alpha)/a0;
+  const run = src => {
+    const out = new Float32Array(src.length);
+    let x1=0,x2=0,y1=0,y2=0;
+    for (let i=0;i<src.length;i++){
+      const x0 = src[i];
+      const y0 = b0*x0 + b1*x1 + b2*x2 - a1*y1 - a2*y2;
+      x2=x1; x1=x0; y2=y1; y1=y0; out[i]=y0;
+    }
+    return out;
+  };
+  const f = run(data);
+  const r = new Float32Array(f.length);
+  for (let i=0;i<f.length;i++) r[i] = f[f.length-1-i];
+  const g = run(r);
+  const out = new Float32Array(f.length);
+  for (let i=0;i<g.length;i++) out[i] = g[g.length-1-i];
+  return out;
+}
+
+/* Synthetic reverb impulse: exponentially decaying noise, decorrelated per
+   channel, with a short pre-delay so the throw blooms rather than smears. Good
+   enough for a plate-ish tail and it needs no sample files. */
+function makeIR(actx, seconds, decay){
+  const sr = actx.sampleRate, len = Math.max(1, Math.floor(sr*seconds));
+  const pre = Math.floor(sr*0.02);
+  const ir = actx.createBuffer(2, len, sr);
+  let seed = 22222;
+  const rnd = () => { seed = (seed*1103515245 + 12345) & 0x7fffffff; return seed/0x7fffffff*2 - 1; };
+  for (let c=0; c<2; c++){
+    const d = ir.getChannelData(c);
+    for (let i=pre; i<len; i++){
+      const t = (i-pre)/(len-pre);
+      d[i] = rnd()*Math.pow(1-t, decay);
+    }
+  }
+  return ir;
 }
 
 function equalPower(n, rising){
@@ -392,7 +712,6 @@ function equalPower(n, rising){
   }
   return a;
 }
-
 function rampCurve(n, from, to){
   const a = new Float32Array(n);
   for (let i=0; i<n; i++) a[i] = from + (to-from)*(i/(n-1));
@@ -402,8 +721,7 @@ function rampCurve(n, from, to){
 function encodeWav(buf){
   const chans = buf.numberOfChannels, len = buf.length, sr = buf.sampleRate;
   const bytes = 44 + len*chans*2;
-  const ab = new ArrayBuffer(bytes);
-  const v = new DataView(ab);
+  const ab = new ArrayBuffer(bytes), v = new DataView(ab);
   const str = (o,s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
   str(0,'RIFF'); v.setUint32(4, bytes-8, true); str(8,'WAVE');
   str(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true);
@@ -413,14 +731,12 @@ function encodeWav(buf){
   const data = [];
   for (let c=0;c<chans;c++) data.push(buf.getChannelData(c));
   let o = 44;
-  for (let i=0;i<len;i++){
+  for (let i=0;i<len;i++)
     for (let c=0;c<chans;c++){
       let s = Math.max(-1, Math.min(1, data[c][i]));
-      v.setInt16(o, s < 0 ? s*0x8000 : s*0x7fff, true);
-      o += 2;
+      v.setInt16(o, s < 0 ? s*0x8000 : s*0x7fff, true); o += 2;
     }
-  }
-  return new Blob([ab], { type: 'audio/wav' });
+  return new Blob([ab], { type:'audio/wav' });
 }
 
 /* ----------------------------------------------------------------- intake --- */
@@ -444,31 +760,32 @@ async function addTrack(file){
   const t = {
     id: 't' + Date.now() + Math.random().toString(36).slice(2,6),
     name: file.name.replace(/\.[^.]+$/, ''),
-    buffer: null, mono: null, peaks: null,
-    bpm: 0, confidence: 0, firstBeatSec: 0, downbeatSec: 0
+    buffer:null, mono:null, peaks:null,
+    bpm:0, confidence:0, firstBeatSec:0, downbeatSec:0, entrySec:0, exitSec:0
   };
   tracks.push(t);
   renderTrack(t);
-  const el = document.getElementById(t.id);
-  const status = el.querySelector('.status');
-
+  const status = document.getElementById(t.id).querySelector('.status');
   try {
     status.textContent = 'Decoding…';
-    const ab = await file.arrayBuffer();
-    t.buffer = await ctx.decodeAudioData(ab);
+    t.buffer = await ctx.decodeAudioData(await file.arrayBuffer());
     t.mono = toMono(t.buffer);
     t.peaks = peaks(t.mono, 1400);
-
     status.textContent = 'Analysing…';
-    const res = await analyse(t.mono, t.buffer.sampleRate, v => {
-      status.textContent = 'Analysing… ' + Math.round(v*100) + '%';
-    });
+    const res = await analyse(t.mono, t.buffer.sampleRate,
+      v => status.textContent = 'Analysing… ' + Math.round(v*100) + '%');
     t.bpm = Math.round(res.bpm*100)/100;
     t.confidence = res.confidence;
     t.firstBeatSec = res.firstBeatSec;
     t.downbeatSec = res.downbeatSec;
-    status.textContent = '';
+    t.entrySec = res.downbeatSec;
+    t.exitSec = snapToBar(t, contentEndSec(t.mono, t.buffer.sampleRate));
+    const tail = t.buffer.duration - t.exitSec;
     renderTrack(t);
+    if (tail > 1.5){
+      document.getElementById(t.id).querySelector('.status').textContent =
+        `Mix-out point set to ${t.exitSec.toFixed(1)}s — the last ${tail.toFixed(1)}s is fade-out or silence.`;
+    }
     refreshDecks();
   } catch (err){
     status.textContent = 'Could not decode this file. ' + (err.message || err);
@@ -478,15 +795,16 @@ async function addTrack(file){
 
 /* ---------------------------------------------------------------- display --- */
 
-function confClass(c){ return c >= 0.6 ? 'hi' : c >= 0.3 ? 'mid' : 'lo'; }
-function confWord(c){ return c >= 0.6 ? 'strong' : c >= 0.3 ? 'fair' : 'weak'; }
+const confClass = c => c >= 0.6 ? 'hi' : c >= 0.3 ? 'mid' : 'lo';
+const confWord  = c => c >= 0.6 ? 'strong' : c >= 0.3 ? 'fair' : 'weak';
+const escapeHtml = s => String(s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function renderTrack(t){
   let el = document.getElementById(t.id);
   if (!el){
     el = document.createElement('div');
-    el.id = t.id;
-    el.className = 'card trk';
+    el.id = t.id; el.className = 'card trk';
     $('tracks').appendChild(el);
   }
   const ready = t.bpm > 0;
@@ -499,26 +817,17 @@ function renderTrack(t){
     <canvas class="wave" data-for="${t.id}"></canvas>
     ${ready ? `
     <div class="grid">
-      <div>
-        <label class="lbl">Detected BPM</label>
-        <input type="number" step="0.01" value="${t.bpm}" data-f="bpm" data-t="${t.id}">
-      </div>
-      <div>
-        <label class="lbl">First downbeat (s)</label>
-        <input type="number" step="0.001" value="${t.downbeatSec.toFixed(3)}" data-f="downbeatSec" data-t="${t.id}">
-      </div>
-      <div>
-        <label class="lbl">&nbsp;</label>
-        <button class="ghost" data-act="half" data-t="${t.id}">Halve BPM</button>
-      </div>
-      <div>
-        <label class="lbl">&nbsp;</label>
-        <button class="ghost" data-act="double" data-t="${t.id}">Double BPM</button>
-      </div>
-      <div>
-        <label class="lbl">&nbsp;</label>
-        <button data-act="check" data-t="${t.id}">Check grid</button>
-      </div>
+      <div><label class="lbl">Detected BPM</label>
+        <input type="number" step="0.01" value="${t.bpm}" data-f="bpm" data-t="${t.id}"></div>
+      <div><label class="lbl">First downbeat (s)</label>
+        <input type="number" step="0.001" value="${t.downbeatSec.toFixed(3)}" data-f="downbeatSec" data-t="${t.id}"></div>
+      <div><label class="lbl">Entry point (s)</label>
+        <input type="number" step="0.001" value="${t.entrySec.toFixed(3)}" data-f="entrySec" data-t="${t.id}"></div>
+      <div><label class="lbl">Mix-out point (s)</label>
+        <input type="number" step="0.001" value="${t.exitSec.toFixed(3)}" data-f="exitSec" data-t="${t.id}"></div>
+      <div><label class="lbl">&nbsp;</label><button class="ghost" data-act="half" data-t="${t.id}">Halve BPM</button></div>
+      <div><label class="lbl">&nbsp;</label><button class="ghost" data-act="double" data-t="${t.id}">Double BPM</button></div>
+      <div><label class="lbl">&nbsp;</label><button data-act="check" data-t="${t.id}">Check grid</button></div>
     </div>` : ''}
     <div class="status"></div>
   `;
@@ -530,7 +839,7 @@ function drawWave(cv, t){
   const w = cv.clientWidth, h = 88;
   cv.width = w*dpr; cv.height = h*dpr;
   const g = cv.getContext('2d');
-  g.scale(dpr, dpr);
+  g.setTransform(dpr,0,0,dpr,0,0);
   g.clearRect(0,0,w,h);
 
   g.fillStyle = '#c3d6d4';
@@ -544,11 +853,14 @@ function drawWave(cv, t){
     const dur = t.buffer.duration, spb = 60/t.bpm;
     let beat = 0;
     for (let s = t.downbeatSec; s < dur; s += spb, beat++){
-      const x = s/dur*w;
-      const bar = beat % 4 === 0;
-      g.fillStyle = bar ? 'rgba(61,98,99,.55)' : 'rgba(61,98,99,.18)';
+      const x = s/dur*w, bar = beat % 4 === 0;
+      g.fillStyle = bar ? 'rgba(61,98,99,.5)' : 'rgba(61,98,99,.16)';
       g.fillRect(x, bar ? 0 : h*0.35, 1, bar ? h : h*0.3);
     }
+    g.fillStyle = '#b07d2e';
+    g.fillRect(t.entrySec/dur*w - 1, 0, 3, h);
+    g.fillStyle = '#b0392c';
+    g.fillRect(t.exitSec/dur*w - 1, 0, 3, h);
   }
 }
 
@@ -557,11 +869,25 @@ window.addEventListener('resize', () => tracks.forEach(t => {
   if (el && t.peaks) drawWave(el.querySelector('canvas'), t);
 }));
 
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Click a waveform to set that track's entry point, snapped to the nearest bar. */
+$('tracks').addEventListener('click', e => {
+  if (!e.target.matches('canvas.wave')) return;
+  const t = tracks.find(x => x.id === e.target.dataset.for);
+  if (!t || !t.bpm) return;
+  const r = e.target.getBoundingClientRect();
+  const frac = (e.clientX - r.left)/r.width;
+  const raw = snapToBar(t, frac*t.buffer.duration);
+  if (e.shiftKey) t.exitSec = raw; else t.entrySec = raw;
+  renderTrack(t);
+  syncLabFields();
+});
+
+function snapToBar(t, sec){
+  const bar = 60/t.bpm*4;
+  const k = Math.round((sec - t.downbeatSec)/bar);
+  return Math.max(0, t.downbeatSec + k*bar);
 }
 
-/* Delegated handlers: fields and per-track buttons. */
 $('tracks').addEventListener('input', e => {
   const f = e.target.dataset.f;
   if (!f) return;
@@ -569,7 +895,7 @@ $('tracks').addEventListener('input', e => {
   if (!t) return;
   t[f] = parseFloat(e.target.value) || 0;
   drawWave(document.getElementById(t.id).querySelector('canvas'), t);
-  refreshDecks();
+  refreshDecks(); syncLabFields();
 });
 
 $('tracks').addEventListener('click', async e => {
@@ -585,23 +911,17 @@ $('tracks').addEventListener('click', async e => {
 /* --------------------------------------------------------- grid audition --- */
 
 async function checkGrid(t){
-  const el = document.getElementById(t.id);
-  const status = el.querySelector('.status');
+  const el = document.getElementById(t.id), status = el.querySelector('.status');
   status.classList.remove('err');
   status.textContent = 'Rendering 8 bars with clicks…';
-
   const spb = 60/t.bpm, bars = 8, dur = spb*4*bars;
   const start = Math.min(t.downbeatSec, Math.max(0, t.buffer.duration - dur));
   const sr = t.buffer.sampleRate;
   const off = new OfflineAudioContext(2, Math.ceil(dur*sr), sr);
-
-  const src = off.createBufferSource();
-  src.buffer = t.buffer;
-  const g = off.createGain();
-  g.gain.value = 0.7;
+  const src = off.createBufferSource(); src.buffer = t.buffer;
+  const g = off.createGain(); g.gain.value = 0.7;
   src.connect(g).connect(off.destination);
   src.start(0, start, dur);
-
   for (let b=0; b<bars*4; b++){
     const at = b*spb;
     if (at >= dur) break;
@@ -613,7 +933,6 @@ async function checkGrid(t){
     o.connect(cg).connect(off.destination);
     o.start(at); o.stop(at + 0.06);
   }
-
   const rendered = await off.startRendering();
   stopPlayback();
   playingSrc = ctx.createBufferSource();
@@ -623,7 +942,7 @@ async function checkGrid(t){
   status.textContent = 'Playing 8 bars from ' + start.toFixed(2) + 's. Clicks should land on the beat.';
 }
 
-/* --------------------------------------------------------------- decks --- */
+/* ----------------------------------------------------------------- decks --- */
 
 function refreshDecks(){
   const ready = tracks.filter(t => t.bpm > 0);
@@ -637,86 +956,126 @@ function refreshDecks(){
   suggestTarget();
 }
 
+function deckA(){ return tracks.find(t => t.id === $('deckA').value); }
+function deckB(){ return tracks.find(t => t.id === $('deckB').value); }
+
 function suggestTarget(){
-  const a = tracks.find(t => t.id === $('deckA').value);
-  const b = tracks.find(t => t.id === $('deckB').value);
+  const a = deckA(), b = deckB();
   if (!a || !b) return;
-  $('target').value = (Math.round((a.bpm + b.bpm)/2*100)/100);
-  checkBudget();
+  $('target').value = Math.round((a.bpm + b.bpm)/2*100)/100;
+  syncLabFields(); checkBudget();
+}
+
+function syncLabFields(){
+  const a = deckA(), b = deckB();
+  if (a) $('aExit').value  = a.exitSec.toFixed(3);
+  if (b) $('bEntry').value = b.entrySec.toFixed(3);
 }
 
 function checkBudget(){
-  const a = tracks.find(t => t.id === $('deckA').value);
-  const b = tracks.find(t => t.id === $('deckB').value);
-  const tgt = parseFloat($('target').value);
+  const a = deckA(), b = deckB(), tgt = parseFloat($('target').value);
   if (!a || !b || !tgt) return;
   const ra = Math.abs(tgt/a.bpm - 1), rb = Math.abs(tgt/b.bpm - 1);
   const bad = ra > 0.06 || rb > 0.06;
   $('target').style.borderColor = bad ? 'var(--danger)' : 'var(--hairline)';
   $('labStatus').textContent = bad
-    ? `Stretch is ${(Math.max(ra,rb)*100).toFixed(1)}% — past the comfortable range. This join probably wants a hard cut.`
+    ? `Stretch is ${(Math.max(ra,rb)*100).toFixed(1)}% — past the comfortable range.`
+      + (mode === 'blend' ? ' Try a drum bridge instead.' : ' A bridge tolerates this better than a blend.')
     : `Stretch: A ${(ra*100).toFixed(1)}%, B ${(rb*100).toFixed(1)}%. Both comfortable.`;
 }
 
 $('deckA').onchange = suggestTarget;
 $('deckB').onchange = suggestTarget;
 $('target').oninput = checkBudget;
+$('bEntry').oninput = () => {
+  const b = deckB();
+  if (b){ b.entrySec = parseFloat($('bEntry').value)||0; renderTrack(b); }
+};
+$('aExit').oninput = () => {
+  const a = deckA();
+  if (a){ a.exitSec = parseFloat($('aExit').value)||0; renderTrack(a); }
+};
 
-/* ---------------------------------------------------------- blend render --- */
+for (const id of ['tBlend','tBridge']){
+  $(id).onclick = () => {
+    mode = $(id).dataset.t;
+    $('tBlend').classList.toggle('on', mode === 'blend');
+    $('tBridge').classList.toggle('on', mode === 'bridge');
+    $('blendCtl').classList.toggle('hidden', mode !== 'blend');
+    $('bridgeCtl').classList.toggle('hidden', mode !== 'bridge');
+    $('labNote').innerHTML = mode === 'bridge'
+      ? '<strong>Two ways to keep the beat going.</strong> <em>EQ filter</em> is what a DJ actually '
+        + 'does — no separation at all, just pull the MIDS down so the vocals and chords go. Below '
+        + '300 Hz and above 6 kHz are untouched, so you keep the kick, the bass, the hats and the '
+        + 'crack of the snare. Those top-end transients are what make it read as a beat rather '
+        + 'than a muffled rumble. Clean, instant, nothing to go wrong. '
+        + '<em>Separation</em> removes sustained content across the spectrum for a starker result, '
+        + 'but it is reconstructed audio and can sound watery. Its low end is deliberately left '
+        + 'untouched, because a kick looks sustained to the separator and would otherwise vanish. '
+        + '<br><br>Both work <em>backwards from the red mix-out marker on track A</em> — put that '
+        + 'somewhere the drums are still playing, not in the fade-out.'
+      : '<strong>Stretch budget.</strong> Keep each track within about 6% of its own tempo or it '
+        + 'starts to sound processed. The target BPM box turns red past that.';
+    checkBudget();
+  };
+}
+
+/* ----------------------------------------------------------------- render --- */
 
 $('render').onclick = async () => {
-  const a = tracks.find(t => t.id === $('deckA').value);
-  const b = tracks.find(t => t.id === $('deckB').value);
+  const a = deckA(), b = deckB();
   const target = parseFloat($('target').value);
-  const bars = parseInt($('bars').value, 10);
-  const bassCut = parseFloat($('bassCut').value);
   if (!a || !b || !target || a === b){
     $('labStatus').textContent = 'Pick two different tracks and a target BPM.';
     return;
   }
-
-  const btn = $('render');
-  btn.disabled = true;
-  $('labStatus').textContent = 'Stretching A…';
-  await new Promise(r => setTimeout(r, 10));
-
-  const ratioA = target/a.bpm, ratioB = target/b.bpm;
-  const bufA = stretch(a.buffer, ratioA);
-  $('labStatus').textContent = 'Stretching B…';
-  await new Promise(r => setTimeout(r, 10));
-  const bufB = stretch(b.buffer, ratioB);
-
-  const spb = 60/target;
-  const barSec = spb*4;
-  const blendSec = bars*barSec;
-  const preRoll = 8*barSec;
-  const postRoll = 8*barSec;
-
-  // Downbeat positions after stretching.
-  const dbA = a.downbeatSec/ratioA;
-  const dbB = b.downbeatSec/ratioB;
-
-  // Blend starts on a bar line near the end of A, leaving room for the blend.
-  const barsInA = Math.floor((bufA.duration - dbA - blendSec)/barSec);
-  if (barsInA < 4){
-    $('labStatus').textContent = 'Track A is too short for that blend length.';
-    btn.disabled = false;
-    return;
+  $('render').disabled = true;
+  try {
+    lastRender = mode === 'blend'
+      ? await renderBlend(a, b, target)
+      : await renderBridge(a, b, target);
+    $('play').disabled = $('stop').disabled = $('dl').disabled = false;
+  } catch (err){
+    $('labStatus').textContent = 'Render failed: ' + (err.message || err);
+    $('labStatus').classList.add('err');
   }
+  $('render').disabled = false;
+};
+
+async function stretchPair(a, b, target){
+  $('labStatus').textContent = 'Stretching A…';
+  await tick();
+  const bufA = stretch(a.buffer, target/a.bpm);
+  $('labStatus').textContent = 'Stretching B…';
+  await tick();
+  const bufB = stretch(b.buffer, target/b.bpm);
+  return { bufA, bufB, ratioA: target/a.bpm, ratioB: target/b.bpm };
+}
+const tick = () => new Promise(r => setTimeout(r, 10));
+
+async function renderBlend(a, b, target){
+  const bars = parseInt($('bars').value, 10);
+  const bassCut = parseFloat($('bassCut').value);
+  const { bufA, bufB, ratioA, ratioB } = await stretchPair(a, b, target);
+
+  const spb = 60/target, barSec = spb*4;
+  const blendSec = bars*barSec, preRoll = 8*barSec, postRoll = 8*barSec;
+  const dbA = a.downbeatSec/ratioA, entryB = b.entrySec/ratioB;
+  const exitA = a.exitSec/ratioA;
+
+  // Work backwards from A's mix-out point, snapped to its bar grid.
+  const barsInA = Math.round((exitA - blendSec - dbA)/barSec);
+  if (barsInA < 4) throw new Error('Not enough of track A before its mix-out point for a ' + bars + '-bar blend. Move the red marker later or shorten the blend.');
   const blendStartA = dbA + barsInA*barSec;
   const aStart = Math.max(0, blendStartA - preRoll);
 
   const sr = bufA.sampleRate;
   const total = (blendStartA - aStart) + blendSec + postRoll;
   const off = new OfflineAudioContext(2, Math.ceil(total*sr), sr);
+  const blendAt = blendStartA - aStart, CURVE = 256;
 
-  const blendAt = blendStartA - aStart;   // time in the output where the blend begins
-  const CURVE = 256;
-
-  // --- Deck A: plays through the pre-roll, then fades and loses its bass.
   const sA = off.createBufferSource(); sA.buffer = bufA;
-  const gA = off.createGain();
-  const eqA = off.createBiquadFilter();
+  const gA = off.createGain(), eqA = off.createBiquadFilter();
   eqA.type = 'lowshelf'; eqA.frequency.value = 220; eqA.gain.value = 0;
   sA.connect(eqA).connect(gA).connect(off.destination);
   gA.gain.setValueAtTime(1, 0);
@@ -725,10 +1084,8 @@ $('render').onclick = async () => {
   eqA.gain.setValueCurveAtTime(rampCurve(CURVE, 0, -bassCut), blendAt, blendSec*0.5);
   sA.start(0, aStart, Math.min(bufA.duration - aStart, blendAt + blendSec));
 
-  // --- Deck B: enters on its own downbeat, bass held back until halfway.
   const sB = off.createBufferSource(); sB.buffer = bufB;
-  const gB = off.createGain();
-  const eqB = off.createBiquadFilter();
+  const gB = off.createGain(), eqB = off.createBiquadFilter();
   eqB.type = 'lowshelf'; eqB.frequency.value = 220; eqB.gain.value = -bassCut;
   sB.connect(eqB).connect(gB).connect(off.destination);
   gB.gain.setValueAtTime(0, 0);
@@ -736,23 +1093,219 @@ $('render').onclick = async () => {
   gB.gain.setValueAtTime(1, blendAt + blendSec + 0.001);
   eqB.gain.setValueAtTime(-bassCut, 0);
   eqB.gain.setValueCurveAtTime(rampCurve(CURVE, -bassCut, 0), blendAt + blendSec*0.5, blendSec*0.5);
-  sB.start(blendAt, dbB, Math.min(bufB.duration - dbB, blendSec + postRoll));
+  sB.start(blendAt, entryB, Math.min(bufB.duration - entryB, blendSec + postRoll));
 
   $('labStatus').textContent = 'Rendering…';
-  lastRender = await off.startRendering();
-
-  btn.disabled = false;
-  $('play').disabled = $('stop').disabled = $('dl').disabled = false;
+  const out = await off.startRendering();
+  const fin = finalise(out);
+  $('labStatus').classList.remove('err');
   $('labStatus').textContent =
-    `Rendered ${fmtTime(lastRender.duration)} at ${target} BPM. ` +
-    `Blend starts at ${fmtTime(blendAt)}, runs ${bars} bars. ` +
+    (fin.reducedDb ? `Peak was ${fin.peak.toFixed(2)}, pulled down ${(-fin.reducedDb).toFixed(1)} dB. ` : '') +
+    `Blend rendered — ${fmtTime(out.duration)} at ${target} BPM, ${bars} bars from ${fmtTime(blendAt)}. ` +
     `A stretched ${((ratioA-1)*100).toFixed(1)}%, B ${((ratioB-1)*100).toFixed(1)}%.`;
-};
+  return out;
+}
+
+async function renderBridge(a, b, target){
+  const bridgeBars = parseInt($('bridgeBars').value, 10);
+  const overlapBars = parseInt($('overlapBars').value, 10);
+  const method = $('method').value;
+  const cutStyle = $('cutStyle').value;
+  const throwing = cutStyle === 'throw';
+  const fadeBars = throwing ? 0 : parseInt($('fadeBars').value, 10);
+  const reverbBars = parseFloat($('reverbBars').value);
+  const { bufA, bufB, ratioA, ratioB } = await stretchPair(a, b, target);
+
+  const spb = 60/target, barSec = spb*4;
+  // The two bar counts are additive: music closes out over fadeBars, then the
+  // beat runs alone for bridgeBars.
+  // A throw is an instant cut (30 ms so it does not click); a fade ramps over bars.
+  const fadeSec = throwing ? 0.03 : fadeBars*barSec;
+  const bridgeSec = fadeSec + bridgeBars*barSec;
+  const dbA = a.downbeatSec/ratioA, entryB = b.entrySec/ratioB;
+  const exitA = a.exitSec/ratioA;
+  const preRoll = 8*barSec, postRoll = 8*barSec;
+
+  // Anchored to A's mix-out marker, never to the end of the file.
+  const barsInA = Math.round((exitA - bridgeSec - dbA)/barSec);
+  if (barsInA < 4) throw new Error('Not enough of track A before its mix-out point for ' + fadeBars + ' + ' + bridgeBars + ' bars. Move the red marker later or shorten the bridge.');
+  const bridgeStart = dbA + barsInA*barSec;
+  const aStart = Math.max(0, bridgeStart - preRoll);
+
+  const sr = bufA.sampleRate;
+  const brAt = bridgeStart - aStart;
+  const bEnterAt = brAt + bridgeSec - overlapBars*barSec;
+  const total = bEnterAt + postRoll + 2;
+  const off = new OfflineAudioContext(2, Math.ceil(total*sr), sr);
+
+  let note = '';
+
+  if (method === 'eq'){
+    // ---- What a DJ actually does: no separation, just take the mids and highs
+    // out with EQ. Vocals and chords live at 300 Hz - 5 kHz; kick, bass and the
+    // thump of the snare live below that. Nothing is reconstructed, so there is
+    // nothing to go wrong.
+    const cut = parseFloat($('midCut').value);
+    const hcut = parseFloat($('highCut').value);
+    const sA = off.createBufferSource(); sA.buffer = bufA;
+
+    // Three narrow-ish peaking bells covering roughly 400 Hz - 5 kHz, which is
+    // where voices and chords sit. Nothing above 6 kHz and nothing below 300 Hz
+    // is touched, so the kick and bass stay AND the hats and the crack of the
+    // snare stay. Those top-end transients are what make it read as a beat
+    // rather than as a muffled rumble.
+    const m1 = off.createBiquadFilter(); m1.type='peaking'; m1.frequency.value=700;  m1.Q.value=1.0;
+    const m2 = off.createBiquadFilter(); m2.type='peaking'; m2.frequency.value=1800; m2.Q.value=1.0;
+    const m3 = off.createBiquadFilter(); m3.type='peaking'; m3.frequency.value=3500; m3.Q.value=1.0;
+    const hs = off.createBiquadFilter(); hs.type='highshelf'; hs.frequency.value=7000;
+    const gA = off.createGain();
+    sA.connect(m1).connect(m2).connect(m3).connect(hs).connect(gA).connect(off.destination);
+
+    if (throwing){
+      // Tapped BEFORE the filters, so the throw carries the full-range last note,
+      // not the filtered version of it. The send opens for the final beat and
+      // shuts at the cut; the convolver tail rings on over the beat underneath.
+      const send = off.createGain();
+      const conv = off.createConvolver();
+      conv.buffer = makeIR(off, reverbBars*barSec, 2.5);
+      const wet = off.createGain(); wet.gain.value = 0.85;
+      sA.connect(send).connect(conv).connect(wet).connect(off.destination);
+      send.gain.setValueAtTime(0, 0);
+      send.gain.setValueAtTime(0, brAt - spb - 0.001);
+      send.gain.linearRampToValueAtTime(1, brAt - spb);
+      send.gain.setValueAtTime(1, brAt);
+      send.gain.linearRampToValueAtTime(0, brAt + 0.02);
+    }
+
+    // A peaking filter at 0 dB is exactly unity, so everything before the bridge
+    // is untouched by these.
+    for (const [f, depth] of [[m1, cut], [m2, cut], [m3, cut*0.7], [hs, hcut]]){
+      f.gain.setValueAtTime(0, 0);
+      if (depth <= 0) continue;
+      f.gain.setValueCurveAtTime(rampCurve(256, 0, -depth), brAt, fadeSec);
+      f.gain.setValueAtTime(-depth, brAt + fadeSec + 0.001);
+    }
+    gA.gain.setValueAtTime(1, 0);
+    if (overlapBars > 0)
+      gA.gain.setValueCurveAtTime(equalPower(128, false), bEnterAt, overlapBars*barSec);
+    else {
+      gA.gain.setValueAtTime(1, brAt + bridgeSec - 0.05);
+      gA.gain.linearRampToValueAtTime(0, brAt + bridgeSec);
+    }
+    sA.start(0, aStart, bridgeSec + preRoll);
+    note = `${throwing ? reverbBars + '-bar reverb throw, ' : fadeBars + '-bar fade, '}mids cut ${cut} dB, highs ${hcut ? 'cut ' + hcut + ' dB' : 'kept'}`;
+
+  } else {
+    // ---- Separation, but the low end is never touched. Straight HPSS deletes
+    // the kick, because at this resolution a kick's fundamental looks sustained.
+    // So: subtract only the HIGH-PASSED harmonic part, leaving the original
+    // bass and kick completely intact. At env = 1 nothing is subtracted, so the
+    // bridge still starts bit-identical to the track.
+    $('labStatus').textContent = 'Separating…';
+    await tick();
+    const p = parseFloat($('removal').value);
+    const region = slice(bufA, bridgeStart, bridgeSec);
+    const { harmonic } = await hpss(region, p,
+      d => $('labStatus').textContent = `Separating… ${Math.round(d.v*100)}% (${d.msg})`);
+
+    const bridge = ctx.createBuffer(region.numberOfChannels, region.length, sr);
+    const fadeN = Math.min(region.length, Math.floor(fadeSec*sr));
+    for (let c=0; c<region.numberOfChannels; c++){
+      const orig = region.getChannelData(c);
+      const hHi = hpFiltfilt(harmonic.getChannelData(c), 220, sr);
+      const d = bridge.getChannelData(c);
+      for (let i=0; i<region.length; i++){
+        const t = i < fadeN ? i/fadeN : 1;
+        const env = 0.5 + 0.5*Math.cos(Math.PI*t);   // 1 -> 0
+        d[i] = orig[i] - hHi[i]*(1 - env);
+      }
+    }
+
+    if (throwing){
+      const sThrow = off.createBufferSource(); sThrow.buffer = bufA;
+      const send = off.createGain();
+      const conv = off.createConvolver();
+      conv.buffer = makeIR(off, reverbBars*barSec, 2.5);
+      const wet = off.createGain(); wet.gain.value = 0.85;
+      sThrow.connect(send).connect(conv).connect(wet).connect(off.destination);
+      send.gain.setValueAtTime(0, 0);
+      send.gain.setValueAtTime(0, brAt - spb - 0.001);
+      send.gain.linearRampToValueAtTime(1, brAt - spb);
+      send.gain.setValueAtTime(1, brAt);
+      send.gain.linearRampToValueAtTime(0, brAt + 0.02);
+      sThrow.start(0, aStart, brAt + 0.05);
+    }
+
+    const sA = off.createBufferSource(); sA.buffer = bufA;
+    sA.connect(off.destination);
+    sA.start(0, aStart, brAt);
+
+    const sBr = off.createBufferSource(); sBr.buffer = bridge;
+    const gBr = off.createGain();
+    sBr.connect(gBr).connect(off.destination);
+    gBr.gain.setValueAtTime(1, brAt);
+    if (overlapBars > 0)
+      gBr.gain.setValueCurveAtTime(equalPower(128, false), bEnterAt, overlapBars*barSec);
+    else {
+      gBr.gain.setValueAtTime(1, brAt + bridgeSec - 0.05);
+      gBr.gain.linearRampToValueAtTime(0, brAt + bridgeSec);
+    }
+    sBr.start(brAt);
+    note = `separation strength ${p}, bass left untouched`;
+  }
+
+  // ---- B enters on a bar line
+  const sB = off.createBufferSource(); sB.buffer = bufB;
+  const gB = off.createGain();
+  sB.connect(gB).connect(off.destination);
+  if (overlapBars > 0){
+    gB.gain.setValueAtTime(0, bEnterAt);
+    gB.gain.setValueCurveAtTime(equalPower(128, true), bEnterAt, overlapBars*barSec);
+    gB.gain.setValueAtTime(1, bEnterAt + overlapBars*barSec + 0.001);
+  } else {
+    gB.gain.setValueAtTime(1, bEnterAt);
+  }
+  sB.start(bEnterAt, entryB, Math.min(bufB.duration - entryB, postRoll + overlapBars*barSec));
+
+  $('labStatus').textContent = 'Rendering…';
+  const out = await off.startRendering();
+  const fin = finalise(out);
+
+  // Is there actually anything audible during the beat-only stretch?
+  const beatSeg = sliceOf(out, brAt + fadeSec, Math.min(bridgeBars*barSec, 6));
+  const beatDb = 20*Math.log10(beatSeg + 1e-9);
+  const quiet = beatDb < -34;
+
+  $('labStatus').classList.toggle('err', quiet);
+  $('labStatus').textContent = quiet
+    ? `Rendered, but the beat-only stretch is nearly silent (${beatDb.toFixed(0)} dBFS) — it is `
+      + `landing in a fade-out or a breakdown. Shift-click earlier on track A's waveform to move `
+      + `the red mix-out marker somewhere the drums are still going.`
+    : (fin.reducedDb ? `Peak ${fin.peak.toFixed(2)}, pulled down ${(-fin.reducedDb).toFixed(1)} dB. ` : '')
+      + `Bridge rendered — ${fmtTime(out.duration)} at ${target} BPM, ${note}. Music out at `
+      + `${fmtTime(brAt)}, then ${bridgeBars} bars of beat at ${beatDb.toFixed(0)} dBFS, `
+      + `B enters at ${fmtTime(bEnterAt)} from ${entryB.toFixed(2)}s. `
+      + `A stretched ${((ratioA-1)*100).toFixed(1)}%, B ${((ratioB-1)*100).toFixed(1)}%.`;
+  return out;
+}
+
+/* RMS of a window of a rendered buffer, for sanity-checking the bridge. */
+function sliceOf(buf, startSec, durSec){
+  const sr = buf.sampleRate;
+  const s = Math.max(0, Math.floor(startSec*sr));
+  const n = Math.min(buf.length - s, Math.floor(durSec*sr));
+  if (n <= 0) return 0;
+  let acc = 0;
+  const d = buf.getChannelData(0);
+  for (let i=s; i<s+n; i++) acc += d[i]*d[i];
+  return Math.sqrt(acc/n);
+}
+
+/* -------------------------------------------------------------- transport --- */
 
 function stopPlayback(){
   if (playingSrc){ try { playingSrc.stop(); } catch(e){} playingSrc = null; }
 }
-
 $('play').onclick = () => {
   if (!lastRender) return;
   stopPlayback();
@@ -762,13 +1315,12 @@ $('play').onclick = () => {
   playingSrc.start();
 };
 $('stop').onclick = stopPlayback;
-
 $('dl').onclick = () => {
   if (!lastRender) return;
   const url = URL.createObjectURL(encodeWav(lastRender));
-  const a = document.createElement('a');
-  a.href = url; a.download = 'blend.wav';
-  a.click();
+  const el = document.createElement('a');
+  el.href = url; el.download = (mode === 'bridge' ? 'bridge' : 'blend') + '.wav';
+  el.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 };
 </script>

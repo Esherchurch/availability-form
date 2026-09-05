@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mix Builder — EGBC</title>
+<link rel="manifest" href="manifest-mix.json">
+<meta name="theme-color" content="#3d6263">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- The font is a nicety, never a dependency: the service worker keeps a copy
+     after the first visit, and the fallback stack below carries the page on its
+     own if it never arrives. Nothing here blocks working offline. -->
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<style>
+  /* House tokens, copy-pasted as every other page in the suite does. */
+  :root{
+    --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c;
+    --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6;
+    --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28);
+    --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4;
+    --gold:#b07d2e; --gold-tint:#f6efe1;
+    --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+    --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+    --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--canvas); color:var(--body);
+    font-family:Montserrat,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1400px; margin:0 auto; padding:28px 20px 100px}
+  h1{font-size:26px; font-weight:800; color:var(--ink); margin:0; letter-spacing:-.02em}
+  h3{font-size:17px; font-weight:700; color:var(--ink); margin:2px 0 0}
+  .lede{color:var(--muted); margin:6px 0 22px; max-width:70ch}
+  .lbl{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+       color:var(--muted); display:block; margin-bottom:6px}
+  .card{background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-lg);
+        padding:20px; margin-bottom:18px; box-shadow:var(--shadow-sm)}
+  .hidden{display:none !important}
+
+  /* Header */
+  .top{display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:4px}
+  .top .grow{flex:1; min-width:260px}
+  #nameInput{font-family:inherit; font-size:20px; font-weight:800; color:var(--ink);
+    background:transparent; border:0; border-bottom:2px solid transparent; padding:2px 0; width:100%;
+    max-width:420px}
+  #nameInput:focus{outline:none; border-bottom-color:var(--brand)}
+  #saved{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--success); opacity:0; transition:opacity .2s}
+  #saved.on{opacity:1}
+
+  button{font-family:inherit; font-size:12px; font-weight:700; letter-spacing:.03em;
+    background:var(--brand); color:#fff; border:0; border-radius:var(--r-pill);
+    padding:9px 16px; cursor:pointer; transition:.15s}
+  button:hover{background:var(--brand-dark)}
+  button:disabled{background:var(--hairline); color:var(--muted); cursor:not-allowed}
+  button.ghost{background:transparent; color:var(--brand); border:1px solid var(--hairline-strong)}
+  button.ghost:hover{background:var(--brand-tint); border-color:var(--brand)}
+  input[type=number],input[type=text],select,textarea{
+    font-family:inherit; font-size:13px; color:var(--ink); background:var(--surface);
+    border:1px solid var(--hairline-strong); border-radius:var(--r-sm); padding:7px 9px; width:100%}
+  input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
+    box-shadow:0 0 0 3px var(--brand-ring)}
+  textarea{min-height:180px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; align-items:end}
+  .grid .span2{grid-column:1/-1}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px}
+  .hint{font-size:12px; color:var(--muted); background:var(--brand-tint);
+    border-radius:var(--r-md); padding:10px 12px; margin-top:6px}
+  .status{font-size:12px; color:var(--muted); min-height:18px; margin-top:10px}
+  .status.err{color:var(--danger)}
+  .warn{background:var(--gold-tint); border-left:3px solid var(--gold); color:#6d4d17;
+    border-radius:var(--r-md); padding:12px 14px; margin:12px 0; font-size:13px; font-weight:600}
+  .warn button{margin-left:8px}
+  .warn-row{background:var(--gold-tint); border-left:3px solid var(--gold); color:#6d4d17;
+    border-radius:var(--r-sm); padding:8px 12px; margin-top:6px; font-size:12px; font-weight:600;
+    cursor:pointer}
+  .warn-row:hover{background:#f0e4c8}
+
+  /* Drop zone */
+  #drop{border:2px dashed var(--hairline-strong); border-radius:var(--r-lg); background:var(--surface);
+    padding:34px 20px; text-align:center; cursor:pointer; transition:.15s; margin-bottom:18px}
+  #drop:hover,#drop.over{border-color:var(--brand); background:var(--brand-tint)}
+  #drop strong{display:block; color:var(--ink); font-size:16px; font-weight:700; margin-bottom:4px}
+  #drop span{color:var(--muted); font-size:13px}
+
+  /* Summary strip */
+  #summary{display:flex; gap:0; flex-wrap:wrap; margin-bottom:12px}
+  #summary span{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); padding:0 14px; border-right:1px solid var(--hairline)}
+  #summary span:first-child{padding-left:0}
+  #summary span:last-child{border-right:0}
+
+  /* Timeline */
+  #timeline{position:relative; margin-top:6px}
+  .empty{color:var(--muted); text-align:center; padding:34px 20px; font-size:13px}
+  .tl-ruler{position:relative; height:18px; margin-bottom:4px}
+  .tl-ruler .tick{position:absolute; font-size:10px; font-weight:700; color:var(--faint);
+    transform:translateX(-50%); white-space:nowrap}
+  .tl-body{position:relative; height:56px; background:var(--surface-2);
+    border:1px solid var(--hairline); border-radius:var(--r-md)}
+  .tl-track{position:absolute; top:6px; height:44px; background:var(--brand-tint);
+    border:1px solid var(--brand); border-radius:var(--r-sm); overflow:hidden; cursor:pointer;
+    padding:4px 6px; transition:.12s}
+  .tl-track:hover{background:#d8e8e6}
+  .tl-track.open{background:var(--brand); border-color:var(--brand-dark)}
+  .tl-track.open .tl-name,.tl-track.open .tl-num,.tl-track.open .tl-bpm{color:#fff}
+  .tl-track.unlinked{background:repeating-linear-gradient(45deg,#f2f6f5,#f2f6f5 5px,#e8eeed 5px,#e8eeed 10px);
+    border-style:dashed; border-color:var(--hairline-strong)}
+  .tl-num{display:block; font-size:9px; font-weight:800; color:var(--brand-dark); line-height:1}
+  .tl-name{display:block; font-size:10px; font-weight:700; color:var(--ink); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; line-height:1.3}
+  .tl-bpm{display:block; font-size:9px; font-weight:700; color:var(--muted); line-height:1.2}
+  .tl-junction{position:absolute; top:0; width:3px; height:56px; margin-left:-1px; cursor:pointer;
+    background:var(--brand-dark); z-index:2; border-radius:2px}
+  .tl-junction:hover{box-shadow:0 0 0 3px var(--brand-ring)}
+  .tl-junction.j-hard-cut{background:var(--danger)}
+  .tl-junction.j-throw-bridge{background:var(--gold)}
+  .tl-junction.bad{background:var(--danger); height:62px; top:-3px}
+  .tl-junction.cached::after{content:''; position:absolute; top:-5px; left:-1px; width:5px; height:5px;
+    border-radius:50%; background:var(--success)}
+  .tl-junction.open{box-shadow:0 0 0 3px var(--brand-ring)}
+
+  /* Track list */
+  .trk{border-bottom:1px solid var(--hairline); padding:0}
+  .trk:last-child{border-bottom:0}
+  .trk-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:11px 4px; cursor:pointer}
+  .trk-head:hover{background:var(--surface-2)}
+  .trk.open .trk-head{background:var(--brand-tint)}
+  .trk-num{font-size:11px; font-weight:800; color:var(--faint); width:22px; text-align:right}
+  .trk-title{font-weight:700; color:var(--ink); font-size:14px; flex:1; min-width:180px}
+  .trk-artist{font-size:12px; color:var(--muted); font-weight:500}
+  .trk-body{padding:12px 4px 18px}
+  .note-row{font-size:12px; color:var(--muted); font-style:italic; margin-top:10px}
+  canvas.wave{width:100%; height:88px; display:block; background:#f7fbfa;
+    border:1px solid var(--hairline); border-radius:var(--r-sm); cursor:crosshair}
+
+  .pill{display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em;
+    text-transform:uppercase; padding:3px 9px; border-radius:var(--r-pill);
+    background:var(--brand-tint); color:var(--brand-dark); white-space:nowrap}
+  .pill.hi{background:var(--success-tint); color:var(--success)}
+  .pill.mid{background:var(--gold-tint); color:var(--gold)}
+  .pill.lo{background:var(--danger-tint); color:var(--danger)}
+  .pill.quiet{background:var(--surface-2); color:var(--muted)}
+
+  /* Junction editor */
+  .jx-head{display:flex; align-items:flex-start; gap:14px; margin-bottom:6px}
+  .jx-head .arrow{color:var(--muted); font-weight:400}
+  .jx-sub{font-size:12px; color:var(--muted); font-weight:600; margin-top:4px}
+  .seg{display:flex; border:1px solid var(--hairline-strong); border-radius:var(--r-pill);
+    overflow:hidden; width:fit-content; margin:14px 0}
+  .seg button{border-radius:0; background:transparent; color:var(--body); padding:9px 18px}
+  .seg button.on{background:var(--brand); color:#fff}
+
+  /* Reorder / replace controls */
+  .trk-tools{display:flex; gap:4px; align-items:center}
+  .trk-tools button{padding:4px 8px; font-size:11px; background:transparent; color:var(--muted);
+    border:1px solid var(--hairline)}
+  .trk-tools button:hover{background:var(--brand-tint); color:var(--brand); border-color:var(--brand)}
+  .trk-tools button:disabled{opacity:.35; background:transparent; border-color:var(--hairline)}
+  .trk[draggable=true] .trk-head{cursor:grab}
+  .trk.dragging{opacity:.4}
+  .trk.drop-above{box-shadow:inset 0 3px 0 var(--brand)}
+  .trk.drop-below{box-shadow:inset 0 -3px 0 var(--brand)}
+  .pin{background:none; border:0; cursor:pointer; font-size:13px; line-height:1; padding:2px 4px;
+    color:var(--hairline-strong)}
+  .pin.on{color:var(--gold)}
+  .pin:hover{color:var(--brand)}
+
+  /* Bench */
+  .bench-item{display:flex; align-items:center; gap:10px; padding:8px 4px;
+    border-bottom:1px solid var(--hairline); flex-wrap:wrap}
+  .bench-item:last-child{border-bottom:0}
+  .bench-title{font-weight:700; color:var(--ink); font-size:13px; flex:1; min-width:160px}
+  .bench-empty{color:var(--muted); font-size:13px; padding:8px 4px}
+
+  /* Suggested order */
+  .sug-stats{display:flex; gap:0; flex-wrap:wrap; margin:12px 0}
+  .sug-stat{padding:0 18px 0 0; margin-right:18px; border-right:1px solid var(--hairline)}
+  .sug-stat:last-child{border-right:0}
+  .sug-stat b{display:block; font-size:22px; font-weight:800; color:var(--ink); line-height:1.2}
+  .sug-stat span{font-size:10px; font-weight:800; text-transform:uppercase;
+    letter-spacing:.07em; color:var(--muted)}
+  .sug-stat.better b{color:var(--success)}
+  .sug-list{max-height:280px; overflow:auto; border:1px solid var(--hairline);
+    border-radius:var(--r-md); margin-top:12px}
+  .sug-row{display:flex; gap:10px; padding:6px 12px; font-size:12px;
+    border-bottom:1px solid var(--hairline)}
+  .sug-row:last-child{border-bottom:0}
+  .sug-row.moved{background:var(--gold-tint)}
+  .sug-row .n{width:26px; color:var(--faint); font-weight:800; text-align:right}
+  .sug-row .t{flex:1; color:var(--ink); font-weight:600}
+  .sug-row .b{color:var(--muted); font-weight:700}
+  .sug-row .from{color:var(--gold); font-weight:700; font-size:11px}
+
+  .offline-badge{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--gold); background:var(--gold-tint); padding:4px 10px; border-radius:var(--r-pill)}
+
+  /* Regions */
+  .regions{margin-top:14px; padding-top:12px; border-top:1px solid var(--hairline)}
+  .region-head{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px}
+  .region-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:5px 0}
+  .region-row .n{width:20px; color:var(--faint); font-weight:800; font-size:11px; text-align:right}
+  .region-row .m{font-size:12px; color:var(--muted); font-weight:700}
+  .region-row button{padding:4px 8px; font-size:11px}
+  .region-hint{display:block; font-size:12px; color:var(--muted); margin-top:6px}
+
+  /* Render */
+  .bar{height:8px; background:var(--hairline); border-radius:var(--r-pill); overflow:hidden;
+    margin-top:14px}
+  .bar-fill{height:100%; width:0; background:var(--brand); border-radius:var(--r-pill);
+    transition:width .25s}
+  .rep{margin-top:14px; border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden}
+  .rep-head{background:var(--surface-2); padding:9px 12px; font-size:11px; font-weight:800;
+    text-transform:uppercase; letter-spacing:.07em; color:var(--muted)}
+  .rep-row{display:flex; gap:12px; padding:6px 12px; font-size:12px;
+    border-top:1px solid var(--hairline)}
+  .rep-row .n{width:26px; color:var(--faint); font-weight:800; text-align:right}
+  .rep-row .t{flex:1; color:var(--ink); font-weight:600}
+  .rep-row .m{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
+  .rep-row .good{color:var(--success); font-weight:800}
+  .rep-scroll{max-height:240px; overflow:auto}
+
+  @media (max-width:700px){
+    .wrap{padding:20px 12px 80px}
+    .tl-name,.tl-bpm{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="grow">
+      <span class="lbl">Mix Builder</span>
+      <input id="nameInput" placeholder="Untitled mix" aria-label="Project name">
+      <p class="lede">One saved project: the whole running order on a timeline, a transition designed
+      at every junction, and a render that bounces the set to a single continuous WAV. Everything runs
+      in this page — no audio is uploaded anywhere, and nothing is stored but your settings.</p>
+    </div>
+    <div class="row" style="margin:0">
+      <span id="offline" class="offline-badge" hidden>Offline</span>
+      <span id="saved">Saved</span>
+      <button class="ghost" id="suggestBtn">Suggest order</button>
+      <button class="ghost" id="importBtn">Import</button>
+      <button class="ghost" id="exportBtn">Export</button>
+      <button class="ghost" id="resetBtn">Start again</button>
+    </div>
+  </div>
+
+  <div id="suggestPanel" class="card hidden"></div>
+
+  <div id="importPanel" class="card hidden">
+    <div class="seg" style="margin-top:0">
+      <button id="tabOrder" class="on" data-tab="order">Running order</button>
+      <button id="tabBench" data-tab="bench">Swap-ins / bench</button>
+    </div>
+    <span class="lbl" id="importLabel">Running order</span>
+    <p style="color:var(--muted); font-size:13px; margin:0 0 10px">
+      Paste the sheet — header row included — or the JSON produced from the .xlsx. The columns it
+      looks for are <strong>#, Track, Artist, BPM, Section, Mix, Note</strong>. The Mix column already
+      carries the junction decisions (<em>HARD CUT</em>, <em>STOP / START</em>, <em>COLD START</em>,
+      <em>HALF-TIME</em>, <em>TEMPO CHANGE</em>, <em>Lock on</em>, <em>Straight blend</em>), so the
+      project seeds itself rather than asking.
+    </p>
+    <textarea id="importText" placeholder="#	Track	Artist	BPM	Section	Mix	Note&#10;1	Groove Thang	Zhane	104	Warm-up	OPENER	Your opener"></textarea>
+    <div class="row">
+      <button id="doImport">Import</button>
+      <button class="ghost" id="cancelImport">Cancel</button>
+    </div>
+  </div>
+
+  <div id="drop">
+    <strong>Drop the audio folder here</strong>
+    <span>or click to choose &nbsp;·&nbsp; mp3, wav, m4a, flac, ogg, aac</span>
+    <input id="file" type="file" accept="audio/*" multiple class="hidden">
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <div class="card">
+    <span class="lbl">The set</span>
+    <div id="summary"></div>
+    <div id="timeline"></div>
+    <div id="warnings"></div>
+  </div>
+
+  <div id="junction" class="card hidden"></div>
+
+  <div class="card">
+    <span class="lbl">Tracks</span>
+    <div id="tracks"></div>
+  </div>
+
+  <div class="card" id="sampleCard">
+    <span class="lbl">Sample library <span id="sampleCount" class="pill quiet"></span></span>
+    <p style="color:var(--muted); font-size:12px; margin:2px 0 10px">
+      Hooks, stabs and risers cut from any track. Stored unstretched at their own tempo and
+      stretched per placement to whatever is playing where they land, so one sample can be
+      dropped at a 108 BPM junction and a 124 BPM one and be in time at both.
+    </p>
+    <div id="samples"></div>
+  </div>
+
+  <div class="card" id="renderCard">
+    <span class="lbl">Render</span>
+    <p style="color:var(--muted); font-size:12px; margin:2px 0 12px">
+      Bounces the set to one continuous WAV. Each track is stretched once with its tempo easing
+      from the tempo the previous track needed to the tempo the next one needs, and tracks overlap
+      at each junction rather than being spliced — so there are no seams to click.
+    </p>
+    <div class="grid" style="max-width:520px">
+      <div><label class="lbl" for="renderFrom">From track</label>
+        <input id="renderFrom" type="number" min="1" step="1" placeholder="1"></div>
+      <div><label class="lbl" for="renderTo">To track</label>
+        <input id="renderTo" type="number" min="1" step="1" placeholder="last"></div>
+      <div><label class="lbl">&nbsp;</label>
+        <button class="ghost" id="renderRangeBtn">Render range</button></div>
+    </div>
+    <div class="row">
+      <button id="renderBtn">Render the whole set</button>
+      <button class="ghost" id="cancelRenderBtn" disabled>Cancel</button>
+      <button class="ghost" id="downloadMixBtn" disabled>Download WAV</button>
+      <button class="ghost" id="playMixBtn" disabled>Play from…</button>
+    </div>
+    <div id="renderProgress" class="hidden">
+      <div class="bar"><div class="bar-fill" id="renderBar"></div></div>
+    </div>
+    <div id="renderStatus" class="status"></div>
+    <div id="renderReport"></div>
+  </div>
+
+  <div class="card" id="benchCard">
+    <span class="lbl">Bench <span id="benchCount" class="pill quiet"></span></span>
+    <p style="color:var(--muted); font-size:12px; margin:2px 0 10px">
+      Alternates and anything you have taken out. Swapping is always reversible — the track
+      you replace comes here rather than being lost.
+    </p>
+    <div id="bench"></div>
+  </div>
+
+</div>
+
+<script src="mix-dsp.js"></script>
+<script src="mix-project.js"></script>
+<script src="mix-render.js"></script>
+<script src="mix-ui.js"></script>
+<script>
+  MixUI.init();
+  // Registered last so a failure here can never stop the tool loading.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw-mix.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

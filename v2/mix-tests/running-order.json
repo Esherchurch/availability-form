@@ -1,0 +1,1426 @@
+{
+  "source": "disco_mix_running_order_3.xlsx",
+  "sheets": [
+    "Running Order",
+    "Set Summary",
+    "Swap-ins",
+    "Background Music",
+    "Background Swap-ins"
+  ],
+  "tracks": [
+    {
+      "#": 1,
+      "Track": "Groove Thang",
+      "Artist": "Zhane",
+      "Year": 1994,
+      "BPM": 104,
+      "Length": "4:15",
+      "Runs to": "4:15",
+      "Section": "Warm-up",
+      "Mix": "OPENER",
+      "Note": "Your opener. Smooth mid-tempo groove - sets a tone without demanding anything"
+    },
+    {
+      "#": 2,
+      "Track": "Despacito (Remix)",
+      "Artist": "Luis Fonsi & Daddy Yankee ft. Justin Bieber",
+      "Year": 2017,
+      "BPM": 89,
+      "Length": "3:48",
+      "Runs to": "8:03",
+      "Section": "Warm-up",
+      "Mix": "HARD CUT",
+      "Note": "Big drop in tempo from the opener, so cut rather than blend. From here the set only climbs"
+    },
+    {
+      "#": 3,
+      "Track": "Here Comes the Hotstepper",
+      "Artist": "Ini Kamoze",
+      "Year": 1994,
+      "BPM": 92,
+      "Length": "4:11",
+      "Runs to": "12:14",
+      "Section": "Warm-up",
+      "Mix": "Nudge pitch (+3)",
+      "Note": "Reggae pocket opens up"
+    },
+    {
+      "#": 4,
+      "Track": "Baby I Love Your Way",
+      "Artist": "Big Mountain",
+      "Year": 1994,
+      "BPM": 92,
+      "Length": "4:15",
+      "Runs to": "16:29",
+      "Section": "Warm-up",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Identical tempo - beatgrids lock straight on"
+    },
+    {
+      "#": 5,
+      "Track": "Return of the Mack",
+      "Artist": "Mark Morrison",
+      "Year": 1996,
+      "BPM": 95,
+      "Length": "3:28",
+      "Runs to": "19:57",
+      "Section": "Warm-up",
+      "Mix": "Nudge pitch (+3)",
+      "Note": "First proper singalong"
+    },
+    {
+      "#": 6,
+      "Track": "Shine",
+      "Artist": "Aswad",
+      "Year": 1994,
+      "BPM": 96,
+      "Length": "4:05",
+      "Runs to": "24:02",
+      "Section": "Warm-up",
+      "Mix": "Straight blend (+1)",
+      "Note": "Sunniest thing in the warm-up"
+    },
+    {
+      "#": 7,
+      "Track": "Shy Guy",
+      "Artist": "Diana King",
+      "Year": 1995,
+      "BPM": 100,
+      "Length": "4:00",
+      "Runs to": "28:02",
+      "Section": "Warm-up",
+      "Mix": "Nudge pitch (+4)",
+      "Note": "Crosses 100 - dancehall bounce starts pulling people in"
+    },
+    {
+      "#": 8,
+      "Track": "Don't Walk Away",
+      "Artist": "Jade",
+      "Year": 1992,
+      "BPM": 100,
+      "Length": "4:20",
+      "Runs to": "32:22",
+      "Section": "Warm-up",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Holds 100 and closes the warm-up. Let it end cleanly"
+    },
+    {
+      "#": 9,
+      "Track": "Happy Birthday",
+      "Artist": "Stevie Wonder",
+      "Year": 1980,
+      "BPM": 118,
+      "Length": "3:40",
+      "Runs to": "36:02",
+      "Section": "Cake",
+      "Mix": "STOP / START",
+      "Note": "THE CAKE. Around 32 minutes in, while everyone is still here. Full stop before and after - nothing is matched across it. Fade at 3:40; the album cut runs 5:57"
+    },
+    {
+      "#": 10,
+      "Track": "Ain't Nobody",
+      "Artist": "Rufus & Chaka Khan",
+      "Year": 1983,
+      "BPM": 105,
+      "Length": "4:40",
+      "Runs to": "40:42",
+      "Section": "Build",
+      "Mix": "COLD START",
+      "Note": "Restarts the room after the cake. Straight in, no mix needed"
+    },
+    {
+      "#": 11,
+      "Track": "I'm Coming Out",
+      "Artist": "Diana Ross",
+      "Year": 1980,
+      "BPM": 108,
+      "Length": "4:25",
+      "Runs to": "45:07",
+      "Section": "Build",
+      "Mix": "Nudge pitch (+3)",
+      "Note": "Nile Rodgers production - the disco spine starts here"
+    },
+    {
+      "#": 12,
+      "Track": "Signed, Sealed, Delivered I'm Yours",
+      "Artist": "Stevie Wonder",
+      "Year": 1970,
+      "BPM": 108,
+      "Length": "2:39",
+      "Runs to": "47:46",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Only 2:39 - a quick lift, not a whole section"
+    },
+    {
+      "#": 13,
+      "Track": "Get Down on It",
+      "Artist": "Kool & the Gang",
+      "Year": 1981,
+      "BPM": 108,
+      "Length": "4:00",
+      "Runs to": "51:46",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Four tracks at 108 in a row - this stretch mixes itself"
+    },
+    {
+      "#": 14,
+      "Track": "Motownphilly",
+      "Artist": "Boyz II Men",
+      "Year": 1991,
+      "BPM": 108,
+      "Length": "3:59",
+      "Runs to": "55:45",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Still 108. Swing feel over the same tempo"
+    },
+    {
+      "#": 15,
+      "Track": "Weekend Special",
+      "Artist": "Brenda Fassie",
+      "Year": 1983,
+      "BPM": 108,
+      "Length": "5:12",
+      "Runs to": "60:57",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Holds 108 and runs long - good place to let the floor fill"
+    },
+    {
+      "#": 16,
+      "Track": "He's the Greatest Dancer",
+      "Artist": "Sister Sledge",
+      "Year": 1979,
+      "BPM": 110,
+      "Length": "3:34",
+      "Runs to": "64:31",
+      "Section": "Build",
+      "Mix": "Straight blend (+2)",
+      "Note": "Nile Rodgers again. Two-BPM step up"
+    },
+    {
+      "#": 17,
+      "Track": "Ladies' Night",
+      "Artist": "Kool & the Gang",
+      "Year": 1979,
+      "BPM": 110,
+      "Length": "3:40",
+      "Runs to": "68:11",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Second Kool & the Gang, same tempo as the Sledge"
+    },
+    {
+      "#": 18,
+      "Track": "Somebody Else's Guy",
+      "Artist": "Jocelyn Brown",
+      "Year": 1984,
+      "BPM": 112,
+      "Length": "4:15",
+      "Runs to": "72:26",
+      "Section": "Build",
+      "Mix": "Straight blend (+2)",
+      "Note": "That vocal announces the back half of the night"
+    },
+    {
+      "#": 19,
+      "Track": "Good Times",
+      "Artist": "Chic",
+      "Year": 1979,
+      "BPM": 112,
+      "Length": "3:45",
+      "Runs to": "76:11",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "The bassline. Play it immediately before the next track"
+    },
+    {
+      "#": 20,
+      "Track": "Rapper's Delight",
+      "Artist": "Sugarhill Gang",
+      "Year": 1979,
+      "BPM": 112,
+      "Length": "6:30",
+      "Runs to": "82:41",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Built on the 'Good Times' bassline - back to back they sound like one long record. Use the 6:30 edit, not the 14:35 twelve-inch"
+    },
+    {
+      "#": 21,
+      "Track": "Pot Belly",
+      "Artist": "Freshlyground",
+      "Year": 2004,
+      "BPM": 112,
+      "Length": "3:52",
+      "Runs to": "86:33",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Same 112, different continent - keeps the groove but freshens the texture"
+    },
+    {
+      "#": 22,
+      "Track": "Never Gonna Give You Up",
+      "Artist": "Rick Astley",
+      "Year": 1987,
+      "BPM": 113,
+      "Length": "3:33",
+      "Runs to": "90:06",
+      "Section": "Build",
+      "Mix": "Straight blend (+1)",
+      "Note": "Pivot from swing into straight four-to-the-floor"
+    },
+    {
+      "#": 23,
+      "Track": "Can't Stop the Feeling!",
+      "Artist": "Justin Timberlake",
+      "Year": 2016,
+      "BPM": 113,
+      "Length": "3:56",
+      "Runs to": "94:02",
+      "Section": "Build",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Identical BPM - straight blend, tops out the build"
+    },
+    {
+      "#": 24,
+      "Track": "We Are Family",
+      "Artist": "Sister Sledge",
+      "Year": 1979,
+      "BPM": 114,
+      "Length": "3:35",
+      "Runs to": "97:37",
+      "Section": "Peak",
+      "Mix": "Straight blend (+1)",
+      "Note": "Peak starts. Nile Rodgers, one BPM up, no work needed"
+    },
+    {
+      "#": 25,
+      "Track": "Uptown Funk",
+      "Artist": "Mark Ronson ft. Bruno Mars",
+      "Year": 2014,
+      "BPM": 115,
+      "Length": "4:30",
+      "Runs to": "102:07",
+      "Section": "Peak",
+      "Mix": "Straight blend (+1)",
+      "Note": "Modern record built from the same parts as the one before it"
+    },
+    {
+      "#": 26,
+      "Track": "Gimme the Night",
+      "Artist": "George Benson",
+      "Year": 1980,
+      "BPM": 116,
+      "Length": "4:03",
+      "Runs to": "106:10",
+      "Section": "Peak",
+      "Mix": "Straight blend (+1)",
+      "Note": "The one true disco record on her original list"
+    },
+    {
+      "#": 27,
+      "Track": "Get Lucky",
+      "Artist": "Daft Punk ft. Pharrell Williams & Nile Rodgers",
+      "Year": 2013,
+      "BPM": 116,
+      "Length": "4:08",
+      "Runs to": "110:18",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Nile Rodgers plays the guitar on this one too"
+    },
+    {
+      "#": 28,
+      "Track": "The Love I Lost",
+      "Artist": "Sybil",
+      "Year": 1993,
+      "BPM": 116,
+      "Length": "3:50",
+      "Runs to": "114:08",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Third track at 116 - the floor stops noticing the joins"
+    },
+    {
+      "#": 29,
+      "Track": "Groove Is in the Heart",
+      "Artist": "Deee-Lite",
+      "Year": 1990,
+      "BPM": 118,
+      "Length": "3:52",
+      "Runs to": "118:00",
+      "Section": "Peak",
+      "Mix": "Straight blend (+2)",
+      "Note": "Two-BPM step up, completely different colour"
+    },
+    {
+      "#": 30,
+      "Track": "I Wanna Dance with Somebody",
+      "Artist": "Whitney Houston",
+      "Year": 1987,
+      "BPM": 119,
+      "Length": "4:52",
+      "Runs to": "122:52",
+      "Section": "Peak",
+      "Mix": "Straight blend (+1)",
+      "Note": "Biggest singalong of the night"
+    },
+    {
+      "#": 31,
+      "Track": "Le Freak",
+      "Artist": "Chic",
+      "Year": 1978,
+      "BPM": 120,
+      "Length": "3:32",
+      "Runs to": "126:24",
+      "Section": "Peak",
+      "Mix": "Straight blend (+1)",
+      "Note": "Crosses 120. The definitive disco record"
+    },
+    {
+      "#": 32,
+      "Track": "Show Me Love",
+      "Artist": "Robin S",
+      "Year": 1993,
+      "BPM": 122,
+      "Length": "4:00",
+      "Runs to": "130:24",
+      "Section": "Peak",
+      "Mix": "Straight blend (+2)",
+      "Note": "That organ stab - the house run starts here"
+    },
+    {
+      "#": 33,
+      "Track": "100% Pure Love",
+      "Artist": "Crystal Waters",
+      "Year": 1994,
+      "BPM": 122,
+      "Length": "4:07",
+      "Runs to": "134:31",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Same tempo, near-seamless"
+    },
+    {
+      "#": 34,
+      "Track": "Celebration",
+      "Artist": "Kool & the Gang",
+      "Year": 1980,
+      "BPM": 122,
+      "Length": "3:41",
+      "Runs to": "138:12",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Hands in the air. Only works with a full floor - it is here for a reason"
+    },
+    {
+      "#": 35,
+      "Track": "Pump Up the Jam",
+      "Artist": "Technotronic",
+      "Year": 1989,
+      "BPM": 124,
+      "Length": "3:56",
+      "Runs to": "142:08",
+      "Section": "Peak",
+      "Mix": "Straight blend (+2)",
+      "Note": "Straight back into four-to-the-floor"
+    },
+    {
+      "#": 36,
+      "Track": "Rhythm Is a Dancer",
+      "Artist": "Snap!",
+      "Year": 1992,
+      "BPM": 124,
+      "Length": "3:44",
+      "Runs to": "145:52",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Same 124 - hold the energy rather than raise it"
+    },
+    {
+      "#": 37,
+      "Track": "Parklife",
+      "Artist": "Blur",
+      "Year": 1994,
+      "BPM": 126,
+      "Length": "3:05",
+      "Runs to": "148:57",
+      "Section": "Peak",
+      "Mix": "Straight blend (+2)",
+      "Note": "Tempo drops it neatly between the Snap! and the Gala. A swerve in mood, but at 126 it blends both sides and the whole room shouts the chorus"
+    },
+    {
+      "#": 38,
+      "Track": "Freed from Desire",
+      "Artist": "Gala",
+      "Year": 1996,
+      "BPM": 127,
+      "Length": "3:37",
+      "Runs to": "152:34",
+      "Section": "Peak",
+      "Mix": "Straight blend (+1)",
+      "Note": "The na-na-na section. Everybody joins in"
+    },
+    {
+      "#": 39,
+      "Track": "I Feel Love",
+      "Artist": "Donna Summer",
+      "Year": 1977,
+      "BPM": 128,
+      "Length": "3:48",
+      "Runs to": "156:22",
+      "Section": "Peak",
+      "Mix": "Straight blend (+1)",
+      "Note": "Nearly fifty years old and still the most futuristic thing in the set"
+    },
+    {
+      "#": 40,
+      "Track": "It's Not Right but It's Okay (Thunderpuss Radio Mix)",
+      "Artist": "Whitney Houston",
+      "Year": 1999,
+      "BPM": 128,
+      "Length": "4:03",
+      "Runs to": "160:25",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "MUST be the Thunderpuss remix - the album version is around 93 BPM"
+    },
+    {
+      "#": 41,
+      "Track": "Dance Wiv Me",
+      "Artist": "Dizzee Rascal ft. Calvin Harris",
+      "Year": 2008,
+      "BPM": 128,
+      "Length": "3:48",
+      "Runs to": "164:13",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "Third track at 128 - this is the plateau before the last push"
+    },
+    {
+      "#": 42,
+      "Track": "Dare (La La La)",
+      "Artist": "Shakira",
+      "Year": 2014,
+      "BPM": 128,
+      "Length": "3:15",
+      "Runs to": "167:28",
+      "Section": "Peak",
+      "Mix": "Lock on (same BPM)",
+      "Note": "CHECK THIS ONE - your note said 'Dai Dai' and this is my best guess at what you meant"
+    },
+    {
+      "#": 43,
+      "Track": "Bonkers",
+      "Artist": "Dizzee Rascal & Armand Van Helden",
+      "Year": 2009,
+      "BPM": 130,
+      "Length": "2:58",
+      "Runs to": "170:26",
+      "Section": "Peak",
+      "Mix": "Straight blend (+2)",
+      "Note": "Only 2:58. Short, brutal, and it sets up the apex"
+    },
+    {
+      "#": 44,
+      "Track": "Fairground",
+      "Artist": "Simply Red",
+      "Year": 1995,
+      "BPM": 132,
+      "Length": "4:15",
+      "Runs to": "174:41",
+      "Section": "Peak",
+      "Mix": "Straight blend (+2)",
+      "Note": "APEX. Fastest track of the set - everything comes down from here"
+    },
+    {
+      "#": 45,
+      "Track": "Happy",
+      "Artist": "Pharrell Williams",
+      "Year": 2013,
+      "BPM": 160,
+      "Length": "3:53",
+      "Runs to": "178:34",
+      "Section": "Come-down",
+      "Mix": "HALF-TIME",
+      "Note": "160 BPM with a half-time clap, so it dances at about 80. Feels like a step down even though the number goes up"
+    },
+    {
+      "#": 46,
+      "Track": "Proud Mary",
+      "Artist": "Tina Turner",
+      "Year": 1971,
+      "BPM": 76,
+      "Length": "5:24",
+      "Runs to": "183:58",
+      "Section": "Come-down",
+      "Mix": "TEMPO CHANGE",
+      "Note": "Opens around 76 and explodes to roughly 140 halfway through. One last surge - do not try to mix either end of it"
+    },
+    {
+      "#": 47,
+      "Track": "End of the Road",
+      "Artist": "Boyz II Men",
+      "Year": 1992,
+      "BPM": 68,
+      "Length": "5:50",
+      "Runs to": "189:48",
+      "Section": "Come-down",
+      "Mix": "LAST DANCE",
+      "Note": "Slow, and everybody knows every word. Lights up after this"
+    },
+    {
+      "#": 47,
+      "Track": "TOTAL RUNNING TIME",
+      "Artist": "0.131805555555556"
+    }
+  ],
+  "otherSheets": {
+    "Set Summary": [
+      [
+        "Set Summary"
+      ],
+      [
+        "All figures read live from the Running Order tab."
+      ],
+      [
+        "Section",
+        "Tracks",
+        "Time",
+        "Lowest BPM",
+        "Highest BPM",
+        "Average BPM"
+      ],
+      [
+        "Warm-up",
+        "8",
+        "0.0224768518518519",
+        "89",
+        "104",
+        "96"
+      ],
+      [
+        "Cake",
+        "1",
+        "0.0025462962962963",
+        "118",
+        "118",
+        "118"
+      ],
+      [
+        "Build",
+        "14",
+        "0.0402777777777778",
+        "105",
+        "113",
+        "110"
+      ],
+      [
+        "Peak",
+        "21",
+        "0.0560069444444444",
+        "114",
+        "132",
+        "123"
+      ],
+      [
+        "Come-down",
+        "3",
+        "0.0104976851851852",
+        "68",
+        "160",
+        "101"
+      ],
+      [
+        "Total",
+        "47",
+        "0.131805555555556"
+      ],
+      [
+        "Come-down 'Highest BPM' reads 160 because of 'Happy', which has a half-time feel and dances at about 80."
+      ],
+      [
+        "'Proud Mary' is listed at its opening tempo of 76; it rises to roughly 140 partway through."
+      ]
+    ],
+    "Swap-ins": [
+      [
+        "Swap-ins / Alternates"
+      ],
+      [
+        "Everything not in the running order, including the tracks you took out. Sorted by tempo within each section."
+      ],
+      [
+        "Track",
+        "Artist",
+        "Year",
+        "BPM",
+        "Length",
+        "Fits section"
+      ],
+      [
+        "Master Blaster (Jammin')",
+        "Stevie Wonder",
+        "1980",
+        "96",
+        "0.00337962962962963",
+        "Warm-up"
+      ],
+      [
+        "Family Affair",
+        "Mary J. Blige",
+        "2001",
+        "93",
+        "0.0030787037037037",
+        "Warm-up"
+      ],
+      [
+        "Boombastic",
+        "Shaggy",
+        "1995",
+        "95",
+        "0.0028587962962963",
+        "Warm-up"
+      ],
+      [
+        "He Wasn't Man Enough",
+        "Toni Braxton",
+        "2000",
+        "100",
+        "0.00300925925925926",
+        "Build"
+      ],
+      [
+        "Superstition",
+        "Stevie Wonder",
+        "1972",
+        "100",
+        "0.0030787037037037",
+        "Build"
+      ],
+      [
+        "Jump",
+        "Kris Kross",
+        "1992",
+        "104",
+        "0.00228009259259259",
+        "Build"
+      ],
+      [
+        "Every Little Step",
+        "Bobby Brown",
+        "1988",
+        "104",
+        "0.00275462962962963",
+        "Build"
+      ],
+      [
+        "I Wish",
+        "Stevie Wonder",
+        "1976",
+        "106",
+        "0.00291666666666667",
+        "Build"
+      ],
+      [
+        "Higher Ground",
+        "Stevie Wonder",
+        "1973",
+        "108",
+        "0.00256944444444445",
+        "Build"
+      ],
+      [
+        "Everybody Wants to Rule the World",
+        "Tears for Fears",
+        "1985",
+        "112",
+        "0.00290509259259259",
+        "Build"
+      ],
+      [
+        "My Prerogative",
+        "Bobby Brown",
+        "1988",
+        "116",
+        "0.00337962962962963",
+        "Peak"
+      ],
+      [
+        "I Will Survive",
+        "Gloria Gaynor",
+        "1978",
+        "117",
+        "0.00225694444444444",
+        "Peak"
+      ],
+      [
+        "Always There",
+        "Incognito ft. Jocelyn Brown",
+        "1991",
+        "118",
+        "0.00282407407407407",
+        "Peak"
+      ],
+      [
+        "Together Forever",
+        "Rick Astley",
+        "1987",
+        "118",
+        "0.00236111111111111",
+        "Peak"
+      ],
+      [
+        "Sir Duke",
+        "Stevie Wonder",
+        "1976",
+        "120",
+        "0.00268518518518519",
+        "Peak"
+      ],
+      [
+        "That's the Way It Is",
+        "Celine Dion",
+        "1999",
+        "120",
+        "0.00280092592592593",
+        "Peak"
+      ],
+      [
+        "Part-Time Lover",
+        "Stevie Wonder",
+        "1985",
+        "120",
+        "0.00291666666666667",
+        "Peak"
+      ],
+      [
+        "Never Can Say Goodbye",
+        "Gloria Gaynor",
+        "1974",
+        "120",
+        "0.00208333333333333",
+        "Peak"
+      ],
+      [
+        "Hot Stuff",
+        "Donna Summer",
+        "1979",
+        "124",
+        "0.00265046296296296",
+        "Peak"
+      ],
+      [
+        "Let's Groove",
+        "Earth, Wind & Fire",
+        "1981",
+        "124",
+        "0.00277777777777778",
+        "Peak"
+      ],
+      [
+        "Man! I Feel Like a Woman!",
+        "Shania Twain",
+        "1999",
+        "124",
+        "0.00269675925925926",
+        "Peak"
+      ],
+      [
+        "Holiday",
+        "Dizzee Rascal ft. Chrome",
+        "2009",
+        "128",
+        "0.00238425925925926",
+        "Peak"
+      ],
+      [
+        "Things Can Only Get Better",
+        "D:Ream",
+        "1993",
+        "130",
+        "0.00274305555555556",
+        "Peak"
+      ],
+      [
+        "River Deep - Mountain High",
+        "Celine Dion",
+        "1996",
+        "130",
+        "0.0028125",
+        "Peak"
+      ],
+      [
+        "Wake Me Up Before You Go-Go",
+        "Wham!",
+        "1984",
+        "168",
+        "0.00267361111111111",
+        "Peak"
+      ],
+      [
+        "Just Fine",
+        "Mary J. Blige",
+        "2007",
+        "108",
+        "0.00274305555555556",
+        "Come-down"
+      ],
+      [
+        "That Don't Impress Me Much",
+        "Shania Twain",
+        "1998",
+        "100",
+        "0.00252314814814815",
+        "Come-down"
+      ],
+      [
+        "You're Makin' Me High",
+        "Toni Braxton",
+        "1996",
+        "96",
+        "0.00295138888888889",
+        "Come-down"
+      ],
+      [
+        "Careless Whisper",
+        "Wham!",
+        "1984",
+        "77",
+        "0.0034837962962963",
+        "Come-down"
+      ],
+      [
+        "Last Dance",
+        "Donna Summer",
+        "1978",
+        "128",
+        "0.00341435185185185",
+        "Come-down"
+      ]
+    ],
+    "Background Music": [
+      [
+        "Background Music - Jazzy Summer Funk"
+      ],
+      [
+        "Two hours of filler for before and around the disco set. Stays warm and level - it never builds to anything."
+      ],
+      [
+        "#",
+        "Track",
+        "Artist",
+        "Year",
+        "BPM",
+        "Length",
+        "Runs to",
+        "Section",
+        "Note"
+      ],
+      [
+        "1",
+        "Everybody Loves the Sunshine",
+        "Roy Ayers Ubiquity",
+        "1976",
+        "92",
+        "0.0030787037037037",
+        "0.0030787037037037",
+        "Arrival",
+        "The reference track - sets the whole tone. Nothing needs to happen yet"
+      ],
+      [
+        "2",
+        "Summer Madness",
+        "Kool & the Gang",
+        "1974",
+        "84",
+        "0.00268518518518519",
+        "0.00576388888888889",
+        "Arrival",
+        "Same band as 'Celebration' later, at the opposite end of their range"
+      ],
+      [
+        "3",
+        "Mystic Brew",
+        "Ronnie Foster",
+        "1972",
+        "92",
+        "0.00405092592592593",
+        "0.00981481481481481",
+        "Arrival",
+        "Rhodes and brushes - pure texture, easy to talk over"
+      ],
+      [
+        "4",
+        "California Soul",
+        "Marlena Shaw",
+        "1969",
+        "96",
+        "0.00204861111111111",
+        "0.0118634259259259",
+        "Arrival",
+        "First vocal. Short, so it lifts without taking over"
+      ],
+      [
+        "5",
+        "Just the Two of Us",
+        "Grover Washington Jr. ft. Bill Withers",
+        "1980",
+        "96",
+        "0.00271990740740741",
+        "0.0145833333333333",
+        "Arrival",
+        "Use the 3:55 single edit, not the 7:21 album cut"
+      ],
+      [
+        "6",
+        "Cantaloupe Island",
+        "Herbie Hancock",
+        "1964",
+        "100",
+        "0.00384259259259259",
+        "0.0184259259259259",
+        "Arrival",
+        "The oldest thing here and still the coolest"
+      ],
+      [
+        "7",
+        "Breezin'",
+        "George Benson",
+        "1976",
+        "104",
+        "0.00393518518518519",
+        "0.0223611111111111",
+        "Arrival",
+        "Benson's other side - pairs with 'Gimme the Night' in the disco set"
+      ],
+      [
+        "8",
+        "Harlem River Drive",
+        "Bobbi Humphrey",
+        "1973",
+        "108",
+        "0.00462962962962963",
+        "0.0269907407407407",
+        "Arrival",
+        "Flute over a summer groove. Long, so it holds a stretch of room noise"
+      ],
+      [
+        "9",
+        "Sun Goddess",
+        "Ramsey Lewis & Earth, Wind & Fire",
+        "1974",
+        "108",
+        "0.00262731481481482",
+        "0.0296180555555556",
+        "Settled",
+        "Single edit. The album version runs 8:30 if you want more air"
+      ],
+      [
+        "10",
+        "(Falling Like) Dominoes",
+        "Donald Byrd",
+        "1975",
+        "108",
+        "0.00384259259259259",
+        "0.0334606481481482",
+        "Settled",
+        "Warmest track in the set"
+      ],
+      [
+        "11",
+        "Searching",
+        "Roy Ayers Ubiquity",
+        "1976",
+        "108",
+        "0.00407407407407407",
+        "0.0375347222222222",
+        "Settled",
+        "Roy Ayers #2 - the groove gets a little more insistent"
+      ],
+      [
+        "12",
+        "Running Away",
+        "Roy Ayers Ubiquity",
+        "1977",
+        "112",
+        "0.00296296296296296",
+        "0.0404976851851852",
+        "Settled",
+        "Roy Ayers #3. Now it is properly a groove, not just atmosphere"
+      ],
+      [
+        "13",
+        "Street Life",
+        "The Crusaders ft. Randy Crawford",
+        "1979",
+        "112",
+        "0.00291666666666667",
+        "0.0434143518518519",
+        "Settled",
+        "Single edit - the album cut is over 11 minutes"
+      ],
+      [
+        "14",
+        "Could Heaven Ever Be Like This",
+        "Idris Muhammad",
+        "1977",
+        "116",
+        "0.00347222222222222",
+        "0.0468865740740741",
+        "Settled",
+        "Use an edit; the full version runs past 9 minutes"
+      ],
+      [
+        "15",
+        "Expansions",
+        "Lonnie Liston Smith",
+        "1975",
+        "116",
+        "0.00434027777777778",
+        "0.0512268518518519",
+        "Settled",
+        "Highest energy of the classic section - people start moving to this one"
+      ],
+      [
+        "16",
+        "Apparently Nothin'",
+        "Young Disciples",
+        "1991",
+        "96",
+        "0.003125",
+        "0.0543518518518519",
+        "Settled",
+        "Drops the tempo and moves the set into the 90s"
+      ],
+      [
+        "17",
+        "Dream On Dreamer",
+        "The Brand New Heavies",
+        "1994",
+        "104",
+        "0.00282407407407407",
+        "0.0571759259259259",
+        "Settled",
+        "Acid jazz proper - the bridge to the last section"
+      ],
+      [
+        "18",
+        "Always There",
+        "Incognito ft. Jocelyn Brown",
+        "1991",
+        "118",
+        "0.00282407407407407",
+        "0.06",
+        "Lifting",
+        "Jocelyn Brown again - quietly links the background set to the disco set"
+      ],
+      [
+        "19",
+        "Cantaloop (Flip Fantasia)",
+        "Us3",
+        "1993",
+        "104",
+        "0.00321759259259259",
+        "0.0632175925925926",
+        "Lifting",
+        "Reworks the Herbie Hancock track from the arrival section"
+      ],
+      [
+        "20",
+        "Never Stop",
+        "The Brand New Heavies",
+        "1991",
+        "112",
+        "0.00315972222222222",
+        "0.0663773148148148",
+        "Lifting",
+        "Second Heavies track - more push than the first"
+      ],
+      [
+        "21",
+        "Space Cowboy",
+        "Jamiroquai",
+        "1994",
+        "100",
+        "0.00299768518518519",
+        "0.069375",
+        "Lifting",
+        "Single edit. Loose and slinky"
+      ],
+      [
+        "22",
+        "Cosmic Girl",
+        "Jamiroquai",
+        "1996",
+        "106",
+        "0.00282407407407407",
+        "0.0721990740740741",
+        "Lifting",
+        "Tighter and brighter than 'Space Cowboy'"
+      ],
+      [
+        "23",
+        "It Runs Through Me",
+        "Tom Misch ft. De La Soul",
+        "2018",
+        "92",
+        "0.00274305555555556",
+        "0.0749421296296296",
+        "Lifting",
+        "The modern end of the same idea - guitar tone straight out of 1976"
+      ],
+      [
+        "24",
+        "August 10",
+        "Khruangbin",
+        "2018",
+        "100",
+        "0.0027662037037037",
+        "0.0777083333333333",
+        "Lifting",
+        "Instrumental. Lets the room breathe before the last two"
+      ],
+      [
+        "25",
+        "Rose Rouge",
+        "St Germain",
+        "2000",
+        "122",
+        "0.003125",
+        "0.0808333333333333",
+        "Lifting",
+        "Jazz sample over a house pulse - the first hint that dancing is coming"
+      ],
+      [
+        "26",
+        "Everybody Loves the Sunshine",
+        "Netsky",
+        "2010",
+        "172",
+        "0.00266203703703704",
+        "0.0834953703703704",
+        "Lifting",
+        "Liquid drum & bass version of track 1 - closes the loop and hands over to the disco set"
+      ],
+      [
+        "26",
+        "TOTAL RUNNING TIME",
+        "0.0834953703703704"
+      ],
+      [
+        "Notes"
+      ],
+      [
+        "- This set opens and closes with the same song: the Roy Ayers original at track 1 and Netsky's liquid drum & bass version at track 26. Check which Netsky edit you have - it circulates in a few different lengths."
+      ],
+      [
+        "- Several classics run very long in album form. Where a shorter edit exists the note says so - 'Street Life' (11:16 album), 'Just the Two of Us' (7:21), 'Sun Goddess' (8:30) and 'Could Heaven Ever Be Like This' (9:14). The listed times assume the edits."
+      ],
+      [
+        "- Deliberately no peak. It drifts from 84 to about 120 BPM across two hours and the last three tracks tilt towards dancing so the handover to the disco set is not abrupt."
+      ],
+      [
+        "- Roy Ayers appears three times - he is the anchor for the whole tone."
+      ],
+      [
+        "- See the 'Background Swap-ins' tab for 22 alternates, tagged with the section they fit."
+      ]
+    ],
+    "Background Swap-ins": [
+      [
+        "Background Swap-ins / Alternates"
+      ],
+      [
+        "Not in the background running order. Drop any of these into the section shown to stretch or re-balance it."
+      ],
+      [
+        "Track",
+        "Artist",
+        "Year",
+        "BPM",
+        "Length",
+        "Fits section"
+      ],
+      [
+        "We Live in Brooklyn, Baby",
+        "Roy Ayers Ubiquity",
+        "1971",
+        "88",
+        "0.00350694444444444",
+        "Arrival"
+      ],
+      [
+        "A Garden of Peace",
+        "Lonnie Liston Smith",
+        "1975",
+        "76",
+        "0.0025",
+        "Arrival"
+      ],
+      [
+        "Blacks and Blues",
+        "Bobbi Humphrey",
+        "1973",
+        "96",
+        "0.00429398148148148",
+        "Arrival"
+      ],
+      [
+        "Winelight",
+        "Grover Washington Jr.",
+        "1980",
+        "100",
+        "0.00428240740740741",
+        "Arrival"
+      ],
+      [
+        "Estrelar",
+        "Marcos Valle",
+        "1983",
+        "108",
+        "0.00350694444444444",
+        "Settled"
+      ],
+      [
+        "Jazz Carnival",
+        "Azymuth",
+        "1979",
+        "116",
+        "0.00369212962962963",
+        "Settled"
+      ],
+      [
+        "Also Sprach Zarathustra (2001)",
+        "Deodato",
+        "1972",
+        "108",
+        "0.00623842592592593",
+        "Settled"
+      ],
+      [
+        "The Glow of Love",
+        "Change",
+        "1980",
+        "112",
+        "0.00434027777777778",
+        "Settled"
+      ],
+      [
+        "Haven't You Heard",
+        "Patrice Rushen",
+        "1979",
+        "116",
+        "0.00457175925925926",
+        "Settled"
+      ],
+      [
+        "Juicy Fruit",
+        "Mtume",
+        "1983",
+        "92",
+        "0.00391203703703704",
+        "Settled"
+      ],
+      [
+        "Colibri",
+        "Incognito",
+        "1992",
+        "112",
+        "0.00373842592592593",
+        "Lifting"
+      ],
+      [
+        "Midnight at the Oasis",
+        "The Brand New Heavies",
+        "1994",
+        "100",
+        "0.00277777777777778",
+        "Lifting"
+      ],
+      [
+        "Little L",
+        "Jamiroquai",
+        "2001",
+        "116",
+        "0.0028587962962963",
+        "Lifting"
+      ],
+      [
+        "Les Nuits",
+        "Nightmares on Wax",
+        "1999",
+        "96",
+        "0.00322916666666667",
+        "Lifting"
+      ],
+      [
+        "Nakamarra",
+        "Hiatus Kaiyote",
+        "2013",
+        "88",
+        "0.0028587962962963",
+        "Lifting"
+      ],
+      [
+        "Ylang Ylang",
+        "FKJ",
+        "2017",
+        "100",
+        "0.00315972222222222",
+        "Lifting"
+      ],
+      [
+        "Say Something",
+        "Jordan Rakei",
+        "2019",
+        "92",
+        "0.00298611111111111",
+        "Lifting"
+      ],
+      [
+        "Come Down",
+        "Anderson .Paak",
+        "2016",
+        "104",
+        "0.00238425925925926",
+        "Lifting"
+      ],
+      [
+        "Victory Dance",
+        "Ezra Collective",
+        "2022",
+        "120",
+        "0.0024537037037037",
+        "Lifting"
+      ],
+      [
+        "Racing Green",
+        "High Contrast",
+        "2004",
+        "174",
+        "0.00372685185185185",
+        "Lifting"
+      ],
+      [
+        "Puppy",
+        "Netsky",
+        "2010",
+        "174",
+        "0.00361111111111111",
+        "Lifting"
+      ],
+      [
+        "Halcyon",
+        "Hybrid Minds",
+        "2014",
+        "174",
+        "0.00322916666666667",
+        "Lifting"
+      ]
+    ]
+  }
+}

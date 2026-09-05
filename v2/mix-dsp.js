@@ -1,0 +1,1203 @@
+/* ===================================================================
+   Mix Builder — DSP
+   ===================================================================
+
+   Everything that touches samples. No DOM, no project model, no
+   IndexedDB — pass buffers in, get buffers back, so every function
+   here can be tested on its own.
+
+   Lifted from v2/mix-analyser.html (the prototype), with the DOM
+   reads replaced by explicit arguments and the four transition types
+   split into named renderers.
+
+   The four lessons from the prototype are baked in and must stay:
+     1. contentEndSec — never anchor a transition to the end of a file.
+     2. finalise      — summed clips exceed full scale; pull them back.
+     3. EQ, not HPSS, for "keep the beat going" (renderBridge).
+     4. Overlap-add normalisation divisors are clamped, or the edges
+        of every stretched buffer amplify into distortion.
+   =================================================================== */
+
+(function (global) {
+  'use strict';
+
+  /* ----------------------------------------------------------- FFT --- */
+  /* Injected into both workers as source so neither needs an import. */
+
+  var FFT_SRC = `
+function fft(re, im){
+  const n = re.length;
+  for (let i=1, j=0; i<n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; }
+  }
+  for (let len=2; len<=n; len<<=1){
+    const ang = -2*Math.PI/len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i=0; i<n; i+=len){
+      let cr = 1, ci = 0;
+      for (let k=0; k<len/2; k++){
+        const ur=re[i+k], ui=im[i+k];
+        const vr=re[i+k+len/2]*cr - im[i+k+len/2]*ci;
+        const vi=re[i+k+len/2]*ci + im[i+k+len/2]*cr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi;
+        re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const ncr = cr*wr - ci*wi; ci = cr*wi + ci*wr; cr = ncr;
+      }
+    }
+  }
+}
+function ifft(re, im){
+  const n = re.length;
+  for (let i=0;i<n;i++) im[i] = -im[i];
+  fft(re, im);
+  for (let i=0;i<n;i++){ re[i] /= n; im[i] = -im[i]/n; }
+}
+function hann(N){
+  const w = new Float32Array(N);
+  for (let i=0;i<N;i++) w[i] = 0.5 - 0.5*Math.cos(2*Math.PI*i/(N-1));
+  return w;
+}
+`;
+
+  /* ----------------------------------------------- analysis worker --- */
+
+  var ANALYSIS_SRC = FFT_SRC + `
+function onsetEnvelope(x, sr){
+  const N = 1024, hop = 512, half = N/2;
+  const win = hann(N);
+  const frames = Math.max(0, Math.floor((x.length - N)/hop));
+  const env = new Float32Array(frames);
+  let prev = new Float32Array(half);
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let f=0; f<frames; f++){
+    const off = f*hop;
+    for (let i=0;i<N;i++){ re[i] = x[off+i]*win[i]; im[i] = 0; }
+    fft(re, im);
+    let flux = 0;
+    const cur = new Float32Array(half);
+    for (let k=0;k<half;k++){
+      const m = Math.sqrt(re[k]*re[k] + im[k]*im[k]);
+      cur[k] = m;
+      const d = m - prev[k];
+      if (d > 0) flux += d;
+    }
+    env[f] = flux; prev = cur;
+    if ((f & 255) === 0) postMessage({type:'progress', v: f/frames});
+  }
+  const W = 20, out = new Float32Array(frames);
+  for (let f=0; f<frames; f++){
+    let a=0, n=0;
+    for (let k=Math.max(0,f-W); k<Math.min(frames,f+W); k++){ a+=env[k]; n++; }
+    const d = env[f] - a/n;
+    out[f] = d > 0 ? d : 0;
+  }
+  return { env: out, fps: sr/hop };
+}
+function estimateTempo(env, fps){
+  const minLag = Math.floor(fps*60/200), maxLag = Math.ceil(fps*60/70);
+  const scores = [];
+  for (let lag=minLag; lag<=maxLag; lag++){
+    let s = 0, n = 0;
+    for (let i=0; i+lag<env.length; i++){ s += env[i]*env[i+lag]; n++; }
+    s /= (n || 1);
+    const bpm = 60*fps/lag;
+    const w = Math.exp(-0.5*Math.pow(Math.log(bpm/120)/0.30, 2));
+    scores.push({ lag, bpm, raw: s, score: s*w });
+  }
+  scores.sort((a,b)=>b.score-a.score);
+  const best = scores[0];
+  const mean = scores.reduce((a,b)=>a+b.raw,0)/scores.length;
+  return { bpm: best.bpm, lag: best.lag,
+           confidence: Math.max(0, Math.min(1, (best.raw/(mean||1) - 1)/3)) };
+}
+function findPhase(env, lag){
+  let bestOff = 0, best = -1;
+  for (let off=0; off<lag; off++){
+    let s = 0;
+    for (let i=off; i<env.length; i+=lag) s += env[i];
+    if (s > best){ best = s; bestOff = off; }
+  }
+  return bestOff;
+}
+function findDownbeat(env, lag, phase){
+  let bestP = 0, best = -1;
+  for (let p=0; p<4; p++){
+    let s = 0;
+    for (let i=phase + p*lag; i<env.length; i += lag*4) s += env[i];
+    if (s > best){ best = s; bestP = p; }
+  }
+  return phase + bestP*lag;
+}
+onmessage = e => {
+  const { mono, sr } = e.data;
+  const x = new Float32Array(mono);
+  const { env, fps } = onsetEnvelope(x, sr);
+  const t = estimateTempo(env, fps);
+  const phase = findPhase(env, t.lag);
+  const db = findDownbeat(env, t.lag, phase);
+  postMessage({ type:'done', bpm:t.bpm, confidence:t.confidence,
+                firstBeatSec: phase/fps, downbeatSec: db/fps });
+};
+`;
+
+  /* --------------------------------------------------- HPSS worker --- */
+  /* Harmonic/percussive separation by median filtering the spectrogram.
+     The mask is computed once from the mono sum and applied to every
+     channel, so the stereo image cannot drift apart. Masks sum to 1, so
+     harmonic + percussive reconstructs the original exactly.
+
+     Used for samples (strip drums out of a hook) and as the non-default
+     aggressive bridge. Far too slow for whole tracks — regions only. */
+
+  var HPSS_SRC = FFT_SRC + `
+const N = 2048, HOP = 512, HALF = N/2 + 1;
+
+function analyse(x, win){
+  const frames = Math.max(1, Math.floor((x.length - N)/HOP) + 1);
+  const RE = [], IM = [];
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let f=0; f<frames; f++){
+    const off = f*HOP;
+    for (let i=0;i<N;i++){ const v = x[off+i]; re[i] = (v===undefined?0:v)*win[i]; im[i] = 0; }
+    fft(re, im);
+    RE.push(re.slice(0, HALF));
+    IM.push(im.slice(0, HALF));
+  }
+  return { RE, IM, frames };
+}
+
+function synth(RE, IM, win, len){
+  const frames = RE.length;
+  const out = new Float32Array(len);
+  const norm = new Float32Array(len);
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let f=0; f<frames; f++){
+    for (let k=0;k<HALF;k++){ re[k] = RE[f][k]; im[k] = IM[f][k]; }
+    for (let k=HALF;k<N;k++){ re[k] = RE[f][N-k]; im[k] = -IM[f][N-k]; }
+    ifft(re, im);
+    const off = f*HOP;
+    for (let i=0;i<N;i++){
+      if (off+i >= len) break;
+      out[off+i] += re[i]*win[i];
+      norm[off+i] += win[i]*win[i];
+    }
+  }
+  // Hann-squared at 4x overlap sums to ~1.5 in steady state. Clamping the
+  // divisor means the first and last frames taper away instead of being
+  // amplified into distortion.
+  for (let i=0;i<len;i++) out[i] /= Math.max(norm[i], 0.4);
+  return out;
+}
+
+function median(arr, n){
+  const a = arr.slice(0, n).sort((x,y)=>x-y);
+  return a[n >> 1];
+}
+
+onmessage = e => {
+  const { chans, sr, p } = e.data;
+  const win = hann(N);
+  const L = chans.map(c => new Float32Array(c));
+  const len = L[0].length;
+
+  const mono = new Float32Array(len);
+  for (const c of L) for (let i=0;i<len;i++) mono[i] += c[i]/L.length;
+
+  postMessage({ type:'progress', v:0.05, msg:'analysing' });
+  const M = analyse(mono, win);
+  const frames = M.frames;
+  const S = [];
+  for (let f=0; f<frames; f++){
+    const row = new Float32Array(HALF);
+    for (let k=0;k<HALF;k++) row[k] = Math.hypot(M.RE[f][k], M.IM[f][k]);
+    S.push(row);
+  }
+
+  const KT = 17, KF = 17, ht = KT >> 1, hf = KF >> 1;
+  const H = [], P = [];
+  const scratch = new Float32Array(Math.max(KT, KF));
+
+  postMessage({ type:'progress', v:0.3, msg:'separating' });
+  for (let f=0; f<frames; f++){
+    const hr = new Float32Array(HALF), pr = new Float32Array(HALF);
+    for (let k=0;k<HALF;k++){
+      let n = 0;
+      for (let d=-ht; d<=ht; d++){
+        const ff = f+d;
+        if (ff >= 0 && ff < frames) scratch[n++] = S[ff][k];
+      }
+      hr[k] = median(scratch, n);
+      n = 0;
+      for (let d=-hf; d<=hf; d++){
+        const kk = k+d;
+        if (kk >= 0 && kk < HALF) scratch[n++] = S[f][kk];
+      }
+      pr[k] = median(scratch, n);
+    }
+    H.push(hr); P.push(pr);
+    if ((f & 63) === 0) postMessage({ type:'progress', v: 0.3 + 0.5*f/frames, msg:'separating' });
+  }
+
+  postMessage({ type:'progress', v:0.82, msg:'rebuilding' });
+  const harmCh = [], percCh = [];
+  for (let c=0; c<L.length; c++){
+    const A = analyse(L[c], win);
+    const HR = [], HI = [], PR = [], PI = [];
+    for (let f=0; f<A.frames; f++){
+      const hr = new Float32Array(HALF), hi = new Float32Array(HALF);
+      const pr = new Float32Array(HALF), pi = new Float32Array(HALF);
+      const g = Math.min(f, frames-1);
+      for (let k=0;k<HALF;k++){
+        const hp = Math.pow(H[g][k], p), pp = Math.pow(P[g][k], p);
+        const mh = (hp + pp) > 1e-20 ? hp/(hp+pp) : 0.5;
+        hr[k] = A.RE[f][k]*mh;      hi[k] = A.IM[f][k]*mh;
+        pr[k] = A.RE[f][k]*(1-mh);  pi[k] = A.IM[f][k]*(1-mh);
+      }
+      HR.push(hr); HI.push(hi); PR.push(pr); PI.push(pi);
+    }
+    harmCh.push(synth(HR, HI, win, len));
+    percCh.push(synth(PR, PI, win, len));
+  }
+
+  const transfer = [];
+  for (const c of harmCh) transfer.push(c.buffer);
+  for (const c of percCh) transfer.push(c.buffer);
+  postMessage({ type:'done',
+                harmonic: harmCh.map(c=>c.buffer),
+                percussive: percCh.map(c=>c.buffer),
+                len }, transfer);
+};
+`;
+
+  /* ------------------------------------------------ worker plumbing --- */
+
+  function runWorker(src, payload, transfer, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      var w = new Worker(url);
+      var done = function () { w.terminate(); URL.revokeObjectURL(url); };
+      w.onmessage = function (ev) {
+        if (ev.data.type === 'progress') { if (onProgress) onProgress(ev.data); return; }
+        done(); resolve(ev.data);
+      };
+      w.onerror = function (err) { done(); reject(err); };
+      w.postMessage(payload, transfer);
+    });
+  }
+
+  /** Tempo, beat phase and downbeat for one mono signal. Runs in a Worker. */
+  function analyseBeat(mono, sr, onProgress) {
+    var copy = mono.slice();
+    return runWorker(ANALYSIS_SRC, { mono: copy.buffer, sr }, [copy.buffer],
+      function (d) { if (onProgress) onProgress(d.v); });
+  }
+
+  /** Harmonic/percussive split of one AudioBuffer. Regions only — slow. */
+  function hpss(ctx, buf, p, onProgress) {
+    var chans = [], transfer = [];
+    for (var c = 0; c < buf.numberOfChannels; c++) {
+      var copy = buf.getChannelData(c).slice();
+      chans.push(copy.buffer); transfer.push(copy.buffer);
+    }
+    return runWorker(HPSS_SRC, { chans: chans, sr: buf.sampleRate, p: p }, transfer, onProgress)
+      .then(function (res) {
+        var mk = function (arrs) {
+          var out = ctx.createBuffer(arrs.length, res.len, buf.sampleRate);
+          arrs.forEach(function (ab, i) { out.copyToChannel(new Float32Array(ab), i); });
+          return out;
+        };
+        return { harmonic: mk(res.harmonic), percussive: mk(res.percussive) };
+      });
+  }
+
+  /* ----------------------------------------------------- utilities --- */
+
+  function toMono(buf) {
+    var n = buf.length, out = new Float32Array(n), chans = buf.numberOfChannels;
+    for (var c = 0; c < chans; c++) {
+      var d = buf.getChannelData(c);
+      for (var i = 0; i < n; i++) out[i] += d[i] / chans;
+    }
+    return out;
+  }
+
+  /* Last moment the track is actually audible. Releases fade out and encoders
+     leave trailing silence; anchoring a transition to buffer.duration means
+     mixing out of nothing — the first prototype bridge sounded like a straight
+     cut for exactly this reason. */
+  function contentEndSec(mono, sr) {
+    var W = 2048, thresh = 0.02;      // about -34 dBFS RMS
+    for (var i = mono.length - W; i > 0; i -= W) {
+      var s = 0;
+      for (var k = 0; k < W; k++) { var v = mono[i + k]; s += v * v; }
+      if (Math.sqrt(s / W) > thresh) return (i + W) / sr;
+    }
+    return mono.length / sr;
+  }
+
+  function peaks(mono, buckets) {
+    var out = new Float32Array(buckets);
+    var size = Math.floor(mono.length / buckets) || 1;
+    for (var b = 0; b < buckets; b++) {
+      var m = 0, start = b * size, end = Math.min(mono.length, start + size);
+      for (var i = start; i < end; i++) { var a = Math.abs(mono[i]); if (a > m) m = a; }
+      out[b] = m;
+    }
+    return out;
+  }
+
+  function slice(ctx, buf, startSec, durSec) {
+    var sr = buf.sampleRate;
+    var s = Math.max(0, Math.floor(startSec * sr));
+    var n = Math.min(buf.length - s, Math.floor(durSec * sr));
+    var out = ctx.createBuffer(buf.numberOfChannels, Math.max(1, n), sr);
+    for (var c = 0; c < buf.numberOfChannels; c++) {
+      out.copyToChannel(buf.getChannelData(c).subarray(s, s + n), c);
+    }
+    return out;
+  }
+
+  /** RMS of a window of a buffer, for sanity-checking a rendered region. */
+  function rmsOf(buf, startSec, durSec) {
+    var sr = buf.sampleRate;
+    var s = Math.max(0, Math.floor(startSec * sr));
+    var n = Math.min(buf.length - s, Math.floor(durSec * sr));
+    if (n <= 0) return 0;
+    var acc = 0, d = buf.getChannelData(0);
+    for (var i = s; i < s + n; i++) acc += d[i] * d[i];
+    return Math.sqrt(acc / n);
+  }
+
+  /* WSOLA time-stretch. ratio > 1 makes the output shorter (faster).
+     Pitch preserved. Alignment offsets are computed once from the mono sum and
+     applied to every channel, so the stereo image cannot drift. */
+  function stretch(ctx, buf, ratio) {
+    if (Math.abs(ratio - 1) < 0.0005) return buf;
+    var N = 2048, Hs = N / 4, Ha = Math.round(Hs * ratio), search = 256;
+    var chans = buf.numberOfChannels;
+    var outLen = Math.ceil(buf.length / ratio) + N;
+    var out = ctx.createBuffer(chans, outLen, buf.sampleRate);
+
+    var win = new Float32Array(N);
+    for (var i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+
+    var ref = toMono(buf);
+    // The read head must advance by exactly Ha per frame ON AVERAGE, or the
+    // stretch ratio is not what was asked for. So the search is anchored to an
+    // ideal grid position that always advances by Ha, and the alignment offset
+    // is applied relative to that grid and thrown away each frame.
+    //
+    // Anchoring the next search to the PREVIOUS CHOSEN position instead lets
+    // the offset accumulate without bound, and on sustained material it does:
+    // a periodic waveform's best continuation is always one pitch period back,
+    // the search obliges every frame, and the drift cancels the hop exactly.
+    // Measured on a loop with a sustained bass note, a ratio of 1.05 produced a
+    // correctly shortened buffer whose content was still at the original tempo
+    // — the one failure mode that would make every beat-match silently wrong.
+    var offsets = [], ideal = 0, prevTail = null;
+    for (var sp = 0; sp + N < outLen; sp += Hs) {
+      var base = Math.round(ideal);
+      var delta = 0;
+      if (prevTail) {
+        // Normalised cross-correlation, and ties break towards d = 0.
+        //
+        // Both matter. Raw correlation is biased towards whichever candidate
+        // window happens to be loudest rather than the one that actually lines
+        // up, and dividing by the window's own energy removes that. The
+        // tie-break matters more: over a silent or near-silent passage every
+        // candidate scores the same, and picking the first one tried parks the
+        // frame at d = -search. That slips the read head back a quarter of a
+        // hop every frame, and the output drifts badly off the tempo the ratio
+        // asked for — measured at 67 BPM instead of 126 on a sparse signal.
+        // Preferring the smallest |d| leaves an ambiguous frame exactly where
+        // the ratio put it, which is the whole point of the hop.
+        var best = -Infinity;
+        for (var d = -search; d <= search; d++) {
+          var a0 = base + d;
+          if (a0 < 0 || a0 + Hs >= ref.length) continue;
+          var acc = 0, en = 0;
+          for (var j = 0; j < Hs; j += 4) {
+            var r = ref[a0 + j];
+            acc += prevTail[j] * r;
+            en += r * r;
+          }
+          var score = en > 1e-12 ? acc / Math.sqrt(en) : 0;
+          if (score > best || (score === best && Math.abs(d) < Math.abs(delta))) {
+            best = score; delta = d;
+          }
+        }
+      }
+      var a = Math.max(0, Math.min(ref.length - N - 1, base + delta));
+      offsets.push(a);
+      prevTail = ref.subarray(a + Hs, a + Hs + Hs);
+      ideal += Ha;
+      if (ideal + N + search >= ref.length) break;
+    }
+
+    for (var c = 0; c < chans; c++) {
+      var src = buf.getChannelData(c), dst = out.getChannelData(c);
+      var norm = new Float32Array(outLen);
+      for (var f = 0; f < offsets.length; f++) {
+        var off = offsets[f], sp2 = f * Hs;
+        for (var k = 0; k < N; k++) {
+          var v = src[off + k];
+          if (v === undefined) break;
+          dst[sp2 + k] += v * win[k];
+          norm[sp2 + k] += win[k];
+        }
+      }
+      // Hann at 4x overlap sums to ~2.0 in steady state; clamp so the tail of
+      // the stretched buffer fades out rather than being multiplied up.
+      for (var m = 0; m < outLen; m++) dst[m] /= Math.max(norm[m], 0.5);
+    }
+    return out;
+  }
+
+  /* Time-stretch with a ratio that RAMPS from r0 to r1 across the output.
+     This is the pitch fader: a record is brought in matched to the one before
+     it and eased towards the tempo the next one needs, over minutes, so the
+     change is a fraction of a percent per minute and nobody hears it.
+
+     It exists because of a measurement. WSOLA's alignment search moves every
+     frame by up to ±256 samples, so the mapping from output position back to
+     source position is linear only on average — locally it jitters. Two pieces
+     of independently stretched audio therefore cannot be spliced: butting a
+     stretched transition against an unstretched track middle was measured
+     landing more than a full signal amplitude out (+9.4 dB of error against the
+     signal's own RMS), which is a click every time.
+
+     Ramping removes the problem rather than masking it. Each track becomes ONE
+     continuous stretch pass from its entry to its mix-out, so there is no splice
+     inside it at all, and neighbouring tracks agree on tempo where they overlap
+     because the ramp delivers them to the right tempo at the right moment. The
+     finished mix is a sum of overlapping streams, not a concatenation, and has
+     no seams to click.
+
+     Output length is buf.length / mean(r0, r1), because the source consumed is
+     the integral of the ratio over the output. */
+  function stretchRamp(ctx, buf, r0, r1) {
+    if (Math.abs(r0 - 1) < 0.0005 && Math.abs(r1 - 1) < 0.0005) return buf;
+    var N = 2048, Hs = N / 4, search = 256;
+    var chans = buf.numberOfChannels;
+    var meanRatio = (r0 + r1) / 2;
+    var outLen = Math.ceil(buf.length / meanRatio) + N;
+    var out = ctx.createBuffer(chans, outLen, buf.sampleRate);
+
+    var win = new Float32Array(N);
+    for (var i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+
+    var ref = toMono(buf);
+    var offsets = [], ideal = 0, prevTail = null;
+    var frames = Math.max(1, Math.floor((outLen - N) / Hs));
+    for (var f = 0; f < frames; f++) {
+      var sp = f * Hs;
+      if (sp + N >= outLen) break;
+      var base = Math.round(ideal);
+      var delta = 0;
+      if (prevTail) {
+        var best = -Infinity;
+        for (var d = -search; d <= search; d++) {
+          var a0 = base + d;
+          if (a0 < 0 || a0 + Hs >= ref.length) continue;
+          var acc = 0, en = 0;
+          for (var j = 0; j < Hs; j += 4) {
+            var r = ref[a0 + j];
+            acc += prevTail[j] * r;
+            en += r * r;
+          }
+          var score = en > 1e-12 ? acc / Math.sqrt(en) : 0;
+          if (score > best || (score === best && Math.abs(d) < Math.abs(delta))) {
+            best = score; delta = d;
+          }
+        }
+      }
+      var a = Math.max(0, Math.min(ref.length - N - 1, base + delta));
+      offsets.push(a);
+      prevTail = ref.subarray(a + Hs, a + Hs + Hs);
+      // The ratio at this point in the OUTPUT, interpolated across the ramp.
+      var frac = frames > 1 ? f / (frames - 1) : 0;
+      ideal += Hs * (r0 + (r1 - r0) * frac);
+      if (ideal + N + search >= ref.length) break;
+    }
+
+    for (var c = 0; c < chans; c++) {
+      var src = buf.getChannelData(c), dst = out.getChannelData(c);
+      var norm = new Float32Array(outLen);
+      for (var fi = 0; fi < offsets.length; fi++) {
+        var off = offsets[fi], sp2 = fi * Hs;
+        for (var k = 0; k < N; k++) {
+          var v = src[off + k];
+          if (v === undefined) break;
+          dst[sp2 + k] += v * win[k];
+          norm[sp2 + k] += win[k];
+        }
+      }
+      for (var m = 0; m < outLen; m++) dst[m] /= Math.max(norm[m], 0.5);
+    }
+
+    /* Trim to the length the ratio actually implies. The working buffer carries
+       one extra frame of padding so the last overlap-add has somewhere to land,
+       but that frame is tapering to silence and is not music. Left in, it adds
+       43 ms per track — across 47 tracks that is two seconds of accumulated
+       drift between what the plan says the set runs to and what comes out. */
+    var exact = Math.max(1, Math.min(outLen, Math.round(buf.length / meanRatio)));
+    if (exact === outLen) return out;
+    var trimmed = ctx.createBuffer(chans, exact, buf.sampleRate);
+    for (var tc = 0; tc < chans; tc++) {
+      trimmed.copyToChannel(out.getChannelData(tc).subarray(0, exact), tc);
+    }
+    return trimmed;
+  }
+
+  /* Two clips summed can exceed full scale — modern masters sit near 0 dBFS, so
+     a crossfade or an overlap clips on export. Float render headroom is
+     unlimited; this pulls the finished buffer back under 0 dBFS. A prototype
+     render measured 2,880 samples pinned at full scale before this existed. */
+  function finalise(buf) {
+    var peak = 0, c, d, i;
+    for (c = 0; c < buf.numberOfChannels; c++) {
+      d = buf.getChannelData(c);
+      for (i = 0; i < d.length; i++) { var a = Math.abs(d[i]); if (a > peak) peak = a; }
+    }
+    if (peak > 0.99) {
+      var g = 0.98 / peak;
+      for (c = 0; c < buf.numberOfChannels; c++) {
+        d = buf.getChannelData(c);
+        for (i = 0; i < d.length; i++) d[i] *= g;
+      }
+      return { peak: peak, reducedDb: 20 * Math.log10(g) };
+    }
+    return { peak: peak, reducedDb: 0 };
+  }
+
+  /* Zero-phase high-pass (RBJ biquad forwards then backwards). Phase matters
+     because the result gets subtracted from the original — a phase-shifted
+     subtraction would comb-filter instead of cancelling. */
+  function hpFiltfilt(data, fc, sr) {
+    var w0 = 2 * Math.PI * fc / sr, cw = Math.cos(w0), sw = Math.sin(w0);
+    var alpha = sw / (2 * Math.SQRT1_2);
+    var a0 = 1 + alpha;
+    var b0 = (1 + cw) / 2 / a0, b1 = -(1 + cw) / a0, b2 = (1 + cw) / 2 / a0;
+    var a1 = (-2 * cw) / a0, a2 = (1 - alpha) / a0;
+    var run = function (src) {
+      var out = new Float32Array(src.length);
+      var x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (var i = 0; i < src.length; i++) {
+        var x0 = src[i];
+        var y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+        x2 = x1; x1 = x0; y2 = y1; y1 = y0; out[i] = y0;
+      }
+      return out;
+    };
+    var f = run(data), r = new Float32Array(f.length), i;
+    for (i = 0; i < f.length; i++) r[i] = f[f.length - 1 - i];
+    var g = run(r), out = new Float32Array(f.length);
+    for (i = 0; i < g.length; i++) out[i] = g[g.length - 1 - i];
+    return out;
+  }
+
+  /* Synthetic reverb impulse: exponentially decaying noise, decorrelated per
+     channel, with a short pre-delay so the throw blooms rather than smears.
+     Plate-ish and needs no sample files. */
+  function makeIR(actx, seconds, decay) {
+    var sr = actx.sampleRate, len = Math.max(1, Math.floor(sr * seconds));
+    var pre = Math.floor(sr * 0.02);
+    var ir = actx.createBuffer(2, len, sr);
+    var seed = 22222;
+    var rnd = function () { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff * 2 - 1; };
+    for (var c = 0; c < 2; c++) {
+      var d = ir.getChannelData(c);
+      for (var i = pre; i < len; i++) {
+        var t = (i - pre) / (len - pre);
+        d[i] = rnd() * Math.pow(1 - t, decay);
+      }
+    }
+    return ir;
+  }
+
+  function equalPower(n, rising) {
+    var a = new Float32Array(n);
+    for (var i = 0; i < n; i++) {
+      var t = i / (n - 1);
+      a[i] = rising ? Math.sin(t * Math.PI / 2) : Math.cos(t * Math.PI / 2);
+    }
+    return a;
+  }
+  function rampCurve(n, from, to) {
+    var a = new Float32Array(n);
+    for (var i = 0; i < n; i++) a[i] = from + (to - from) * (i / (n - 1));
+    return a;
+  }
+
+  /* The 44-byte RIFF header, on its own. Two things build WAVs — encodeWav for a
+     whole buffer, and the streaming writer in mix-render.js, which cannot hold
+     80 minutes as Float32 to hand to encodeWav. They shared a copy of this
+     header until the duplication was spotted; one place to get it wrong is
+     enough. */
+  function wavHeader(frames, channels, sampleRate) {
+    var dataBytes = frames * channels * 2;
+    var head = new ArrayBuffer(44), v = new DataView(head);
+    var str = function (o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, 'RIFF'); v.setUint32(4, 36 + dataBytes, true); str(8, 'WAVE');
+    str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+    v.setUint16(22, channels, true); v.setUint32(24, sampleRate, true);
+    v.setUint32(28, sampleRate * channels * 2, true);
+    v.setUint16(32, channels * 2, true); v.setUint16(34, 16, true);
+    str(36, 'data'); v.setUint32(40, dataBytes, true);
+    return head;
+  }
+
+  function encodeWav(buf) {
+    var chans = buf.numberOfChannels, len = buf.length, sr = buf.sampleRate;
+    var bytes = 44 + len * chans * 2;
+    var ab = new ArrayBuffer(bytes), v = new DataView(ab);
+    new Uint8Array(ab).set(new Uint8Array(wavHeader(len, chans, sr)), 0);
+    var data = [];
+    for (var c = 0; c < chans; c++) data.push(buf.getChannelData(c));
+    var o = 44;
+    for (var i = 0; i < len; i++)
+      for (var c2 = 0; c2 < chans; c2++) {
+        var s = Math.max(-1, Math.min(1, data[c2][i]));
+        v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); o += 2;
+      }
+    return new Blob([ab], { type: 'audio/wav' });
+  }
+
+  /* §6.6. Everything baked into a sample at SAVE time, because it does not vary
+     per use: trim (already done by slicing), optional drum removal, a high-pass,
+     and normalisation to -1 dBFS so that placement gain means the same thing for
+     every sample in the library.
+
+     Deliberately NOT baked in: stretch, gain and fades. Those vary per
+     placement — the same hook at a 108 BPM junction and a 124 BPM junction needs
+     two different stretches, so the sample is stored unstretched at its source
+     tempo and stretched per use. */
+  function prepareSample(ctx, buf, opts) {
+    opts = opts || {};
+    var sr = buf.sampleRate, chans = buf.numberOfChannels;
+    var out = ctx.createBuffer(chans, buf.length, sr);
+    for (var c = 0; c < chans; c++) out.copyToChannel(buf.getChannelData(c).slice(), c);
+
+    var done = Promise.resolve(out);
+
+    if (opts.removeDrums) {
+      // The harmonic half is the hook without the kit. This is the one job HPSS
+      // is genuinely right for — it is wrong for "keep the beat going", which is
+      // the opposite operation and belongs to EQ.
+      done = hpss(ctx, out, opts.removalAmount == null ? 2 : opts.removalAmount)
+        .then(function (r) { return r.harmonic; });
+    }
+
+    return done.then(function (b) {
+      var hp = opts.highPassHz || 0;
+      if (hp > 0) {
+        for (var c2 = 0; c2 < b.numberOfChannels; c2++) {
+          b.copyToChannel(hpFiltfilt(b.getChannelData(c2), hp, sr), c2);
+        }
+      }
+      // Normalise to -1 dBFS.
+      var peak = 0;
+      for (var c3 = 0; c3 < b.numberOfChannels; c3++) {
+        var d = b.getChannelData(c3);
+        for (var i = 0; i < d.length; i++) { var a = Math.abs(d[i]); if (a > peak) peak = a; }
+      }
+      if (peak > 1e-6) {
+        var g = 0.891 / peak;                       // -1 dBFS
+        for (var c4 = 0; c4 < b.numberOfChannels; c4++) {
+          var dd = b.getChannelData(c4);
+          for (var j = 0; j < dd.length; j++) dd[j] *= g;
+        }
+      }
+      return b;
+    });
+  }
+
+  /* A sample as it is actually placed: stretched to the tempo playing where it
+     lands, then gained and faded. Constant ratio, not a ramp — see §6.6: a
+     four-to-eight bar sample across a realistic tempo ramp drifts well under a
+     millisecond, and a ramping stretch of something that short would be all
+     edge artefact. */
+  function renderPlacement(ctx, sampleBuf, opts) {
+    var ratio = opts.ratio || 1;
+    var b = Math.abs(ratio - 1) < 0.0005 ? sampleBuf : stretch(ctx, sampleBuf, ratio);
+    var sr = b.sampleRate, n = b.length;
+    var out = ctx.createBuffer(2, n, sr);
+    var gain = Math.pow(10, (opts.gainDb || 0) / 20);
+    var fi = Math.min(n, Math.round((opts.fadeInMs || 0) / 1000 * sr));
+    var fo = Math.min(n, Math.round((opts.fadeOutMs || 0) / 1000 * sr));
+    for (var c = 0; c < 2; c++) {
+      var src = b.getChannelData(Math.min(c, b.numberOfChannels - 1));
+      var dst = out.getChannelData(c);
+      for (var i = 0; i < n; i++) {
+        var g = gain;
+        if (fi && i < fi) g *= Math.sin(i / fi * Math.PI / 2);
+        if (fo && i >= n - fo) g *= Math.cos((i - (n - fo)) / fo * Math.PI / 2);
+        dst[i] = src[i] * g;
+      }
+    }
+    return out;
+  }
+
+  /* Assemble a track's edit list into one continuous buffer.
+     "Come in on the hook, then drop back to the verse" — region 1 is bars
+     33-40, region 2 is bar 9 onwards.
+
+     This happens at SOURCE tempo, before any stretching, and the order matters.
+     Stretching each region and then joining would reintroduce exactly the splice
+     problem that killed the concatenating render: every stretched piece begins
+     windowed to zero, and no two of them can be aligned to each other. Cut
+     first, in untouched material, where a 10 ms equal-power crossfade on a bar
+     line is genuinely clean — which is what a DJ's hot cue does and it sounds
+     right. Then stretch the assembled result once.
+
+     JOIN is deliberately short. Long enough to kill the click, short enough not
+     to smear the downbeat it lands on. */
+  var REGION_JOIN_SEC = 0.010;
+
+  function assembleRegions(ctx, buffer, regions, barSec) {
+    if (!regions || !regions.length) return null;
+    var sr = buffer.sampleRate;
+    var chans = buffer.numberOfChannels;
+    var XF = Math.max(1, Math.round(REGION_JOIN_SEC * sr));
+
+    var pieces = [];
+    for (var p = 0; p < regions.length; p++) {
+      var r = regions[p];
+      var len = Math.max(0, (r.bars || 0) * barSec);
+      if (len <= 0) continue;
+      pieces.push(slice(ctx, buffer, r.startSec || 0, len));
+    }
+    if (!pieces.length) return null;
+    if (pieces.length === 1) return pieces[0];
+
+    var total = 0;
+    for (var i = 0; i < pieces.length; i++) total += pieces[i].length;
+    total -= XF * (pieces.length - 1);
+    var out = ctx.createBuffer(chans, Math.max(1, total), sr);
+
+    var pos = 0;
+    for (i = 0; i < pieces.length; i++) {
+      var piece = pieces[i];
+      var start = i === 0 ? 0 : pos - XF;
+      var isFirst = i === 0, isLast = i === pieces.length - 1;
+      for (var c = 0; c < chans; c++) {
+        var src = piece.getChannelData(Math.min(c, piece.numberOfChannels - 1));
+        var dst = out.getChannelData(c);
+        for (var k = 0; k < piece.length; k++) {
+          var at = start + k;
+          if (at < 0 || at >= out.length) continue;
+          var g = 1;
+          if (!isFirst && k < XF) g = Math.sin(k / XF * Math.PI / 2);
+          else if (!isLast && k >= piece.length - XF) {
+            g = Math.cos((k - (piece.length - XF)) / XF * Math.PI / 2);
+          }
+          dst[at] += src[k] * g;
+        }
+      }
+      pos = start + piece.length;
+    }
+    return out;
+  }
+
+  /** How long an edit list runs, in source seconds. The layout needs this
+      without decoding anything, so it is computed the same way here. */
+  function assembledSourceSec(regions, barSec) {
+    if (!regions || !regions.length) return 0;
+    var total = 0, n = 0;
+    for (var i = 0; i < regions.length; i++) {
+      var len = (regions[i].bars || 0) * barSec;
+      if (len > 0) { total += len; n++; }
+    }
+    return Math.max(0, total - REGION_JOIN_SEC * Math.max(0, n - 1));
+  }
+
+  /* Butt-join a list of buffers into one. Used by the full render to
+     concatenate cached junction segments and untouched track middles. */
+  function concat(ctx, buffers, sr) {
+    var total = 0, i;
+    for (i = 0; i < buffers.length; i++) total += buffers[i].length;
+    var chans = 2;
+    var out = ctx.createBuffer(chans, Math.max(1, total), sr);
+    var pos = 0;
+    for (i = 0; i < buffers.length; i++) {
+      var b = buffers[i];
+      for (var c = 0; c < chans; c++) {
+        var src = b.getChannelData(Math.min(c, b.numberOfChannels - 1));
+        out.getChannelData(c).set(src, pos);
+      }
+      pos += b.length;
+    }
+    return out;
+  }
+
+  /* --------------------------------------------------- transitions --- */
+  /* Every junction is one of four types. Each renderer takes a plain options
+     object and returns { buffer, info } — no DOM, no globals, so the timeline
+     can render any junction in isolation and cache the result.
+
+     Common options:
+       ctx        AudioContext (for createBuffer only; render is offline)
+       a, b       { buffer, bpm, downbeatSec, entrySec, exitSec }
+       targetBpm  the tempo both tracks are stretched to
+       preRollBars / postRollBars  context either side, for auditioning
+       onStatus   optional progress callback
+  */
+
+  var PRE_ROLL_BARS = 8, POST_ROLL_BARS = 8;
+
+  function stretchPair(ctx, a, b, targetBpm, onStatus) {
+    if (onStatus) onStatus('Stretching A…');
+    var bufA = stretch(ctx, a.buffer, targetBpm / a.bpm);
+    if (onStatus) onStatus('Stretching B…');
+    var bufB = stretch(ctx, b.buffer, targetBpm / b.bpm);
+    return { bufA: bufA, bufB: bufB, ratioA: targetBpm / a.bpm, ratioB: targetBpm / b.bpm };
+  }
+
+  /* Equal-power crossfade with a bass swap: outgoing lowshelf ramps 0 -> -cut
+     over the first half, incoming -cut -> 0 over the second. Two kicks on top
+     of each other is the one thing that always sounds wrong. */
+  function renderBlend(opts) {
+    var ctx = opts.ctx, a = opts.a, b = opts.b;
+    var bars = opts.bars || 16, bassCut = opts.bassCutDb == null ? 20 : opts.bassCutDb;
+    var target = opts.targetBpm;
+    var sp = stretchPair(ctx, a, b, target, opts.onStatus);
+    var bufA = sp.bufA, bufB = sp.bufB;
+
+    var spb = 60 / target, barSec = spb * 4;
+    var blendSec = bars * barSec;
+    var preRoll = (opts.preRollBars == null ? PRE_ROLL_BARS : opts.preRollBars) * barSec;
+    var postRoll = (opts.postRollBars == null ? POST_ROLL_BARS : opts.postRollBars) * barSec;
+    var dbA = a.downbeatSec / sp.ratioA, entryB = b.entrySec / sp.ratioB;
+    var exitA = a.exitSec / sp.ratioA;
+
+    // Work backwards from A's mix-out point, snapped to its bar grid.
+    var barsInA = Math.round((exitA - blendSec - dbA) / barSec);
+    if (barsInA < 4) {
+      throw new Error('Not enough of track A before its mix-out point for a ' + bars +
+        '-bar blend. Move the mix-out marker later or shorten the blend.');
+    }
+    var blendStartA = dbA + barsInA * barSec;
+    var aStart = Math.max(0, blendStartA - preRoll);
+
+    var sr = bufA.sampleRate;
+    var total = (blendStartA - aStart) + blendSec + postRoll;
+    var off = new OfflineAudioContext(2, Math.ceil(total * sr), sr);
+    var blendAt = blendStartA - aStart, CURVE = 256;
+
+    var sA = off.createBufferSource(); sA.buffer = bufA;
+    var gA = off.createGain(), eqA = off.createBiquadFilter();
+    eqA.type = 'lowshelf'; eqA.frequency.value = 220; eqA.gain.value = 0;
+    sA.connect(eqA).connect(gA).connect(off.destination);
+    gA.gain.setValueAtTime(1, 0);
+    gA.gain.setValueCurveAtTime(equalPower(CURVE, false), blendAt, blendSec);
+    eqA.gain.setValueAtTime(0, 0);
+    eqA.gain.setValueCurveAtTime(rampCurve(CURVE, 0, -bassCut), blendAt, blendSec * 0.5);
+    sA.start(0, aStart, Math.min(bufA.duration - aStart, blendAt + blendSec));
+
+    var sB = off.createBufferSource(); sB.buffer = bufB;
+    var gB = off.createGain(), eqB = off.createBiquadFilter();
+    eqB.type = 'lowshelf'; eqB.frequency.value = 220; eqB.gain.value = -bassCut;
+    sB.connect(eqB).connect(gB).connect(off.destination);
+    gB.gain.setValueAtTime(0, 0);
+    gB.gain.setValueCurveAtTime(equalPower(CURVE, true), blendAt, blendSec);
+    gB.gain.setValueAtTime(1, blendAt + blendSec + 0.001);
+    eqB.gain.setValueAtTime(-bassCut, 0);
+    eqB.gain.setValueCurveAtTime(rampCurve(CURVE, -bassCut, 0), blendAt + blendSec * 0.5, blendSec * 0.5);
+    sB.start(blendAt, entryB, Math.min(bufB.duration - entryB, blendSec + postRoll));
+
+    if (opts.onStatus) opts.onStatus('Rendering…');
+    return off.startRendering().then(function (out) {
+      var fin = finalise(out);
+      return {
+        buffer: out,
+        info: {
+          type: 'blend', targetBpm: target, bars: bars,
+          transitionAtSec: blendAt, transitionSec: blendSec,
+          bIntroAtSec: blendAt,
+          ratioA: sp.ratioA, ratioB: sp.ratioB, peak: fin.peak, reducedDb: fin.reducedDb
+        }
+      };
+    });
+  }
+
+  /* Cut + reverb throw, then the outgoing beat carries on alone, then B enters.
+     Isolation is EQ, not separation: three peaking bells at 700/1800/3500 Hz
+     take the vocals and chords out. NOTHING below 300 Hz or above 6 kHz is
+     touched, so kick, bass, hats and the crack of the snare all survive — the
+     top-end transients are what make it read as rhythm rather than rumble.
+
+     The prototype proved HPSS is wrong for this: the isolated beat measured 1%
+     of its energy below 200 Hz against 52% in the source, because at 2048-point
+     resolution a kick's fundamental looks sustained and the separator deletes
+     it. Separation stays available as an aggressive alternative, with its low
+     end preserved, but it is not the default and should not be. */
+  function renderBridge(opts) {
+    var ctx = opts.ctx, a = opts.a, b = opts.b, target = opts.targetBpm;
+    var bridgeBars = opts.beatBars == null ? 8 : opts.beatBars;
+    var overlapBars = opts.overlapBars == null ? 1 : opts.overlapBars;
+    var method = opts.isolation || 'eq';               // 'eq' | 'sep'
+    var throwing = (opts.cutStyle || 'throw') === 'throw';
+    var fadeBars = throwing ? 0 : (opts.fadeBars == null ? 4 : opts.fadeBars);
+    var reverbBars = opts.reverbBars == null ? 2 : opts.reverbBars;
+    var midCut = opts.midCutDb == null ? 24 : opts.midCutDb;
+    var highCut = opts.highCutDb == null ? 0 : opts.highCutDb;
+
+    var sp = stretchPair(ctx, a, b, target, opts.onStatus);
+    var bufA = sp.bufA, bufB = sp.bufB;
+
+    var spb = 60 / target, barSec = spb * 4;
+    // The two bar counts are additive: music closes out over fadeBars, then the
+    // beat runs alone for bridgeBars. A throw is an instant cut (30 ms so it
+    // does not click); a fade ramps over bars.
+    var fadeSec = throwing ? 0.03 : fadeBars * barSec;
+    var bridgeSec = fadeSec + bridgeBars * barSec;
+    var dbA = a.downbeatSec / sp.ratioA, entryB = b.entrySec / sp.ratioB;
+    var exitA = a.exitSec / sp.ratioA;
+    var preRoll = (opts.preRollBars == null ? PRE_ROLL_BARS : opts.preRollBars) * barSec;
+    var postRoll = (opts.postRollBars == null ? POST_ROLL_BARS : opts.postRollBars) * barSec;
+
+    // Anchored to A's mix-out marker, never to the end of the file.
+    var barsInA = Math.round((exitA - bridgeSec - dbA) / barSec);
+    if (barsInA < 4) {
+      throw new Error('Not enough of track A before its mix-out point for ' + fadeBars +
+        ' + ' + bridgeBars + ' bars. Move the mix-out marker later or shorten the bridge.');
+    }
+    var bridgeStart = dbA + barsInA * barSec;
+    var aStart = Math.max(0, bridgeStart - preRoll);
+
+    var sr = bufA.sampleRate;
+    var brAt = bridgeStart - aStart;
+    var bEnterAt = brAt + bridgeSec - overlapBars * barSec;
+    var total = bEnterAt + postRoll + 2;
+    var off = new OfflineAudioContext(2, Math.ceil(total * sr), sr);
+    var note = '';
+
+    var addThrow = function (sourceBuf, startOffset, stopAfter) {
+      // Tapped BEFORE the filters, so the throw carries the full-range last
+      // note, not the filtered version of it. The send opens for the final beat
+      // and shuts at the cut; the tail rings on over the beat underneath.
+      var s = off.createBufferSource(); s.buffer = sourceBuf;
+      var send = off.createGain();
+      var conv = off.createConvolver();
+      conv.buffer = makeIR(off, reverbBars * barSec, 2.5);
+      var wet = off.createGain(); wet.gain.value = 0.85;
+      s.connect(send).connect(conv).connect(wet).connect(off.destination);
+      send.gain.setValueAtTime(0, 0);
+      send.gain.setValueAtTime(0, brAt - spb - 0.001);
+      send.gain.linearRampToValueAtTime(1, brAt - spb);
+      send.gain.setValueAtTime(1, brAt);
+      send.gain.linearRampToValueAtTime(0, brAt + 0.02);
+      if (stopAfter != null) s.start(0, startOffset, stopAfter);
+      return s;
+    };
+
+    var pending = Promise.resolve();
+
+    if (method === 'eq') {
+      var sA = off.createBufferSource(); sA.buffer = bufA;
+      var m1 = off.createBiquadFilter(); m1.type = 'peaking'; m1.frequency.value = 700; m1.Q.value = 1.0;
+      var m2 = off.createBiquadFilter(); m2.type = 'peaking'; m2.frequency.value = 1800; m2.Q.value = 1.0;
+      var m3 = off.createBiquadFilter(); m3.type = 'peaking'; m3.frequency.value = 3500; m3.Q.value = 1.0;
+      var hs = off.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 7000;
+      var gA = off.createGain();
+      sA.connect(m1).connect(m2).connect(m3).connect(hs).connect(gA).connect(off.destination);
+
+      if (throwing) addThrow(bufA, aStart, null);
+
+      // A peaking filter at 0 dB is exactly unity, so everything before the
+      // bridge is untouched by these.
+      var bands = [[m1, midCut], [m2, midCut], [m3, midCut * 0.7], [hs, highCut]];
+      for (var i = 0; i < bands.length; i++) {
+        var f = bands[i][0], depth = bands[i][1];
+        f.gain.setValueAtTime(0, 0);
+        if (depth <= 0) continue;
+        f.gain.setValueCurveAtTime(rampCurve(256, 0, -depth), brAt, fadeSec);
+        f.gain.setValueAtTime(-depth, brAt + fadeSec + 0.001);
+      }
+      gA.gain.setValueAtTime(1, 0);
+      if (overlapBars > 0) gA.gain.setValueCurveAtTime(equalPower(128, false), bEnterAt, overlapBars * barSec);
+      else {
+        gA.gain.setValueAtTime(1, brAt + bridgeSec - 0.05);
+        gA.gain.linearRampToValueAtTime(0, brAt + bridgeSec);
+      }
+      sA.start(0, aStart, bridgeSec + preRoll);
+      note = (throwing ? reverbBars + '-bar reverb throw, ' : fadeBars + '-bar fade, ') +
+             'mids cut ' + midCut + ' dB, highs ' + (highCut ? 'cut ' + highCut + ' dB' : 'kept');
+
+    } else {
+      // Separation, but the low end is never touched. Straight HPSS deletes the
+      // kick. So: subtract only the HIGH-PASSED harmonic part, leaving the
+      // original bass and kick intact. At env = 1 nothing is subtracted, so the
+      // bridge still starts bit-identical to the track.
+      if (opts.onStatus) opts.onStatus('Separating…');
+      var p = opts.removalAmount == null ? 2 : opts.removalAmount;
+      var region = slice(ctx, bufA, bridgeStart, bridgeSec);
+      pending = hpss(ctx, region, p, function (d) {
+        if (opts.onStatus) opts.onStatus('Separating… ' + Math.round(d.v * 100) + '% (' + d.msg + ')');
+      }).then(function (res) {
+        var bridge = ctx.createBuffer(region.numberOfChannels, region.length, sr);
+        var fadeN = Math.min(region.length, Math.floor(fadeSec * sr));
+        for (var c = 0; c < region.numberOfChannels; c++) {
+          var orig = region.getChannelData(c);
+          var hHi = hpFiltfilt(res.harmonic.getChannelData(c), 220, sr);
+          var d = bridge.getChannelData(c);
+          for (var i = 0; i < region.length; i++) {
+            var t = i < fadeN ? i / fadeN : 1;
+            var env = 0.5 + 0.5 * Math.cos(Math.PI * t);   // 1 -> 0
+            d[i] = orig[i] - hHi[i] * (1 - env);
+          }
+        }
+        if (throwing) addThrow(bufA, aStart, brAt + 0.05);
+
+        var sA2 = off.createBufferSource(); sA2.buffer = bufA;
+        sA2.connect(off.destination);
+        sA2.start(0, aStart, brAt);
+
+        var sBr = off.createBufferSource(); sBr.buffer = bridge;
+        var gBr = off.createGain();
+        sBr.connect(gBr).connect(off.destination);
+        gBr.gain.setValueAtTime(1, brAt);
+        if (overlapBars > 0) gBr.gain.setValueCurveAtTime(equalPower(128, false), bEnterAt, overlapBars * barSec);
+        else {
+          gBr.gain.setValueAtTime(1, brAt + bridgeSec - 0.05);
+          gBr.gain.linearRampToValueAtTime(0, brAt + bridgeSec);
+        }
+        sBr.start(brAt);
+        note = 'separation strength ' + p + ', bass left untouched';
+      });
+    }
+
+    return pending.then(function () {
+      // B enters on a bar line.
+      var sB = off.createBufferSource(); sB.buffer = bufB;
+      var gB = off.createGain();
+      sB.connect(gB).connect(off.destination);
+      if (overlapBars > 0) {
+        gB.gain.setValueAtTime(0, bEnterAt);
+        gB.gain.setValueCurveAtTime(equalPower(128, true), bEnterAt, overlapBars * barSec);
+        gB.gain.setValueAtTime(1, bEnterAt + overlapBars * barSec + 0.001);
+      } else {
+        gB.gain.setValueAtTime(1, bEnterAt);
+      }
+      sB.start(bEnterAt, entryB, Math.min(bufB.duration - entryB, postRoll + overlapBars * barSec));
+
+      if (opts.onStatus) opts.onStatus('Rendering…');
+      return off.startRendering();
+    }).then(function (out) {
+      var fin = finalise(out);
+      // Is there actually anything audible during the beat-only stretch?
+      var beatRms = rmsOf(out, brAt + fadeSec, Math.min(bridgeBars * barSec, 6));
+      var beatDb = 20 * Math.log10(beatRms + 1e-9);
+      return {
+        buffer: out,
+        info: {
+          type: 'throw-bridge', targetBpm: target, note: note,
+          transitionAtSec: brAt, transitionSec: bridgeSec,
+          bIntroAtSec: bEnterAt, beatDb: beatDb, quiet: beatDb < -34,
+          ratioA: sp.ratioA, ratioB: sp.ratioB, peak: fin.peak, reducedDb: fin.reducedDb
+        }
+      };
+    });
+  }
+
+  /* A ends on a bar line, B starts on the next. Proposed automatically when two
+     tracks are more than the stretch budget apart after clamping. gapMs > 0 is
+     the STOP / START case — the cake, where nothing is matched across it. */
+  function renderHardCut(opts) {
+    var ctx = opts.ctx, a = opts.a, b = opts.b;
+    var gapMs = opts.gapMs || 0;
+    // No common tempo: each track plays at its own. Nothing is stretched.
+    var barSecA = 60 / a.bpm * 4, barSecB = 60 / b.bpm * 4;
+    var preRoll = (opts.preRollBars == null ? PRE_ROLL_BARS : opts.preRollBars) * barSecA;
+    var postRoll = (opts.postRollBars == null ? POST_ROLL_BARS : opts.postRollBars) * barSecB;
+
+    // Snap A's out point to its own bar grid, working back from mix-out.
+    var barsInA = Math.max(1, Math.round((a.exitSec - a.downbeatSec) / barSecA));
+    var cutAt = a.downbeatSec + barsInA * barSecA;
+    var aStart = Math.max(0, cutAt - preRoll);
+    var aDur = cutAt - aStart;
+
+    var sr = a.buffer.sampleRate;
+    var gapSec = gapMs / 1000;
+    var total = aDur + gapSec + postRoll;
+    var off = new OfflineAudioContext(2, Math.ceil(total * sr), sr);
+
+    var sA = off.createBufferSource(); sA.buffer = a.buffer;
+    var gA = off.createGain();
+    sA.connect(gA).connect(off.destination);
+    // 20 ms taper so the cut does not click.
+    gA.gain.setValueAtTime(1, 0);
+    gA.gain.setValueAtTime(1, Math.max(0, aDur - 0.02));
+    gA.gain.linearRampToValueAtTime(0, aDur);
+    sA.start(0, aStart, aDur);
+
+    var sB = off.createBufferSource(); sB.buffer = b.buffer;
+    var gB = off.createGain();
+    sB.connect(gB).connect(off.destination);
+    var bAt = aDur + gapSec;
+    gB.gain.setValueAtTime(0, bAt);
+    gB.gain.linearRampToValueAtTime(1, bAt + 0.02);
+    sB.start(bAt, b.entrySec, Math.min(b.buffer.duration - b.entrySec, postRoll));
+
+    if (opts.onStatus) opts.onStatus('Rendering…');
+    return off.startRendering().then(function (out) {
+      var fin = finalise(out);
+      return {
+        buffer: out,
+        info: {
+          type: 'hard-cut', gapMs: gapMs,
+          transitionAtSec: aDur, transitionSec: gapSec,
+          bIntroAtSec: bAt, bpmA: a.bpm, bpmB: b.bpm,
+          ratioA: 1, ratioB: 1, peak: fin.peak, reducedDb: fin.reducedDb
+        }
+      };
+    });
+  }
+
+  var RENDERERS = {
+    'blend': renderBlend,
+    'throw-bridge': renderBridge,
+    'beat-bridge': renderBridge,
+    'hard-cut': renderHardCut
+  };
+
+  /** Render one junction by type. Returns { buffer, info }. */
+  function renderJunction(type, opts) {
+    var fn = RENDERERS[type];
+    if (!fn) throw new Error('Unknown junction type: ' + type);
+    return Promise.resolve().then(function () { return fn(opts); });
+  }
+
+  global.MixDSP = {
+    analyseBeat: analyseBeat,
+    hpss: hpss,
+    toMono: toMono,
+    contentEndSec: contentEndSec,
+    peaks: peaks,
+    slice: slice,
+    rmsOf: rmsOf,
+    stretch: stretch,
+    stretchRamp: stretchRamp,
+    finalise: finalise,
+    hpFiltfilt: hpFiltfilt,
+    makeIR: makeIR,
+    equalPower: equalPower,
+    rampCurve: rampCurve,
+    encodeWav: encodeWav,
+    wavHeader: wavHeader,
+    concat: concat,
+    prepareSample: prepareSample,
+    renderPlacement: renderPlacement,
+    assembleRegions: assembleRegions,
+    assembledSourceSec: assembledSourceSec,
+    REGION_JOIN_SEC: REGION_JOIN_SEC,
+    renderBlend: renderBlend,
+    renderBridge: renderBridge,
+    renderHardCut: renderHardCut,
+    renderJunction: renderJunction,
+    TYPES: Object.keys(RENDERERS)
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
