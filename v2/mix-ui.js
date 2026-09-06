@@ -1910,6 +1910,10 @@
         (placingSample === s.id ? placerHtml(s) : '') +
       '</div>';
     }).join('') + renderPlacementList();
+
+    // The strip only exists while a sample is being placed, and it has to be
+    // measured after it is in the document to know how wide a bar is.
+    if (placingSample) { wirePlaceStrip(); drawPlaceStrip(); }
   }
 
   /* Where a sample goes, how far in, and how loud. */
@@ -1919,7 +1923,13 @@
       return '<option value="' + i + '">' + (i + 1) + '. ' + esc(a.title) +
              ' → ' + esc(b.title) + '</option>';
     }).join('');
+    var bars = Math.max(1, Math.round(s.bars || 1));
     return '<div class="placer">' +
+      '<canvas id="placeStrip" class="place-strip"></canvas>' +
+      '<div class="region-hint" style="margin:6px 0 12px">' +
+        'Drag the <strong>' + bars + '-bar</strong> block to where you want it. It snaps to the bar. ' +
+        'The join is the line down the middle: to the left is the track going out, ' +
+        'to the right is the one coming in.</div>' +
       '<div class="grid">' +
         '<div style="grid-column:1/-1"><label class="lbl">At which junction</label>' +
           '<select id="placeJunction">' + opts + '</select></div>' +
@@ -1941,6 +1951,201 @@
           'lower still for something that should only be felt.</span>' +
       '</div>' +
     '</div>';
+  }
+
+  /* ------------------------------------------- placing a sample by eye ---
+     The junction as a strip of time, with the sample drawn on it as a block
+     you drag. Everything is measured in bars either side of the point where
+     the next track comes in, because that is the one landmark both tracks
+     share and it is what the placement is stored against.
+
+     Peaks come from the tracks themselves (t.peaks, the same array the track
+     waveforms use), sampled at the time each bar position corresponds to.
+     Nothing is decoded here — this draws from what is already in memory, so
+     it costs nothing to redraw on every pointer move. */
+
+  var STRIP_H = 104;
+
+  function placeState() {
+    var jSel = $('placeJunction'), bSel = $('placeBars');
+    if (!jSel || !bSel) return null;
+    var j = parseInt(jSel.value, 10);
+    var a = project.tracks[j], b = project.tracks[j + 1];
+    if (!a || !b) return null;
+    var s = sampleMeta.get(placingSample);
+    var bars = Math.max(1, Math.round((s && s.bars) || 1));
+    // The tempo the junction actually runs at, so a bar on screen is the bar
+    // the sample will be stretched to when it is rendered.
+    var lj = lay.junctions[j];
+    var bpm = (lj && lj.targetBpm) || MP.effectiveBpm(b) || MP.effectiveBpm(a) || 120;
+    return {
+      j: j, a: a, b: b, bars: bars, barSec: 60 / bpm * 4,
+      before: Math.max(0, Math.min(64, parseFloat(bSel.value) || 0))
+    };
+  }
+
+  /* How many bars of run-up to show. Enough that the sample can always be
+     dragged to its furthest allowed position and still be seen whole. */
+  function stripWindow(st) {
+    var pre = Math.max(24, st.before + st.bars + 4);
+    return { pre: Math.min(72, pre), post: 8 };
+  }
+
+  /* Peak value of a track at a given time, from the array the waveform uses. */
+  function peakAt(t, sec) {
+    if (!t.peaks || !t.durationSec) return null;
+    if (sec < 0 || sec > t.durationSec) return null;
+    var i = Math.floor(sec / t.durationSec * t.peaks.length);
+    return t.peaks[Math.max(0, Math.min(t.peaks.length - 1, i))] || 0;
+  }
+
+  function drawPlaceStrip() {
+    var cv = $('placeStrip');
+    if (!cv) return;
+    var st = placeState();
+    if (!st) return;
+    var win = stripWindow(st);
+    var dpr = window.devicePixelRatio || 1;
+    var w = cv.clientWidth || 900, h = STRIP_H;
+    cv.width = w * dpr; cv.height = h * dpr;
+    var g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+
+    var total = win.pre + win.post;                 // bars across the whole strip
+    var pxPerBar = w / total;
+    var xOfBar = function (barsBefore) {             // 0 = the incoming entry
+      return (win.pre + barsBefore) * pxPerBar;
+    };
+
+    g.fillStyle = '#f7fbfa'; g.fillRect(0, 0, w, h);
+
+    // --- the two tracks' audio, each sampled at the time that bar lands on
+    var drawSide = function (t, fromBar, toBar, anchorSec, colour) {
+      g.fillStyle = colour;
+      for (var x = Math.max(0, xOfBar(fromBar)); x < Math.min(w, xOfBar(toBar)); x++) {
+        var barPos = x / pxPerBar - win.pre;          // bars relative to entry
+        var p = peakAt(t, anchorSec + barPos * st.barSec);
+        if (p == null) continue;
+        var bh = Math.max(1, p * (h - 26) * 0.9);
+        g.fillRect(x, 20 + (h - 26 - bh) / 2, 1, bh);
+      }
+    };
+    // The two sides need to be told apart at a glance, so the incoming track
+    // sits on a tinted ground in a darker ink. Drawn in nearly the same grey,
+    // the strip reads as one continuous waveform and the join means nothing.
+    g.fillStyle = '#eef5f3';
+    g.fillRect(xOfBar(0), 0, w - xOfBar(0), h);
+    // Outgoing track: its music runs out at exitSec, which is the join.
+    drawSide(st.a, -win.pre, 0, st.a.exitSec || st.a.durationSec || 0, '#cfdedc');
+    // Incoming track: its entry is the join.
+    drawSide(st.b, 0, win.post, st.b.entrySec || 0, '#7fa3a0');
+
+    // --- bar lines
+    for (var bIdx = -Math.floor(win.pre); bIdx <= win.post; bIdx++) {
+      var bx = xOfBar(bIdx);
+      var four = bIdx % 4 === 0;
+      g.fillStyle = four ? 'rgba(61,98,99,.30)' : 'rgba(61,98,99,.10)';
+      g.fillRect(bx, four ? 16 : h * 0.4, 1, four ? h - 16 : h * 0.22);
+    }
+
+    // --- the join itself
+    g.fillStyle = '#b0392c';
+    g.fillRect(xOfBar(0) - 1, 12, 2, h - 12);
+    g.font = '600 10px Montserrat, -apple-system, sans-serif';
+    g.fillStyle = '#b0392c';
+    g.textAlign = 'left';
+    g.fillText(truncateLabel(st.b.title, 34) + ' comes in', xOfBar(0) + 5, 10);
+    g.textAlign = 'right';
+    g.fillStyle = '#6b7f7e';
+    g.fillText(truncateLabel(st.a.title, 34), xOfBar(0) - 5, 10);
+    g.textAlign = 'left';
+
+    // --- the sample block
+    var x0 = xOfBar(-st.before), bw = Math.max(6, st.bars * pxPerBar);
+    g.fillStyle = 'rgba(176,125,46,.26)';
+    g.fillRect(x0, 18, bw, h - 24);
+    g.fillStyle = '#b07d2e';
+    g.fillRect(x0, 18, 2, h - 24);
+    g.fillRect(x0 + bw - 2, 18, 2, h - 24);
+    g.fillStyle = '#7a5518';
+    g.font = '600 11px Montserrat, -apple-system, sans-serif';
+    var s = sampleMeta.get(placingSample);
+    var label = (s ? s.name : 'sample') + '  ·  ' + st.bars + (st.bars === 1 ? ' bar' : ' bars');
+    if (bw > 70) g.fillText(truncateLabel(label, Math.floor(bw / 6)), x0 + 6, h - 10);
+  }
+
+  function truncateLabel(str, n) {
+    str = String(str || '');
+    return str.length > n ? str.slice(0, Math.max(1, n - 1)) + '…' : str;
+  }
+
+  /* Dragging. The canvas is redrawn directly and the number field is written
+     to as we go — deliberately NOT through touch(), which re-renders the panel
+     and would destroy the canvas mid-drag. The project is only written when
+     Place it is pressed, exactly as before. */
+  var placeDrag = null;
+
+  function barsFromPointer(ev, cv, st) {
+    var r = cv.getBoundingClientRect();
+    var win = stripWindow(st);
+    var pxPerBar = r.width / (win.pre + win.post);
+    var barPos = (ev.clientX - r.left) / pxPerBar - win.pre;   // left edge, in bars
+    return Math.max(0, Math.min(64, Math.round(-barPos)));
+  }
+
+  function wirePlaceStrip() {
+    var cv = $('placeStrip');
+    if (!cv || cv.dataset.wired) return;
+    cv.dataset.wired = '1';
+
+    cv.addEventListener('pointerdown', function (ev) {
+      var st = placeState();
+      if (!st) return;
+      ev.preventDefault();
+      cv.setPointerCapture(ev.pointerId);
+      // Grab the block wherever it is clicked, so it does not jump under the
+      // pointer; clicking the empty strip moves it there directly.
+      var r = cv.getBoundingClientRect();
+      var win = stripWindow(st);
+      var pxPerBar = r.width / (win.pre + win.post);
+      var x0 = (win.pre - st.before) * pxPerBar, bw = st.bars * pxPerBar;
+      var px = ev.clientX - r.left;
+      var grabBars = (px >= x0 && px <= x0 + bw) ? (px - x0) / pxPerBar : st.bars / 2;
+      placeDrag = { grabBars: grabBars };
+      applyPointer(ev, cv, st);
+    });
+
+    cv.addEventListener('pointermove', function (ev) {
+      if (!placeDrag) return;
+      var st = placeState();
+      if (st) applyPointer(ev, cv, st);
+    });
+
+    var end = function (ev) {
+      if (!placeDrag) return;
+      placeDrag = null;
+      try { cv.releasePointerCapture(ev.pointerId); } catch (e) {}
+    };
+    cv.addEventListener('pointerup', end);
+    cv.addEventListener('pointercancel', end);
+
+    // Typing in the field still works, and moves the block.
+    var bSel = $('placeBars');
+    if (bSel) bSel.addEventListener('input', function () { drawPlaceStrip(); });
+    var jSel = $('placeJunction');
+    if (jSel) jSel.addEventListener('change', function () { drawPlaceStrip(); });
+  }
+
+  function applyPointer(ev, cv, st) {
+    var r = cv.getBoundingClientRect();
+    var win = stripWindow(st);
+    var pxPerBar = r.width / (win.pre + win.post);
+    var leftBars = (ev.clientX - r.left) / pxPerBar - win.pre - (placeDrag ? placeDrag.grabBars : 0);
+    var before = Math.max(0, Math.min(64, Math.round(-leftBars)));
+    var bSel = $('placeBars');
+    if (bSel) bSel.value = before;
+    drawPlaceStrip();
   }
 
   function renderPlacementList() {

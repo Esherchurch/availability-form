@@ -280,6 +280,13 @@
     .wrap{padding:20px 12px 80px}
     .tl-name,.tl-bpm{display:none}
   }
+  /* The junction strip a sample is dragged along. */
+  .place-strip{
+    display:block; width:100%; height:104px; cursor:grab;
+    border:1px solid var(--line); border-radius:8px; background:#f7fbfa;
+    touch-action:none;                 /* so a drag is a drag, not a scroll */
+  }
+  .place-strip:active{ cursor:grabbing; }
 </style>
 </head>
 <body>
