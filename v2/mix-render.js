@@ -95,6 +95,15 @@
   /* Pure: works out every track's source range, its tempo ramp, how long it
      runs for and where it sits, plus each junction's overlap. No audio. */
 
+  /* The length of a fill, in beats. Older projects stored it as bars, before
+     it was clear that beats is the unit this is thought about in; four beats
+     to the bar, so an old setting keeps the length it always had. */
+  function fillBeatsOf(s) {
+    if (s.beatBeats != null) return s.beatBeats;
+    if (s.beatBars != null) return s.beatBars * 4;
+    return 64;
+  }
+
   function buildPlan(project) {
     var lay = MP.layout(project);
     var tracks = project.tracks || [];
@@ -160,7 +169,7 @@
       var s = j.settings || {};
       var overlap = 0, gap = 0;
       var type = j.type, bridgeBpm = null, zeroOverlap = false, substituted = false;
-      var fillBars = 0, fillFrom = null, fillTo = null;
+      var fillBeats = 0, fillFrom = null, fillTo = null;
 
       if (j.type === 'hard-cut') {
         // A deliberate choice, not a failure. Left alone.
@@ -178,7 +187,7 @@
           overlap = (s.overlapBars == null ? 1 : s.overlapBars) * barSec;
           // Asked for a bridge even though the tempos match: still fill, still
           // carry the beat. The tempo simply has less distance to travel.
-          fillBars = (s.beatBars == null ? 16 : s.beatBars);
+          fillBeats = fillBeatsOf(s);
           fillFrom = MP.effectiveBpm(tracks[k]) || j.targetBpm;
           fillTo = MP.effectiveBpm(tracks[k + 1]) || j.targetBpm;
         }
@@ -205,7 +214,7 @@
         /* The fill carries the tempo across, so the two records never need a
            common one. This is the whole answer to "too far apart": nothing is
            stretched, the distance is travelled in the bars between them. */
-        fillBars = (s.beatBars == null ? 16 : s.beatBars);
+        fillBeats = fillBeatsOf(s);
         fillFrom = MP.effectiveBpm(tracks[k]) || null;
         fillTo = MP.effectiveBpm(tracks[k + 1]) || fillFrom;
         plan.problems.push({
@@ -239,10 +248,10 @@
          function the renderer builds it from, so the plan's idea of where the
          next record starts and the audio that actually arrives cannot drift. */
       var fill = null;
-      if (fillBars > 0 && fillFrom && fillTo) {
-        var fillSec = DSP.beatFillSec(fillBars, fillFrom, fillTo);
+      if (fillBeats > 0 && fillFrom && fillTo) {
+        var fillSec = DSP.beatFillSec(fillBeats, fillFrom, fillTo);
         if (fillSec > 0) {
-          fill = { bars: fillBars, fromBpm: fillFrom, toBpm: fillTo, sec: fillSec };
+          fill = { beats: fillBeats, fromBpm: fillFrom, toBpm: fillTo, sec: fillSec };
           gap = Math.max(gap, fillSec);
           /* A fill replaces the overlap rather than sitting alongside it: the
              records are consecutive, with the drums between them, so they
@@ -712,7 +721,7 @@
            tempo walking to whatever the next record needs. */
         if (jOut && jOut.fill) {
           var fillBuf = await DSP.buildBeatFill({
-            source: buf, atSec: pt.sourceToSec, bars: jOut.fill.bars,
+            source: buf, atSec: pt.sourceToSec, beats: jOut.fill.beats,
             // the record's own bar grid, so each repeat lands on a downbeat
             downbeatSec: (project.tracks[i] || {}).downbeatSec || 0,
             fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
@@ -727,7 +736,7 @@
             for (var fk = 0; fk < fn; fk++) { gl[fk] = fL[fk]; gr[fk] = fR[fk]; }
             report.fills = report.fills || [];
             report.fills.push({
-              junction: i, bars: jOut.fill.bars,
+              junction: i, beats: jOut.fill.beats,
               fromBpm: +jOut.fill.fromBpm.toFixed(2), toBpm: +jOut.fill.toBpm.toFixed(2),
               sec: +(fn / sr).toFixed(2)
             });

@@ -214,8 +214,8 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
          so the two never need a common tempo. */
       const ff = (fres.report.fills || [])[0];
       log.push(['the junction is filled with beat, not butted',
-                ff ? ff.bars + ' bars, ' + ff.sec + 's, ' + ff.fromBpm + ' -> ' + ff.toBpm + ' BPM' : 'no fill',
-                !!ff && ff.bars > 0 && ff.sec > 1]);
+                ff ? ff.beats + ' beats, ' + ff.sec + 's, ' + ff.fromBpm + ' -> ' + ff.toBpm + ' BPM' : 'no fill',
+                !!ff && ff.beats > 0 && ff.sec > 1]);
       log.push(['the fill travels from one record\'s tempo to the other\'s',
                 ff ? ff.fromBpm + ' -> ' + ff.toBpm : 'no fill',
                 !!ff && Math.abs(ff.toBpm - ff.fromBpm) > 1]);
@@ -239,14 +239,14 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
       }));
       const spj = Object.assign(MP.emptyProject('short'), { tracks: st });
       MP.rebuildJunctions(spj, {});
-      // 16 beat-alone bars at 120 BPM is 32 s, far longer than the 12 s track.
-      spj.junctions[0] = Object.assign(MP.defaultJunction('throw-bridge'), { beatBars: 16 });
+      // 64 beats at 120 BPM is 32 s, far longer than the 12 s track.
+      spj.junctions[0] = Object.assign(MP.defaultJunction('throw-bridge'), { beatBeats: 64 });
 
       const sres = await MR.render(spj, sh, { ctx });
       const sf = (sres.report.fills || [])[0];
       log.push(['a fill longer than the record it came from still renders',
-                sf ? sf.bars + ' bars, ' + sf.sec + 's from a 12s record' : 'no fill',
-                !!sf && sf.bars === 16 && sf.sec > 25]);
+                sf ? sf.beats + ' beats, ' + sf.sec + 's from a 12s record' : 'no fill',
+                !!sf && sf.beats === 64 && sf.sec > 25]);
       const sm = await MR.measure(sres.blob, sr);
       log.push(['and it carries a beat the whole way, not silence',
                 'longest silence ' + sm.longestSilenceSec.toFixed(3) + 's',

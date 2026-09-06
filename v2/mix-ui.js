@@ -335,6 +335,25 @@
     touch();
   }
 
+  /* The fill's length in beats. Older projects stored bars; four to the bar. */
+  function fillBeatsOfUI(s) {
+    if (!s) return 64;
+    if (s.beatBeats != null) return s.beatBeats;
+    if (s.beatBars != null) return s.beatBars * 4;
+    return 64;
+  }
+
+  /* How long that actually is, in seconds — the number that matters and the
+     one nobody can work out in their head from a beat count and two tempos. */
+  function fillSecsOfUI(j, s) {
+    var a = j && (j.bpmA || j.targetBpm), b = j && (j.bpmB || j.targetBpm);
+    if (!a || !b) return '';
+    var sec = DSP.beatFillSec(fillBeatsOfUI(s), a, b);
+    if (!sec) return '';
+    var m = Math.floor(sec / 60), ss = Math.round(sec % 60);
+    return m ? m + ':' + String(ss).padStart(2, '0') : ss + 's';
+  }
+
   function snapToBar(t, sec) {
     if (!isFinite(sec)) return sec;          // never turn a bad input into NaN
     var bpm = (t.sourceBpm || 0) * (t.bpmMultiplier || 1);
@@ -597,7 +616,7 @@
     var s = j.settings || {};
     if (j.type === 'hard-cut') return 'Hard cut' + (s.gapMs ? ' · ' + s.gapMs + ' ms gap' : '');
     if (j.type === 'blend') return 'Blend · ' + (s.bars || 16) + ' bars @ ' + (j.targetBpm || '?') + ' BPM';
-    return 'Bridge · ' + (s.beatBars || 16) + ' bars of beat @ ' + (j.targetBpm || '?') + ' BPM';
+    return 'Bridge · ' + fillBeatsOfUI(s) + ' beats of drums between them';
   }
 
   /* ---------------------------------------------------- track list --- */
@@ -684,7 +703,8 @@
     var detail;
     if (j.type === 'hard-cut') detail = s.gapMs ? s.gapMs + ' ms gap' : 'straight cut';
     else if (j.type === 'blend') detail = (s.bars || 16) + ' bars';
-    else detail = (s.beatBars == null ? 16 : s.beatBars) + ' bars of beat alone';
+    else detail = fillBeatsOfUI(s) + ' beats of drums between them' +
+                  (fillSecsOfUI(j, s) ? ' · ' + fillSecsOfUI(j, s) : '');
 
     return '<div class="jrow' + (open ? ' open' : '') + '" data-jrow="' + i + '">' +
       '<button class="jrow-btn" data-act="open-jrow" data-junction="' + i + '">' +
@@ -986,7 +1006,7 @@
     return jsel('Music out', 'cutStyle', s.cutStyle || 'throw',
         [['throw', 'Cut + reverb throw'], ['fade', 'Filter fade']]) +
       jf('Reverb tail (bars)', 'reverbBars', s.reverbBars == null ? 2 : s.reverbBars, 0.5, 0.5, 8) +
-      jf('Beat alone (bars)', 'beatBars', s.beatBars == null ? 16 : s.beatBars, 1, 1, 32) +
+      jf('Drums between (beats)', 'beatBeats', fillBeatsOfUI(s), 4, 4, 256) +
       jsel('Beat isolation', 'isolation', s.isolation || 'eq',
         [['eq', 'EQ filter — clean'], ['sep', 'Separation — aggressive']]) +
       jf('Mids cut (dB)', 'midCutDb', s.midCutDb == null ? 24 : s.midCutDb, 1, 6, 40) +
@@ -2387,7 +2407,8 @@
             return '<div class="rep-row">' +
               '<span class="n">' + (t.index + 1) + '</span>' +
               '<span class="t">' + esc(t.title) + '</span>' +
-              '<span class="m">' + b.beatBars + ' bars of beat from ' + fmt(b.brAtSec) + '</span>' +
+              '<span class="m">' + (b.fill ? b.fill.beats + ' beats of drums between the records'
+                                                  : b.beatBars + ' bars of beat from ' + fmt(b.brAtSec)) + '</span>' +
               '<span class="m">' + esc(b.note) + '</span>' +
               (b.zeroOverlap ? '<span class="pill">no overlap</span>' : '') +
               (b.shortened ? '<span class="pill lo">cut to fit, was ' + b.wantedBeatBars + '</span>' : '') +

@@ -1,4 +1,4 @@
-/* The beat fill: bars of drums inserted BETWEEN two records, with the tempo
+/* The beat fill: beats of drums inserted BETWEEN two records, with the tempo
    walking from one record's to the other's.
 
    Tempo is measured by autocorrelating a low-band envelope over a narrow band
@@ -58,10 +58,10 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
       return buf;
     }
 
-    const FROM = 90, TO = 120, BARS = 32;
+    const FROM = 90, TO = 120, BEATS = 128;   // 32 bars, said in beats
     const src = loop(FROM, 90);
     const fill = await DSP.buildBeatFill({
-      source: src, atSec: 88, downbeatSec: 0, bars: BARS,
+      source: src, atSec: 88, downbeatSec: 0, beats: BEATS,
       fromBpm: FROM, toBpm: TO, loopBars: 2, midCutDb: 24, highCutDb: 0, sampleRate: sr
     });
     const m = DSP.toMono(fill);
@@ -89,11 +89,11 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
       return +(60 * fps / bestLag).toFixed(1);
     }
 
-    const tempos = DSP.fillTempos(BARS, FROM, TO);
+    const tempos = DSP.fillTempos(BEATS, FROM, TO);
     const wantAt = (at) => {
       let acc = 0;
       for (let i = 0; i < tempos.length; i++) {
-        const len = 60 / tempos[i] * 4;
+        const len = 60 / tempos[i];
         if (acc + len > at) return tempos[i];
         acc += len;
       }
@@ -122,13 +122,13 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
       '1\tSlow\tA\t89\tW\t\t\n2\tFast\tB\t148\tW\t\t\n');
     const p = MP.seedProject(rows, [], null);
     p.tracks.forEach(t => { t.durationSec = 200; t.entrySec = 2; t.exitSec = 190; t.bpmLocked = true; });
-    p.junctions[0] = { type: 'throw-bridge', reverbBars: 2, beatBars: 16, midCutDb: 24,
+    p.junctions[0] = { type: 'throw-bridge', reverbBars: 2, beatBeats: 64, midCutDb: 24,
                        highCutDb: 0, isolation: 'eq', overlapBars: 1, cutStyle: 'throw' };
     const plan = MR.buildPlan(p);
 
     return {
       durSec: +fill.duration.toFixed(2),
-      plannedSec: +DSP.beatFillSec(BARS, FROM, TO).toFixed(2),
+      plannedSec: +DSP.beatFillSec(BEATS, FROM, TO).toFixed(2),
       pts, worstHole: +worst.toFixed(2),
       planGap: +plan.junctions[0].gapSec.toFixed(2),
       planFill: plan.junctions[0].fill,
@@ -136,7 +136,7 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
     };
   });
 
-  console.log('  fill is ' + out.durSec + 's for 32 bars, 90 -> 120 BPM');
+  console.log('  fill is ' + out.durSec + 's for 128 beats, 90 -> 120 BPM');
   out.pts.forEach(p => console.log('    at ' + (p.at + 's').padStart(7) +
     ' should be ' + (p.want + '').padStart(5) + ' BPM, measured ' + p.got));
 
@@ -150,7 +150,7 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
      out.pts[0].got + ' -> ' + out.pts[2].got + ' BPM');
   ok(out.planGap > 30 && out.planFill,
      'an unmatchable junction is planned as a fill, not as butted records',
-     out.planGap + 's gap for ' + (out.planFill ? out.planFill.bars : 0) + ' bars');
+     out.planGap + 's gap for ' + (out.planFill ? out.planFill.beats : 0) + ' beats');
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
 
   await browser.close(); server.close();

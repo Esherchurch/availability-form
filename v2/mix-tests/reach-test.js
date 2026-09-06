@@ -197,7 +197,7 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   ok(typeNow === 'throw-bridge', 'clicking it actually changed the junction type (' + typeNow + ')');
 
   // Now the five controls the bridge is supposed to expose.
-  const wanted = ['Music out', 'Reverb tail (bars)', 'Beat alone (bars)',
+  const wanted = ['Music out', 'Reverb tail (bars)', 'Drums between (beats)',
                   'Mids cut (dB)', 'Highs cut (dB)', 'B overlaps by (bars)'];
   const found = await page.evaluate(() => {
     const out = [];
@@ -235,9 +235,9 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
     return true;
   };
 
-  await setField('beatBars', 6);
-  const savedBeat = await page.evaluate(async () => (await window.MixProject.loadProject()).junctions[0].beatBars);
-  ok(savedBeat === 6, 'typing into "Beat alone (bars)" saves to the project (got ' + savedBeat + ')');
+  await setField('beatBeats', 24);
+  const savedBeat = await page.evaluate(async () => (await window.MixProject.loadProject()).junctions[0].beatBeats);
+  ok(savedBeat === 24, 'typing into "Drums between (beats)" saves to the project (got ' + savedBeat + ')');
 
   await setField('midCutDb', 18);
   const savedMid = await page.evaluate(async () => (await window.MixProject.loadProject()).junctions[0].midCutDb);
@@ -246,7 +246,7 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   console.log('\n— the row reflects what you set —');
   const rowText = await page.evaluate(() =>
     document.querySelector('.jrow-btn').innerText.replace(/\s+/g, ' ').trim());
-  ok(/beat bridge/i.test(rowText) && /6 bars/i.test(rowText),
+  ok(/beat bridge/i.test(rowText) && /24 beats/i.test(rowText),
      'the closed row summarises it: "' + rowText + '"');
 
   console.log('\n— it closes again —');

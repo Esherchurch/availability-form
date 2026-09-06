@@ -1061,12 +1061,16 @@ onmessage = e => {
      audio exists, and a ramp integrated continuously would only be an
      approximation of it. */
 
-  /* Bar-by-bar tempo of a fill. One definition, used by the planner to work
+  /* Beat-by-beat tempo of a fill. One definition, used by the planner to work
      out how long the fill is and by the renderer to build it, so the two can
-     never disagree about where the next record starts. */
-  function fillTempos(bars, fromBpm, toBpm) {
+     never disagree about where the next record starts.
+
+     Beats rather than bars because that is the unit the length is thought
+     about in — "sixteen beats of drums", not "four bars" — and because it lets
+     a fill be any length rather than only multiples of four. */
+  function fillTempos(beats, fromBpm, toBpm) {
     var out = [];
-    var n = Math.max(1, Math.round(bars));
+    var n = Math.max(1, Math.round(beats));
     for (var i = 0; i < n; i++) {
       var f = n === 1 ? 1 : i / (n - 1);
       out.push(fromBpm + (toBpm - fromBpm) * f);
@@ -1074,10 +1078,10 @@ onmessage = e => {
     return out;
   }
 
-  function beatFillSec(bars, fromBpm, toBpm) {
-    if (!bars || !fromBpm || !toBpm) return 0;
-    return fillTempos(bars, fromBpm, toBpm)
-      .reduce(function (s, bpm) { return s + 60 / bpm * 4; }, 0);
+  function beatFillSec(beats, fromBpm, toBpm) {
+    if (!beats || !fromBpm || !toBpm) return 0;
+    return fillTempos(beats, fromBpm, toBpm)
+      .reduce(function (s, bpm) { return s + 60 / bpm; }, 0);
   }
 
   function sliceBuffer(ctx, buf, fromSec, toSec) {
@@ -1100,7 +1104,7 @@ onmessage = e => {
   async function buildBeatFill(opts) {
     var src = opts.source, sr = opts.sampleRate || src.sampleRate;
     var fromBpm = opts.fromBpm, toBpm = opts.toBpm;
-    var bars = Math.max(1, Math.round(opts.bars || 16));
+    var beats = Math.max(1, Math.round(opts.beats || 64));
     var loopBars = Math.max(1, Math.round(opts.loopBars || 2));
     var barSecA = 60 / fromBpm * 4;
 
@@ -1126,14 +1130,18 @@ onmessage = e => {
     var tmp = new OfflineAudioContext(1, 1, sr);
     var loop = sliceBuffer(tmp, src, loopStart, loopEnd);
 
-    // Each bar of the loop as its own buffer, so bars can be taken in turn.
-    var srcBars = [];
-    for (var lb = 0; lb < loopBars; lb++) {
-      srcBars.push(sliceBuffer(tmp, loop, lb * barSecA, (lb + 1) * barSecA));
+    /* Each BEAT of the loop as its own buffer, taken in turn. Cutting per beat
+       rather than per bar lets the fill be any number of beats long, and the
+       cut still lands on a beat of the record's own grid either way. */
+    var beatSecA = 60 / fromBpm;
+    var loopBeats = loopBars * 4;
+    var srcBeats = [];
+    for (var lb = 0; lb < loopBeats; lb++) {
+      srcBeats.push(sliceBuffer(tmp, loop, lb * beatSecA, (lb + 1) * beatSecA));
     }
 
-    var tempos = fillTempos(bars, fromBpm, toBpm);
-    var totalSec = beatFillSec(bars, fromBpm, toBpm);
+    var tempos = fillTempos(beats, fromBpm, toBpm);
+    var totalSec = beatFillSec(beats, fromBpm, toBpm);
     var totalN = Math.round(totalSec * sr);
     var chs = Math.min(2, src.numberOfChannels);
     var acc = [];
@@ -1146,11 +1154,11 @@ onmessage = e => {
        kept only to stop a sample-level step. */
     var edgeN = Math.round(sr * 0.004);
     var at = 0;
-    for (var i = 0; i < bars; i++) {
-      var oneBar = srcBars[i % loopBars];
+    for (var i = 0; i < beats; i++) {
+      var oneBeat = srcBeats[i % loopBeats];
       var ratio = tempos[i] / fromBpm;            // >1 plays faster
-      var st = (Math.abs(ratio - 1) < 1e-4) ? oneBar : stretch(tmp, oneBar, ratio);
-      var want = Math.round(60 / tempos[i] * 4 * sr);
+      var st = (Math.abs(ratio - 1) < 1e-4) ? oneBeat : stretch(tmp, oneBeat, ratio);
+      var want = Math.round(60 / tempos[i] * sr);
       var n = Math.min(st.length, want, totalN - at);
       if (n <= 0) break;
       for (var c = 0; c < chs; c++) {
@@ -1189,7 +1197,7 @@ onmessage = e => {
        overlap to hide under — so the beat comes in at once. A bar-long fade-in
        measured as 1.85 s below -50 dBFS, which is a hole at exactly the moment
        the fill is supposed to be rescuing. 30 ms is enough to stop a click. */
-    var outSec = Math.min(60 / toBpm * 2, totalSec * 0.25);
+    var outSec = Math.min(60 / toBpm * 2, totalSec * 0.25);   // two beats
     g0.gain.setValueAtTime(0, 0);
     g0.gain.linearRampToValueAtTime(1, 0.03);
     g0.gain.setValueAtTime(1, Math.max(0.04, totalSec - outSec));
