@@ -94,6 +94,15 @@
     scanFolder: scanFolder,
     fileFor: fileFor,
     audioExists: function (p) { return api.audioExists(p); },
+    pathForFile: function (f) { return api.pathForFile ? api.pathForFile(f) : null; },
+    /* The folder a file sits in. Must handle backslashes — these are Windows
+       paths, and a forward-slash-only pattern silently returns the whole path
+       unchanged, which then fails to scan as a directory. */
+    folderOf: function (p) {
+      if (!p) return null;
+      var m = String(p).match(/^(.*)[\\/][^\\/]*$/);
+      return m ? m[1] : null;
+    },
     saveMix: saveMix,
     showItem: function (p) { return api.showItem(p); },
     version: function () { return api.appVersion(); }

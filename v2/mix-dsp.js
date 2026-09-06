@@ -130,6 +130,7 @@ function findDownbeat(env, lag, phase){
   }
   return phase + bestP*lag;
 }
+
 onmessage = e => {
   const { mono, sr } = e.data;
   const x = new Float32Array(mono);
@@ -137,10 +138,9 @@ onmessage = e => {
   const t = estimateTempo(env, fps);
   const phase = findPhase(env, t.lag);
   const db = findDownbeat(env, t.lag, phase);
-  postMessage({ type:'done', bpm:t.bpm, confidence:t.confidence,
+  postMessage({ type:'done', bpm: t.bpm, confidence: t.confidence,
                 firstBeatSec: phase/fps, downbeatSec: db/fps });
-};
-`;
+};`;
 
   /* --------------------------------------------------- HPSS worker --- */
   /* Harmonic/percussive separation by median filtering the spectrogram.
@@ -333,6 +333,47 @@ onmessage = e => {
       var s = 0;
       for (var k = 0; k < W; k++) { var v = mono[i + k]; s += v * v; }
       if (Math.sqrt(s / W) > thresh) return (i + W) / sr;
+    }
+    return mono.length / sr;
+  }
+
+  /* The last moment the track is still at FULL STRENGTH — not merely audible.
+     ------------------------------------------------------------------
+     contentEndSec returns the last window above about -34 dBFS, which is the
+     right answer for "where does the file stop making noise". It is the wrong
+     answer for "where can I still take a beat from", because on a record with a
+     twenty-second fade-out it lands deep inside the fade.
+
+     Anchoring a beat bridge there was measured producing a full second of
+     digital silence at -93 dBFS between two records, with the beat-alone
+     section sitting at -31 dBFS against a -17 dBFS mix. The bridge was working
+     exactly as built, in a part of the record that had already gone.
+
+     So: take the track's own strong level (the median of its louder half) and
+     scan back for the last point still within `dropDb` of it. That is where the
+     record is still playing rather than ending. */
+  function lastStrongSec(mono, sr, opts) {
+    opts = opts || {};
+    var dropDb = opts.dropDb == null ? 5 : opts.dropDb;
+    var W = Math.max(1, Math.floor(sr * 0.25));
+    var n = Math.floor(mono.length / W);
+    if (n < 4) return mono.length / sr;
+
+    var levels = new Float64Array(n);
+    for (var i = 0; i < n; i++) {
+      var s = 0;
+      for (var k = 0; k < W; k++) { var v = mono[i * W + k]; s += v * v; }
+      levels[i] = Math.sqrt(s / W);
+    }
+    // Reference = median of the top half, so quiet intros and outros do not
+    // drag it down and a single loud transient does not pull it up.
+    var sorted = Array.prototype.slice.call(levels).sort(function (a, b) { return a - b; });
+    var strong = sorted[Math.floor(n * 0.75)] || 0;
+    if (strong <= 0) return mono.length / sr;
+    var floorLevel = strong * Math.pow(10, -dropDb / 20);
+
+    for (var j = n - 1; j >= 0; j--) {
+      if (levels[j] >= floorLevel) return Math.min(mono.length / sr, (j + 1) * W / sr);
     }
     return mono.length / sr;
   }
@@ -1256,6 +1297,7 @@ onmessage = e => {
     hpss: hpss,
     toMono: toMono,
     contentEndSec: contentEndSec,
+    lastStrongSec: lastStrongSec,
     peaks: peaks,
     slice: slice,
     rmsOf: rmsOf,

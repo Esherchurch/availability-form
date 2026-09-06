@@ -85,6 +85,118 @@
     return t.sourceBpm * (t.bpmMultiplier || 1);
   }
 
+  /* HALF AND DOUBLE TIME, decided by the running order.
+     ------------------------------------------------------------------
+     A tempo detector cannot settle this on its own, and it is not a defect in
+     the detector: 74 and 148 are both true descriptions of the same record, and
+     a record at 74 with a backbeat has just as much energy on the half-beats.
+     Measured across this library, neither the full-band nor the low-band
+     alternation separates the cases — "Baby, I Love Your Way" (really 74, read
+     as 148) and "Hotstepper" (really ~100, must not be halved) sit on the wrong
+     sides of every threshold worth drawing.
+
+     What DOES settle it is the neighbours, which is what the Halve button was
+     really being used for. A track's playing tempo is free to be its detected
+     tempo halved, unchanged or doubled; the mix only cares which of those sits
+     closest to the tracks either side of it. So choose the multipliers for the
+     whole running order at once, minimising the tempo step at every junction.
+
+     Solved exactly by dynamic programming over three states per track — not a
+     heuristic and not a search, so the answer is the best one available rather
+     than a good one. Distance is measured in log tempo, so a step from 80 to 88
+     counts the same as 120 to 132.
+
+     A track the user has decided by hand (bpmLocked) is fixed and the rest are
+     fitted around it. */
+
+  var OCTAVE_CHOICES = [0.5, 1, 2];
+  var OCTAVE_MIN_BPM = 60;         // below this nothing reads as a dance tempo
+  var OCTAVE_MAX_BPM = 190;
+
+  function octaveCandidates(t) {
+    var base = t.sourceBpm || 0;
+    if (!base) return [1];
+    if (t.bpmLocked) return [t.bpmMultiplier || 1];
+    var out = OCTAVE_CHOICES.filter(function (m) {
+      var b = base * m;
+      return b >= OCTAVE_MIN_BPM && b <= OCTAVE_MAX_BPM;
+    });
+    return out.length ? out : [1];
+  }
+
+  function autoOctave(project) {
+    var tracks = (project && project.tracks) || [];
+    // Only tracks with a tempo take part; the others neither constrain nor
+    // are constrained, and must not break the chain between their neighbours.
+    var idx = [];
+    for (var i = 0; i < tracks.length; i++) if (tracks[i].sourceBpm) idx.push(i);
+    if (idx.length < 2) return false;
+
+    var cands = idx.map(function (i) { return octaveCandidates(tracks[i]); });
+    var bpmAt = function (n, c) { return tracks[idx[n]].sourceBpm * cands[n][c]; };
+
+    /* Per-track cost: a nudge back towards the detected tempo so nothing is
+       moved for nothing, and a weak pull towards the middle of the dance range.
+
+       That second term IS a tempo prior, and on its own a prior is what put a
+       74 BPM record at 148 in the first place. Its job here is much smaller.
+       Because distance is measured in log tempo, halving EVERY track in a run
+       fits the neighbours exactly as well as halving none — 64/63/64/65 and
+       128/126/128/130 score identically — and the chain criterion cannot
+       separate them because there is nothing to separate. The prior is weighted
+       far below a real junction cost, so it only ever settles a tie, never
+       overrules the neighbours. */
+    /* Moving a track away from its detected tempo costs something, so between
+       two chains that beat-match equally well the one that re-labels fewer
+       tracks wins. This matters because halving every track in a run and
+       halving none are genuinely equivalent for matching — the stretch ratios
+       come out identical — so what is left to choose on is which set of numbers
+       is the more honest description. Measured against the cases below, this
+       has to sit above 0.098 and below 0.697; the midpoint is not a tuned
+       threshold so much as the whole of the usable range. */
+    var TIE = 0.30;
+    var CENTRE_BPM = 120, CENTRE_W = 0.25;
+    var cost = cands.map(function (list, n) {
+      return list.map(function (m) {
+        var pull = CENTRE_W * Math.abs(Math.log(bpmAt(n, list.indexOf(m)) / CENTRE_BPM));
+        return (m === 1 ? 0 : TIE) + pull;
+      });
+    });
+    var from = cands.map(function (list) { return list.map(function () { return -1; }); });
+
+    for (var n = 1; n < idx.length; n++) {
+      for (var c = 0; c < cands[n].length; c++) {
+        var best = Infinity, bestP = -1;
+        for (var pC = 0; pC < cands[n - 1].length; pC++) {
+          var step = Math.abs(Math.log(bpmAt(n, c)) - Math.log(bpmAt(n - 1, pC)));
+          var tot = cost[n - 1][pC] + step;
+          if (tot < best) { best = tot; bestP = pC; }
+        }
+        cost[n][c] += best;
+        from[n][c] = bestP;
+      }
+    }
+
+    var last = 0;
+    for (var c2 = 1; c2 < cands[idx.length - 1].length; c2++) {
+      if (cost[idx.length - 1][c2] < cost[idx.length - 1][last]) last = c2;
+    }
+
+    var pick = new Array(idx.length);
+    for (var n2 = idx.length - 1; n2 >= 0; n2--) {
+      pick[n2] = last;
+      last = from[n2][last];
+      if (last < 0) last = 0;
+    }
+
+    var changed = false;
+    for (var n3 = 0; n3 < idx.length; n3++) {
+      var t = tracks[idx[n3]], m = cands[n3][pick[n3]];
+      if ((t.bpmMultiplier || 1) !== m) { t.bpmMultiplier = m; changed = true; }
+    }
+    return changed;
+  }
+
   function layout(project) {
     var tracks = project.tracks || [];
     var maxStretch = project.maxStretch == null ? 0.06 : project.maxStretch;
@@ -516,8 +628,15 @@
 
   /* Analysis is keyed by the file's identity, not the project, so re-dropping a
      folder into a new project still costs nothing. */
+  /* Bumped whenever the detector changes, so a cached result from an older
+     algorithm is re-analysed instead of being trusted forever. Without this,
+     fixing half/double-time detection would have had no effect on any project
+     that had already been analysed once. */
+  var ANALYSIS_VERSION = 1;
+
   function analysisKey(file, durationSec) {
-    return [file.name, file.size, durationSec ? durationSec.toFixed(3) : '?'].join('|');
+    return ['v' + ANALYSIS_VERSION, file.name, file.size,
+            durationSec ? durationSec.toFixed(3) : '?'].join('|');
   }
   var getAnalysis = function (key) { return get('analysis', key); };
   var putAnalysis = function (key, val) { return put('analysis', key, val); };
@@ -675,12 +794,174 @@
     return defaultJunction('blend');
   }
 
+  /* ----------------------------------------------- reading the .xlsx ---
+     An .xlsx is a zip of XML, so it can be read here without a library. This
+     is the parser from mix-tests/xlsx2json.js, which already reads the real
+     running-order sheet, with zlib swapped for the browser's own
+     DecompressionStream — everything below the unzip is unchanged.
+
+     The rest of the suite reads spreadsheets with SheetJS off a CDN
+     (birthday.html), but Mix Builder has to work with no network at all, and
+     vendoring 900 KB of third-party code into the repo to save eighty lines is
+     the worse trade. */
+
+  function inflateRaw(bytes) {
+    if (typeof DecompressionStream === 'undefined') {
+      return Promise.reject(new Error('This browser cannot unpack .xlsx files.'));
+    }
+    var ds = new DecompressionStream('deflate-raw');
+    var w = ds.writable.getWriter();
+    w.write(bytes); w.close();
+    return new Response(ds.readable).arrayBuffer().then(function (b) {
+      return new Uint8Array(b);
+    });
+  }
+
+  /* Walk local file headers (PK 03 04). Good enough for Office output. */
+  function unzip(arrayBuffer) {
+    var buf = new Uint8Array(arrayBuffer);
+    var dv = new DataView(arrayBuffer);
+    var dec = new TextDecoder('utf-8');
+    var jobs = [], names = [];
+    for (var i = 0; i + 4 <= buf.length; ) {
+      if (dv.getUint32(i, true) !== 0x04034b50) { i++; continue; }
+      var method = dv.getUint16(i + 8, true);
+      var csize = dv.getUint32(i + 18, true);
+      var nameLen = dv.getUint16(i + 26, true), extraLen = dv.getUint16(i + 28, true);
+      var name = dec.decode(buf.subarray(i + 30, i + 30 + nameLen));
+      var start = i + 30 + nameLen + extraLen;
+      if (csize === 0) {                    // streamed entry: find the next signature
+        var j = start;
+        while (j + 4 <= buf.length && dv.getUint32(j, true) !== 0x08074b50 &&
+               dv.getUint32(j, true) !== 0x04034b50 &&
+               dv.getUint32(j, true) !== 0x02014b50) j++;
+        csize = j - start;
+      }
+      var raw = buf.subarray(start, start + csize);
+      names.push(name);
+      jobs.push(method === 0 ? Promise.resolve(raw)
+                             : inflateRaw(raw).catch(function () { return null; }));
+      i = start + csize;
+    }
+    return Promise.all(jobs).then(function (parts) {
+      var files = {};
+      for (var k = 0; k < names.length; k++) if (parts[k]) files[names[k]] = parts[k];
+      return files;
+    });
+  }
+
+  function decodeEntities(str) {
+    return String(str).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, function (_, n) { return String.fromCharCode(+n); });
+  }
+
+  function matchAll(re, str) {
+    var out = [], m;
+    re.lastIndex = 0;
+    while ((m = re.exec(str)) !== null) {
+      out.push(m);
+      if (m.index === re.lastIndex) re.lastIndex++;
+    }
+    return out;
+  }
+
+  /* Which row holds the column names. The real sheet has three rows of title
+     and blurb above it, so this cannot assume row 1 — it looks for the row that
+     names the track column. */
+  function headerRowOf(rows) {
+    for (var i = 0; i < rows.length; i++) {
+      var cells = rows[i].cells;
+      for (var col in cells) {
+        if (/^(track|title|song)$/i.test(String(cells[col]).trim())) return i;
+      }
+    }
+    return -1;
+  }
+
+  function sheetToObjects(rows) {
+    var h = headerRowOf(rows);
+    if (h < 0) return [];
+    var header = rows[h].cells, out = [];
+    for (var i = h + 1; i < rows.length; i++) {
+      var cells = rows[i].cells, o = {}, any = false;
+      for (var col in header) {
+        var name = String(header[col]).trim();
+        if (!name || cells[col] === undefined) continue;
+        o[name] = cells[col]; any = true;
+      }
+      if (any) out.push(o);
+    }
+    return out;
+  }
+
+  /* Reads an .xlsx and returns { sheets, sheetUsed, tracks }. The tracks come
+     from the sheet that looks like a running order — by name if there is one,
+     otherwise the first sheet that has a track column. */
+  function readWorkbook(arrayBuffer) {
+    return unzip(arrayBuffer).then(function (files) {
+      var td = new TextDecoder('utf-8');
+      var text = function (n) { return files[n] ? td.decode(files[n]) : ''; };
+
+      // One <si> may hold several <t> runs; join them.
+      var shared = matchAll(/<si>([\s\S]*?)<\/si>/g, text('xl/sharedStrings.xml')).map(function (m) {
+        return decodeEntities(matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g, m[1]).map(function (t) {
+          return t[1];
+        }).join(''));
+      });
+
+      var names = matchAll(/<sheet[^>]*name="([^"]*)"/g, text('xl/workbook.xml')).map(function (m) {
+        return decodeEntities(m[1]);
+      }).filter(function (n) { return n.indexOf('_xlnm') !== 0; });
+
+      var sheets = names.map(function (name, idx) {
+        var xml = text('xl/worksheets/sheet' + (idx + 1) + '.xml');
+        var rows = [];
+        matchAll(/<row[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g, xml).forEach(function (rm) {
+          var cells = {}, got = false;
+          matchAll(/<c r="([A-Z]+)\d+"([^>]*)>([\s\S]*?)<\/c>/g, rm[2]).forEach(function (cm) {
+            var vm = cm[3].match(/<v>([\s\S]*?)<\/v>/);
+            if (!vm) {
+              // inline string: <c t="inlineStr"><is><t>...</t></is></c>
+              var im = cm[3].match(/<t[^>]*>([\s\S]*?)<\/t>/);
+              if (!im) return;
+              cells[cm[1]] = decodeEntities(im[1]); got = true; return;
+            }
+            cells[cm[1]] = /t="s"/.test(cm[2]) ? shared[+vm[1]] : decodeEntities(vm[1]);
+            got = true;
+          });
+          if (got) rows.push({ r: +rm[1], cells: cells });
+        });
+        return { name: name, rows: rows };
+      });
+
+      var pick = null, i;
+      for (i = 0; i < sheets.length; i++) {
+        if (/running\s*order/i.test(sheets[i].name)) { pick = sheets[i]; break; }
+      }
+      if (!pick) {
+        for (i = 0; i < sheets.length; i++) {
+          if (headerRowOf(sheets[i].rows) >= 0) { pick = sheets[i]; break; }
+        }
+      }
+      return {
+        sheets: sheets.map(function (sh) { return sh.name; }),
+        sheetUsed: pick ? pick.name : null,
+        tracks: pick ? sheetToObjects(pick.rows) : []
+      };
+    });
+  }
+
   /* Accepts the JSON produced from the .xlsx, or pasted tab/comma-separated
      rows with a header line. Returns rows; matching to files happens after. */
   function parseRunningOrder(input) {
     if (typeof input !== 'string') {
       var rows = input && input.tracks ? input.tracks : input;
-      return (rows || []).filter(function (r) { return r && r.Track; }).map(normaliseRow);
+      // Filter AFTER normalising. The column may be called Track, Title or
+      // Song, and only normaliseRow knows that; filtering on r.Track first
+      // threw away every sheet that used one of the other two.
+      return (rows || []).map(function (r) { return r ? normaliseRow(r) : null; })
+                         .filter(function (r) { return r && r.title; });
     }
     var text = input.trim();
     if (text.charAt(0) === '{' || text.charAt(0) === '[') {
@@ -773,7 +1054,8 @@
         matchConfidence: file ? conf : 'unmatched',
         sourceBpm: r.bpm || null,       // from the sheet until analysis overrides
         bpmMultiplier: mult,
-        bpmLocked: false,
+        // HALF-TIME on the sheet is an instruction, so autoOctave leaves it be.
+        bpmLocked: mult !== 1,
         downbeatSec: 0, entrySec: 0, exitSec: 0, durationSec: 0,
         linked: false, regions: null,
         mixNote: r.mix
@@ -835,6 +1117,8 @@
     getMatches: getMatches,
     getConfidence: getConfidence,
     mixColumnToJunction: mixColumnToJunction,
+    autoOctave: autoOctave,
+    readWorkbook: readWorkbook,
     parseRunningOrder: parseRunningOrder,
     seedProject: seedProject
   };

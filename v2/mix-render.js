@@ -204,6 +204,22 @@
         });
       }
 
+      /* A sample asked to sit BETWEEN two records needs a gap to sit in.
+         Everywhere else the records run into each other, so the junction is
+         widened just enough to hold it — otherwise 'between' and 'over' would
+         sound identical. */
+      var betweenBars = 0;
+      (project.placements || []).forEach(function (pp) {
+        if (pp.mode === 'between' && pp.atJunction === k) {
+          betweenBars = Math.max(betweenBars, pp.barsBeforeEntry || 4);
+        }
+      });
+      if (betweenBars > 0) {
+        var bBpm = bridgeBpm || j.targetBpm || 120;
+        gap = Math.max(gap, betweenBars * (60 / bBpm * 4));
+        overlap = 0;
+      }
+
       plan.junctions.push({
         index: k, type: type, requestedType: j.type, substituted: substituted,
         settings: s, targetBpm: j.targetBpm, bridgeBpm: bridgeBpm,
@@ -261,7 +277,9 @@
     if (j == null || j < 0 || j >= plan.junctions.length) return null;
     var incoming = plan.tracks[j + 1];
     if (!incoming) return null;
-    var tempo = plan.junctions[j].targetBpm ||
+    // bridgeBpm first: a junction with no common tempo has no targetBpm at all,
+    // and a placement there would otherwise fall back to a default of 120.
+    var tempo = plan.junctions[j].bridgeBpm || plan.junctions[j].targetBpm ||
                 plan.tracks[j].tempoOut || plan.tracks[j].sourceBpm || 120;
     var barSec = 60 / tempo * 4;
     return Math.max(0, incoming.startSec - (p.barsBeforeEntry || 0) * barSec);

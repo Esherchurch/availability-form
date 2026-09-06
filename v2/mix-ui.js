@@ -55,7 +55,14 @@
 
   /* --------------------------------------------------------- state --- */
 
-  function recompute() { lay = MP.layout(project); }
+  /* Octave choice runs before the layout, because whether a junction can be
+     beat-matched at all depends on it. It only moves tracks the user has not
+     decided by hand, and settling on a choice is idempotent — a second pass
+     over the same order changes nothing. */
+  function recompute() {
+    MP.autoOctave(project);
+    lay = MP.layout(project);
+  }
 
   function segKey(i) {
     try { return MP.junctionCacheKey(project, i); } catch (e) { return null; }
@@ -108,6 +115,7 @@
     var list = Array.from(files).filter(acceptedAudio);
     if (!list.length) { setStatus('No audio files in that drop.', true); return; }
     audioCtx();
+    rememberFolderFrom(list);
 
     // If the project already has tracks, this is a re-link, not a fresh import.
     if (project.tracks.length) return relinkFiles(list);
@@ -173,6 +181,8 @@
       linked: true, regions: null
     };
     t.exitSec = defaultMixOut(t, mono, buf.sampleRate, res.contentEndSec);
+    // Catch a bad detection at ingest, not only on a later re-link.
+    repairRange(t, mono, buf.sampleRate, res.contentEndSec);
     return t;
   }
 
@@ -258,6 +268,8 @@
 
   /* Re-link: the project reopened with every setting intact but no audio. */
   async function relinkFiles(list) {
+    rememberFolderFrom(list);
+    var repaired = [];
     var r = MP.relink(project, list);
     setStatus('Re-linking ' + r.matched.length + ' of ' + project.tracks.length + '…');
     for (var i = 0; i < r.matched.length; i++) {
@@ -299,16 +311,12 @@
            A value with room between entry and mix-out is yours and is left
            alone. One that is missing, NaN, or at/before the entry point is not
            a setting, it is a track that will not play, and it gets re-derived. */
-        if (hasNoRange(m.track)) {
-          var had = m.track.exitSec;
-          var key2 = MP.analysisKey(m.file, buf.duration);
-          var cached2 = await MP.getAnalysis(key2);
-          m.track.exitSec = defaultMixOut(m.track, monos.get(m.track.id), buf.sampleRate,
-                                          cached2 ? cached2.contentEndSec : null);
-          setStatus('"' + m.track.title + '" had no playable range (mix-out ' +
-                    (isFinite(had) ? had.toFixed(2) + 's' : 'unset') +
-                    ', entry ' + (m.track.entrySec || 0).toFixed(2) + 's). Mix-out reset to the ' +
-                    'last audible bar at ' + m.track.exitSec.toFixed(2) + 's.');
+        var key2 = MP.analysisKey(m.file, buf.duration);
+        var cached2 = await MP.getAnalysis(key2);
+        var fixed = repairRange(m.track, monos.get(m.track.id), buf.sampleRate,
+                                cached2 ? cached2.contentEndSec : null);
+        if (fixed) {
+          repaired.push('"' + m.track.title + '": ' + fixed.join(', '));
         }
       } catch (err) {
         setStatus('Could not decode ' + m.file.name, true);
@@ -319,7 +327,10 @@
       setStatus(r.matched.length + ' re-linked. Still missing: ' +
         r.missing.map(function (t) { return t.file || t.title; }).join(', '), true);
     } else {
-      setStatus('All ' + r.matched.length + ' tracks re-linked.');
+      setStatus('All ' + r.matched.length + ' tracks re-linked.' +
+        (repaired.length ? ' Repaired ' + repaired.length + ' track' +
+          (repaired.length === 1 ? '' : 's') + ' that could not have played — ' +
+          repaired.join('; ') + '.' : ''));
     }
     touch();
   }
@@ -350,9 +361,19 @@
      default that is slightly wrong is recoverable by moving a marker; a
      zero-length track is not. */
   function defaultMixOut(t, mono, sr, cachedContentEnd) {
-    var contentEnd = (cachedContentEnd != null && isFinite(cachedContentEnd))
-      ? cachedContentEnd
-      : (mono ? DSP.contentEndSec(mono, sr) : 0);
+    /* Mix out where the record is still PLAYING, not where it stops making a
+       noise. contentEndSec finds the last thing above -34 dBFS, which on a
+       record with a long fade is inside the fade — and a beat bridge anchored
+       there takes its "beat" from a fade-out. Measured on a real mix: the
+       bridge ran "16 bars from 3:02" on a 3:45 record, and produced a full
+       second of digital silence at -93 dBFS. A DJ mixes out before the fade,
+       and so does this. */
+    var contentEnd = mono ? DSP.lastStrongSec(mono, sr) : 0;
+    if (!isFinite(contentEnd) || contentEnd <= 0) {
+      contentEnd = (cachedContentEnd != null && isFinite(cachedContentEnd))
+        ? cachedContentEnd
+        : (mono ? DSP.contentEndSec(mono, sr) : 0);
+    }
     if (!isFinite(contentEnd) || contentEnd <= 0) contentEnd = t.durationSec || 0;
 
     var entry = isFinite(t.entrySec) ? t.entrySec : 0;
@@ -366,6 +387,71 @@
   function hasNoRange(t) {
     var entry = isFinite(t.entrySec) ? t.entrySec : 0;
     return !isFinite(t.exitSec) || t.exitSec <= entry + 0.5;
+  }
+
+  /* The shortest stretch of a track worth calling playable. Below this there is
+     nothing to mix with and nothing to hear. */
+  var MIN_PLAYABLE_SEC = 5;
+
+  /* Repair BOTH markers, not just the mix-out.
+     ------------------------------------------------------------------
+     The earlier repair mended only the mix-out, and derived it using the entry
+     as its floor — so a track whose ENTRY was wrong could never heal. Despacito
+     sat at entry 220.288 and mix-out 220.288 on a 3:45 record, five seconds from
+     the end, and re-linking dutifully produced entry + 1 second.
+
+     An entry past the last audible bar is not a decision anyone made; it is a
+     detection that went wrong or a value that got corrupted. So it is re-derived
+     from the downbeat, and only then is the mix-out worked out from it.
+
+     A track whose markers are sane is never touched — this fires only on one
+     that cannot play. Returns a list of what it changed, or null. */
+  function repairRange(t, mono, sr, cachedContentEnd) {
+    var contentEnd = (cachedContentEnd != null && isFinite(cachedContentEnd))
+      ? cachedContentEnd
+      : (mono ? DSP.contentEndSec(mono, sr) : 0);
+    if (!isFinite(contentEnd) || contentEnd <= 0) contentEnd = t.durationSec || 0;
+    if (!contentEnd) return null;
+
+    var before = { entry: t.entrySec, exit: t.exitSec };
+    var notes = [];
+    var latestUsableEntry = contentEnd - MIN_PLAYABLE_SEC;
+
+    // 1. The entry, if it is not a number or leaves nothing playable after it.
+    var entry = t.entrySec;
+    if (!isFinite(entry) || entry < 0 || entry > latestUsableEntry) {
+      var db = isFinite(t.downbeatSec) ? t.downbeatSec : 0;
+      // The downbeat can be just as wrong as the entry was; fall back to the top.
+      entry = (db >= 0 && db <= latestUsableEntry) ? db : 0;
+      t.entrySec = entry;
+      notes.push('entry ' + (isFinite(before.entry) ? before.entry.toFixed(2) + 's' : 'unset') +
+                 ' → ' + entry.toFixed(2) + 's');
+    }
+
+    // 2. The mix-out, now that the entry underneath it can be trusted.
+    if (hasNoRange(t)) {
+      t.exitSec = defaultMixOut(t, mono, sr, contentEnd);
+      notes.push('mix-out ' + (isFinite(before.exit) ? before.exit.toFixed(2) + 's' : 'unset') +
+                 ' → ' + t.exitSec.toFixed(2) + 's');
+    } else if (mono) {
+      /* A mix-out sitting well inside the fade-out is the same fault wearing a
+         different hat: the range is technically playable, but a bridge anchored
+         there takes its beat from a fade. Pull it back to where the record is
+         still going — but only when it is a long way out, so a deliberate
+         choice a few seconds either side is left alone. */
+      var strong = DSP.lastStrongSec(mono, sr);
+      if (isFinite(strong) && strong > (t.entrySec || 0) + MIN_PLAYABLE_SEC &&
+          t.exitSec > strong + 8) {
+        var wasExit = t.exitSec;
+        t.exitSec = snapToBar(t, strong);
+        if (!isFinite(t.exitSec) || t.exitSec <= (t.entrySec || 0)) t.exitSec = strong;
+        notes.push('mix-out ' + wasExit.toFixed(2) + 's → ' + t.exitSec.toFixed(2) +
+                   's — it was ' + (wasExit - strong).toFixed(0) + 's into the fade-out, ' +
+                   'where a bridge has no beat to work with');
+      }
+    }
+
+    return notes.length ? notes : null;
   }
 
   function setStatus(msg, isErr) {
@@ -407,6 +493,9 @@
     project = seeded;
     segments.clear();
     var missing = project.tracks.filter(function (t) { return !t.file; });
+    // Close the panel on success, as the bench import already does — it sits
+    // over the track list, which is the thing you want to look at afterwards.
+    $('importPanel').classList.add('hidden');
     setStatus(rows.length + ' rows imported' +
       (missing.length ? ' — ' + missing.length + ' still need audio: ' +
         missing.slice(0, 4).map(function (t) { return t.title; }).join(', ') +
@@ -573,8 +662,17 @@
   function trackEditorHtml(t, i) {
     return '<div class="trk-body">' +
       '<canvas class="wave"></canvas>' +
-      '<div class="hint">Click to set the entry point (gold). Shift-click to set the mix-out ' +
-        'point (red) — that is where a transition works backwards from. Both snap to the bar.</div>' +
+      '<div class="row" style="margin-top:8px">' +
+        '<button data-act="play-here" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
+          ' title="Or double-click anywhere on the waveform">▶ Play from entry</button>' +
+        '<button class="ghost" data-act="play-exit" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
+          '>▶ Play from mix-out</button>' +
+        '<button class="ghost" id="stopAllBtn" data-act="stop-all" disabled>■ Stop</button>' +
+        '<span class="hint" style="margin:0;flex:1;min-width:220px">' +
+          '<strong>Double-click the waveform to hear from that point.</strong> ' +
+          'Click sets the entry (gold), shift-click sets the mix-out (red). Both snap to the bar.' +
+        '</span>' +
+      '</div>' +
       '<div class="grid">' +
         field('BPM', 'number', t.sourceBpm, 'sourceBpm', i, '0.01') +
         field('Downbeat (s)', 'number', num(t.downbeatSec), 'downbeatSec', i, '0.001') +
@@ -587,16 +685,48 @@
         '<div><label class="lbl">&nbsp;</label>' +
           '<button data-act="checkgrid" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
           '>Check grid</button></div>' +
-        '<div><label class="lbl">Cut from entry</label>' +
-          '<select data-act="cut-bars" data-track="' + i + '">' +
-            [2,4,8,16].map(function (b) { return '<option value="' + b + '">' + b + ' bars</option>'; }).join('') +
-          '</select></div>' +
-        '<div><label class="lbl">&nbsp;</label>' +
-          '<button data-act="cut-sample" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
-          '>Cut sample</button></div>' +
+
       '</div>' +
+      sampleCutHtml(t, i) +
       regionEditorHtml(t, i) +
       (t.note ? '<div class="note-row">' + esc(t.note) + '</div>' : '') +
+    '</div>';
+  }
+
+  /* Cutting a sample out of this track. The selection comes from dragging on
+     the waveform above, so what you take is the passage you actually chose. */
+  function sampleCutHtml(t, i) {
+    var sel = selectionFor(i);
+    var bs = barSecOf(t);
+    var startBar = sel && bs ? Math.round((sel.fromSec - (t.downbeatSec || 0)) / bs) + 1 : null;
+
+    if (!sel) {
+      return '<div class="samplecut">' +
+        '<span class="lbl" style="margin:0 0 4px">Cut a sample</span>' +
+        '<span class="region-hint">Drag across the waveform above to choose a hook, a stab or a ' +
+        'riser. The selection snaps to whole bars.</span></div>';
+    }
+
+    return '<div class="samplecut on">' +
+      '<div class="samplecut-head">' +
+        '<span class="lbl" style="margin:0">Cut a sample</span>' +
+        '<span class="samplecut-range">' + sel.bars + ' bar' + (sel.bars === 1 ? '' : 's') +
+          ' · from bar ' + startBar + ' · ' + fmtSec(sel.fromSec) + ' to ' + fmtSec(sel.toSec) +
+        '</span>' +
+      '</div>' +
+      '<div class="row" style="margin-top:8px">' +
+        '<input type="text" id="sampleName' + i + '" style="max-width:280px" ' +
+          'placeholder="Name it — e.g. Sir Duke horns" value="' +
+          esc(t.title + ' ' + sel.bars + ' bars') + '">' +
+        '<label class="samplecut-check"><input type="checkbox" id="sampleDrums' + i + '"> ' +
+          'Take the drums out</label>' +
+        '<button data-act="cut-sample" data-track="' + i + '">Save to library</button>' +
+        '<button class="ghost" data-act="play-sel" data-track="' + i + '">▶ Hear it</button>' +
+        '<button class="ghost" data-act="clear-sel" data-track="' + i + '">Clear</button>' +
+      '</div>' +
+      '<span class="region-hint">Drums out uses separation, which is right for lifting a melodic ' +
+      'hook out of a full mix — the opposite job to a beat bridge, where EQ is right and ' +
+      'separation deletes the kick.</span>' +
     '</div>';
   }
 
@@ -702,6 +832,30 @@
       }
       g.fillStyle = '#b07d2e'; g.fillRect(t.entrySec / dur * w - 1, 0, 3, h);
       g.fillStyle = '#b0392c'; g.fillRect(t.exitSec / dur * w - 1, 0, 3, h);
+    }
+
+    // The selected passage, if this track has one.
+    var selIdx = project.tracks.indexOf(t);
+    var selNow = selectionFor(selIdx);
+    if (selNow && dur) {
+      var sx = selNow.fromSec / dur * w, sw = (selNow.toSec - selNow.fromSec) / dur * w;
+      g.fillStyle = 'rgba(61,98,99,.18)';
+      g.fillRect(sx, 0, Math.max(2, sw), h);
+      g.fillStyle = 'rgba(61,98,99,.9)';
+      g.fillRect(sx, 0, 2, h);
+      g.fillRect(sx + Math.max(2, sw) - 2, 0, 2, h);
+    }
+
+    // The playhead, so you can see as well as hear where you are.
+    var idx = project.tracks.indexOf(t);
+    var ph = playheadSecFor(idx);
+    if (ph != null && dur && ph <= dur) {
+      var x = ph / dur * w;
+      g.fillStyle = 'rgba(20,32,31,.85)';
+      g.fillRect(x - 1, 0, 2, h);
+      g.beginPath();
+      g.moveTo(x - 5, 0); g.lineTo(x + 5, 0); g.lineTo(x, 7);
+      g.closePath(); g.fill();
     }
   }
 
@@ -895,8 +1049,77 @@
     playing.buffer = buffer;
     playing.connect(audioCtx().destination);
     playing.start();
+    playing.onended = function () { if (!playhead.raf) return; stopPlayhead(); };
   }
-  function stop() { if (playing) { try { playing.stop(); } catch (e) {} playing = null; } }
+
+  function stop() {
+    if (playing) { try { playing.stop(); } catch (e) {} playing = null; }
+    stopPlayhead();
+    var b = $('stopAllBtn');
+    if (b) b.disabled = true;
+  }
+
+  /* ------------------------------------------------- audition --- */
+  /* Hearing where the cursor is, which is the only way to find the point you
+     actually want to trim on. Auto-detected entry and mix-out markers are a
+     starting guess — on a real record they land in an intro, a fade or the
+     wrong bar, and the only way to know is to listen from there. */
+
+  var waveClickTimer = null;
+  var suppressWaveClick = false;
+  var playhead = { track: null, startCtxTime: 0, offsetSec: 0, raf: 0 };
+
+  function stopPlayhead() {
+    if (playhead.raf) cancelAnimationFrame(playhead.raf);
+    playhead.raf = 0;
+    var i = playhead.track;
+    playhead.track = null;
+    if (i != null && openTrack === i) {
+      var cv = document.querySelector('.trk[data-track="' + i + '"] canvas.wave');
+      if (cv) drawWave(cv, project.tracks[i]);
+    }
+  }
+
+  /** Play one track from an arbitrary point, with a moving playhead. */
+  function playFrom(i, sec) {
+    var t = project.tracks[i];
+    var buf = buffers.get(t.id);
+    if (!buf) { setStatus('No audio loaded for "' + t.title + '".', true); return; }
+    var from = Math.max(0, Math.min(buf.duration - 0.05, sec || 0));
+    stop();
+    var ctxx = audioCtx();
+    playing = ctxx.createBufferSource();
+    playing.buffer = buf;
+    playing.connect(ctxx.destination);
+    playing.start(0, from);
+    playing.onended = function () { stopPlayhead(); var b = $('stopAllBtn'); if (b) b.disabled = true; };
+
+    playhead.track = i;
+    playhead.startCtxTime = ctxx.currentTime;
+    playhead.offsetSec = from;
+
+    var btn = $('stopAllBtn');
+    if (btn) btn.disabled = false;
+    setStatus('Playing "' + t.title + '" from ' + fmtSec(from) + '. Stop when you have heard enough.');
+
+    var tick = function () {
+      if (playhead.track !== i) return;
+      var cv = document.querySelector('.trk[data-track="' + i + '"] canvas.wave');
+      if (cv) drawWave(cv, t);
+      playhead.raf = requestAnimationFrame(tick);
+    };
+    playhead.raf = requestAnimationFrame(tick);
+  }
+
+  function playheadSecFor(i) {
+    if (playhead.track !== i || !ctx) return null;
+    return playhead.offsetSec + (ctx.currentTime - playhead.startCtxTime);
+  }
+
+  var fmtSec = function (s) {
+    var m = Math.floor(s / 60), ss = (s % 60);
+    return m + ':' + (ss < 10 ? '0' : '') + ss.toFixed(1);
+  };
 
   function download(buffer, name) {
     var url = URL.createObjectURL(DSP.encodeWav(buffer));
@@ -922,6 +1145,35 @@
 
     $('importBtn').onclick = function () { $('importPanel').classList.toggle('hidden'); };
     $('cancelImport').onclick = function () { $('importPanel').classList.add('hidden'); };
+
+    /* The running order comes straight from the .xlsx. It is read here rather
+       than converted outside first, because the point is to point the program
+       at the sheet and the folder and have a project. */
+    $('pickOrderFile').onclick = function () { $('orderFile').click(); };
+    $('orderFile').onchange = function (ev) {
+      var f = ev.target.files && ev.target.files[0];
+      ev.target.value = '';                       // so the same file can be re-chosen
+      if (!f) return;
+      $('orderFileName').textContent = 'reading ' + f.name + '…';
+      f.arrayBuffer().then(function (ab) {
+        return MP.readWorkbook(ab);
+      }).then(function (wb) {
+        if (!wb.tracks.length) {
+          $('orderFileName').textContent = '';
+          setStatus('No track list found in ' + f.name + '. Sheets in that file: ' +
+                    (wb.sheets.join(', ') || 'none') + '. It needs a column headed ' +
+                    'Track, Title or Song.', true);
+          return;
+        }
+        $('orderFileName').textContent = f.name + ' — ' + wb.sheets.length +
+          (wb.sheets.length === 1 ? ' sheet' : ' sheets') + ', read "' + wb.sheetUsed + '"';
+        if (importTab === 'bench') importBench(wb);
+        else importRunningOrder(wb);
+      }).catch(function (e) {
+        $('orderFileName').textContent = '';
+        setStatus('Could not read ' + f.name + ': ' + e.message, true);
+      });
+    };
     $('doImport').onclick = function () {
       if (importTab === 'bench') importBench($('importText').value);
       else importRunningOrder($('importText').value);
@@ -1043,15 +1295,19 @@
         if (act === 'region-add') { addRegion(i); }
         if (act === 'region-del') { delRegion(i, +actEl.dataset.region); }
         if (act === 'region-up') { moveRegion(i, +actEl.dataset.region); }
-        if (act === 'cut-sample') {
-          var sel = document.querySelector('[data-act="cut-bars"][data-track="' + i + '"]');
-          var bars = sel ? parseInt(sel.value, 10) : 4;
-          // Drum removal is the one job HPSS is genuinely right for — taking a
-          // melodic hook out of a full mix. It is the opposite of the bridge,
-          // where separation is wrong and EQ is right.
-          var drums = confirm('Strip the drums out of this sample?\n\n' +
-                              'OK for a melodic hook, Cancel to keep it as it is.');
-          cutSample(i, bars, { removeDrums: drums, removalAmount: 2, highPassHz: drums ? 120 : 0 });
+        if (act === 'play-here') { playFrom(i, project.tracks[i].entrySec || 0); return; }
+        if (act === 'play-exit') {
+          var xt = project.tracks[i];
+          playFrom(i, Math.max(0, (xt.exitSec || 0) - 8));
+          return;
+        }
+        if (act === 'stop-all') { stop(); setStatus('Stopped.'); return; }
+        if (act === 'cut-sample') { cutSample(i); return; }
+        if (act === 'clear-sel') { clearSelection(i); renderAll(); setStatus(''); return; }
+        if (act === 'play-sel') {
+          var ps = selectionFor(i);
+          if (ps) playFrom(i, ps.fromSec); else setStatus('Nothing selected yet.', true);
+          return;
         }
         return;
       }
@@ -1068,14 +1324,84 @@
 
     tracksEl.addEventListener('click', function (e) {
       if (!e.target.matches('canvas.wave')) return;
+      if (suppressWaveClick) { suppressWaveClick = false; return; }   // this was a drag
       var i = +e.target.closest('[data-track]').dataset.track;
       var t = project.tracks[i];
       if (!t.durationSec) return;
       var r = e.target.getBoundingClientRect();
       var sec = (e.clientX - r.left) / r.width * t.durationSec;
-      var snapped = snapToBar(t, sec);
-      if (e.shiftKey) t.exitSec = snapped; else t.entrySec = snapped;
-      touch();
+      var shift = e.shiftKey;
+
+      /* Setting the marker is DEFERRED so a double-click can cancel it.
+         Without the delay, the first click of a pair sets a marker and calls
+         touch(), which re-renders the list and destroys this very canvas — so
+         the second click lands on a detached element and the audition never
+         fires at all. */
+      if (waveClickTimer) clearTimeout(waveClickTimer);
+      waveClickTimer = setTimeout(function () {
+        waveClickTimer = null;
+        var snapped = snapToBar(t, sec);
+        if (shift) t.exitSec = snapped; else t.entrySec = snapped;
+        touch();
+      }, 220);
+    });
+
+    /* Drag across the waveform to select a passage for a sample. A drag is
+       distinguished from a click by distance, and a real drag suppresses the
+       pending marker-set so the two gestures never fight. */
+    tracksEl.addEventListener('mousedown', function (e) {
+      if (!e.target.matches('canvas.wave')) return;
+      var i = +e.target.closest('[data-track]').dataset.track;
+      var t = project.tracks[i];
+      if (!t.durationSec) return;
+      var r = e.target.getBoundingClientRect();
+      dragSel = { track: i, startX: e.clientX, rect: r, moved: false, canvas: e.target };
+    });
+
+    window.addEventListener('mousemove', function (e) {
+      if (!dragSel) return;
+      if (Math.abs(e.clientX - dragSel.startX) < 5) return;
+      dragSel.moved = true;
+      var t = project.tracks[dragSel.track];
+      var r = dragSel.rect;
+      var at = function (x) {
+        return Math.max(0, Math.min(t.durationSec, (x - r.left) / r.width * t.durationSec));
+      };
+      selection = { track: dragSel.track,
+                    fromSec: snapToBar(t, at(dragSel.startX)),
+                    toSec: snapToBar(t, at(e.clientX)) };
+      drawWave(dragSel.canvas, t);
+    });
+
+    window.addEventListener('mouseup', function () {
+      if (!dragSel) return;
+      var moved = dragSel.moved, i = dragSel.track;
+      dragSel = null;
+      if (!moved) return;
+      /* A drag is not a click. The click event arrives AFTER this, so clearing
+         the timer here is not enough — it would just be set again and quietly
+         move the entry marker to wherever the drag ended. Suppress the next one
+         outright. */
+      if (waveClickTimer) { clearTimeout(waveClickTimer); waveClickTimer = null; }
+      suppressWaveClick = true;
+      var sel = selectionFor(i);
+      if (sel) {
+        renderAll();
+        setStatus('Selected ' + sel.bars + ' bar' + (sel.bars === 1 ? '' : 's') +
+                  ' from ' + fmtSec(sel.fromSec) + '. Name it and press "Save to library".');
+      }
+    });
+
+    /* Double-click plays from exactly where you clicked, NOT snapped to the bar
+       — you are listening for the moment, not for the grid. */
+    tracksEl.addEventListener('dblclick', function (e) {
+      if (!e.target.matches('canvas.wave')) return;
+      if (waveClickTimer) { clearTimeout(waveClickTimer); waveClickTimer = null; }
+      var i = +e.target.closest('[data-track]').dataset.track;
+      var t = project.tracks[i];
+      if (!t.durationSec) return;
+      var r = e.target.getBoundingClientRect();
+      playFrom(i, (e.clientX - r.left) / r.width * t.durationSec);
     });
 
     tracksEl.addEventListener('change', function (e) {
@@ -1137,6 +1463,20 @@
        the row the pointer is over, so dropping "between" two rows is
        unambiguous rather than a guess. */
     tracksEl.addEventListener('dragstart', function (e) {
+      /* The row is draggable so it can be reordered, which means a drag that
+         starts ANYWHERE inside it — including across the waveform — becomes a
+         native HTML5 drag. That swallows mouseup and click completely, so a
+         selection drag would set a selection and then never finish: no panel,
+         no status, and the entry marker left wherever the pointer stopped.
+         A drag beginning on the waveform is a selection, not a reorder. */
+      /* NOTE: dragstart's target is the draggable ROW, never the inner element
+         the pointer is actually over — so testing e.target for the canvas does
+         not work. dragSel is set on mousedown and is the only thing that knows
+         where the gesture began. */
+      if (dragSel) {
+        e.preventDefault();
+        return;
+      }
       var row = e.target.closest('.trk');
       if (!row) return;
       dragFrom = +row.dataset.track;
@@ -1201,9 +1541,14 @@
     touch();
   }
 
+  /* Halve / Double pins the track: autoOctave then fits the rest of the set
+     around that choice instead of overruling it. Pressing the same button again
+     releases the pin and hands the track back to automatic choice. */
   function setMultiplier(i, m) {
     var t = project.tracks[i];
-    t.bpmMultiplier = (t.bpmMultiplier || 1) === m ? 1 : m;
+    var pinned = (t.bpmMultiplier || 1) === m && t.bpmLocked;
+    t.bpmMultiplier = pinned ? 1 : m;
+    t.bpmLocked = !pinned;
     touch();
   }
 
@@ -1352,6 +1697,21 @@
 
   function desktop() { return global.MixDesktop; }
 
+  /* Remember where dropped files came from, so a drag-and-drop is as durable as
+     a picked folder. Without this, dropping the folder in worked for the
+     session and was forgotten on reload — which is the re-linking the desktop
+     build exists to remove. Browser-only: a dropped File there has no path,
+     and gigabytes of audio cannot be stored, so the web version still asks. */
+  function rememberFolderFrom(files) {
+    var D = desktop();
+    if (!D || !D.pathForFile || project.audioFolder) return;
+    for (var i = 0; i < files.length; i++) {
+      var p = D.pathForFile(files[i]);
+      var folder = D.folderOf(p);
+      if (folder) { project.audioFolder = folder; save(); return; }
+    }
+  }
+
   async function chooseAudioFolder() {
     var D = desktop();
     if (!D) return;
@@ -1434,6 +1794,7 @@
      two different stretches — the render works that out per placement from the
      tempo ramp. */
 
+  var placingSample = null;
   var sampleList = [];
   var sampleBuffers = new Map();      // id -> decoded AudioBuffer
   var sampleMeta = new Map();         // id -> metadata, for the renderer
@@ -1458,33 +1819,69 @@
 
   /* Cut from the currently open track, starting at its entry point, bar-snapped.
      The processing baked in here is the part that does not vary per use. */
-  async function cutSample(trackIndex, bars, opts) {
+  /* Cut whatever is selected on the waveform.
+     ------------------------------------------------------------------
+     This used to take a bar count from a dropdown, always starting at the entry
+     point, and ask for the name with window.prompt(). Two things wrong with
+     that. You could not choose the passage you actually wanted — and prompt()
+     THROWS in Electron ("prompt() is not supported"), so the drums question got
+     answered and then the sample vanished without a word. Name and options are
+     ordinary fields now, and nothing here opens a dialog. */
+  async function cutSample(trackIndex) {
     var t = project.tracks[trackIndex];
     var buf = buffers.get(t.id);
-    if (!buf) { setStatus('That track has no audio linked.', true); return; }
-    var bs = barSecOf(t);
-    var from = t.entrySec || 0;
-    var len = bars * bs;
-    if (from + len > buf.duration) { setStatus('Not enough track after the entry point.', true); return; }
+    if (!buf) { setStatus('That track has no audio loaded.', true); return; }
+    var sel = selectionFor(trackIndex);
+    if (!sel) { setStatus('Drag across the waveform to choose the part you want first.', true); return; }
 
-    setStatus('Cutting ' + bars + ' bars from "' + t.title + '"…');
-    var raw = DSP.slice(audioCtx(), buf, from, len);
-    var prepared = await DSP.prepareSample(audioCtx(), raw, opts || {});
-    var name = prompt('Name this sample', t.title + ' ' + bars + ' bars');
-    if (!name) { setStatus(''); return; }
+    var nameEl = $('sampleName' + trackIndex);
+    var drumsEl = $('sampleDrums' + trackIndex);
+    var name = (nameEl && nameEl.value.trim()) || (t.title + ' ' + sel.bars + ' bars');
+    var removeDrums = !!(drumsEl && drumsEl.checked);
+    var opts = { removeDrums: removeDrums, removalAmount: 2, highPassHz: removeDrums ? 120 : 0 };
+
+    setStatus('Cutting ' + sel.bars + ' bars from "' + t.title + '"' +
+              (removeDrums ? ', taking the drums out' : '') + '…');
+    var raw = DSP.slice(audioCtx(), buf, sel.fromSec, sel.toSec - sel.fromSec);
+    var prepared = await DSP.prepareSample(audioCtx(), raw, opts);
 
     var meta = {
       name: name, tags: [],
       sourceFile: t.file, sourceTrackId: t.id,
-      sourceStartSec: from, bars: bars,
+      sourceStartSec: sel.fromSec, bars: sel.bars,
       sourceBpm: (t.sourceBpm || 0) * (t.bpmMultiplier || 1),
-      processing: opts || {}
+      processing: opts
     };
     var saved = await MP.saveSample(meta, DSP.encodeWav(prepared));
     sampleBuffers.set(saved.id, prepared);
+    clearSelection(trackIndex);
     await loadSamples();
-    setStatus('Saved "' + name + '" — ' + bars + ' bars at ' +
-              meta.sourceBpm.toFixed(1) + ' BPM. Drop it at any junction.');
+    renderAll();
+    setStatus('Saved "' + name + '" to the sample library — ' + sel.bars + ' bars at ' +
+              meta.sourceBpm.toFixed(1) + ' BPM, ready to place at any junction.');
+    var card = $('sampleCard');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ------------------------------------------- waveform selection --- */
+  /* Drag across the waveform to choose a passage, bar-snapped — a sample that
+     does not start on a bar line cannot be dropped in time. */
+
+  var selection = null;      // { track, fromSec, toSec }
+  var dragSel = null;        // drag in progress
+
+  function selectionFor(i) {
+    if (!selection || selection.track !== i) return null;
+    var t = project.tracks[i];
+    var bs = barSecOf(t);
+    var from = Math.min(selection.fromSec, selection.toSec);
+    var to = Math.max(selection.fromSec, selection.toSec);
+    var bars = Math.max(1, Math.round((to - from) / bs));
+    return { fromSec: from, toSec: from + bars * bs, bars: bars };
+  }
+
+  function clearSelection(i) {
+    if (selection && (i == null || selection.track === i)) selection = null;
   }
 
   function renderSamples() {
@@ -1506,11 +1903,44 @@
         (uses ? '<span class="pill hi">used ' + uses + '×</span>' : '') +
         '<span class="trk-tools">' +
           '<button data-act="sample-play" data-sample="' + esc(s.id) + '">Audition</button>' +
-          '<button data-act="sample-place" data-sample="' + esc(s.id) + '">Place…</button>' +
+          '<button data-act="sample-place" data-sample="' + esc(s.id) + '">' +
+            (placingSample === s.id ? 'Cancel' : 'Place…') + '</button>' +
           '<button data-act="sample-del" data-sample="' + esc(s.id) + '">✕</button>' +
         '</span>' +
+        (placingSample === s.id ? placerHtml(s) : '') +
       '</div>';
     }).join('') + renderPlacementList();
+  }
+
+  /* Where a sample goes, how far in, and how loud. */
+  function placerHtml(s) {
+    var opts = lay.junctions.map(function (j, i) {
+      var a = project.tracks[i], b = project.tracks[i + 1];
+      return '<option value="' + i + '">' + (i + 1) + '. ' + esc(a.title) +
+             ' → ' + esc(b.title) + '</option>';
+    }).join('');
+    return '<div class="placer">' +
+      '<div class="grid">' +
+        '<div style="grid-column:1/-1"><label class="lbl">At which junction</label>' +
+          '<select id="placeJunction">' + opts + '</select></div>' +
+        '<div><label class="lbl">Over or between</label>' +
+          '<select id="placeMode">' +
+            '<option value="over">Over the music</option>' +
+            '<option value="between">In the gap between</option>' +
+          '</select></div>' +
+        '<div><label class="lbl">Bars before the next track</label>' +
+          '<input type="number" id="placeBars" min="0" max="64" step="1" value="8"></div>' +
+        '<div><label class="lbl">Volume (dB)</label>' +
+          '<input type="number" id="placeGain" min="-40" max="6" step="1" value="-8"></div>' +
+      '</div>' +
+      '<div class="row">' +
+        '<button data-act="do-place">Place it</button>' +
+        '<button class="ghost" data-act="cancel-place">Cancel</button>' +
+        '<span class="region-hint" style="flex:1;min-width:220px;margin:0">' +
+          '0 dB is as loud as the sample was cut. −8 dB sits it under the music; ' +
+          'lower still for something that should only be felt.</span>' +
+      '</div>' +
+    '</div>';
   }
 
   function renderPlacementList() {
@@ -1543,17 +1973,43 @@
         var buf = await sampleAudioFor(id);
         if (buf) play(buf); else setStatus('That sample has no audio stored.', true);
       }
+      /* Opening the placer, not placing yet. This used to be a window.prompt()
+         asking for a junction number — which throws outright in Electron, so
+         placing a sample never worked at all in the app. Everything is fields
+         now: which junction, over or between, how far in, and how loud. */
       if (act === 'sample-place') {
         if (!project.junctions.length) { setStatus('No junctions to place it at yet.', true); return; }
-        var which = prompt('Place at which junction? 1–' + project.junctions.length, '1');
-        var jn = parseInt(which, 10);
-        if (!isFinite(jn) || jn < 1 || jn > project.junctions.length) return;
-        MP.addPlacement(project, { sampleId: id, atJunction: jn - 1 });
+        placingSample = (placingSample === id) ? null : id;
         await sampleAudioFor(id);
-        setStatus('Placed 8 bars before track ' + (jn + 1) + ' comes in. ' +
-                  'It will be stretched to whatever tempo is playing there.');
-        touch();
+        renderSamples();
+        return;
       }
+      if (act === 'do-place') {
+        var jn = parseInt(($('placeJunction') || {}).value, 10);
+        var bars = parseFloat(($('placeBars') || {}).value);
+        var gain = parseFloat(($('placeGain') || {}).value);
+        var mode = ($('placeMode') || {}).value || 'over';
+        if (!isFinite(jn)) { setStatus('Choose which junction to place it at.', true); return; }
+        MP.addPlacement(project, {
+          sampleId: placingSample,
+          atJunction: jn,
+          barsBeforeEntry: isFinite(bars) ? bars : 8,
+          gainDb: isFinite(gain) ? gain : -8,
+          // "Between" drops it in the gap the two records leave; "over" rides it
+          // on top of the music that is already playing.
+          mode: mode
+        });
+        var s2 = sampleMeta.get(placingSample);
+        placingSample = null;
+        setStatus('Placed "' + (s2 ? s2.name : 'sample') + '" ' +
+                  (mode === 'between' ? 'between' : 'over') + ' the music at junction ' +
+                  (jn + 1) + ', ' + (isFinite(bars) ? bars : 8) + ' bars before the next track, at ' +
+                  (isFinite(gain) ? gain : -8) + ' dB. It will be stretched to whatever tempo is ' +
+                  'playing there.');
+        touch();
+        return;
+      }
+      if (act === 'cancel-place') { placingSample = null; renderSamples(); return; }
       if (act === 'sample-del') {
         var s = sampleMeta.get(id);
         var uses = MP.sampleUsage(project, id);
