@@ -299,12 +299,36 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
         for (let i = 0; i < wayAbove.length; i++) b += wayAbove[i] * wayAbove[i];
         return tot > 0 ? Math.max(0, a - b) / tot : 0;
       };
-      const midInRecord = midShare(grab(6, 2));
-      const midInFill = midShare(grab(fillAt, 2));
-      log.push(['and it is the fill that has its mids cut, not the record',
-                '700-4500Hz share ' + (midInRecord * 100).toFixed(2) + '% in the record vs ' +
-                (midInFill * 100).toFixed(2) + '% in the fill',
-                midInFill < midInRecord]);
+      /* The fill used to be the record with its mids scooped, so the test was
+         whether the scoop had happened. It is a synthesised kit now — there is
+         no record in it at all — so the question is whether it behaves like
+         drums: nearly all of its energy down where a kick lives, and separate
+         hits rather than a continuous wash. */
+      const fillSeg = grab(fillAt, 3);
+      let tot = 0;
+      for (let i = 0; i < fillSeg.length; i++) tot += fillSeg[i] * fillSeg[i];
+      const above = DSP.hpFiltfilt(fillSeg, 200, sr);
+      let ea = 0;
+      for (let i = 0; i < above.length; i++) ea += above[i] * above[i];
+      const lowShare = tot > 0 ? 1 - ea / tot : 0;
+      log.push(['the fill is drums: its weight is down where a kick lives',
+                (lowShare * 100).toFixed(0) + '% below 200 Hz',
+                lowShare > 0.6]);
+
+      const hop = Math.floor(sr * 0.01);
+      const env = [];
+      for (let i = 0; i + hop < fillSeg.length; i += hop) {
+        let s = 0;
+        for (let k = 0; k < hop; k++) s += fillSeg[i + k] * fillSeg[i + k];
+        env.push(Math.sqrt(s / hop));
+      }
+      let mean = 0; env.forEach(v => mean += v); mean /= env.length;
+      let onsets = 0;
+      for (let i = 1; i < env.length; i++) if (env[i] > mean * 1.5 && env[i] > env[i - 1] * 1.6) onsets++;
+      const perSec = onsets / (fillSeg.length / sr);
+      log.push(['and it is hits, not a wash',
+                perSec.toFixed(1) + ' transients a second',
+                perSec > 0.8]);
     }
 
     // --- refuses to render what it cannot

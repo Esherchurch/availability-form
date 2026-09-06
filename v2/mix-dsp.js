@@ -1037,6 +1037,282 @@ onmessage = e => {
     return hs;
   }
 
+  /* ---------------------------------------------------- drum patterns ---
+     A kit, synthesised, and a handful of patterns to play on it.
+
+     The fill used to be the outgoing record with 24 dB cut out of its mids.
+     That can only ever sound like the record with a hole in it — thin and
+     boxy, a radio in another room — because it IS the record, still carrying
+     the vocal, the guitars and the room, just quieter in the middle. No amount
+     of filtering turns a mixed record into a drum kit.
+
+     So the drums are made rather than extracted. Three consequences, all of
+     them the point:
+
+       - It is clean. There is nothing in it but drums, because there was never
+         anything else in it.
+       - Tempo is free. Every hit is synthesised at the moment it should land,
+         so a fill that travels from 89 to 100 BPM involves no time-stretching
+         at all and none of the artefacts that come with it.
+       - It fits the record, because the pattern is chosen by measuring where
+         that record actually puts its kick and its snare.
+
+     Sixteen steps to the bar, so a step is a sixteenth note. Step 0 is beat
+     one, 4 is beat two, 8 is beat three, 12 is beat four. */
+
+  var DRUM_PATTERNS = [
+    { id: 'four', name: 'Four on the floor',
+      hint: 'disco, house, most things with a straight pulse',
+      kick:  [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hat:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
+
+    { id: 'backbeat', name: 'Straight backbeat',
+      hint: 'rock and pop: kick on one and three, snare on two and four',
+      kick:  [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hat:   [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
+
+    { id: 'funk', name: 'Funk / breakbeat',
+      hint: 'syncopated kick, busier hats',
+      kick:  [1,0,0,1, 0,0,1,0, 0,0,1,0, 0,1,0,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
+      hat:   [1,0,1,0, 1,0,1,1, 1,0,1,0, 1,0,1,0] },
+
+    { id: 'dembow', name: 'Dembow / reggaeton',
+      hint: 'the Despacito feel',
+      kick:  [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      snare: [0,0,0,1, 0,0,1,0, 0,0,0,1, 0,0,1,0],
+      hat:   [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
+
+    { id: 'onedrop', name: 'One drop',
+      hint: 'reggae: nothing on one, the weight on three',
+      kick:  [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      snare: [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      hat:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
+
+    { id: 'halftime', name: 'Half time',
+      hint: 'one snare a bar — for slow, heavy records',
+      kick:  [1,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0],
+      snare: [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      hat:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] }
+  ];
+
+  function drumPatterns() {
+    return DRUM_PATTERNS.map(function (p) {
+      return { id: p.id, name: p.name, hint: p.hint };
+    });
+  }
+
+  /* ---- the kit. Written straight into a buffer rather than through the audio
+     graph: every hit is a few hundred samples of arithmetic, and doing it by
+     hand means a hit can start at any sample rather than being quantised to
+     whatever the graph's scheduling allows. */
+
+  function addKick(out, at, sr, amp) {
+    var n = Math.min(out.length - at, Math.floor(sr * 0.30));
+    for (var i = 0; i < n; i++) {
+      var t = i / sr;
+      // pitch drops from 115 Hz to 45: the thump, then the body
+      var f = 45 + 70 * Math.exp(-t / 0.035);
+      var env = Math.exp(-t / 0.085);
+      var click = Math.exp(-t / 0.0015) * 0.35;
+      out[at + i] += amp * (Math.sin(2 * Math.PI * f * t) * env + click);
+    }
+  }
+
+  function addSnare(out, at, sr, amp, rnd) {
+    var n = Math.min(out.length - at, Math.floor(sr * 0.22));
+    var hp = 0, prev = 0;
+    for (var i = 0; i < n; i++) {
+      var t = i / sr;
+      var env = Math.exp(-t / 0.055);
+      var noise = rnd() * 2 - 1;
+      // one-pole high pass, so it cracks rather than thuds
+      hp = 0.72 * (hp + noise - prev); prev = noise;
+      var body = Math.sin(2 * Math.PI * 190 * t) * Math.exp(-t / 0.045) * 0.5;
+      out[at + i] += amp * (hp * env * 0.9 + body);
+    }
+  }
+
+  function addHat(out, at, sr, amp, open, rnd) {
+    var n = Math.min(out.length - at, Math.floor(sr * (open ? 0.18 : 0.045)));
+    var hp = 0, prev = 0;
+    for (var i = 0; i < n; i++) {
+      var t = i / sr;
+      var env = Math.exp(-t / (open ? 0.06 : 0.011));
+      var noise = rnd() * 2 - 1;
+      hp = 0.92 * (hp + noise - prev); prev = noise;
+      out[at + i] += amp * hp * env;
+    }
+  }
+
+  /* Deterministic noise, so the same fill renders the same way twice. */
+  function rng(seed) {
+    var s = seed >>> 0 || 1;
+    return function () {
+      s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0;
+      return s / 4294967296;
+    };
+  }
+
+  /* ---- what the record itself is playing.
+
+     Sixteen buckets to the bar, filled with onset strength in the band each
+     drum lives in — under 120 Hz for the kick, 1.5 to 4 kHz for the snare.
+     What comes out is where that record puts its weight, which is what a
+     pattern has to agree with to sound like it belongs. */
+
+  function drumProfile(mono, sr, downbeatSec, bpm, fromSec, toSec) {
+    var beatSec = 60 / bpm, stepSec = beatSec / 4;
+    var kick = new Float64Array(16), snare = new Float64Array(16), hits = new Float64Array(16);
+
+    // crude band energies, one pole each way
+    var lp = 0, hp = 0, prevIn = 0;
+    var n = mono.length;
+    var a = Math.max(0, Math.floor((fromSec || 0) * sr));
+    var b = Math.min(n, Math.floor((toSec || mono.length / sr) * sr));
+    var win = Math.max(1, Math.floor(sr * 0.02));
+
+    var lowEnv = [], midEnv = [];
+    var acc1 = 0, acc2 = 0, cnt = 0;
+    for (var i = a; i < b; i++) {
+      var x = mono[i];
+      lp += (x - lp) * 0.02;                       // ~120 Hz
+      hp = 0.85 * (hp + x - prevIn); prevIn = x;    // above ~1.5 kHz
+      acc1 += lp * lp; acc2 += hp * hp; cnt++;
+      if (cnt === win) { lowEnv.push(Math.sqrt(acc1 / win)); midEnv.push(Math.sqrt(acc2 / win));
+                         acc1 = 0; acc2 = 0; cnt = 0; }
+    }
+    var envFps = sr / win;
+
+    // rising edges only: an onset is where energy jumps, not where it is high
+    function flux(env) {
+      var f = new Float64Array(env.length);
+      for (var i = 1; i < env.length; i++) f[i] = Math.max(0, env[i] - env[i - 1]);
+      return f;
+    }
+    var kf = flux(lowEnv), sf = flux(midEnv);
+
+    var startSec = (fromSec || 0);
+    for (var j = 0; j < kf.length; j++) {
+      var t = startSec + j / envFps;
+      var pos = (t - (downbeatSec || 0)) / stepSec;
+      var step = ((Math.round(pos) % 16) + 16) % 16;
+      // only count it if it is near a step rather than between two
+      if (Math.abs(pos - Math.round(pos)) > 0.35) continue;
+      kick[step] += kf[j]; snare[step] += sf[j]; hits[step]++;
+    }
+
+    function norm(v) {
+      var mx = 0;
+      for (var i = 0; i < 16; i++) if (v[i] > mx) mx = v[i];
+      if (!mx) return v;
+      for (var k = 0; k < 16; k++) v[k] /= mx;
+      return v;
+    }
+    return { kick: norm(kick), snare: norm(snare) };
+  }
+
+  /* Which pattern the record is closest to. Correlation against each, kick and
+     snare weighted equally — the kick says where the weight is and the snare
+     says where the backbeat is, and between them they separate a disco record
+     from a reggae one. */
+  function matchDrumPattern(profile) {
+    if (!profile) return { pattern: DRUM_PATTERNS[0], score: 0, scores: [] };
+    function corr(a, b) {
+      var ma = 0, mb = 0, i;
+      for (i = 0; i < 16; i++) { ma += a[i]; mb += b[i]; }
+      ma /= 16; mb /= 16;
+      var num = 0, da = 0, db = 0;
+      for (i = 0; i < 16; i++) {
+        var x = a[i] - ma, y = b[i] - mb;
+        num += x * y; da += x * x; db += y * y;
+      }
+      return (da > 0 && db > 0) ? num / Math.sqrt(da * db) : 0;
+    }
+    /* Scored against every rotation of the measured bar, best one taken.
+
+       The bar grid is extrapolated from a downbeat detected at the start of
+       the record, and three minutes later a tenth of a percent of tempo error
+       has moved it by more than a sixteenth note. Measured on Hotstepper the
+       kick sits on steps 2,4,6,10 near the beginning and 3,5,7,11 near the end
+       — the same pattern, rotated, because the grid has drifted, not because
+       the drummer moved. Comparing at a fixed rotation scored that as no match
+       at all. Nothing here needs the absolute phase: the fill plays on its own
+       after the record has stopped, so only the shape of the bar matters. */
+    function best(a, b) {
+      var top = -2, rot = new Float64Array(16);
+      for (var r = 0; r < 16; r++) {
+        for (var i = 0; i < 16; i++) rot[i] = a[(i + r) % 16];
+        var s = corr(rot, b);
+        if (s > top) top = s;
+      }
+      return top;
+    }
+    var scores = DRUM_PATTERNS.map(function (p) {
+      return { id: p.id, name: p.name,
+               score: 0.5 * best(profile.kick, p.kick) + 0.5 * best(profile.snare, p.snare) };
+    });
+    var best = scores.reduce(function (a, b) { return b.score > a.score ? b : a; }, scores[0]);
+    var pat = DRUM_PATTERNS.filter(function (p) { return p.id === best.id; })[0];
+    return { pattern: pat, score: best.score,
+             scores: scores.sort(function (a, b) { return b.score - a.score; }) };
+  }
+
+  function patternById(id) {
+    for (var i = 0; i < DRUM_PATTERNS.length; i++) if (DRUM_PATTERNS[i].id === id) return DRUM_PATTERNS[i];
+    return null;
+  }
+
+  /* ---- play it.
+
+     Beat by beat at that beat's own tempo, so the pulse walks from the record
+     it is leaving to the record it is arriving at. Nothing is stretched: each
+     hit is generated where it belongs. */
+  function synthDrumFill(opts) {
+    var sr = opts.sampleRate || 48000;
+    var beats = Math.max(1, Math.round(opts.beats || 64));
+    var pat = opts.pattern || DRUM_PATTERNS[0];
+    var tempos = fillTempos(beats, opts.fromBpm, opts.toBpm);
+    var totalSec = beatFillSec(beats, opts.fromBpm, opts.toBpm);
+    var n = Math.round(totalSec * sr) + Math.floor(sr * 0.3);   // room for the last tail
+    var out = new Float32Array(n);
+    var rnd = rng(opts.seed || 12345);
+
+    var at = 0;
+    for (var i = 0; i < beats; i++) {
+      var beatSec = 60 / tempos[i];
+      var stepSec = beatSec / 4;
+      var barBeat = i % 4;
+      for (var s = 0; s < 4; s++) {
+        var step = barBeat * 4 + s;
+        var pos = Math.round((at + s * stepSec * sr));
+        if (pos >= n) break;
+        // a touch of swing-free human weight: downbeats louder
+        var accent = (step === 0) ? 1 : (step % 4 === 0 ? 0.92 : 0.8);
+        if (pat.kick[step])  addKick(out, pos, sr, 0.95 * accent);
+        if (pat.snare[step]) addSnare(out, pos, sr, 0.62 * accent, rnd);
+        if (pat.hat[step])   addHat(out, pos, sr, 0.20 * accent, false, rnd);
+      }
+      at += beatSec * sr;
+    }
+
+    /* Trim to length, then in and out. The record has already stopped when this
+       starts, so it comes in at once; it eases off over the last two beats as
+       the next record arrives on the downbeat. */
+    var want = Math.round(totalSec * sr);
+    var buf = new Float32Array(want);
+    buf.set(out.subarray(0, want));
+    var inN = Math.round(sr * 0.03);
+    var outN = Math.round(60 / opts.toBpm * 2 * sr);
+    for (var k = 0; k < inN && k < want; k++) buf[k] *= k / inN;
+    for (var m = 0; m < outN && m < want; m++) {
+      buf[want - 1 - m] *= 0.55 + 0.45 * (m / outN);
+    }
+    return buf;
+  }
+
   /* ------------------------------------------------------- beat fill ---
      A bridge that actually bridges: N bars of drums INSERTED between two
      records, with the tempo sliding from the outgoing record's to the incoming
@@ -1096,117 +1372,114 @@ onmessage = e => {
     return out;
   }
 
-  /* Builds the fill. Returns an AudioBuffer exactly beatFillSec() long.
+  /* Builds the fill: a drum kit playing the pattern this record plays, for the
+     given number of beats, with the tempo walking to the next record's.
 
-     opts: source (AudioBuffer), atSec (the outgoing mix-out — the fill is cut
-     from the bars before it), bars, fromBpm, toBpm, loopBars, midCutDb,
-     highCutDb, sampleRate. */
-  async function buildBeatFill(opts) {
-    var src = opts.source, sr = opts.sampleRate || src.sampleRate;
-    var fromBpm = opts.fromBpm, toBpm = opts.toBpm;
+     opts: source (AudioBuffer, only to work out which pattern fits), atSec (the
+     outgoing mix-out), downbeatSec, beats, fromBpm, toBpm, patternId ('auto' or
+     a specific one), gainDb, sampleRate. */
+  function buildBeatFill(opts) {
+    var sr = opts.sampleRate || (opts.source ? opts.source.sampleRate : 48000);
     var beats = Math.max(1, Math.round(opts.beats || 64));
-    var loopBars = Math.max(1, Math.round(opts.loopBars || 2));
-    var barSecA = 60 / fromBpm * 4;
+    var fromBpm = opts.fromBpm, toBpm = opts.toBpm;
+    if (!fromBpm || !toBpm) return null;
 
-    /* The source loop: the last whole bars before the mix-out, ALIGNED TO THE
-       RECORD'S OWN BAR LINES. Cutting the loop at an arbitrary offset gives a
-       window of the right length but with the downbeat in the wrong place, so
-       every repeat lands the kick somewhere new and the fill stumbles once a
-       bar. Measured that way it did not even read as the right tempo. The bar
-       grid runs from the detected downbeat, which is the same grid everything
-       else in the project is snapped to. */
-    var downbeat = opts.downbeatSec || 0;
-    var latest = (opts.atSec || src.duration) - barSecA;
-    var barsIn = Math.floor((latest - downbeat) / barSecA);
-    var loopEnd = downbeat + barsIn * barSecA;
-    var loopStart = loopEnd - loopBars * barSecA;
-    if (loopStart < downbeat) {                     // not enough record before it
-      loopStart = downbeat;
-      loopEnd = Math.min(latest, downbeat + loopBars * barSecA);
+    /* Which pattern. Measured off the last stretch of the record before the
+       mix-out — where its kicks and snares actually fall — unless one has been
+       chosen by hand. */
+    var chosen = null, match = null;
+    if (opts.patternId && opts.patternId !== 'auto') chosen = patternById(opts.patternId);
+    if (!chosen && opts.source) {
+      var mono = toMono(opts.source);
+      var look = Math.min(30, (opts.atSec || opts.source.duration));
+      var prof = drumProfile(mono, sr, opts.downbeatSec || 0, fromBpm,
+                             Math.max(0, (opts.atSec || opts.source.duration) - look),
+                             (opts.atSec || opts.source.duration));
+      match = matchDrumPattern(prof);
+      chosen = match.pattern;
     }
-    if (loopStart < 0) { loopStart = 0; loopEnd = Math.min(latest, loopBars * barSecA); }
-    if (loopEnd - loopStart < barSecA * 0.5) return null;   // nothing usable
+    if (!chosen) chosen = DRUM_PATTERNS[0];
 
-    var tmp = new OfflineAudioContext(1, 1, sr);
-    var loop = sliceBuffer(tmp, src, loopStart, loopEnd);
+    var pcm = synthDrumFill({
+      beats: beats, fromBpm: fromBpm, toBpm: toBpm,
+      pattern: chosen, sampleRate: sr, seed: opts.seed || 20260919
+    });
 
-    /* Each BEAT of the loop as its own buffer, taken in turn. Cutting per beat
-       rather than per bar lets the fill be any number of beats long, and the
-       cut still lands on a beat of the record's own grid either way. */
-    var beatSecA = 60 / fromBpm;
-    var loopBeats = loopBars * 4;
-    var srcBeats = [];
-    for (var lb = 0; lb < loopBeats; lb++) {
-      srcBeats.push(sliceBuffer(tmp, loop, lb * beatSecA, (lb + 1) * beatSecA));
+    /* Level it against the record it follows, rather than against nothing.
+       A synthesised kit is nearly all transient, so its RMS lands about 10 dB
+       under a mastered record even when its peaks are the same height —
+       measured, the fill came out at -22 dBFS against Despacito's -11.8, which
+       on a dancefloor is the energy falling through the floor at exactly the
+       moment it has to hold. Matched to the outgoing record's own level and
+       then set by ear with gainDb, which defaults to a shade under it. */
+    var ref = null;
+    if (opts.source) {
+      var rm = toMono(opts.source);
+      var end = Math.min(rm.length, Math.floor((opts.atSec || opts.source.duration) * sr));
+      var beg = Math.max(0, end - Math.floor(20 * sr));
+      var acc = 0, cnt = 0;
+      for (var q = beg; q < end; q++) { acc += rm[q] * rm[q]; cnt++; }
+      if (cnt) ref = Math.sqrt(acc / cnt);
+    }
+    var mine = 0, mc = 0;
+    for (var q2 = 0; q2 < pcm.length; q2++) { mine += pcm[q2] * pcm[q2]; mc++; }
+    mine = mc ? Math.sqrt(mine / mc) : 0;
+
+    /* Getting there needs saturation, not just gain. A raw kit is pure
+       transient: scaling its RMS up to a mastered record's puts the kick peaks
+       far through the ceiling, and pulling the peaks back down undoes exactly
+       as much as the gain put in — measured, level matching alone moved the
+       fill from -22.6 to -24.1 dBFS, which is backwards. Soft clipping is what
+       a drum bus compressor is for and what every drum loop on a record has
+       already had: it takes the tops off the kicks so the body can come up. */
+    var target = ref ? ref * Math.pow(10, (opts.gainDb == null ? -1.5 : opts.gainDb) / 20) : 0;
+
+    function peakOf(v) {
+      var p = 0;
+      for (var i = 0; i < v.length; i++) { var a = Math.abs(v[i]); if (a > p) p = a; }
+      return p;
+    }
+    function rmsOf(v) {
+      var s = 0;
+      for (var i = 0; i < v.length; i += 7) s += v[i] * v[i];
+      return Math.sqrt(s / Math.ceil(v.length / 7));
     }
 
-    var tempos = fillTempos(beats, fromBpm, toBpm);
-    var totalSec = beatFillSec(beats, fromBpm, toBpm);
-    var totalN = Math.round(totalSec * sr);
-    var chs = Math.min(2, src.numberOfChannels);
-    var acc = [];
-    for (var c0 = 0; c0 < chs; c0++) acc.push(new Float32Array(totalN));
+    var p0 = peakOf(pcm) || 1;
+    for (var i0 = 0; i0 < pcm.length; i0++) pcm[i0] *= 0.98 / p0;
 
-    /* Bars are butted, not crossfaded, because every one of them starts on the
-       same point of the same loop — the join is a loop point, which is where a
-       bar is meant to start. A crossfade here would smear the downbeat, which
-       is the one thing the ear is following. A few milliseconds of ramp is
-       kept only to stop a sample-level step. */
-    var edgeN = Math.round(sr * 0.004);
-    var at = 0;
-    for (var i = 0; i < beats; i++) {
-      var oneBeat = srcBeats[i % loopBeats];
-      var ratio = tempos[i] / fromBpm;            // >1 plays faster
-      var st = (Math.abs(ratio - 1) < 1e-4) ? oneBeat : stretch(tmp, oneBeat, ratio);
-      var want = Math.round(60 / tempos[i] * sr);
-      var n = Math.min(st.length, want, totalN - at);
-      if (n <= 0) break;
-      for (var c = 0; c < chs; c++) {
-        var dst = acc[c];
-        var s = st.getChannelData(Math.min(c, st.numberOfChannels - 1));
-        for (var k = 0; k < n; k++) {
-          var g = 1;
-          if (k < edgeN) g = k / edgeN;
-          else if (k > n - edgeN) g = Math.max(0, (n - k) / edgeN);
-          dst[at + k] += s[k] * g;
-        }
+    if (target > 0) {
+      /* Pick the least saturation that reaches the level. Tried in order, so a
+         fill that needs none gets none. */
+      var drives = [1, 1.6, 2.4, 3.5, 5, 7, 10, 14];
+      var sat = null;
+      for (var di = 0; di < drives.length; di++) {
+        var dr = drives[di], norm = Math.tanh(dr);
+        var test = new Float32Array(Math.min(pcm.length, Math.floor(sr * 8)));
+        for (var ti = 0; ti < test.length; ti++) test[ti] = Math.tanh(pcm[ti] * dr) / norm * 0.95;
+        sat = { drive: dr, rms: rmsOf(test) };
+        if (sat.rms >= target) break;
       }
-      at += n;
+      var dnorm = Math.tanh(sat.drive);
+      for (var si = 0; si < pcm.length; si++) {
+        pcm[si] = Math.tanh(pcm[si] * sat.drive) / dnorm * 0.95;
+      }
+      // and trim if that overshot
+      var got = rmsOf(pcm);
+      if (got > target * 1.02) {
+        var trim = target / got, pk2 = peakOf(pcm) * trim;
+        if (pk2 < 0.98) for (var wi = 0; wi < pcm.length; wi++) pcm[wi] *= trim;
+      }
     }
-
-    /* Cut the mids out of it, exactly as the in-track bridge does, so what is
-       left is the kick, the bass and the top of the kit rather than the whole
-       record with a hole in it. */
-    var off = new OfflineAudioContext(chs, totalN, sr);
-    var raw = off.createBuffer(chs, totalN, sr);
-    for (var c2 = 0; c2 < chs; c2++) raw.getChannelData(c2).set(acc[c2]);
-    var node = off.createBufferSource(); node.buffer = raw;
-
-    var midCut = opts.midCutDb == null ? 24 : opts.midCutDb;
-    var highCut = opts.highCutDb == null ? 0 : opts.highCutDb;
-    var m1 = off.createBiquadFilter(); m1.type = 'peaking'; m1.frequency.value = 700;  m1.Q.value = 1.0; m1.gain.value = -midCut;
-    var m2 = off.createBiquadFilter(); m2.type = 'peaking'; m2.frequency.value = 1800; m2.Q.value = 1.0; m2.gain.value = -midCut;
-    var m3 = off.createBiquadFilter(); m3.type = 'peaking'; m3.frequency.value = 3500; m3.Q.value = 1.0; m3.gain.value = -midCut * 0.7;
-    var hs = off.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 7000; hs.gain.value = -highCut;
-
-    var g0 = off.createGain();
-    /* In over the first bar and out over the last: the outgoing record is
-       still ringing as this starts, and the incoming record lands on the
-       downbeat as it ends. Neither edge should announce itself. */
-    /* The record has already stopped by the time this starts — there is no
-       overlap to hide under — so the beat comes in at once. A bar-long fade-in
-       measured as 1.85 s below -50 dBFS, which is a hole at exactly the moment
-       the fill is supposed to be rescuing. 30 ms is enough to stop a click. */
-    var outSec = Math.min(60 / toBpm * 2, totalSec * 0.25);   // two beats
-    g0.gain.setValueAtTime(0, 0);
-    g0.gain.linearRampToValueAtTime(1, 0.03);
-    g0.gain.setValueAtTime(1, Math.max(0.04, totalSec - outSec));
-    g0.gain.linearRampToValueAtTime(0.55, totalSec);
-
-    node.connect(m1); m1.connect(m2); m2.connect(m3); m3.connect(hs);
-    hs.connect(g0); g0.connect(off.destination);
-    node.start(0);
-    return await off.startRendering();
+    var gain = 1;
+    var ctxOut = new OfflineAudioContext(2, pcm.length, sr);
+    var buf = ctxOut.createBuffer(2, pcm.length, sr);
+    var l = buf.getChannelData(0), r = buf.getChannelData(1);
+    for (var i = 0; i < pcm.length; i++) { l[i] = pcm[i] * gain; r[i] = pcm[i] * gain; }
+    buf.matchedPattern = chosen.id;
+    buf.matchedName = chosen.name;
+    buf.matchScore = match ? +match.score.toFixed(2) : null;
+    return Promise.resolve(buf);
   }
 
   /** How a bridge describes itself in a report. Shared for the same reason. */
@@ -1492,6 +1765,11 @@ onmessage = e => {
     renderBridge: renderBridge,
     applyBridgeOut: applyBridgeOut,
     bridgeNote: bridgeNote,
+    drumPatterns: drumPatterns,
+    drumProfile: drumProfile,
+    matchDrumPattern: matchDrumPattern,
+    patternById: patternById,
+    synthDrumFill: synthDrumFill,
     buildBeatFill: buildBeatFill,
     beatFillSec: beatFillSec,
     fillTempos: fillTempos,

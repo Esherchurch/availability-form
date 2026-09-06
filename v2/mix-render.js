@@ -473,7 +473,9 @@
                                highCutDb: s.highCutDb })
       };
 
-      if (beatBars > 0 || fadeSec > 0.02) {
+      // With a fill, the record is left alone: no mid-cut, because nothing is
+      // being faked out of it any more. Only the reverb throw on the last beat.
+      if (!jOut.fill && (beatBars > 0 || fadeSec > 0.02)) {
         // The same automation the audition path uses. One implementation.
         chain = DSP.applyBridgeOut(off, node, chain, {
           barSec: barSec, beatSec: 60 / jOut.bridgeBpm, brAt: brAt, fadeSec: fadeSec,
@@ -722,6 +724,7 @@
         if (jOut && jOut.fill) {
           var fillBuf = await DSP.buildBeatFill({
             source: buf, atSec: pt.sourceToSec, beats: jOut.fill.beats,
+            patternId: jOut.settings.drumPattern || 'auto',
             // the record's own bar grid, so each repeat lands on a downbeat
             downbeatSec: (project.tracks[i] || {}).downbeatSec || 0,
             fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
@@ -735,10 +738,14 @@
             var fn = Math.min(gapN, fillBuf.length);
             for (var fk = 0; fk < fn; fk++) { gl[fk] = fL[fk]; gr[fk] = fR[fk]; }
             report.fills = report.fills || [];
+            jOut.fill.patternName = fillBuf.matchedName || null;
             report.fills.push({
               junction: i, beats: jOut.fill.beats,
               fromBpm: +jOut.fill.fromBpm.toFixed(2), toBpm: +jOut.fill.toBpm.toFixed(2),
-              sec: +(fn / sr).toFixed(2)
+              sec: +(fn / sr).toFixed(2),
+              pattern: fillBuf.matchedPattern || null,
+              patternName: fillBuf.matchedName || null,
+              matchScore: fillBuf.matchScore
             });
           } else {
             report.warnings.push({

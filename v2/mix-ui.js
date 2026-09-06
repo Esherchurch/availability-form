@@ -426,11 +426,6 @@
      A track whose markers are sane is never touched — this fires only on one
      that cannot play. Returns a list of what it changed, or null. */
   function repairRange(t, mono, sr, cachedContentEnd) {
-    // Does a bridge follow this track? Only then does the mix-out have to sit
-    // where there is still a beat to carry.
-    var myIdx = project.tracks.indexOf(t);
-    var jAfter = myIdx >= 0 ? (project.junctions || [])[myIdx] : null;
-    var bridgesOut = !!(jAfter && jAfter.type !== 'blend' && jAfter.type !== 'hard-cut');
 
     var contentEnd = (cachedContentEnd != null && isFinite(cachedContentEnd))
       ? cachedContentEnd
@@ -483,7 +478,6 @@
          set broken: they were 1.9s and 2.9s out, comfortably inside the
          tolerance and both squarely in the silence. A blend does not care —
          it is already fading — so the tighter limit is not applied to one. */
-      var strong = DSP.lastStrongSec(mono, sr);
       var floor = (t.entrySec || 0) + MIN_PLAYABLE_SEC;
 
       var limit = null, why = '';
@@ -491,12 +485,13 @@
         limit = contentEnd;
         why = 'it was ' + (t.exitSec - contentEnd).toFixed(1) + 's past the end of the music';
       }
-      if (bridgesOut && isFinite(strong) && strong > floor && t.exitSec > strong &&
-          (limit == null || strong < limit)) {
-        limit = strong;
-        why = 'it was ' + (t.exitSec - strong).toFixed(1) + 's into the fade-out, ' +
-              'and the bridge after it needs a beat to carry';
-      }
+      /* There used to be a second limit here for bridges: the mix-out was
+         pulled back to lastStrongSec because the bridge took its beat from the
+         record's last bars, and a fade has no beat in it. The fill plays a
+         drum kit now, so it needs nothing from the record — and moving a
+         mix-out somebody placed deliberately, to serve a mechanism that no
+         longer exists, is just overruling them. The only limit left is the
+         absolute one above: never past the end of the music. */
 
       if (limit != null) {
         var wasExit = t.exitSec;
@@ -1007,6 +1002,10 @@
         [['throw', 'Cut + reverb throw'], ['fade', 'Filter fade']]) +
       jf('Reverb tail (bars)', 'reverbBars', s.reverbBars == null ? 2 : s.reverbBars, 0.5, 0.5, 8) +
       jf('Drums between (beats)', 'beatBeats', fillBeatsOfUI(s), 4, 4, 256) +
+      jsel('Drum pattern', 'drumPattern', s.drumPattern || 'auto',
+           [['auto', 'Match the song']].concat(DSP.drumPatterns().map(function (p) {
+             return [p.id, p.name];
+           }))) +
       jsel('Beat isolation', 'isolation', s.isolation || 'eq',
         [['eq', 'EQ filter — clean'], ['sep', 'Separation — aggressive']]) +
       jf('Mids cut (dB)', 'midCutDb', s.midCutDb == null ? 24 : s.midCutDb, 1, 6, 40) +
@@ -2407,7 +2406,8 @@
             return '<div class="rep-row">' +
               '<span class="n">' + (t.index + 1) + '</span>' +
               '<span class="t">' + esc(t.title) + '</span>' +
-              '<span class="m">' + (b.fill ? b.fill.beats + ' beats of drums between the records'
+              '<span class="m">' + (b.fill ? b.fill.beats + ' beats of drums between the records' +
+                                                    (b.fill.patternName ? ' · ' + b.fill.patternName : '')
                                                   : b.beatBars + ' bars of beat from ' + fmt(b.brAtSec)) + '</span>' +
               '<span class="m">' + esc(b.note) + '</span>' +
               (b.zeroOverlap ? '<span class="pill">no overlap</span>' : '') +

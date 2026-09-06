@@ -143,7 +143,12 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   ok(Math.abs(out.durSec - out.plannedSec) < 0.05,
      'the fill is exactly as long as the plan said it would be',
      out.durSec + 's vs ' + out.plannedSec + 's');
-  ok(out.worstHole < 0.15, 'the beat never drops out', 'longest quiet run ' + out.worstHole + 's');
+  /* A drum kit is silent between hits — that is what makes it a drum kit. The
+     old threshold of 0.15s came from the fill being a filtered record, which
+     had music running underneath it the whole time. What matters now is that
+     the pulse never stops: no gap longer than a bar at the slowest tempo. */
+  ok(out.worstHole < 1.0, 'the beat keeps coming, never a bar of nothing',
+     'longest quiet run ' + out.worstHole + 's');
   out.pts.forEach(p => ok(Math.abs(p.got - p.want) < 3,
     'tempo at ' + p.at + 's is where it should be', p.got + ' vs ' + p.want));
   ok(out.pts[2].got - out.pts[0].got > 20, 'the tempo genuinely travels across the fill',
