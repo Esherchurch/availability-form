@@ -701,6 +701,85 @@
       }
 
       var bodyEnd = Math.max(0, n - outOverlap);
+
+      /* ---- the beat fill, built before this record is written.
+
+         It has three parts. The PRE-ROLL plays under this record's last beats
+         while the record fades out, so the drums are already going when it
+         hands over. The GAP is the bars between the records. The CARRY plays
+         under the next record until its own drums arrive.
+
+         Building it here rather than in the gap branch below is the whole
+         point: by the time that branch runs, this record's samples have
+         already gone to the file, and the pre-roll has nothing left to sit
+         under. Despacito stopping dead and the drums starting cold was exactly
+         that — two hard edges, no handover. */
+      var fillGap = null, fillCarry = null, fillInfo = null;
+      if (jOut && jOut.fill && gapN > 0) {
+        var nextBuf = buffers.get(plan.tracks[i + 1] ? plan.tracks[i + 1].id : null);
+        var overBeats = 0, drumsIn = 0;
+        if (nextBuf) {
+          drumsIn = DSP.drumsInSec(DSP.toMono(nextBuf), sr,
+                                   plan.tracks[i + 1].sourceFromSec || 0, 32);
+          if (drumsIn > 0.3) overBeats = Math.ceil(drumsIn / (60 / jOut.fill.toBpm)) + 2;
+        }
+        var preBeats = jOut.settings.preBeats == null ? 8 : jOut.settings.preBeats;
+        // never longer than the record has left
+        preBeats = Math.max(0, Math.min(preBeats, Math.floor(bodyEnd / sr / (60 / jOut.fill.fromBpm)) - 1));
+
+        var fb = await DSP.buildBeatFill({
+          source: buf, atSec: pt.sourceToSec, beats: jOut.fill.beats,
+          overBeats: overBeats, preBeats: preBeats,
+          patternId: jOut.settings.drumPattern || 'auto',
+          downbeatSec: (project.tracks[i] || {}).downbeatSec || 0,
+          fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
+          midCutDb: jOut.settings.midCutDb, highCutDb: jOut.settings.highCutDb,
+          sampleRate: sr
+        });
+
+        if (fb) {
+          var bL = fb.getChannelData(0);
+          var bR = fb.numberOfChannels > 1 ? fb.getChannelData(1) : bL;
+          var preN = Math.min(bodyEnd, Math.round(fb.preSec * sr));
+          var gapEnd = preN + Math.min(gapN, fb.length - preN);
+
+          /* The pre-roll, summed under this record's last beats, and the
+             record itself taken down over the second half of them so the two
+             cross rather than one replacing the other. */
+          var recStart = bodyEnd - preN;
+          for (var pk = 0; pk < preN; pk++) {
+            var w = pk / Math.max(1, preN);
+            var duck = w < 0.5 ? 1 : 1 - 0.92 * ((w - 0.5) / 0.5);
+            L[recStart + pk] *= duck;
+            R[recStart + pk] *= duck;
+            L[recStart + pk] += bL[pk];
+            R[recStart + pk] += bR[pk];
+          }
+
+          fillGap = [bL.slice(preN, gapEnd), bR.slice(preN, gapEnd)];
+          if (fb.length > gapEnd) fillCarry = [bL.slice(gapEnd), bR.slice(gapEnd)];
+          jOut.fill.patternName = fb.matchedName || null;
+          fillInfo = {
+            junction: i, beats: jOut.fill.beats,
+            fromBpm: +jOut.fill.fromBpm.toFixed(2), toBpm: +jOut.fill.toBpm.toFixed(2),
+            sec: +((gapEnd - preN) / sr).toFixed(2),
+            pattern: fb.matchedPattern || null, patternName: fb.matchedName || null,
+            matchScore: fb.matchScore,
+            preSec: +(preN / sr).toFixed(2),
+            carriedSec: fillCarry ? +(fillCarry[0].length / sr).toFixed(2) : 0,
+            nextDrumsInSec: +drumsIn.toFixed(2)
+          };
+          report.fills = report.fills || [];
+          report.fills.push(fillInfo);
+        } else {
+          report.warnings.push({
+            junction: i,
+            message: 'Could not build the beat fill after "' + pt.title +
+                     '", so the junction is a gap.'
+          });
+        }
+      }
+
       // Peak is taken AFTER overlays are mixed in, below, or a sample pushing
       // the mix past full scale would not be counted.
       mixOverlays(overlays, absPos, L, R, bodyEnd);
@@ -718,65 +797,16 @@
       } else if (gapN > 0) {
         var gl = new Float32Array(gapN), gr = new Float32Array(gapN);
 
-        /* The bars between the records. Built from THIS record's own last bars
-           so the beat that carries on is the beat that was playing, with the
-           tempo walking to whatever the next record needs. */
-        if (jOut && jOut.fill) {
-          /* How long the next record takes to get its own drums going. The fill
-             keeps playing under it until then, so a record that opens on a pad
-             or a fade does not leave the hole the fill exists to prevent. */
-          var nextBuf = buffers.get(plan.tracks[i + 1].id);
-          var overBeats = 0, drumsIn = 0;
-          if (nextBuf) {
-            drumsIn = DSP.drumsInSec(DSP.toMono(nextBuf), sr,
-                                     plan.tracks[i + 1].sourceFromSec || 0, 32);
-            if (drumsIn > 0.3) overBeats = Math.ceil(drumsIn / (60 / jOut.fill.toBpm)) + 2;
-          }
-
-          var fillBuf = await DSP.buildBeatFill({
-            source: buf, atSec: pt.sourceToSec, beats: jOut.fill.beats,
-            overBeats: overBeats,
-            patternId: jOut.settings.drumPattern || 'auto',
-            // the record's own bar grid, so each repeat lands on a downbeat
-            downbeatSec: (project.tracks[i] || {}).downbeatSec || 0,
-            fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
-            midCutDb: jOut.settings.midCutDb, highCutDb: jOut.settings.highCutDb,
-            sampleRate: sr
-          });
-          if (fillBuf) {
-            var fL = fillBuf.getChannelData(0);
-            var fR = fillBuf.numberOfChannels > 1 ? fillBuf.getChannelData(1) : fL;
-            var fn = Math.min(gapN, fillBuf.length);
-            for (var fk = 0; fk < fn; fk++) { gl[fk] = fL[fk]; gr[fk] = fR[fk]; }
-
-            /* Whatever runs past the gap plays UNDER the next record, carried
-               on the same tail mechanism an overlap uses, so it is summed into
-               that record's head rather than written over it. */
-            if (fillBuf.length > fn) {
-              tail = [fL.slice(fn), fR.slice(fn)];
-              tailLen = fillBuf.length - fn;
-            }
-            report.fills = report.fills || [];
-            jOut.fill.patternName = fillBuf.matchedName || null;
-            report.fills.push({
-              junction: i, beats: jOut.fill.beats,
-              fromBpm: +jOut.fill.fromBpm.toFixed(2), toBpm: +jOut.fill.toBpm.toFixed(2),
-              sec: +(fn / sr).toFixed(2),
-              pattern: fillBuf.matchedPattern || null,
-              patternName: fillBuf.matchedName || null,
-              matchScore: fillBuf.matchScore,
-              carriedSec: +((fillBuf.length - fn) / sr).toFixed(2),
-              nextDrumsInSec: +drumsIn.toFixed(2)
-            });
-          } else {
-            report.warnings.push({
-              junction: i,
-              message: 'No usable bars to build the beat fill out of "' + pt.title +
-                       '", so the junction is a gap. Move its mix-out to somewhere ' +
-                       'the drums are still playing.'
-            });
-          }
+        /* The gap samples were prepared before this record was written, because
+           the fill's pre-roll has to be mixed UNDER its last beats. */
+        if (fillGap) {
+          var gn = Math.min(gapN, fillGap[0].length);
+          for (var fk = 0; fk < gn; fk++) { gl[fk] = fillGap[0][fk]; gr[fk] = fillGap[1][fk]; }
         }
+        /* Whatever is left plays under the next record, on the same tail
+           mechanism an overlap uses, so it is summed into that record's head
+           rather than written over it. */
+        if (fillCarry) { tail = fillCarry; tailLen = fillCarry[0].length; }
 
         mixOverlays(overlays, absPos, gl, gr, gapN);
         for (var pg = 0; pg < gapN; pg++) {

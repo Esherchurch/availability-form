@@ -1065,7 +1065,8 @@ onmessage = e => {
       hint: 'disco, house, most things with a straight pulse',
       kick:  [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
       snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
-      hat:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
+      hat:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+      snareAmp: 0.16, hatAmp: 0.11 },
 
     { id: 'backbeat', name: 'Straight backbeat',
       hint: 'rock and pop: kick on one and three, snare on two and four',
@@ -1109,29 +1110,43 @@ onmessage = e => {
      hand means a hit can start at any sample rather than being quantised to
      whatever the graph's scheduling allows. */
 
+  /* A dance kick, not a drummer's. The first version swept 115 to 45 Hz and
+     was gone in 85 ms with a click on the front — an acoustic bass drum, which
+     is exactly what it sounded like against a dance record. This one drops
+     faster and further, holds a sub underneath it, and has almost no click:
+     what carries a floor is weight, not attack. */
   function addKick(out, at, sr, amp) {
-    var n = Math.min(out.length - at, Math.floor(sr * 0.30));
+    var n = Math.min(out.length - at, Math.floor(sr * 0.55));
+    var phase = 0, subPhase = 0;
     for (var i = 0; i < n; i++) {
       var t = i / sr;
-      // pitch drops from 115 Hz to 45: the thump, then the body
-      var f = 45 + 70 * Math.exp(-t / 0.035);
-      var env = Math.exp(-t / 0.085);
-      var click = Math.exp(-t / 0.0015) * 0.35;
-      out[at + i] += amp * (Math.sin(2 * Math.PI * f * t) * env + click);
+      // 95 Hz down to 38 in about 25 ms, then it sits there and rings
+      var f = 38 + 57 * Math.exp(-t / 0.022);
+      phase += 2 * Math.PI * f / sr;
+      subPhase += 2 * Math.PI * 41 / sr;
+      var body = Math.sin(phase) * Math.exp(-t / 0.20);
+      var sub  = Math.sin(subPhase) * Math.exp(-t / 0.13) * 0.55;
+      var click = Math.exp(-t / 0.0009) * 0.10;
+      out[at + i] += amp * (body + sub + click);
     }
   }
 
+  /* Closer to a clap than a snare drum: darker, shorter, and well down in the
+     balance. A bright cracking snare on every other beat is the sound of a live
+     kit, and a live kit under a dance record is the thing that sounded wrong.
+     Patterns that want none at all set their snare level to zero. */
   function addSnare(out, at, sr, amp, rnd) {
-    var n = Math.min(out.length - at, Math.floor(sr * 0.22));
-    var hp = 0, prev = 0;
+    if (amp <= 0) return;
+    var n = Math.min(out.length - at, Math.floor(sr * 0.16));
+    var hp = 0, prev = 0, lp = 0;
     for (var i = 0; i < n; i++) {
       var t = i / sr;
-      var env = Math.exp(-t / 0.055);
+      var env = Math.exp(-t / 0.038);
       var noise = rnd() * 2 - 1;
-      // one-pole high pass, so it cracks rather than thuds
-      hp = 0.72 * (hp + noise - prev); prev = noise;
-      var body = Math.sin(2 * Math.PI * 190 * t) * Math.exp(-t / 0.045) * 0.5;
-      out[at + i] += amp * (hp * env * 0.9 + body);
+      hp = 0.55 * (hp + noise - prev); prev = noise;   // darker than before
+      lp += (hp - lp) * 0.45;                          // and rolled off on top
+      var body = Math.sin(2 * Math.PI * 170 * t) * Math.exp(-t / 0.030) * 0.35;
+      out[at + i] += amp * (lp * env * 0.8 + body);
     }
   }
 
@@ -1332,10 +1347,19 @@ onmessage = e => {
     /* Beats played UNDER the next record, after the ramp has arrived at its
        tempo — held there, because by then the tempo has nowhere left to go. */
     var over = Math.max(0, Math.round(opts.overBeats || 0));
+    /* Beats played UNDER the outgoing record, before its mix-out, so the drums
+       are already going when it hands over. Without these the record simply
+       stops and the drums simply start — two hard edges where there should be
+       one handover. They run at the outgoing record's tempo, because that is
+       what is still playing over them. */
+    var pre = Math.max(0, Math.round(opts.preBeats || 0));
     var pat = opts.pattern || DRUM_PATTERNS[0];
-    var tempos = fillTempos(beats, opts.fromBpm, opts.toBpm);
+    var tempos = [];
+    for (var pb = 0; pb < pre; pb++) tempos.push(opts.fromBpm);
+    var ramp = fillTempos(beats, opts.fromBpm, opts.toBpm);
+    for (var ri = 0; ri < ramp.length; ri++) tempos.push(ramp[ri]);
     for (var ob = 0; ob < over; ob++) tempos.push(opts.toBpm);
-    beats = beats + over;
+    beats = pre + beats + over;
     var totalSec = tempos.reduce(function (s, bpm) { return s + 60 / bpm; }, 0);
     var n = Math.round(totalSec * sr) + Math.floor(sr * 0.3);   // room for the last tail
     var out = new Float32Array(n);
@@ -1352,9 +1376,15 @@ onmessage = e => {
         if (pos >= n) break;
         // a touch of swing-free human weight: downbeats louder
         var accent = (step === 0) ? 1 : (step % 4 === 0 ? 0.92 : 0.8);
-        if (pat.kick[step])  addKick(out, pos, sr, 0.95 * accent);
-        if (pat.snare[step]) addSnare(out, pos, sr, 0.62 * accent, rnd);
-        if (pat.hat[step])   addHat(out, pos, sr, 0.20 * accent, false, rnd);
+        /* How loud each voice is, per pattern. A four-on-the-floor wants
+           almost no snare — the kick is the whole point of it — where a
+           backbeat is defined by the thing on two and four. */
+        var kAmp = pat.kickAmp == null ? 1 : pat.kickAmp;
+        var sAmp = pat.snareAmp == null ? 0.34 : pat.snareAmp;
+        var hAmp = pat.hatAmp == null ? 0.14 : pat.hatAmp;
+        if (pat.kick[step])  addKick(out, pos, sr, 0.95 * kAmp * accent);
+        if (pat.snare[step]) addSnare(out, pos, sr, sAmp * accent, rnd);
+        if (pat.hat[step])   addHat(out, pos, sr, hAmp * accent, false, rnd);
       }
       at += beatSec * sr;
     }
@@ -1365,8 +1395,16 @@ onmessage = e => {
     var want = Math.round(totalSec * sr);
     var buf = new Float32Array(want);
     buf.set(out.subarray(0, want));
-    var inN = Math.round(sr * 0.03);
-    for (var k = 0; k < inN && k < want; k++) buf[k] *= k / inN;
+    /* In across the pre-beats rather than in 30 ms. The record is still
+       playing over them, so the drums arrive underneath it and are already
+       established by the time it goes. */
+    var preSec = 0;
+    for (var pi2 = 0; pi2 < pre; pi2++) preSec += 60 / tempos[pi2];
+    var inN = pre > 0 ? Math.round(preSec * sr) : Math.round(sr * 0.03);
+    for (var k = 0; k < inN && k < want; k++) {
+      var g0v = k / inN;
+      buf[k] *= g0v * g0v;                      // slow at first, then up
+    }
 
     /* Under the record it steps back — it is accompaniment from that point,
        not the main event — and then goes out over the last four beats, by
@@ -1477,8 +1515,10 @@ onmessage = e => {
     if (!chosen) chosen = DRUM_PATTERNS[0];
 
     var overBeats = Math.max(0, Math.round(opts.overBeats || 0));
+    var preBeats = Math.max(0, Math.round(opts.preBeats || 0));
     var pcm = synthDrumFill({
-      beats: beats, overBeats: overBeats, fromBpm: fromBpm, toBpm: toBpm,
+      beats: beats, overBeats: overBeats, preBeats: preBeats,
+      fromBpm: fromBpm, toBpm: toBpm,
       pattern: chosen, sampleRate: sr, seed: opts.seed || 20260919
     });
 
@@ -1557,8 +1597,10 @@ onmessage = e => {
     buf.matchedName = chosen.name;
     /* Where the next record starts: everything before this goes in the gap
        between the records, everything after plays underneath the next one. */
+    buf.preSec = preBeats * (60 / fromBpm);
     buf.gapSec = beatFillSec(beats, fromBpm, toBpm);
     buf.overBeats = overBeats;
+    buf.preBeats = preBeats;
     buf.matchScore = match ? +match.score.toFixed(2) : null;
     return Promise.resolve(buf);
   }
