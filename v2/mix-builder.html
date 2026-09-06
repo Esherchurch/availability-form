@@ -287,6 +287,21 @@
     touch-action:none;                 /* so a drag is a drag, not a scroll */
   }
   .place-strip:active{ cursor:grabbing; }
+  .transport{ align-items:center; gap:8px; }
+  .transport input[type=range]{ accent-color:#3d6263; height:24px; }
+  /* Playhead, in/out and the section between them. */
+  .tl-inner{ position:relative; }
+  .tl-ph{ position:absolute; top:0; bottom:0; width:2px; background:#14201f;
+          pointer-events:none; z-index:6; display:none; }
+  .tl-ph::before{ content:''; position:absolute; top:0; left:-5px;
+          border-left:6px solid transparent; border-right:6px solid transparent;
+          border-top:8px solid #14201f; }
+  .tl-in,.tl-out{ position:absolute; top:0; bottom:0; width:2px; background:#b07d2e;
+          pointer-events:none; z-index:5; display:none; }
+  .tl-out{ background:#b0392c; }
+  .tl-range{ position:absolute; top:0; bottom:0; background:rgba(176,125,46,.14);
+          pointer-events:none; z-index:1; display:none; }
+  .tl-ruler{ cursor:text; }
 </style>
 </head>
 <body>
@@ -402,10 +417,22 @@
       <button id="renderBtn">Render the whole set</button>
       <button class="ghost" id="cancelRenderBtn" disabled>Cancel</button>
       <button class="ghost" id="downloadMixBtn" disabled>Download WAV</button>
-      <button class="ghost" id="playMixBtn" disabled>▶ Play it</button>
-      <button class="ghost" id="playRangeBtn">▶ Render this range and play it</button>
-      <button class="ghost stop-all" data-act="stop-all" disabled>■ Stop</button>
+      <button class="ghost" id="playRangeBtn">Render this range and play it</button>
     </div>
+    <div class="row transport" id="mixTransport">
+      <button id="previewBtn">▶ Play the mix</button>
+      <button class="ghost" id="previewStopBtn">■ Stop</button>
+      <input type="range" id="mixScrub" min="0" max="2000" value="0" step="1"
+             title="Drag to move the cursor" style="flex:1;min-width:240px">
+      <span class="hint" id="mixPos" style="margin:0;min-width:130px">0:00 / 0:00</span>
+    </div>
+    <div class="row"><span class="hint" style="margin:0">
+      Click the <strong>ruler</strong> along the top of the timeline to put the cursor, and drag along it to mark a section — press play and it plays just that. Plays the set as it is arranged — records, the drums between
+      them and anything placed over them — without rendering anything. A track that needs
+      stretching is played at a different speed here, which moves its pitch by the same couple
+      of percent a pitch fader would; the render holds the pitch instead. Use this to hear where
+      everything lands, and render when you want the finished sound.
+    </span></div>
     <div id="renderProgress" class="hidden">
       <div class="bar"><div class="bar-fill" id="renderBar"></div></div>
     </div>
@@ -427,6 +454,7 @@
 <script src="mix-dsp.js"></script>
 <script src="mix-project.js"></script>
 <script src="mix-render.js"></script>
+<script src="mix-preview.js"></script>
 <script src="mix-desktop.js"></script>
 <script src="mix-ui.js"></script>
 <script>

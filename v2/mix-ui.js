@@ -15,6 +15,10 @@
   'use strict';
 
   var DSP = global.MixDSP, MP = global.MixProject;
+  /* The renderer and the live transport. doRender() had its own local
+     handle on MixRender; the preview needs the plan too, so it is one
+     name for both rather than two. */
+  var MR = global.MixRender, MixPreview = global.MixPreview;
   var AC = global.AudioContext || global.webkitAudioContext;
 
   var ctx = null;                 // AudioContext, created on first user gesture
@@ -99,7 +103,13 @@
     });
   }
 
-  function touch() { recompute(); pruneSegments(); save(); renderAll(); }
+  function touch() {
+    recompute(); pruneSegments(); save(); renderAll();
+    /* The preview is built from the plan, so any edit makes it stale. It is
+       rebuilt on the next press rather than now — rebuilding on every
+       keystroke would synthesise drums for a number half typed. */
+    fillCache.clear();
+  }
 
   /* ------------------------------------------------------- intake --- */
 
@@ -560,6 +570,132 @@
 
   /* ------------------------------------------------------ timeline --- */
 
+  /* ------------------------------------------- timeline transport ---
+     Lifted from Videoeditor.html, which has driven a timeline this way from
+     the start: mousedown puts the cursor where you clicked, dragging on the
+     ruler marks a section, and playing starts from the cursor. The names are
+     its names — timeFromMouse, seek, setInPoint, updateInOutMarkers — because
+     the behaviour is the same behaviour and calling it something else would
+     only hide where it came from.
+
+     The one change is the geometry. That editor lays its timeline out in
+     pixels at a zoom of so many pixels per second; this one lays it out in
+     percentages of the whole set. So the mapping from a mouse position to a
+     time differs, and nothing else does. */
+
+  var S_in = null, S_out = null;
+  var seekPending = null;
+
+  /* Move the cursor. The preview is built the first time it is needed rather
+     than on load, because building it synthesises the drums for every junction
+     and there is no reason to do that until someone wants to hear something. */
+  async function seekMix(sec) {
+    if (!preview || !preview.duration()) {
+      if (seekPending != null) { seekPending = sec; return; }
+      seekPending = sec;
+      try { await buildPreviewIfPossible(); } catch (e) {}
+      var want = seekPending; seekPending = null;
+      if (preview && preview.duration()) { preview.seek(want); updatePH(); }
+      return;
+    }
+    preview.seek(sec);
+    updatePH();
+  }
+
+  function tlInner() { return document.querySelector('#timeline .tl-inner'); }
+
+  function timeFromMouse(e) {
+    var inner = tlInner();
+    if (!inner || !lay) return 0;
+    var rect = inner.getBoundingClientRect();
+    var total = lay.totalSec || 1;
+    return Math.max(0, Math.min(total, (e.clientX - rect.left) / rect.width * total));
+  }
+
+  function pctOf(sec) {
+    var total = (lay && lay.totalSec) || 1;
+    return Math.max(0, Math.min(100, sec / total * 100));
+  }
+
+  function updatePH() {
+    var ph = $('tlPlayhead');
+    if (!ph) return;
+    var at = preview ? preview.at() : 0;
+    ph.style.left = pctOf(at) + '%';
+    ph.style.display = 'block';
+  }
+
+  function updateInOutMarkers() {
+    var im = $('tlIn'), om = $('tlOut'), rng = $('tlRange');
+    if (!im) return;
+    if (S_in !== null) { im.style.display = 'block'; im.style.left = pctOf(S_in) + '%'; }
+    else im.style.display = 'none';
+    if (S_out !== null) { om.style.display = 'block'; om.style.left = pctOf(S_out) + '%'; }
+    else om.style.display = 'none';
+    if (S_in !== null && S_out !== null && rng) {
+      rng.style.display = 'block';
+      rng.style.left = pctOf(S_in) + '%';
+      rng.style.width = Math.max(0, pctOf(S_out) - pctOf(S_in)) + '%';
+    } else if (rng) rng.style.display = 'none';
+  }
+
+  function setInPoint() {
+    S_in = preview ? preview.at() : 0;
+    if (S_out !== null && S_in >= S_out) S_out = null;
+    updateInOutMarkers();
+    setStatus('In point at ' + fmt(S_in) + '.');
+  }
+  function setOutPoint() {
+    S_out = preview ? preview.at() : 0;
+    if (S_in !== null && S_out <= S_in) S_in = null;
+    updateInOutMarkers();
+    setStatus('Out point at ' + fmt(S_out) + '.');
+  }
+  function clearInOut() {
+    S_in = null; S_out = null;
+    updateInOutMarkers();
+    setStatus('Section cleared — playing runs to the end.');
+  }
+
+  /* mousedown on the timeline. On the ruler a drag marks a section; anywhere
+     else it moves the cursor and keeps moving it while the button is down. */
+  function wireTimelineTransport() {
+    var el = $('timeline');
+    if (!el || el.dataset.transportWired) return;
+    el.dataset.transportWired = '1';
+
+    el.addEventListener('mousedown', function (e) {
+      if (e.target.closest('.tl-track, .tl-junction, button')) return;
+      var onRuler = !!e.target.closest('.tl-ruler');
+      var startT = timeFromMouse(e);
+      var moved = false;
+      if (!onRuler) seekMix(startT);
+
+      function mm(ev) {
+        var t = timeFromMouse(ev);
+        if (Math.abs(ev.clientX - e.clientX) > 5) {
+          moved = true;
+          if (onRuler) {
+            S_in = Math.min(startT, t); S_out = Math.max(startT, t);
+            updateInOutMarkers();
+          } else seekMix(t);
+        } else if (!onRuler) seekMix(t);
+      }
+      function mu() {
+        window.removeEventListener('mousemove', mm);
+        window.removeEventListener('mouseup', mu);
+        if (onRuler && !moved) { seekMix(startT); }
+        if (onRuler && moved) {
+          setStatus('Section marked: ' + fmt(S_in) + ' to ' + fmt(S_out) +
+                    '. Press play and it plays just that.');
+        }
+      }
+      window.addEventListener('mousemove', mm);
+      window.addEventListener('mouseup', mu);
+      e.preventDefault();
+    });
+  }
+
   function renderTimeline() {
     var el = $('timeline');
     if (!lay || !lay.tracks.length) {
@@ -568,8 +704,17 @@
       return;
     }
     var total = lay.totalSec || 1;
-    var html = '<div class="tl-scroll"><div style="width:' + tlZoom + '%">' +
-               '<div class="tl-ruler">' + rulerHtml(total) + '</div><div class="tl-body">';
+    var html = '<div class="tl-scroll"><div class="tl-inner" style="width:' + tlZoom + '%">' +
+               '<div class="tl-ruler">' + rulerHtml(total) + '</div>' +
+               /* Playhead, in/out markers and the range between them — the same
+                  four elements Videoeditor.html carries, positioned the same
+                  way, because that timeline has been driven like this all
+                  along and there is nothing to invent. */
+               '<div class="tl-range" id="tlRange"></div>' +
+               '<div class="tl-in" id="tlIn"></div>' +
+               '<div class="tl-out" id="tlOut"></div>' +
+               '<div class="tl-ph" id="tlPlayhead"></div>' +
+               '<div class="tl-body">';
 
     lay.tracks.forEach(function (lt, i) {
       var t = project.tracks[i];
@@ -2433,6 +2578,14 @@
   /* -------------------------------------------------- full render --- */
 
   var lastMix = null, cancelRender = false, rendering = false;
+  var preview = null, scrubbing = false;
+
+  function buildPreviewIfPossible() {
+    var linked = project.tracks.filter(function (t) { return buffers.has(t.id); }).length;
+    if (!linked || !window.__buildPreview) return Promise.resolve(0);
+    return window.__buildPreview();
+  }
+  var fillCache = new Map();      // junction key -> synthesised drums
 
   function fmtEta(s) {
     if (s == null || !isFinite(s)) return '';
@@ -2451,7 +2604,8 @@
     $('renderRangeBtn').disabled = true;
     $('cancelRenderBtn').disabled = false;
     $('downloadMixBtn').disabled = true;
-    $('playMixBtn').disabled = true;
+    /* The old Play-the-file button is gone; the transport plays the mix
+       directly and Render-and-play plays what it just made. */
     $('renderProgress').classList.remove('hidden');
     $('renderReport').innerHTML = '';
     $('renderBar').style.width = '0%';
@@ -2476,7 +2630,7 @@
       lastMix.decoded = null;      // filled in the first time it is played
       $('renderBar').style.width = '100%';
       $('downloadMixBtn').disabled = false;
-      $('playMixBtn').disabled = false;
+
       renderSay('Rendered ' + fmt(res.report.durationSec) + ' — ' +
         (res.blob.size / 1048576).toFixed(0) + ' MB. ' +
         (res.report.gainDb ? 'Peak was ' + res.report.peak.toFixed(2) + ', pulled down ' +
@@ -2624,56 +2778,172 @@
       a.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
     };
-    /* Play what was just rendered.
+    /* ---- the live transport.
 
-       This used to refuse and tell you to download the file instead, on the
-       grounds that an 80-minute buffer is too big to decode. That is true of a
-       whole set and false of everything else — a range of two or three tracks
-       is a few minutes, decodes in about a second, and is exactly what anyone
-       auditioning a junction has rendered. So the refusal stood between you and
-       the one thing you wanted: hearing a section, with its drums, its fills
-       and any samples placed over it, without leaving the program.
+       The mix does not have to be rendered to be heard. The plan already says
+       where every track starts, which part of it plays and what tempo it
+       needs, and the drums between two records are a few hundred milliseconds
+       of synthesis. Nothing has to be bounced for any of that to be started at
+       the right moment — Videoeditor.html has driven a timeline this way all
+       along, and mix-preview.js is that transport with buffers in place of
+       <audio> elements.
 
-       Big renders are still refused, but with the honest reason and the way
-       round it. */
-    $('playMixBtn').onclick = async function () {
-      if (!lastMix) return;
-      var sec = lastMix.report && lastMix.report.durationSec;
-      if (!sec && lastMix.blob) sec = lastMix.blob.size / (48000 * 2 * 2);
-      if (sec > 20 * 60) {
-        renderSay('That render is ' + Math.round(sec / 60) + ' minutes — too long to hold in ' +
-          'memory for playback. Render a range of a few tracks instead and this will play it.');
-        return;
-      }
-      try {
-        var buf = lastMix.decoded;
-        if (!buf) {
-          renderSay('Decoding for playback…');
-          var ab = await lastMix.blob.arrayBuffer();
-          buf = await audioCtx().decodeAudioData(ab);
-          lastMix.decoded = buf;   // the analyser keeps its render as a buffer
-                                   // and plays it straight; this is the same
-                                   // thing, once the streamed WAV is back.
+       What was here before rendered a range and then played the file. That is
+       still worth doing to hear the finished sound, because the render holds
+       pitch where the preview moves it, but it is the wrong thing to have to
+       do before you can put a cursor somewhere and press play. */
+
+    window.__buildPreview = function () { return buildPreview(); };
+
+    async function buildPreview() {
+      if (!preview) preview = MixPreview.create({ ctx: audioCtx(), DSP: DSP,
+        onTick: function (t, d) {
+          showPos(t, d);
+          updatePH();
+          /* Stop at the out point, so a marked section plays as a section. */
+          if (S_out != null && preview.isPlaying() && t >= S_out) {
+            preview.pause();
+            preview.seek(S_in != null ? S_in : S_out);
+            updatePH();
+          }
+        } });
+
+      var plan = MR.buildPlan(project);
+      var extra = [];
+
+      /* The drums between the records, synthesised now and kept, so moving the
+         cursor around does not rebuild them. */
+      for (var k = 0; k < plan.junctions.length; k++) {
+        var j = plan.junctions[k];
+        if (!j.fill) continue;
+        var a = plan.tracks[k], b = plan.tracks[k + 1];
+        var srcBuf = buffers.get(a.id);
+        if (!srcBuf || !b) continue;
+        var key = MP.junctionCacheKey(project, k) + '|preview';
+        var fill = fillCache.get(key);
+        if (!fill) {
+          var nextBuf = buffers.get(b.id);
+          var over = 0;
+          var s = j.settings || {};
+          if ((s.carryMode || 'auto') === 'fixed') over = s.overBeats == null ? 8 : s.overBeats;
+          else if (nextBuf) {
+            var din = DSP.drumsInSec(DSP.toMono(nextBuf), audioCtx().sampleRate,
+                                     b.sourceFromSec || 0, 32);
+            if (din > 0.3) over = Math.ceil(din / (60 / j.fill.toBpm)) + 2;
+          }
+          fill = await DSP.buildBeatFill({
+            source: srcBuf, atSec: a.sourceToSec,
+            downbeatSec: (project.tracks[k] || {}).downbeatSec || 0,
+            beats: j.fill.beats, overBeats: over,
+            preBeats: s.preBeats == null ? 8 : s.preBeats,
+            patternId: s.drumPattern || 'auto',
+            fromBpm: j.fill.fromBpm, toBpm: j.fill.toBpm,
+            gainDb: s.fillGainDb, lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
+            reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
+            sampleRate: audioCtx().sampleRate
+          });
+          if (fill) fillCache.set(key, fill);
         }
-        play(buf);
-        renderSay('Playing ' + fmt(buf.duration) + ' of the mix' +
-          (lastMix.fromTrack != null
-            ? ' — tracks ' + (lastMix.fromTrack + 1) + ' to ' + (lastMix.toTrack + 1)
-            : '') + '. Stop when you have heard enough.');
+        if (!fill) continue;
+        // the pre-roll sits under the outgoing record's last beats
+        var at = a.startSec + a.outSec - (fill.preSec || 0);
+        extra.push({ kind: 'fill', title: 'drums', fromSec: at,
+                     toSec: at + fill.duration, buffer: fill,
+                     offsetSec: 0, rate0: 1, rate1: 1, gain: 1 });
+      }
+
+      /* Samples placed over or between the records. */
+      (project.placements || []).forEach(function (p) {
+        var buf = sampleBuffers.get(p.sampleId);
+        var j = plan.junctions[p.atJunction];
+        var b = plan.tracks[p.atJunction + 1];
+        if (!buf || !j || !b) return;
+        var bpm = j.fill ? j.fill.toBpm : (j.targetBpm || 120);
+        var at = b.startSec - (p.barsBeforeEntry || 0) * (60 / bpm * 4);
+        extra.push({ kind: 'sample', title: p.sampleId,
+                     fromSec: Math.max(0, at), toSec: Math.max(0, at) + buf.duration,
+                     buffer: buf, offsetSec: 0, rate0: 1, rate1: 1,
+                     gain: Math.pow(10, (p.gainDb == null ? -8 : p.gainDb) / 20) });
+      });
+
+      var dur = preview.build(plan, buffers, extra);
+      return dur;
+    }
+
+    function showPos(t, d) {
+      var pos = $('mixPos'), sc = $('mixScrub');
+      if (pos) pos.textContent = fmt(t || 0) + ' / ' + fmt(d || 0);
+      if (sc && !scrubbing && d) sc.value = String(Math.round((t / d) * 2000));
+      var pb = $('previewBtn'), sb = $('previewStopBtn');
+      if (pb) pb.textContent = (preview && preview.isPlaying()) ? '❚❚ Pause' : '▶ Play the mix';
+      if (sb) sb.disabled = !preview || (!preview.isPlaying() && !(preview.at() > 0));
+    }
+
+    $('previewBtn').onclick = async function () {
+      if (preview && preview.isPlaying()) { preview.pause(); showPos(preview.at(), preview.duration()); return; }
+      var linked = project.tracks.filter(function (t) { return buffers.has(t.id); }).length;
+      if (!linked) { renderSay('Load the audio first and this will play the set as it stands.'); return; }
+      renderSay('Getting the drums ready…');
+      try {
+        var at = preview ? preview.at() : 0;
+        await buildPreview();
+        /* A marked section wins: that is what marking it was for. */
+        if (S_in != null && (at < S_in || (S_out != null && at >= S_out))) at = S_in;
+        preview.seek(at);
+        preview.play();
+        renderSay('Playing from ' + fmt(preview.at()) +
+          (S_in != null && S_out != null
+            ? ' — the marked section, ' + fmt(S_in) + ' to ' + fmt(S_out) : '') +
+          '. Click the timeline to move the cursor, drag the ruler to mark a section.');
       } catch (err) {
-        renderSay('Could not decode that render for playback: ' + (err.message || err));
+        renderSay('Could not start playback: ' + (err.message || err));
       }
     };
 
-    /* Render a range and play it, which is the whole of what auditioning a
-       section is: pick the tracks either side of the thing you want to hear,
-       press one button, listen. */
+    /* One Stop for this panel. It has to reach both transports: the live
+       preview, and the plain buffer playback that "render this range and play
+       it" uses. Stopping one and leaving the other running is how a Stop
+       button earns its reputation. */
+    $('previewStopBtn').onclick = function () {
+      stop();
+      if (preview) { preview.stop(); showPos(0, preview.duration()); }
+    };
+
+    var sc = $('mixScrub');
+    if (sc) {
+      sc.addEventListener('input', function () {
+        scrubbing = true;
+        if (!preview || !preview.duration()) return;
+        preview.seek((+sc.value / 2000) * preview.duration());
+      });
+      sc.addEventListener('change', async function () {
+        scrubbing = false;
+        if (!preview || !preview.duration()) {
+          var linked = project.tracks.filter(function (t) { return buffers.has(t.id); }).length;
+          if (!linked) return;
+          await buildPreview();
+          preview.seek((+sc.value / 2000) * preview.duration());
+        }
+        showPos(preview.at(), preview.duration());
+      });
+    }
+
+    /* Rendering a range and playing the file is still here: it is the only way
+       to hear the pitch as it will actually be. */
     var rp = $('playRangeBtn');
     if (rp) rp.onclick = async function () {
       var f = parseInt($('renderFrom').value, 10);
       var t = parseInt($('renderTo').value, 10);
       await doRender(isFinite(f) ? f - 1 : null, isFinite(t) ? t - 1 : null);
-      if (lastMix) $('playMixBtn').onclick();
+      if (!lastMix) return;
+      try {
+        var ab = await lastMix.blob.arrayBuffer();
+        var buf = await audioCtx().decodeAudioData(ab);
+        play(buf);
+        renderSay('Playing the rendered range — ' + fmt(buf.duration) + '.');
+      } catch (err) {
+        renderSay('Rendered, but could not decode it for playback: ' + (err.message || err));
+      }
     };
   }
 
@@ -2769,6 +3039,11 @@
 
   function renderAll() {
     renderTimeline();
+    /* The timeline is rebuilt from scratch each time, so the transport has to
+       be re-attached and the markers repainted onto the new elements. */
+    wireTimelineTransport();
+    updateInOutMarkers();
+    updatePH();
     renderTracks();
     renderJunctionEditor();
     renderBench();
