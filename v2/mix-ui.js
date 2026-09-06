@@ -722,7 +722,14 @@
           ' title="Or double-click anywhere on the waveform">▶ Play from entry</button>' +
         '<button class="ghost" data-act="play-exit" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
           '>▶ Play from mix-out</button>' +
-        '<button class="ghost" id="stopAllBtn" data-act="stop-all" disabled>■ Stop</button>' +
+        /* Enabled from whether anything is actually playing, not left disabled
+           and switched on by hand when playback starts. It used to be written
+           with the disabled attribute hard-coded, so ANY re-render while music was
+           going brought it back greyed out — and dragging a selection across
+           the waveform to cut a sample re-renders. The music carried on with
+           no way to stop it, which is exactly where it was reported. */
+        '<button class="ghost stop-all" data-act="stop-all"' +
+          (playing ? '' : ' disabled') + '>■ Stop</button>' +
         '<span class="hint" style="margin:0;flex:1;min-width:220px">' +
           '<strong>Double-click the waveform to hear from that point.</strong> ' +
           'Click sets the entry (gold), shift-click sets the mix-out (red). Both snap to the bar.' +
@@ -759,24 +766,31 @@
       return '<div class="samplecut">' +
         '<span class="lbl" style="margin:0 0 4px">Cut a sample</span>' +
         '<span class="region-hint">Drag across the waveform above to choose a hook, a stab or a ' +
-        'riser. The selection snaps to whole bars.</span></div>';
+        'riser. You get exactly what you drag — turn on <em>Snap to bars</em> below if you want ' +
+        'it rounded to whole bars instead.</span></div>';
     }
 
     return '<div class="samplecut on">' +
       '<div class="samplecut-head">' +
         '<span class="lbl" style="margin:0">Cut a sample</span>' +
-        '<span class="samplecut-range">' + sel.bars + ' bar' + (sel.bars === 1 ? '' : 's') +
+        '<span class="samplecut-range">' +
+          (sel.toSec - sel.fromSec).toFixed(2) + 's · ' +
+          (sel.bars >= 1 ? sel.bars.toFixed(2) + ' bars' : (sel.bars * 4).toFixed(2) + ' beats') +
           ' · from bar ' + startBar + ' · ' + fmtSec(sel.fromSec) + ' to ' + fmtSec(sel.toSec) +
         '</span>' +
       '</div>' +
       '<div class="row" style="margin-top:8px">' +
         '<input type="text" id="sampleName' + i + '" style="max-width:280px" ' +
           'placeholder="Name it — e.g. Sir Duke horns" value="' +
-          esc(t.title + ' ' + sel.bars + ' bars') + '">' +
+          esc(t.title + ' ' + (sel.toSec - sel.fromSec).toFixed(1) + 's') + '">' +
         '<label class="samplecut-check"><input type="checkbox" id="sampleDrums' + i + '"> ' +
           'Take the drums out</label>' +
         '<button data-act="cut-sample" data-track="' + i + '">Save to library</button>' +
         '<button class="ghost" data-act="play-sel" data-track="' + i + '">▶ Hear it</button>' +
+        '<button class="ghost stop-all" data-act="stop-all"' +
+          (playing ? '' : ' disabled') + '>■ Stop</button>' +
+        '<label class="samplecut-check"><input type="checkbox" data-act="snap-sel"' +
+          (snapSelection ? ' checked' : '') + '> Snap to bars</label>' +
         '<button class="ghost" data-act="clear-sel" data-track="' + i + '">Clear</button>' +
       '</div>' +
       '<span class="region-hint">Drums out uses separation, which is right for lifting a melodic ' +
@@ -1178,14 +1192,26 @@
     playing.buffer = buffer;
     playing.connect(audioCtx().destination);
     playing.start();
-    playing.onended = function () { if (!playhead.raf) return; stopPlayhead(); };
+    setStopEnabled(true);
+    playing.onended = function () {
+      playing = null;
+      setStopEnabled(false);
+      if (!playhead.raf) return;
+      stopPlayhead();
+    };
   }
 
   function stop() {
     if (playing) { try { playing.stop(); } catch (e) {} playing = null; }
     stopPlayhead();
-    var b = $('stopAllBtn');
-    if (b) b.disabled = true;
+    setStopEnabled(false);
+  }
+
+  /* There can be more than one of these on the page, and getElementById only
+     ever returns the first. */
+  function setStopEnabled(on) {
+    var list = document.querySelectorAll('.stop-all');
+    for (var i = 0; i < list.length; i++) list[i].disabled = !on;
   }
 
   /* ------------------------------------------------- audition --- */
@@ -1221,14 +1247,13 @@
     playing.buffer = buf;
     playing.connect(ctxx.destination);
     playing.start(0, from);
-    playing.onended = function () { stopPlayhead(); var b = $('stopAllBtn'); if (b) b.disabled = true; };
+    playing.onended = function () { playing = null; stopPlayhead(); setStopEnabled(false); };
 
     playhead.track = i;
     playhead.startCtxTime = ctxx.currentTime;
     playhead.offsetSec = from;
 
-    var btn = $('stopAllBtn');
-    if (btn) btn.disabled = false;
+    setStopEnabled(true);
     setStatus('Playing "' + t.title + '" from ' + fmtSec(from) + '. Stop when you have heard enough.');
 
     var tick = function () {
@@ -1432,6 +1457,13 @@
         }
         if (act === 'stop-all') { stop(); setStatus('Stopped.'); return; }
         if (act === 'cut-sample') { cutSample(i); return; }
+        if (act === 'snap-sel') {
+          snapSelection = !snapSelection;
+          renderAll();
+          setStatus(snapSelection ? 'Selections now round to whole bars.'
+                                  : 'Selections are exactly what you drag.');
+          return;
+        }
         if (act === 'clear-sel') { clearSelection(i); renderAll(); setStatus(''); return; }
         if (act === 'play-sel') {
           var ps = selectionFor(i);
@@ -1496,9 +1528,14 @@
       var at = function (x) {
         return Math.max(0, Math.min(t.durationSec, (x - r.left) / r.width * t.durationSec));
       };
+      /* Both ends snapped to bar lines here as well as in selectionFor, so
+         taking the rounding out of one still left the other: a drag could not
+         land anywhere but a bar line however it was made. Snapping is a choice
+         now, and it has to be the same choice in both places. */
+      var snap = function (sec) { return snapSelection ? snapToBar(t, sec) : sec; };
       selection = { track: dragSel.track,
-                    fromSec: snapToBar(t, at(dragSel.startX)),
-                    toSec: snapToBar(t, at(e.clientX)) };
+                    fromSec: snap(at(dragSel.startX)),
+                    toSec: snap(at(e.clientX)) };
       drawWave(dragSel.canvas, t);
     });
 
@@ -1968,11 +2005,12 @@
 
     var nameEl = $('sampleName' + trackIndex);
     var drumsEl = $('sampleDrums' + trackIndex);
-    var name = (nameEl && nameEl.value.trim()) || (t.title + ' ' + sel.bars + ' bars');
+    var lenSec = sel.toSec - sel.fromSec;
+    var name = (nameEl && nameEl.value.trim()) || (t.title + ' ' + lenSec.toFixed(1) + 's');
     var removeDrums = !!(drumsEl && drumsEl.checked);
     var opts = { removeDrums: removeDrums, removalAmount: 2, highPassHz: removeDrums ? 120 : 0 };
 
-    setStatus('Cutting ' + sel.bars + ' bars from "' + t.title + '"' +
+    setStatus('Cutting ' + lenSec.toFixed(2) + 's from "' + t.title + '"' +
               (removeDrums ? ', taking the drums out' : '') + '…');
     var raw = DSP.slice(audioCtx(), buf, sel.fromSec, sel.toSec - sel.fromSec);
     var prepared = await DSP.prepareSample(audioCtx(), raw, opts);
@@ -1989,8 +2027,9 @@
     clearSelection(trackIndex);
     await loadSamples();
     renderAll();
-    setStatus('Saved "' + name + '" to the sample library — ' + sel.bars + ' bars at ' +
-              meta.sourceBpm.toFixed(1) + ' BPM, ready to place at any junction.');
+    setStatus('Saved "' + name + '" to the sample library — ' + lenSec.toFixed(2) + 's (' +
+              sel.bars.toFixed(2) + ' bars) at ' + meta.sourceBpm.toFixed(1) +
+              ' BPM, ready to place at any junction.');
     var card = $('sampleCard');
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -2002,14 +2041,31 @@
   var selection = null;      // { track, fromSec, toSec }
   var dragSel = null;        // drag in progress
 
+  /* Whether a selection is forced onto bar lines. Off by default.
+
+     It used to be forced always: the drag START was kept but the END was
+     replaced with a whole number of bars from it, minimum one. So a two-beat
+     stab became a full bar, anything shorter than half a bar was stretched out
+     to one, and the end never landed where it was dragged — it cut off the
+     beginning and end of what was actually wanted.
+
+     The reason given was that a sample not on a bar line cannot be dropped in
+     time, but that is about PLACING it, and the placer already stretches a
+     sample to the tempo it lands at and snaps its position to the bar. What
+     gets cut does not have to be a whole number of bars to be dropped on one. */
+  var snapSelection = false;
+
   function selectionFor(i) {
     if (!selection || selection.track !== i) return null;
     var t = project.tracks[i];
     var bs = barSecOf(t);
     var from = Math.min(selection.fromSec, selection.toSec);
     var to = Math.max(selection.fromSec, selection.toSec);
-    var bars = Math.max(1, Math.round((to - from) / bs));
-    return { fromSec: from, toSec: from + bars * bs, bars: bars };
+    if (snapSelection) {
+      var bars = Math.max(1, Math.round((to - from) / bs));
+      return { fromSec: from, toSec: from + bars * bs, bars: bars, snapped: true };
+    }
+    return { fromSec: from, toSec: to, bars: bs ? (to - from) / bs : 0, snapped: false };
   }
 
   function clearSelection(i) {
