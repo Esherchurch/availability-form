@@ -1492,7 +1492,7 @@ onmessage = e => {
      opts: source (AudioBuffer, only to work out which pattern fits), atSec (the
      outgoing mix-out), downbeatSec, beats, fromBpm, toBpm, patternId ('auto' or
      a specific one), gainDb, sampleRate. */
-  function buildBeatFill(opts) {
+  async function buildBeatFill(opts) {
     var sr = opts.sampleRate || (opts.source ? opts.source.sampleRate : 48000);
     var beats = Math.max(1, Math.round(opts.beats || 64));
     var fromBpm = opts.fromBpm, toBpm = opts.toBpm;
@@ -1521,6 +1521,49 @@ onmessage = e => {
       fromBpm: fromBpm, toBpm: toBpm,
       pattern: chosen, sampleRate: sr, seed: opts.seed || 20260919
     });
+
+    /* Tone and space, on the fill alone.
+
+       The kit is synthesised, so it arrives dry and flat — right for control,
+       wrong for sitting next to a mastered record, which has been through a
+       room and a desk. Three bands and a reverb send are enough to place it:
+       shelve the bottom for weight, dip or lift the middle to sit it against
+       what is playing, and a short tail so it does not sound stuck to the
+       speaker. All of it is off by default — a flat kit is the honest starting
+       point, and anything here should be a decision. */
+    var lowDb = opts.lowDb || 0, midDb = opts.midDb || 0, highDb = opts.highDb || 0;
+    var wet = Math.max(0, Math.min(100, opts.reverbPct || 0)) / 100;
+    if (lowDb || midDb || highDb || wet > 0) {
+      var eqCtx = new OfflineAudioContext(1, pcm.length, sr);
+      var eqBuf = eqCtx.createBuffer(1, pcm.length, sr);
+      eqBuf.getChannelData(0).set(pcm);
+      var node = eqCtx.createBufferSource(); node.buffer = eqBuf;
+
+      var lo = eqCtx.createBiquadFilter();
+      lo.type = 'lowshelf'; lo.frequency.value = 140; lo.gain.value = lowDb;
+      var mid = eqCtx.createBiquadFilter();
+      mid.type = 'peaking'; mid.frequency.value = 900; mid.Q.value = 0.9; mid.gain.value = midDb;
+      var hi = eqCtx.createBiquadFilter();
+      hi.type = 'highshelf'; hi.frequency.value = 5500; hi.gain.value = highDb;
+
+      node.connect(lo); lo.connect(mid); mid.connect(hi);
+
+      var dryG = eqCtx.createGain(); dryG.gain.value = 1 - wet * 0.5;
+      hi.connect(dryG); dryG.connect(eqCtx.destination);
+
+      if (wet > 0) {
+        var conv = eqCtx.createConvolver();
+        // sized in beats of the tempo it lands at, so it stays musical
+        var tailSec = (opts.reverbBeats == null ? 1 : opts.reverbBeats) * (60 / toBpm);
+        conv.buffer = makeIR(eqCtx, Math.max(0.05, tailSec), 2.2);
+        var wetG = eqCtx.createGain(); wetG.gain.value = wet;
+        hi.connect(conv); conv.connect(wetG); wetG.connect(eqCtx.destination);
+      }
+
+      node.start(0);
+      var done = await eqCtx.startRendering();
+      pcm = done.getChannelData(0);
+    }
 
     /* Level it against the record it follows, rather than against nothing.
        A synthesised kit is nearly all transient, so its RMS lands about 10 dB
@@ -1602,7 +1645,7 @@ onmessage = e => {
     buf.overBeats = overBeats;
     buf.preBeats = preBeats;
     buf.matchScore = match ? +match.score.toFixed(2) : null;
-    return Promise.resolve(buf);
+    return buf;
   }
 
   /** How a bridge describes itself in a report. Shared for the same reason. */
@@ -1631,170 +1674,139 @@ onmessage = e => {
     };
   }
 
-  function renderBridge(opts) {
-    var ctx = opts.ctx, a = opts.a, b = opts.b, target = opts.targetBpm;
-    var bridgeBars = opts.beatBars == null ? 8 : opts.beatBars;
-    var overlapBars = opts.overlapBars == null ? 1 : opts.overlapBars;
-    var method = opts.isolation || 'eq';               // 'eq' | 'sep'
-    var throwing = (opts.cutStyle || 'throw') === 'throw';
-    var fadeBars = throwing ? 0 : (opts.fadeBars == null ? 4 : opts.fadeBars);
-    var reverbBars = opts.reverbBars == null ? 2 : opts.reverbBars;
-    var midCut = opts.midCutDb == null ? 24 : opts.midCutDb;
-    var highCut = opts.highCutDb == null ? 0 : opts.highCutDb;
+  /* Audition a bridge — the same thing the full render produces.
 
-    var sp = stretchPair(ctx, a, b, target, opts.onStatus);
-    var bufA = sp.bufA, bufB = sp.bufB;
+     This used to be its own implementation: it stretched both records to a
+     common tempo and filtered a beat out of the outgoing one. The renderer
+     stopped doing that when the fill became a synthesised kit, and an audition
+     that plays something the render will not produce is worse than no audition
+     at all, because it is believed.
 
-    var spb = 60 / target, barSec = spb * 4;
-    // The two bar counts are additive: music closes out over fadeBars, then the
-    // beat runs alone for bridgeBars. A throw is an instant cut (30 ms so it
-    // does not click); a fade ramps over bars.
-    var fadeSec = throwing ? 0.03 : fadeBars * barSec;
-    var bridgeSec = fadeSec + bridgeBars * barSec;
-    var dbA = a.downbeatSec / sp.ratioA, entryB = b.entrySec / sp.ratioB;
-    var exitA = a.exitSec / sp.ratioA;
-    var preRoll = (opts.preRollBars == null ? PRE_ROLL_BARS : opts.preRollBars) * barSec;
-    var postRoll = (opts.postRollBars == null ? POST_ROLL_BARS : opts.postRollBars) * barSec;
+     So it builds the fill the renderer builds, from the same settings, and
+     assembles the three parts the same way: the outgoing record with the
+     pre-roll under it and its own fade, the bars between, then the incoming
+     record with the carry over its head. No stretching, because the fill is
+     what carries the tempo across now. */
+  async function renderBridge(opts) {
+    var a = opts.a, b = opts.b;
+    if (!a || !a.buffer || !b || !b.buffer) throw new Error('Both tracks need their audio loaded.');
+    var sr = a.buffer.sampleRate;
+    var fromBpm = a.bpm || opts.targetBpm || 120;
+    var toBpm = b.bpm || opts.targetBpm || fromBpm;
 
-    // Anchored to A's mix-out marker, never to the end of the file.
-    var barsInA = Math.round((exitA - bridgeSec - dbA) / barSec);
-    if (barsInA < 4) {
-      throw new Error('Not enough of track A before its mix-out point for ' + fadeBars +
-        ' + ' + bridgeBars + ' bars. Move the mix-out marker later or shorten the bridge.');
-    }
-    var bridgeStart = dbA + barsInA * barSec;
-    var aStart = Math.max(0, bridgeStart - preRoll);
+    var beats = opts.beatBeats != null ? opts.beatBeats
+              : (opts.beatBars != null ? opts.beatBars * 4 : 64);
+    var preBeats = opts.preBeats == null ? 8 : opts.preBeats;
 
-    var sr = bufA.sampleRate;
-    var brAt = bridgeStart - aStart;
-    var bEnterAt = brAt + bridgeSec - overlapBars * barSec;
-    var total = bEnterAt + postRoll + 2;
-    var off = new OfflineAudioContext(2, Math.ceil(total * sr), sr);
-    var note = '';
-
-    var addThrow = function (sourceBuf, startOffset, stopAfter) {
-      // Tapped BEFORE the filters, so the throw carries the full-range last
-      // note, not the filtered version of it. The send opens for the final beat
-      // and shuts at the cut; the tail rings on over the beat underneath.
-      var s = off.createBufferSource(); s.buffer = sourceBuf;
-      var send = off.createGain();
-      var conv = off.createConvolver();
-      conv.buffer = makeIR(off, reverbBars * barSec, 2.5);
-      var wet = off.createGain(); wet.gain.value = 0.85;
-      s.connect(send).connect(conv).connect(wet).connect(off.destination);
-      send.gain.setValueAtTime(0, 0);
-      send.gain.setValueAtTime(0, brAt - spb - 0.001);
-      send.gain.linearRampToValueAtTime(1, brAt - spb);
-      send.gain.setValueAtTime(1, brAt);
-      send.gain.linearRampToValueAtTime(0, brAt + 0.02);
-      if (stopAfter != null) s.start(0, startOffset, stopAfter);
-      return s;
-    };
-
-    var pending = Promise.resolve();
-
-    if (method === 'eq') {
-      var sA = off.createBufferSource(); sA.buffer = bufA;
-      var gA = off.createGain();
-
-      // The filters and the throw come from applyBridgeOut, which the full
-      // render calls too. One implementation, two callers.
-      var tail = applyBridgeOut(off, sA, sA, {
-        barSec: barSec, beatSec: spb, brAt: brAt, fadeSec: fadeSec,
-        midCutDb: midCut, highCutDb: highCut,
-        throwing: throwing, reverbBars: reverbBars
-      });
-      tail.connect(gA).connect(off.destination);
-
-      gA.gain.setValueAtTime(1, 0);
-      if (overlapBars > 0) gA.gain.setValueCurveAtTime(equalPower(128, false), bEnterAt, overlapBars * barSec);
-      else {
-        gA.gain.setValueAtTime(1, brAt + bridgeSec - 0.05);
-        gA.gain.linearRampToValueAtTime(0, brAt + bridgeSec);
-      }
-      sA.start(0, aStart, bridgeSec + preRoll);
-      note = bridgeNote({ throwing: throwing, reverbBars: reverbBars, fadeBars: fadeBars,
-                          midCutDb: midCut, highCutDb: highCut });
-
+    var overBeats = 0, drumsIn = 0;
+    if ((opts.carryMode || 'auto') === 'fixed') {
+      overBeats = opts.overBeats == null ? 8 : opts.overBeats;
     } else {
-      // Separation, but the low end is never touched. Straight HPSS deletes the
-      // kick. So: subtract only the HIGH-PASSED harmonic part, leaving the
-      // original bass and kick intact. At env = 1 nothing is subtracted, so the
-      // bridge still starts bit-identical to the track.
-      if (opts.onStatus) opts.onStatus('Separating…');
-      var p = opts.removalAmount == null ? 2 : opts.removalAmount;
-      var region = slice(ctx, bufA, bridgeStart, bridgeSec);
-      pending = hpss(ctx, region, p, function (d) {
-        if (opts.onStatus) opts.onStatus('Separating… ' + Math.round(d.v * 100) + '% (' + d.msg + ')');
-      }).then(function (res) {
-        var bridge = ctx.createBuffer(region.numberOfChannels, region.length, sr);
-        var fadeN = Math.min(region.length, Math.floor(fadeSec * sr));
-        for (var c = 0; c < region.numberOfChannels; c++) {
-          var orig = region.getChannelData(c);
-          var hHi = hpFiltfilt(res.harmonic.getChannelData(c), 220, sr);
-          var d = bridge.getChannelData(c);
-          for (var i = 0; i < region.length; i++) {
-            var t = i < fadeN ? i / fadeN : 1;
-            var env = 0.5 + 0.5 * Math.cos(Math.PI * t);   // 1 -> 0
-            d[i] = orig[i] - hHi[i] * (1 - env);
-          }
-        }
-        if (throwing) addThrow(bufA, aStart, brAt + 0.05);
-
-        var sA2 = off.createBufferSource(); sA2.buffer = bufA;
-        sA2.connect(off.destination);
-        sA2.start(0, aStart, brAt);
-
-        var sBr = off.createBufferSource(); sBr.buffer = bridge;
-        var gBr = off.createGain();
-        sBr.connect(gBr).connect(off.destination);
-        gBr.gain.setValueAtTime(1, brAt);
-        if (overlapBars > 0) gBr.gain.setValueCurveAtTime(equalPower(128, false), bEnterAt, overlapBars * barSec);
-        else {
-          gBr.gain.setValueAtTime(1, brAt + bridgeSec - 0.05);
-          gBr.gain.linearRampToValueAtTime(0, brAt + bridgeSec);
-        }
-        sBr.start(brAt);
-        note = 'separation strength ' + p + ', bass left untouched';
-      });
+      drumsIn = drumsInSec(toMono(b.buffer), sr, b.entrySec || 0, 32);
+      if (drumsIn > 0.3) overBeats = Math.ceil(drumsIn / (60 / toBpm)) + 2;
     }
 
-    return pending.then(function () {
-      // B enters on a bar line.
-      var sB = off.createBufferSource(); sB.buffer = bufB;
-      var gB = off.createGain();
-      sB.connect(gB).connect(off.destination);
-      if (overlapBars > 0) {
-        gB.gain.setValueAtTime(0, bEnterAt);
-        gB.gain.setValueCurveAtTime(equalPower(128, true), bEnterAt, overlapBars * barSec);
-        gB.gain.setValueAtTime(1, bEnterAt + overlapBars * barSec + 0.001);
-      } else {
-        gB.gain.setValueAtTime(1, bEnterAt);
-      }
-      sB.start(bEnterAt, entryB, Math.min(bufB.duration - entryB, postRoll + overlapBars * barSec));
+    var exitA = a.exitSec || a.buffer.duration;
+    var entryB = b.entrySec || 0;
 
-      if (opts.onStatus) opts.onStatus('Rendering…');
-      return off.startRendering();
-    }).then(function (out) {
-      var fin = finalise(out);
-      // Is there actually anything audible during the beat-only stretch?
-      var beatRms = rmsOf(out, brAt + fadeSec, Math.min(bridgeBars * barSec, 6));
-      var beatDb = 20 * Math.log10(beatRms + 1e-9);
-      return {
-        buffer: out,
-        info: {
-          type: 'throw-bridge', targetBpm: target, note: note,
-          transitionAtSec: brAt, transitionSec: bridgeSec,
-          bIntroAtSec: bEnterAt, beatDb: beatDb, quiet: beatDb < -34,
-          ratioA: sp.ratioA, ratioB: sp.ratioB, peak: fin.peak, reducedDb: fin.reducedDb
-        }
-      };
+    var fill = await buildBeatFill({
+      source: a.buffer, atSec: exitA, downbeatSec: a.downbeatSec || 0,
+      beats: beats, preBeats: preBeats, overBeats: overBeats,
+      patternId: opts.drumPattern || 'auto',
+      fromBpm: fromBpm, toBpm: toBpm,
+      lowDb: opts.fillLowDb, midDb: opts.fillMidDb, highDb: opts.fillHighDb,
+      reverbPct: opts.fillReverb, reverbBeats: opts.fillReverbBeats,
+      sampleRate: sr
     });
+    if (!fill) throw new Error('Could not build the drums for this junction.');
+
+    var preN = Math.round(fill.preSec * sr);
+    var gapN = Math.round(fill.gapSec * sr);
+    var carryN = Math.max(0, fill.length - preN - gapN);
+
+    /* A few seconds of each record either side, so it can be judged in
+       context rather than as a fragment. */
+    var leadSec = 8, tailSec = Math.max(10, carryN / sr + 4);
+    var leadN = Math.round(leadSec * sr), tailN = Math.round(tailSec * sr);
+    var total = leadN + preN + gapN + tailN;
+
+    var octx = new OfflineAudioContext(2, total, sr);
+    var out = octx.createBuffer(2, total, sr);
+    var fL = fill.getChannelData(0);
+    var fR = fill.numberOfChannels > 1 ? fill.getChannelData(1) : fL;
+
+    for (var c = 0; c < 2; c++) {
+      var d = out.getChannelData(c);
+      var sa = a.buffer.getChannelData(Math.min(c, a.buffer.numberOfChannels - 1));
+      var sb = b.buffer.getChannelData(Math.min(c, b.buffer.numberOfChannels - 1));
+      var fc = c === 0 ? fL : fR;
+
+      // the outgoing record, up to its mix-out
+      var aStart = Math.floor((exitA - leadSec - preN / sr) * sr);
+      for (var i = 0; i < leadN + preN; i++) {
+        var si = aStart + i;
+        if (si >= 0 && si < sa.length) d[i] = sa[si];
+      }
+      // faded out over the second half of the pre-roll
+      for (var p = 0; p < preN; p++) {
+        var w = p / Math.max(1, preN);
+        d[leadN + p] *= w < 0.5 ? 1 : 1 - 0.92 * ((w - 0.5) / 0.5);
+      }
+      // the drums: pre-roll under it, then the bars between, then the carry
+      for (var f = 0; f < fill.length && leadN + f < total; f++) d[leadN + f] += fc[f];
+      // the incoming record from its entry
+      var bStart = Math.floor(entryB * sr), base = leadN + preN + gapN;
+      for (var k = 0; k < tailN && base + k < total; k++) {
+        if (bStart + k < sb.length) d[base + k] += sb[bStart + k];
+      }
+    }
+
+    /* The record and the drums are summed over the pre-roll and the carry, so
+       the audition can go past full scale even though neither part does on its
+       own — measured at 1.219 before this. The full render has finalise() for
+       the same reason; an audition needs it too, or it clips exactly where the
+       handover it exists to demonstrate happens. */
+    var pk = 0, cc;
+    for (cc = 0; cc < 2; cc++) {
+      var v = out.getChannelData(cc);
+      for (var pi3 = 0; pi3 < v.length; pi3++) { var av = Math.abs(v[pi3]); if (av > pk) pk = av; }
+    }
+    if (pk > 0.98) {
+      var sc = 0.98 / pk;
+      for (cc = 0; cc < 2; cc++) {
+        var w2 = out.getChannelData(cc);
+        for (var si2 = 0; si2 < w2.length; si2++) w2[si2] *= sc;
+      }
+    }
+
+    /* Where the drums are playing alone, and how loud they are there. The
+       audition test has always asked whether the beat is actually audible and
+       whether it kept its low end; those questions still matter, they are just
+       asked of the fill now instead of a filtered record. */
+    var beatFrom = leadN + preN, beatTo = Math.min(total, beatFrom + gapN);
+    var acc = 0, cnt = 0, ch0 = out.getChannelData(0);
+    for (var q = beatFrom; q < beatTo; q++) { acc += ch0[q] * ch0[q]; cnt++; }
+    var beatDb = cnt ? 10 * Math.log10(acc / cnt + 1e-20) : -99;
+
+    return {
+      buffer: out,
+      info: {
+        type: 'beat fill',
+        transitionAtSec: +(beatFrom / sr).toFixed(3),
+        beatDb: +beatDb.toFixed(1),
+        quiet: beatDb < -40,
+        beats: beats, preBeats: preBeats, overBeats: overBeats,
+        fromBpm: +fromBpm.toFixed(2), toBpm: +toBpm.toFixed(2),
+        pattern: fill.matchedName || null, matchScore: fill.matchScore,
+        gapSec: +(gapN / sr).toFixed(2), preSec: +(preN / sr).toFixed(2),
+        carriedSec: +(carryN / sr).toFixed(2), nextDrumsInSec: +drumsIn.toFixed(2),
+        note: beats + ' beats of ' + (fill.matchedName || 'drums') + ', ' +
+              Math.round(fromBpm) + ' to ' + Math.round(toBpm) + ' BPM'
+      }
+    };
   }
 
-  /* A ends on a bar line, B starts on the next. Proposed automatically when two
-     tracks are more than the stretch budget apart after clamping. gapMs > 0 is
-     the STOP / START case — the cake, where nothing is matched across it. */
+
   function renderHardCut(opts) {
     var ctx = opts.ctx, a = opts.a, b = opts.b;
     var gapMs = opts.gapMs || 0;

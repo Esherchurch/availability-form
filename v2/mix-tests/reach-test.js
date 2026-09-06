@@ -197,8 +197,8 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   ok(typeNow === 'throw-bridge', 'clicking it actually changed the junction type (' + typeNow + ')');
 
   // Now the five controls the bridge is supposed to expose.
-  const wanted = ['Music out', 'Reverb tail (bars)', 'Drums between (beats)',
-                  'Mids cut (dB)', 'Highs cut (dB)', 'B overlaps by (bars)'];
+  const wanted = ['Music out', 'Reverb tail (bars)', 'Drums between (beats)', 'Start before the join (beats)',
+    'Reverb (%)', 'Bass (dB)', 'Mids (dB)', 'Highs (dB)'];
   const found = await page.evaluate(() => {
     const out = [];
     document.querySelectorAll('#junction .grid > div').forEach(d => {
@@ -239,9 +239,9 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   const savedBeat = await page.evaluate(async () => (await window.MixProject.loadProject()).junctions[0].beatBeats);
   ok(savedBeat === 24, 'typing into "Drums between (beats)" saves to the project (got ' + savedBeat + ')');
 
-  await setField('midCutDb', 18);
-  const savedMid = await page.evaluate(async () => (await window.MixProject.loadProject()).junctions[0].midCutDb);
-  ok(savedMid === 18, 'and so does "Mids cut (dB)" (got ' + savedMid + ')');
+  await setField('fillLowDb', 4);
+  const savedMid = await page.evaluate(async () => (await window.MixProject.loadProject()).junctions[0].fillLowDb);
+  ok(savedMid === 4, 'and so does "Bass (dB)" (got ' + savedMid + ')');
 
   console.log('\n— the row reflects what you set —');
   const rowText = await page.evaluate(() =>

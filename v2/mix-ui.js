@@ -1006,15 +1006,27 @@
            [['auto', 'Match the song']].concat(DSP.drumPatterns().map(function (p) {
              return [p.id, p.name];
            }))) +
-      jsel('Beat isolation', 'isolation', s.isolation || 'eq',
-        [['eq', 'EQ filter — clean'], ['sep', 'Separation — aggressive']]) +
-      jf('Mids cut (dB)', 'midCutDb', s.midCutDb == null ? 24 : s.midCutDb, 1, 6, 40) +
-      jf('Highs cut (dB)', 'highCutDb', s.highCutDb == null ? 0 : s.highCutDb, 1, 0, 24) +
-      jf('B overlaps by (bars)', 'overlapBars', s.overlapBars == null ? 1 : s.overlapBars, 1, 0, 8) +
-      '<div class="span2 hint">EQ is what a DJ actually does: pull the mids down, leave everything ' +
-      'below 300 Hz and above 6 kHz alone, so the kick, bass, hats and the crack of the snare all ' +
-      'survive. Separation is available but it deletes the kick unless its low end is protected, ' +
-      'and it sounds reconstructed.</div>';
+      jf('Start before the join (beats)', 'preBeats',
+         s.preBeats == null ? 8 : s.preBeats, 1, 0, 64) +
+      jsel('Carry into the next track', 'carryMode', s.carryMode || 'auto',
+        [['auto', 'Until its own drums start'], ['fixed', 'A set number of beats']]) +
+      jf('…that many beats', 'overBeats', s.overBeats == null ? 8 : s.overBeats, 1, 0, 64) +
+      '<div class="span2 hint">The drums come up under the outgoing record for the beats before ' +
+      'the join, while it fades out, so the two cross rather than one stopping and the other ' +
+      'starting. At the far end they carry on under the next record — by default until that ' +
+      'record\'s own drums arrive, which is measured from the audio, so a track that opens on a ' +
+      'pad or a fade is covered.</div>' +
+      jf('Reverb (%)', 'fillReverb', s.fillReverb == null ? 0 : s.fillReverb, 5, 0, 80) +
+      jf('Reverb length (beats)', 'fillReverbBeats',
+         s.fillReverbBeats == null ? 1 : s.fillReverbBeats, 0.5, 0.25, 8) +
+      jf('Bass (dB)', 'fillLowDb', s.fillLowDb == null ? 0 : s.fillLowDb, 1, -18, 12) +
+      jf('Mids (dB)', 'fillMidDb', s.fillMidDb == null ? 0 : s.fillMidDb, 1, -18, 12) +
+      jf('Highs (dB)', 'fillHighDb', s.fillHighDb == null ? 0 : s.fillHighDb, 1, -18, 12) +
+      '<div class="span2 hint">EQ and reverb apply to the drums only, not to either record. ' +
+      'The kit is synthesised so it arrives dry and flat, which is right for control and wrong ' +
+      'for sitting next to a mastered record — a shelf on the bottom for weight, a dip in the ' +
+      'middle to make room for what is playing, and a short tail so it is not stuck to the ' +
+      'speaker. All of it is off unless you turn it on.</div>';
   }
 
   function segSummary(seg) {

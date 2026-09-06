@@ -718,7 +718,9 @@
       if (jOut && jOut.fill && gapN > 0) {
         var nextBuf = buffers.get(plan.tracks[i + 1] ? plan.tracks[i + 1].id : null);
         var overBeats = 0, drumsIn = 0;
-        if (nextBuf) {
+        if ((jOut.settings.carryMode || 'auto') === 'fixed') {
+          overBeats = jOut.settings.overBeats == null ? 8 : jOut.settings.overBeats;
+        } else if (nextBuf) {
           drumsIn = DSP.drumsInSec(DSP.toMono(nextBuf), sr,
                                    plan.tracks[i + 1].sourceFromSec || 0, 32);
           if (drumsIn > 0.3) overBeats = Math.ceil(drumsIn / (60 / jOut.fill.toBpm)) + 2;
@@ -733,7 +735,9 @@
           patternId: jOut.settings.drumPattern || 'auto',
           downbeatSec: (project.tracks[i] || {}).downbeatSec || 0,
           fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
-          midCutDb: jOut.settings.midCutDb, highCutDb: jOut.settings.highCutDb,
+          lowDb: jOut.settings.fillLowDb, midDb: jOut.settings.fillMidDb,
+          highDb: jOut.settings.fillHighDb,
+          reverbPct: jOut.settings.fillReverb, reverbBeats: jOut.settings.fillReverbBeats,
           sampleRate: sr
         });
 
@@ -766,6 +770,7 @@
             pattern: fb.matchedPattern || null, patternName: fb.matchedName || null,
             matchScore: fb.matchScore,
             preSec: +(preN / sr).toFixed(2),
+            preBeats: preBeats,
             carriedSec: fillCarry ? +(fillCarry[0].length / sr).toFixed(2) : 0,
             nextDrumsInSec: +drumsIn.toFixed(2)
           };
