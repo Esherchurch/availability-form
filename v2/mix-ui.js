@@ -1696,6 +1696,7 @@
     wireBench();
     wireSuggest();
     wireRender();
+    wireGlobalStop();
     wireSamples();
     wireDesktop();
 
@@ -2470,6 +2471,9 @@
         }
       });
       lastMix = res;
+      lastMix.fromTrack = fromTrack;
+      lastMix.toTrack = toTrack == null ? project.tracks.length - 1 : toTrack;
+      lastMix.decoded = null;      // filled in the first time it is played
       $('renderBar').style.width = '100%';
       $('downloadMixBtn').disabled = false;
       $('playMixBtn').disabled = false;
@@ -2593,6 +2597,16 @@
       'is untouched.</div>';
   }
 
+  /* Stop works from anywhere. The buttons inside the track list are handled by
+     that list's own listener; this catches the rest, and stop() is idempotent
+     so a button covered by both is harmless. */
+  function wireGlobalStop() {
+    document.addEventListener('click', function (e) {
+      var el = e.target.closest ? e.target.closest('[data-act="stop-all"]') : null;
+      if (el) { stop(); }
+    });
+  }
+
   function wireRender() {
     $('renderBtn').onclick = function () { doRender(null, null); };
     $('cancelRenderBtn').onclick = function () { cancelRender = true; renderSay('Cancelling…'); };
@@ -2610,14 +2624,56 @@
       a.click();
       setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
     };
-    /* An 80-minute buffer is far too big to decode for playback, so auditioning
-       the finished mix means re-rendering a short range — which is what the
-       range export is for. */
-    $('playMixBtn').onclick = function () {
+    /* Play what was just rendered.
+
+       This used to refuse and tell you to download the file instead, on the
+       grounds that an 80-minute buffer is too big to decode. That is true of a
+       whole set and false of everything else — a range of two or three tracks
+       is a few minutes, decodes in about a second, and is exactly what anyone
+       auditioning a junction has rendered. So the refusal stood between you and
+       the one thing you wanted: hearing a section, with its drums, its fills
+       and any samples placed over it, without leaving the program.
+
+       Big renders are still refused, but with the honest reason and the way
+       round it. */
+    $('playMixBtn').onclick = async function () {
       if (!lastMix) return;
-      renderSay('An 80-minute mix is too large to decode for preview. ' +
-        'Use "Render range" for the tracks around a junction, then Download, ' +
-        'or audition the junction itself from the timeline.');
+      var sec = lastMix.report && lastMix.report.durationSec;
+      if (!sec && lastMix.blob) sec = lastMix.blob.size / (48000 * 2 * 2);
+      if (sec > 20 * 60) {
+        renderSay('That render is ' + Math.round(sec / 60) + ' minutes — too long to hold in ' +
+          'memory for playback. Render a range of a few tracks instead and this will play it.');
+        return;
+      }
+      try {
+        var buf = lastMix.decoded;
+        if (!buf) {
+          renderSay('Decoding for playback…');
+          var ab = await lastMix.blob.arrayBuffer();
+          buf = await audioCtx().decodeAudioData(ab);
+          lastMix.decoded = buf;   // the analyser keeps its render as a buffer
+                                   // and plays it straight; this is the same
+                                   // thing, once the streamed WAV is back.
+        }
+        play(buf);
+        renderSay('Playing ' + fmt(buf.duration) + ' of the mix' +
+          (lastMix.fromTrack != null
+            ? ' — tracks ' + (lastMix.fromTrack + 1) + ' to ' + (lastMix.toTrack + 1)
+            : '') + '. Stop when you have heard enough.');
+      } catch (err) {
+        renderSay('Could not decode that render for playback: ' + (err.message || err));
+      }
+    };
+
+    /* Render a range and play it, which is the whole of what auditioning a
+       section is: pick the tracks either side of the thing you want to hear,
+       press one button, listen. */
+    var rp = $('playRangeBtn');
+    if (rp) rp.onclick = async function () {
+      var f = parseInt($('renderFrom').value, 10);
+      var t = parseInt($('renderTo').value, 10);
+      await doRender(isFinite(f) ? f - 1 : null, isFinite(t) ? t - 1 : null);
+      if (lastMix) $('playMixBtn').onclick();
     };
   }
 
