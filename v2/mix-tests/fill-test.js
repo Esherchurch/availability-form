@@ -115,6 +115,39 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
       else cur = 0;
     }
 
+    /* ---- carrying on under the next record.
+       A record that opens on a pad, a fade or a spoken intro has no drums for
+       the first few seconds, and a fill that stops the moment it starts leaves
+       exactly the hole it was there to prevent. Measured on the real set,
+       Hotstepper's own drums arrive 4.5s after its entry point. */
+    function intro(bpm, secs, quietSecs) {
+      const n = Math.floor(sr * secs), buf = ctx.createBuffer(2, n, sr), spb = 60 / bpm;
+      for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c);
+        // a pad that fades in, no drums at all until quietSecs
+        for (let i = 0; i < n; i++) d[i] = 0.08 * Math.sin(2 * Math.PI * 220 * i / sr);
+        for (let b = 0; b * spb < secs; b++) {
+          const t = b * spb;
+          if (t < quietSecs) continue;
+          const at = Math.floor(t * sr);
+          for (let k = 0; k < sr * 0.09 && at + k < n; k++)
+            d[at + k] += 0.85 * Math.exp(-k / (sr * 0.02)) * Math.sin(2 * Math.PI * 55 * k / sr);
+        }
+      }
+      return buf;
+    }
+    const late = intro(120, 60, 8);
+    const detected = DSP.drumsInSec(DSP.toMono(late), sr, 0, 32);
+
+    const carried = await DSP.buildBeatFill({
+      source: src, atSec: 88, downbeatSec: 0, beats: 32, overBeats: 20,
+      fromBpm: FROM, toBpm: TO, patternId: 'four', sampleRate: sr
+    });
+    const plain = await DSP.buildBeatFill({
+      source: src, atSec: 88, downbeatSec: 0, beats: 32, overBeats: 0,
+      fromBpm: FROM, toBpm: TO, patternId: 'four', sampleRate: sr
+    });
+
     /* And the plan: a junction that cannot be beat-matched must now carry a
        gap the length of the fill, rather than butting the records together. */
     const rows = MP.parseRunningOrder(
@@ -132,7 +165,11 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
       pts, worstHole: +worst.toFixed(2),
       planGap: +plan.junctions[0].gapSec.toFixed(2),
       planFill: plan.junctions[0].fill,
-      inTrackBeatBars: null
+      drumsInDetected: +detected.toFixed(2),
+      carriedSec: +(carried.duration - carried.gapSec).toFixed(2),
+      carriedGapSec: +carried.gapSec.toFixed(2),
+      plainGapSec: +plain.gapSec.toFixed(2),
+      plainSec: +plain.duration.toFixed(2)
     };
   });
 
@@ -156,6 +193,18 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   ok(out.planGap > 30 && out.planFill,
      'an unmatchable junction is planned as a fill, not as butted records',
      out.planGap + 's gap for ' + (out.planFill ? out.planFill.beats : 0) + ' beats');
+  ok(Math.abs(out.drumsInDetected - 8) < 2,
+     'a record whose drums start late is spotted',
+     'drums detected at ' + out.drumsInDetected + 's, put there at 8s');
+  ok(out.carriedSec > 8, 'the fill keeps playing under the next record',
+     out.carriedSec + 's carried past the gap');
+  ok(Math.abs(out.carriedGapSec - out.plainGapSec) < 0.05,
+     'and carrying it does not move where the next record starts',
+     'gap ' + out.carriedGapSec + 's either way');
+  ok(Math.abs(out.plainSec - out.plainGapSec) < 0.05,
+     'with nothing to carry, the fill ends at the gap',
+     out.plainSec + 's for a ' + out.plainGapSec + 's gap');
+
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
 
   await browser.close(); server.close();

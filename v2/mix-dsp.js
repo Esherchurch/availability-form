@@ -1265,6 +1265,62 @@ onmessage = e => {
     return null;
   }
 
+  /* How long after its entry a record's own drums take to arrive.
+
+     Plenty of records open on a pad, a voice, a guitar figure — Hotstepper's
+     first four seconds fade DOWN from its intro before the groove starts. A
+     fill that stops the moment the next record begins leaves exactly the hole
+     it was there to prevent, so it has to keep going until that record's drums
+     are carrying on their own.
+
+     Measured in the kick band, against the record's own body rather than an
+     absolute threshold: quiet records and loud ones both count as "drumming"
+     when they reach their own normal. Returns seconds after fromSec, 0 if the
+     drums are already there. */
+  function drumsInSec(mono, sr, fromSec, maxSec) {
+    var cap = maxSec == null ? 32 : maxSec;
+    var win = Math.max(1, Math.floor(sr * 0.02));
+    var from = Math.max(0, Math.floor((fromSec || 0) * sr));
+    var lp = 0, acc = 0, cnt = 0, env = [], i;
+    for (i = from; i < mono.length; i++) {
+      lp += (mono[i] - lp) * 0.02;              // roughly under 120 Hz
+      acc += lp * lp; cnt++;
+      if (cnt === win) { env.push(Math.sqrt(acc / win)); acc = 0; cnt = 0; }
+    }
+    if (env.length < 100) return 0;
+    var fps = sr / win;
+
+    var flux = new Float64Array(env.length);
+    for (i = 1; i < env.length; i++) flux[i] = Math.max(0, env[i] - env[i - 1]);
+
+    /* Judged over two seconds at a time, not frame by frame. A single hit in
+       an intro clears any per-frame threshold — Hotstepper's opening four
+       seconds are a sound DECAYING from -29 to -49 dBFS, and the old test
+       called that "drums already playing" and carried the fill nowhere. Two
+       seconds of drumming is drums; one hit is a hit. */
+    var W = Math.max(4, Math.round(fps * 2));
+    var score = new Float64Array(Math.max(0, flux.length - W));
+    var run = 0;
+    for (i = 0; i < flux.length; i++) {
+      run += flux[i];
+      if (i >= W) run -= flux[i - W];
+      if (i >= W) score[i - W] = run;
+    }
+    if (!score.length) return 0;
+
+    // what this record's own drumming looks like, from its whole body
+    var sorted = Array.prototype.slice.call(score).sort(function (a, b) { return a - b; });
+    var typical = sorted[Math.floor(sorted.length * 0.55)];
+    if (!(typical > 0)) return 0;
+
+    var need = typical * 0.55;
+    var limit = Math.min(score.length, Math.round(cap * fps));
+    for (i = 0; i < limit; i++) {
+      if (score[i] >= need) return +(i / fps).toFixed(3);
+    }
+    return 0;
+  }
+
   /* ---- play it.
 
      Beat by beat at that beat's own tempo, so the pulse walks from the record
@@ -1273,9 +1329,14 @@ onmessage = e => {
   function synthDrumFill(opts) {
     var sr = opts.sampleRate || 48000;
     var beats = Math.max(1, Math.round(opts.beats || 64));
+    /* Beats played UNDER the next record, after the ramp has arrived at its
+       tempo — held there, because by then the tempo has nowhere left to go. */
+    var over = Math.max(0, Math.round(opts.overBeats || 0));
     var pat = opts.pattern || DRUM_PATTERNS[0];
     var tempos = fillTempos(beats, opts.fromBpm, opts.toBpm);
-    var totalSec = beatFillSec(beats, opts.fromBpm, opts.toBpm);
+    for (var ob = 0; ob < over; ob++) tempos.push(opts.toBpm);
+    beats = beats + over;
+    var totalSec = tempos.reduce(function (s, bpm) { return s + 60 / bpm; }, 0);
     var n = Math.round(totalSec * sr) + Math.floor(sr * 0.3);   // room for the last tail
     var out = new Float32Array(n);
     var rnd = rng(opts.seed || 12345);
@@ -1305,10 +1366,25 @@ onmessage = e => {
     var buf = new Float32Array(want);
     buf.set(out.subarray(0, want));
     var inN = Math.round(sr * 0.03);
-    var outN = Math.round(60 / opts.toBpm * 2 * sr);
     for (var k = 0; k < inN && k < want; k++) buf[k] *= k / inN;
+
+    /* Under the record it steps back — it is accompaniment from that point,
+       not the main event — and then goes out over the last four beats, by
+       which time the record's own drums are carrying. */
+    var overSec = 0;
+    for (var oi = tempos.length - over; oi < tempos.length; oi++) overSec += 60 / tempos[oi];
+    var overN = Math.round(overSec * sr);
+    if (overN > 0) {
+      var duckN = Math.round(60 / opts.toBpm * 2 * sr);      // two beats to duck
+      var start = Math.max(0, want - overN);
+      for (var q = 0; q < overN && start + q < want; q++) {
+        var g = q < duckN ? 1 - 0.45 * (q / duckN) : 0.55;
+        buf[start + q] *= g;
+      }
+    }
+    var outN = Math.round(60 / opts.toBpm * 4 * sr);
     for (var m = 0; m < outN && m < want; m++) {
-      buf[want - 1 - m] *= 0.55 + 0.45 * (m / outN);
+      buf[want - 1 - m] *= (m / outN);
     }
     return buf;
   }
@@ -1400,8 +1476,9 @@ onmessage = e => {
     }
     if (!chosen) chosen = DRUM_PATTERNS[0];
 
+    var overBeats = Math.max(0, Math.round(opts.overBeats || 0));
     var pcm = synthDrumFill({
-      beats: beats, fromBpm: fromBpm, toBpm: toBpm,
+      beats: beats, overBeats: overBeats, fromBpm: fromBpm, toBpm: toBpm,
       pattern: chosen, sampleRate: sr, seed: opts.seed || 20260919
     });
 
@@ -1478,6 +1555,10 @@ onmessage = e => {
     for (var i = 0; i < pcm.length; i++) { l[i] = pcm[i] * gain; r[i] = pcm[i] * gain; }
     buf.matchedPattern = chosen.id;
     buf.matchedName = chosen.name;
+    /* Where the next record starts: everything before this goes in the gap
+       between the records, everything after plays underneath the next one. */
+    buf.gapSec = beatFillSec(beats, fromBpm, toBpm);
+    buf.overBeats = overBeats;
     buf.matchScore = match ? +match.score.toFixed(2) : null;
     return Promise.resolve(buf);
   }
@@ -1765,6 +1846,7 @@ onmessage = e => {
     renderBridge: renderBridge,
     applyBridgeOut: applyBridgeOut,
     bridgeNote: bridgeNote,
+    drumsInSec: drumsInSec,
     drumPatterns: drumPatterns,
     drumProfile: drumProfile,
     matchDrumPattern: matchDrumPattern,

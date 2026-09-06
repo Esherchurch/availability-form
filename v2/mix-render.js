@@ -722,13 +722,24 @@
            so the beat that carries on is the beat that was playing, with the
            tempo walking to whatever the next record needs. */
         if (jOut && jOut.fill) {
+          /* How long the next record takes to get its own drums going. The fill
+             keeps playing under it until then, so a record that opens on a pad
+             or a fade does not leave the hole the fill exists to prevent. */
+          var nextBuf = buffers.get(plan.tracks[i + 1].id);
+          var overBeats = 0, drumsIn = 0;
+          if (nextBuf) {
+            drumsIn = DSP.drumsInSec(DSP.toMono(nextBuf), sr,
+                                     plan.tracks[i + 1].sourceFromSec || 0, 32);
+            if (drumsIn > 0.3) overBeats = Math.ceil(drumsIn / (60 / jOut.fill.toBpm)) + 2;
+          }
+
           var fillBuf = await DSP.buildBeatFill({
             source: buf, atSec: pt.sourceToSec, beats: jOut.fill.beats,
+            overBeats: overBeats,
             patternId: jOut.settings.drumPattern || 'auto',
             // the record's own bar grid, so each repeat lands on a downbeat
             downbeatSec: (project.tracks[i] || {}).downbeatSec || 0,
             fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
-            loopBars: (jOut.settings.loopBars == null ? 2 : jOut.settings.loopBars),
             midCutDb: jOut.settings.midCutDb, highCutDb: jOut.settings.highCutDb,
             sampleRate: sr
           });
@@ -737,6 +748,14 @@
             var fR = fillBuf.numberOfChannels > 1 ? fillBuf.getChannelData(1) : fL;
             var fn = Math.min(gapN, fillBuf.length);
             for (var fk = 0; fk < fn; fk++) { gl[fk] = fL[fk]; gr[fk] = fR[fk]; }
+
+            /* Whatever runs past the gap plays UNDER the next record, carried
+               on the same tail mechanism an overlap uses, so it is summed into
+               that record's head rather than written over it. */
+            if (fillBuf.length > fn) {
+              tail = [fL.slice(fn), fR.slice(fn)];
+              tailLen = fillBuf.length - fn;
+            }
             report.fills = report.fills || [];
             jOut.fill.patternName = fillBuf.matchedName || null;
             report.fills.push({
@@ -745,7 +764,9 @@
               sec: +(fn / sr).toFixed(2),
               pattern: fillBuf.matchedPattern || null,
               patternName: fillBuf.matchedName || null,
-              matchScore: fillBuf.matchScore
+              matchScore: fillBuf.matchScore,
+              carriedSec: +((fillBuf.length - fn) / sr).toFixed(2),
+              nextDrumsInSec: +drumsIn.toFixed(2)
             });
           } else {
             report.warnings.push({
