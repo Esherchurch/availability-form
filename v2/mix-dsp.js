@@ -1630,6 +1630,15 @@ onmessage = e => {
         var trim = target / got, pk2 = peakOf(pcm) * trim;
         if (pk2 < 0.98) for (var wi = 0; wi < pcm.length; wi++) pcm[wi] *= trim;
       }
+    } else {
+      /* No record to level against — the preview button before any audio is
+         loaded, or a pattern picked by hand. The volume still has to work:
+         with the target unset this whole block used to be skipped, so turning
+         the drums down changed nothing at all and the control looked broken
+         precisely where it is most used. Applied straight, against the
+         peak-normalised kit. */
+      var flat = Math.pow(10, (opts.gainDb == null ? -1.5 : opts.gainDb) / 20);
+      for (var fi = 0; fi < pcm.length; fi++) pcm[fi] *= flat;
     }
     var gain = 1;
     var ctxOut = new OfflineAudioContext(2, pcm.length, sr);
@@ -1714,6 +1723,7 @@ onmessage = e => {
       beats: beats, preBeats: preBeats, overBeats: overBeats,
       patternId: opts.drumPattern || 'auto',
       fromBpm: fromBpm, toBpm: toBpm,
+      gainDb: opts.fillGainDb,
       lowDb: opts.fillLowDb, midDb: opts.fillMidDb, highDb: opts.fillHighDb,
       reverbPct: opts.fillReverb, reverbBeats: opts.fillReverbBeats,
       sampleRate: sr

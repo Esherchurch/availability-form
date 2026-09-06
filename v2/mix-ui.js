@@ -960,10 +960,64 @@
         '<button data-act="render-junction"' + (canRender(i) ? '' : ' disabled') + '>' +
           (seg ? 'Re-render' : 'Render') + '</button>' +
         '<button class="ghost" data-act="play-junction"' + (seg ? '' : ' disabled') + '>Play</button>' +
+        '<button class="ghost" data-act="hear-drums">Hear the drums</button>' +
         '<button class="ghost" data-act="stop">Stop</button>' +
         '<button class="ghost" data-act="dl-junction"' + (seg ? '' : ' disabled') + '>Download WAV</button>' +
       '</div>' +
       '<div class="status" id="jxStatus">' + (seg ? segSummary(seg) : '') + '</div>';
+  }
+
+  /* Sixteen beats of the fill on its own, at this junction's own tempo, with
+     whatever the pattern, tone and volume are set to right now.
+
+     Setting a kit by numbers does not work — nobody can hear a shelf at 140 Hz
+     by reading "+4 dB". Rendering the whole junction to hear it is thirty
+     seconds of waiting for a decision that takes two. This synthesises only
+     the drums, which is arithmetic and an EQ pass, so it comes back at once.
+
+     It uses the outgoing record's audio when it is loaded, because that is what
+     the pattern is matched against and what the volume is set relative to, but
+     it works without it: a pattern chosen by hand needs nothing from the
+     record at all. */
+  async function hearDrums(i) {
+    var j = project.junctions[i];
+    var s = j || {};
+    var a = project.tracks[i], b = project.tracks[i + 1];
+    var say = function (m, bad) {
+      var el = $('jxStatus');
+      if (el) { el.textContent = m; el.classList.toggle('err', !!bad); }
+    };
+    var fromBpm = MP.effectiveBpm(a) || 120;
+    var toBpm = MP.effectiveBpm(b) || fromBpm;
+    var src = buffers.get(a && a.id);
+
+    if (!src && (!s.drumPattern || s.drumPattern === 'auto')) {
+      say('Load this track\'s audio, or pick a drum pattern by name, and I can play it.', true);
+      return;
+    }
+
+    say('Building the drums…');
+    try {
+      var fill = await DSP.buildBeatFill({
+        source: src || null,
+        atSec: a ? (a.exitSec || 0) : 0,
+        downbeatSec: (a && a.downbeatSec) || 0,
+        beats: 16, preBeats: 0, overBeats: 0,
+        patternId: s.drumPattern || 'auto',
+        fromBpm: fromBpm, toBpm: fromBpm,     // one tempo: this is the kit, not the walk
+        gainDb: s.fillGainDb == null ? -1.5 : s.fillGainDb,
+        lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
+        reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
+        sampleRate: (src && src.sampleRate) || audioCtx().sampleRate
+      });
+      if (!fill) { say('Could not build the drums for this junction.', true); return; }
+      play(fill);
+      say((fill.matchedName || 'Drums') + ' at ' + Math.round(fromBpm) + ' BPM, 16 beats' +
+          (fill.matchScore != null ? ' — matched to this record at ' + fill.matchScore : '') +
+          '. Press Stop to cut it short.');
+    } catch (err) {
+      say(err.message || String(err), true);
+    }
   }
 
   function canRender(i) {
@@ -1016,13 +1070,17 @@
       'starting. At the far end they carry on under the next record — by default until that ' +
       'record\'s own drums arrive, which is measured from the audio, so a track that opens on a ' +
       'pad or a fade is covered.</div>' +
+      jf('Drum volume (dB)', 'fillGainDb',
+         s.fillGainDb == null ? -1.5 : s.fillGainDb, 1, -24, 6) +
       jf('Reverb (%)', 'fillReverb', s.fillReverb == null ? 0 : s.fillReverb, 5, 0, 80) +
       jf('Reverb length (beats)', 'fillReverbBeats',
          s.fillReverbBeats == null ? 1 : s.fillReverbBeats, 0.5, 0.25, 8) +
       jf('Bass (dB)', 'fillLowDb', s.fillLowDb == null ? 0 : s.fillLowDb, 1, -18, 12) +
       jf('Mids (dB)', 'fillMidDb', s.fillMidDb == null ? 0 : s.fillMidDb, 1, -18, 12) +
       jf('Highs (dB)', 'fillHighDb', s.fillHighDb == null ? 0 : s.fillHighDb, 1, -18, 12) +
-      '<div class="span2 hint">EQ and reverb apply to the drums only, not to either record. ' +
+      '<div class="span2 hint">Volume is set against the record the drums follow, so 0 dB ' +
+      'is as loud as that record and −6 sits them well under it. EQ and reverb apply to the ' +
+      'drums only, not to either record. ' +
       'The kit is synthesised so it arrives dry and flat, which is right for control and wrong ' +
       'for sitting next to a mastered record — a shelf on the bottom for weight, a dip in the ' +
       'middle to make room for what is playing, and a short tail so it is not stuck to the ' +
@@ -1514,6 +1572,9 @@
         touch();
       }
       if (act === 'render-junction') renderJunction(openJunction);
+      // fire and forget, exactly as render-junction above: hearDrums reports
+      // its own errors to the status line rather than throwing into a listener.
+      if (act === 'hear-drums') { hearDrums(openJunction); return; }
       if (act === 'play-junction') { var s = segFor(openJunction); if (s) play(s.buffer); }
       if (act === 'stop') stop();
       if (act === 'dl-junction') {
