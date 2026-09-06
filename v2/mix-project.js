@@ -245,8 +245,10 @@
                    (b.title || b.file) + '" at ' + Math.round(bpmB) + ' BPM are too far apart ' +
                    'in tempo to play over each other. Bringing them together would mean ' +
                    'stretching one of them by ' + apartPct.toFixed(0) + '%, which is enough to ' +
-                   'make a record sound processed — so a blend will not work here. Instead the ' +
-                   'music cuts and the beat carries on alone into the next track.'
+                   'make a record sound processed — so a blend will not work here. Instead ' +
+                   'drums play between them, walking the tempo from one to the other, so neither ' +
+                   'record is stretched at all. Open the junction and press Render, then Play, ' +
+                   'to hear it.'
         });
         target = null; stretchA = null; stretchB = null;
       }
@@ -257,7 +259,13 @@
         targetBpm: target ? Math.round(target * 100) / 100 : null,
         stretchA: stretchA, stretchB: stretchB, reachable: reachable,
         apartPct: apartPct, bpmA: bpmA, bpmB: bpmB,
-        renderable: reachable || j.type === 'hard-cut',
+        /* A bridge is always renderable. This used to require a common tempo,
+           which meant the junctions that most needed hearing — the ones with
+           no tempo match — had their Render button disabled, so Play stayed
+           greyed out and bouncing the whole set to a WAV was the only way to
+           hear them at all. Carrying an unmatched tempo is what the fill is
+           for; refusing to render it was the rule from before it existed. */
+        renderable: reachable || j.type === 'hard-cut' || j.type === 'throw-bridge',
         settings: j
       });
     }

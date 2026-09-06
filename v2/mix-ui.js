@@ -1235,8 +1235,9 @@
     }
   }
 
-  /** Play one track from an arbitrary point, with a moving playhead. */
-  function playFrom(i, sec) {
+  /** Play one track from an arbitrary point, with a moving playhead.
+      Pass untilSec to stop at a point rather than running to the end. */
+  function playFrom(i, sec, untilSec) {
     var t = project.tracks[i];
     var buf = buffers.get(t.id);
     if (!buf) { setStatus('No audio loaded for "' + t.title + '".', true); return; }
@@ -1246,7 +1247,8 @@
     playing = ctxx.createBufferSource();
     playing.buffer = buf;
     playing.connect(ctxx.destination);
-    playing.start(0, from);
+    if (untilSec != null && untilSec > from) playing.start(0, from, untilSec - from);
+    else playing.start(0, from);
     playing.onended = function () { playing = null; stopPlayhead(); setStopEnabled(false); };
 
     playhead.track = i;
@@ -1467,7 +1469,12 @@
         if (act === 'clear-sel') { clearSelection(i); renderAll(); setStatus(''); return; }
         if (act === 'play-sel') {
           var ps = selectionFor(i);
-          if (ps) playFrom(i, ps.fromSec); else setStatus('Nothing selected yet.', true);
+          /* Just the selection, stopping at its end. It used to play from the
+             start of the selection and carry on through the rest of the
+             record, which tells you where the cut begins and nothing at all
+             about where it ends — and the end is the half you cannot see. */
+          if (ps) playFrom(i, ps.fromSec, ps.toSec);
+          else setStatus('Nothing selected yet.', true);
           return;
         }
         return;
