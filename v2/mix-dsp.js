@@ -1037,6 +1037,170 @@ onmessage = e => {
     return hs;
   }
 
+  /* ------------------------------------------------------- beat fill ---
+     A bridge that actually bridges: N bars of drums INSERTED between two
+     records, with the tempo sliding from the outgoing record's to the incoming
+     one's across them.
+
+     This is what makes an unmatchable junction work. Despacito at 89 and
+     Hotstepper at 100 are 12% apart, which is far beyond what either record
+     can be stretched by without sounding processed. Neither has to be: the
+     fill travels the distance instead. Sixty-four bars is a long, gradual
+     climb — about 0.2 BPM per bar — which is inaudible as a change and lands
+     exactly on the next record's tempo.
+
+     The drums come from the outgoing record's own last bars, so the beat that
+     carries on is the beat that was already playing, and the mids are cut out
+     of it the same way the old in-track bridge did — the difference is that
+     this occupies its own time rather than eating the end of the record.
+
+     Tempo is held constant WITHIN each bar and stepped between bars. Over 64
+     bars from 89 to 100 that is a fifth of a BPM per step, well under anything
+     audible, and it makes the fill's length exactly computable in advance:
+     the sum of each bar's own length. The plan needs that number before any
+     audio exists, and a ramp integrated continuously would only be an
+     approximation of it. */
+
+  /* Bar-by-bar tempo of a fill. One definition, used by the planner to work
+     out how long the fill is and by the renderer to build it, so the two can
+     never disagree about where the next record starts. */
+  function fillTempos(bars, fromBpm, toBpm) {
+    var out = [];
+    var n = Math.max(1, Math.round(bars));
+    for (var i = 0; i < n; i++) {
+      var f = n === 1 ? 1 : i / (n - 1);
+      out.push(fromBpm + (toBpm - fromBpm) * f);
+    }
+    return out;
+  }
+
+  function beatFillSec(bars, fromBpm, toBpm) {
+    if (!bars || !fromBpm || !toBpm) return 0;
+    return fillTempos(bars, fromBpm, toBpm)
+      .reduce(function (s, bpm) { return s + 60 / bpm * 4; }, 0);
+  }
+
+  function sliceBuffer(ctx, buf, fromSec, toSec) {
+    var sr = buf.sampleRate;
+    var a = Math.max(0, Math.floor(fromSec * sr));
+    var b = Math.min(buf.length, Math.floor(toSec * sr));
+    var n = Math.max(1, b - a);
+    var out = ctx.createBuffer(buf.numberOfChannels, n, sr);
+    for (var c = 0; c < buf.numberOfChannels; c++) {
+      out.getChannelData(c).set(buf.getChannelData(c).subarray(a, a + n));
+    }
+    return out;
+  }
+
+  /* Builds the fill. Returns an AudioBuffer exactly beatFillSec() long.
+
+     opts: source (AudioBuffer), atSec (the outgoing mix-out — the fill is cut
+     from the bars before it), bars, fromBpm, toBpm, loopBars, midCutDb,
+     highCutDb, sampleRate. */
+  async function buildBeatFill(opts) {
+    var src = opts.source, sr = opts.sampleRate || src.sampleRate;
+    var fromBpm = opts.fromBpm, toBpm = opts.toBpm;
+    var bars = Math.max(1, Math.round(opts.bars || 16));
+    var loopBars = Math.max(1, Math.round(opts.loopBars || 2));
+    var barSecA = 60 / fromBpm * 4;
+
+    /* The source loop: the last whole bars before the mix-out, ALIGNED TO THE
+       RECORD'S OWN BAR LINES. Cutting the loop at an arbitrary offset gives a
+       window of the right length but with the downbeat in the wrong place, so
+       every repeat lands the kick somewhere new and the fill stumbles once a
+       bar. Measured that way it did not even read as the right tempo. The bar
+       grid runs from the detected downbeat, which is the same grid everything
+       else in the project is snapped to. */
+    var downbeat = opts.downbeatSec || 0;
+    var latest = (opts.atSec || src.duration) - barSecA;
+    var barsIn = Math.floor((latest - downbeat) / barSecA);
+    var loopEnd = downbeat + barsIn * barSecA;
+    var loopStart = loopEnd - loopBars * barSecA;
+    if (loopStart < downbeat) {                     // not enough record before it
+      loopStart = downbeat;
+      loopEnd = Math.min(latest, downbeat + loopBars * barSecA);
+    }
+    if (loopStart < 0) { loopStart = 0; loopEnd = Math.min(latest, loopBars * barSecA); }
+    if (loopEnd - loopStart < barSecA * 0.5) return null;   // nothing usable
+
+    var tmp = new OfflineAudioContext(1, 1, sr);
+    var loop = sliceBuffer(tmp, src, loopStart, loopEnd);
+
+    // Each bar of the loop as its own buffer, so bars can be taken in turn.
+    var srcBars = [];
+    for (var lb = 0; lb < loopBars; lb++) {
+      srcBars.push(sliceBuffer(tmp, loop, lb * barSecA, (lb + 1) * barSecA));
+    }
+
+    var tempos = fillTempos(bars, fromBpm, toBpm);
+    var totalSec = beatFillSec(bars, fromBpm, toBpm);
+    var totalN = Math.round(totalSec * sr);
+    var chs = Math.min(2, src.numberOfChannels);
+    var acc = [];
+    for (var c0 = 0; c0 < chs; c0++) acc.push(new Float32Array(totalN));
+
+    /* Bars are butted, not crossfaded, because every one of them starts on the
+       same point of the same loop — the join is a loop point, which is where a
+       bar is meant to start. A crossfade here would smear the downbeat, which
+       is the one thing the ear is following. A few milliseconds of ramp is
+       kept only to stop a sample-level step. */
+    var edgeN = Math.round(sr * 0.004);
+    var at = 0;
+    for (var i = 0; i < bars; i++) {
+      var oneBar = srcBars[i % loopBars];
+      var ratio = tempos[i] / fromBpm;            // >1 plays faster
+      var st = (Math.abs(ratio - 1) < 1e-4) ? oneBar : stretch(tmp, oneBar, ratio);
+      var want = Math.round(60 / tempos[i] * 4 * sr);
+      var n = Math.min(st.length, want, totalN - at);
+      if (n <= 0) break;
+      for (var c = 0; c < chs; c++) {
+        var dst = acc[c];
+        var s = st.getChannelData(Math.min(c, st.numberOfChannels - 1));
+        for (var k = 0; k < n; k++) {
+          var g = 1;
+          if (k < edgeN) g = k / edgeN;
+          else if (k > n - edgeN) g = Math.max(0, (n - k) / edgeN);
+          dst[at + k] += s[k] * g;
+        }
+      }
+      at += n;
+    }
+
+    /* Cut the mids out of it, exactly as the in-track bridge does, so what is
+       left is the kick, the bass and the top of the kit rather than the whole
+       record with a hole in it. */
+    var off = new OfflineAudioContext(chs, totalN, sr);
+    var raw = off.createBuffer(chs, totalN, sr);
+    for (var c2 = 0; c2 < chs; c2++) raw.getChannelData(c2).set(acc[c2]);
+    var node = off.createBufferSource(); node.buffer = raw;
+
+    var midCut = opts.midCutDb == null ? 24 : opts.midCutDb;
+    var highCut = opts.highCutDb == null ? 0 : opts.highCutDb;
+    var m1 = off.createBiquadFilter(); m1.type = 'peaking'; m1.frequency.value = 700;  m1.Q.value = 1.0; m1.gain.value = -midCut;
+    var m2 = off.createBiquadFilter(); m2.type = 'peaking'; m2.frequency.value = 1800; m2.Q.value = 1.0; m2.gain.value = -midCut;
+    var m3 = off.createBiquadFilter(); m3.type = 'peaking'; m3.frequency.value = 3500; m3.Q.value = 1.0; m3.gain.value = -midCut * 0.7;
+    var hs = off.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 7000; hs.gain.value = -highCut;
+
+    var g0 = off.createGain();
+    /* In over the first bar and out over the last: the outgoing record is
+       still ringing as this starts, and the incoming record lands on the
+       downbeat as it ends. Neither edge should announce itself. */
+    /* The record has already stopped by the time this starts — there is no
+       overlap to hide under — so the beat comes in at once. A bar-long fade-in
+       measured as 1.85 s below -50 dBFS, which is a hole at exactly the moment
+       the fill is supposed to be rescuing. 30 ms is enough to stop a click. */
+    var outSec = Math.min(60 / toBpm * 2, totalSec * 0.25);
+    g0.gain.setValueAtTime(0, 0);
+    g0.gain.linearRampToValueAtTime(1, 0.03);
+    g0.gain.setValueAtTime(1, Math.max(0.04, totalSec - outSec));
+    g0.gain.linearRampToValueAtTime(0.55, totalSec);
+
+    node.connect(m1); m1.connect(m2); m2.connect(m3); m3.connect(hs);
+    hs.connect(g0); g0.connect(off.destination);
+    node.start(0);
+    return await off.startRendering();
+  }
+
   /** How a bridge describes itself in a report. Shared for the same reason. */
   function bridgeNote(o) {
     return (o.throwing ? (o.reverbBars == null ? 2 : o.reverbBars) + '-bar reverb throw, '
@@ -1320,6 +1484,9 @@ onmessage = e => {
     renderBridge: renderBridge,
     applyBridgeOut: applyBridgeOut,
     bridgeNote: bridgeNote,
+    buildBeatFill: buildBeatFill,
+    beatFillSec: beatFillSec,
+    fillTempos: fillTempos,
     fitBeatBars: fitBeatBars,
     renderHardCut: renderHardCut,
     renderJunction: renderJunction,

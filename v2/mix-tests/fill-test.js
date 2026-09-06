@@ -1,0 +1,159 @@
+/* The beat fill: bars of drums inserted BETWEEN two records, with the tempo
+   walking from one record's to the other's.
+
+   Tempo is measured by autocorrelating a low-band envelope over a narrow band
+   of lags around the expected beat, NOT with analyseBeat. On mid-scooped drums
+   analyseBeat picks a different metrical level and reads 104 where the audio
+   is plainly 89 — the same octave ambiguity that shows up everywhere else. A
+   narrow window cannot make that mistake, and the question here is whether the
+   period walks, not what a detector calls it. */
+const http = require('http'), fs = require('fs'), path = require('path');
+const puppeteer = require('puppeteer-core');
+
+const ROOT = path.join(__dirname, '..');
+const MIME = { '.html': 'text/html', '.js': 'text/javascript' };
+const server = http.createServer((q, r) => {
+  const u = decodeURIComponent(q.url.split('?')[0]);
+  if (u === '/favicon.ico') { r.writeHead(204); r.end(); return; }
+  fs.readFile(path.join(ROOT, u), (e, b) => {
+    if (e) { r.writeHead(404); r.end(''); return; }
+    r.writeHead(200, { 'Content-Type': MIME[path.extname(u)] || 'application/octet-stream' });
+    r.end(b);
+  });
+});
+
+let fails = 0;
+const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '   ' + x : '')); if (!c) fails++; };
+
+(async () => {
+  await new Promise(r => server.listen(8772, r));
+  const browser = await puppeteer.launch({
+    executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    headless: 'new', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required']
+  });
+  const page = await browser.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(e.message));
+  await page.goto('http://localhost:8772/mix-builder.html', { waitUntil: 'networkidle0' });
+
+  const out = await page.evaluate(async () => {
+    const DSP = window.MixDSP, MP = window.MixProject, MR = window.MixRender;
+    const ctx = new AudioContext(), sr = ctx.sampleRate;
+
+    // A plain 90 BPM loop: kick on every beat, snare on 2 and 4.
+    function loop(bpm, secs) {
+      const n = Math.floor(sr * secs), buf = ctx.createBuffer(2, n, sr), spb = 60 / bpm;
+      for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < n; i++) d[i] = 0.10 * Math.sin(2 * Math.PI * 110 * i / sr);
+        for (let b = 0; b * spb < secs; b++) {
+          const at = Math.floor(b * spb * sr);
+          for (let k = 0; k < sr * 0.09 && at + k < n; k++)
+            d[at + k] += 0.85 * Math.exp(-k / (sr * 0.02)) * Math.sin(2 * Math.PI * 55 * k / sr);
+          if (b % 4 === 1 || b % 4 === 3)
+            for (let k = 0; k < sr * 0.07 && at + k < n; k++)
+              d[at + k] += 0.45 * Math.exp(-k / (sr * 0.015)) * (Math.random() * 2 - 1);
+        }
+      }
+      return buf;
+    }
+
+    const FROM = 90, TO = 120, BARS = 32;
+    const src = loop(FROM, 90);
+    const fill = await DSP.buildBeatFill({
+      source: src, atSec: 88, downbeatSec: 0, bars: BARS,
+      fromBpm: FROM, toBpm: TO, loopBars: 2, midCutDb: 24, highCutDb: 0, sampleRate: sr
+    });
+    const m = DSP.toMono(fill);
+
+    function periodAt(centreSec, wantBpm) {
+      const half = 8;
+      const a = Math.max(0, Math.floor((centreSec - half) * sr));
+      const b = Math.min(m.length, Math.floor((centreSec + half) * sr));
+      const hop = Math.round(sr * 0.005);
+      const env = [];
+      for (let i = a; i + hop < b; i += hop) {
+        let s = 0;
+        for (let k = 0; k < hop; k++) s += m[i + k] * m[i + k];
+        env.push(Math.sqrt(s / hop));
+      }
+      let mean = 0; env.forEach(v => mean += v); mean /= env.length;
+      const e = env.map(v => v - mean), fps = sr / hop, wantLag = 60 / wantBpm * fps;
+      let best = -1, bestLag = 0;
+      for (let lag = Math.round(wantLag * 0.82); lag <= Math.round(wantLag * 1.22); lag++) {
+        let s = 0, n = 0;
+        for (let i = 0; i + lag < e.length; i++) { s += e[i] * e[i + lag]; n++; }
+        const v = n ? s / n : 0;
+        if (v > best) { best = v; bestLag = lag; }
+      }
+      return +(60 * fps / bestLag).toFixed(1);
+    }
+
+    const tempos = DSP.fillTempos(BARS, FROM, TO);
+    const wantAt = (at) => {
+      let acc = 0;
+      for (let i = 0; i < tempos.length; i++) {
+        const len = 60 / tempos[i] * 4;
+        if (acc + len > at) return tempos[i];
+        acc += len;
+      }
+      return tempos[tempos.length - 1];
+    };
+    const pts = [0.1, 0.5, 0.9].map(f => {
+      const at = fill.duration * f;
+      const want = wantAt(at);
+      return { at: +at.toFixed(1), want: +want.toFixed(1), got: periodAt(at, want) };
+    });
+
+    // Holes: 50 ms windows under -50 dBFS
+    const W = Math.floor(sr * 0.05);
+    let worst = 0, cur = 0;
+    for (let w = 0; w * W + W < m.length; w++) {
+      let s = 0;
+      for (let k = 0; k < W; k++) s += m[w * W + k] * m[w * W + k];
+      if (10 * Math.log10(s / W + 1e-20) < -50) { cur += 0.05; worst = Math.max(worst, cur); }
+      else cur = 0;
+    }
+
+    /* And the plan: a junction that cannot be beat-matched must now carry a
+       gap the length of the fill, rather than butting the records together. */
+    const rows = MP.parseRunningOrder(
+      '#\tTrack\tArtist\tBPM\tSection\tMix\tNote\n' +
+      '1\tSlow\tA\t89\tW\t\t\n2\tFast\tB\t148\tW\t\t\n');
+    const p = MP.seedProject(rows, [], null);
+    p.tracks.forEach(t => { t.durationSec = 200; t.entrySec = 2; t.exitSec = 190; t.bpmLocked = true; });
+    p.junctions[0] = { type: 'throw-bridge', reverbBars: 2, beatBars: 16, midCutDb: 24,
+                       highCutDb: 0, isolation: 'eq', overlapBars: 1, cutStyle: 'throw' };
+    const plan = MR.buildPlan(p);
+
+    return {
+      durSec: +fill.duration.toFixed(2),
+      plannedSec: +DSP.beatFillSec(BARS, FROM, TO).toFixed(2),
+      pts, worstHole: +worst.toFixed(2),
+      planGap: +plan.junctions[0].gapSec.toFixed(2),
+      planFill: plan.junctions[0].fill,
+      inTrackBeatBars: null
+    };
+  });
+
+  console.log('  fill is ' + out.durSec + 's for 32 bars, 90 -> 120 BPM');
+  out.pts.forEach(p => console.log('    at ' + (p.at + 's').padStart(7) +
+    ' should be ' + (p.want + '').padStart(5) + ' BPM, measured ' + p.got));
+
+  ok(Math.abs(out.durSec - out.plannedSec) < 0.05,
+     'the fill is exactly as long as the plan said it would be',
+     out.durSec + 's vs ' + out.plannedSec + 's');
+  ok(out.worstHole < 0.15, 'the beat never drops out', 'longest quiet run ' + out.worstHole + 's');
+  out.pts.forEach(p => ok(Math.abs(p.got - p.want) < 3,
+    'tempo at ' + p.at + 's is where it should be', p.got + ' vs ' + p.want));
+  ok(out.pts[2].got - out.pts[0].got > 20, 'the tempo genuinely travels across the fill',
+     out.pts[0].got + ' -> ' + out.pts[2].got + ' BPM');
+  ok(out.planGap > 30 && out.planFill,
+     'an unmatchable junction is planned as a fill, not as butted records',
+     out.planGap + 's gap for ' + (out.planFill ? out.planFill.bars : 0) + ' bars');
+  ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
+
+  await browser.close(); server.close();
+  console.log(fails ? '\n' + fails + ' FAILED' : '\nthe fill carries the beat and the tempo across');
+  process.exit(fails ? 1 : 0);
+})().catch(e => { console.error('HARNESS FAILED:', e); process.exit(2); });

@@ -407,6 +407,12 @@
      A track whose markers are sane is never touched — this fires only on one
      that cannot play. Returns a list of what it changed, or null. */
   function repairRange(t, mono, sr, cachedContentEnd) {
+    // Does a bridge follow this track? Only then does the mix-out have to sit
+    // where there is still a beat to carry.
+    var myIdx = project.tracks.indexOf(t);
+    var jAfter = myIdx >= 0 ? (project.junctions || [])[myIdx] : null;
+    var bridgesOut = !!(jAfter && jAfter.type !== 'blend' && jAfter.type !== 'hard-cut');
+
     var contentEnd = (cachedContentEnd != null && isFinite(cachedContentEnd))
       ? cachedContentEnd
       : (mono ? DSP.contentEndSec(mono, sr) : 0);
@@ -434,20 +440,54 @@
       notes.push('mix-out ' + (isFinite(before.exit) ? before.exit.toFixed(2) + 's' : 'unset') +
                  ' → ' + t.exitSec.toFixed(2) + 's');
     } else if (mono) {
-      /* A mix-out sitting well inside the fade-out is the same fault wearing a
-         different hat: the range is technically playable, but a bridge anchored
-         there takes its beat from a fade. Pull it back to where the record is
-         still going — but only when it is a long way out, so a deliberate
-         choice a few seconds either side is left alone. */
+      /* Where the mix-out may sit.
+         ----------------------------------------------------------------
+         Two separate limits, because they answer to different things.
+
+         The first is absolute: past contentEndSec there is nothing above
+         -34 dBFS, so a mix-out beyond it is anchored in silence. Measured on
+         the real set, "Despacito" ends at 227.3s and the project had its
+         mix-out at 228.35s — the last second of the bridge was digital black,
+         which is the hard stop it sounded like. No judgement is involved in
+         this one and no deliberate choice is being overruled: there is
+         nothing there to choose.
+
+         The second applies only when the junction after this track is a
+         BRIDGE. A bridge keeps the outgoing beat running after the music
+         cuts, so it takes its beat from the bars immediately before the
+         mix-out. Those bars have to contain a beat. lastStrongSec is the last
+         point still within 5 dB of the record's own strong level, which is
+         where the beat is still the beat rather than the tail of a fade.
+
+         This used to be a single rule with an 8-second tolerance, meant to
+         leave a deliberate choice alone. It left both junctions of the real
+         set broken: they were 1.9s and 2.9s out, comfortably inside the
+         tolerance and both squarely in the silence. A blend does not care —
+         it is already fading — so the tighter limit is not applied to one. */
       var strong = DSP.lastStrongSec(mono, sr);
-      if (isFinite(strong) && strong > (t.entrySec || 0) + MIN_PLAYABLE_SEC &&
-          t.exitSec > strong + 8) {
+      var floor = (t.entrySec || 0) + MIN_PLAYABLE_SEC;
+
+      var limit = null, why = '';
+      if (isFinite(contentEnd) && t.exitSec > contentEnd && contentEnd > floor) {
+        limit = contentEnd;
+        why = 'it was ' + (t.exitSec - contentEnd).toFixed(1) + 's past the end of the music';
+      }
+      if (bridgesOut && isFinite(strong) && strong > floor && t.exitSec > strong &&
+          (limit == null || strong < limit)) {
+        limit = strong;
+        why = 'it was ' + (t.exitSec - strong).toFixed(1) + 's into the fade-out, ' +
+              'and the bridge after it needs a beat to carry';
+      }
+
+      if (limit != null) {
         var wasExit = t.exitSec;
-        t.exitSec = snapToBar(t, strong);
-        if (!isFinite(t.exitSec) || t.exitSec <= (t.entrySec || 0)) t.exitSec = strong;
+        var snapped = snapToBar(t, limit);
+        // snapToBar rounds to the nearest bar, which can push it back out past
+        // the limit it was brought in to respect.
+        t.exitSec = (isFinite(snapped) && snapped > (t.entrySec || 0) && snapped <= limit)
+          ? snapped : limit;
         notes.push('mix-out ' + wasExit.toFixed(2) + 's → ' + t.exitSec.toFixed(2) +
-                   's — it was ' + (wasExit - strong).toFixed(0) + 's into the fade-out, ' +
-                   'where a bridge has no beat to work with');
+                   's — ' + why);
       }
     }
 

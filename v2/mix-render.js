@@ -160,6 +160,7 @@
       var s = j.settings || {};
       var overlap = 0, gap = 0;
       var type = j.type, bridgeBpm = null, zeroOverlap = false, substituted = false;
+      var fillBars = 0, fillFrom = null, fillTo = null;
 
       if (j.type === 'hard-cut') {
         // A deliberate choice, not a failure. Left alone.
@@ -173,7 +174,14 @@
              (s.overlapBars == null ? 1 : s.overlapBars) * barSec);
         // A bridge's B only overlaps for overlapBars; the beat-alone part is
         // still track A playing, so only the true overlap shortens the set.
-        if (j.type !== 'blend') overlap = (s.overlapBars == null ? 1 : s.overlapBars) * barSec;
+        if (j.type !== 'blend') {
+          overlap = (s.overlapBars == null ? 1 : s.overlapBars) * barSec;
+          // Asked for a bridge even though the tempos match: still fill, still
+          // carry the beat. The tempo simply has less distance to travel.
+          fillBars = (s.beatBars == null ? 16 : s.beatBars);
+          fillFrom = MP.effectiveBpm(tracks[k]) || j.targetBpm;
+          fillTo = MP.effectiveBpm(tracks[k + 1]) || j.targetBpm;
+        }
       } else {
         /* No common tempo — layout could not get the two inside the stretch
            budget. That is NOT a render outcome: butting two tracks together
@@ -194,6 +202,12 @@
         bridgeBpm = MP.effectiveBpm(tracks[k]) || null;
         overlap = 0;
         gap = 0;
+        /* The fill carries the tempo across, so the two records never need a
+           common one. This is the whole answer to "too far apart": nothing is
+           stretched, the distance is travelled in the bars between them. */
+        fillBars = (s.beatBars == null ? 16 : s.beatBars);
+        fillFrom = MP.effectiveBpm(tracks[k]) || null;
+        fillTo = MP.effectiveBpm(tracks[k + 1]) || fillFrom;
         plan.problems.push({
           junction: k, kind: 'zero-overlap-bridge',
           message: 'Junction ' + (k + 1) + ': "' + (tracks[k].title || tracks[k].file) +
@@ -220,10 +234,30 @@
         overlap = 0;
       }
 
+      /* The fill occupies real time between the records, so it IS the gap.
+         Its length is the sum of its own bars at their own tempos — the same
+         function the renderer builds it from, so the plan's idea of where the
+         next record starts and the audio that actually arrives cannot drift. */
+      var fill = null;
+      if (fillBars > 0 && fillFrom && fillTo) {
+        var fillSec = DSP.beatFillSec(fillBars, fillFrom, fillTo);
+        if (fillSec > 0) {
+          fill = { bars: fillBars, fromBpm: fillFrom, toBpm: fillTo, sec: fillSec };
+          gap = Math.max(gap, fillSec);
+          /* A fill replaces the overlap rather than sitting alongside it: the
+             records are consecutive, with the drums between them, so they
+             never sound together. Leaving both set meant the writer took the
+             overlap branch and skipped the gap entirely — the fill was built
+             and then thrown away, and the render came out exactly the fill's
+             length shorter than the plan said. */
+          overlap = 0;
+        }
+      }
+
       plan.junctions.push({
         index: k, type: type, requestedType: j.type, substituted: substituted,
         settings: s, targetBpm: j.targetBpm, bridgeBpm: bridgeBpm,
-        zeroOverlap: zeroOverlap,
+        zeroOverlap: zeroOverlap, fill: fill,
         overlapSec: overlap, requestedOverlapSec: overlap, gapSec: gap,
         clamped: false, renderable: j.renderable
       });
@@ -407,13 +441,21 @@
       /* Shorten the beat-alone section rather than let the ramp start at sample
          zero. The previous code clamped brAt with Math.max(0, …), which cut the
          mids for an entire track and reported nothing. */
-      var fit = DSP.fitBeatBars(dur, barSec, s.beatBars == null ? 16 : s.beatBars,
-                                fadeSec, overlapBars, 0.5);
+      /* When a fill follows, the beat-alone bars belong to the FILL, not to the
+         end of this record. Eating the last 41 bars of a record to fake a beat
+         out of it is what made the old bridge sound like a record stopping:
+         the music never carried on, it was only filtered. The record now plays
+         to its mix-out and the fill takes over from there. */
+      var fit = jOut.fill
+        ? { beatBars: 0, shortened: false }
+        : DSP.fitBeatBars(dur, barSec, s.beatBars == null ? 16 : s.beatBars,
+                          fadeSec, overlapBars, 0.5);
       var beatBars = fit.beatBars;
       var bridgeSec = fadeSec + beatBars * barSec + overlapBars * barSec;
       var brAt = Math.max(0, dur - bridgeSec);
 
       applied.bridge = {
+        fill: jOut.fill || null,
         beatBars: beatBars, wantedBeatBars: (s.beatBars == null ? 16 : s.beatBars),
         shortened: fit.shortened, brAtSec: +brAt.toFixed(2), barSec: barSec,
         bpm: jOut.bridgeBpm, zeroOverlap: !!jOut.zeroOverlap,
@@ -663,9 +705,47 @@
         tailLen = n - bodyEnd;
         tail = [L.slice(bodyEnd), R.slice(bodyEnd)];
       } else if (gapN > 0) {
-        var silence = new Float32Array(gapN);
         var gl = new Float32Array(gapN), gr = new Float32Array(gapN);
+
+        /* The bars between the records. Built from THIS record's own last bars
+           so the beat that carries on is the beat that was playing, with the
+           tempo walking to whatever the next record needs. */
+        if (jOut && jOut.fill) {
+          var fillBuf = await DSP.buildBeatFill({
+            source: buf, atSec: pt.sourceToSec, bars: jOut.fill.bars,
+            // the record's own bar grid, so each repeat lands on a downbeat
+            downbeatSec: (project.tracks[i] || {}).downbeatSec || 0,
+            fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
+            loopBars: (jOut.settings.loopBars == null ? 2 : jOut.settings.loopBars),
+            midCutDb: jOut.settings.midCutDb, highCutDb: jOut.settings.highCutDb,
+            sampleRate: sr
+          });
+          if (fillBuf) {
+            var fL = fillBuf.getChannelData(0);
+            var fR = fillBuf.numberOfChannels > 1 ? fillBuf.getChannelData(1) : fL;
+            var fn = Math.min(gapN, fillBuf.length);
+            for (var fk = 0; fk < fn; fk++) { gl[fk] = fL[fk]; gr[fk] = fR[fk]; }
+            report.fills = report.fills || [];
+            report.fills.push({
+              junction: i, bars: jOut.fill.bars,
+              fromBpm: +jOut.fill.fromBpm.toFixed(2), toBpm: +jOut.fill.toBpm.toFixed(2),
+              sec: +(fn / sr).toFixed(2)
+            });
+          } else {
+            report.warnings.push({
+              junction: i,
+              message: 'No usable bars to build the beat fill out of "' + pt.title +
+                       '", so the junction is a gap. Move its mix-out to somewhere ' +
+                       'the drums are still playing.'
+            });
+          }
+        }
+
         mixOverlays(overlays, absPos, gl, gr, gapN);
+        for (var pg = 0; pg < gapN; pg++) {
+          var pgl = Math.abs(gl[pg]); if (pgl > report.peak) report.peak = pgl;
+          var pgr = Math.abs(gr[pg]); if (pgr > report.peak) report.peak = pgr;
+        }
         writer.write([gl, gr], gapN, 1);
         absPos += gapN;
         emitted += gapN / sr;

@@ -207,15 +207,27 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
       log.push(['no exposed gap between the two records',
                 'longest silence ' + fm.longestSilenceSec.toFixed(3) + 's',
                 fm.longestSilenceSec < 0.3]);
-      const fb = fres.report.tracks[0].bridge;
-      log.push(['the outgoing track actually got a bridge',
-                fb ? fb.beatBars + ' beat-alone bars starting ' + fb.brAtSec + 's' : 'none',
-                !!fb && fb.beatBars > 0 && fb.zeroOverlap === true]);
+      /* A bridge used to mean "filter the last N bars of the outgoing record",
+         which put no time between the records at all and left the outgoing
+         record's own ending exposed. It now means N bars of drums INSERTED
+         between them, with the tempo walking from one record's to the other's,
+         so the two never need a common tempo. */
+      const ff = (fres.report.fills || [])[0];
+      log.push(['the junction is filled with beat, not butted',
+                ff ? ff.bars + ' bars, ' + ff.sec + 's, ' + ff.fromBpm + ' -> ' + ff.toBpm + ' BPM' : 'no fill',
+                !!ff && ff.bars > 0 && ff.sec > 1]);
+      log.push(['the fill travels from one record\'s tempo to the other\'s',
+                ff ? ff.fromBpm + ' -> ' + ff.toBpm : 'no fill',
+                !!ff && Math.abs(ff.toBpm - ff.fromBpm) > 1]);
     }
 
-    /* ---- brAt must never collapse to zero.
-       A bridge longer than its track used to clamp to sample zero and cut the
-       mids for the whole thing. It must shorten the beat-alone bars instead. */
+    /* ---- a bridge longer than its own track.
+       This used to be a real hazard: the beat-alone bars were taken out of the
+       end of the record, so asking for more bars than the record had left
+       clamped brAt to sample zero and cut the mids for the whole thing. The
+       fill is inserted rather than carved out, so its length no longer has
+       anything to do with the record's — but the record must still play clean
+       up to its mix-out, and the fill must still be continuous. */
     {
       const sh = new Map();
       sh.set('h0', loop(120, 12, 90));        // a 12 s track
@@ -231,13 +243,14 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
       spj.junctions[0] = Object.assign(MP.defaultJunction('throw-bridge'), { beatBars: 16 });
 
       const sres = await MR.render(spj, sh, { ctx });
-      const sb = sres.report.tracks[0].bridge;
-      log.push(['a bridge too long for its track is shortened, not clamped',
-                sb ? sb.wantedBeatBars + ' -> ' + sb.beatBars + ' bars, brAt ' + sb.brAtSec + 's' : 'none',
-                !!sb && sb.shortened === true && sb.brAtSec > 0]);
-      log.push(['the shortening is reported',
-                sres.report.warnings.filter(w => /shortened/.test(w.message || '')).length + ' warning',
-                sres.report.warnings.some(w => /shortened/.test(w.message || ''))]);
+      const sf = (sres.report.fills || [])[0];
+      log.push(['a fill longer than the record it came from still renders',
+                sf ? sf.bars + ' bars, ' + sf.sec + 's from a 12s record' : 'no fill',
+                !!sf && sf.bars === 16 && sf.sec > 25]);
+      const sm = await MR.measure(sres.blob, sr);
+      log.push(['and it carries a beat the whole way, not silence',
+                'longest silence ' + sm.longestSilenceSec.toFixed(3) + 's',
+                sm.longestSilenceSec < 0.3]);
 
       /* The symptom was mids cut for the ENTIRE track. Compare the high-frequency
          share at the start against inside the bridge — the start must be clean. */
@@ -259,12 +272,39 @@ const ok = (c, m) => { if (!c) { console.log('  FAIL ' + m); fails++; } else con
         for (let i = 0; i < hi.length; i++) h += hi[i] * hi[i];
         return tot > 0 ? h / tot : 0;
       };
+      /* The original symptom: mids cut for the ENTIRE record. Now that the
+         beat lives in the fill, the record itself must be clean from end to
+         end — so the two points to compare are inside the record and inside
+         the fill, and it is the FILL that should be missing its mids. */
       const atStart = hiShare(grab(1, 2));
-      const atBridge = hiShare(grab(sb.brAtSec + 0.5, 1.5));
-      log.push(['the mids are untouched at the start of the track',
+      const inRecord = hiShare(grab(6, 2));
+      const fillAt = spj.tracks[0].durationSec + 2;
+      const inFill = hiShare(grab(fillAt, 2));
+      log.push(['the record keeps its mids from start to finish',
                 'HF share ' + (atStart * 100).toFixed(1) + '% at 1s vs ' +
-                (atBridge * 100).toFixed(1) + '% inside the bridge',
-                atStart > atBridge * 1.4]);
+                (inRecord * 100).toFixed(1) + '% at 6s',
+                Math.abs(atStart - inRecord) < Math.max(atStart, inRecord) * 0.8]);
+      /* Measure the band the EQ actually cuts — the bells sit at 700, 1800 and
+         3500 Hz — rather than everything above 400 Hz. Sharing out all the
+         high end counts the 4-7 kHz the bridge deliberately keeps, and WSOLA
+         puts a little broadband noise up there too, so the wider measure said
+         the fill was brighter than the record when the mids had plainly gone. */
+      const midShare = (seg) => {
+        let tot = 0;
+        for (let i = 0; i < seg.length; i++) tot += seg[i] * seg[i];
+        const above = DSP.hpFiltfilt(seg, 700, sr);
+        const wayAbove = DSP.hpFiltfilt(seg, 4500, sr);
+        let a = 0, b = 0;
+        for (let i = 0; i < above.length; i++) a += above[i] * above[i];
+        for (let i = 0; i < wayAbove.length; i++) b += wayAbove[i] * wayAbove[i];
+        return tot > 0 ? Math.max(0, a - b) / tot : 0;
+      };
+      const midInRecord = midShare(grab(6, 2));
+      const midInFill = midShare(grab(fillAt, 2));
+      log.push(['and it is the fill that has its mids cut, not the record',
+                '700-4500Hz share ' + (midInRecord * 100).toFixed(2) + '% in the record vs ' +
+                (midInFill * 100).toFixed(2) + '% in the fill',
+                midInFill < midInRecord]);
     }
 
     // --- refuses to render what it cannot
