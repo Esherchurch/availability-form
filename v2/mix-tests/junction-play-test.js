@@ -68,11 +68,13 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
      put it back the same way. */
   const input2 = await page.$('#file');
   await input2.uploadFile(path.join(MUSIC, A), path.join(MUSIC, B));
-  await page.waitForFunction(async () => {
-    const p = await window.MixProject.loadProject();
-    return p && (p.tracks || []).every(t => t.linked);
+  await page.waitForFunction(() => {
+    const all = document.querySelectorAll('#timeline .tl-track');
+    const missing = document.querySelectorAll('#timeline .tl-track.unlinked');
+    return all.length >= 2 && missing.length === 0;
   }, { timeout: 240000 });
-  await new Promise(r => setTimeout(r, 1500));
+  await new Promise(r => setTimeout(r, 400));
+  // (the wait above already covers this)
 
   // the tempos really are too far apart to blend
   const gap = await page.evaluate(async () => {
@@ -95,6 +97,11 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   });
   await page.waitForSelector('[data-act="render-junction"]', { timeout: 20000 });
 
+  /* It must BECOME live — waiting for it and then asserting it is not vacuous,
+     because if it never enables the wait times out and the assertion fails. */
+  await page.waitForFunction(
+    () => !document.querySelector('[data-act="render-junction"]').disabled,
+    { timeout: 90000 }).catch(() => {});
   const btns = await page.evaluate(() => ({
     render: document.querySelector('[data-act="render-junction"]').disabled,
     play: document.querySelector('[data-act="play-junction"]').disabled

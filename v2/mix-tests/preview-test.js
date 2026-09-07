@@ -61,11 +61,13 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   await page.waitForFunction(() => document.querySelectorAll('.trk').length >= 2, { timeout: 60000 });
   const input2 = await page.$('#file');
   await input2.uploadFile(path.join(MUSIC, A), path.join(MUSIC, B));
-  await page.waitForFunction(async () => {
-    const p = await window.MixProject.loadProject();
-    return p && (p.tracks || []).every(t => t.linked);
+  await page.waitForFunction(() => {
+    const all = document.querySelectorAll('#timeline .tl-track');
+    const missing = document.querySelectorAll('#timeline .tl-track.unlinked');
+    return all.length >= 2 && missing.length === 0;
   }, { timeout: 240000 });
-  await new Promise(r => setTimeout(r, 1500));
+  await new Promise(r => setTimeout(r, 400));
+  // (the wait above already covers this)
 
   // count how many sources are running, to prove real scheduling
   await page.evaluate(() => {

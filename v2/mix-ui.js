@@ -1389,6 +1389,10 @@
       'pad or a fade is covered.</div>' +
       jf('Drum volume (dB)', 'fillGainDb',
          s.fillGainDb == null ? -1.5 : s.fillGainDb, 1, -24, 6) +
+      jf('Fade in (beats)', 'fadeInBeats',
+         s.fadeInBeats == null ? (s.preBeats == null ? 8 : s.preBeats) : s.fadeInBeats, 1, 0, 64) +
+      jf('Fade out (beats)', 'fadeOutBeats',
+         s.fadeOutBeats == null ? 4 : s.fadeOutBeats, 1, 0, 64) +
       jf('Reverb (%)', 'fillReverb', s.fillReverb == null ? 0 : s.fillReverb, 5, 0, 80) +
       jf('Reverb length (beats)', 'fillReverbBeats',
          s.fillReverbBeats == null ? 1 : s.fillReverbBeats, 0.5, 0.25, 8) +
@@ -1396,7 +1400,11 @@
       jf('Mids (dB)', 'fillMidDb', s.fillMidDb == null ? 0 : s.fillMidDb, 1, -18, 12) +
       jf('Highs (dB)', 'fillHighDb', s.fillHighDb == null ? 0 : s.fillHighDb, 1, -18, 12) +
       '<div class="span2 hint">Volume is set against the record the drums follow, so 0 dB ' +
-      'is as loud as that record and −6 sits them well under it. EQ and reverb apply to the ' +
+      'is as loud as that record and −6 sits them well under it — though drums will always ' +
+      'measure a few dB under a mastered record, because keeping their punch means keeping the ' +
+      'gap between their peaks and their average, and closing that gap is what made them ' +
+      'distort. Fades are in beats: how long they take to arrive under the outgoing record, ' +
+      'and how long they take to go once the next one is carrying. EQ and reverb apply to the ' +
       'drums only, not to either record. ' +
       'The kit is synthesised so it arrives dry and flat, which is right for control and wrong ' +
       'for sitting next to a mastered record — a shelf on the bottom for weight, a dip in the ' +
@@ -3012,7 +3020,8 @@
             preBeats: s.preBeats == null ? 8 : s.preBeats,
             patternId: s.drumPattern || 'auto',
             fromBpm: j.fill.fromBpm, toBpm: j.fill.toBpm,
-            gainDb: s.fillGainDb, lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
+            gainDb: s.fillGainDb, fadeInBeats: s.fadeInBeats, fadeOutBeats: s.fadeOutBeats,
+            lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
             reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
             sampleRate: audioCtx().sampleRate
           });

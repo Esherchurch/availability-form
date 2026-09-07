@@ -1155,8 +1155,14 @@ onmessage = e => {
     var n = Math.min(out.length - at, v.length, Math.floor(holdSec * sr));
     if (n <= 0) return;
     var tail = Math.max(1, Math.floor(n * 0.25));
+    /* A millisecond and a half of attack. These start on their loudest sample —
+       sfxImpact opens with noise at 0.6 — so dropped onto silence they step
+       from nothing to full scale between one sample and the next, which is a
+       click, and measured as one: a jump of 0.955 where the records themselves
+       never exceed 0.68. Real kicks rise fast; they do not rise instantly. */
+    var attack = Math.max(1, Math.floor(sr * 0.0015));
     for (var i = 0; i < n; i++) {
-      var g = i > n - tail ? (n - i) / tail : 1;
+      var g = i < attack ? i / attack : (i > n - tail ? (n - i) / tail : 1);
       out[at + i] += amp * v[i] * g;
     }
   }
@@ -1406,32 +1412,45 @@ onmessage = e => {
     var want = Math.round(totalSec * sr);
     var buf = new Float32Array(want);
     buf.set(out.subarray(0, want));
-    /* In across the pre-beats rather than in 30 ms. The record is still
-       playing over them, so the drums arrive underneath it and are already
-       established by the time it goes. */
+    /* The shape of it: in, hold, ease back under the next record, out.
+
+       Fade lengths are in beats and are settable per junction, because how
+       long drums should take to arrive depends on what they are arriving under
+       — eight beats under a record that is still going, two under one that has
+       already stopped. The defaults are the pre-roll for the way in and four
+       beats for the way out, which is what they were when they were fixed. */
+    var beatSecIn = 60 / opts.fromBpm, beatSecOut = 60 / opts.toBpm;
     var preSec = 0;
     for (var pi2 = 0; pi2 < pre; pi2++) preSec += 60 / tempos[pi2];
-    var inN = pre > 0 ? Math.round(preSec * sr) : Math.round(sr * 0.03);
+
+    var fadeInSec = opts.fadeInBeats != null
+      ? opts.fadeInBeats * beatSecIn
+      : (pre > 0 ? preSec : 0.03);
+    var fadeOutSec = opts.fadeOutBeats != null
+      ? opts.fadeOutBeats * beatSecOut
+      : beatSecOut * 4;
+
+    var inN = Math.max(1, Math.min(want, Math.round(fadeInSec * sr)));
     for (var k = 0; k < inN && k < want; k++) {
       var g0v = k / inN;
       buf[k] *= g0v * g0v;                      // slow at first, then up
     }
 
-    /* Under the record it steps back — it is accompaniment from that point,
-       not the main event — and then goes out over the last four beats, by
-       which time the record's own drums are carrying. */
+    /* Under the next record it steps back — it is accompaniment from that
+       point, not the main event. */
     var overSec = 0;
     for (var oi = tempos.length - over; oi < tempos.length; oi++) overSec += 60 / tempos[oi];
     var overN = Math.round(overSec * sr);
     if (overN > 0) {
-      var duckN = Math.round(60 / opts.toBpm * 2 * sr);      // two beats to duck
-      var start = Math.max(0, want - overN);
-      for (var q = 0; q < overN && start + q < want; q++) {
+      var duckN = Math.round(beatSecOut * 2 * sr);
+      var startAt = Math.max(0, want - overN);
+      for (var q = 0; q < overN && startAt + q < want; q++) {
         var g = q < duckN ? 1 - 0.45 * (q / duckN) : 0.55;
-        buf[start + q] *= g;
+        buf[startAt + q] *= g;
       }
     }
-    var outN = Math.round(60 / opts.toBpm * 4 * sr);
+
+    var outN = Math.max(1, Math.min(want, Math.round(fadeOutSec * sr)));
     for (var m = 0; m < outN && m < want; m++) {
       buf[want - 1 - m] *= (m / outN);
     }
@@ -1529,6 +1548,7 @@ onmessage = e => {
     var preBeats = Math.max(0, Math.round(opts.preBeats || 0));
     var pcm = synthDrumFill({
       beats: beats, overBeats: overBeats, preBeats: preBeats,
+      fadeInBeats: opts.fadeInBeats, fadeOutBeats: opts.fadeOutBeats,
       fromBpm: fromBpm, toBpm: toBpm,
       pattern: chosen, sampleRate: sr, seed: opts.seed || 20260919
     });
@@ -1596,58 +1616,78 @@ onmessage = e => {
     for (var q2 = 0; q2 < pcm.length; q2++) { mine += pcm[q2] * pcm[q2]; mc++; }
     mine = mc ? Math.sqrt(mine / mc) : 0;
 
-    /* Getting there needs saturation, not just gain. A raw kit is pure
-       transient: scaling its RMS up to a mastered record's puts the kick peaks
-       far through the ceiling, and pulling the peaks back down undoes exactly
-       as much as the gain put in — measured, level matching alone moved the
-       fill from -22.6 to -24.1 dBFS, which is backwards. Soft clipping is what
-       a drum bus compressor is for and what every drum loop on a record has
-       already had: it takes the tops off the kicks so the body can come up. */
+    /* Level, without flattening it.
+
+       A drum kit lives on its crest factor — the gap between its peaks and its
+       average — and the whole character of a kick is in that gap. Measured,
+       the kit arrives at 18.7 dB of crest and the old stage handed back 9.7,
+       having driven it hard enough to reach a mastered record's -9.6 dBFS RMS.
+       That is nine decibels of dynamics turned into distortion, which is
+       exactly what it sounded like.
+
+       So the crest is the constraint and the level is what gives. Saturation is
+       increased only while the kit still breathes; if the record cannot be
+       matched without going below MIN_CREST, the fill comes out quieter and
+       clean, which is the right way round — there is a volume control, and
+       there is no control for undoing distortion. */
+
+    var MIN_CREST_DB = 14;
     var target = ref ? ref * Math.pow(10, (opts.gainDb == null ? -1.5 : opts.gainDb) / 20) : 0;
 
     function peakOf(v) {
-      var p = 0;
-      for (var i = 0; i < v.length; i++) { var a = Math.abs(v[i]); if (a > p) p = a; }
-      return p;
+      var pk = 0;
+      for (var i = 0; i < v.length; i++) { var a = Math.abs(v[i]); if (a > pk) pk = a; }
+      return pk;
     }
     function rmsOf(v) {
-      var s = 0;
-      for (var i = 0; i < v.length; i += 7) s += v[i] * v[i];
-      return Math.sqrt(s / Math.ceil(v.length / 7));
+      var s = 0, n = 0;
+      for (var i = 0; i < v.length; i += 7) { s += v[i] * v[i]; n++; }
+      return Math.sqrt(s / Math.max(1, n));
+    }
+    function crestDb(v) {
+      var pk = peakOf(v), rm = rmsOf(v);
+      return (pk > 0 && rm > 0) ? 20 * Math.log10(pk / rm) : 99;
     }
 
+    /* The kit sums past full scale on its own — sfxImpact carries a 60 Hz and a
+       40 Hz sine as well as its noise, and three voices can land together — so
+       bring it under before anything else looks at it. */
     var p0 = peakOf(pcm) || 1;
-    for (var i0 = 0; i0 < pcm.length; i0++) pcm[i0] *= 0.98 / p0;
+    for (var i0 = 0; i0 < pcm.length; i0++) pcm[i0] *= 0.90 / p0;
 
     if (target > 0) {
-      /* Pick the least saturation that reaches the level. Tried in order, so a
-         fill that needs none gets none. */
-      var drives = [1, 1.6, 2.4, 3.5, 5, 7, 10, 14];
-      var sat = null;
-      for (var di = 0; di < drives.length; di++) {
+      var probe = pcm.subarray(0, Math.min(pcm.length, Math.floor(sr * 10)));
+      var drives = [1, 1.3, 1.7, 2.2, 2.8, 3.6];
+      var sat = { drive: 1, rms: rmsOf(probe) };
+      for (var di = 1; di < drives.length; di++) {
         var dr = drives[di], norm = Math.tanh(dr);
-        var test = new Float32Array(Math.min(pcm.length, Math.floor(sr * 8)));
-        for (var ti = 0; ti < test.length; ti++) test[ti] = Math.tanh(pcm[ti] * dr) / norm * 0.95;
+        var test = new Float32Array(probe.length);
+        for (var ti = 0; ti < test.length; ti++) test[ti] = Math.tanh(probe[ti] * dr) / norm * 0.90;
+        if (crestDb(test) < MIN_CREST_DB) break;       // it has started to flatten
         sat = { drive: dr, rms: rmsOf(test) };
-        if (sat.rms >= target) break;
+        if (sat.rms >= target) break;                  // loud enough
       }
-      var dnorm = Math.tanh(sat.drive);
-      for (var si = 0; si < pcm.length; si++) {
-        pcm[si] = Math.tanh(pcm[si] * sat.drive) / dnorm * 0.95;
+      if (sat.drive > 1) {
+        var dnorm = Math.tanh(sat.drive);
+        for (var si = 0; si < pcm.length; si++) {
+          pcm[si] = Math.tanh(pcm[si] * sat.drive) / dnorm * 0.90;
+        }
       }
-      // and trim if that overshot
-      var got = rmsOf(pcm);
-      if (got > target * 1.02) {
-        var trim = target / got, pk2 = peakOf(pcm) * trim;
-        if (pk2 < 0.98) for (var wi = 0; wi < pcm.length; wi++) pcm[wi] *= trim;
+      /* Then take whatever is left cleanly. Plain gain costs no crest at all —
+         it moves the peaks and the average together — so the only limit on it
+         is the ceiling. What that leaves is the honest arithmetic of the thing:
+         a kit with 15 dB of crest cannot exceed about -15 dBFS RMS without
+         something being squashed, and a mastered record sits near -10. The
+         remaining gap is not a fault to be gained away, it is why drums sound
+         like drums. */
+      var got = rmsOf(pcm), pk = peakOf(pcm);
+      var wanted = target / Math.max(1e-9, got);
+      var headroom = 0.97 / Math.max(1e-9, pk);
+      var g2 = Math.min(wanted, headroom);
+      if (Math.abs(g2 - 1) > 0.01) {
+        for (var wi = 0; wi < pcm.length; wi++) pcm[wi] *= g2;
       }
     } else {
-      /* No record to level against — the preview button before any audio is
-         loaded, or a pattern picked by hand. The volume still has to work:
-         with the target unset this whole block used to be skipped, so turning
-         the drums down changed nothing at all and the control looked broken
-         precisely where it is most used. Applied straight, against the
-         peak-normalised kit. */
       var flat = Math.pow(10, (opts.gainDb == null ? -1.5 : opts.gainDb) / 20);
       for (var fi = 0; fi < pcm.length; fi++) pcm[fi] *= flat;
     }
@@ -1735,6 +1775,7 @@ onmessage = e => {
       patternId: opts.drumPattern || 'auto',
       fromBpm: fromBpm, toBpm: toBpm,
       gainDb: opts.fillGainDb,
+      fadeInBeats: opts.fadeInBeats, fadeOutBeats: opts.fadeOutBeats,
       lowDb: opts.fillLowDb, midDb: opts.fillMidDb, highDb: opts.fillHighDb,
       reverbPct: opts.fillReverb, reverbBeats: opts.fillReverbBeats,
       sampleRate: sr

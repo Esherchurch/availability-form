@@ -50,6 +50,32 @@ let fails=0; const ok=(c,m,x)=>{console.log((c?'  ok   ':'  FAIL ')+m+(x?'   '+x
  console.log('  bass +10 dB   energy below 200 Hz: '+out.flatLow+' -> '+out.bassyLow);
  console.log('  highs +12 dB  energy above 5 kHz : '+out.flatHigh+' -> '+out.brightHigh);
  console.log('  reverb 60%    fraction of time quiet: '+out.flatQuiet+' -> '+out.wetQuiet);
+
+  /* Fades, in beats, per junction. Measured at the audio: how long it takes
+     to reach full level, and how long it takes to go. */
+  const fades = await p.evaluate(async () => {
+    const DSP = window.MixDSP; const ctx = new AudioContext(), sr = ctx.sampleRate;
+    const n = Math.floor(sr*40), src = ctx.createBuffer(2,n,sr);
+    for (let c=0;c<2;c++){ const d=src.getChannelData(c);
+      for (let i=0;i<n;i++) d[i]=0.2*Math.sin(2*Math.PI*80*i/sr); }
+    const mk = async o => DSP.toMono(await DSP.buildBeatFill(Object.assign(
+      {source:src, atSec:38, downbeatSec:0, beats:32, fromBpm:120, toBpm:120,
+       patternId:"four", sampleRate:sr}, o)));
+    const riseSec = m => { let pk=0; for (let i=0;i<m.length;i++) pk=Math.max(pk,Math.abs(m[i]));
+      for (let i=0;i<m.length;i++) if (Math.abs(m[i]) > pk*0.7) return i/sr; return -1; };
+    const tailSec = m => { let pk=0; for (let i=0;i<m.length;i++) pk=Math.max(pk,Math.abs(m[i]));
+      for (let i=m.length-1;i>=0;i--) if (Math.abs(m[i]) > pk*0.7) return (m.length-i)/sr; return -1; };
+    const quick = await mk({fadeInBeats:1, fadeOutBeats:1});
+    const slow  = await mk({fadeInBeats:16, fadeOutBeats:16});
+    return { quickIn:+riseSec(quick).toFixed(2), slowIn:+riseSec(slow).toFixed(2),
+             quickOut:+tailSec(quick).toFixed(2), slowOut:+tailSec(slow).toFixed(2) };
+  });
+  console.log("  fade in 1 beat: full by " + fades.quickIn + "s;  16 beats: " + fades.slowIn + "s");
+  console.log("  fade out 1 beat: last " + fades.quickOut + "s;  16 beats: " + fades.slowOut + "s");
+  ok(fades.slowIn > fades.quickIn * 2, "a longer fade in takes longer to arrive",
+     fades.quickIn + "s vs " + fades.slowIn + "s");
+  ok(fades.slowOut > fades.quickOut * 2, "and a longer fade out takes longer to go",
+     fades.quickOut + "s vs " + fades.slowOut + "s");
  ok(out.bassyLow > out.flatLow, 'the Bass control moves the bottom end');
  ok(out.brightHigh > out.flatHigh * 1.3, 'the Highs control moves the top end');
  ok(out.wetQuiet < out.flatQuiet, 'reverb fills the space between the hits');
