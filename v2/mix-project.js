@@ -969,7 +969,7 @@
       // Song, and only normaliseRow knows that; filtering on r.Track first
       // threw away every sheet that used one of the other two.
       return (rows || []).map(function (r) { return r ? normaliseRow(r) : null; })
-                         .filter(function (r) { return r && r.title; });
+                         .filter(function (r) { return r && r.title && !isSummaryRow(r); });
     }
     var text = input.trim();
     if (text.charAt(0) === '{' || text.charAt(0) === '[') {
@@ -983,7 +983,7 @@
       var cells = splitRow(l, sep), o = {};
       header.forEach(function (h, i) { o[h] = (cells[i] || '').trim(); });
       return normaliseRow(o);
-    }).filter(function (r) { return r.title; });
+    }).filter(function (r) { return r.title && !isSummaryRow(r); });
   }
 
   function splitRow(line, sep) {
@@ -997,6 +997,27 @@
     }
     out.push(cur);
     return out;
+  }
+
+  /* A running order usually ends with a totals line, and it is not a song.
+     The real sheet finishes with "TOTAL RUNNING TIME", which came in as track
+     48 and then sat 29% away in tempo from the record before it, because it
+     has no tempo at all. Anything with no artist and no BPM whose title reads
+     like a summary is a footer, not a track. */
+  /* Written as a plain literal rather than assembled: this line has already
+     been through a shell once and came out with a backspace character in it
+     where a word boundary was meant, which matched nothing and let the
+     totals row through looking exactly as though the filter were running. */
+  var SUMMARY_TITLE = /^(total|running time|grand total|subtotal|sub total|notes|summary)/i;
+
+  function isSummaryRow(r) {
+    /* Not "has no artist": the real sheet puts an Excel time serial in the
+       artist column of its totals line — 0.131805555555556 — which is truthy
+       and let it through as track 48, sitting 29% away in tempo from the
+       record before it because it has no tempo at all. A song has a BPM and is
+       not called "TOTAL RUNNING TIME". */
+    if (r.bpm) return false;
+    return SUMMARY_TITLE.test(r.title.trim());
   }
 
   function normaliseRow(o) {
