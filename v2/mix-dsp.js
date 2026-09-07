@@ -1110,56 +1110,64 @@ onmessage = e => {
      hand means a hit can start at any sample rather than being quantised to
      whatever the graph's scheduling allows. */
 
-  /* A dance kick, not a drummer's. The first version swept 115 to 45 Hz and
-     was gone in 85 ms with a click on the front — an acoustic bass drum, which
-     is exactly what it sounded like against a dance record. This one drops
-     faster and further, holds a sub underneath it, and has almost no click:
-     what carries a floor is weight, not attack. */
-  function addKick(out, at, sr, amp) {
-    var n = Math.min(out.length - at, Math.floor(sr * 0.55));
-    var phase = 0, subPhase = 0;
+  /* ---- the kit, from Videoeditor.html.
+
+     These three generators are that editor's, copied without changing a
+     number: sfxImpact, sfxSnare and sfxTypewriter, which are its boom, its
+     snare and its click. They are already in the suite, already used, and
+     already the sound of everything else made with these tools. I wrote a kick,
+     a snare and a hat of my own instead of looking, which is how the fill came
+     to sound like a live drummer under a dance record.
+
+     They are one-shots meant to be dropped on a timeline, so they run long —
+     sfxImpact is 1.2 seconds and would wash into the next beat at any dance
+     tempo. Each hit is therefore given an envelope at the point it is placed,
+     which shortens it without touching the sound itself. That is the only
+     thing done to them. */
+
+  function sfxImpact(){var sr=44100,n=Math.floor(sr*1.2),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=(Math.random()*2-1)*Math.exp(-t*5)*0.6+Math.sin(2*Math.PI*60*t)*Math.exp(-t*5)*0.5+Math.sin(2*Math.PI*40*t)*Math.exp(-t*12)*0.4;}return s;}
+  function sfxSnare(){var sr=44100,n=Math.floor(sr*0.35),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=Math.sin(2*Math.PI*200*t)*Math.exp(-t*30)*0.5+(Math.random()*2-1)*Math.exp(-t*15)*0.6;}return s;}
+  function sfxTypewriter(){var sr=44100,n=Math.floor(sr*0.08),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=(Math.random()*2-1)*Math.exp(-t*60)*0.7+Math.sin(2*Math.PI*800*t)*Math.exp(-t*60)*0.3;}return s;}
+
+  /* Rendered once each, at the sample rate in use, and kept. They are written
+     at 44100 in the editor; resampled by linear interpolation, which is
+     inaudible on a noise burst and a decaying sine. */
+  var _kit = {};
+  function kitVoice(name, sr) {
+    var key = name + '@' + sr;
+    if (_kit[key]) return _kit[key];
+    var src = name === 'kick' ? sfxImpact() : name === 'snare' ? sfxSnare() : sfxTypewriter();
+    var from = 44100;
+    if (sr === from) { _kit[key] = src; return src; }
+    var n = Math.round(src.length * sr / from), out = new Float32Array(n);
     for (var i = 0; i < n; i++) {
-      var t = i / sr;
-      // 95 Hz down to 38 in about 25 ms, then it sits there and rings
-      var f = 38 + 57 * Math.exp(-t / 0.022);
-      phase += 2 * Math.PI * f / sr;
-      subPhase += 2 * Math.PI * 41 / sr;
-      var body = Math.sin(phase) * Math.exp(-t / 0.20);
-      var sub  = Math.sin(subPhase) * Math.exp(-t / 0.13) * 0.55;
-      var click = Math.exp(-t / 0.0009) * 0.10;
-      out[at + i] += amp * (body + sub + click);
+      var x = i * from / sr, i0 = Math.floor(x), f = x - i0;
+      out[i] = (src[i0] || 0) * (1 - f) + (src[i0 + 1] || 0) * f;
+    }
+    _kit[key] = out;
+    return out;
+  }
+
+  /* Place one hit, with an envelope that fits it to the tempo. holdSec is how
+     long it may ring before it has to be out of the way. */
+  function addHit(out, at, sr, amp, name, holdSec) {
+    var v = kitVoice(name, sr);
+    var n = Math.min(out.length - at, v.length, Math.floor(holdSec * sr));
+    if (n <= 0) return;
+    var tail = Math.max(1, Math.floor(n * 0.25));
+    for (var i = 0; i < n; i++) {
+      var g = i > n - tail ? (n - i) / tail : 1;
+      out[at + i] += amp * v[i] * g;
     }
   }
 
-  /* Closer to a clap than a snare drum: darker, shorter, and well down in the
-     balance. A bright cracking snare on every other beat is the sound of a live
-     kit, and a live kit under a dance record is the thing that sounded wrong.
-     Patterns that want none at all set their snare level to zero. */
-  function addSnare(out, at, sr, amp, rnd) {
+  function addKick(out, at, sr, amp, holdSec)  { addHit(out, at, sr, amp, 'kick',  holdSec || 0.30); }
+  function addSnare(out, at, sr, amp, rnd, holdSec) {
     if (amp <= 0) return;
-    var n = Math.min(out.length - at, Math.floor(sr * 0.16));
-    var hp = 0, prev = 0, lp = 0;
-    for (var i = 0; i < n; i++) {
-      var t = i / sr;
-      var env = Math.exp(-t / 0.038);
-      var noise = rnd() * 2 - 1;
-      hp = 0.55 * (hp + noise - prev); prev = noise;   // darker than before
-      lp += (hp - lp) * 0.45;                          // and rolled off on top
-      var body = Math.sin(2 * Math.PI * 170 * t) * Math.exp(-t / 0.030) * 0.35;
-      out[at + i] += amp * (lp * env * 0.8 + body);
-    }
+    addHit(out, at, sr, amp, 'snare', holdSec || 0.22);
   }
-
-  function addHat(out, at, sr, amp, open, rnd) {
-    var n = Math.min(out.length - at, Math.floor(sr * (open ? 0.18 : 0.045)));
-    var hp = 0, prev = 0;
-    for (var i = 0; i < n; i++) {
-      var t = i / sr;
-      var env = Math.exp(-t / (open ? 0.06 : 0.011));
-      var noise = rnd() * 2 - 1;
-      hp = 0.92 * (hp + noise - prev); prev = noise;
-      out[at + i] += amp * hp * env;
-    }
+  function addHat(out, at, sr, amp, open, rnd, holdSec) {
+    addHit(out, at, sr, amp, 'hat', holdSec || (open ? 0.14 : 0.05));
   }
 
   /* Deterministic noise, so the same fill renders the same way twice. */
@@ -1382,9 +1390,12 @@ onmessage = e => {
         var kAmp = pat.kickAmp == null ? 1 : pat.kickAmp;
         var sAmp = pat.snareAmp == null ? 0.34 : pat.snareAmp;
         var hAmp = pat.hatAmp == null ? 0.14 : pat.hatAmp;
-        if (pat.kick[step])  addKick(out, pos, sr, 0.95 * kAmp * accent);
-        if (pat.snare[step]) addSnare(out, pos, sr, sAmp * accent, rnd);
-        if (pat.hat[step])   addHat(out, pos, sr, hAmp * accent, false, rnd);
+        /* A hit may ring until the next one is due, and no longer — these are
+           one-shots built for a timeline, not for a tempo. */
+        var hold = 60 / tempos[i] * 0.95;
+        if (pat.kick[step])  addKick(out, pos, sr, 0.95 * kAmp * accent, Math.min(0.34, hold));
+        if (pat.snare[step]) addSnare(out, pos, sr, sAmp * accent, rnd, Math.min(0.24, hold));
+        if (pat.hat[step])   addHat(out, pos, sr, hAmp * accent, false, rnd, Math.min(0.09, hold));
       }
       at += beatSec * sr;
     }

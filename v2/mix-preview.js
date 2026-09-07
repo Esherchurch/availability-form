@@ -30,6 +30,10 @@
   function createPreview(opts) {
     var ctx = opts.ctx;
     var DSP = opts.DSP;
+    /* Where the sound goes. Everything the tool plays ends at one node so the
+       meter has something to measure; without that the analyser sees nothing
+       and reads silence while the mix is plainly playing. */
+    var out = opts.destination || ctx.destination;
 
     var S = {
       t: 0,                 // the playhead, in mix seconds
@@ -80,7 +84,7 @@
       node.buffer = c.buffer;
       var g = ctx.createGain();
       g.gain.value = c.gain == null ? 1 : c.gain;
-      node.connect(g); g.connect(ctx.destination);
+      node.connect(g); g.connect(out);
 
       var into = Math.max(0, S.t - c.fromSec);          // how far into the clip
       var left = Math.max(0, c.toSec - S.t);

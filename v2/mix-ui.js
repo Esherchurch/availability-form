@@ -103,8 +103,166 @@
     });
   }
 
-  function touch() {
+  /* ------------------------------------------------------------ undo ---
+     Videoeditor.html's undo, with this project as the state. Its shape is kept
+     exactly: a stack of serialised states, undo pops the current one and
+     restores the one beneath, redo puts it back, and a flag stops a restore
+     from recording itself as another edit.
+
+     Two differences, both forced by what is being stored.
+
+     The editor snapshots BEFORE each operation. Everything here already funnels
+     through touch(), which runs after a change, so the snapshot goes there
+     instead — the stack ends up holding the same sequence of states, and its
+     undo() already works by restoring the state beneath the current one.
+
+     Waveform peaks are left out. Forty-seven tracks carry about fourteen
+     hundred peak values each, and putting sixty of those in a stack would cost
+     more memory than the audio. They are not edits, so they are carried across
+     from the live project on restore rather than stored. */
+
+  var MAX_UNDO = 60;
+  var _undoStack = [], _redoStack = [], _undoPaused = false;
+
+  function serializeProject() {
+    return JSON.stringify(project, function (k, v) {
+      return k === 'peaks' ? undefined : v;
+    });
+  }
+
+  function restoreProject(state) {
+    var peaks = {};
+    (project.tracks || []).forEach(function (t) { if (t.peaks) peaks[t.id] = t.peaks; });
+    var next = JSON.parse(state);
+    (next.tracks || []).forEach(function (t) { if (peaks[t.id]) t.peaks = peaks[t.id]; });
+    project = next;
+    recompute();
+    pruneSegments();
+    save();
+    renderAll();
+  }
+
+  function snapshot(label) {
+    if (_undoPaused) return;
+    _undoStack.push({ label: label || 'edit', state: serializeProject() });
+    if (_undoStack.length > MAX_UNDO) _undoStack.shift();
+    _redoStack = [];
+    updateUndoButtons();
+  }
+
+  function undo() {
+    if (_undoStack.length < 2) { setStatus('Nothing to undo.', true); return; }
+    var cur = _undoStack.pop();
+    _redoStack.push(cur);
+    var prev = _undoStack[_undoStack.length - 1];
+    _undoPaused = true;
+    restoreProject(prev.state);
+    _undoPaused = false;
+    updateUndoButtons();
+    setStatus('Undone: ' + cur.label + '.');
+  }
+
+  function redo() {
+    if (!_redoStack.length) { setStatus('Nothing to redo.', true); return; }
+    var next = _redoStack.pop();
+    _undoStack.push(next);
+    _undoPaused = true;
+    restoreProject(next.state);
+    _undoPaused = false;
+    updateUndoButtons();
+    setStatus('Redone: ' + next.label + '.');
+  }
+
+  function updateUndoButtons() {
+    var bu = $('undoBtn'), br = $('redoBtn'), uc = $('undoCount');
+    if (bu) bu.disabled = _undoStack.length < 2;
+    if (br) br.disabled = _redoStack.length === 0;
+    if (uc) uc.textContent = _undoStack.length > 1
+      ? (_undoStack.length - 1) + ' step' + (_undoStack.length === 2 ? '' : 's') + ' back'
+      : '';
+  }
+
+  /* -------------------------------------------------------------- VU ---
+     Videoeditor.html's meter, unchanged: an analyser per channel off a master
+     gain, RMS in dB across the window, a peak that holds for a second and a
+     half and then falls, and a clip light that latches until the level drops
+     back below -3 dB.
+
+     It needs everything to go through one node to measure, which nothing did —
+     every source connected straight to the destination — so masterOut() is
+     that node and every playback path now ends there. That is also what makes
+     a master level control possible later; it is not one yet. */
+
+  var _masterGain = null, _splitter = null, _analyserL = null, _analyserR = null;
+  var _vuRunning = false, _vuPeakHoldL = -100, _vuPeakHoldR = -100, _vuPeakTimer = 0;
+
+  function masterOut() {
+    var ctxx = audioCtx();
+    if (!_masterGain) {
+      _masterGain = ctxx.createGain();
+      _masterGain.gain.value = 1;
+      _masterGain.connect(ctxx.destination);
+    }
+    return _masterGain;
+  }
+
+  function setupAnalyser() {
+    if (_analyserL) return;
+    var actx = audioCtx();
+    _splitter = actx.createChannelSplitter(2);
+    _analyserL = actx.createAnalyser();
+    _analyserL.fftSize = 1024; _analyserL.smoothingTimeConstant = 0.6;
+    _analyserR = actx.createAnalyser();
+    _analyserR.fftSize = 1024; _analyserR.smoothingTimeConstant = 0.6;
+    masterOut().connect(_splitter);
+    _splitter.connect(_analyserL, 0);
+    _splitter.connect(_analyserR, 1);
+  }
+
+  function startVU() { setupAnalyser(); if (_vuRunning) return; _vuRunning = true; vuTick(); }
+  function stopVU() { _vuRunning = false; setVUBar('l', -100, -100); setVUBar('r', -100, -100); }
+
+  function vuTick() {
+    if (!_vuRunning) return;
+    if (!_analyserL) { requestAnimationFrame(vuTick); return; }
+    var bL = new Float32Array(_analyserL.fftSize), bR = new Float32Array(_analyserR.fftSize);
+    _analyserL.getFloatTimeDomainData(bL); _analyserR.getFloatTimeDomainData(bR);
+    var rL = 0, rR = 0, pL = 0, pR = 0;
+    for (var i = 0; i < bL.length; i++) {
+      rL += bL[i] * bL[i]; pL = Math.max(pL, Math.abs(bL[i]));
+      rR += bR[i] * bR[i]; pR = Math.max(pR, Math.abs(bR[i]));
+    }
+    rL = Math.sqrt(rL / bL.length); rR = Math.sqrt(rR / bR.length);
+    var dL = rL > 0 ? 20 * Math.log10(rL) : -100, dR = rR > 0 ? 20 * Math.log10(rR) : -100;
+    var now = Date.now();
+    if (dL > _vuPeakHoldL) { _vuPeakHoldL = dL; _vuPeakTimer = now + 1500; }
+    if (dR > _vuPeakHoldR) { _vuPeakHoldR = dR; _vuPeakTimer = now + 1500; }
+    if (now > _vuPeakTimer) {
+      _vuPeakHoldL = Math.max(_vuPeakHoldL - 0.3, dL);
+      _vuPeakHoldR = Math.max(_vuPeakHoldR - 0.3, dR);
+    }
+    setVUBar('l', dL, _vuPeakHoldL); setVUBar('r', dR, _vuPeakHoldR);
+    var w = $('vuClip');
+    if (w) {
+      if (pL >= 0.99 || pR >= 0.99) w.classList.add('show');
+      else if (dL < -3 && dR < -3) w.classList.remove('show');
+    }
+    requestAnimationFrame(vuTick);
+  }
+
+  function setVUBar(ch, db, pk) {
+    var bar = $('vuBar' + ch), peak = $('vuPeak' + ch), num = $('vuNum' + ch);
+    if (!bar) return;
+    var pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+    var ppct = Math.max(0, Math.min(100, (pk + 60) / 60 * 100));
+    bar.style.width = pct + '%';
+    if (peak) peak.style.left = ppct + '%';
+    if (num) num.textContent = db > -99 ? db.toFixed(1) : '−inf';
+  }
+
+  function touch(label) {
     recompute(); pruneSegments(); save(); renderAll();
+    snapshot(label);
     /* The preview is built from the plan, so any edit makes it stale. It is
        rebuilt on the next press rather than now — rebuilding on every
        keystroke would synthesise drums for a number half typed. */
@@ -1335,9 +1493,10 @@
     stop();
     playing = audioCtx().createBufferSource();
     playing.buffer = buffer;
-    playing.connect(audioCtx().destination);
+    playing.connect(masterOut());
     playing.start();
     setStopEnabled(true);
+    startVU();
     playing.onended = function () {
       playing = null;
       setStopEnabled(false);
@@ -1348,6 +1507,7 @@
 
   function stop() {
     if (playing) { try { playing.stop(); } catch (e) {} playing = null; }
+    if (!preview || !preview.isPlaying()) stopVU();
     stopPlayhead();
     setStopEnabled(false);
   }
@@ -1842,6 +2002,19 @@
     wireSuggest();
     wireRender();
     wireGlobalStop();
+    if ($('undoBtn')) $('undoBtn').onclick = undo;
+    if ($('redoBtn')) $('redoBtn').onclick = redo;
+    /* Ctrl+Z and Ctrl+Y, which is what anyone will try first. Ignored while
+       typing in a field, or it would undo the project instead of the text. */
+    document.addEventListener('keydown', function (e) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      var el = e.target;
+      if (el && /input|textarea|select/i.test(el.tagName)) return;
+      var k = (e.key || '').toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    });
+    snapshot('opened');
     wireSamples();
     wireDesktop();
 
@@ -2797,6 +2970,7 @@
 
     async function buildPreview() {
       if (!preview) preview = MixPreview.create({ ctx: audioCtx(), DSP: DSP,
+        destination: masterOut(),
         onTick: function (t, d) {
           showPos(t, d);
           updatePH();
@@ -2891,6 +3065,7 @@
         if (S_in != null && (at < S_in || (S_out != null && at >= S_out))) at = S_in;
         preview.seek(at);
         preview.play();
+        startVU();
         renderSay('Playing from ' + fmt(preview.at()) +
           (S_in != null && S_out != null
             ? ' — the marked section, ' + fmt(S_in) + ' to ' + fmt(S_out) : '') +
@@ -2907,6 +3082,7 @@
     $('previewStopBtn').onclick = function () {
       stop();
       if (preview) { preview.stop(); showPos(0, preview.duration()); }
+      stopVU();
     };
 
     var sc = $('mixScrub');
