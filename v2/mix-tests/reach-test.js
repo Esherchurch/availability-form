@@ -169,7 +169,17 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
     };
   });
   ok(opened.visible, 'the editor opens');
-  ok(opened.insideTheRow, 'and it opens IN the row, not somewhere else on the page');
+  /* It used to open inside the junction row in the Tracks list. There is one
+     editor panel now, under the timeline, and everything opens there — a song,
+     the drums between two songs, a sample — so that working on a thing does
+     not mean going to find where it went. The row is still how you reach a
+     junction from the list; what changed is where the panel appears. */
+  const underTimeline = await page.evaluate(() => {
+    const host = document.getElementById('tlEditor');
+    const p = document.getElementById('junction');
+    return !!(host && p && host.contains(p));
+  });
+  ok(underTimeline, 'and it opens in the one editor panel under the timeline');
   ok(/Track 1/.test(opened.heading), 'showing the right junction: ' + opened.heading);
 
   console.log('\n— every control reachable and working —');
@@ -250,16 +260,15 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
      'the closed row summarises it: "' + rowText + '"');
 
   console.log('\n— it closes again —');
-  const again = await page.$('.jrow-btn');
-  const ab = await again.boundingBox();
-  await page.mouse.click(ab.x + 40, ab.y + ab.height / 2);
+  /* Click the row itself rather than a point inside it. The row carries other
+     controls, and forty pixels in now lands on one of them. */
+  await page.evaluate(() => document.querySelector('.jrow-btn').click());
   await new Promise(r => setTimeout(r, 400));
   const closed = await page.evaluate(() => {
     const p = document.getElementById('junction');
     return { hidden: p.classList.contains('hidden'), backHome: p.parentNode.id === 'junctionHome' };
   });
   ok(closed.hidden, 'clicking the row again closes it');
-  ok(closed.backHome, 'and the panel goes back where it came from');
 
   console.log('\n— the zoom slider —');
   const slider = await page.$('#tlZoom');
@@ -267,7 +276,7 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   const sb = await slider.boundingBox();
   ok(sb && sb.width >= 150, 'and is draggable: ' + Math.round(sb.width) + ' px wide');
   const before = await page.evaluate(() => {
-    const t = document.querySelector('.tl-scroll > div');
+    const t = document.getElementById('tlinner');
     return t ? t.getBoundingClientRect().width : 0;
   });
   // Drag the handle to the far right.
@@ -277,22 +286,26 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   await page.mouse.up();
   await new Promise(r => setTimeout(r, 400));
   const after = await page.evaluate(() => {
-    const t = document.querySelector('.tl-scroll > div');
+    const t = document.getElementById('tlinner');
     return { w: t ? t.getBoundingClientRect().width : 0,
              label: (document.getElementById('tlZoomVal') || {}).textContent };
   });
   ok(after.w > before * 2, 'dragging it widens the timeline: ' +
      Math.round(before) + ' -> ' + Math.round(after.w) + ' px');
-  ok(/%$/.test(after.label || ''), 'and it reports the level: ' + after.label);
+  /* The zoom is pixels per second now, not a percentage of the window: a bar
+     is the same width wherever it is, and the scroll bar moves along the set
+     instead of the set being squeezed into the screen. */
+  ok((after.label || '').indexOf('px/s') >= 0, 'and it reports the level: ' + after.label);
 
-  // The marker line stays 3 px, but its hit area should not.
+  /* A junction used to be a 3 px line that had to be given an invisible hit
+     area to be clickable at all. It is a clip on the drums lane now, as wide as
+     the drums are long, and it says what it is. */
   const jhit = await page.evaluate(() => {
-    const j = document.querySelector('.tl-junction');
-    if (!j) return 0;
-    const cs = getComputedStyle(j, '::before');
-    return j.getBoundingClientRect().width - parseFloat(cs.left || 0) * 2;
+    const j = document.querySelector('.clip.drums');
+    return j ? j.getBoundingClientRect().width : 0;
   });
-  ok(jhit >= 14, 'a timeline junction marker is clickable too: ' + jhit.toFixed(0) + ' px hit area');
+  ok(jhit >= 14, 'the drums between two songs are a clip you can hit: ' +
+     jhit.toFixed(0) + ' px wide');
 
   await browser.close(); server.close();
   if (errs.length) { console.log('\npage errors:'); errs.forEach(e => console.log('  ' + e)); }

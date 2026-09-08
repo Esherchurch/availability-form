@@ -62,8 +62,8 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   const input2 = await page.$('#file');
   await input2.uploadFile(path.join(MUSIC, A), path.join(MUSIC, B));
   await page.waitForFunction(() => {
-    const all = document.querySelectorAll('#timeline .tl-track');
-    const missing = document.querySelectorAll('#timeline .tl-track.unlinked');
+    const all = document.querySelectorAll('#timeline .clip.song');
+    const missing = document.querySelectorAll('#timeline .clip.song.unlinked');
     return all.length >= 2 && missing.length === 0;
   }, { timeout: 240000 });
   await new Promise(r => setTimeout(r, 400));
@@ -123,14 +123,21 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   const stillThere = await page.evaluate(() => (document.getElementById('mixPos') || {}).textContent);
   ok(stillThere === wasAt, 'the cursor stays where it was paused', stillThere);
 
-  // move the cursor a long way in and play from there
+  /* Move the cursor a long way in. There is no separate scrub slider any more —
+     the timeline IS the scrub bar, which is the point of having one — so this
+     goes through the ruler, the way a person would. */
   await page.evaluate(() => {
-    const sc = document.getElementById('mixScrub');
-    sc.value = '1200';
-    sc.dispatchEvent(new Event('input', { bubbles: true }));
-    sc.dispatchEvent(new Event('change', { bubbles: true }));
+    const z = document.getElementById('tlZoom');
+    z.value = '3'; z.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await new Promise(r => setTimeout(r, 400));
+  await new Promise(r => setTimeout(r, 500));
+  const rl = await page.evaluate(() => {
+    const r = document.getElementById('tlRuler').getBoundingClientRect();
+    document.getElementById('tlscroll').scrollLeft = 0;
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  });
+  await page.mouse.click(rl.x + Math.min(rl.w * 0.6, 800), rl.y + rl.h / 2);
+  await new Promise(r => setTimeout(r, 500));
   const moved = await page.evaluate(() => (document.getElementById('mixPos') || {}).textContent);
   console.log('    cursor moved to ' + moved);
   ok(moved !== wasAt, 'the cursor can be put anywhere', moved);
@@ -158,11 +165,11 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
      mark a section. Ported from Videoeditor.html, which has worked this way
      from the start. */
   const tl = await page.evaluate(() => {
-    const inner = document.querySelector("#timeline .tl-inner");
+    const inner = document.querySelector("#tlinner");
     if (!inner) return null;
     inner.scrollIntoView({ block: "center" });
     const r = inner.getBoundingClientRect();
-    const ru = document.querySelector("#timeline .tl-ruler");
+    const ru = document.querySelector("#tlRuler");
     const rr = ru ? ru.getBoundingClientRect() : null;
     return { x: r.x, y: r.y, w: r.width, h: r.height,
              ruler: rr ? { x: rr.x, y: rr.y, w: rr.width, h: rr.height } : null };

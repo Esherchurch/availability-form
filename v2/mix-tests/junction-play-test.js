@@ -69,8 +69,8 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   const input2 = await page.$('#file');
   await input2.uploadFile(path.join(MUSIC, A), path.join(MUSIC, B));
   await page.waitForFunction(() => {
-    const all = document.querySelectorAll('#timeline .tl-track');
-    const missing = document.querySelectorAll('#timeline .tl-track.unlinked');
+    const all = document.querySelectorAll('#timeline .clip.song');
+    const missing = document.querySelectorAll('#timeline .clip.song.unlinked');
     return all.length >= 2 && missing.length === 0;
   }, { timeout: 240000 });
   await new Promise(r => setTimeout(r, 400));

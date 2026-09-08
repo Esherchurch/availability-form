@@ -316,6 +316,44 @@
   .vu-clip{ display:none; font-size:11px; font-weight:700; color:#fff;
             background:#b0392c; padding:2px 8px; border-radius:3px; }
   .vu-clip.show{ display:inline-block; }
+  /* ---- the timeline: one continuous surface, scrolled, in pixels per second.
+     The structure is Videoeditor.html's — a scroll container, an inner sized to
+     the whole set, a ruler, lanes of clips, and a playhead over the top. */
+  #tlscroll{ overflow-x:auto; overflow-y:hidden; border:1px solid var(--line);
+             border-radius:8px; background:#f7fbfa; }
+  #tlinner{ position:relative; height:190px; }
+  #tlRuler{ position:absolute; top:0; left:0; height:22px; cursor:text; }
+  #tlRuler canvas{ display:block; }
+  .tl-lane{ position:absolute; left:0; right:0; height:38px; border-top:1px solid #e6efee; }
+  /* Songs alternate between two lanes, like two decks, so where one record
+     runs into the next is something you can see and take hold of rather than
+     infer from a number. */
+  .tl-lane[data-lane="a"]{ top:24px; }
+  .tl-lane[data-lane="b"]{ top:64px; }
+  .tl-lane[data-lane="drums"]{ top:104px; }
+  .tl-lane[data-lane="samples"]{ top:144px; }
+  .tl-lane-label{ position:sticky; left:0; z-index:4; display:inline-block;
+                  font-size:9px; letter-spacing:.08em; text-transform:uppercase;
+                  color:var(--muted); background:rgba(247,251,250,.92); padding:1px 5px; }
+  .clip{ position:absolute; top:14px; height:22px; border-radius:4px; cursor:pointer;
+         overflow:hidden; white-space:nowrap; font-size:11px; line-height:22px;
+         padding:0 6px; box-sizing:border-box; border:1px solid transparent; }
+  .clip.song{ background:#cfdedc; color:#14201f; border-color:#b6cbc9; }
+  .clip.song.unlinked{ background:repeating-linear-gradient(45deg,#eceeee,#eceeee 6px,#e2e6e6 6px,#e2e6e6 12px); color:#7d8a89; }
+  .clip.drums{ background:#e6d3ae; color:#5c421a; border-color:#d3bb8d; }
+  .clip.sample{ background:#cbdcc9; color:#22401f; border-color:#b1c8ae; }
+  .clip.sel{ outline:2px solid #14201f; outline-offset:-2px; }
+  #tlPlayhead{ position:absolute; top:0; bottom:0; width:2px; background:#14201f;
+               pointer-events:none; z-index:8; }
+  #tlPlayhead::before{ content:''; position:absolute; top:0; left:-5px;
+               border-left:6px solid transparent; border-right:6px solid transparent;
+               border-top:8px solid #14201f; }
+  #tlIn,#tlOut{ position:absolute; top:0; bottom:0; width:2px; background:#b07d2e;
+               pointer-events:none; z-index:6; display:none; }
+  #tlOut{ background:#b0392c; }
+  #tlRange{ position:absolute; top:0; bottom:0; background:rgba(176,125,46,.13);
+               pointer-events:none; z-index:1; display:none; }
+  #tlEditor:empty{ display:none; }
 </style>
 </head>
 <body>
@@ -384,14 +422,35 @@
   <div class="card">
     <span class="lbl">The set</span>
     <div id="summary"></div>
-    <div class="tl-tools">
-      <label for="tlZoom">Timeline zoom</label>
-      <input type="range" id="tlZoom" min="100" max="1000" step="25" value="100"
-             aria-label="Timeline zoom">
-      <span class="tl-zoomval" id="tlZoomVal">100%</span>
-      <span style="font-size:12px;color:var(--muted)">Widen the timeline to click a junction directly, or use the transition rows in Tracks below.</span>
+
+    <div class="row transport" id="mixTransport">
+      <button id="previewBtn">▶ Play</button>
+      <button class="ghost" id="previewStopBtn">■ Stop</button>
+      <span class="hint" id="mixPos" style="margin:0;min-width:118px;font-variant-numeric:tabular-nums">0:00 / 0:00</span>
+      <span style="flex:1"></span>
+      <label for="tlZoom" style="font-size:11px;color:var(--muted)">Zoom</label>
+      <input type="range" id="tlZoom" min="2" max="120" step="1" value="8"
+             aria-label="Timeline zoom" style="width:150px">
+      <span class="tl-zoomval" id="tlZoomVal">8 px/s</span>
     </div>
+
+    <div class="vu" id="vu">
+      <div class="vu-row"><span class="vu-ch">L</span>
+        <div class="vu-track"><div class="vu-bar" id="vuBarl"></div><div class="vu-peak" id="vuPeakl"></div></div>
+        <span class="vu-num" id="vuNuml">−inf</span></div>
+      <div class="vu-row"><span class="vu-ch">R</span>
+        <div class="vu-track"><div class="vu-bar" id="vuBarr"></div><div class="vu-peak" id="vuPeakr"></div></div>
+        <span class="vu-num" id="vuNumr">−inf</span></div>
+      <span class="vu-clip" id="vuClip">CLIPPING</span>
+    </div>
+
     <div id="timeline"></div>
+    <p class="hint" style="margin:6px 0 0">
+      Click anywhere on the ruler to move the cursor; drag along it to mark a section and only
+      that plays. Click a song, a set of drums or a sample to work on it — it opens underneath.
+      Nothing is rendered to play any of this.
+    </p>
+    <div id="tlEditor"></div>
     <div id="warnings"></div>
   </div>
 
@@ -438,29 +497,7 @@
       <button class="ghost" id="redoBtn" disabled title="Ctrl+Y">↷ Redo</button>
       <span class="hint" id="undoCount" style="margin:0;align-self:center"></span>
     </div>
-    <div class="vu" id="vu">
-      <div class="vu-row"><span class="vu-ch">L</span>
-        <div class="vu-track"><div class="vu-bar" id="vuBarl"></div><div class="vu-peak" id="vuPeakl"></div></div>
-        <span class="vu-num" id="vuNuml">−inf</span></div>
-      <div class="vu-row"><span class="vu-ch">R</span>
-        <div class="vu-track"><div class="vu-bar" id="vuBarr"></div><div class="vu-peak" id="vuPeakr"></div></div>
-        <span class="vu-num" id="vuNumr">−inf</span></div>
-      <span class="vu-clip" id="vuClip">CLIPPING</span>
-    </div>
-    <div class="row transport" id="mixTransport">
-      <button id="previewBtn">▶ Play the mix</button>
-      <button class="ghost" id="previewStopBtn">■ Stop</button>
-      <input type="range" id="mixScrub" min="0" max="2000" value="0" step="1"
-             title="Drag to move the cursor" style="flex:1;min-width:240px">
-      <span class="hint" id="mixPos" style="margin:0;min-width:130px">0:00 / 0:00</span>
-    </div>
-    <div class="row"><span class="hint" style="margin:0">
-      Click the <strong>ruler</strong> along the top of the timeline to put the cursor, and drag along it to mark a section — press play and it plays just that. Plays the set as it is arranged — records, the drums between
-      them and anything placed over them — without rendering anything. A track that needs
-      stretching is played at a different speed here, which moves its pitch by the same couple
-      of percent a pitch fader would; the render holds the pitch instead. Use this to hear where
-      everything lands, and render when you want the finished sound.
-    </span></div>
+
     <div id="renderProgress" class="hidden">
       <div class="bar"><div class="bar-fill" id="renderBar"></div></div>
     </div>

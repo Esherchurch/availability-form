@@ -37,7 +37,6 @@
   var openTrack = null;
   var dragFrom = null;
   var importTab = 'order';
-  var tlZoom = 100;                // timeline width, percent
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) {
@@ -729,24 +728,63 @@
   /* ------------------------------------------------------ timeline --- */
 
   /* ------------------------------------------- timeline transport ---
-     Lifted from Videoeditor.html, which has driven a timeline this way from
-     the start: mousedown puts the cursor where you clicked, dragging on the
-     ruler marks a section, and playing starts from the cursor. The names are
-     its names — timeFromMouse, seek, setInPoint, updateInOutMarkers — because
-     the behaviour is the same behaviour and calling it something else would
-     only hide where it came from.
+     The interaction from Videoeditor.html: mousedown on the ruler puts the
+     cursor where you clicked, dragging along it marks a section, and a clip is
+     picked up by clicking it. Its names are kept — timeFromMouse, seek,
+     setInPoint, updateInOutMarkers, updatePH — because it is the same
+     behaviour.
 
-     The one change is the geometry. That editor lays its timeline out in
-     pixels at a zoom of so many pixels per second; this one lays it out in
-     percentages of the whole set. So the mapping from a mouse position to a
-     time differs, and nothing else does. */
+     Geometry is pixels per second now, which is that editor's too. */
 
   var S_in = null, S_out = null;
-  var seekPending = null;
 
-  /* Move the cursor. The preview is built the first time it is needed rather
-     than on load, because building it synthesises the drums for every junction
-     and there is no reason to do that until someone wants to hear something. */
+  function tlScrollEl() { return document.getElementById('tlscroll'); }
+  function tlInnerEl() { return document.getElementById('tlinner'); }
+
+  function timeFromMouse(e) {
+    var inner = tlInnerEl();
+    if (!inner) return 0;
+    var rect = inner.getBoundingClientRect();
+    var dur = preview && preview.duration() ? preview.duration() : (lay ? lay.totalSec : 0);
+    return Math.max(0, Math.min(dur || 1e9, (e.clientX - rect.left) / tlPxPerSec));
+  }
+
+  function updatePH() {
+    var ph = $('tlPlayhead');
+    if (!ph) return;
+    var at = preview ? preview.at() : 0;
+    var x = Math.round(at * tlPxPerSec);
+    ph.style.left = x + 'px';
+
+    /* Keep the playhead in view while it is moving, exactly as the editor does:
+       once it has crossed three quarters of the visible width, put it back at a
+       quarter. Left alone while stopped, so scrolling by hand is not fought. */
+    var sc = tlScrollEl();
+    if (sc && preview && preview.isPlaying()) {
+      var vw = sc.clientWidth, inView = x - sc.scrollLeft;
+      if (inView > vw * 0.75 || inView < 0) sc.scrollLeft = Math.max(0, x - vw * 0.25);
+    }
+  }
+
+  function updateInOutMarkers() {
+    var im = $('tlIn'), om = $('tlOut'), rng = $('tlRange');
+    if (!im) return;
+    if (S_in !== null) { im.style.display = 'block'; im.style.left = Math.round(S_in * tlPxPerSec) + 'px'; }
+    else im.style.display = 'none';
+    if (S_out !== null) { om.style.display = 'block'; om.style.left = Math.round(S_out * tlPxPerSec) + 'px'; }
+    else om.style.display = 'none';
+    if (S_in !== null && S_out !== null && rng) {
+      rng.style.display = 'block';
+      rng.style.left = Math.round(S_in * tlPxPerSec) + 'px';
+      rng.style.width = Math.max(1, Math.round((S_out - S_in) * tlPxPerSec)) + 'px';
+    } else if (rng) rng.style.display = 'none';
+  }
+
+  function setInPoint() { S_in = preview ? preview.at() : 0; if (S_out !== null && S_in >= S_out) S_out = null; updateInOutMarkers(); }
+  function setOutPoint() { S_out = preview ? preview.at() : 0; if (S_in !== null && S_out <= S_in) S_in = null; updateInOutMarkers(); }
+  function clearInOut() { S_in = null; S_out = null; updateInOutMarkers(); setStatus('Section cleared.'); }
+
+  var seekPending = null;
   async function seekMix(sec) {
     if (!preview || !preview.duration()) {
       if (seekPending != null) { seekPending = sec; return; }
@@ -760,154 +798,285 @@
     updatePH();
   }
 
-  function tlInner() { return document.querySelector('#timeline .tl-inner'); }
+  /* ---- picking things up on the timeline.
 
-  function timeFromMouse(e) {
-    var inner = tlInner();
-    if (!inner || !lay) return 0;
-    var rect = inner.getBoundingClientRect();
-    var total = lay.totalSec || 1;
-    return Math.max(0, Math.min(total, (e.clientX - rect.left) / rect.width * total));
-  }
+     A clip is clicked to work on it, and its edges are dragged to shorten it —
+     the right edge is where the record mixes out, the left is where it comes
+     in. That is the whole of it: no separate panel to find, no number to work
+     out, drag the end of the thing to where you want it to end. */
 
-  function pctOf(sec) {
-    var total = (lay && lay.totalSec) || 1;
-    return Math.max(0, Math.min(100, sec / total * 100));
-  }
+  var TRIM_GRAB_PX = 7;
+  var tlDrag = null;
 
-  function updatePH() {
-    var ph = $('tlPlayhead');
-    if (!ph) return;
-    var at = preview ? preview.at() : 0;
-    ph.style.left = pctOf(at) + '%';
-    ph.style.display = 'block';
-  }
-
-  function updateInOutMarkers() {
-    var im = $('tlIn'), om = $('tlOut'), rng = $('tlRange');
-    if (!im) return;
-    if (S_in !== null) { im.style.display = 'block'; im.style.left = pctOf(S_in) + '%'; }
-    else im.style.display = 'none';
-    if (S_out !== null) { om.style.display = 'block'; om.style.left = pctOf(S_out) + '%'; }
-    else om.style.display = 'none';
-    if (S_in !== null && S_out !== null && rng) {
-      rng.style.display = 'block';
-      rng.style.left = pctOf(S_in) + '%';
-      rng.style.width = Math.max(0, pctOf(S_out) - pctOf(S_in)) + '%';
-    } else if (rng) rng.style.display = 'none';
-  }
-
-  function setInPoint() {
-    S_in = preview ? preview.at() : 0;
-    if (S_out !== null && S_in >= S_out) S_out = null;
-    updateInOutMarkers();
-    setStatus('In point at ' + fmt(S_in) + '.');
-  }
-  function setOutPoint() {
-    S_out = preview ? preview.at() : 0;
-    if (S_in !== null && S_out <= S_in) S_in = null;
-    updateInOutMarkers();
-    setStatus('Out point at ' + fmt(S_out) + '.');
-  }
-  function clearInOut() {
-    S_in = null; S_out = null;
-    updateInOutMarkers();
-    setStatus('Section cleared — playing runs to the end.');
-  }
-
-  /* mousedown on the timeline. On the ruler a drag marks a section; anywhere
-     else it moves the cursor and keeps moving it while the button is down. */
   function wireTimelineTransport() {
     var el = $('timeline');
     if (!el || el.dataset.transportWired) return;
     el.dataset.transportWired = '1';
 
-    el.addEventListener('mousedown', function (e) {
-      if (e.target.closest('.tl-track, .tl-junction, button')) return;
-      var onRuler = !!e.target.closest('.tl-ruler');
-      var startT = timeFromMouse(e);
-      var moved = false;
-      if (!onRuler) seekMix(startT);
+    el.addEventListener('mousemove', function (e) {
+      var clip = e.target.closest ? e.target.closest('.clip.song') : null;
+      if (!clip) { if (!tlDrag) el.style.cursor = ''; return; }
+      var r = clip.getBoundingClientRect();
+      var nearEdge = (e.clientX - r.left < TRIM_GRAB_PX) || (r.right - e.clientX < TRIM_GRAB_PX);
+      clip.style.cursor = nearEdge ? 'ew-resize' : 'pointer';
+    });
 
-      function mm(ev) {
-        var t = timeFromMouse(ev);
-        if (Math.abs(ev.clientX - e.clientX) > 5) {
-          moved = true;
-          if (onRuler) {
+    /* Selection on click as well as on mousedown. Mousedown is what picks a
+       clip up for trimming, and it selects on the way past; click is what
+       anything driving the page programmatically sends, and what a keyboard or
+       a touch device produces. Selecting twice is harmless. */
+    el.addEventListener('click', function (e) {
+      if (tlDrag) return;
+      var c = e.target.closest ? e.target.closest('.clip') : null;
+      if (c) selectClip(c.dataset.clip, +c.dataset.index);
+    });
+
+    el.addEventListener('mousedown', function (e) {
+      var clip = e.target.closest ? e.target.closest('.clip') : null;
+      var onRuler = !!(e.target.closest && e.target.closest('#tlRuler'));
+
+      if (clip) {
+        var kind = clip.dataset.clip, idx = +clip.dataset.index;
+        var r = clip.getBoundingClientRect();
+        var atLeft = e.clientX - r.left < TRIM_GRAB_PX;
+        var atRight = r.right - e.clientX < TRIM_GRAB_PX;
+
+        if (kind === 'song' && (atLeft || atRight)) {
+          tlDrag = { kind: 'trim', index: idx, edge: atLeft ? 'in' : 'out' };
+          e.preventDefault();
+          return;
+        }
+        selectClip(kind, idx);
+        e.preventDefault();
+        return;
+      }
+
+      if (onRuler) {
+        var startT = timeFromMouse(e), moved = false;
+        function mm(ev) {
+          var t = timeFromMouse(ev);
+          if (Math.abs(ev.clientX - e.clientX) > 4) {
+            moved = true;
             S_in = Math.min(startT, t); S_out = Math.max(startT, t);
             updateInOutMarkers();
-          } else seekMix(t);
-        } else if (!onRuler) seekMix(t);
-      }
-      function mu() {
-        window.removeEventListener('mousemove', mm);
-        window.removeEventListener('mouseup', mu);
-        if (onRuler && !moved) { seekMix(startT); }
-        if (onRuler && moved) {
-          setStatus('Section marked: ' + fmt(S_in) + ' to ' + fmt(S_out) +
-                    '. Press play and it plays just that.');
+          }
         }
+        function mu() {
+          window.removeEventListener('mousemove', mm);
+          window.removeEventListener('mouseup', mu);
+          if (!moved) { S_in = null; S_out = null; updateInOutMarkers(); seekMix(startT); }
+          else setStatus('Section marked: ' + fmt(S_in) + ' to ' + fmt(S_out) +
+                         '. Play now plays just that.');
+        }
+        window.addEventListener('mousemove', mm);
+        window.addEventListener('mouseup', mu);
+        e.preventDefault();
       }
-      window.addEventListener('mousemove', mm);
-      window.addEventListener('mouseup', mu);
-      e.preventDefault();
     });
+
+    /* Trimming. The clip's own edge follows the pointer while dragging so the
+       length is visible as it is chosen, and the project is written once on
+       release rather than on every pixel. */
+    window.addEventListener('mousemove', function (e) {
+      if (!tlDrag || tlDrag.kind !== 'trim') return;
+      var t = project.tracks[tlDrag.index];
+      var plan = tlPlan();
+      if (!t || !plan || !plan.tracks[tlDrag.index]) return;
+      var pt = plan.tracks[tlDrag.index];
+      var mixSec = timeFromMouse(e);
+      var intoTrack = Math.max(0, mixSec - pt.startSec);
+      var srcSec = (pt.sourceFromSec || 0) + intoTrack * ((pt.r0 + pt.r1) / 2 || 1);
+
+      if (tlDrag.edge === 'out') {
+        tlDrag.value = Math.max((t.entrySec || 0) + MIN_PLAYABLE_SEC,
+                                Math.min(t.durationSec || srcSec, srcSec));
+      } else {
+        tlDrag.value = Math.max(0, Math.min((t.exitSec || 0) - MIN_PLAYABLE_SEC, srcSec));
+      }
+      var el2 = document.querySelector('.clip.song[data-index="' + tlDrag.index + '"]');
+      if (el2) {
+        var lenSec = tlDrag.edge === 'out'
+          ? tlDrag.value - (t.entrySec || 0)
+          : (t.exitSec || 0) - tlDrag.value;
+        el2.style.width = Math.max(3, Math.round(lenSec * tlPxPerSec)) + 'px';
+      }
+    });
+
+    window.addEventListener('mouseup', function () {
+      if (!tlDrag || tlDrag.kind !== 'trim') { tlDrag = null; return; }
+      var t = project.tracks[tlDrag.index];
+      if (t && tlDrag.value != null) {
+        var snapped = snapToBar(t, tlDrag.value);
+        var v = isFinite(snapped) ? snapped : tlDrag.value;
+        if (tlDrag.edge === 'out') t.exitSec = v; else t.entrySec = v;
+        setStatus('"' + t.title + '" now ' +
+                  (tlDrag.edge === 'out' ? 'mixes out at ' : 'comes in at ') + fmt(v) + '.');
+        touch(tlDrag.edge === 'out' ? 'mix-out moved' : 'entry moved');
+      }
+      tlDrag = null;
+    });
+  }
+
+  /* What is selected, and what opens underneath it. One panel, whatever the
+     thing is — a song, the drums between two songs, or a sample. */
+  function selectClip(kind, index) {
+    tlSel = { kind: kind, index: index };
+    if (kind === 'song') { openTrack = index; openJunction = null; }
+    else if (kind === 'drums') { openJunction = index; openTrack = null; }
+    else { openJunction = null; openTrack = null; }
+    renderAll();
+    var host = $('tlEditor');
+    if (host) host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ------------------------------------------------------- timeline ---
+     One continuous surface for the whole set, laid out in pixels per second
+     inside a scrolling container, on Videoeditor.html's structure: a scroll
+     box, an inner sized to the whole thing, a ruler across the top, lanes of
+     clips, and a playhead over them all.
+
+     It used to be a strip of percentages that stretched to fit whatever was
+     on screen, which meant nothing had a fixed size, a two-hour set and a
+     three-minute one looked identical, and the only way to see detail was to
+     make the whole thing wider. Pixels per second is what a timeline is: zoom
+     changes the scale, the scroll bar moves along it, and a bar is the same
+     width wherever it happens to be.
+
+     SONGS SIT ON TWO LANES, alternating, like two decks. Where one record runs
+     into the next is then a thing you can see — the overlap is drawn, not
+     inferred from a percentage in a panel somewhere else.
+
+     Everything is one surface: songs, the drums between them, and any samples
+     placed over them. Clicking any of them opens that thing underneath. */
+
+  var tlPxPerSec = 8;
+  var tlSel = null;          // { kind:'song'|'drums'|'sample', index }
+
+  function tlPlan() {
+    try { return MR.buildPlan(project); } catch (e) { return null; }
+  }
+
+  function tlClips(plan) {
+    var out = [];
+    if (!plan) return out;
+
+    (plan.tracks || []).forEach(function (pt, i) {
+      var t = project.tracks[i] || {};
+      out.push({ kind: 'song', index: i, lane: i % 2 === 0 ? 'a' : 'b',
+                 fromSec: pt.startSec, toSec: pt.startSec + pt.outSec,
+                 label: (i + 1) + '. ' + (t.title || pt.title || 'track'),
+                 cls: t.linked ? '' : 'unlinked' });
+    });
+
+    (plan.junctions || []).forEach(function (j, k) {
+      var a = plan.tracks[k], b = plan.tracks[k + 1];
+      if (!a || !b) return;
+      if (j.fill) {
+        /* The drums occupy the gap, and start early: their pre-roll plays under
+           the outgoing record. Drawn where they are actually heard. */
+        var preSec = (j.settings && j.settings.preBeats != null ? j.settings.preBeats : 8) *
+                     (60 / (j.fill.fromBpm || 120));
+        var at = a.startSec + a.outSec - preSec;
+        out.push({ kind: 'drums', index: k, lane: 'drums',
+                   fromSec: Math.max(0, at), toSec: b.startSec + 4,
+                   label: j.fill.beats + ' beats · ' +
+                          Math.round(j.fill.fromBpm) + '→' + Math.round(j.fill.toBpm) + ' BPM',
+                   cls: '' });
+      } else {
+        out.push({ kind: 'drums', index: k, lane: 'drums',
+                   fromSec: b.startSec - 1, toSec: b.startSec + 1,
+                   label: j.type === 'hard-cut' ? 'cut' : 'blend', cls: '' });
+      }
+    });
+
+    (project.placements || []).forEach(function (p, i) {
+      var b = plan.tracks[p.atJunction + 1], j = plan.junctions[p.atJunction];
+      if (!b) return;
+      var bpm = (j && j.fill) ? j.fill.toBpm : ((j && j.targetBpm) || 120);
+      var at = b.startSec - (p.barsBeforeEntry || 0) * (60 / bpm * 4);
+      var meta = sampleMeta.get(p.sampleId);
+      var len = meta && meta.durationSec ? meta.durationSec : 4;
+      out.push({ kind: 'sample', index: i, lane: 'samples',
+                 fromSec: Math.max(0, at), toSec: Math.max(0, at) + len,
+                 label: meta ? meta.name : p.sampleId, cls: '' });
+    });
+
+    return out;
   }
 
   function renderTimeline() {
     var el = $('timeline');
+    if (!el) return;
     if (!lay || !lay.tracks.length) {
       el.innerHTML = '<div class="empty">Drop a folder of audio, or import a running order, ' +
                      'and the whole set appears here.</div>';
       return;
     }
-    var total = lay.totalSec || 1;
-    var html = '<div class="tl-scroll"><div class="tl-inner" style="width:' + tlZoom + '%">' +
-               '<div class="tl-ruler">' + rulerHtml(total) + '</div>' +
-               /* Playhead, in/out markers and the range between them — the same
-                  four elements Videoeditor.html carries, positioned the same
-                  way, because that timeline has been driven like this all
-                  along and there is nothing to invent. */
-               '<div class="tl-range" id="tlRange"></div>' +
-               '<div class="tl-in" id="tlIn"></div>' +
-               '<div class="tl-out" id="tlOut"></div>' +
-               '<div class="tl-ph" id="tlPlayhead"></div>' +
-               '<div class="tl-body">';
+    var plan = tlPlan();
+    var dur = (plan && plan.totalSec) || lay.totalSec || 1;
+    var W = Math.max(Math.round(dur * tlPxPerSec) + 240, 800);
+    var keepScroll = 0;
+    var oldScroll = document.getElementById('tlscroll');
+    if (oldScroll) keepScroll = oldScroll.scrollLeft;
 
-    lay.tracks.forEach(function (lt, i) {
-      var t = project.tracks[i];
-      var left = lt.startSec / total * 100;
-      var width = Math.max(0.35, lt.bodySec / total * 100);
-      var cls = 'tl-track' + (t.linked ? '' : ' unlinked') +
-                (openTrack === i ? ' open' : '') +
-                (t.section ? ' sec-' + t.section.toLowerCase().replace(/[^a-z]/g, '') : '');
-      html += '<div class="' + cls + '" style="left:' + left + '%;width:' + width + '%" ' +
-              'data-track="' + i + '" title="' + esc(t.title) + '">' +
-              '<span class="tl-num">' + (i + 1) + '</span>' +
-              '<span class="tl-name">' + esc(t.title) + '</span>' +
-              '<span class="tl-bpm">' + (lt.effectiveBpm ? lt.effectiveBpm.toFixed(0) : '?') +
-              (lt.halfTime ? '<sup>½</sup>' : '') + '</span></div>';
+    var lanes = { a: '', b: '', drums: '', samples: '' };
+    tlClips(plan).forEach(function (c) {
+      var left = Math.round(c.fromSec * tlPxPerSec);
+      var w = Math.max(3, Math.round((c.toSec - c.fromSec) * tlPxPerSec));
+      var sel = tlSel && tlSel.kind === c.kind && tlSel.index === c.index ? ' sel' : '';
+      lanes[c.lane] += '<div class="clip ' + c.kind + ' ' + c.cls + sel + '" ' +
+        'style="left:' + left + 'px;width:' + w + 'px" ' +
+        'data-clip="' + c.kind + '" data-index="' + c.index + '" ' +
+        'title="' + esc(c.label) + '">' + esc(c.label) + '</div>';
     });
 
-    lay.junctions.forEach(function (j, i) {
-      var at = lay.tracks[i + 1].startSec / total * 100;
-      var bad = !j.renderable;
-      var cls = 'tl-junction j-' + j.type + (bad ? ' bad' : '') + (openJunction === i ? ' open' : '') +
-                (segFor(i) ? ' cached' : '');
-      html += '<div class="' + cls + '" style="left:' + at + '%" data-junction="' + i + '" ' +
-              'title="' + esc(junctionLabel(j)) + '"></div>';
-    });
+    el.innerHTML =
+      '<div id="tlscroll"><div id="tlinner" style="width:' + W + 'px">' +
+        '<div id="tlRuler"><canvas id="tlRulerCv"></canvas></div>' +
+        '<div class="tl-lane" data-lane="a"><span class="tl-lane-label">Deck A</span>' + lanes.a + '</div>' +
+        '<div class="tl-lane" data-lane="b"><span class="tl-lane-label">Deck B</span>' + lanes.b + '</div>' +
+        '<div class="tl-lane" data-lane="drums"><span class="tl-lane-label">Drums</span>' + lanes.drums + '</div>' +
+        '<div class="tl-lane" data-lane="samples"><span class="tl-lane-label">Samples</span>' + lanes.samples + '</div>' +
+        '<div id="tlRange"></div><div id="tlIn"></div><div id="tlOut"></div>' +
+        '<div id="tlPlayhead"></div>' +
+      '</div></div>';
 
-    html += '</div></div></div>';
-    el.innerHTML = html;
+    drawRuler(dur, W);
+    var sc = document.getElementById('tlscroll');
+    if (sc) sc.scrollLeft = keepScroll;
   }
 
-  function rulerHtml(total) {
-    var out = '', step = total > 3600 ? 600 : total > 900 ? 300 : 60;
-    for (var s = 0; s <= total; s += step) {
-      out += '<span class="tick" style="left:' + (s / total * 100) + '%">' + fmt(s) + '</span>';
+  /* The ruler, drawn rather than laid out, because a tick every few seconds
+     across two hours is thousands of elements otherwise. */
+  function drawRuler(dur, W) {
+    var cv = $('tlRulerCv');
+    if (!cv) return;
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = 22 * dpr;
+    cv.style.width = W + 'px'; cv.style.height = '22px';
+    var g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = '#eef5f3'; g.fillRect(0, 0, W, 22);
+    /* A label roughly every 90 pixels, whatever the zoom, and four unlabelled
+       ticks between them. Choosing the step by zoom alone put a label every ten
+       minutes when zoomed out, which is a ruler with nothing on it. */
+    var z = tlPxPerSec;
+    var raw = 90 / z;                                  // seconds per label, ideally
+    var steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900];
+    var step = steps[steps.length - 1];
+    for (var si = 0; si < steps.length; si++) {
+      if (steps[si] >= raw) { step = steps[si]; break; }
     }
-    return out;
+    g.font = '9px ui-monospace, monospace';
+    g.textAlign = 'left';
+    var minor = step / 4;
+    for (var t = 0; t <= dur + step; t += minor) {
+      var px = Math.round(t * z);
+      var isLabel = Math.abs(t / step - Math.round(t / step)) < 1e-6;
+      g.strokeStyle = isLabel ? '#9fb3b1' : '#d8e5e3';
+      g.beginPath(); g.moveTo(px + 0.5, isLabel ? 5 : 15); g.lineTo(px + 0.5, 22); g.stroke();
+      if (isLabel) { g.fillStyle = '#5d7170'; g.fillText(fmt(t), px + 3, 10); }
+    }
   }
 
   function junctionLabel(j) {
@@ -1559,7 +1728,8 @@
     var ctxx = audioCtx();
     playing = ctxx.createBufferSource();
     playing.buffer = buf;
-    playing.connect(ctxx.destination);
+    playing.connect(masterOut());
+    startVU();
     if (untilSec != null && untilSec > from) playing.start(0, from, untilSec - from);
     else playing.start(0, from);
     playing.onended = function () { playing = null; stopPlayhead(); setStopEnabled(false); };
@@ -1667,10 +1837,20 @@
     var zoomEl = $('tlZoom');
     if (zoomEl) {
       zoomEl.oninput = function () {
-        tlZoom = parseInt(zoomEl.value, 10) || 100;
+        /* Pixels per second, so zooming changes the scale rather than
+           stretching the whole set to fit the window. The scroll position is
+           kept pointing at the same moment, or zooming in throws away where
+           you were looking. */
+        var sc = document.getElementById('tlscroll');
+        var midSec = sc ? (sc.scrollLeft + sc.clientWidth / 2) / tlPxPerSec : 0;
+        tlPxPerSec = Math.max(1, parseInt(zoomEl.value, 10) || 8);
         var out = $('tlZoomVal');
-        if (out) out.textContent = tlZoom + '%';
+        if (out) out.textContent = tlPxPerSec + ' px/s';
         renderTimeline();
+        updateInOutMarkers();
+        updatePH();
+        var sc2 = document.getElementById('tlscroll');
+        if (sc2) sc2.scrollLeft = Math.max(0, midSec * tlPxPerSec - sc2.clientWidth / 2);
       };
     }
 
@@ -3054,9 +3234,8 @@
     }
 
     function showPos(t, d) {
-      var pos = $('mixPos'), sc = $('mixScrub');
+      var pos = $('mixPos');
       if (pos) pos.textContent = fmt(t || 0) + ' / ' + fmt(d || 0);
-      if (sc && !scrubbing && d) sc.value = String(Math.round((t / d) * 2000));
       var pb = $('previewBtn'), sb = $('previewStopBtn');
       if (pb) pb.textContent = (preview && preview.isPlaying()) ? '❚❚ Pause' : '▶ Play the mix';
       if (sb) sb.disabled = !preview || (!preview.isPlaying() && !(preview.at() > 0));
@@ -3094,24 +3273,8 @@
       stopVU();
     };
 
-    var sc = $('mixScrub');
-    if (sc) {
-      sc.addEventListener('input', function () {
-        scrubbing = true;
-        if (!preview || !preview.duration()) return;
-        preview.seek((+sc.value / 2000) * preview.duration());
-      });
-      sc.addEventListener('change', async function () {
-        scrubbing = false;
-        if (!preview || !preview.duration()) {
-          var linked = project.tracks.filter(function (t) { return buffers.has(t.id); }).length;
-          if (!linked) return;
-          await buildPreview();
-          preview.seek((+sc.value / 2000) * preview.duration());
-        }
-        showPos(preview.at(), preview.duration());
-      });
-    }
+    /* There is no separate scrub slider: the timeline is the scrub bar, which
+       is the point of having one. */
 
     /* Rendering a range and playing the file is still here: it is the only way
        to hear the pitch as it will actually be. */
@@ -3230,10 +3393,31 @@
     updateInOutMarkers();
     updatePH();
     renderTracks();
+    placeEditorUnderTimeline();
     renderJunctionEditor();
     renderBench();
     renderSamples();
     renderSummary();
+  }
+
+  /* Whatever is selected opens in one place, directly under the timeline —
+     rather than the junction editor appearing in one panel, a track opening a
+     row further down, and a placement living in a third. Clicking a thing and
+     working on it should not mean going to find where it went. */
+  function placeEditorUnderTimeline() {
+    var host = $('tlEditor');
+    if (!host) return;
+    var jx = $('junction');
+    if (jx && jx.parentNode !== host) host.appendChild(jx);
+
+    if (tlSel && tlSel.kind === 'song') {
+      var row = document.querySelector('.trk[data-track="' + tlSel.index + '"]');
+      if (row && row.parentNode !== host) {
+        /* Moved, not copied: two live copies of the same waveform canvas would
+           both be drawn to and only one would ever be seen. */
+        host.appendChild(row);
+      }
+    }
   }
 
   function renderSummary() {
