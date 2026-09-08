@@ -1393,7 +1393,11 @@
   }
 
   function trackEditorHtml(t, i) {
-    return '<div class="trk-body">' +
+    /* The body carries the track number as well as the row does. It is moved
+       out from under its row to open under the timeline, and everything that
+       works on it finds the track by walking UP to the nearest .trk — which,
+       once it has been moved, is not there. */
+    return '<div class="trk-body" data-track="' + i + '">' +
       '<canvas class="wave"></canvas>' +
       '<div class="row" style="margin-top:8px">' +
         /* One transport, and it is on the timeline. This row used to carry its
@@ -2383,7 +2387,7 @@
         e.preventDefault();
         return;
       }
-      var row = e.target.closest('.trk');
+      var row = e.target.closest('.trk, .trk-body');
       if (!row) return;
       dragFrom = +row.dataset.track;
       row.classList.add('dragging');
@@ -2399,7 +2403,7 @@
     onTrackSurface('dragover', function (e) {
       if (dragFrom == null) return;
       e.preventDefault();
-      var row = e.target.closest('.trk');
+      var row = e.target.closest('.trk, .trk-body');
       Array.prototype.forEach.call(tracksEl.querySelectorAll('.trk'), function (r) {
         r.classList.remove('drop-above', 'drop-below');
       });
@@ -2410,7 +2414,7 @@
     onTrackSurface('drop', function (e) {
       if (dragFrom == null) return;
       e.preventDefault();
-      var row = e.target.closest('.trk');
+      var row = e.target.closest('.trk, .trk-body');
       if (!row) return;
       var to = +row.dataset.track;
       var rect = row.getBoundingClientRect();
@@ -3685,16 +3689,24 @@
   function placeEditorUnderTimeline() {
     var host = $('tlEditor');
     if (!host) return;
+
+    /* Clear out whatever was here last time. renderTracks rebuilds the list
+       from scratch on every render, so a row moved out of it is recreated in
+       it — leaving the moved copy here and a fresh one there, two rows for the
+       same track, each with its own waveform canvas. They accumulated. */
+    Array.prototype.slice.call(host.children).forEach(function (el) {
+      if (el.id !== 'junction') host.removeChild(el);
+    });
+
     var jx = $('junction');
     if (jx && jx.parentNode !== host) host.appendChild(jx);
 
     if (tlSel && tlSel.kind === 'song') {
-      var row = document.querySelector('.trk[data-track="' + tlSel.index + '"]');
-      if (row && row.parentNode !== host) {
-        /* Moved, not copied: two live copies of the same waveform canvas would
-           both be drawn to and only one would ever be seen. */
-        host.appendChild(row);
-      }
+      /* Only the BODY moves. The head stays in the list, so the track can
+         still be reordered and swapped from there, and there is one waveform
+         rather than two. */
+      var body = document.querySelector('.trk[data-track="' + tlSel.index + '"] .trk-body');
+      if (body) host.appendChild(body);
     }
   }
 

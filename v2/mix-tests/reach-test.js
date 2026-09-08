@@ -151,6 +151,12 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
     document.querySelector('.jrow-btn') ? document.querySelector('.jrow-btn').innerText.replace(/\s+/g, ' ').trim() : '');
   ok(/blend|bridge|cut/i.test(label), 'it says what the transition is: "' + label + '"');
 
+  /* Scroll it into view before measuring where to click. The page grew as the
+     timeline card gained a meter and waveforms, and a box measured for an
+     element below the fold is a box the mouse cannot reach — the click lands
+     on whatever is actually at those coordinates instead. */
+  await rows[0].evaluate(e => e.scrollIntoView({ block: 'center' }));
+  await new Promise(r => setTimeout(r, 200));
   const box = await rows[0].boundingBox();
   ok(box && box.height >= MIN_HIT && box.width > 200,
      'and it is a real click target: ' + Math.round(box.width) + ' x ' + Math.round(box.height) + ' px');
@@ -168,6 +174,15 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
       heading: panel && panel.querySelector('h3') ? panel.querySelector('h3').innerText : ''
     };
   });
+  if (!opened.visible) {
+    const why = await page.evaluate(() => {
+      const p = document.getElementById('junction');
+      return { exists: !!p, parent: p ? (p.parentNode.id || p.parentNode.className) : null,
+               cls: p ? p.className : null, html: p ? p.innerHTML.length : 0,
+               jrows: document.querySelectorAll('.jrow-btn').length };
+    });
+    console.log('    why: ' + JSON.stringify(why));
+  }
   ok(opened.visible, 'the editor opens');
   /* It used to open inside the junction row in the Tracks list. There is one
      editor panel now, under the timeline, and everything opens there — a song,
@@ -189,6 +204,8 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
     for (const el of els) {
       const t = await page.evaluate(n => n.innerText.trim(), el);
       if (t.toLowerCase() === text.toLowerCase()) {
+        await el.evaluate(e => e.scrollIntoView({ block: "center" }));
+        await new Promise(r => setTimeout(r, 150));
         const b = await el.boundingBox();
         if (!b || b.height < MIN_HIT) return { clicked: false, tooSmall: true, box: b };
         await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
@@ -234,6 +251,8 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   const setField = async (name, value) => {
     const el = await page.$('#junction [data-jf="' + name + '"]');
     if (!el) return false;
+    await el.evaluate(e => e.scrollIntoView({ block: "center" }));
+    await new Promise(r => setTimeout(r, 150));
     const b = await el.boundingBox();
     await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
     await page.keyboard.down('Control');
@@ -273,6 +292,8 @@ const MIN_HIT = 24;          // a control smaller than this is not clickable in 
   console.log('\n— the zoom slider —');
   const slider = await page.$('#tlZoom');
   ok(!!slider, 'a zoom slider exists');
+  await slider.evaluate(e => e.scrollIntoView({ block: "center" }));
+  await new Promise(r => setTimeout(r, 150));
   const sb = await slider.boundingBox();
   ok(sb && sb.width >= 150, 'and is draggable: ' + Math.round(sb.width) + ' px wide');
   const before = await page.evaluate(() => {

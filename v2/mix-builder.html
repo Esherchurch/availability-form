@@ -313,9 +313,18 @@
   .vu-peak{ position:absolute; top:0; bottom:0; width:2px; background:#14201f; left:0; }
   .vu-num{ font-size:11px; color:var(--muted); width:46px; text-align:right;
            font-variant-numeric:tabular-nums; }
-  .vu-clip{ display:none; font-size:11px; font-weight:700; color:#fff;
-            background:#b0392c; padding:2px 8px; border-radius:3px; }
-  .vu-clip.show{ display:inline-block; }
+  /* The clip light holds its place whether or not it is lit.
+
+     It was display:none until it lit, so the meter grew taller the moment the
+     mix clipped and shrank again when the level fell back — and everything
+     below it, the timeline included, moved down and up with it. On a mix that
+     clips intermittently that is a flash on and off several times a second,
+     and the timeline jumping up and down as it plays. Reserving the space
+     costs nothing; taking it away and giving it back costs a reflow of the
+     whole page every time a kick lands hot. */
+  .vu-clip{ visibility:hidden; display:inline-block; font-size:11px; font-weight:700;
+            color:#fff; background:#b0392c; padding:2px 8px; border-radius:3px; }
+  .vu-clip.show{ visibility:visible; }
   /* ---- the timeline: one continuous surface, scrolled, in pixels per second.
      The structure is Videoeditor.html's — a scroll container, an inner sized to
      the whole set, a ruler, lanes of clips, and a playhead over the top. */

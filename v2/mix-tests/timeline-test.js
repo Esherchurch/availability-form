@@ -88,7 +88,9 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   await new Promise(r => setTimeout(r, 600));
   const songOpen = await page.evaluate(() => {
     const host = document.getElementById('tlEditor');
-    return { row: !!(host && host.querySelector('.trk')),
+    /* Only the body moves under the timeline now; the head stays in the
+       list so the track can still be reordered from there. */
+    return { row: !!(host && host.querySelector('.trk-body')),
              wave: !!(host && host.querySelector('canvas.wave')) };
   });
   ok(songOpen.row, 'clicking a song opens that song under the timeline');
