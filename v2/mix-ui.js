@@ -1150,7 +1150,9 @@
       lanes[c.lane] += '<div class="clip ' + c.kind + ' ' + c.cls + sel + '" ' +
         'style="left:' + left + 'px;width:' + w + 'px" ' +
         'data-clip="' + c.kind + '" data-index="' + c.index + '" ' +
-        'title="' + esc(c.label) + '">' + esc(c.label) + '</div>';
+        'title="' + esc(c.label) + '">' +
+        '<canvas class="clip-wave"></canvas>' +
+        '<span class="clip-label">' + esc(c.label) + '</span></div>';
     });
 
     el.innerHTML =
@@ -1165,8 +1167,89 @@
       '</div></div>';
 
     drawRuler(dur, W);
+    drawClipWaves();
     var sc = document.getElementById('tlscroll');
     if (sc) sc.scrollLeft = keepScroll;
+  }
+
+  /* The waveform on the clip itself, which is what a timeline is for: the shape
+     of the record is how anyone finds the break, the drop or the outro, and
+     without it a clip is a coloured rectangle with a name on it.
+
+     This is Videoeditor.html's drawWaveform — a canvas inside the clip, peaks
+     sampled across its width, a vertical line each pixel from the middle out.
+     The peaks are the ones the track already carries; nothing is decoded here.
+
+     Only the part that PLAYS is drawn. A clip shows the record from its entry
+     to its mix-out, so drawing the whole file would put the waveform out of
+     step with the clip under it and make the shape a lie. */
+  function drawClipWaves() {
+    var plan = tlPlan();
+    document.querySelectorAll('#timeline .clip').forEach(function (el) {
+      var cv = el.querySelector('canvas.clip-wave');
+      if (!cv) return;
+      var kind = el.dataset.clip, idx = +el.dataset.index;
+      var w = el.clientWidth, h = el.clientHeight;
+      if (!w || !h) return;
+      var dpr = window.devicePixelRatio || 1;
+      cv.width = w * dpr; cv.height = h * dpr;
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+      var g = cv.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+
+      var peaks = null, from = 0, to = 1, colour = 'rgba(20,32,31,.30)';
+      if (kind === 'song') {
+        var t = project.tracks[idx];
+        if (!t || !t.peaks) {
+          /* Derive them if the audio is here but the peaks were never taken —
+             a project reopened from disk has every setting and no peaks. */
+          if (t && monos.has(t.id)) t.peaks = Array.from(DSP.peaks(monos.get(t.id), 1400));
+        }
+        if (!t || !t.peaks || !t.durationSec) return;
+        peaks = t.peaks;
+        from = (t.entrySec || 0) / t.durationSec;
+        to = (t.exitSec || t.durationSec) / t.durationSec;
+      } else if (kind === 'sample') {
+        var p = (project.placements || [])[idx];
+        var buf = p && sampleBuffers.get(p.sampleId);
+        if (!buf) return;
+        peaks = Array.from(DSP.peaks(DSP.toMono(buf), 200));
+        colour = 'rgba(34,64,31,.35)';
+      } else {
+        /* The drums are not a recording, so there are no peaks to draw. Their
+           beat grid is drawn instead, which is the useful thing about them:
+           where the hits land and how they speed up. */
+        var j = plan && plan.junctions[idx];
+        if (!j || !j.fill) return;
+        var tempos = DSP.fillTempos(j.fill.beats, j.fill.fromBpm, j.fill.toBpm);
+        var total = 0, i;
+        for (i = 0; i < tempos.length; i++) total += 60 / tempos[i];
+        var at = 0;
+        g.strokeStyle = 'rgba(92,66,26,.45)';
+        for (i = 0; i < tempos.length; i++) {
+          var x = Math.round(at / total * w) + 0.5;
+          var down = (i % 4) === 0;
+          g.lineWidth = down ? 1.5 : 1;
+          g.beginPath();
+          g.moveTo(x, down ? 2 : h * 0.32);
+          g.lineTo(x, down ? h - 2 : h * 0.68);
+          g.stroke();
+          at += 60 / tempos[i];
+        }
+        return;
+      }
+
+      var n = peaks.length;
+      var mid = h / 2;
+      g.fillStyle = colour;
+      for (var px = 0; px < w; px++) {
+        var f = from + (to - from) * (px / w);
+        var amp = peaks[Math.max(0, Math.min(n - 1, Math.floor(f * n)))] || 0;
+        var a = Math.max(0.5, amp * mid * 0.86);
+        g.fillRect(px, mid - a, 1, a * 2);
+      }
+    });
   }
 
   /* The ruler, drawn rather than laid out, because a tick every few seconds
@@ -1313,10 +1396,11 @@
     return '<div class="trk-body">' +
       '<canvas class="wave"></canvas>' +
       '<div class="row" style="margin-top:8px">' +
-        '<button data-act="play-here" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
-          ' title="Or double-click anywhere on the waveform">▶ Play from entry</button>' +
-        '<button class="ghost" data-act="play-exit" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
-          '>▶ Play from mix-out</button>' +
+        /* One transport, and it is on the timeline. This row used to carry its
+           own play and its own play-from-mix-out as well, so a page with three
+           tracks open offered seven ways to start a sound. Double-clicking the
+           waveform still plays from the point clicked, which is the thing only
+           this row can do; the Stop beside it is kept for exactly that. */
         /* Enabled from whether anything is actually playing, not left disabled
            and switched on by hand when playback starts. It used to be written
            with the disabled attribute hard-coded, so ANY re-render while music was
