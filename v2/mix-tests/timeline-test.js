@@ -29,7 +29,11 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   await new Promise(r => server.listen(8797, r));
   const browser = await puppeteer.launch({
     executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    headless: 'new', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required',
+    /* Deliberately WITHOUT --autoplay-policy=no-user-gesture-required. A real
+       browser suspends an AudioContext until someone interacts with the page,
+       and granting the exemption here is what let a play button that never
+       resumed the context pass every test while doing nothing in the app. */
+    headless: 'new', args: ['--no-sandbox',
                             '--window-size=1600,1100', '--js-flags=--max-old-space-size=4096']
   });
   const page = await browser.newPage();
@@ -155,7 +159,94 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   ok(playing.live > 0, 'it plays from the cursor with nothing rendered', playing.live + ' sources');
   ok(playing.ph !== cursorAt.ph, 'and the playhead moves along the timeline',
      cursorAt.ph + ' → ' + playing.ph);
+  /* The context must actually be RUNNING after pressing play, not merely have
+     had things scheduled onto it. A suspended context accepts every call and
+     makes no sound. */
+  const ctxState = await page.evaluate(() =>
+    window.__mixCtxForTest ? window.__mixCtxForTest.state : "unknown");
+  ok(ctxState === "running", "the audio context is running, not suspended", ctxState);
+
   await page.click('#previewStopBtn');
+
+
+  /* ---- dragging clips along the timeline.
+
+     A song has no position of its own: where it starts comes from the junction
+     before it, so dragging a song edits that junction. The drums move by how
+     far ahead of the join they start. A sample moves freely — a stab is placed
+     by ear, and a quarter of a beat late is often where it wants to be. */
+  const dragBy = async (sel, px) => {
+    const b = await page.evaluate((s) => {
+      const c = document.querySelector(s);
+      if (!c) return null;
+      const r = c.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, sel);
+    if (!b) return false;
+    await page.mouse.move(b.x + b.w / 2, b.y + b.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.w / 2 + px, b.y + b.h / 2, { steps: 14 });
+    await page.mouse.up();
+    await new Promise(r => setTimeout(r, 700));
+    return true;
+  };
+
+  const j0before = await page.evaluate(async () => {
+    const p = await window.MixProject.loadProject();
+    return JSON.parse(JSON.stringify(p.junctions[0]));
+  });
+  await dragBy('.clip.song[data-index="1"]', 120);
+  const j0after = await page.evaluate(async () =>
+    (await window.MixProject.loadProject()).junctions[0]);
+  const beatsBefore = j0before.beatBeats != null ? j0before.beatBeats : (j0before.bars || 0);
+  const beatsAfter = j0after.beatBeats != null ? j0after.beatBeats : (j0after.bars || 0);
+  console.log('    dragged the second song 120 px later: ' + beatsBefore + ' → ' + beatsAfter);
+  ok(beatsAfter !== beatsBefore,
+     'dragging a song changes the junction that decides where it starts',
+     beatsBefore + ' → ' + beatsAfter);
+
+  const preBefore = await page.evaluate(async () => {
+    const p = await window.MixProject.loadProject();
+    return p.junctions[0].preBeats == null ? 8 : p.junctions[0].preBeats;
+  });
+  await dragBy('.clip.drums', -60);
+  const preAfter = await page.evaluate(async () => {
+    const p = await window.MixProject.loadProject();
+    return p.junctions[0].preBeats == null ? 8 : p.junctions[0].preBeats;
+  });
+  console.log('    dragged the drums 60 px earlier: preBeats ' + preBefore + ' → ' + preAfter);
+  ok(preAfter > preBefore, 'dragging the drums changes how early they start',
+     preBefore + ' → ' + preAfter);
+  ok(Number.isInteger(preAfter), 'and it lands on a whole beat', String(preAfter));
+
+  /* a sample, placed then moved */
+  await page.evaluate(async () => {
+    const MP = window.MixProject;
+    const p = await MP.loadProject();
+    await MP.saveSample({ id: 'smp_drag', name: 'Drag me', bars: 2,
+                          sourceBpm: p.tracks[0].sourceBpm, durationSec: 5 }, null);
+    MP.addPlacement(p, { sampleId: 'smp_drag', atJunction: 0, mode: 'over',
+                         barsBeforeEntry: 8, gainDb: -6 });
+    await MP.saveProject(p);
+  });
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.waitForFunction(() => document.querySelectorAll('#timeline .clip.sample').length >= 1,
+                             { timeout: 60000 });
+  await page.evaluate(() => {
+    const z = document.getElementById('tlZoom');
+    z.value = '3'; z.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await new Promise(r => setTimeout(r, 600));
+
+  const sBefore = await page.evaluate(async () =>
+    (await window.MixProject.loadProject()).placements[0].barsBeforeEntry);
+  await dragBy('.clip.sample', 40);
+  const sAfter = await page.evaluate(async () =>
+    (await window.MixProject.loadProject()).placements[0].barsBeforeEntry);
+  console.log('    dragged the sample 40 px later: ' + sBefore + ' → ' + sAfter + ' bars');
+  ok(sAfter !== sBefore, 'a sample can be dragged too', sBefore + ' → ' + sAfter);
+  ok(Math.abs(sAfter - Math.round(sAfter)) > 0.001,
+     'and it lands where it was put, not snapped to a bar', String(sAfter));
 
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   await browser.close(); server.close();

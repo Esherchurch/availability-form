@@ -54,7 +54,20 @@
     return h ? h + 'h ' + m + 'm' : m + 'm ' + Math.floor(s % 60) + 's';
   };
 
-  function audioCtx() { if (!ctx) ctx = new AC(); return ctx; }
+  /* A browser will not let a page make a sound until someone has interacted
+     with it, so an AudioContext created at load starts SUSPENDED. Everything
+     scheduled on it is scheduled correctly and none of it is heard: press play
+     and nothing happens, which is exactly what came back.
+
+     Videoeditor.html resumes it on play and always has. Mix Builder never did,
+     and the tests never caught it because they run headless Chrome with
+     --autoplay-policy=no-user-gesture-required, so the one condition that
+     matters in the real app was the one condition the tests removed. */
+  function audioCtx() {
+    if (!ctx) { ctx = new AC(); global.__mixCtxForTest = ctx; }
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    return ctx;
+  }
 
   /* --------------------------------------------------------- state --- */
 
@@ -818,7 +831,7 @@
       if (!clip) { if (!tlDrag) el.style.cursor = ''; return; }
       var r = clip.getBoundingClientRect();
       var nearEdge = (e.clientX - r.left < TRIM_GRAB_PX) || (r.right - e.clientX < TRIM_GRAB_PX);
-      clip.style.cursor = nearEdge ? 'ew-resize' : 'pointer';
+      clip.style.cursor = nearEdge ? 'ew-resize' : 'grab';
     });
 
     /* Selection on click as well as on mousedown. Mousedown is what picks a
@@ -847,6 +860,13 @@
           return;
         }
         selectClip(kind, idx);
+        /* Anywhere else on a clip picks it up to move. The first track has
+           nothing before it to move against, so it stays where it is. */
+        if (!(kind === 'song' && idx === 0)) {
+          tlDrag = { kind: 'move', what: kind, index: idx,
+                     startX: e.clientX, el: clip,
+                     startLeft: parseFloat(clip.style.left) || 0, moved: false };
+        }
         e.preventDefault();
         return;
       }
@@ -878,6 +898,23 @@
        length is visible as it is chosen, and the project is written once on
        release rather than on every pixel. */
     window.addEventListener('mousemove', function (e) {
+      if (tlDrag && tlDrag.kind === 'move') {
+        var dx = e.clientX - tlDrag.startX;
+        if (Math.abs(dx) > 3) tlDrag.moved = true;
+        if (tlDrag.moved) {
+          /* The clip follows the pointer so the position is chosen by eye, and
+             the model is written once on release. Songs and drums are shown
+             snapped as they move, so what is seen is what will be kept. */
+          var d = dx / tlPxPerSec;
+          if (tlDrag.what !== 'sample') {
+            var say = applyClipMove(tlDrag.what, tlDrag.index, d, false);
+            if (say) setStatus(say + '.');
+          }
+          tlDrag.el.style.left = (tlDrag.startLeft + dx) + 'px';
+          tlDrag.delta = d;
+        }
+        return;
+      }
       if (!tlDrag || tlDrag.kind !== 'trim') return;
       var t = project.tracks[tlDrag.index];
       var plan = tlPlan();
@@ -903,6 +940,16 @@
     });
 
     window.addEventListener('mouseup', function () {
+      if (tlDrag && tlDrag.kind === 'move') {
+        if (tlDrag.moved && tlDrag.delta) {
+          var said = applyClipMove(tlDrag.what, tlDrag.index, tlDrag.delta, true);
+          if (said) setStatus('Moved — ' + said + '.');
+        } else {
+          renderTimeline();      // put it back if it was only a click
+        }
+        tlDrag = null;
+        return;
+      }
       if (!tlDrag || tlDrag.kind !== 'trim') { tlDrag = null; return; }
       var t = project.tracks[tlDrag.index];
       if (t && tlDrag.value != null) {
@@ -915,6 +962,82 @@
       }
       tlDrag = null;
     });
+  }
+
+  /* ---- moving a clip.
+
+     A song has no position of its own to change. Where it starts is worked out
+     from the junction before it — how far it overlaps the record ahead of it,
+     or how much time sits between them — so dragging a song IS editing that
+     junction, and this is where the two meet:
+
+       a blend      the overlap, in bars: drag it later and the overlap shortens
+       a bridge     the drums between them, in beats: drag it later and there
+                    are more of them
+       a hard cut   the gap, in milliseconds
+
+     The drums move by changing how far ahead of the join they start, and a
+     sample by how far before the next record it lands. Songs and drums snap to
+     the unit they are stored in, because a record that comes in off the beat is
+     wrong in a way that cannot be heard as a choice. A sample does not snap: a
+     stab or a hook is placed by ear, and a quarter of a beat late is often
+     exactly where it wants to be. */
+
+  function beatSecAt(j, k) {
+    var bpm = (j && j.fill) ? j.fill.fromBpm
+            : (lay.junctions[k] && lay.junctions[k].targetBpm)
+            || MP.effectiveBpm(project.tracks[k]) || 120;
+    return 60 / bpm;
+  }
+
+  function applyClipMove(what, index, deltaSec, commit) {
+    var plan = tlPlan();
+    if (!plan) return null;
+
+    if (what === 'sample') {
+      var p = (project.placements || [])[index];
+      if (!p) return null;
+      var jn = plan.junctions[p.atJunction];
+      var bpm = (jn && jn.fill) ? jn.fill.toBpm : ((jn && jn.targetBpm) || 120);
+      var barSec = 60 / bpm * 4;
+      var v = Math.max(0, (p.barsBeforeEntry || 0) - deltaSec / barSec);
+      if (commit) { p.barsBeforeEntry = Math.round(v * 100) / 100; touch('sample moved'); }
+      return 'sample ' + v.toFixed(2) + ' bars before the next record';
+    }
+
+    if (what === 'drums') {
+      var jd = project.junctions[index];
+      var pj = plan.junctions[index];
+      if (!jd || !pj) return null;
+      var bs = beatSecAt(pj, index);
+      var pre = (jd.preBeats == null ? 8 : jd.preBeats) - deltaSec / bs;
+      pre = Math.max(0, Math.min(64, Math.round(pre)));
+      if (commit) { jd.preBeats = pre; touch('drums moved'); }
+      return 'drums start ' + pre + ' beats before the join';
+    }
+
+    // a song: edit the junction before it
+    var k = index - 1;
+    var j = project.junctions[k], pjn = plan.junctions[k];
+    if (!j || !pjn) return null;
+
+    if (j.type === 'hard-cut') {
+      var ms = Math.max(0, Math.round(((j.gapMs || 0) + deltaSec * 1000) / 10) * 10);
+      if (commit) { j.gapMs = ms; touch('gap changed'); }
+      return 'a ' + (ms / 1000).toFixed(2) + 's gap before it';
+    }
+    if (pjn.fill) {
+      var bsf = 60 / (pjn.fill.fromBpm || 120);
+      var beats = Math.round(fillBeatsOfUI(j) + deltaSec / bsf);
+      beats = Math.max(4, Math.min(512, beats));
+      if (commit) { j.beatBeats = beats; touch('drums lengthened'); }
+      return beats + ' beats of drums before it';
+    }
+    var barSec2 = 60 / (pjn.targetBpm || MP.effectiveBpm(project.tracks[k]) || 120) * 4;
+    var bars = Math.round((j.bars == null ? 16 : j.bars) - deltaSec / barSec2);
+    bars = Math.max(1, Math.min(64, bars));
+    if (commit) { j.bars = bars; touch('overlap changed'); }
+    return 'overlapping the record before it by ' + bars + ' bars';
   }
 
   /* What is selected, and what opens underneath it. One panel, whatever the
@@ -3011,6 +3134,12 @@
     $('cancelRenderBtn').disabled = true;
   }
 
+  /* The render panel's own status line, for the render panel's own messages.
+     The transport used to report through here while sitting at the top of the
+     page, so pressing play with no audio loaded put "Load the audio first"
+     several hundred pixels below the button, which is indistinguishable from
+     the button doing nothing. Anything the transport says now goes to the
+     status line above the timeline, where it can be seen. */
   function renderSay(msg, isErr) {
     var el = $('renderStatus');
     if (!el) return;
@@ -3242,10 +3371,13 @@
     }
 
     $('previewBtn').onclick = async function () {
+      /* This click IS the gesture, so resume here and wait for it: scheduling
+         onto a context that is still coming back gets silence. */
+      try { var c = audioCtx(); if (c.state !== 'running') await c.resume(); } catch (e) {}
       if (preview && preview.isPlaying()) { preview.pause(); showPos(preview.at(), preview.duration()); return; }
       var linked = project.tracks.filter(function (t) { return buffers.has(t.id); }).length;
-      if (!linked) { renderSay('Load the audio first and this will play the set as it stands.'); return; }
-      renderSay('Getting the drums ready…');
+      if (!linked) { setStatus('Load the audio first and this will play the set as it stands.'); return; }
+      setStatus('Getting the drums ready…');
       try {
         var at = preview ? preview.at() : 0;
         await buildPreview();
@@ -3254,12 +3386,12 @@
         preview.seek(at);
         preview.play();
         startVU();
-        renderSay('Playing from ' + fmt(preview.at()) +
+        setStatus('Playing from ' + fmt(preview.at()) +
           (S_in != null && S_out != null
             ? ' — the marked section, ' + fmt(S_in) + ' to ' + fmt(S_out) : '') +
           '. Click the timeline to move the cursor, drag the ruler to mark a section.');
       } catch (err) {
-        renderSay('Could not start playback: ' + (err.message || err));
+        setStatus('Could not start playback: ' + (err.message || err));
       }
     };
 
