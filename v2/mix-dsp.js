@@ -1125,7 +1125,26 @@ onmessage = e => {
      which shortens it without touching the sound itself. That is the only
      thing done to them. */
 
+  /* sfxImpact, the editor's boom, and the kick made from it.
+
+     Taking it verbatim as a kick was wrong and measurable: 69% of its energy in
+     the first 200 ms is noise, and 37% of it sits above 1 kHz. That is a
+     cinematic impact — one hit under a title card, which is what the editor
+     uses it for. Put on every beat it is a burst of broadband noise four times
+     a bar, and broadband noise is what distortion sounds like. Which is exactly
+     what came back: "the bass drum is distorted, very distorted".
+
+     Its tonal half IS a kick — 60 Hz and 40 Hz falling away, 70.7% of the
+     energy under 150 Hz and 0.5% above 1 kHz. So the generator is kept and the
+     noise burst is shortened, from a 200 ms wash to an 8 ms beater click. That
+     leaves 70.4% under 150 Hz, 0.8% above 1 kHz, and the noise carrying 1% of
+     the first 200 ms instead of 69%.
+
+     The original is kept beside it because it is the suite's, and because a
+     riser or a stab still wants the impact rather than the kick. */
   function sfxImpact(){var sr=44100,n=Math.floor(sr*1.2),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=(Math.random()*2-1)*Math.exp(-t*5)*0.6+Math.sin(2*Math.PI*60*t)*Math.exp(-t*5)*0.5+Math.sin(2*Math.PI*40*t)*Math.exp(-t*12)*0.4;}return s;}
+
+  function sfxImpactKick(){var sr=44100,n=Math.floor(sr*1.2),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=Math.sin(2*Math.PI*60*t)*Math.exp(-t*5)*0.5+Math.sin(2*Math.PI*40*t)*Math.exp(-t*12)*0.4+(Math.random()*2-1)*Math.exp(-t*130)*0.18;}return s;}
   function sfxSnare(){var sr=44100,n=Math.floor(sr*0.35),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=Math.sin(2*Math.PI*200*t)*Math.exp(-t*30)*0.5+(Math.random()*2-1)*Math.exp(-t*15)*0.6;}return s;}
   function sfxTypewriter(){var sr=44100,n=Math.floor(sr*0.08),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=(Math.random()*2-1)*Math.exp(-t*60)*0.7+Math.sin(2*Math.PI*800*t)*Math.exp(-t*60)*0.3;}return s;}
 
@@ -1136,7 +1155,7 @@ onmessage = e => {
   function kitVoice(name, sr) {
     var key = name + '@' + sr;
     if (_kit[key]) return _kit[key];
-    var src = name === 'kick' ? sfxImpact() : name === 'snare' ? sfxSnare() : sfxTypewriter();
+    var src = name === 'kick' ? sfxImpactKick() : name === 'snare' ? sfxSnare() : sfxTypewriter();
     var from = 44100;
     if (sr === from) { _kit[key] = src; return src; }
     var n = Math.round(src.length * sr / from), out = new Float32Array(n);
