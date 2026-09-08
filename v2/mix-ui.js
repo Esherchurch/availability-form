@@ -767,7 +767,7 @@
     if (!ph) return;
     var at = preview ? preview.at() : 0;
     var x = Math.round(at * tlPxPerSec);
-    ph.style.left = x + 'px';
+    if (ph._x !== x) { ph.style.left = x + 'px'; ph._x = x; }
 
     /* Keep the playhead in view while it is moving, exactly as the editor does:
        once it has crossed three quarters of the visible width, put it back at a
@@ -1873,6 +1873,26 @@
               'if they drift off the snare, correct the BPM or downbeat by hand.');
   }
 
+  /* Play a buffer at a set level. play() is this at 0 dB. */
+  function playAtGain(buffer, gainDb) {
+    stop();
+    var ctxx = audioCtx();
+    playing = ctxx.createBufferSource();
+    playing.buffer = buffer;
+    var g = ctxx.createGain();
+    g.gain.value = Math.pow(10, (gainDb || 0) / 20);
+    playing.connect(g); g.connect(masterOut());
+    playing.start();
+    startVU();
+    setStopEnabled(true);
+    playing.onended = function () {
+      playing = null;
+      setStopEnabled(false);
+      if (!playhead.raf) return;
+      stopPlayhead();
+    };
+  }
+
   function play(buffer) {
     stop();
     playing = audioCtx().createBufferSource();
@@ -2109,8 +2129,18 @@
     });
 
     // Track list: open/close, field edits, waveform clicks, buttons.
+    /* A track row lives in the list, but the selected one is MOVED under the
+       timeline so that clicking a clip opens it there. Every handler on a row
+       is delegated, so a row that leaves #tracks leaves its handlers behind
+       with it — drag-select stopped making a selection at all, and cutting a
+       sample produced nothing, which is exactly what came back. Both surfaces
+       carry the same listeners. */
     var tracksEl = $('tracks');
-    tracksEl.addEventListener('click', function (e) {
+    var trackSurfaces = [tracksEl, $('tlEditor')].filter(Boolean);
+    var onTrackSurface = function (type, fn) {
+      trackSurfaces.forEach(function (el) { el.addEventListener(type, fn); });
+    };
+    onTrackSurface('click', function (e) {
       /* Resolve the action from the nearest element that carries one, not from
          whichever pixel was hit. A button with a label and a caret inside it
          reports the span as e.target, and reading dataset.act off that does
@@ -2190,7 +2220,7 @@
       }
     });
 
-    tracksEl.addEventListener('click', function (e) {
+    onTrackSurface('click', function (e) {
       if (!e.target.matches('canvas.wave')) return;
       if (suppressWaveClick) { suppressWaveClick = false; return; }   // this was a drag
       var i = +e.target.closest('[data-track]').dataset.track;
@@ -2217,7 +2247,7 @@
     /* Drag across the waveform to select a passage for a sample. A drag is
        distinguished from a click by distance, and a real drag suppresses the
        pending marker-set so the two gestures never fight. */
-    tracksEl.addEventListener('mousedown', function (e) {
+    onTrackSurface('mousedown', function (e) {
       if (!e.target.matches('canvas.wave')) return;
       var i = +e.target.closest('[data-track]').dataset.track;
       var t = project.tracks[i];
@@ -2267,7 +2297,7 @@
 
     /* Double-click plays from exactly where you clicked, NOT snapped to the bar
        — you are listening for the moment, not for the grid. */
-    tracksEl.addEventListener('dblclick', function (e) {
+    onTrackSurface('dblclick', function (e) {
       if (!e.target.matches('canvas.wave')) return;
       if (waveClickTimer) { clearTimeout(waveClickTimer); waveClickTimer = null; }
       var i = +e.target.closest('[data-track]').dataset.track;
@@ -2277,7 +2307,7 @@
       playFrom(i, (e.clientX - r.left) / r.width * t.durationSec);
     });
 
-    tracksEl.addEventListener('change', function (e) {
+    onTrackSurface('change', function (e) {
       var rf = e.target.dataset.rf;
       if (rf) {
         var ti = +e.target.dataset.track, ri = +e.target.dataset.region;
@@ -2338,7 +2368,7 @@
     /* Drag a track row to reorder. The drop target is decided by which half of
        the row the pointer is over, so dropping "between" two rows is
        unambiguous rather than a guess. */
-    tracksEl.addEventListener('dragstart', function (e) {
+    onTrackSurface('dragstart', function (e) {
       /* The row is draggable so it can be reordered, which means a drag that
          starts ANYWHERE inside it — including across the waveform — becomes a
          native HTML5 drag. That swallows mouseup and click completely, so a
@@ -2360,13 +2390,13 @@
       e.dataTransfer.effectAllowed = 'move';
       try { e.dataTransfer.setData('text/plain', String(dragFrom)); } catch (err) {}
     });
-    tracksEl.addEventListener('dragend', function () {
+    onTrackSurface('dragend', function () {
       dragFrom = null;
       Array.prototype.forEach.call(tracksEl.querySelectorAll('.trk'), function (r) {
         r.classList.remove('dragging', 'drop-above', 'drop-below');
       });
     });
-    tracksEl.addEventListener('dragover', function (e) {
+    onTrackSurface('dragover', function (e) {
       if (dragFrom == null) return;
       e.preventDefault();
       var row = e.target.closest('.trk');
@@ -2377,7 +2407,7 @@
       var r = row.getBoundingClientRect();
       row.classList.add(e.clientY < r.top + r.height / 2 ? 'drop-above' : 'drop-below');
     });
-    tracksEl.addEventListener('drop', function (e) {
+    onTrackSurface('drop', function (e) {
       if (dragFrom == null) return;
       e.preventDefault();
       var row = e.target.closest('.trk');
@@ -2811,6 +2841,14 @@
         '<span class="pill">' + (s.sourceBpm ? Math.round(s.sourceBpm) + ' BPM' : 'one-shot') + '</span>' +
         (uses ? '<span class="pill hi">used ' + uses + '×</span>' : '') +
         '<span class="trk-tools">' +
+          /* The sample's own level, set once where it is cut rather than at
+             every place it is dropped. Auditioning uses it, and a new
+             placement starts from it — a hook cut hot stays hot wherever it
+             goes, and a quiet stab does not have to be turned up four times. */
+          '<label class="samplecut-check" title="How loud this sample is">' +
+            '<input type="number" data-act="sample-gain" data-sample="' + esc(s.id) + '" ' +
+              'value="' + (s.gainDb == null ? 0 : s.gainDb) + '" step="1" min="-40" max="12" ' +
+              'style="width:52px"> dB</label>' +
           '<button data-act="sample-play" data-sample="' + esc(s.id) + '">Audition</button>' +
           '<button data-act="sample-place" data-sample="' + esc(s.id) + '">' +
             (placingSample === s.id ? 'Cancel' : 'Place…') + '</button>' +
@@ -2850,7 +2888,8 @@
         '<div><label class="lbl">Bars before the next track</label>' +
           '<input type="number" id="placeBars" min="0" max="64" step="1" value="8"></div>' +
         '<div><label class="lbl">Volume (dB)</label>' +
-          '<input type="number" id="placeGain" min="-40" max="6" step="1" value="-8"></div>' +
+          '<input type="number" id="placeGain" min="-40" max="6" step="1" value="' +
+          (s.gainDb == null ? -8 : s.gainDb) + '"></div>' +
       '</div>' +
       '<div class="row">' +
         '<button data-act="do-place">Place it</button>' +
@@ -3079,13 +3118,29 @@
   }
 
   function wireSamples() {
+    $('samples').addEventListener('change', async function (e) {
+      var el = e.target;
+      if (!el || el.dataset.act !== 'sample-gain') return;
+      var s = sampleMeta.get(el.dataset.sample);
+      if (!s) return;
+      s.gainDb = parseFloat(el.value) || 0;
+      await MP.saveSample(s, null);
+      await loadSamples();
+      renderSamples();
+      setStatus('"' + s.name + '" set to ' + s.gainDb + ' dB.');
+    });
+
     $('samples').addEventListener('click', async function (e) {
       var act = e.target.dataset.act;
       if (!act) return;
       var id = e.target.dataset.sample;
       if (act === 'sample-play') {
         var buf = await sampleAudioFor(id);
-        if (buf) play(buf); else setStatus('That sample has no audio stored.', true);
+        if (!buf) { setStatus('That sample has no audio stored.', true); return; }
+        var sm = sampleMeta.get(id);
+        playAtGain(buf, sm && sm.gainDb != null ? sm.gainDb : 0);
+        setStatus('"' + (sm ? sm.name : id) + '" at ' +
+                  ((sm && sm.gainDb) || 0) + ' dB. Stop when you have heard enough.');
       }
       /* Opening the placer, not placing yet. This used to be a window.prompt()
          asking for a junction number — which throws outright in Electron, so
@@ -3124,6 +3179,7 @@
         return;
       }
       if (act === 'cancel-place') { placingSample = null; renderSamples(); return; }
+      if (act === 'sample-gain') return;      // handled on change, not on click
       if (act === 'sample-del') {
         var s = sampleMeta.get(id);
         var uses = MP.sampleUsage(project, id);
@@ -3446,9 +3502,15 @@
       return dur;
     }
 
+    var _lastPos = '', _lastLabel = '';
     function showPos(t, d) {
+      /* Written only when it changes. This ran on every animation frame and
+         set the position text, the button's label and a disabled flag sixty
+         times a second whether or not any of them differed — sixty layout
+         invalidations a second for a clock that ticks once. */
       var pos = $('mixPos');
-      if (pos) pos.textContent = fmt(t || 0) + ' / ' + fmt(d || 0);
+      var text = fmt(t || 0) + ' / ' + fmt(d || 0);
+      if (pos && text !== _lastPos) { pos.textContent = text; _lastPos = text; }
       var pb = $('previewBtn'), sb = $('previewStopBtn');
       if (pb) pb.textContent = (preview && preview.isPlaying()) ? '❚❚ Pause' : '▶ Play the mix';
       if (sb) sb.disabled = !preview || (!preview.isPlaying() && !(preview.at() > 0));

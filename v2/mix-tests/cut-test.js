@@ -156,6 +156,87 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
     console.log('    (no audio in memory for this page — playback path not exercised)');
   }
 
+
+  /* ---- cutting from the row where it now lives.
+
+     The selected track row is MOVED under the timeline so that clicking a clip
+     opens it there, and every handler on a row is delegated from the list it
+     came out of. So a moved row lost drag-select, and cutting produced nothing
+     at all: no selection, no sample, silence. This cuts from the row in its new
+     home and measures what lands in the library. */
+  await page.evaluate(() => {
+    const c = document.querySelector('#timeline .clip.song');
+    if (c) c.click();
+  });
+  await new Promise(r => setTimeout(r, 700));
+  const movedRow = await page.evaluate(() => {
+    const host = document.getElementById('tlEditor');
+    return !!(host && host.querySelector('canvas.wave'));
+  });
+  ok(movedRow, 'the selected song opens under the timeline');
+
+  if (movedRow) {
+    const wv = await page.evaluate(() => {
+      const c = document.querySelector('#tlEditor canvas.wave');
+      c.scrollIntoView({ block: 'center' });
+      const r = c.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const wy = wv.y + wv.h / 2;
+    await page.mouse.move(wv.x + wv.w * 0.35, wy);
+    await page.mouse.down();
+    await page.mouse.move(wv.x + wv.w * 0.42, wy, { steps: 12 });
+    await page.mouse.up();
+    await new Promise(r => setTimeout(r, 500));
+
+    const selText = await page.evaluate(() => {
+      const el = document.querySelector('.samplecut-range');
+      return el ? el.textContent.trim() : '';
+    });
+    console.log('    selection in the moved row: ' + (selText || 'none'));
+    ok(!!selText, 'drag-select still works after the row is moved', selText || 'no selection');
+
+    await page.evaluate(() => {
+      const b = document.querySelector('[data-act="cut-sample"]');
+      if (b) b.click();
+    });
+    await page.waitForFunction(() => document.querySelectorAll('[data-sample]').length > 0,
+                               { timeout: 60000 }).catch(() => {});
+    await new Promise(r => setTimeout(r, 1200));
+
+    const cut = await page.evaluate(async () => {
+      const MP = window.MixProject, DSP = window.MixDSP;
+      const list = await MP.listSamples();
+      if (!list.length) return { error: 'nothing in the library' };
+      const s = list[list.length - 1];
+      const blob = await MP.getSampleAudio(s.id);
+      if (!blob) return { error: 'no audio stored' };
+      const ctx = new AudioContext();
+      const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+      const m = DSP.toMono(buf);
+      let pk = 0, rms = 0;
+      for (let i = 0; i < m.length; i++) { const a = Math.abs(m[i]); if (a > pk) pk = a; rms += m[i] * m[i]; }
+      return { sec: +buf.duration.toFixed(2), peak: +pk.toFixed(3),
+               rmsDb: +(20 * Math.log10(Math.sqrt(rms / m.length) + 1e-12)).toFixed(1) };
+    });
+    console.log('    cut: ' + JSON.stringify(cut));
+    ok(!cut.error, 'the cut reaches the library', cut.error || 'saved');
+    ok(cut.sec > 1, 'and it is the length that was selected', cut.sec + 's');
+    ok(cut.rmsDb > -50, 'and it is NOT silent', cut.rmsDb + ' dBFS');
+
+    /* the level lives on the sample */
+    const gainSaved = await page.evaluate(async () => {
+      const el = document.querySelector('[data-act="sample-gain"]');
+      if (!el) return 'no control';
+      el.value = '-6';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 600));
+      const list = await window.MixProject.listSamples();
+      return list[list.length - 1].gainDb;
+    });
+    ok(gainSaved === -6, 'a sample carries its own level', String(gainSaved));
+  }
+
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   await browser.close(); server.close();
   console.log(fails ? '\n' + fails + ' FAILED' : '\nthe cutter takes what you drag, and Stop stops');
