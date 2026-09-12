@@ -72,7 +72,7 @@ ipcMain.handle('audio:pickFolder', async () => {
   return r.canceled ? null : r.filePaths[0];
 });
 
-/* List the audio in a folder, two levels deep. Nothing is copied — the paths
+/* List the audio in a folder and its subfolders. Nothing is copied — the paths
    are handles onto the user's own disk, read on demand. */
 ipcMain.handle('audio:scanFolder', (e, folder) => {
   const out = [];
@@ -80,10 +80,12 @@ ipcMain.handle('audio:scanFolder', (e, folder) => {
     let ents;
     try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch (err) { return; }
     for (const en of ents) {
-      if (out.length >= 500) return;
+      if (out.length >= 4000) return;
       const p = path.join(dir, en.name);
       if (en.isDirectory()) {
-        if (depth < 2 && !en.name.startsWith('.')) walk(p, depth + 1);
+        /* Deep enough for a library filed by artist and album, and then
+           some: a set can be anywhere under the folder that was chosen. */
+        if (depth < 5 && !en.name.startsWith('.')) walk(p, depth + 1);
         continue;
       }
       const ext = en.name.split('.').pop().toLowerCase();

@@ -835,8 +835,39 @@
       if (f) matched.push({ track: t, file: f });
       else missing.push(t);
     });
+
+    /* A running order imported on its own has no filenames on it — nothing was
+       dropped when it was read, so every track is missing and matching by name
+       or by size can never find anything. Pointing at the folder afterwards is
+       the obvious thing to do next, and it matched nothing at all: fifty-three
+       tracks, every one saying it had no audio, with the folder sitting there
+       full of them.
+
+       So what is left over is matched by title, the same way a folder dropped
+       at import time is matched. Best score first across the whole set rather
+       than track by track, so a strong match is not stolen by an earlier track
+       that merely quite likes the same file. */
     var used = matched.map(function (m) { return m.file; });
     var spare = files.filter(function (f) { return used.indexOf(f) === -1; });
+
+    if (missing.length && spare.length) {
+      var pairs = [];
+      missing.forEach(function (t) {
+        getMatches(t.title, spare, function (f) { return f.name; }).forEach(function (m) {
+          if (m.score >= 0.4) pairs.push({ track: t, file: m.item, score: m.score });
+        });
+      });
+      pairs.sort(function (x, y) { return y.score - x.score; });
+      var takenT = [], takenF = [];
+      pairs.forEach(function (pr) {
+        if (takenT.indexOf(pr.track) !== -1 || takenF.indexOf(pr.file) !== -1) return;
+        takenT.push(pr.track); takenF.push(pr.file);
+        matched.push({ track: pr.track, file: pr.file, byTitle: true, score: pr.score });
+      });
+      missing = missing.filter(function (t) { return takenT.indexOf(t) === -1; });
+      spare = spare.filter(function (f) { return takenF.indexOf(f) === -1; });
+    }
+
     return { matched: matched, missing: missing, spare: spare };
   }
 
@@ -849,6 +880,11 @@
   function cleanTitle(name) {
     return String(name || '').toLowerCase()
       .replace(/\.(mp3|wav|m4a|flac|ogg|aac|aiff?)$/i, '')
+      /* Amazon writes "01 - Shine_d5e04ae6-86fe-4474-a384-28eca7c1113e.mp3".
+         Stripping punctuation glues that id onto the last word — "shine"
+         becomes "shined5e04ae6...", which matches nothing, and a one-word
+         title stops matching altogether. */
+      .replace(/_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '')
       .replace(/\(.*?\)/g, '')
       .replace(/\[.*?\]/g, '')
       .replace(/^\s*\d{1,2}[\s._-]+/, '')          // leading track number

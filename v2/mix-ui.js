@@ -524,6 +524,12 @@
         buffers.set(m.track.id, buf);
         monos.set(m.track.id, DSP.toMono(buf));
         m.track.linked = true;
+        /* Remember which file it turned out to be. A track seeded from a
+           running order has no filename at all, so without this the title
+           matching would have to be done again on every reopen — and a title
+           match is a good guess, where a filename is a fact. */
+        m.track.file = m.file.name;
+        if (m.file.size) m.track.fileSize = m.file.size;
         if (!m.track.peaks) m.track.peaks = Array.from(DSP.peaks(monos.get(m.track.id), 1400));
         if (!m.track.durationSec) m.track.durationSec = buf.duration;
         // A track seeded from the running order has the sheet's BPM and no
