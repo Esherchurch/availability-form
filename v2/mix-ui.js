@@ -511,15 +511,47 @@
     });
   }
 
+  /* Pointing a track at its file by hand.
+
+     Matching a running order to a folder is guesswork, however good the
+     guesses get — "Ma' Cherie" against "Ma'Cheri" is one letter and a missing
+     space away from not matching at all, and there will always be another one.
+     Without a way to say "that one, there", a single miss in fifty-three
+     leaves a track that can never be played and nothing to be done about it.
+
+     Whatever is chosen is taken at its word: no score, no threshold. The
+     filename is written onto the track, so it is a fact from then on and the
+     guessing never runs against it again. */
+  function findFileFor(index) {
+    var t = project.tracks[index];
+    if (!t) return;
+    var input = document.getElementById('trackFileInput');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.id = 'trackFileInput';
+      input.accept = 'audio/*';
+      input.hidden = true;
+      document.body.appendChild(input);
+    }
+    input.onchange = async function (ev) {
+      var f = (ev.target.files || [])[0];
+      ev.target.value = '';
+      if (!f) return;
+      setStatus('Linking "' + f.name + '" to ' + t.title + '…');
+      await linkFileToTrack(t, f);
+    };
+    input.click();
+  }
+
   /* Re-link: the project reopened with every setting intact but no audio. */
-  async function relinkFiles(list) {
-    rememberFolderFrom(list);
-    var repaired = [];
-    var r = MP.relink(project, list);
-    setStatus('Re-linking ' + r.matched.length + ' of ' + project.tracks.length + '…');
-    for (var i = 0; i < r.matched.length; i++) {
-      var m = r.matched[i];
-      try {
+  /* One track, one file: decode it, analyse it if it has never been analysed,
+     and repair a mix-out that cannot work. Lifted out of the re-link loop
+     unchanged so that linking a single track by hand does exactly what linking
+     fifty-three by name does. Returns what it repaired, or null. */
+  async function linkFileToTrack(track, file) {
+    var m = { track: track, file: file };
+    try {
         var buf = await decode(m.file);
         buffers.set(m.track.id, buf);
         monos.set(m.track.id, DSP.toMono(buf));
@@ -569,9 +601,23 @@
         if (fixed) {
           repaired.push('"' + m.track.title + '": ' + fixed.join(', '));
         }
-      } catch (err) {
-        setStatus('Could not decode ' + m.file.name, true);
-      }
+      renderAll();
+      save();
+      return true;
+    } catch (err) {
+      setStatus('Could not decode ' + file.name, true);
+      return false;
+    }
+  }
+
+  async function relinkFiles(list) {
+    rememberFolderFrom(list);
+    var repaired = [];
+    var r = MP.relink(project, list);
+    setStatus('Re-linking ' + r.matched.length + ' of ' + project.tracks.length + '…');
+    for (var i = 0; i < r.matched.length; i++) {
+      var m = r.matched[i];
+      await linkFileToTrack(m.track, m.file);
       setStatus('Re-linked ' + (i + 1) + '/' + r.matched.length);
     }
     if (r.missing.length) {
@@ -1786,7 +1832,9 @@
             (t.pinned ? '◉' : '○') + '</button>' +
           '<span class="trk-title">' + esc(t.title) + '</span>' +
           (t.artist ? '<span class="trk-artist">' + esc(t.artist) + '</span>' : '') +
-          (t.linked ? '' : '<span class="pill lo">no audio</span>') +
+          (t.linked ? '' : '<span class="pill lo">no audio</span>' +
+            '<button class="ghost tiny" data-act="find-file" data-track="' + i +
+            '" title="Point this track at its file yourself">Find the file…</button>') +
           (conf ? '<span class="pill ' + conf + '">' + Math.round(t.confidence * 100) + '%</span>' : '') +
           '<span class="pill">' + (lt.effectiveBpm ? lt.effectiveBpm.toFixed(1) : '?') + ' BPM' +
             (lt.halfTime ? ' (half-time)' : '') + '</span>' +
@@ -2705,6 +2753,7 @@
         if (act === 'half') { setMultiplier(i, 0.5); }
         if (act === 'double') { setMultiplier(i, 2); }
         if (act === 'checkgrid') { checkGrid(i); }
+        if (act === 'find-file') { findFileFor(i); }
         if (act === 'up' && i > 0) { moveTo(i, i - 1); }
         if (act === 'down' && i < project.tracks.length - 1) { moveTo(i, i + 1); }
         if (act === 'pin') {

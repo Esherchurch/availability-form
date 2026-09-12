@@ -878,7 +878,9 @@
      files, so this is reuse rather than a second matcher. */
 
   function cleanTitle(name) {
-    return String(name || '').toLowerCase()
+    return String(name || '')
+      .replace(/([a-z])['\u2019]([A-Z])/g, '$1 $2')   // Ma'Cheri -> Ma Cheri
+      .toLowerCase()
       .replace(/\.(mp3|wav|m4a|flac|ogg|aac|aiff?)$/i, '')
       /* Amazon writes "01 - Shine_d5e04ae6-86fe-4474-a384-28eca7c1113e.mp3".
          Stripping punctuation glues that id onto the last word — "shine"
@@ -889,6 +891,11 @@
       .replace(/\[.*?\]/g, '')
       .replace(/^\s*\d{1,2}[\s._-]+/, '')          // leading track number
       .replace(/\b(remix|radio edit|extended|mix|version|remaster(ed)?)\b/g, '')
+      /* An apostrophe joining two words is a word break, not punctuation to
+         be deleted. "Ma'Cheri" became "macheri" — one word that matches
+         nothing — where "Ma' Cherie" in the running order became two. Cased
+         before this runs, so the capital is what tells them apart from the
+         apostrophe in "don't", which really is just punctuation. */
       .replace(/[^a-z0-9 ]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -899,7 +906,20 @@
     return candidates.map(function (c) {
       var cWords = cleanTitle(keyFn ? keyFn(c) : c).split(' ').filter(Boolean);
       if (!cWords.length || !words.length) return { item: c, score: 0 };
-      var overlap = words.filter(function (w) { return cWords.indexOf(w) !== -1; });
+      /* "Cheri" and "Cherie" are the same song. A word counts if it is there,
+         or if one is the beginning of the other and neither is so short that
+         anything would match it — which catches the spellings that differ by a
+         letter or two at the end, and not much else. */
+      function near(w, list) {
+        if (list.indexOf(w) !== -1) return true;
+        for (var q = 0; q < list.length; q++) {
+          var o = list[q], shorter = w.length < o.length ? w : o, longer = w.length < o.length ? o : w;
+          if (shorter.length >= 4 && longer.length - shorter.length <= 2 &&
+              longer.indexOf(shorter) === 0) return true;
+        }
+        return false;
+      }
+      var overlap = words.filter(function (w) { return near(w, cWords); });
       // Symmetric: penalise both missing and extra words, so "Good Times" does
       // not score 1.0 against "Good Times Bad Times".
       var score = overlap.length / Math.max(words.length, cWords.length);

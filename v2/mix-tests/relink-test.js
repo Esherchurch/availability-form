@@ -84,6 +84,32 @@ ok(!byId.b || !/Motownphilly/.test(byId.b),
    'and the file it took is not handed out twice',
    byId.b || 'the other track is left unmatched');
 
+/* The one that got away.
+
+   "Ma' Cherie" in the running order, "01 - Ma'Cheri_<id>.mp3" on disk: an
+   apostrophe with no space after it, and a spelling a letter short. Stripping
+   punctuation turned the file into the single word "macheri", which matched
+   nothing whatever — and one missing track out of fifty-three had no remedy
+   at all until a track could be pointed at a file by hand. */
+const cheri = "01 - Ma'Cheri_d71f0ca5-b072-43b2-a24a-e314dcdfa2b1.mp3";
+console.log('\n  "' + MP.cleanTitle(cheri) + '"  vs  "' + MP.cleanTitle("Ma' Cherie") + '"');
+ok(MP.cleanTitle(cheri) === "ma cheri",
+   "an apostrophe running two words together is a word break",
+   MP.cleanTitle(cheri));
+const cheriScore = MP.getMatches("Ma' Cherie", [{ name: cheri }], f => f.name)[0].score;
+ok(cheriScore > 0.5, "and a spelling a letter short still matches", cheriScore.toFixed(2));
+
+/* but nearly-the-same must not become the-same */
+const overreach = [
+  ["Shine", "01 - Shining.mp3"],
+  ["Fire", "01 - Fireball.mp3"],
+  ["Good Times", "01 - Good Times Bad Times.mp3"]
+];
+overreach.forEach(function (pair) {
+  const s = MP.getMatches(pair[0], [{ name: pair[1] }], f => f.name)[0].score;
+  ok(s < 0.7, pair[0] + " does not claim " + pair[1], s.toFixed(2));
+});
+
 console.log(fails ? '\n' + fails + ' FAILED'
                   : '\na running order finds its audio when the folder is pointed at');
 process.exit(fails ? 1 : 0);

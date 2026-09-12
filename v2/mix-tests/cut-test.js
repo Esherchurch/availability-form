@@ -238,6 +238,38 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   }
 
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
+  /* ---- a track that matched nothing can be pointed at its file -------
+
+     Matching a running order to a folder is guesswork however good the
+     guesses get, and one miss in fifty-three left a track that could never
+     be played with nothing to be done about it. */
+  const manual = await page.evaluate(async () => {
+    const p = window.__project();
+    p.tracks[0].linked = false;
+    p.tracks[0].file = null;
+    window.__touchForTest();
+    await new Promise(r => setTimeout(r, 400));
+    const btn = document.querySelector('[data-act="find-file"][data-track="0"]');
+    if (!btn) return { err: "no way to point the track at a file" };
+    /* press it, and see that it opens a file picker rather than doing nothing */
+    let opened = false;
+    const realClick = HTMLInputElement.prototype.click;
+    HTMLInputElement.prototype.click = function () { opened = true; };
+    btn.click();
+    await new Promise(r => setTimeout(r, 200));
+    HTMLInputElement.prototype.click = realClick;
+    const input = document.getElementById("trackFileInput");
+    return { opened, hasInput: !!input, accepts: input ? input.accept : null,
+             wired: input ? typeof input.onchange : null };
+  });
+  if (manual.err) ok(false, manual.err);
+  else {
+    ok(manual.hasInput, "an unlinked track offers to find its file");
+    ok(manual.opened, "and pressing it opens a file picker");
+    ok(manual.accepts === "audio/*", "which asks for audio", manual.accepts);
+    ok(manual.wired === "function", "and is wired to do something with what it gets");
+  }
+
   await browser.close(); server.close();
   console.log(fails ? '\n' + fails + ' FAILED' : '\nthe cutter takes what you drag, and Stop stops');
   process.exit(fails ? 1 : 0);
