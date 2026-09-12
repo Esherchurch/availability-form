@@ -3761,6 +3761,33 @@
     $('renderReport').innerHTML = '';
     $('renderBar').style.width = '0%';
 
+    /* Load every placed sample before rendering anything.
+
+       The renderer is handed the sample cache, and that cache is only filled
+       when a sample is auditioned, placed or played. Reopen the project, press
+       Render without playing first, and the cache is empty — so every
+       placement was dropped from the finished mix without a word. The mix is
+       the deliverable; a hole in it that nothing reports is the worst failure
+       in the tool.
+
+       Anything that cannot be loaded is named here, before the render starts,
+       rather than discovered by listening to eight minutes of audio. */
+    var missingSamples = [];
+    for (var mp = 0; mp < (project.placements || []).length; mp++) {
+      var pl = project.placements[mp];
+      var pb = null;
+      try { pb = await sampleAudioFor(pl.sampleId); } catch (e) { pb = null; }
+      if (!pb) {
+        var mmeta = sampleMeta.get(pl.sampleId);
+        missingSamples.push(mmeta ? mmeta.name : pl.sampleId);
+      }
+    }
+    if (missingSamples.length) {
+      renderSay(missingSamples.length + ' placed sample' +
+        (missingSamples.length === 1 ? '' : 's') + ' have no audio stored and will NOT be in ' +
+        'the mix: ' + missingSamples.join(', ') + '. Cut them again first.');
+    }
+
     try {
       var res = await MR.render(project, buffers, {
         ctx: audioCtx(),
@@ -3954,6 +3981,9 @@
     /* For tests: the live project, not the saved copy. Reading the saved one
        is how a probe once built a preview from half the mix. */
     window.__project = function () { return project; };
+    /* For tests: the audio the render just made, so the finished mix can be
+       measured rather than trusted. */
+    window.__lastMix = function () { return lastMix; };
     /* For tests: what the transport has actually been given to play. */
     window.__previewState = function () {
       if (!preview) return null;
