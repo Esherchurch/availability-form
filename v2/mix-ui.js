@@ -1795,6 +1795,7 @@
     var s = j.settings || {};
     if (j.type === 'hard-cut') return 'Hard cut' + (s.gapMs ? ' · ' + s.gapMs + ' ms gap' : '');
     if (j.type === 'blend') return 'Blend · ' + (s.bars || 16) + ' bars @ ' + (j.targetBpm || '?') + ' BPM';
+    if (j.type === 'crossfade') return 'Crossfade · ' + (s.crossSec == null ? 8 : s.crossSec) + 's';
     return 'Bridge · ' + fillBeatsOfUI(s) + ' beats of drums between them';
   }
 
@@ -1879,7 +1880,8 @@
     var j = lay.junctions[i];
     if (!j) return '';
     var open = openJunction === i;
-    var name = { 'blend': 'Blend', 'throw-bridge': 'Beat bridge', 'hard-cut': 'Hard cut' }[j.type] || j.type;
+    var name = { 'blend': 'Blend', 'crossfade': 'Crossfade', 'throw-bridge': 'Beat bridge',
+                 'hard-cut': 'Hard cut' }[j.type] || j.type;
     var s = j.settings || {};
     var detail;
     if (j.type === 'hard-cut') detail = s.gapMs ? s.gapMs + ' ms gap' : 'straight cut';
@@ -2156,9 +2158,10 @@
         '<button class="ghost" data-act="close-junction">Close</button>' +
       '</div>' +
       warn +
-      '<div class="seg">' + ['blend', 'throw-bridge', 'hard-cut'].map(function (ty) {
+      '<div class="seg">' + ['blend', 'crossfade', 'throw-bridge', 'hard-cut'].map(function (ty) {
         return '<button class="' + (j.type === ty ? 'on' : '') + '" data-act="jtype" data-type="' + ty + '">' +
-          ({ 'blend': 'Blend', 'throw-bridge': 'Bridge', 'hard-cut': 'Hard cut' })[ty] + '</button>';
+          ({ 'blend': 'Blend', 'crossfade': 'Crossfade', 'throw-bridge': 'Bridge',
+            'hard-cut': 'Hard cut' })[ty] + '</button>';
       }).join('') + '</div>' +
       '<div class="grid">' + junctionFields(j, s) + '</div>' +
       '<div class="row">' +
@@ -2247,6 +2250,17 @@
   }
 
   function junctionFields(j, s) {
+    if (j.type === 'crossfade') {
+      /* One number, because that is all a crossfade is: how long the two are
+         over each other. In seconds rather than bars — with no common tempo
+         there is no bar the two records agree on, which is the whole reason
+         this transition exists. */
+      return jf('Crossfade (seconds)', 'crossSec', s.crossSec == null ? 8 : s.crossSec, 0.5, 0.5, 30) +
+        '<div class="span2 hint">One record fades out while the next fades in, both at their own ' +
+        'tempo. Nothing is stretched and nothing needs to beat-match, which is what makes this ' +
+        'the one that always works — reach for it when two records will not lock together and ' +
+        'drums between them would be too much.</div>';
+    }
     if (j.type === 'hard-cut') {
       return jf('Gap (ms)', 'gapMs', s.gapMs || 0, 50, 0, 8000) +
         '<div class="span2 hint">A gap of 0 puts B on the next bar line. The cake wants a real ' +
@@ -2350,7 +2364,17 @@
     });
 
     try {
-      var res = await DSP.renderJunction(j.type, opts);
+      /* The audition has no renderer of its own for a crossfade — it is the
+         same equal-power fade a blend uses, without the stretching, so it is
+         auditioned as a blend at the outgoing record's own tempo. The timeline
+         plays the real thing either way: it is built from the plan. */
+      var auditionType = j.type === 'crossfade' ? 'blend' : j.type;
+      if (j.type === 'crossfade') {
+        opts.targetBpm = deckA.bpm || deckB.bpm || 120;
+        opts.bars = Math.max(1, Math.round(((j.settings || {}).crossSec == null
+          ? 8 : j.settings.crossSec) / (60 / opts.targetBpm * 4)));
+      }
+      var res = await DSP.renderJunction(auditionType, opts);
       segments.set(key, { buffer: res.buffer, info: res.info });
       renderJunctionEditor();
       renderTimeline();
@@ -4570,6 +4594,13 @@
       plan.tracks.forEach(function (pt, i) {
         var t = project.tracks[i];
         pt.gainDb = t && t.gainDb != null ? t.gainDb : 0;
+        /* A record handing over to drums is brought down under them rather
+           than stopped dead — the same fade the render writes. */
+        var jo = plan.junctions[i];
+        if (jo && jo.fill) {
+          var pb = (jo.settings && jo.settings.preBeats != null) ? jo.settings.preBeats : 8;
+          pt.fadeOutSec = pb * (60 / (jo.fill.fromBpm || 120));
+        }
       });
       var dur = preview.build(plan, buffers, extra);
       if (needsRedraw) renderTimeline();

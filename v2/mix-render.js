@@ -176,6 +176,18 @@
       if (j.type === 'hard-cut') {
         // A deliberate choice, not a failure. Left alone.
         gap = (s.gapMs || 0) / 1000;
+      } else if (j.type === 'crossfade') {
+        /* Two records over each other, one going, one coming. No tempo match,
+           because a crossfade does not need one — this is the fader move every
+           DJ makes when two records will never beat-match, and it was the one
+           thing the tool could not do. A blend needs a common tempo and became
+           a zero-overlap bridge without one; a bridge puts drums between them.
+           Neither of those is "fade one out while the other comes in".
+
+           Measured in seconds rather than bars, because with no common tempo
+           there is no bar the two agree on. */
+        overlap = Math.max(0.5, s.crossSec == null ? 8 : s.crossSec);
+        bridgeBpm = null;
       } else if (j.targetBpm) {
         bridgeBpm = j.targetBpm;
         var barSec = 60 / j.targetBpm * 4;

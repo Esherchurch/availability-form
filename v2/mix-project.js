@@ -270,7 +270,10 @@
            greyed out and bouncing the whole set to a WAV was the only way to
            hear them at all. Carrying an unmatched tempo is what the fill is
            for; refusing to render it was the rule from before it existed. */
-        renderable: reachable || j.type === 'hard-cut' || j.type === 'throw-bridge',
+        /* A crossfade needs no common tempo — that is the point of it — so it is
+           always renderable, like a hard cut and a bridge. */
+        renderable: reachable || j.type === 'hard-cut' || j.type === 'throw-bridge' ||
+                    j.type === 'crossfade',
         settings: j
       });
     }

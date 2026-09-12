@@ -68,6 +68,7 @@
           buffer: buf,
           offsetSec: pt.sourceFromSec || 0,
           rate0: pt.r0 || 1, rate1: pt.r1 || pt.r0 || 1,
+          fadeOutSec: pt.fadeOutSec || 0,
           /* The track's own level, from normalising. */
           gain: Math.pow(10, (pt.gainDb || 0) / 20)
         });
@@ -100,6 +101,18 @@
         node.playbackRate.linearRampToValueAtTime(c.rate1, ctx.currentTime + left);
       }
 
+      /* The same fade the render puts on a record that hands over to drums.
+         Without it the preview stops the record dead where the file brings it
+         down, and the two do not sound like the same mix. */
+      if (c.fadeOutSec > 0.2) {
+        var g0 = c.gain == null ? 1 : c.gain;
+        var startFade = Math.max(0, (c.toSec - c.fadeOutSec / 2) - S.t);
+        var endFade = Math.max(0.01, (c.toSec - S.t));
+        if (endFade > startFade) {
+          g.gain.setValueAtTime(g0, ctx.currentTime + startFade);
+          g.gain.linearRampToValueAtTime(g0 * 0.08, ctx.currentTime + endFade);
+        }
+      }
       node.start(0, (c.offsetSec || 0) + into * rateNow, left * 1.05);
       S.live.push({ clip: c, node: node, gain: g });
     }
