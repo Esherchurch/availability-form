@@ -16,6 +16,25 @@ if (!dir || !fs.existsSync(dir)) {
   console.error('usage: electron import-drums.js <folder-of-loops>');
   process.exit(2);
 }
+/* The app's own data, not Electron's.
+
+   Run through the bare electron binary, userData defaults to %APPDATA%\Electron
+   — so a first attempt at this loaded twenty-five loops into a profile no
+   version of Mix Builder has ever opened, and the library looked untouched.
+   Named explicitly now, and printed, so where it went is never a guess. */
+const PROFILE = process.argv[3] ||
+  path.join(process.env.APPDATA || app.getPath('appData'), 'Mix Builder');
+app.setPath('userData', PROFILE);
+
+/* Printing into a closed pipe must not put an error box on the user's screen.
+   Piping this to "head" closes stdout part-way through, console.log throws
+   EPIPE, and Electron shows an uncaught main-process exception as a modal
+   dialog — over whatever they were doing. */
+process.stdout.on('error', function (e) { if (e && e.code === 'EPIPE') process.exit(0); });
+process.on('uncaughtException', function (e) {
+  if (e && e.code === 'EPIPE') process.exit(0);
+  console.error(e); process.exit(2);
+});
 app.disableHardwareAcceleration();
 const PAGE = path.join(__dirname, '..', 'v2', 'mix-builder.html');
 const AUDIO = /\.(wav|mp3|m4a|flac|ogg|aiff?)$/i;
@@ -35,6 +54,9 @@ app.whenReady().then(async () => {
       const bin = atob(${JSON.stringify(b64)});
       const u8 = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      const already = (await window.MixProject.listDrumLoops())
+        .filter(l => l.sourceFile === ${JSON.stringify(name)});
+      if (already.length) return { skipped: true };
       const f = new File([u8], ${JSON.stringify(name)}, { type: 'audio/wav' });
       await window.__importDrumLoops([f]);
       const all = await window.MixProject.listDrumLoops();
@@ -42,7 +64,8 @@ app.whenReady().then(async () => {
       return mine ? { name: mine.name, bpm: mine.bpm, beats: mine.beats, exact: mine.exactTempo }
                   : { err: (document.getElementById('status') || {}).textContent };
     })()`, true);
-    if (r.err) console.log('  FAILED  ' + name + '  — ' + r.err);
+    if (r.skipped) console.log('  already there: ' + name);
+    else if (r.err) console.log('  FAILED  ' + name + '  — ' + r.err);
     else console.log('  ' + (r.bpm ? String(Math.round(r.bpm)).padStart(3) : '  ?') + ' BPM  ' +
                      String(r.beats || '?').padStart(2) + ' beats  ' +
                      (r.exact ? '(exact) ' : '(approx) ') + r.name);
