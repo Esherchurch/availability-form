@@ -1513,9 +1513,11 @@
       var at = b.startSec - (p.barsBeforeEntry || 0) * (60 / bpm * 4);
       var meta = sampleMeta.get(p.sampleId);
       var len = meta && meta.durationSec ? meta.durationSec : 4;
+      var mute = !sampleHasAudio.has(p.sampleId) && !sampleBuffers.has(p.sampleId);
       out.push({ kind: 'sample', index: i, lane: 'samples',
                  fromSec: Math.max(0, at), toSec: Math.max(0, at) + len,
-                 label: meta ? meta.name : p.sampleId, cls: '' });
+                 label: (mute ? '⚠ no audio — ' : '') + (meta ? meta.name : p.sampleId),
+                 cls: mute ? 'no-audio' : '' });
     });
 
     return out;
@@ -3214,12 +3216,29 @@
   var sampleBuffers = new Map();      // id -> decoded AudioBuffer
   var sampleMeta = new Map();         // id -> metadata, for the renderer
 
+  /* Which samples have audio behind them.
+
+     A sample is two records: the description and the WAV. saveSample writes
+     the description first, so a failure on the audio leaves a sample that is
+     listed, can be placed, draws a clip on the timeline — and is skipped in
+     silence everywhere it would be heard. Measured on a real library: seven
+     sample ids, two stored WAVs, and both placements pointing at samples with
+     nothing behind them. Nothing anywhere said so.
+
+     Checked once per load, by key, so it costs one read rather than one per
+     sample. */
+  var sampleHasAudio = new Set();
+
   async function loadSamples() {
     sampleList = await MP.listSamples();
     sampleMeta = new Map();
     for (var i = 0; i < sampleList.length; i++) {
       sampleMeta.set(sampleList[i].id, sampleList[i]);
     }
+    try {
+      var ks = await MP.keys('sampleAudio');
+      sampleHasAudio = new Set(ks || []);
+    } catch (e) { sampleHasAudio = new Set(); }
     renderSamples();
   }
 
@@ -3268,8 +3287,17 @@
       sourceBpm: (t.sourceBpm || 0) * (t.bpmMultiplier || 1),
       processing: opts
     };
-    var saved = await MP.saveSample(meta, DSP.encodeWav(prepared));
+    var saved;
+    try {
+      saved = await MP.saveSample(meta, DSP.encodeWav(prepared));
+    } catch (err) {
+      /* This threw into nothing before: the status line kept its last message
+         and the cut looked as though it had worked. */
+      setStatus(err.message || ('Could not save that sample: ' + err), true);
+      return;
+    }
     sampleBuffers.set(saved.id, prepared);
+    sampleHasAudio.add(saved.id);
     clearSelection(trackIndex);
     await loadSamples();
     renderAll();
@@ -3330,7 +3358,11 @@
     }
     el.innerHTML = sampleList.map(function (s) {
       var uses = MP.sampleUsage(project, s.id);
-      return '<div class="bench-item" data-sample="' + esc(s.id) + '">' +
+      var silent = !sampleHasAudio.has(s.id) && !sampleBuffers.has(s.id);
+      return '<div class="bench-item' + (silent ? ' no-audio' : '') +
+             '" data-sample="' + esc(s.id) + '">' +
+        (silent ? '<div class="warn-chip">No audio stored for this one — it will ' +
+                  'not be heard anywhere. Cut it again.</div>' : '') +
         '<span class="bench-title">' + esc(s.name) + '</span>' +
         '<span class="pill quiet">' + (s.bars || '?') + ' bars</span>' +
         '<span class="pill">' + (s.sourceBpm ? Math.round(s.sourceBpm) + ' BPM' : 'one-shot') + '</span>' +
@@ -3999,12 +4031,23 @@
          without saying anything, which is why a sample that was plainly on the
          timeline could not be heard and had no waveform on its clip. */
       var places = project.placements || [];
+      var silentPlacements = [];
       for (var pi = 0; pi < places.length; pi++) {
         var p = places[pi];
         var buf = await sampleAudioFor(p.sampleId);
         var j = plan.junctions[p.atJunction];
         var b = plan.tracks[p.atJunction + 1];
-        if (!buf || !j || !b) continue;
+        /* Never in silence again. A placement that cannot be played is the
+           whole of the complaint "the sample does not play in the mix", and
+           this loop used to skip one without a word — the clip still drawn on
+           the timeline, the sample still listed, nothing anywhere saying that
+           what it points at does not exist. */
+        if (!buf || !j || !b) {
+          var mm = sampleMeta.get(p.sampleId);
+          silentPlacements.push((mm ? mm.name : p.sampleId) +
+            (!buf ? ' (no audio stored)' : ' (its junction is gone)'));
+          continue;
+        }
         var bpm = j.fill ? j.fill.toBpm : (j.targetBpm || 120);
         var at = b.startSec - (p.barsBeforeEntry || 0) * (60 / bpm * 4);
         extra.push({ kind: 'sample', title: p.sampleId, index: pi,
@@ -4020,6 +4063,12 @@
         pt.gainDb = t && t.gainDb != null ? t.gainDb : 0;
       });
       var dur = preview.build(plan, buffers, extra);
+      if (silentPlacements.length) {
+        setStatus(silentPlacements.length + ' placed sample' +
+          (silentPlacements.length === 1 ? '' : 's') + ' cannot be played: ' +
+          silentPlacements.join(', ') + '. Cut the sample again and place it once more.',
+          true);
+      }
       return dur;
     }
 

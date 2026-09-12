@@ -662,11 +662,31 @@
      junction and a 124 BPM one is one stored sample and two placements, which is
      why nothing about tempo is baked into the stored audio. */
 
+  /* A sample is two records: what it is, and the audio.
+
+     The description was written first and the audio second, and a failure on
+     the second was reported as success — leaving a sample that is listed, can
+     be placed and draws a clip on the timeline, with nothing behind it. Every
+     place it would be heard skipped it in silence. Measured on a real library:
+     seven sample ids and two stored WAVs.
+
+     The audio goes first now, and it is read back before the description is
+     written. If the audio did not land there is no sample, which is the honest
+     outcome — a sample you cannot hear is not a sample. */
   function saveSample(meta, wavBlob) {
     var id = meta.id || ('smp_' + hash(meta.name + '|' + Date.now()));
     var rec = Object.assign({}, meta, { id: id, saved: new Date().toISOString() });
-    return put('samples', id, rec)
-      .then(function () { return wavBlob ? put('sampleAudio', id, wavBlob) : null; })
+    if (!wavBlob) return put('samples', id, rec).then(function () { return rec; });
+    return put('sampleAudio', id, wavBlob)
+      .then(function () { return get('sampleAudio', id); })
+      .then(function (back) {
+        var size = back && (back.size || back.byteLength || 0);
+        if (!size) {
+          throw new Error('The audio for "' + (meta.name || id) + '" did not save, so the ' +
+                          'sample has not been added. There may be no room left for it.');
+        }
+        return put('samples', id, rec);
+      })
       .then(function () { return rec; });
   }
 

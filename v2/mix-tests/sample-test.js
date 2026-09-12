@@ -182,6 +182,33 @@ let fails = 0;
     return log;
   });
 
+  /* ---- a sample with nothing behind it must say so ------------------
+
+     A sample is two records: what it is, and the audio. The description was
+     written first and the audio second, and a failure on the second was
+     reported as success — a sample listed in the library, placeable, drawing a
+     clip on the timeline, and skipped in silence everywhere it would be heard.
+     Measured on a real library: seven sample ids and two stored WAVs, with
+     both placements pointing at samples that had nothing behind them and
+     nothing anywhere saying so. */
+  const half = await page.evaluate(async () => {
+    const MP = window.MixProject;
+    /* A write the store really will refuse: a function cannot be structured
+       cloned, so IndexedDB rejects it the way it would reject anything else it
+       could not keep. Overriding the exported put does not test this — the
+       module calls its own. */
+    let threw = null;
+    try {
+      await MP.saveSample({ name: 'Half a sample', bars: 2, sourceBpm: 120 },
+                          function () { return 'not audio'; });
+    } catch (e) { threw = e.message || String(e); }
+    const listed = (await MP.listSamples()).some(s => s.name === 'Half a sample');
+    return { threw: threw, listed: listed };
+  });
+  R.push(['a half-saved sample reports the failure', half.threw || 'it said nothing', !!half.threw]);
+  R.push(['and is not left listed with nothing behind it',
+          half.listed ? 'still listed' : 'not listed', half.listed === false]);
+
   await browser.close(); server.close();
   R.forEach(([n, d, p]) => { if (!p) fails++; console.log((p ? '  ok   ' : '  FAIL ') + n.padEnd(52) + d); });
   if (errs.length) { console.log('\npage errors:'); errs.forEach(e => console.log('  ' + e)); }
