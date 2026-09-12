@@ -234,6 +234,16 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   await page.reload({ waitUntil: 'networkidle0' });
   await page.waitForFunction(() => document.querySelectorAll('#timeline .clip.sample').length >= 1,
                              { timeout: 60000 });
+  /* Reloading drops the decoded audio — that is the re-link step working as
+     designed. Put it back, or everything after this is measuring a project
+     with no sound in it. */
+  const input3 = await page.$('#file');
+  await input3.uploadFile(path.join(MUSIC, A), path.join(MUSIC, B));
+  await page.waitForFunction(() => {
+    const all = document.querySelectorAll('#timeline .clip.song');
+    const miss = document.querySelectorAll('#timeline .clip.song.unlinked');
+    return all.length >= 2 && miss.length === 0;
+  }, { timeout: 240000 });
   await page.evaluate(() => {
     const z = document.getElementById('tlZoom');
     z.value = '3'; z.dispatchEvent(new Event('input', { bubbles: true }));
@@ -250,6 +260,44 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   ok(Math.abs(sAfter - Math.round(sAfter)) > 0.001,
      'and it lands where it was put, not snapped to a bar', String(sAfter));
 
+
+  /* ---- levelling the tracks, and hearing a sample on the timeline ---- */
+  const gainsBefore = await page.evaluate(async () => {
+    const p = await window.MixProject.loadProject();
+    return p.tracks.map(t => t.gainDb == null ? null : t.gainDb);
+  });
+  const state = await page.evaluate(() => ({
+    btn: !!document.getElementById("normaliseBtn"),
+    songs: document.querySelectorAll("#timeline .clip.song").length,
+    unlinked: document.querySelectorAll("#timeline .clip.song.unlinked").length,
+    waves: [...document.querySelectorAll("#timeline .clip.song canvas")].length
+  }));
+  console.log("    before levelling: " + JSON.stringify(state));
+  await page.evaluate(() => document.getElementById("normaliseBtn").click());
+  await new Promise(r => setTimeout(r, 1500));
+  const levelled = await page.evaluate(async () => {
+    const p = await window.MixProject.loadProject();
+    return { gains: p.tracks.map(t => t.gainDb), meas: p.tracks.map(t => t.measuredDb),
+             status: (document.getElementById("status") || {}).textContent || "" };
+  });
+  console.log("    " + levelled.status);
+  console.log("    measured " + JSON.stringify(levelled.meas) + " -> gains " + JSON.stringify(levelled.gains));
+  ok(levelled.gains.every(g => typeof g === "number"), "every track gets a level", JSON.stringify(levelled.gains));
+  ok(levelled.meas.every(m => m < 0), "measured from the audio, not guessed", JSON.stringify(levelled.meas));
+  ok(levelled.gains.some((g, i) => g !== gainsBefore[i]), "and it changed something");
+
+  /* a number field must not change when the page is scrolled over it */
+  const wheelSafe = await page.evaluate(async () => {
+    const el = document.querySelector("input[type=number]");
+    if (!el) return "no number field";
+    el.focus();
+    const was = el.value;
+    el.dispatchEvent(new WheelEvent("wheel", { deltaY: -120, bubbles: true }));
+    await new Promise(r => setTimeout(r, 100));
+    return el.value === was ? "unchanged" : (was + " -> " + el.value);
+  });
+  ok(wheelSafe === "unchanged" || wheelSafe === "no number field",
+     "scrolling over a number field does not change it", wheelSafe);
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   await browser.close(); server.close();
   console.log(fails ? '\n' + fails + ' FAILED' : '\none timeline: click it, drag it, play it');

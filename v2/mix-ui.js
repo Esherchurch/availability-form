@@ -208,14 +208,62 @@
   var _masterGain = null, _splitter = null, _analyserL = null, _analyserR = null;
   var _vuRunning = false, _vuPeakHoldL = -100, _vuPeakHoldR = -100, _vuPeakTimer = 0;
 
+  var _limiter = null, _ceiling = null;
+
+  /* Everything the tool plays ends here, and nothing leaves it above full scale.
+
+     Two records, the drums between them and a sample over the top are summed
+     live, and summing is how a mix goes past 0 dBFS even when no part of it
+     does — which is what the clip light was reporting. The full render already
+     measures its peak and pulls the whole thing down; a live preview cannot
+     look ahead like that, so it holds the peak instead.
+
+     A compressor with a ratio of 20 to 1, no knee and a 3 ms attack is a
+     limiter: below -1 dBFS it does nothing at all, and above it, it refuses.
+     The meter is tapped AFTER it, so what the light says is what is actually
+     coming out rather than what was sent in. */
   function masterOut() {
     var ctxx = audioCtx();
     if (!_masterGain) {
       _masterGain = ctxx.createGain();
       _masterGain.gain.value = 1;
-      _masterGain.connect(ctxx.destination);
+
+      _limiter = ctxx.createDynamicsCompressor();
+      _limiter.threshold.value = -1;
+      _limiter.knee.value = 0;
+      _limiter.ratio.value = 20;
+      _limiter.attack.value = 0.003;
+      _limiter.release.value = 0.10;
+
+      /* And a hard ceiling after it. A compressor is not a brickwall: measured,
+         four loud sources summing to 3.6 came out of it at 1.226, which still
+         clips. A WaveShaper clamps its input to the curve's range, so a curve
+         that is a straight line up to 0.7 and bends to 0.98 by full scale
+         leaves everything normal untouched and makes anything above it
+         arithmetically impossible to exceed 0.98. */
+      var ceil = ctxx.createWaveShaper();
+      var N = 2048, curve = new Float32Array(N);
+      for (var ci = 0; ci < N; ci++) {
+        var x = (ci / (N - 1)) * 2 - 1;
+        var a = Math.abs(x), y;
+        if (a <= 0.7) y = a;
+        else y = 0.7 + 0.28 * Math.tanh((a - 0.7) / 0.28);
+        curve[ci] = (x < 0 ? -y : y);
+      }
+      ceil.curve = curve;
+      ceil.oversample = '4x';
+
+      _masterGain.connect(_limiter);
+      _limiter.connect(ceil);
+      ceil.connect(ctxx.destination);
+      _ceiling = ceil;
     }
     return _masterGain;
+  }
+
+  /* How hard the limiter is working, in dB. Zero means it is not. */
+  function limiterReductionDb() {
+    return _limiter ? Math.abs(_limiter.reduction || 0) : 0;
   }
 
   function setupAnalyser() {
@@ -226,7 +274,8 @@
     _analyserL.fftSize = 1024; _analyserL.smoothingTimeConstant = 0.6;
     _analyserR = actx.createAnalyser();
     _analyserR.fftSize = 1024; _analyserR.smoothingTimeConstant = 0.6;
-    masterOut().connect(_splitter);
+    masterOut();                 // builds the chain if it is not there yet
+    _ceiling.connect(_splitter);
     _splitter.connect(_analyserL, 0);
     _splitter.connect(_analyserR, 1);
   }
@@ -254,10 +303,15 @@
       _vuPeakHoldR = Math.max(_vuPeakHoldR - 0.3, dR);
     }
     setVUBar('l', dL, _vuPeakHoldL); setVUBar('r', dR, _vuPeakHoldR);
+    /* The light now reports the limiter doing its job rather than the mix
+         clipping, because the mix no longer can. More than a decibel of
+         reduction means something is being held back and is worth knowing
+         about; a peak at full scale no longer happens. */
     var w = $('vuClip');
     if (w) {
-      if (pL >= 0.99 || pR >= 0.99) w.classList.add('show');
-      else if (dL < -3 && dR < -3) w.classList.remove('show');
+      var red = limiterReductionDb();
+      if (red > 1) { w.classList.add('show'); w.textContent = 'LIMITING ' + red.toFixed(0) + ' dB'; }
+      else if (red < 0.2) w.classList.remove('show');
     }
     requestAnimationFrame(vuTick);
   }
@@ -1183,6 +1237,7 @@
      Only the part that PLAYS is drawn. A clip shows the record from its entry
      to its mix-out, so drawing the whole file would put the waveform out of
      step with the clip under it and make the shape a lie. */
+  var _wavePending = {};
   function drawClipWaves() {
     var plan = tlPlan();
     document.querySelectorAll('#timeline .clip').forEach(function (el) {
@@ -1213,7 +1268,15 @@
       } else if (kind === 'sample') {
         var p = (project.placements || [])[idx];
         var buf = p && sampleBuffers.get(p.sampleId);
-        if (!buf) return;
+        if (!buf) {
+          /* Not loaded yet. Fetch it and draw when it arrives, rather than
+             leaving the clip blank for the rest of the session. */
+          if (p && !_wavePending[p.sampleId]) {
+            _wavePending[p.sampleId] = true;
+            sampleAudioFor(p.sampleId).then(function () { drawClipWaves(); });
+          }
+          return;
+        }
         peaks = Array.from(DSP.peaks(DSP.toMono(buf), 200));
         colour = 'rgba(34,64,31,.35)';
       } else {
@@ -2431,6 +2494,16 @@
     wireSuggest();
     wireRender();
     wireGlobalStop();
+    /* Scrolling the page must not change a number. A wheel over a focused
+       number input alters its value, so in a long list of samples a scroll
+       past one quietly re-levels it — and the scroll goes to the input rather
+       than the page. */
+    document.addEventListener('wheel', function (e) {
+      var el = e.target;
+      if (el && el.tagName === 'INPUT' && el.type === 'number') el.blur();
+    }, { passive: true });
+
+    if ($('normaliseBtn')) $('normaliseBtn').onclick = normaliseAll;
     if ($('undoBtn')) $('undoBtn').onclick = undo;
     if ($('redoBtn')) $('redoBtn').onclick = redo;
     /* Ctrl+Z and Ctrl+Y, which is what anyone will try first. Ignored while
@@ -3488,20 +3561,34 @@
                      offsetSec: 0, rate0: 1, rate1: 1, gain: 1 });
       }
 
-      /* Samples placed over or between the records. */
-      (project.placements || []).forEach(function (p) {
-        var buf = sampleBuffers.get(p.sampleId);
+      /* Samples placed over or between the records.
+
+         Their audio is LOADED here rather than read out of the cache. That
+         cache is only filled when a sample is auditioned or placed, so after
+         reopening the project it is empty — and this skipped every placement
+         without saying anything, which is why a sample that was plainly on the
+         timeline could not be heard and had no waveform on its clip. */
+      var places = project.placements || [];
+      for (var pi = 0; pi < places.length; pi++) {
+        var p = places[pi];
+        var buf = await sampleAudioFor(p.sampleId);
         var j = plan.junctions[p.atJunction];
         var b = plan.tracks[p.atJunction + 1];
-        if (!buf || !j || !b) return;
+        if (!buf || !j || !b) continue;
         var bpm = j.fill ? j.fill.toBpm : (j.targetBpm || 120);
         var at = b.startSec - (p.barsBeforeEntry || 0) * (60 / bpm * 4);
         extra.push({ kind: 'sample', title: p.sampleId,
                      fromSec: Math.max(0, at), toSec: Math.max(0, at) + buf.duration,
                      buffer: buf, offsetSec: 0, rate0: 1, rate1: 1,
                      gain: Math.pow(10, (p.gainDb == null ? -8 : p.gainDb) / 20) });
-      });
+      }
 
+      /* Each track at its own level, so normalising is audible without
+         rendering anything. */
+      plan.tracks.forEach(function (pt, i) {
+        var t = project.tracks[i];
+        pt.gainDb = t && t.gainDb != null ? t.gainDb : 0;
+      });
       var dur = preview.build(plan, buffers, extra);
       return dur;
     }
@@ -3708,6 +3795,49 @@
       var body = document.querySelector('.trk[data-track="' + tlSel.index + '"] .trk-body');
       if (body) host.appendChild(body);
     }
+  }
+
+  /* ----------------------------------------------------- normalise ---
+     Videoeditor.html's normaliseAll, with this project's tracks in place of
+     its clips. Target -14 dBFS RMS, measured only across the region that
+     actually plays — a record with a quiet intro would otherwise be turned up
+     for the sake of the part nobody hears — capped at +12 dB so a near-silent
+     track is not blown up, and floored at -20 dB.
+
+     Forty-seven records mastered across five decades do not arrive at the same
+     loudness, and a set that steps up and down between them is the one thing
+     a dancefloor notices. */
+  var NORM_TARGET_DB = -14;
+
+  function normaliseAll() {
+    var done = 0, skipped = 0, moved = [];
+    project.tracks.forEach(function (t) {
+      /* The mono cache is filled during analysis; a track whose audio was
+         re-linked afterwards has a buffer and no mono, and reading only the
+         cache reported "nothing to measure" with the audio plainly loaded. */
+      var buf = buffers.get(t.id);
+      var mono = monos.get(t.id) || (buf ? DSP.toMono(buf) : null);
+      if (!mono || !buf) { skipped++; return; }
+      if (!monos.has(t.id)) monos.set(t.id, mono);
+      var sr = buf.sampleRate || 48000;
+      var from = Math.max(0, Math.floor((t.entrySec || 0) * sr));
+      var to = Math.min(mono.length, Math.floor((t.exitSec || t.durationSec || 0) * sr));
+      if (to <= from) { from = 0; to = mono.length; }
+      var sum = 0, n = to - from;
+      for (var i = from; i < to; i++) sum += mono[i] * mono[i];
+      var rms = n > 0 ? Math.sqrt(sum / n) : 0;
+      var measDb = rms > 0 ? 20 * Math.log10(rms) : -60;
+      var gainDb = Math.max(-20, Math.min(12, NORM_TARGET_DB - measDb));
+      t.gainDb = Math.round(gainDb * 10) / 10;
+      t.measuredDb = Math.round(measDb * 10) / 10;
+      done++;
+      if (Math.abs(t.gainDb) >= 1) moved.push(t.title + ' ' + (t.gainDb > 0 ? '+' : '') + t.gainDb);
+    });
+    if (!done) { setStatus('Load the audio first — there is nothing to measure yet.', true); return; }
+    touch('normalised');
+    setStatus('Levelled ' + done + ' track' + (done === 1 ? '' : 's') + ' to ' +
+              NORM_TARGET_DB + ' dB' + (skipped ? ', ' + skipped + ' still without audio' : '') +
+              (moved.length ? ' — biggest moves: ' + moved.slice(0, 4).join(', ') : ''));
   }
 
   function renderSummary() {

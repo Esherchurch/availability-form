@@ -68,7 +68,8 @@
           buffer: buf,
           offsetSec: pt.sourceFromSec || 0,
           rate0: pt.r0 || 1, rate1: pt.r1 || pt.r0 || 1,
-          gain: 1
+          /* The track's own level, from normalising. */
+          gain: Math.pow(10, (pt.gainDb || 0) / 20)
         });
       });
       (extra || []).forEach(addClip);

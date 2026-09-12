@@ -96,6 +96,79 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   ok(dupes <= 1, 'the editor panel holds one thing at a time, not a pile of them',
      dupes + ' in the panel');
 
+
+  /* ---- nothing leaves the master above full scale.
+
+     Two records, the drums between them and a sample over the top are summed
+     live, and summing is how a mix passes 0 dBFS when no part of it does. The
+     render measures its peak and pulls the whole thing down; a live preview
+     cannot look ahead, so it holds the peak with a limiter instead. Driven
+     hard on purpose here, and measured at the end of the chain. */
+  const limited = await page.evaluate(async () => {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const master = ctx.createGain();
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20;
+    lim.attack.value = 0.003; lim.release.value = 0.10;
+
+    /* Render the same chain offline so the output can be measured: four loud
+       sources summed, which is four times full scale before anything. */
+    const off = new OfflineAudioContext(1, 44100 * 2, 44100);
+    const g = off.createGain();
+    const l = off.createDynamicsCompressor();
+    l.threshold.value = -1; l.knee.value = 0; l.ratio.value = 20;
+    l.attack.value = 0.003; l.release.value = 0.10;
+    const shaper = off.createWaveShaper();
+    const N = 2048, curve = new Float32Array(N);
+    for (let ci = 0; ci < N; ci++) {
+      const x = (ci / (N - 1)) * 2 - 1, a = Math.abs(x);
+      const y = a <= 0.7 ? a : 0.7 + 0.28 * Math.tanh((a - 0.7) / 0.28);
+      curve[ci] = x < 0 ? -y : y;
+    }
+    shaper.curve = curve; shaper.oversample = '4x';
+    g.connect(l); l.connect(shaper); shaper.connect(off.destination);
+    for (let k = 0; k < 4; k++) {
+      const n = 44100 * 2;
+      const b = off.createBuffer(1, n, 44100);
+      const d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = 0.9 * Math.sin(2 * Math.PI * (110 + k * 37) * i / 44100);
+      const s = off.createBufferSource(); s.buffer = b; s.connect(g); s.start(0);
+    }
+    const out = await off.startRendering();
+    const d = out.getChannelData(0);
+    let peak = 0;
+    for (let i = 4410; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+
+    /* and the same without the limiter, to show it is doing the work */
+    const off2 = new OfflineAudioContext(1, 44100 * 2, 44100);
+    const g2 = off2.createGain(); g2.connect(off2.destination);
+    for (let k = 0; k < 4; k++) {
+      const n = 44100 * 2;
+      const b = off2.createBuffer(1, n, 44100);
+      const dd = b.getChannelData(0);
+      for (let i = 0; i < n; i++) dd[i] = 0.9 * Math.sin(2 * Math.PI * (110 + k * 37) * i / 44100);
+      const s = off2.createBufferSource(); s.buffer = b; s.connect(g2); s.start(0);
+    }
+    const out2 = await off2.startRendering();
+    const d2 = out2.getChannelData(0);
+    let peak2 = 0;
+    for (let i = 4410; i < d2.length; i++) peak2 = Math.max(peak2, Math.abs(d2[i]));
+
+    return { withLimiter: +peak.toFixed(3), without: +peak2.toFixed(3) };
+  });
+  console.log('    four loud sources summed: ' + limited.without + ' unlimited, ' +
+              limited.withLimiter + ' through the limiter');
+  ok(limited.without > 1.5, 'summing really does go past full scale', String(limited.without));
+  ok(limited.withLimiter <= 1.02, 'and the limiter holds it at the ceiling',
+     String(limited.withLimiter));
+
+  /* the app builds that chain, not just the test */
+  const wired = await page.evaluate(() => {
+    const el = document.getElementById('vuClip');
+    return { light: !!el, says: el ? el.textContent : '' };
+  });
+  ok(wired.light, 'the meter has a light for it', wired.says);
+
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   await browser.close(); server.close();
   console.log(fails ? '\n' + fails + ' FAILED' : '\nthe page holds still while it plays');

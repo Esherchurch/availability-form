@@ -157,6 +157,8 @@
       plan.tracks.push({
         index: i, id: t.id, title: t.title || t.file,
         sourceFromSec: from, sourceToSec: to,
+        // the track's own level, from normalising
+        gainDb: t.gainDb || 0,
         regions: regions, barSec: barSec, sourceSec: srcSec,
         r0: r0, r1: r1, tempoIn: tempoIn, tempoOut: tempoOut, sourceBpm: bpm,
         outSec: outSec, startSec: 0
@@ -486,7 +488,10 @@
     }
 
     var gain = off.createGain();
-    gain.gain.setValueAtTime(1, 0);
+    /* The track's own level, set by normalising. One place, so what is heard
+       in the preview is what is written to the file. */
+    var trackGain = Math.pow(10, ((pt.gainDb != null ? pt.gainDb : 0)) / 20);
+    gain.gain.setValueAtTime(trackGain, 0);
 
     if (jOut && jOut.type === 'blend' && outOverlap > 0) {
       var bassOut = off.createBiquadFilter();
