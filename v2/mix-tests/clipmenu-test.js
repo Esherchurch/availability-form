@@ -282,6 +282,31 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   ok(past.bars < 8, 'dragging a sample right moves it later', String(past.bars));
   ok(past.bars < 0, 'and it can go past the incoming record, over its music', past.said);
 
+  /* ---- Stop stops the mix ------------------------------------------
+     It stopped auditions and left the transport running, which makes it a
+     button that does nothing at the one moment you most want it: while the
+     whole set is playing. */
+  const stopping = await page.evaluate(async () => {
+    document.getElementById('previewBtn').click();
+    for (let k = 0; k < 60; k++) {
+      await new Promise(z => setTimeout(z, 250));
+      if (/Pause/.test(document.getElementById('previewBtn').textContent)) break;
+    }
+    const playing = /Pause/.test(document.getElementById('previewBtn').textContent);
+    const btn = document.getElementById('previewStopBtn');
+    if (!btn) return { err: 'no Stop button' };
+    if (btn.disabled) return { err: 'the Stop button is disabled while it plays' };
+    btn.click();
+    await new Promise(z => setTimeout(z, 600));
+    return { wasPlaying: playing,
+             stillPlaying: /Pause/.test(document.getElementById('previewBtn').textContent) };
+  });
+  if (stopping.err) ok(false, stopping.err);
+  else {
+    ok(stopping.wasPlaying, 'the mix was playing to begin with');
+    ok(stopping.stillPlaying === false, 'and Stop stops it');
+  }
+
   await browser.close(); server.close();
   try { wavs.forEach(f => fs.unlinkSync(f)); fs.rmdirSync(tmp); } catch (e) {}
   console.log(fails ? '\n' + fails + ' FAILED' : '\nthe controls are on the clips and the cursor obeys');

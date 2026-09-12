@@ -741,7 +741,7 @@
   /* Which loop to use where nothing has been chosen: the one needing least
      stretching to sit at the tempo the fill is walking through. A loop pushed
      more than a few percent starts to sound like a loop being pushed. */
-  function pickDrumLoop(loops, bpm) {
+  function pickDrumLoop(loops, bpm, wantPattern) {
     if (!loops || !loops.length || !bpm) return null;
     var best = null, bestCost = 1e9;
     for (var i = 0; i < loops.length; i++) {
@@ -750,10 +750,20 @@
       /* half and double time are the same loop, so a 140 loop is a fair
          candidate for a 70 BPM fill */
       var options = [l.bpm, l.bpm / 2, l.bpm * 2];
+      var tempo = 1e9;
       for (var k = 0; k < options.length; k++) {
-        var cost = Math.abs(Math.log(options[k] / bpm));
-        if (cost < bestCost) { bestCost = cost; best = l; }
+        tempo = Math.min(tempo, Math.abs(Math.log(options[k] / bpm)));
       }
+      /* What it plays counts for more than how fast it plays it.
+
+         Tempo alone put a one-drop under a four-to-the-floor record — the
+         right speed and the wrong record entirely. A pattern that does not
+         match costs the same as being about a fifth out on tempo, which is
+         more than any two loops in a normal pack differ by, so feel decides
+         and tempo breaks the tie. */
+      var wrongFeel = (wantPattern && l.patternId && l.patternId !== wantPattern) ? 0.18 : 0;
+      var cost = tempo + wrongFeel;
+      if (cost < bestCost) { bestCost = cost; best = l; }
     }
     return best;
   }

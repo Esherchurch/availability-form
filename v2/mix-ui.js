@@ -1248,6 +1248,18 @@
                     return '<option value="' + id + '"' +
                       ((j.drumPattern || 'auto') === id ? ' selected' : '') + '>' + esc(nm) + '</option>';
                   }).join('') + '</select>') +
+        /* The carry: how far the drums keep going under the record that has
+           just come in. On "auto" they stop the moment that record's own drums
+           arrive, which is musically right and completely invisible — a number
+           typed into the beats box did nothing at all, because auto ignores it.
+           Typing a number here means the number. */
+        menuRow('Carry on', '<select data-cm="carry">' +
+                '<option value="auto"' + ((j.carryMode || 'auto') === 'auto' ? ' selected' : '') +
+                '>Until the next record gets going</option>' +
+                '<option value="fixed"' + (j.carryMode === 'fixed' ? ' selected' : '') +
+                '>For a set number of beats</option></select>') +
+        menuRow('…for', '<input type="number" data-cm="over" step="4" min="0" max="128" value="' +
+                (j.overBeats == null ? 8 : j.overBeats) + '"><b>beats</b>') +
         menuRow('Fade in', '<input type="number" data-cm="fadein" step="1" min="0" max="64" value="' +
                 (j.fadeInBeats == null ? (j.preBeats == null ? 8 : j.preBeats) : j.fadeInBeats) + '"><b>beats</b>') +
         menuRow('Fade out', '<input type="number" data-cm="fadeout" step="1" min="0" max="64" value="' +
@@ -1387,6 +1399,14 @@
       else if (what === 'beats') j.beatBeats = Math.round(num);
       else if (what === 'kit') j.drumLoopId = val;
       else if (what === 'pattern') j.drumPattern = val;
+      else if (what === 'carry') j.carryMode = val;
+      else if (what === 'over') {
+        j.overBeats = Math.round(num);
+        /* Typing a number is choosing it. Leaving this on auto would take the
+           number and ignore it, which is how 24 beats of carry turned into
+           none. */
+        j.carryMode = 'fixed';
+      }
       else if (what === 'fadein') j.fadeInBeats = Math.round(num);
       else if (what === 'fadeout') j.fadeOutBeats = Math.round(num);
       else if (what === 'weight') j.fillWeight = num;
@@ -2121,7 +2141,7 @@
         gainDb: s.fillGainDb == null ? -1.5 : s.fillGainDb,
         lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
         weightDb: s.fillWeight,
-        loop: await loopForJunction(s, j.fill ? j.fill.toBpm : (j.targetBpm || 120)),
+        loop: await loopForJunction(s, fromBpm, patternOfTrack(i + 1)),
         reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
         sampleRate: (src && src.sampleRate) || audioCtx().sampleRate
       });
@@ -2171,6 +2191,11 @@
         [['throw', 'Cut + reverb throw'], ['fade', 'Filter fade']]) +
       jf('Reverb tail (bars)', 'reverbBars', s.reverbBars == null ? 2 : s.reverbBars, 0.5, 0.5, 8) +
       jf('Drums between (beats)', 'beatBeats', fillBeatsOfUI(s), 4, 4, 256) +
+      jsel('Kit', 'drumLoopId', s.drumLoopId || 'auto',
+           [['auto', 'Closest loop by tempo'], ['synth', 'Synthesised kit']].concat(
+             drumLoops.map(function (l) {
+               return [l.id, l.name + (l.bpm ? ' — ' + Math.round(l.bpm) + ' BPM' : '')];
+             }))) +
       jsel('Drum pattern', 'drumPattern', s.drumPattern || 'auto',
            [['auto', 'Match the song']].concat(DSP.drumPatterns().map(function (p) {
              return [p.id, p.name];
@@ -2401,12 +2426,16 @@
   }
 
   function stop() {
+    /* Including the timeline. Stop stopped auditions and left the mix running,
+       which makes it a button that does nothing at the one moment you most
+       want it: while the whole set is playing. */
+    if (preview && preview.isPlaying()) preview.pause();
     if (playing) { try { playing.stop(); } catch (e) {} playing = null; }
     /* Whatever was scheduled alongside it — the samples placed at a junction
        play with the junction, so they stop with it too. */
     playingExtras.forEach(function (s) { try { s.stop(); } catch (e) {} });
     playingExtras = [];
-    if (!preview || !preview.isPlaying()) stopVU();
+    stopVU();
     stopPlayhead();
     setStopEnabled(false);
   }
@@ -2416,6 +2445,11 @@
   function setStopEnabled(on) {
     var list = document.querySelectorAll('.stop-all');
     for (var i = 0; i < list.length; i++) list[i].disabled = !on;
+    /* The timeline's Stop is the only one on the page, and it was live only
+       while the transport was — so auditioning a twenty-second loop left
+       nothing to press. Anything that makes a sound enables it. */
+    var sb = $('previewStopBtn');
+    if (sb && on) sb.disabled = false;
   }
 
   /* ------------------------------------------------- audition --- */
@@ -3399,7 +3433,19 @@
         var m = f.name.match(/(d{2,3})s*bpm/i);
         var fnBpm = m ? parseInt(m[1], 10) : null;
         var snapped = musicalTempo(snapLoopTempo(buf.duration, a && a.bpm, fnBpm));
+        /* What it plays, not just how fast. Tempo alone put a one-drop under
+           a four-to-the-floor record: right speed, wrong record entirely. The
+           same classifier the records go through, so a loop and a song are
+           described in the same terms and can be compared. */
+        var pat = null;
+        try {
+          var prof = DSP.drumProfile(DSP.toMono(buf), buf.sampleRate, 0,
+                                     snapped.bpm || 120, 0, Math.min(buf.duration, 16));
+          var mt = DSP.matchDrumPattern(prof);
+          pat = mt && mt.pattern ? mt.pattern.id : null;
+        } catch (e) { pat = null; }
         var rec = await MP.saveDrumLoop({
+          patternId: pat,
           name: f.name.replace(/.[^.]+$/, '').replace(/^looperman-l-d+-d+-/, ''),
           bpm: snapped.bpm, beats: snapped.beats, exactTempo: snapped.exact,
           /* A loop starts on the one. The analyser's downbeat is for records,
@@ -3448,14 +3494,42 @@
     }).join('');
   }
 
-  /* The loop a junction should use: the one it has been given, or the one
-     needing least stretching to reach the tempo it is walking to. */
-  async function loopForJunction(j, toBpm) {
+  /* What a record's own drums are doing, near the point it comes in.
+
+     Cached per track: it is a scan of thirty seconds of audio and the answer
+     cannot change unless the record or its entry does. */
+  var trackPattern = new Map();
+
+  function patternOfTrack(index) {
+    var t = project.tracks[index];
+    if (!t) return null;
+    var key = t.id + '|' + (t.entrySec || 0);
+    if (trackPattern.has(key)) return trackPattern.get(key);
+    var buf = buffers.get(t.id);
+    var bpm = MP.effectiveBpm(t);
+    var out = null;
+    if (buf && bpm) {
+      try {
+        var from = t.entrySec || 0;
+        var prof = DSP.drumProfile(DSP.toMono(buf), buf.sampleRate, t.downbeatSec || 0,
+                                   bpm, from, Math.min(buf.duration, from + 30));
+        var m = DSP.matchDrumPattern(prof);
+        out = m && m.pattern ? m.pattern.id : null;
+      } catch (e) { out = null; }
+    }
+    trackPattern.set(key, out);
+    return out;
+  }
+
+  /* The loop a junction should use: the one it has been given, or the one that
+     best suits the record about to come in — its feel first, then how little
+     stretching it needs. */
+  async function loopForJunction(j, toBpm, wantPattern) {
     var choice = (j && j.drumLoopId) || 'auto';
     if (choice === 'synth') return null;
     var rec = null;
     if (choice !== 'auto') rec = drumLoops.filter(function (l) { return l.id === choice; })[0];
-    if (!rec) rec = MP.pickDrumLoop(drumLoops, toBpm);
+    if (!rec) rec = MP.pickDrumLoop(drumLoops, toBpm, wantPattern);
     if (!rec) return null;
     var buf = await drumLoopAudioFor(rec.id);
     if (!buf) return null;
@@ -4309,7 +4383,8 @@
             gainDb: s.fillGainDb, fadeInBeats: s.fadeInBeats, fadeOutBeats: s.fadeOutBeats,
             lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
             weightDb: s.fillWeight,
-            loop: await loopForJunction(s, j.fill ? j.fill.toBpm : (j.targetBpm || 120)),
+            loop: await loopForJunction(s, j.fill ? j.fill.toBpm : (j.targetBpm || 120),
+                                    patternOfTrack(k + 1)),
             reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
             sampleRate: audioCtx().sampleRate
           });
@@ -4383,7 +4458,9 @@
       if (pos && text !== _lastPos) { pos.textContent = text; _lastPos = text; }
       var pb = $('previewBtn'), sb = $('previewStopBtn');
       if (pb) pb.textContent = (preview && preview.isPlaying()) ? '❚❚ Pause' : '▶ Play the mix';
-      if (sb) sb.disabled = !preview || (!preview.isPlaying() && !(preview.at() > 0));
+      if (sb) {
+        sb.disabled = !playing && (!preview || (!preview.isPlaying() && !(preview.at() > 0)));
+      }
     }
 
     $('previewBtn').onclick = async function () {
