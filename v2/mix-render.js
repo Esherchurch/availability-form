@@ -743,6 +743,13 @@
           gainDb: jOut.settings.fillGainDb,
           fadeInBeats: jOut.settings.fadeInBeats, fadeOutBeats: jOut.settings.fadeOutBeats,
           weightDb: jOut.settings.fillWeight,
+          /* The loop that plays it, resolved by whoever called the render —
+             the audio lives in the page, not here. Without this the file would
+             be bounced with the synthesised kit while the timeline played a
+             real one, which is the worst kind of difference: one you only find
+             by listening to the finished thing. */
+          loop: opts.drumLoopFor
+            ? await opts.drumLoopFor(jOut.settings, jOut.fill.toBpm) : null,
           lowDb: jOut.settings.fillLowDb, midDb: jOut.settings.fillMidDb,
           highDb: jOut.settings.fillHighDb,
           reverbPct: jOut.settings.fillReverb, reverbBeats: jOut.settings.fillReverbBeats,

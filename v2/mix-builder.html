@@ -503,6 +503,21 @@
     <div id="tracks"></div>
   </div>
 
+  <div class="card" id="drumCard">
+    <span class="lbl">Drum loops <span id="loopCount" class="pill quiet"></span></span>
+    <p style="color:var(--muted); font-size:12px; margin:2px 0 10px">
+      What the drums between two records are made of. Import a few and the fill is played by a
+      real kit instead of a synthesised one — analysed on the way in, then laid down beat by
+      beat at whatever tempo each beat needs, so it walks from one record's tempo to the next.
+      The closest loop by tempo is used unless one is chosen on the junction itself.
+    </p>
+    <div class="samp-import">
+      <label class="btn ghost" for="drumImport">Import drum loops…</label>
+      <input type="file" id="drumImport" accept="audio/*" multiple hidden>
+    </div>
+    <div id="drumloops"></div>
+  </div>
+
   <div class="card" id="sampleCard">
     <span class="lbl">Sample library <span id="sampleCount" class="pill quiet"></span></span>
     <p style="color:var(--muted); font-size:12px; margin:2px 0 10px">

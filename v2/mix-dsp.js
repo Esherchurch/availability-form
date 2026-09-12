@@ -1422,7 +1422,66 @@ onmessage = e => {
     var out = new Float32Array(n);
     var rnd = rng(opts.seed || 12345);
 
+    /* A real loop instead of the kit.
+
+       The synthesised kit exists because there was nothing else; a loop off a
+       record or out of a pack is a better drummer than anything generated. The
+       structure does not change — the fill is still a run of beats, each at its
+       own tempo, walking from the record it leaves to the record it joins — so
+       the loop is laid down the same way: beat i of the output is beat
+       (i mod loopBeats) of the loop, resampled to the length this beat needs.
+
+       Resampled, not time-stretched. Across a fill that walks 89 to 100 BPM the
+       fastest beat is about 12% off the slowest, and 12% of varispeed is what a
+       pitch fader does on a deck — it keeps every transient intact, where a
+       phase-vocoder smears exactly the attacks that make a drum a drum. The
+       loop moves in pitch with the tempo, which is what a DJ riding a pitch
+       fader sounds like, because it is the same thing. */
+    function layLoop(dst) {
+      var lp = opts.loop;
+      var lbuf = lp.buffer;
+      var lsr = lbuf.sampleRate;
+      var lch = lbuf.numberOfChannels;
+      var src = lbuf.getChannelData(0);
+      if (lch > 1) {
+        /* mono, because the fill is mono until the output stage */
+        var s2 = lbuf.getChannelData(1);
+        src = new Float32Array(src.length);
+        var c0 = lbuf.getChannelData(0);
+        for (var m = 0; m < src.length; m++) src[m] = (c0[m] + s2[m]) * 0.5;
+      }
+      var loopBpm = lp.bpm || 120;
+      var loopBeats = Math.max(1, Math.round(lp.beats || (lbuf.duration / (60 / loopBpm))));
+      var srcBeatN = (60 / loopBpm) * lsr;
+      var db = (lp.downbeatSec || 0) * lsr;
+      var pos = 0;
+      var XF = Math.round(sr * 0.003);            // 3 ms across each join
+      for (var bi = 0; bi < beats; bi++) {
+        var wantN = Math.round((60 / tempos[bi]) * sr);
+        var from = db + (bi % loopBeats) * srcBeatN;
+        var step = srcBeatN / wantN;              // >1 speeds up, <1 slows down
+        for (var k = 0; k < wantN && pos + k < dst.length; k++) {
+          var sp = from + k * step;
+          var i0 = Math.floor(sp);
+          if (i0 < 0 || i0 + 1 >= src.length) continue;
+          var fr = sp - i0;
+          var v = src[i0] * (1 - fr) + src[i0 + 1] * fr;
+          /* ease the first few samples of each beat into what is already there,
+             so a join between two beats of the loop cannot click */
+          if (k < XF && pos + k > 0) {
+            var w = k / XF;
+            dst[pos + k] = dst[pos + k] * (1 - w) + v * w;
+          } else {
+            dst[pos + k] = v;
+          }
+        }
+        pos += wantN;
+      }
+    }
+
     var at = 0;
+    if (opts.loop && opts.loop.buffer) { layLoop(out); }
+    else
     for (var i = 0; i < beats; i++) {
       var beatSec = 60 / tempos[i];
       var stepSec = beatSec / 4;
@@ -1589,7 +1648,8 @@ onmessage = e => {
        chosen by hand. */
     var chosen = null, match = null;
     if (opts.patternId && opts.patternId !== 'auto') chosen = patternById(opts.patternId);
-    if (!chosen && opts.source) {
+    /* A loop brings its own pattern with it — there is nothing to match. */
+    if (!chosen && !(opts.loop && opts.loop.buffer) && opts.source) {
       var mono = toMono(opts.source);
       var look = Math.min(30, (opts.atSec || opts.source.duration));
       var prof = drumProfile(mono, sr, opts.downbeatSec || 0, fromBpm,
@@ -1607,7 +1667,8 @@ onmessage = e => {
       fadeInBeats: opts.fadeInBeats, fadeOutBeats: opts.fadeOutBeats,
       fromBpm: fromBpm, toBpm: toBpm,
       pattern: chosen, sampleRate: sr, seed: opts.seed || 20260919,
-      weight: Math.max(0, Math.min(10, opts.weightDb || 0))
+      weight: Math.max(0, Math.min(10, opts.weightDb || 0)),
+      loop: opts.loop
     });
 
     /* Tone and space, on the fill alone.
@@ -1830,8 +1891,9 @@ onmessage = e => {
     var buf = ctxOut.createBuffer(2, pcm.length, sr);
     var l = buf.getChannelData(0), r = buf.getChannelData(1);
     for (var i = 0; i < pcm.length; i++) { l[i] = pcm[i] * gain; r[i] = pcm[i] * gain; }
-    buf.matchedPattern = chosen.id;
-    buf.matchedName = chosen.name;
+    buf.matchedPattern = (opts.loop && opts.loop.buffer) ? 'loop' : chosen.id;
+    buf.matchedName = (opts.loop && opts.loop.buffer)
+      ? (opts.loop.name || 'drum loop') : chosen.name;
     /* Where the next record starts: everything before this goes in the gap
        between the records, everything after plays underneath the next one. */
     buf.preSec = preBeats * (60 / fromBpm);

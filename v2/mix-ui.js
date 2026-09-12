@@ -1230,6 +1230,16 @@
                 (j.fillGainDb == null ? -1.5 : j.fillGainDb) + ' dB</b>') +
         menuRow('How many beats', '<input type="number" data-cm="beats" step="4" min="4" max="256" value="' +
                 fillBeatsOfUI(j) + '">') +
+        menuRow('Kit', '<select data-cm="kit">' +
+                ['auto', 'synth'].concat(drumLoops.map(function (l) { return l.id; }))
+                  .map(function (id) {
+                    var nm = id === 'auto' ? 'Closest loop by tempo'
+                           : id === 'synth' ? 'Synthesised kit'
+                           : (drumLoops.filter(function (l) { return l.id === id; })[0] || {}).name;
+                    return '<option value="' + id + '"' +
+                      ((j.drumLoopId || 'auto') === id ? ' selected' : '') + '>' +
+                      esc(nm || id) + '</option>';
+                  }).join('') + '</select>') +
         menuRow('Pattern', '<select data-cm="pattern">' +
                 ['auto'].concat(DSP.drumPatterns().map(function (q) { return q.id; }))
                   .map(function (id) {
@@ -1375,6 +1385,7 @@
       if (!j) return;
       if (what === 'gain') j.fillGainDb = num;
       else if (what === 'beats') j.beatBeats = Math.round(num);
+      else if (what === 'kit') j.drumLoopId = val;
       else if (what === 'pattern') j.drumPattern = val;
       else if (what === 'fadein') j.fadeInBeats = Math.round(num);
       else if (what === 'fadeout') j.fadeOutBeats = Math.round(num);
@@ -2110,6 +2121,7 @@
         gainDb: s.fillGainDb == null ? -1.5 : s.fillGainDb,
         lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
         weightDb: s.fillWeight,
+        loop: await loopForJunction(s, j.fill ? j.fill.toBpm : (j.targetBpm || 120)),
         reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
         sampleRate: (src && src.sampleRate) || audioCtx().sampleRate
       });
@@ -2923,6 +2935,41 @@
       if (el && el.tagName === 'INPUT' && el.type === 'number') el.blur();
     }, { passive: true });
 
+    if ($('drumloops')) {
+      $('drumloops').addEventListener('click', async function (e) {
+        var act = e.target.dataset.act;
+        if (!act) return;
+        var id = e.target.dataset.loop;
+        if (act === 'loop-hear') {
+          var lb = await drumLoopAudioFor(id);
+          if (!lb) { setStatus('That loop has no audio stored.', true); return; }
+          play(lb);
+          var lr = drumLoops.filter(function (x) { return x.id === id; })[0];
+          setStatus('"' + (lr ? lr.name : id) + '"' +
+                    (lr && lr.bpm ? ' — ' + Math.round(lr.bpm) + ' BPM, ' + lr.beats + ' beats' : ''));
+          return;
+        }
+        if (act === 'loop-del') {
+          await MP.deleteDrumLoop(id);
+          drumLoopBuffers.delete(id);
+          await loadDrumLoops();
+          fillCache.clear();
+          previewStale = true;
+          setStatus('Drum loop removed.');
+          return;
+        }
+
+      });
+    }
+
+    if ($('drumImport')) {
+      $('drumImport').onchange = function (e) {
+        var picked = Array.from(e.target.files || []);
+        e.target.value = '';
+        importDrumLoops(picked);
+      };
+    }
+
     if ($('sampleImport')) {
       $('sampleImport').onchange = function (e) {
         /* Copied out FIRST. A FileList is live: clearing the input's value —
@@ -3265,6 +3312,155 @@
     var buf = await audioCtx().decodeAudioData(await blob.arrayBuffer());
     sampleBuffers.set(id, buf);
     return buf;
+  }
+
+  /* -------------------------------------------------- drum loops ---
+
+     The drums between two records were synthesised because there was nothing
+     else to play them. A loop out of a pack is a better drummer than anything
+     generated, and the measurements said as much: the synthesised kit is
+     almost entirely kick, with its hats 24 dB down, which is why no control on
+     it made much difference to anything.
+
+     A loop is analysed on the way in. The tempo matters more than anything
+     else — the fill walks from one record's tempo to the next and the loop has
+     to be laid down at whatever tempo each beat wants — so it is worked out
+     twice: once by the analyser, once from the number in the filename where
+     there is one, and the two are reconciled. Loop packs name themselves
+     honestly, and on these files the filename was exact every time: sixteen
+     beats at 124 BPM is 7.742 seconds, and 7.742 seconds is what the file is. */
+
+  var drumLoops = [];
+  var drumLoopBuffers = new Map();
+
+  async function loadDrumLoops() {
+    try { drumLoops = await MP.listDrumLoops(); } catch (e) { drumLoops = []; }
+    renderDrumLoops();
+  }
+
+  async function drumLoopAudioFor(id) {
+    if (drumLoopBuffers.has(id)) return drumLoopBuffers.get(id);
+    var blob = await MP.getDrumLoopAudio(id);
+    if (!blob) return null;
+    var buf = await audioCtx().decodeAudioData(await blob.arrayBuffer());
+    drumLoopBuffers.set(id, buf);
+    return buf;
+  }
+
+  /* Beats, and the exact tempo that follows from them.
+
+     A detected tempo is a few hundredths out, and a few hundredths compounds
+     across thirty-two beats into a loop that drifts against itself. So the
+     beat COUNT is what gets rounded — loops come in fours — and the tempo is
+     then arithmetic: beats x 60 / length. Only trusted when the rounding is
+     close; a loop that is nowhere near a multiple of four keeps what was
+     measured and can be corrected by hand. */
+  function snapLoopTempo(durSec, detectedBpm, filenameBpm) {
+    var out = { bpm: detectedBpm || null, beats: null, exact: false };
+    var candidates = [];
+    if (filenameBpm) candidates.push(filenameBpm);
+    if (detectedBpm) candidates.push(detectedBpm, detectedBpm / 2, detectedBpm * 2);
+    for (var i = 0; i < candidates.length; i++) {
+      var bpm = candidates[i];
+      if (!bpm || bpm < 50 || bpm > 200) continue;
+      var beats = durSec / (60 / bpm);
+      var whole = Math.round(beats / 4) * 4;
+      if (whole >= 4 && Math.abs(beats - whole) / whole < 0.03) {
+        return { bpm: +(whole * 60 / durSec).toFixed(3), beats: whole, exact: true };
+      }
+    }
+    if (detectedBpm) out.beats = Math.max(1, Math.round(durSec / (60 / detectedBpm)));
+    return out;
+  }
+
+  /* Half and double are the same loop described two ways, and only one of them
+     is what a person would call its tempo. A phonk loop came back as 193 BPM
+     with 44 beats — arithmetically true, and it would have been laid down at
+     half speed, because every "beat" it counted was half a beat. Anything
+     outside what a record is ever counted at gets folded back. */
+  function musicalTempo(t) {
+    var bpm = t.bpm, beats = t.beats;
+    if (!bpm) return t;
+    while (bpm > 168 && (!beats || beats % 2 === 0)) { bpm /= 2; if (beats) beats /= 2; }
+    while (bpm < 62) { bpm *= 2; if (beats) beats *= 2; }
+    return { bpm: +bpm.toFixed(3), beats: beats, exact: t.exact };
+  }
+
+  async function importDrumLoops(files) {
+    var list = Array.from(files || []).filter(acceptedAudio);
+    if (!list.length) { setStatus('No audio in that.', true); return; }
+    var made = 0, failed = [], said = [];
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i];
+      setStatus('Analysing "' + f.name + '" (' + (i + 1) + ' of ' + list.length + ')…');
+      try {
+        var buf = await audioCtx().decodeAudioData(await f.arrayBuffer());
+        var a = await DSP.analyseBeat(DSP.toMono(buf), buf.sampleRate);
+        var m = f.name.match(/(d{2,3})s*bpm/i);
+        var fnBpm = m ? parseInt(m[1], 10) : null;
+        var snapped = musicalTempo(snapLoopTempo(buf.duration, a && a.bpm, fnBpm));
+        var rec = await MP.saveDrumLoop({
+          name: f.name.replace(/.[^.]+$/, '').replace(/^looperman-l-d+-d+-/, ''),
+          bpm: snapped.bpm, beats: snapped.beats, exactTempo: snapped.exact,
+          /* A loop starts on the one. The analyser's downbeat is for records,
+             which start wherever they start. */
+          downbeatSec: 0,
+          durationSec: buf.duration, sourceFile: f.name
+        }, DSP.encodeWav(buf));
+        drumLoopBuffers.set(rec.id, buf);
+        made++;
+        said.push(rec.name + ' ' + (snapped.bpm ? Math.round(snapped.bpm) + ' BPM' : '?'));
+      } catch (err) {
+        failed.push(f.name + ' (' + (err.message || err) + ')');
+      }
+    }
+    await loadDrumLoops();
+    fillCache.clear();
+    previewStale = true;
+    renderAll();
+    setStatus(made ? ('Added ' + made + ' drum loop' + (made === 1 ? '' : 's') + ': ' +
+                      said.slice(0, 6).join(', ') + (said.length > 6 ? '…' : '') +
+                      '. The drums between records use the closest one by tempo unless ' +
+                      'you pick one on a junction.')
+                   : ('Nothing imported: ' + failed.join(', ')), !made);
+  }
+
+  function renderDrumLoops() {
+    var el = $('drumloops');
+    if (!el) return;
+    var count = $('loopCount');
+    if (count) count.textContent = drumLoops.length ? drumLoops.length : '';
+    if (!drumLoops.length) {
+      el.innerHTML = '<div class="bench-empty">No drum loops yet. Import a few and the drums ' +
+        'between records are played by a real kit instead of a synthesised one.</div>';
+      return;
+    }
+    el.innerHTML = drumLoops.map(function (l) {
+      return '<div class="bench-item" data-loop="' + esc(l.id) + '">' +
+        '<div class="bench-top"><strong>' + esc(l.name) + '</strong>' +
+        '<span class="pill quiet">' + (l.bpm ? Math.round(l.bpm) + ' BPM' : 'tempo unknown') +
+        (l.beats ? ' · ' + l.beats + ' beats' : '') +
+        (l.exactTempo ? '' : ' · approximate') + '</span></div>' +
+        '<div class="bench-actions">' +
+          '<button class="ghost" data-act="loop-hear" data-loop="' + esc(l.id) + '">Hear it</button>' +
+          '<button class="ghost" data-act="loop-del" data-loop="' + esc(l.id) + '">Remove</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  /* The loop a junction should use: the one it has been given, or the one
+     needing least stretching to reach the tempo it is walking to. */
+  async function loopForJunction(j, toBpm) {
+    var choice = (j && j.drumLoopId) || 'auto';
+    if (choice === 'synth') return null;
+    var rec = null;
+    if (choice !== 'auto') rec = drumLoops.filter(function (l) { return l.id === choice; })[0];
+    if (!rec) rec = MP.pickDrumLoop(drumLoops, toBpm);
+    if (!rec) return null;
+    var buf = await drumLoopAudioFor(rec.id);
+    if (!buf) return null;
+    return { buffer: buf, bpm: rec.bpm, beats: rec.beats,
+             downbeatSec: rec.downbeatSec || 0, name: rec.name };
   }
 
   /* ------------------------------------------------ importing a sample ---
@@ -3862,6 +4058,8 @@
         ctx: audioCtx(),
         fromTrack: fromTrack, toTrack: toTrack,
         sampleBuffers: sampleBuffers, sampleMeta: sampleMeta,
+        /* so the file is bounced with the same drums the timeline played */
+        drumLoopFor: function (settings, toBpm) { return loopForJunction(settings, toBpm); },
         measureAlignment: true,
         shouldCancel: function () { return cancelRender; },
         onProgress: function (p) {
@@ -4050,6 +4248,8 @@
     /* For tests: the live project, not the saved copy. Reading the saved one
        is how a probe once built a preview from half the mix. */
     window.__project = function () { return project; };
+    /* For the bulk importer and for tests: the same path the button takes. */
+    window.__importDrumLoops = function (files) { return importDrumLoops(files); };
     /* For tests: the audio the render just made, so the finished mix can be
        measured rather than trusted. */
     window.__lastMix = function () { return lastMix; };
@@ -4109,6 +4309,7 @@
             gainDb: s.fillGainDb, fadeInBeats: s.fadeInBeats, fadeOutBeats: s.fadeOutBeats,
             lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
             weightDb: s.fillWeight,
+            loop: await loopForJunction(s, j.fill ? j.fill.toBpm : (j.targetBpm || 120)),
             reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
             sampleRate: audioCtx().sampleRate
           });
@@ -4449,6 +4650,7 @@
       wire();
       renderAll();
       loadSamples();
+      loadDrumLoops();
       restoreAudioOnLaunch();
       if (project.tracks.length) {
         var n = project.tracks.length;

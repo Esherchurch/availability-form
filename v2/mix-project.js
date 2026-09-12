@@ -20,10 +20,15 @@
   'use strict';
 
   var DB_NAME = 'mix-builder';
-  var DB_VERSION = 1;
+  /* 2: drum loops. A real loop is a better drummer than anything synthesised,
+     and it needs somewhere to live that is not the sample library — a sample is
+     dropped at one point in the mix, a loop is what the drums between two
+     records are made of. */
+  var DB_VERSION = 2;
   var PROJECT_ID = 'current';          // v1 holds a single project (brief §12)
 
-  var STORES = ['project', 'analysis', 'samples', 'sampleAudio', 'segments'];
+  var STORES = ['project', 'analysis', 'samples', 'sampleAudio', 'segments',
+                'drumLoops', 'drumLoopAudio'];
 
   /* ------------------------------------------------------ defaults --- */
 
@@ -700,6 +705,59 @@
 
   var getSampleAudio = function (id) { return get('sampleAudio', id); };
 
+  /* ------------------------------------------------------ drum loops ---
+     Stored exactly as the samples are, and for the same reason: the audio
+     first and read back before the description, so a loop that is listed can
+     always be heard. */
+  function saveDrumLoop(meta, wavBlob) {
+    var id = meta.id || ('loop_' + hash(meta.name + '|' + Date.now()));
+    var rec = Object.assign({}, meta, { id: id, saved: new Date().toISOString() });
+    if (!wavBlob) return put('drumLoops', id, rec).then(function () { return rec; });
+    return put('drumLoopAudio', id, wavBlob)
+      .then(function () { return get('drumLoopAudio', id); })
+      .then(function (back) {
+        var size = back && (back.size || back.byteLength || 0);
+        if (!size) {
+          throw new Error('The audio for "' + (meta.name || id) + '" did not save, so the ' +
+                          'loop has not been added.');
+        }
+        return put('drumLoops', id, rec);
+      })
+      .then(function () { return rec; });
+  }
+
+  function listDrumLoops() {
+    return all('drumLoops').then(function (rows) {
+      return (rows || []).sort(function (a, b) { return (a.bpm || 0) - (b.bpm || 0); });
+    });
+  }
+
+  var getDrumLoopAudio = function (id) { return get('drumLoopAudio', id); };
+
+  function deleteDrumLoop(id) {
+    return del('drumLoops', id).then(function () { return del('drumLoopAudio', id); });
+  }
+
+  /* Which loop to use where nothing has been chosen: the one needing least
+     stretching to sit at the tempo the fill is walking through. A loop pushed
+     more than a few percent starts to sound like a loop being pushed. */
+  function pickDrumLoop(loops, bpm) {
+    if (!loops || !loops.length || !bpm) return null;
+    var best = null, bestCost = 1e9;
+    for (var i = 0; i < loops.length; i++) {
+      var l = loops[i];
+      if (!l.bpm) continue;
+      /* half and double time are the same loop, so a 140 loop is a fair
+         candidate for a 70 BPM fill */
+      var options = [l.bpm, l.bpm / 2, l.bpm * 2];
+      for (var k = 0; k < options.length; k++) {
+        var cost = Math.abs(Math.log(options[k] / bpm));
+        if (cost < bestCost) { bestCost = cost; best = l; }
+      }
+    }
+    return best;
+  }
+
   function deleteSample(id) {
     return del('samples', id).then(function () { return del('sampleAudio', id); });
   }
@@ -1141,6 +1199,9 @@
     clearSegments: clearSegments,
     get: get, put: put, del: del, keys: keys, all: all,
     saveSample: saveSample,
+    saveDrumLoop: saveDrumLoop, listDrumLoops: listDrumLoops,
+    getDrumLoopAudio: getDrumLoopAudio, deleteDrumLoop: deleteDrumLoop,
+    pickDrumLoop: pickDrumLoop,
     listSamples: listSamples,
     getSampleAudio: getSampleAudio,
     deleteSample: deleteSample,
