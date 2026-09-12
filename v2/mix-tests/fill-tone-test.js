@@ -79,6 +79,45 @@ let fails=0; const ok=(c,m,x)=>{console.log((c?'  ok   ':'  FAIL ')+m+(x?'   '+x
  ok(out.bassyLow > out.flatLow, 'the Bass control moves the bottom end');
  ok(out.brightHigh > out.flatHigh * 1.3, 'the Highs control moves the top end');
  ok(out.wetQuiet < out.flatQuiet, 'reverb fills the space between the hits');
+ /* ---- shaping must not just be levelling ----------------------------
+    The tone stage ran BEFORE the fill was levelled against the record, so
+    turning the bass up raised the average and the level stage pulled the kit
+    back down to hit its target — the control moved the measured low end by a
+    fifth of a decibel against a loud record. It runs after now, and holds the
+    loudness it had, so shaping costs the other bands rather than the ceiling. */
+ const hold = await p.evaluate(async () => {
+   const DSP = window.MixDSP, sr = 48000;
+   const loud = new OfflineAudioContext(1, sr * 20, sr).createBuffer(1, sr * 20, sr);
+   const ld = loud.getChannelData(0);
+   for (let i = 0; i < ld.length; i++) ld[i] = (Math.random() * 2 - 1) * 0.9;
+   const base = { source: loud, atSec: 20, downbeatSec: 0, beats: 32, preBeats: 8,
+                  overBeats: 0, patternId: 'four', fromBpm: 100, toBpm: 100, sampleRate: sr };
+   const look = (buf) => {
+     const d = buf.getChannelData(0), s = buf.sampleRate;
+     let lp = 0, lo = 0, hi = 0, sum = 0;
+     const a = Math.exp(-2 * Math.PI * 150 / s);
+     for (let i = 0; i < d.length; i++) {
+       lp = a * lp + (1 - a) * d[i];
+       lo += lp * lp; hi += (d[i] - lp) * (d[i] - lp); sum += d[i] * d[i];
+     }
+     return { pctLow: 100 * lo / (lo + hi + 1e-20),
+              rmsDb: 10 * Math.log10(sum / d.length + 1e-20) };
+   };
+   const flat = look(await DSP.buildBeatFill(Object.assign({}, base)));
+   const cut = look(await DSP.buildBeatFill(Object.assign({}, base, { lowDb: -18 })));
+   const verb = look(await DSP.buildBeatFill(Object.assign({}, base, { reverbPct: 70, reverbBeats: 2 })));
+   return { flat, cut, verb };
+ });
+ console.log('   against a loud record: flat ' + hold.flat.pctLow.toFixed(1) + '% low, ' +
+             'bass -18 ' + hold.cut.pctLow.toFixed(1) + '% low, reverb ' +
+             (hold.verb.rmsDb - hold.flat.rmsDb).toFixed(1) + ' dB against flat');
+ ok(hold.flat.pctLow - hold.cut.pctLow > 10,
+    'the tone control still bites when the fill is already at the ceiling',
+    hold.flat.pctLow.toFixed(1) + '% -> ' + hold.cut.pctLow.toFixed(1) + '%');
+ ok(Math.abs(hold.verb.rmsDb - hold.flat.rmsDb) < 2,
+    'and reverb does not simply make the drums quieter',
+    (hold.verb.rmsDb - hold.flat.rmsDb).toFixed(1) + ' dB');
+
  await b.close(); srv.close();
  console.log(fails?'\n'+fails+' FAILED':'\nthe EQ and reverb controls reach the audio');
  process.exit(fails?1:0);

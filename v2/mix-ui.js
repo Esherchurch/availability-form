@@ -1111,9 +1111,22 @@
       var jn = plan.junctions[p.atJunction];
       var bpm = (jn && jn.fill) ? jn.fill.toBpm : ((jn && jn.targetBpm) || 120);
       var barSec = 60 / bpm * 4;
-      var v = Math.max(0, (p.barsBeforeEntry || 0) - deltaSec / barSec);
+      /* No floor at zero.
+
+         A placement is stored as bars BEFORE the incoming record's entry, and
+         that was clamped at zero — so a sample could never be dragged past the
+         point where the next record starts, which is to say it could never sit
+         over that record's music at all. Worse, where two records are joined by
+         a long drum fill, everything from one bar to fifteen lands inside the
+         drums: the gap at 89 BPM with 64 beats of fill is forty-three seconds
+         wide. Between a dead zone that size and a hard stop at the entry, the
+         only positions reachable were the ones with no music under them.
+
+         Negative now means after the entry. The sample goes where it is put. */
+      var v = (p.barsBeforeEntry || 0) - deltaSec / barSec;
       if (commit) { p.barsBeforeEntry = Math.round(v * 100) / 100; touch('sample moved'); }
-      return 'sample ' + v.toFixed(2) + ' bars before the next record';
+      return v >= 0 ? 'sample ' + v.toFixed(2) + ' bars before the next record'
+                    : 'sample ' + (-v).toFixed(2) + ' bars into the next record';
     }
 
     if (what === 'drums') {
@@ -1194,8 +1207,9 @@
         menuRow('Volume', '<input type="range" data-cm="gain" min="-40" max="6" step="1" value="' +
                 (p.gainDb == null ? -8 : p.gainDb) + '"><b data-cm-val="gain">' +
                 (p.gainDb == null ? -8 : p.gainDb) + ' dB</b>') +
-        menuRow('Position', '<input type="number" data-cm="bars" step="0.25" min="0" max="64" value="' +
-                (p.barsBeforeEntry || 0) + '"><b>bars before</b>') +
+        menuRow('Position', '<input type="number" data-cm="bars" step="0.25" min="-64" max="64" ' +
+                'value="' + (p.barsBeforeEntry || 0) + '"><b>' +
+                ((p.barsBeforeEntry || 0) >= 0 ? 'bars before' : 'bars into') + ' the next</b>') +
         menuRow('Over or between', '<select data-cm="mode">' +
                 '<option value="over"' + (p.mode !== 'between' ? ' selected' : '') + '>Over the music</option>' +
                 '<option value="between"' + (p.mode === 'between' ? ' selected' : '') + '>In the gap</option>' +
@@ -1228,6 +1242,24 @@
                 (j.fadeInBeats == null ? (j.preBeats == null ? 8 : j.preBeats) : j.fadeInBeats) + '"><b>beats</b>') +
         menuRow('Fade out', '<input type="number" data-cm="fadeout" step="1" min="0" max="64" value="' +
                 (j.fadeOutBeats == null ? 4 : j.fadeOutBeats) + '"><b>beats</b>') +
+        /* The tone controls belong here too. They were in the junction editor
+           only, which is a different panel reached by a different click — so
+           the answer to "can I give this more bass" was to go and find it. */
+        menuRow('Bass', '<input type="range" data-cm="low" min="-18" max="12" step="1" value="' +
+                (j.fillLowDb == null ? 0 : j.fillLowDb) + '"><b data-cm-val="low">' +
+                (j.fillLowDb == null ? 0 : j.fillLowDb) + ' dB</b>') +
+        menuRow('Mids', '<input type="range" data-cm="mid" min="-18" max="12" step="1" value="' +
+                (j.fillMidDb == null ? 0 : j.fillMidDb) + '"><b data-cm-val="mid">' +
+                (j.fillMidDb == null ? 0 : j.fillMidDb) + ' dB</b>') +
+        menuRow('Highs', '<input type="range" data-cm="high" min="-18" max="12" step="1" value="' +
+                (j.fillHighDb == null ? 0 : j.fillHighDb) + '"><b data-cm-val="high">' +
+                (j.fillHighDb == null ? 0 : j.fillHighDb) + ' dB</b>') +
+        menuRow('Reverb', '<input type="range" data-cm="reverb" min="0" max="80" step="5" value="' +
+                (j.fillReverb == null ? 0 : j.fillReverb) + '"><b data-cm-val="reverb">' +
+                (j.fillReverb == null ? 0 : j.fillReverb) + '%</b>') +
+        menuRow('Reverb length', '<input type="number" data-cm="reverbbeats" step="0.5" min="0.25" ' +
+                'max="8" value="' + (j.fillReverbBeats == null ? 1 : j.fillReverbBeats) +
+                '"><b>beats</b>') +
         '<div class="cm-btns">' +
           '<button data-cm="play">▶ Play from here</button>' +
           '<button class="ghost" data-cm="hear">Hear the drums</button>' +
@@ -1318,9 +1350,10 @@
     var what = input.dataset.cm, val = input.value;
     var num = parseFloat(val);
 
+    var rd = _menu.querySelector('[data-cm-val="' + what + '"]');
+    if (rd) rd.textContent = num + (what === 'reverb' ? '%' : ' dB');
+
     if (what === 'gain') {
-      var lbl = _menu.querySelector('[data-cm-val="gain"]');
-      if (lbl) lbl.textContent = num + ' dB';
       /* Heard as the slider moves, not after a rebuild. */
       if (preview) {
         preview.setGain(kind === 'drums' ? 'fill' : kind === 'song' ? 'track' : 'sample',
@@ -1342,6 +1375,11 @@
       else if (what === 'pattern') j.drumPattern = val;
       else if (what === 'fadein') j.fadeInBeats = Math.round(num);
       else if (what === 'fadeout') j.fadeOutBeats = Math.round(num);
+      else if (what === 'low') j.fillLowDb = num;
+      else if (what === 'mid') j.fillMidDb = num;
+      else if (what === 'high') j.fillHighDb = num;
+      else if (what === 'reverb') j.fillReverb = num;
+      else if (what === 'reverbbeats') j.fillReverbBeats = num;
     } else {
       var t = project.tracks[idx];
       if (!t) return;
@@ -3337,7 +3375,7 @@
             '<option value="between">In the gap between</option>' +
           '</select></div>' +
         '<div><label class="lbl">Bars before the next track</label>' +
-          '<input type="number" id="placeBars" min="0" max="64" step="1" value="8"></div>' +
+          '<input type="number" id="placeBars" min="-64" max="64" step="1" value="8"></div>' +
         '<div><label class="lbl">Volume (dB)</label>' +
           '<input type="number" id="placeGain" min="-40" max="6" step="1" value="' +
           (s.gainDb == null ? -8 : s.gainDb) + '"></div>' +

@@ -252,6 +252,36 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
      live.before + ' -> ' + live.after);
 
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
+  /* ---- a sample can be put over the music --------------------------
+     A placement is stored as bars BEFORE the incoming record's entry, and that
+     was floored at zero — so it could never be dragged past the point where the
+     next record starts, which is to say never over that record's music. With a
+     long drum fill between two records every reachable position was inside the
+     drums. Negative means after the entry now. */
+  const past = await page.evaluate(async () => {
+    window.__project().placements[0].barsBeforeEntry = 8;
+    const el = document.querySelector('#timeline .clip.sample');
+    const sc = document.getElementById('tlscroll');
+    sc.scrollIntoView({ block: 'center' });
+    el.scrollIntoView({ inline: 'center', block: 'nearest' });
+    await new Promise(z => setTimeout(z, 300));
+    const r = el.getBoundingClientRect();
+    const x0 = Math.round(r.left + r.width / 2), y0 = Math.round(r.top + r.height / 2);
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x0, clientY: y0 }));
+    for (let k = 1; k <= 6; k++) {
+      window.dispatchEvent(new MouseEvent('mousemove',
+        { bubbles: true, clientX: x0 + k * 30, clientY: y0 }));
+      await new Promise(z => setTimeout(z, 25));
+    }
+    window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x0 + 180, clientY: y0 }));
+    await new Promise(z => setTimeout(z, 900));
+    return { bars: window.__project().placements[0].barsBeforeEntry,
+             said: (document.getElementById('status') || {}).textContent.slice(0, 70) };
+  });
+  console.log('    dragged right: now ' + past.bars + ' bars before the next record');
+  ok(past.bars < 8, 'dragging a sample right moves it later', String(past.bars));
+  ok(past.bars < 0, 'and it can go past the incoming record, over its music', past.said);
+
   await browser.close(); server.close();
   try { wavs.forEach(f => fs.unlinkSync(f)); fs.rmdirSync(tmp); } catch (e) {}
   console.log(fails ? '\n' + fails + ' FAILED' : '\nthe controls are on the clips and the cursor obeys');

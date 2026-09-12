@@ -1598,39 +1598,6 @@ onmessage = e => {
        what is playing, and a short tail so it does not sound stuck to the
        speaker. All of it is off by default — a flat kit is the honest starting
        point, and anything here should be a decision. */
-    var lowDb = opts.lowDb || 0, midDb = opts.midDb || 0, highDb = opts.highDb || 0;
-    var wet = Math.max(0, Math.min(100, opts.reverbPct || 0)) / 100;
-    if (lowDb || midDb || highDb || wet > 0) {
-      var eqCtx = new OfflineAudioContext(1, pcm.length, sr);
-      var eqBuf = eqCtx.createBuffer(1, pcm.length, sr);
-      eqBuf.getChannelData(0).set(pcm);
-      var node = eqCtx.createBufferSource(); node.buffer = eqBuf;
-
-      var lo = eqCtx.createBiquadFilter();
-      lo.type = 'lowshelf'; lo.frequency.value = 140; lo.gain.value = lowDb;
-      var mid = eqCtx.createBiquadFilter();
-      mid.type = 'peaking'; mid.frequency.value = 900; mid.Q.value = 0.9; mid.gain.value = midDb;
-      var hi = eqCtx.createBiquadFilter();
-      hi.type = 'highshelf'; hi.frequency.value = 5500; hi.gain.value = highDb;
-
-      node.connect(lo); lo.connect(mid); mid.connect(hi);
-
-      var dryG = eqCtx.createGain(); dryG.gain.value = 1 - wet * 0.5;
-      hi.connect(dryG); dryG.connect(eqCtx.destination);
-
-      if (wet > 0) {
-        var conv = eqCtx.createConvolver();
-        // sized in beats of the tempo it lands at, so it stays musical
-        var tailSec = (opts.reverbBeats == null ? 1 : opts.reverbBeats) * (60 / toBpm);
-        conv.buffer = makeIR(eqCtx, Math.max(0.05, tailSec), 2.2);
-        var wetG = eqCtx.createGain(); wetG.gain.value = wet;
-        hi.connect(conv); conv.connect(wetG); wetG.connect(eqCtx.destination);
-      }
-
-      node.start(0);
-      var done = await eqCtx.startRendering();
-      pcm = done.getChannelData(0);
-    }
 
     /* Level it against the record it follows, rather than against nothing.
        A synthesised kit is nearly all transient, so its RMS lands about 10 dB
@@ -1727,6 +1694,83 @@ onmessage = e => {
       var flat = Math.pow(10, (opts.gainDb == null ? -1.5 : opts.gainDb) / 20);
       for (var fi = 0; fi < pcm.length; fi++) pcm[fi] *= flat;
     }
+    /* Tone AFTER the level stage, not before it.
+
+       This ran first, and then the kit was matched to the outgoing record's
+       RMS — so turning the bass up raised the average, and the level stage
+       pulled the whole kit down by the same amount to hit its target. The
+       balance moved a little and the drums simply got quieter. Measured: the
+       Bass control at +12 dB produced +0.6 dB of low end, which is nothing,
+       and is why it read as a control that does not work.
+
+       Set the level first, then shape it, then stop it clipping — and a boost
+       is a boost. Only the ceiling can take it back, and only from the peaks. */
+    var lowDb = opts.lowDb || 0, midDb = opts.midDb || 0, highDb = opts.highDb || 0;
+    var wet = Math.max(0, Math.min(100, opts.reverbPct || 0)) / 100;
+    var rmsBeforeTone = rmsOf(pcm);
+    if (lowDb || midDb || highDb || wet > 0) {
+      var eqCtx = new OfflineAudioContext(1, pcm.length, sr);
+      var eqBuf = eqCtx.createBuffer(1, pcm.length, sr);
+      eqBuf.getChannelData(0).set(pcm);
+      var node = eqCtx.createBufferSource(); node.buffer = eqBuf;
+
+      var lo = eqCtx.createBiquadFilter();
+      lo.type = 'lowshelf'; lo.frequency.value = 140; lo.gain.value = lowDb;
+      var mid = eqCtx.createBiquadFilter();
+      mid.type = 'peaking'; mid.frequency.value = 900; mid.Q.value = 0.9; mid.gain.value = midDb;
+      var hi = eqCtx.createBiquadFilter();
+      hi.type = 'highshelf'; hi.frequency.value = 5500; hi.gain.value = highDb;
+
+      node.connect(lo); lo.connect(mid); mid.connect(hi);
+
+      var dryG = eqCtx.createGain(); dryG.gain.value = 1 - wet * 0.5;
+      hi.connect(dryG); dryG.connect(eqCtx.destination);
+
+      if (wet > 0) {
+        var conv = eqCtx.createConvolver();
+        // sized in beats of the tempo it lands at, so it stays musical
+        var tailSec = (opts.reverbBeats == null ? 1 : opts.reverbBeats) * (60 / toBpm);
+        conv.buffer = makeIR(eqCtx, Math.max(0.05, tailSec), 2.2);
+        var wetG = eqCtx.createGain(); wetG.gain.value = wet;
+        hi.connect(conv); conv.connect(wetG); wetG.connect(eqCtx.destination);
+      }
+
+      node.start(0);
+      var done = await eqCtx.startRendering();
+      pcm = done.getChannelData(0);
+    }
+
+    /* Hold the loudness across the tone stage, so shaping is shaping.
+
+       The kit is already 82% low end — it is mostly kick — and the level stage
+       leaves it sitting on the 0.97 ceiling. So a bass boost had nowhere to go:
+       it met the ceiling and came straight back down, and moving the control
+       from 0 to +12 changed the measured low end by a fifth of a decibel.
+       Turning it DOWN worked, because down needs no headroom. A control that
+       only works one way reads as a control that does not work.
+
+       Matching the RMS the fill had before the tone stage makes a boost cost
+       the other bands instead of the ceiling: 12 dB more bass is 12 dB more
+       bass RELATIVE to the snare and the hats, which is what turning the bass
+       up is meant to mean and what anybody listening will hear. Then the peak
+       ceiling, which is a safety rail rather than part of the sound. */
+    if (rmsBeforeTone > 1e-6) {
+      var rmsAfterTone = rmsOf(pcm);
+      if (rmsAfterTone > 1e-6) {
+        var keep = rmsBeforeTone / rmsAfterTone;
+        if (Math.abs(keep - 1) > 0.01) {
+          for (var ki = 0; ki < pcm.length; ki++) pcm[ki] *= keep;
+        }
+      }
+    }
+
+    var pkEq = 0;
+    for (var pe = 0; pe < pcm.length; pe++) { var ae = Math.abs(pcm[pe]); if (ae > pkEq) pkEq = ae; }
+    if (pkEq > 0.97) {
+      var sEq = 0.97 / pkEq;
+      for (var se = 0; se < pcm.length; se++) pcm[se] *= sEq;
+    }
+
     var gain = 1;
     var ctxOut = new OfflineAudioContext(2, pcm.length, sr);
     var buf = ctxOut.createBuffer(2, pcm.length, sr);
