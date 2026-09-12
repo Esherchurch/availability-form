@@ -394,6 +394,8 @@
               padding:4px 7px; margin-bottom:6px; }
   #timeline .clip.sample.no-audio{ background:repeating-linear-gradient(45deg,
      #f3d5c0, #f3d5c0 6px, #fbe8dc 6px, #fbe8dc 12px); color:#8a4520; }
+  .samp-import{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
+  .samp-import label.btn{ cursor:pointer; }
 </style>
 </head>
 <body>
@@ -508,6 +510,12 @@
       stretched per placement to whatever is playing where they land, so one sample can be
       dropped at a 108 BPM junction and a 124 BPM one and be in time at both.
     </p>
+    <div class="samp-import">
+      <label class="btn ghost" for="sampleImport">Import a sample…</label>
+      <input type="file" id="sampleImport" accept="audio/*" multiple hidden>
+      <span class="region-hint">An air horn, a scratch, a riser — anything that is not on one of
+        the records. It goes straight in as a sample; there is no track to clip.</span>
+    </div>
     <div id="samples"></div>
   </div>
 

@@ -2923,6 +2923,17 @@
       if (el && el.tagName === 'INPUT' && el.type === 'number') el.blur();
     }, { passive: true });
 
+    if ($('sampleImport')) {
+      $('sampleImport').onchange = function (e) {
+        /* Copied out FIRST. A FileList is live: clearing the input's value —
+           which is what lets the same file be picked twice in a row — empties
+           the list you are holding, and the import is handed nothing. */
+        var picked = Array.from(e.target.files || []);
+        e.target.value = '';
+        importSamples(picked);
+      };
+    }
+
     if ($('normaliseBtn')) $('normaliseBtn').onclick = normaliseAll;
     if ($('undoBtn')) $('undoBtn').onclick = undo;
     if ($('redoBtn')) $('redoBtn').onclick = redo;
@@ -3254,6 +3265,59 @@
     var buf = await audioCtx().decodeAudioData(await blob.arrayBuffer());
     sampleBuffers.set(id, buf);
     return buf;
+  }
+
+  /* ------------------------------------------------ importing a sample ---
+
+     A hook is cut out of a record. An air horn is not on any record, and
+     neither is a scratch or a riser — loading one as a track and then clipping
+     a clip out of it is work for nothing, and it lands in the running order
+     where it does not belong.
+
+     Imported samples are stored with NO source tempo. That is deliberate: the
+     renderer stretches a placement to the tempo playing where it lands, and
+     something with a tempo of its own should be stretched. A one-shot has no
+     tempo to be wrong about, so it plays at its own speed wherever it goes.
+     Anything with a pulse — a two-bar break, a stab loop — can be given its
+     BPM on the row afterwards and will then be stretched like anything else. */
+
+  async function importSamples(files) {
+    var list = Array.from(files || []).filter(acceptedAudio);
+    if (!list.length) { setStatus('No audio in that — an air horn, a scratch, a WAV or MP3.', true); return; }
+    var made = 0, failed = [];
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i];
+      setStatus('Importing "' + f.name + '"…');
+      try {
+        var buf = await audioCtx().decodeAudioData(await f.arrayBuffer());
+        /* Stored as WAV whatever went in, so the library holds one format and
+           a placement never waits on a decoder that might not be there. */
+        var saved = await MP.saveSample({
+          name: f.name.replace(/.[^.]+$/, ''),
+          tags: ['imported'],
+          sourceFile: f.name,
+          sourceBpm: 0,
+          bars: 0,
+          durationSec: buf.duration,
+          createdFrom: 'imported'
+        }, DSP.encodeWav(buf));
+        sampleBuffers.set(saved.id, buf);
+        sampleHasAudio.add(saved.id);
+        made++;
+      } catch (err) {
+        failed.push(f.name + ' (' + (err.message || err) + ')');
+      }
+    }
+    await loadSamples();
+    renderAll();
+    if (made) {
+      setStatus('Imported ' + made + ' sample' + (made === 1 ? '' : 's') +
+                '. Stored at its own speed with no tempo, so it plays as it is wherever it is ' +
+                'placed — give it a BPM on its row if it has a pulse and should follow the mix.' +
+                (failed.length ? ' ' + failed.length + ' would not import: ' + failed.join(', ') : ''));
+    } else {
+      setStatus('Nothing imported: ' + failed.join(', '), true);
+    }
   }
 
   /* Cut from the currently open track, starting at its entry point, bar-snapped.
