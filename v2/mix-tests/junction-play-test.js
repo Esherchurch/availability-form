@@ -146,15 +146,41 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   ok(afterRender.play === false, 'and Play goes live once it has rendered');
   ok(renderSec < 120, 'without waiting for the whole set', renderSec.toFixed(1) + 's');
 
+  /* A sample placed at this junction is part of what happens here. Judging the
+     handover without it is judging something that will never be heard, and a
+     sample that stays silent in the audition is indistinguishable from one
+     that does not work — which is exactly how this was reported. */
+  await page.evaluate(async () => {
+    const sr = 48000, n = sr * 3;
+    const ab = new OfflineAudioContext(1, n, sr).createBuffer(1, n, sr);
+    const d = ab.getChannelData(0);
+    for (let i = 0; i < n; i++) {
+      const env = Math.min(1, i / (sr * 0.01)) * Math.min(1, (n - i) / (sr * 0.01));
+      d[i] = 0.5 * Math.sin(2 * Math.PI * 2000 * i / sr) * env;
+    }
+    await window.MixProject.saveSample({ id: 'smp_j', name: 'Horn stab', bars: 2,
+      sourceBpm: 120, durationSec: 3, createdFrom: 'probe' }, window.MixDSP.encodeWav(ab));
+    window.__project().placements = [{ sampleId: 'smp_j', atJunction: 0,
+      barsBeforeEntry: 4, mode: 'over', gainDb: -4 }];
+  });
+
   await page.click('[data-act="play-junction"]');
-  await new Promise(r => setTimeout(r, 800));
+  await new Promise(r => setTimeout(r, 1500));
   const played = await page.evaluate(() => window.__nodes.filter(n => n.started));
+  const withSample = played.filter(n => Math.abs(n.sec - 3) < 0.2);
+  ok(withSample.length === 1, 'the sample placed here plays with the junction',
+     played.map(n => n.sec.toFixed(1) + 's').join(' + '));
+  const said = await page.evaluate(() => (document.getElementById('status') || {}).textContent || '');
+  ok(/1 sample over it/.test(said) && /at \d+:\d\d/.test(said),
+     'and it says what is over it and when', said.slice(0, 90));
   ok(played.length > 0, 'pressing Play plays the junction',
      played.length ? played[played.length - 1].sec.toFixed(1) + 's of audio' : 'nothing');
   if (played.length) {
-    ok(played[played.length - 1].sec > 10,
-       'and it is the junction in context, not a fragment',
-       played[played.length - 1].sec.toFixed(1) + 's');
+    /* The longest, not the last: the samples placed over the junction are
+       started after it and are only seconds long. */
+    var longest = played.reduce(function (m, n) { return n.sec > m.sec ? n : m; }, played[0]);
+    ok(longest.sec > 10, 'and it is the junction in context, not a fragment',
+       longest.sec.toFixed(1) + 's');
   }
 
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));

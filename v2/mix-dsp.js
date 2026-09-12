@@ -1891,6 +1891,9 @@ onmessage = e => {
       info: {
         type: 'beat fill',
         transitionAtSec: +(beatFrom / sr).toFixed(3),
+        /* Where the incoming record comes in, which is what a sample placed
+           "so many bars before the entry" is measured back from. */
+        bIntroAtSec: +((leadN + preN + gapN) / sr).toFixed(3),
         beatDb: +beatDb.toFixed(1),
         quiet: beatDb < -40,
         beats: beats, preBeats: preBeats, overBeats: overBeats,

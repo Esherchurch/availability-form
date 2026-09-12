@@ -2258,6 +2258,74 @@
     };
   }
 
+  var playingExtras = [];
+
+  /* Audition a junction with everything that is actually there.
+
+     The junction render is the two records and the drums between them. A
+     sample placed at that junction is part of what happens there — judging the
+     handover without it is judging something that will never be heard. This
+     plays the rendered segment and schedules the placements over it, at the
+     same distance before the incoming record's entry that the mix uses. */
+  async function playJunctionWithSamples(i, seg) {
+    var places = (project.placements || []).filter(function (p) { return p.atJunction === i; });
+    if (!places.length) { play(seg.buffer); return; }
+
+    stop();
+    var ctxx = audioCtx();
+    try { if (ctxx.state !== 'running') await ctxx.resume(); } catch (e) {}
+    var t0 = ctxx.currentTime + 0.08;
+
+    playing = ctxx.createBufferSource();
+    playing.buffer = seg.buffer;
+    playing.connect(masterOut());
+    playing.start(t0);
+    setStopEnabled(true);
+    startVU();
+    playing.onended = function () {
+      playing = null;
+      playingExtras.forEach(function (s) { try { s.stop(); } catch (e) {} });
+      playingExtras = [];
+      setStopEnabled(false);
+      if (!playhead.raf) return;
+      stopPlayhead();
+    };
+
+    var info = seg.info || {};
+    var bIn = info.bIntroAtSec != null ? info.bIntroAtSec
+            : info.transitionAtSec != null ? info.transitionAtSec : 0;
+    var j = (lay && lay.junctions[i]) || {};
+    var bpm = info.toBpm || j.targetBpm || info.targetBpm ||
+              MP.effectiveBpm(project.tracks[i + 1]) || 120;
+    var barSec = 60 / bpm * 4;
+    var named = [];
+
+    for (var k = 0; k < places.length; k++) {
+      var pl = places[k];
+      var buf = await sampleAudioFor(pl.sampleId);
+      if (!buf) continue;
+      var at = bIn - (pl.barsBeforeEntry || 0) * barSec;
+      /* A sample placed further back than the audition reaches starts part-way
+         through rather than not at all — silence would read as a sample that
+         does not work, which is exactly the confusion this is here to end. */
+      var into = at < 0 ? -at : 0;
+      if (into >= buf.duration) continue;
+      var src = ctxx.createBufferSource();
+      src.buffer = buf;
+      var g = ctxx.createGain();
+      g.gain.value = Math.pow(10, (pl.gainDb == null ? -8 : pl.gainDb) / 20);
+      src.connect(g); g.connect(masterOut());
+      src.start(t0 + Math.max(0, at), into);
+      playingExtras.push(src);
+      var meta = sampleMeta.get(pl.sampleId);
+      named.push((meta ? meta.name : pl.sampleId) + ' at ' + fmt(Math.max(0, at)));
+    }
+    if (named.length) {
+      setStatus('Junction with ' + named.length + ' sample' + (named.length === 1 ? '' : 's') +
+                ' over it — ' + named.join(', ') + '.');
+    }
+  }
+
   function play(buffer) {
     stop();
     playing = audioCtx().createBufferSource();
@@ -2276,6 +2344,10 @@
 
   function stop() {
     if (playing) { try { playing.stop(); } catch (e) {} playing = null; }
+    /* Whatever was scheduled alongside it — the samples placed at a junction
+       play with the junction, so they stop with it too. */
+    playingExtras.forEach(function (s) { try { s.stop(); } catch (e) {} });
+    playingExtras = [];
     if (!preview || !preview.isPlaying()) stopVU();
     stopPlayhead();
     setStopEnabled(false);
@@ -2714,7 +2786,10 @@
       // fire and forget, exactly as render-junction above: hearDrums reports
       // its own errors to the status line rather than throwing into a listener.
       if (act === 'hear-drums') { hearDrums(openJunction); return; }
-      if (act === 'play-junction') { var s = segFor(openJunction); if (s) play(s.buffer); }
+      if (act === 'play-junction') {
+        var s = segFor(openJunction);
+        if (s) playJunctionWithSamples(openJunction, s);
+      }
       if (act === 'stop') stop();
       if (act === 'dl-junction') {
         var sg = segFor(openJunction);
