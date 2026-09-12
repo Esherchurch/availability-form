@@ -207,6 +207,45 @@ function loopWav(file, bpm, beats) {
      'but feel does not beat tempo by any distance — 96 against 124 is still too far',
      chosen.wantFour);
 
+  /* ---- the clip has to be drawn the length it plays ------------------
+
+     The far end of the drum clip was "four seconds into the next record"
+     whatever the carry was, so twenty-four beats of drums under the new track
+     were drawn as four seconds and the clip stopped where it plainly did not. */
+  const drawn = await page.evaluate(async () => {
+    const read = () => {
+      const el = document.querySelector('#timeline .clip.drums');
+      const song = document.querySelector('#timeline .clip.song[data-index="1"]');
+      if (!el || !song) return null;
+      const end = parseInt(el.style.left, 10) + parseInt(el.style.width, 10);
+      return { endPx: end, nextStartPx: parseInt(song.style.left, 10) };
+    };
+    const j = window.__project().junctions[0];
+
+    j.carryMode = 'fixed'; j.overBeats = 4;
+    window.__touchForTest ? window.__touchForTest() : null;
+    await new Promise(r => setTimeout(r, 400));
+    const short = read();
+
+    j.overBeats = 32;
+    window.__touchForTest ? window.__touchForTest() : null;
+    await new Promise(r => setTimeout(r, 400));
+    const long = read();
+
+    return { short, long, hasHook: !!window.__touchForTest };
+  });
+  if (!drawn.short || !drawn.long) ok(false, 'could not read the drum clip');
+  else {
+    const pxPerSec = 8;
+    const shortOver = (drawn.short.endPx - drawn.short.nextStartPx) / pxPerSec;
+    const longOver = (drawn.long.endPx - drawn.long.nextStartPx) / pxPerSec;
+    console.log('    clip reaches ' + shortOver.toFixed(1) + 's past the next record at 4 beats, ' +
+                longOver.toFixed(1) + 's at 32 beats');
+    ok(longOver - shortOver > 8,
+       'the clip is drawn the length the drums actually carry',
+       (longOver - shortOver).toFixed(1) + 's longer for 28 more beats');
+  }
+
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   await browser.close(); server.close();
   try { fs.unlinkSync(f); fs.rmdirSync(tmp); } catch (e) {}

@@ -1504,6 +1504,13 @@
     try { return MR.buildPlan(project); } catch (e) { return null; }
   }
 
+  /* How far the drums actually reach into the record that has come in.
+
+     On "auto" that is measured from the incoming record's own audio when the
+     fill is built, so the timeline cannot know it until then. Remembered here
+     so the clip can be drawn its real length rather than a guess. */
+  var carrySecs = new Map();
+
   function tlClips(plan) {
     var out = [];
     if (!plan) return out;
@@ -1520,13 +1527,24 @@
       var a = plan.tracks[k], b = plan.tracks[k + 1];
       if (!a || !b) return;
       if (j.fill) {
-        /* The drums occupy the gap, and start early: their pre-roll plays under
-           the outgoing record. Drawn where they are actually heard. */
-        var preSec = (j.settings && j.settings.preBeats != null ? j.settings.preBeats : 8) *
+        /* The drums occupy the gap, and reach past it at both ends: their
+           pre-roll plays under the outgoing record and their carry plays under
+           the incoming one. Drawn where they are actually heard.
+
+           The far end used to be "four seconds into the next record" whatever
+           the carry was — so twenty-four beats of drums under the new track
+           were drawn as four seconds and the clip looked as though it stopped
+           where it plainly did not. */
+        var sj = j.settings || {};
+        var preSec = (sj.preBeats != null ? sj.preBeats : 8) *
                      (60 / (j.fill.fromBpm || 120));
+        var carryBeat = 60 / (j.fill.toBpm || 120);
+        var overSec = (sj.carryMode === 'fixed')
+          ? (sj.overBeats == null ? 8 : sj.overBeats) * carryBeat
+          : (carrySecs.has(k) ? carrySecs.get(k) : 8 * carryBeat);
         var at = a.startSec + a.outSec - preSec;
         out.push({ kind: 'drums', index: k, lane: 'drums',
-                   fromSec: Math.max(0, at), toSec: b.startSec + 4,
+                   fromSec: Math.max(0, at), toSec: b.startSec + overSec,
                    label: j.fill.beats + ' beats · ' +
                           Math.round(j.fill.fromBpm) + '→' + Math.round(j.fill.toBpm) + ' BPM',
                    cls: '' });
@@ -4372,6 +4390,8 @@
     /* For tests: the live project, not the saved copy. Reading the saved one
        is how a probe once built a preview from half the mix. */
     window.__project = function () { return project; };
+    /* For tests: recompute and redraw after poking the project directly. */
+    window.__touchForTest = function (label) { return touch(label); };
     /* For the bulk importer and for tests: the same path the button takes. */
     window.__importDrumLoops = function (files) { return importDrumLoops(files); };
     /* For tests: the audio the render just made, so the finished mix can be
@@ -4402,6 +4422,7 @@
 
       var plan = MR.buildPlan(project);
       var extra = [];
+      var needsRedraw = false;
 
       /* The drums between the records, synthesised now and kept, so moving the
          cursor around does not rebuild them. */
@@ -4444,6 +4465,13 @@
         if (!fill) continue;
         // the pre-roll sits under the outgoing record's last beats
         var at = a.startSec + a.outSec - (fill.preSec || 0);
+        /* What the carry came to, so the clip is drawn the length it plays. */
+        var wasCarry = carrySecs.get(k);
+        var nowCarry = Math.max(0, fill.duration - (fill.preSec || 0) - (fill.gapSec || 0));
+        if (wasCarry == null || Math.abs(wasCarry - nowCarry) > 0.05) {
+          carrySecs.set(k, nowCarry);
+          needsRedraw = true;
+        }
         extra.push({ kind: 'fill', title: 'drums', index: k, fromSec: at,
                      toSec: at + fill.duration, buffer: fill,
                      offsetSec: 0, rate0: 1, rate1: 1, gain: 1 });
@@ -4489,6 +4517,7 @@
         pt.gainDb = t && t.gainDb != null ? t.gainDb : 0;
       });
       var dur = preview.build(plan, buffers, extra);
+      if (needsRedraw) renderTimeline();
       if (silentPlacements.length) {
         setStatus(silentPlacements.length + ' placed sample' +
           (silentPlacements.length === 1 ? '' : 's') + ' cannot be played: ' +
