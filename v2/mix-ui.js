@@ -3471,6 +3471,12 @@
                    : ('Nothing imported: ' + failed.join(', ')), !made);
   }
 
+  /* A count, not a catalogue.
+
+     Twenty-five loops listed in full push everything else off the screen, and
+     they are already in the Kit list on every junction — which is where they
+     are chosen. What is worth seeing here is that they arrived, what range of
+     tempos they cover, and a way in when one needs hearing or removing. */
   function renderDrumLoops() {
     var el = $('drumloops');
     if (!el) return;
@@ -3481,44 +3487,35 @@
         'between records are played by a real kit instead of a synthesised one.</div>';
       return;
     }
-    el.innerHTML = drumLoops.map(function (l) {
-      return '<div class="bench-item" data-loop="' + esc(l.id) + '">' +
-        '<div class="bench-top"><strong>' + esc(l.name) + '</strong>' +
-        '<span class="pill quiet">' + (l.bpm ? Math.round(l.bpm) + ' BPM' : 'tempo unknown') +
-        (l.beats ? ' · ' + l.beats + ' beats' : '') +
-        (l.exactTempo ? '' : ' · approximate') + '</span></div>' +
-        '<div class="bench-actions">' +
-          '<button class="ghost" data-act="loop-hear" data-loop="' + esc(l.id) + '">Hear it</button>' +
-          '<button class="ghost" data-act="loop-del" data-loop="' + esc(l.id) + '">Remove</button>' +
-        '</div></div>';
-    }).join('');
-  }
+    var bpms = drumLoops.map(function (l) { return l.bpm || 0; })
+                        .filter(function (b) { return b > 0; }).sort(function (a, b) { return a - b; });
+    var feels = {};
+    drumLoops.forEach(function (l) { if (l.patternId) feels[l.patternId] = (feels[l.patternId] || 0) + 1; });
+    var feelList = Object.keys(feels).map(function (k) {
+      var p = DSP.drumPatterns().filter(function (q) { return q.id === k; })[0];
+      return (p ? p.name : k) + ' ×' + feels[k];
+    });
 
-  /* What a record's own drums are doing, near the point it comes in.
-
-     Cached per track: it is a scan of thirty seconds of audio and the answer
-     cannot change unless the record or its entry does. */
-  var trackPattern = new Map();
-
-  function patternOfTrack(index) {
-    var t = project.tracks[index];
-    if (!t) return null;
-    var key = t.id + '|' + (t.entrySec || 0);
-    if (trackPattern.has(key)) return trackPattern.get(key);
-    var buf = buffers.get(t.id);
-    var bpm = MP.effectiveBpm(t);
-    var out = null;
-    if (buf && bpm) {
-      try {
-        var from = t.entrySec || 0;
-        var prof = DSP.drumProfile(DSP.toMono(buf), buf.sampleRate, t.downbeatSec || 0,
-                                   bpm, from, Math.min(buf.duration, from + 30));
-        var m = DSP.matchDrumPattern(prof);
-        out = m && m.pattern ? m.pattern.id : null;
-      } catch (e) { out = null; }
-    }
-    trackPattern.set(key, out);
-    return out;
+    el.innerHTML =
+      '<div class="loop-summary">' +
+        '<strong>' + drumLoops.length + ' loop' + (drumLoops.length === 1 ? '' : 's') + '</strong>' +
+        (bpms.length ? ', ' + Math.round(bpms[0]) + '–' + Math.round(bpms[bpms.length - 1]) + ' BPM' : '') +
+        (feelList.length ? ' · ' + feelList.join(', ') : '') +
+        '. Chosen per junction in the <strong>Kit</strong> list.' +
+      '</div>' +
+      '<details class="loop-details"><summary>Hear or remove one</summary>' +
+      drumLoops.map(function (l) {
+        return '<div class="bench-item" data-loop="' + esc(l.id) + '">' +
+          '<div class="bench-top"><strong>' + esc(l.name) + '</strong>' +
+          '<span class="pill quiet">' + (l.bpm ? Math.round(l.bpm) + ' BPM' : 'tempo unknown') +
+          (l.beats ? ' · ' + l.beats + ' beats' : '') +
+          (l.exactTempo ? '' : ' · approximate') + '</span></div>' +
+          '<div class="bench-actions">' +
+            '<button class="ghost" data-act="loop-hear" data-loop="' + esc(l.id) + '">Hear it</button>' +
+            '<button class="ghost" data-act="loop-del" data-loop="' + esc(l.id) + '">Remove</button>' +
+          '</div></div>';
+      }).join('') +
+      '</details>';
   }
 
   /* The loop a junction should use: the one it has been given, or the one that
