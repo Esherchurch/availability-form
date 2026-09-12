@@ -40,7 +40,10 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
 
   const out = await page.evaluate(async () => {
     const MP = window.MixProject, MR = window.MixRender, DSP = window.MixDSP;
-    const sr = 44100, secs = 120;
+    /* At the CONTEXT rate. Built at 44.1k against a 48k context the buffers
+       are reinterpreted 8% fast, which reads as the record ending early — an
+       artefact of the test, not of the mix. */
+    const sr = (new AudioContext()).sampleRate, secs = 120;
 
     /* two records of steady tone, so any change in level is the mix's doing */
     function record(hz) {

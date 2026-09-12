@@ -1346,12 +1346,29 @@
       var t = project.tracks[index];
       if (!t) return;
       title = t.title;
+      /* Where the record ends, on the record itself.
+
+         Every track's mix-out is set to its last STRONG beat and then snapped
+         to a bar — a DJ mixes out before the outro, and so does this. It is
+         usually right and it is sometimes wrong, and when it is wrong it reads
+         as the tool chopping the end off the song for no reason. On this set
+         it was taking between two and twenty seconds off each record. The
+         number is here now, with the length of the record next to it so it is
+         obvious how much is being left. */
+      var endsAt = t.durationSec || 0;
+      var cut = Math.max(0, endsAt - (t.exitSec || 0));
       html =
         menuRow('Volume', '<input type="range" data-cm="gain" min="-24" max="12" step="0.5" value="' +
                 (t.gainDb == null ? 0 : t.gainDb) + '"><b data-cm-val="gain">' +
                 (t.gainDb == null ? 0 : t.gainDb) + ' dB</b>') +
+        menuRow('Mix out at', '<input type="number" data-cm="exit" step="0.5" min="0" max="' +
+                endsAt.toFixed(1) + '" value="' + (t.exitSec || 0).toFixed(1) + '"><b>of ' +
+                fmt(endsAt) + '</b>') +
+        (cut > 1 ? '<div class="cm-note">Leaving the last ' + cut.toFixed(1) +
+                   's unplayed — the last strong beat, snapped to a bar.</div>' : '') +
         '<div class="cm-btns">' +
           '<button data-cm="play">▶ Play from here</button>' +
+          '<button class="ghost" data-cm="whole">Play it to the end</button>' +
           '<button class="ghost" data-cm="open">Open it</button>' +
         '</div>';
     }
@@ -1471,6 +1488,13 @@
       var t = project.tracks[idx];
       if (!t) return;
       if (what === 'gain') t.gainDb = num;
+      else if (what === 'exit') {
+        /* Taken as given, only kept the right side of its entry and its end —
+           a mix-out is a decision, not a suggestion. */
+        var lo = (t.entrySec || 0) + 1;
+        var hi = t.durationSec || num;
+        t.exitSec = Math.max(lo, Math.min(hi, num));
+      }
     }
 
     /* Only write the project when the control is let go. Saving on every pixel
@@ -1509,6 +1533,17 @@
       closeClipMenu();
       touch('sample removed');
       setStatus('Sample removed from the mix.');
+      return;
+    }
+    if (act === 'whole') {
+      var tw = project.tracks[idx];
+      if (!tw) return;
+      var was = tw.exitSec || 0;
+      tw.exitSec = tw.durationSec || was;
+      closeClipMenu();
+      touch('plays to the end');
+      setStatus('"' + tw.title + '" now plays to the end of the record — ' +
+                fmt(was) + ' to ' + fmt(tw.exitSec) + '. Its outro is in the mix.');
       return;
     }
     if (act === 'open') {

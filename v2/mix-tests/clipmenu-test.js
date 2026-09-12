@@ -307,6 +307,56 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
     ok(stopping.stillPlaying === false, 'and Stop stops it');
   }
 
+  /* ---- where a record ends is the user's to decide ------------------
+
+     Every track's mix-out is set to its last STRONG beat and snapped to a
+     bar — a DJ mixes out before the outro, and so does this. Usually right,
+     sometimes wrong, and when it is wrong it reads as the tool chopping the
+     end off the song for no reason: on a real set it was taking between two
+     and twenty seconds off each record with nothing to say so and no way to
+     put it back. */
+  const mixout = await page.evaluate(async () => {
+    const el = document.querySelector('#timeline .clip.song[data-index="0"]');
+    const r = el.getBoundingClientRect();
+    el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true,
+      clientX: Math.round(r.left + 20), clientY: Math.round(r.top + 6) }));
+    await new Promise(z => setTimeout(z, 300));
+    const m = document.querySelector(".clipmenu");
+    if (!m) return { err: "no popup on the song" };
+    const field = m.querySelector('[data-cm="exit"]');
+    const whole = m.querySelector('[data-cm="whole"]');
+    const before = window.__project().tracks[0].exitSec;
+    const dur = window.__project().tracks[0].durationSec;
+    if (!field || !whole) return { err: "no mix-out control on the song popup" };
+
+    /* type a number: it must be taken as given */
+    field.value = String(Math.round(dur - 5));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise(z => setTimeout(z, 400));
+    const typed = window.__project().tracks[0].exitSec;
+
+    /* and the button that says what most people mean */
+    const el2 = document.querySelector('#timeline .clip.song[data-index="0"]');
+    const r2 = el2.getBoundingClientRect();
+    el2.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true,
+      clientX: Math.round(r2.left + 20), clientY: Math.round(r2.top + 6) }));
+    await new Promise(z => setTimeout(z, 300));
+    document.querySelector('.clipmenu [data-cm="whole"]').click();
+    await new Promise(z => setTimeout(z, 500));
+    const full = window.__project().tracks[0].exitSec;
+    return { before, dur, typed, full };
+  });
+  if (mixout.err) ok(false, mixout.err);
+  else {
+    console.log("    mix-out was " + mixout.before.toFixed(1) + "s of a " +
+                mixout.dur.toFixed(1) + "s record");
+    ok(Math.abs(mixout.typed - (mixout.dur - 5)) < 1.5,
+       "a mix-out typed in is taken as given", mixout.typed.toFixed(1) + "s");
+    ok(Math.abs(mixout.full - mixout.dur) < 0.5,
+       "and Play it to the end means the end of the record",
+       mixout.full.toFixed(1) + "s of " + mixout.dur.toFixed(1) + "s");
+  }
+
   await browser.close(); server.close();
   try { wavs.forEach(f => fs.unlinkSync(f)); fs.rmdirSync(tmp); } catch (e) {}
   console.log(fails ? '\n' + fails + ' FAILED' : '\nthe controls are on the clips and the cursor obeys');
