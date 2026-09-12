@@ -298,6 +298,43 @@ const ok = (c, m, x) => { console.log((c ? '  ok   ' : '  FAIL ') + m + (x ? '  
   });
   ok(wheelSafe === "unchanged" || wheelSafe === "no number field",
      "scrolling over a number field does not change it", wheelSafe);
+  /* ---- a drag has to show what is being dragged ---------------------
+
+     The row dims to show it is on the move and the browser is left to draw
+     what is travelling, which in Electron is nothing — so the row fades and
+     the pointer carries an empty space. A snapshot of the row is no use
+     either, being a waveform three hundred pixels tall. */
+  const dragImage = await page.evaluate(async () => {
+    const row = document.querySelector('.trk[draggable="true"], .trk');
+    if (!row) return { err: 'no track row to drag' };
+    let given = null;
+    const dt = new DataTransfer();
+    const realSet = dt.setDragImage ? dt.setDragImage.bind(dt) : null;
+    dt.setDragImage = function (el, x, y) {
+      given = { text: el ? el.textContent : null,
+                cls: el ? el.className : null,
+                inDoc: el ? document.body.contains(el) : false };
+      if (realSet) realSet(el, x, y);
+    };
+    row.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+    const dimmed = getComputedStyle(row).opacity;
+    await new Promise(r => setTimeout(r, 50));
+    const leftBehind = document.querySelectorAll('.drag-chip').length;
+    row.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+    return { given, dimmed: +dimmed, leftBehind };
+  });
+  if (dragImage.err) { ok(false, dragImage.err); }
+  else {
+    ok(!!dragImage.given, 'dragging a track gives the pointer something to carry',
+       dragImage.given ? dragImage.given.text : 'nothing');
+    ok(dragImage.given && dragImage.given.inDoc,
+       'and it is in the document when the picture is taken, or it is blank');
+    ok(dragImage.leftBehind === 0, 'and nothing is left behind afterwards',
+       dragImage.leftBehind + ' chips');
+    ok(dragImage.dimmed > 0.4, 'the row itself stays visible while it moves',
+       'opacity ' + dragImage.dimmed);
+  }
+
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   await browser.close(); server.close();
   console.log(fails ? '\n' + fails + ' FAILED' : '\none timeline: click it, drag it, play it');

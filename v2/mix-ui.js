@@ -2921,6 +2921,27 @@
       row.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
       try { e.dataTransfer.setData('text/plain', String(dragFrom)); } catch (err) {}
+
+      /* Something to carry.
+
+         The row dims to show it is being moved, and the browser is left to
+         produce a picture of what is travelling — which in Electron is
+         nothing at all. So the row fades and the pointer carries an empty
+         space: a drag with no indication of what is being dragged or where it
+         has got to. A snapshot of the row itself is no use either, being a
+         waveform three hundred pixels tall. A chip with its number and title
+         is the whole of what needs following. */
+      try {
+        var t = project.tracks[dragFrom] || {};
+        var chip = document.createElement('div');
+        chip.className = 'drag-chip';
+        chip.textContent = (dragFrom + 1) + '. ' + (t.title || 'track');
+        document.body.appendChild(chip);
+        e.dataTransfer.setDragImage(chip, 14, 14);
+        /* It has to be in the document when the picture is taken, and gone
+           immediately after. */
+        setTimeout(function () { if (chip.parentNode) chip.parentNode.removeChild(chip); }, 0);
+      } catch (err) {}
     });
     onTrackSurface('dragend', function () {
       dragFrom = null;
