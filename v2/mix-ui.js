@@ -1245,6 +1245,9 @@
         /* The tone controls belong here too. They were in the junction editor
            only, which is a different panel reached by a different click — so
            the answer to "can I give this more bass" was to go and find it. */
+        menuRow('Weight', '<input type="range" data-cm="weight" min="0" max="10" step="1" value="' +
+                (j.fillWeight == null ? 0 : j.fillWeight) + '"><b data-cm-val="weight">' +
+                (j.fillWeight == null ? 0 : j.fillWeight) + '</b>') +
         menuRow('Bass', '<input type="range" data-cm="low" min="-18" max="12" step="1" value="' +
                 (j.fillLowDb == null ? 0 : j.fillLowDb) + '"><b data-cm-val="low">' +
                 (j.fillLowDb == null ? 0 : j.fillLowDb) + ' dB</b>') +
@@ -1351,7 +1354,7 @@
     var num = parseFloat(val);
 
     var rd = _menu.querySelector('[data-cm-val="' + what + '"]');
-    if (rd) rd.textContent = num + (what === 'reverb' ? '%' : ' dB');
+    if (rd) rd.textContent = num + (what === 'reverb' ? '%' : what === 'weight' ? '' : ' dB');
 
     if (what === 'gain') {
       /* Heard as the slider moves, not after a rebuild. */
@@ -1375,6 +1378,7 @@
       else if (what === 'pattern') j.drumPattern = val;
       else if (what === 'fadein') j.fadeInBeats = Math.round(num);
       else if (what === 'fadeout') j.fadeOutBeats = Math.round(num);
+      else if (what === 'weight') j.fillWeight = num;
       else if (what === 'low') j.fillLowDb = num;
       else if (what === 'mid') j.fillMidDb = num;
       else if (what === 'high') j.fillHighDb = num;
@@ -2103,6 +2107,7 @@
         fromBpm: fromBpm, toBpm: fromBpm,     // one tempo: this is the kit, not the walk
         gainDb: s.fillGainDb == null ? -1.5 : s.fillGainDb,
         lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
+        weightDb: s.fillWeight,
         reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
         sampleRate: (src && src.sampleRate) || audioCtx().sampleRate
       });
@@ -2172,6 +2177,7 @@
          s.fadeInBeats == null ? (s.preBeats == null ? 8 : s.preBeats) : s.fadeInBeats, 1, 0, 64) +
       jf('Fade out (beats)', 'fadeOutBeats',
          s.fadeOutBeats == null ? 4 : s.fadeOutBeats, 1, 0, 64) +
+      jf('Weight (0-10)', 'fillWeight', s.fillWeight == null ? 0 : s.fillWeight, 1, 0, 10) +
       jf('Reverb (%)', 'fillReverb', s.fillReverb == null ? 0 : s.fillReverb, 5, 0, 80) +
       jf('Reverb length (beats)', 'fillReverbBeats',
          s.fillReverbBeats == null ? 1 : s.fillReverbBeats, 0.5, 0.25, 8) +
@@ -3971,6 +3977,7 @@
             fromBpm: j.fill.fromBpm, toBpm: j.fill.toBpm,
             gainDb: s.fillGainDb, fadeInBeats: s.fadeInBeats, fadeOutBeats: s.fadeOutBeats,
             lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
+            weightDb: s.fillWeight,
             reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
             sampleRate: audioCtx().sampleRate
           });

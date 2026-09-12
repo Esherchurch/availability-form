@@ -742,6 +742,7 @@
           fromBpm: jOut.fill.fromBpm, toBpm: jOut.fill.toBpm,
           gainDb: jOut.settings.fillGainDb,
           fadeInBeats: jOut.settings.fadeInBeats, fadeOutBeats: jOut.settings.fadeOutBeats,
+          weightDb: jOut.settings.fillWeight,
           lowDb: jOut.settings.fillLowDb, midDb: jOut.settings.fillMidDb,
           highDb: jOut.settings.fillHighDb,
           reverbPct: jOut.settings.fillReverb, reverbBeats: jOut.settings.fillReverbBeats,

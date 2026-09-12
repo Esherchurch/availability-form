@@ -118,6 +118,58 @@ let fails=0; const ok=(c,m,x)=>{console.log((c?'  ok   ':'  FAIL ')+m+(x?'   '+x
     'and reverb does not simply make the drums quieter',
     (hold.verb.rmsDb - hold.flat.rmsDb).toFixed(1) + ' dB');
 
+ /* ---- Weight -------------------------------------------------------
+    One control for the thing people actually ask drums for. Up is not the
+    route to it: the fill sits on the ceiling, so a bass boost meets the
+    limiter and comes back. Weight goes the other way — the snare and the hats
+    recede and the kick is left as the whole of it — and it does that at the
+    kit rather than with a filter, so the level stage cannot undo it.
+
+    Asserted by band, because the share of ENERGY is nearly all bass whatever
+    you do to a kick loop and would hide the change completely. */
+ const wt = await p.evaluate(async () => {
+   const DSP = window.MixDSP, sr = 48000;
+   const loud = new OfflineAudioContext(1, sr * 20, sr).createBuffer(1, sr * 20, sr);
+   const ld = loud.getChannelData(0);
+   for (let i = 0; i < ld.length; i++) ld[i] = (Math.random() * 2 - 1) * 0.9;
+   const base = { source: loud, atSec: 20, downbeatSec: 0, beats: 32, preBeats: 8,
+                  overBeats: 0, patternId: 'four', fromBpm: 100, toBpm: 100, sampleRate: sr };
+   async function bandDb(buf, lo, hi) {
+     const c = new OfflineAudioContext(1, buf.length, buf.sampleRate);
+     const s = c.createBufferSource(); s.buffer = buf;
+     let node = s;
+     for (let k = 0; k < 2; k++) {
+       const f = c.createBiquadFilter();
+       f.type = 'highpass'; f.frequency.value = lo; f.Q.value = 0.7;
+       node.connect(f); node = f;
+     }
+     for (let k = 0; k < 2; k++) {
+       const f = c.createBiquadFilter();
+       f.type = 'lowpass'; f.frequency.value = hi; f.Q.value = 0.7;
+       node.connect(f); node = f;
+     }
+     node.connect(c.destination); s.start(0);
+     const r = await c.startRendering(), d = r.getChannelData(0);
+     let acc = 0; for (let i = 0; i < d.length; i++) acc += d[i] * d[i];
+     return 10 * Math.log10(acc / d.length + 1e-20);
+   }
+   const flat = await DSP.buildBeatFill(Object.assign({}, base));
+   const heavy = await DSP.buildBeatFill(Object.assign({}, base, { weightDb: 10 }));
+   return {
+     flatKick: await bandDb(flat, 30, 60), heavyKick: await bandDb(heavy, 30, 60),
+     flatTop: await bandDb(flat, 4000, 8000), heavyTop: await bandDb(heavy, 4000, 8000)
+   };
+ });
+ console.log('   weight 0 -> 10: kick ' + wt.flatKick.toFixed(1) + ' -> ' +
+             wt.heavyKick.toFixed(1) + ' dB, top ' + wt.flatTop.toFixed(1) + ' -> ' +
+             wt.heavyTop.toFixed(1) + ' dB');
+ ok(wt.flatTop - wt.heavyTop > 12, 'Weight takes the top of the kit away',
+    (wt.flatTop - wt.heavyTop).toFixed(1) + ' dB');
+ ok(Math.abs(wt.flatKick - wt.heavyKick) < 3, 'and leaves the kick where it was',
+    (wt.heavyKick - wt.flatKick).toFixed(1) + ' dB');
+ ok(wt.flatTop > -45, 'the kit has a top to take away in the first place',
+    wt.flatTop.toFixed(1) + ' dB');
+
  await b.close(); srv.close();
  console.log(fails?'\n'+fails+' FAILED':'\nthe EQ and reverb controls reach the audio');
  process.exit(fails?1:0);
