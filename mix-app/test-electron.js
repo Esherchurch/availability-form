@@ -151,6 +151,47 @@ app.whenReady().then(async () => {
   ok(warn.clips >= 1, 'and the clip on the timeline is marked silent',
      warn.clips + ' marked: ' + warn.labels.join(' | '));
 
+  /* ---- one good sample and one broken one, which is the real case ----
+
+     Both of Martin's placements pointed at the same junction: one sample with
+     audio and one without. A warning that lands on both is worth nothing, and
+     the timeline is drawn at startup before the library has been read, so
+     until it is drawn again everything looks silent. */
+  const mixed = await win3.webContents.executeJavaScript(`(async () => {
+    const MP = window.MixProject, sr = 48000, n = sr * 2;
+    const ab = new OfflineAudioContext(1, n, sr).createBuffer(1, n, sr);
+    const d = ab.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = 0.4 * Math.sin(2 * Math.PI * 1000 * i / sr);
+    await MP.saveSample({ id: 'smp_good', name: 'Has audio', bars: 2, sourceBpm: 120,
+                          durationSec: 2 }, window.MixDSP.encodeWav(ab));
+    const proj = await MP.loadProject();
+    proj.placements = [
+      { sampleId: 'smp_good', atJunction: 0, barsBeforeEntry: 8, mode: 'over', gainDb: -4 },
+      { sampleId: 'smp_missing', atJunction: 0, barsBeforeEntry: 3, mode: 'over', gainDb: 3 }
+    ];
+    await MP.saveProject(proj);
+    return true;
+  })()`, true);
+  ok(mixed === true, 'a project with one good sample and one broken one is set up');
+
+  const win4 = new BrowserWindow({
+    show: false, width: 1400, height: 1000,
+    webPreferences: { offscreen: true, contextIsolation: true, sandbox: false }
+  });
+  await win4.loadFile(PAGE);
+  await new Promise(r => setTimeout(r, 3500));
+  const marks = await win4.webContents.executeJavaScript(`(() => {
+    const clips = [...document.querySelectorAll('#timeline .clip.sample')];
+    return clips.map(c => ({ title: c.title, silent: c.classList.contains('no-audio') }));
+  })()`, true);
+  console.log('    clips: ' + JSON.stringify(marks));
+  const bad = marks.filter(m => m.silent), good = marks.filter(m => !m.silent);
+  ok(marks.length === 2, 'both placements are drawn', marks.length + ' clips');
+  ok(bad.length === 1 && /no audio/.test(bad[0].title),
+     'exactly the broken one is marked silent', bad.map(m => m.title).join(','));
+  ok(good.length === 1 && !/no audio/.test(good[0].title),
+     'and the good one is left alone', good.map(m => m.title).join(','));
+
   ok(errs.length === 0, 'no errors in the real runtime', errs.slice(0, 3).join(' | '));
 
   console.log(fails ? '\n' + fails + ' FAILED in Electron' : '\nthe sample library works in the real runtime');

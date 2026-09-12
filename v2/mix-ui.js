@@ -3240,6 +3240,11 @@
       sampleHasAudio = new Set(ks || []);
     } catch (e) { sampleHasAudio = new Set(); }
     renderSamples();
+    /* The timeline is drawn at startup BEFORE this has finished, so until it is
+       drawn again every sample clip is marked silent — including the ones that
+       are perfectly fine. A warning that appears on everything is worth nothing;
+       it has to be right to be read. */
+    renderTimeline();
   }
 
   async function sampleAudioFor(id) {
