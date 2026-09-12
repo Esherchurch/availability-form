@@ -58,11 +58,11 @@
     function build(plan, buffers, extra) {
       S.clips = [];
       S.dur = 0;
-      (plan.tracks || []).forEach(function (pt) {
+      (plan.tracks || []).forEach(function (pt, ti) {
         var buf = buffers.get ? buffers.get(pt.id) : buffers[pt.id];
         if (!buf) return;
         addClip({
-          kind: 'track', title: pt.title,
+          kind: 'track', title: pt.title, index: ti,
           fromSec: pt.startSec,
           toSec: pt.startSec + pt.outSec,
           buffer: buf,
@@ -125,6 +125,26 @@
       }
     }
 
+    /* Change a clip's level without rebuilding anything.
+
+       A volume control is only worth having if you can hear it move. The clip
+       list is rebuilt from the plan, which means synthesising drums — far too
+       slow to sit under a slider — so this reaches the stored gain and the
+       gain node of anything currently sounding, and nothing else. */
+    function setGain(kind, index, gain) {
+      var hit = 0;
+      S.clips.forEach(function (c) {
+        if (c.kind !== kind || c.index !== index) return;
+        c.gain = gain; hit++;
+      });
+      S.live.forEach(function (rec) {
+        if (rec.clip.kind === kind && rec.clip.index === index) {
+          try { rec.gain.gain.setTargetAtTime(gain, ctx.currentTime, 0.01); } catch (e) {}
+        }
+      });
+      return hit;
+    }
+
     function stopAll() {
       S.live.forEach(stopClip);
       S.live = [];
@@ -168,7 +188,7 @@
 
     return {
       build: build,
-      play: play, pause: pause, seek: seek, stop: stop,
+      play: play, pause: pause, seek: seek, stop: stop, setGain: setGain,
       at: function () { return S.t; },
       duration: function () { return S.dur; },
       isPlaying: function () { return S.playing; },

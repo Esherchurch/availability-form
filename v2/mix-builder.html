@@ -373,6 +373,21 @@
                max-width:100%; overflow:hidden; text-overflow:ellipsis;
                padding:0 5px; line-height:14px; font-size:10px;
                background:rgba(247,251,250,.82); border-radius:3px 0 3px 0; }
+  /* Controls that open on the thing they control. */
+  .clipmenu{ position:fixed; z-index:200; min-width:270px; max-width:340px;
+             background:#fff; border:1px solid var(--line); border-radius:10px;
+             box-shadow:0 10px 30px rgba(20,32,31,.18); padding:10px 12px 12px; }
+  .cm-title{ font-weight:700; font-size:12px; margin:0 0 8px; color:var(--ink,#14201f);
+             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cm-row{ display:flex; align-items:center; gap:8px; margin:6px 0; font-size:11px;
+           color:var(--muted); }
+  .cm-row > span{ width:92px; flex:none; }
+  .cm-row input[type=range]{ flex:1; accent-color:#3d6263; }
+  .cm-row input[type=number]{ width:64px; }
+  .cm-row select{ flex:1; }
+  .cm-row b{ font-weight:600; color:var(--ink,#14201f); min-width:44px; font-size:11px; }
+  .cm-btns{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .cm-btns button{ font-size:11px; padding:4px 9px; }
 </style>
 </head>
 <body>

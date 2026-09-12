@@ -1144,7 +1144,24 @@ onmessage = e => {
      riser or a stab still wants the impact rather than the kick. */
   function sfxImpact(){var sr=44100,n=Math.floor(sr*1.2),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=(Math.random()*2-1)*Math.exp(-t*5)*0.6+Math.sin(2*Math.PI*60*t)*Math.exp(-t*5)*0.5+Math.sin(2*Math.PI*40*t)*Math.exp(-t*12)*0.4;}return s;}
 
-  function sfxImpactKick(){var sr=44100,n=Math.floor(sr*1.2),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=Math.sin(2*Math.PI*60*t)*Math.exp(-t*5)*0.5+Math.sin(2*Math.PI*40*t)*Math.exp(-t*12)*0.4+(Math.random()*2-1)*Math.exp(-t*130)*0.18;}return s;}
+  /* A KICK DROPS IN PITCH. That is what makes it a kick rather than a note.
+
+     Two attempts at deriving one from sfxImpact were both wrong, and both
+     measurably. Taken whole it is 69% noise in its first 200 ms — a burst of
+     white noise four times a bar, which is what "very distorted" was. With the
+     noise taken out, what is left is two fixed sines at 60 and 40 Hz still
+     sounding 273 ms later: a low tone held a quarter of a second on every beat,
+     which is what "just hums" was. Neither was a kick, because sfxImpact is a
+     cinematic impact for a title card and the suite has no kick drum in it.
+
+     So this one is built rather than borrowed, and it is built the way a kick
+     works: 155 Hz falling to 45 in about twenty milliseconds, which is the
+     thump, over in 130 — measured, against 273 for the hum. A few
+     milliseconds of noise on the front is the beater.
+
+     The snare and the hat are still the suite's, unchanged, because those it
+     does have. */
+  function kickDrum(){var sr=44100,n=Math.floor(sr*0.5),s=new Float32Array(n),ph=0;for(var i=0;i<n;i++){var t=i/sr;var f=45+110*Math.exp(-t/0.018);ph+=2*Math.PI*f/sr;s[i]=Math.sin(ph)*Math.exp(-t/0.075)+(Math.random()*2-1)*Math.exp(-t/0.0012)*0.22;}return s;}
   function sfxSnare(){var sr=44100,n=Math.floor(sr*0.35),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=Math.sin(2*Math.PI*200*t)*Math.exp(-t*30)*0.5+(Math.random()*2-1)*Math.exp(-t*15)*0.6;}return s;}
   function sfxTypewriter(){var sr=44100,n=Math.floor(sr*0.08),s=new Float32Array(n);for(var i=0;i<n;i++){var t=i/sr;s[i]=(Math.random()*2-1)*Math.exp(-t*60)*0.7+Math.sin(2*Math.PI*800*t)*Math.exp(-t*60)*0.3;}return s;}
 
@@ -1155,7 +1172,7 @@ onmessage = e => {
   function kitVoice(name, sr) {
     var key = name + '@' + sr;
     if (_kit[key]) return _kit[key];
-    var src = name === 'kick' ? sfxImpactKick() : name === 'snare' ? sfxSnare() : sfxTypewriter();
+    var src = name === 'kick' ? kickDrum() : name === 'snare' ? sfxSnare() : sfxTypewriter();
     var from = 44100;
     if (sr === from) { _kit[key] = src; return src; }
     var n = Math.round(src.length * sr / from), out = new Float32Array(n);

@@ -326,9 +326,20 @@
     if (num) num.textContent = db > -99 ? db.toFixed(1) : '−inf';
   }
 
+  /* An edit makes what the transport is holding wrong.
+
+     The transport is built once from the plan and then keeps its own list of
+     clips. Placing a sample, changing the drums or moving anything does not
+     reach that list, so a mix already playing goes on playing the arrangement
+     it was built with — and dragging the cursor onto a sample just placed
+     lands on a stretch of time the transport has never heard of. Which is
+     indistinguishable from a sample that does not work. */
+  var previewStale = false;
+
   function touch(label) {
     recompute(); pruneSegments(); save(); renderAll();
     snapshot(label);
+    previewStale = true;
     /* The preview is built from the plan, so any edit makes it stale. It is
        rebuilt on the next press rather than now — rebuilding on every
        keystroke would synthesise drums for a number half typed. */
@@ -852,7 +863,31 @@
   function clearInOut() { S_in = null; S_out = null; updateInOutMarkers(); setStatus('Section cleared.'); }
 
   var seekPending = null;
+  var previewRebuild = null;
   async function seekMix(sec) {
+    /* Rebuilt here rather than on the edit itself: an edit can be a number
+       half typed, and rebuilding synthesises drums. Moving the cursor is a
+       deliberate act and the right moment to catch up — including while it is
+       playing, which is when this was most obviously wrong. */
+    if (previewStale && preview && preview.duration()) {
+      /* One rebuild, however many times this is called. Scrubbing sends a seek
+         on every mouse move, and each one would otherwise start its own
+         synthesis of the drums. */
+      if (!previewRebuild) {
+        var wasPlaying = preview.isPlaying();
+        if (wasPlaying) preview.pause();
+        previewRebuild = buildPreviewIfPossible().then(function () {
+          previewStale = false; previewRebuild = null;
+          if (wasPlaying) preview.play();
+        }, function () { previewRebuild = null; });
+      }
+      seekPending = sec;
+      await previewRebuild;
+      preview.seek(seekPending == null ? sec : seekPending);
+      seekPending = null;
+      updatePH();
+      return;
+    }
     if (!preview || !preview.duration()) {
       if (seekPending != null) { seekPending = sec; return; }
       seekPending = sec;
@@ -944,6 +979,28 @@
         }
         window.addEventListener('mousemove', mm);
         window.addEventListener('mouseup', mu);
+        e.preventDefault();
+        return;
+      }
+
+      /* Empty space in a lane moves the cursor, and dragging there scrubs it.
+
+         This used to be the ruler alone — a strip a few pixels tall at the top
+         of a timeline that is four lanes deep. Everywhere else the pointer did
+         nothing at all, so scrolling along to a sample and clicking beside it
+         left the playhead where it was and the music carried on from there.
+         The sample was never reached, which looks exactly like a sample that
+         does not play. Videoeditor.html seeks from anywhere on its timeline;
+         so does this now. */
+      if (e.target.closest && e.target.closest('.tl-lane')) {
+        seekMix(timeFromMouse(e));
+        function laneMove(ev) { seekMix(timeFromMouse(ev)); }
+        function laneUp() {
+          window.removeEventListener('mousemove', laneMove);
+          window.removeEventListener('mouseup', laneUp);
+        }
+        window.addEventListener('mousemove', laneMove);
+        window.addEventListener('mouseup', laneUp);
         e.preventDefault();
       }
     });
@@ -1092,6 +1149,247 @@
     bars = Math.max(1, Math.min(64, bars));
     if (commit) { j.bars = bars; touch('overlap changed'); }
     return 'overlapping the record before it by ' + bars + ' bars';
+  }
+
+  /* ------------------------------------------ controls on the clip ---
+     Right-click anything on the timeline and its controls open where the
+     pointer is: the level, what it is, and a way to hear it from there.
+
+     The level is the reason this exists. A sample's volume lived in the sample
+     list, which means scrolling away from the timeline to a row that may be
+     forty samples down, changing a number, and scrolling back to listen — and
+     the wheel over that number changed it rather than moving the page. The
+     control belongs on the thing it controls.
+
+     "Play from here" matters as much. A sample placed eight bars before the
+     next record sits two and a half minutes into the set, so pressing play at
+     the start never reaches it — which is indistinguishable from a sample that
+     does not work, and is what it was taken for. */
+
+  var _menu = null;
+
+  function closeClipMenu() {
+    if (_menu && _menu.parentNode) _menu.parentNode.removeChild(_menu);
+    _menu = null;
+  }
+
+  function menuRow(label, inner) {
+    return '<label class="cm-row"><span>' + label + '</span>' + inner + '</label>';
+  }
+
+  function openClipMenu(kind, index, x, y) {
+    closeClipMenu();
+    var el = document.createElement('div');
+    el.className = 'clipmenu';
+    el.dataset.kind = kind;
+    el.dataset.index = String(index);
+
+    var html = '', title = '';
+    if (kind === 'sample') {
+      var p = (project.placements || [])[index];
+      if (!p) return;
+      var meta = sampleMeta.get(p.sampleId);
+      title = meta ? meta.name : p.sampleId;
+      html =
+        menuRow('Volume', '<input type="range" data-cm="gain" min="-40" max="6" step="1" value="' +
+                (p.gainDb == null ? -8 : p.gainDb) + '"><b data-cm-val="gain">' +
+                (p.gainDb == null ? -8 : p.gainDb) + ' dB</b>') +
+        menuRow('Position', '<input type="number" data-cm="bars" step="0.25" min="0" max="64" value="' +
+                (p.barsBeforeEntry || 0) + '"><b>bars before</b>') +
+        menuRow('Over or between', '<select data-cm="mode">' +
+                '<option value="over"' + (p.mode !== 'between' ? ' selected' : '') + '>Over the music</option>' +
+                '<option value="between"' + (p.mode === 'between' ? ' selected' : '') + '>In the gap</option>' +
+                '</select>') +
+        '<div class="cm-btns">' +
+          '<button data-cm="play">▶ Play from here</button>' +
+          '<button class="ghost" data-cm="hear">Hear it alone</button>' +
+          '<button class="ghost" data-cm="remove">Remove</button>' +
+        '</div>';
+    } else if (kind === 'drums') {
+      var j = project.junctions[index];
+      if (!j) return;
+      title = 'Drums between ' + (project.tracks[index] || {}).title + ' and ' +
+              (project.tracks[index + 1] || {}).title;
+      html =
+        menuRow('Volume', '<input type="range" data-cm="gain" min="-24" max="6" step="1" value="' +
+                (j.fillGainDb == null ? -1.5 : j.fillGainDb) + '"><b data-cm-val="gain">' +
+                (j.fillGainDb == null ? -1.5 : j.fillGainDb) + ' dB</b>') +
+        menuRow('How many beats', '<input type="number" data-cm="beats" step="4" min="4" max="256" value="' +
+                fillBeatsOfUI(j) + '">') +
+        menuRow('Pattern', '<select data-cm="pattern">' +
+                ['auto'].concat(DSP.drumPatterns().map(function (q) { return q.id; }))
+                  .map(function (id) {
+                    var nm = id === 'auto' ? 'Match the song'
+                           : (DSP.drumPatterns().filter(function (q) { return q.id === id; })[0] || {}).name;
+                    return '<option value="' + id + '"' +
+                      ((j.drumPattern || 'auto') === id ? ' selected' : '') + '>' + esc(nm) + '</option>';
+                  }).join('') + '</select>') +
+        menuRow('Fade in', '<input type="number" data-cm="fadein" step="1" min="0" max="64" value="' +
+                (j.fadeInBeats == null ? (j.preBeats == null ? 8 : j.preBeats) : j.fadeInBeats) + '"><b>beats</b>') +
+        menuRow('Fade out', '<input type="number" data-cm="fadeout" step="1" min="0" max="64" value="' +
+                (j.fadeOutBeats == null ? 4 : j.fadeOutBeats) + '"><b>beats</b>') +
+        '<div class="cm-btns">' +
+          '<button data-cm="play">▶ Play from here</button>' +
+          '<button class="ghost" data-cm="hear">Hear the drums</button>' +
+          '<button class="ghost" data-cm="open">All settings…</button>' +
+        '</div>';
+    } else {
+      var t = project.tracks[index];
+      if (!t) return;
+      title = t.title;
+      html =
+        menuRow('Volume', '<input type="range" data-cm="gain" min="-24" max="12" step="0.5" value="' +
+                (t.gainDb == null ? 0 : t.gainDb) + '"><b data-cm-val="gain">' +
+                (t.gainDb == null ? 0 : t.gainDb) + ' dB</b>') +
+        '<div class="cm-btns">' +
+          '<button data-cm="play">▶ Play from here</button>' +
+          '<button class="ghost" data-cm="open">Open it</button>' +
+        '</div>';
+    }
+
+    el.innerHTML = '<div class="cm-title">' + esc(title) + '</div>' + html;
+    document.body.appendChild(el);
+
+    /* Keep it on the screen: opened near the right edge it would otherwise
+       hang off it, and a control you cannot reach is not a control. */
+    var r = el.getBoundingClientRect();
+    var left = Math.min(x, window.innerWidth - r.width - 8);
+    var top = Math.min(y, window.innerHeight - r.height - 8);
+    el.style.left = Math.max(8, left) + 'px';
+    el.style.top = Math.max(8, top) + 'px';
+    _menu = el;
+  }
+
+  function clipMenuStartSec(kind, index) {
+    var plan = tlPlan();
+    if (!plan) return 0;
+    if (kind === 'song') return (plan.tracks[index] || {}).startSec || 0;
+    if (kind === 'drums') {
+      var a = plan.tracks[index], j = plan.junctions[index];
+      if (!a) return 0;
+      var pre = (j && j.settings && j.settings.preBeats != null ? j.settings.preBeats : 8) *
+                (60 / ((j && j.fill && j.fill.fromBpm) || 120));
+      return Math.max(0, a.startSec + a.outSec - pre);
+    }
+    var p = (project.placements || [])[index];
+    var b = p && plan.tracks[p.atJunction + 1];
+    if (!p || !b) return 0;
+    var jn = plan.junctions[p.atJunction];
+    var bpm = (jn && jn.fill) ? jn.fill.toBpm : ((jn && jn.targetBpm) || 120);
+    return Math.max(0, b.startSec - (p.barsBeforeEntry || 0) * (60 / bpm * 4));
+  }
+
+  function wireClipMenu() {
+    if (document.body.dataset.clipMenuWired) return;
+    document.body.dataset.clipMenuWired = '1';
+
+    document.addEventListener('contextmenu', function (e) {
+      var clip = e.target.closest ? e.target.closest('#timeline .clip') : null;
+      if (!clip) { closeClipMenu(); return; }
+      e.preventDefault();
+      openClipMenu(clip.dataset.clip, +clip.dataset.index, e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mousedown', function (e) {
+      if (_menu && !(e.target.closest && e.target.closest('.clipmenu'))) closeClipMenu();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeClipMenu();
+    });
+
+    /* Live while dragging: the point of a slider is hearing it move. */
+    document.addEventListener('input', function (e) {
+      if (!_menu || !e.target.dataset || !e.target.dataset.cm) return;
+      applyClipMenu(e.target, false);
+    });
+    document.addEventListener('change', function (e) {
+      if (!_menu || !e.target.dataset || !e.target.dataset.cm) return;
+      applyClipMenu(e.target, true);
+    });
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.clipmenu button[data-cm]') : null;
+      if (!b || !_menu) return;
+      clipMenuAction(b.dataset.cm);
+    });
+  }
+
+  function applyClipMenu(input, commit) {
+    var kind = _menu.dataset.kind, idx = +_menu.dataset.index;
+    var what = input.dataset.cm, val = input.value;
+    var num = parseFloat(val);
+
+    if (what === 'gain') {
+      var lbl = _menu.querySelector('[data-cm-val="gain"]');
+      if (lbl) lbl.textContent = num + ' dB';
+      /* Heard as the slider moves, not after a rebuild. */
+      if (preview) {
+        preview.setGain(kind === 'drums' ? 'fill' : kind === 'song' ? 'track' : 'sample',
+                        idx, Math.pow(10, num / 20));
+      }
+    }
+
+    if (kind === 'sample') {
+      var p = (project.placements || [])[idx];
+      if (!p) return;
+      if (what === 'gain') p.gainDb = num;
+      else if (what === 'bars') p.barsBeforeEntry = num;
+      else if (what === 'mode') p.mode = val;
+    } else if (kind === 'drums') {
+      var j = project.junctions[idx];
+      if (!j) return;
+      if (what === 'gain') j.fillGainDb = num;
+      else if (what === 'beats') j.beatBeats = Math.round(num);
+      else if (what === 'pattern') j.drumPattern = val;
+      else if (what === 'fadein') j.fadeInBeats = Math.round(num);
+      else if (what === 'fadeout') j.fadeOutBeats = Math.round(num);
+    } else {
+      var t = project.tracks[idx];
+      if (!t) return;
+      if (what === 'gain') t.gainDb = num;
+    }
+
+    /* Only write the project when the control is let go. Saving on every pixel
+       of a slider would put sixty states on the undo stack for one decision. */
+    if (commit) {
+      var keep = { kind: kind, index: idx,
+                   x: parseInt(_menu.style.left, 10), y: parseInt(_menu.style.top, 10) };
+      touch('changed ' + (kind === 'drums' ? 'the drums' : kind));
+      openClipMenu(keep.kind, keep.index, keep.x, keep.y);
+    }
+  }
+
+  async function clipMenuAction(act) {
+    var kind = _menu.dataset.kind, idx = +_menu.dataset.index;
+    if (act === 'play') {
+      var at = clipMenuStartSec(kind, idx);
+      closeClipMenu();
+      await seekMix(Math.max(0, at - 1));
+      if (preview && !preview.isPlaying()) $('previewBtn').click();
+      return;
+    }
+    if (act === 'hear') {
+      closeClipMenu();
+      if (kind === 'drums') { hearDrums(idx); return; }
+      var p = (project.placements || [])[idx];
+      if (!p) return;
+      var buf = await sampleAudioFor(p.sampleId);
+      if (!buf) { setStatus('That sample has no audio stored.', true); return; }
+      playAtGain(buf, p.gainDb == null ? -8 : p.gainDb);
+      var m = sampleMeta.get(p.sampleId);
+      setStatus('"' + (m ? m.name : p.sampleId) + '" at ' + (p.gainDb == null ? -8 : p.gainDb) + ' dB.');
+      return;
+    }
+    if (act === 'remove') {
+      MP.removePlacement(project, idx);
+      closeClipMenu();
+      touch('sample removed');
+      setStatus('Sample removed from the mix.');
+      return;
+    }
+    if (act === 'open') {
+      closeClipMenu();
+      selectClip(kind, idx);
+    }
   }
 
   /* What is selected, and what opens underneath it. One panel, whatever the
@@ -2494,6 +2792,7 @@
     wireSuggest();
     wireRender();
     wireGlobalStop();
+    wireClipMenu();
     /* Scrolling the page must not change a number. A wheel over a focused
        number input alters its value, so in a long list of samples a scroll
        past one quietly re-levels it — and the scroll goes to the input rather
@@ -3501,6 +3800,17 @@
        do before you can put a cursor somewhere and press play. */
 
     window.__buildPreview = function () { return buildPreview(); };
+    /* For tests: the live project, not the saved copy. Reading the saved one
+       is how a probe once built a preview from half the mix. */
+    window.__project = function () { return project; };
+    /* For tests: what the transport has actually been given to play. */
+    window.__previewState = function () {
+      if (!preview) return null;
+      return preview.clips().map(function (c) {
+        return { kind: c.kind, from: +c.fromSec.toFixed(1), to: +c.toSec.toFixed(1),
+                 gain: +(c.gain || 0).toFixed(3), hasBuffer: !!c.buffer };
+      });
+    };
 
     async function buildPreview() {
       if (!preview) preview = MixPreview.create({ ctx: audioCtx(), DSP: DSP,
@@ -3556,7 +3866,7 @@
         if (!fill) continue;
         // the pre-roll sits under the outgoing record's last beats
         var at = a.startSec + a.outSec - (fill.preSec || 0);
-        extra.push({ kind: 'fill', title: 'drums', fromSec: at,
+        extra.push({ kind: 'fill', title: 'drums', index: k, fromSec: at,
                      toSec: at + fill.duration, buffer: fill,
                      offsetSec: 0, rate0: 1, rate1: 1, gain: 1 });
       }
@@ -3577,7 +3887,7 @@
         if (!buf || !j || !b) continue;
         var bpm = j.fill ? j.fill.toBpm : (j.targetBpm || 120);
         var at = b.startSec - (p.barsBeforeEntry || 0) * (60 / bpm * 4);
-        extra.push({ kind: 'sample', title: p.sampleId,
+        extra.push({ kind: 'sample', title: p.sampleId, index: pi,
                      fromSec: Math.max(0, at), toSec: Math.max(0, at) + buf.duration,
                      buffer: buf, offsetSec: 0, rate0: 1, rate1: 1,
                      gain: Math.pow(10, (p.gainDb == null ? -8 : p.gainDb) / 20) });
@@ -3618,6 +3928,7 @@
       try {
         var at = preview ? preview.at() : 0;
         await buildPreview();
+        previewStale = false;
         /* A marked section wins: that is what marking it was for. */
         if (S_in != null && (at < S_in || (S_out != null && at >= S_out))) at = S_in;
         preview.seek(at);
