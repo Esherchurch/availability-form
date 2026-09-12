@@ -778,7 +778,16 @@
       var floor = (t.entrySec || 0) + MIN_PLAYABLE_SEC;
 
       var limit = null, why = '';
-      if (isFinite(contentEnd) && t.exitSec > contentEnd && contentEnd > floor) {
+      /* A mix-out set by hand is a decision and stays put.
+
+         The rule below pulls a mix-out back to where the audio last rose above
+         -34 dBFS, on the grounds that past it there is nothing to mix out of.
+         That is right for a value the tool guessed and wrong for one somebody
+         typed — and "play it to the end" on a record with a fade-out is exactly
+         the case it would undo, silently, on the next re-link. A record faded
+         to -40 dB is still a record playing. */
+      if (t.exitLocked) { /* left where it was put */ }
+      else if (isFinite(contentEnd) && t.exitSec > contentEnd && contentEnd > floor) {
         limit = contentEnd;
         why = 'it was ' + (t.exitSec - contentEnd).toFixed(1) + 's past the end of the music';
       }
@@ -1490,10 +1499,25 @@
       if (what === 'gain') t.gainDb = num;
       else if (what === 'exit') {
         /* Taken as given, only kept the right side of its entry and its end —
-           a mix-out is a decision, not a suggestion. */
+           a mix-out is a decision, not a suggestion.
+
+           But an empty box is not a decision, and neither is zero. parseFloat
+           of "" is NaN, and NaN through Math.max and Math.min stays NaN: a
+           record was left with a mix-out of nothing, which reads downstream as
+           "no mix-out set" and plays to a completely different place from the
+           one the marker shows. A value that cannot be a mix-out is refused
+           and the box put back to what it was. */
         var lo = (t.entrySec || 0) + 1;
         var hi = t.durationSec || num;
+        if (!isFinite(num) || num <= lo) {
+          setStatus('A mix-out has to be after the entry point and before the end of the ' +
+                    'record — "' + val + '" is neither, so it has been left where it was.', true);
+          input.value = (t.exitSec || 0).toFixed(1);
+          return;
+        }
         t.exitSec = Math.max(lo, Math.min(hi, num));
+        /* Set by hand, so nothing may quietly move it back. */
+        t.exitLocked = true;
       }
     }
 
@@ -1540,6 +1564,7 @@
       if (!tw) return;
       var was = tw.exitSec || 0;
       tw.exitSec = tw.durationSec || was;
+      tw.exitLocked = true;
       closeClipMenu();
       touch('plays to the end');
       setStatus('"' + tw.title + '" now plays to the end of the record — ' +
