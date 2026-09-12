@@ -21,6 +21,18 @@ const PAGE = path.join(__dirname, '..', 'v2', 'mix-builder.html');
 const udd = fs.mkdtempSync(path.join(os.tmpdir(), 'mixel-'));
 app.setPath('userData', udd);
 
+/* Never the real library.
+
+   A sample called "Sir Duke horns" — a fixture from sample-test.js, saved with
+   no audio on purpose — turned up in Martin's own library and was mistaken for
+   a sample he had cut. Whatever the route, a test must not be able to reach the
+   app's own storage, so this refuses to run if it ever resolves there. */
+if (app.getPath('userData').indexOf('mixel-') < 0) {
+  console.error('REFUSING TO RUN: userData is ' + app.getPath('userData') +
+                ', which is not a scratch directory.');
+  process.exit(2);
+}
+
 /* A window is still a window even when nobody is looking at it, and a session
    with no desktop cannot show one. Offscreen rendering needs neither. */
 app.disableHardwareAcceleration();

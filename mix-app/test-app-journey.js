@@ -34,6 +34,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
      launch at all. */
   const env = Object.assign({}, process.env);
   delete env.ELECTRON_RUN_AS_NODE;
+  /* The app must be pointed away from its own data before it is launched, or
+     a test writes into the real library — which is how a fixture sample ended
+     up in Martin's. */
+  if (!/mixe2e-/.test(udd)) { console.error('REFUSING: not a scratch profile'); process.exit(2); }
   const child = spawn(EXE, ['--remote-debugging-port=9333', '--user-data-dir=' + udd],
                       { stdio: 'ignore', detached: false, env: env });
   let browser = null;
