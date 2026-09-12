@@ -2141,7 +2141,7 @@
         gainDb: s.fillGainDb == null ? -1.5 : s.fillGainDb,
         lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
         weightDb: s.fillWeight,
-        loop: await loopForJunction(s, fromBpm, patternOfTrack(i + 1)),
+        loop: await loopForJunction(s, fromBpm, patternOfTrack(i + 1), fromBpm),
         reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
         sampleRate: (src && src.sampleRate) || audioCtx().sampleRate
       });
@@ -3518,15 +3518,42 @@
       '</details>';
   }
 
+  /* What a record's own drums are doing, near the point it comes in.
+
+     Cached per track: it is a scan of thirty seconds of audio and the answer
+     cannot change unless the record or its entry does. */
+  var trackPattern = new Map();
+
+  function patternOfTrack(index) {
+    var t = project.tracks[index];
+    if (!t) return null;
+    var key = t.id + '|' + (t.entrySec || 0);
+    if (trackPattern.has(key)) return trackPattern.get(key);
+    var buf = buffers.get(t.id);
+    var bpm = MP.effectiveBpm(t);
+    var out = null;
+    if (buf && bpm) {
+      try {
+        var from = t.entrySec || 0;
+        var prof = DSP.drumProfile(DSP.toMono(buf), buf.sampleRate, t.downbeatSec || 0,
+                                   bpm, from, Math.min(buf.duration, from + 30));
+        var m = DSP.matchDrumPattern(prof);
+        out = m && m.pattern ? m.pattern.id : null;
+      } catch (e) { out = null; }
+    }
+    trackPattern.set(key, out);
+    return out;
+  }
+
   /* The loop a junction should use: the one it has been given, or the one that
      best suits the record about to come in — its feel first, then how little
      stretching it needs. */
-  async function loopForJunction(j, toBpm, wantPattern) {
+  async function loopForJunction(j, toBpm, wantPattern, fromBpm) {
     var choice = (j && j.drumLoopId) || 'auto';
     if (choice === 'synth') return null;
     var rec = null;
     if (choice !== 'auto') rec = drumLoops.filter(function (l) { return l.id === choice; })[0];
-    if (!rec) rec = MP.pickDrumLoop(drumLoops, toBpm, wantPattern);
+    if (!rec) rec = MP.pickDrumLoop(drumLoops, toBpm, wantPattern, fromBpm);
     if (!rec) return null;
     var buf = await drumLoopAudioFor(rec.id);
     if (!buf) return null;
@@ -4130,7 +4157,12 @@
         fromTrack: fromTrack, toTrack: toTrack,
         sampleBuffers: sampleBuffers, sampleMeta: sampleMeta,
         /* so the file is bounced with the same drums the timeline played */
-        drumLoopFor: function (settings, toBpm) { return loopForJunction(settings, toBpm); },
+        /* The junction index as well, so the render matches the loop to the same
+           incoming record the timeline did — otherwise the file is bounced with
+           different drums from the ones that were listened to. */
+        drumLoopFor: function (settings, toBpm, fromBpm, jIndex) {
+          return loopForJunction(settings, toBpm, patternOfTrack(jIndex + 1), fromBpm);
+        },
         measureAlignment: true,
         shouldCancel: function () { return cancelRender; },
         onProgress: function (p) {
@@ -4381,7 +4413,8 @@
             lowDb: s.fillLowDb, midDb: s.fillMidDb, highDb: s.fillHighDb,
             weightDb: s.fillWeight,
             loop: await loopForJunction(s, j.fill ? j.fill.toBpm : (j.targetBpm || 120),
-                                    patternOfTrack(k + 1)),
+                                    patternOfTrack(k + 1),
+                                    j.fill ? j.fill.fromBpm : null),
             reverbPct: s.fillReverb, reverbBeats: s.fillReverbBeats,
             sampleRate: audioCtx().sampleRate
           });

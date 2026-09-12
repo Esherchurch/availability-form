@@ -741,8 +741,17 @@
   /* Which loop to use where nothing has been chosen: the one needing least
      stretching to sit at the tempo the fill is walking through. A loop pushed
      more than a few percent starts to sound like a loop being pushed. */
-  function pickDrumLoop(loops, bpm, wantPattern) {
+  function pickDrumLoop(loops, bpm, wantPattern, fromBpm) {
     if (!loops || !loops.length || !bpm) return null;
+    /* The fill does not sit at one tempo. It starts at the tempo of the record
+       it is leaving and arrives at the tempo of the record it is joining, and
+       the loop is laid down across the whole of that walk — so the loop that
+       suits it is the one whose WORST moment is least bad, not the one that
+       matches the far end. Between an 89 BPM record and a 100 BPM one, a 100
+       BPM loop is 12% out at the start; a 94 is 6% out at both ends and is the
+       better choice, which choosing on the destination alone would never
+       find. */
+    var ends = fromBpm ? [fromBpm, bpm] : [bpm];
     var best = null, bestCost = 1e9;
     for (var i = 0; i < loops.length; i++) {
       var l = loops[i];
@@ -752,7 +761,11 @@
       var options = [l.bpm, l.bpm / 2, l.bpm * 2];
       var tempo = 1e9;
       for (var k = 0; k < options.length; k++) {
-        tempo = Math.min(tempo, Math.abs(Math.log(options[k] / bpm)));
+        var worst = 0;
+        for (var e = 0; e < ends.length; e++) {
+          worst = Math.max(worst, Math.abs(Math.log(options[k] / ends[e])));
+        }
+        tempo = Math.min(tempo, worst);
       }
       /* What it plays counts for more than how fast it plays it.
 

@@ -749,7 +749,8 @@
              real one, which is the worst kind of difference: one you only find
              by listening to the finished thing. */
           loop: opts.drumLoopFor
-            ? await opts.drumLoopFor(jOut.settings, jOut.fill.toBpm) : null,
+            ? await opts.drumLoopFor(jOut.settings, jOut.fill.toBpm, jOut.fill.fromBpm, jOut.index)
+            : null,
           lowDb: jOut.settings.fillLowDb, midDb: jOut.settings.fillMidDb,
           highDb: jOut.settings.fillHighDb,
           reverbPct: jOut.settings.fillReverb, reverbBeats: jOut.settings.fillReverbBeats,

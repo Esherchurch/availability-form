@@ -10,7 +10,17 @@
    touched. */
 const path = require('path'), fs = require('fs'), os = require('os');
 const { spawn } = require('child_process');
-const pup = require('puppeteer-core');
+/* Electron turns an uncaught require failure into a modal dialog on the
+   user's screen. This needs puppeteer-core, which lives with the test
+   harnesses rather than here, so say so and stop rather than popping up. */
+let pup;
+try { pup = require('puppeteer-core'); }
+catch (e) {
+  console.error('puppeteer-core is not installed for this script. Run it with
+' +
+                '  NODE_PATH=<folder containing puppeteer-core> node test-app-journey.js');
+  process.exit(0);
+}
 
 const EXE = 'C:/GitHub/availability-form/mix-app/dist/win-unpacked/Mix Builder.exe';
 const MUSIC = 'C:/Users/marti/Music/Amazon Music';

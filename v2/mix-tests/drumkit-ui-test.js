@@ -176,6 +176,33 @@ function loopWav(file, bpm, beats) {
      'a four-to-the-floor record gets a four-to-the-floor loop, not the nearest tempo',
      chosen.wantFour);
   ok(chosen.wantDrop === 'a', 'and a one-drop record gets the one-drop', chosen.wantDrop);
+  /* The fill is not at one tempo. It leaves at the outgoing record's tempo and
+     arrives at the incoming record's, and the loop is laid across the whole of
+     that — so the loop that suits it is the one whose worst moment is least
+     bad, not the one that matches the far end. */
+  const walk = await page.evaluate(() => {
+    const MP = window.MixProject;
+    const loops = [
+      { id: 'far', name: 'exactly the destination', bpm: 100, patternId: 'four' },
+      { id: 'mid', name: 'between the two', bpm: 94, patternId: 'four' }
+    ];
+    const worst = (loopBpm, a, b) =>
+      Math.max(Math.abs(Math.log(loopBpm / a)), Math.abs(Math.log(loopBpm / b)));
+    return {
+      destinationOnly: (MP.pickDrumLoop(loops, 100, 'four') || {}).id,
+      acrossTheWalk: (MP.pickDrumLoop(loops, 100, 'four', 89) || {}).id,
+      farWorst: +(100 * worst(100, 89, 100)).toFixed(1),
+      midWorst: +(100 * worst(94, 89, 100)).toFixed(1)
+    };
+  });
+  console.log('    across an 89 to 100 walk: a 100 loop is ' + walk.farWorst +
+              '% out at its worst, a 94 loop ' + walk.midWorst + '%');
+  ok(walk.destinationOnly === 'far',
+     'given only the destination, the loop matching it wins', walk.destinationOnly);
+  ok(walk.acrossTheWalk === 'mid',
+     'given both ends, the loop that suits the whole walk wins instead',
+     walk.acrossTheWalk);
+
   ok(chosen.wantFour !== 'c',
      'but feel does not beat tempo by any distance — 96 against 124 is still too far',
      chosen.wantFour);
