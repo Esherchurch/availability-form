@@ -4671,8 +4671,14 @@
 
         var jo = plan.junctions[i];
         if (jo && jo.fill) {
+          /* HALF the pre-roll, because that is what the writer does: the record
+             holds full level while the drums arrive over it and only comes down
+             across the second half. Fading across the whole pre-roll — sixteen
+             beats is nearly eleven seconds at 89 BPM — takes the end of the
+             song with it, which is not what the file does and not what anyone
+             asked for. */
           var pb = (jo.settings && jo.settings.preBeats != null) ? jo.settings.preBeats : 8;
-          pt.fadeOutSec = pb * (60 / (jo.fill.fromBpm || 120));
+          pt.fadeOutSec = pb * (60 / (jo.fill.fromBpm || 120)) / 2;
         } else if (jo && (jo.overlapSec > 0.05 ||
                           (jo.settings && jo.settings.outFadeSec > 0.05))) {
           var of = jo.settings && jo.settings.outFadeSec;
