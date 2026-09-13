@@ -527,19 +527,29 @@
          long the outgoing one takes to go. Set the fade shorter than the
          overlap and the record plays out at full level under the incoming one,
          then leaves at the end — which is what a DJ does by hand. */
-      /* Seconds here, not samples: this function measures the overlap in
+      /* How long the record takes to go is not the same as how long the two
+         are over each other, and either can be the longer.
+
+           fade  <  overlap : it plays out at full level under the incoming
+                              record and only leaves at the end — how you keep
+                              a last word or a held note.
+           fade  == overlap : the classic crossfade, one down as the other up.
+           fade  >  overlap : it starts going before the next record arrives —
+                              an actual fade-out, which is what you want at the
+                              end of a set or when a song has no ending to keep.
+
+         The fade is hung off the END of the record, not off the start of the
+         overlap, which is what makes the third case possible at all.
+
+         Seconds here, not samples: this function measures the overlap in
          seconds and the writer measures it in samples, and mixing the two
          silently produces a fade thousands of times too short. */
       var outFade = jOut.settings.outFadeSec;
-      if (isFinite(outFade) && outFade > 0.05 && outFade < outOverlap) {
-        var hold = Math.max(0, outOverlap - outFade);
-        gain.gain.setValueAtTime(trackGain, safe(outStart));
-        gain.gain.setValueAtTime(trackGain, safe(outStart + hold));
-        gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false),
-                                      safe(outStart + hold), Math.max(0.01, outFade));
-      } else {
-        gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false), outStart, Math.max(0.01, outOverlap));
-      }
+      var fadeLen = (isFinite(outFade) && outFade > 0.05) ? outFade : outOverlap;
+      fadeLen = Math.max(0.01, Math.min(fadeLen, dur));
+      var fadeAt = Math.max(0, dur - fadeLen);
+      gain.gain.setValueAtTime(trackGain, safe(fadeAt));
+      gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false), safe(fadeAt), fadeLen);
     } else if (jOut) {
       // Hard cut: a 20 ms taper so the end does not click.
       gain.gain.setValueAtTime(1, safe(dur - 0.02));

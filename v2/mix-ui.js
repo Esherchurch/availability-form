@@ -2323,9 +2323,12 @@
         'the one that always works — reach for it when two records will not lock together and ' +
         'drums between them would be too much.<br>' +
         'The overlap is how long the two sound together; the fade is how long this record takes ' +
-        'to go. Make the fade SHORTER than the overlap and this record plays out at full level ' +
-        'underneath the next one and only leaves at the very end — which is how you keep a last ' +
-        'word or a held note that a fade across the whole overlap would swallow.</div>';
+        'to go, and either can be the longer.<br>' +
+        'SHORTER than the overlap: it plays out at full level underneath the next one and leaves ' +
+        'at the very end — how you keep a last word or a held note.<br>' +
+        'The SAME: the classic crossfade, one down as the other comes up.<br>' +
+        'LONGER: it starts going before the next record arrives — a real fade-out, for a song ' +
+        'with no ending worth keeping, or the end of the night.</div>';
     }
     if (j.type === 'hard-cut') {
       return jf('Gap (ms)', 'gapMs', s.gapMs || 0, 50, 0, 8000) +
@@ -4670,9 +4673,10 @@
         if (jo && jo.fill) {
           var pb = (jo.settings && jo.settings.preBeats != null) ? jo.settings.preBeats : 8;
           pt.fadeOutSec = pb * (60 / (jo.fill.fromBpm || 120));
-        } else if (jo && jo.overlapSec > 0.05) {
+        } else if (jo && (jo.overlapSec > 0.05 ||
+                          (jo.settings && jo.settings.outFadeSec > 0.05))) {
           var of = jo.settings && jo.settings.outFadeSec;
-          pt.fadeOutSec = (isFinite(of) && of > 0.05 && of < jo.overlapSec) ? of : jo.overlapSec;
+          pt.fadeOutSec = (isFinite(of) && of > 0.05) ? of : jo.overlapSec;
         }
       });
       var dur = preview.build(plan, buffers, extra);
