@@ -68,6 +68,7 @@
           buffer: buf,
           offsetSec: pt.sourceFromSec || 0,
           rate0: pt.r0 || 1, rate1: pt.r1 || pt.r0 || 1,
+          fadeInSec: pt.fadeInSec || 0,
           fadeOutSec: pt.fadeOutSec || 0,
           /* The track's own level, from normalising. */
           gain: Math.pow(10, (pt.gainDb || 0) / 20)
@@ -101,16 +102,50 @@
         node.playbackRate.linearRampToValueAtTime(c.rate1, ctx.currentTime + left);
       }
 
-      /* The same fade the render puts on a record that hands over to drums.
-         Without it the preview stops the record dead where the file brings it
-         down, and the two do not sound like the same mix. */
-      if (c.fadeOutSec > 0.2) {
-        var g0 = c.gain == null ? 1 : c.gain;
-        var startFade = Math.max(0, (c.toSec - c.fadeOutSec / 2) - S.t);
-        var endFade = Math.max(0.01, (c.toSec - S.t));
-        if (endFade > startFade) {
-          g.gain.setValueAtTime(g0, ctx.currentTime + startFade);
-          g.gain.linearRampToValueAtTime(g0 * 0.08, ctx.currentTime + endFade);
+      /* The fades the render writes, so the timeline sounds like the file.
+
+         The transport started and stopped clips at a fixed level and nothing
+         else, so a crossfade in the preview was simply two records playing at
+         once — no fade in, no fade out, which is exactly what it sounded like.
+         The render has always done this; the transport never did.
+
+         Equal power, because two uncorrelated records summed at half amplitude
+         each are 3 dB down in the middle of a linear fade, which is the dip
+         you hear as a hole in the middle of a crossfade. */
+      var g0 = c.gain == null ? 1 : c.gain;
+      var EP = 64;
+      function epCurve(rising) {
+        var arr = new Float32Array(EP);
+        for (var q = 0; q < EP; q++) {
+          var x = q / (EP - 1);
+          arr[q] = g0 * Math.cos((rising ? (1 - x) : x) * Math.PI / 2);
+        }
+        return arr;
+      }
+
+      if (c.fadeInSec > 0.05) {
+        /* only while the clip is still inside its fade — seeking past it must
+           not replay the fade from wherever the cursor landed */
+        var intoClip = S.t - c.fromSec;
+        if (intoClip < c.fadeInSec) {
+          var leftIn = c.fadeInSec - Math.max(0, intoClip);
+          g.gain.setValueAtTime(g0 * Math.cos((1 - Math.max(0, intoClip) / c.fadeInSec) * Math.PI / 2),
+                                ctx.currentTime);
+          g.gain.setValueCurveAtTime(epCurve(true), ctx.currentTime, Math.max(0.02, leftIn));
+        }
+      }
+
+      if (c.fadeOutSec > 0.05) {
+        var startFade = (c.toSec - c.fadeOutSec) - S.t;
+        if (startFade > 0) {
+          g.gain.setValueCurveAtTime(epCurve(false), ctx.currentTime + startFade,
+                                     Math.max(0.02, c.fadeOutSec));
+        } else {
+          /* already inside it: pick the fade up where it has got to */
+          var done = Math.min(1, (S.t - (c.toSec - c.fadeOutSec)) / c.fadeOutSec);
+          var leftOut = Math.max(0.02, c.toSec - S.t);
+          g.gain.setValueAtTime(g0 * Math.cos(done * Math.PI / 2), ctx.currentTime);
+          g.gain.linearRampToValueAtTime(0, ctx.currentTime + leftOut);
         }
       }
       node.start(0, (c.offsetSec || 0) + into * rateNow, left * 1.05);

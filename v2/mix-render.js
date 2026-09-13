@@ -514,7 +514,32 @@
       chain.connect(bassOut); chain = bassOut;
       gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false), outStart, Math.max(0.01, outOverlap));
     } else if (jOut && outOverlap > 0) {
-      gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false), outStart, Math.max(0.01, outOverlap));
+      /* Overlapping and fading are two different lengths.
+
+         An equal-power fade across the whole overlap starts pulling the
+         outgoing record down the moment the next one arrives, so a song that
+         ends on a held word loses it — the record is at -3 dB halfway through
+         and gone by the end. "I want them over each other" and "I want this
+         record to finish" are both reasonable and the tool only offered the
+         first.
+
+         So the overlap is how long the two sound together, and the fade is how
+         long the outgoing one takes to go. Set the fade shorter than the
+         overlap and the record plays out at full level under the incoming one,
+         then leaves at the end — which is what a DJ does by hand. */
+      /* Seconds here, not samples: this function measures the overlap in
+         seconds and the writer measures it in samples, and mixing the two
+         silently produces a fade thousands of times too short. */
+      var outFade = jOut.settings.outFadeSec;
+      if (isFinite(outFade) && outFade > 0.05 && outFade < outOverlap) {
+        var hold = Math.max(0, outOverlap - outFade);
+        gain.gain.setValueAtTime(trackGain, safe(outStart));
+        gain.gain.setValueAtTime(trackGain, safe(outStart + hold));
+        gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false),
+                                      safe(outStart + hold), Math.max(0.01, outFade));
+      } else {
+        gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false), outStart, Math.max(0.01, outOverlap));
+      }
     } else if (jOut) {
       // Hard cut: a 20 ms taper so the end does not click.
       gain.gain.setValueAtTime(1, safe(dur - 0.02));

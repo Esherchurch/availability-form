@@ -2315,11 +2315,17 @@
          over each other. In seconds rather than bars — with no common tempo
          there is no bar the two records agree on, which is the whole reason
          this transition exists. */
-      return jf('Crossfade (seconds)', 'crossSec', s.crossSec == null ? 8 : s.crossSec, 0.5, 0.5, 30) +
+      return jf('Overlap (seconds)', 'crossSec', s.crossSec == null ? 8 : s.crossSec, 0.5, 0.5, 30) +
+        jf('…and this one fades over', 'outFadeSec',
+           s.outFadeSec == null ? (s.crossSec == null ? 8 : s.crossSec) : s.outFadeSec, 0.5, 0.5, 30) +
         '<div class="span2 hint">One record fades out while the next fades in, both at their own ' +
         'tempo. Nothing is stretched and nothing needs to beat-match, which is what makes this ' +
         'the one that always works — reach for it when two records will not lock together and ' +
-        'drums between them would be too much.</div>';
+        'drums between them would be too much.<br>' +
+        'The overlap is how long the two sound together; the fade is how long this record takes ' +
+        'to go. Make the fade SHORTER than the overlap and this record plays out at full level ' +
+        'underneath the next one and only leaves at the very end — which is how you keep a last ' +
+        'word or a held note that a fade across the whole overlap would swallow.</div>';
     }
     if (j.type === 'hard-cut') {
       return jf('Gap (ms)', 'gapMs', s.gapMs || 0, 50, 0, 8000) +
@@ -4654,12 +4660,19 @@
       plan.tracks.forEach(function (pt, i) {
         var t = project.tracks[i];
         pt.gainDb = t && t.gainDb != null ? t.gainDb : 0;
-        /* A record handing over to drums is brought down under them rather
-           than stopped dead — the same fade the render writes. */
+        /* The fades the render writes, so the timeline sounds like the file:
+           in under the record before it, out under the record after it, and
+           down under the drums where a fill takes over. */
+        var ji = plan.junctions[i - 1];
+        if (ji && ji.overlapSec > 0.05) pt.fadeInSec = ji.overlapSec;
+
         var jo = plan.junctions[i];
         if (jo && jo.fill) {
           var pb = (jo.settings && jo.settings.preBeats != null) ? jo.settings.preBeats : 8;
           pt.fadeOutSec = pb * (60 / (jo.fill.fromBpm || 120));
+        } else if (jo && jo.overlapSec > 0.05) {
+          var of = jo.settings && jo.settings.outFadeSec;
+          pt.fadeOutSec = (isFinite(of) && of > 0.05 && of < jo.overlapSec) ? of : jo.overlapSec;
         }
       });
       var dur = preview.build(plan, buffers, extra);
