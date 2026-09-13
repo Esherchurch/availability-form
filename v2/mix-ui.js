@@ -2105,6 +2105,45 @@
       '" data-f="' + f + '" data-track="' + i + '"></div>';
   }
 
+  /* How much of a record the waveform is showing.
+
+     It always showed the whole track in about a thousand pixels — a quarter of
+     a second per pixel on a four minute record — which is fine for putting a
+     mix-out somewhere and useless for cutting a sample, where the difference
+     between a clean stab and half a word is a few hundredths. Nothing could be
+     cut precisely because nothing could be SEEN precisely.
+
+     One view per track: the seconds at the left edge and the right. Every
+     mapping between a pixel and a second goes through it, so the drawing, the
+     drag and the markers cannot disagree about where a moment is. */
+  var waveView = new Map();
+
+  function viewOf(t) {
+    var dur = t.durationSec || 0;
+    var v = waveView.get(t.id);
+    if (!v || !(v.to > v.from)) return { from: 0, to: dur || 1 };
+    /* kept inside the record, in case its length changed underneath */
+    var from = Math.max(0, Math.min(v.from, Math.max(0, dur - 0.05)));
+    var to = Math.min(dur || v.to, Math.max(from + 0.05, v.to));
+    return { from: from, to: to };
+  }
+
+  function setView(t, from, to) {
+    var dur = t.durationSec || 0;
+    var span = Math.max(0.05, to - from);
+    if (span >= dur) { waveView.delete(t.id); return; }
+    from = Math.max(0, Math.min(from, dur - span));
+    waveView.set(t.id, { from: from, to: from + span });
+  }
+
+  /* Zoom about a point, so whatever is under the pointer stays under it. */
+  function zoomWave(t, atSec, factor) {
+    var v = viewOf(t), span = v.to - v.from;
+    var want = Math.max(0.05, Math.min(t.durationSec || span, span * factor));
+    var frac = span > 0 ? (atSec - v.from) / span : 0.5;
+    setView(t, atSec - want * frac, atSec - want * frac + want);
+  }
+
   function drawWave(cv, t) {
     var dpr = window.devicePixelRatio || 1;
     var w = cv.clientWidth, h = 88;
@@ -2134,33 +2173,59 @@
       return;
     }
 
+    var dur = t.durationSec;
+    var view = viewOf(t);
+    var vFrom = view.from, vSpan = Math.max(0.001, view.to - view.from);
+    /* seconds to pixels, for everything drawn here */
+    var px = function (sec) { return (sec - vFrom) / vSpan * w; };
+
     g.fillStyle = '#c3d6d4';
-    var n = t.peaks.length;
-    for (var i = 0; i < w; i++) {
-      var p = t.peaks[Math.floor(i / w * n)] || 0;
-      var bh = Math.max(1, p * h * 0.92);
-      g.fillRect(i, (h - bh) / 2, 1, bh);
+    var mono = monos.get(t.id);
+    if (mono && vSpan < (dur || 0) * 0.9) {
+      /* Zoomed in, so the stored peaks are too coarse to say anything — a
+         thousand of them across four minutes is a quarter of a second each.
+         Read the audio itself for the window on screen. */
+      var sr = (buffers.get(t.id) || {}).sampleRate || 48000;
+      for (var zi = 0; zi < w; zi++) {
+        var s0 = Math.floor((vFrom + zi / w * vSpan) * sr);
+        var s1 = Math.floor((vFrom + (zi + 1) / w * vSpan) * sr);
+        var pk = 0;
+        for (var zs = Math.max(0, s0); zs < Math.min(mono.length, Math.max(s1, s0 + 1)); zs++) {
+          var av = mono[zs] < 0 ? -mono[zs] : mono[zs];
+          if (av > pk) pk = av;
+        }
+        var zh = Math.max(1, pk * h * 0.92);
+        g.fillRect(zi, (h - zh) / 2, 1, zh);
+      }
+    } else {
+      var n = t.peaks.length;
+      for (var i = 0; i < w; i++) {
+        var at2 = vFrom + (i / w) * vSpan;
+        var p = t.peaks[Math.floor((at2 / (dur || 1)) * n)] || 0;
+        var bh = Math.max(1, p * h * 0.92);
+        g.fillRect(i, (h - bh) / 2, 1, bh);
+      }
     }
     var bpm = (t.sourceBpm || 0) * (t.bpmMultiplier || 1);
-    var dur = t.durationSec;
     if (bpm > 0 && dur) {
       var spb = 60 / bpm, beat = 0;
       for (var s = t.downbeatSec; s < dur; s += spb, beat++) {
-        var x = s / dur * w, bar = beat % 4 === 0;
+        if (s < vFrom - spb || s > view.to + spb) continue;
+        var x = px(s), bar = beat % 4 === 0;
         // Past a few thousand beats the grid is a solid wash; draw bars only.
-        if (!bar && spb / dur * w < 3) continue;
+        if (!bar && spb / vSpan * w < 3) continue;
         g.fillStyle = bar ? 'rgba(61,98,99,.45)' : 'rgba(61,98,99,.14)';
         g.fillRect(x, bar ? 0 : h * 0.35, 1, bar ? h : h * 0.3);
       }
-      g.fillStyle = '#b07d2e'; g.fillRect(t.entrySec / dur * w - 1, 0, 3, h);
-      g.fillStyle = '#b0392c'; g.fillRect(t.exitSec / dur * w - 1, 0, 3, h);
+      g.fillStyle = '#b07d2e'; g.fillRect(px(t.entrySec) - 1, 0, 3, h);
+      g.fillStyle = '#b0392c'; g.fillRect(px(t.exitSec) - 1, 0, 3, h);
     }
 
     // The selected passage, if this track has one.
     var selIdx = project.tracks.indexOf(t);
     var selNow = selectionFor(selIdx);
     if (selNow && dur) {
-      var sx = selNow.fromSec / dur * w, sw = (selNow.toSec - selNow.fromSec) / dur * w;
+      var sx = px(selNow.fromSec), sw = (selNow.toSec - selNow.fromSec) / vSpan * w;
       g.fillStyle = 'rgba(61,98,99,.18)';
       g.fillRect(sx, 0, Math.max(2, sw), h);
       g.fillStyle = 'rgba(61,98,99,.9)';
@@ -2172,7 +2237,7 @@
     var idx = project.tracks.indexOf(t);
     var ph = playheadSecFor(idx);
     if (ph != null && dur && ph <= dur) {
-      var x = ph / dur * w;
+      var x = px(ph);
       g.fillStyle = 'rgba(20,32,31,.85)';
       g.fillRect(x - 1, 0, 2, h);
       g.beginPath();
@@ -2832,7 +2897,12 @@
     var tracksEl = $('tracks');
     var trackSurfaces = [tracksEl, $('tlEditor')].filter(Boolean);
     var onTrackSurface = function (type, fn) {
-      trackSurfaces.forEach(function (el) { el.addEventListener(type, fn); });
+      /* A wheel listener is passive by default in Chrome, and a passive
+         listener may not call preventDefault — so zooming the waveform would
+         scroll the page underneath it at the same time. Only the wheel needs
+         this; everything else keeps the default. */
+      var opts = type === 'wheel' ? { passive: false } : undefined;
+      trackSurfaces.forEach(function (el) { el.addEventListener(type, fn, opts); });
     };
     onTrackSurface('click', function (e) {
       /* Resolve the action from the nearest element that carries one, not from
@@ -2922,7 +2992,10 @@
       var t = project.tracks[i];
       if (!t.durationSec) return;
       var r = e.target.getBoundingClientRect();
-      var sec = (e.clientX - r.left) / r.width * t.durationSec;
+      /* through the view, so a marker lands where it was clicked however far
+         the waveform is zoomed in */
+      var vw = viewOf(t);
+      var sec = vw.from + (e.clientX - r.left) / r.width * (vw.to - vw.from);
       var shift = e.shiftKey;
 
       /* Setting the marker is DEFERRED so a double-click can cancel it.
@@ -2937,6 +3010,51 @@
         if (shift) t.exitSec = snapped; else t.entrySec = snapped;
         touch();
       }, 220);
+    });
+
+    /* The wheel zooms the waveform about the pointer.
+
+       A sample is cut by dragging across the waveform, and the waveform showed
+       the whole record — a quarter of a second per pixel on a four minute
+       track. Nothing could be cut precisely because nothing could be seen
+       precisely. Zooming is the answer and the wheel is where a person reaches
+       for it; the pointer stays on the same moment while the view closes in
+       around it, so it is possible to work towards a spot rather than hunt for
+       it again after every step.
+
+       Wheel alone zooms, shift-wheel scrolls sideways, and a double-click
+       anywhere on the waveform goes back to the whole record. */
+    onTrackSurface('wheel', function (e) {
+      if (!e.target.matches('canvas.wave')) return;
+      var i = +e.target.closest('[data-track]').dataset.track;
+      var t = project.tracks[i];
+      if (!t || !t.durationSec) return;
+      e.preventDefault();
+      var r = e.target.getBoundingClientRect();
+      var v = viewOf(t), span = v.to - v.from;
+      var atSec = v.from + (e.clientX - r.left) / r.width * span;
+
+      if (e.shiftKey) {
+        var step = span * 0.25 * (e.deltaY > 0 ? 1 : -1);
+        setView(t, v.from + step, v.to + step);
+      } else {
+        zoomWave(t, atSec, e.deltaY > 0 ? 1.35 : 1 / 1.35);
+      }
+      drawWave(e.target, t);
+      var out = viewOf(t);
+      setStatus('Showing ' + fmt(out.from) + ' to ' + fmt(out.to) + ' — ' +
+                ((out.to - out.from) * 1000 / Math.max(1, e.target.clientWidth)).toFixed(0) +
+                ' ms per pixel. Wheel to zoom, shift-wheel to move along, ' +
+                'double-click for the whole record.');
+    });
+
+    onTrackSurface('dblclick', function (e) {
+      if (!e.target.matches('canvas.wave')) return;
+      var i = +e.target.closest('[data-track]').dataset.track;
+      var t = project.tracks[i];
+      if (!t) return;
+      waveView.delete(t.id);
+      drawWave(e.target, t);
     });
 
     /* Drag across the waveform to select a passage for a sample. A drag is
@@ -2957,8 +3075,10 @@
       dragSel.moved = true;
       var t = project.tracks[dragSel.track];
       var r = dragSel.rect;
+      var vsel = viewOf(t);
       var at = function (x) {
-        return Math.max(0, Math.min(t.durationSec, (x - r.left) / r.width * t.durationSec));
+        var s = vsel.from + (x - r.left) / r.width * (vsel.to - vsel.from);
+        return Math.max(0, Math.min(t.durationSec, s));
       };
       /* Both ends snapped to bar lines here as well as in selectionFor, so
          taking the rounding out of one still left the other: a drag could not
