@@ -1981,8 +1981,11 @@
            going brought it back greyed out — and dragging a selection across
            the waveform to cut a sample re-renders. The music carried on with
            no way to stop it, which is exactly where it was reported. */
-        '<button class="ghost stop-all" data-act="stop-all"' +
-          (playing ? '' : ' disabled') + '>■ Stop</button>' +
+        /* Never disabled. It was drawn disabled whenever the panel happened to
+           be rebuilt while something was playing — and pressing Stop with
+           nothing playing costs nothing, where not being able to stop a
+           twenty second audition costs plenty. */
+        '<button class="ghost stop-all" data-act="stop-all">■ Stop</button>' +
         '<span class="hint" style="margin:0;flex:1;min-width:220px">' +
           '<strong>Double-click the waveform to hear from that point.</strong> ' +
           'Click sets the entry (gold), shift-click sets the mix-out (red). Both snap to the bar.' +
@@ -2026,6 +2029,20 @@
     return '<div class="samplecut on">' +
       '<div class="samplecut-head">' +
         '<span class="lbl" style="margin:0">Cut a sample</span>' +
+        /* Zoom as buttons as well as on the wheel. A gesture nobody is told
+           about is not a feature, and double-click could not be it: that
+           already means "play from here", so a zoom bound to it fought the
+           audition and threw the view away at the same time. */
+        '<span class="zoomers">' +
+          '<button class="ghost tiny" data-act="zoom-out" data-track="' + i + '" ' +
+            'title="Show more of the record">−</button>' +
+          '<button class="ghost tiny" data-act="zoom-in" data-track="' + i + '" ' +
+            'title="Zoom in on the selection">+</button>' +
+          '<button class="ghost tiny" data-act="zoom-sel" data-track="' + i + '" ' +
+            'title="Fill the window with what is selected">Fit selection</button>' +
+          '<button class="ghost tiny" data-act="zoom-all" data-track="' + i + '" ' +
+            'title="Back to the whole record">Whole track</button>' +
+        '</span>' +
         '<span class="samplecut-range">' +
           (sel.toSec - sel.fromSec).toFixed(2) + 's · ' +
           (sel.bars >= 1 ? sel.bars.toFixed(2) + ' bars' : (sel.bars * 4).toFixed(2) + ' beats') +
@@ -2042,8 +2059,13 @@
         '<button class="ghost" data-act="play-sel" data-track="' + i + '">▶ Hear it</button>' +
         '<button class="ghost stop-all" data-act="stop-all"' +
           (playing ? '' : ' disabled') + '>■ Stop</button>' +
-        '<label class="samplecut-check"><input type="checkbox" data-act="snap-sel"' +
-          (snapSelection ? ' checked' : '') + '> Snap to bars</label>' +
+        '<label class="samplecut-check">Snap to ' +
+          '<select data-act="snap-sel">' +
+            ['off', 'beat', 'bar'].map(function (m) {
+              return '<option value="' + m + '"' + (snapMode === m ? ' selected' : '') + '>' +
+                ({ off: 'nothing', beat: 'the beat', bar: 'the bar' })[m] + '</option>';
+            }).join('') +
+          '</select></label>' +
         '<button class="ghost" data-act="clear-sel" data-track="' + i + '">Clear</button>' +
       '</div>' +
       '<span class="region-hint">Drums out uses separation, which is right for lifting a melodic ' +
@@ -2954,14 +2976,40 @@
         }
         if (act === 'stop-all') { stop(); setStatus('Stopped.'); return; }
         if (act === 'cut-sample') { cutSample(i); return; }
-        if (act === 'snap-sel') {
-          snapSelection = !snapSelection;
-          renderAll();
-          setStatus(snapSelection ? 'Selections now round to whole bars.'
-                                  : 'Selections are exactly what you drag.');
+        if (act === 'snap-sel') return;      // a select, handled on change
+        if (act === 'clear-sel') { clearSelection(i); renderAll(); setStatus(''); return; }
+        if (act === 'zoom-in' || act === 'zoom-out') {
+          var zt = project.tracks[i];
+          var zs = selectionFor(i);
+          var zv = viewOf(zt);
+          var about = zs ? (zs.fromSec + zs.toSec) / 2 : (zv.from + zv.to) / 2;
+          zoomWave(zt, about, act === 'zoom-in' ? 1 / 2 : 2);
+          var zc = document.querySelector('.trk[data-track="' + i + '"] canvas.wave');
+          if (zc) drawWave(zc, zt);
+          var nv = viewOf(zt);
+          setStatus('Showing ' + fmt(nv.from) + ' to ' + fmt(nv.to) + ' — ' +
+                    ((nv.to - nv.from) * 1000 / Math.max(1, zc ? zc.clientWidth : 1000)).toFixed(0) +
+                    ' ms per pixel.');
           return;
         }
-        if (act === 'clear-sel') { clearSelection(i); renderAll(); setStatus(''); return; }
+        if (act === 'zoom-sel') {
+          var st = project.tracks[i], ss = selectionFor(i);
+          if (!ss) { setStatus('Drag across the waveform first.', true); return; }
+          /* a little either side, so the edges of the selection can be seen
+             and moved rather than sitting hard against the frame */
+          var pad = Math.max(0.05, (ss.toSec - ss.fromSec) * 0.25);
+          setView(st, ss.fromSec - pad, ss.toSec + pad);
+          var sc = document.querySelector('.trk[data-track="' + i + '"] canvas.wave');
+          if (sc) drawWave(sc, st);
+          return;
+        }
+        if (act === 'zoom-all') {
+          var at = project.tracks[i];
+          waveView.delete(at.id);
+          var ac = document.querySelector('.trk[data-track="' + i + '"] canvas.wave');
+          if (ac) drawWave(ac, at);
+          return;
+        }
         if (act === 'play-sel') {
           var ps = selectionFor(i);
           /* Just the selection, stopping at its end. It used to play from the
@@ -3048,15 +3096,6 @@
                 'double-click for the whole record.');
     });
 
-    onTrackSurface('dblclick', function (e) {
-      if (!e.target.matches('canvas.wave')) return;
-      var i = +e.target.closest('[data-track]').dataset.track;
-      var t = project.tracks[i];
-      if (!t) return;
-      waveView.delete(t.id);
-      drawWave(e.target, t);
-    });
-
     /* Drag across the waveform to select a passage for a sample. A drag is
        distinguished from a click by distance, and a real drag suppresses the
        pending marker-set so the two gestures never fight. */
@@ -3084,7 +3123,7 @@
          taking the rounding out of one still left the other: a drag could not
          land anywhere but a bar line however it was made. Snapping is a choice
          now, and it has to be the same choice in both places. */
-      var snap = function (sec) { return snapSelection ? snapToBar(t, sec) : sec; };
+      var snap = function (sec) { return snapMode === 'off' ? sec : snapSel(t, sec); };
       selection = { track: dragSel.track,
                     fromSec: snap(at(dragSel.startX)),
                     toSec: snap(at(e.clientX)) };
@@ -3123,6 +3162,15 @@
     });
 
     onTrackSurface('change', function (e) {
+      if (e.target.dataset.act === 'snap-sel') {
+        snapMode = e.target.value;
+        snapSelection = (snapMode !== 'off');
+        renderAll();
+        setStatus(snapMode === 'off'
+          ? 'Selections are exactly what you drag.'
+          : 'Selections now land on ' + (snapMode === 'beat' ? 'the beat' : 'the bar') + '.');
+        return;
+      }
       var rf = e.target.dataset.rf;
       if (rf) {
         var ti = +e.target.dataset.track, ri = +e.target.dataset.region;
@@ -3997,7 +4045,35 @@
      time, but that is about PLACING it, and the placer already stretches a
      sample to the tempo it lands at and snaps its position to the bar. What
      gets cut does not have to be a whole number of bars to be dropped on one. */
-  var snapSelection = false;
+  /* What a selection snaps to.
+
+     It was a checkbox, and the only thing it offered was whole BARS — two
+     seconds at 120 BPM. Zoomed in far enough to cut a stab you are looking at
+     a few seconds of audio, so both ends of a short drag snap to the same bar
+     line and the selection collapses to nothing at all: the reason snapping
+     "did not work" was that it worked, on a grid far too coarse for the job.
+
+     A beat is the useful one for cutting. A bar is right for a loop. Off is
+     right when the thing you want does not begin on either. */
+  var snapMode = 'off';                       // 'off' | 'beat' | 'bar'
+  var snapSelection = false;                  // kept: older code reads it
+
+  function snapStepSec(t) {
+    var bpm = (t.sourceBpm || 0) * (t.bpmMultiplier || 1);
+    if (!bpm) return 0;
+    if (snapMode === 'beat') return 60 / bpm;
+    if (snapMode === 'bar') return 60 / bpm * 4;
+    return 0;
+  }
+
+  function snapSel(t, sec) {
+    var step = snapStepSec(t);
+    if (!step || !isFinite(sec)) return sec;
+    var db = isFinite(t.downbeatSec) ? t.downbeatSec : 0;
+    var k = Math.round((sec - db) / step);
+    if (!isFinite(k)) return sec;
+    return Math.max(0, db + k * step);
+  }
 
   function selectionFor(i) {
     if (!selection || selection.track !== i) return null;
@@ -4005,9 +4081,17 @@
     var bs = barSecOf(t);
     var from = Math.min(selection.fromSec, selection.toSec);
     var to = Math.max(selection.fromSec, selection.toSec);
-    if (snapSelection) {
-      var bars = Math.max(1, Math.round((to - from) / bs));
-      return { fromSec: from, toSec: from + bars * bs, bars: bars, snapped: true };
+    if (snapMode !== 'off') {
+      var step = snapStepSec(t);
+      if (step) {
+        var sf = snapSel(t, from), st2 = snapSel(t, to);
+        /* Both ends landing on the same line is a selection of nothing, which
+           is what made snapping look broken. One step is the shortest thing
+           the grid can express, so that is what a too-short drag becomes. */
+        if (st2 - sf < step * 0.5) st2 = sf + step;
+        return { fromSec: sf, toSec: st2,
+                 bars: bs ? (st2 - sf) / bs : 0, snapped: true };
+      }
     }
     return { fromSec: from, toSec: to, bars: bs ? (to - from) / bs : 0, snapped: false };
   }
@@ -4658,6 +4742,11 @@
     /* For tests: the live project, not the saved copy. Reading the saved one
        is how a probe once built a preview from half the mix. */
     window.__project = function () { return project; };
+    /* For tests: how many seconds of a record the waveform is showing. */
+    window.__waveSpanForTest = function (i) {
+      var t = project.tracks[i]; if (!t) return null;
+      var v = viewOf(t); return +(v.to - v.from).toFixed(2);
+    };
     /* For tests: the decoded audio the page is holding, so a render can be
        driven without loading the files a second time. */
     window.__buffersForTest = function () { return buffers; };
