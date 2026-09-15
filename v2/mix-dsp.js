@@ -401,6 +401,100 @@ onmessage = e => {
   }
 
   /** RMS of a window of a buffer, for sanity-checking a rendered region. */
+  /* ------------------------------------------------------- loudness ---
+
+     How loud a record SOUNDS, not how much energy it contains.
+
+     Plain RMS says a bass-heavy modern master and a sparse old record are the
+     same when they are nothing like it, because the ear is far less sensitive
+     at the bottom and a little more sensitive around 2-4 kHz than a sum of
+     squares is. Level a set by RMS and half of it arrives wrong; the loud ones
+     then sit on the limiter, which flattens them, and the quiet ones never
+     reach it — one record at the ceiling running into one nowhere near it,
+     with the difference in weight between them gone.
+
+     This is BS.1770: filter the way hearing responds, measure in 400 ms
+     blocks, and throw away the blocks that are effectively silence so that a
+     long intro or a fade does not drag the answer down. The number it gives
+     is LUFS, and two records matched on it sound equally loud.
+
+     The filters are the two the specification names, at the coefficients it
+     gives for 48 kHz, recomputed here for whatever rate the audio arrives at:
+     a high shelf that lifts the top by about 4 dB for the head's own response,
+     and a high-pass at 38 Hz for everything the body does not hear as level. */
+
+  function biquad(x, b0, b1, b2, a1, a2) {
+    var y = new Float32Array(x.length);
+    var x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (var i = 0; i < x.length; i++) {
+      var v = x[i];
+      var o = b0 * v + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+      x2 = x1; x1 = v; y2 = y1; y1 = o;
+      y[i] = o;
+    }
+    return y;
+  }
+
+  function kWeight(x, sr) {
+    /* stage 1: high shelf, +4 dB, 1681 Hz */
+    var A = Math.pow(10, 3.999843 / 40);
+    var w0 = 2 * Math.PI * 1681.974 / sr;
+    var S = 1, alpha = Math.sin(w0) / 2 * Math.sqrt((A + 1 / A) * (1 / S - 1) + 2);
+    var cw = Math.cos(w0), sa = 2 * Math.sqrt(A) * alpha;
+    var b0 = A * ((A + 1) + (A - 1) * cw + sa);
+    var b1 = -2 * A * ((A - 1) + (A + 1) * cw);
+    var b2 = A * ((A + 1) + (A - 1) * cw - sa);
+    var a0 = (A + 1) - (A - 1) * cw + sa;
+    var a1 = 2 * ((A - 1) - (A + 1) * cw);
+    var a2 = (A + 1) - (A - 1) * cw - sa;
+    var pre = biquad(x, b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0);
+
+    /* stage 2: high pass, 38 Hz, Q 0.5 */
+    var w1 = 2 * Math.PI * 38.135 / sr, q = 0.5;
+    var al = Math.sin(w1) / (2 * q), c1 = Math.cos(w1);
+    var hb0 = (1 + c1) / 2, hb1 = -(1 + c1), hb2 = (1 + c1) / 2;
+    var ha0 = 1 + al, ha1 = -2 * c1, ha2 = 1 - al;
+    return biquad(pre, hb0 / ha0, hb1 / ha0, hb2 / ha0, ha1 / ha0, ha2 / ha0);
+  }
+
+  /** Integrated loudness in LUFS across [fromSec, toSec). */
+  function loudness(mono, sr, fromSec, toSec) {
+    var a = Math.max(0, Math.floor((fromSec || 0) * sr));
+    var b = Math.min(mono.length, Math.floor((toSec == null ? mono.length / sr : toSec) * sr));
+    if (b - a < sr * 0.5) return null;
+    var seg = mono.subarray(a, b);
+    var k = kWeight(seg, sr);
+
+    /* 400 ms blocks, 75% overlap, as the specification asks */
+    var block = Math.round(sr * 0.4), hop = Math.round(block / 4);
+    if (k.length < block) return null;
+    var loud = [];
+    for (var i = 0; i + block <= k.length; i += hop) {
+      var s = 0;
+      for (var j = i; j < i + block; j++) s += k[j] * k[j];
+      var ms = s / block;
+      loud.push(ms > 0 ? -0.691 + 10 * Math.log10(ms) : -200);
+    }
+    if (!loud.length) return null;
+
+    /* the absolute gate: anything below -70 LUFS is silence, not quiet music */
+    var keep = loud.filter(function (l) { return l > -70; });
+    if (!keep.length) return null;
+
+    /* the relative gate: 10 LU below the mean of what is left, which is what
+       stops a long fade or a quiet intro dragging the whole answer down */
+    var sum = 0;
+    keep.forEach(function (l) { sum += Math.pow(10, (l + 0.691) / 10); });
+    var meanMs = sum / keep.length;
+    var rel = -0.691 + 10 * Math.log10(meanMs) - 10;
+    var kept = loud.filter(function (l) { return l > -70 && l > rel; });
+    if (!kept.length) kept = keep;
+
+    var s2 = 0;
+    kept.forEach(function (l) { s2 += Math.pow(10, (l + 0.691) / 10); });
+    return +(-0.691 + 10 * Math.log10(s2 / kept.length)).toFixed(2);
+  }
+
   function rmsOf(buf, startSec, durSec) {
     var sr = buf.sampleRate;
     var s = Math.max(0, Math.floor(startSec * sr));
@@ -2142,7 +2236,7 @@ onmessage = e => {
     lastStrongSec: lastStrongSec,
     peaks: peaks,
     slice: slice,
-    rmsOf: rmsOf,
+    rmsOf: rmsOf, loudness: loudness,
     stretch: stretch,
     stretchRamp: stretchRamp,
     finalise: finalise,

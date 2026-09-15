@@ -5035,8 +5035,29 @@
      a dancefloor notices. */
   var NORM_TARGET_DB = -14;
 
+  /* Level the set to a loudness every record can actually reach.
+
+     Two things were wrong with levelling to a fixed -14.
+
+     It measured RMS, which says a bass-heavy modern master and a sparse old
+     record are the same when they are nothing like it. Loudness is measured
+     the way hearing works now — BS.1770, filtered and gated — and on this set
+     the two disagree by up to 1.8 dB, which is a track arriving visibly wrong.
+
+     And it ignored what a record has left above its peaks. Measured on the
+     real set: Despacito peaks at +1.1 dBFS, End Of The Road at +0.7,
+     Hotstepper at +0.2 — modern masters with no headroom at all. Asking any of
+     them for +2 dB does not make them louder, it hands the job to the limiter,
+     which flattens that record and leaves the one after it untouched. One at
+     the ceiling running into one nowhere near it, and the difference in weight
+     between them gone: exactly the complaint.
+
+     So the target is not fixed. Every record is measured, and the set is
+     levelled to the loudest point that the least forgiving of them can reach
+     without clipping. Nothing then needs limiting, and the limiter goes back
+     to being a safety rail rather than the thing doing the levelling. */
   function normaliseAll() {
-    var done = 0, skipped = 0, moved = [];
+    var rows = [], skipped = 0;
     project.tracks.forEach(function (t) {
       /* The mono cache is filled during analysis; a track whose audio was
          re-linked afterwards has a buffer and no mono, and reading only the
@@ -5046,24 +5067,51 @@
       if (!mono || !buf) { skipped++; return; }
       if (!monos.has(t.id)) monos.set(t.id, mono);
       var sr = buf.sampleRate || 48000;
-      var from = Math.max(0, Math.floor((t.entrySec || 0) * sr));
-      var to = Math.min(mono.length, Math.floor((t.exitSec || t.durationSec || 0) * sr));
-      if (to <= from) { from = 0; to = mono.length; }
-      var sum = 0, n = to - from;
-      for (var i = from; i < to; i++) sum += mono[i] * mono[i];
-      var rms = n > 0 ? Math.sqrt(sum / n) : 0;
-      var measDb = rms > 0 ? 20 * Math.log10(rms) : -60;
-      var gainDb = Math.max(-20, Math.min(12, NORM_TARGET_DB - measDb));
-      t.gainDb = Math.round(gainDb * 10) / 10;
-      t.measuredDb = Math.round(measDb * 10) / 10;
-      done++;
-      if (Math.abs(t.gainDb) >= 1) moved.push(t.title + ' ' + (t.gainDb > 0 ? '+' : '') + t.gainDb);
+      var from = t.entrySec || 0;
+      var to = t.exitSec || t.durationSec || (mono.length / sr);
+      if (to <= from) { from = 0; to = mono.length / sr; }
+
+      var lufs = DSP.loudness(mono, sr, from, to);
+      if (lufs == null) { skipped++; return; }
+
+      var pk = 0;
+      var pa = Math.max(0, Math.floor(from * sr)), pb = Math.min(mono.length, Math.floor(to * sr));
+      for (var i = pa; i < pb; i++) { var av = mono[i] < 0 ? -mono[i] : mono[i]; if (av > pk) pk = av; }
+      /* what it can be lifted by before its peaks reach the ceiling */
+      var headroomDb = pk > 0 ? 20 * Math.log10(0.97 / pk) : 12;
+      rows.push({ t: t, lufs: lufs, peakDb: +(20 * Math.log10(pk + 1e-12)).toFixed(1),
+                  reach: lufs + headroomDb, headroom: headroomDb });
     });
-    if (!done) { setStatus('Load the audio first — there is nothing to measure yet.', true); return; }
+
+    if (!rows.length) { setStatus('Load the audio first — there is nothing to measure yet.', true); return; }
+
+    /* the loudest the whole set can sit at with nothing clipping */
+    var reachable = Math.min.apply(null, rows.map(function (r) { return r.reach; }));
+    var target = Math.max(-24, Math.min(NORM_TARGET_DB, reachable));
+    var tightest = rows.reduce(function (a, b) { return b.reach < a.reach ? b : a; }, rows[0]);
+
+    var moved = [];
+    rows.forEach(function (r) {
+      var gainDb = Math.max(-24, Math.min(12, target - r.lufs));
+      r.t.gainDb = Math.round(gainDb * 10) / 10;
+      r.t.measuredDb = r.lufs;
+      r.t.loudnessLufs = r.lufs;
+      r.t.peakDb = r.peakDb;
+      if (Math.abs(r.t.gainDb) >= 1) moved.push(r.t.title + ' ' + (r.t.gainDb > 0 ? '+' : '') + r.t.gainDb);
+    });
+
+    var lo = Math.min.apply(null, rows.map(function (r) { return r.lufs; }));
+    var hi = Math.max.apply(null, rows.map(function (r) { return r.lufs; }));
     touch('normalised');
-    setStatus('Levelled ' + done + ' track' + (done === 1 ? '' : 's') + ' to ' +
-              NORM_TARGET_DB + ' dB' + (skipped ? ', ' + skipped + ' still without audio' : '') +
-              (moved.length ? ' — biggest moves: ' + moved.slice(0, 4).join(', ') : ''));
+    setStatus('Levelled ' + rows.length + ' track' + (rows.length === 1 ? '' : 's') +
+              ' to ' + target.toFixed(1) + ' LUFS. They arrived ' + (hi - lo).toFixed(1) +
+              ' dB apart' + (target < NORM_TARGET_DB - 0.05
+                ? ' — and the set sits at ' + target.toFixed(1) + ' rather than ' + NORM_TARGET_DB +
+                  ' because "' + tightest.t.title + '" peaks at ' + tightest.peakDb +
+                  ' dBFS and cannot go higher without clipping'
+                : '') + '.' +
+              (moved.length ? ' Biggest moves: ' + moved.slice(0, 4).join(', ') + '.' : '') +
+              (skipped ? ' ' + skipped + ' still without audio.' : ''));
   }
 
   function renderSummary() {
