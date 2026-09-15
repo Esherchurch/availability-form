@@ -4658,6 +4658,9 @@
     /* For tests: the live project, not the saved copy. Reading the saved one
        is how a probe once built a preview from half the mix. */
     window.__project = function () { return project; };
+    /* For tests: the decoded audio the page is holding, so a render can be
+       driven without loading the files a second time. */
+    window.__buffersForTest = function () { return buffers; };
     /* For tests: recompute and redraw after poking the project directly. */
     window.__touchForTest = function (label) { return touch(label); };
     /* For the bulk importer and for tests: the same path the button takes. */

@@ -505,6 +505,24 @@
     var trackGain = Math.pow(10, ((pt.gainDb != null ? pt.gainDb : 0)) / 20);
     gain.gain.setValueAtTime(trackGain, 0);
 
+    /* Every curve on this gain node has to carry the track's own level.
+
+       A fade curve runs 0 to 1, and setValueCurveAtTime REPLACES whatever the
+       gain was with the curve — so a levelled track was played at unity for
+       the whole of any fade, and the fade-in of an incoming record ends with
+       setValueAtTime(1), which is unity for the entire rest of the record.
+       Every track after the first therefore ignored its level completely.
+
+       Measured: two records levelled to -14 LUFS came out of the render at
+       -14.0 and -19.0, the second exactly as loud as it had been before
+       levelling — its +5 dB simply never reached the file. "As long as they
+       hit the same volume" was the one thing this could not do. */
+    var atLevel = function (curve) {
+      var out2 = new Float32Array(curve.length);
+      for (var ci = 0; ci < curve.length; ci++) out2[ci] = curve[ci] * trackGain;
+      return out2;
+    };
+
     if (jOut && jOut.type === 'blend' && outOverlap > 0) {
       var bassOut = off.createBiquadFilter();
       bassOut.type = 'lowshelf'; bassOut.frequency.value = 220;
@@ -512,7 +530,7 @@
       bassOut.gain.setValueAtTime(0, 0);
       bassOut.gain.setValueCurveAtTime(DSP.rampCurve(CURVE, 0, -bc), outStart, Math.max(0.01, outOverlap * 0.5));
       chain.connect(bassOut); chain = bassOut;
-      gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false), outStart, Math.max(0.01, outOverlap));
+      gain.gain.setValueCurveAtTime(atLevel(DSP.equalPower(CURVE, false)), outStart, Math.max(0.01, outOverlap));
     } else if (jOut && outOverlap > 0) {
       /* Overlapping and fading are two different lengths.
 
@@ -549,20 +567,20 @@
       fadeLen = Math.max(0.01, Math.min(fadeLen, dur));
       var fadeAt = Math.max(0, dur - fadeLen);
       gain.gain.setValueAtTime(trackGain, safe(fadeAt));
-      gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, false), safe(fadeAt), fadeLen);
+      gain.gain.setValueCurveAtTime(atLevel(DSP.equalPower(CURVE, false)), safe(fadeAt), fadeLen);
     } else if (jOut) {
       // Hard cut: a 20 ms taper so the end does not click.
-      gain.gain.setValueAtTime(1, safe(dur - 0.02));
+      gain.gain.setValueAtTime(trackGain, safe(dur - 0.02));
       gain.gain.linearRampToValueAtTime(0, dur);
     }
 
     if (jIn && inOverlap > 0) {
       gain.gain.setValueAtTime(0, 0);
-      gain.gain.setValueCurveAtTime(DSP.equalPower(CURVE, true), 0, Math.max(0.01, inOverlap));
-      gain.gain.setValueAtTime(1, safe(inOverlap + 0.001));
+      gain.gain.setValueCurveAtTime(atLevel(DSP.equalPower(CURVE, true)), 0, Math.max(0.01, inOverlap));
+      gain.gain.setValueAtTime(trackGain, safe(inOverlap + 0.001));
     } else if (jIn) {
       gain.gain.setValueAtTime(0, 0);
-      gain.gain.linearRampToValueAtTime(1, 0.02);
+      gain.gain.linearRampToValueAtTime(trackGain, 0.02);
     }
 
     chain.connect(gain).connect(off.destination);
