@@ -162,11 +162,61 @@ function wav(file, secs, bpm) {
      'double-clicking to play keeps the zoom where it was',
      kept.before + 's -> ' + kept.after + 's on screen');
 
+  /* ---- moving along the record while zoomed in ----------------------
+
+     Zooming in is done in order to work on a particular moment, so not being
+     able to move along — and a selection sliding off the edge as the view
+     closes in — makes the zoom useless. */
+  const panned = await page.evaluate(async () => {
+    const cv = document.querySelector('canvas.wave');
+    const at = () => window.__waveWindowForTest(0);
+    const before = at();
+    document.querySelector('[data-act="pan-right"]').click();
+    await new Promise(z => setTimeout(z, 250));
+    const right = at();
+    document.querySelector('[data-act="pan-left"]').click();
+    document.querySelector('[data-act="pan-left"]').click();
+    await new Promise(z => setTimeout(z, 250));
+    const left = at();
+    return { before, right, left };
+  });
+  console.log('    window ' + JSON.stringify(panned.before) + ' -> right ' +
+              JSON.stringify(panned.right) + ' -> left ' + JSON.stringify(panned.left));
+  ok(panned.right.from > panned.before.from + 0.2,
+     'the view moves on along the record', panned.before.from + ' -> ' + panned.right.from);
+  ok(panned.left.from < panned.right.from - 0.2,
+     'and back the other way', panned.right.from + ' -> ' + panned.left.from);
+  ok(Math.abs((panned.right.to - panned.right.from) - (panned.before.to - panned.before.from)) < 0.1,
+     'without changing how close in it is');
+
+  /* a selection made at the very edge must not be left off screen */
+  const stayed = await page.evaluate(async () => {
+    const cv = document.querySelector('canvas.wave');
+    const r = cv.getBoundingClientRect();
+    const y = Math.round(r.top + r.height / 2);
+    /* drag right at the left-hand edge, then snap, which can push it further */
+    const a2 = Math.round(r.left + 3), b2 = Math.round(r.left + r.width * 0.06);
+    cv.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: a2, clientY: y }));
+    window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: b2, clientY: y }));
+    window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: b2, clientY: y }));
+    await new Promise(z => setTimeout(z, 400));
+    const w = window.__waveWindowForTest(0);
+    const s = window.__selectionForTest ? window.__selectionForTest() : null;
+    return { w, s };
+  });
+  if (!stayed.s) ok(false, 'no selection to check');
+  else {
+    console.log('    selection ' + stayed.s.fromSec.toFixed(2) + '-' + stayed.s.toSec.toFixed(2) +
+                's, window ' + stayed.w.from + '-' + stayed.w.to + 's');
+    ok(stayed.s.fromSec >= stayed.w.from - 0.01 && stayed.s.toSec <= stayed.w.to + 0.01,
+       'a selection made at the edge is still on screen afterwards');
+  }
+
   /* and there is a button for going back out */
   const buttons = await page.evaluate(() =>
-    ['zoom-in', 'zoom-out', 'zoom-sel', 'zoom-all']
+    ['zoom-in', 'zoom-out', 'zoom-sel', 'zoom-all', 'pan-left', 'pan-right']
       .filter(a => !!document.querySelector('[data-act="' + a + '"]')));
-  ok(buttons.length === 4, 'zoom is on buttons too, not only the wheel', buttons.join(','));
+  ok(buttons.length === 6, 'zoom and panning are on buttons, not only the wheel', buttons.join(','));
 
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   await browser.close(); server.close();

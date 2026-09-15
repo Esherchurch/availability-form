@@ -2034,6 +2034,10 @@
            already means "play from here", so a zoom bound to it fought the
            audition and threw the view away at the same time. */
         '<span class="zoomers">' +
+          '<button class="ghost tiny" data-act="pan-left" data-track="' + i + '" ' +
+            'title="Move back along the record">◀</button>' +
+          '<button class="ghost tiny" data-act="pan-right" data-track="' + i + '" ' +
+            'title="Move on along the record">▶</button>' +
           '<button class="ghost tiny" data-act="zoom-out" data-track="' + i + '" ' +
             'title="Show more of the record">−</button>' +
           '<button class="ghost tiny" data-act="zoom-in" data-track="' + i + '" ' +
@@ -2156,6 +2160,29 @@
     if (span >= dur) { waveView.delete(t.id); return; }
     from = Math.max(0, Math.min(from, dur - span));
     waveView.set(t.id, { from: from, to: from + span });
+  }
+
+  /* Move along the record without changing how close in it is. */
+  function panWave(t, byFraction) {
+    var v = viewOf(t), span = v.to - v.from;
+    setView(t, v.from + span * byFraction, v.to + span * byFraction);
+  }
+
+  /* Keep a selection on screen.
+
+     Zooming in on a record is done in order to work on a particular moment,
+     and the moment being worked on is the selection — so it going off the edge
+     as soon as the view closes in is the one thing that must not happen. If it
+     no longer fits, the view moves to it rather than the other way round. */
+  function showSelection(t, sel) {
+    if (!sel) return false;
+    var v = viewOf(t), span = v.to - v.from;
+    if (sel.fromSec >= v.from && sel.toSec <= v.to) return false;
+    var mid = (sel.fromSec + sel.toSec) / 2;
+    /* if the selection is wider than the window, show its start */
+    if (sel.toSec - sel.fromSec > span) setView(t, sel.fromSec - span * 0.1, sel.fromSec + span * 0.9);
+    else setView(t, mid - span / 2, mid + span / 2);
+    return true;
   }
 
   /* Zoom about a point, so whatever is under the pointer stays under it. */
@@ -2978,6 +3005,15 @@
         if (act === 'cut-sample') { cutSample(i); return; }
         if (act === 'snap-sel') return;      // a select, handled on change
         if (act === 'clear-sel') { clearSelection(i); renderAll(); setStatus(''); return; }
+        if (act === 'pan-left' || act === 'pan-right') {
+          var pt2 = project.tracks[i];
+          panWave(pt2, act === 'pan-left' ? -0.3 : 0.3);
+          var pc = document.querySelector('.trk[data-track="' + i + '"] canvas.wave');
+          if (pc) drawWave(pc, pt2);
+          var pv = viewOf(pt2);
+          setStatus('Showing ' + fmt(pv.from) + ' to ' + fmt(pv.to) + '.');
+          return;
+        }
         if (act === 'zoom-in' || act === 'zoom-out') {
           var zt = project.tracks[i];
           var zs = selectionFor(i);
@@ -3142,6 +3178,13 @@
       if (waveClickTimer) { clearTimeout(waveClickTimer); waveClickTimer = null; }
       suppressWaveClick = true;
       var sel = selectionFor(i);
+      /* Snapping can push an end outside the window, and so can dragging to
+         the very edge of it. Bring the view to the selection rather than
+         leaving it somewhere off screen. */
+      if (sel && showSelection(project.tracks[i], sel)) {
+        var mc = document.querySelector('.trk[data-track="' + i + '"] canvas.wave');
+        if (mc) drawWave(mc, project.tracks[i]);
+      }
       if (sel) {
         renderAll();
         setStatus('Selected ' + sel.bars + ' bar' + (sel.bars === 1 ? '' : 's') +
@@ -4742,6 +4785,12 @@
     /* For tests: the live project, not the saved copy. Reading the saved one
        is how a probe once built a preview from half the mix. */
     window.__project = function () { return project; };
+    /* For tests: the window the waveform is showing, and what is selected. */
+    window.__waveWindowForTest = function (i) {
+      var t = project.tracks[i]; if (!t) return null;
+      var v = viewOf(t); return { from: +v.from.toFixed(2), to: +v.to.toFixed(2) };
+    };
+    window.__selectionForTest = function () { return selection ? selectionFor(selection.track) : null; };
     /* For tests: how many seconds of a record the waveform is showing. */
     window.__waveSpanForTest = function (i) {
       var t = project.tracks[i]; if (!t) return null;
