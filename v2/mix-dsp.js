@@ -686,6 +686,114 @@ onmessage = e => {
     return trimmed;
   }
 
+  /* A look-ahead peak limiter, so one dynamic record cannot set the level of
+     the whole set.
+
+     The levelling asked every track for a loudness and then refused to let any
+     sample clip, which sounds prudent and is not: it means the least forgiving
+     record in the set decides how loud the other forty-three are allowed to
+     be. Measured on Martin's two hour mix, "Get Down on It" — a sparse funk
+     record sitting at -22.5 LUFS whose peaks are already at -1.1 dBFS, so it
+     has 0.9 dB of room — held the entire set down to -22.2 LUFS against a -14
+     target. Eight decibels thrown away across 44 tracks to protect the
+     transients of one, and eight decibels that have to be found again
+     somewhere: at the amplifier, where it distorts. "Almost like it is mega
+     compressed" is what a mix played 8 dB harder than it should need sounds
+     like, and the fault was here rather than in anything that was rendered.
+
+     So peaks are handled instead of avoided:
+
+       req[i]  the gain that would put this sample exactly on the ceiling
+       m[i]    the smallest req within a window either side of i — so the
+               reduction begins BEFORE the transient rather than chasing it
+       g[i]    a smooth average of m across a window no wider than that one
+
+     Every m[j] inside i's window is a minimum taken over a range that contains
+     i, so every m[j] <= req[i], and therefore any weighted average of them is
+     <= req[i] as well. The ceiling cannot be exceeded. That is a property of
+     how the curve is built rather than a margin left for safety, so there is
+     no overshoot to catch afterwards.
+
+     Two box passes give the smooth average in one pass of the data each — a
+     Hann window costs look-ahead multiplies per sample and is 5 billion
+     operations on a three minute track, which is why this is not that.
+
+     The recovery is deliberately slower than the attack. A limiter that snaps
+     back inside a bass period modulates the bass, and that IS the sound people
+     mean by a limiter being audible. One gain curve drives every channel, or
+     the stereo image steps sideways each time it works. */
+  function limitPeaks(buf, ceiling, opts) {
+    opts = opts || {};
+    var sr = buf.sampleRate;
+    var look = Math.max(1, Math.round((opts.lookaheadSec == null ? 0.005 : opts.lookaheadSec) * sr));
+    var rel = Math.max(1, Math.round((opts.releaseSec == null ? 0.12 : opts.releaseSec) * sr));
+    var pre = opts.preGain == null ? 1 : opts.preGain;
+    var chans = buf.numberOfChannels, len = buf.length, c, i;
+    var data = [];
+    for (c = 0; c < chans; c++) data.push(buf.getChannelData(c));
+
+    /* what each sample would need, with the track's own level already in it */
+    var req = new Float32Array(len);
+    var worst = 0;
+    for (i = 0; i < len; i++) {
+      var pk = 0;
+      for (c = 0; c < chans; c++) { var a = data[c][i]; if (a < 0) a = -a; if (a > pk) pk = a; }
+      pk *= pre;
+      if (pk > worst) worst = pk;
+      req[i] = pk > ceiling ? ceiling / pk : 1;
+    }
+    if (worst <= ceiling) {
+      if (pre !== 1) for (c = 0; c < chans; c++) { var dc = data[c];
+        for (i = 0; i < len; i++) dc[i] *= pre; }
+      return { peak: worst, reducedDb: 0, limitedDb: 0, worked: false };
+    }
+
+    /* smallest req within +-look, by monotonic deque, one pass */
+    var m = new Float32Array(len);
+    var dq = new Int32Array(len + 1), head = 0, tail = 0, fill = 0;
+    for (i = 0; i < len; i++) {
+      var right = i + look; if (right > len - 1) right = len - 1;
+      while (fill <= right) {
+        while (tail > head && req[dq[tail - 1]] >= req[fill]) tail--;
+        dq[tail++] = fill; fill++;
+      }
+      var left = i - look; if (left < 0) left = 0;
+      while (dq[head] < left) head++;
+      m[i] = req[dq[head]];
+    }
+
+    /* two centred box passes, together no wider than the window above */
+    var half = Math.max(1, Math.floor(look / 2));
+    var g = new Float32Array(len), tmp = new Float32Array(len);
+    var pre1 = new Float64Array(len + 1);
+    function box(src, dst) {
+      pre1[0] = 0;
+      for (var k = 0; k < len; k++) pre1[k + 1] = pre1[k] + src[k];
+      for (var k2 = 0; k2 < len; k2++) {
+        var a2 = k2 - half; if (a2 < 0) a2 = 0;
+        var b2 = k2 + half; if (b2 > len - 1) b2 = len - 1;
+        dst[k2] = (pre1[b2 + 1] - pre1[a2]) / (b2 - a2 + 1);
+      }
+    }
+    box(m, tmp); box(tmp, g);
+
+    /* let it come down at once and back up slowly */
+    var rise = Math.exp(1 / rel), prev = 1, lowest = 1;
+    for (i = 0; i < len; i++) {
+      var up = prev * rise;
+      var v = g[i] < up ? g[i] : up;
+      g[i] = v; prev = v;
+      if (v < lowest) lowest = v;
+    }
+
+    for (c = 0; c < chans; c++) {
+      var d2 = data[c];
+      for (i = 0; i < len; i++) d2[i] *= pre * g[i];
+    }
+    return { peak: worst, reducedDb: 20 * Math.log10(lowest),
+             limitedDb: -20 * Math.log10(lowest), worked: true };
+  }
+
   /* Two clips summed can exceed full scale — modern masters sit near 0 dBFS, so
      a crossfade or an overlap clips on export. Float render headroom is
      unlimited; this pulls the finished buffer back under 0 dBFS. A prototype
@@ -2239,6 +2347,7 @@ onmessage = e => {
     rmsOf: rmsOf, loudness: loudness,
     stretch: stretch,
     stretchRamp: stretchRamp,
+    limitPeaks: limitPeaks,
     finalise: finalise,
     hpFiltfilt: hpFiltfilt,
     makeIR: makeIR,

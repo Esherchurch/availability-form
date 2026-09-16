@@ -442,6 +442,13 @@
     return c;
   }
 
+  /* How high a single track may peak. Tracks OVERLAP at every junction, and
+     two of them summing is what the old prototype clipped on, so this leaves
+     room for that sum rather than running each track up to full scale on its
+     own. Equal-power crossfades and the bass swap mean the sum of a blend sits
+     close to one record's own peak, so the room needed is small. */
+  var TRACK_CEILING = 0.85;
+
   function renderTrackStream(ctx, opts) {
     var pt = opts.plan, buf = opts.buffer;
     var jIn = opts.jIn, jOut = opts.jOut;
@@ -455,6 +462,25 @@
       : DSP.slice(ctx, buf, pt.sourceFromSec, pt.sourceToSec - pt.sourceFromSec);
     if (!src) src = DSP.slice(ctx, buf, pt.sourceFromSec, Math.max(0.1, pt.sourceSec || 1));
     var stretched = DSP.stretchRamp(ctx, src, pt.r0, pt.r1);
+
+    /* The track's own level goes INTO the audio here, with its peaks held
+       under a ceiling, rather than being asked of a gain node further down.
+
+       It has to happen here because of what the level is now allowed to be.
+       Levelling used to pick the loudest point the least forgiving record in
+       the set could reach with nothing clipping, which handed one sparse funk
+       record the casting vote over the other forty-three and left the whole
+       mix 7.6 dB below the target it was given. Now every record is levelled
+       to the target and the few that cannot reach it cleanly are held at the
+       ceiling by the limiter — which only works if something is actually
+       holding them, and a gain node holds nothing.
+
+       Baked in rather than set on the node, so there is one level per track
+       and the fade curves below no longer have to carry it. */
+    var wantGain = Math.pow(10, ((pt.gainDb != null ? pt.gainDb : 0)) / 20);
+    var lim = DSP.limitPeaks(stretched, TRACK_CEILING, { preGain: wantGain });
+    if (opts.onLimit) opts.onLimit(pt, lim);
+
     var sr = stretched.sampleRate;
     var dur = stretched.duration;
 
@@ -542,9 +568,10 @@
     }
 
     var gain = off.createGain();
-    /* The track's own level, set by normalising. One place, so what is heard
-       in the preview is what is written to the file. */
-    var trackGain = Math.pow(10, ((pt.gainDb != null ? pt.gainDb : 0)) / 20);
+    /* Unity: the track's level is already in the samples, applied above along
+       with the limiting that keeps it under the ceiling. Applying it twice was
+       the obvious bug to write here. */
+    var trackGain = 1;
     gain.gain.setValueAtTime(trackGain, 0);
 
     /* Every curve on this gain node has to carry the track's own level.

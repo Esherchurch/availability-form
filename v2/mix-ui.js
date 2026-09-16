@@ -5174,7 +5174,28 @@
      Forty-seven records mastered across five decades do not arrive at the same
      loudness, and a set that steps up and down between them is the one thing
      a dancefloor notices. */
-  var NORM_TARGET_DB = -14;
+  /* Measured on the real 44 track set, counting how many records the limiter
+     would have to touch to reach each target:
+
+       -22   0 of 44 limited   (what the old rule produced, and 8 dB quiet)
+       -20   2 of 44 limited, worst 1.6 dB
+       -18   5 of 44 limited, worst 3.6 dB
+       -14  24 of 44 limited, and two still cannot reach it
+
+     Every one of these lands all 44 tracks on the same number; what changes is
+     how much of the set has to be processed to get there. The mix goes out
+     through a 1000 W rig with headroom to spare, so loudness is not worth
+     buying with processing: this is the quietest target that still fixes the
+     fault, and it leaves 42 of the 44 records completely untouched. */
+  var NORM_TARGET_DB = -20;
+
+  /* How hard the limiter may be asked to work on any one record before the
+     answer is "then it stays quieter". Six decibels of reduction on the
+     transient peaks of a sparse record is inaudible; twelve is a squashed
+     record. A record that cannot reach the target within this comes out a
+     shade below it, which is the right way round — there is a volume control,
+     and there is no control for undoing distortion. */
+  var MAX_LIMIT_DB = 6;
 
   /* Level the set to a loudness every record can actually reach.
 
@@ -5226,14 +5247,40 @@
 
     if (!rows.length) { setStatus('Load the audio first — there is nothing to measure yet.', true); return; }
 
-    /* the loudest the whole set can sit at with nothing clipping */
-    var reachable = Math.min.apply(null, rows.map(function (r) { return r.reach; }));
-    var target = Math.max(-24, Math.min(NORM_TARGET_DB, reachable));
-    var tightest = rows.reduce(function (a, b) { return b.reach < a.reach ? b : a; }, rows[0]);
+    /* The target is the target.
 
-    var moved = [];
+       This used to be the loudest point the least forgiving record in the set
+       could reach with not one sample clipping — the minimum, across every
+       track, of what it measures plus what it has left above its peaks. That
+       reads as careful and behaves as the opposite: it hands a single record
+       the casting vote over all the others.
+
+       Measured on the real set: "Get Down on It" is a sparse funk record at
+       -22.5 LUFS whose peaks already sit at -1.1 dBFS, so it has 0.9 dB of
+       room and can never exceed -21.6 however it is treated. Every one of the
+       other 43 tracks was pulled down to -21.6 to keep it company, and the
+       finished two hour mix measured -22.2 LUFS against the -14 it was asked
+       for. Those 7.6 dB do not disappear, they are found again on the
+       amplifier — which is where the distortion was coming from.
+
+       So every record is levelled to the target, and the few that cannot get
+       there with their peaks clear are held at the ceiling by the limiter in
+       the render instead of dragging the rest of the set down to meet them.
+       Most tracks need no limiting at all; they had room the old rule never
+       spent. */
+    var target = NORM_TARGET_DB;
+
+    var moved = [], limited = [], quiet = [];
     rows.forEach(function (r) {
-      var gainDb = Math.max(-24, Math.min(12, target - r.lufs));
+      var want = target - r.lufs;
+      /* as far as this record can be pushed: its own clean room, plus as much
+         limiting as is worth doing to it */
+      var most = r.headroom + MAX_LIMIT_DB;
+      var gainDb = Math.max(-24, Math.min(12, Math.min(want, most)));
+      r.limitDb = Math.max(0, gainDb - r.headroom);
+      r.shortDb = Math.max(0, want - gainDb);
+      if (r.limitDb >= 0.5) limited.push(r.t.title + ' ' + r.limitDb.toFixed(1) + ' dB');
+      if (r.shortDb >= 0.5) quiet.push(r.t.title + ' ' + r.shortDb.toFixed(1) + ' dB under');
       r.t.gainDb = Math.round(gainDb * 10) / 10;
       r.t.measuredDb = r.lufs;
       r.t.loudnessLufs = r.lufs;
@@ -5246,11 +5293,15 @@
     touch('normalised');
     setStatus('Levelled ' + rows.length + ' track' + (rows.length === 1 ? '' : 's') +
               ' to ' + target.toFixed(1) + ' LUFS. They arrived ' + (hi - lo).toFixed(1) +
-              ' dB apart' + (target < NORM_TARGET_DB - 0.05
-                ? ' — and the set sits at ' + target.toFixed(1) + ' rather than ' + NORM_TARGET_DB +
-                  ' because "' + tightest.t.title + '" peaks at ' + tightest.peakDb +
-                  ' dBFS and cannot go higher without clipping'
-                : '') + '.' +
+              ' dB apart.' +
+              (limited.length
+                ? ' ' + limited.length + ' needed the limiter to get there: ' +
+                  limited.slice(0, 3).join(', ') + '.'
+                : ' None of them needed the limiter.') +
+              (quiet.length
+                ? ' ' + quiet.join(', ') + ' — too dynamic to reach it without being squashed, ' +
+                  'so ' + (quiet.length === 1 ? 'it sits' : 'they sit') + ' a shade below.'
+                : '') +
               (moved.length ? ' Biggest moves: ' + moved.slice(0, 4).join(', ') + '.' : '') +
               (skipped ? ' ' + skipped + ' still without audio.' : ''));
   }
