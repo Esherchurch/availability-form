@@ -405,6 +405,43 @@
      envelopes its two junctions ask for. The result is that track's complete
      contribution to the mix — everything except being added to its neighbours. */
 
+  /* The bass swap, as one curve and its complement.
+
+     A DJ takes the bottom off the record coming in, and hands the bottom over
+     at the moment the outgoing one leaves: at any instant ONE record owns the
+     low end. What the code did instead was ramp the outgoing record's bass
+     down across the first half of the overlap while holding the incoming
+     record's bass cut for that same half — so in the middle of every blend
+     neither of them had any bass at all.
+
+     Measured on a two hour mix of Martin's: at the midpoint of every blend the
+     low end sat 16 to 21 dB below where it was either side. -22.1 dB going in,
+     -38.5 in the middle, -23.6 coming out. Ninety-five stretches of it, some
+     fifteen seconds long. "Completely tinny between songs" is exactly right,
+     and it was the two cuts overlapping rather than either one being wrong.
+
+     Equal power, so the handover is even: cos on the way out, sin on the way
+     in, both clamped at the cut. Where they cross each record is 3 dB down and
+     two uncorrelated bottom ends at -3 dB sum back to full — no hole. */
+  function bassCurve(steps, cutDb, rising, atFrac, widthFrac) {
+    var at = (atFrac == null) ? 0.5 : Math.max(0.02, Math.min(0.98, atFrac));
+    var w = (widthFrac == null) ? 1 : Math.max(0.04, Math.min(1, widthFrac));
+    var from = at - w / 2, to = at + w / 2;
+    var c = new Float32Array(steps);
+    for (var i = 0; i < steps; i++) {
+      var x = i / (steps - 1);
+      var u;
+      if (x <= from) u = rising ? 0 : 1;
+      else if (x >= to) u = rising ? 1 : 0;
+      else {
+        var th = ((x - from) / (to - from)) * Math.PI / 2;
+        u = rising ? Math.sin(th) : Math.cos(th);
+      }
+      c[i] = Math.max(-cutDb, 20 * Math.log10(Math.max(1e-6, u)));
+    }
+    return c;
+  }
+
   function renderTrackStream(ctx, opts) {
     var pt = opts.plan, buf = opts.buffer;
     var jIn = opts.jIn, jOut = opts.jOut;
@@ -441,13 +478,18 @@
 
     // --- incoming: this track arriving under the previous one
     if (jIn && jIn.type === 'blend' && inOverlap > 0) {
-      var bassIn = off.createBiquadFilter();
-      bassIn.type = 'lowshelf'; bassIn.frequency.value = 220;
       var cut = jIn.settings.bassCutDb == null ? 20 : jIn.settings.bassCutDb;
-      bassIn.gain.setValueAtTime(-cut, 0);
-      bassIn.gain.setValueCurveAtTime(DSP.rampCurve(CURVE, -cut, 0),
-        safe(inOverlap * 0.5), Math.max(0.01, inOverlap * 0.5));
-      chain.connect(bassIn); chain = bassIn;
+      if (cut > 0.1) {
+        var bassIn = off.createBiquadFilter();
+        bassIn.type = 'lowshelf'; bassIn.frequency.value = 220;
+        bassIn.gain.setValueAtTime(-cut, 0);
+        /* across the WHOLE overlap, not the second half of it */
+        var inAt = (jIn.bassSwapSec != null ? jIn.bassSwapSec : inOverlap * 0.5) / inOverlap;
+        var inW = Math.min(1, (jIn.bassSwapBarSec || inOverlap * 0.25) / inOverlap);
+        bassIn.gain.setValueCurveAtTime(bassCurve(CURVE, cut, true, inAt, inW), 0,
+                                        Math.max(0.01, inOverlap));
+        chain.connect(bassIn); chain = bassIn;
+      }
     }
 
     /* --- outgoing: the beat bridge.
@@ -524,12 +566,19 @@
     };
 
     if (jOut && jOut.type === 'blend' && outOverlap > 0) {
-      var bassOut = off.createBiquadFilter();
-      bassOut.type = 'lowshelf'; bassOut.frequency.value = 220;
       var bc = jOut.settings.bassCutDb == null ? 20 : jOut.settings.bassCutDb;
-      bassOut.gain.setValueAtTime(0, 0);
-      bassOut.gain.setValueCurveAtTime(DSP.rampCurve(CURVE, 0, -bc), outStart, Math.max(0.01, outOverlap * 0.5));
-      chain.connect(bassOut); chain = bassOut;
+      if (bc > 0.1) {
+        var bassOut = off.createBiquadFilter();
+        bassOut.type = 'lowshelf'; bassOut.frequency.value = 220;
+        bassOut.gain.setValueAtTime(0, 0);
+        /* the complement of the curve the incoming record is using, across the
+           same span, so one of them always has the bottom */
+        var outAt = (jOut.bassSwapSec != null ? jOut.bassSwapSec : outOverlap * 0.5) / outOverlap;
+        var outW = Math.min(1, (jOut.bassSwapBarSec || outOverlap * 0.25) / outOverlap);
+        bassOut.gain.setValueCurveAtTime(bassCurve(CURVE, bc, false, outAt, outW), outStart,
+                                         Math.max(0.01, outOverlap));
+        chain.connect(bassOut); chain = bassOut;
+      }
       gain.gain.setValueCurveAtTime(atLevel(DSP.equalPower(CURVE, false)), outStart, Math.max(0.01, outOverlap));
     } else if (jOut && outOverlap > 0) {
       /* Overlapping and fading are two different lengths.
@@ -655,6 +704,42 @@
     opts = opts || {};
     var ctx = opts.ctx || new (global.AudioContext || global.webkitAudioContext)();
     var plan = buildPlan(project);
+
+    /* WHEN the bottom changes hands.
+
+       Halfway through the overlap is arbitrary and often wrong: a record that
+       opens on strings and brings its drums in eight bars later should not be
+       handed the bottom end before it has a beat to put under it, and a record
+       that starts on a kick should have it at once.
+
+       drumsInSec measures how long the incoming record takes to get going,
+       from its own entry point — the same measurement the drum fills use to
+       decide how far to carry. The swap is put there, kept inside the overlap,
+       and rounded to a bar so it lands with the music rather than between it. */
+    (plan.junctions || []).forEach(function (jn, k) {
+      var ov = jn.overlapSec || 0;
+      if (!ov || jn.type !== 'blend') return;
+      var nextPt = plan.tracks[k + 1];
+      var nb = nextPt && buffers.get ? buffers.get(nextPt.id) : null;
+      /* Zero is an answer, not a failure: it means the record is already
+         going, and one that starts on a kick should be handed the bottom at
+         once rather than waiting half a blend for it. Only a record whose
+         audio is not here at all falls back to the middle. */
+      var at = ov * 0.5;
+      if (nb) {
+        try {
+          at = DSP.drumsInSec(DSP.toMono(nb), nb.sampleRate,
+                              nextPt.sourceFromSec || 0, Math.min(ov, 40));
+          if (!isFinite(at) || at < 0) at = 0;
+        } catch (e) { at = ov * 0.5; }
+      }
+      var bpm = jn.targetBpm || jn.bridgeBpm || 120;
+      var barSec = 60 / bpm * 4;
+      at = Math.round(at / barSec) * barSec;
+      /* never right at either end: the swap needs room on both sides of it */
+      jn.bassSwapSec = Math.max(ov * 0.15, Math.min(ov * 0.85, at));
+      jn.bassSwapBarSec = barSec;
+    });
     var first = opts.fromTrack == null ? 0 : Math.max(0, opts.fromTrack);
     var last = opts.toTrack == null ? plan.tracks.length - 1
                                     : Math.min(plan.tracks.length - 1, opts.toTrack);
