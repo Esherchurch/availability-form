@@ -163,6 +163,7 @@
   .le-wait{font-style:italic}
   .clipmenu .lowend{min-width:260px}
   .matchlow{display:inline-flex; gap:6px; align-items:center}
+  .matchlow input[type=number]{width:4.5em; font:inherit; padding:6px 6px; border-radius:var(--r-md); border:1px solid var(--hairline)}
   .matchlow select{font:inherit; padding:6px 8px; border-radius:var(--r-md); border:1px solid var(--hairline); background:var(--surface-2)}
   canvas.wave{width:100%; height:88px; display:block; background:#f7fbfa;
     border:1px solid var(--hairline); border-radius:var(--r-sm); cursor:crosshair}
@@ -598,9 +599,12 @@
       <span class="matchlow">
         <button class="ghost" id="matchLowBtn" title="Raise the sub-bass of the thinner records so their low end reaches the target, then re-level">〰 Match low end</button>
         <select id="matchLowTarget" title="What to match the thinner records to">
+          <option value="level" selected>to a set level</option>
           <option value="median">to the middle of the set</option>
           <option value="max">to the bassiest record</option>
         </select>
+        <span id="matchLowLevelWrap"><input type="number" id="matchLowDb" value="4" step="0.5" min="-18" max="15"
+          title="The low end to bring thinner records up to, in dB against their own mids"> dB</span>
       </span>
       <button class="ghost" id="playerBtn" title="Open the player for the night — pick the output the PA is on and play the finished mix with nothing done to it">▶ Player</button>
       <button class="ghost" id="undoBtn" disabled title="Ctrl+Z">↶ Undo</button>

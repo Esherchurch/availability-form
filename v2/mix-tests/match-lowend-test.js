@@ -87,6 +87,18 @@ app.whenReady().then(async () => {
     res.max = m2;
     res.subsMax = p3.tracks.map(t => t.subDb || 0);
     res.statusMax = (document.getElementById('status') || {}).textContent || '';
+    /* a set level, as Martin chose: +4 */
+    document.getElementById('undoBtn').click();
+    await new Promise(r => setTimeout(r, 400));
+    const m3 = await window.__matchLowEndForTest('level', 4);
+    const p4 = window.__project();
+    res.level = m3;
+    res.subsLevel = p4.tracks.map(t => t.subDb || 0);
+    res.afterLevel = p4.tracks.map(t => { const b = window.__buffersForTest().get(t.id);
+      return DSP.lowEndDb(DSP.lowEndProfile(DSP.toMono(b), sr, 0, secs - 2), t.subDb || 0); });
+    res.statusLevel = (document.getElementById('status') || {}).textContent || '';
+    res.defaultMode = document.getElementById('matchLowTarget').value;
+    res.defaultDb = document.getElementById('matchLowDb').value;
     res.buttonThere = !!document.getElementById('matchLowBtn') && !!document.getElementById('matchLowTarget');
     return res;
   })()`);
@@ -120,6 +132,13 @@ app.whenReady().then(async () => {
   ok(/Hollow/.test(out.statusMax) && /could not get all the way/.test(out.statusMax),
      'and is named as not getting there');
   ok(out.subsMax[0] === 0, 'the bassiest itself is untouched');
+  console.log('');
+  console.log('  to +4: subs ' + out.subsLevel.join(' ') + '   readings ' + f(out.afterLevel));
+  ok(out.defaultMode === 'level' && out.defaultDb === '4', 'the button starts on a set level of +4', out.defaultMode + ' ' + out.defaultDb);
+  ok(out.level && Math.abs(out.level.target - 4) < 1e-9, 'a set level is used as given', out.level && out.level.target);
+  ok(out.subsLevel[0] === 0 && out.subsLevel[1] === 0, 'records already at +4 or more are left alone', out.subsLevel.slice(0, 2).join(' '));
+  ok(out.afterLevel[2] >= 3.7 && out.afterLevel[3] >= 3.7, 'the ones below are brought up to it', f(out.afterLevel.slice(2, 4)));
+  ok(/the level set/.test(out.statusLevel), 'and it says so', out.statusLevel.slice(0, 70));
   ok(errs.length === 0, 'no console errors', errs.slice(0, 2).join(' | '));
   console.log(fails ? '\n' + fails + ' FAILED' : '\nthin records can be brought up to the rest, and put back');
   app.exit(fails ? 1 : 0);

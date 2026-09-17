@@ -1655,7 +1655,9 @@
     });
   }
 
-  async function matchLowEnd(mode) {
+  /* mode: 'level' (a number Martin sets — he chose +4, a little above the
+     set's middle of +3.2), 'median' or 'max' */
+  async function matchLowEnd(mode, level) {
     if (!project.tracks.some(function (t) { return buffers.has(t.id); })) {
       setStatus('Load the audio first — there is nothing to measure yet.', true);
       return null;
@@ -1669,7 +1671,9 @@
 
     var sorted = rows.map(function (r) { return r.now; }).sort(function (a, b) { return a - b; });
     var best = rows.reduce(function (a, b) { return b.now > a.now ? b : a; });
-    var target = mode === 'max' ? best.now : sorted[Math.floor(sorted.length / 2)];
+    var target = mode === 'max' ? best.now
+               : mode === 'level' && isFinite(level) ? level
+               : sorted[Math.floor(sorted.length / 2)];
 
     var raised = [], short = [];
     rows.forEach(function (r) {
@@ -1692,7 +1696,9 @@
     /* keep them all at the same volume, measured through the new settings */
     normaliseAll();
 
-    var label = mode === 'max' ? 'the bassiest record, ' + best.t.title : 'the middle of the set';
+    var label = mode === 'max' ? 'the bassiest record, ' + best.t.title
+              : mode === 'level' && isFinite(level) ? 'the level set'
+              : 'the middle of the set';
     setStatus('Matched the low end to ' + (target > 0 ? '+' : '') + target.toFixed(1) + ' dB, ' + label + '. ' +
       (raised.length ? 'Raised ' + raised.length + ': ' + raised.slice(0, 5).join(', ') +
                        (raised.length > 5 ? ' and ' + (raised.length - 5) + ' more' : '') + '. '
@@ -3717,8 +3723,28 @@
     }
 
     if ($('normaliseBtn')) $('normaliseBtn').onclick = normaliseAll;
+    /* The level is kept with the project, so it is the same next time. */
+    function syncMatchLow() {
+      var sel = $('matchLowTarget'), wrap = $('matchLowLevelWrap'), inp = $('matchLowDb');
+      if (!sel || !wrap) return;
+      if (project.matchLowMode && document.activeElement !== sel) sel.value = project.matchLowMode;
+      /* never over the top of a number being typed */
+      if (inp && project.matchLowDb != null && document.activeElement !== inp) inp.value = project.matchLowDb;
+      wrap.hidden = sel.value !== 'level';
+    }
+    if ($('matchLowTarget')) $('matchLowTarget').onchange = function () {
+      project.matchLowMode = this.value; save(); syncMatchLow();
+    };
+    if ($('matchLowDb')) $('matchLowDb').onchange = function () {
+      var v = parseFloat(this.value);
+      if (isFinite(v)) { project.matchLowDb = v; save(); }
+    };
+    syncMatchLow();
+    syncMatchLowRef = syncMatchLow;
     if ($('matchLowBtn')) $('matchLowBtn').onclick = function () {
-      matchLowEnd(($('matchLowTarget') || {}).value || 'median');
+      var mode = ($('matchLowTarget') || {}).value || 'level';
+      var lv = parseFloat(($('matchLowDb') || {}).value);
+      matchLowEnd(mode, lv);
     };
     /* The player is a separate window and a separate job: on the night the
        thing that decides how the mix sounds is which output it goes to, not
@@ -5123,7 +5149,7 @@
     /* For tests: the decoded audio the page is holding, so a render can be
        driven without loading the files a second time. */
     window.__buffersForTest = function () { return buffers; };
-    window.__matchLowEndForTest = function (mode) { return matchLowEnd(mode); };
+    window.__matchLowEndForTest = function (mode, level) { return matchLowEnd(mode, level); };
     /* the same link-and-analyse a user gets from "Find the file...", so a
        script can point a track at a different recording and have it analysed
        exactly as the app would, rather than by a copy of the steps */
@@ -5450,7 +5476,11 @@
 
   /* ---------------------------------------------------------- boot --- */
 
+  /* set once the controls are wired; the project arrives after that */
+  var syncMatchLowRef = null;
+
   function renderAll() {
+    if (syncMatchLowRef) syncMatchLowRef();
     renderTimeline();
     /* The timeline is rebuilt from scratch each time, so the transport has to
        be re-attached and the markers repainted onto the new elements. */
