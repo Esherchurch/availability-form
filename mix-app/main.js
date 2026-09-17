@@ -14,7 +14,7 @@
      - the service worker, and with it a day of stale-file problems
    =================================================================== */
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -22,10 +22,11 @@ let win = null;
 
 /* In development the page lives next door in the repo; once packaged it is
    copied into resources/app-page by electron-builder. */
-function pagePath() {
+function pagePath(file) {
+  var name = file || 'mix-builder.html';
   return app.isPackaged
-    ? path.join(process.resourcesPath, 'app-page', 'mix-builder.html')
-    : path.join(__dirname, '..', 'v2', 'mix-builder.html');
+    ? path.join(process.resourcesPath, 'app-page', name)
+    : path.join(__dirname, '..', 'v2', name);
 }
 
 /* Where a remembered project lives when the user has not saved one anywhere
@@ -52,11 +53,51 @@ function createWindow() {
     }
   });
   win.setMenuBarVisibility(false);
+  allowSpeakerChoice(win);
   win.loadFile(pagePath());
   win.on('closed', () => { win = null; });
 }
 
-app.whenReady().then(createWindow);
+/* Choosing which interface the mix comes out of is the reason the player
+   exists: the laptop's own output has Dolby processing on it that compresses
+   the mix before it reaches the speakers, and a plain interface does not.
+   Chromium will not name the outputs, or let setSinkId switch between them,
+   unless the page holds media permission — so grant that, and nothing else. */
+function allowSpeakerChoice(w) {
+  var ses = w.webContents.session;
+  ses.setPermissionRequestHandler(function (wc, permission, done) {
+    done(permission === 'media' || permission === 'speaker-selection');
+  });
+  ses.setPermissionCheckHandler(function (wc, permission) {
+    return permission === 'media' || permission === 'speaker-selection';
+  });
+  ses.setDevicePermissionHandler(function () { return true; });
+}
+
+/* The player is its own window. Opening the builder to reach it would mean
+   decoding 44 records before a party can start. */
+let player = null;
+function openPlayer() {
+  if (player && !player.isDestroyed()) { player.focus(); return; }
+  player = new BrowserWindow({
+    width: 1200, height: 860, minWidth: 820, minHeight: 620,
+    title: 'Mix Player', backgroundColor: '#0b0f14',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false, backgroundThrottling: false
+    }
+  });
+  player.setMenuBarVisibility(false);
+  allowSpeakerChoice(player);
+  player.loadFile(pagePath('mix-player.html'));
+  player.on('closed', function () { player = null; });
+}
+
+app.whenReady().then(function () {
+  /* "mix-builder.exe --player" starts straight into it */
+  if (process.argv.indexOf('--player') !== -1) openPlayer();
+  else createWindow();
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
@@ -165,6 +206,40 @@ ipcMain.handle('mix:save', async (e, bytes, suggested) => {
   if (r.canceled) return null;
   fs.writeFileSync(r.filePath, Buffer.from(bytes));
   return r.filePath;
+});
+
+/* ------------------------------------------------------- player --- */
+
+ipcMain.handle('player:open', () => { openPlayer(); return true; });
+
+ipcMain.handle('player:pickWav', async (e) => {
+  const from = BrowserWindow.fromWebContents(e.sender);
+  const r = await dialog.showOpenDialog(from, {
+    title: 'Open the mix',
+    properties: ['openFile'],
+    filters: [{ name: 'Audio', extensions: ['wav', 'flac', 'mp3', 'm4a'] }]
+  });
+  return r.canceled ? null : r.filePaths[0];
+});
+
+function playerStatePath() {
+  return path.join(app.getPath('userData'), 'player-state.json');
+}
+ipcMain.handle('player:saveState', (e, json) => {
+  try { fs.writeFileSync(playerStatePath(), json, 'utf8'); return true; } catch (err) { return false; }
+});
+ipcMain.handle('player:loadState', () => {
+  try { return fs.readFileSync(playerStatePath(), 'utf8'); } catch (err) { return null; }
+});
+
+/* A laptop that sleeps at midnight takes the music with it. */
+let awake = 0;
+ipcMain.handle('player:keepAwake', (e, on) => {
+  try {
+    if (on && !powerSaveBlocker.isStarted(awake)) awake = powerSaveBlocker.start('prevent-display-sleep');
+    else if (!on && powerSaveBlocker.isStarted(awake)) powerSaveBlocker.stop(awake);
+    return true;
+  } catch (err) { return false; }
 });
 
 ipcMain.handle('shell:showItem', (e, p) => { try { shell.showItemInFolder(p); } catch (err) {} });

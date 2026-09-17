@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Mix Player</title>
+<style>
+  /* Readable across a room, on a laptop that is not being stood over.
+     Dark, because the screen is in the corner of a party and nobody wants a
+     white rectangle glowing at them all night. */
+  :root {
+    --bg: #0b0f14; --panel: #131a22; --line: #26313d;
+    --ink: #eef4f8; --dim: #8fa3b5; --hot: #35d0a5; --warn: #ffb454; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+    user-select: none; -webkit-user-select: none;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  /* ---- top bar: the things that decide how it sounds ---- */
+  .top {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .top label { color: var(--dim); font-size: 13px; }
+  select, .btn {
+    background: #1b2531; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 11px; font: inherit;
+  }
+  select { max-width: 380px; }
+  .btn:hover { border-color: var(--hot); }
+  .btn.ghost { background: transparent; }
+  .spacer { flex: 1; }
+  .chip {
+    font-size: 12px; padding: 4px 9px; border-radius: 20px;
+    border: 1px solid var(--line); color: var(--dim);
+  }
+  .chip.ok { color: var(--hot); border-color: #1d5e4c; }
+  .chip.warn { color: var(--warn); border-color: #6b4a1c; }
+
+  /* ---- the big middle ---- */
+  .now { padding: 26px 32px 8px; }
+  .lbl { color: var(--dim); font-size: 13px; letter-spacing: .09em; text-transform: uppercase; }
+  .title { font-size: 46px; font-weight: 650; line-height: 1.1; margin: 6px 0 2px; }
+  .artist { font-size: 22px; color: var(--dim); }
+  .next { margin-top: 14px; font-size: 16px; color: var(--dim); }
+  .next b { color: var(--ink); font-weight: 600; }
+
+  .times {
+    display: flex; align-items: baseline; gap: 18px;
+    padding: 4px 32px 0; font-variant-numeric: tabular-nums;
+  }
+  .elapsed { font-size: 40px; font-weight: 600; }
+  .remain { font-size: 20px; color: var(--dim); }
+  .ends { margin-left: auto; font-size: 15px; color: var(--dim); }
+
+  /* ---- scrubber ---- */
+  .barwrap { padding: 12px 32px 4px; }
+  .bar {
+    position: relative; height: 26px; border-radius: 6px;
+    background: #0e151d; border: 1px solid var(--line); overflow: hidden; cursor: pointer;
+  }
+  .fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg,#1c6f5c,var(--hot)); width: 0; }
+  .ticks { position: absolute; inset: 0; }
+  .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #33414f; }
+  .bar .head { position: absolute; top: -3px; bottom: -3px; width: 3px; background: #fff; }
+
+  /* ---- transport ---- */
+  .transport { display: flex; gap: 14px; align-items: center; padding: 14px 32px 16px; }
+  .play {
+    width: 118px; height: 62px; border-radius: 12px; border: none;
+    background: var(--hot); color: #06231b; font-size: 20px; font-weight: 700;
+  }
+  .play.playing { background: #f0f5f8; color: #0b0f14; }
+  .jump { padding: 14px 16px; border-radius: 10px; background: #1b2531; border: 1px solid var(--line); }
+  .hint { color: var(--dim); font-size: 13px; margin-left: 6px; }
+
+  /* ---- track list ---- */
+  .list { flex: 1; overflow-y: auto; border-top: 1px solid var(--line); padding: 6px 0 40px; }
+  .row {
+    display: grid; grid-template-columns: 44px 1fr 90px; gap: 12px; align-items: baseline;
+    padding: 9px 32px; border-left: 3px solid transparent; cursor: pointer;
+  }
+  .row:hover { background: #121a23; }
+  .row .n { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .row .t { font-size: 16px; }
+  .row .t small { color: var(--dim); font-size: 13px; margin-left: 8px; }
+  .row .at { color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+  .row.on { background: #10201b; border-left-color: var(--hot); }
+  .row.on .t { font-weight: 650; }
+  .row.done { opacity: .45; }
+
+  .empty { padding: 40px 32px; color: var(--dim); font-size: 17px; max-width: 760px; }
+  .empty h2 { color: var(--ink); font-size: 20px; margin: 0 0 10px; }
+  .empty li { margin: 6px 0; }
+
+  .note { padding: 10px 32px; color: var(--warn); font-size: 14px; }
+  .note:empty { display: none; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <label for="sink">Output</label>
+  <select id="sink" title="Pick the interface the PA is plugged into. Anything with Dolby or Realtek processing on it will compress the mix before you hear it."></select>
+  <button class="btn ghost" id="refreshSinks" title="Re-scan for outputs">↻</button>
+  <span class="chip" id="rateChip">–</span>
+  <span class="spacer"></span>
+  <span class="chip" id="awakeChip">Keeping the laptop awake</span>
+  <button class="btn" id="pickWav">Open mix…</button>
+</div>
+
+<div class="note" id="note"></div>
+
+<div id="stage" hidden>
+  <div class="now">
+    <div class="lbl">Now playing</div>
+    <div class="title" id="curTitle">—</div>
+    <div class="artist" id="curArtist"></div>
+    <div class="next" id="nextUp"></div>
+  </div>
+
+  <div class="times">
+    <div class="elapsed" id="elapsed">0:00</div>
+    <div class="remain" id="remain"></div>
+    <div class="ends" id="ends"></div>
+  </div>
+
+  <div class="barwrap">
+    <div class="bar" id="bar">
+      <div class="fill" id="fill"></div>
+      <div class="ticks" id="ticks"></div>
+      <div class="head" id="head" style="left:0"></div>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="play" id="play">Play</button>
+    <button class="jump" id="back30" title="Back 30 seconds">−30s</button>
+    <button class="jump" id="fwd30" title="Forward 30 seconds">+30s</button>
+    <button class="jump" id="prevTrk" title="Start of this track, or the one before">⏮ Track</button>
+    <button class="jump" id="nextTrk" title="Next track">Track ⏭</button>
+    <span class="hint">Space plays and pauses. Click the bar to move. Click a track below to jump to it.</span>
+  </div>
+</div>
+
+<div class="empty" id="empty">
+  <h2>Open the mix to start</h2>
+  <p>This plays one continuous WAV with nothing done to it on the way out — no
+     normalisation, no levelling, no crossfade, no tone controls. The volume is
+     fixed at unity and there is no audio processing in this page at all.</p>
+  <ul>
+    <li><b>Pick the output above</b> before the night. An output with Dolby or
+        Realtek effects on it runs the mix through a compressor before it
+        reaches the speakers; a plain interface does not.</li>
+    <li>If the running order is loaded, the track list appears here and you can
+        jump straight to any record.</li>
+  </ul>
+</div>
+
+<div class="list" id="list"></div>
+
+<!-- buildPlan only: no UI, no preview, no render -->
+<script src="mix-dsp.js"></script>
+<script src="mix-project.js"></script>
+<script src="mix-render.js"></script>
+<script src="mix-player.js"></script>
+</body>
+</html>

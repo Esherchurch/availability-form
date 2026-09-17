@@ -3414,6 +3414,13 @@
     }
 
     if ($('normaliseBtn')) $('normaliseBtn').onclick = normaliseAll;
+    /* The player is a separate window and a separate job: on the night the
+       thing that decides how the mix sounds is which output it goes to, not
+       anything in here. */
+    if ($('playerBtn')) $('playerBtn').onclick = function () {
+      if (window.api && window.api.playerOpen) window.api.playerOpen();
+      else setStatus('The player needs the desktop app.', true);
+    };
     if ($('undoBtn')) $('undoBtn').onclick = undo;
     if ($('redoBtn')) $('redoBtn').onclick = redo;
     /* Ctrl+Z and Ctrl+Y, which is what anyone will try first. Ignored while

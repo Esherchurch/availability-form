@@ -27,6 +27,13 @@ contextBridge.exposeInMainWorld('api', {
   saveMix: (bytes, suggested) => ipcRenderer.invoke('mix:save', bytes, suggested),
   showItem: (p) => ipcRenderer.invoke('shell:showItem', p),
 
+  // the player, for the night
+  playerOpen: () => ipcRenderer.invoke('player:open'),
+  playerPickWav: () => ipcRenderer.invoke('player:pickWav'),
+  playerSaveState: (json) => ipcRenderer.invoke('player:saveState', json),
+  playerLoadState: () => ipcRenderer.invoke('player:loadState'),
+  playerKeepAwake: (on) => ipcRenderer.invoke('player:keepAwake', on),
+
   appVersion: () => ipcRenderer.invoke('app:version'),
   userData: () => ipcRenderer.invoke('app:userData')
 });

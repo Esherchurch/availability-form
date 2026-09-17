@@ -27,6 +27,7 @@
         "to": "app-page",
         "filter": [
           "mix-builder.html",
+          "mix-player.html",
           "mix-*.js"
         ]
       }
