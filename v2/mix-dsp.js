@@ -880,6 +880,99 @@ onmessage = e => {
              limitedDb: -20 * Math.log10(lowest), worked: true };
   }
 
+  /* Varispeed along a SHAPED ratio curve rather than a straight line.
+
+     A record does not need to be off its own speed for its whole length. It
+     needs to match the record before it while the two are playing together,
+     and to match the one after it when that arrives; in between it can play
+     at the speed it was recorded at, which is what a DJ does when the fader
+     goes back to the middle after a blend.
+
+     The curve is given as segments of output time, each holding a ratio or
+     gliding between two:
+
+       [{sec, a, b}, ...]      a === b is a hold, a !== b is a glide
+
+     Source consumed across a glide from a to b over L seconds is (a+b)/2·L,
+     and across a hold is a·L, so the segment lengths are chosen by whoever
+     builds the curve to consume exactly the source there is. Here the job is
+     only to follow it.
+
+     Same interpolator as varispeedRamp — 32 tap windowed sinc at 512
+     fractional positions, each normalised to unity so the level cannot
+     breathe as the read head drifts through them. At ratio exactly 1 the
+     table collapses to a unit impulse, so the middle of a record comes back
+     sample for sample: not approximately the original, the original. */
+  function varispeedShape(ctx, buf, segs) {
+    if (!segs || !segs.length) return buf;
+    var flat = true;
+    for (var q = 0; q < segs.length; q++) {
+      if (Math.abs(segs[q].a - 1) > 1e-7 || Math.abs(segs[q].b - 1) > 1e-7) { flat = false; break; }
+    }
+    if (flat) return buf;
+
+    var sr = buf.sampleRate, chans = buf.numberOfChannels;
+    var totalSec = 0;
+    for (var s0 = 0; s0 < segs.length; s0++) totalSec += segs[s0].sec;
+    var outLen = Math.max(1, Math.round(totalSec * sr));
+    var out = ctx.createBuffer(chans, outLen, sr);
+
+    var TAPS = 32, HALF = TAPS / 2, SUB = 512;
+    var tbl = new Float32Array(SUB * TAPS);
+    for (var s = 0; s < SUB; s++) {
+      var frac = s / SUB, sum = 0, base = s * TAPS, k, x, w, v;
+      for (k = 0; k < TAPS; k++) {
+        x = (k - HALF + 1) - frac;
+        v = Math.abs(x) < 1e-8 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x);
+        w = 0.42 - 0.5 * Math.cos(2 * Math.PI * (k + 0.5) / TAPS) +
+            0.08 * Math.cos(4 * Math.PI * (k + 0.5) / TAPS);
+        tbl[base + k] = v * w;
+        sum += v * w;
+      }
+      for (k = 0; k < TAPS; k++) tbl[base + k] /= sum;
+    }
+
+    /* the ratio at each output sample, walked once rather than searched */
+    var ratio = new Float32Array(outLen);
+    var at = 0;
+    for (var si = 0; si < segs.length; si++) {
+      var seg = segs[si];
+      var nSeg = Math.round(seg.sec * sr);
+      var end = Math.min(outLen, at + nSeg);
+      var span = Math.max(1, nSeg - 1);
+      for (var i2 = at; i2 < end; i2++) {
+        ratio[i2] = seg.a + (seg.b - seg.a) * ((i2 - at) / span);
+      }
+      at = end;
+      if (at >= outLen) break;
+    }
+    var lastR = segs[segs.length - 1].b;
+    for (var i3 = at; i3 < outLen; i3++) ratio[i3] = lastR;
+
+    for (var c = 0; c < chans; c++) {
+      var src = buf.getChannelData(c), dst = out.getChannelData(c);
+      var pos = 0, len = src.length;
+      for (var i = 0; i < outLen; i++) {
+        var idx = pos | 0;
+        var f = (pos - idx) * SUB | 0;
+        if (f >= SUB) f = SUB - 1;
+        var b2 = f * TAPS, acc = 0, a2 = idx - HALF + 1;
+        if (a2 >= 0 && a2 + TAPS < len) {
+          for (var k2 = 0; k2 < TAPS; k2++) acc += src[a2 + k2] * tbl[b2 + k2];
+        } else {
+          for (var k3 = 0; k3 < TAPS; k3++) {
+            var j = a2 + k3;
+            if (j >= 0 && j < len) acc += src[j] * tbl[b2 + k3];
+          }
+        }
+        dst[i] = acc;
+        pos += ratio[i];
+        if (pos > len) pos = len;
+      }
+    }
+    return out;
+  }
+
   /* How far a record may be moved by speed alone.
 
      Beyond this the pitch move stops being a pitch fader and starts being an
@@ -911,11 +1004,19 @@ onmessage = e => {
      places". Resampling cannot do that to a record at all — there is no
      overlap-add in it, so there is nothing to cancel. It is also twice as
      quick. */
-  function timeAdjust(ctx, buf, r0, r1) {
+  function timeAdjust(ctx, buf, r0, r1, segs) {
     var worst = Math.max(Math.abs(r0 - 1), Math.abs(r1 - 1));
-    return worst <= VARISPEED_LIMIT
-      ? varispeedRamp(ctx, buf, r0, r1)
-      : stretchRamp(ctx, buf, r0, r1);
+    if (worst > VARISPEED_LIMIT) {
+      /* Too wide for a pitch fader, so the stretcher takes it — and the
+         stretcher only knows a straight ramp, so the shape is given up with
+         it. The plan says so, and outSec was computed from the curve, so a
+         shaped plan must not reach here: buildShape returns the straight ramp
+         itself for anything this far out. */
+      return stretchRamp(ctx, buf, r0, r1);
+    }
+    return (segs && segs.length)
+      ? varispeedShape(ctx, buf, segs)
+      : varispeedRamp(ctx, buf, r0, r1);
   }
 
   /* Two clips summed can exceed full scale — modern masters sit near 0 dBFS, so
@@ -2472,6 +2573,7 @@ onmessage = e => {
     stretch: stretch,
     stretchRamp: stretchRamp,
     varispeedRamp: varispeedRamp,
+    varispeedShape: varispeedShape,
     timeAdjust: timeAdjust,
     VARISPEED_LIMIT: VARISPEED_LIMIT,
     limitPeaks: limitPeaks,

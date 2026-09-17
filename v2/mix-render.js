@@ -57,10 +57,118 @@
      wrong, which is the failure mode that shows up as a flam rather than as an
      error. */
 
+  /* THE SHAPE OF A RECORD'S TEMPO, and why it is not a straight line.
+
+     A record used to be stretched from the tempo its predecessor needed
+     straight to the tempo its successor needs, linearly, across its whole
+     length. That keeps both junctions right and is inaudible per minute, but
+     it means most records never once play at their own speed: Uptown Funk
+     ran 1.1% to 2.1% and was never at natural pitch anywhere in it.
+
+     What a DJ does instead is match the record coming in, and then let the
+     fader back to the middle. So the curve holds the tempo each junction
+     needs while the two records are actually playing together, glides back
+     to the record's own speed, sits there for the body, and glides out again
+     in time for the next blend:
+
+         r0 ──┐
+              └──╮
+                 ╰──────────────── 1.0 ────────────────╮
+                                                       ╰──┐
+                                                          └── r1
+         hold   glide        the body of the record      glide  hold
+
+     The junction tempos do NOT change — r0 and r1 are still exactly what
+     they were, so each record is at its junction's target while it overlaps
+     its neighbour and the two still agree. Only WHEN it sits at each value
+     changes. What does change is how long the record runs for, because the
+     source consumed is the integral of the curve, so the timeline moves.
+
+     The middle is at ratio exactly 1, and the interpolator at ratio 1 is a
+     unit impulse, so the body of every record comes back sample for sample.
+
+     The holds are deliberately longer than any overlap rather than measured
+     to fit one: the overlaps are worked out after the tracks are, and a DJ
+     does not snap the fader back the instant a blend ends anyway.
+
+     Carried as segments of output time so that everything downstream — the
+     ratio at a point, the source consumed by a point, and the inverse — is
+     the same walk over the same list, and they cannot disagree. */
+
+  /* The hold only has to outlast the overlap it covers, and overlaps in
+     this set run 2 to 8 bars. Twelve is past all of them with room to spare;
+     thirty-two ate 134 seconds of a 280 second record and left it only 46 at
+     its own speed, which is most of the point thrown away. */
+  var HOLD_BARS = 12;
+  /* Eight bars to ease a percent or two. Nobody has ever heard a DJ move a
+     fader over sixteen seconds. */
+  var GLIDE_BARS = 8;
+  var MIN_BODY_SEC = 8;    // below this the shape is not worth having
+  var MIN_GLIDE_BARS = 4;  // faster than this and the slide is audible as a slide
+
+  function buildShape(r0, r1, srcSec, barSec) {
+    if (Math.abs(r0 - 1) < 1e-7 && Math.abs(r1 - 1) < 1e-7) {
+      return { segs: [{ sec: srcSec, a: 1, b: 1 }], outSec: srcSec, shaped: true };
+    }
+    var needIn = Math.abs(r0 - 1) >= 1e-7, needOut = Math.abs(r1 - 1) >= 1e-7;
+    var hIn = needIn ? HOLD_BARS * barSec / r0 : 0;
+    var gIn = needIn ? GLIDE_BARS * barSec : 0;
+    var hOut = needOut ? HOLD_BARS * barSec / r1 : 0;
+    var gOut = needOut ? GLIDE_BARS * barSec : 0;
+
+    /* source eaten by everything except the body, at full size */
+    var ends = r0 * hIn + (r0 + 1) / 2 * gIn + (1 + r1) / 2 * gOut + r1 * hOut;
+
+    /* A short record cannot hold, glide, sit and glide again at full size —
+       a 67 second edit has ends longer than itself. Shrink them to fit rather
+       than giving up on the shape, since even a brief hold and a quick glide
+       leaves the body of the record at its own speed, which is the point.
+       Everything scales together so the shape stays the same shape. */
+    var k = 1;
+    if (ends > 0 && srcSec - ends < MIN_BODY_SEC) k = (srcSec - MIN_BODY_SEC) / ends;
+
+    /* Below this the fader is moving faster than a hand would, and a tempo
+       slide that quick is heard as a slide rather than as nothing. Four bars
+       to cover a percent or two is already brisk; less is a wobble. */
+    if (k <= 0 || (gIn > 0 && k * gIn < MIN_GLIDE_BARS * barSec) ||
+                  (gOut > 0 && k * gOut < MIN_GLIDE_BARS * barSec)) {
+      var lin = srcSec / ((r0 + r1) / 2);
+      return { segs: [{ sec: lin, a: r0, b: r1 }], outSec: lin, shaped: false };
+    }
+    hIn *= k; gIn *= k; hOut *= k; gOut *= k;
+    var body = srcSec - ends * k;      // the body runs at 1, so source === output
+
+    var segs = [];
+    if (hIn > 0) segs.push({ sec: hIn, a: r0, b: r0 });
+    if (gIn > 0) segs.push({ sec: gIn, a: r0, b: 1 });
+    segs.push({ sec: body, a: 1, b: 1 });
+    if (gOut > 0) segs.push({ sec: gOut, a: 1, b: r1 });
+    if (hOut > 0) segs.push({ sec: hOut, a: r1, b: r1 });
+    return { segs: segs, outSec: hIn + gIn + body + gOut + hOut, shaped: true };
+  }
+
+  /* source consumed by a whole segment */
+  function segSource(sg) { return (sg.a + sg.b) / 2 * sg.sec; }
+
+  function segsOf(pt) {
+    return pt.segs && pt.segs.length
+      ? pt.segs
+      : [{ sec: pt.outSec || 1, a: pt.r0, b: pt.r1 }];
+  }
+
   function ratioAtOutput(pt, outSec) {
+    var segs = segsOf(pt);
     var T = pt.outSec || 1;
-    var t = Math.max(0, Math.min(T, outSec));
-    return pt.r0 + (pt.r1 - pt.r0) * (t / T);
+    var t = Math.max(0, Math.min(T, outSec)), at = 0;
+    for (var i = 0; i < segs.length; i++) {
+      var sg = segs[i];
+      if (t <= at + sg.sec || i === segs.length - 1) {
+        var u = sg.sec > 0 ? Math.max(0, Math.min(1, (t - at) / sg.sec)) : 1;
+        return sg.a + (sg.b - sg.a) * u;
+      }
+      at += sg.sec;
+    }
+    return pt.r1;
   }
 
   /** Instantaneous tempo at a point in a track's output. §6.6 placements need
@@ -71,24 +179,44 @@
 
   /** Seconds of source consumed by the first `outSec` seconds of output. */
   function sourceConsumedBy(pt, outSec) {
+    var segs = segsOf(pt);
     var T = pt.outSec || 1;
     var t = Math.max(0, Math.min(T, outSec));
-    return pt.r0 * t + (pt.r1 - pt.r0) * t * t / (2 * T);
+    var at = 0, acc = 0;
+    for (var i = 0; i < segs.length; i++) {
+      var sg = segs[i];
+      if (t >= at + sg.sec) { acc += segSource(sg); at += sg.sec; continue; }
+      var u = t - at;
+      var slope = sg.sec > 0 ? (sg.b - sg.a) / sg.sec : 0;
+      return acc + sg.a * u + slope * u * u / 2;
+    }
+    return acc;
   }
 
   /** The inverse: where in the output a given source offset lands. */
   function outputTimeForSource(pt, srcOffsetSec) {
+    var segs = segsOf(pt);
     var T = pt.outSec || 1;
-    var d = pt.r1 - pt.r0;
     var s = Math.max(0, srcOffsetSec);
-    if (Math.abs(d) < 1e-9) return pt.r0 > 1e-9 ? Math.min(T, s / pt.r0) : 0;
-    // (d/2T)·t² + r0·t − s = 0
-    var a = d / (2 * T), b = pt.r0, c = -s;
-    var disc = b * b - 4 * a * c;
-    if (disc < 0) return T;
-    var root = (-b + Math.sqrt(disc)) / (2 * a);
-    if (!isFinite(root) || root < 0) root = (-b - Math.sqrt(disc)) / (2 * a);
-    return Math.max(0, Math.min(T, root));
+    var at = 0, acc = 0;
+    for (var i = 0; i < segs.length; i++) {
+      var sg = segs[i], had = segSource(sg);
+      if (s > acc + had && i < segs.length - 1) { acc += had; at += sg.sec; continue; }
+      /* inside this segment: slope/2 u^2 + a u - rest = 0 */
+      var rest = s - acc;
+      var slope = sg.sec > 0 ? (sg.b - sg.a) / sg.sec : 0;
+      var u;
+      if (Math.abs(slope) < 1e-12) {
+        u = sg.a > 1e-9 ? rest / sg.a : 0;
+      } else {
+        var disc = sg.a * sg.a + 2 * slope * rest;
+        if (disc < 0) return Math.min(T, at + sg.sec);
+        u = (-sg.a + Math.sqrt(disc)) / slope;
+        if (!isFinite(u) || u < 0) u = (-sg.a - Math.sqrt(disc)) / slope;
+      }
+      return Math.max(0, Math.min(T, at + Math.max(0, Math.min(sg.sec, u))));
+    }
+    return T;
   }
 
   /* ---------------------------------------------------------- plan --- */
@@ -152,7 +280,11 @@
         }
         srcSec = to - from;
       }
-      var outSec = srcSec / ((r0 + r1) / 2);
+      /* The shape, not a straight line: matched at the joins, its own speed
+         in the middle. outSec comes out of the curve because the source
+         consumed is its integral. */
+      var shape = buildShape(r0, r1, srcSec, barSec);
+      var outSec = shape.outSec;
 
       plan.tracks.push({
         index: i, id: t.id, title: t.title || t.file,
@@ -161,7 +293,8 @@
         gainDb: t.gainDb || 0,
         regions: regions, barSec: barSec, sourceSec: srcSec,
         r0: r0, r1: r1, tempoIn: tempoIn, tempoOut: tempoOut, sourceBpm: bpm,
-        outSec: outSec, startSec: 0
+        outSec: outSec, startSec: 0,
+        segs: shape.segs, shaped: shape.shaped
       });
     }
 
@@ -465,7 +598,7 @@
        tempo gap is too wide for a pitch fader. See DSP.timeAdjust — the
        stretcher was taking the top end off a fifth of every record in bursts,
        which is what "it dips and sounds underwater in places" was. */
-    var stretched = DSP.timeAdjust(ctx, src, pt.r0, pt.r1);
+    var stretched = DSP.timeAdjust(ctx, src, pt.r0, pt.r1, pt.segs);
 
     /* The track's own level goes INTO the audio here, with its peaks held
        under a ceiling, rather than being asked of a gain node further down.
