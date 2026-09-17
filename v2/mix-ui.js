@@ -3419,7 +3419,8 @@
        anything in here. */
     if ($('playerBtn')) $('playerBtn').onclick = function () {
       if (window.api && window.api.playerOpen) window.api.playerOpen();
-      else setStatus('The player needs the desktop app.', true);
+      else setStatus('This copy of Mix Builder was built before the player. ' +
+                       'Use the desktop shortcut, or "Play the mix.bat" in the mix-app folder.', true);
     };
     if ($('undoBtn')) $('undoBtn').onclick = undo;
     if ($('redoBtn')) $('redoBtn').onclick = redo;
