@@ -93,11 +93,40 @@ function openPlayer() {
   player.on('closed', function () { player = null; });
 }
 
-app.whenReady().then(function () {
-  /* "mix-builder.exe --player" starts straight into it */
-  if (process.argv.indexOf('--player') !== -1) openPlayer();
-  else createWindow();
-});
+/* One Mix Builder at a time.
+
+   Two copies of the app share one profile, and that goes wrong two ways. The
+   second cannot open the sample library, because the first holds it — so
+   Play fails with "Internal error" and samples show a warning. And both keep
+   the project in memory and both save it: the copy that was opened first and
+   not touched since still holds the set as it was, and anything it saves
+   quietly puts that back. On 17 Sep two were open, one from 14:22 and one from
+   14:59, the second having just matched every record's low end.
+
+   So a second launch hands over to the first and exits. The first brings its
+   window forward — or opens the player, if that is what the second launch was
+   asked for, so the desktop shortcut for the player still works while the
+   builder is open. */
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', function (e, argv) {
+    if ((argv || []).indexOf('--player') !== -1) { openPlayer(); return; }
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    } else {
+      createWindow();
+    }
+  });
+
+  app.whenReady().then(function () {
+    /* "mix-builder.exe --player" starts straight into it */
+    if (process.argv.indexOf('--player') !== -1) openPlayer();
+    else createWindow();
+  });
+}
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
