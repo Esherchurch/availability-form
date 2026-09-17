@@ -1389,6 +1389,7 @@
            without getting louder than the records around it. */
         menuRow('Sub bass', '<input type="range" data-cm="sub" min="-12" max="12" step="1" value="' +
                 (t.subDb || 0) + '"><b data-cm-val="sub">' + (t.subDb || 0) + ' dB</b>') +
+        menuRow('Low end', lowEndMeterHtml(index)) +
         menuRow('Mix out at', '<input type="number" data-cm="exit" step="0.5" min="0" max="' +
                 endsAt.toFixed(1) + '" value="' + (t.exitSec || 0).toFixed(1) + '"><b>of ' +
                 fmt(endsAt) + '</b>') +
@@ -1403,6 +1404,8 @@
 
     el.innerHTML = '<div class="cm-title">' + esc(title) + '</div>' + html;
     document.body.appendChild(el);
+    /* filled in before it is measured for position: the reading adds lines */
+    if (kind === 'song') refreshLowEnd(index);
 
     /* Keep it on the screen: opened near the right edge it would otherwise
        hang off it, and a control you cannot reach is not a control. */
@@ -1489,6 +1492,219 @@
     });
   }
 
+  /* THE LOW-END METER.
+
+     "A marker in the pop-up of what the bass currently is, so I can keep
+     consistency against the bassiest track." A +10 dB sub boost had sounded
+     like nothing on headphones with no bass — so the level has to be visible,
+     not only audible.
+
+     One reading per record: its 30-100 Hz relative to its own mids (see
+     DSP.lowEndDb). Each record is measured once and kept; the reading for its
+     current sub-bass setting is worked out from that, so the marker follows
+     the slider as it moves. Records not yet measured are done in the
+     background, a few at a time, so opening a pop-up never stalls on it. */
+  /* Measured across the real set: -7.3 (We Are Family) to +10.2 (Here
+     Comes the Hotstepper). The scale covers that with room either side, so a
+     boosted record does not run off the end. */
+  var LE_MIN = -18, LE_MAX = 15;
+  var lowEndCache = new Map();          // track id -> { key, prof }
+  var lowEndBusy = false;
+
+  function lowEndKey(t) {
+    return [t.file, t.entrySec, t.exitSec, t.durationSec].join('|');
+  }
+  function lowEndProfOf(t, compute) {
+    var c = lowEndCache.get(t.id), key = lowEndKey(t);
+    if (c && c.key === key) return c.prof;
+    if (!compute) return null;
+    var buf = buffers.get(t.id);
+    var mono = monos.get(t.id) || (buf ? DSP.toMono(buf) : null);
+    if (!buf || !mono) return null;
+    if (!monos.has(t.id)) monos.set(t.id, mono);
+    var prof = DSP.lowEndProfile(mono, buf.sampleRate || 48000, t.entrySec || 0,
+                                 t.exitSec || t.durationSec || mono.length / (buf.sampleRate || 48000));
+    lowEndCache.set(t.id, { key: key, prof: prof });
+    return prof;
+  }
+  function lowEndReading(t) {
+    return DSP.lowEndDb(lowEndProfOf(t, false), t.subDb || 0);
+  }
+
+  /* measure whatever is missing, without holding up the page */
+  function fillLowEnd() {
+    if (lowEndBusy) return;
+    var todo = project.tracks.filter(function (t) {
+      return buffers.has(t.id) && !lowEndProfOf(t, false);
+    });
+    if (!todo.length) return;
+    lowEndBusy = true;
+    (function next() {
+      var batch = todo.splice(0, 3);
+      batch.forEach(function (t) { try { lowEndProfOf(t, true); } catch (e) {} });
+      if (todo.length) { setTimeout(next, 0); return; }
+      lowEndBusy = false;
+      document.querySelectorAll('[data-lowend]').forEach(function (el) {
+        refreshLowEnd(+el.dataset.lowend);
+      });
+    })();
+  }
+
+  function lowEndMeterHtml(i) {
+    return '<div class="lowend" data-lowend="' + i + '">' +
+      '<div class="le-bar" data-min="' + LE_MIN + '" data-max="' + LE_MAX + '">' +
+        '<span class="le-tick le-nb le-prev" hidden></span>' +
+        '<span class="le-tick le-nb le-next" hidden></span>' +
+        '<span class="le-tick le-best" hidden></span>' +
+        '<span class="le-mark" hidden></span>' +
+      '</div>' +
+      '<div class="le-text">Measuring…</div>' +
+    '</div>';
+  }
+
+  function lePct(db) {
+    return Math.max(0, Math.min(100, (db - LE_MIN) / (LE_MAX - LE_MIN) * 100));
+  }
+  function leFmt(db) {
+    return db == null ? '–' : (db > 0 ? '+' : '') + db.toFixed(1) + ' dB';
+  }
+
+  /* Redraw every low-end meter for a record — the pop-up and the panel can
+     both be showing it — from the cached measurements and the current
+     sub-bass settings. */
+  function refreshLowEnd(i) {
+    var els = document.querySelectorAll('[data-lowend="' + i + '"]');
+    if (!els.length) return;
+    var t = project.tracks[i];
+    if (!t) return;
+    lowEndProfOf(t, true);                   // this one now, if it can be
+    var me = lowEndReading(t);
+
+    /* the bassiest record that has been measured, with its own setting */
+    var best = null;
+    project.tracks.forEach(function (x) {
+      var v = lowEndReading(x);
+      if (v != null && (!best || v > best.v)) best = { t: x, v: v };
+    });
+    var prev = project.tracks[i - 1], next = project.tracks[i + 1];
+    var pv = prev ? lowEndReading(prev) : null, nv = next ? lowEndReading(next) : null;
+    var pending = project.tracks.some(function (x) { return buffers.has(x.id) && !lowEndProfOf(x, false); });
+
+    els.forEach(function (el) {
+      var put = function (sel, db, title) {
+        var s = el.querySelector(sel);
+        if (!s) return;
+        if (db == null) { s.hidden = true; return; }
+        s.hidden = false;
+        s.style.left = lePct(db) + '%';
+        s.title = title;
+      };
+      put('.le-mark', me, t.title + ': ' + leFmt(me));
+      put('.le-best', best && best.t !== t ? best.v : null, best ? 'Bassiest: ' + best.t.title + ' ' + leFmt(best.v) : '');
+      put('.le-prev', pv, prev ? 'Before: ' + prev.title + ' ' + leFmt(pv) : '');
+      put('.le-next', nv, next ? 'After: ' + next.title + ' ' + leFmt(nv) : '');
+      var txt = el.querySelector('.le-text');
+      if (!txt) return;
+      if (me == null) { txt.textContent = buffers.has(t.id) ? 'Measuring…' : 'No audio loaded for this record.'; return; }
+      var lines = '<b>This record ' + leFmt(me) + '</b>';
+      if (best) {
+        lines += best.t === t
+          ? ' — <span class="le-k best">the bassiest in the set</span>'
+          : ' · <span class="le-k best">bassiest</span> ' + esc(best.t.title) + ' ' + leFmt(best.v) +
+            ' (' + (me - best.v).toFixed(1) + ' dB)';
+      }
+      if (pv != null || nv != null) {
+        lines += '<br>' +
+          (pv != null ? '<span class="le-k nb">before</span> ' + esc(prev.title) + ' ' + leFmt(pv) : '') +
+          (pv != null && nv != null ? ' · ' : '') +
+          (nv != null ? '<span class="le-k nb">after</span> ' + esc(next.title) + ' ' + leFmt(nv) : '');
+      }
+      if (pending) lines += '<br><span class="le-wait">Still measuring the rest of the set…</span>';
+      txt.innerHTML = lines;
+    });
+    if (pending) fillLowEnd();
+  }
+
+  /* MATCH LOW END.
+
+     "Maybe auto-adjust them all to that level" — to the bassiest record. On
+     the real set that record is Here Comes the Hotstepper at +10.2, an
+     outlier 2.5 dB clear of the next, and 25 of the 43 records cannot reach it
+     even at the slider's +12: half the set pushed to the limit and still
+     short. Matched to the middle of the set instead, 4 cannot. So both are
+     offered, and the middle is the default.
+
+     It only raises. A record already at or above the target keeps whatever
+     it has — the complaint was records sounding thin, not records sounding
+     too heavy, and taking bass off a reggae record is a different decision.
+     Each thin record gets the smallest sub-bass that gets it there, up to
+     +12; the ones that cannot get all the way are named. Then Level runs,
+     measuring through the new settings, so every record stays at the same
+     volume. The whole thing is one step on the undo stack. */
+  function ensureLowEndAll() {
+    return new Promise(function (resolve) {
+      var todo = project.tracks.filter(function (t) {
+        return buffers.has(t.id) && !lowEndProfOf(t, false);
+      });
+      (function next() {
+        var batch = todo.splice(0, 3);
+        batch.forEach(function (t) { try { lowEndProfOf(t, true); } catch (e) {} });
+        if (todo.length) { setStatus('Measuring the low end — ' + todo.length + ' records to go…'); setTimeout(next, 0); }
+        else resolve();
+      })();
+    });
+  }
+
+  async function matchLowEnd(mode) {
+    if (!project.tracks.some(function (t) { return buffers.has(t.id); })) {
+      setStatus('Load the audio first — there is nothing to measure yet.', true);
+      return null;
+    }
+    await ensureLowEndAll();
+    var rows = project.tracks.map(function (t) {
+      var prof = lowEndProfOf(t, false);
+      return { t: t, prof: prof, now: prof ? DSP.lowEndDb(prof, t.subDb || 0) : null };
+    }).filter(function (r) { return r.now != null; });
+    if (!rows.length) { setStatus('Nothing could be measured.', true); return null; }
+
+    var sorted = rows.map(function (r) { return r.now; }).sort(function (a, b) { return a - b; });
+    var best = rows.reduce(function (a, b) { return b.now > a.now ? b : a; });
+    var target = mode === 'max' ? best.now : sorted[Math.floor(sorted.length / 2)];
+
+    var raised = [], short = [];
+    rows.forEach(function (r) {
+      if (r.now >= target - 0.25) return;                    // already there
+      var from = Math.ceil(r.t.subDb || 0), chosen = null;
+      for (var s = from; s <= 12; s++) {
+        if (DSP.lowEndDb(r.prof, s) >= target - 0.25) { chosen = s; break; }
+      }
+      if (chosen == null) {
+        chosen = 12;
+        short.push(r.t.title + ' (' + (DSP.lowEndDb(r.prof, 12) - target).toFixed(1) + ' dB short)');
+      }
+      if (chosen !== (r.t.subDb || 0)) {
+        raised.push(r.t.title + ' ' + (chosen > 0 ? '+' : '') + chosen);
+        r.t.subDb = chosen;
+        if (preview && preview.setSub) preview.setSub(project.tracks.indexOf(r.t), chosen);
+      }
+    });
+
+    /* keep them all at the same volume, measured through the new settings */
+    normaliseAll();
+
+    var label = mode === 'max' ? 'the bassiest record, ' + best.t.title : 'the middle of the set';
+    setStatus('Matched the low end to ' + (target > 0 ? '+' : '') + target.toFixed(1) + ' dB, ' + label + '. ' +
+      (raised.length ? 'Raised ' + raised.length + ': ' + raised.slice(0, 5).join(', ') +
+                       (raised.length > 5 ? ' and ' + (raised.length - 5) + ' more' : '') + '. '
+                     : 'Nothing needed raising. ') +
+      (short.length ? short.length + ' could not get all the way even at +12: ' + short.slice(0, 4).join(', ') +
+                      (short.length > 4 ? ' and ' + (short.length - 4) + ' more' : '') + '. '
+                    : '') +
+      'Everything re-levelled. Undo puts it all back.');
+    document.querySelectorAll('[data-lowend]').forEach(function (el) { refreshLowEnd(+el.dataset.lowend); });
+    return { target: target, raised: raised.length, short: short.length };
+  }
+
   /* A record's sub-bass, from whichever control moved it — the right-click
      menu or the panel under the timeline. One function, so the two cannot
      drift apart: heard as it moves, and re-levelled when let go so the record
@@ -1500,6 +1716,7 @@
     if (!t) return;
     t.subDb = num || 0;
     if (preview && preview.setSub) preview.setSub(idx, t.subDb);
+    refreshLowEnd(idx);
     if (!commit) return;
     var lv = measureForLevel(t);
     if (!lv) return;
@@ -1993,6 +2210,7 @@
       if (openTrack !== i) return;
       var cv = document.querySelector('.trk[data-track="' + i + '"] canvas');
       if (cv) drawWave(cv, t);
+      refreshLowEnd(i);
     });
   }
 
@@ -2086,6 +2304,9 @@
           'Sub bass gives an older record the weight of a modern one. Letting go re-levels the ' +
           'record, so it gets fuller without getting louder.' +
         '</span>' +
+        '<div class="tone" style="flex-basis:100%"><label class="lbl">Low end <span class="hint-inline">' +
+          '30–100 Hz against its own mids — the dark mark is this record, orange the bassiest in the set, ' +
+          'grey the records either side</span></label>' + lowEndMeterHtml(i) + '</div>' +
       '</div>' +
       sampleCutHtml(t, i) +
       regionEditorHtml(t, i) +
@@ -3496,6 +3717,9 @@
     }
 
     if ($('normaliseBtn')) $('normaliseBtn').onclick = normaliseAll;
+    if ($('matchLowBtn')) $('matchLowBtn').onclick = function () {
+      matchLowEnd(($('matchLowTarget') || {}).value || 'median');
+    };
     /* The player is a separate window and a separate job: on the night the
        thing that decides how the mix sounds is which output it goes to, not
        anything in here. */
@@ -4899,6 +5123,7 @@
     /* For tests: the decoded audio the page is holding, so a render can be
        driven without loading the files a second time. */
     window.__buffersForTest = function () { return buffers; };
+    window.__matchLowEndForTest = function (mode) { return matchLowEnd(mode); };
     /* the same link-and-analyse a user gets from "Find the file...", so a
        script can point a track at a different recording and have it analysed
        exactly as the app would, rather than by a copy of the steps */

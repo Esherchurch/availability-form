@@ -829,6 +829,96 @@ onmessage = e => {
     return buf;
   }
 
+  /* How much low end a record has, so records can be compared by eye.
+
+     Asked for as "a marker of what the bass currently is, so I can keep
+     consistency against the bassiest track" — after a +10 dB sub boost
+     sounded like nothing on headphones that have no bass. An ear is the
+     final word, but not every ear in the room is on the right speakers.
+
+     The number is the energy from 30 to 100 Hz relative to the record's own
+     400 Hz - 2 kHz, in dB. Relative, not absolute, because every record is
+     levelled to the same loudness anyway: what differs between them is the
+     balance, and a balance compares like for like whatever the gain.
+
+     Measured once per record and kept as a spectrum, so the sub-bass slider
+     can be followed live: the reading for any setting is the stored
+     spectrum weighted by that shelf's own response, which is a sum of a few
+     hundred numbers rather than another pass over four minutes of audio.
+
+     Twenty-four frames spread across the body of the record — its first and
+     last tenth are left out, since that is where the blends are. Each is
+     low-passed and taken down to 6 kHz first, which is plenty for 2 kHz and
+     makes the frames cheap; the low-pass is 4th order so the treble of a
+     bright record cannot fold down into the mids and make it read thin. */
+  var fftMain = new Function(FFT_SRC + '; return fft;')();
+
+  function lowpassCoefs(sr, hz, q) {
+    var w0 = 2 * Math.PI * hz / sr, cw = Math.cos(w0), al = Math.sin(w0) / (2 * q);
+    var a0 = 1 + al;
+    return { b0: (1 - cw) / 2 / a0, b1: (1 - cw) / a0, b2: (1 - cw) / 2 / a0,
+             a1: -2 * cw / a0, a2: (1 - al) / a0 };
+  }
+
+  /* |H|^2 of a biquad at angular frequency w */
+  function biquadPower(k, w) {
+    var c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+    var nr = k.b0 + k.b1 * c1 + k.b2 * c2, ni = -(k.b1 * s1 + k.b2 * s2);
+    var dr = 1 + k.a1 * c1 + k.a2 * c2, di = -(k.a1 * s1 + k.a2 * s2);
+    return (nr * nr + ni * ni) / (dr * dr + di * di);
+  }
+
+  function lowEndProfile(mono, sr, fromSec, toSec) {
+    if (!mono || !mono.length) return null;
+    var dec = Math.max(1, Math.round(sr / 6000)), dsr = sr / dec, N = 4096, FR = 24, PRE = 2048;
+    var a = Math.max(0, Math.floor((fromSec || 0) * sr));
+    var b = Math.min(mono.length, Math.floor((toSec || mono.length / sr) * sr));
+    if (b <= a) { a = 0; b = mono.length; }
+    var skip = Math.floor((b - a) * 0.1);
+    var lo = a + skip, hi = b - skip, need = N * dec + PRE;
+    if (hi - lo < need) { lo = a; hi = b; }
+    if (hi - lo < need) return null;
+    var k1 = lowpassCoefs(sr, 2500, 0.5412), k2 = lowpassCoefs(sr, 2500, 1.3066);
+    var re = new Float64Array(N), im = new Float64Array(N), acc = new Float64Array(N / 2);
+    var win = new Float64Array(N);
+    for (var w = 0; w < N; w++) win[w] = 0.5 - 0.5 * Math.cos(2 * Math.PI * w / (N - 1));
+    for (var f = 0; f < FR; f++) {
+      var start = lo + Math.floor((hi - lo - need) * (FR > 1 ? f / (FR - 1) : 0));
+      var x1 = 0, x2 = 0, y1 = 0, y2 = 0, u1 = 0, u2 = 0, v1 = 0, v2 = 0, got = 0;
+      for (var i = 0; i < need && got < N; i++) {
+        var x0 = mono[start + i];
+        var y0 = k1.b0 * x0 + k1.b1 * x1 + k1.b2 * x2 - k1.a1 * y1 - k1.a2 * y2;
+        x2 = x1; x1 = x0; y2 = y1; y1 = y0;
+        var v0 = k2.b0 * y0 + k2.b1 * u1 + k2.b2 * u2 - k2.a1 * v1 - k2.a2 * v2;
+        u2 = u1; u1 = y0; v2 = v1; v1 = v0;
+        if (i >= PRE && (i - PRE) % dec === 0) { re[got] = v0 * win[got]; im[got] = 0; got++; }
+      }
+      if (got < N) continue;
+      fftMain(re, im);
+      for (var q = 0; q < N / 2; q++) acc[q] += re[q] * re[q] + im[q] * im[q];
+    }
+    var binHz = dsr / N;
+    var first = Math.floor(20 / binHz), last = Math.min(N / 2, Math.ceil(2100 / binHz));
+    var p = new Float32Array(last - first);
+    for (var j = first; j < last; j++) p[j - first] = acc[j] / FR;
+    return { sr: sr, binHz: binHz, first: first, p: p };
+  }
+
+  /* the reading, for a given sub-bass setting */
+  function lowEndDb(prof, subDb) {
+    if (!prof) return null;
+    var k = subDb ? lowShelfCoefs(prof.sr, SUB_SHELF_HZ, subDb) : null;
+    var low = 0, mid = 0;
+    for (var i = 0; i < prof.p.length; i++) {
+      var hz = (prof.first + i) * prof.binHz;
+      if (hz < 30 || hz >= 2000 || (hz >= 100 && hz < 400)) continue;
+      var g = k ? biquadPower(k, 2 * Math.PI * hz / prof.sr) : 1;
+      if (hz < 100) low += prof.p[i] * g; else mid += prof.p[i] * g;
+    }
+    if (!(low > 0) || !(mid > 0)) return null;
+    return 10 * Math.log10(low / mid);
+  }
+
   /* A look-ahead peak limiter, so one dynamic record cannot set the level of
      the whole set.
 
@@ -2636,6 +2726,8 @@ onmessage = e => {
     limitPeaks: limitPeaks,
     lowShelfArray: lowShelfArray,
     lowShelfBuffer: lowShelfBuffer,
+    lowEndProfile: lowEndProfile,
+    lowEndDb: lowEndDb,
     SUB_SHELF_HZ: SUB_SHELF_HZ,
     finalise: finalise,
     hpFiltfilt: hpFiltfilt,

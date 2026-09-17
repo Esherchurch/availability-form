@@ -146,6 +146,24 @@
   .tone-row .tone input[type=range]{width:220px; max-width:100%}
   .tone-row .tone b{font-size:12px; font-variant-numeric:tabular-nums; margin-top:2px}
   .tone-row .hint-inline{font-weight:400; color:var(--muted); font-size:11px}
+  /* the low-end meter: this record against the bassiest and its neighbours */
+  .lowend{min-width:240px; width:100%}
+  .le-bar{position:relative; height:10px; margin:8px 4px 2px; border-radius:5px;
+    background:linear-gradient(90deg, var(--surface-2), var(--hairline)); border:1px solid var(--hairline)}
+  .le-mark, .le-tick{position:absolute; transform:translateX(-50%); border-radius:2px}
+  .le-mark{top:-5px; width:5px; height:18px; background:var(--brand-dark); z-index:3}
+  .le-tick{top:-3px; width:3px; height:14px}
+  .le-best{background:#d9822b; z-index:2}
+  .le-nb{background:#9aa9a7; z-index:1}
+  .le-text{font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5}
+  .le-text b{color:var(--ink, inherit)}
+  .le-k{font-weight:700}
+  .le-k.best{color:#b8661c}
+  .le-k.nb{color:#6f807d}
+  .le-wait{font-style:italic}
+  .clipmenu .lowend{min-width:260px}
+  .matchlow{display:inline-flex; gap:6px; align-items:center}
+  .matchlow select{font:inherit; padding:6px 8px; border-radius:var(--r-md); border:1px solid var(--hairline); background:var(--surface-2)}
   canvas.wave{width:100%; height:88px; display:block; background:#f7fbfa;
     border:1px solid var(--hairline); border-radius:var(--r-sm); cursor:crosshair}
 
@@ -577,6 +595,13 @@
     </div>
     <div class="row" style="margin-bottom:6px">
       <button class="ghost" id="normaliseBtn" title="Level every track to the same loudness">⚖ Level the tracks</button>
+      <span class="matchlow">
+        <button class="ghost" id="matchLowBtn" title="Raise the sub-bass of the thinner records so their low end reaches the target, then re-level">〰 Match low end</button>
+        <select id="matchLowTarget" title="What to match the thinner records to">
+          <option value="median">to the middle of the set</option>
+          <option value="max">to the bassiest record</option>
+        </select>
+      </span>
       <button class="ghost" id="playerBtn" title="Open the player for the night — pick the output the PA is on and play the finished mix with nothing done to it">▶ Player</button>
       <button class="ghost" id="undoBtn" disabled title="Ctrl+Z">↶ Undo</button>
       <button class="ghost" id="redoBtn" disabled title="Ctrl+Y">↷ Redo</button>
