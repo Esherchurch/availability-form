@@ -1451,6 +1451,28 @@
       if (e.key === 'Escape') closeClipMenu();
     });
 
+    /* The same two sliders in the song panel. */
+    function toneInput(e, commit) {
+      var el = e.target;
+      if (!el || !el.dataset || !el.dataset.tone) return false;
+      var i = +el.dataset.track, t = project.tracks[i];
+      if (!t) return true;
+      var v = parseFloat(el.value);
+      if (!isFinite(v)) return true;
+      var rd = document.querySelector('[data-tone-val="' + el.dataset.tone + '"][data-track="' + i + '"]');
+      if (rd) rd.textContent = (el.dataset.tone === 'sub' && v > 0 ? '+' : '') + v + ' dB';
+      if (el.dataset.tone === 'gain') {
+        t.gainDb = v;
+        if (preview) preview.setGain('track', i, Math.pow(10, v / 20));
+      } else {
+        setTrackSub(i, v, commit);
+      }
+      if (commit) touch('changed the sound of ' + t.title);
+      return true;
+    }
+    document.addEventListener('input', function (e) { toneInput(e, false); });
+    document.addEventListener('change', function (e) { toneInput(e, true); });
+
     /* Live while dragging: the point of a slider is hearing it move. */
     document.addEventListener('input', function (e) {
       if (!_menu || !e.target.dataset || !e.target.dataset.cm) return;
@@ -1465,6 +1487,27 @@
       if (!b || !_menu) return;
       clipMenuAction(b.dataset.cm);
     });
+  }
+
+  /* A record's sub-bass, from whichever control moved it — the right-click
+     menu or the panel under the timeline. One function, so the two cannot
+     drift apart: heard as it moves, and re-levelled when let go so the record
+     gets fuller without getting louder than its neighbours. Re-measuring a
+     four minute record on every pixel would stall the slider, hence only on
+     release. */
+  function setTrackSub(idx, num, commit) {
+    var t = project.tracks[idx];
+    if (!t) return;
+    t.subDb = num || 0;
+    if (preview && preview.setSub) preview.setSub(idx, t.subDb);
+    if (!commit) return;
+    var lv = measureForLevel(t);
+    if (!lv) return;
+    t.gainDb = Math.round(gainForLevel(lv) * 10) / 10;
+    t.loudnessLufs = lv.lufs; t.measuredDb = lv.lufs; t.peakDb = lv.peakDb;
+    if (preview) preview.setGain('track', idx, Math.pow(10, t.gainDb / 20));
+    setStatus('"' + t.title + '" sub-bass ' + (t.subDb > 0 ? '+' : '') + t.subDb +
+              ' dB, re-levelled to ' + t.gainDb + ' dB so it stays at the same volume.');
   }
 
   function applyClipMenu(input, commit) {
@@ -1517,23 +1560,7 @@
       var t = project.tracks[idx];
       if (!t) return;
       if (what === 'gain') t.gainDb = num;
-      else if (what === 'sub') {
-        t.subDb = num || 0;
-        if (preview && preview.setSub) preview.setSub(idx, t.subDb);
-        /* Keep it at the level of its neighbours. Only when the slider is let
-           go: re-measuring a four minute record on every pixel would stall the
-           slider. */
-        if (commit) {
-          var lv = measureForLevel(t);
-          if (lv) {
-            t.gainDb = Math.round(gainForLevel(lv) * 10) / 10;
-            t.loudnessLufs = lv.lufs; t.measuredDb = lv.lufs; t.peakDb = lv.peakDb;
-            if (preview) preview.setGain('track', idx, Math.pow(10, t.gainDb / 20));
-            setStatus('"' + t.title + '" sub-bass ' + (t.subDb > 0 ? '+' : '') + t.subDb +
-                      ' dB, re-levelled to ' + t.gainDb + ' dB so it stays at the same volume.');
-          }
-        }
-      }
+      else if (what === 'sub') setTrackSub(idx, num, commit);
       else if (what === 'exit') {
         /* Taken as given, only kept the right side of its entry and its end —
            a mix-out is a decision, not a suggestion.
@@ -2041,6 +2068,24 @@
           '<button data-act="checkgrid" data-track="' + i + '"' + (t.linked ? '' : ' disabled') +
           '>Check grid</button></div>' +
 
+      '</div>' +
+      /* The sound of the record, where the rest of the record's settings are.
+         These were only in the right-click menu, and the panel that opens
+         under a song — the place anyone looks for a record's settings — had
+         none, so "there is no bass slider" was simply true from here. */
+      '<div class="tone-row">' +
+        '<div class="tone"><label class="lbl">Volume</label>' +
+          '<input type="range" min="-24" max="12" step="0.5" data-tone="gain" data-track="' + i +
+          '" value="' + (t.gainDb == null ? 0 : t.gainDb) + '">' +
+          '<b data-tone-val="gain" data-track="' + i + '">' + (t.gainDb == null ? 0 : t.gainDb) + ' dB</b></div>' +
+        '<div class="tone"><label class="lbl">Sub bass <span class="hint-inline">below 70 Hz</span></label>' +
+          '<input type="range" min="-12" max="12" step="1" data-tone="sub" data-track="' + i +
+          '" value="' + (t.subDb || 0) + '">' +
+          '<b data-tone-val="sub" data-track="' + i + '">' + ((t.subDb || 0) > 0 ? '+' : '') + (t.subDb || 0) + ' dB</b></div>' +
+        '<span class="hint" style="margin:0;flex:1;min-width:220px">' +
+          'Sub bass gives an older record the weight of a modern one. Letting go re-levels the ' +
+          'record, so it gets fuller without getting louder.' +
+        '</span>' +
       '</div>' +
       sampleCutHtml(t, i) +
       regionEditorHtml(t, i) +
