@@ -291,6 +291,8 @@
         sourceFromSec: from, sourceToSec: to,
         // the track's own level, from normalising
         gainDb: t.gainDb || 0,
+        // the record's own sub-bass, raised or lowered by hand
+        subDb: t.subDb || 0,
         regions: regions, barSec: barSec, sourceSec: srcSec,
         r0: r0, r1: r1, tempoIn: tempoIn, tempoOut: tempoOut, sourceBpm: bpm,
         outSec: outSec, startSec: 0,
@@ -615,6 +617,11 @@
        Baked in rather than set on the node, so there is one level per track
        and the fade curves below no longer have to carry it. */
     var wantGain = Math.pow(10, ((pt.gainDb != null ? pt.gainDb : 0)) / 20);
+    /* The record's sub-bass, if it has been moved, goes in first — before the
+       limiter, which then sees the peaks it actually has to hold. After it,
+       a raised sub could push a record past the ceiling and the whole mix
+       would pay for it at finalise. */
+    if (pt.subDb) DSP.lowShelfBuffer(stretched, pt.subDb);
     var lim = DSP.limitPeaks(stretched, TRACK_CEILING, { preGain: wantGain });
     if (opts.onLimit) opts.onLimit(pt, lim);
 

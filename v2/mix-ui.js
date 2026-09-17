@@ -1384,6 +1384,11 @@
         menuRow('Volume', '<input type="range" data-cm="gain" min="-24" max="12" step="0.5" value="' +
                 (t.gainDb == null ? 0 : t.gainDb) + '"><b data-cm-val="gain">' +
                 (t.gainDb == null ? 0 : t.gainDb) + ' dB</b>') +
+        /* Weight below 70 Hz, for an older record that sounds thin next to a
+           modern one. Moving it re-levels the record, so it gets fuller
+           without getting louder than the records around it. */
+        menuRow('Sub bass', '<input type="range" data-cm="sub" min="-12" max="12" step="1" value="' +
+                (t.subDb || 0) + '"><b data-cm-val="sub">' + (t.subDb || 0) + ' dB</b>') +
         menuRow('Mix out at', '<input type="number" data-cm="exit" step="0.5" min="0" max="' +
                 endsAt.toFixed(1) + '" value="' + (t.exitSec || 0).toFixed(1) + '"><b>of ' +
                 fmt(endsAt) + '</b>') +
@@ -1468,7 +1473,8 @@
     var num = parseFloat(val);
 
     var rd = _menu.querySelector('[data-cm-val="' + what + '"]');
-    if (rd) rd.textContent = num + (what === 'reverb' ? '%' : what === 'weight' ? '' : ' dB');
+    if (rd) rd.textContent = (what === 'sub' && num > 0 ? '+' : '') + num +
+                             (what === 'reverb' ? '%' : what === 'weight' ? '' : ' dB');
 
     if (what === 'gain') {
       /* Heard as the slider moves, not after a rebuild. */
@@ -1511,6 +1517,23 @@
       var t = project.tracks[idx];
       if (!t) return;
       if (what === 'gain') t.gainDb = num;
+      else if (what === 'sub') {
+        t.subDb = num || 0;
+        if (preview && preview.setSub) preview.setSub(idx, t.subDb);
+        /* Keep it at the level of its neighbours. Only when the slider is let
+           go: re-measuring a four minute record on every pixel would stall the
+           slider. */
+        if (commit) {
+          var lv = measureForLevel(t);
+          if (lv) {
+            t.gainDb = Math.round(gainForLevel(lv) * 10) / 10;
+            t.loudnessLufs = lv.lufs; t.measuredDb = lv.lufs; t.peakDb = lv.peakDb;
+            if (preview) preview.setGain('track', idx, Math.pow(10, t.gainDb / 20));
+            setStatus('"' + t.title + '" sub-bass ' + (t.subDb > 0 ? '+' : '') + t.subDb +
+                      ' dB, re-levelled to ' + t.gainDb + ' dB so it stays at the same volume.');
+          }
+        }
+      }
       else if (what === 'exit') {
         /* Taken as given, only kept the right side of its entry and its end —
            a mix-out is a decision, not a suggestion.
@@ -4813,6 +4836,7 @@
        do before you can put a cursor somewhere and press play. */
 
     window.__buildPreview = function () { return buildPreview(); };
+    window.__previewForTest = function () { return preview; };
     /* For tests: the live project, not the saved copy. Reading the saved one
        is how a probe once built a preview from half the mix. */
     window.__project = function () { return project; };
@@ -5253,31 +5277,56 @@
      levelled to the loudest point that the least forgiving of them can reach
      without clipping. Nothing then needs limiting, and the limiter goes back
      to being a safety rail rather than the thing doing the levelling. */
+  /* How loud a record is, and how much room it has, as it will actually be
+     heard — which, once its sub-bass has been moved, is not the file on disk.
+
+     A raised sub adds energy the loudness meter counts, so measuring the raw
+     file and then adding bass would leave that record louder than the ones
+     around it; the one thing levelling is for. Measured through the same
+     shelf the render applies, the extra weight is paid for by a little less
+     gain, and the record stays at the level of its neighbours while sounding
+     fuller. Its peaks are taken through the shelf too, because that is what
+     the limiter will see. */
+  function measureForLevel(t) {
+    var buf = buffers.get(t.id);
+    /* The mono cache is filled during analysis; a track whose audio was
+       re-linked afterwards has a buffer and no mono, and reading only the
+       cache reported "nothing to measure" with the audio plainly loaded. */
+    var mono = monos.get(t.id) || (buf ? DSP.toMono(buf) : null);
+    if (!mono || !buf) return null;
+    if (!monos.has(t.id)) monos.set(t.id, mono);
+    var sr = buf.sampleRate || 48000;
+    var heard = t.subDb ? DSP.lowShelfArray(mono, sr, DSP.SUB_SHELF_HZ, t.subDb) : mono;
+    var from = t.entrySec || 0;
+    var to = t.exitSec || t.durationSec || (heard.length / sr);
+    if (to <= from) { from = 0; to = heard.length / sr; }
+
+    var lufs = DSP.loudness(heard, sr, from, to);
+    if (lufs == null) return null;
+
+    var pk = 0;
+    var pa = Math.max(0, Math.floor(from * sr)), pb = Math.min(heard.length, Math.floor(to * sr));
+    for (var i = pa; i < pb; i++) { var av = heard[i] < 0 ? -heard[i] : heard[i]; if (av > pk) pk = av; }
+    /* what it can be lifted by before its peaks reach the ceiling */
+    var headroomDb = pk > 0 ? 20 * Math.log10(0.97 / pk) : 12;
+    return { t: t, lufs: lufs, peakDb: +(20 * Math.log10(pk + 1e-12)).toFixed(1),
+             reach: lufs + headroomDb, headroom: headroomDb };
+  }
+
+  /* the gain that puts a measured record on the target */
+  function gainForLevel(r) {
+    var want = NORM_TARGET_DB - r.lufs;
+    /* as far as this record can be pushed: its own clean room, plus as much
+       limiting as is worth doing to it */
+    var most = r.headroom + MAX_LIMIT_DB;
+    return Math.max(-24, Math.min(12, Math.min(want, most)));
+  }
+
   function normaliseAll() {
     var rows = [], skipped = 0;
     project.tracks.forEach(function (t) {
-      /* The mono cache is filled during analysis; a track whose audio was
-         re-linked afterwards has a buffer and no mono, and reading only the
-         cache reported "nothing to measure" with the audio plainly loaded. */
-      var buf = buffers.get(t.id);
-      var mono = monos.get(t.id) || (buf ? DSP.toMono(buf) : null);
-      if (!mono || !buf) { skipped++; return; }
-      if (!monos.has(t.id)) monos.set(t.id, mono);
-      var sr = buf.sampleRate || 48000;
-      var from = t.entrySec || 0;
-      var to = t.exitSec || t.durationSec || (mono.length / sr);
-      if (to <= from) { from = 0; to = mono.length / sr; }
-
-      var lufs = DSP.loudness(mono, sr, from, to);
-      if (lufs == null) { skipped++; return; }
-
-      var pk = 0;
-      var pa = Math.max(0, Math.floor(from * sr)), pb = Math.min(mono.length, Math.floor(to * sr));
-      for (var i = pa; i < pb; i++) { var av = mono[i] < 0 ? -mono[i] : mono[i]; if (av > pk) pk = av; }
-      /* what it can be lifted by before its peaks reach the ceiling */
-      var headroomDb = pk > 0 ? 20 * Math.log10(0.97 / pk) : 12;
-      rows.push({ t: t, lufs: lufs, peakDb: +(20 * Math.log10(pk + 1e-12)).toFixed(1),
-                  reach: lufs + headroomDb, headroom: headroomDb });
+      var r = measureForLevel(t);
+      if (r) rows.push(r); else skipped++;
     });
 
     if (!rows.length) { setStatus('Load the audio first — there is nothing to measure yet.', true); return; }
@@ -5308,10 +5357,7 @@
     var moved = [], limited = [], quiet = [];
     rows.forEach(function (r) {
       var want = target - r.lufs;
-      /* as far as this record can be pushed: its own clean room, plus as much
-         limiting as is worth doing to it */
-      var most = r.headroom + MAX_LIMIT_DB;
-      var gainDb = Math.max(-24, Math.min(12, Math.min(want, most)));
+      var gainDb = gainForLevel(r);
       r.limitDb = Math.max(0, gainDb - r.headroom);
       r.shortDb = Math.max(0, want - gainDb);
       if (r.limitDb >= 0.5) limited.push(r.t.title + ' ' + r.limitDb.toFixed(1) + ' dB');

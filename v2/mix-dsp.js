@@ -772,6 +772,63 @@ onmessage = e => {
     return trimmed;
   }
 
+  /* A record's own sub-bass, raised or lowered.
+
+     Measured in the finished mix, Happy Birthday sat 9 dB short of Dai Dai
+     below 60 Hz — while its 60-150 Hz bass, its mids and its top were all in
+     line with the records around it. A 1980 recording against a 2024 one:
+     the thin sound was the sub, and only the sub.
+
+     A low shelf, the RBJ cookbook one with a slope of 1, which is exactly
+     what a BiquadFilterNode of type 'lowshelf' computes. The timeline plays
+     records through that node and the render writes them through this, so
+     the two have to be the same filter or the file would not sound like the
+     timeline — a test holds them to each other.
+
+     Run in direct form I on Float64 state, so a long record does not drift
+     through accumulated rounding. */
+  var SUB_SHELF_HZ = 70;
+
+  function lowShelfCoefs(sr, hz, gainDb) {
+    var A = Math.pow(10, gainDb / 40);
+    var w0 = 2 * Math.PI * hz / sr;
+    var cw = Math.cos(w0), sw = Math.sin(w0);
+    var alpha = sw / 2 * Math.SQRT2;          // shelf slope S = 1
+    var sa = 2 * Math.sqrt(A) * alpha;
+    var a0 = (A + 1) + (A - 1) * cw + sa;
+    return {
+      b0: A * ((A + 1) - (A - 1) * cw + sa) / a0,
+      b1: 2 * A * ((A - 1) - (A + 1) * cw) / a0,
+      b2: A * ((A + 1) - (A - 1) * cw - sa) / a0,
+      a1: -2 * ((A - 1) + (A + 1) * cw) / a0,
+      a2: ((A + 1) + (A - 1) * cw - sa) / a0
+    };
+  }
+
+  function lowShelfArray(x, sr, hz, gainDb, into) {
+    var y = into || new Float32Array(x.length);
+    if (!gainDb) { if (y !== x) y.set(x); return y; }
+    var k = lowShelfCoefs(sr, hz, gainDb);
+    var x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (var i = 0; i < x.length; i++) {
+      var x0 = x[i];
+      var y0 = k.b0 * x0 + k.b1 * x1 + k.b2 * x2 - k.a1 * y1 - k.a2 * y2;
+      x2 = x1; x1 = x0; y2 = y1; y1 = y0;
+      y[i] = y0;
+    }
+    return y;
+  }
+
+  /* in place, every channel of a buffer */
+  function lowShelfBuffer(buf, gainDb, hz) {
+    if (!gainDb) return buf;
+    for (var c = 0; c < buf.numberOfChannels; c++) {
+      var ch = buf.getChannelData(c);
+      lowShelfArray(ch, buf.sampleRate, hz || SUB_SHELF_HZ, gainDb, ch);
+    }
+    return buf;
+  }
+
   /* A look-ahead peak limiter, so one dynamic record cannot set the level of
      the whole set.
 
@@ -2577,6 +2634,9 @@ onmessage = e => {
     timeAdjust: timeAdjust,
     VARISPEED_LIMIT: VARISPEED_LIMIT,
     limitPeaks: limitPeaks,
+    lowShelfArray: lowShelfArray,
+    lowShelfBuffer: lowShelfBuffer,
+    SUB_SHELF_HZ: SUB_SHELF_HZ,
     finalise: finalise,
     hpFiltfilt: hpFiltfilt,
     makeIR: makeIR,

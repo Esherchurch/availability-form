@@ -68,6 +68,11 @@
           buffer: buf,
           offsetSec: pt.sourceFromSec || 0,
           rate0: pt.r0 || 1, rate1: pt.r1 || pt.r0 || 1,
+          /* the render's own curve: matched at the joins, the record's own
+             speed in between. Without it the timeline played a straight ramp
+             across a clip whose length had been worked out for the curve. */
+          segs: pt.segs || null,
+          subDb: pt.subDb || 0,
           fadeInSec: pt.fadeInSec || 0,
           fadeOutSec: pt.fadeOutSec || 0,
           /* The track's own level, from normalising. */
@@ -79,6 +84,41 @@
     }
 
     /* ---- the transport, from Videoeditor.html ---------------------- */
+
+    /* A clip's playback speed over its own output time, as segments of
+       {sec, a, b} — a hold where a === b, a glide where not. Clips with no
+       curve (samples, drums) are one segment from rate0 to rate1. */
+    function segsOfClip(c) {
+      if (c.segs && c.segs.length) return c.segs;
+      return [{ sec: Math.max(1e-6, c.toSec - c.fromSec), a: c.rate0 || 1, b: c.rate1 || c.rate0 || 1 }];
+    }
+    function rateAt(segs, t) {
+      var at = 0;
+      for (var i = 0; i < segs.length; i++) {
+        var s = segs[i];
+        if (t <= at + s.sec || i === segs.length - 1) {
+          var u = s.sec > 0 ? Math.max(0, Math.min(1, (t - at) / s.sec)) : 1;
+          return s.a + (s.b - s.a) * u;
+        }
+        at += s.sec;
+      }
+      return segs[segs.length - 1].b;
+    }
+    /* Source seconds consumed by the first t seconds of the clip: the
+       integral of the speed, never speed times time. Multiplying was close
+       enough on a gentle straight ramp and most of a beat out on the curve,
+       which after a click on the timeline is a record playing out of step
+       with the one it is meant to be blended with. */
+    function consumedBy(segs, t) {
+      var at = 0, acc = 0;
+      for (var i = 0; i < segs.length; i++) {
+        var s = segs[i];
+        if (t >= at + s.sec) { acc += (s.a + s.b) / 2 * s.sec; at += s.sec; continue; }
+        var u = Math.max(0, t - at), slope = s.sec > 0 ? (s.b - s.a) / s.sec : 0;
+        return acc + s.a * u + slope * u * u / 2;
+      }
+      return acc;
+    }
 
     function shouldSound(c) { return S.t >= c.fromSec - 0.001 && S.t < c.toSec; }
 
@@ -95,11 +135,35 @@
       /* The rate ramp has to start from where the playhead already is, not
          from the top of the clip, or seeking into the middle of a track would
          play the wrong part of its ramp. */
-      var frac = (c.toSec - c.fromSec) > 0 ? into / (c.toSec - c.fromSec) : 0;
-      var rateNow = c.rate0 + (c.rate1 - c.rate0) * frac;
-      node.playbackRate.value = rateNow;
-      if (Math.abs(c.rate1 - rateNow) > 0.0005) {
-        node.playbackRate.linearRampToValueAtTime(c.rate1, ctx.currentTime + left);
+      var segs = segsOfClip(c);
+      var now = ctx.currentTime;
+      var rateNow = rateAt(segs, into);
+      node.playbackRate.setValueAtTime(rateNow, now);
+      /* every hold and glide still ahead, scheduled from where we are */
+      var segAt = 0;
+      for (var si = 0; si < segs.length; si++) {
+        var sg = segs[si], sStart = segAt, sEnd = segAt + sg.sec;
+        segAt = sEnd;
+        if (sEnd <= into) continue;
+        var from = Math.max(sStart, into);
+        if (from > into) node.playbackRate.setValueAtTime(rateAt(segs, from), now + (from - into));
+        if (Math.abs(sg.b - sg.a) > 1e-9) {
+          node.playbackRate.linearRampToValueAtTime(sg.b, now + (sEnd - into));
+        }
+      }
+
+      /* The record's sub-bass: the same filter the render writes. On every
+         record, sitting at 0 dB when untouched — a low shelf at 0 dB is exactly
+         unity — so the slider can be heard as it moves rather than only after
+         the next rebuild. */
+      var shelf = null;
+      if (c.kind === 'track') {
+        shelf = ctx.createBiquadFilter();
+        shelf.type = 'lowshelf';
+        shelf.frequency.value = (global.MixDSP && global.MixDSP.SUB_SHELF_HZ) || 70;
+        shelf.gain.value = c.subDb || 0;
+        node.disconnect();
+        node.connect(shelf); shelf.connect(g);
       }
 
       /* The fades the render writes, so the timeline sounds like the file.
@@ -148,8 +212,10 @@
           g.gain.linearRampToValueAtTime(0, ctx.currentTime + leftOut);
         }
       }
-      node.start(0, (c.offsetSec || 0) + into * rateNow, left * 1.05);
-      S.live.push({ clip: c, node: node, gain: g });
+      var srcFrom = consumedBy(segs, into);
+      var srcLeft = consumedBy(segs, into + left) - srcFrom;
+      node.start(0, (c.offsetSec || 0) + srcFrom, srcLeft * 1.02 + 0.05);
+      S.live.push({ clip: c, node: node, gain: g, shelf: shelf });
     }
 
     function stopClip(rec) {
@@ -179,6 +245,16 @@
        list is rebuilt from the plan, which means synthesising drums — far too
        slow to sit under a slider — so this reaches the stored gain and the
        gain node of anything currently sounding, and nothing else. */
+    /* A record's sub-bass, changed while it plays. */
+    function setSub(index, db) {
+      S.clips.forEach(function (c) { if (c.kind === 'track' && c.index === index) c.subDb = db; });
+      S.live.forEach(function (rec) {
+        if (rec.clip.kind === 'track' && rec.clip.index === index && rec.shelf) {
+          rec.shelf.gain.setValueAtTime(db, ctx.currentTime);
+        }
+      });
+    }
+
     function setGain(kind, index, gain) {
       var hit = 0;
       S.clips.forEach(function (c) {
@@ -236,7 +312,15 @@
 
     return {
       build: build,
-      play: play, pause: pause, seek: seek, stop: stop, setGain: setGain,
+      play: play, pause: pause, seek: seek, stop: stop, setGain: setGain, setSub: setSub,
+      /* for the tests: where in its source a track clip is, and how fast, at a
+         point in its own output — the numbers a seek actually starts from */
+      __trackAt: function (index, outSec) {
+        var c = S.clips.filter(function (x) { return x.kind === 'track' && x.index === index; })[0];
+        if (!c) return null;
+        var sg = segsOfClip(c);
+        return { source: (c.offsetSec || 0) + consumedBy(sg, outSec), rate: rateAt(sg, outSec), sub: c.subDb || 0 };
+      },
       at: function () { return S.t; },
       duration: function () { return S.dur; },
       isPlaying: function () { return S.playing; },
