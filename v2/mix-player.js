@@ -282,7 +282,18 @@
     api.playerPickWav().then(function (p) { if (p) openWav(p, 0); });
   }
 
+  /* Nothing is written until the saved state has been READ.
+
+     On start-up the player finds the audio outputs and selects one, and
+     selecting one saves. If that lands before the saved state has come back
+     from disk, it writes an empty mix path over the real one — so the next
+     launch opens with nothing loaded. It did not happen when this was
+     tested, which is exactly the kind of fault that turns up on the night
+     instead. */
+  var stateLoaded = false;
+
   function save() {
+    if (!stateLoaded) return;
     if (!api || !api.playerSaveState) return;
     api.playerSaveState(JSON.stringify({ wav: state.wav, sinkId: state.sinkId, pos: state.lastPos }));
   }
@@ -352,15 +363,20 @@
   }
   if (api && api.playerLoadState) {
     api.playerLoadState().then(function (json) {
-      if (!json) return;
-      try {
-        var s = JSON.parse(json);
-        if (s.sinkId) { state.sinkId = s.sinkId; loadSinks(); }
-        if (s.wav && api.audioExists) {
-          api.audioExists(s.wav).then(function (ok) { if (ok) openWav(s.wav, s.pos || 0); });
-        }
-      } catch (err) {}
-    });
+      var s = null;
+      try { s = json ? JSON.parse(json) : null; } catch (err) { s = null; }
+      if (s && s.sinkId) state.sinkId = s.sinkId;
+      /* from here on, saving can only ever write what was read, or newer */
+      if (s && s.wav) state.wav = s.wav;
+      if (s && s.pos) state.lastPos = s.pos;
+      stateLoaded = true;
+      if (s && s.sinkId) loadSinks();
+      if (s && s.wav && api.audioExists) {
+        api.audioExists(s.wav).then(function (ok) { if (ok) openWav(s.wav, s.pos || 0); });
+      }
+    }, function () { stateLoaded = true; });
+  } else {
+    stateLoaded = true;
   }
 
   /* for the tests */
