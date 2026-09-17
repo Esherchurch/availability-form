@@ -4807,12 +4807,6 @@
     /* For tests: the decoded audio the page is holding, so a render can be
        driven without loading the files a second time. */
     window.__buffersForTest = function () { return buffers; };
-    /* the sample library the UI reads from: its audio cache and its
-       descriptions, so a test can put clips in front of the levelling without
-       going through the cutter and IndexedDB */
-    window.__sampleCacheForTest = function () {
-      return { buffers: sampleBuffers, meta: sampleMeta };
-    };
     /* For tests: recompute and redraw after poking the project directly. */
     window.__touchForTest = function (label) { return touch(label); };
     /* For the bulk importer and for tests: the same path the button takes. */
@@ -5232,7 +5226,7 @@
      levelled to the loudest point that the least forgiving of them can reach
      without clipping. Nothing then needs limiting, and the limiter goes back
      to being a safety rail rather than the thing doing the levelling. */
-  async function normaliseAll() {
+  function normaliseAll() {
     var rows = [], skipped = 0;
     project.tracks.forEach(function (t) {
       /* The mono cache is filled during analysis; a track whose audio was
@@ -5302,54 +5296,6 @@
       if (Math.abs(r.t.gainDb) >= 1) moved.push(r.t.title + ' ' + (r.t.gainDb > 0 ? '+' : '') + r.t.gainDb);
     });
 
-    /* The samples are levelled too, to the same number as the records.
-
-       "As long as they hit the same volume" was said about the set, and a
-       sample placed over it is part of the set — it is a thing the room hears.
-       Leaving those on whatever number was typed into the placement form meant
-       six of them spread across eighteen decibels: measured in the finished
-       mix, one sat 1.8 dB under the music and another 13.2 dB under, which is
-       a third as loud and effectively not there.
-
-       Same rule, same target, measured the same way. A placement rides ON TOP
-       of a record rather than instead of it, so matching it to the record's
-       own loudness is what makes the two the same volume. */
-    var samplesMoved = [];
-    for (var sp2 = 0; sp2 < (project.placements || []).length; sp2++) {
-      var pl2 = project.placements[sp2];
-      var sbuf = null;
-      try { sbuf = await sampleAudioFor(pl2.sampleId); } catch (e) { sbuf = null; }
-      if (!sbuf) continue;
-      var smono = DSP.toMono(sbuf), ssr = sbuf.sampleRate || 48000;
-      var slufs = DSP.loudness(smono, ssr, 0, smono.length / ssr);
-      /* A one-shot can be shorter than the gating needs, and a gate that
-         rejects everything returns nothing rather than a quiet number. Fall
-         back to plain energy, which for a half second of noise is the same
-         judgement by a cruder route. */
-      if (slufs == null) {
-        var acc2 = 0;
-        for (var si = 0; si < smono.length; si++) acc2 += smono[si] * smono[si];
-        var srms = Math.sqrt(acc2 / Math.max(1, smono.length));
-        slufs = 20 * Math.log10(srms + 1e-12) - 0.7;   // K-weighting on broadband
-      }
-      /* A clip cut quietly can be 14 dB below the set and still be the right
-         sound; the +12 ceiling is a rule for whole records, where wanting that
-         much gain means something else is wrong. Raising a two second clip by
-         18 dB lifts its noise floor with it, and the floor of a cut from a
-         270 kbps file is nowhere near audible at this level. The render takes
-         the master peak AFTER the placements are mixed in, so a clip that did
-         push the mix over would show as a master reduction rather than as
-         clipping. */
-      var sg = Math.max(-24, Math.min(18, target - slufs));
-      sg = Math.round(sg * 10) / 10;
-      if (pl2.gainDb !== sg) {
-        var smeta2 = sampleMeta.get(pl2.sampleId);
-        samplesMoved.push((smeta2 ? smeta2.name : pl2.sampleId) +
-                          ' ' + (pl2.gainDb == null ? '?' : pl2.gainDb) + ' to ' + sg);
-        pl2.gainDb = sg;
-      }
-    }
-
     var lo = Math.min.apply(null, rows.map(function (r) { return r.lufs; }));
     var hi = Math.max.apply(null, rows.map(function (r) { return r.lufs; }));
     touch('normalised');
@@ -5365,10 +5311,6 @@
                   'so ' + (quiet.length === 1 ? 'it sits' : 'they sit') + ' a shade below.'
                 : '') +
               (moved.length ? ' Biggest moves: ' + moved.slice(0, 4).join(', ') + '.' : '') +
-              (samplesMoved.length
-                ? ' Samples levelled to match: ' + samplesMoved.slice(0, 4).join(', ') +
-                  (samplesMoved.length > 4 ? ' and ' + (samplesMoved.length - 4) + ' more' : '') + '.'
-                : '') +
               (skipped ? ' ' + skipped + ' still without audio.' : ''));
   }
 
