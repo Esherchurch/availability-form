@@ -250,7 +250,16 @@
     /* file:// straight off disk. The page is file:// too, so the media element
        reads it without a custom protocol, and it streams rather than loading
        1.4 GB into memory. */
-    audio.src = 'file:///' + String(filePath).replace(/\\/g, '/').replace(/^\/+/, '');
+    /* Encoded, because a path is not a URL.
+
+       Spaces survive unencoded by luck rather than by rule, and a '#' in a
+       filename ends the URL where it appears and throws the rest away — which
+       on the night reads as the player refusing to open a file that is
+       plainly sitting right there. encodeURI leaves the drive colon and the
+       slashes alone, which is exactly what a file URL needs; it does not
+       touch '#', so that goes by hand. */
+    var url = 'file:///' + String(filePath).replace(/\\/g, '/').replace(/^\/+/, '');
+    audio.src = encodeURI(url).replace(/#/g, '%23');
     audio.load();
     $('stage').hidden = false;
     $('empty').hidden = true;
