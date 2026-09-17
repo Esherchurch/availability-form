@@ -598,14 +598,28 @@
         var cached2 = await MP.getAnalysis(key2);
         var fixed = repairRange(m.track, monos.get(m.track.id), buf.sampleRate,
                                 cached2 ? cached2.contentEndSec : null);
-        if (fixed) {
-          repaired.push('"' + m.track.title + '": ' + fixed.join(', '));
-        }
+        /* Say what was repaired. This pushed onto `repaired`, which is a
+           list belonging to relinkFiles and does not exist here — so every
+           link that needed its mix-out worked out threw a ReferenceError after
+           the analysis had finished, and the catch below reported it as "Could
+           not decode". A track that has never been linked has no mix-out at
+           all, so "Find the file..." failed for exactly the case it exists
+           for, having done all the work and then thrown it away. */
+        var repairNote = fixed ? fixed.join(', ') : null;
       renderAll();
       save();
+      setStatus('Linked "' + m.track.title + '" to ' + m.file.name +
+                (repairNote ? ' — ' + repairNote : '') + '.');
       return true;
     } catch (err) {
-      setStatus('Could not decode ' + file.name, true);
+      /* decode() already falls back to the media element for files the bare
+         decoder rejects, so reaching here is either a file nothing can read or
+         a fault after it was read. Name which — "could not decode" for a file
+         that decoded perfectly well sends anyone looking in the wrong place. */
+      var decoded = buffers.has(track.id) && track.file === file.name;
+      setStatus(decoded
+        ? 'Read ' + file.name + ' but could not finish linking it: ' + (err && err.message || err)
+        : 'Could not decode ' + file.name, true);
       return false;
     }
   }
@@ -3520,8 +3534,17 @@
     openJunction = null;
     recompute();
     var kept = renderedCount();
+    /* A sample follows the record it sits before. Moving that record to the
+       very top leaves it no junction in front to sit at — say so, because
+       Undo brings it back and a sample that vanished silently would not be
+       noticed until the night. */
+    var lost = project.droppedPlacements || [];
     setStatus('Moved "' + title + '" to position ' + (to + 1) + '. ' +
-              kept + ' junction render' + (kept === 1 ? '' : 's') + ' still valid.');
+              kept + ' junction render' + (kept === 1 ? '' : 's') + ' still valid.' +
+              (lost.length ? ' ' + lost.length + ' sample' + (lost.length === 1 ? ' was' : 's were') +
+                ' taken off, because the record ' + (lost.length === 1 ? 'it sat' : 'they sat') +
+                ' before now opens the set with nothing in front of it. Undo puts ' +
+                (lost.length === 1 ? 'it' : 'them') + ' back.' : ''), lost.length > 0);
     touch();
   }
 
@@ -4807,6 +4830,10 @@
     /* For tests: the decoded audio the page is holding, so a render can be
        driven without loading the files a second time. */
     window.__buffersForTest = function () { return buffers; };
+    /* the same link-and-analyse a user gets from "Find the file...", so a
+       script can point a track at a different recording and have it analysed
+       exactly as the app would, rather than by a copy of the steps */
+    window.__linkFileForTest = function (i, file) { return linkFileToTrack(project.tracks[i], file); };
     /* For tests: recompute and redraw after poking the project directly. */
     window.__touchForTest = function (label) { return touch(label); };
     /* For the bulk importer and for tests: the same path the button takes. */

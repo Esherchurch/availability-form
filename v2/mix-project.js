@@ -377,26 +377,74 @@
     return project;
   }
 
+  /* Placements follow the record they sit BEFORE, the same way a junction
+     follows the pair it joins.
+
+     A placement is stored as a junction number, and it is positioned
+     barsBeforeEntry bars before the record AFTER that junction starts — the
+     sample list even shows it as 'before "Family Affair"'. Nothing here used
+     to touch placements when the order changed, so the numbers stayed put
+     while the records moved under them: remove one early track and every
+     sample after it slid onto the next record along, with no warning. The
+     junctions had already been made order-proof; the samples had not.
+
+     So each placement is remembered by the id of the record it sits before,
+     and re-pointed at wherever that record ends up. A record that is gone,
+     or has moved to the very top of the set where there is no junction in
+     front of it, leaves its samples nowhere to sit — those are taken off and
+     listed on the project, unsaved, so whatever made the change can say so
+     rather than lose them quietly. */
+  function captureAnchors(project) {
+    return (project.placements || []).map(function (p) {
+      var inc = project.tracks[(p.atJunction == null ? -9 : p.atJunction) + 1];
+      return inc ? inc.id : null;
+    });
+  }
+
+  function reanchorPlacements(project, anchors) {
+    var kept = [], dropped = [];
+    (project.placements || []).forEach(function (p, k) {
+      var id = anchors[k], at = -1;
+      for (var i = 1; i < project.tracks.length; i++) {
+        if (project.tracks[i].id === id) { at = i - 1; break; }
+      }
+      if (at >= 0) { p.atJunction = at; kept.push(p); }
+      else dropped.push(p);
+    });
+    project.placements = kept;
+    /* not enumerable, so it never reaches the saved file */
+    Object.defineProperty(project, 'droppedPlacements', {
+      value: dropped, enumerable: false, configurable: true, writable: true
+    });
+    return project;
+  }
+
   function moveTrack(project, from, to) {
     if (from === to || from < 0 || to < 0 ||
         from >= project.tracks.length || to >= project.tracks.length) return project;
     var pairs = capturePairs(project);
+    var anchors = captureAnchors(project);
     var t = project.tracks.splice(from, 1)[0];
     project.tracks.splice(to, 0, t);
-    return rebuildJunctions(project, pairs);
+    rebuildJunctions(project, pairs);
+    return reanchorPlacements(project, anchors);
   }
 
   function removeTrack(project, i) {
     if (i < 0 || i >= project.tracks.length) return project;
     var pairs = capturePairs(project);
+    var anchors = captureAnchors(project);
     project.tracks.splice(i, 1);
-    return rebuildJunctions(project, pairs);
+    rebuildJunctions(project, pairs);
+    return reanchorPlacements(project, anchors);
   }
 
   function insertTrack(project, i, track) {
     var pairs = capturePairs(project);
+    var anchors = captureAnchors(project);
     project.tracks.splice(Math.max(0, Math.min(i, project.tracks.length)), 0, track);
-    return rebuildJunctions(project, pairs);
+    rebuildJunctions(project, pairs);
+    return reanchorPlacements(project, anchors);
   }
 
   /* Swap a track for one off the bench, in place. The outgoing track goes to the
@@ -407,22 +455,30 @@
     var outgoing = project.tracks[i];
     if (!incoming || !outgoing) return project;
     var pairs = capturePairs(project);
+    var anchors = captureAnchors(project);
     project.bench.splice(benchIndex, 1);
     project.tracks[i] = Object.assign({}, incoming, {
       id: incoming.id || 'trk_' + hash(incoming.title + Date.now()),
       section: incoming.section || outgoing.section,
       pinned: outgoing.pinned
     });
+    /* the same slot, a different record: a sample that sat before the one
+       going out now sits before the one coming in, rather than being lost */
+    var newId = project.tracks[i].id;
+    anchors = anchors.map(function (a) { return a === outgoing.id ? newId : a; });
     project.bench.push(benchToEntry(outgoing));
-    return rebuildJunctions(project, pairs);
+    rebuildJunctions(project, pairs);
+    return reanchorPlacements(project, anchors);
   }
 
   function benchTrack(project, i) {
     if (i < 0 || i >= project.tracks.length) return project;
     var pairs = capturePairs(project);
+    var anchors = captureAnchors(project);
     var t = project.tracks.splice(i, 1)[0];
     (project.bench = project.bench || []).push(benchToEntry(t));
-    return rebuildJunctions(project, pairs);
+    rebuildJunctions(project, pairs);
+    return reanchorPlacements(project, anchors);
   }
 
   function benchToEntry(t) {
@@ -1295,6 +1351,7 @@
     effectiveBpm: effectiveBpm,
     moveTrack: moveTrack,
     removeTrack: removeTrack,
+    reanchorPlacements: reanchorPlacements,
     insertTrack: insertTrack,
     replaceTrack: replaceTrack,
     benchTrack: benchTrack,
