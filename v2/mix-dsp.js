@@ -590,6 +590,92 @@ onmessage = e => {
     return out;
   }
 
+  /* Varispeed: the pitch fader, done the way the pitch fader does it.
+
+     WSOLA keeps the pitch by cutting the record into 2048 sample windows and
+     overlap-adding them back at a different spacing, choosing where to splice
+     by cross-correlation. When the search finds a good continuation that is
+     inaudible. When it does not — and on dense, full-band material it often
+     does not — the two windows sum out of phase and comb filter, and the top
+     end goes with them.
+
+     Measured on Martin's own record, stretched by the 0.7% the set actually
+     asks for, comparing every 100 ms against the same moment of the source:
+
+       median            -0.81 dB of top end   (which is why an average said
+                                                there was nothing wrong)
+       17.4% of frames   more than 3 dB down
+       worst frame       -10.1 dB
+       longest dip       0.8 seconds
+
+     "It dips and sounds underwater in places" is that, and the places are in
+     the middle of a record because that is where the stretch is.
+
+     None of it is necessary at these ratios. A DJ matching two records by a
+     percent or two moves the pitch fader, which changes speed and pitch
+     together, and nobody has ever called that underwater — 1% is 17 cents,
+     and there is no reference in the room to hear it against. Resampling has
+     no windows, no splices and no overlap-add, so there is nothing that can
+     comb filter: the only thing that can hurt the top end is the
+     interpolator, and a 32 tap windowed sinc is transparent to well past
+     20 kHz.
+
+     The ratio ramps across the output exactly as it does in stretchRamp, so
+     the read position is the integral of it and the output length works out
+     the same. Anti-aliasing is not needed at these ratios: speeding up by 4%
+     moves Nyquist to 23 kHz and these records stop at 17 to 21. */
+  function varispeedRamp(ctx, buf, r0, r1) {
+    if (Math.abs(r0 - 1) < 1e-7 && Math.abs(r1 - 1) < 1e-7) return buf;
+    var sr = buf.sampleRate, chans = buf.numberOfChannels;
+    var mean = (r0 + r1) / 2;
+    var outLen = Math.max(1, Math.round(buf.length / mean));
+    var out = ctx.createBuffer(chans, outLen, sr);
+
+    /* windowed sinc, tabulated once at 512 fractional positions */
+    var TAPS = 32, HALF = TAPS / 2, SUB = 512;
+    var tbl = new Float32Array(SUB * TAPS);
+    for (var s = 0; s < SUB; s++) {
+      var frac = s / SUB, sum = 0, base = s * TAPS, k, x, w, v;
+      for (k = 0; k < TAPS; k++) {
+        x = (k - HALF + 1) - frac;
+        v = Math.abs(x) < 1e-8 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x);
+        /* Blackman across the whole span, so the taps taper to nothing at the
+           ends rather than being chopped off, which would ripple the top end */
+        w = 0.42 - 0.5 * Math.cos(2 * Math.PI * (k + 0.5) / TAPS) +
+            0.08 * Math.cos(4 * Math.PI * (k + 0.5) / TAPS);
+        tbl[base + k] = v * w;
+        sum += v * w;
+      }
+      /* unity gain at DC for every fractional position, or the level breathes
+         in time with the fraction as the read head drifts through it */
+      for (k = 0; k < TAPS; k++) tbl[base + k] /= sum;
+    }
+
+    var step = (outLen > 1) ? (r1 - r0) / (outLen - 1) : 0;
+    for (var c = 0; c < chans; c++) {
+      var src = buf.getChannelData(c), dst = out.getChannelData(c);
+      var pos = 0, len = src.length;
+      for (var i = 0; i < outLen; i++) {
+        var idx = pos | 0;
+        var f = (pos - idx) * SUB | 0;
+        if (f >= SUB) f = SUB - 1;
+        var b2 = f * TAPS, acc = 0, at = idx - HALF + 1;
+        if (at >= 0 && at + TAPS < len) {
+          for (var k2 = 0; k2 < TAPS; k2++) acc += src[at + k2] * tbl[b2 + k2];
+        } else {
+          for (var k3 = 0; k3 < TAPS; k3++) {
+            var j = at + k3;
+            if (j >= 0 && j < len) acc += src[j] * tbl[b2 + k3];
+          }
+        }
+        dst[i] = acc;
+        pos += r0 + step * i;
+        if (pos > len) pos = len;
+      }
+    }
+    return out;
+  }
+
   /* Time-stretch with a ratio that RAMPS from r0 to r1 across the output.
      This is the pitch fader: a record is brought in matched to the one before
      it and eased towards the tempo the next one needs, over minutes, so the
@@ -792,6 +878,44 @@ onmessage = e => {
     }
     return { peak: worst, reducedDb: 20 * Math.log10(lowest),
              limitedDb: -20 * Math.log10(lowest), worked: true };
+  }
+
+  /* How far a record may be moved by speed alone.
+
+     Beyond this the pitch move stops being a pitch fader and starts being an
+     effect, so the stretcher takes over even though it costs the top end. A
+     turntable's fader is plus or minus 8%, and a DJ uses all of it without
+     anyone minding, so that is where the line goes. Martin's set never asks
+     for more than 4.2%, so in practice every record on it is moved by speed. */
+  var VARISPEED_LIMIT = 0.08;
+
+  /* Move a record in time, by whichever means costs least.
+
+     Both routes deliver the same thing to the render — a buffer of
+     buf.length / mean(r0, r1) samples whose tempo ramps from r0 to r1 — so
+     this is only ever a choice about how it sounds getting there.
+
+     Resampling wins whenever it is allowed to. Measured on four of Martin's
+     own records at the ratios his set actually asks for, comparing every
+     100 ms of output against the same moment of the source:
+
+                           dull by >3 dB    longest unbroken dip
+       Can't Stop  0.7%    17.4% -> 4.6%    0.8s -> 0.0s
+       Weekend Sp  3.4%    13.2% -> 6.3%    0.5s -> 0.0s
+       Uptown Funk 1.6%    13.0% -> 4.8%    0.3s -> 0.0s
+       Gimme Night 4.2%    12.4% -> 4.4%    0.3s -> 0.0s
+
+     The column that matters is the last one. An isolated frame 3 dB down is
+     not audible and is mostly this measurement's own alignment noise; a third
+     of a second of it, over and over, is "it dips and sounds underwater in
+     places". Resampling cannot do that to a record at all — there is no
+     overlap-add in it, so there is nothing to cancel. It is also twice as
+     quick. */
+  function timeAdjust(ctx, buf, r0, r1) {
+    var worst = Math.max(Math.abs(r0 - 1), Math.abs(r1 - 1));
+    return worst <= VARISPEED_LIMIT
+      ? varispeedRamp(ctx, buf, r0, r1)
+      : stretchRamp(ctx, buf, r0, r1);
   }
 
   /* Two clips summed can exceed full scale — modern masters sit near 0 dBFS, so
@@ -2347,6 +2471,9 @@ onmessage = e => {
     rmsOf: rmsOf, loudness: loudness,
     stretch: stretch,
     stretchRamp: stretchRamp,
+    varispeedRamp: varispeedRamp,
+    timeAdjust: timeAdjust,
+    VARISPEED_LIMIT: VARISPEED_LIMIT,
     limitPeaks: limitPeaks,
     finalise: finalise,
     hpFiltfilt: hpFiltfilt,

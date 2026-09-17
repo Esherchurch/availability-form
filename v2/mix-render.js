@@ -461,7 +461,11 @@
       ? DSP.assembleRegions(ctx, buf, pt.regions, pt.barSec)
       : DSP.slice(ctx, buf, pt.sourceFromSec, pt.sourceToSec - pt.sourceFromSec);
     if (!src) src = DSP.slice(ctx, buf, pt.sourceFromSec, Math.max(0.1, pt.sourceSec || 1));
-    var stretched = DSP.stretchRamp(ctx, src, pt.r0, pt.r1);
+    /* Moved by speed where that is possible, and only stretched when the
+       tempo gap is too wide for a pitch fader. See DSP.timeAdjust — the
+       stretcher was taking the top end off a fifth of every record in bursts,
+       which is what "it dips and sounds underwater in places" was. */
+    var stretched = DSP.timeAdjust(ctx, src, pt.r0, pt.r1);
 
     /* The track's own level goes INTO the audio here, with its peaks held
        under a ceiling, rather than being asked of a gain node further down.
