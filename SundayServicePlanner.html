@@ -395,9 +395,13 @@ window.selectEvent = async () => {
         return n && n !== 'None' ? n : '';
     };
 
-    document.getElementById('roleServiceLeader').value = findRole(/service\s*lead|leading|host/i);
+    /* Service Leader and Speaker are fields on the event itself
+       (events/{id}.serviceLeader / .speaker), typed into the Rota Planner -
+       they are never rota roles, so assignments alone always came back
+       empty. Keep the assignment lookup behind them for older entries. */
+    document.getElementById('roleServiceLeader').value = data.serviceLeader || findRole(/service\s*lead|leading|host/i);
     document.getElementById('roleWorshipLeader').value = (worshipLeaderName && worshipLeaderName !== 'None') ? worshipLeaderName : findRole(/worship\s*lead/i);
-    document.getElementById('roleSpeaker').value = findRole(/speak|preach|message|sermon/i);
+    document.getElementById('roleSpeaker').value = data.speaker || findRole(/speak|preach|message|sermon/i);
     document.getElementById('roleReader').value = findRole(/read/i);
 
     let assignmentsArray = Object.entries(data.assignments || {});
@@ -412,9 +416,9 @@ window.selectEvent = async () => {
     if (!snap.empty) {
         const saved = snap.docs[0].data();
         if (saved.roles) {
-            if (saved.roles.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
+            if (saved.roles.serviceLeader && !data.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
             if (saved.roles.worshipLeader) document.getElementById('roleWorshipLeader').value = saved.roles.worshipLeader;
-            if (saved.roles.speaker) document.getElementById('roleSpeaker').value = saved.roles.speaker;
+            if (saved.roles.speaker && !data.speaker) document.getElementById('roleSpeaker').value = saved.roles.speaker;
             if (saved.roles.reader) document.getElementById('roleReader').value = saved.roles.reader;
         }
         document.getElementById('introBox').value = saved.introText || "";

@@ -1952,6 +1952,12 @@ async function spSelectEvent() {
 
   const teamBody = document.getElementById('spTeamBody');
   teamBody.innerHTML = '';
+  /* Service Leader and Speaker are typed into the Rota Planner as fields on
+     the event (serviceLeader / speaker), not rota roles, so they are not in
+     assignments - bring them in from the event itself. */
+  [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
+    if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
+  });
   spSortAssignments(Object.entries(data.assignments || {})).forEach(([role, person]) => {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${personName(person)}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
   });
@@ -2448,7 +2454,7 @@ function sheetBtn(label, note, onclick, tone) {
    come first - which is the order you actually want to pick from. */
 function candidatesFor(ev, role) {
   const teams = ev.teams || [];
-  const eligible = members.filter(m =>
+  const eligible = allMembers.filter(m =>
     !teams.length || (m.markers || []).some(t => teams.includes(t)) ||
     (teams.includes('Youth') && (m.markers || []).includes('Youth Worship')));
 
@@ -2524,7 +2530,7 @@ window.personTap = (eventId, personId, personName_) => {
   if (!roles.length) {
     body += '<div style="font-size:12px;color:#93a8a6;padding:10px 2px">No roles on this event yet.</div>';
   } else {
-    const m = members.find(x => x.id === personId) || {};
+    const m = allMembers.find(x => x.id === personId) || {};
     roles.forEach(r => {
       const taken = ev.assignments?.[r];
       body += sheetBtn(r, taken ? 'Replaces ' + personName(taken)
@@ -2532,6 +2538,13 @@ window.personTap = (eventId, personId, personName_) => {
         `doAssign('${eventId}','${r.replace(/'/g,"\\'")}','${personId}','${(personName_||'').replace(/'/g,"\\'")}')`);
     });
   }
+
+  const status = rotaAvailability[eventId]?.[personId];
+  const now = status === 'avail' ? 'avail' : (status ? 'not-avail' : 'pending');
+  body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:14px 0 8px 2px">Availability</div>';
+  [['avail', 'Available'], ['not-avail', 'Declined'], ['pending', 'Pending (no reply)']].forEach(([st, label]) => {
+    if (st !== now) body += sheetBtn('Move to ' + label, '', `doSetAvailability('${eventId}','${personId}','${st}')`, 'muted');
+  });
 
   sheetShell(personName_, ev.date ? new Date(ev.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}) : '', body);
 };
@@ -2552,6 +2565,11 @@ window.doAssign = async (eventId, role, personId, name) => {
     }
   }
   await assignPerson(eventId, role, personId, name);
+};
+
+window.doSetAvailability = async (eventId, personId, status) => {
+  closeSheet();
+  await setAvailability(eventId, personId, status);
 };
 
 window.doUnassign = async (eventId, role) => {
@@ -2600,7 +2618,11 @@ window.onDropBucket = async (e, eventId, targetStatus=null) => {
   const pid  = e.dataTransfer.getData("personId");
   const sEv  = e.dataTransfer.getData("sourceEventId"), sRole = e.dataTransfer.getData("sourceRole");
   if (sEv && sRole) await unassignPerson(sEv, sRole);
-  if (targetStatus && eventId && pid) {
+  if (targetStatus && eventId && pid) await setAvailability(eventId, pid, targetStatus);
+};
+
+async function setAvailability(eventId, pid, targetStatus) {
+  try {
     const snap = await db.collection('availability').where('eventId','==',eventId).where('memberId','==',pid).get();
     if (targetStatus === 'pending') {
       for (const d of snap.docs) await db.collection('availability').doc(d.id).delete();
@@ -2609,8 +2631,11 @@ window.onDropBucket = async (e, eventId, targetStatus=null) => {
     } else {
       await db.collection('availability').add({ eventId, memberId: pid, status: targetStatus });
     }
+  } catch (e) {
+    console.error('availability save failed', e);
+    toast('Could not save that: ' + e.message);
   }
-};
+}
 
 window.addSingleLine = async () => {
   const d = new Date().toISOString().split('T')[0];

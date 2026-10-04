@@ -426,9 +426,9 @@ window.selectEvent = async () => {
     if (!snap.empty) {
         const saved = snap.docs[0].data();
         if (saved.roles) {
-            if (saved.roles.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
+            if (saved.roles.serviceLeader && !data.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
             if (saved.roles.worshipLeader) document.getElementById('roleWorshipLeader').value = saved.roles.worshipLeader;
-            if (saved.roles.speaker) document.getElementById('roleSpeaker').value = saved.roles.speaker;
+            if (saved.roles.speaker && !data.speaker) document.getElementById('roleSpeaker').value = saved.roles.speaker;
             if (saved.roles.reader) document.getElementById('roleReader').value = saved.roles.reader;
         }
         document.getElementById('introBox').value = saved.introText || "";

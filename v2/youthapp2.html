@@ -1603,6 +1603,11 @@ async function selectEvent() {
 
   const teamBody = document.getElementById('teamBody');
   teamBody.innerHTML = '';
+  /* Service Leader and Speaker are fields on the rota event
+     (serviceLeader / speaker), not rota roles - bring them in from there. */
+  [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
+      if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
+  });
   let rows = sortAssignments(Object.entries(data.assignments || {}));
   rows.forEach(([role, person]) => {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;

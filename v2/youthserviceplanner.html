@@ -639,6 +639,11 @@ window.selectEvent = async () => {
 
     const teamBody = document.getElementById('teamBody');
     teamBody.innerHTML = '';
+    /* Service Leader and Speaker are fields on the rota event
+       (serviceLeader / speaker), not rota roles - bring them in from there. */
+    [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
+        if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
+    });
     let assignmentsArray = Object.entries(data.assignments || {});
     assignmentsArray = sortAssignments(assignmentsArray);
     assignmentsArray.forEach(([role, person]) => {
