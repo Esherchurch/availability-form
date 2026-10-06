@@ -56,7 +56,7 @@ Give **the EGBC Hub and its companion phone apps one sign-in and one way of work
 - **Consistent look:** every app follows `DESIGN.md`.
 
 **Navigation inside the hub** (in `hub.html` / `hub-app.js`; companion apps keep their own focused layouts):
-- Phone: a **bottom tab bar** — Home · Calendar · My serving · Groups · More. Tabs whose pages do not exist yet are hidden, not dead.
+- Phone: a **bottom tab bar** — Home · Calendar · Meet · My serving · More (Groups sits under More until it is built). Tabs whose pages do not exist yet are hidden, not dead.
 - Computer: a **left sidebar** with the same items, then the person's admin sections.
 - The existing Menu (search all pages) stays.
 
@@ -64,6 +64,13 @@ Give **the EGBC Hub and its companion phone apps one sign-in and one way of work
 - Pinned notices and Latest (keep the scrolling notices).
 - **My next serving dates** from the rota (`events` assignments matching the signed-in person's `memberId`), with a link to the rota.
 - **My meetings** (already on the hub).
+
+**Meet — video meetings are part of the app**, not a page off to the side:
+- The **Meet** tab opens `meeting.html` (the list of your meetings, every room, and New meeting). It already uses the shared sign-in, `DESIGN.md` and the Daily.co rooms; reuse it, do not build a second meetings page.
+- **Calls stay inside the installed app.** `meeting.html` is inside the hub's manifest scope, so Join should open in the app window, not a browser. **Test camera, microphone, screen share and leaving/rejoining on a real iPhone and a real Android phone** with the hub installed to the home screen; record what works in FINDINGS. If a platform will not allow the call inside an installed web app, fall back to opening the room in the browser with one tap, and say so in the report.
+- **One list of meetings.** Today meetings come from the rota (`events` with a `videoRoom`). When the events module from `EVENTS-BOOKINGS-BRIEF.md` exists, its online events (the `online` room kind with a `videoRoom`) must appear in the **same** Meet list and the same "My meetings" card, and **New meeting** should create them there. Until then, leave the rota route working. Never two separate meeting lists.
+- **Companion apps:** Core Team already has a Meetings screen — keep it, and make its Join open `meeting.html`. The other companion apps reach Meet from the Menu's "Apps" heading. Every Join button in every in-scope app opens `meeting.html`.
+- Host links (`?t=`) must keep working inside the app. They are never stored or written into the repo.
 - Later chunks of the events brief add: my sign-ups, my bookings, my children's check-in, my groups.
 
 **Role-based, not realm-based:** leaders and admins see extra sections in the sidebar / More tab (planners, address book, places and bookings, forms, reports, admin), and admin actions inside any app appear only for those allowed them. Same apps, same login. Use the existing roles in `egbc-auth.js` — do not invent a second permission model.
@@ -88,7 +95,7 @@ Give **the EGBC Hub and its companion phone apps one sign-in and one way of work
 - Content moved from the original site: videos, resources, charters, song library, training material (Martin fills in the list).
 - Sign-in tested on a real iPhone and a real Android phone, installed from the home screen.
 - `firestore.rules` and `storage.rules` deployed and every page re-checked afterwards.
-- The hub and the six companion apps (§4) each installed from the home screen on a real iPhone and Android phone, signed in, and its main job done. App names without "v2".
+- The hub and the six companion apps (§4) each installed from the home screen on a real iPhone and Android phone, signed in, and its main job done. App names without "v2". A test video call made from inside the installed hub on each phone (camera, microphone, screen share, leave and rejoin).
 - Youth access codes tested end to end.
 - Backup taken (`data-tools.html`).
 
@@ -102,7 +109,7 @@ Give **the EGBC Hub and its companion phone apps one sign-in and one way of work
 3. Proof: in the emulator **with `firestore.rules` loaded**, sign in as a test member and a test admin and do each page's main action. List each page with pass/fail. Then break it on purpose (put one page back on its own app) and show its check failing.
 
 ### Chunk 2 — The hub as the main app, with its companions
-`manifest-hub.json` renamed **EGBC Hub**. **Keep the six companion apps and their manifests** (§4; the three out-of-scope apps are not touched); prepare their names without "v2" but do not change them until Martin confirms each name (record the proposed names in FINDINGS). "Apps" heading in the Menu. Same sign-in across apps, tested on real phones (§5). Bottom tab bar and sidebar in the hub. Personal Home (§5). Role-based sections.
+`manifest-hub.json` renamed **EGBC Hub**. **Keep the six companion apps and their manifests** (§4; the three out-of-scope apps are not touched); prepare their names without "v2" but do not change them until Martin confirms each name (record the proposed names in FINDINGS). "Apps" heading in the Menu. Same sign-in across apps, tested on real phones (§5). Bottom tab bar and sidebar in the hub, including the **Meet** tab and the real-phone call test (§5). Personal Home (§5). Role-based sections.
 
 ### Chunk 3 — Profile, household, directory
 §5. Rules tests: a member can edit their own record but not another's; directory fields are visible only when the person opted in, only to signed-in members; youth-code users and guests see none of it. Break each rule and show the test failing.
