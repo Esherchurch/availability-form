@@ -110,6 +110,16 @@
         body.admin-mode #hero-edit-btn { display: block; }
         body.admin-mode #body-edit-btn { display: block; }
         body.admin-mode #news-add-btn  { display: block; }
+        body.admin-mode #news-manage-btn { display: block; }
+        #news-manage-btn { background: var(--surface); color: var(--brand); border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); padding: 6px 11px; font-size: 12px; font-weight: 700; cursor: pointer; display: none; }
+        .news-admin-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; max-height: 50vh; overflow-y: auto; }
+        .news-admin-row { display: flex; align-items: center; gap: 8px; border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); padding: 8px 10px; }
+        .news-admin-row .nar-text { flex: 1; min-width: 0; font-size: 13px; }
+        .news-admin-row .nar-title { font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .news-admin-row .nar-meta { font-size: 11px; color: var(--muted); }
+        .news-admin-row .nar-expired { color: #b03a2e; font-weight: 700; }
+        .news-admin-row button { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: var(--r-sm); padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .news-admin-row button.nar-del { color: #b03a2e; }
 
         /* ── MODALS ── */
         .modal-overlay { display: none; position: absolute; inset: 0; background: rgba(20,32,31,0.5); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
@@ -257,7 +267,7 @@
                 <div id="dashboard-sidebar-panel">
                     <div id="news-header">
                         <h3>Latest News</h3>
-                        <button id="news-add-btn" onclick="openNewsEditor(null)">+ Add</button>
+                        <div style="display:flex; gap:6px;"><button id="news-manage-btn" onclick="openDashboardEditor()">Manage</button><button id="news-add-btn" onclick="openNewsEditor(null)">+ Add</button></div>
                     </div>
                     <div id="news-track-wrapper">
                         <div id="news-track"></div>
@@ -345,6 +355,7 @@
                     <input type="hidden" id="ne-id">
                     <label>Headline</label><input type="text" id="ne-title" placeholder="What's the news?">
                     <label>Date label (optional)</label><input type="text" id="ne-date" placeholder="e.g. Sunday 4 May">
+                    <label>Show until (optional &mdash; hides itself after this day)</label><input type="date" id="ne-until">
                     <div class="tab-row" style="margin-top:12px;">
                         <button class="tab-btn active" id="news-tab-paste" onclick="switchNewsTab('paste')">&#10022; Paste from email</button>
                         <button class="tab-btn" id="news-tab-source" onclick="switchNewsTab('source')">Source HTML</button>
@@ -364,7 +375,8 @@
             <div class="modal-overlay" id="dash-settings-modal">
                 <div class="modal-box">
                     <h3>Dashboard Settings</h3>
-                    <p style="font-size:13px; color:#2a4e4e; margin-bottom:16px;">Quick access to all dashboard editors.</p>
+                    <p style="font-size:13px; color:#2a4e4e; margin-bottom:10px;">Latest News items &mdash; edit or delete any of them here.</p>
+                    <div id="news-admin-list" class="news-admin-list"></div>
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openHeroEditor()">&#10002; Edit Hero Banner</button>
                         <button class="modal-btn primary" onclick="closeModal('dash-settings-modal'); openBodyEditor()">&#10002; Edit Main Content</button>
@@ -494,8 +506,8 @@ async function saveMenuToDb() {
 
 async function saveDashToDb() {
     setSyncStatus('syncing', 'Saving…');
-    try { await DASHBOARD_DOC.set(dashData); setSyncStatus('synced', '✓ Saved'); }
-    catch (e) { setSyncStatus('error', '⚠ Save failed'); }
+    try { await DASHBOARD_DOC.set(dashData); setSyncStatus('synced', '✓ Saved'); return true; }
+    catch (e) { console.error(e); setSyncStatus('error', '⚠ Save failed'); alert('Could not save to the server, so the change has not been kept. Please try again.'); return false; }
 }
 
 // ── RENDER DASHBOARD ──
@@ -520,19 +532,26 @@ let newsScrollRAF = null, newsScrollPos = 0, newsScrollPaused = false;
 const NEWS_SCROLL_SPEED = 0.5;
 
 function renderNews() {
-    const items = (dashData.newsItems || []).slice().reverse();
+    const items = (dashData.newsItems || []).filter(n => !isNewsExpired(n)).reverse();
     const track  = document.getElementById('news-track');
     track.innerHTML = '';
     if (!items.length) { track.innerHTML = '<div style="padding:24px 20px; color:#2a4e4e; font-size:14px; text-align:center;">No news yet.</div>'; stopNewsScroll(); return; }
     items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'news-card';
-        card.innerHTML = `<div class="news-card-date">${item.date||''}</div><div class="news-card-title">${item.title||''}</div><div class="news-card-body">${item.body||''}</div><button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">&#10002;</button>`;
+        card.innerHTML = `<div class="news-card-date">${item.date||''}</div><div class="news-card-title">${item.title||''}</div><div class="news-card-body">${stripEmailHead(item.body)}</div><button class="news-card-edit-btn" onclick="openNewsEditor('${item.id}')">&#10002;</button>`;
         track.appendChild(card);
     });
     newsScrollPos = 0; track.style.transform = 'translateY(0)';
     startNewsScroll();
 }
+
+// An item with a "show until" date drops out of the scroller the day after.
+function todayIso() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function isNewsExpired(item) { return !!(item && item.until && item.until < todayIso()); }
+// Pasted emails carry <style>/<meta> blocks that would restyle the whole page.
+function stripEmailHead(html) { return String(html || '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<meta[^>]*>/gi, '').replace(/<!--[\s\S]*?-->/g, ''); }
+function escHtml(t) { return String(t || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function stopNewsScroll() { if (newsScrollRAF) { cancelAnimationFrame(newsScrollRAF); newsScrollRAF = null; } }
 function startNewsScroll() {
@@ -648,6 +667,7 @@ function openNewsEditor(id) {
     document.getElementById('ne-id').value    = item ? toStrId(item.id) : '';
     document.getElementById('ne-title').value = item ? item.title : '';
     document.getElementById('ne-date').value  = item ? (item.date || '') : '';
+    document.getElementById('ne-until').value = item ? (item.until || '') : '';
     setPasteZoneHtml('ne-paste-zone', item ? item.body : '');
     document.getElementById('ne-source').value = item ? item.body : '';
     document.getElementById('news-modal-title').textContent = item ? 'Edit News' : 'Add News';
@@ -669,20 +689,38 @@ async function saveNewsItem() {
     const isPaste = document.getElementById('ne-paste-zone').style.display !== 'none';
     const body = isPaste ? getPasteZoneHtml('ne-paste-zone') : document.getElementById('ne-source').value;
     const newId = rawId ? toStrId(rawId) : toStrId(Date.now());
-    const data = { id: newId, title: document.getElementById('ne-title').value, date: document.getElementById('ne-date').value, body };
+    const data = { id: newId, title: document.getElementById('ne-title').value, date: document.getElementById('ne-date').value, until: document.getElementById('ne-until').value, body };
+    const before = dashData.newsItems.slice();
     if (rawId) {
         const idx = dashData.newsItems.findIndex(n => toStrId(n.id) === toStrId(rawId));
         if (idx >= 0) dashData.newsItems[idx] = data; else dashData.newsItems.push(data);
     } else { dashData.newsItems.push(data); }
-    await saveDashToDb(); renderDashboard(); closeModal('news-modal');
+    if (!(await saveDashToDb())) { dashData.newsItems = before; return; }
+    renderDashboard(); renderNewsAdminList(); closeModal('news-modal');
 }
-async function deleteNewsItem() {
-    const id = document.getElementById('ne-id').value;
-    dashData.newsItems = (dashData.newsItems || []).filter(n => toStrId(n.id) !== toStrId(id));
-    await saveDashToDb(); renderDashboard(); closeModal('news-modal');
+async function deleteNewsItem(idArg) {
+    const id = idArg !== undefined ? idArg : document.getElementById('ne-id').value;
+    const item = (dashData.newsItems || []).find(n => toStrId(n.id) === toStrId(id));
+    if (!item || !confirm('Delete "' + (item.title || 'this news item') + '"? This cannot be undone.')) return;
+    const before = (dashData.newsItems || []).slice();
+    dashData.newsItems = before.filter(n => toStrId(n.id) !== toStrId(id));
+    if (!(await saveDashToDb())) { dashData.newsItems = before; return; }
+    renderDashboard(); renderNewsAdminList(); closeModal('news-modal');
 }
 
-function openDashboardEditor() { openModal('dash-settings-modal'); }
+function renderNewsAdminList() {
+    const list = document.getElementById('news-admin-list'); if (!list) return;
+    const items = (dashData.newsItems || []).slice().reverse();
+    if (!items.length) { list.innerHTML = '<div style="font-size:13px; color:var(--muted);">No news items.</div>'; return; }
+    list.innerHTML = items.map(n => {
+        const id = escHtml(toStrId(n.id));
+        const meta = [n.date ? escHtml(n.date) : '', n.until ? (isNewsExpired(n) ? '<span class="nar-expired">Expired ' + escHtml(n.until) + ' (hidden)</span>' : 'Showing until ' + escHtml(n.until)) : ''].filter(Boolean).join(' &middot; ');
+        return '<div class="news-admin-row"><div class="nar-text"><div class="nar-title">' + escHtml(n.title || '(no headline)') + '</div><div class="nar-meta">' + (meta || '&nbsp;') + '</div></div>'
+             + '<button onclick="closeModal(\'dash-settings-modal\'); openNewsEditor(\'' + id + '\')">Edit</button>'
+             + '<button class="nar-del" onclick="deleteNewsItem(\'' + id + '\')">Delete</button></div>';
+    }).join('');
+}
+function openDashboardEditor() { renderNewsAdminList(); openModal('dash-settings-modal'); }
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
