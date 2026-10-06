@@ -2,7 +2,7 @@
 
 For the Code window working in `Esherchurch/availability-form`, `v2/` only. Written 2026-10-06.
 This sits **on top of** the three briefs, which stay the spec for their own work:
-`v2/RESTYLE-BRIEF.md`, `v2/ONE-APP-BRIEF.md`, `v2/EVENTS-BOOKINGS-BRIEF.md`.
+`v2/RESTYLE-BRIEF.md`, `v2/ONE-APP-BRIEF.md`, `v2/EVENTS-BOOKINGS-BRIEF.md`, `v2/SHARE-NOTIFY-BRIEF.md`.
 Where this file and one of those disagree, **this file wins**.
 
 **Do Step A only, then stop and report.** Get the latest from GitHub before you start.
@@ -41,18 +41,21 @@ One step at a time. Stop and report after each. Pull before each step; commit sm
 | B | **One app — Chunk 1:** every in-scope page onto the one signed-in connection | ONE-APP |
 | C | **Events — Chunk 2:** events and sign-ups (`contacts` first) | EVENTS |
 | D | One app — Chunk 2: EGBC Hub as the main app, companions, Meet tab, real-phone tests | ONE-APP |
-| E | Events — Chunk 3: check-in, attendance, forms and safeguarding | EVENTS |
-| F | Restyle — Group 2 (Worship & AV pages) | RESTYLE |
-| G | Events — Chunk 4: room bookings | EVENTS |
-| H | One app — Chunk 3: profile, household, opt-in directory | ONE-APP |
-| I | Events — Chunk 5: hire, charges, hirer compliance | EVENTS |
-| J | Restyle — Group 3 (Youth & kids — **Worship Hub excluded**, see below) | RESTYLE |
-| K | Events — Chunk 6: Sunday kids registration | EVENTS |
-| L | Events — Chunk 7: small groups and the giving seam | EVENTS |
-| M | Restyle — Group 4 (everything else, including login and the Availability form) | RESTYLE |
-| N | One app — Chunk 4: launch checklist page (last, so it lists everything) | ONE-APP |
+| E | **Share — Chunk 1:** Share to WhatsApp on notices and meetings (events join when built) | SHARE-NOTIFY |
+| F | **Notify — Chunk 1:** establish how notifications can be sent; write Martin's manual steps; **stop before building** | SHARE-NOTIFY |
+| G | Events — Chunk 3: check-in, attendance, forms and safeguarding | EVENTS |
+| H | Restyle — Group 2 (Worship & AV pages) | RESTYLE |
+| I | Events — Chunk 4: room bookings | EVENTS |
+| J | One app — Chunk 3: profile, household, opt-in directory | ONE-APP |
+| K | **Notify — Chunk 2:** build notifications (preferences live in the profile from J) — only once Martin has done the manual steps from F | SHARE-NOTIFY |
+| L | Events — Chunk 5: hire, charges, hirer compliance | EVENTS |
+| M | Restyle — Group 3 (Youth & kids — **Worship Hub excluded**) | RESTYLE |
+| N | Events — Chunk 6: Sunday kids registration | EVENTS |
+| O | Events — Chunk 7: small groups and the giving seam | EVENTS |
+| P | Restyle — Group 4 (everything else, including login and the Availability form) | RESTYLE |
+| Q | One app — Chunk 4: launch checklist page (last, so it lists everything) | ONE-APP |
 
-Why this order: B comes before C so every new events page is built on the signed-in connection from the start. Restyle groups are spread out so the look keeps up with what is being built.
+Why this order: B comes before C so every new events page is built on the signed-in connection from the start. Share comes after D because it is tested on the installed apps; notifications need Martin's console steps (F) and the profile page (J) before they are built (K). Restyle groups are spread out so the look keeps up with what is being built.
 
 ## 4. Standing rules (all steps)
 
