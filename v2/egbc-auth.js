@@ -465,6 +465,8 @@
            : 'View the site as') +
       '</span>' +
       '<select id="egbc-va-team" style="font-family:inherit;font-size:13px;font-weight:500;' +
+        /* Own colours: in view-as mode the bar's text is white, and a select inherits it - white names on a white list. */
+        'background:#fff;color:#111827;' +
         'height:32px;border-radius:8px;padding:0 10px;border:1px solid ' +
         (v ? 'rgba(255,255,255,.45)' : '#d1d5db') + '">' +
         '<option value="">Myself</option>' + opts +
