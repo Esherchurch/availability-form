@@ -14,6 +14,7 @@ Give **the EGBC Hub and its companion phone apps one sign-in and one way of work
 ## 2. What we are NOT doing
 
 - **Not touching the original site** (everything outside `v2/`). It stays live and unchanged until Martin launches v2. No redirects, no edits, no shared files changed outside `v2/`.
+- **No app is retired, merged or removed — ever, in any step.** Every phone app that exists today keeps working, in `v2/` and on the original site. For each app's manifest: **never change `id`, `start_url` or `scope`**, and never delete the manifest or its start page — that would break the app on phones where it is already installed. The only manifest changes allowed are those a brief names (e.g. the display name), and **app names change only after Martin approves each one**.
 - **Not merging or retiring the companion phone apps.** They are deliberate: each is focused on one job and installed alongside the hub (list in §4). Keep every one of them.
 - Not migrating content (videos etc.) — Martin does that; this build gives him a checklist (§7), not a migration.
 - Not building events, bookings, kids or groups — that is `v2/EVENTS-BOOKINGS-BRIEF.md`. This brief makes the app those features live in.
@@ -109,7 +110,7 @@ Give **the EGBC Hub and its companion phone apps one sign-in and one way of work
 3. Proof: in the emulator **with `firestore.rules` loaded**, sign in as a test member and a test admin and do each page's main action. List each page with pass/fail. Then break it on purpose (put one page back on its own app) and show its check failing.
 
 ### Chunk 2 — The hub as the main app, with its companions
-`manifest-hub.json` renamed **EGBC Hub**. **Keep the six companion apps and their manifests** (§4; the three out-of-scope apps are not touched); prepare their names without "v2" but do not change them until Martin confirms each name (record the proposed names in FINDINGS). "Apps" heading in the Menu. Same sign-in across apps, tested on real phones (§5). Bottom tab bar and sidebar in the hub, including the **Meet** tab and the real-phone call test (§5). Personal Home (§5). Role-based sections.
+`manifest-hub.json` display name changed to **EGBC Hub** (only `name` / `short_name`; `id`, `start_url` and `scope` stay exactly as they are). **Keep the six companion apps and their manifests** (§4; the three out-of-scope apps are not touched); prepare their names without "v2" but do not change them until Martin confirms each name (record the proposed names in FINDINGS). "Apps" heading in the Menu. Same sign-in across apps, tested on real phones (§5). Bottom tab bar and sidebar in the hub, including the **Meet** tab and the real-phone call test (§5). Personal Home (§5). Role-based sections.
 
 ### Chunk 3 — Profile, household, directory
 §5. Rules tests: a member can edit their own record but not another's; directory fields are visible only when the person opted in, only to signed-in members; youth-code users and guests see none of it. Break each rule and show the test failing.

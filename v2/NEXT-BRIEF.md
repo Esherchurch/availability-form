@@ -57,6 +57,7 @@ Why this order: B comes before C so every new events page is built on the signed
 ## 4. Standing rules (all steps)
 
 - **Out of scope everywhere:** Worship Hub (`worshiphubapp.html`, `manifest-worship.json`), Mix Builder (`mix-*`, `manifest-mix.json`), Calla Design (`studio.html`, `manifest-studio.json`). Do not touch them — this overrides `RESTYLE-BRIEF.md`, which listed `worshiphubapp.html` in Group 3.
+- **No app is retired, merged or removed — ever, in any step.** Every phone app that exists today keeps working, in `v2/` and on the original site. For each app's manifest: **never change `id`, `start_url` or `scope`**, and never delete the manifest or its start page — that would break the app on phones where it is already installed. The only manifest changes allowed are those a brief names (e.g. the display name), and **app names change only after Martin approves each one**.
 - **Nothing outside `v2/`.** The original site stays exactly as it is until Martin launches v2.
 - **Synthetic data only.** Emulator, made-up people. Never read or copy real records.
 - **Do not deploy Firestore or Storage rules.** Martin deploys.
