@@ -5,9 +5,18 @@ This sits **on top of** the three briefs, which stay the spec for their own work
 `v2/RESTYLE-BRIEF.md`, `v2/ONE-APP-BRIEF.md`, `v2/EVENTS-BOOKINGS-BRIEF.md`, `v2/SHARE-NOTIFY-BRIEF.md`.
 Where this file and one of those disagree, **this file wins**.
 
-**Do Step A only, then stop and report.** Get the latest from GitHub before you start.
+**Step A is done (9a82f685). Do Step B next, then stop and report.** Get the latest from GitHub before you start.
 
 ---
+
+## 0. Safety rule — read first (added after Step A)
+
+During Step A, test saves on five pages went to the **live** database: `addressbook.html`, `Planner.html`, `SundayServicePlanner.html`, `CoreTeamApp.html` and `view-only-rota.html` start their own Firebase app with no emulator hook, so "served from localhost" did **not** mean "talking to the emulator". (Martin is removing the five test records himself.)
+
+Until Step B has moved a page onto the shared connection:
+- **Never press anything that saves on those five pages, or on any page that calls `initializeApp` itself**, even on localhost.
+- Before any test that writes, **prove the page is talking to the emulator** (e.g. its Firestore host is `localhost:8181`) and show that in the report. If you cannot prove it, do not write.
+- The live database currently accepts writes without anyone signed in. Treat every unproven write as live.
 
 ## 1. On the Group 1 report
 
@@ -31,14 +40,26 @@ Good report. Two things worth saying back:
 | **R-007** Planner and Service Planner overflow a phone | **Fix in Group 1.** Rota Planner and Service Planner are phone apps (`manifest-planner.json`, `manifest-service.json`), so they must work at 375px. Wide tables may scroll **inside their own box**; the page itself must not scroll sideways. |
 | **R-008** "VIEW THE SITE AS" uppercase | Sentence case ("View the site as"), DESIGN.md style. It is in **`egbc-auth.js`** — change only that strip's look, nothing about how viewing-as works. |
 
+## 5. Step A result and what Step B must also do
+
+Step A was checked against the code (9a82f685): 11 files, all in `v2/`; the theming engine is in `egbc-ui.js` and gone from `egbc-shell.js`; CoreTeamApp, Youth Hub, Availability and login load it; the Youth Hub tour fix (R-010) is in. Thank you for flagging the live writes first and plainly.
+
+**Step B (One app — Chunk 1) is now also the fix for R-009**, and must:
+1. **Start with a check** that lists every in-scope v2 page that calls `initializeApp` itself, committed as a small script in `v2/` so anyone can rerun it. It must report **zero** in-scope pages at the end of Step B.
+2. Move the five pages above **first**, before any other page.
+3. Prove every write in its proof runs against the emulator (§0).
+
+**Then Step A2 — finish Restyle Group 1** (before Step C): R-006 cards and lists rebuilt to the card spec, and R-007 the main-action proof on all seven Group 1 pages — now safe, because they are on the emulator. Group 1 is only done when both are.
+
 ## 3. Order of work across the three briefs
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
 
 | Step | Work | Brief |
 |---|---|---|
-| **A** | **Finish Restyle Group 1** with the answers above (engine into `egbc-ui.js`, emoji, team colours, cards, phone overflow, view-as strip, main-action proof) | RESTYLE + this file |
-| B | **One app — Chunk 1:** every in-scope page onto the one signed-in connection | ONE-APP |
+| ~~A~~ | ~~Restyle Group 1, first pass~~ — **done (9a82f685)** (engine into `egbc-ui.js`, emoji, team colours, cards, phone overflow, view-as strip, main-action proof) | RESTYLE + this file |
+| B | **One app — Chunk 1:** every in-scope page onto the one signed-in connection — **the five live-writing pages first** (§0, §5) | ONE-APP |
+| A2 | **Finish Restyle Group 1:** cards and lists (R-006), main-action proof on all seven pages (R-007) | RESTYLE |
 | C | **Events — Chunk 2:** events and sign-ups (`contacts` first) | EVENTS |
 | D | One app — Chunk 2: EGBC Hub as the main app, companions, Meet tab, real-phone tests | ONE-APP |
 | E | **Share — Chunk 1:** Share to WhatsApp on notices and meetings (events join when built) | SHARE-NOTIFY |
