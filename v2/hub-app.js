@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v105';
+const HUB_BUILD = 'v106';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -748,7 +748,6 @@ async function loadMeetings() {
 function renderMeetings() {
   const box = document.getElementById('meetingsCard');
   if (!box) return;
-  if (!MEETINGS.length) { box.innerHTML = ''; return; }
   const today = new Date().toISOString().split('T')[0];
   const rows = MEETINGS.slice(0, 5).map(ev => {
     const link = `meeting.html?room=${encodeURIComponent(videoRoomFor(ev))}&event=${encodeURIComponent(ev.id)}`;
@@ -763,9 +762,14 @@ function renderMeetings() {
         <a class="btn solid" style="text-decoration:none;flex-shrink:0" href="${link}">Join</a>
       </div>`;
   }).join('');
+  const none = MEETINGS.length ? ''
+    : '<div style="font-size:13px;font-weight:600;color:var(--muted);padding:4px 0">No online meetings coming up for your teams.</div>';
   box.innerHTML = `<div class="card" style="margin-bottom:16px">
-      <div class="lab">&#128249; Video meetings</div>
-      ${rows}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px">
+        <div class="lab" style="margin:0">&#128249; Video meetings</div>
+        <a class="btn" style="text-decoration:none;padding:6px 13px" href="meeting.html">All rooms</a>
+      </div>
+      ${rows}${none}
       <div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:10px;line-height:1.5">Type your name and knock &mdash; the host will let you in.</div>
     </div>`;
 }
@@ -1324,7 +1328,9 @@ const REGISTRY = [
   { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
     description: 'Watch your team\'s videos, and search inside them' },
   { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
-    description: 'Take a copy of everything, or put one back' }
+    description: 'Take a copy of everything, or put one back' },
+  { url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
+    description: 'Video meetings - your upcoming calls and every meeting room' }
 ];
 
 /* AVteamlandingpage carries no text of its own, so a tile pointing at it

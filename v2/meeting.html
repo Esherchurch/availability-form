@@ -36,6 +36,11 @@
   .msg .t{font-size:20px;font-weight:900}
   .msg .s{font-size:13px;font-weight:600;opacity:.75;max-width:420px;line-height:1.5}
   .msg .btn{background:#fff;border-color:#fff}
+  .lab{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 2px 9px}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+  .row .t{font-size:14px;font-weight:800;color:var(--ink)}
+  .row .s{font-size:12px;font-weight:600;color:var(--muted);margin-top:2px;word-break:break-all}
+  .btn.solid{background:var(--brand);color:#fff;border-color:var(--brand)}
   @media(max-width:700px){body{padding:0 8px 8px}.strip{margin:8px 0;padding:10px 12px}#stage{border-radius:14px}}
 </style>
 </head>
@@ -46,9 +51,11 @@
     <div class="t" id="mtTitle">Meeting</div>
     <div class="s" id="mtSub">&nbsp;</div>
   </div>
-  <button class="btn" onclick="copyInvite()" title="The plain link works for anyone, even without a hub login">Copy invite link</button>
+  <button class="btn" id="copyBtn" onclick="copyInvite()" title="The plain link works for anyone, even without a hub login">Copy invite link</button>
   <a class="btn" href="hub.html">Back to hub</a>
 </div>
+
+<div id="lobby" style="display:none"></div>
 
 <div id="stage"><div class="msg" id="msg"><div class="s">Getting the meeting ready&hellip;</div></div></div>
 
@@ -120,7 +127,66 @@ async function describe(db) {
   } catch (e) { console.warn('Could not load event', e); }
 }
 
+/* Opened with no room (from the hub menu or "All rooms"): list my upcoming
+   online meetings and every room. Same "is it mine" rule as hub-app.js. */
+const VIDEO_DEFAULT_BY_TYPE = {
+  'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
+  'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV',
+};
+const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
+
+async function lobby(profile) {
+  document.getElementById('stage').style.display = 'none';
+  document.getElementById('copyBtn').style.display = 'none';
+  document.getElementById('mtTitle').textContent = 'Meetings';
+  document.getElementById('mtSub').textContent = 'Your upcoming video calls, and every meeting room';
+  const box = document.getElementById('lobby');
+  box.style.display = '';
+
+  const mine = EGBCAuth.isMaster() ? null : (EGBCAuth.effectiveTeams() || []);
+  const mid = profile && profile.memberId;
+  const forMe = ev => !mine
+    || (ev.teams || []).some(t => mine.includes(t === 'Youth' ? 'Youth Worship' : t))
+    || (!!mid && Object.values(ev.assignments || {}).some(raw => (Array.isArray(raw) ? raw : [raw]).some(p => p && p.id === mid)));
+
+  let upcoming = [];
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const snap = await EGBCAuth.db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
+    upcoming = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(ev => !ev.archived && VIDEO_ROOMS[videoRoomFor(ev)] && forMe(ev))
+      .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
+  } catch (e) { console.error('Could not load meetings', e); }
+
+  let html = '<div class="lab">Upcoming</div>';
+  if (!upcoming.length) html += '<div class="row"><div class="s" style="margin:0">No online meetings coming up for your teams.</div></div>';
+  upcoming.forEach(ev => {
+    const r = videoRoomFor(ev);
+    const day = new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
+    html += `<div class="row"><div style="flex:1;min-width:170px"><div class="t">${esc(ev.type)}${ev.description ? ' · ' + esc(ev.description) : ''}</div>
+      <div class="s">${esc(day + time)} · ${esc(VIDEO_ROOMS[r])}</div></div>
+      <a class="btn solid" href="meeting.html?room=${encodeURIComponent(r)}&event=${encodeURIComponent(ev.id)}">Join</a></div>`;
+  });
+
+  html += '<div class="lab">All meeting rooms</div>';
+  Object.entries(VIDEO_ROOMS).forEach(([r, label]) => {
+    html += `<div class="row"><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div><div class="s">${esc(VIDEO_BASE + r)}</div></div>
+      <a class="btn solid" href="meeting.html?room=${encodeURIComponent(r)}">Join</a>
+      <button class="btn" onclick="copyLink('${r}')">Copy invite link</button></div>`;
+  });
+  html += '<div style="font-size:11px;font-weight:600;color:var(--muted);margin:12px 2px;line-height:1.5">Rooms are private: people type their name and knock, and the host lets them in. The invite link works for anyone, even without a hub login.</div>';
+  box.innerHTML = html;
+}
+
+async function copyLink(r) {
+  const link = VIDEO_BASE + r;
+  try { await navigator.clipboard.writeText(link); alert('Invite link copied:\n' + link); }
+  catch { prompt('Copy this invite link:', link); }
+}
+
 function start(profile) {
+  if (!room) { lobby(profile); return; }
   if (!VIDEO_ROOMS[room]) {
     showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
     return;
