@@ -47,11 +47,11 @@
          Inset and rounded, no horizontal margin of its own - the page's own
          gutter positions it, as before. */
       '#egbc-bar{position:sticky;top:10px;z-index:9000;display:flex;align-items:center;',
-      'justify-content:space-between;gap:12px;margin:10px 0 0;padding:8px 10px 8px 12px;',
+      'justify-content:space-between;gap:12px;margin:10px 0 24px;padding:8px 10px 8px 12px;',
       'border-radius:14px;background:#fff;border:1px solid var(--egbc-line-2);',
       'box-shadow:0 1px 2px rgba(16,24,40,.06),0 6px 16px rgba(16,24,40,.08);',
       'font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}',
-      '@media(max-width:700px){#egbc-bar{margin:8px 0 0;top:8px;border-radius:12px}}',
+      '@media(max-width:700px){#egbc-bar{margin:8px 0 16px;top:8px;border-radius:12px}}',
 
       '#egbc-bar .eb-l{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none}',
       '#egbc-bar img{width:32px;height:32px;border-radius:8px;object-fit:cover;',
