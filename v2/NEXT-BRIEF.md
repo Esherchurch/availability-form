@@ -5,7 +5,7 @@ This sits **on top of** the three briefs, which stay the spec for their own work
 `v2/RESTYLE-BRIEF.md`, `v2/ONE-APP-BRIEF.md`, `v2/EVENTS-BOOKINGS-BRIEF.md`, `v2/SHARE-NOTIFY-BRIEF.md`.
 Where this file and one of those disagree, **this file wins**.
 
-**Step A is done (9a82f685). Do Step B next, then stop and report.** Get the latest from GitHub before you start.
+**Step A is done (9a82f685). Step B part 1 is done (73a4de00). Do B1 (settle A-005), then stop and report.** Get the latest from GitHub before you start.
 
 ---
 
@@ -50,6 +50,24 @@ Step A was checked against the code (9a82f685): 11 files, all in `v2/`; the them
 3. Prove every write in its proof runs against the emulator (§0).
 
 **Then Step A2 — finish Restyle Group 1** (before Step C): R-006 cards and lists rebuilt to the card spec, and R-007 the main-action proof on all seven Group 1 pages — now safe, because they are on the emulator. Group 1 is only done when both are.
+
+## 6. Step B, part 1 result (73a4de00) and what comes next
+
+Checked against the code: 8 files, all in `v2/`. `egbc-db.js` is a clean handle swap (same project, app name `egbc`, its own Auth, emulator hooks, `ready`); the Planner diff changes only the connection, not the save code. The measured table that ruled out candidate (b), and the deliberate break that caught your own first check passing for the wrong reason, are exactly what this work needs. Keep doing that.
+
+**Next, in this order:**
+
+**B1 — Settle A-005 before moving another page.** Planner, CoreTeamApp and resources "save nothing" in the emulator. Establish which of these it is, and say how you know:
+- the test pressed the wrong control, or set a value without the real user event (use real clicks / `change` events through the UI, the way a person would);
+- the write is refused (catch and log the promise of every write on these pages during the test — a refused write rejects, it does not report success);
+- the save was already broken before Step B. You cannot run the pre-Step-B pages safely (they talk to live), so establish this **by reading** the code paths at `c324969e` against `73a4de00`, not by running them.
+If Step B caused it, fix it in `egbc-db.js` or the page and re-prove all five. If it is older, record it and fix it as part of A2. **Do not move the other 29 pages until A-005 is explained** — whatever caused it would repeat 29 times.
+
+**B2 — move the remaining 29 pages**, in groups of five to eight, one commit per group, the check script run after each. For every page: first data call gated on `ready` (modular) or `EGBCAuth.require()` (compat); its main action proved against the emulator through the UI. Out-of-scope apps are not touched.
+
+**Then A2** as in §5.
+
+**Launch dependency — add to the checklist (ONE-APP §7) when you build it:** the original site uses **the same database** and its pages connect without signing in. Deploying `firestore.rules` will stop the original site saving, not only unmoved v2 pages. So the rules can be deployed **only at the switch-over to v2**, or with rules that still allow the original site's paths — Martin's decision at launch. Record this as a finding now so it is not lost.
 
 ## 3. Order of work across the three briefs
 
