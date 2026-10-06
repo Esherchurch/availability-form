@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
+<script src="egbc-kbupload.js?v=202610062000"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="AV Team"></script>
 <script src="egbc-kbadmin.js?v=202609041833" data-admin-team="AV Team"></script>
   <meta charset="UTF-8">
@@ -13,8 +14,7 @@
   <title>EGBC — AV Troubleshoot</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
   <style>
     :root{
@@ -92,6 +92,9 @@
 
   <!-- ADMIN -->
   <div id="adminPanel" class="hidden mb-8">
+    <!-- Upload and replace, from egbc-kbupload.js - the same panel on
+         every knowledge-base page rather than four copies of a form. -->
+    <div id="kb-upload-panel" class="mb-6"></div>
     <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
       <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
         <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — AV Troubleshoot</h2>
@@ -197,10 +200,11 @@
 </div>
 
 <script>
-const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-const storage=firebase.storage();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db = EGBCAuth.db;
+const storage = EGBCAuth.storage();
 const COLLECTION='kb_troubleshoot_av';
 const CAT_KEY='egbc_cats_troubleshoot_av';
 const STORAGE_PATH='kb/troubleshoot-av';
@@ -839,138 +843,34 @@ function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lin
 function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi'),'<mark>$1</mark>');});return text;}
-</script>
-<script type="module">
-/* ── IN-BROWSER SPEECH RECOGNITION ────────────────────────────────────
-   Whisper runs locally via Transformers.js — WebGPU where available,
-   WASM otherwise. The model downloads once (~150 MB) and is then cached
-   by the browser, so subsequent videos need no network at all.
-   Nothing is sent to any server. */
 
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
-
-env.allowLocalModels = false;
-
-const MODEL = 'onnx-community/whisper-base.en';
-let transcriberPromise = null;
-let device = null;
-
-function setEngineStatus(msg){
-  const el = document.getElementById('engineStatus');
-  if (el) el.textContent = msg;
-}
-
-async function detectDevice(){
-  if (device) return device;
-  try {
-    if (navigator.gpu && await navigator.gpu.requestAdapter()) { device = 'webgpu'; return device; }
-  } catch (e) { /* fall through */ }
-  device = 'wasm';
-  return device;
-}
-
-async function getTranscriber(){
-  if (transcriberPromise) return transcriberPromise;
-
-  transcriberPromise = (async () => {
-    const dev = await detectDevice();
-    setEngineStatus(dev === 'webgpu' ? 'Loading speech engine (GPU)…' : 'Loading speech engine (CPU)…');
-
-    const options = {
-      device: dev,
-      progress_callback: (p) => {
-        if (p.status === 'progress' && p.total) {
-          const pct = Math.round((p.loaded / p.total) * 100);
-          setEngineStatus(`Downloading speech model — ${pct}%`);
-        } else if (p.status === 'ready') {
-          setEngineStatus(dev === 'webgpu' ? 'Speech engine ready (GPU)' : 'Speech engine ready (CPU)');
-        }
-      }
-    };
-    if (dev === 'webgpu') {
-      options.dtype = { encoder_model: 'fp32', decoder_model_merged: 'q4' };
-    }
-
-    const t = await pipeline('automatic-speech-recognition', MODEL, options);
-    setEngineStatus(dev === 'webgpu' ? 'Speech engine ready (GPU)' : 'Speech engine ready (CPU) — slower');
-    return t;
-  })();
-
-  return transcriberPromise;
-}
-
-/* Decode the file's audio track and resample to the 16 kHz mono that Whisper expects. */
-async function extractAudio(file){
-  const buffer = await file.arrayBuffer();
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  let decoded;
-  try {
-    decoded = await ctx.decodeAudioData(buffer);
-  } finally {
-    ctx.close();
-  }
-
-  const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * 16000), 16000);
-  const source = offline.createBufferSource();
-  source.buffer = decoded;
-  source.connect(offline.destination);
-  source.start(0);
-  const rendered = await offline.startRendering();
-  return rendered.getChannelData(0);
-}
-
-function pad(n){ return String(n).padStart(2, '0'); }
-
-function chunksToTranscript(chunks){
-  return chunks
-    .filter(c => c.text && c.text.trim())
-    .map(c => {
-      const sec = Math.max(0, Math.floor((c.timestamp && c.timestamp[0]) || 0));
-      const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-      return `[${pad(h)}:${pad(m)}:${pad(s)}] ${c.text.trim()}`;
-    })
-    .join('\n');
-}
-
-window.KBTranscribe = async function(file, onProgress){
-  const transcriber = await getTranscriber();
-  const audio = await extractAudio(file);
-  const durationSec = audio.length / 16000;
-
-  const output = await transcriber(audio, {
-    return_timestamps: true,
-    chunk_length_s: 30,
-    stride_length_s: 5,
-    callback_function: (beams) => {
-      // Rough progress from how far through the audio the decoder has reached
-      try {
-        const b = beams && beams[0];
-        if (b && b.output_token_ids && onProgress) {
-          onProgress(null);
-        }
-      } catch (e) { /* progress is best-effort */ }
-    },
-    chunk_callback: (chunk) => {
-      if (onProgress && chunk && chunk.finalised !== undefined) {
-        const end = (chunk.offset || 0) + 30;
-        onProgress(Math.min(99, Math.round((end / durationSec) * 100)));
-      }
-    }
+/* ---- knowledge-base video upload (egbc-kbupload.js) ---------------
+   The panel is shared by all four KB pages; only the collection and the
+   storage path differ. Mounted once the person is known, because only
+   someone who manages this area ever sees the admin panel. */
+function kbMountUploader(){
+  if(typeof EGBCKBUpload==="undefined")return;
+  if(!document.getElementById("kb-upload-panel"))return;
+  EGBCKBUpload.mountPanel({
+    container:"kb-upload-panel",
+    collection:"kb_troubleshoot_av",
+    storagePath:"kb/troubleshoot-av"
   });
+}
+document.addEventListener("egbc-ready",kbMountUploader);
+if(document.readyState!=="loading")setTimeout(kbMountUploader,0);
+else document.addEventListener("DOMContentLoaded",()=>setTimeout(kbMountUploader,0));
 
-  if (!output.chunks || !output.chunks.length) {
-    return (output.text || '').trim();
-  }
-  return chunksToTranscript(output.chunks);
+/* Which entries are still on SharePoint. Shown to whoever manages the
+   page so the ones left to move are obvious, and counted in one line so
+   nobody has to go through them by hand. */
+window.kbSharePointLeft=function(){
+  const left=(window.allAssets||[]).filter(a=>EGBCKBUpload.isSharePointURL(a.contentURL));
+  return left.map(a=>({id:a.id,title:a.title}));
 };
-
-window.KBTranscribeAvailable = true;
-
-detectDevice().then(d => {
-  setEngineStatus(d === 'webgpu'
-    ? 'Speech engine ready to load (GPU accelerated)'
-    : 'Speech engine ready to load (CPU — slower on long videos)');
-});
 </script>
+<!-- The speech engine and the uploader now live in egbc-kbupload.js, shared
+     with How-To AV and Play-Through. It still provides window.KBTranscribe,
+     so nothing else on this page had to change. -->
 </body>
 </html>

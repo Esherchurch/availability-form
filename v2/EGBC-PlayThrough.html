@@ -5,7 +5,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
+<script src="egbc-kbupload.js?v=202610062000"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="Worship Team"></script>
 <script src="egbc-kbadmin.js?v=202609041833" data-admin-team="Worship Team"></script>
   <meta charset="UTF-8">
@@ -13,8 +15,7 @@
   <title>EGBC — Play Through</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
   <style>
     :root{
       --brand:#3d6263;--brand-dark:#2e4c4d;--surface:#fff;--canvas:#f0f6f6;
@@ -115,6 +116,9 @@
 
   <!-- ADMIN PANEL -->
   <div id="adminPanel" class="hidden mb-8">
+    <!-- Upload and replace, from egbc-kbupload.js - the same panel on
+         every knowledge-base page rather than four copies of a form. -->
+    <div id="kb-upload-panel" class="mb-6"></div>
     <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
       <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
         <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — Play Through</h2>
@@ -299,14 +303,15 @@
   </div>
 </div>
 
-
 <script>
-const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060449:web:7eaf85a76334c753db6918"};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db = EGBCAuth.db;
 const COLLECTION='kb_playthrough';
 const CAT_KEY='egbc_cats_playthrough';
-const SP_SITE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV';
+/* SP_SITE has gone: v2 does not use SharePoint. Transcripts are made
+   on this computer by egbc-kbupload.js when a video is uploaded. */
 
 let allAssets=[],categories=JSON.parse(localStorage.getItem(CAT_KEY)||'[]'),currentQuery='',currentSection='all',currentKey='all';
 
@@ -842,8 +847,8 @@ async function handleEmbedPaste(el){
   // Auto-generate direct file path from title
   if(titleMatch){
     const filename=titleMatch[1].trim();
-    const BASE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/';
-    document.getElementById('adminDirectURL').value=BASE+filename;
+    /* The direct URL is no longer guessed as a SharePoint path. Upload
+       the file and its Firebase URL is filled in for you. */
   }
   const uidMatch=embedURL.match(/UniqueId=([a-f0-9\-]+)/i);
   if(uidMatch)await fetchTranscript(uidMatch[1]);
@@ -852,7 +857,9 @@ async function handleEmbedPaste(el){
 
 async function fetchTranscript(uniqueId){
   try{
-    const r=await fetch(`${SP_SITE}/_api/v2.1/drives/root/items/${uniqueId}/media/transcripts`,{headers:{'Accept':'application/json'},credentials:'include'});
+    /* Was a call to SharePoint for the Stream transcript. Upload the
+       video instead and it is transcribed here, with timings. */
+    const r={ok:false};
     if(r.ok){
       const data=await r.json();const items=data?.value||[];
       if(items.length){
@@ -890,7 +897,6 @@ async function generateBullets(){
   const SECTION_KEYWORDS=['intro','verse','chorus','bridge','interlude','return','viva','outro','tag','instrumental'];
   // Only THESE sections get chord analysis
   const CHORD_SECTIONS=new Set(['intro','bridge','interlude','return','viva','outro','tag','instrumental']);
-
 
   const sectionMarkers=[];
   const lines=transcript.split('\n');
@@ -931,6 +937,12 @@ async function generateBullets(){
 async function publishAsset(){
   const title=document.getElementById('adminTitle').value.trim();
   const url=window._extractedURL||document.getElementById('adminContentURL').value.trim();
+  /* v2 does not use SharePoint. The ones already saved keep playing
+     until "Replace video file" moves them; no new one may be added. */
+  if(typeof EGBCKBUpload!=="undefined"&&EGBCKBUpload.isSharePointURL(url)){
+    alert("That is a SharePoint link, and v2 does not use SharePoint.\n\nUpload the video file in the panel above instead - it is stored in Firebase and transcribed here.");
+    return;
+  }
   if(!title||!url){alert('Title and embed URL are required.');return;}
 
   // Build detectedChords flat string from chordsPerSection
@@ -1107,19 +1119,42 @@ async function saveEdit(){
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
-const SP_VIDEO_BASE='https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/PlayThrough/';
-function generateDirectURL(title){
-  if(!title)return'';
-  // Try to construct filename from title e.g. "Gratitude in F" → "Gratitude in F.mp4"
-  const name=title.replace(/\s*[-–]\s*(intro|verse|chorus|bridge|interlude|return|outro|full song).*/i,'').trim();
-  return SP_VIDEO_BASE+name+'.mp4';
-}
+/* generateDirectURL used to build a SharePoint path out of the title.
+   Nothing guesses a video location any more - an entry either has a
+   Firebase URL from the uploader, or it has not been moved yet. The
+   function stays so its one caller keeps working. */
+function generateDirectURL(){ return ""; }
 function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${[1,2,3,4,5,6].map(()=>`<div class="bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6"><div class="skeleton h-4 w-1/3 mb-4"></div><div class="skeleton h-6 w-3/4 mb-3"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-5/6"></div></div>`).join('')}</div>`;}
 function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
 function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
 function fmtTime(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{const rw=w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');text=text.replace(new RegExp(`(${rw})`,'gi'),'<mark>$1</mark>');});return text;}
+
+/* ---- knowledge-base video upload (egbc-kbupload.js) ---------------
+   The panel is shared by all four KB pages; only the collection and the
+   storage path differ. Mounted once the person is known, because only
+   someone who manages this area ever sees the admin panel. */
+function kbMountUploader(){
+  if(typeof EGBCKBUpload==="undefined")return;
+  if(!document.getElementById("kb-upload-panel"))return;
+  EGBCKBUpload.mountPanel({
+    container:"kb-upload-panel",
+    collection:"kb_playthrough",
+    storagePath:"kb/playthrough"
+  });
+}
+document.addEventListener("egbc-ready",kbMountUploader);
+if(document.readyState!=="loading")setTimeout(kbMountUploader,0);
+else document.addEventListener("DOMContentLoaded",()=>setTimeout(kbMountUploader,0));
+
+/* Which entries are still on SharePoint. Shown to whoever manages the
+   page so the ones left to move are obvious, and counted in one line so
+   nobody has to go through them by hand. */
+window.kbSharePointLeft=function(){
+  const left=(window.allAssets||[]).filter(a=>EGBCKBUpload.isSharePointURL(a.contentURL));
+  return left.map(a=>({id:a.id,title:a.title}));
+};
 </script>
 </body>
 </html>
