@@ -1,17 +1,16 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-<script src="egbc-shell.js?v=202609041833" data-title="Music Upload"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
+
+<script src="egbc-shell.js?v=202609041833" data-title="Music Upload"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="Worship Team" data-role="leader"></script>
 <title>Music Upload</title>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -116,17 +115,13 @@ td select:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px v
 
 <script>
 
-const firebaseConfig = {
-apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-authDomain: "egbc-worship-planner.firebaseapp.com",
-projectId: "egbc-worship-planner",
-storageBucket: "egbc-worship-planner.firebasestorage.app"
-};
 
-firebase.initializeApp(firebaseConfig);
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
 
-const storage = firebase.storage();
-const db = firebase.firestore();
+const storage = EGBCAuth.storage();
+const db = EGBCAuth.db;
 
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 

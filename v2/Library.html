@@ -1,16 +1,15 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-<script src="egbc-shell.js?v=202609041833" data-title="Music Database"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
+
+<script src="egbc-shell.js?v=202609041833" data-title="Music Database"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="Worship Team"></script>
     <title>Song Library</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <style>
         :root{
@@ -464,14 +463,11 @@
 </div>
 
 <script>
-const firebaseConfig = {
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner"
-};
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db = EGBCAuth.db;
 
 let currentDoc = null;
 let currentFiles = [];

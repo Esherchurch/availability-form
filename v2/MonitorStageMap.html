@@ -227,16 +227,16 @@ label.check input { width:20px; height:20px; margin-top:1px; flex:none; accent-c
 <div id="toast"></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, query, where }
+import { db, ready } from './egbc-db.js';
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, query, where }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const app = initializeApp({
-  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-  authDomain: "egbc-worship-planner.firebaseapp.com",
-  projectId: "egbc-worship-planner"
-});
-const db = getFirestore(app);
+/* One signed-in connection. Nothing below runs until the session is
+   restored: a query sent before then goes out anonymous, whatever the
+   page has already checked, and on localhost it would not be the
+   emulator either. */
+await ready;
+
 
 const $ = id => document.getElementById(id);
 const CONFIG_PATH = ["egbc-config", "monitor-mix"];
