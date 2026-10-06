@@ -466,7 +466,12 @@
       /* A fixed full-height panel (a slide-over, a modal) would now hang off
          the bottom, so give back the height we took. */
       if (cs.position === 'fixed' && parseFloat(cs.bottom) === 0) {
-        el.style.height = 'calc(100% - ' + h + 'px)';
+        /* Keep its bottom edge on the bottom of the screen: the height is what
+           is left below its NEW top. Taking off only the bar's height was right
+           for panels that started at the very top, but a panel that started
+           lower (the pin board's cork, top 152px) ended up that much taller
+           than the screen - and its scroll bar hung out of reach below it. */
+        el.style.height = 'calc(100% - ' + (top + h) + 'px)';
       }
     }
   }
