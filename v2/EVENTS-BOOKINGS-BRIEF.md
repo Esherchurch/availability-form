@@ -1,4 +1,4 @@
-# EGBC Events & Room Booking — build brief
+# EGBC Events, Room Booking, Kids Registration & Small Groups — build brief
 
 For a Claude Code window working in this repo (`Esherchurch/availability-form`, the `v2/` platform).
 Written 2026-10-06. Martin writes no code: this brief is the spec, you build, he assesses.
@@ -17,6 +17,7 @@ A stand-alone **events, sign-ups and room booking** module inside the v2 Team Hu
 - **Anything inside Calla Accounts.** This module produces charges and an export (§6.6). Wiring it into Calla is a separate brief in the Calla repo.
 - **A rewrite of the rota.** The existing rota (`events` collection, Planner/CoreTeamApp) stays as it is. See §5.1.
 - Door display tablets, check-in auto-release, door-code locks, Google Calendar two-way sync.
+- **A giving module.** Giving will be one shared module with the future **Calla CRM**, built once from its own brief. This build only provides the connection points in §6.16. Do not build donation records, Gift Aid claims, Direct Debits or giving statements.
 
 ## 3. Decisions already made by Martin (do not reopen)
 
@@ -201,13 +202,42 @@ Also per booking type, yes/no questions with notes: **alcohol** (and whether a l
 - A person (or parent) can see what is held about them from their manage link.
 - Every form states its purpose ("We need this to keep your child safe at …"). No legal citations in code or on screen.
 
+### 6.14 Sunday kids registration (Must)
+Weekly check-in for regular children's groups (Kids Church, Lazers, ReNu, youth), as distinct from one-off events. Built on §6.9 check-in and §6.10 forms — **do not write a second check-in**.
+- **Groups by age or school year**, each with its room (from §6.1), its leaders (from the rota) and its ratio.
+- **Child profiles** linked to their household. Parents register a child **once** (consent form valid for the year, §6.10), then check in each week.
+- **Fast family check-in** at a tablet or the parent's own phone: find the family (name, phone or the family QR code), tick the children here today, print or show **labels**: child's name, group, allergy flag, and a matching **collection code** for the parent.
+- **First-time visitors**: a short form at the door (child name, age, parent name and phone, allergies, consent) so a new family is checked in within a minute, with the full form emailed to complete later.
+- **Check-out** only to an authorised collector or matching code (§6.9).
+- **Leader screen per group**: who is in, allergies and medical flags, parent contact on tap, **page a parent** (Should — shows the parent's phone number to call, or sends an SMS later).
+- **Weekly and termly registers** per group, downloadable; headcount per group for the roll-call view.
+- **Visitor follow-up list** (Should): new families this week, for the children's team to welcome.
+
+### 6.15 Small groups (Must)
+- **Groups directory**: name, description, leader(s), day/time, frequency, **location** (a room, a home — address visible only to members of the group — an outside venue, or **online** using `meeting.html` video rooms), audience (age, stage of life), open/closed, capacity, image.
+- **"Find a group"** page: public or members-only per group; filter by day, area, type; **request to join** goes to the leader to accept.
+- **Membership**: leaders add/remove members; members see their groups in the Team Hub.
+- **Meetings and attendance**: each group's meetings (recurring), leader marks attendance on a phone in a few taps; attendance downloads per group and term.
+- **Message the group** by email from the group page (Must); a shared **notes / study plan** per meeting (Should).
+- **Group events** use §6.2 events and the room booking flow — no separate calendar.
+- **Leader oversight**: a pastoral overview for Core Team — groups, sizes, attendance trends, people in no group (Should).
+- Leaders of groups that include under-18s get the same **leader checks** and **forms** as §6.10.
+
+### 6.16 People, households and the giving seam
+- **People live in one place.** Members are the existing `addressBook` (households via `householdId`). Guests, parents and hirers who are not members go in one new `contacts` collection with the same shape, and can be **promoted** to the address book by an admin. Do not create a third people store. **Establish** what fields `addressBook` holds before adding any.
+- **Every** sign-up, booking, check-in, group membership and form links to a person id (`addressBook` or `contacts`) — this is what lets a future CRM join it all up.
+- **Give button** (Must): one configurable giving link per site (whatever EGBC uses today), shown in the Team Hub, on event pages and in confirmation emails. Nothing more.
+- **Optional donation line** on sign-ups stays separate from tickets (§6.3), with its Gift Aid declaration recorded as: person id, declaration wording version, date, "applies to" (this gift / all gifts), and whether the person confirmed they pay enough UK tax. Store it in `giftAidDeclarations` so the future giving module can import it unchanged.
+- No giving totals, statements or claims in this build.
+
 ## 7. Technical rules
 
 ### 7.1 Data (new Firestore collections — suggested; record any change and why)
 `sites`, `rooms`, `resources`, `venues`, `bookingTypes`, `rateCards`, `terms`, `hirers`,
 `calEvents` (+ subcollections `ticketTypes`, `questions`), `signups`, `capacity/{calEventId}`,
 `bookings`, `charges`, `bookingSettings/{siteId}`,
-`forms`, `formResponses` (ordinary answers), `sensitiveResponses` (medical/safeguarding — locked down), `checkins`, `incidents`, `concerns`, `downloadsLog`, `leaderChecks`.
+`forms`, `formResponses` (ordinary answers), `sensitiveResponses` (medical/safeguarding — locked down), `checkins`, `incidents`, `concerns`, `downloadsLog`, `leaderChecks`,
+`kidsGroups`, `children` (or a child flag on people — establish which fits `addressBook`), `smallGroups`, `groupMembers`, `groupMeetings`, `contacts`, `giftAidDeclarations`.
 Times stored as ISO strings in **Europe/London** local time plus a UTC timestamp; all-day flag. Rooms referenced by id.
 
 ### 7.2 Public writes without a login
@@ -233,7 +263,7 @@ Guests and hirers write without an account, so the rules carry the weight:
 - Ambiguity goes in `v2/FINDINGS-events.md`; take the reading that builds least and carry on. Only stop if you cannot proceed.
 
 ## 8. Later phases (not in this build)
-Stripe card payments (Checkout Session from a server function + webhook marking `charges` paid; Payment Links as a stop-gap), Calla Accounts connector, early-bird/discount codes, door tablet, check-in auto-release, multi-stage approval, Google Calendar sync, cost codes.
+**Giving module shared with Calla CRM (separate brief)**, SMS for paging parents, Stripe card payments (Checkout Session from a server function + webhook marking `charges` paid; Payment Links as a stop-gap), Calla Accounts connector, early-bird/discount codes, door tablet, check-in auto-release, multi-stage approval, Google Calendar sync, cost codes.
 
 ## 9. Chunks — do Chunk 1, then stop and report
 
@@ -245,7 +275,7 @@ Each chunk has three stages. **Gate at the end of each stage**: fix what the gat
 3. Rename proof: rename a room and show nothing that refers to it breaks.
 
 ### Chunk 2 — Events and sign-ups
-`calEvents`, ticket types, questions, guest and member sign-up, capacity rule, waiting list, confirmation email + ICS, attendee list/export, `whatson.html`, `signup.html`, `my-signup.html`, `events-admin.html`.
+`contacts` (§6.16) first, so every sign-up links to a person id from day one; then `calEvents`, ticket types, questions, guest and member sign-up, capacity rule, waiting list, confirmation email + ICS, attendee list/export, `whatson.html`, `signup.html`, `my-signup.html`, `events-admin.html`.
 
 ### Chunk 3 — Check-in, attendance, forms and safeguarding
 QR check-in/out, collectors, headcount and roll-call, registers and downloads (CSV/Excel/PDF), series attendance, forms builder and templates, reusable consent with expiry, chasing incomplete forms, ratios, leader checks, incident log, concern reporting, sensitive-data rules, retention list.
@@ -255,6 +285,12 @@ Calendar views, request forms (member + public `book.html`), buffers, resources,
 
 ### Chunk 5 — Hire, charges and hirer compliance
 Hirers, rate cards, terms acceptance, insurance / safeguarding / risk-assessment uploads with expiry reminders, licence questions, automatic charges, manual payments, hirer page, accounts export, reports.
+
+### Chunk 6 — Sunday kids registration
+Kids groups, child profiles and households, family check-in and labels, first-time visitor form, leader screen, registers, visitor follow-up.
+
+### Chunk 7 — Small groups and the giving seam
+Groups directory and find-a-group, join requests, membership, meetings and attendance, messaging, oversight; Give button; Gift Aid declaration records.
 
 ### Each gate report says five things
 1. **What was built**, as a list of files.
