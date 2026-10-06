@@ -230,6 +230,32 @@ Weekly check-in for regular children's groups (Kids Church, Lazers, ReNu, youth)
 - **Optional donation line** on sign-ups stays separate from tickets (§6.3), with its Gift Aid declaration recorded as: person id, declaration wording version, date, "applies to" (this gift / all gifts), and whether the person confirmed they pay enough UK tax. Store it in `giftAidDeclarations` so the future giving module can import it unchanged.
 - No giving totals, statements or claims in this build.
 
+### 6.17 Matching ChurchSuite — checked in EGBC's own ChurchSuite (6 Oct 2026)
+
+Martin's ChurchSuite (Calendar and Rotas modules) was walked through by Claude in Martin's other window — settings, forms and report lists only, no personal data. Items below are **in addition** to §6.1–6.16. Where it says "establish", read the code first; do not assume it is missing.
+
+**Events (Chunk 2 unless noted)**
+- **Event image** (already §6.2) is used everywhere the event appears: the hub card, the event page, What's On, the share card and the Share-to-WhatsApp picture (`SHARE-NOTIFY-BRIEF.md`). Crop guide for a wide and a square version.
+- **Featured** flag: featured events show on the hub home and at the top of What's On.
+- **Status**: Confirmed / Pending (held, not yet public) / Cancelled. Cancelling keeps the event and tells attendees (already §6.2).
+- **Duplicate event** (copy everything except sign-ups).
+- **Overseers**: one or more people responsible, notified of sign-ups and changes.
+- **Internal notes** on an event, visible to overseers and admins only.
+- **Checklists** per event (Must): a list of tasks with a tick, who and when — e.g. "chairs out", "AV booked", "risk assessment done". Reusable checklist templates per event category.
+- **Labels** as well as one category (several labels per event, filterable).
+- **Change history** ("View changes"): who changed what and when, per event.
+- **Communication log** per event: every email (and later notification) sent about it, with delivery failures shown.
+- **Sign-up options**: sign up to one date or the **whole series**; "allow people to cancel their own sign-up" on/off; where sign-up is offered (event page, hub, website).
+- **Website embeds** (Should): a list, a month calendar and a featured strip that the church website can embed, public events only.
+- **Reports**: sign-ups per event, email delivery errors, and (later) ticket sales and card-payment transfers.
+
+**Rotas (separate from this brief's events — establish what Planner.html / CoreTeamApp.html / worshiphubapp.html already do before building)**
+ChurchSuite's rotas offer, and Martin's account has switched on: accept/decline by the person, unavailability, **swaps** between members, **members signing up to open rota dates**, ministry overseers managing their own rotas, group email to a rota, per-ministry privacy, and **email and text reminders at a set time** (8am). Its reports: **clashes**, **not on any rota**, **serving frequency**, **personal serving history**, demographics. Grep found "swap", "decline", "unavailab" and "frequency" in the planners already, but nothing for **reminders** or **clashes**. Record in FINDINGS what exists and what does not, and propose a small "Rota parity" chunk for Martin to approve — do not build it inside the events chunks.
+
+**Attendance headcounts** ("Gatherings"): a quick headcount per Sunday service and event (adults, children, online) with a trend report. Add to Chunk 3 alongside check-in.
+
+**Not copied (Martin to decide):** ChurchSuite's staff **leave requests** (holiday booking for staff) — out of scope unless Martin asks.
+
 ## 7. Technical rules
 
 ### 7.1 Data (new Firestore collections — suggested; record any change and why)
@@ -237,6 +263,7 @@ Weekly check-in for regular children's groups (Kids Church, Lazers, ReNu, youth)
 `calEvents` (+ subcollections `ticketTypes`, `questions`), `signups`, `capacity/{calEventId}`,
 `bookings`, `charges`, `bookingSettings/{siteId}`,
 `forms`, `formResponses` (ordinary answers), `sensitiveResponses` (medical/safeguarding — locked down), `checkins`, `incidents`, `concerns`, `downloadsLog`, `leaderChecks`,
+`eventChecklists`, `checklistTemplates`, `eventNotes`, `eventChanges`, `commsLog`, `headcounts`,
 `kidsGroups`, `children` (or a child flag on people — establish which fits `addressBook`), `smallGroups`, `groupMembers`, `groupMeetings`, `contacts`, `giftAidDeclarations`.
 Times stored as ISO strings in **Europe/London** local time plus a UTC timestamp; all-day flag. Rooms referenced by id.
 
