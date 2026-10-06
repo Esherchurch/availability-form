@@ -4,6 +4,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="Core Team"></script>
 <meta charset="UTF-8">
@@ -20,9 +21,6 @@
 <meta name="theme-color" content="#3d6263">
 <title>EGBC Worship Planner</title>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <style>
 :root {
   /* ── Shared design-system tokens ── */
@@ -1027,14 +1025,11 @@ select.sp-input { appearance: none; cursor: pointer; }
 
 <script>
 // ── FIREBASE ──────────────────────────────────────────────────────────────
-firebase.initializeApp({
-  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-  authDomain: "egbc-worship-planner.firebaseapp.com",
-  projectId: "egbc-worship-planner",
-  storageBucket: "egbc-worship-planner.firebasestorage.app"
-});
-const db      = firebase.firestore();
-const storage = firebase.storage();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db      = EGBCAuth.db;
+const storage = EGBCAuth.storage();
 const TS      = firebase.firestore.FieldValue.serverTimestamp;
 
 // ── STATE ─────────────────────────────────────────────────────────────────
