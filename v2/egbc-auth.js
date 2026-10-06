@@ -447,7 +447,9 @@
 
     var v = viewAs();
     bar.style.cssText =
-      'position:fixed;left:0;right:0;bottom:0;z-index:9900;display:flex;align-items:center;' +
+      /* z-index 40: below every page's pop-up windows (Tailwind z-50, the hub's 110),
+         so it never covers their buttons. Page content gets matching space below. */
+      'position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;align-items:center;' +
       'gap:10px;flex-wrap:wrap;padding:10px 16px;font-family:Inter,system-ui,sans-serif;' +
       'font-size:13px;font-weight:500;box-shadow:0 -1px 2px rgba(16,24,40,.05);' +
       (v ? 'background:#b07d2e;color:#fff' : 'background:#fff;color:#374151;border-top:1px solid #e5e7eb');
@@ -491,6 +493,10 @@
       } catch (e) {}
       location.reload();
     }
+
+    /* Room underneath, so the last thing on the page can be scrolled clear of the strip. */
+    var pad = function () { document.body.style.paddingBottom = (bar.offsetHeight + 12) + 'px'; };
+    pad(); window.addEventListener('resize', pad);
 
     document.getElementById('egbc-va-team').onchange = apply;
     document.getElementById('egbc-va-admin').onchange = apply;
