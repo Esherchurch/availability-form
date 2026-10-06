@@ -96,13 +96,24 @@ Both now measure a scroll width of exactly 375 with no element past the edge.
 
 ---
 
-## Still outstanding in Group 1
+## Group 1 — where it stands
 
-### R-006 — cards and lists are not rebuilt to the card spec
-`DESIGN.md` describes a card as a 32px tinted icon badge, a title, actions
-right and a divider below; a list row as a 34–36px icon box with a name and one
-muted line. That is per-page markup and has not been written. The answer in
-`NEXT-BRIEF.md` puts it in Group 1, so Group 1 is not finished.
+### R-006 — cards and lists rebuilt to the card spec — DONE
+All seven Group 1 pages now draw cards and rows to `DESIGN.md`: white surface,
+1px `#e5e7eb` line, 14px radius and the small shadow; a row at 8px with the
+name at 14px/600 in ink and one muted 13px line under it; card headings in
+sentence case at 13–14px/600 with a divider below.
+
+What went, and why: the 3px coloured bands across the CoreTeamApp tiles, the
+solid brand header bands on the Planner and the rota, the brand-filled date
+capsules, the 7–10px labels in 800 and 900 weight set in caps, and the
+alternating row tints on the Planner — a row that changes colour with its
+position carries no information, and the filled-roles dot already says what
+the green border was saying.
+
+Nothing was renamed, no id moved and no handler was touched: these are class
+strings and CSS blocks only. The drag-and-drop assignment, the role sheet and
+the link save all still write, read back from Firestore.
 
 ### R-007 — the main-action proof is done for two pages of seven
 `resources.html` and `videos.html` use `EGBCAuth.db`, so they can be driven
@@ -119,6 +130,33 @@ no uncaught error, computes to Inter and keeps its controls.
 ---
 
 ## Found and not fixed
+
+### R-012 — the controls on these pages are still the old style
+Cards and rows are done; buttons, selects, inputs and form labels are not, and
+they are what is left shouting. On the Planner: 11px labels in 700 beside every
+checkbox, date and time controls as filled capsules, "SEND ALL ROTAS" in caps.
+On `view-only-rota.html`: four PDF buttons as brand, green and gold capsules in
+9px caps. On `SundayServicePlanner.html`: ten form labels at 11px/700.
+
+Measured, not guessed: a probe reads every leaf element on the rendered page
+and reports anything at 700 weight or heavier, in caps, or under 12px. After
+this work the rota page reports none, the Planner 30, SundayServicePlanner 10
+and CoreTeamApp 3 — and all of those are controls, form labels or the two page
+titles, which are legitimately 700.
+
+Controls are their own job across all four groups, so they are parked here
+rather than half-done on four pages.
+
+### R-013 — emoji are still on the Group 1 pages, and R-002 overstated it
+R-002 said "emoji replaced in Group 1". That was true of the pages it names and
+not of these: `CoreTeamApp.html` carries 80 emoji — the email compiler toolbar,
+the team chips, the modal titles, the service-item type glyphs, the whole
+onboarding tour — `SundayServicePlanner.html` 9 and `Planner.html` 11, including
+the 📹 inside `<option>` elements, where an icon font cannot go and the fix is a
+word instead.
+
+Not fixed here: it is R-002's job and it is a sweep of about a hundred sites,
+mostly in one file. Recorded so the earlier claim is not left standing.
 
 ### R-010 — the Youth Hub help tour throws, and did before this work — FIXED
 `showTourStep` in `youthapp2.html` called

@@ -114,37 +114,41 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 12px; padding: 16px;
 }
+/* DESIGN.md card: 14px radius, 1px line, the small shadow. */
 .home-tile {
-  background: var(--white); border-radius: 18px;
-  border: 1px solid var(--border); padding: 20px 16px;
-  cursor: pointer; transition: transform 0.1s;
+  background: #fff; border-radius: 14px;
+  border: 1px solid #e5e7eb; padding: 16px;
+  cursor: pointer; transition: background .12s, border-color .12s;
   display: flex; flex-direction: column; gap: 8px;
   position: relative; overflow: hidden;
-  box-shadow: 0 2px 8px rgba(61,98,99,0.06);
+  box-shadow: 0 1px 2px rgba(16,24,40,.05);
 }
-.home-tile:active { transform: scale(0.97); }
+.home-tile:active { background: #f3f4f6; }
 .home-tile-icon { width:36px; height:36px; border-radius:8px; background:#eef5f4; color:#3d6263; display:flex; align-items:center; justify-content:center; }
 .home-tile-icon svg { width:20px; height:20px; }
-.home-tile-name { font-size: 14px; font-weight: 800; color: var(--teal); }
-.home-tile-desc { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; line-height: 1.3; }
-.tile-service { border-top: 3px solid var(--teal); }
-.tile-rota    { border-top: 3px solid var(--blue); }
-.tile-email   { border-top: 3px solid var(--green); }
-.tile-meetings { border-top: 3px solid #16a34a; }
+.home-tile-name { font-size: 14px; font-weight: 600; color: #111827; }
+.home-tile-desc { font-size: 13px; font-weight: 400; color: #6b7280; line-height: 1.45; }
+/* The thick coloured top edges have gone - DESIGN.md rules out a thick
+   colour band on a card, and the icon badge already says which tile this
+   is. The classes stay so the markup does not have to change. */
+.tile-service, .tile-rota, .tile-email, .tile-meetings { border-top: 1px solid #e5e7eb; }
 
 /* ══ COMMON SECTION STYLES ══ */
 .section-pad { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 
 .card {
-  background: var(--white); border-radius: var(--r-lg);
-  border: 1px solid var(--border); padding: 16px;
-  box-shadow: var(--shadow-sm);
+  background: #fff; border-radius: 14px;
+  border: 1px solid #e5e7eb; padding: 16px;
+  box-shadow: 0 1px 2px rgba(16,24,40,.05);
 }
 
+/* A card heading, not a shouted label: sentence case, no tracking, and the
+   divider DESIGN.md asks for under a card header. */
 .card-label {
-  font-size: 11px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--muted);
-  margin-bottom: 8px;
+  font-size: 13px; font-weight: 600; text-transform: none;
+  letter-spacing: 0; color: #111827;
+  margin: 0 0 10px; padding-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .form-field { display: flex; flex-direction: column; gap: 6px; }

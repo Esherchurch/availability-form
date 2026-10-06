@@ -162,3 +162,22 @@ There was no `package.json`, so `@firebase/rules-unit-testing`, `firebase` and
 
 Nothing in Chunk 1 holds personal data, so no retention default was needed yet.
 §6.13 wants form answers to carry one; that lands in Chunk 3.
+
+### F-013 — a hub with no registry applied reads "0 tools" for every team
+Found while running the lock-out check after A2, and it is not caused by A2 —
+`hub.html` loads none of the files that changed.
+
+`REGISTRY` in `hub-app.js` is a seed list, not the menu. The hub renders from
+the `hubPages` collection, and the team picker counts `PAGES` alone, so against
+a database where no master admin has pressed "Add the missing pages" every team
+in the picker reads "0 tools" and the tools list says "Nothing here yet" — on a
+site with 30 pages registered in the file. `BUILT_IN_PAGES` holds one entry
+(Meetings), which is the one tile that does show.
+
+Live is not in that state. A fresh database is, and so is every emulator run
+after a reset, which is how this surfaced.
+
+The check itself was also wrong, and that is fixed: `lockout.js` read the hub's
+text while the team picker was still up, where no tile can be seen. It now
+chooses a team first, the way a person would. With the registry applied it
+reports the Places tile listed, and 7/7 pass.

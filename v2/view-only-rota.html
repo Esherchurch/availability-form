@@ -196,38 +196,38 @@
             Object.keys(grouped).sort().forEach(term => {
                 const isCollapsed = collapsedTerms.has(term);
                 let termHtml = `
-                    <div class="mb-6">
-                        <div onclick="toggleTermCollapse('${term}')" class="flex justify-between items-center bg-[#3d6263] text-white px-6 py-3 rounded-t-2xl shadow-sm cursor-pointer">
-                            <h2 class="uppercase font-bold tracking-widest text-[11px] font-montserrat">${term}</h2>
-                            <span class="text-[9px] font-bold uppercase">${isCollapsed ? 'Show' : 'Hide'}</span>
+                    <div class="mb-6" style="border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)">
+                        <div onclick="toggleTermCollapse('${term}')" class="flex justify-between items-center bg-white px-5 py-4 border border-[#e5e7eb] ${isCollapsed ? 'rounded-[14px]' : 'rounded-t-[14px]'} cursor-pointer">
+                            <h2 class="text-[14px] font-semibold text-[#111827]">${term}</h2>
+                            <span class="text-[13px] font-medium text-[#6b7280]">${isCollapsed ? 'Show' : 'Hide'}</span>
                         </div>
-                        <div class="${isCollapsed ? 'hidden' : 'block'} bg-white p-3 border-x border-b border-[#d1dfdf] rounded-b-2xl shadow-sm">`;
+                        <div class="${isCollapsed ? 'hidden' : 'block'} bg-white px-5 pt-4 pb-5 border-x border-b border-[#e5e7eb] rounded-b-[14px]">`;
 
                 if (nothingForMe(term)) {
                     termHtml += `
-                        <div class="bg-[#f0f6f6] border border-[#d1dfdf] rounded-xl px-4 py-3 mb-3 text-[10px] font-bold uppercase tracking-wider text-[#6b8281]">
+                        <div class="bg-[#f9fafb] border border-[#e5e7eb] rounded-[8px] px-4 py-3 mb-3 text-[13px] text-[#6b7280]">
                             Nothing on this rota for your team yet
                         </div>`;
                 }
                 
                 grouped[term].forEach(ev => {
                     termHtml += `
-                        <div class="bg-[#f0f6f6] rounded-xl p-4 mb-3 border border-[#d1dfdf]">
-                            <div class="flex flex-wrap items-center gap-3 mb-3 border-b border-[#d1dfdf] pb-2">
-                                <span class="bg-[#3d6263] text-white px-3 py-1 rounded-full font-bold text-[9px]">
+                        <div class="bg-white rounded-[14px] p-4 mb-3 border border-[#e5e7eb]" style="box-shadow:0 1px 2px rgba(16,24,40,.05)">
+                            <div class="flex flex-wrap items-center gap-3 mb-4 border-b border-[#e5e7eb] pb-3">
+                                <span class="bg-[#eef5f4] text-[#3d6263] px-2 py-1 rounded-[6px] font-medium text-[13px]">
                                     ${new Date(ev.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                                 </span>
-                                <span class="text-[#3d6263] font-black text-[9px] uppercase">${ev.startTime || '08:00'}</span>
-                                <span class="text-[#3d6263] font-extrabold text-[11px] uppercase tracking-tight">${ev.type}</span>
-                                <span class="italic text-[#3d6263] text-[10px] flex-grow text-right">${ev.description || ''}</span>
+                                <span class="text-[#6b7280] text-[13px]">${ev.startTime || '08:00'}</span>
+                                <span class="text-[#111827] font-semibold text-[14px]">${ev.type}</span>
+                                <span class="text-[#6b7280] text-[13px] flex-grow text-right">${ev.description || ''}</span>
                             </div>
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                                 ${visibleRoles(ev).map(role => {
                                     const assigned = ev.assignments?.[role]?.name || (role === 'Choir' ? '<span class="text-[#9bc34a]">Choir</span>' : '---');
                                     return `
-                                        <div class="bg-white p-2 border border-[#d1dfdf] rounded-lg shadow-sm">
-                                            <div class="text-[7px] font-black uppercase text-[#3d6263] opacity-50">${role}</div>
-                                            <div class="text-[10px] font-bold text-[#3d6263] truncate">${assigned}</div>
+                                        <div class="bg-[#f9fafb] p-3 border border-[#e5e7eb] rounded-[8px]">
+                                            <div class="text-[12px] text-[#6b7280] mb-0.5">${role}</div>
+                                            <div class="text-[14px] font-semibold text-[#111827] truncate">${assigned}</div>
                                         </div>`;
                                 }).join('')}
                             </div>
@@ -331,8 +331,8 @@
 </head>
 <body class="p-2 md:p-6 bg-[#f0f6f6] font-montserrat">
     <div class="w-full mx-auto">
-        <header class="flex flex-wrap items-center justify-end gap-3 mb-6 bg-white p-4 rounded-3xl border border-[#d1dfdf] shadow-sm">
-            <span class="text-[9px] font-black uppercase text-[#3d6263] tracking-widest mr-auto ml-2">Rota Downloads</span>
+        <header class="flex flex-wrap items-center justify-end gap-3 mb-6 bg-white p-4 rounded-[14px] border border-[#e5e7eb] shadow-sm">
+            <span class="text-[13px] font-semibold text-[#111827] mr-auto ml-2">Rota downloads</span>
             
             <button onclick="generatePDF('full')" class="bg-[#f0f6f6] text-[#3d6263] px-5 py-2 rounded-full font-black text-[9px] uppercase hover:bg-[#d1dfdf] transition-all">Full Rota PDF</button>
             <div class="h-4 w-[1px] bg-[#d1dfdf] mx-1"></div>

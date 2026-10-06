@@ -34,15 +34,17 @@
     .btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-ring); }
     .drag-handle { cursor: grab; color: var(--hairline-strong); font-size: 1.5rem; display: flex; align-items: center; }
     .rota-table { width: 100%; border-collapse: separate; border-spacing: 0 0.5rem; }
-    .rota-table th { text-align: left; padding: 0.6rem 1rem; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; }
-    .rota-table tr { background-color: var(--surface); }
-    .rota-table td { padding: 1rem; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); color: var(--body); }
-    .rota-table tr td:first-child { border-left: 1px solid var(--hairline); border-radius: var(--r-md) 0 0 var(--r-md); font-weight: 700; color: var(--ink); }
-    .rota-table tr td:last-child { border-right: 1px solid var(--hairline); border-radius: 0 var(--r-md) var(--r-md) 0; }
+    /* A column heading, in the type scale and in sentence case. */
+    .rota-table th { text-align: left; padding: 0.6rem 1rem; color: #6b7280; font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+    .rota-table tr { background-color: #fff; }
+    .rota-table tbody tr:hover td { background-color: #f3f4f6; }
+    .rota-table td { padding: 0.85rem 1rem; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; color: #374151; font-size: 14px; }
+    .rota-table tr td:first-child { border-left: 1px solid #e5e7eb; border-radius: 8px 0 0 8px; font-weight: 600; color: #111827; }
+    .rota-table tr td:last-child { border-right: 1px solid #e5e7eb; border-radius: 0 8px 8px 0; }
     textarea { resize: none; }
     .collapse-btn { transition: transform 0.2s; font-size: 1.2rem; }
     .is-collapsed .collapse-btn { transform: rotate(-90deg); }
-    .serve-count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; border-radius: var(--r-pill); font-size: 12px; font-weight: 800; padding: 0 0.5rem; background-color: var(--brand-tint); color: var(--brand); border: 1px solid var(--hairline-strong); transition: all 0.2s; }
+    .serve-count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.75rem; height: 1.75rem; border-radius: 6px; font-size: 13px; font-weight: 500; padding: 0 0.5rem; background-color: #eef5f4; color: #3d6263; border: 1px solid #e5e7eb; transition: background .18s; }
     .serve-count-badge.is-peak { background-color: var(--brand); color: #ffffff; border-color: var(--brand); box-shadow: var(--shadow-sm); }
     .serve-count-badge.hidden-badge { visibility: hidden; }
     #emailModal { display: none; position: fixed; inset: 0; background: rgba(20,32,31,0.45); z-index: 1000; align-items: center; justify-content: center; }
@@ -729,7 +731,7 @@ window.emailSchedule = async () => {
 </div>
 <a id="helpBtn" href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html" target="_blank" rel="noopener" aria-label="Open instructions">?</a>
 <div class="max-w-[1200px] mx-auto space-y-10">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[14px] shadow-sm border border-[#e5e7eb]">
         <div class="flex items-center gap-6">
             <div>
                 <h1 class="text-4xl font-extrabold text-[#14201f] tracking-tight">Worship Planner</h1>
@@ -746,8 +748,8 @@ window.emailSchedule = async () => {
         <label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] ml-4">Opening Remarks / Call to Worship</label>
         <textarea id="introBox" class="w-full styled-input !bg-white" placeholder="This text appears at the start of the team email, just below the service notes..." rows="1"></textarea>
     </div>
-    <div class="bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
-        <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight mb-6">Key Roles</h2>
+    <div class="bg-white p-8 rounded-[14px] shadow-sm border border-[#e5e7eb]">
+        <h2 class="text-xl font-semibold text-[#111827] mb-5 pb-4 border-b border-[#e5e7eb]">Key Roles</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div><label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Service Leader</label><input id="roleServiceLeader" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
             <div><label class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Worship Leader</label><input id="roleWorshipLeader" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
@@ -768,8 +770,8 @@ window.emailSchedule = async () => {
         </div>
         <div id="service-order" class="space-y-2"></div>
     </div>
-    <div class="bg-white p-8 rounded-[18px] shadow-sm border border-[#dde7e6]">
-        <h2 class="text-2xl font-extrabold text-[#14201f] tracking-tight mb-6">Service Team &amp; Roles</h2>
+    <div class="bg-white p-8 rounded-[14px] shadow-sm border border-[#e5e7eb]">
+        <h2 class="text-xl font-semibold text-[#111827] mb-5 pb-4 border-b border-[#e5e7eb]">Service Team &amp; Roles</h2>
         <div class="overflow-x-auto">
             <table class="rota-table">
                 <thead><tr><th>Role</th><th>Assigned Member</th><th>Role Specific Notes</th></tr></thead>
