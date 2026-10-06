@@ -350,6 +350,68 @@ service cloud.firestore {
       allow read, write: if active();
     }
 
+    // ---- places: sites, rooms, resources, venues --------------------
+    // The physical half of the events and booking module. Nothing here is
+    // personal data, so members read it all; admins are the only writers.
+    //
+    // WHY THE PUBLIC CAN READ SOME OF IT. whatson.html and book.html have to
+    // draw a site and room list before anyone has signed in, so an active
+    // site or room is public. Inactive ones are not: a room taken out of use
+    // should stop appearing everywhere at once, including on the public form.
+    //
+    // HOW A PUBLIC LIST HAS TO BE WRITTEN. A rule that reads resource.data
+    // can only pass a list query the engine can prove in advance, so a public
+    // page must ask for .where('active','==',true). Asking for the whole
+    // collection without a login is refused outright, not filtered down to
+    // the active ones - see the two list tests either side of this.
+    //
+    // NAMES ARE NOT KEYS. Rooms are renamed whenever the church changes what
+    // it calls them, so every reference elsewhere is by document id. Nothing
+    // in these rules keys off a name, and nothing else should either.
+
+    function activeRecord() {
+      return resource.data.get('active', false) == true;
+    }
+
+    match /sites/{siteId} {
+      allow read: if active() || activeRecord();
+      allow write: if isAdmin();
+    }
+
+    match /rooms/{roomId} {
+      allow read: if active() || activeRecord();
+      allow write: if isAdmin();
+    }
+
+    // Projectors, the PA, chairs, the urn - things a booking reserves
+    // alongside a room.
+    //
+    // NOT `resources`. That name is taken by the team document and link shelf
+    // which resources.html reads, and reusing it would have put bookable
+    // kit and charters in one collection under one set of rules. Renamed
+    // here rather than there, because the shelf is live and this is not.
+    match /bookableResources/{resourceId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    // Outside places - the pub that hosts the carols. Saved once and reused.
+    // Members only for now: no public page needs one until events exist.
+    match /venues/{venueId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    // Per-site settings: who approves bookings here, and who the
+    // safeguarding lead and deputy are. Member ids, not names.
+    //
+    // Readable by any member on purpose - a member about to request a room
+    // should be able to see who they are waiting on.
+    match /bookingSettings/{siteId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
     // ---- everything else --------------------------------------------
     // Closed by default. Add an explicit rule per collection as you migrate
     // each tool onto authentication.

@@ -1,0 +1,671 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-shell.js?v=202610061500" data-title="Places"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610061500"></script>
+<script src="egbc-guard.js?v=202610061500" data-admin="any"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Places — EGBC</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{
+    --canvas:#eef4f3;--surface:#fff;--surface-2:#f6faf9;--ink:#14201f;--body:#3a4d4c;
+    --muted:#6b8281;--faint:#93a8a6;--hairline:#dde7e6;--hairline-strong:#c9d8d6;
+    --brand:#3d6263;--brand-dark:#2e4c4d;--brand-tint:#e7f0ef;--brand-ring:rgba(61,98,99,.28);
+    --success:#3b7d23;--success-tint:#e7f1e0;--danger:#b0392c;--danger-tint:#f7e7e4;
+    --r-sm:8px;--r-md:12px;--r-lg:18px;--r-pill:999px;
+    --shadow-sm:0 1px 2px rgba(20,32,31,.05);
+    --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
+  }
+  body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--body);-webkit-font-smoothing:antialiased}
+  h1,h2,h3{color:var(--ink)}
+  .card{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+  .inp{background:var(--surface);border:1px solid var(--hairline-strong);border-radius:var(--r-md);
+       padding:9px 12px;font-weight:600;color:var(--ink);font-size:13px;width:100%}
+  .inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+  .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:4px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--brand);color:#fff;
+       padding:9px 16px;border-radius:var(--r-md);font-weight:800;font-size:12px;border:1px solid transparent;cursor:pointer}
+  .btn:hover{background:var(--brand-dark)}
+  .btn-2{background:var(--brand-tint);color:var(--brand);border-color:var(--hairline)}
+  .btn-2:hover{background:#dbe8e7}
+  .btn-d{background:var(--danger-tint);color:var(--danger);border-color:#e8c3bd}
+  .btn-x{background:transparent;color:var(--muted);border:1px solid var(--hairline-strong);padding:5px 9px;font-size:11px}
+  .tab{padding:9px 14px;border-radius:var(--r-pill);font-weight:800;font-size:12px;cursor:pointer;
+       background:transparent;color:var(--muted);border:1px solid transparent;white-space:nowrap}
+  .tab.on{background:var(--brand);color:#fff}
+  .row{border-top:1px solid var(--hairline);padding:12px 0}
+  .row:first-child{border-top:none}
+  .pill{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+        padding:3px 9px;border-radius:var(--r-pill);background:var(--brand-tint);color:var(--brand)}
+  .pill.off{background:var(--danger-tint);color:var(--danger)}
+  .pill.on{background:var(--success-tint);color:var(--success)}
+  .swatch{width:22px;height:22px;border-radius:var(--r-sm);border:1px solid var(--hairline-strong);padding:0;cursor:pointer}
+  .hint{font-size:11px;color:var(--muted);line-height:1.6}
+  .tabs-scroll{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs-scroll::-webkit-scrollbar{display:none}
+  .lookup{position:absolute;z-index:40;left:0;right:0;top:100%;margin-top:4px;background:var(--surface);
+          border:1px solid var(--hairline-strong);border-radius:var(--r-md);box-shadow:var(--shadow);max-height:240px;overflow:auto}
+  .lookup div{padding:9px 12px;font-size:12px;font-weight:600;cursor:pointer;border-top:1px solid var(--hairline)}
+  .lookup div:first-child{border-top:none}
+  .lookup div:hover{background:var(--surface-2)}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:90;background:var(--brand);color:#fff;
+         padding:11px 20px;border-radius:var(--r-pill);font-size:12px;font-weight:800;box-shadow:var(--shadow);display:none}
+  @media (max-width:420px){ body{padding:12px!important} .btn{padding:9px 12px} }
+</style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen">
+<div class="max-w-5xl mx-auto">
+
+  <div class="flex items-start justify-between gap-3 mb-5">
+    <div>
+      <h1 class="text-xl sm:text-2xl font-black">Places</h1>
+      <p class="hint mt-1">Sites, rooms, bookable kit and outside venues. Everything else refers to these by
+        their record, never by name — so renaming is always safe.</p>
+    </div>
+    <div id="userChip"></div>
+  </div>
+
+  <div class="tabs-scroll mb-4">
+    <button class="tab on" data-tab="sites">Sites</button>
+    <button class="tab" data-tab="rooms">Rooms</button>
+    <button class="tab" data-tab="kit">Kit</button>
+    <button class="tab" data-tab="venues">Outside venues</button>
+    <button class="tab" data-tab="who">Who approves</button>
+  </div>
+
+  <!-- ── SITES ──────────────────────────────────────────────────────── -->
+  <section id="tab-sites">
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-black mb-3">Add a site</h2>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="lbl">Name</label><input id="s-name" class="inp" placeholder="Esher Green"></div>
+        <div><label class="lbl">Postcode</label>
+          <div class="flex gap-2">
+            <input id="s-pc" class="inp" placeholder="KT10 8AA">
+            <button class="btn btn-2 shrink-0" id="s-pc-check" type="button">Check</button>
+          </div>
+        </div>
+        <div class="sm:col-span-2"><label class="lbl">Address</label><input id="s-addr" class="inp" placeholder="Church Street, Esher"></div>
+      </div>
+      <p class="hint mt-2" id="s-pc-out"></p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button class="btn" id="s-add">Add site</button>
+        <button class="btn btn-2" id="seed">Seed the starting rooms</button>
+      </div>
+      <p class="hint mt-2">Seeding makes one site called <strong>Esher Green</strong> with Online and the seven
+        rooms. Every name can be changed afterwards. It will not run twice.</p>
+    </div>
+    <div class="card p-4 sm:p-5"><h2 class="text-sm font-black mb-1">Sites</h2><div id="sites-list"></div></div>
+  </section>
+
+  <!-- ── ROOMS ──────────────────────────────────────────────────────── -->
+  <section id="tab-rooms" class="hidden">
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-black mb-3">Add a room</h2>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="lbl">Name</label><input id="r-name" class="inp" placeholder="Upper Main Room 1"></div>
+        <div><label class="lbl">Kind</label>
+          <select id="r-kind" class="inp">
+            <option value="room">A room at a site</option>
+            <option value="online">Online (a video room)</option>
+          </select>
+        </div>
+        <div id="r-site-wrap"><label class="lbl">Site</label><select id="r-site" class="inp"></select></div>
+        <div id="r-video-wrap" class="hidden"><label class="lbl">Video room</label><select id="r-video" class="inp"></select></div>
+        <div><label class="lbl">Capacity</label><input id="r-cap" class="inp" type="number" min="0" placeholder="40"></div>
+        <div><label class="lbl">Colour</label><input id="r-colour" class="inp" type="color" value="#3d6263"></div>
+      </div>
+      <div class="flex flex-wrap gap-4 mt-3 text-xs font-bold" style="color:var(--brand)">
+        <label class="flex items-center gap-2"><input type="checkbox" id="r-acc" class="w-4 h-4"> Step-free access</label>
+        <label class="flex items-center gap-2"><input type="checkbox" id="r-mem" class="w-4 h-4" checked> Members may book</label>
+        <label class="flex items-center gap-2"><input type="checkbox" id="r-hire" class="w-4 h-4"> Outside hirers may book</label>
+      </div>
+      <button class="btn mt-3" id="r-add">Add room</button>
+    </div>
+    <div class="card p-4 sm:p-5">
+      <div class="flex items-center justify-between gap-3 mb-1 flex-wrap">
+        <h2 class="text-sm font-black">Rooms</h2>
+        <select id="r-filter" class="inp" style="width:auto;min-width:160px"></select>
+      </div>
+      <div id="rooms-list"></div>
+    </div>
+  </section>
+
+  <!-- ── KIT ────────────────────────────────────────────────────────── -->
+  <section id="tab-kit" class="hidden">
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-black mb-3">Add bookable kit</h2>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="lbl">Name</label><input id="k-name" class="inp" placeholder="Projector"></div>
+        <div><label class="lbl">Lives in (optional)</label><select id="k-room" class="inp"></select></div>
+        <div><label class="lbl">How many</label><input id="k-qty" class="inp" type="number" min="0" value="1"></div>
+        <div class="flex items-end">
+          <label class="flex items-center gap-2 text-xs font-bold" style="color:var(--brand)">
+            <input type="checkbox" id="k-unl" class="w-4 h-4"> Unlimited (tea, coffee, cups)
+          </label>
+        </div>
+      </div>
+      <button class="btn mt-3" id="k-add">Add kit</button>
+      <p class="hint mt-2">A booking warns when more of something is wanted than there is. Unlimited things never warn.</p>
+    </div>
+    <div class="card p-4 sm:p-5"><h2 class="text-sm font-black mb-1">Kit</h2><div id="kit-list"></div></div>
+  </section>
+
+  <!-- ── VENUES ─────────────────────────────────────────────────────── -->
+  <section id="tab-venues" class="hidden">
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-black mb-3">Find an outside venue</h2>
+      <div class="relative">
+        <label class="lbl">Search by name or place</label>
+        <input id="v-q" class="inp" placeholder="The Bear, Esher" autocomplete="off">
+        <div id="v-hits" class="lookup hidden"></div>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3 mt-3">
+        <div><label class="lbl">Name</label><input id="v-name" class="inp"></div>
+        <div><label class="lbl">Postcode</label><input id="v-pc" class="inp"></div>
+        <div class="sm:col-span-2"><label class="lbl">Address</label><input id="v-addr" class="inp"></div>
+      </div>
+      <button class="btn mt-3" id="v-add">Save venue</button>
+      <p class="hint mt-2">Type to search, or just fill the boxes in by hand — a venue the search cannot find
+        still saves. Search results come from
+        <a href="https://photon.komoot.io/" target="_blank" rel="noreferrer noopener" class="underline">Photon</a>,
+        built on data © OpenStreetMap contributors.</p>
+    </div>
+    <div class="card p-4 sm:p-5"><h2 class="text-sm font-black mb-1">Saved venues</h2><div id="venues-list"></div></div>
+  </section>
+
+  <!-- ── WHO APPROVES ───────────────────────────────────────────────── -->
+  <section id="tab-who" class="hidden">
+    <div class="card p-4 sm:p-5">
+      <h2 class="text-sm font-black mb-1">Who approves bookings, and who the safeguarding lead is</h2>
+      <p class="hint mb-3">Set per site. Core Team can always approve a booking, whatever is set here.</p>
+      <div id="who-list"></div>
+    </div>
+  </section>
+
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* Daily.co rooms that already exist. The same list is in meeting.html,
+     CoreTeamApp.html, Planner.html and hub-app.js — this is a fifth copy and
+     should not stay one. Recorded as a finding; moving all five to one shared
+     file touches four live pages and is not this chunk's job. */
+  var VIDEO_ROOMS = {
+    'Worship-AV': 'Worship & AV', 'worship-core-team': 'Worship Core Team', 'Prayer': 'Prayer',
+    'Eldership': 'Eldership', 'CMM': 'CMM', 'kids-ministries': 'Kids Ministries', 'interviews': 'Interviews'
+  };
+
+  /* The starting list from the brief. Names are a starting point only. */
+  var SEED_ROOMS = [
+    { name: 'Online',             kind: 'online', videoRoom: 'kids-ministries', capacity: 0 },
+    { name: 'Main Sanctuary',     kind: 'room', capacity: 200, colour: '#3d6263', accessible: true },
+    { name: 'Creche Room',        kind: 'room', capacity: 15,  colour: '#7a5f4a', accessible: true },
+    { name: 'Upper Main Room 1',  kind: 'room', capacity: 30,  colour: '#4a5f7a' },
+    { name: 'Upper Main Room 2',  kind: 'room', capacity: 30,  colour: '#5f7a4a' },
+    { name: 'Upper Main Room 3',  kind: 'room', capacity: 30,  colour: '#7a4a5f' },
+    { name: 'Pastors Office',     kind: 'room', capacity: 6,   colour: '#6b4a7a' },
+    { name: 'Garden',             kind: 'room', capacity: 80,  colour: '#3b7d23' }
+  ];
+
+  var db, me;
+  var sites = [], rooms = [], kit = [], venues = [], settings = {}, people = [];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  };
+  var toastTimer;
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.style.display = 'none'; }, 2600);
+  }
+  function oops(e) { console.error(e); toast('Could not save — ' + (e && e.message ? e.message : 'unknown')); }
+
+  /* ---- tabs -------------------------------------------------------- */
+  var TABS = ['sites', 'rooms', 'kit', 'venues', 'who'];
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      TABS.forEach(function (t) { $('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab); });
+    });
+  });
+
+  /* ---- ordering ----------------------------------------------------
+     An integer per record, renumbered 1..n whenever anything moves, so a
+     half-used list cannot end up with two things claiming the same place. */
+  function nextOrder(list) {
+    return list.reduce(function (m, x) { return Math.max(m, Number(x.order) || 0); }, 0) + 1;
+  }
+  function move(coll, list, id, delta) {
+    var sorted = list.slice().sort(byOrder);
+    var i = sorted.findIndex(function (x) { return x.id === id; });
+    var j = i + delta;
+    if (i < 0 || j < 0 || j >= sorted.length) return;
+    var tmp = sorted[i]; sorted[i] = sorted[j]; sorted[j] = tmp;
+    var batch = db.batch();
+    sorted.forEach(function (x, n) {
+      if (Number(x.order) !== n + 1) batch.update(db.collection(coll).doc(x.id), { order: n + 1 });
+    });
+    batch.commit().catch(oops);
+  }
+  function byOrder(a, b) {
+    var d = (Number(a.order) || 0) - (Number(b.order) || 0);
+    return d !== 0 ? d : String(a.name || '').localeCompare(String(b.name || ''));
+  }
+
+  /* ---- an editable name ---------------------------------------------
+     The whole point of the chunk: a name is a label on a record, so editing
+     it writes one field and nothing anywhere else has to be told. */
+  function nameField(coll, rec) {
+    return '<input class="inp" style="font-weight:800" value="' + esc(rec.name) +
+           '" data-rename="' + coll + '" data-id="' + rec.id + '">';
+  }
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    if (!el.dataset || !el.dataset.rename) return;
+    var v = el.value.trim();
+    if (!v) { toast('A name cannot be empty'); return; }
+    db.collection(el.dataset.rename).doc(el.dataset.id).update({ name: v })
+      .then(function () { toast('Renamed'); }).catch(oops);
+  });
+
+  /* ---- sites -------------------------------------------------------- */
+  function drawSites() {
+    var box = $('sites-list');
+    if (!sites.length) { box.innerHTML = '<p class="hint py-3">No sites yet. Add one, or seed the starting rooms.</p>'; }
+    else {
+      box.innerHTML = sites.slice().sort(byOrder).map(function (s) {
+        return '<div class="row">' +
+          '<div class="grid sm:grid-cols-2 gap-2 items-start">' +
+            '<div>' + nameField('sites', s) + '</div>' +
+            '<div class="flex flex-wrap gap-1 items-center">' +
+              '<button class="btn btn-x" data-mv="sites" data-id="' + s.id + '" data-d="-1">&uarr;</button>' +
+              '<button class="btn btn-x" data-mv="sites" data-id="' + s.id + '" data-d="1">&darr;</button>' +
+              '<button class="btn btn-x" data-tog="sites" data-id="' + s.id + '">' +
+                (s.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
+              '<span class="pill ' + (s.active === false ? 'off' : 'on') + '">' +
+                (s.active === false ? 'Out of use' : 'In use') + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<p class="hint mt-1">' + esc(s.address || '—') + (s.postcode ? ' · ' + esc(s.postcode) : '') +
+            (s.lat ? ' · ' + Number(s.lat).toFixed(4) + ', ' + Number(s.lng).toFixed(4) : '') + '</p>' +
+        '</div>';
+      }).join('');
+    }
+    var opts = sites.slice().sort(byOrder).map(function (s) {
+      return '<option value="' + s.id + '">' + esc(s.name) + '</option>';
+    }).join('');
+    $('r-site').innerHTML = opts || '<option value="">Add a site first</option>';
+    $('r-filter').innerHTML = '<option value="">Every site</option>' + opts +
+      '<option value="__online">Online</option>';
+    drawWho();
+  }
+
+  $('s-add').addEventListener('click', function () {
+    var name = $('s-name').value.trim();
+    if (!name) { toast('Give the site a name'); return; }
+    db.collection('sites').add({
+      name: name, address: $('s-addr').value.trim(), postcode: $('s-pc').value.trim().toUpperCase(),
+      lat: window.__pcLat || null, lng: window.__pcLng || null,
+      active: true, order: nextOrder(sites)
+    }).then(function () {
+      $('s-name').value = ''; $('s-addr').value = ''; $('s-pc').value = ''; $('s-pc-out').textContent = '';
+      window.__pcLat = window.__pcLng = null; toast('Site added');
+    }).catch(oops);
+  });
+
+  /* postcodes.io — confirms a postcode exists and gives us a point to put a
+     site on a map later. Failure is not fatal: the postcode still saves. */
+  $('s-pc-check').addEventListener('click', function () {
+    var pc = $('s-pc').value.trim();
+    if (!pc) return;
+    $('s-pc-out').textContent = 'Checking…';
+    fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(pc))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j.status !== 200 || !j.result) { $('s-pc-out').textContent = 'Not a postcode we could find — it will still save.'; return; }
+        window.__pcLat = j.result.latitude; window.__pcLng = j.result.longitude;
+        $('s-pc-out').textContent = 'Found: ' + j.result.admin_district + ' (' +
+          j.result.latitude.toFixed(4) + ', ' + j.result.longitude.toFixed(4) + ')';
+      })
+      .catch(function () { $('s-pc-out').textContent = 'Could not reach the postcode service — it will still save.'; });
+  });
+
+  /* ---- rooms -------------------------------------------------------- */
+  $('r-kind').addEventListener('change', function () {
+    var online = $('r-kind').value === 'online';
+    $('r-video-wrap').classList.toggle('hidden', !online);
+    $('r-site-wrap').classList.toggle('hidden', online);
+  });
+
+  function drawRooms() {
+    var f = $('r-filter').value;
+    var list = rooms.filter(function (r) {
+      if (!f) return true;
+      if (f === '__online') return r.kind === 'online';
+      return r.siteId === f;
+    });
+    var box = $('rooms-list');
+    if (!list.length) { box.innerHTML = '<p class="hint py-3">No rooms here yet.</p>'; return; }
+    box.innerHTML = list.slice().sort(byOrder).map(function (r) {
+      var site = sites.find(function (s) { return s.id === r.siteId; });
+      var where = r.kind === 'online'
+        ? 'Online · ' + esc(VIDEO_ROOMS[r.videoRoom] || r.videoRoom || 'no video room set')
+        : (site ? esc(site.name) : '<span style="color:var(--danger)">site missing</span>');
+      return '<div class="row">' +
+        '<div class="grid sm:grid-cols-2 gap-2 items-start">' +
+          '<div class="flex gap-2 items-center">' +
+            (r.kind === 'online' ? '' :
+              '<input class="swatch" type="color" value="' + esc(r.colour || '#3d6263') +
+              '" data-colour="' + r.id + '" title="Colour on the calendar">') +
+            nameField('rooms', r) +
+          '</div>' +
+          '<div class="flex flex-wrap gap-1 items-center">' +
+            '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="-1">&uarr;</button>' +
+            '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="1">&darr;</button>' +
+            '<button class="btn btn-x" data-tog="rooms" data-id="' + r.id + '">' +
+              (r.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
+            '<span class="pill ' + (r.active === false ? 'off' : 'on') + '">' +
+              (r.active === false ? 'Out of use' : 'In use') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<p class="hint mt-1">' + where +
+          (r.capacity ? ' · holds ' + esc(r.capacity) : '') +
+          (r.accessible ? ' · step-free' : '') +
+          ' · ' + (r.bookableByMembers === false ? 'members cannot book' : 'members may book') +
+          ' · ' + (r.bookableByHirers ? 'hirers may book' : 'not for hire') +
+          '</p>' +
+      '</div>';
+    }).join('');
+  }
+  $('r-filter').addEventListener('change', drawRooms);
+
+  $('r-add').addEventListener('click', function () {
+    var name = $('r-name').value.trim();
+    if (!name) { toast('Give the room a name'); return; }
+    var online = $('r-kind').value === 'online';
+    if (!online && !$('r-site').value) { toast('Add a site first'); return; }
+    db.collection('rooms').add({
+      name: name,
+      kind: online ? 'online' : 'room',
+      siteId: online ? '' : $('r-site').value,
+      videoRoom: online ? $('r-video').value : '',
+      capacity: Number($('r-cap').value) || 0,
+      colour: $('r-colour').value,
+      accessible: $('r-acc').checked,
+      bookableByMembers: $('r-mem').checked,
+      bookableByHirers: $('r-hire').checked,
+      description: '', photoUrl: '',
+      active: true, order: nextOrder(rooms)
+    }).then(function () { $('r-name').value = ''; $('r-cap').value = ''; toast('Room added'); }).catch(oops);
+  });
+
+  document.addEventListener('change', function (e) {
+    if (!e.target.dataset || !e.target.dataset.colour) return;
+    db.collection('rooms').doc(e.target.dataset.colour).update({ colour: e.target.value }).catch(oops);
+  });
+
+  /* ---- kit ---------------------------------------------------------- */
+  function drawKit() {
+    $('k-room').innerHTML = '<option value="">Nowhere in particular</option>' +
+      rooms.filter(function (r) { return r.kind !== 'online'; }).slice().sort(byOrder).map(function (r) {
+        return '<option value="' + r.id + '">' + esc(r.name) + '</option>';
+      }).join('');
+    var box = $('kit-list');
+    if (!kit.length) { box.innerHTML = '<p class="hint py-3">No kit yet.</p>'; return; }
+    box.innerHTML = kit.slice().sort(byOrder).map(function (k) {
+      var home = rooms.find(function (r) { return r.id === k.homeRoomId; });
+      return '<div class="row">' +
+        '<div class="grid sm:grid-cols-2 gap-2 items-start">' +
+          '<div>' + nameField('bookableResources', k) + '</div>' +
+          '<div class="flex flex-wrap gap-1 items-center">' +
+            '<input class="inp" style="width:74px" type="number" min="0" value="' + esc(k.quantity || 0) +
+              '" data-qty="' + k.id + '"' + (k.unlimited ? ' disabled' : '') + '>' +
+            '<button class="btn btn-x" data-unl="' + k.id + '">' + (k.unlimited ? 'Make countable' : 'Unlimited') + '</button>' +
+            '<button class="btn btn-x" data-tog="bookableResources" data-id="' + k.id + '">' +
+              (k.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
+            '<span class="pill ' + (k.active === false ? 'off' : 'on') + '">' +
+              (k.active === false ? 'Out of use' : 'In use') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<p class="hint mt-1">' + (k.unlimited ? 'Unlimited' : 'There are ' + esc(k.quantity || 0)) +
+          (home ? ' · lives in ' + esc(home.name) : '') + '</p>' +
+      '</div>';
+    }).join('');
+  }
+  $('k-add').addEventListener('click', function () {
+    var name = $('k-name').value.trim();
+    if (!name) { toast('Give the kit a name'); return; }
+    db.collection('bookableResources').add({
+      name: name, quantity: $('k-unl').checked ? 0 : (Number($('k-qty').value) || 0),
+      unlimited: $('k-unl').checked, homeRoomId: $('k-room').value || '',
+      active: true, order: nextOrder(kit)
+    }).then(function () { $('k-name').value = ''; $('k-qty').value = '1'; $('k-unl').checked = false; toast('Kit added'); }).catch(oops);
+  });
+  document.addEventListener('change', function (e) {
+    if (!e.target.dataset || !e.target.dataset.qty) return;
+    db.collection('bookableResources').doc(e.target.dataset.qty)
+      .update({ quantity: Number(e.target.value) || 0 }).catch(oops);
+  });
+
+  /* ---- venues ------------------------------------------------------- */
+  var vTimer;
+  $('v-q').addEventListener('input', function () {
+    var q = $('v-q').value.trim();
+    clearTimeout(vTimer);
+    if (q.length < 3) { $('v-hits').classList.add('hidden'); return; }
+    /* Photon, not Nominatim: Nominatim's terms forbid using it for
+       type-ahead. Debounced so a search runs on a pause, not a keystroke. */
+    vTimer = setTimeout(function () {
+      fetch('https://photon.komoot.io/api/?limit=6&lang=en&q=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var hits = (j.features || []).map(function (f) {
+            var p = f.properties || {};
+            var bits = [p.street, p.city, p.state].filter(Boolean);
+            return {
+              name: p.name || p.street || q,
+              addr: bits.join(', '),
+              pc: p.postcode || '',
+              lat: f.geometry && f.geometry.coordinates ? f.geometry.coordinates[1] : null,
+              lng: f.geometry && f.geometry.coordinates ? f.geometry.coordinates[0] : null
+            };
+          });
+          if (!hits.length) { $('v-hits').classList.add('hidden'); return; }
+          $('v-hits').innerHTML = hits.map(function (h, i) {
+            return '<div data-hit="' + i + '"><strong>' + esc(h.name) + '</strong>' +
+              (h.addr ? '<br><span class="hint">' + esc(h.addr) + (h.pc ? ' · ' + esc(h.pc) : '') + '</span>' : '') +
+              '</div>';
+          }).join('');
+          $('v-hits').classList.remove('hidden');
+          window.__vHits = hits;
+        })
+        .catch(function () { $('v-hits').classList.add('hidden'); });
+    }, 300);
+  });
+  $('v-hits').addEventListener('click', function (e) {
+    var d = e.target.closest('[data-hit]'); if (!d) return;
+    var h = (window.__vHits || [])[Number(d.dataset.hit)]; if (!h) return;
+    $('v-name').value = h.name; $('v-addr').value = h.addr; $('v-pc').value = h.pc;
+    window.__vLat = h.lat; window.__vLng = h.lng;
+    $('v-hits').classList.add('hidden');
+  });
+  $('v-add').addEventListener('click', function () {
+    var name = $('v-name').value.trim();
+    if (!name) { toast('Give the venue a name'); return; }
+    db.collection('venues').add({
+      name: name, address: $('v-addr').value.trim(), postcode: $('v-pc').value.trim().toUpperCase(),
+      lat: window.__vLat || null, lng: window.__vLng || null,
+      active: true, order: nextOrder(venues)
+    }).then(function () {
+      $('v-q').value = ''; $('v-name').value = ''; $('v-addr').value = ''; $('v-pc').value = '';
+      window.__vLat = window.__vLng = null; toast('Venue saved');
+    }).catch(oops);
+  });
+  function drawVenues() {
+    var box = $('venues-list');
+    if (!venues.length) { box.innerHTML = '<p class="hint py-3">No outside venues saved yet.</p>'; return; }
+    box.innerHTML = venues.slice().sort(byOrder).map(function (v) {
+      return '<div class="row">' +
+        '<div class="grid sm:grid-cols-2 gap-2 items-start">' +
+          '<div>' + nameField('venues', v) + '</div>' +
+          '<div class="flex flex-wrap gap-1 items-center">' +
+            '<button class="btn btn-x" data-tog="venues" data-id="' + v.id + '">' +
+              (v.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
+            '<span class="pill ' + (v.active === false ? 'off' : 'on') + '">' +
+              (v.active === false ? 'Out of use' : 'In use') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<p class="hint mt-1">' + esc(v.address || '—') + (v.postcode ? ' · ' + esc(v.postcode) : '') + '</p>' +
+      '</div>';
+    }).join('');
+  }
+
+  /* ---- who approves -------------------------------------------------- */
+  function personOpts(selected) {
+    return '<option value="">Nobody set</option>' + people.map(function (p) {
+      return '<option value="' + p.id + '"' + (p.id === selected ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+    }).join('');
+  }
+  function drawWho() {
+    var box = $('who-list');
+    if (!sites.length) { box.innerHTML = '<p class="hint py-3">Add a site first.</p>'; return; }
+    box.innerHTML = sites.slice().sort(byOrder).map(function (s) {
+      var cfg = settings[s.id] || {};
+      var admins = cfg.bookingsAdmins || [];
+      return '<div class="row">' +
+        '<h3 class="text-sm font-black mb-2">' + esc(s.name) + '</h3>' +
+        '<div class="grid sm:grid-cols-2 gap-3">' +
+          '<div><label class="lbl">Safeguarding lead</label><select class="inp" data-sg="' + s.id + '">' +
+            personOpts(cfg.safeguardingLead) + '</select></div>' +
+          '<div><label class="lbl">Safeguarding deputy</label><select class="inp" data-sgd="' + s.id + '">' +
+            personOpts(cfg.safeguardingDeputy) + '</select></div>' +
+          '<div class="sm:col-span-2"><label class="lbl">Bookings admins</label>' +
+            '<div class="flex gap-2"><select class="inp" data-badd="' + s.id + '">' + personOpts('') + '</select>' +
+            '<button class="btn btn-2 shrink-0" data-bgo="' + s.id + '">Add</button></div>' +
+            '<div class="mt-2 flex flex-wrap gap-2">' +
+              (admins.length ? admins.map(function (id) {
+                var p = people.find(function (x) { return x.id === id; });
+                return '<span class="pill">' + esc(p ? p.name : id) +
+                  ' <button data-brm="' + s.id + '" data-pid="' + id + '" style="font-weight:900">&times;</button></span>';
+              }).join('') : '<span class="hint">Nobody yet — only Core Team can approve here.</span>') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+  function saveSettings(siteId, patch) {
+    db.collection('bookingSettings').doc(siteId).set(patch, { merge: true })
+      .then(function () { toast('Saved'); }).catch(oops);
+  }
+  document.addEventListener('change', function (e) {
+    var d = e.target.dataset || {};
+    if (d.sg) saveSettings(d.sg, { safeguardingLead: e.target.value });
+    if (d.sgd) saveSettings(d.sgd, { safeguardingDeputy: e.target.value });
+  });
+
+  /* ---- one click handler for every row button ------------------------ */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var d = b.dataset || {};
+    if (d.mv) move(d.mv, d.mv === 'sites' ? sites : d.mv === 'rooms' ? rooms : kit, d.id, Number(d.d));
+    if (d.tog) {
+      var list = d.tog === 'sites' ? sites : d.tog === 'rooms' ? rooms : d.tog === 'venues' ? venues : kit;
+      var rec = list.find(function (x) { return x.id === d.id; });
+      db.collection(d.tog).doc(d.id).update({ active: rec && rec.active === false }).catch(oops);
+    }
+    if (d.unl) {
+      var k = kit.find(function (x) { return x.id === d.unl; });
+      db.collection('bookableResources').doc(d.unl).update({ unlimited: !(k && k.unlimited) }).catch(oops);
+    }
+    if (d.bgo) {
+      var sel = document.querySelector('[data-badd="' + d.bgo + '"]');
+      if (!sel || !sel.value) { toast('Choose somebody first'); return; }
+      var cur = (settings[d.bgo] || {}).bookingsAdmins || [];
+      if (cur.indexOf(sel.value) >= 0) { toast('Already there'); return; }
+      saveSettings(d.bgo, { bookingsAdmins: cur.concat([sel.value]) });
+    }
+    if (d.brm) {
+      var now = (settings[d.brm] || {}).bookingsAdmins || [];
+      saveSettings(d.brm, { bookingsAdmins: now.filter(function (x) { return x !== d.pid; }) });
+    }
+  });
+
+  /* ---- seed --------------------------------------------------------- */
+  $('seed').addEventListener('click', function () {
+    if (sites.length || rooms.length) { toast('Already set up — nothing seeded'); return; }
+    if (!confirm('Create the site "Esher Green" with Online and the seven rooms?')) return;
+    db.collection('sites').add({
+      name: 'Esher Green', address: '', postcode: '', lat: null, lng: null, active: true, order: 1
+    }).then(function (ref) {
+      var batch = db.batch();
+      SEED_ROOMS.forEach(function (r, i) {
+        batch.set(db.collection('rooms').doc(), {
+          name: r.name, kind: r.kind, siteId: r.kind === 'online' ? '' : ref.id,
+          videoRoom: r.videoRoom || '', capacity: r.capacity || 0,
+          colour: r.colour || '#3d6263', accessible: !!r.accessible,
+          bookableByMembers: true, bookableByHirers: r.kind !== 'online',
+          description: '', photoUrl: '', active: true, order: i + 1
+        });
+      });
+      return batch.commit();
+    }).then(function () { toast('Seeded — rename anything you like'); }).catch(oops);
+  });
+
+  /* ---- live data ---------------------------------------------------- */
+  function watch(coll, into, after) {
+    db.collection(coll).onSnapshot(function (snap) {
+      var out = [];
+      snap.forEach(function (d) { var o = d.data() || {}; o.id = d.id; out.push(o); });
+      into(out); after();
+    }, function (e) { console.error(coll, e); toast('Could not read ' + coll); });
+  }
+
+  function start(profile) {
+    me = profile;
+    db = EGBCAuth.db;
+
+    watch('sites', function (v) { sites = v; }, function () { drawSites(); drawRooms(); });
+    watch('rooms', function (v) { rooms = v; }, function () { drawRooms(); drawKit(); });
+    watch('bookableResources', function (v) { kit = v; }, drawKit);
+    watch('venues', function (v) { venues = v; }, drawVenues);
+    watch('bookingSettings', function (v) {
+      settings = {}; v.forEach(function (s) { settings[s.id] = s; });
+    }, drawWho);
+
+    $('r-video').innerHTML = Object.keys(VIDEO_ROOMS).map(function (k) {
+      return '<option value="' + k + '">' + esc(VIDEO_ROOMS[k]) + '</option>';
+    }).join('');
+
+    /* People, for the approver and safeguarding pickers. Read-only, and only
+       the name and id — this page never writes to the address book. */
+    db.collection('addressBook').get().then(function (snap) {
+      people = [];
+      snap.forEach(function (d) {
+        var n = (d.data().name || d.data().fullName || '').trim();
+        if (n) people.push({ id: d.id, name: n });
+      });
+      people.sort(function (a, b) { return a.name.localeCompare(b.name); });
+      drawWho();
+    }).catch(function (e) { console.error(e); toast('Could not read the address book'); });
+  }
+
+  document.addEventListener('egbc-ready', function (e) { start(e.detail); });
+})();
+</script>
+</body>
+</html>

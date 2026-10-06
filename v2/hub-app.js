@@ -1286,6 +1286,11 @@ const REGISTRY = [
     description: 'Plan the running order' },
   { url: 'addressbook.html', title: 'Address Book', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
     description: 'People, households and teams' },
+  /* Sites, rooms, bookable kit and outside venues. adminOnly because it is
+     where a room is taken out of use, which changes what everybody else can
+     book. Any team admin may open it, which matches isAdmin() in the rules. */
+  { url: 'places-admin.html', title: 'Places', icon: '\u{1F3E0}', team: 'Core Team', adminOnly: true,
+    description: 'Sites, rooms, kit and venues' },
 
   /* -- reachable only from SharePoint today --------------------------
      Nothing in the repo links to these, and they are not in the menu.

@@ -71,7 +71,12 @@
      See EMULATOR.md. */
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     try {
-      db.useEmulator('localhost', 8080);
+      /* 8181, not 8080: firebase.json moved the Firestore emulator off 8080
+         because the monitor bridge sits there, and this line stayed behind -
+         so every page served from localhost was pointed at the wrong port and
+         silently failed to reach the emulator. The test harness already reads
+         the port out of firebase.json; a page cannot, so the number is here. */
+      db.useEmulator('localhost', 8181);
       auth.useEmulator('http://localhost:9099');
       console.info('EGBCAuth: using local emulators');
     } catch (e) {
