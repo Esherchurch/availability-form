@@ -88,34 +88,73 @@ The remaining 29 are the rest of Step B. They are the same two shapes, and the
 scripts that did these five are reusable, but each needs its first data call
 gating and its main action re-checked, so they are not a blind find-and-replace.
 
-## A-005 — two main actions save nothing, and it is not the connection
+## A-005 — settled: the test was pressing the wrong control, all three times
 
-With the five on the emulator, the main-action proof could finally be run
-safely. Of the seven Group 1 pages:
+Not a page fault, not the connection, and not caused by Step B. Each page saves
+correctly when the control a person actually uses is the one that is pressed.
 
-| Page | Main action | Result |
+**What the controls really are** (read in the pages, then driven):
+
+| Page | What the test pressed | What a person presses |
 |---|---|---|
-| `view-only-rota.html` | renders the term, builds the full PDF | **pass** |
-| `addressbook.html` | adds a person, then edits them | **pass** |
-| `SundayServicePlanner.html` | saves the order | **pass** |
-| `videos.html` | adds a video | **pass** |
-| `resources.html` | adds a link | **fail** — nothing written |
-| `Planner.html` | changes an assignment | **fail** — nothing written |
-| `CoreTeamApp.html` | changes an assignment | **fail** — nothing written |
+| `resources.html` | `#linkSave` | `#linkSave` is a **wrapper div**; the button inside it calls `saveLink()` |
+| `Planner.html` | a `<select>` offering people | assignment is **drag and drop** (`onDropRole` → `assignPerson`). The only select listing people is `#memberPdfSelect`, which feeds the PDF buttons and writes nothing |
+| `CoreTeamApp.html` | a `<select>` offering people | a **role sheet**: `roleTap(eventId, role)` opens it, a person in it calls `doAssign()` |
 
-Every write is read back from Firestore rather than believed from the screen.
+So the first attempt changed a PDF picker and clicked an empty div, then
+reported that saving was broken. The pages were never asked to save.
 
-For Planner and CoreTeamApp the select *was* changed and the handler reported
-success, but every event document still carries the seed's `updateTime`, so
-nothing was saved. **Not yet established** whether the test is aiming at the
-wrong control — the role selects may only be the real ones inside an expanded
-row — or whether the save is genuinely broken. It is not the connection: both
-pages are proved signed in on the shared app and reading under the rules.
+**How that is known, rather than assumed:**
 
-`resources.html` has been on `EGBCAuth.db` all along and saves nothing either,
-with no alert and no console error.
+1. **Driven through the real controls, and read back.** Clicking the button
+   inside `#linkSave`, dropping a person on a role box, and tapping a role then
+   choosing somebody in the sheet: all three write, confirmed by reading the
+   document back out of Firestore rather than believing the screen. 3/3.
+2. **A refused write would have shown.** Unhandled rejections, `window.onerror`,
+   `console.error` and `alert` were all collected while each action ran. Empty
+   every time - which is what a write that succeeded looks like, and not what a
+   rejected one looks like, since a refused write rejects its promise.
+3. **Not caused by Step B, established by reading** - the pre-Step-B pages talk
+   to the live database and must not be run. `git diff c324969e 73a4de00` for
+   `Planner.html` is 10 lines in, 15 out, and `CoreTeamApp.html` 6 in, 11 out:
+   imports, the config block, the two handles and the duplicate SDK tags.
+   `assignPerson`, `doAssign`, `onDropRole`, `saveLink` and every `updateDoc`
+   are untouched. `resources.html` has **no diff at all** across Step B - it was
+   already on `EGBCAuth.db` - and it failed the same way, which on its own rules
+   Step B out as the cause.
 
-These three are the next thing to chase, and they belong to Step A2's R-007.
+**What the writes produced**, as evidence rather than a claim. The two rota
+actions landed on the same event in sequence, and the second moved the first:
+
+    ev_2026-10-11  updated 16:41:23   (the seed wrote 16:07)
+      Worship Leader=Alex Synthetic, Guitar=Bea Synthetic, Keyboard=Bea Synthetic,
+      Drums=Eli Synthetic, Sound=Cal Synthetic, Cameras=Dee Synthetic
+
+The Planner drop put Bea on Worship Leader; the CoreTeamApp sheet then put Alex
+there, and because Alex was already on Guitar it moved him and displaced Bea to
+Guitar - which is `doAssign`'s documented swap, working.
+
+**The lesson for B2.** A main-action proof has to press what a person presses.
+Reading the page for the handler first, and treating "nothing was written" as a
+question about the test before it is a claim about the page, is what turns a
+red result into a true one. Three of the seven Group 1 "failures" were mine.
+
+## A-007 — deploying the rules will stop the ORIGINAL site saving, not just v2
+
+Checked in the repo root, outside `v2/`: `Planner.html`, `addressbook.html` and
+`index.html` there each call `initializeApp` and load **no Firebase Auth SDK at
+all** - no `firebase-auth`, no `egbc-auth.js`, no sign-in anywhere. They run on
+the **same project**, `egbc-worship-planner`.
+
+So every read and write the original site makes is unauthenticated, and it works
+only because the rules are not deployed. Deploying `firestore.rules` would stop
+the original site saving on the day it is deployed - not only the v2 pages still
+on an app of their own.
+
+That makes the rules deployable **only at the switch-over to v2**, or with rules
+that still allow the original site's paths until then. Martin's decision at
+launch, and it belongs on the launch checklist (ONE-APP §7) when that page is
+built.
 
 ## A-006 — the live database still accepts writes from nobody
 
