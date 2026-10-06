@@ -258,6 +258,7 @@ Guests and hirers write without an account, so the rules carry the weight:
 - **Do not deploy Firestore rules.** Show tests passing; Martin deploys.
 - **Sensitive data is the riskiest part of this build.** Rules tests must prove: a member who is not a leader of that event cannot read `sensitiveResponses`; a guest's manage key reads only their own record; `concerns` are readable only by the safeguarding lead. Break each rule on purpose and show the test failing.
 - Every page works on a phone at 375px and in the hub app.
+- **Look:** every new page follows `v2/DESIGN.md` (Inter, Lucide icons via `egbc-ui.js`, sentence case, no emoji). Any field where people write formatted text uses `egbc-editor.js` — nobody types HTML. Copy patterns from `hub.html` and `meeting.html`.
 - Reuse before build: `egbc-auth.js`, `egbc-guard.js`, `egbc-shell.js`, the email function, the ICS writer, `meeting.html`. Name it, do not write a second one.
 - UK spelling, UK dates (Tue 20 Oct), 24-hour times.
 - Ambiguity goes in `v2/FINDINGS-events.md`; take the reading that builds least and carry on. Only stop if you cannot proceed.

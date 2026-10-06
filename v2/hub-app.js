@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v105';
+const HUB_BUILD = 'v108';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -82,9 +82,10 @@ function openTeamPicker() {
   document.getElementById('pickList').innerHTML = teams.map(t => {
     const c = EGBCAuth.TEAMS[t] || { label: t, colour: 'var(--brand)' };
     const n = PAGES.filter(p => p.team === t && p.enabled !== false).length;
-    return `<button class="pick-t" style="border-left-color:${c.colour}" onclick="chooseTeam('${t}')">
-      <span style="width:34px;height:34px;border-radius:50%;background:${c.colour};flex-shrink:0"></span>
-      <span><span class="nm">${esc(c.label)}</span><span class="ct">${n} tool${n === 1 ? '' : 's'}</span></span>
+    return `<button class="pick-t" onclick="chooseTeam('${t}')">
+      <span style="width:10px;height:10px;border-radius:50%;background:${c.colour};flex-shrink:0;margin:0 4px"></span>
+      <span style="flex:1"><span class="nm">${esc(c.label)}</span><span class="ct">${n} tool${n === 1 ? '' : 's'}</span></span>
+      <i data-lucide="chevron-right" style="width:16px;height:16px;color:var(--faint)"></i>
     </button>`;
   }).join('');
 
@@ -103,9 +104,8 @@ function applyTeam() {
   const btn = document.getElementById('teamSwitch');
   if (availableTeams().length > 1) {
     btn.style.display = '';
-    btn.innerHTML = esc(c.label) + ' <span style="opacity:.5;font-size:9px">&#9662;</span>';
-    btn.style.borderColor = c.colour;
-    btn.style.color = c.colour;
+    btn.innerHTML = `<span class="dot" style="background:${c.colour}"></span><span>${esc(c.label)}</span>` +
+      '<i data-lucide="chevron-down" style="width:15px;height:15px;color:var(--muted)"></i>';
   }
   loadHero();
   loadCharter();
@@ -117,10 +117,13 @@ function applyTeam() {
 EGBCAuth.require().then(async profile => {
   ME = profile;
   document.getElementById('av').textContent = initials(profile.name || profile.email);
+  document.getElementById('whoName').textContent = profile.name || '';
+  document.getElementById('whoEmail').textContent = profile.email || '';
 
   if (EGBCAuth.isAdmin()) {
     document.getElementById('adminBtn').style.display = '';
     document.getElementById('editModeBtn').style.display = '';
+    setEditButton();
   }
 
   await Promise.all([loadNews(), loadPages(), loadTeamPanels(), loadMeetings()]);
@@ -144,10 +147,17 @@ function toggleEditMode() {
   document.body.classList.toggle('editing', EDITING);
   const he = document.getElementById('heroEdit');
   if (he) he.style.display = (EDITING && (EGBCAuth.isMaster() || (TEAM && EGBCAuth.isAdminOf(TEAM)))) ? '' : 'none';
-  document.getElementById('editModeBtn').classList.toggle('on', EDITING);
-  document.getElementById('editModeBtn').textContent = EDITING ? 'Done' : 'Edit mode';
+  setEditButton();
   renderTeamPanels();
   renderNews();
+}
+
+function setEditButton() {
+  const b = document.getElementById('editModeBtn');
+  b.classList.toggle('on', EDITING);
+  b.innerHTML = EDITING
+    ? '<i data-lucide="check" style="width:16px;height:16px"></i><span class="hide-sm">Done</span>'
+    : '<i data-lucide="pencil" style="width:16px;height:16px"></i><span class="hide-sm">Edit</span>';
 }
 
 /* ---- TEAM PANELS ---------------------------------------------------
@@ -179,12 +189,12 @@ function renderTeamPanels() {
     const d = TEAMCONTENT[t] || {};
     const canEdit = EGBCAuth.isAdminOf(t);
     if (!d.body && !(EDITING && canEdit)) return '';
-    return `<div class="tp" style="border-left-color:${c.colour}">
+    return `<div class="tp">
       <div class="hd">
-        <span class="nm" style="color:${c.colour}">${esc(c.label)}</span>
-        ${EDITING && canEdit ? `<button class="btn" style="padding:5px 12px;margin-left:auto" onclick="editTeamPanel('${t}')">Edit</button>` : ''}
+        <span class="nm"><span class="dot" style="background:${c.colour}"></span>${esc(c.label)}</span>
+        ${EDITING && canEdit ? `<button class="btn sm ghost" style="margin-left:auto" onclick="editTeamPanel('${t}')"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit</button>` : ''}
       </div>
-      ${d.title ? `<h3 style="font-size:18px;font-weight:900;margin-bottom:8px">${esc(d.title)}</h3>` : ''}
+      ${d.title ? `<h3 style="font-size:17px;font-weight:600;margin-bottom:8px">${esc(d.title)}</h3>` : ''}
       <div class="rich">${d.body ? safeHtml(d.body) : '<p style="color:var(--faint);font-style:italic">Nothing for this team yet.</p>'}</div>
     </div>`;
   }).join('');
@@ -718,6 +728,10 @@ const VIDEO_DEFAULT_BY_TYPE = {
   'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV',
 };
 const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
+const VIDEO_ROOM_LABELS = {
+  'Worship-AV': 'Worship & AV', 'worship-core-team': 'Worship Core Team', 'Prayer': 'Prayer',
+  'Eldership': 'Eldership', 'CMM': 'CMM', 'kids-ministries': 'Kids Ministries', 'interviews': 'Interviews',
+};
 let MEETINGS = [];
 
 /* Mine if it is for one of my teams (the rota calls Youth Worship "Youth"),
@@ -748,25 +762,39 @@ async function loadMeetings() {
 function renderMeetings() {
   const box = document.getElementById('meetingsCard');
   if (!box) return;
-  if (!MEETINGS.length) { box.innerHTML = ''; return; }
   const today = new Date().toISOString().split('T')[0];
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
   const rows = MEETINGS.slice(0, 5).map(ev => {
     const link = `meeting.html?room=${encodeURIComponent(videoRoomFor(ev))}&event=${encodeURIComponent(ev.id)}`;
-    const day = ev.date === today ? 'Today'
-      : new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-    const time = ev.startTime ? ` &middot; ${esc(ev.startTime)}${ev.endTime ? '&ndash;' + esc(ev.endTime) : ''}` : '';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)">
+    const d = new Date(ev.date + 'T12:00');
+    const mon = d.toLocaleDateString('en-GB', { month: 'short' });
+    const dow = d.toLocaleDateString('en-GB', { weekday: 'short' });
+    const time = ev.startTime ? `${esc(ev.startTime)}${ev.endTime ? '&ndash;' + esc(ev.endTime) : ''}` : '';
+    return `<div class="meet">
+        <div class="dt"><div class="m">${mon}</div><div class="d">${d.getDate()}</div></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:800;color:var(--ink)">${esc(ev.type)}${ev.description ? ' &middot; ' + esc(ev.description) : ''}</div>
-          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-top:2px">${day}${time}</div>
+          <div class="t">${esc(ev.type)}${ev.description ? ' &middot; ' + esc(ev.description) : ''}</div>
+          <div class="s">${I('clock')}${dow}${time ? ' ' + time : ''} <span>&middot;</span> ${I('video')}${esc(VIDEO_ROOM_LABELS[videoRoomFor(ev)] || videoRoomFor(ev))}</div>
         </div>
-        <a class="btn solid" style="text-decoration:none;flex-shrink:0" href="${link}">Join</a>
+        ${ev.date === today ? '<span class="pill">Today</span>' : ''}
+        <a class="btn sm primary" href="${link}">Join</a>
       </div>`;
   }).join('');
-  box.innerHTML = `<div class="card" style="margin-bottom:16px">
-      <div class="lab">&#128249; Video meetings</div>
-      ${rows}
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:10px;line-height:1.5">Type your name and knock &mdash; the host will let you in.</div>
+  const none = MEETINGS.length ? ''
+    : '<div style="font-size:14px;color:var(--muted);padding:6px 0">No online meetings coming up for your teams.</div>';
+  box.innerHTML = `<div class="card flush">
+      <div class="ch">
+        <div class="ic">${I('video', 18)}</div>
+        <h2>Video meetings</h2>
+        <div class="sp">
+          <a class="btn sm" href="meeting.html?new=1">${I('plus', 15)}<span class="hide-sm">New meeting</span></a>
+          <a class="btn sm ghost" href="meeting.html">All rooms</a>
+        </div>
+      </div>
+      <div class="cb" style="padding-top:6px;padding-bottom:14px">
+        ${rows}${none}
+        <div class="note">Type your name and knock &mdash; the host will let you in.</div>
+      </div>
     </div>`;
 }
 
@@ -784,7 +812,7 @@ async function loadNews() {
   } catch (e) {
     console.error('News load failed', e);
     document.getElementById('newsTrack').innerHTML =
-      '<div class="empty"><div class="i">&#128226;</div><div class="t">No news yet</div></div>';
+      '<div class="empty"><div class="i"><i data-lucide="megaphone" style="width:28px;height:28px"></i></div><div class="t">No news yet</div></div>';
   }
 }
 
@@ -840,10 +868,13 @@ function renderNews() {
   document.getElementById('pinned').innerHTML = pinned.map(n => {
     const seen = (n.ackedBy || []).length;
     return `<div class="pin">
-      <div class="tag">&#9733; Please read</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="tag"><i data-lucide="pin" style="width:14px;height:14px"></i>Please read</div>
+        ${EDITING && canEditNews(n) ? `<button class="btn sm ghost" style="margin-left:auto" onclick="openNewsEditor('${n.id}')"><i data-lucide="pencil" style="width:14px;height:14px"></i>Edit</button>` : ''}
+      </div>
       <h3>${esc(n.title)}</h3>
       <div class="bd">${safeHtml(n.body)}</div>
-      ${n.requireAck ? `<button class="btn gold" onclick="ackNews('${n.id}')">I've read it</button>
+      ${n.requireAck ? `<button class="btn gold sm" onclick="ackNews('${n.id}')"><i data-lucide="check" style="width:15px;height:15px"></i>I've read it</button>
         ${EDITING && canEditNews(n) ? `<span class="seen">${seen} so far</span>` : ''}` : ''}
     </div>`;
   }).join('');
@@ -851,7 +882,7 @@ function renderNews() {
   const track = document.getElementById('newsTrack');
 
   if (!rest.length) {
-    track.innerHTML = '<div class="empty"><div class="i">&#128226;</div><div class="t">Nothing new</div></div>';
+    track.innerHTML = '<div class="empty"><div class="i"><i data-lucide="megaphone" style="width:28px;height:28px"></i></div><div class="t">Nothing new</div></div>';
     stopNewsScroll();
     return;
   }
@@ -868,14 +899,17 @@ function renderNews() {
 
 function newsCard(n) {
   const tags = (n.teams || []).map(t => {
-    const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
-    return `<span class="t" style="background:${c.colour}">${esc(c.label)}</span>`;
+    const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b7280' };
+    return `<span class="t"><span class="dot" style="background:${c.colour}"></span>${esc(c.label)}</span>`;
   }).join('');
   return `<div class="nw">
     <div class="m">
-      ${tags || '<span class="t" style="background:#6b8281">Everyone</span>'}
-      <span class="d">${when(n.createdAt)}</span>
-      ${EDITING && canEditNews(n) ? `<button class="del" onclick="deleteNews('${n.id}')">Remove</button>` : ''}
+      ${tags || '<span class="t"><span class="dot" style="background:#9ca3af"></span>Everyone</span>'}
+      <span class="d">&middot; ${when(n.createdAt)}</span>
+      ${EDITING && canEditNews(n) ? `<span class="acts">
+        <button onclick="openNewsEditor('${n.id}')" title="Edit"><i data-lucide="pencil" style="width:13px;height:13px"></i>Edit</button>
+        <button class="del" onclick="deleteNews('${n.id}')" title="Remove"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button>
+      </span>` : ''}
     </div>
     <h4>${esc(n.title)}</h4>
     <div class="bd">${safeHtml(n.body)}</div>
@@ -952,13 +986,14 @@ function openRead(id) {
   const n = NEWS.find(x => x.id === id);
   if (!n) return;
 
+  const tag = (label, colour) => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--body)">
+      <span style="width:8px;height:8px;border-radius:50%;background:${colour}"></span>${esc(label)}</span>`;
   document.getElementById('rdMeta').innerHTML =
     ((n.teams || []).map(t => {
-      const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b8281' };
-      return `<span class="t" style="background:${c.colour};font-size:9px;font-weight:900;text-transform:uppercase;
-              letter-spacing:.08em;padding:3px 10px;border-radius:99px;color:#fff">${esc(c.label)}</span>`;
-    }).join('') || '<span class="t" style="background:#6b8281;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;padding:3px 10px;border-radius:99px;color:#fff">Everyone</span>') +
-    `<span style="font-size:11px;color:var(--faint);font-weight:700">${when(n.createdAt)}</span>`;
+      const c = EGBCAuth.TEAMS[t] || { label: t, colour: '#6b7280' };
+      return tag(c.label, c.colour);
+    }).join('') || tag('Everyone', '#9ca3af')) +
+    `<span style="font-size:13px;color:var(--faint)">&middot; ${when(n.createdAt)}</span>`;
 
   document.getElementById('rdTitle').textContent = n.title;
   document.getElementById('rdBody').innerHTML = safeHtml(n.body);
@@ -995,7 +1030,7 @@ function openNewsEditor(id) {
   document.getElementById('newsModalTitle').textContent = n ? 'Edit notice' : 'New notice';
   document.getElementById('nwId').value = n ? n.id : '';
   document.getElementById('nwTitle').value = n ? n.title : '';
-  document.getElementById('nwBody').value = n ? n.body : '';
+  newsEditor().setHTML(n ? n.body : '');
   document.getElementById('nwPinned').checked = n ? !!n.pinned : false;
   document.getElementById('nwAck').checked = n ? !!n.requireAck : false;
 
@@ -1029,6 +1064,23 @@ function openNewsEditor(id) {
 }
 function closeNewsEditor() { document.getElementById('newsModal').classList.remove('on'); }
 
+/* Notices are written in a proper editor (egbc-editor.js): toolbar buttons,
+   and a pasted email is cleaned to plain formatting on the way in. Pictures
+   go to the banners folder, which signed-in people may already write to. */
+let NEWS_ED = null;
+function newsEditor() {
+  if (NEWS_ED) return NEWS_ED;
+  NEWS_ED = EGBCEditor.mount(document.getElementById('nwBody'), {
+    placeholder: 'What do people need to know? You can paste an email straight in.',
+    upload: async file => {
+      const path = `banners/notice-${Date.now()}-${file.name.replace(/[^\w.-]+/g, '_')}`;
+      await storage.ref(path).put(file, { contentType: file.type, cacheControl: 'public,max-age=31536000' });
+      return storage.ref(path).getDownloadURL();
+    }
+  });
+  return NEWS_ED;
+}
+
 function pickTeam(el) {
   if (el.dataset.team === '') {
     document.querySelectorAll('#nwTeams .chip').forEach(c => c.classList.toggle('on', c === el));
@@ -1040,7 +1092,7 @@ function pickTeam(el) {
 
 async function saveNews() {
   const title = document.getElementById('nwTitle').value.trim();
-  const body = document.getElementById('nwBody').value.trim();
+  const body = newsEditor().getHTML();
   if (!title) { alert('It needs a title.'); return; }
 
   const teams = Array.from(document.querySelectorAll('#nwTeams .chip.on'))
@@ -1086,6 +1138,15 @@ async function loadPages() {
    to it, so it is registered - but it stays out of the tools list while it
    is named here. Take it out of this list if it should be a tile. */
 const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html', 'performancenotes.html'];
+
+/* Shown in Where to? even before an admin has pressed "Add the missing
+   pages", so a new feature is reachable the moment it ships. Once the page is
+   in hubPages that copy wins and this one is skipped. egbc-shell.js carries
+   the same entry for its menu. */
+const BUILT_IN_PAGES = [
+  { id: 'builtin-meeting', url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
+    description: 'Video meetings - set one up, join a call, every meeting room' },
+];
 
 /* Charters live on the landing page now, so a link to them here is noise. */
 function isCharterPage(url) {
@@ -1329,7 +1390,9 @@ const REGISTRY = [
   { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
     description: 'Watch your team\'s videos, and search inside them' },
   { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
-    description: 'Take a copy of everything, or put one back' }
+    description: 'Take a copy of everything, or put one back' },
+  { url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
+    description: 'Video meetings - your upcoming calls and every meeting room' }
 ];
 
 /* AVteamlandingpage carries no text of its own, so a tile pointing at it
@@ -1504,7 +1567,9 @@ function visibleOne(p) {
 function visibleTools() {
   const mine = myTeams();
   const admin = EGBCAuth.adminAreas();
-  return PAGES.filter(p => {
+  const have = new Set(PAGES.map(p => (p.url || '').toLowerCase()));
+  const all = [...BUILT_IN_PAGES.filter(b => !have.has(b.url.toLowerCase())), ...PAGES];
+  return all.filter(p => {
     if (!isTile(p)) return false;
     if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
     /* Help and training is not a team's tool - anyone may need to learn how
@@ -1525,12 +1590,13 @@ function renderTools() {
     const teams = availableTeams();
     const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM || '-', colour: 'var(--brand)' };
     sw.innerHTML = teams.length > 1
-      ? `<button class="switch-row" onclick="openTeamPicker()" style="border-left:4px solid ${c.colour}">
+      ? `<button class="switch-row" onclick="openTeamPicker()">
+           <span style="width:10px;height:10px;border-radius:50%;background:${c.colour};flex-shrink:0;margin:0 2px"></span>
            <span style="flex:1">
              <span class="lbl">Team</span><br>
              <span class="val">${esc(c.label)}</span>
            </span>
-           <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--brand)">Switch</span>
+           <span style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:500;color:var(--brand)">Switch<i data-lucide="chevron-right" style="width:15px;height:15px"></i></span>
          </button>`
       : '';
   }
@@ -1566,13 +1632,13 @@ function renderTools() {
   console.info(`Tools: ${PAGES.length} registered, ${tools.length} visible, team ${TEAM}`);
 
   if (!tools.length) {
-    el.innerHTML = `<div class="empty"><div class="i">&#128269;</div>
+    el.innerHTML = `<div class="empty"><div class="i"><i data-lucide="search-x" style="width:28px;height:28px"></i></div>
       <div class="t">${q ? 'Nothing matches' : 'Nothing here'}</div>
       ${!q ? `<div style="font-size:12px;font-weight:600;margin-top:10px;line-height:1.6">
         ${PAGES.length
           ? `${PAGES.length} registered, but none for <strong>${esc(TEAM || 'this team')}</strong>.`
           : 'Nothing is registered yet.'}
-        ${EGBCAuth.isAdmin() ? '<br>Open <strong>&#9881;</strong> and go to <strong>Pages</strong>.' : ''}</div>` : ''}
+        ${EGBCAuth.isAdmin() ? '<br>Open <strong>Administration</strong> (the cog) and go to <strong>Pages</strong>.' : ''}</div>` : ''}
     </div>`;
     return;
   }
@@ -1596,8 +1662,9 @@ function renderTools() {
       ? { label: 'Everyone', colour: '#6b8281' }
       : (EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' });
     const open = q ? true : (team === TEAM || (i === 0 && !order.includes(TEAM)));
-    return `<button class="grp ${open ? 'open' : ''}" onclick="toggleGroup(this)" style="border-left:4px solid ${c.colour}">
-        <span class="arw">&#9654;</span>
+    return `<button class="grp ${open ? 'open' : ''}" onclick="toggleGroup(this)">
+        <span class="arw"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
+        <span class="dot" style="background:${c.colour}"></span>
         <span>${esc(c.label)}</span>
         <span class="cnt">${byTeam[team].length}</span>
       </button>
@@ -1639,13 +1706,13 @@ function nestTools(list) {
 
   const row = p => {
     const tile = `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
-      <span class="ic">${p.icon || '&#128196;'}</span>
-      <span class="nm">${esc(p.title)}</span>
+      <span class="ic"><i data-lucide="${EGBCUI.pageIcon(p)}" style="width:18px;height:18px"></i></span>
+      <span class="tx"><span class="nm">${esc(p.title)}</span>${p.description ? `<span class="ds">${esc(p.description)}</span>` : ''}</span>
     </a>`;
     const h = help[(p.url || '').toLowerCase()];
     if (!h) return tile;
     return `<div class="toolrow">${tile}<a class="toolhelp" href="${esc(h.url)}"
-      title="${esc(h.title)}" aria-label="${esc(h.title)}">?</a></div>`;
+      title="${esc(h.title)}" aria-label="${esc(h.title)}"><i data-lucide="circle-help" style="width:17px;height:17px"></i></a></div>`;
   };
 
   const sub = h => {

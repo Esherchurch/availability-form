@@ -37,106 +37,117 @@
     el.textContent = [
       /* The suite already uses these values; naming them means a page can
          pick them up without hunting for the hex. */
-      ':root{--egbc-canvas:#eef4f3;--egbc-ink:#14201f;--egbc-body:#3a4d4c;--egbc-muted:#6b8281;',
-      '--egbc-faint:#93a8a6;--egbc-line:#dde7e6;--egbc-brand:#3d6263;--egbc-brand-dark:#2e4c4d;',
-      '--egbc-tint:#e7f0ef;--egbc-page:' + (WIDTHS[width] || WIDTHS.page) + '}',
+      ':root{--egbc-canvas:#f6f7f7;--egbc-ink:#111827;--egbc-body:#374151;--egbc-muted:#6b7280;',
+      '--egbc-faint:#9ca3af;--egbc-line:#e5e7eb;--egbc-line-2:#d1d5db;--egbc-brand:#3d6263;--egbc-brand-dark:#2a4a4b;',
+      '--egbc-tint:#eef5f4;--egbc-page:' + (WIDTHS[width] || WIDTHS.page) + '}',
 
-      /* A white bar on the suite's near-white page measured 1.11:1 against it -
-         no separation at all, so it read as part of the page and was missed at
-         a glance. A solid brand band is unmistakably chrome, and every label on
-         it clears WCAG AA. */
-      /* Inset and rounded, not full-bleed. Every panel on these pages is a
-         rounded card with a margin, so a square edge-to-edge band sat in a
-         different visual language from everything under it. */
-      /* No horizontal margin of its own: the page's existing gutter positions
-         it, so the bar lines up with whatever that page's panels line up with
-         rather than sitting a few pixels inside them. Widths across the suite
-         run from 560px to 1900px, so a fixed inset could never match them all. */
-      '#egbc-bar{position:sticky;top:12px;z-index:9000;display:flex;align-items:center;',
-      'justify-content:space-between;gap:12px;margin:12px 0 0;padding:11px 18px;',
-      'border-radius:18px;background:var(--egbc-brand);',
-      'box-shadow:0 4px 18px rgba(20,32,31,.24);font-family:Montserrat,system-ui,sans-serif}',
-      '@media(max-width:700px){#egbc-bar{margin:8px 0 0;top:8px;border-radius:14px}}',
+      /* v108: white bar, clear border and shadow. The earlier white bar was
+         lost against the page (1.11:1); a mid-grey border plus a shadow gives
+         it an edge, and the brand colour moves to the one button that matters.
+         Inset and rounded, no horizontal margin of its own - the page's own
+         gutter positions it, as before. */
+      '#egbc-bar{position:sticky;top:10px;z-index:9000;display:flex;align-items:center;',
+      'justify-content:space-between;gap:12px;margin:10px 0 0;padding:8px 10px 8px 12px;',
+      'border-radius:14px;background:#fff;border:1px solid var(--egbc-line-2);',
+      'box-shadow:0 1px 2px rgba(16,24,40,.06),0 6px 16px rgba(16,24,40,.08);',
+      'font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}',
+      '@media(max-width:700px){#egbc-bar{margin:8px 0 0;top:8px;border-radius:12px}}',
 
-      '#egbc-bar .eb-l{display:flex;align-items:center;gap:11px;min-width:0}',
-      '#egbc-bar img{width:34px;height:34px;border-radius:50%;object-fit:cover;',
-      'border:2px solid rgba(255,255,255,.4);background:#fff;flex-shrink:0}',
-      '#egbc-bar .eb-k{font-size:9px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;',
-      'color:#cfe2e1;line-height:1.4;white-space:nowrap}',
-      '#egbc-bar .eb-n{font-size:15px;font-weight:900;color:#fff;line-height:1.25;',
+      '#egbc-bar .eb-l{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none}',
+      '#egbc-bar img{width:32px;height:32px;border-radius:8px;object-fit:cover;',
+      'border:1px solid var(--egbc-line);background:#fff;flex-shrink:0}',
+      '#egbc-bar .eb-k{font-size:12px;font-weight:400;color:var(--egbc-muted);line-height:1.3;white-space:nowrap}',
+      '#egbc-bar .eb-n{font-size:15px;font-weight:600;color:var(--egbc-ink);line-height:1.25;',
       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
 
-      '#egbc-bar .eb-r{display:flex;align-items:center;gap:8px;flex-shrink:0}',
-      '#egbc-bar a.eb-b,#egbc-bar button.eb-b{font-family:inherit;font-size:10.5px;font-weight:900;',
-      'letter-spacing:.1em;text-transform:uppercase;padding:10px 17px;border-radius:99px;',
-      'border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;cursor:pointer;',
-      'text-decoration:none;transition:.15s;white-space:nowrap}',
-      '#egbc-bar a.eb-b:hover,#egbc-bar button.eb-b:hover{background:#fff;color:var(--egbc-brand);border-color:#fff}',
-      '#egbc-bar a.eb-b:focus-visible,#egbc-bar button.eb-b:focus-visible{outline:2px solid #fff;outline-offset:2px}',
+      '#egbc-bar .eb-r{display:flex;align-items:center;gap:6px;flex-shrink:0}',
+      '#egbc-bar a.eb-b,#egbc-bar button.eb-b{display:inline-flex;align-items:center;gap:7px;height:36px;',
+      'font-family:inherit;font-size:13px;font-weight:500;padding:0 13px;border-radius:8px;',
+      'border:1px solid var(--egbc-line-2);background:#fff;color:var(--egbc-ink);cursor:pointer;',
+      'text-decoration:none;transition:background .12s,border-color .12s;white-space:nowrap}',
+      '#egbc-bar a.eb-b:hover,#egbc-bar button.eb-b:hover{background:#f3f4f6}',
+      '#egbc-bar a.eb-b:focus-visible,#egbc-bar button.eb-b:focus-visible{outline:2px solid var(--egbc-brand);outline-offset:2px}',
+      '#egbc-bar .eb-b.eb-ghost{border-color:transparent;background:transparent;color:var(--egbc-muted)}',
+      '#egbc-bar .eb-b.eb-ghost:hover{color:var(--egbc-ink);background:#f3f4f6}',
       /* The menu is the point of the bar, so it is the one solid button. */
-      '#egbc-bar button.eb-nav{background:#fff;color:var(--egbc-brand);border-color:#fff}',
-      '#egbc-bar button.eb-nav:hover{background:var(--egbc-tint);border-color:var(--egbc-tint)}',
-      '#egbc-nav .en-g{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;',
-      'font:inherit;font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;',
-      'color:var(--egbc-ink);background:#fff;border:1px solid var(--egbc-line);border-radius:12px;',
-      'padding:13px 15px;margin:0 0 2px}',
-      '#egbc-nav .en-g:hover{border-color:var(--egbc-brand)}',
-      '#egbc-nav .en-g .en-cnt{margin-left:auto;font-size:10px;font-weight:800;color:var(--egbc-faint);letter-spacing:0}',
-      '#egbc-nav .en-g .en-arw{font-size:11px;color:var(--egbc-faint);transition:transform .18s}',
-      '#egbc-nav .en-g.open .en-arw{transform:rotate(90deg)}',
-      '#egbc-nav .en-b{overflow:hidden;max-height:0;transition:max-height .22s ease;margin-bottom:9px}',
-      '#egbc-nav .en-b.open{max-height:2400px;margin-top:7px}',
-      '#egbc-bar .eb-av{width:29px;height:29px;border-radius:50%;background:#fff;color:var(--egbc-brand);',
-      'display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:900;flex-shrink:0}',
-      '#egbc-bar .eb-who{font-size:11.5px;font-weight:700;color:#e4efee;white-space:nowrap}',
+      '#egbc-bar button.eb-nav{background:var(--egbc-brand);color:#fff;border-color:var(--egbc-brand)}',
+      '#egbc-bar button.eb-nav:hover{background:var(--egbc-brand-dark);border-color:var(--egbc-brand-dark)}',
+      '#egbc-bar .eb-av{width:32px;height:32px;border-radius:50%;background:var(--egbc-tint);color:var(--egbc-brand-dark);',
+      'display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;margin-left:4px}',
+      '#egbc-bar .eb-who{font-size:13px;font-weight:500;color:var(--egbc-body);white-space:nowrap}',
 
       /* Even out the page width without touching the page's own layout. */
       'body>.egbc-w,body>main,body>.container,body>.wrap{max-width:var(--egbc-page);margin-left:auto;margin-right:auto}',
 
       /* ---- the menu ---- */
-      '#egbc-nav-scrim{position:fixed;inset:0;background:rgba(20,32,31,.42);z-index:9500;',
+      '#egbc-nav-scrim{position:fixed;inset:0;background:rgba(17,24,39,.35);z-index:9500;',
       'opacity:0;pointer-events:none;transition:opacity .18s}',
       '#egbc-nav-scrim.on{opacity:1;pointer-events:auto}',
 
-      '#egbc-nav{position:fixed;top:0;right:0;bottom:0;width:min(360px,88vw);z-index:9600;background:#fff;',
-      'border-left:1px solid var(--egbc-line);box-shadow:-18px 0 48px rgba(20,32,31,.16);',
+      '#egbc-nav{position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);z-index:9600;background:#fff;',
+      'border-left:1px solid var(--egbc-line);box-shadow:-12px 0 32px rgba(16,24,40,.12);',
       'transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;',
-      'font-family:Montserrat,system-ui,sans-serif}',
+      'font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:var(--egbc-ink)}',
       '#egbc-nav.on{transform:none}',
 
       '#egbc-nav .en-top{display:flex;align-items:center;justify-content:space-between;',
-      'padding:16px 18px 10px;border-bottom:1px solid var(--egbc-line)}',
-      '#egbc-nav .en-h{font-size:14px;font-weight:900;color:var(--egbc-ink)}',
-      '#egbc-nav .en-q{margin:12px 16px;padding:11px 16px;border:1px solid var(--egbc-line);border-radius:99px;',
-      'font-family:inherit;font-size:13px;font-weight:600;outline:none;background:#f6faf9;color:var(--egbc-ink)}',
-      '#egbc-nav .en-q:focus{border-color:var(--egbc-brand)}',
-      '#egbc-nav .en-list{flex:1;overflow-y:auto;padding:0 12px 20px}',
-      '#egbc-nav .en-i{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;',
-      'text-decoration:none;color:var(--egbc-ink);margin-bottom:5px;border:1px solid transparent;transition:.12s}',
-      '#egbc-nav .en-i:hover{background:var(--egbc-tint);border-color:var(--egbc-line)}',
-      '#egbc-nav .en-i.on{background:var(--egbc-tint);border-color:var(--egbc-brand)}',
-      '#egbc-nav .en-ic{width:30px;height:30px;border-radius:9px;background:#f0f6f6;display:flex;',
-      'align-items:center;justify-content:center;font-size:15px;flex-shrink:0}',
-      '#egbc-nav .en-t{font-size:13.5px;font-weight:800;line-height:1.3}',
-      '#egbc-nav .en-t em{font-style:normal;font-size:9px;font-weight:900;letter-spacing:.09em;',
-      'text-transform:uppercase;color:var(--egbc-muted);display:block;margin-top:2px}',
-      '#egbc-nav .en-e{padding:26px 16px;font-size:13px;color:var(--egbc-muted);font-weight:600;text-align:center}',
+      'padding:14px 16px 14px 20px;border-bottom:1px solid var(--egbc-line)}',
+      '#egbc-nav .en-h{font-size:15px;font-weight:600;color:var(--egbc-ink)}',
+      '#egbc-nav .en-x{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:0;',
+      'background:transparent;border-radius:8px;color:var(--egbc-muted);cursor:pointer}',
+      '#egbc-nav .en-x:hover{background:#f3f4f6;color:var(--egbc-ink)}',
+      '#egbc-nav .en-qw{position:relative;margin:16px 20px 6px}',
+      '#egbc-nav .en-qw svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--egbc-faint);pointer-events:none}',
+      '#egbc-nav .en-q{width:100%;box-sizing:border-box;height:38px;padding:0 12px 0 36px;border:1px solid var(--egbc-line-2);border-radius:8px;',
+      'font-family:inherit;font-size:14px;outline:none;background:#fff;color:var(--egbc-ink)}',
+      '#egbc-nav .en-q:focus{border-color:var(--egbc-brand);box-shadow:0 0 0 3px rgba(61,98,99,.15)}',
+      '#egbc-nav .en-list{flex:1;overflow-y:auto;padding:6px 12px 24px}',
+      '#egbc-nav .en-g{display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;',
+      'font:inherit;font-size:12px;font-weight:600;color:var(--egbc-muted);background:none;border:0;',
+      'border-radius:6px;padding:10px 8px 6px;margin:6px 0 0}',
+      '#egbc-nav .en-g:hover{color:var(--egbc-ink)}',
+      '#egbc-nav .en-g .en-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}',
+      '#egbc-nav .en-g .en-cnt{margin-left:auto;font-weight:500;color:var(--egbc-faint)}',
+      '#egbc-nav .en-g .en-arw{display:inline-flex;transition:transform .18s;color:var(--egbc-faint)}',
+      '#egbc-nav .en-g.open .en-arw{transform:rotate(90deg)}',
+      '#egbc-nav .en-b{overflow:hidden;max-height:0;transition:max-height .22s ease}',
+      '#egbc-nav .en-b.open{max-height:2400px}',
+      '#egbc-nav .en-i{display:flex;align-items:center;gap:12px;padding:8px;border-radius:8px;',
+      'text-decoration:none;color:var(--egbc-ink);transition:background .12s}',
+      '#egbc-nav .en-i:hover{background:#f3f4f6}',
+      '#egbc-nav .en-i.on{background:var(--egbc-tint)}',
+      '#egbc-nav .en-ic{width:34px;height:34px;border-radius:8px;border:1px solid var(--egbc-line);background:#fff;display:flex;',
+      'align-items:center;justify-content:center;color:var(--egbc-brand);flex-shrink:0}',
+      '#egbc-nav .en-t{font-size:14px;font-weight:500;line-height:1.3;min-width:0}',
+      '#egbc-nav .en-d{display:block;font-size:12px;font-weight:400;color:var(--egbc-muted);margin-top:1px;',
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '#egbc-nav .en-t em{font-style:normal;font-size:11px;font-weight:500;color:var(--egbc-brand);margin-left:6px}',
+      '#egbc-nav .en-e{padding:26px 16px;font-size:13px;color:var(--egbc-muted);text-align:center}',
 
       '@media(max-width:700px){',
-      '#egbc-bar{padding:8px 12px}',
-      '#egbc-bar .eb-k,#egbc-bar .eb-who{display:none}',
-      '#egbc-bar a.eb-b,#egbc-bar button.eb-b{padding:8px 12px}',
+      '#egbc-bar{padding:6px 8px}',
+      '#egbc-bar .eb-k,#egbc-bar .eb-who,#egbc-bar .eb-lbl{display:none}',
+      '#egbc-bar a.eb-b,#egbc-bar button.eb-b{padding:0 10px}',
       '}'
     ].join('');
     document.head.appendChild(el);
   }
 
+  /* Font and icons come from egbc-ui.js, so every page that has the bar
+     gets them without its own script tag. Loaded from beside this file. */
   function font() {
-    if (document.querySelector('link[href*="Montserrat"]')) return;
-    var l = document.createElement('link');
-    l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap';
-    document.head.appendChild(l);
+    if (window.EGBCUI || document.querySelector('script[src*="egbc-ui.js"]')) return;
+    var me = document.querySelector('script[src*="egbc-shell.js"]');
+    var s = document.createElement('script');
+    s.src = me ? me.getAttribute('src').replace('egbc-shell.js', 'egbc-ui.js') : 'egbc-ui.js';
+    document.head.appendChild(s);
+  }
+
+  function ic(name, size) {
+    return '<i data-lucide="' + name + '" style="width:' + (size || 18) + 'px;height:' + (size || 18) + 'px"></i>';
+  }
+  function pageIc(p) {
+    return window.EGBCUI ? EGBCUI.pageIcon(p) : 'file-text';
   }
 
   function initials(s) {
@@ -153,23 +164,22 @@
     /* A link back to the hub is not navigation - it is two clicks to reach
        anything. The same list the hub shows goes on every page. */
     var right = '';
-    if (profile) right += '<button class="eb-b eb-nav" id="egbc-nav-btn">&#9776;&nbsp; Where to?</button>';
-    right += '<a class="eb-b eb-home" href="hub.html">&larr;&nbsp; Hub</a>';
+    right += '<a class="eb-b eb-home" href="hub.html" title="Back to the Team Hub">' + ic('house', 16) + '<span class="eb-lbl">Hub</span></a>';
+    if (profile) right += '<button class="eb-b eb-nav" id="egbc-nav-btn">' + ic('layout-grid', 16) + '<span class="eb-lbl">Menu</span></button>';
     if (profile) {
-      right += '<div class="eb-av">' + initials(profile.name || profile.email) + '</div>' +
-               '<span class="eb-who">' + (profile.name || profile.email) + '</span>' +
-               '<button class="eb-b" style="border:none;background:none;color:#cfe2e1;padding:8px 4px" ' +
-               'onclick="EGBCAuth.signOut()">Sign out</button>';
+      var who = String(profile.name || profile.email).replace(/</g, '&lt;');
+      right += '<div class="eb-av" title="' + who + '">' + initials(profile.name || profile.email) + '</div>' +
+               '<button class="eb-b eb-ghost" title="Sign out" onclick="EGBCAuth.signOut()">' + ic('log-out', 16) + '</button>';
     }
 
     d.innerHTML =
-      '<div class="eb-l">' +
+      '<a class="eb-l" href="hub.html">' +
         '<img src="' + LOGO + '" alt="EGBC">' +
         '<div style="min-width:0">' +
-          '<div class="eb-k">Esher Green Baptist Church</div>' +
           '<div class="eb-n">' + pageTitle.replace(/</g, '&lt;') + '</div>' +
+          '<div class="eb-k">Esher Green Baptist Church</div>' +
         '</div>' +
-      '</div>' +
+      '</a>' +
       '<div class="eb-r">' + right + '</div>';
 
     document.body.insertBefore(d, document.body.firstChild);
@@ -229,10 +239,11 @@
     p.id = 'egbc-nav';
     p.innerHTML =
       '<div class="en-top">' +
-        '<div class="en-h">Where to?</div>' +
-        '<button class="eb-b" id="egbc-nav-x" style="border:none;background:none;font-size:17px;padding:4px 8px">&times;</button>' +
+        '<div class="en-h">Menu</div>' +
+        '<button class="en-x" id="egbc-nav-x" title="Close">' + ic('x', 18) + '</button>' +
       '</div>' +
-      '<input class="en-q" id="egbc-nav-q" placeholder="Search for a page&hellip;" autocomplete="off">' +
+      '<div class="en-qw">' + ic('search', 16) +
+        '<input class="en-q" id="egbc-nav-q" placeholder="Search pages" autocomplete="off"></div>' +
       '<div class="en-list" id="egbc-nav-list"></div>';
 
     document.body.appendChild(scrim);
@@ -327,9 +338,11 @@
     var item = function (p) {
       var on = decodeURIComponent(p.url).toLowerCase() === decodeURIComponent(here);
       return '<a class="en-i' + (on ? ' on' : '') + '" href="' + p.url + '">' +
-               '<span class="en-ic">' + (p.icon || '\u{1F4C4}') + '</span>' +
+               '<span class="en-ic">' + ic(pageIc(p), 18) + '</span>' +
                '<span class="en-t">' + String(p.title || '').replace(/</g, '&lt;') +
-               (on ? ' <em>you are here</em>' : '') + '</span>' +
+               (on ? '<em>You are here</em>' : '') +
+               (p.description ? '<span class="en-d">' + String(p.description).replace(/</g, '&lt;') + '</span>' : '') +
+               '</span>' +
              '</a>';
     };
 
@@ -353,9 +366,9 @@
     list.innerHTML = groupOrder(Object.keys(buckets)).map(function (k, i) {
       var g = groupInfo(k);
       var open = (k === SHARED) || k === hereGroup || (i === 0);
-      return '<button class="en-g' + (open ? ' open' : '') + '" onclick="egbcToggleGroup(this)"' +
-               ' style="border-left:4px solid ' + g.colour + '">' +
-               '<span class="en-arw">&#9654;</span>' +
+      return '<button class="en-g' + (open ? ' open' : '') + '" onclick="egbcToggleGroup(this)">' +
+               '<span class="en-arw">' + ic('chevron-right', 14) + '</span>' +
+               '<span class="en-dot" style="background:' + g.colour + '"></span>' +
                '<span>' + g.label.replace(/</g, '&lt;') + '</span>' +
                '<span class="en-cnt">' + buckets[k].length + '</span>' +
              '</button>' +
@@ -379,6 +392,11 @@
       EGBCAuth.db.collection('hubPages').get().then(function (snap) {
         NAV = snap.docs.map(function (d) { return d.data(); })
                  .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+        /* Reachable before an admin registers it - same entry as
+           BUILT_IN_PAGES in hub-app.js. The registered copy wins. */
+        var hasMeeting = NAV.some(function (p) { return (p.url || '').toLowerCase() === 'meeting.html'; });
+        if (!hasMeeting) NAV.unshift({ url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
+          description: 'Video meetings - set one up, join a call, every meeting room' });
         renderNav(document.getElementById('egbc-nav-q').value.trim().toLowerCase());
       }).catch(function (e) {
         document.getElementById('egbc-nav-list').innerHTML =
