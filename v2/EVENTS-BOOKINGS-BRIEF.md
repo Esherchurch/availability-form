@@ -132,11 +132,22 @@ Must = this build. Should = this build if the chunk allows, otherwise recorded. 
 - Hirer's **booking page** shows status, charges, due dates, paid status (Must).
 - Invoice numbers and PDF invoices: **Should**, but see §6.6 — Calla Accounts may become the invoicer; design so either can.
 
-### 6.6 The Calla Accounts boundary (stand-alone first)
-Calla Accounts is Martin's own accounting software, in a separate repo. **This module must work fully without it** — on its own, with no accounting system at all — and must never fail, slow down or lose data because Calla is absent or unreachable. Build the seam, not the integration:
-- Every money line is a **`charges`** document: who owes, what for (booking/sign-up id), amount, VAT flag, due date, status, payments.
-- An **accounts export**: CSV and JSON of charges and payments in a date range, with a stable id per line and an `exportedAt` stamp so nothing is exported twice.
-- Leave a single place (`v2/egbc-accounts.js`, interface only) where a future Calla connector will plug in. **Do not guess at Calla's API**; it is a separate brief.
+### 6.6 Accounts: complete on its own, talks to Calla Accounts if a church has it
+Calla Accounts is Martin's own accounting software, in a separate repo. A church using this hub **may or may not** have it. So there are two modes, chosen by an admin setting (`settings/accounts`: **None** or **Calla Accounts**), default **None**:
+
+**Mode "None" — the hub is the whole money system for bookings, hire and sign-ups (Must, built first):**
+- Every money line is a **`charges`** document: who owes, what for (booking / sign-up / quote id), amount, VAT flag, due date, status, payments.
+- **Quotes and invoices** are produced by the hub itself (PDF, EGBC branding, numbering), emailed, and accepted / paid against.
+- **Payments recorded in the hub** (cash, cheque, bank transfer, card on the day; later card online), part-payments, refunds of deposits, paid/unpaid reports and reminders.
+- An **accounts export** (CSV and JSON, date range, stable id per line, `exportedAt` so nothing is exported twice) for whatever the treasurer uses.
+Nothing in this mode may refer to Calla at all.
+
+**Mode "Calla Accounts" — a connector the church switches on (Should, after the above works):**
+- All of the above still happens in the hub; the connector **additionally** sends hirers/customers, invoices and charge lines to Calla Accounts, and brings back **payment status** so the hub shows "paid" without anyone retyping it.
+- Who issues the invoice number in that mode (the hub or Calla) is a setting — **establish with Martin**, do not decide.
+- The connector lives in **one place**, `v2/egbc-accounts.js`, behind a small interface (e.g. `sendInvoice`, `sendCustomer`, `fetchPaymentStatus`). Every hub page calls that interface, never Calla directly.
+- **It must never block or break the hub**: if Calla is unreachable, the booking, quote and payment still save in the hub, the send is queued and retried, and an admin sees "not yet sent to Calla Accounts".
+- **Do not guess at Calla's API.** Build the interface and a "None" implementation now; the Calla implementation is a separate brief written against Calla's real code.
 
 ### 6.7 Notifications (email via the existing function)
 Must: sign-up confirmation; booking received (to hirer); new request / clash (to the site's bookings admins); approved / declined / cancelled (to requester); event cancelled (to attendees).
@@ -291,7 +302,7 @@ A church lets its rooms out, so booking must stand comparison with a professiona
 - **Admin can adjust** any line before approval, with a reason; the hirer sees only the approved figures (§6.5).
 - **Quote document**: a PDF quote with EGBC branding, line items, terms and a reference, emailed to the hirer; the hirer **accepts the quote and the terms online** (timestamped) from `my-booking.html`.
 - Recurring hires (§6.4) quote the whole series, with per-date exceptions, and support **monthly invoicing** for regular hirers.
-- Everything lands as `charges` lines (§6.6) so the accounts export and, later, Calla Accounts pick it up.
+- Everything lands as `charges` lines and hub-issued quotes/invoices (§6.6). With no accounts system the hub handles it all; where a church has switched on Calla Accounts, the same lines are also sent there — the hire flow never waits on it.
 - **VAT**: whether EGBC charges VAT on hire is Martin's decision with the church treasurer — make it a setting per rate card, default **off**, and record it as a finding. Do not decide it in code and do not cite tax rules.
 
 **On the day (Should)**
