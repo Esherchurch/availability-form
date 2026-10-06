@@ -41,7 +41,18 @@
      is visible and then says no is worse than one that was never offered. */
   function hideTriggers() {
     var all = document.querySelectorAll('[onclick*="toggleAdmin"], #adminBtn, .admin-btn, [data-admin-toggle]');
-    for (var i = 0; i < all.length; i++) all[i].style.display = 'none';
+    for (var i = 0; i < all.length; i++) { all[i].style.display = 'none'; all[i].setAttribute('data-kb-hidden', '1'); }
+  }
+
+  /* Undo our own hiding once the person turns out to be allowed. Only what
+     hideTriggers hid is touched, so a page's own display rules stand. */
+  function showTriggers() {
+    var all = document.querySelectorAll('[data-kb-hidden]');
+    for (var i = 0; i < all.length; i++) { all[i].style.display = ''; all[i].removeAttribute('data-kb-hidden'); }
+  }
+
+  function recheck() {
+    if (mayManage()) showTriggers(); else { hideTriggers(); closePanel(); }
   }
 
   function closePanel() {
@@ -71,7 +82,12 @@
   } else {
     gate();
   }
-  document.addEventListener('egbc-ready', function () {
-    if (!mayManage()) { hideTriggers(); closePanel(); }
-  });
+  /* On load the profile is not there yet, so everyone looks like a non-admin
+     and the button is hidden. It used to be hidden for good - admins never
+     saw it. Check again when auth reports in, and once more when the profile
+     is known, in case that event fired before this file was listening. */
+  document.addEventListener('egbc-ready', recheck);
+  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.optional) {
+    EGBCAuth.optional().then(recheck).catch(function () {});
+  }
 })();
