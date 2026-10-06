@@ -471,8 +471,12 @@
         (v ? 'rgba(255,255,255,.45)' : '#d1d5db') + '">' +
         '<option value="">Myself</option>' + opts +
       '</select>' +
-      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
-        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + '> as an admin' +
+      /* 'As an admin' only means something once a team is chosen. Ticking it on
+         'Myself' used to reload and untick, which looked broken - so it waits. */
+      '<label style="display:flex;align-items:center;gap:6px;cursor:' + (v ? 'pointer' : 'default;opacity:.55') + '"' +
+        (v ? '' : ' title="Choose a team first"') + '>' +
+        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '> as an admin' +
+        (v ? '' : ' <span style="font-weight:400">(choose a team first)</span>') +
       '</label>' +
       (v ? '<button id="egbc-va-off" style="font-family:inherit;font-size:13px;font-weight:500;' +
            'height:32px;border-radius:8px;padding:0 12px;border:none;cursor:pointer;background:#fff;' +
