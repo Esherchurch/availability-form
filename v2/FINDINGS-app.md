@@ -156,6 +156,76 @@ that still allow the original site's paths until then. Martin's decision at
 launch, and it belongs on the launch checklist (ONE-APP §7) when that page is
 built.
 
+
+## A-008 — thirteen pages were on Firebase 8.10.1, loaded after the compat SDK
+
+Found while moving group 1, and it is why B2 was not a find-and-replace.
+Thirteen in-scope pages loaded **Firebase 8.10.1**, the old namespaced SDK,
+*after* the 10.12.2 compat scripts. 8.10.1's `firebase-app.js` replaces the
+global `firebase`, so the app `egbc-auth.js` had already made on 10.12.2 was no
+longer something `firebase` recognised — which is exactly why
+`EGBCAuth.storage()` threw "takes either no argument or a Firebase App
+instance" on the first attempt.
+
+The compat SDK exists to run v8-style code, so the 8.x tags came out and those
+pages keep their `firebase.firestore()` syntax on one SDK. Order matters too:
+app, auth, firestore, storage, then `egbc-auth.js`, which needs them all
+present when it runs.
+
+## A-009 — inventory-system-2.html had never run in v2
+
+It declares `const db` twice inside the same function. That is a SyntaxError,
+which kills the whole script block, so the page loaded and did nothing at all.
+
+Present since `39273a50`, the original v2 import — `git log -S` puts it there,
+and the duplicate is in the file before any of this work. Fixed, because a page
+nobody can use is broken in front of a user rather than a finding to schedule.
+
+## A-010 — Performancenotes was offline-first, and that had to move
+
+It set up `initializeFirestore` with a persistent local cache so it keeps
+working when the church wifi drops mid-service. That could not stay on the
+page: `initializeFirestore` has to run before anything calls `getFirestore` on
+the same app, and the app is now shared. So the cache moved into `egbc-db.js`,
+with the same fallback for private windows and older iOS.
+
+Every modular page gains the cache; nothing loses it. Worth knowing it is now
+suite-wide rather than one page's choice.
+
+## A-011 — data-tools keeps a second app on purpose, and the gate says so
+
+`data-tools.html` restores a backup into a **different Firebase project**, so it
+opens a second, named app against whatever project the person types. That is
+not the problem this work is about, and removing it would break restore — the
+first pass of the converter did exactly that, ate 120 lines, and was reverted.
+
+The gate now counts an app whose config carries no `egbc-worship-planner`
+literal separately, and prints it, so it stays visible rather than hidden:
+
+    in scope, starting their own Firebase app : 0
+    apps opened against ANOTHER project       : 1   (data-tools restore target)
+
+## A-012 — login.html and youth-access.html were already half-right
+
+Both built the **same named app**, `egbc`, deliberately — sign-in has to land on
+the instance the guard reads, and the comment in `login.html` says so. What they
+lacked was `egbc-auth.js`, which owns that app and carries the emulator hook. So
+on localhost they reached the live database, which is the finding first recorded
+in Step A and is now closed: `login.html` signs in against the emulator, on the
+shared app.
+
+## A-013 — what B2 did not prove
+
+Every in-scope page is proved to be on the one signed-in connection, talking to
+the emulator, signed in, readable under the rules and throwing nothing — 240
+checks across 48 pages.
+
+What is **not** proved for all of them is each page's main action end to end.
+That was done for the seven Group 1 pages and the four knowledge-base pages;
+for the rest, the connection is proved and the page loads clean, which is
+weaker. Ordinary use will cover far more of it than a script can, but it should
+not be read as more than it is.
+
 ## A-006 — the live database still accepts writes from nobody
 
 Unchanged by this step, and worth keeping in view: an unauthenticated client

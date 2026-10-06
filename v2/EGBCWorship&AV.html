@@ -419,15 +419,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-const firebaseConfig = {
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner",
-    storageBucket: "egbc-worship-planner.firebasestorage.app",
-    appId: "1:199442060489:web:7eaf85a76334c753db6918"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db = EGBCAuth.db;
 const MENU_DOC      = db.collection('portal').doc('menuItems');
 const DASHBOARD_DOC = db.collection('portal').doc('dashboardContent');
 

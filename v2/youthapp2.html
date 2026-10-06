@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202609041833"></script>
+
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-youth.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -17,9 +23,6 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <style>
 :root {
@@ -1234,15 +1237,11 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 
 <script>
 // ── FIREBASE ──
-const firebaseConfig = {
-  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-  authDomain: "egbc-worship-planner.firebaseapp.com",
-  projectId: "egbc-worship-planner",
-  storageBucket: "egbc-worship-planner.firebasestorage.app"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db = EGBCAuth.db;
+const storage = EGBCAuth.storage();
 
 // ── STATE ──
 let currentSection = 'home';

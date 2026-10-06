@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202609041833"></script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>STC Handover Report Generator</title>
@@ -765,17 +770,11 @@
 <div id="report"></div>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyB_iCMQyeqH07YXGQm53ghUq65EDQ001TY",
-  authDomain: "save-the-children-handover.firebaseapp.com",
-  projectId: "save-the-children-handover",
-  storageBucket: "save-the-children-handover.firebasestorage.app",
-  messagingSenderId: "15544019254",
-  appId: "1:15544019254:web:2b8e25b506da4ce90a47cf"
-};
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db = EGBCAuth.db;
 
 function setLoading(msg) {
   document.getElementById('launcher').style.display = 'none';

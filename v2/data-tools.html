@@ -127,9 +127,12 @@ const COLLECTIONS=[
   'teamVideos','videoSections','rotaSignoff','availabilityRequests','teamContent'
 ];
 
-const srcConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
-const srcApp=firebase.initializeApp(srcConfig);
-const srcDb=srcApp.firestore();
+/* The source is the shared sign-in, not an app of our own - a second app
+ has nobody signed in, and on localhost it would miss the emulator hook.
+ The RESTORE target below is a different matter: it deliberately opens a
+ second app against another project, and stays. */
+const srcApp=EGBCAuth.app;
+const srcDb=EGBCAuth.db;
 
 let BACKUP=null;
 

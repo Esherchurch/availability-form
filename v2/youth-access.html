@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202609041833"></script>
 <style>
   :root{--canvas:#eef4f3;--ink:#14201f;--hairline:#dde7e6;--brand:#5f7a4a;--brand-dark:#475c37}
   body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
@@ -72,9 +73,8 @@
 </div>
 
 <script>
-const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
 /* The same named app egbc-auth.js uses - see login.html. */
-const app=firebase.apps.filter(a=>a.name==='egbc')[0]||firebase.initializeApp(firebaseConfig,'egbc');
+const app=EGBCAuth.app;   /* egbc-auth.js owns it, and brings the emulator hook */
 const auth=firebase.auth(app);
 const db=firebase.firestore(app);
 

@@ -50,7 +50,16 @@ for (const f of files) {
   /* An app of its own, either SDK. */
   const compat = (s.match(/firebase\s*\.\s*initializeApp\s*\(/g) || []).length;
   const modular = (s.match(/(^|[^.\w])initializeApp\s*\(/gm) || []).length - compat;
-  const ownApp = compat + Math.max(0, modular);
+  let ownApp = compat + Math.max(0, modular);
+
+  /* An app opened against a DIFFERENT project is not the problem this gate is
+     about. data-tools.html restores a backup into another Firebase project and
+     has to connect to it; that app is named, and its config is built from what
+     the person typed, so it carries no egbc-worship-planner literal. Counted
+     separately rather than ignored, so it stays visible. */
+  const foreign = (s.match(/initializeApp\s*\(\s*\{[^}]*\}\s*,\s*['"][^'"]+['"]\s*\)/g) || [])
+    .filter(call => call.indexOf('egbc-worship-planner') === -1).length;
+  ownApp -= foreign;
 
   /* egbc-auth.js owns the shared app; it is allowed to make it. */
   const isAuthItself = /^egbc-auth\.js$/i.test(f);
@@ -68,6 +77,7 @@ for (const f of files) {
     file: f,
     scope: outOfScope(f) ? 'out' : 'in',
     own: isAuthItself ? 0 : ownApp,
+    foreign: foreign,
     shared: usesShared,
     sdk
   });
@@ -92,6 +102,8 @@ console.log('  in scope, starting their own Firebase app : ' + offenders.length)
 console.log('  in scope, on the shared connection        : ' +
   rows.filter(r => r.scope === 'in' && r.own === 0 && r.shared).length);
 console.log('  out of scope, left alone                  : ' + rows.filter(r => r.scope === 'out').length);
+const foreignTotal = rows.reduce((n, r) => n + (r.foreign || 0), 0);
+if (foreignTotal) console.log('  apps opened against ANOTHER project       : ' + foreignTotal + '   (data-tools restore target - legitimate)');
 console.log('');
 
 if (offenders.length) {

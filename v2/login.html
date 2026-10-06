@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202609041833"></script>
 <style>
   :root{--canvas:#eef4f3;--ink:#14201f;--body:#3a4d4c;--muted:#6b8281;--hairline:#dde7e6;--brand:#3d6263;--brand-dark:#2e4c4d;--brand-tint:#e7f0ef}
   body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
@@ -121,10 +122,9 @@
 </div>
 
 <script>
-const firebaseConfig={apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",authDomain:"egbc-worship-planner.firebaseapp.com",projectId:"egbc-worship-planner",storageBucket:"egbc-worship-planner.firebasestorage.app",appId:"1:199442060489:web:7eaf85a76334c753db6918"};
 /* The same named app egbc-auth.js uses. Sign-in has to land on the instance
    the guard reads, or every guarded page would bounce straight back here. */
-const app=firebase.apps.filter(a=>a.name==='egbc')[0]||firebase.initializeApp(firebaseConfig,'egbc');
+const app=EGBCAuth.app;   /* egbc-auth.js owns it, and brings the emulator hook */
 const auth=firebase.auth(app);
 
 const HUB='hub.html';

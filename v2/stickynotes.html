@@ -407,12 +407,6 @@
 
 <script>
 // ── FIREBASE ──────────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-  authDomain: "egbc-worship-planner.firebaseapp.com",
-  projectId: "egbc-worship-planner",
-  storageBucket: "egbc-worship-planner.firebasestorage.app"
-};
 /* One page, several boards. Signing in is handled by the guard, which has
    already run by the time this executes, so the shared connection is used
    rather than opening a second one. */
@@ -420,8 +414,10 @@ let db;
 if (typeof EGBCAuth !== 'undefined' && EGBCAuth.db) {
   db = EGBCAuth.db;
 } else {
-  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
+  if (!firebase.apps.length)/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+  db = EGBCAuth.db;
 }
 
 /* ── THE BOARDS ───────────────────────────────────────────────
