@@ -230,6 +230,9 @@ Weekly check-in for regular children's groups (Kids Church, Lazers, ReNu, youth)
 - **Optional donation line** on sign-ups stays separate from tickets (§6.3), with its Gift Aid declaration recorded as: person id, declaration wording version, date, "applies to" (this gift / all gifts), and whether the person confirmed they pay enough UK tax. Store it in `giftAidDeclarations` so the future giving module can import it unchanged.
 - No giving totals, statements or claims in this build.
 
+### 6.16a The personal dashboard
+Every chunk here that gives a person something of their own (sign-ups, bookings, children, groups, forms to complete) adds it to the **one personal dashboard** in `ONE-APP-BRIEF.md` §5 ("My EGBC" and its "Waiting for you" list). Do not build a separate "my" page per feature.
+
 ### 6.17 Matching ChurchSuite — checked in EGBC's own ChurchSuite (6 Oct 2026)
 
 Martin's ChurchSuite (Calendar and Rotas modules) was walked through by Claude in Martin's other window — settings, forms and report lists only, no personal data. Items below are **in addition** to §6.1–6.16. Where it says "establish", read the code first; do not assume it is missing.

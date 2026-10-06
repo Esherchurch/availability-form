@@ -61,10 +61,19 @@ Give **the EGBC Hub and its companion phone apps one sign-in and one way of work
 - Computer: a **left sidebar** with the same items, then the person's admin sections.
 - The existing Menu (search all pages) stays.
 
-**Home is personal ("My EGBC")**, built from what exists today:
-- Pinned notices and Latest (keep the scrolling notices).
-- **My next serving dates** from the rota (`events` assignments matching the signed-in person's `memberId`), with a link to the rota.
-- **My meetings** (already on the hub).
+**Home is personal ("My EGBC")** — everyone who signs in lands on **their own dashboard**, in the same app and with the same login as the admin tools (the thing ChurchSuite splits into a separate "My ChurchSuite" with its own login). Each card shows only when it has something in it, and only to that person:
+
+1. **Waiting for you** (top, Must): one list of things that need the person — rota dates to accept or decline, swap requests, forms to complete (consent, safeguarding declarations), notices to confirm as read, bookings needing their approval (bookings admins), sign-ups needing payment. Each item opens the place to deal with it.
+2. **My serving** (Must, Chunk 2): next serving dates from the rota (`events` assignments matching the signed-in person's `memberId`) with role, time and "can't do it" → unavailability; link to the full rota. Household members' dates too, where the rota already links households.
+3. **My meetings** (Must, already on the hub).
+4. **Pinned notices and Latest** (keep the scrolling notices).
+5. **My events** (when events exist): what I've signed up to, with cancel (if the event allows it) and add-to-calendar; featured events I might like.
+6. **My bookings** (when bookings exist): rooms I've booked or requested, with status.
+7. **My children** (when kids registration exists): their groups, this Sunday's check-in, consent forms due.
+8. **My groups** (when small groups exist): my groups and their next meeting.
+9. **My details**: profile and household, directory choices (Chunk 3).
+
+Rules: build the cards for what exists now (1–4, 9) and leave a clear slot for the rest, filled by the events brief as each chunk lands — **one dashboard, not a second page per feature**. Leaders see the same dashboard plus their admin sections; nobody needs a different login to do either. Never show another person's details here.
 
 **Meet — video meetings are part of the app**, not a page off to the side:
 - The **Meet** tab opens `meeting.html` (the list of your meetings, every room, and New meeting). It already uses the shared sign-in, `DESIGN.md` and the Daily.co rooms; reuse it, do not build a second meetings page.
