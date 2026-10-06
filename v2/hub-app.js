@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v103';
+const HUB_BUILD = 'v104';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -123,7 +123,7 @@ EGBCAuth.require().then(async profile => {
     document.getElementById('editModeBtn').style.display = '';
   }
 
-  await Promise.all([loadNews(), loadPages(), loadTeamPanels()]);
+  await Promise.all([loadNews(), loadPages(), loadTeamPanels(), loadMeetings()]);
 
   const teams = availableTeams();
   const saved = localStorage.getItem(TEAM_KEY);
@@ -705,6 +705,69 @@ function forMe(n) {
   if (EGBCAuth.isMaster()) return true;
   const mine = myTeams();
   return n.teams.some(t => mine.includes(t));
+}
+
+/* Video meetings. Rota events can carry a Daily.co room (events.videoRoom,
+   set in the Rota Planner); meeting types get a default room when none was
+   picked. Keep these rules in step with CoreTeamApp.html and Planner.html.
+   Only the plain knock-to-join links live here - host links carry owner
+   tokens and must never be in this public repo. */
+const VIDEO_BASE = 'https://egbc.daily.co/';
+const VIDEO_DEFAULT_BY_TYPE = {
+  'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
+  'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV',
+};
+const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
+let MEETINGS = [];
+
+/* Mine if it is for one of my teams (the rota calls Youth Worship "Youth"),
+   or I have a role on it. */
+function meetingForMe(ev) {
+  if (EGBCAuth.isMaster()) return true;
+  const mine = myTeams();
+  if ((ev.teams || []).some(t => mine.includes(t === 'Youth' ? 'Youth Worship' : t))) return true;
+  const mid = ME && ME.memberId;
+  return !!mid && Object.values(ev.assignments || {})
+    .some(raw => (Array.isArray(raw) ? raw : [raw]).some(p => p && p.id === mid));
+}
+
+async function loadMeetings() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const snap = await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
+    MEETINGS = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(ev => !ev.archived && videoRoomFor(ev) && meetingForMe(ev))
+      .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
+  } catch (e) {
+    console.error('Meetings load failed', e);
+    MEETINGS = [];
+  }
+  renderMeetings();
+}
+
+function renderMeetings() {
+  const box = document.getElementById('meetingsCard');
+  if (!box) return;
+  if (!MEETINGS.length) { box.innerHTML = ''; return; }
+  const today = new Date().toISOString().split('T')[0];
+  const rows = MEETINGS.slice(0, 5).map(ev => {
+    const link = VIDEO_BASE + videoRoomFor(ev);
+    const day = ev.date === today ? 'Today'
+      : new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const time = ev.startTime ? ` &middot; ${esc(ev.startTime)}${ev.endTime ? '&ndash;' + esc(ev.endTime) : ''}` : '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:800;color:var(--ink)">${esc(ev.type)}${ev.description ? ' &middot; ' + esc(ev.description) : ''}</div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-top:2px">${day}${time}</div>
+        </div>
+        <a class="btn solid" style="text-decoration:none;flex-shrink:0" href="${link}" target="_blank" rel="noopener">Join</a>
+      </div>`;
+  }).join('');
+  box.innerHTML = `<div class="card" style="margin-bottom:16px">
+      <div class="lab">&#128249; Video meetings</div>
+      ${rows}
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:10px;line-height:1.5">Type your name and knock &mdash; the host will let you in.</div>
+    </div>`;
 }
 
 async function loadNews() {
