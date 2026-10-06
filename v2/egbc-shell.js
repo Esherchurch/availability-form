@@ -471,9 +471,110 @@
     }
   }
 
+  /* ---- one look on every page (v109) --------------------------------
+
+     The bar and the hub follow v2/DESIGN.md; the forty-odd pages under the
+     bar were each styled by hand - Montserrat, capitals, wide spacing,
+     weight 900, pill buttons. Until each page is restyled properly
+     (RESTYLE-BRIEF.md), this brings them into line as they load:
+
+       - Montserrat becomes Inter; other fonts (Caveat on the pin board) stay
+       - capitals and wide letter-spacing go; 800/900 weights become 700
+       - pill-shaped buttons and inputs get 8px corners, big cards 14px
+
+     It works on the page's own stylesheets (including the one Tailwind
+     writes at run time) and on inline styles. Anything being composed -
+     a contenteditable area, such as the email builder's body - is left
+     exactly as written, so what you see is what gets sent.
+
+     A page opts out with data-theme="off" on its egbc-shell.js tag. */
+
+  var THEME_OFF = script && script.getAttribute('data-theme') === 'off';
+  var BUTTONISH = /(^|[\s.#>+~,(-])(btn|button|pill|chip|tab|tag|badge|input|select|search|field|fld|filter|toggle)/i;
+  var SKIP_SEL = /contenteditable|editable|email-canvas|preview/i;
+
+  function themeRule(r) {
+    var s = r.style;
+    if (!s || SKIP_SEL.test(r.selectorText || '')) return;
+    if (/montserrat/i.test(s.fontFamily)) s.setProperty('font-family', 'Inter, system-ui, sans-serif', s.getPropertyPriority('font-family'));
+    /* Fonts kept in a variable, e.g. --font: 'Montserrat' on the pin board. */
+    for (var i = 0; i < s.length; i++) {
+      var p = s[i];
+      if (p.indexOf('--') === 0 && /montserrat/i.test(s.getPropertyValue(p))) {
+        s.setProperty(p, s.getPropertyValue(p).replace(/['"]?Montserrat['"]?/ig, 'Inter'), s.getPropertyPriority(p));
+      }
+    }
+    if (s.textTransform === 'uppercase') s.setProperty('text-transform', 'none', s.getPropertyPriority('text-transform'));
+    if (s.letterSpacing && parseFloat(s.letterSpacing) > 0) s.setProperty('letter-spacing', 'normal', s.getPropertyPriority('letter-spacing'));
+    if (s.fontWeight === '800' || s.fontWeight === '900') s.setProperty('font-weight', '700', s.getPropertyPriority('font-weight'));
+    var br = parseFloat(s.borderRadius);
+    if (br >= 50 && BUTTONISH.test(r.selectorText || '')) s.setProperty('border-radius', '8px', s.getPropertyPriority('border-radius'));
+  }
+
+  function themeList(rules) {
+    for (var i = 0; i < rules.length; i++) {
+      var r = rules[i];
+      if (r.cssRules && !r.style) themeList(r.cssRules);       // @media, @supports
+      else themeRule(r);
+    }
+  }
+
+  var themed = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+  function themeSheets() {
+    if (THEME_OFF) return;
+    for (var i = 0; i < document.styleSheets.length; i++) {
+      var sh = document.styleSheets[i];
+      if (themed && themed.has(sh)) continue;
+      var rules = null;
+      try { rules = sh.cssRules; } catch (e) { continue; }        // cross-origin (Google Fonts)
+      if (!rules || (sh.ownerNode && sh.ownerNode.id === 'egbc-shell-css')) continue;
+      themeList(rules);
+      if (themed) themed.add(sh);
+    }
+  }
+
+  function themeCss() {
+    if (THEME_OFF) return '';
+    var H = 'html:not(.egbc-no-theme) ';
+    var NE = ':not([contenteditable] *):not([contenteditable])';
+    return [
+      H + 'body{font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}',
+      H + 'button,' + H + 'input,' + H + 'select,' + H + 'textarea{font-family:inherit}',
+      H + '[style*="ontserrat"]' + NE + '{font-family:Inter,system-ui,sans-serif!important}',
+      H + '[style*="uppercase"]' + NE + ',' + H + '.uppercase' + NE + '{text-transform:none!important}',
+      H + '[style*="letter-spacing"]' + NE + ',' + H + '[class*="tracking-"]' + NE + '{letter-spacing:normal!important}',
+      H + '[style*="font-weight:900"]' + NE + ',' + H + '[style*="font-weight: 900"]' + NE + ',' +
+      H + '[style*="font-weight:800"]' + NE + ',' + H + '[style*="font-weight: 800"]' + NE + ',' +
+      H + '.font-black' + NE + ',' + H + '.font-extrabold' + NE + '{font-weight:700!important}',
+      H + 'button.rounded-full,' + H + 'a.rounded-full,' + H + 'input.rounded-full,' + H + 'select.rounded-full,' +
+      H + 'button[style*="border-radius:99"],' + H + 'button[style*="border-radius: 99"],' +
+      H + 'a[style*="border-radius:99"],' + H + 'a[style*="border-radius: 99"],' +
+      H + 'input[style*="border-radius:99"],' + H + 'select[style*="border-radius:99"]{border-radius:8px!important}',
+      H + '.rounded-3xl,' + H + '[class*="rounded-[2"],' + H + '[class*="rounded-[3"],' + H + '[class*="rounded-[1.5"]{border-radius:14px!important}'
+    ].join('');
+  }
+
+  function theme() {
+    if (THEME_OFF) { document.documentElement.classList.add('egbc-no-theme'); return; }
+    var st = document.createElement('style');
+    st.id = 'egbc-theme-css';
+    st.textContent = themeCss();
+    document.head.appendChild(st);
+    themeSheets();
+    /* Tailwind's CDN writes its stylesheet after load and again as classes
+       appear; pages add <style> blocks too. Theme each new sheet once. */
+    var pend = false;
+    new MutationObserver(function () {
+      if (pend) return; pend = true;
+      setTimeout(function () { pend = false; themeSheets(); }, 30);
+    }).observe(document.head, { childList: true, subtree: true, characterData: true });
+    window.addEventListener('load', themeSheets);
+  }
+
   function start() {
     css();
     font();
+    theme();
 
     /* On a guarded page the bar waits for the person, so it can show who they
        are. On an open page it appears straight away with just the Hub link. */
