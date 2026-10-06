@@ -48,6 +48,11 @@
   .row .t{font-size:14px;font-weight:600;color:var(--ink)}
   .row .s{font-size:13px;color:var(--muted);margin-top:2px;word-break:break-all}
   @media(max-width:700px){body{padding:0 8px 8px}.strip{margin:8px 0;padding:10px 12px}#stage{border-radius:12px}}
+  /* In a call: the title lives in the bar, gaps shrink, the call takes the rest. */
+  body.in-call .strip{display:none}
+  body.in-call #egbc-bar{margin-bottom:8px!important}
+  body.in-call #stage{min-height:0}
+  #stage:fullscreen{border-radius:0}
 </style>
 </head>
 <body>
@@ -116,9 +121,40 @@ async function copyInvite() {
   catch { prompt('Copy this invite link:', link); }
 }
 
+/* In a call every pixel goes to the video. The title strip is hidden and its
+   job moves into the EGBC bar: the meeting's name and date replace "Meeting /
+   Esher Green Baptist Church", and Copy invite link and Full screen sit beside
+   Hub and Menu. The bar is drawn by egbc-shell.js once the person is known,
+   so wait for it. */
+function callBar() {
+  const bar = document.getElementById('egbc-bar');
+  if (!bar) { setTimeout(callBar, 150); return; }
+  const n = bar.querySelector('.eb-n'), k = bar.querySelector('.eb-k');
+  if (n) n.textContent = document.getElementById('mtTitle').textContent;
+  if (k) k.textContent = document.getElementById('mtSub').textContent;
+  const r = bar.querySelector('.eb-r');
+  if (r && !document.getElementById('mtCopy')) {
+    const ic = n => `<i data-lucide="${n}" style="width:16px;height:16px"></i>`;
+    const copy = document.createElement('button');
+    copy.id = 'mtCopy'; copy.className = 'eb-b'; copy.title = 'The plain link works for anyone, even without a hub login';
+    copy.innerHTML = ic('link') + '<span class="eb-lbl">Copy invite link</span>';
+    copy.onclick = copyInvite;
+    r.insertBefore(copy, r.firstChild);
+    const stage = document.getElementById('stage');
+    if (document.fullscreenEnabled && stage.requestFullscreen) {
+      const fs = document.createElement('button');
+      fs.id = 'mtFull'; fs.className = 'eb-b'; fs.title = 'Fill the screen with the call';
+      fs.innerHTML = ic('maximize') + '<span class="eb-lbl">Full screen</span>';
+      fs.onclick = () => document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen();
+      r.insertBefore(fs, copy.nextSibling);
+    }
+  }
+}
+
 async function describe(db) {
   document.getElementById('mtTitle').textContent = VIDEO_ROOMS[room];
   document.getElementById('mtSub').textContent = hostToken ? 'You are the host' : 'Video meeting';
+  callBar();
   if (!eventId) return;
   try {
     const d = await db.collection('events').doc(eventId).get();
@@ -129,6 +165,7 @@ async function describe(db) {
     document.getElementById('mtTitle').textContent = ev.type + (ev.description ? ' · ' + ev.description : '');
     document.getElementById('mtSub').textContent = `${day}${time} · ${VIDEO_ROOMS[room]}${hostToken ? ' · You are the host' : ''}`;
     document.title = ev.type + ' — EGBC';
+    callBar();
   } catch (e) { console.warn('Could not load event', e); }
 }
 
@@ -303,6 +340,7 @@ function start(profile) {
     showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
     return;
   }
+  document.body.classList.add('in-call');
   describe(EGBCAuth.db);
 
   if (!window.DailyIframe) {
