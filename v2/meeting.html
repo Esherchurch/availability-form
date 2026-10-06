@@ -11,37 +11,43 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
 <style>
-  :root{--canvas:#eef4f3;--ink:#14201f;--muted:#6b8281;--line:#dde7e6;--brand:#3d6263;--brand-dark:#2e4c4d;--tint:#e7f0ef}
+  :root{--canvas:#f6f7f7;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;
+        --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4}
   html,body{height:100%}
-  body{margin:0;padding:0 12px 12px;background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);
+  body{margin:0;padding:0 12px 12px;background:var(--canvas);font-family:Inter,system-ui,sans-serif;font-size:14px;color:var(--body);
        -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;box-sizing:border-box}
-  .strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0;padding:12px 16px;background:#fff;
-         border:1px solid var(--line);border-radius:16px}
-  .strip .t{font-size:15px;font-weight:900;color:var(--ink)}
-  .strip .s{font-size:12px;font-weight:600;color:var(--muted);margin-top:2px}
-  .btn{font-family:inherit;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:9px 15px;
-       border-radius:99px;border:1px solid var(--line);background:#fff;color:var(--brand);cursor:pointer;text-decoration:none;white-space:nowrap}
-  .btn:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
-  #stage{flex:1;min-height:420px;border-radius:18px;overflow:hidden;background:var(--ink);position:relative}
-  #stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-  .msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
-       color:#fff;text-align:center;padding:24px}
-  .msg .t{font-size:20px;font-weight:900}
-  .msg .s{font-size:13px;font-weight:600;opacity:.75;max-width:420px;line-height:1.5}
-  .msg .btn{background:#fff;border-color:#fff}
-  .lab{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 2px 9px}
-  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
-  .row .t{font-size:14px;font-weight:800;color:var(--ink)}
-  .row .s{font-size:12px;font-weight:600;color:var(--muted);margin-top:2px;word-break:break-all}
+  .strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;padding:12px 16px;background:#fff;
+         border:1px solid var(--line);border-radius:12px}
+  .strip .t{font-size:15px;font-weight:600;color:var(--ink)}
+  .strip .s{font-size:13px;color:var(--muted);margin-top:2px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border-radius:8px;
+       border:1px solid var(--line-2);background:#fff;color:var(--ink);font:500 13px Inter,sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:#f3f4f6}
   .btn.solid{background:var(--brand);color:#fff;border-color:var(--brand)}
-  @media(max-width:700px){body{padding:0 8px 8px}.strip{margin:8px 0;padding:10px 12px}#stage{border-radius:14px}}
+  .btn.solid:hover{background:var(--brand-dark)}
+  .btn.sm{height:32px;padding:0 12px}
+  #stage{flex:1;min-height:420px;border-radius:14px;overflow:hidden;background:#111827;position:relative}
+  #stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+       color:#fff;text-align:center;padding:24px}
+  .msg .t{font-size:20px;font-weight:600}
+  .msg .s{font-size:14px;opacity:.75;max-width:420px;line-height:1.5}
+  .msg .btn{background:#fff;border-color:#fff;color:var(--ink)}
+  #lobby{width:100%;max-width:920px;margin:0 auto}
+  body.lobby-mode .strip{width:100%;max-width:920px;margin:12px auto 0;box-sizing:border-box}
+  .lab{font-size:12px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .row .ic{width:36px;height:36px;border-radius:8px;background:var(--tint);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .row .t{font-size:14px;font-weight:600;color:var(--ink)}
+  .row .s{font-size:13px;color:var(--muted);margin-top:2px;word-break:break-all}
+  @media(max-width:700px){body{padding:0 8px 8px}.strip{margin:8px 0;padding:10px 12px}#stage{border-radius:12px}}
 </style>
 </head>
 <body>
@@ -51,8 +57,7 @@
     <div class="t" id="mtTitle">Meeting</div>
     <div class="s" id="mtSub">&nbsp;</div>
   </div>
-  <button class="btn" id="copyBtn" onclick="copyInvite()" title="The plain link works for anyone, even without a hub login">Copy invite link</button>
-  <a class="btn" href="hub.html">Back to hub</a>
+  <button class="btn" id="copyBtn" onclick="copyInvite()" title="The plain link works for anyone, even without a hub login"><i data-lucide="link" style="width:15px;height:15px"></i>Copy invite link</button>
 </div>
 
 <div id="lobby" style="display:none"></div>
@@ -137,6 +142,7 @@ const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DE
 
 async function lobby(profile) {
   document.getElementById('stage').style.display = 'none';
+  document.body.classList.add('lobby-mode');
   document.getElementById('copyBtn').style.display = 'none';
   document.getElementById('mtTitle').textContent = 'Meetings';
   document.getElementById('mtSub').textContent = 'Your upcoming video calls, and every meeting room';
@@ -158,8 +164,9 @@ async function lobby(profile) {
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
   } catch (e) { console.error('Could not load meetings', e); }
 
-  let html = canSchedule() ? `<div style="margin:14px 0 0;display:flex;justify-content:flex-end">
-      <button class="btn solid" onclick="openNewMeeting()">+ New meeting</button></div>
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 18}px;height:${s || 18}px"></i>`;
+  let html = canSchedule() ? `<div style="margin:16px 0 0;display:flex;justify-content:flex-end">
+      <button class="btn solid" onclick="openNewMeeting()">${I('plus', 16)}New meeting</button></div>
       <div id="newMeeting" style="display:none"></div>` : '';
   html += '<div class="lab">Upcoming</div>';
   if (!upcoming.length) html += '<div class="row"><div class="s" style="margin:0">No online meetings coming up for your teams.</div></div>';
@@ -167,19 +174,22 @@ async function lobby(profile) {
     const r = videoRoomFor(ev);
     const day = new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
-    html += `<div class="row"><div style="flex:1;min-width:170px"><div class="t">${esc(ev.type)}${ev.description ? ' · ' + esc(ev.description) : ''}</div>
+    html += `<div class="row"><div class="ic">${I('calendar-clock')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(ev.type)}${ev.description ? ' · ' + esc(ev.description) : ''}</div>
       <div class="s">${esc(day + time)} · ${esc(VIDEO_ROOMS[r])}</div></div>
-      <a class="btn solid" href="meeting.html?room=${encodeURIComponent(r)}&event=${encodeURIComponent(ev.id)}">Join</a></div>`;
+      <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}&event=${encodeURIComponent(ev.id)}">Join</a></div>`;
   });
 
   html += '<div class="lab">All meeting rooms</div>';
   Object.entries(VIDEO_ROOMS).forEach(([r, label]) => {
-    html += `<div class="row"><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div><div class="s">${esc(VIDEO_BASE + r)}</div></div>
-      <a class="btn solid" href="meeting.html?room=${encodeURIComponent(r)}">Join</a>
-      <button class="btn" onclick="copyLink('${r}')">Copy invite link</button></div>`;
+    html += `<div class="row"><div class="ic">${I('video')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div><div class="s">${esc(VIDEO_BASE + r)}</div></div>
+      <button class="btn sm" onclick="copyLink('${r}')">${I('link', 15)}Copy invite link</button>
+      <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}">Join</a></div>`;
   });
-  html += '<div style="font-size:11px;font-weight:600;color:var(--muted);margin:12px 2px;line-height:1.5">Rooms are private: people type their name and knock, and the host lets them in. The invite link works for anyone, even without a hub login.</div>';
+  html += '<div style="font-size:13px;color:var(--muted);margin:14px 4px;line-height:1.5">Rooms are private: people type their name and knock, and the host lets them in. The invite link works for anyone, even without a hub login.</div>';
   box.innerHTML = html;
+
+  /* Arrived from the hub card's "New meeting". */
+  if (params.get('new') === '1' && canSchedule() && !document.getElementById('nmType')) openNewMeeting();
 }
 
 /* ---- + New meeting -------------------------------------------------
@@ -215,8 +225,8 @@ function openNewMeeting() {
   const box = document.getElementById('newMeeting');
   const teams = myRotaTeams();
   const today = new Date().toISOString().split('T')[0];
-  const field = 'width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:600 14px Montserrat,sans-serif;color:var(--ink);background:#fff';
-  const label = 'display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px';
+  const field = 'width:100%;box-sizing:border-box;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff';
+  const label = 'display:block;font-size:13px;font-weight:500;color:var(--ink);margin:14px 0 6px';
   box.innerHTML = `<div class="row" style="display:block;margin-top:10px">
     <div class="t" style="margin-bottom:4px">New meeting</div>
     <label style="${label}">Meeting</label>
