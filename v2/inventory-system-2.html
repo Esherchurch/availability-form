@@ -1,11 +1,13 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041833" data-title="EGBC Inventory"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
+
+<script src="egbc-shell.js?v=202609041833" data-title="EGBC Inventory"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="AV Team" data-role="leader"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,19 +16,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
 
 <!-- Firebase v8 compat (matches existing EGBC tools) -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner",
-    storageBucket: "egbc-worship-planner.appspot.com"
-  };
-  firebase.initializeApp(firebaseConfig);
-  window.__db = firebase.firestore();
-  window.__storage = firebase.storage();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+  window.__db = EGBCAuth.db;
+  window.__storage = EGBCAuth.storage();
   window.__fbReady = true;
   document.dispatchEvent(new Event('firebase-ready'));
 </script>
@@ -1022,7 +1017,9 @@ async function saveItem() {
     }
   }
 
-  const db = window.__db;
+  /* db is already declared at the top of this function - declaring it
+     twice is a SyntaxError that killed the whole script block, so the
+     inventory page has never run in v2. Present since 39273a50. */
   const data = {
     name,
     serial: document.getElementById('fieldSerial').value.trim(),
