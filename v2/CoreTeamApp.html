@@ -2418,6 +2418,8 @@ function renderMeetings() {
     .filter(ev => !ev.archived && ev.date >= today && videoRoomFor(ev))
     .sort((a,b) => (a.date+(a.startTime||'')).localeCompare(b.date+(b.startTime||'')));
   const btn = 'padding:8px 14px;border-radius:9999px;font-family:\'Montserrat\',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;text-decoration:none;white-space:nowrap;';
+  // v2: Join opens the EGBC meeting page (signed-in, name filled in); Copy link stays the plain Daily link for guests
+  const meetingPage = (room, evId) => `meeting.html?room=${encodeURIComponent(room)}${evId ? "&event=" + encodeURIComponent(evId) : ""}`;
   const joinBtn = link => `<a href="${link}" target="_blank" rel="noopener" style="${btn}background:#16a34a;color:white;border:none;">Join</a>`;
   const copyBtn = link => `<button onclick="copyMeetingLink('${link}')" style="${btn}background:white;color:#3d6263;border:1px solid #d1dfdf;">Copy link</button>`;
   const card = 'background:white;border:1px solid #d1dfdf;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
@@ -2433,7 +2435,7 @@ function renderMeetings() {
     html += `<div style="${card}"><div style="flex:1;min-width:160px;">
       <div style="font-size:13px;font-weight:800;color:#3d6263;">${ev.type}${ev.description?' · '+ev.description:''}</div>
       <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;">${d}${ev.startTime?' · '+ev.startTime+(ev.endTime?'–'+ev.endTime:''):''} · 📹 ${videoRoomLabel(videoRoomFor(ev))}</div>
-    </div>${joinBtn(link)}${copyBtn(link)}</div>`;
+    </div>${joinBtn(meetingPage(videoRoomFor(ev), ev.id))}${copyBtn(link)}</div>`;
   });
 
   html += heading('All meeting rooms');
@@ -2442,7 +2444,7 @@ function renderMeetings() {
     html += `<div style="${card}"><div style="flex:1;min-width:160px;">
       <div style="font-size:13px;font-weight:800;color:#3d6263;">${label}</div>
       <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;word-break:break-all;">${link}</div>
-    </div>${joinBtn(link)}${copyBtn(link)}</div>`;
+    </div>${joinBtn(meetingPage(room))}${copyBtn(link)}</div>`;
   });
 
   html += `<div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;margin:12px 2px;line-height:1.5;">Rooms are private: people type their name and knock, then the host lets them in. Hosts use their own private host link.</div>`;
@@ -3057,7 +3059,7 @@ function generateEventHtml(ev, blockIdx) {
   html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>📹 No call</option>`;
   VIDEO_ROOMS.forEach(([r,label]) => { html+=`<option value="${r}"${vRoom===r?' selected':''}>📹 ${label}</option>`; });
   html += '</select>';
-  if (vRoom) html += `<a href="${VIDEO_BASE}${vRoom}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;text-decoration:none;">Join</a>`;
+  if (vRoom) html += `<a href="meeting.html?room=${encodeURIComponent(vRoom)}&event=${encodeURIComponent(ev.id)}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;text-decoration:none;">Join</a>`;
   html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:9999px;border:1px solid #d1dfdf;">';
   ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t => {
     html+=`<label style="font-size:9px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;color:#3d6263;cursor:pointer;white-space:nowrap;"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} style="width:11px;height:11px;accent-color:#3d6263;"><span>${t}</span></label>`;

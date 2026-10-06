@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-shell.js?v=202609041833" data-title="Meeting" data-width="full"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Meeting — EGBC</title>
+<link rel="manifest" href="./manifest-hub.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202609041833"></script>
+<script src="https://unpkg.com/@daily-co/daily-js"></script>
+<style>
+  :root{--canvas:#eef4f3;--ink:#14201f;--muted:#6b8281;--line:#dde7e6;--brand:#3d6263;--brand-dark:#2e4c4d;--tint:#e7f0ef}
+  html,body{height:100%}
+  body{margin:0;padding:0 12px 12px;background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);
+       -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;box-sizing:border-box}
+  .strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0;padding:12px 16px;background:#fff;
+         border:1px solid var(--line);border-radius:16px}
+  .strip .t{font-size:15px;font-weight:900;color:var(--ink)}
+  .strip .s{font-size:12px;font-weight:600;color:var(--muted);margin-top:2px}
+  .btn{font-family:inherit;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:9px 15px;
+       border-radius:99px;border:1px solid var(--line);background:#fff;color:var(--brand);cursor:pointer;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
+  #stage{flex:1;min-height:420px;border-radius:18px;overflow:hidden;background:var(--ink);position:relative}
+  #stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+       color:#fff;text-align:center;padding:24px}
+  .msg .t{font-size:20px;font-weight:900}
+  .msg .s{font-size:13px;font-weight:600;opacity:.75;max-width:420px;line-height:1.5}
+  .msg .btn{background:#fff;border-color:#fff}
+  @media(max-width:700px){body{padding:0 8px 8px}.strip{margin:8px 0;padding:10px 12px}#stage{border-radius:14px}}
+</style>
+</head>
+<body>
+
+<div class="strip">
+  <div style="flex:1;min-width:180px">
+    <div class="t" id="mtTitle">Meeting</div>
+    <div class="s" id="mtSub">&nbsp;</div>
+  </div>
+  <button class="btn" onclick="copyInvite()" title="The plain link works for anyone, even without a hub login">Copy invite link</button>
+  <a class="btn" href="hub.html">Back to hub</a>
+</div>
+
+<div id="stage"><div class="msg" id="msg"><div class="s">Getting the meeting ready&hellip;</div></div></div>
+
+<script>
+/* EGBC-branded video meeting. The call is Daily.co's ready-made screen
+   (Daily Prebuilt) embedded here, so the waiting room, host admit, screen
+   share, background blur and full screen all come with it.
+
+   Address:  meeting.html?room=CMM[&event=<events doc id>][&t=<host token>]
+
+   - room must be one of VIDEO_ROOMS - keep in step with CoreTeamApp.html,
+     Planner.html and hub-app.js.
+   - event, when given, titles the page from the rota.
+   - t is a host's meeting token. It arrives in the address the host was
+     sent privately and is passed straight to Daily; it is never stored, and
+     host tokens must never be written into this public repo. */
+
+const VIDEO_BASE = 'https://egbc.daily.co/';
+const VIDEO_ROOMS = {
+  'Worship-AV': 'Worship & AV', 'worship-core-team': 'Worship Core Team', 'Prayer': 'Prayer',
+  'Eldership': 'Eldership', 'CMM': 'CMM', 'kids-ministries': 'Kids Ministries', 'interviews': 'Interviews',
+};
+
+/* EGBC colours on Daily's controls and backgrounds. */
+const THEME = { colors: {
+  accent: '#3d6263', accentText: '#FFFFFF',
+  background: '#14201f', backgroundAccent: '#2e4c4d', baseText: '#FFFFFF',
+  border: '#3d6263', mainAreaBg: '#14201f', mainAreaBgAccent: '#2e4c4d',
+  mainAreaText: '#FFFFFF', supportiveText: '#c9d8d6',
+} };
+
+const params = new URLSearchParams(location.search);
+const room = params.get('room') || '';
+const eventId = params.get('event') || '';
+const hostToken = params.get('t') || '';
+let frame = null;
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+function showMsg(title, sub, buttons) {
+  const stage = document.getElementById('stage');
+  stage.querySelectorAll('iframe').forEach(f => f.style.display = 'none');
+  stage.querySelector('.msg')?.remove();
+  const m = document.createElement('div');
+  m.className = 'msg';
+  m.innerHTML = `<div class="t">${esc(title)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${buttons || ''}</div>`;
+  stage.appendChild(m);
+}
+
+async function copyInvite() {
+  const link = VIDEO_BASE + room;
+  try { await navigator.clipboard.writeText(link); alert('Invite link copied:\n' + link); }
+  catch { prompt('Copy this invite link:', link); }
+}
+
+async function describe(db) {
+  document.getElementById('mtTitle').textContent = VIDEO_ROOMS[room];
+  document.getElementById('mtSub').textContent = hostToken ? 'You are the host' : 'Video meeting';
+  if (!eventId) return;
+  try {
+    const d = await db.collection('events').doc(eventId).get();
+    if (!d.exists) return;
+    const ev = d.data();
+    const day = new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
+    document.getElementById('mtTitle').textContent = ev.type + (ev.description ? ' · ' + ev.description : '');
+    document.getElementById('mtSub').textContent = `${day}${time} · ${VIDEO_ROOMS[room]}${hostToken ? ' · You are the host' : ''}`;
+    document.title = ev.type + ' — EGBC';
+  } catch (e) { console.warn('Could not load event', e); }
+}
+
+function start(profile) {
+  if (!VIDEO_ROOMS[room]) {
+    showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
+    return;
+  }
+  describe(EGBCAuth.db);
+
+  if (!window.DailyIframe) {
+    showMsg('The video service did not load', 'Check your internet connection, or open the meeting directly.',
+      `<a class="btn" href="${VIDEO_BASE + room}${hostToken ? '?t=' + encodeURIComponent(hostToken) : ''}">Open meeting directly</a>`);
+    return;
+  }
+
+  document.getElementById('msg')?.remove();
+  frame = DailyIframe.createFrame(document.getElementById('stage'), {
+    showLeaveButton: true,
+    showFullscreenButton: true,
+    theme: THEME,
+    iframeStyle: { position: 'absolute', inset: '0', width: '100%', height: '100%', border: '0' },
+  });
+
+  frame.on('left-meeting', () => {
+    showMsg('You have left the meeting', '', `<button class="btn" onclick="location.reload()">Rejoin</button><a class="btn" href="hub.html">Back to hub</a>`);
+  });
+  frame.on('error', e => {
+    showMsg('The meeting could not start', (e && e.errorMsg) || '', `<button class="btn" onclick="location.reload()">Try again</button>`);
+  });
+
+  const opts = { url: VIDEO_BASE + room, userName: (profile && profile.name) || '' };
+  if (hostToken) opts.token = hostToken;
+  frame.join(opts).catch(e => console.error('join failed', e));
+}
+
+EGBCAuth.require().then(start);
+</script>
+</body>
+</html>

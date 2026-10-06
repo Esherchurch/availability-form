@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v104';
+const HUB_BUILD = 'v105';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -751,7 +751,7 @@ function renderMeetings() {
   if (!MEETINGS.length) { box.innerHTML = ''; return; }
   const today = new Date().toISOString().split('T')[0];
   const rows = MEETINGS.slice(0, 5).map(ev => {
-    const link = VIDEO_BASE + videoRoomFor(ev);
+    const link = `meeting.html?room=${encodeURIComponent(videoRoomFor(ev))}&event=${encodeURIComponent(ev.id)}`;
     const day = ev.date === today ? 'Today'
       : new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     const time = ev.startTime ? ` &middot; ${esc(ev.startTime)}${ev.endTime ? '&ndash;' + esc(ev.endTime) : ''}` : '';
@@ -760,7 +760,7 @@ function renderMeetings() {
           <div style="font-size:14px;font-weight:800;color:var(--ink)">${esc(ev.type)}${ev.description ? ' &middot; ' + esc(ev.description) : ''}</div>
           <div style="font-size:12px;font-weight:600;color:var(--muted);margin-top:2px">${day}${time}</div>
         </div>
-        <a class="btn solid" style="text-decoration:none;flex-shrink:0" href="${link}" target="_blank" rel="noopener">Join</a>
+        <a class="btn solid" style="text-decoration:none;flex-shrink:0" href="${link}">Join</a>
       </div>`;
   }).join('');
   box.innerHTML = `<div class="card" style="margin-bottom:16px">
