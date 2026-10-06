@@ -105,6 +105,16 @@ Then **Step C** (Events — Chunk 2).
 
 Since Step V, Martin also has these done in this window (already on `main`, nothing to redo): 22 knowledge-base videos moved to Firebase through Replace (no duplicates), 2 new How-To AV videos with transcripts (made on Martin's PC — Whisper works), the bar's bottom spacing, the view-as strip (team list readable, "as an admin" waits for a team, strip behind pop-ups at z-index 40), and `egbc-kbadmin.js` now showing the Admin button to admins (it used to hide it for good before the profile loaded; `egbc-ready` is never dispatched, so it re-checks on `EGBCAuth.optional()`). If you touch those files, pull first.
 
+## 9. A2 done (2998c851) — Step C next
+
+Checked: the four remaining Group 1 pages, screenshots read (rota and Rota Planner match the card spec, synthetic data only), nothing outside `v2/`. The rendered-page style check you wrote after the class-string break slipped past the script check is the right tool for styling work — keep using it.
+
+**Next: Step C (Events — Chunk 2).** New pages follow `DESIGN.md` from the start, including controls, so they do not add to R-012/R-013.
+
+**A3 — controls and emoji on Group 1** (R-012 buttons, selects and form labels; R-013 about 100 emoji, mostly CoreTeamApp — use a word where an icon cannot go, e.g. inside an `<option>`). Scheduled **after Step D**, as its own step. Not now.
+
+**F-013** (a fresh hub with no registry applied shows 0 tools) goes on the launch checklist (Q), not fixed now.
+
 ## 3. Order of work across the three briefs
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
@@ -117,9 +127,10 @@ One step at a time. Stop and report after each. Pull before each step; commit sm
 | (was V) | **No SharePoint in v2** — four knowledge-base pages onto Firebase, training portal link removed (§7) | this file |
 | ~~B~~ | ~~One app — Chunk 1~~ — done (4b6c375e), gate reads 0 |
 | (was B) | **One app — Chunk 1:** every in-scope page onto the one signed-in connection — **the five live-writing pages first** (§0, §5) | ONE-APP |
-| A2 | **Finish Restyle Group 1:** cards and lists (R-006), main-action proof on all seven pages (R-007) | RESTYLE |
+| ~~A2~~ | ~~Finish Restyle Group 1: cards and lists~~ — done (2998c851) | RESTYLE |
 | C | **Events — Chunk 2:** events and sign-ups (`contacts` first) | EVENTS |
 | D | One app — Chunk 2: EGBC Hub as the main app, companions, Meet tab, real-phone tests | ONE-APP |
+| A3 | **Controls and emoji on Group 1** (R-012, R-013) | RESTYLE |
 | E | **Share — Chunk 1:** Share to WhatsApp on notices and meetings (events join when built) | SHARE-NOTIFY |
 | F | **Notify — Chunk 1:** establish how notifications can be sent; write Martin's manual steps; **stop before building** | SHARE-NOTIFY |
 | G | Events — Chunk 3: check-in, attendance, forms and safeguarding | EVENTS |
