@@ -93,6 +93,18 @@ Build:
 
 **Do not upload Martin's real videos** — Claude in Martin's other window does that once this is live, after matching each file against what is already on the pages.
 
+## 8. Step B done (4b6c375e) — what comes next
+
+Checked: `check-firebase-apps.mjs` reads **0** in scope, 35 on the shared connection, 1 second project (data-tools restore target, legitimate); nothing outside `v2/` changed since B1; `egbc-db.js` uses `persistentLocalCache` with `persistentMultipleTabManager` (right for several tabs); the inventory double `const db` is fixed. Good work, and thank you for A-013 — saying plainly what was not proved.
+
+**Next: Step A2 — finish Restyle Group 1.** The main-action proof for the seven Group 1 pages is done (B1 + Step B). What remains is **R-006: cards and lists rebuilt to the card spec** on those seven pages. Group 1 is done when that is.
+
+**A-013 carries forward:** every later restyle group (H, M, P in §3) must include each of its pages' **main action, end to end, through the UI, against the emulator** — the restyle touches every page anyway, so that is where the proof belongs. The launch checklist (Q) lists any page still without it.
+
+Then **Step C** (Events — Chunk 2).
+
+Since Step V, Martin also has these done in this window (already on `main`, nothing to redo): 22 knowledge-base videos moved to Firebase through Replace (no duplicates), 2 new How-To AV videos with transcripts (made on Martin's PC — Whisper works), the bar's bottom spacing, the view-as strip (team list readable, "as an admin" waits for a team, strip behind pop-ups at z-index 40), and `egbc-kbadmin.js` now showing the Admin button to admins (it used to hide it for good before the profile loaded; `egbc-ready` is never dispatched, so it re-checks on `EGBCAuth.optional()`). If you touch those files, pull first.
+
 ## 3. Order of work across the three briefs
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
@@ -100,9 +112,11 @@ One step at a time. Stop and report after each. Pull before each step; commit sm
 | Step | Work | Brief |
 |---|---|---|
 | ~~A~~ | ~~Restyle Group 1, first pass~~ — **done (9a82f685)** (engine into `egbc-ui.js`, emoji, team colours, cards, phone overflow, view-as strip, main-action proof) | RESTYLE + this file |
-| B1 | Settle A-005 (§6) | this file |
-| V | **No SharePoint in v2** — four knowledge-base pages onto Firebase, training portal link removed (§7) | this file |
-| B | **One app — Chunk 1:** every in-scope page onto the one signed-in connection — **the five live-writing pages first** (§0, §5) | ONE-APP |
+| ~~B1~~ | ~~Settle A-005~~ — done (40eb2041) | this file |
+| ~~V~~ | ~~No SharePoint in v2~~ — done (363aa80f); videos moved by Martin's window |
+| (was V) | **No SharePoint in v2** — four knowledge-base pages onto Firebase, training portal link removed (§7) | this file |
+| ~~B~~ | ~~One app — Chunk 1~~ — done (4b6c375e), gate reads 0 |
+| (was B) | **One app — Chunk 1:** every in-scope page onto the one signed-in connection — **the five live-writing pages first** (§0, §5) | ONE-APP |
 | A2 | **Finish Restyle Group 1:** cards and lists (R-006), main-action proof on all seven pages (R-007) | RESTYLE |
 | C | **Events — Chunk 2:** events and sign-ups (`contacts` first) | EVENTS |
 | D | One app — Chunk 2: EGBC Hub as the main app, companions, Meet tab, real-phone tests | ONE-APP |
