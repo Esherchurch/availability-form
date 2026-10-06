@@ -1,4 +1,4 @@
-# EGBC Hub — one app, one sign-in — build brief
+# EGBC Hub and its phone apps — one sign-in — build brief
 
 For a Claude Code window working in `Esherchurch/availability-form`, **`v2/` only**.
 Written 2026-10-06. Martin writes no code: this brief is the spec, you build, he assesses.
@@ -9,11 +9,12 @@ Written 2026-10-06. Martin writes no code: this brief is the spec, you build, he
 
 ## 1. What we are building, in one sentence
 
-Turn v2 into **one installable app, "EGBC Hub", with one sign-in**, where members and admins use the same app and admin tools simply appear for the people allowed them — the opposite of ChurchSuite, where creating an event means switching to a different app and a different login.
+Give **the EGBC Hub and its companion phone apps one sign-in and one way of working**, so members and admins use the same apps with the same login and admin tools simply appear for the people allowed them — the opposite of ChurchSuite, where creating an event means switching to a different app and a different login.
 
 ## 2. What we are NOT doing
 
 - **Not touching the original site** (everything outside `v2/`). It stays live and unchanged until Martin launches v2. No redirects, no edits, no shared files changed outside `v2/`.
+- **Not merging or retiring the companion phone apps.** They are deliberate: each is focused on one job and installed alongside the hub (list in §4). Keep every one of them.
 - Not migrating content (videos etc.) — Martin does that; this build gives him a checklist (§7), not a migration.
 - Not building events, bookings, kids or groups — that is `v2/EVENTS-BOOKINGS-BRIEF.md`. This brief makes the app those features live in.
 - Not deploying Firestore rules. Martin deploys, after you show the emulator tests passing.
@@ -23,23 +24,39 @@ Turn v2 into **one installable app, "EGBC Hub", with one sign-in**, where member
 | Question | Decision |
 |---|---|
 | Scope | v2 only. v2 is not launched; it must be right before launch. |
-| App name on phones | **EGBC Hub** |
+| App names on phones | The hub is **EGBC Hub**. The companion apps keep their own names, without the "v2" suffix at launch (Martin to confirm each name). |
 | Member directory | **Opt-in per person.** Only people who choose to be listed appear, and each chooses what is shown (phone, email, address). |
-| Sign-in | One sign-in for everything (email link or Google, as `login.html` does now). Youth keep parent-issued codes but land in the same app. Guests (event sign-ups, hirers) never need an account. |
+| Sign-in | One sign-in for everything (email link or Google, as `login.html` does now). Youth keep parent-issued codes but land in the same apps. Guests (event sign-ups, hirers) never need an account. |
 
 ## 4. What is there now (checked 2026-10-06 — re-check before relying on it)
 
 - `v2/egbc-auth.js` signs people in on a **named Firebase app, `egbc`** (compat SDK 10.12.2), and exposes `EGBCAuth.db`, `EGBCAuth.storage()`, `EGBCAuth.require()`, roles and teams. Its comments explain why it is named: pages that called `initializeApp` on the default app clashed with it.
 - **About 40 v2 pages also start their own, separate Firebase app** for their data: 29 with the compat SDK (`firebase.initializeApp`), 11 with the modular SDK (`import … firebase-app.js`, 10.7.1). Firebase keeps sign-in **per app**, so these pages' data calls go out **not signed in**, even though the page itself checked the login. They work today only because the rules allow it. **This is the "different realms" problem inside our own app, and it blocks deploying `firestore.rules`.**
-- `v2/` has **10 manifests** (`manifest-*.json`) — ten separately installable apps. `manifest-hub.json` is named "EGBC Team Hub" / short name "Team Hub v2".
+- `v2/` has **10 phone apps**, one manifest each, all **deliberate and staying**:
+
+  | Manifest | Name on phone now | Opens |
+  |---|---|---|
+  | manifest-hub.json | Team Hub v2 | hub.html |
+  | manifest-coreteam.json | Core Team v2 | CoreTeamApp.html |
+  | manifest-worship.json | Worship Hub v2 | worshiphubapp.html |
+  | manifest-youth.json | Youth Hub v2 | youthapp2.html |
+  | manifest-planner.json | Rota Planner v2 | Planner.html |
+  | manifest-service.json | Service Planner v2 | SundayServicePlanner.html |
+  | manifest-youthservice.json | Youth Planner v2 | youthserviceplanner.html |
+  | manifest-availability.json | Availability v2 | index.html |
+  | manifest-mix.json | Mix Builder | mix-builder.html |
+  | manifest-studio.json | Calla Design v2 | studio.html |
 - The bar and menu on every page come from `v2/egbc-shell.js`; the look from `v2/DESIGN.md`, `egbc-ui.js`, `egbc-editor.js`.
 - Rules are tested in the emulator with `v2/firestore-rules.test.mjs` (`v2/firebase.json`, Firestore on 8181).
 
 ## 5. Shape of the app
 
-**One front door:** `v2/hub.html`, installed once as **EGBC Hub**.
+**The hub and its companion apps.** `hub.html` is the main app (**EGBC Hub**). The other nine phone apps stay as they are — each focused on one job — and work **alongside** it:
+- **Same sign-in in every app.** One login, one person, one set of roles. Signing in once on a device should cover every app on that device where the platform allows it. **Establish on a real iPhone and a real Android phone** whether apps installed to the home screen share the sign-in or each need signing in once; record the answer in FINDINGS. If each needs its own first sign-in, make that one tap ("Continue as Martin" / email link) rather than a fresh form, and say so in the report — do not try to work around the platform.
+- **Moving between apps:** every app has the bar's Hub button and Menu; the Menu lists the companion apps under an "Apps" heading so people can jump between them.
+- **Consistent look:** every app follows `DESIGN.md`.
 
-**Navigation** (added to `egbc-shell.js` so every page has it):
+**Navigation inside the hub** (in `hub.html` / `hub-app.js`; companion apps keep their own focused layouts):
 - Phone: a **bottom tab bar** — Home · Calendar · My serving · Groups · More. Tabs whose pages do not exist yet are hidden, not dead.
 - Computer: a **left sidebar** with the same items, then the person's admin sections.
 - The existing Menu (search all pages) stays.
@@ -50,7 +67,7 @@ Turn v2 into **one installable app, "EGBC Hub", with one sign-in**, where member
 - **My meetings** (already on the hub).
 - Later chunks of the events brief add: my sign-ups, my bookings, my children's check-in, my groups.
 
-**Role-based, not realm-based:** leaders and admins see extra sections in the sidebar / More tab (planners, address book, places and bookings, forms, reports, admin). Same app, same login. Use the existing roles in `egbc-auth.js` — do not invent a second permission model.
+**Role-based, not realm-based:** leaders and admins see extra sections in the sidebar / More tab (planners, address book, places and bookings, forms, reports, admin), and admin actions inside any app appear only for those allowed them. Same apps, same login. Use the existing roles in `egbc-auth.js` — do not invent a second permission model.
 
 **My profile and household** (Chunk 3): a person sees and edits their own details and their household's; changes to name, email or household go to an admin to approve; phone and directory choices save straight away.
 
@@ -72,7 +89,7 @@ Turn v2 into **one installable app, "EGBC Hub", with one sign-in**, where member
 - Content moved from the original site: videos, resources, charters, song library, training material (Martin fills in the list).
 - Sign-in tested on a real iPhone and a real Android phone, installed from the home screen.
 - `firestore.rules` and `storage.rules` deployed and every page re-checked afterwards.
-- Old v2 manifests retired (§8 Chunk 2).
+- Every phone app installed from the home screen on a real iPhone and Android phone, signed in, and its main job done. App names without "v2".
 - Youth access codes tested end to end.
 - Backup taken (`data-tools.html`).
 
@@ -85,8 +102,8 @@ Turn v2 into **one installable app, "EGBC Hub", with one sign-in**, where member
 2. Move **every** v2 page with its own Firebase app onto the shared sign-in, by the route chosen. One commit per group of pages.
 3. Proof: in the emulator **with `firestore.rules` loaded**, sign in as a test member and a test admin and do each page's main action. List each page with pass/fail. Then break it on purpose (put one page back on its own app) and show its check failing.
 
-### Chunk 2 — The app shell
-One manifest: `manifest-hub.json` renamed **EGBC Hub** (short name "EGBC Hub"), start page `hub.html`. Every v2 page links that manifest; the other nine v2 manifests are retired (pages that were their start pages stay reachable from the menu). Bottom tab bar and sidebar in `egbc-shell.js`. Personal Home (§5). Role-based sections.
+### Chunk 2 — The hub as the main app, with its companions
+`manifest-hub.json` renamed **EGBC Hub**. **Keep all nine companion apps and their manifests**; prepare their names without "v2" but do not change them until Martin confirms each name (record the proposed names in FINDINGS). "Apps" heading in the Menu. Same sign-in across apps, tested on real phones (§5). Bottom tab bar and sidebar in the hub. Personal Home (§5). Role-based sections.
 
 ### Chunk 3 — Profile, household, directory
 §5. Rules tests: a member can edit their own record but not another's; directory fields are visible only when the person opted in, only to signed-in members; youth-code users and guests see none of it. Break each rule and show the test failing.
