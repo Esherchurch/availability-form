@@ -447,7 +447,9 @@
 
     var v = viewAs();
     bar.style.cssText =
-      'position:fixed;left:0;right:0;bottom:0;z-index:9900;display:flex;align-items:center;' +
+      /* z-index 40: below every page's pop-up windows (Tailwind z-50, the hub's 110),
+         so it never covers their buttons. Page content gets matching space below. */
+      'position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;align-items:center;' +
       'gap:10px;flex-wrap:wrap;padding:10px 16px;font-family:Inter,system-ui,sans-serif;' +
       'font-size:13px;font-weight:500;box-shadow:0 -1px 2px rgba(16,24,40,.05);' +
       (v ? 'background:#b07d2e;color:#fff' : 'background:#fff;color:#374151;border-top:1px solid #e5e7eb');
@@ -465,12 +467,18 @@
            : 'View the site as') +
       '</span>' +
       '<select id="egbc-va-team" style="font-family:inherit;font-size:13px;font-weight:500;' +
+        /* Own colours: in view-as mode the bar's text is white, and a select inherits it - white names on a white list. */
+        'background:#fff;color:#111827;' +
         'height:32px;border-radius:8px;padding:0 10px;border:1px solid ' +
         (v ? 'rgba(255,255,255,.45)' : '#d1d5db') + '">' +
         '<option value="">Myself</option>' + opts +
       '</select>' +
-      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
-        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + '> as an admin' +
+      /* 'As an admin' only means something once a team is chosen. Ticking it on
+         'Myself' used to reload and untick, which looked broken - so it waits. */
+      '<label style="display:flex;align-items:center;gap:6px;cursor:' + (v ? 'pointer' : 'default;opacity:.55') + '"' +
+        (v ? '' : ' title="Choose a team first"') + '>' +
+        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '> as an admin' +
+        (v ? '' : ' <span style="font-weight:400">(choose a team first)</span>') +
       '</label>' +
       (v ? '<button id="egbc-va-off" style="font-family:inherit;font-size:13px;font-weight:500;' +
            'height:32px;border-radius:8px;padding:0 12px;border:none;cursor:pointer;background:#fff;' +
@@ -485,6 +493,10 @@
       } catch (e) {}
       location.reload();
     }
+
+    /* Room underneath, so the last thing on the page can be scrolled clear of the strip. */
+    var pad = function () { document.body.style.paddingBottom = (bar.offsetHeight + 12) + 'px'; };
+    pad(); window.addEventListener('resize', pad);
 
     document.getElementById('egbc-va-team').onchange = apply;
     document.getElementById('egbc-va-admin').onchange = apply;
