@@ -254,7 +254,7 @@ ChurchSuite's rotas offer, and Martin's account has switched on: accept/decline 
 
 **Attendance headcounts** ("Gatherings"): a quick headcount per Sunday service and event (adults, children, online) with a trend report. Add to Chunk 3 alongside check-in.
 
-**Not copied (Martin to decide):** ChurchSuite's staff **leave requests** (holiday booking for staff) — out of scope unless Martin asks.
+**Not copied — decided:** ChurchSuite's staff **leave requests** are **not** built here. Staff leave belongs to the **HR module of Martin's full church offering**, built separately. Do not build any leave or HR feature in this hub.
 
 ## 7. Technical rules
 
