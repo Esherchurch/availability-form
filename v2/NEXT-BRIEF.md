@@ -69,6 +69,19 @@ If Step B caused it, fix it in `egbc-db.js` or the page and re-prove all five. I
 
 **Launch dependency — add to the checklist (ONE-APP §7) when you build it:** the original site uses **the same database** and its pages connect without signing in. Deploying `firestore.rules` will stop the original site saving, not only unmoved v2 pages. So the rules can be deployed **only at the switch-over to v2**, or with rules that still allow the original site's paths — Martin's decision at launch. Record this as a finding now so it is not lost.
 
+## 7. Step V — knowledge-base videos onto Firebase (after B1, before B2)
+
+Martin's decision: **every knowledge-base video lives in Firebase Storage, not SharePoint.** Checked 2026-10-06: only `EGBC-Troubleshoot-AV.html` was ever moved (`STORAGE_PATH='kb/troubleshoot-av'`, batch upload, `KBTranscribe`). `EGBC-HowTo-AV.html` still takes only an embed URL (`SP_SITE` SharePoint) with no upload, and `EGBC-PlayThrough.html` still points videos at SharePoint (`SP_VIDEO_BASE`) — its file button analyses audio for chords, it does not store the video. No commit ever moved those two.
+
+Build:
+1. **One uploader, shared by all three pages** — lift Troubleshoot's upload + transcription into a shared file (e.g. extend `egbc-kbadmin.js`, or `egbc-kbupload.js`) and use it on How-To AV (`kb/howto-av`) and Play-Through (`kb/playthrough`). Do not paste a third copy. Storage rule `kb/{page}/{fileName}` already covers these paths — check, do not change rules.
+2. **"Replace video file"** on an existing entry: upload a file and swap the entry's `contentURL` from the SharePoint link to the Firebase URL, keeping its id, title, category, tags, transcript and bullets. If it has no transcript, make one. This is how existing SharePoint entries move across **without duplicates**.
+3. **No new SharePoint links** can be added to any of the three pages. Existing SharePoint entries still play until replaced.
+4. Play-Through keeps its chord analysis exactly as it is.
+5. Proof against the emulator (§0): upload a synthetic test video on each page → stored under its `kb/...` path → entry created with a transcript; "Replace video file" on a seeded SharePoint entry → same id, Firebase URL, other fields unchanged. Break the shared uploader and show all three pages' checks failing.
+
+**Do not upload Martin's real videos** — Claude in Martin's other window does that once this is live, after matching each file against what is already on the pages.
+
 ## 3. Order of work across the three briefs
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
@@ -76,6 +89,8 @@ One step at a time. Stop and report after each. Pull before each step; commit sm
 | Step | Work | Brief |
 |---|---|---|
 | ~~A~~ | ~~Restyle Group 1, first pass~~ — **done (9a82f685)** (engine into `egbc-ui.js`, emoji, team colours, cards, phone overflow, view-as strip, main-action proof) | RESTYLE + this file |
+| B1 | Settle A-005 (§6) | this file |
+| V | **Knowledge-base videos onto Firebase** (§7) | this file |
 | B | **One app — Chunk 1:** every in-scope page onto the one signed-in connection — **the five live-writing pages first** (§0, §5) | ONE-APP |
 | A2 | **Finish Restyle Group 1:** cards and lists (R-006), main-action proof on all seven pages (R-007) | RESTYLE |
 | C | **Events — Chunk 2:** events and sign-ups (`contacts` first) | EVENTS |
