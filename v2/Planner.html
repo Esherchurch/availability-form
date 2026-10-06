@@ -1500,7 +1500,7 @@
             const speakerVal = ev.speaker || '';
             html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" onblur="updateField(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
             html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" onblur="updateField(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-bold text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
-            html += '<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
+            html += '<div class="flex flex-wrap gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
             ["Core Team", "Worship Team", "AV Team", "Choir", "Youth", "Kids Church"].forEach(t => {
                 html += '<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t + '</span></label>';
             });
@@ -1644,7 +1644,21 @@
         .sk{ background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sh 1.4s ease infinite; border-radius:6px; }
         @keyframes sh{ 0%{background-position:100% 0} 100%{background-position:0 0} }
         @media (prefers-reduced-motion:reduce){ .sk{ animation:none } }
-    </style>
+    
+        /* ---- phone (375px) ----------------------------------------
+           The rota row already wraps; what did not was the strip of six
+           team checkboxes inside it, a 418px line that pushed the page to
+           476px. That strip now wraps (see renderPlanner). These two rules
+           catch the rest: a flex child that will not shrink, and anything
+           wide enough to scroll, which the brief allows to scroll inside
+           its own box so long as the page does not. */
+        @media (max-width: 640px) {
+          .flex > *, .flex-1 { min-width: 0; }
+          input, select, textarea { max-width: 100%; }
+          body { overflow-x: hidden; }
+          .overflow-x-scroll, table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        }
+</style>
 </head>
 <body class="p-4 sm:p-8 lg:p-12">
     <div class="max-w-[1900px] mx-auto">

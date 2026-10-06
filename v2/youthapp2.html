@@ -901,6 +901,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 #notes-list .empty-state { background:transparent !important; color:#5a3d17 !important; text-align:center; padding:44px 16px; }
 @media (prefers-reduced-motion: reduce){ #notes-list .note-card { transition:none; animation:none; } }
 </style>
+<script src="egbc-ui.js?v=202610061800"></script>
 </head>
 <body>
 
@@ -1223,7 +1224,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>
-      <button class="tour-next" onclick="nextTourStep()">Next →</button>
+      <button class="tour-next" id="tour-next" onclick="nextTourStep()">Next →</button>
     </div>
   </div>
 </div>

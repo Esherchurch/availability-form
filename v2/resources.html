@@ -110,8 +110,8 @@
   </div>
 
   <div id="empty" class="hidden text-center py-20">
-    <div class="text-5xl mb-4 opacity-30">📂</div>
-    <div class="font-black uppercase opacity-40 tracking-widest text-sm">Nothing here yet</div>
+    <div class="mb-4" style="color:#9ca3af"><i data-lucide="folder-open" style="width:40px;height:40px"></i></div>
+    <div class="text-sm" style="font-weight:600;color:#6b7280">Nothing here yet</div>
     <div id="emptyHint" class="text-sm opacity-30 mt-2"></div>
   </div>
 </div>
@@ -153,8 +153,15 @@ function renderTeams(){
   el.innerHTML=teams.length<=1?'':teams.map(t=>{
     const c=EGBCAuth.TEAMS[t]||{label:t,colour:'#3d6263'};
     const on=t===activeTeam;
-    return `<button onclick="switchTeam('${t}')" class="px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest border transition-all"
-      style="${on?`background:${c.colour};border-color:${c.colour};color:#fff`:'background:#fff;border-color:#dde7e6'}">${c.label}</button>`;
+    /* The team colour is an 8px dot beside the name, never a fill: a solid
+       team colour across a tab is the loudest thing on the page and says
+       nothing the dot does not. Selected is the brand tint. */
+    return `<button onclick="switchTeam('${t}')" class="inline-flex items-center gap-2 px-3 border transition-all"
+      style="height:32px;border-radius:8px;font-size:13px;font-weight:500;${on
+        ?'background:#eef5f4;border-color:#3d6263;color:#111827'
+        :'background:#fff;border-color:#d1d5db;color:#374151'}">`
+      + `<span style="width:8px;height:8px;border-radius:9999px;background:${c.colour};flex:none"></span>`
+      + `${c.label}</button>`;
   }).join('');
   document.getElementById('addBtn').classList.toggle('hidden',!activeTeam||!canAdd(activeTeam));
   fillTeamSelect();

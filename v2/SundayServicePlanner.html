@@ -54,6 +54,18 @@
     @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
     @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
     .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size: 11px !important; }
+
+/* ---- phone (375px) --------------------------------------------
+   A flex child will not shrink below its content unless it is told it
+   may: #serviceTypeNotes was laying out 223px wide at a right edge of
+   627px inside a 375px screen, and taking the whole page sideways with
+   it. min-width:0 is what lets flex-1 actually mean "take what is left".
+   Measured, not guessed - see FINDINGS-restyle.md R-007. */
+@media (max-width: 640px) {
+  .flex > *, .flex-1 { min-width: 0; }
+  input, select, textarea { max-width: 100%; }
+  body { overflow-x: hidden; }
+}
 </style>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";

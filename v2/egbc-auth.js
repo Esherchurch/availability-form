@@ -448,9 +448,9 @@
     var v = viewAs();
     bar.style.cssText =
       'position:fixed;left:0;right:0;bottom:0;z-index:9900;display:flex;align-items:center;' +
-      'gap:10px;flex-wrap:wrap;padding:9px 16px;font-family:Montserrat,system-ui,sans-serif;' +
-      'font-size:11px;font-weight:800;box-shadow:0 -3px 14px rgba(20,32,31,.18);' +
-      (v ? 'background:#b07d2e;color:#fff' : 'background:#eef4f3;color:#3d6263;border-top:1px solid #dde7e6');
+      'gap:10px;flex-wrap:wrap;padding:10px 16px;font-family:Inter,system-ui,sans-serif;' +
+      'font-size:13px;font-weight:500;box-shadow:0 -1px 2px rgba(16,24,40,.05);' +
+      (v ? 'background:#b07d2e;color:#fff' : 'background:#fff;color:#374151;border-top:1px solid #e5e7eb');
 
     var teams = Object.keys(TEAMS).filter(function (t) { return !TEAMS[t].parent; });
     var opts = teams.map(function (t) {
@@ -459,20 +459,21 @@
     }).join('');
 
     bar.innerHTML =
-      '<span style="text-transform:uppercase;letter-spacing:.1em">' +
+      '<span style="font-weight:600">' +
         (v ? 'Seeing the site as a ' + (TEAMS[v.team] ? TEAMS[v.team].label : v.team) +
              ' ' + (v.admin ? 'admin' : 'member')
            : 'View the site as') +
       '</span>' +
-      '<select id="egbc-va-team" style="font-family:inherit;font-size:11px;font-weight:800;' +
-        'border-radius:99px;padding:5px 12px;border:1px solid rgba(0,0,0,.15)">' +
+      '<select id="egbc-va-team" style="font-family:inherit;font-size:13px;font-weight:500;' +
+        'height:32px;border-radius:8px;padding:0 10px;border:1px solid ' +
+        (v ? 'rgba(255,255,255,.45)' : '#d1d5db') + '">' +
         '<option value="">Myself</option>' + opts +
       '</select>' +
       '<label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
         '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + '> as an admin' +
       '</label>' +
-      (v ? '<button id="egbc-va-off" style="font-family:inherit;font-size:11px;font-weight:800;' +
-           'border-radius:99px;padding:5px 14px;border:none;cursor:pointer;background:#fff;' +
+      (v ? '<button id="egbc-va-off" style="font-family:inherit;font-size:13px;font-weight:500;' +
+           'height:32px;border-radius:8px;padding:0 12px;border:none;cursor:pointer;background:#fff;' +
            'color:#b07d2e;margin-left:auto">Back to myself</button>' : '');
 
     function apply() {
