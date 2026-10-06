@@ -132,6 +132,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 .tile-service { border-top: 3px solid var(--teal); }
 .tile-rota    { border-top: 3px solid var(--blue); }
 .tile-email   { border-top: 3px solid var(--green); }
+.tile-meetings { border-top: 3px solid #16a34a; }
 
 /* ══ COMMON SECTION STYLES ══ */
 .section-pad { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -598,6 +599,11 @@ select.sp-input { appearance: none; cursor: pointer; }
         <div class="home-tile-name">Rota Planner</div>
         <div class="home-tile-desc">Assign team to services</div>
       </div>
+      <div class="home-tile tile-meetings" style="grid-column:1/-1;" onclick="openSection('meetings')">
+        <div class="home-tile-icon">📹</div>
+        <div class="home-tile-name">Meetings</div>
+        <div class="home-tile-desc">Join video calls &amp; see upcoming online meetings</div>
+      </div>
       <div class="home-tile tile-email" style="grid-column:1/-1;" onclick="openSection('email')">
         <div class="home-tile-icon">📧</div>
         <div class="home-tile-name">Email Compiler</div>
@@ -680,6 +686,11 @@ select.sp-input { appearance: none; cursor: pointer; }
     <!-- Scrollable event list — same renderPlanner() output as desktop -->
     <div id="eventList" style="flex:1;overflow-y:auto;padding:12px 12px calc(var(--safe-bottom) + 16px);"></div>
 
+  </div>
+
+  <!-- ══ MEETINGS ══ -->
+  <div id="screen-meetings" class="screen">
+    <div id="meetingsList" style="padding:12px;"></div>
   </div>
 
   <!-- ══ EMAIL COMPILER ══ -->
@@ -888,7 +899,7 @@ select.sp-input { appearance: none; cursor: pointer; }
       </div>
       <div class="form-field">
         <label class="form-label">Event Type</label>
-        <select class="form-select" id="new-event-type">
+        <select class="form-select" id="new-event-type" onchange="syncNewEventVideo()">
           <option value="Sunday Morning Worship">Sunday Morning Worship</option>
           <option value="Sunday Team Practice">Sunday Team Practice</option>
           <option value="Evening Carol Service">Evening Carol Service</option>
@@ -905,6 +916,10 @@ select.sp-input { appearance: none; cursor: pointer; }
       <div class="form-field">
         <label class="form-label">Description / Notes (optional)</label>
         <input class="form-input" id="new-event-term" placeholder="e.g. Easter Sunday, Communion...">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Video Call</label>
+        <select class="form-select" id="new-event-video"></select>
       </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-secondary btn-full" onclick="closeModal('modal-new-event')">Cancel</button>
@@ -1086,6 +1101,7 @@ const TITLES = {
   rota: 'Rota Planner',
   'rota-detail': '',
   email: 'Email Compiler',
+  meetings: 'Meetings',
 };
 
 function openSection(name) {
@@ -1122,6 +1138,10 @@ function showScreen(name) {
     actionBtn.textContent = '+';
     actionBtn.onclick = () => openNewEventModal();
     startRotaListeners();
+  }
+  if (name === 'meetings') {
+    startRotaListeners();
+    renderMeetings();
   }
   if (name === 'service-detail' && currentService) {
     $('header-title').textContent = currentService.type || 'Service';
@@ -2333,6 +2353,22 @@ const OPTIONAL_ROLES_LIST = ['Sound','Words','Cameras','Violin','Congas','2nd Gu
 const MANDATORY_SUNDAY_ROLES = ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
 const EVENT_TYPES_LIST = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Special Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
 const AV_ROLES = ["Sound","Words","Cameras"];
+
+// ── VIDEO MEETINGS (Daily.co) ── plain "knock to join" links only; never put host tokens here
+const VIDEO_BASE = 'https://egbc.daily.co/';
+const VIDEO_ROOMS = [
+  ['Worship-AV','Worship & AV'], ['worship-core-team','Worship Core Team'], ['Prayer','Prayer'],
+  ['Eldership','Eldership'], ['CMM','CMM'], ['kids-ministries','Kids Ministries'], ['interviews','Interviews'],
+];
+const VIDEO_DEFAULT_BY_TYPE = {
+  'Core Team Meeting':'worship-core-team', 'Worship and AV Team Meeting':'Worship-AV',
+  'Worship Team Meeting':'Worship-AV', 'AV Team Meeting':'Worship-AV',
+};
+// ev.videoRoom: room name, '' = no call, undefined = use the default for the event type
+const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
+const videoLinkFor = ev => { const r = videoRoomFor(ev); return r ? VIDEO_BASE + r : ''; };
+const videoRoomLabel = room => (VIDEO_ROOMS.find(([r]) => r === room) || [room, room])[1];
+
 const personName = raw => Array.isArray(raw) ? raw.map(p => p.name).join(', ') : (raw?.name || '');
 const personId = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || '');
 
@@ -2370,8 +2406,53 @@ function startRotaListeners() {
   db.collection('events').orderBy('date').onSnapshot(snap => {
     cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPlanner();
+    renderMeetings();
   });
 }
+
+function renderMeetings() {
+  const container = document.getElementById('meetingsList');
+  if (!container) return;
+  const today = new Date().toISOString().split('T')[0];
+  const upcoming = cachedEvents
+    .filter(ev => !ev.archived && ev.date >= today && videoRoomFor(ev))
+    .sort((a,b) => (a.date+(a.startTime||'')).localeCompare(b.date+(b.startTime||'')));
+  const btn = 'padding:8px 14px;border-radius:9999px;font-family:\'Montserrat\',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;text-decoration:none;white-space:nowrap;';
+  const joinBtn = link => `<a href="${link}" target="_blank" rel="noopener" style="${btn}background:#16a34a;color:white;border:none;">Join</a>`;
+  const copyBtn = link => `<button onclick="copyMeetingLink('${link}')" style="${btn}background:white;color:#3d6263;border:1px solid #d1dfdf;">Copy link</button>`;
+  const card = 'background:white;border:1px solid #d1dfdf;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+  const heading = t => `<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#3d6263;opacity:0.6;margin:14px 2px 8px;">${t}</div>`;
+
+  let html = heading('Upcoming online meetings');
+  if (!upcoming.length) {
+    html += `<div style="${card}font-size:12px;font-weight:600;color:#3d6263;opacity:0.7;">None yet. In the Rota Planner, pick a 📹 room on a meeting to add it here.</div>`;
+  }
+  upcoming.forEach(ev => {
+    const link = videoLinkFor(ev);
+    const d = new Date(ev.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+    html += `<div style="${card}"><div style="flex:1;min-width:160px;">
+      <div style="font-size:13px;font-weight:800;color:#3d6263;">${ev.type}${ev.description?' · '+ev.description:''}</div>
+      <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;">${d}${ev.startTime?' · '+ev.startTime+(ev.endTime?'–'+ev.endTime:''):''} · 📹 ${videoRoomLabel(videoRoomFor(ev))}</div>
+    </div>${joinBtn(link)}${copyBtn(link)}</div>`;
+  });
+
+  html += heading('All meeting rooms');
+  VIDEO_ROOMS.forEach(([room,label]) => {
+    const link = VIDEO_BASE + room;
+    html += `<div style="${card}"><div style="flex:1;min-width:160px;">
+      <div style="font-size:13px;font-weight:800;color:#3d6263;">${label}</div>
+      <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;word-break:break-all;">${link}</div>
+    </div>${joinBtn(link)}${copyBtn(link)}</div>`;
+  });
+
+  html += `<div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;margin:12px 2px;line-height:1.5;">Rooms are private: people type their name and knock, then the host lets them in. Hosts use their own private host link.</div>`;
+  container.innerHTML = html;
+}
+
+window.copyMeetingLink = async link => {
+  try { await navigator.clipboard.writeText(link); toast('Link copied ✓'); }
+  catch { prompt('Copy this link:', link); }
+};
 
 window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
 window.toggleTermCollapse = t  => { rotaCollapsedTerms.has(t) ? rotaCollapsedTerms.delete(t) : rotaCollapsedTerms.add(t); renderPlanner(); };
@@ -2636,6 +2717,56 @@ async function setAvailability(eventId, pid, targetStatus) {
     toast('Could not save that: ' + e.message);
   }
 }
+
+// ── "+" button: new event of any type ──
+const NEW_EVENT_DEFAULTS = {
+  'Sunday Morning Worship':      { teams:["Worship Team","AV Team"], startTime:"08:00", endTime:"11:30", roles:[...MANDATORY_SUNDAY_ROLES] },
+  'Sunday Team Practice':        { teams:["Worship Team"], startTime:"19:30", endTime:"21:30", roles:["Worship Leader","Keyboard","Guitar","Drums","Bass"] },
+  'Core Team Meeting':           { teams:["Core Team"] },
+  'Worship and AV Team Meeting': { teams:["Worship Team","AV Team"] },
+  'Worship Team Meeting':        { teams:["Worship Team"] },
+  'AV Team Meeting':             { teams:["AV Team"] },
+};
+
+window.openNewEventModal = () => {
+  $('new-event-date').value = new Date().toISOString().split('T')[0];
+  $('new-event-type').value = 'Sunday Morning Worship';
+  $('new-event-term').value = '';
+  $('new-event-video').innerHTML = '<option value="">📹 No call</option>' +
+    VIDEO_ROOMS.map(([r,label]) => `<option value="${r}">📹 ${label}</option>`).join('');
+  syncNewEventVideo();
+  openModal('modal-new-event');
+};
+
+window.syncNewEventVideo = () => {
+  $('new-event-video').value = VIDEO_DEFAULT_BY_TYPE[$('new-event-type').value] || '';
+};
+
+window.createRotaEvent = async () => {
+  const date = $('new-event-date').value;
+  if (!date) { toast('Pick a date first'); return; }
+  const type = $('new-event-type').value;
+  const d = NEW_EVENT_DEFAULTS[type] || {};
+  const btn = $('event-modal-btn');
+  btn.disabled = true;
+  try {
+    await db.collection('events').add({
+      date, termLabel:getTermLabel(date), type,
+      description: $('new-event-term').value.trim(),
+      teams: d.teams || ["Worship Team","AV Team"],
+      startTime: d.startTime || "19:30", endTime: d.endTime || "21:00",
+      roles: d.roles || [],
+      videoRoom: $('new-event-video').value,
+      archived:false,
+    });
+    closeModal('modal-new-event');
+    toast('Event created ✓');
+  } catch (e) {
+    toast('Could not create event: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 window.addSingleLine = async () => {
   const d = new Date().toISOString().split('T')[0];
@@ -2922,6 +3053,11 @@ function generateEventHtml(ev, blockIdx) {
   EVENT_TYPES_LIST.forEach(t => { html+=`<option value="${t}"${ev.type===t?' selected':''}>${t}</option>`; });
   html += '</select>';
   html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
+  const vRoom = videoRoomFor(ev);
+  html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>📹 No call</option>`;
+  VIDEO_ROOMS.forEach(([r,label]) => { html+=`<option value="${r}"${vRoom===r?' selected':''}>📹 ${label}</option>`; });
+  html += '</select>';
+  if (vRoom) html += `<a href="${VIDEO_BASE}${vRoom}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;text-decoration:none;">Join</a>`;
   html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:9999px;border:1px solid #d1dfdf;">';
   ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t => {
     html+=`<label style="font-size:9px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;color:#3d6263;cursor:pointer;white-space:nowrap;"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} style="width:11px;height:11px;accent-color:#3d6263;"><span>${t}</span></label>`;

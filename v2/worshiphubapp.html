@@ -2301,12 +2301,18 @@ function downloadICS(type) {
   const member = rotaAddressBook.find(m => m.id === memberId);
   if (!member) return;
 
+  // Anyone with a role, plus — for meetings — everyone in the ticked teams (same rule as Planner.html)
+  const isInvitedTo = (e, id) => {
+    if (Object.values(e.assignments||{}).some(a => a.id === id)) return true;
+    const m = rotaAddressBook.find(x => x.id === id);
+    return /Meeting/.test(e.type||'') && !!m && (e.teams?.some(t => m.markers?.includes(t)) || (e.teams?.includes("Youth") && m.markers?.includes("Youth Worship")));
+  };
   let events = rotaEvents;
   if (type === 'individual') {
-    events = rotaEvents.filter(e => Object.values(e.assignments||{}).some(a => a.id === memberId));
+    events = rotaEvents.filter(e => isInvitedTo(e, memberId));
   } else {
     const relatedIds = [memberId, ...(member.relatedTo || [])];
-    events = rotaEvents.filter(e => Object.values(e.assignments||{}).some(a => relatedIds.includes(a.id)));
+    events = rotaEvents.filter(e => relatedIds.some(id => isInvitedTo(e, id)));
   }
 
   if (!events.length) { toast('No upcoming events found for you'); return; }
@@ -2318,7 +2324,12 @@ function downloadICS(type) {
       : Object.entries(e.assignments||{}).filter(([r,p]) => [memberId,...(member.relatedTo||[])].includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(', ');
     const date = e.date.replace(/-/g,'');
     const uid = `${date}-${e.id}@egbc.worshiphub`;
-    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles || e.type}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description||''}\nEND:VEVENT\n`;
+    // Video call link — same rules as CoreTeamApp.html / Planner.html (ev.videoRoom, else default for the meeting type)
+    const videoDefaults = { 'Core Team Meeting':'worship-core-team', 'Worship and AV Team Meeting':'Worship-AV', 'Worship Team Meeting':'Worship-AV', 'AV Team Meeting':'Worship-AV' };
+    const videoRoom = e.videoRoom !== undefined ? e.videoRoom : (videoDefaults[e.type] || '');
+    const videoLink = videoRoom ? `https://egbc.daily.co/${videoRoom}` : '';
+    const videoLines = videoLink ? `\\n\\nJoin the video call: ${videoLink}\nLOCATION:${videoLink}\nURL:${videoLink}` : '';
+    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles || e.type}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description||''}${videoLines}\nEND:VEVENT\n`;
   });
   ics += 'END:VCALENDAR';
 

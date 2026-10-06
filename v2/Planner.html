@@ -47,6 +47,27 @@
         const EVENT_TYPES = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
         const AV_ROLES = ["Sound", "Words", "Cameras"];
 
+        // Video meetings (Daily.co) — keep in sync with CoreTeamApp.html. Plain "knock to join" links only; never put host tokens here.
+        const VIDEO_BASE = 'https://egbc.daily.co/';
+        const VIDEO_ROOMS = [
+            ['Worship-AV', 'Worship & AV'], ['worship-core-team', 'Worship Core Team'], ['Prayer', 'Prayer'],
+            ['Eldership', 'Eldership'], ['CMM', 'CMM'], ['kids-ministries', 'Kids Ministries'], ['interviews', 'Interviews'],
+        ];
+        const VIDEO_DEFAULT_BY_TYPE = {
+            'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
+            'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV',
+        };
+        // ev.videoRoom: room name, '' = no call, undefined = use the default for the event type
+        const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
+        const videoLinkFor = ev => { const r = videoRoomFor(ev); return r ? VIDEO_BASE + r : ''; };
+
+        // Who gets an event in their rota email/ICS: anyone with a role, plus — for meetings — everyone in the ticked teams
+        const isMeeting = ev => /Meeting/.test(ev.type || '');
+        const inEventTeams = (m, ev) => !!m && (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship")));
+        const isInvitedTo = (ev, memberId) =>
+            Object.values(ev.assignments || {}).some(raw => (Array.isArray(raw) ? raw : [raw]).some(a => a?.id === memberId)) ||
+            (isMeeting(ev) && inEventTeams(addressBook.find(m => m.id === memberId), ev));
+
         /* ---- Kids Church ------------------------------------------------
            Slots on the rota, which are not quite the same as the abilities
            held in the address book: a person ticks "Helper" once, but a week
@@ -863,6 +884,8 @@
                 return `${y}${m}${d}`;
             };
             const escapeICS = str => (str || '').replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
+            // RFC 5545: lines longer than 75 characters must be folded (long video links would otherwise break some calendars)
+            const fold = line => line.length <= 75 ? line : line.match(/.{1,74}/gu).join(CRLF + ' ');
             let lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//EGBC Worship & AV//Rota//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:EGBC Rota","X-WR-TIMEZONE:Europe/London"];
             events.forEach(ev => {
                 const { summary, description, dateStr, startTime, endTime } = getMemberEvents(ev);
@@ -874,7 +897,11 @@
                 } else {
                     lines.push(`DTSTART;VALUE=DATE:${formatDateTime(dateStr, null)}`, `DTEND;VALUE=DATE:${formatDateTime(dateStr, null)}`);
                 }
-                lines.push(`SUMMARY:${escapeICS(summary)}`, `DESCRIPTION:${escapeICS(description)}`, "END:VEVENT");
+                const videoLink = videoLinkFor(ev);
+                const fullDescription = videoLink ? `${description}\n\nJoin the video call: ${videoLink}` : description;
+                lines.push(fold(`SUMMARY:${escapeICS(summary)}`), fold(`DESCRIPTION:${escapeICS(fullDescription)}`));
+                if (videoLink) lines.push(fold(`LOCATION:${escapeICS(videoLink)}`), fold(`URL:${videoLink}`));
+                lines.push("END:VEVENT");
             });
             lines.push("END:VCALENDAR");
             return lines.join(CRLF) + CRLF;
@@ -894,9 +921,7 @@
             const termLabels = selectedTerm || [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))].join(', ');
             const fullDoc = await getPdfBlob('full', null, activeEvents);
 
-            const assignedIds = new Set();
-            activeEvents.forEach(e => Object.values(e.assignments || {}).forEach(raw => { const pp=Array.isArray(raw)?raw:[raw]; pp.forEach(a=>assignedIds.add(a.id)); }));
-            const members = [...assignedIds].map(mId => addressBook.find(m => m.id === mId)).filter(m => m && m.email);
+            const members = addressBook.filter(m => m.email && activeEvents.some(e => isInvitedTo(e, m.id)));
 
             if (members.length === 0) { alert("No team members found."); return; }
 
@@ -945,8 +970,8 @@
                 try {
                     const hIds = householdOf(member.id);
                     const flatPeople = e => Object.values(e.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw : [raw]);
-                    const personalEvents = activeEvents.filter(e => flatPeople(e).some(a => a.id === mId));
-                    const familyEvents = activeEvents.filter(e => flatPeople(e).some(a => hIds.includes(a.id)));
+                    const personalEvents = activeEvents.filter(e => isInvitedTo(e, mId));
+                    const familyEvents = activeEvents.filter(e => hIds.some(id => isInvitedTo(e, id)));
 
                     const attachments = [];
 
@@ -979,7 +1004,7 @@
                     if (personalEvents.length > 0) {
                         const icsStr = buildICS(personalEvents, ev => ({
                             dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                            summary: `EGBC: ${rolesForMember(ev, mId)}`,
+                            summary: `EGBC: ${rolesForMember(ev, mId) || ev.type}`,
                             description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                         }));
                         attachments.push({ filename: `${safeName}_My_Rota.ics`, content: btoa(unescape(encodeURIComponent(icsStr))) });
@@ -988,14 +1013,14 @@
                     if (familyEvents.length > 0) {
                         const hIcsStr = buildICS(familyEvents, ev => ({
                             dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                            summary: `EGBC Family: ${rolesForFamily(ev, hIds)}`,
+                            summary: `EGBC Family: ${rolesForFamily(ev, hIds) || ev.type}`,
                             description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                         }));
                         attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: btoa(unescape(encodeURIComponent(hIcsStr))) });
                     }
 
                     const dateRows = personalEvents.map(ev => {
-                        const roles = rolesForMember(ev, mId);
+                        const roles = rolesForMember(ev, mId) || ev.type;
                         const d = new Date(ev.date);
                         const dateStr = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
                         const timeStr = ev.startTime ? ` &bull; ${ev.startTime}–${ev.endTime || ''}` : '';
@@ -1081,8 +1106,8 @@
             const firstName = member.name.split(' ')[0];
             const hIds = householdOf(member.id);
             const flatPeopleS = e => Object.values(e.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw : [raw]);
-            const personalEvents = activeEvents.filter(e => flatPeopleS(e).some(a => a.id === mId));
-            const familyEvents = activeEvents.filter(e => flatPeopleS(e).some(a => hIds.includes(a.id)));
+            const personalEvents = activeEvents.filter(e => isInvitedTo(e, mId));
+            const familyEvents = activeEvents.filter(e => hIds.some(id => isInvitedTo(e, id)));
             const fullDoc = await getPdfBlob('full', null, activeEvents);
             const storageRefs = [];
 
@@ -1116,7 +1141,7 @@
                 if (personalEvents.length > 0) {
                     const icsStr = buildICS(personalEvents, ev => ({
                         dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                        summary: `EGBC: ${rolesForMemberS(ev, mId)}`,
+                        summary: `EGBC: ${rolesForMemberS(ev, mId) || ev.type}`,
                         description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                     }));
                     attachments.push({ filename: `${safeName}_My_Rota.ics`, content: btoa(unescape(encodeURIComponent(icsStr))) });
@@ -1125,14 +1150,14 @@
                 if (familyEvents.length > 0) {
                     const hIcsStr = buildICS(familyEvents, ev => ({
                         dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                        summary: `EGBC Family: ${rolesForFamilyS(ev, hIds)}`,
+                        summary: `EGBC Family: ${rolesForFamilyS(ev, hIds) || ev.type}`,
                         description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                     }));
                     attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: btoa(unescape(encodeURIComponent(hIcsStr))) });
                 }
 
                 const dateRows = personalEvents.map(ev => {
-                    const roles = rolesForMemberS(ev, mId);
+                    const roles = rolesForMemberS(ev, mId) || ev.type;
                     const d = new Date(ev.date);
                     const dateStr = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
                     const timeStr = ev.startTime ? ` &bull; ${ev.startTime}–${ev.endTime || ''}` : '';
@@ -1463,6 +1488,14 @@
             EVENT_TYPES.forEach(t => { html += '<option value="' + t + '" ' + (ev.type === t ? 'selected' : '') + '>' + t + '</option>'; });
             html += '</select>';
             html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\', \'description\', this.value)" onclick="event.stopPropagation()" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">' + (ev.description || '') + '</textarea>';
+            const vRoom = videoRoomFor(ev);
+            html += '<select title="Video call" onclick="event.stopPropagation()" onchange="updateField(\'' + ev.id + '\', \'videoRoom\', this.value)" class="' + (vRoom ? 'bg-[#3d6263] text-white' : 'bg-white text-[#3d6263]') + ' px-4 py-2 rounded-full font-bold text-[11px] border border-[#d1dfdf] outline-none">';
+            html += '<option value=""' + (vRoom ? '' : ' selected') + '>📹 No call</option>';
+            VIDEO_ROOMS.forEach(([r, label]) => {
+                html += '<option value="' + r + '"' + (vRoom === r ? ' selected' : '') + '>📹 ' + label + '</option>';
+            });
+            html += '</select>';
+            if (vRoom) html += '<a href="' + VIDEO_BASE + vRoom + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="bg-green-600 text-white px-4 py-2 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-black transition-all">Join</a>';
             // ── Service Leader & Speaker quick-fields ──
             const svcLeaderVal = ev.serviceLeader || '';
             const speakerVal = ev.speaker || '';
