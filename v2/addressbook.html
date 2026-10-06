@@ -112,10 +112,17 @@
                 }
 
                 const row = `
-                    <tr class="border-b border-[#d1dfdf] hover:bg-[#f0f6f6] transition-colors text-sm">
+                    <tr style="border-bottom:1px solid #e5e7eb" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
                         <td class="p-4">
-                            <div class="font-bold text-[#3d6263]">${escapeHtml(member.name)}</div>
-                            <div class="text-[11px] text-[#3d6263] font-bold opacity-70">${member.email ? escapeHtml(member.email) : '—'}</div>
+                          <div style="display:flex;align-items:center;gap:12px">
+                            <span style="width:36px;height:36px;border-radius:8px;background:#eef5f4;color:#3d6263;
+                              display:flex;align-items:center;justify-content:center;flex:none;font-size:12px;font-weight:600">
+                              ${escapeHtml((member.name||'?').split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase())}</span>
+                            <div style="min-width:0">
+                              <div style="font-size:14px;font-weight:600;color:#111827">${escapeHtml(member.name)}</div>
+                              <div style="font-size:13px;color:#6b7280">${member.email ? escapeHtml(member.email) : '—'}</div>
+                            </div>
+                          </div>
                         </td>
                         <td class="p-4 text-xs font-bold text-gray-500">${escapeHtml(householdDisplay)}</td>
                         <td class="p-4">

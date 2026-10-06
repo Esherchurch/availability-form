@@ -221,36 +221,49 @@ function render(){
 
   list.innerHTML=items.map(i=>{
     const editable=canAdd(i.team);
-    return `<div class="res-card bg-white border border-[#dde7e6] rounded-[1.25rem] p-5">
-      <div class="flex items-start gap-3 mb-3">
-        <span class="text-2xl flex-shrink-0">${iconFor(i)}</span>
-        <div class="flex-grow min-w-0">
-          <a href="${esc(i.url)}" target="_blank" rel="noopener" class="font-black text-sm leading-snug hover:underline block">${hl(esc(i.title),q)}</a>
-          <div class="text-[10px] opacity-45 mt-1">${i.folder?esc(i.folder)+' · ':''}${i.kind==='link'?'Link':fmtSize(i.size)}${i.minRole&&i.minRole!=='member'?' · '+esc(i.minRole)+'+':''}</div>
+    /* DESIGN.md card: 1px line, 14px radius, the small shadow; a 36px
+       tinted badge, the name at 14px/600, one muted line under it, and the
+       actions on the right. */
+    return `<div class="res-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;
+      box-shadow:0 1px 2px rgba(16,24,40,.05);padding:14px 16px">
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <span style="width:36px;height:36px;border-radius:8px;background:#eef5f4;color:#3d6263;
+          display:flex;align-items:center;justify-content:center;flex:none">
+          <i data-lucide="${iconFor(i)}" style="width:18px;height:18px"></i></span>
+        <div style="flex:1;min-width:0">
+          <a href="${esc(i.url)}" target="_blank" rel="noopener"
+             style="display:block;font-size:14px;font-weight:600;color:#111827;line-height:1.35;text-decoration:none">
+             ${hl(esc(i.title),q)}</a>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px">${i.folder?esc(i.folder)+' · ':''}${i.kind==='link'?'Link':fmtSize(i.size)}${i.minRole&&i.minRole!=='member'?' · '+esc(i.minRole)+'+':''}</div>
+          ${i.description?`<p style="font-size:13px;color:#374151;line-height:1.5;margin:8px 0 0">${hl(esc(i.description),q)}</p>`:''}
         </div>
       </div>
-      ${i.description?`<p class="text-[12px] opacity-60 leading-relaxed mb-3">${hl(esc(i.description),q)}</p>`:''}
-      <div class="flex gap-2 items-center flex-wrap">
-        <a href="${esc(i.url)}" target="_blank" rel="noopener" class="bg-[#f0f6f6] border border-[#dde7e6] px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#3d6263] hover:text-white transition-all">${i.kind==='link'?'Open':'Download'}</a>
-        ${editable?`<button onclick="renameItem('${i.id}')" class="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 px-2 transition-opacity">Rename</button>
-        <button onclick="removeItem('${i.id}')" class="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 px-2 transition-colors ml-auto">Delete</button>`:''}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb">
+        <a href="${esc(i.url)}" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:8px;
+           border:1px solid #d1d5db;background:#fff;color:#111827;font-size:13px;font-weight:500;text-decoration:none">
+           ${i.kind==='link'?'Open':'Download'}</a>
+        ${editable?`<button onclick="renameItem('${i.id}')" style="height:32px;padding:0 10px;border:none;background:none;color:#6b7280;font-size:13px;font-weight:500;cursor:pointer">Rename</button>
+        <button onclick="removeItem('${i.id}')" style="height:32px;padding:0 10px;border:none;background:none;color:#b42318;font-size:13px;font-weight:500;cursor:pointer;margin-left:auto">Delete</button>`:''}
       </div>
     </div>`;
   }).join('');
 }
 
+/* Lucide names, not emoji - DESIGN.md. Drawn by egbc-ui.js, which redraws
+   whatever arrives later through innerHTML. */
 function iconFor(i){
-  if(i.kind==='link')return'🔗';
+  if(i.kind==='link')return'link';
   const n=(i.fileName||'').toLowerCase();
-  if(/\.pdf$/.test(n))return'📕';
-  if(/\.(docx?|odt)$/.test(n))return'📘';
-  if(/\.(xlsx?|csv|ods)$/.test(n))return'📗';
-  if(/\.(pptx?|odp)$/.test(n))return'📙';
-  if(/\.(png|jpe?g|gif|webp|svg)$/.test(n))return'🖼';
-  if(/\.(mp4|mov|webm|avi)$/.test(n))return'🎬';
-  if(/\.(mp3|wav|m4a|aac)$/.test(n))return'🎵';
-  if(/\.(zip|rar|7z)$/.test(n))return'🗜';
-  return'📄';
+  if(/\.pdf$/.test(n))return'file-text';
+  if(/\.(docx?|odt)$/.test(n))return'file-type';
+  if(/\.(xlsx?|csv|ods)$/.test(n))return'sheet';
+  if(/\.(pptx?|odp)$/.test(n))return'presentation';
+  if(/\.(png|jpe?g|gif|webp|svg)$/.test(n))return'image';
+  if(/\.(mp4|mov|webm|avi)$/.test(n))return'clapperboard';
+  if(/\.(mp3|wav|m4a|aac)$/.test(n))return'music';
+  if(/\.(zip|rar|7z)$/.test(n))return'folder-archive';
+  return'file';
 }
 
 function fmtSize(b){
