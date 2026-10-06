@@ -671,25 +671,14 @@ body {
 </style>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { db, ready } from './egbc-db.js';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const app = initializeApp({
-  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-  authDomain: "egbc-worship-planner.firebaseapp.com",
-  projectId: "egbc-worship-planner"
-});
-// Offline-first. Anything loaded once is served from disk next time, and the app
-// keeps working if the church wifi drops mid-service. Falls back to the plain
-// in-memory client where IndexedDB isn't available (private windows, old iOS).
-let db;
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-  });
-} catch (e) {
-  db = getFirestore(app);
-}
+/* One signed-in connection. The offline-first cache this page used to set up
+   for itself now lives in egbc-db.js, because initializeFirestore has to run
+   before anything calls getFirestore on the same app - so it could not stay
+   here once the app became shared. Same behaviour, same fallback. */
+await ready;
 
 let eventsForDay = [], selectedEvent = null, currentService = null;
 let songs = [], index = 0, currentRole = "", currentDate = "", currentLeader = "";

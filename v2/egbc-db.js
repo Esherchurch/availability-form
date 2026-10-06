@@ -43,7 +43,7 @@
    =================================================================== */
 
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getStorage, connectStorageEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import { getAuth, connectAuthEmulator, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
@@ -61,7 +61,22 @@ const APP_NAME = 'egbc';
 
 export const app = getApps().find(a => a.name === APP_NAME) || initializeApp(CONFIG, APP_NAME);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+/* Offline-first, carried over from Performancenotes, which had it for a
+   reason: anything loaded once is served from disk next time, so the page
+   keeps working if the church wifi drops mid-service. It has to be set up
+   HERE, because initializeFirestore must run before anything calls
+   getFirestore on the same app - a page cannot add it afterwards.
+   Falls back to the plain client where IndexedDB is not available, which is
+   private windows and older iOS. */
+export const db = (function () {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+  } catch (e) {
+    return getFirestore(app);
+  }
+})();
 export const storage = getStorage(app);
 
 /* Local work talks to the emulator, exactly as egbc-auth.js does for the

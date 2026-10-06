@@ -1,19 +1,18 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202609041833" data-title="Core Team Charter"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
+
+<script src="egbc-shell.js?v=202609041833" data-title="Core Team Charter"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="Core Team"></script>
     <meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Core Team Charter</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <style>
         :root {
             --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1;
@@ -399,15 +398,11 @@ const ADMIN_PW = 'Surreykt10';
 
 // Shared storage — admin edits are now saved to Firebase so everyone sees them
 // (previously saved to this browser's localStorage only).
-const firebaseConfig = {
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner",
-    storageBucket: "egbc-worship-planner.firebasestorage.app"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
+/* The shared sign-in, not an app of our own. A second app has nobody
+   signed in, so its reads and writes go out anonymous - and on localhost
+   it would miss the emulator hook and reach the live database. */
+const db = EGBCAuth.db;
+const storage = EGBCAuth.storage();
 const DOC_REF = db.collection('pageContent').doc(PAGE_ID);
 
 let isAdmin = false;
