@@ -59,10 +59,12 @@
         const KIDS_HELPER_SLOTS = ['Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'];
         const KIDS_ROLES = [...KIDS_FIXED_ROLES, ...KIDS_HELPER_SLOTS];
 
-        /* The standard Sunday. Provisional until Karen confirms it - change
-           this line and nothing else. */
-        const KIDS_MANDATORY_ROLES = ['Session Leader',
-            'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)', 'Helper 1'];
+        /* The standard Sunday, confirmed against the Autumn 2026 rota: one
+           Session Leader and two helper slots, nothing more. The two helper
+           slots are interchangeable - the same people appear in either, and
+           which group they take is settled on the day. The fuller slots in
+           KIDS_FIXED_ROLES stay selectable for a week that needs one pinned. */
+        const KIDS_MANDATORY_ROLES = ['Session Leader', 'Helper 1', 'Helper 2'];
 
         /* A rota slot maps to the ability ticked in the address book.
            "Helper 4" is just a Helper. */
