@@ -15,7 +15,7 @@
 
 /* Shown in any error message, so it is obvious which copy of this file the
    browser is actually running. */
-const HUB_BUILD = 'v106';
+const HUB_BUILD = 'v107';
 
 /* egbc-auth.js owns a named app now, so the page's own default app is left
    alone. Reach for its handles, not firebase.firestore().
@@ -1091,6 +1091,15 @@ async function loadPages() {
    is named here. Take it out of this list if it should be a tile. */
 const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html', 'performancenotes.html'];
 
+/* Shown in Where to? even before an admin has pressed "Add the missing
+   pages", so a new feature is reachable the moment it ships. Once the page is
+   in hubPages that copy wins and this one is skipped. egbc-shell.js carries
+   the same entry for its menu. */
+const BUILT_IN_PAGES = [
+  { id: 'builtin-meeting', url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
+    description: 'Video meetings - set one up, join a call, every meeting room' },
+];
+
 /* Charters live on the landing page now, so a link to them here is noise. */
 function isCharterPage(url) {
   const u = (url || '').toLowerCase();
@@ -1505,7 +1514,9 @@ function visibleOne(p) {
 function visibleTools() {
   const mine = myTeams();
   const admin = EGBCAuth.adminAreas();
-  return PAGES.filter(p => {
+  const have = new Set(PAGES.map(p => (p.url || '').toLowerCase()));
+  const all = [...BUILT_IN_PAGES.filter(b => !have.has(b.url.toLowerCase())), ...PAGES];
+  return all.filter(p => {
     if (!isTile(p)) return false;
     if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
     /* Help and training is not a team's tool - anyone may need to learn how

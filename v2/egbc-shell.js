@@ -379,6 +379,11 @@
       EGBCAuth.db.collection('hubPages').get().then(function (snap) {
         NAV = snap.docs.map(function (d) { return d.data(); })
                  .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+        /* Reachable before an admin registers it - same entry as
+           BUILT_IN_PAGES in hub-app.js. The registered copy wins. */
+        var hasMeeting = NAV.some(function (p) { return (p.url || '').toLowerCase() === 'meeting.html'; });
+        if (!hasMeeting) NAV.unshift({ url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
+          description: 'Video meetings - set one up, join a call, every meeting room' });
         renderNav(document.getElementById('egbc-nav-q').value.trim().toLowerCase());
       }).catch(function (e) {
         document.getElementById('egbc-nav-list').innerHTML =

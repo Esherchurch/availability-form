@@ -158,7 +158,10 @@ async function lobby(profile) {
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
   } catch (e) { console.error('Could not load meetings', e); }
 
-  let html = '<div class="lab">Upcoming</div>';
+  let html = canSchedule() ? `<div style="margin:14px 0 0;display:flex;justify-content:flex-end">
+      <button class="btn solid" onclick="openNewMeeting()">+ New meeting</button></div>
+      <div id="newMeeting" style="display:none"></div>` : '';
+  html += '<div class="lab">Upcoming</div>';
   if (!upcoming.length) html += '<div class="row"><div class="s" style="margin:0">No online meetings coming up for your teams.</div></div>';
   upcoming.forEach(ev => {
     const r = videoRoomFor(ev);
@@ -179,13 +182,112 @@ async function lobby(profile) {
   box.innerHTML = html;
 }
 
+/* ---- + New meeting -------------------------------------------------
+   Saves into the rota's events collection, exactly as the Core Team app's
+   "+" does, so it shows in the rota, the hub card, calendar files and here.
+   Only the rota's own meeting types: the rota dropdowns mark a type selected
+   by exact match, so an unknown type would be overwritten the first time
+   someone touched it. The rules let admins, or members of one of the
+   meeting's teams, write it - so non-admins are only offered their teams. */
+const MEETING_TYPES = ['Core Team Meeting', 'Worship and AV Team Meeting', 'Worship Team Meeting', 'AV Team Meeting'];
+const ROTA_TEAMS = ['Core Team', 'Worship Team', 'AV Team', 'Choir', 'Youth'];
+const TEAMS_BY_TYPE = {
+  'Core Team Meeting': ['Core Team'], 'Worship and AV Team Meeting': ['Worship Team', 'AV Team'],
+  'Worship Team Meeting': ['Worship Team'], 'AV Team Meeting': ['AV Team'],
+};
+
+function myRotaTeams() {
+  if (EGBCAuth.isAdmin()) return ROTA_TEAMS;
+  /* Literal match on purpose: the rule compares the event's team names with
+     the user's own, so a Youth Worship member could not save a "Youth" event. */
+  const mine = EGBCAuth.effectiveTeams() || [];
+  return ROTA_TEAMS.filter(t => mine.includes(t));
+}
+function canSchedule() { return myRotaTeams().length > 0; }
+
+function termLabel(dateStr) {   /* same as getTermLabel in CoreTeamApp.html */
+  const d = new Date(dateStr);
+  const m = d.getMonth() + 1, y = d.getFullYear();
+  return `${m <= 4 ? 'Spring' : m <= 8 ? 'Summer' : 'Autumn'} ${y}`;
+}
+
+function openNewMeeting() {
+  const box = document.getElementById('newMeeting');
+  const teams = myRotaTeams();
+  const today = new Date().toISOString().split('T')[0];
+  const field = 'width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:600 14px Montserrat,sans-serif;color:var(--ink);background:#fff';
+  const label = 'display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px';
+  box.innerHTML = `<div class="row" style="display:block;margin-top:10px">
+    <div class="t" style="margin-bottom:4px">New meeting</div>
+    <label style="${label}">Meeting</label>
+    <select id="nmType" style="${field}" onchange="nmTypeChanged()">${MEETING_TYPES.map(t => `<option>${t}</option>`).join('')}</select>
+    <label style="${label}">Title or notes (optional)</label>
+    <input id="nmDesc" style="${field}" placeholder="e.g. Elders, Autumn planning">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:2;min-width:150px"><label style="${label}">Date</label><input id="nmDate" type="date" value="${today}" style="${field}"></div>
+      <div style="flex:1;min-width:100px"><label style="${label}">Start</label><input id="nmStart" type="time" value="19:30" style="${field}"></div>
+      <div style="flex:1;min-width:100px"><label style="${label}">End</label><input id="nmEnd" type="time" value="21:00" style="${field}"></div>
+    </div>
+    <label style="${label}">Video room</label>
+    <select id="nmRoom" style="${field}"><option value="">No video call</option>${Object.entries(VIDEO_ROOMS).map(([r, l]) => `<option value="${r}">${l}</option>`).join('')}</select>
+    <label style="${label}">Who is it for?</label>
+    <div id="nmTeams" style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-weight:700;color:var(--ink)">
+      ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${t}" style="width:18px;height:18px;accent-color:#3d6263">${t}</label>`).join('')}
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn" onclick="document.getElementById('newMeeting').style.display='none'">Cancel</button>
+      <button class="btn solid" id="nmSave" onclick="saveNewMeeting()">Create meeting</button>
+    </div>
+  </div>`;
+  box.style.display = '';
+  nmTypeChanged();
+}
+
+function nmTypeChanged() {
+  const type = document.getElementById('nmType').value;
+  document.getElementById('nmRoom').value = VIDEO_DEFAULT_BY_TYPE[type] || '';
+  const want = TEAMS_BY_TYPE[type] || [];
+  document.querySelectorAll('#nmTeams input').forEach(c => { c.checked = want.includes(c.value); });
+}
+
+async function saveNewMeeting() {
+  const date = document.getElementById('nmDate').value;
+  const startTime = document.getElementById('nmStart').value;
+  const endTime = document.getElementById('nmEnd').value;
+  const teams = [...document.querySelectorAll('#nmTeams input:checked')].map(c => c.value);
+  if (!date) { alert('Pick a date.'); return; }
+  if (!startTime) { alert('Pick a start time.'); return; }
+  if (endTime && endTime <= startTime) { alert('The end time is before the start time.'); return; }
+  if (!teams.length) { alert('Tick at least one team, so people can see the meeting.'); return; }
+  const btn = document.getElementById('nmSave');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await EGBCAuth.db.collection('events').add({
+      date, termLabel: termLabel(date),
+      type: document.getElementById('nmType').value,
+      description: document.getElementById('nmDesc').value.trim(),
+      teams, startTime, endTime: endTime || startTime,
+      roles: [], videoRoom: document.getElementById('nmRoom').value,
+      archived: false,
+    });
+    lobby(CURRENT_PROFILE);
+  } catch (e) {
+    console.error('Could not save meeting', e);
+    alert('Could not save the meeting: ' + e.message);
+    btn.disabled = false; btn.textContent = 'Create meeting';
+  }
+}
+
 async function copyLink(r) {
   const link = VIDEO_BASE + r;
   try { await navigator.clipboard.writeText(link); alert('Invite link copied:\n' + link); }
   catch { prompt('Copy this invite link:', link); }
 }
 
+let CURRENT_PROFILE = null;
+
 function start(profile) {
+  CURRENT_PROFILE = profile;
   if (!room) { lobby(profile); return; }
   if (!VIDEO_ROOMS[room]) {
     showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
