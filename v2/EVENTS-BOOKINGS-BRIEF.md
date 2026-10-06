@@ -259,6 +259,52 @@ ChurchSuite's rotas offer, and Martin's account has switched on: accept/decline 
 
 **Not copied — decided:** ChurchSuite's staff **leave requests** are **not** built here. Staff leave belongs to the **HR module of Martin's full church offering**, built separately. Do not build any leave or HR feature in this hub.
 
+### 6.18 Room hire to Condeco standard (Martin, 6 Oct 2026)
+
+A church lets its rooms out, so booking must stand comparison with a professional room-booking system (Condeco / Eptura, ChurchSuite Bookings, Hallmaster). This **extends** §6.1, §6.4, §6.5 and §6.11 — build on them, do not duplicate them. Chunk 1 (places) already exists: extend its records rather than adding parallel ones.
+
+**Room profiles (Chunk 4, Must)** — every room in `places-admin.html` gets:
+- **Photo gallery** (several pictures, one marked main, reorderable; Storage under `rooms/`), plus an optional **floor plan** image.
+- **Dimensions**: length × width (metres), floor area (m², worked out), ceiling height; floor type; natural light; level / step-free access; nearest toilets and kitchen.
+- **Capacity per layout**: e.g. theatre 120, cabaret 64, boardroom 20, standing 150 — and a **fire-safety maximum** that no booking may exceed.
+- **Facilities** shown as a checklist with line icons: projector and screen, PA / microphones, hearing loop, piano, Wi-Fi, stage, kitchen access, tables and chairs (with counts), whiteboard, parking, baby-change, accessible toilet.
+- Short description, house rules for that room, and its **hire rates** (§6.5).
+
+**Finding and choosing a room (Chunk 4, Must)**
+- **"Hire our rooms" public pages**: a gallery of hireable rooms with photos, dimensions, capacities, facilities and "from £x per hour" — leading to the booking request (`book.html`).
+- **Search by need**: date and time, number of people, layout, facilities needed → only the rooms that fit and are free are offered, with **free/busy shown visually** (day and week grid per room, the way Condeco shows availability).
+- **Room comparison** side by side (Should).
+
+**Facilities and kit booking (Chunk 4, Must)**
+- Bookable kit beyond the room (§6.1 resources): projector, PA, staging, extra chairs, urns, the kitchen itself. Quantities, clash warnings across bookings, and a **charge per item** where set.
+- Kit that lives in one room can be **moved** for a booking — warn if it is already booked elsewhere at that time.
+
+**Catering and refreshments (Chunk 4, Must; extends the refreshments request)**
+- **Menus** set by admins: items or packages (tea and coffee, biscuits, sandwich lunch, buffet), **price per head or per item**, minimum numbers, and a **notice period** (e.g. 5 working days) enforced on the form.
+- On the booking: choose items, numbers, **serving times** (e.g. 10:30 tea, 12:30 lunch), and **dietary needs as counts** (vegetarian 4, gluten-free 2 …) — never names or medical detail.
+- **Caterer view** (Should): the person or team doing refreshments sees a list of upcoming catering orders by day with numbers, times and dietary counts, and can mark each prepared / served — like Condeco's vendor dashboard. Printable kitchen sheet.
+- External caterers allowed or not per room (rule set by admin); if the hirer brings their own, record food hygiene / insurance questions (§6.11).
+
+**Generating the cost (Chunk 5, Must)**
+- An **instant quote** shown as the hirer fills in the form, broken down line by line:
+  room hire (hourly / half-day / full-day / evening rate, whichever is cheapest for the times chosen) · setup and pack-down time (charged or free, per rate card) · out-of-hours or weekend surcharge · kit items · catering (per head × numbers) · cleaning fee · caretaker or AV technician time (hourly, if requested) · discounts (charity, regular hirer, member) · deposit and refundable damage deposit · VAT where the rate card says so.
+- **Admin can adjust** any line before approval, with a reason; the hirer sees only the approved figures (§6.5).
+- **Quote document**: a PDF quote with EGBC branding, line items, terms and a reference, emailed to the hirer; the hirer **accepts the quote and the terms online** (timestamped) from `my-booking.html`.
+- Recurring hires (§6.4) quote the whole series, with per-date exceptions, and support **monthly invoicing** for regular hirers.
+- Everything lands as `charges` lines (§6.6) so the accounts export and, later, Calla Accounts pick it up.
+- **VAT**: whether EGBC charges VAT on hire is Martin's decision with the church treasurer — make it a setting per rate card, default **off**, and record it as a finding. Do not decide it in code and do not cite tax rules.
+
+**On the day (Should)**
+- **Check-in** for a booking (the hirer or caretaker marks "arrived"); bookings not checked in within a set time are flagged to the bookings admin (Condeco's auto-release — **flag, never auto-cancel** a paid hire).
+- **Door display** for a room (Later): a tablet page per room showing now / next and "free until 14:00".
+
+**Reports (Chunk 5)**
+Room utilisation (hours booked ÷ hours available, per room per month), income by room, by hirer and by add-on (catering, kit), quotes sent vs accepted, upcoming catering orders, unpaid charges.
+
+**Data**: extend `rooms` (gallery, floorPlan, dimensions, layouts with capacities, fireMax, facilities, rules); new `menus`, `cateringOrders`, `quotes`. Pictures are compressed on upload (long edge 1600px) so the public pages stay fast.
+
+**Proof for the gate**: a synthetic hirer finds a room by "40 people, cabaret, projector", sees the instant quote including catering for 40 with 3 vegetarian, submits; the admin adjusts one line and approves; the hirer accepts the quote online; the charges and the caterer's list both show it. Break the price calculation (e.g. drop the surcharge) and show the quote test failing.
+
 ## 7. Technical rules
 
 ### 7.1 Data (new Firestore collections — suggested; record any change and why)
@@ -312,10 +358,10 @@ Each chunk has three stages. **Gate at the end of each stage**: fix what the gat
 QR check-in/out, collectors, headcount and roll-call, registers and downloads (CSV/Excel/PDF), series attendance, forms builder and templates, reusable consent with expiry, chasing incomplete forms, ratios, leader checks, incident log, concern reporting, sensitive-data rules, retention list.
 
 ### Chunk 4 — Room bookings
-Calendar views, request forms (member + public `book.html`), buffers, resources, AV/refreshments, rota services as busy, clash detection, approvals per site, recurring, emails, setup sheet.
+Room profiles, the public "Hire our rooms" pages, search by need, kit and catering (§6.18); calendar views, request forms (member + public `book.html`), buffers, resources, AV/refreshments, rota services as busy, clash detection, approvals per site, recurring, emails, setup sheet.
 
 ### Chunk 5 — Hire, charges and hirer compliance
-Hirers, rate cards, terms acceptance, insurance / safeguarding / risk-assessment uploads with expiry reminders, licence questions, automatic charges, manual payments, hirer page, accounts export, reports.
+Instant quotes, quote PDFs and online acceptance, utilisation and income reports (§6.18); hirers, rate cards, terms acceptance, insurance / safeguarding / risk-assessment uploads with expiry reminders, licence questions, automatic charges, manual payments, hirer page, accounts export, reports.
 
 ### Chunk 6 — Sunday kids registration
 Kids groups, child profiles and households, family check-in and labels, first-time visitor form, leader screen, registers, visitor follow-up.
