@@ -19,7 +19,6 @@
 <meta name="apple-mobile-web-app-title" content="Worship Planner">
 <meta name="theme-color" content="#3d6263">
 <title>EGBC Worship Planner</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -39,7 +38,7 @@
   --red:        var(--danger);
   --orange:     var(--gold);
   --blue:       #2c6999;
-  --font:       'Montserrat', sans-serif;
+  --font:       Inter, system-ui, sans-serif;
   --safe-top:    env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -560,6 +559,7 @@ select.sp-input { appearance: none; cursor: pointer; }
 @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
 </style>
+<link rel="stylesheet" href="egbc-theme.css?v=202610061700">
 </head>
 <body>
 
@@ -669,18 +669,18 @@ select.sp-input { appearance: none; cursor: pointer; }
 
     <!-- Top toolbar — same as desktop but wraps on mobile -->
     <div style="background:white;border-bottom:1px solid #d1dfdf;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex-shrink:0;">
-      <select id="termSelect" style="background:#f0f6f6;border:1px solid #d1dfdf;border-radius:9999px;padding:8px 14px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#3d6263;outline:none;flex:1;min-width:100px;">
+      <select id="termSelect" style="background:#f0f6f6;border:1px solid #d1dfdf;border-radius:9999px;padding:8px 14px;font-family:Inter, system-ui, sans-serif;font-weight:700;font-size:12px;color:#3d6263;outline:none;flex:1;min-width:100px;">
         <option value="">Term…</option>
         <option value="Spring">Spring</option>
         <option value="Summer">Summer</option>
         <option value="Autumn">Autumn</option>
       </select>
-      <button onclick="generateTerm()" style="background:#f0f6f6;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Populate</button>
-      <button onclick="autoFillAllEvents()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Auto-Fill</button>
-      <button onclick="addThursdayPractices()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Practices</button>
-      <button onclick="addSingleLine()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Service</button>
-      <button onclick="gatherTermAvailability()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Gather Avail</button>
-      <button onclick="toggleHideAssigned()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Hide Assigned</button>
+      <button onclick="generateTerm()" style="background:#f0f6f6;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Populate</button>
+      <button onclick="autoFillAllEvents()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Auto-Fill</button>
+      <button onclick="addThursdayPractices()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Practices</button>
+      <button onclick="addSingleLine()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Service</button>
+      <button onclick="gatherTermAvailability()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Gather Avail</button>
+      <button onclick="toggleHideAssigned()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Hide Assigned</button>
     </div>
 
     <!-- Scrollable event list — same renderPlanner() output as desktop -->
@@ -2054,7 +2054,7 @@ async function spEmail() {
   const introText = document.getElementById('spIntro').value || '';
   const outroText = document.getElementById('spOutro').value || '';
 
-  let html = `<div style="font-family:Montserrat,Arial,sans-serif;color:#3d6263;max-width:650px;padding:30px;background:#fff;margin:auto;">
+  let html = `<div style="font-family:Inter, system-ui, sans-serif;color:#3d6263;max-width:650px;padding:30px;background:#fff;margin:auto;">
     <h1 style="color:#3d6263;font-size:24px;font-weight:800;text-align:center;">Service Plan</h1>
     <p style="text-transform:uppercase;font-weight:700;color:#3d6263;opacity:.6;letter-spacing:1.5px;font-size:11px;text-align:center;">${date} · Leader: ${spLeader}</p>
     ${serviceNotes?`<div style="background:#f0f6f6;border-left:4px solid #3d6263;padding:15px;margin:16px 0;font-size:13px;">${serviceNotes.replace(/\n/g,'<br>')}</div>`:''}
@@ -2417,17 +2417,17 @@ function renderMeetings() {
   const upcoming = cachedEvents
     .filter(ev => !ev.archived && ev.date >= today && videoRoomFor(ev))
     .sort((a,b) => (a.date+(a.startTime||'')).localeCompare(b.date+(b.startTime||'')));
-  const btn = 'padding:8px 14px;border-radius:9999px;font-family:\'Montserrat\',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;text-decoration:none;white-space:nowrap;';
+  const btn = 'display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:8px;font-family:Inter,system-ui,sans-serif;font-weight:500;font-size:13px;cursor:pointer;text-decoration:none;white-space:nowrap;';
   // v2: Join opens the EGBC meeting page (signed-in, name filled in); Copy link stays the plain Daily link for guests
   const meetingPage = (room, evId) => `meeting.html?room=${encodeURIComponent(room)}${evId ? "&event=" + encodeURIComponent(evId) : ""}`;
-  const joinBtn = link => `<a href="${link}" target="_blank" rel="noopener" style="${btn}background:#16a34a;color:white;border:none;">Join</a>`;
-  const copyBtn = link => `<button onclick="copyMeetingLink('${link}')" style="${btn}background:white;color:#3d6263;border:1px solid #d1dfdf;">Copy link</button>`;
-  const card = 'background:white;border:1px solid #d1dfdf;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
-  const heading = t => `<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#3d6263;opacity:0.6;margin:14px 2px 8px;">${t}</div>`;
+  const joinBtn = link => `<a href="${link}" target="_blank" rel="noopener" style="${btn}background:#15803d;color:white;border:1px solid #15803d;">Join</a>`;
+  const copyBtn = link => `<button onclick="copyMeetingLink('${link}')" style="${btn}background:white;color:#111827;border:1px solid #d1d5db;">Copy link</button>`;
+  const card = 'background:white;border:1px solid #e5e7eb;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+  const heading = t => `<div style="font-size:12px;font-weight:600;color:#6b7280;margin:14px 2px 8px;">${t}</div>`;
 
   let html = heading('Upcoming online meetings');
   if (!upcoming.length) {
-    html += `<div style="${card}font-size:12px;font-weight:600;color:#3d6263;opacity:0.7;">None yet. In the Rota Planner, pick a 📹 room on a meeting to add it here.</div>`;
+    html += `<div style="${card}font-size:12px;font-weight:600;color:#3d6263;opacity:0.7;">None yet. In the Rota Planner, pick a video room on a meeting to add it here.</div>`;
   }
   upcoming.forEach(ev => {
     const link = videoLinkFor(ev);
@@ -2528,7 +2528,7 @@ function sheetShell(title, sub, body) {
 function sheetBtn(label, note, onclick, tone) {
   const c = tone === 'danger' ? '#b0392c' : tone === 'muted' ? '#6b8281' : '#14201f';
   const bg = tone === 'danger' ? '#f7e7e4' : '#f6faf9';
-  return `<button onclick="${onclick}" style="display:block;width:100%;text-align:left;background:${bg};border:1px solid #e4eeed;border-radius:11px;padding:11px 14px;margin-bottom:7px;font-family:'Montserrat',sans-serif;cursor:pointer">
+  return `<button onclick="${onclick}" style="display:block;width:100%;text-align:left;background:${bg};border:1px solid #e4eeed;border-radius:11px;padding:11px 14px;margin-bottom:7px;font-family:Inter, system-ui, sans-serif;cursor:pointer">
     <div style="font-size:13px;font-weight:700;color:${c}">${label}</div>
     ${note ? `<div style="font-size:11px;color:#93a8a6;margin-top:2px">${note}</div>` : ''}</button>`;
 }
@@ -3004,8 +3004,8 @@ function renderPlanner() {
     const isCol = rotaCollapsedTerms.has(term);
     let html = '<div style="margin-bottom:20px;">';
     html += `<div style="display:flex;justify-content:space-between;align-items:center;background:#3d6263;color:white;padding:12px 16px;border-radius:${isCol?'14px':'14px 14px 0 0'};">`;
-    html += `<button onclick="toggleTermCollapse('${term}')" style="background:none;border:none;color:white;font-family:'Montserrat',sans-serif;font-weight:800;font-size:13px;text-transform:uppercase;cursor:pointer;">${term}</button>`;
-    html += `<button onclick="archiveTerm('${term}')" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 10px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Archive</button>`;
+    html += `<button onclick="toggleTermCollapse('${term}')" style="background:none;border:none;color:white;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:13px;text-transform:uppercase;cursor:pointer;">${term}</button>`;
+    html += `<button onclick="archiveTerm('${term}')" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 10px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Archive</button>`;
     html += '</div>';
     if (!isCol) {
       html += '<div style="background:white;padding:10px;border:1px solid #d1dfdf;border-top:none;border-radius:0 0 14px 14px;">';
@@ -3047,25 +3047,25 @@ function generateEventHtml(ev, blockIdx) {
   let html = `<div style="background:${bg};border:1px solid #d1dfdf;border-radius:12px;padding:10px;margin-bottom:8px;">`;
   html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">';
   html += `<button onclick="toggleEventExpand('${ev.id}')" style="width:26px;height:26px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0;">${isExp?'−':'+'}</button>`;
-  html += `<input type="date" value="${ev.date}" onchange="updateField('${ev.id}','date',this.value)" style="background:${isSunday?'#3d6263':'#d1dfdf'};color:${isSunday?'white':'#3d6263'};border:none;padding:5px 8px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:11px;">`;
-  html += `<select onchange="updateField('${ev.id}','startTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;">${buildTimeOptions(ev.startTime||'08:00')}</select>`;
+  html += `<input type="date" value="${ev.date}" onchange="updateField('${ev.id}','date',this.value)" style="background:${isSunday?'#3d6263':'#d1dfdf'};color:${isSunday?'white':'#3d6263'};border:none;padding:5px 8px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:700;font-size:11px;">`;
+  html += `<select onchange="updateField('${ev.id}','startTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;">${buildTimeOptions(ev.startTime||'08:00')}</select>`;
   html += `<span style="font-size:10px;color:#d1dfdf;">–</span>`;
-  html += `<select onchange="updateField('${ev.id}','endTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;">${buildTimeOptions(ev.endTime||'11:30')}</select>`;
-  html += `<select onchange="updateField('${ev.id}','type',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;flex:1;min-width:120px;">`;
+  html += `<select onchange="updateField('${ev.id}','endTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;">${buildTimeOptions(ev.endTime||'11:30')}</select>`;
+  html += `<select onchange="updateField('${ev.id}','type',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;flex:1;min-width:120px;">`;
   EVENT_TYPES_LIST.forEach(t => { html+=`<option value="${t}"${ev.type===t?' selected':''}>${t}</option>`; });
   html += '</select>';
-  html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
+  html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:Inter, system-ui, sans-serif;font-size:11px;font-weight:700;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
   const vRoom = videoRoomFor(ev);
-  html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>📹 No call</option>`;
+  html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>📹 No call</option>`;
   VIDEO_ROOMS.forEach(([r,label]) => { html+=`<option value="${r}"${vRoom===r?' selected':''}>📹 ${label}</option>`; });
   html += '</select>';
-  if (vRoom) html += `<a href="meeting.html?room=${encodeURIComponent(vRoom)}&event=${encodeURIComponent(ev.id)}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;text-decoration:none;">Join</a>`;
+  if (vRoom) html += `<a href="meeting.html?room=${encodeURIComponent(vRoom)}&event=${encodeURIComponent(ev.id)}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;text-decoration:none;">Join</a>`;
   html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:9999px;border:1px solid #d1dfdf;">';
   ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t => {
     html+=`<label style="font-size:9px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;color:#3d6263;cursor:pointer;white-space:nowrap;"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} style="width:11px;height:11px;accent-color:#3d6263;"><span>${t}</span></label>`;
   });
   html += '</div>';
-  if (!isSunday) html += `<button onclick="autoFillPractice('${ev.id}')" style="background:#d1dfdf;color:#3d6263;border:none;padding:5px 8px;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Sync</button>`;
+  if (!isSunday) html += `<button onclick="autoFillPractice('${ev.id}')" style="background:#d1dfdf;color:#3d6263;border:none;padding:5px 8px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Sync</button>`;
   html += `<button onclick="toggleBucket('${ev.id}')" style="width:28px;height:28px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;cursor:pointer;font-size:14px;" title="Availability">🪣</button>`;
   html += `<button onclick="deleteEvent('${ev.id}')" style="background:none;border:none;color:#d1dfdf;font-size:16px;cursor:pointer;" title="Delete">🗑</button>`;
   html += '</div>';
@@ -3085,7 +3085,7 @@ function generateEventHtml(ev, blockIdx) {
       html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" onclick="roleTap('${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:pointer;padding:2px 0;">${asgn?personName(asgn):'Tap to assign'}</div>`;
       html += '</div>';
     });
-    html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;
+    html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;
     OPTIONAL_ROLES_LIST.forEach(o => { html+=`<option value="${o}">${o}</option>`; });
     html += '</select></div>';
 

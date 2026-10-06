@@ -16,7 +16,6 @@
     <meta name="apple-mobile-web-app-title" content="EGBC Rota Planner">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Master Rota Planner</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -944,7 +943,7 @@
             if (!confirm(`Send rotas to ${members.length} team members for ${termLabels}?`)) return;
 
             const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
             document.body.appendChild(toast);
 
             let sent = 0, failed = 0;
@@ -1027,7 +1026,8 @@
                         return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}${timeStr}</td><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:800;">${roles}</td></tr>`;
                     }).join('');
 
-                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="egbc-theme.css?v=202610061700">
+</head>
 <body style="margin:0;padding:0;background-color:#eaf2f2;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
 <table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
@@ -1091,7 +1091,7 @@
             const packageId = `rota-single-${Date.now()}`;
 
             const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
             document.body.appendChild(toast);
             toast.textContent = `Preparing rota for ${member.name}...`;
 
@@ -1278,7 +1278,7 @@
 </table></td></tr></table></body></html>`;
 
             const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
             toast.textContent = 'Sending availability requests...';
             document.body.appendChild(toast);
 
@@ -1595,7 +1595,7 @@
         }
         .max-h-\[400px\]::-webkit-scrollbar { width: 6px; }
         .max-h-\[400px\]::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 10px; }
-        body { background:var(--canvas) !important; color:var(--body); font-family:'Montserrat', sans-serif; }
+        body { background:var(--canvas) !important; color:var(--body); font-family:Inter, system-ui, sans-serif; }
         .bg-\[\#f0f6f6\], .bg-\[\#f0f6f6\]\/30 { background-color:var(--surface-2) !important; }
         .border-\[\#d1dfdf\] { border-color:var(--hairline) !important; }
         .bg-\[\#d1dfdf\] { background-color:var(--hairline-strong) !important; }
@@ -1638,7 +1638,7 @@
         button.uppercase.bg-\[\#f0f6f6\]:hover{ background:#d8e6e4 !important; }
         button.uppercase.bg-white{ background:var(--surface) !important; color:var(--brand) !important; border:1px solid var(--hairline-strong) !important; }
         button.uppercase.bg-white:hover{ background:var(--surface-2) !important; }
-        input, select, textarea { font-family:'Montserrat', sans-serif; }
+        input, select, textarea { font-family:Inter, system-ui, sans-serif; }
         input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{ border-color:var(--brand) !important; box-shadow:0 0 0 3px var(--brand-ring) !important; outline:none !important; }
         .styled-input{ border:1px solid var(--hairline-strong); border-radius:var(--r-md); background:var(--surface); color:var(--brand); }
         .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size:11px !important; }
@@ -1692,7 +1692,7 @@
     <a href="https://esherchurch.github.io/availability-form/rotaplannerinstructions.html"
        target="_blank" rel="noopener noreferrer"
        title="How to use the planner"
-       style="font-family: 'Montserrat', sans-serif;"
+       style="font-family: Inter, system-ui, sans-serif;"
        class="fixed bottom-6 right-6 w-9 h-9 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-black text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">
         ?
     </a>

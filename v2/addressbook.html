@@ -10,7 +10,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Address Book - Master Manager</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -250,7 +249,7 @@ document.addEventListener('egbc-ready',()=>{
             --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
             --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
         }
-        body { background-color: var(--canvas); font-family: 'Montserrat', sans-serif; color: var(--body); font-size: 16px; }
+        body { background-color: var(--canvas); font-family: Inter, system-ui, sans-serif; color: var(--body); font-size: 16px; }
         .card { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow); }
         /* These used to be four 160px boxes, each with its own scrollbar,
            inside a panel that also scrolled. Editing somebody meant scrolling
@@ -291,6 +290,7 @@ document.addEventListener('egbc-ready',()=>{
             thead th { padding-bottom: 1rem !important; }
         }
     </style>
+<link rel="stylesheet" href="egbc-theme.css?v=202610061700">
 </head>
 <body class="p-8 lg:p-12">
     <div class="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-12">

@@ -16,12 +16,11 @@
     <meta name="apple-mobile-web-app-title" content="EGBC Service Planner">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EGBC Sunday Worship Planner</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <style>
     :root { --canvas:#eef4f3; --surface:#fff; --surface-2:#f6faf9; --ink:#14201f; --body:#3a4d4c; --muted:#6b8281; --faint:#93a8a6; --hairline:#dde7e6; --hairline-strong:#c9d8d6; --brand:#3d6263; --brand-dark:#2e4c4d; --brand-tint:#e7f0ef; --brand-ring:rgba(61,98,99,.28); --success:#3b7d23; --success-tint:#e7f1e0; --danger:#b0392c; --danger-tint:#f7e7e4; --gold:#b07d2e; --gold-tint:#f6efe1; --shadow-sm:0 1px 2px rgba(20,32,31,.05); --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07); --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12); --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px; }
-    body { font-family: 'Montserrat', sans-serif; background-color: var(--canvas); color: var(--body); }
+    body { font-family: Inter, system-ui, sans-serif; background-color: var(--canvas); color: var(--body); }
     .styled-input { background-color: var(--surface); border: 1px solid var(--hairline-strong); border-radius: var(--r-md); padding: 0.7rem 0.95rem; font-weight: 600; color: var(--ink); transition: all 0.18s; height: auto; overflow: hidden; }
     .styled-input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
     .styled-input::placeholder { color: var(--faint); font-weight: 500; }
@@ -48,8 +47,8 @@
     .serve-count-badge.hidden-badge { visibility: hidden; }
     #emailModal { display: none; position: fixed; inset: 0; background: rgba(20,32,31,0.45); z-index: 1000; align-items: center; justify-content: center; }
     #emailModal.active { display: flex; }
-    #emailModalBox { background: var(--surface); border-radius: var(--r-lg); padding: 2rem; max-width: 420px; width: 90%; box-shadow: var(--shadow-lg); font-family: 'Montserrat', sans-serif; }
-    #helpBtn { position: fixed; bottom: 24px; right: 24px; z-index: 900; width: 38px; height: 38px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--hairline-strong); color: var(--brand); font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: var(--shadow); transition: all 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+    #emailModalBox { background: var(--surface); border-radius: var(--r-lg); padding: 2rem; max-width: 420px; width: 90%; box-shadow: var(--shadow-lg); font-family: Inter, system-ui, sans-serif; }
+    #helpBtn { position: fixed; bottom: 24px; right: 24px; z-index: 900; width: 38px; height: 38px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--hairline-strong); color: var(--brand); font-family: Inter, system-ui, sans-serif; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: var(--shadow); transition: all 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
     #helpBtn:hover { background: var(--brand); color: #ffffff; border-color: var(--brand); box-shadow: var(--shadow-lg); transform: translateY(-1px); }
     .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
     @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
@@ -527,7 +526,8 @@ window.emailSchedule = async () => {
     const summaryUrl = await saveSongSummaryToFirestore(date);
 
     let htmlEmail = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="egbc-theme.css?v=202610061700">
+</head>
 <body style="margin:0;padding:0;background-color:#eaf2f2;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2">
 <tr><td align="center" style="padding:40px 16px;">

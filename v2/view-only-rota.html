@@ -10,7 +10,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Live Rota</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -261,7 +260,7 @@
             --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
             --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
         }
-        body { color:var(--body); font-family:'Montserrat', sans-serif; }
+        body { color:var(--body); font-family:Inter, system-ui, sans-serif; }
         body.bg-\[\#f0f6f6\] { background:var(--canvas) !important; }
 
         /* Neutral + brand colour remaps */
@@ -308,7 +307,7 @@
         button.uppercase.bg-\[\#9bc34a\]:hover{ filter:brightness(.94) !important; }
 
         /* Inputs / selects */
-        input, select, textarea { font-family:'Montserrat', sans-serif; }
+        input, select, textarea { font-family:Inter, system-ui, sans-serif; }
         select:focus, input:focus{
             border-color:var(--brand) !important;
             box-shadow:0 0 0 3px var(--brand-ring) !important;
@@ -336,6 +335,7 @@
             }
         }
     </style>
+<link rel="stylesheet" href="egbc-theme.css?v=202610061700">
 </head>
 <body class="p-2 md:p-6 bg-[#f0f6f6] font-montserrat">
     <div class="w-full mx-auto">
