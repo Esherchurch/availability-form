@@ -181,3 +181,126 @@ The check itself was also wrong, and that is fixed: `lockout.js` read the hub's
 text while the team picker was still up, where no tile can be seen. It now
 chooses a team first, the way a person would. With the registry applied it
 reports the Places tile listed, and 7/7 pass.
+
+---
+
+# Chunk 2 — events and sign-ups
+
+### F-014 — the email function is open to anyone, and a public page now calls it
+`sendemail-irkwdhx3xq-uc.a.run.app` takes a POST with `to`, `subject` and
+`html` and sends it. There is no key, no sign-in and no App Check on it. That
+was already true — seven pages in the repo call it, and the function has been
+live for months — but until now every caller was behind a login. The sign-up
+confirmation is sent from a guest's browser, so the address of a working
+open relay is now in a page anyone can read.
+
+Not fixed here: the fix is a server change and Martin deploys those. The two
+honest options, in order:
+1. Make the function require an App Check token or a Firebase ID token, and
+   send guest confirmations from a small callable function instead of the page.
+2. Failing that, rate-limit by IP and cap the recipients per call.
+
+Nothing in this chunk is blocked by it, and no new page sends to an address
+the person using it did not type.
+
+### F-015 — three things in the brief need a server, and there is none yet
+Each is built as far as a browser can take it, and each is named on the page
+so nobody is misled:
+- **A public calendar feed.** §6.2 asks for an ICS feed of public events. A
+  feed is a URL that keeps serving and keeps changing; that is a server.
+  What's On offers "Add to calendar", which downloads the events showing as a
+  file. It is a snapshot, not a subscription.
+- **An automatic waiting-list offer.** §6.3 asks for the offer to go out when
+  a place frees. Nothing client-side can do it: the person who cancels is a
+  guest, and a guest cannot read the waiting list — nor should they. So the
+  admin page lists the waiting list and offers a place in one press, and the
+  email goes then.
+- **Website embeds** (§6.17, a Should): not built. A list, a month and a
+  featured strip for the church website are three small public pages, but
+  they want a cacheable endpoint to be worth anything.
+
+All three fit one small Cloud Functions chunk, with F-014's fix. Worth
+proposing as its own step rather than smuggling into an events chunk.
+
+### F-016 — the Storage rule for event pictures checks sign-in, not admin
+`storage.rules` has no view of the address book, so `events/{id}/{file}`
+allows any signed-in person to write a picture, the same as `banners/`. The
+event document those pictures belong to is admin-only, and the page only
+offers the control to an admin, but the rule itself is weaker than the rule
+beside it. Firebase can call Firestore from Storage rules on newer versions;
+worth doing when someone is next in that file.
+
+### F-017 — `places-admin.html` is off `DESIGN.md`, because it predates it
+Chunk 1's page is Montserrat, with pill tabs, 10px labels in 800 weight and
+capitals. The pages in this chunk follow the guide from the first line, so
+they add nothing to R-012 or R-013 — but Places is now the odd one out among
+the new pages. It belongs in step A3 with the rest of the controls work.
+
+### F-018 — rota parity: what the planners already do, and what they do not
+The survey §6.17 asks for, read from the code rather than guessed:
+
+**Already there**
+- Availability per person per date — the whole point of the availability form.
+  `availability/{eventId}/{memberId}` holds `avail` / `not-avail`, and the
+  Planner and CoreTeamApp both show Available, Declined and Pending buckets.
+- Sign-off per team per term (`rotaSignoff`), which ChurchSuite has no
+  equivalent of.
+- A cap on how often someone serves: `maxFrequency` on their address book
+  record, used when a term is auto-populated.
+- Moving someone between roles by dragging, which the code calls a swap.
+
+**Not there at all**
+- **A person accepting or declining a date they are already on.** They can say
+  in advance that they are unavailable; once they are on the rota there is no
+  "I can't do this one" route.
+- **Swaps between people.** The drag-and-drop "swap" is an administrator
+  moving two names. A member cannot ask another member to take their date.
+- **Members signing up to open rota dates.**
+- **Reminders.** Nothing sends anything before a date. Not a line in any file.
+- **A clash report** — the same person on two things at once.
+- **"Not on any rota"**, **serving frequency** and **personal serving history**
+  reports.
+
+**Also found:** the declined state is spelled two ways. `view-only-rota.html`
+and the Planner both test for `'unavailable'` *or* `'not-avail'`, so the
+data holds both. It works because every reader checks for both, which is one
+reader away from a bug.
+
+**Proposed "Rota parity" chunk, for Martin to approve** — not built, and not
+inside an events chunk:
+1. Accept or decline a date you are on, from the rota and from the hub's
+   "Waiting for you" card.
+2. Ask someone to swap; they accept; both rotas change together.
+3. Reminders at a set time (this needs the server from F-015).
+4. The three reports: clashes, not on any rota, serving frequency.
+5. One spelling for declined, with the readers left tolerant of both.
+
+### F-019 — a composite index is needed before this goes live
+What's On asks for the events whose `audience` includes one of mine, from now
+on, soonest first. Firestore will not run that without an index; the emulator
+invents one as it goes, so it only bites in production. It is written into
+`firestore.indexes.json` and deploys with the rules. **Martin deploys.**
+
+### F-020 — three hand-rolled calendar writers remain, and seven copies of the email URL
+`egbc-ics.js` and `egbc-email.js` are the one copy of each from now on, and
+the four new pages use them. The existing copies are untouched: the ICS
+writers in `birthday.html`, `Planner.html` and `worshiphubapp.html`, and the
+`SEND_FUNCTION_URL` constant in `CoreTeamApp.html`, `Planner.html` (three
+times), `SundayServicePlanner.html`, `youthserviceplanner.html` and
+`hub-app.js`. Moving a live rota page onto a new module is not a change to
+make in passing; it is an hour with the walk-through to prove it.
+
+### F-021 — editing one date of a series does not offer "all dates"
+A repeat makes each date as its own event joined by `seriesId`, so one date
+can move or be cancelled without the others — which is the behaviour that
+matters. What is missing is the other direction: changing the title once and
+having it change on all of them. Deleting the whole series is offered;
+editing it is not.
+
+### F-022 — what stops a bot filling in the sign-up form
+A hidden field no person sees, and a form submitted in under two and a half
+seconds, are both refused. The rules cap every field's length and allow only
+the fields a sign-up has. That is the whole of it.
+
+App Check would help and is **not** enabled, as the brief says. Recorded as
+the option it is: it would also give F-014's function something to check.

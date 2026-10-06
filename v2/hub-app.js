@@ -111,6 +111,7 @@ function applyTeam() {
   loadCharter();
   renderTeamPanels();
   renderNews();
+  renderMyEvents();
   renderTools();
 }
 
@@ -861,6 +862,92 @@ function canEditNews(n) {
   return teams.some(t => EGBCAuth.isAdminOf(t));
 }
 
+/* ── My events ──────────────────────────────────────────────────────
+   The events brief says every chunk that gives a person something of
+   their own adds it to this one dashboard rather than building a "my
+   something" page of its own. This is that slot for sign-ups.
+
+   It asks for sign-ups where memberUid is this person, which is exactly
+   what the rules allow a member to ask: the query names the person, so
+   every document that comes back is theirs. Asking for the collection
+   without that is refused, and should be.
+
+   Sorted here rather than in the query. An orderBy drops every document
+   missing the field, silently, and these are written by a public page
+   that has changed twice already. */
+async function renderMyEvents() {
+  const box = document.getElementById('myEventsCard');
+  if (!box) return;
+  box.innerHTML = '';
+  const uid = (EGBCAuth.user() || {}).uid;
+  if (!uid) return;
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
+
+  let mine = [], featured = [];
+  try {
+    const snap = await EGBCAuth.db.collection('signups').where('memberUid', '==', uid).get();
+    mine = snap.docs.map(d => ({ key: d.id, ...d.data() })).filter(s => s.status !== 'cancelled');
+  } catch (e) { mine = []; }
+
+  /* The events those sign-ups are for, and anything featured coming up. */
+  const ids = [...new Set(mine.map(s => s.calEventId))];
+  const evs = {};
+  await Promise.all(ids.map(id => EGBCAuth.db.collection('calEvents').doc(id).get()
+    .then(s => { if (s.exists) evs[id] = { id: s.id, ...s.data() }; }).catch(() => {})));
+
+  try {
+    const aud = ['public', 'members'].concat(myTeams() || []).slice(0, 30);
+    const fs2 = await EGBCAuth.db.collection('calEvents')
+      .where('audience', 'array-contains-any', aud).where('featured', '==', true).get();
+    featured = fs2.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => (e.startUtc || 0) > Date.now() && e.status === 'confirmed')
+      .sort((a, b) => a.startUtc - b.startUtc).slice(0, 3);
+  } catch (e) { featured = []; }
+
+  const soon = mine
+    .map(s => ({ s, e: evs[s.calEventId] }))
+    .filter(x => x.e && (x.e.endUtc || x.e.startUtc || 0) > Date.now())
+    .sort((a, b) => (a.e.startUtc || 0) - (b.e.startUtc || 0));
+
+  /* A card with nothing in it is noise, so it only appears when there is
+     something to say. */
+  if (!soon.length && !featured.length) return;
+
+  const when = e => {
+    const d = new Date(e.startLocal || e.startUtc);
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) +
+      (e.allDay ? '' : ', ' + d.toTimeString().slice(0, 5));
+  };
+
+  const rows = soon.map(({ s, e }) => `<div class="meet">
+      <div class="dt"><div class="m">${new Date(e.startLocal || e.startUtc).toLocaleDateString('en-GB', { month: 'short' })}</div>
+      <div class="d">${new Date(e.startLocal || e.startUtc).getDate()}</div></div>
+      <div style="flex:1;min-width:0">
+        <div class="t">${esc(e.title || 'Event')}</div>
+        <div class="s">${I('clock')}${esc(when(e))} <span>&middot;</span> ${s.status === 'waiting' ? 'on the waiting list' : (s.places || 1) + ' place' + ((s.places || 1) === 1 ? '' : 's')}</div>
+      </div>
+      <a class="btn sm" href="my-signup.html?key=${encodeURIComponent(s.key)}">Your place</a>
+    </div>`).join('');
+
+  const feat = featured.length ? `<div class="note" style="margin-top:10px">
+      ${featured.map(e => `<a href="signup.html?event=${encodeURIComponent(e.id)}" style="color:var(--brand);text-decoration:none">${esc(e.title)}</a> &middot; ${esc(when(e))}`).join('<br>')}
+    </div>` : '';
+
+  box.innerHTML = `<div class="card flush">
+      <div class="ch">
+        <div class="ic">${I('ticket', 18)}</div>
+        <h2>${soon.length ? 'My events' : "What's coming up"}</h2>
+        <div class="sp"><a class="btn sm ghost" href="whatson.html">What's on</a></div>
+      </div>
+      <div class="cb" style="padding-top:6px;padding-bottom:14px">
+        ${rows}
+        ${soon.length ? '' : '<div style="font-size:14px;color:var(--muted);padding:6px 0">Nothing booked yet.</div>'}
+        ${feat}
+      </div>
+    </div>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
 function renderNews() {
   const pinned = NEWS.filter(n => n.pinned && !(n.requireAck && ACKED.has(n.id)));
   const rest = NEWS.filter(n => !pinned.includes(n));
@@ -1352,6 +1439,17 @@ const REGISTRY = [
      book. Any team admin may open it, which matches isAdmin() in the rules. */
   { url: 'places-admin.html', title: 'Places', icon: '\u{1F3E0}', team: 'Core Team', adminOnly: true,
     description: 'Sites, rooms, kit and venues' },
+
+  /* Events. What's on carries `everyone`, because it is the one page a
+     visitor with no account is meant to reach - the tile is there for a
+     member who wants to see what is coming up, and the same page is what a
+     poster or a WhatsApp message links to. The admin side is adminOnly,
+     like the other tools that send email on the church's behalf. */
+  { url: 'whatson.html', title: "What's on", icon: 'calendar-days', team: 'Core Team', everyone: true,
+    description: 'Church events, and signing up to them' },
+  { url: 'events-admin.html', title: 'Events', icon: 'calendar-plus', team: 'Core Team',
+    teams: ['Core Team', 'Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
+    description: 'Create events, open sign-ups, see who is coming' },
 
   /* -- reachable only from SharePoint today --------------------------
      Nothing in the repo links to these, and they are not in the menu.

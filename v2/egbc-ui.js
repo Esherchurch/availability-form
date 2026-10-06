@@ -70,6 +70,11 @@
     'handover.html': 'file-check',
     'performancenotes.html': 'notebook-pen',
     'data-tools.html': 'database-backup',
+    'whatson.html': 'calendar-days',
+    'events-admin.html': 'calendar-plus',
+    'signup.html': 'ticket',
+    'my-signup.html': 'ticket',
+    'places-admin.html': 'map-pin',
     'youth-access.html': 'key-round',
     'login.html': 'log-in'
   };

@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Events — EGBC</title>
+
+<script src="egbc-shell.js?v=202610062100" data-title="Events"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
+<script src="egbc-editor.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-email.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610062100"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:20px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 14px;padding-bottom:12px;
+           border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .badge{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);
+         display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .spacer{flex:1}
+
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .inp,select,textarea{width:100%;height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;
+       font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  textarea{height:auto;padding:10px 12px;min-height:70px;resize:vertical}
+  .inp:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(61,98,99,.15)}
+  .field{margin-bottom:14px}
+  .two{display:flex;gap:12px;flex-wrap:wrap}
+  .two>.field{flex:1;min-width:190px}
+  .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--body);margin-bottom:10px}
+  .check input{width:16px;height:16px;accent-color:var(--brand)}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;
+       border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;border:1px solid transparent;
+       background:var(--brand);color:#fff;text-decoration:none}
+  .btn:hover{background:var(--brand-dark)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.sec:hover{background:#f3f4f6}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{background:#f3f4f6}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#e8c3bd}
+  .btn.danger:hover{background:var(--danger-bg)}
+  .btn.sm{height:32px;padding:0 11px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+
+  .row{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:none}
+  .row .ib{width:36px;height:36px;border-radius:8px;background:var(--tint);color:var(--brand);
+           display:flex;align-items:center;justify-content:center;flex:none}
+  .row .n{font-size:14px;font-weight:600;color:var(--ink)}
+  .row .m{font-size:13px;color:var(--muted)}
+  .row:hover{background:#f3f4f6}
+  .row button.open{all:unset;cursor:pointer;flex:1;min-width:0}
+
+  .flag{display:inline-block;font-size:12px;font-weight:500;border-radius:6px;padding:1px 7px;margin-left:6px}
+  .flag.held{background:#f3f4f6;color:var(--muted)}
+  .flag.off{background:var(--danger-bg);color:var(--danger)}
+  .flag.feat{background:var(--gold-bg);color:var(--gold)}
+  .flag.pub{background:var(--ok-bg);color:var(--ok)}
+  .flag.mem{background:var(--tint);color:var(--brand)}
+
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .tab{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line-2);background:#fff;
+       color:var(--body);font:500 13px Inter,sans-serif;cursor:pointer}
+  .tab:hover{background:#f3f4f6}
+  .tab.on{background:var(--tint);border-color:var(--brand);color:var(--ink)}
+
+  .mini{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;background:#f9fafb}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:14px}
+  .banner.warn{background:var(--danger-bg);color:var(--danger)}
+  .banner.ok{background:var(--ok-bg);color:var(--ok)}
+  .banner.info{background:var(--tint);color:var(--body);border:1px solid #cfe0de}
+  .hint{font-size:13px;color:var(--muted)}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
+         padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:8px 10px}
+  td{font-size:14px;color:var(--body);padding:10px;border-top:1px solid var(--line)}
+  tbody tr:hover td{background:#f3f4f6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Events</h1>
+  <p class="sub">Create events, open sign-ups and see who is coming.</p>
+
+  <div class="bar">
+    <button class="btn" id="newEv"><i data-lucide="plus" style="width:16px;height:16px"></i>New event</button>
+    <button class="btn sec" id="showPast"><i data-lucide="history" style="width:15px;height:15px"></i>Show past events</button>
+    <a class="btn ghost" href="whatson.html"><i data-lucide="external-link" style="width:15px;height:15px"></i>What people see</a>
+  </div>
+
+  <div id="list" class="card"><div class="hint">Loading…</div></div>
+  <div id="editor"></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var ALL = [], LOOK = { sites: {}, rooms: {}, venues: {} }, SITES = [], ROOMS = [], VENUES = [];
+  var CUR = null, TT = [], QS = [], CAP = null, ED = null, TAB = 'details', showPast = false;
+  var SIGNUPS = [], CHECK = null, NOTES = '', CHANGES = [], COMMS = [];
+
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function toast(m) {
+    var t = document.getElementById('toast');
+    t.textContent = m; t.style.display = 'block';
+    clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 2600);
+  }
+  function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
+
+  /* ---------- the list ---------- */
+
+  function flags(ev) {
+    return (ev.featured ? '<span class="flag feat">Featured</span>' : '') +
+      (ev.status === 'pending' ? '<span class="flag held">Held</span>' : '') +
+      (ev.status === 'cancelled' ? '<span class="flag off">Cancelled</span>' : '') +
+      (ev.visibility === 'public' ? '<span class="flag pub">Public</span>' :
+       ev.visibility === 'team' ? '<span class="flag mem">' + esc((ev.teams || []).join(', ')) + '</span>' :
+       '<span class="flag mem">Members</span>');
+  }
+
+  function drawList() {
+    var now = Date.now();
+    var rows = ALL.filter(function (e) {
+      var t = e.startUtc || 0;
+      return showPast ? t < now : t >= now - 6 * 3600 * 1000;
+    }).sort(function (a, b) { return showPast ? b.startUtc - a.startUtc : a.startUtc - b.startUtc; });
+
+    document.getElementById('list').innerHTML =
+      '<h2><span class="badge"><i data-lucide="calendar-days" style="width:17px;height:17px"></i></span>' +
+      (showPast ? 'Past events' : 'Coming up') + '<span class="spacer"></span>' +
+      '<span class="hint">' + rows.length + '</span></h2>' +
+      (rows.length ? rows.map(function (e) {
+        return '<div class="row">' +
+          '<span class="ib"><i data-lucide="calendar" style="width:17px;height:17px"></i></span>' +
+          '<button class="open" data-id="' + esc(e.id) + '">' +
+            '<span class="n">' + esc(e.title || 'Untitled') + flags(e) + '</span><br>' +
+            '<span class="m">' + esc(E.fmtWhen(e)) +
+            (e.signupOn ? ' · sign-ups open' : '') + '</span>' +
+          '</button>' +
+          '<a class="btn ghost sm" href="signup.html?event=' + esc(e.id) + '" title="Open the public page">' +
+            '<i data-lucide="external-link" style="width:15px;height:15px"></i></a>' +
+        '</div>';
+      }).join('') : '<div class="hint">Nothing here.</div>');
+
+    document.querySelectorAll('.open').forEach(function (b) {
+      b.onclick = function () { open(b.getAttribute('data-id')); };
+    });
+    icons();
+  }
+
+  /* ---------- opening one ---------- */
+
+  function blank() {
+    var s = new Date(); s.setDate(s.getDate() + 14); s.setHours(19, 30, 0, 0);
+    var e = new Date(s.getTime() + 90 * 60000);
+    return {
+      id: null, title: '', description: '', category: 'other', labels: [],
+      visibility: 'public', status: 'confirmed', teams: [], featured: false,
+      startLocal: isoLocal(s), endLocal: isoLocal(e), allDay: false,
+      location: { kind: 'room', siteId: SITES[0] ? SITES[0].id : '', roomIds: [], venueId: '', videoRoom: '' },
+      organiserName: (EGBCAuth.profile() || {}).name || '', overseers: [], overseerUids: [],
+      signupOn: false, capacity: 50, allowSelfCancel: true, donationsOn: false,
+      signupScope: 'date', image: ''
+    };
+  }
+
+  function isoLocal(d) {
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function open(id) {
+    TAB = 'details';
+    if (!id) { CUR = blank(); TT = []; QS = []; CAP = null; SIGNUPS = []; CHECK = null; NOTES = ''; CHANGES = []; COMMS = []; return drawEditor(); }
+    E.load(id).then(function (r) {
+      CUR = r.ev; TT = r.ticketTypes; QS = r.questions; CAP = r.capacity;
+      return Promise.all([
+        db().collection('signups').where('calEventId', '==', id).get(),
+        db().collection('eventChecklists').doc(id).get(),
+        db().collection('eventNotes').doc(id).get(),
+        db().collection('eventChanges').where('calEventId', '==', id).get(),
+        db().collection('commsLog').where('calEventId', '==', id).get()
+      ]);
+    }).then(function (r) {
+      /* Sorted here rather than in the query on purpose: an orderBy drops
+         every document that lacks the field, silently, and these are
+         written by several pages over time. Small lists, so sort in the
+         page and keep them all. */
+      SIGNUPS = r[0].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); })
+        .sort(function (a, b) { return String(a.createdAt || '').localeCompare(String(b.createdAt || '')); });
+      CHECK = r[1].exists ? r[1].data() : { tasks: [] };
+      NOTES = r[2].exists ? (r[2].data().text || '') : '';
+      CHANGES = r[3].docs.map(function (d) { return d.data(); })
+        .sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
+      COMMS = r[4].docs.map(function (d) { return d.data(); })
+        .sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
+      drawEditor();
+    }).catch(function (e) { toast('Could not open that: ' + (e.message || e)); });
+  }
+
+  /* ---------- the editor ---------- */
+
+  function tabBar() {
+    var t = [['details', 'Details'], ['signups', 'Sign-ups'], ['checklist', 'Checklist'],
+             ['people', 'Who is coming'], ['history', 'History']];
+    return '<div class="tabs">' + t.map(function (x) {
+      return '<button class="tab' + (TAB === x[0] ? ' on' : '') + '" data-tab="' + x[0] + '"' +
+             (!CUR.id && x[0] !== 'details' && x[0] !== 'signups' ? ' disabled title="Save it first"' : '') +
+             '>' + x[1] + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function detailsTab() {
+    return '' +
+      '<div class="two">' +
+        '<div class="field"><label for="f_title">Title</label><input class="inp" id="f_title" value="' + esc(CUR.title) + '" maxlength="140"></div>' +
+        '<div class="field" style="max-width:220px"><label for="f_cat">Category</label><select id="f_cat">' +
+          E.CATEGORIES.map(function (c) { return '<option value="' + c.id + '"' + (CUR.category === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
+        '</select></div>' +
+      '</div>' +
+      '<div class="field"><label>Description</label><div id="f_desc"></div></div>' +
+      '<div class="two">' +
+        '<div class="field"><label for="f_start">Starts</label><input class="inp" id="f_start" type="datetime-local" value="' + esc(CUR.startLocal || '') + '"></div>' +
+        '<div class="field"><label for="f_end">Ends</label><input class="inp" id="f_end" type="datetime-local" value="' + esc(CUR.endLocal || '') + '"></div>' +
+      '</div>' +
+      '<label class="check"><input type="checkbox" id="f_allday"' + (CUR.allDay ? ' checked' : '') + '>All day</label>' +
+      (CUR.id ? '' :
+        '<div class="mini"><label for="f_repeat">Repeat</label><div class="two">' +
+          '<div class="field"><select id="f_repeat">' +
+            '<option value="">Just once</option><option value="7">Every week</option>' +
+            '<option value="14">Every fortnight</option><option value="28">Every four weeks</option>' +
+          '</select></div>' +
+          '<div class="field"><label for="f_until">Until</label><input class="inp" id="f_until" type="date"></div>' +
+        '</div><p class="hint">Each date is made as its own event, joined by a series. Change or cancel one date without touching the rest.</p></div>') +
+      '<div class="field"><label for="f_where">Where</label><select id="f_where">' +
+        '<option value="room"' + (CUR.location.kind === 'room' ? ' selected' : '') + '>A room here</option>' +
+        '<option value="venue"' + (CUR.location.kind === 'venue' ? ' selected' : '') + '>Somewhere else</option>' +
+        '<option value="online"' + (CUR.location.kind === 'online' ? ' selected' : '') + '>Online</option>' +
+      '</select></div>' +
+      '<div id="whereBox"></div>' +
+      '<div class="two">' +
+        '<div class="field"><label for="f_vis">Who can see it</label><select id="f_vis">' +
+          '<option value="public"' + (CUR.visibility === 'public' ? ' selected' : '') + '>Anyone</option>' +
+          '<option value="members"' + (CUR.visibility === 'members' ? ' selected' : '') + '>Members, signed in</option>' +
+          '<option value="team"' + (CUR.visibility === 'team' ? ' selected' : '') + '>One or more teams</option>' +
+        '</select></div>' +
+        '<div class="field"><label for="f_status">Status</label><select id="f_status">' +
+          '<option value="confirmed"' + (CUR.status === 'confirmed' ? ' selected' : '') + '>Confirmed</option>' +
+          '<option value="pending"' + (CUR.status === 'pending' ? ' selected' : '') + '>Held — not announced yet</option>' +
+          '<option value="cancelled"' + (CUR.status === 'cancelled' ? ' selected' : '') + '>Cancelled</option>' +
+        '</select></div>' +
+      '</div>' +
+      '<div class="field" id="teamsBox"></div>' +
+      '<div class="two">' +
+        '<div class="field"><label for="f_org">Organiser</label><input class="inp" id="f_org" value="' + esc(CUR.organiserName || '') + '" maxlength="120"></div>' +
+        '<div class="field"><label for="f_over">Overseers (names, comma separated)</label><input class="inp" id="f_over" value="' + esc((CUR.overseers || []).join(', ')) + '"></div>' +
+      '</div>' +
+      '<div class="field"><label for="f_labels">Labels (comma separated)</label><input class="inp" id="f_labels" value="' + esc((CUR.labels || []).join(', ')) + '"></div>' +
+      '<label class="check"><input type="checkbox" id="f_feat"' + (CUR.featured ? ' checked' : '') + '>Feature this on the hub and at the top of What\'s on</label>' +
+      '<div class="field"><label>Picture</label>' +
+        (CUR.image ? '<img src="' + esc(CUR.image) + '" alt="" style="max-width:220px;border-radius:8px;border:1px solid var(--line);display:block;margin-bottom:8px">' : '') +
+        '<input type="file" id="f_img" accept="image/*" class="inp" style="padding:8px 12px;height:auto">' +
+        '<p class="hint">Used on the event page, What\'s on and anywhere it is shared.</p></div>' +
+      '<div class="field"><label for="f_notes">Internal notes (admins and overseers only)</label>' +
+        '<textarea id="f_notes" maxlength="4000">' + esc(NOTES) + '</textarea></div>';
+  }
+
+  function whereBox() {
+    var kind = (document.getElementById('f_where') || {}).value || CUR.location.kind;
+    var el = document.getElementById('whereBox');
+    if (!el) return;
+    if (kind === 'online') {
+      el.innerHTML = '<div class="field"><label for="f_room">Meeting room</label>' +
+        '<input class="inp" id="f_video" value="' + esc(CUR.location.videoRoom || '') + '" placeholder="Name of the video room">' +
+        '<p class="hint">Online events join through meeting.html, the same as every other call.</p></div>';
+    } else if (kind === 'venue') {
+      el.innerHTML = '<div class="field"><label for="f_venue">Venue</label><select id="f_venue">' +
+        '<option value="">Choose…</option>' +
+        VENUES.map(function (v) { return '<option value="' + esc(v.id) + '"' + (CUR.location.venueId === v.id ? ' selected' : '') + '>' + esc(v.name) + '</option>'; }).join('') +
+        '</select><p class="hint">Venues are added in Places.</p></div>';
+    } else {
+      var site = CUR.location.siteId || (SITES[0] ? SITES[0].id : '');
+      el.innerHTML = '<div class="two">' +
+        '<div class="field"><label for="f_site">Site</label><select id="f_site">' +
+          SITES.map(function (s) { return '<option value="' + esc(s.id) + '"' + (site === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="field"><label for="f_rooms">Rooms</label><select id="f_rooms" multiple size="4" style="height:auto;padding:8px">' +
+          ROOMS.filter(function (r) { return r.siteId === site || !site; }).map(function (r) {
+            return '<option value="' + esc(r.id) + '"' + ((CUR.location.roomIds || []).indexOf(r.id) >= 0 ? ' selected' : '') + '>' + esc(r.name) + '</option>';
+          }).join('') +
+        '</select></div></div>';
+      var ss = document.getElementById('f_site');
+      if (ss) ss.onchange = function () { CUR.location.siteId = ss.value; CUR.location.roomIds = []; whereBox(); };
+    }
+  }
+
+  function teamsBox() {
+    var el = document.getElementById('teamsBox');
+    if (!el) return;
+    var vis = (document.getElementById('f_vis') || {}).value || CUR.visibility;
+    if (vis !== 'team') { el.innerHTML = ''; return; }
+    var teams = Object.keys(EGBCAuth.TEAMS || {});
+    el.innerHTML = '<label>Which teams</label>' + teams.map(function (t) {
+      return '<label class="check"><input type="checkbox" class="f_team" value="' + esc(t) + '"' +
+             ((CUR.teams || []).indexOf(t) >= 0 ? ' checked' : '') + '>' +
+             '<span style="width:8px;height:8px;border-radius:9999px;background:' +
+             ((EGBCAuth.TEAMS[t] || {}).colour || 'var(--brand)') + ';display:inline-block"></span>' +
+             esc((EGBCAuth.TEAMS[t] || {}).label || t) + '</label>';
+    }).join('');
+  }
+
+  function signupsTab() {
+    var left = CAP ? E.placesLeft(CAP) : null;
+    return '' +
+      '<label class="check"><input type="checkbox" id="s_on"' + (CUR.signupOn ? ' checked' : '') + '>Let people sign up</label>' +
+      '<div class="two">' +
+        '<div class="field"><label for="s_cap">How many places altogether</label>' +
+          '<input class="inp" id="s_cap" type="number" min="1" value="' + (CUR.capacity || 50) + '"></div>' +
+        '<div class="field"><label>Taken so far</label><input class="inp" value="' +
+          (CAP ? (CAP.taken || 0) + ' of ' + CAP.capacity + (left !== null ? ' — ' + left + ' left' : '') : 'not open yet') + '" disabled></div>' +
+      '</div>' +
+      '<label class="check"><input type="checkbox" id="s_cancel"' + (CUR.allowSelfCancel !== false ? ' checked' : '') + '>People may cancel their own place</label>' +
+      '<label class="check"><input type="checkbox" id="s_don"' + (CUR.donationsOn ? ' checked' : '') + '>Offer an optional donation</label>' +
+      '<p class="hint" style="margin:-4px 0 14px">Kept separate from any ticket. Gift Aid records come with the giving work, not this chunk.</p>' +
+      '<div class="field"><label for="s_scope">Sign up to</label><select id="s_scope">' +
+        '<option value="date"' + (CUR.signupScope === 'date' ? ' selected' : '') + '>This date only</option>' +
+        '<option value="series"' + (CUR.signupScope === 'series' ? ' selected' : '') + '>The whole series</option>' +
+      '</select></div>' +
+
+      '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="ticket" style="width:17px;height:17px"></i></span>Tickets</h2>' +
+      '<div id="ttList">' + TT.map(function (t, i) {
+        return '<div class="mini"><div class="two">' +
+          '<div class="field"><label>Name</label><input class="inp tt-name" data-i="' + i + '" value="' + esc(t.name || '') + '"></div>' +
+          '<div class="field" style="max-width:130px"><label>Price (£)</label><input class="inp tt-price" type="number" min="0" step="0.01" data-i="' + i + '" value="' + (t.price || 0) + '"></div>' +
+          '<div class="field" style="max-width:130px"><label>Places</label><input class="inp tt-cap" type="number" min="0" data-i="' + i + '" value="' + (t.capacity || 0) + '"></div>' +
+        '</div><button class="btn ghost sm tt-del" data-id="' + esc(t.id) + '">Remove</button></div>';
+      }).join('') + '</div>' +
+      '<button class="btn sec sm" id="ttAdd"><i data-lucide="plus" style="width:15px;height:15px"></i>Add a ticket type</button>' +
+
+      '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="circle-help" style="width:17px;height:17px"></i></span>Questions</h2>' +
+      '<div id="qsList">' + QS.map(function (q, i) {
+        return '<div class="mini"><div class="two">' +
+          '<div class="field"><label>Question</label><input class="inp q-label" data-i="' + i + '" value="' + esc(q.label || '') + '"></div>' +
+          '<div class="field" style="max-width:150px"><label>Answer</label><select class="q-kind" data-i="' + i + '">' +
+            ['text', 'choice', 'yesno', 'number'].map(function (k) {
+              var names = { text: 'Writing', choice: 'A choice', yesno: 'Yes or no', number: 'A number' };
+              return '<option value="' + k + '"' + (q.kind === k ? ' selected' : '') + '>' + names[k] + '</option>';
+            }).join('') + '</select></div>' +
+          '<div class="field" style="max-width:160px"><label>Asked</label><select class="q-per" data-i="' + i + '">' +
+            '<option value="booking"' + (q.per !== 'attendee' ? ' selected' : '') + '>Once per booking</option>' +
+            '<option value="attendee"' + (q.per === 'attendee' ? ' selected' : '') + '>For each person</option>' +
+          '</select></div>' +
+        '</div>' +
+        '<div class="field"><label>Choices (comma separated, for a choice)</label>' +
+          '<input class="inp q-opts" data-i="' + i + '" value="' + esc((q.options || []).join(', ')) + '"></div>' +
+        '<label class="check"><input type="checkbox" class="q-req" data-i="' + i + '"' + (q.required ? ' checked' : '') + '>Must be answered</label>' +
+        '<button class="btn ghost sm q-del" data-id="' + esc(q.id) + '">Remove</button></div>';
+      }).join('') + '</div>' +
+      '<button class="btn sec sm" id="qsAdd"><i data-lucide="plus" style="width:15px;height:15px"></i>Add a question</button>';
+  }
+
+  function checklistTab() {
+    var tasks = (CHECK && CHECK.tasks) || [];
+    return '<p class="hint" style="margin-top:0">What has to be done before the day. Members can see it; admins tick it.</p>' +
+      '<div id="ckList">' + (tasks.length ? tasks.map(function (t, i) {
+        return '<div class="row"><label class="check" style="margin:0;flex:1">' +
+          '<input type="checkbox" class="ck" data-i="' + i + '"' + (t.done ? ' checked' : '') + '>' +
+          '<span style="' + (t.done ? 'color:var(--muted);text-decoration:line-through' : '') + '">' + esc(t.text) + '</span></label>' +
+          '<span class="m">' + (t.done ? esc((t.by || '') + (t.at ? ' · ' + E.fmtDateShort(t.at) : '')) : '') + '</span>' +
+          '<button class="btn ghost sm ck-del" data-i="' + i + '"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>';
+      }).join('') : '<p class="hint">Nothing on the list yet.</p>') + '</div>' +
+      '<div class="two" style="margin-top:14px">' +
+        '<div class="field"><input class="inp" id="ckNew" placeholder="Add a task" maxlength="160"></div>' +
+        '<div class="field" style="flex:none"><button class="btn sec" id="ckAdd">Add</button></div>' +
+      '</div>' +
+      '<div class="two">' +
+        '<div class="field"><label for="ckTpl">Use a template</label><select id="ckTpl"><option value="">Choose…</option>' +
+          (window.__TPL || []).map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.name) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="field"><label for="ckTplName">Save this list as a template</label>' +
+          '<div style="display:flex;gap:8px"><input class="inp" id="ckTplName" placeholder="Template name">' +
+          '<button class="btn sec" id="ckTplSave">Save</button></div></div>' +
+      '</div>';
+  }
+
+  function peopleTab() {
+    var live = SIGNUPS.filter(function (s) { return s.status === 'confirmed'; });
+    var wait = SIGNUPS.filter(function (s) { return s.status === 'waiting'; });
+    var gone = SIGNUPS.filter(function (s) { return s.status === 'cancelled'; });
+    function table(rows, kind) {
+      if (!rows.length) return '<p class="hint">Nobody yet.</p>';
+      return '<table><thead><tr><th>Name</th><th>Email</th><th>Places</th><th>Who is coming</th><th></th></tr></thead><tbody>' +
+        rows.map(function (s) {
+          return '<tr><td>' + esc(s.name) + (s.attended ? ' <span class="flag pub">Came</span>' : '') + '</td>' +
+            '<td>' + esc(s.email) + '</td><td>' + (s.places || 1) + '</td>' +
+            '<td>' + (s.attendees || []).map(function (a) { return esc(a.name); }).join(', ') +
+            /* The answers to the questions belong here, not only in the
+               download: an admin reading "any allergies?" on screen is the
+               whole point of asking it. */
+            QS.filter(function (q) { return q.per !== 'attendee'; }).map(function (q) {
+              var v = (s.answers || {})[q.id];
+              return v ? '<br><span class="m">' + esc(q.label) + ': ' + esc(v) + '</span>' : '';
+            }).join('') +
+            (s.attendees || []).map(function (a) {
+              return QS.filter(function (q) { return q.per === 'attendee'; }).map(function (q) {
+                var v = a['q_' + q.id];
+                return v ? '<br><span class="m">' + esc(a.name) + ' — ' + esc(q.label) + ': ' + esc(v) + '</span>' : '';
+              }).join('');
+            }).join('') +
+            (s.notes ? '<br><span class="m">' + esc(s.notes) + '</span>' : '') + '</td>' +
+            '<td style="white-space:nowrap">' +
+              (kind === 'live' ? '<button class="btn ghost sm mark" data-k="' + esc(s.key) + '">' + (s.attended ? 'Not here' : 'Came') + '</button>' : '') +
+              (kind === 'wait' ? '<button class="btn sec sm offer" data-k="' + esc(s.key) + '">Offer a place</button>' : '') +
+              (kind !== 'gone' ? '<button class="btn ghost sm drop" data-k="' + esc(s.key) + '">Cancel</button>' : '') +
+            '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    return '<div class="bar">' +
+        '<button class="btn sec" id="csv"><i data-lucide="download" style="width:15px;height:15px"></i>Download the list</button>' +
+        '<button class="btn sec" id="mailAll"><i data-lucide="mail" style="width:15px;height:15px"></i>Email everyone</button>' +
+        '<span class="hint">' + live.length + ' booked · ' +
+          live.reduce(function (n, s) { return n + (s.places || 1); }, 0) + ' places · ' +
+          wait.length + ' waiting</span>' +
+      '</div>' +
+      '<h2><span class="badge"><i data-lucide="users" style="width:17px;height:17px"></i></span>Coming</h2>' + table(live, 'live') +
+      '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="clock" style="width:17px;height:17px"></i></span>Waiting list</h2>' +
+      '<p class="hint" style="margin-top:-6px">A place comes free when someone cancels. Offering it emails the first person on the list a link back to the event — there is no server here to do it on its own (FINDINGS-events.md).</p>' +
+      table(wait, 'wait') +
+      (gone.length ? '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="x" style="width:17px;height:17px"></i></span>Cancelled</h2>' + table(gone, 'gone') : '');
+  }
+
+  function historyTab() {
+    return '<h2><span class="badge"><i data-lucide="history" style="width:17px;height:17px"></i></span>What changed</h2>' +
+      (CHANGES.length ? CHANGES.map(function (c) {
+        return '<div class="row"><span class="ib"><i data-lucide="pencil" style="width:16px;height:16px"></i></span>' +
+          '<span style="flex:1"><span class="n">' + esc(c.what || 'changed') + '</span><br>' +
+          '<span class="m">' + esc(c.byName || c.by || '') + ' · ' + esc(c.at ? E.fmtDate(c.at) + ', ' + E.fmtTime(c.at) : '') + '</span></span></div>';
+      }).join('') : '<p class="hint">Nothing recorded yet.</p>') +
+      '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="mail" style="width:17px;height:17px"></i></span>What was emailed</h2>' +
+      (COMMS.length ? COMMS.map(function (c) {
+        return '<div class="row"><span class="ib"><i data-lucide="send" style="width:16px;height:16px"></i></span>' +
+          '<span style="flex:1"><span class="n">' + esc(c.subject || '(no subject)') + '</span><br>' +
+          '<span class="m">' + (c.to || 0) + ' sent' + (c.failed ? ', ' + c.failed + ' failed' : '') +
+          (c.stubbed ? ' · development: not actually sent' : '') +
+          ' · ' + esc(c.at ? E.fmtDate(c.at) + ', ' + E.fmtTime(c.at) : '') + '</span></span></div>';
+      }).join('') : '<p class="hint">Nothing sent yet.</p>');
+  }
+
+  function drawEditor() {
+    var body = TAB === 'details' ? detailsTab()
+      : TAB === 'signups' ? signupsTab()
+      : TAB === 'checklist' ? checklistTab()
+      : TAB === 'people' ? peopleTab()
+      : historyTab();
+
+    document.getElementById('editor').innerHTML =
+      '<div class="card">' +
+        '<h2><span class="badge"><i data-lucide="' + (CUR.id ? 'pencil' : 'plus') + '" style="width:17px;height:17px"></i></span>' +
+        (CUR.id ? esc(CUR.title || 'Event') : 'New event') + '<span class="spacer"></span>' +
+        '<button class="btn ghost sm" id="close"><i data-lucide="x" style="width:16px;height:16px"></i></button></h2>' +
+        tabBar() +
+        '<div id="tabBody">' + body + '</div>' +
+        '<div class="bar" style="margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line)">' +
+          '<button class="btn" id="save"><i data-lucide="check" style="width:16px;height:16px"></i>Save</button>' +
+          (CUR.id ? '<button class="btn sec" id="dup"><i data-lucide="copy" style="width:15px;height:15px"></i>Duplicate</button>' : '') +
+          (CUR.id && CUR.status !== 'cancelled' ? '<button class="btn danger" id="cancelEv"><i data-lucide="x" style="width:15px;height:15px"></i>Cancel the event</button>' : '') +
+          (CUR.id && CUR.seriesId ? '<button class="btn danger" id="delSeries">Delete the whole series</button>' : '') +
+        '</div>' +
+      '</div>';
+
+    if (TAB === 'details') {
+      ED = EGBCEditor.mount(document.getElementById('f_desc'), {
+        html: CUR.description || '', placeholder: 'What is it, and who is it for?'
+      });
+      whereBox(); teamsBox();
+      document.getElementById('f_where').onchange = whereBox;
+      document.getElementById('f_vis').onchange = teamsBox;
+    }
+    wireEditor();
+    icons();
+    document.getElementById('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- saving ---------- */
+
+  function readDetails() {
+    if (TAB !== 'details') return;
+    CUR.title = document.getElementById('f_title').value.trim();
+    CUR.description = ED ? ED.getHTML() : CUR.description;
+    CUR.category = document.getElementById('f_cat').value;
+    CUR.startLocal = document.getElementById('f_start').value;
+    CUR.endLocal = document.getElementById('f_end').value;
+    CUR.allDay = document.getElementById('f_allday').checked;
+    CUR.visibility = document.getElementById('f_vis').value;
+    CUR.status = document.getElementById('f_status').value;
+    CUR.featured = document.getElementById('f_feat').checked;
+    CUR.organiserName = document.getElementById('f_org').value.trim();
+    CUR.overseers = document.getElementById('f_over').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    CUR.labels = document.getElementById('f_labels').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    CUR.teams = [].slice.call(document.querySelectorAll('.f_team:checked')).map(function (c) { return c.value; });
+    NOTES = document.getElementById('f_notes').value;
+
+    var kind = document.getElementById('f_where').value;
+    if (kind === 'online') {
+      CUR.location = { kind: 'online', videoRoom: (document.getElementById('f_video') || {}).value || '' };
+    } else if (kind === 'venue') {
+      CUR.location = { kind: 'venue', venueId: (document.getElementById('f_venue') || {}).value || '' };
+    } else {
+      CUR.location = {
+        kind: 'room',
+        siteId: (document.getElementById('f_site') || {}).value || '',
+        roomIds: [].slice.call((document.getElementById('f_rooms') || { selectedOptions: [] }).selectedOptions || []).map(function (o) { return o.value; })
+      };
+    }
+  }
+
+  function readSignups() {
+    if (TAB !== 'signups') return;
+    CUR.signupOn = document.getElementById('s_on').checked;
+    CUR.capacity = parseInt(document.getElementById('s_cap').value, 10) || 0;
+    CUR.allowSelfCancel = document.getElementById('s_cancel').checked;
+    CUR.donationsOn = document.getElementById('s_don').checked;
+    CUR.signupScope = document.getElementById('s_scope').value;
+    document.querySelectorAll('.tt-name').forEach(function (el) {
+      var i = +el.getAttribute('data-i');
+      TT[i].name = el.value.trim();
+      TT[i].price = Number(document.querySelector('.tt-price[data-i="' + i + '"]').value) || 0;
+      TT[i].capacity = parseInt(document.querySelector('.tt-cap[data-i="' + i + '"]').value, 10) || 0;
+    });
+    document.querySelectorAll('.q-label').forEach(function (el) {
+      var i = +el.getAttribute('data-i');
+      QS[i].label = el.value.trim();
+      QS[i].kind = document.querySelector('.q-kind[data-i="' + i + '"]').value;
+      QS[i].per = document.querySelector('.q-per[data-i="' + i + '"]').value;
+      QS[i].required = document.querySelector('.q-req[data-i="' + i + '"]').checked;
+      QS[i].options = document.querySelector('.q-opts[data-i="' + i + '"]').value
+        .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    });
+  }
+
+  /* One document, built in one place, with audience and startUtc always
+     set. Everything the rules judge comes from here. */
+  function docFor(ev) {
+    var d = {
+      title: ev.title, description: ev.description || '', category: ev.category || 'other',
+      labels: ev.labels || [], visibility: ev.visibility || 'members',
+      status: ev.status || 'confirmed', audience: E.audienceFor(ev),
+      teams: ev.visibility === 'team' ? (ev.teams || []) : [],
+      featured: !!ev.featured,
+      startLocal: ev.startLocal, startUtc: E.utcOf(ev.startLocal),
+      endLocal: ev.endLocal || '', endUtc: E.utcOf(ev.endLocal) || E.utcOf(ev.startLocal),
+      allDay: !!ev.allDay,
+      location: ev.location || {},
+      organiserName: ev.organiserName || '',
+      overseers: ev.overseers || [], overseerUids: ev.overseerUids || [],
+      signupOn: !!ev.signupOn, capacity: ev.capacity || 0,
+      allowSelfCancel: ev.allowSelfCancel !== false, donationsOn: !!ev.donationsOn,
+      signupScope: ev.signupScope || 'date',
+      image: ev.image || '',
+      seriesId: ev.seriesId || '',
+      updatedAt: new Date().toISOString()
+    };
+    if (ev.createdBy) d.createdBy = ev.createdBy;
+    return d;
+  }
+
+  function recordChange(id, what) {
+    return db().collection('eventChanges').add({
+      calEventId: id, what: what, by: uid(),
+      byName: (EGBCAuth.profile() || {}).name || '', at: new Date().toISOString()
+    }).catch(function () {});
+  }
+
+  function uploadImage(id) {
+    var f = document.getElementById('f_img');
+    if (!f || !f.files || !f.files[0]) return Promise.resolve(null);
+    var file = f.files[0];
+    var ref = EGBCAuth.storage().ref('events/' + id + '/' + Date.now() + '-' + file.name.replace(/[^a-z0-9.\-_]/gi, '_'));
+    return ref.put(file).then(function () { return ref.getDownloadURL(); });
+  }
+
+  function save() {
+    readDetails(); readSignups();
+    if (!CUR.title) { toast('It needs a title.'); return; }
+    if (!CUR.startLocal) { toast('It needs a start.'); return; }
+    var btn = document.getElementById('save'); btn.disabled = true;
+
+    var isNew = !CUR.id;
+    var id = CUR.id || ('cev_' + E.key(14));
+    if (isNew) CUR.createdBy = uid();
+
+    uploadImage(id).then(function (url) {
+      if (url) CUR.image = url;
+      var d = docFor(CUR);
+      if (isNew) d.createdBy = uid(), d.createdAt = new Date().toISOString();
+      return db().collection('calEvents').doc(id).set(d, { merge: true });
+    }).then(function () {
+      /* The counter document exists whenever sign-ups do. The rules read
+         it on every sign-up, so an event without one cannot be booked -
+         better to make it here, once, than to fail at the form. */
+      if (!CUR.signupOn) return;
+      return db().collection('capacity').doc(id).get().then(function (c) {
+        if (!c.exists) return db().collection('capacity').doc(id).set({ calEventId: id, taken: 0, capacity: CUR.capacity || 0 });
+        if (c.data().capacity !== CUR.capacity) return db().collection('capacity').doc(id).update({ capacity: CUR.capacity || 0 });
+      });
+    }).then(function () {
+      return Promise.all(TT.map(function (t) {
+        return db().collection('calEvents').doc(id).collection('ticketTypes').doc(t.id || ('tt_' + E.key(8)))
+          .set({ name: t.name, price: t.price || 0, capacity: t.capacity || 0, order: t.order || 1 }, { merge: true });
+      }).concat(QS.map(function (q) {
+        return db().collection('calEvents').doc(id).collection('questions').doc(q.id || ('q_' + E.key(8)))
+          .set({ label: q.label, kind: q.kind || 'text', per: q.per || 'booking',
+                 required: !!q.required, options: q.options || [], order: q.order || 1 }, { merge: true });
+      })));
+    }).then(function () {
+      return db().collection('eventNotes').doc(id).set({ text: NOTES, at: new Date().toISOString() }, { merge: true });
+    }).then(function () {
+      return recordChange(id, isNew ? 'Event created' : 'Event edited');
+    }).then(function () {
+      return isNew ? makeSeries(id) : null;
+    }).then(function () {
+      toast('Saved.');
+      return refresh().then(function () { open(id); });
+    }).catch(function (e) {
+      btn.disabled = false;
+      toast('Could not save: ' + (e.message || e));
+    });
+  }
+
+  /* A series is made as separate events joined by seriesId, so one date
+     can move or be cancelled without the others. */
+  function makeSeries(firstId) {
+    var every = parseInt((document.getElementById('f_repeat') || {}).value || '0', 10);
+    var until = (document.getElementById('f_until') || {}).value;
+    if (!every || !until) return Promise.resolve();
+    var seriesId = 'ser_' + E.key(10);
+    var start = new Date(CUR.startLocal), end = CUR.endLocal ? new Date(CUR.endLocal) : null;
+    var stop = new Date(until + 'T23:59');
+    var jobs = [db().collection('calEvents').doc(firstId).update({ seriesId: seriesId })];
+    var n = 0;
+    var s = new Date(start);
+    while (jobs.length < 60) {
+      s = new Date(s.getTime() + every * 24 * 3600 * 1000);
+      if (s > stop) break;
+      var e2 = end ? new Date(s.getTime() + (end - start)) : null;
+      var copy = Object.assign({}, CUR, {
+        startLocal: isoLocal(s), endLocal: e2 ? isoLocal(e2) : '', seriesId: seriesId, createdBy: uid()
+      });
+      var d = docFor(copy); d.createdBy = uid(); d.createdAt = new Date().toISOString();
+      var nid = 'cev_' + E.key(14);
+      jobs.push(db().collection('calEvents').doc(nid).set(d));
+      if (CUR.signupOn) jobs.push(db().collection('capacity').doc(nid).set({ calEventId: nid, taken: 0, capacity: CUR.capacity || 0 }));
+      n++;
+    }
+    return Promise.all(jobs).then(function () { toast('Series made: ' + (n + 1) + ' dates.'); });
+  }
+
+  function duplicate() {
+    readDetails(); readSignups();
+    var copy = Object.assign({}, CUR, { id: null, seriesId: '', title: CUR.title + ' (copy)' });
+    CUR = copy; TT = TT.map(function (t) { return Object.assign({}, t, { id: null }); });
+    QS = QS.map(function (q) { return Object.assign({}, q, { id: null }); });
+    SIGNUPS = []; CAP = null; CHANGES = []; COMMS = [];
+    TAB = 'details'; drawEditor();
+    toast('Copied. Everything but the sign-ups — check the date, then save.');
+  }
+
+  /* Cancelling keeps the event and tells the people who were coming. */
+  function cancelEvent() {
+    if (!confirm('Cancel this event and email everyone who signed up?')) return;
+    CUR.status = 'cancelled';
+    var d = docFor(CUR);
+    db().collection('calEvents').doc(CUR.id).set(d, { merge: true }).then(function () {
+      return recordChange(CUR.id, 'Event cancelled');
+    }).then(function () {
+      var live = SIGNUPS.filter(function (s) { return s.status !== 'cancelled'; });
+      if (!live.length) return { ok: true, none: true };
+      return EGBCEmail.send({
+        to: live.map(function (s) { return s.email; }).filter(Boolean),
+        subject: 'Cancelled: ' + CUR.title,
+        html: EGBCEmail.wrap('This event has been cancelled',
+          '<p><strong>' + esc(CUR.title) + '</strong> on ' + esc(E.fmtWhen(CUR)) + ' is not going ahead.</p>' +
+          '<p>Sorry for the change of plan. Nothing more is needed from you.</p>'),
+        log: { calEventId: CUR.id, kind: 'cancellation' }
+      });
+    }).then(function (r) {
+      toast(r && r.none ? 'Cancelled. Nobody had signed up.'
+            : (r && r.stubbed ? 'Cancelled. Development: the email was composed, not sent.' : 'Cancelled, and everyone has been told.'));
+      return refresh().then(function () { open(CUR.id); });
+    }).catch(function (e) { toast('Could not cancel: ' + (e.message || e)); });
+  }
+
+  function offerPlace(key) {
+    var s = SIGNUPS.filter(function (x) { return x.key === key; })[0];
+    if (!s) return;
+    EGBCEmail.send({
+      to: [s.email],
+      subject: 'A place has come free: ' + CUR.title,
+      html: EGBCEmail.wrap('A place has come free',
+        '<p>A place has come free for <strong>' + esc(CUR.title) + '</strong> on ' + esc(E.fmtWhen(CUR)) + '.</p>' +
+        '<p>Sign up again to take it — first come, first served.</p>' +
+        '<p><a href="' + location.origin + location.pathname.replace(/[^/]*$/, '') + 'signup.html?event=' + esc(CUR.id) +
+        '" style="display:inline-block;background:#3d6263;color:#fff;text-decoration:none;padding:10px 16px;' +
+        'border-radius:8px;font:500 14px Inter,Arial,sans-serif">Take the place</a></p>'),
+      log: { calEventId: CUR.id, kind: 'waiting-list offer' }
+    }).then(function (r) {
+      toast(r.stubbed ? 'Development: the offer was composed, not sent.' : 'Offered.');
+      return open(CUR.id);
+    });
+  }
+
+  function emailEveryone() {
+    var live = SIGNUPS.filter(function (s) { return s.status === 'confirmed'; });
+    if (!live.length) { toast('Nobody has signed up yet.'); return; }
+    var msg = prompt('What do you want to say to the ' + live.length + ' people coming?');
+    if (!msg) return;
+    EGBCEmail.send({
+      to: live.map(function (s) { return s.email; }).filter(Boolean),
+      subject: CUR.title,
+      html: EGBCEmail.wrap(CUR.title, '<p>' + esc(msg).replace(/\n/g, '<br>') + '</p>' +
+        '<p style="color:#6b7280;font-size:13px">About ' + esc(E.fmtWhen(CUR)) + '.</p>'),
+      log: { calEventId: CUR.id, kind: 'message to attendees' }
+    }).then(function (r) {
+      toast(r.stubbed ? 'Development: composed, not sent.' : 'Sent to ' + live.length + '.');
+      return open(CUR.id);
+    });
+  }
+
+  function csv() {
+    var qcols = QS.filter(function (q) { return q.per !== 'attendee'; });
+    var head = ['Name', 'Email', 'Phone', 'Places', 'Status', 'Who is coming', 'Notes']
+      .concat(qcols.map(function (q) { return q.label; }));
+    var rows = SIGNUPS.map(function (s) {
+      return [s.name, s.email, s.phone || '', s.places || 1, s.status,
+              (s.attendees || []).map(function (a) { return a.name; }).join('; '), s.notes || '']
+        .concat(qcols.map(function (q) { return (s.answers || {})[q.id] || ''; }));
+    });
+    var out = [head].concat(rows).map(function (r) {
+      return r.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\r\n');
+    var blob = new Blob(['﻿' + out], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (CUR.title || 'event').replace(/[^a-z0-9 \-]/gi, '') + ' — who is coming.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  /* ---------- wiring ---------- */
+
+  function wireEditor() {
+    document.querySelectorAll('.tab').forEach(function (b) {
+      b.onclick = function () { readDetails(); readSignups(); TAB = b.getAttribute('data-tab'); drawEditor(); };
+    });
+    document.getElementById('close').onclick = function () { document.getElementById('editor').innerHTML = ''; };
+    document.getElementById('save').onclick = save;
+    var d = document.getElementById('dup'); if (d) d.onclick = duplicate;
+    var c = document.getElementById('cancelEv'); if (c) c.onclick = cancelEvent;
+    var ds = document.getElementById('delSeries'); if (ds) ds.onclick = deleteSeries;
+
+    var ta = document.getElementById('ttAdd');
+    if (ta) ta.onclick = function () { readSignups(); TT.push({ id: null, name: 'Standard', price: 0, capacity: 0, order: TT.length + 1 }); drawEditor(); };
+    document.querySelectorAll('.tt-del').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-id');
+        TT = TT.filter(function (t) { return t.id !== id; });
+        if (id && id !== 'null' && CUR.id) db().collection('calEvents').doc(CUR.id).collection('ticketTypes').doc(id).delete();
+        drawEditor();
+      };
+    });
+    var qa = document.getElementById('qsAdd');
+    if (qa) qa.onclick = function () { readSignups(); QS.push({ id: null, label: '', kind: 'text', per: 'booking', required: false, options: [], order: QS.length + 1 }); drawEditor(); };
+    document.querySelectorAll('.q-del').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-id');
+        QS = QS.filter(function (q) { return q.id !== id; });
+        if (id && id !== 'null' && CUR.id) db().collection('calEvents').doc(CUR.id).collection('questions').doc(id).delete();
+        drawEditor();
+      };
+    });
+
+    var ca = document.getElementById('ckAdd');
+    if (ca) ca.onclick = function () {
+      var v = document.getElementById('ckNew').value.trim();
+      if (!v) return;
+      CHECK.tasks = (CHECK.tasks || []).concat([{ text: v, done: false }]);
+      saveChecklist();
+    };
+    document.querySelectorAll('.ck').forEach(function (b) {
+      b.onchange = function () {
+        var i = +b.getAttribute('data-i');
+        CHECK.tasks[i].done = b.checked;
+        CHECK.tasks[i].by = b.checked ? ((EGBCAuth.profile() || {}).name || '') : '';
+        CHECK.tasks[i].at = b.checked ? new Date().toISOString() : '';
+        saveChecklist();
+      };
+    });
+    document.querySelectorAll('.ck-del').forEach(function (b) {
+      b.onclick = function () { CHECK.tasks.splice(+b.getAttribute('data-i'), 1); saveChecklist(); };
+    });
+    var tpl = document.getElementById('ckTpl');
+    if (tpl) tpl.onchange = function () {
+      var t = (window.__TPL || []).filter(function (x) { return x.id === tpl.value; })[0];
+      if (!t) return;
+      CHECK.tasks = (CHECK.tasks || []).concat((t.tasks || []).map(function (x) { return { text: x, done: false }; }));
+      saveChecklist();
+    };
+    var ts = document.getElementById('ckTplSave');
+    if (ts) ts.onclick = function () {
+      var name = document.getElementById('ckTplName').value.trim();
+      if (!name) { toast('Give the template a name.'); return; }
+      db().collection('checklistTemplates').add({
+        name: name, tasks: (CHECK.tasks || []).map(function (t) { return t.text; })
+      }).then(function () { toast('Template saved.'); return loadTemplates(); }).then(drawEditor);
+    };
+
+    document.querySelectorAll('.mark').forEach(function (b) {
+      b.onclick = function () {
+        var k = b.getAttribute('data-k');
+        var s = SIGNUPS.filter(function (x) { return x.key === k; })[0];
+        db().collection('signups').doc(k).update({ attended: !s.attended })
+          .then(function () { return open(CUR.id); });
+      };
+    });
+    document.querySelectorAll('.offer').forEach(function (b) {
+      b.onclick = function () { offerPlace(b.getAttribute('data-k')); };
+    });
+    document.querySelectorAll('.drop').forEach(function (b) {
+      b.onclick = function () {
+        if (!confirm('Cancel this place?')) return;
+        E.cancel(b.getAttribute('data-k')).then(function () { toast('Cancelled.'); return open(CUR.id); })
+          .catch(function (e) { toast('Could not cancel: ' + (e.message || e)); });
+      };
+    });
+    var cs = document.getElementById('csv'); if (cs) cs.onclick = csv;
+    var ma = document.getElementById('mailAll'); if (ma) ma.onclick = emailEveryone;
+  }
+
+  function saveChecklist() {
+    return db().collection('eventChecklists').doc(CUR.id).set({ tasks: CHECK.tasks || [] }, { merge: true })
+      .then(function () { drawEditor(); })
+      .catch(function (e) { toast('Could not save the checklist: ' + (e.message || e)); });
+  }
+
+  function deleteSeries() {
+    if (!confirm('Delete every date in this series? Sign-ups are not deleted.')) return;
+    db().collection('calEvents').where('seriesId', '==', CUR.seriesId).get().then(function (snap) {
+      return Promise.all(snap.docs.map(function (d) { return d.ref.delete(); }));
+    }).then(function () {
+      toast('Series deleted.');
+      document.getElementById('editor').innerHTML = '';
+      return refresh();
+    }).catch(function (e) { toast('Could not delete: ' + (e.message || e)); });
+  }
+
+  function loadTemplates() {
+    return db().collection('checklistTemplates').get().then(function (s) {
+      window.__TPL = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    }).catch(function () { window.__TPL = []; });
+  }
+
+  function refresh() {
+    /* Everything, not just what is coming up: the admin list has a past
+       view, and `audience` already decides what this person may read. */
+    return db().collection('calEvents').where('audience', 'array-contains-any', E.myAudiences()).get()
+      .then(function (snap) {
+        ALL = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+        drawList();
+      });
+  }
+
+  document.getElementById('newEv').onclick = function () { open(null); };
+  document.getElementById('showPast').onclick = function () {
+    showPast = !showPast;
+    document.getElementById('showPast').innerHTML =
+      '<i data-lucide="history" style="width:15px;height:15px"></i>' + (showPast ? 'Show what is coming up' : 'Show past events');
+    drawList(); icons();
+  };
+
+  EGBCAuth.require().then(function () {
+    return Promise.all([E.lookups(), loadTemplates(),
+      db().collection('sites').get(), db().collection('rooms').get(), db().collection('venues').get()]);
+  }).then(function (r) {
+    LOOK = r[0];
+    SITES = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+      .filter(function (s) { return s.active !== false; });
+    ROOMS = r[3].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+      .filter(function (s) { return s.active !== false; });
+    VENUES = r[4].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    return refresh();
+  }).catch(function (e) {
+    document.getElementById('list').innerHTML = '<div class="banner warn">Could not load the events: ' + esc(e.message || e) + '</div>';
+  });
+})();
+</script>
+</body>
+</html>

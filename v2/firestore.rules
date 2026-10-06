@@ -584,7 +584,12 @@ service cloud.firestore {
 
     match /signups/{manageKey} {
       allow get: if true;
-      allow list: if isAdmin();
+      // A member may ask for their own, and only their own: the query has to
+      // name the person, so every document that comes back already belongs
+      // to them. This is what lets "My events" exist on the hub without a
+      // second collection, and it is the only widening of list here.
+      allow list: if isAdmin()
+                  || (active() && resource.data.get('memberUid', '') == request.auth.uid);
       allow create: if signupShape() && takesItsPlaces();
       // The key-holder may cancel, and that is all they may do. An admin may
       // change anything.

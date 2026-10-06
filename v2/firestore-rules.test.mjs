@@ -95,6 +95,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'signups', 'key_already_here_0000000000000000'), {
     calEventId: 'ev_members', personKind: 'contacts', personId: 'c_guest', name: 'Guest Synthetic',
     email: 'guest@example.invalid', places: 1, status: 'confirmed', attendees: [], answers: {} });
+  await setDoc(doc(db, 'signups', 'key_samys_own_000000000000000000'), {
+    calEventId: 'ev_members', personKind: 'addressBook', personId: 'm_u_samy', name: 'Samy',
+    email: 'samy@example.invalid', places: 1, status: 'confirmed', memberUid: 'u_samy', attendees: [], answers: {} });
   await setDoc(doc(db, 'eventChecklists', 'ev_public'), { tasks: [] });
   await setDoc(doc(db, 'checklistTemplates', 'tpl_service'), { name: 'Service', tasks: ['Chairs out'] });
   await setDoc(doc(db, 'eventNotes', 'ev_public'), { text: 'Invented note' });
@@ -303,6 +306,10 @@ await check('the key opens that one sign-up', 'allow', () => getDoc(doc(anon(), 
 await check('nobody can list the sign-ups without an account', 'deny', () => getDocs(collection(anon(), 'signups')));
 await check('an ordinary member cannot list the sign-ups either', 'deny', () => getDocs(collection(as('samy'), 'signups')));
 await check('an admin lists the sign-ups', 'allow', () => getDocs(collection(as('karen'), 'signups')));
+/* My events on the hub: a member asks for their own and gets them; the
+   same question about somebody else is refused. */
+await check('a member lists their own sign-ups', 'allow', () => getDocs(query(collection(as('samy'), 'signups'), where('memberUid', '==', 'u_samy'))));
+await check('a member cannot list another person’s', 'deny', () => getDocs(query(collection(as('samy'), 'signups'), where('memberUid', '==', 'u_karen'))));
 await check('the key-holder cancels their place', 'allow', () => updateDoc(doc(anon(), 'signups', 'key_already_here_0000000000000000'), { status: 'cancelled' }));
 await check('the key-holder cannot give themselves more places', 'deny', () => updateDoc(doc(anon(), 'signups', 'key_already_here_0000000000000000'), { places: 9 }));
 await check('the key-holder cannot move their place to another event', 'deny', () => updateDoc(doc(anon(), 'signups', 'key_already_here_0000000000000000'), { status: 'cancelled', calEventId: 'ev_public' }));
