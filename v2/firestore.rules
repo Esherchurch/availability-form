@@ -412,6 +412,215 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---- events and sign-ups (Chunk 2) ------------------------------
+    //
+    // THE SHAPE OF THE PROBLEM. Guests sign up with no account at all, so
+    // these rules are the only thing standing between a form on the open
+    // internet and the database. Three ideas carry the weight:
+    //
+    //   1. Public CREATE only, never list. Nothing public can enumerate a
+    //      collection that holds a person's name and email.
+    //   2. The manage link is the key. A sign-up's document id IS its
+    //      unguessable key, so `get` by that id is the only way in, and
+    //      `list` is shut to everyone but an admin.
+    //   3. Capacity is counted in the database, not in the page. The write
+    //      is a batch, and the rule uses getAfter() to require the new total
+    //      to be the old total plus the places asked for, and never over
+    //      capacity. Two people taking the last place at the same moment
+    //      cannot both succeed.
+
+    // A person who is not a member: a guest who signed up, a parent, a
+    // hirer. Same shape as addressBook so an admin can promote one into it
+    // later without reshaping anything.
+    //
+    // NOT a second people store: every sign-up points at either an
+    // addressBook id or a contacts id, which is what lets a future CRM join
+    // it up.
+    function publicContact() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'email', 'phone', 'isMinor', 'householdId', 'source', 'createdAt'])
+             && d.name is string && d.name.size() > 0 && d.name.size() <= 120
+             && d.email is string && d.email.size() <= 200
+             && d.get('phone', '') is string && d.get('phone', '').size() <= 40
+             && d.get('source', '') in ['signup', 'booking', 'form']
+             && d.get('isMinor', false) is bool
+             // Nothing here grants anything. There is deliberately no
+             // markers, adminFor or masterAdmin in the allowed keys.
+             ;
+    }
+
+    match /contacts/{contactId} {
+      allow get, list: if active();
+      allow create: if isAdmin() || publicContact();
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- the events themselves --------------------------------------
+    //
+    // WHO MAY SEE ONE. `audience` is the field the reader is judged on, and
+    // it is the only one: a list query asks for the audiences that apply to
+    // the person, so every document that comes back already passes. The
+    // alternative - judging on visibility and status separately - cannot be
+    // expressed as a query, and a public list would be refused outright.
+    //
+    // audience holds 'public', 'members', or team names. It is written by
+    // one function in egbc-events.js so it cannot drift, and the rule below
+    // checks it agrees with visibility and status on every write - a held
+    // (pending) event is never public, whatever the page says.
+
+    function eventAudience() {
+      return resource.data.get('audience', []);
+    }
+
+    function canSeeEvent() {
+      return eventAudience().hasAny(['public'])
+             || (active() && (eventAudience().hasAny(['members'])
+                              || eventAudience().hasAny(me().get('teams', []))
+                              || isAdmin()));
+    }
+
+    function audienceAgrees() {
+      let d = request.resource.data;
+      let a = d.get('audience', []);
+      let held = d.get('status', 'confirmed') == 'pending';
+      let pub = d.get('visibility', 'members') == 'public';
+      return held ? !a.hasAny(['public']) : (pub ? a.hasAny(['public']) : !a.hasAny(['public']));
+    }
+
+    // An event is edited by the person who made it, anyone named as an
+    // overseer, an admin of a team it belongs to, or a master admin.
+    function canEditEvent() {
+      return isAdmin() && (isMaster()
+             || resource.data.get('createdBy', '') == request.auth.uid
+             || request.auth.uid in resource.data.get('overseerUids', [])
+             || resource.data.get('teams', []).hasAny(me().get('adminFor', [])));
+    }
+
+    match /calEvents/{calEventId} {
+      allow get, list: if canSeeEvent();
+      allow create: if isAdmin() && audienceAgrees()
+                    && request.resource.data.get('createdBy', '') == request.auth.uid;
+      allow update: if canEditEvent() && audienceAgrees();
+      allow delete: if canEditEvent();
+
+      // Ticket types and questions are part of the sign-up form, so a guest
+      // has to be able to read them. They hold no personal data: a name, a
+      // price, a capacity, a question.
+      match /ticketTypes/{ticketTypeId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      match /questions/{questionId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // ---- capacity ----------------------------------------------------
+    // One document per event holding `taken` and `capacity`. Read by
+    // anyone, because the sign-up page shows how many places are left
+    // before asking for a name.
+
+    function capDoc(calEventId) {
+      return getAfter(/databases/$(database)/documents/capacity/$(calEventId)).data;
+    }
+
+    function cancelledInThisBatch(calEventId) {
+      let sid = request.resource.data.get('lastCancelled', '');
+      return sid != ''
+             && getAfter(/databases/$(database)/documents/signups/$(sid)).data.status == 'cancelled'
+             && getAfter(/databases/$(database)/documents/signups/$(sid)).data.calEventId == calEventId
+             && request.resource.data.taken ==
+                resource.data.taken - getAfter(/databases/$(database)/documents/signups/$(sid)).data.places;
+    }
+
+    match /capacity/{calEventId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      // Going up is the sign-up's job and is checked on the sign-up itself.
+      // Going down has to name the sign-up that was cancelled, and that
+      // sign-up has to actually be cancelled in the same write.
+      allow update: if isAdmin()
+                    || (request.resource.data.capacity == resource.data.capacity
+                        && request.resource.data.taken > resource.data.taken
+                        && request.resource.data.taken <= resource.data.capacity)
+                    || (request.resource.data.capacity == resource.data.capacity
+                        && request.resource.data.taken < resource.data.taken
+                        && request.resource.data.taken >= 0
+                        && cancelledInThisBatch(calEventId));
+      allow delete: if isAdmin();
+    }
+
+    // ---- sign-ups ----------------------------------------------------
+    // The document id is the manage key: 32 random characters. `get` with
+    // that id is how a guest opens their own booking, and `list` is shut to
+    // everyone except an admin, so nothing can be enumerated.
+
+    function signupShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['calEventId', 'personKind', 'personId', 'name', 'email', 'phone',
+                               'attendees', 'answers', 'places', 'ticketTypeId', 'status',
+                               'donation', 'createdAt', 'cancelledAt', 'notes', 'memberUid'])
+             && d.calEventId is string && d.calEventId.size() > 0
+             && d.name is string && d.name.size() > 0 && d.name.size() <= 120
+             && d.email is string && d.email.size() <= 200
+             && d.places is int && d.places > 0 && d.places <= 20
+             && d.personKind in ['addressBook', 'contacts']
+             && d.personId is string && d.personId.size() > 0
+             && d.status in ['confirmed', 'waiting']
+             && d.get('notes', '') is string && d.get('notes', '').size() <= 2000;
+    }
+
+    // A confirmed sign-up has to move the counter by exactly its own places
+    // and must not take the event past its capacity. A waiting-list place
+    // takes no seat, so it does not touch the counter at all.
+    function takesItsPlaces() {
+      let d = request.resource.data;
+      return d.status == 'waiting'
+             || (capDoc(d.calEventId).taken ==
+                   get(/databases/$(database)/documents/capacity/$(d.calEventId)).data.taken + d.places
+                 && capDoc(d.calEventId).taken <= capDoc(d.calEventId).capacity);
+    }
+
+    match /signups/{manageKey} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if signupShape() && takesItsPlaces();
+      // The key-holder may cancel, and that is all they may do. An admin may
+      // change anything.
+      allow update: if isAdmin()
+                    || (request.resource.data.status == 'cancelled'
+                        && request.resource.data.calEventId == resource.data.calEventId
+                        && request.resource.data.places == resource.data.places
+                        && request.resource.data.email == resource.data.email);
+      allow delete: if isAdmin();
+    }
+
+    // ---- the admin's side of an event --------------------------------
+    // Checklists ("chairs out", "AV booked"), internal notes, the change
+    // history and the log of what was emailed. None of it is for members.
+
+    match /eventChecklists/{calEventId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+    match /checklistTemplates/{templateId} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+    match /eventNotes/{calEventId} {
+      allow read, write: if isAdmin();
+    }
+    // Append-only on purpose: a history that can be edited is not a history.
+    match /eventChanges/{changeId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+    match /commsLog/{entryId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // ---- everything else --------------------------------------------
     // Closed by default. Add an explicit rule per collection as you migrate
     // each tool onto authentication.

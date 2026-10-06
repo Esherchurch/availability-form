@@ -1,4 +1,14 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "__comment": "What's On asks for the events whose audience includes one of mine, from now on, soonest first. Firestore will not run that without this index - the emulator makes one up as it goes, so it only bites in production. Martin deploys it with the rules.",
+      "collectionGroup": "calEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "audience", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "startUtc", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

@@ -62,6 +62,24 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // ── Event pictures ────────────────────────────────────────────────
+    // What's On and the event page are public, and the picture is drawn
+    // before anyone has signed in to anything, so read is open - the same
+    // reasoning as banners. Writing needs an account.
+    //
+    // It does not check for an admin, because these rules have no view of
+    // the address book; the page does, and the event document the picture
+    // belongs to is admin-only to write. Recorded in FINDINGS-events.md
+    // rather than left as an unstated assumption.
+
+    match /events/{calEventId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 8 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
     // ── Rota PDFs (existing behaviour) ────────────────────────────────
     match /rotas/{fileName} {
       allow read: if true;

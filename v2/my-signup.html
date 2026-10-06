@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your place — EGBC</title>
+
+<script src="egbc-shell.js?v=202610062100" data-title="Your place"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-email.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610062100"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:620px;margin:0 auto;padding:20px 16px 64px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:20px;margin-bottom:14px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 6px}
+  h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .meta{color:var(--muted);font-size:14px;margin:0 0 4px;display:flex;gap:8px;align-items:flex-start}
+  .meta i{flex:none;margin-top:2px;color:var(--brand)}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+  .row:first-of-type{border-top:none}
+  .row .k{color:var(--muted)}
+  .row .v{color:var(--ink);font-weight:500;text-align:right}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;
+       border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;border:1px solid transparent;
+       background:var(--brand);color:#fff;text-decoration:none}
+  .btn:hover{background:var(--brand-dark)}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.sec:hover{background:#f3f4f6}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#e8c3bd}
+  .btn.danger:hover{background:var(--danger-bg)}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:14px}
+  .banner.warn{background:var(--danger-bg);color:var(--danger)}
+  .banner.ok{background:var(--ok-bg);color:var(--ok)}
+  .banner.info{background:var(--tint);color:var(--body);border:1px solid #cfe0de}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card">Loading…</div></div>
+
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var KEY = new URLSearchParams(location.search).get('key') || '';
+  var SU = null, EV = null, WHERE = '';
+
+  function draw() {
+    var cancelled = SU.status === 'cancelled';
+    var waiting = SU.status === 'waiting';
+    var past = EV && (EV.endUtc || EV.startUtc) && (EV.endUtc || EV.startUtc) < Date.now();
+    /* Self-cancel is a setting on the event. Where it is off, the page
+       says who to ask rather than offering a button that will not work. */
+    var mayCancel = !cancelled && !past && EV && EV.allowSelfCancel !== false;
+
+    document.getElementById('wrap').innerHTML =
+      '<div class="card">' +
+        (cancelled ? '<div class="banner warn">This place has been cancelled.</div>' : '') +
+        (waiting && !cancelled ? '<div class="banner info">You are on the waiting list. We will email you if a place comes free.</div>' : '') +
+        (EV && EV.status === 'cancelled' ? '<div class="banner warn">The event itself has been cancelled.</div>' : '') +
+        '<h1>' + esc(EV ? EV.title : 'Your place') + '</h1>' +
+        (EV ? '<p class="meta"><i data-lucide="calendar-days" style="width:16px;height:16px"></i>' + esc(E.fmtWhen(EV)) + '</p>' : '') +
+        (WHERE ? '<p class="meta"><i data-lucide="map-pin" style="width:16px;height:16px"></i>' + esc(WHERE) + '</p>' : '') +
+        '<div style="margin-top:16px">' +
+          '<div class="row"><span class="k">Booked by</span><span class="v">' + esc(SU.name) + '</span></div>' +
+          '<div class="row"><span class="k">Email</span><span class="v">' + esc(SU.email) + '</span></div>' +
+          '<div class="row"><span class="k">Places</span><span class="v">' + (SU.places || 1) + '</span></div>' +
+          ((SU.attendees || []).length
+            ? '<div class="row"><span class="k">Who is coming</span><span class="v">' +
+              SU.attendees.map(function (a) { return esc(a.name); }).join('<br>') + '</span></div>' : '') +
+          (SU.notes ? '<div class="row"><span class="k">Your note</span><span class="v">' + esc(SU.notes) + '</span></div>' : '') +
+        '</div>' +
+        '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">' +
+          (EV ? '<button class="btn sec" id="ics"><i data-lucide="calendar-plus" style="width:15px;height:15px"></i>Add to calendar</button>' : '') +
+          (mayCancel ? '<button class="btn danger" id="cancel"><i data-lucide="x" style="width:15px;height:15px"></i>Cancel my place</button>' : '') +
+          '<a class="btn ghost" href="whatson.html">What\'s on</a>' +
+        '</div>' +
+        (!mayCancel && !cancelled && !past && EV && EV.allowSelfCancel === false
+          ? '<p style="font-size:13px;color:var(--muted);margin:14px 0 0">To change this booking, reply to your confirmation email.</p>' : '') +
+      '</div>';
+
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+    var ics = document.getElementById('ics');
+    if (ics) ics.onclick = function () { EGBCICS.download(EV.title || 'event', E.icsFor(EV, WHERE)); };
+    var c = document.getElementById('cancel');
+    if (c) c.onclick = doCancel;
+  }
+
+  function doCancel() {
+    var btn = document.getElementById('cancel');
+    btn.disabled = true;
+    E.cancel(KEY).then(function () {
+      return EGBCAuth.db.collection('signups').doc(KEY).get();
+    }).then(function (s) {
+      SU = s.data();
+      draw();
+      var w = document.getElementById('wrap');
+      w.insertAdjacentHTML('afterbegin',
+        '<div class="card"><div class="banner ok">Your place has been given back. ' +
+        'If you change your mind you can sign up again while there is room.</div>' +
+        '<a class="btn" href="signup.html?event=' + esc(SU.calEventId) + '">Back to the event</a></div>');
+    }).catch(function (e) {
+      btn.disabled = false;
+      document.getElementById('wrap').insertAdjacentHTML('afterbegin',
+        '<div class="card"><div class="banner warn">That could not be cancelled: ' + esc(e.message || e) + '</div></div>');
+    });
+  }
+
+  if (!KEY) {
+    document.getElementById('wrap').innerHTML =
+      '<div class="card">This link is missing its key. Use the link in your confirmation email.</div>';
+    return;
+  }
+
+  EGBCAuth.optional().then(function () {
+    return EGBCAuth.db.collection('signups').doc(KEY).get();
+  }).then(function (s) {
+    if (!s.exists) throw new Error('not found');
+    SU = s.data();
+    return Promise.all([E.load(SU.calEventId).catch(function () { return null; }), E.lookups()]);
+  }).then(function (r) {
+    if (r[0]) { EV = r[0].ev; WHERE = E.locationText(EV, r[1]); }
+    draw();
+  }).catch(function () {
+    document.getElementById('wrap').innerHTML =
+      '<div class="card">That booking could not be found. The link may have been mistyped, or the booking removed.<br><br>' +
+      '<a class="btn sec" href="whatson.html">See what\'s on</a></div>';
+  });
+})();
+</script>
+</body>
+</html>
