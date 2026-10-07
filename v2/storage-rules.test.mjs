@@ -56,6 +56,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
      writing. */
   const st = ctx.storage();
   await uploadBytes(ref(st, 'events/cev_test/already-there.png'), PIC(), { contentType: 'image/png' });
+  /* The church logo, where it really is: the root of the bucket. */
+  await uploadBytes(ref(st, '1774936285076.png'), PIC(), { contentType: 'image/png' });
+  await uploadBytes(ref(st, 'something-else-at-the-root.png'), PIC(), { contentType: 'image/png' });
 });
 
 /* A tiny PNG. Invented bytes; not a real photograph of anybody. */
@@ -111,6 +114,18 @@ await check('anybody can see an event picture, signed in or not', 'allow',
 
 await check('an ordinary member cannot delete an event picture', 'deny',
   () => deleteObject(ref(as('samy'), 'events/cev_test/already-there.png')));
+
+/* ---- the logo, at the root of the bucket ---------------------------
+   The availability form and the login page have no sign-in at all, and both
+   show the logo. It sits at the root, where no other rule reaches it, so
+   without a rule of its own the form the whole team uses loses its logo the
+   day these rules are deployed. Found by reading the page's console. */
+await check('anyone can see the church logo, with no account at all', 'allow',
+  () => getBytes(ref(anon(), '1774936285076.png')));
+await check('but the root is not open - only the named branding files', 'deny',
+  () => getBytes(ref(anon(), 'something-else-at-the-root.png')));
+await check('and nothing can be written to the root, signed in or not', 'deny',
+  () => put(as('martin'), 'sneaked-in.png'));
 
 /* Room pictures, written ready for Places to upload rather than link. */
 await check('an admin puts a picture on a room', 'allow',

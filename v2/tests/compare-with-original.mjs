@@ -137,7 +137,13 @@ const AGREED = [
      shows is itself a thing v2 put there, and leaving it out is the agreed
      behaviour, not a loss. */
   { re: /kids church|session leader|leader \((younger|older|creche)\)|assistant \((younger|older|creche)\)/i,
-    why: 'agreed (Martin, 05c9be63): worship planners show Worship and AV roles only' }
+    why: 'agreed (Martin, 05c9be63): worship planners show Worship and AV roles only' },
+  /* ONE-APP-BRIEF section 5: "Core Team already has a Meetings screen - keep
+     it, and make its Join open meeting.html", so that a call stays inside the
+     installed app instead of opening the browser at daily.co. The room is the
+     same either way; only the page that opens it changed. */
+  { re: /daily\.co|meeting\.html\?room=/i,
+    why: 'agreed (ONE-APP section 5): Join opens meeting.html so the call stays in the app' }
 ];
 
 /* ---------------------------------------------------------------- servers */
@@ -194,6 +200,7 @@ const emulatorHook = (account) => `<script>/* injected by tests/compare-with-ori
     try {
       var auth = firebase.auth(app);
       auth.useEmulator('http://localhost:9099', { disableWarnings: true });
+      if (${process.env.EGBC_SKIP_SIGNIN === '1'}) { window.__harnessSignIn = Promise.resolve('left signed out'); return app; }
       window.__harnessSignIn = auth.signInWithEmailAndPassword(${JSON.stringify(account.email)}, ${JSON.stringify(account.pw)})
         .then(function () { return 'signed in'; })
         .catch(function (e) { return 'sign-in failed: ' + e.code; });
@@ -266,6 +273,7 @@ export function initializeApp() {
   try {
     const auth = getAuth(app);
     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+    if (SKIP_SIGNIN) { window.__harnessSignIn = Promise.resolve('left signed out'); return app; }
     window.__harnessSignIn = signInWithEmailAndPassword(auth, EMAIL, PASSWORD)
       .then(() => 'signed in').catch(e => 'sign-in failed: ' + e.code);
   } catch (e) { window.__harnessSignIn = Promise.resolve('no auth: ' + e.message); }
@@ -279,6 +287,7 @@ function shimFor(version, account) {
     .replace(/BASE_APP_URL/g, JSON.stringify(base + 'firebase-app.js'))
     .replace(/BASE_FS_URL/g, JSON.stringify(base + 'firebase-firestore.js'))
     .replace(/BASE_AUTH_URL/g, JSON.stringify(base + 'firebase-auth.js'))
+    .replace(/SKIP_SIGNIN/g, String(process.env.EGBC_SKIP_SIGNIN === '1'))
     .replace(/EMAIL/g, JSON.stringify(account.email))
     .replace(/PASSWORD/g, JSON.stringify(account.pw));
 }
@@ -452,6 +461,46 @@ const MASK_STAMP = /\d{10,}/g;
 /* An element id that was generated rather than written. Containers named this
    way cannot be matched between the two sides at all. */
 const GENERATED_ID = /\d{10,}/;
+/* The branding files, at the root of the bucket where the real ones are.
+ * Without them the Storage emulator answers "object not found", and every page
+ * that shows the logo reports an error that is the harness's empty bucket and
+ * not the page at all. A one-pixel PNG; nothing is copied from anywhere.
+ */
+const BRANDING = ['1774936285076.png', 'copilot_image_1775806874083.jpeg',
+  '1774933729776.png', '1774933429062.png', '1774936402880.png', '1777880144841.png'];
+const ONE_PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64');
+function seedBranding() {
+  const bucket = 'egbc-worship-planner.firebasestorage.app';
+  return Promise.all(BRANDING.map(name => new Promise(resolve => {
+    const req = http.request({
+      host: 'localhost', port: 9199, method: 'POST',
+      path: '/v0/b/' + bucket + '/o?name=' + encodeURIComponent(name),
+      headers: { 'Content-Type': name.endsWith('.jpeg') ? 'image/jpeg' : 'image/png',
+                 'Content-Length': ONE_PIXEL_PNG.length, Authorization: 'Bearer owner' }
+    }, r => { r.resume(); r.on('end', resolve); });
+    req.on('error', resolve);
+    req.end(ONE_PIXEL_PNG);
+  })));
+}
+
+/* Pages this comparison cannot settle, and what settles them instead. Counted
+ * and named rather than quietly skipped.
+ *
+ * The hub is the one case. Both hubs list the same registry and draw it
+ * differently: the original makes each tile an <a href>, v2 draws a row and
+ * groups the list - phone apps under "Apps", help pages as a "?" on the tool
+ * they explain, charters together, a section per team. Comparing controls then
+ * reports twenty tiles "missing from v2" that are all present and reachable,
+ * and a real loss would be buried among them. check-hub-tools.mjs compares
+ * what each hub OFFERS, by title, which does not care what element a title is
+ * drawn in: v2 offers every page the original offers, and fifteen more.
+ */
+const COVERED_BY = {
+  'hub.html': 'tests/check-hub-tools.mjs (compares what each hub offers, by title)'
+};
+
 /* ------------------------------------------------- driving the main flow */
 /* Most of what these pages do is behind choosing something first, so looking
  * at the state a page opens in says very little. The same steps run on both
@@ -527,6 +576,12 @@ const FLOWS = {
     ['the rota', CALL('openSection', 'rota')],
     ['the meetings', CALL('openSection', 'meetings')]
   ],
+  'hub.html': [
+    ['open the admin panel', CALL('openAdmin')],
+    ['the people tab', CALL('adminTab', 'people')],
+    ['the youth codes tab', CALL('adminTab', 'youth')],
+    ['the page registry tab', CALL('adminTab', 'pages')]
+  ],
   'addressbook.html': [
     ['open the first person', CLICK_NTH('button[onclick^="editMember"], .member-row button', 0, 'people')],
     ['open the second person', CLICK_NTH('button[onclick^="editMember"], .member-row button', 1, 'people')]
@@ -566,6 +621,7 @@ function missingFrom(origRows, v2Rows) {
     .sort();
   if (!pages.length) { console.error('no page matched ' + only); process.exit(1); }
   if (wantShots) fs.mkdirSync(SHOTS, { recursive: true });
+  await seedBranding();
 
   const sOrig = serve(ROOT, ORIG_PORT, false, onEmulator), sV2 = serve(V2, V2_PORT, true, false);
   if (onEmulator) console.log('the originals are pointed at the emulator for this run, in the copy\n' +
@@ -760,6 +816,11 @@ function missingFrom(origRows, v2Rows) {
   const table = [];
   let ungradable = 0;
   for (const page of pages) {
+    if (COVERED_BY[page]) {
+      console.log(page.padEnd(32) + 'settled by ' + COVERED_BY[page]);
+      table.push({ page, a: 0, b: 0, d: 0, c: 0, losses: [], coveredBy: COVERED_BY[page] });
+      continue;
+    }
     const shot = wantShots;
     const a = await grab('orig', page, shot);
     const b = await grab('v2', page, shot);

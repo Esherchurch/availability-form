@@ -150,6 +150,30 @@ service firebase.storage {
       allow delete: if request.auth != null;
     }
 
+    // ── Branding at the root of the bucket ──────────────────────────
+    // The church logo and the header images were uploaded before any folders
+    // existed, so they sit at the root of the bucket where no rule below
+    // reaches them. Every page shows one, including the two with no sign-in
+    // at all: the availability form, which goes to the whole team once a
+    // term, and the login page. Without this they would have lost their logo
+    // the day these rules went live - found because the form's console said
+    // "User does not have permission to access '1774936285076.png'".
+    //
+    // Named one by one rather than opening the whole root, so this grants
+    // read on these six files and on nothing else, and nothing may be written
+    // to the root at all.
+    match /{fileName} {
+      allow read: if fileName in [
+        '1774936285076.png',              // the church logo, on most pages
+        'copilot_image_1775806874083.jpeg', // the hub and shell header
+        '1774933729776.png',
+        '1774933429062.png',
+        '1774936402880.png',
+        '1777880144841.png'               // the training portal's logo
+      ];
+      allow write, delete: if false;
+    }
+
     // ── EVENTS (events window) ──────────────────────────────────────
     // Owned by the events window (EVENTS-WINDOW-BRIEF.md); nothing in here
     // changes a rule outside it.
