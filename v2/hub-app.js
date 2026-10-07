@@ -111,8 +111,11 @@ function applyTeam() {
   loadCharter();
   renderTeamPanels();
   renderNews();
+  renderWaiting();
+  renderServing();
   renderMyEvents();
   renderTools();
+  renderNavigation();
 }
 
 EGBCAuth.require().then(async profile => {
@@ -467,7 +470,7 @@ async function loadHero() {
 
     /* A team's own banner wins where it has one, so Kids Church do not land
        on a photograph of the worship band. */
-    const title = t.heroTitle || church.title || 'EGBC Team Hub';
+    const title = t.heroTitle || church.title || 'EGBC Hub';
     const sub = t.heroSub !== undefined && t.heroSub !== '' ? t.heroSub : (church.subtitle || '');
     const img = t.heroImage || church.bgImage || '';
 
@@ -492,7 +495,7 @@ async function loadHero() {
       '<p style="color:var(--faint);font-style:italic">Nothing here yet.</p>';
   } catch (e) {
     console.error('Hero load failed', e);
-    document.getElementById('heroTitle').textContent = 'EGBC Team Hub';
+    document.getElementById('heroTitle').textContent = 'EGBC Hub';
     document.getElementById('bodyContent').innerHTML = '';
   }
 }
@@ -734,6 +737,7 @@ const VIDEO_ROOM_LABELS = {
   'Eldership': 'Eldership', 'CMM': 'CMM', 'kids-ministries': 'Kids Ministries', 'interviews': 'Interviews',
 };
 let MEETINGS = [];
+let UPCOMING = [];   /* every rota date from today on, before the meetings filter */
 
 /* Mine if it is for one of my teams (the rota calls Youth Worship "Youth"),
    or I have a role on it. */
@@ -750,7 +754,8 @@ async function loadMeetings() {
   try {
     const today = new Date().toISOString().split('T')[0];
     const snap = await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
-    MEETINGS = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    UPCOMING = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(ev => !ev.archived);
+    MEETINGS = UPCOMING.slice()
       .filter(ev => !ev.archived && videoRoomFor(ev) && meetingForMe(ev))
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
   } catch (e) {
@@ -758,6 +763,7 @@ async function loadMeetings() {
     MEETINGS = [];
   }
   renderMeetings();
+  try { renderServing(); } catch (e) {}
 }
 
 function renderMeetings() {
@@ -875,6 +881,179 @@ function canEditNews(n) {
    Sorted here rather than in the query. An orderBy drops every document
    missing the field, silently, and these are written by a public page
    that has changed twice already. */
+/* ── Getting about ──────────────────────────────────────────────────
+   Home, Calendar, Meet, My serving, More - as a tab bar on a phone and a
+   sidebar on a computer, from one list so they cannot drift apart.
+
+   A tab whose page this person cannot open is left out rather than shown
+   dead: the brief asks for hidden, not greyed. Whether they can open it is
+   the registry's answer, not a guess here - PAGES is what the hub already
+   filters everything else by. */
+function navPlaces() {
+  const have = url => PAGES.some(p => decodeURIComponent(String(p.url || '')).toLowerCase() === url)
+    || BUILT_IN_PAGES.some(p => p.url.toLowerCase() === url);
+  const canSee = url => {
+    const p = PAGES.filter(x => decodeURIComponent(String(x.url || '')).toLowerCase() === url)[0];
+    return p ? visibleOne(p) : true;
+  };
+  const places = [
+    { url: 'hub.html', label: 'Home', icon: 'house', always: true },
+    { url: 'whatson.html', label: "What's on", icon: 'calendar-days' },
+    { url: 'meeting.html', label: 'Meet', icon: 'video' },
+    { url: 'view-only-rota.html', label: 'My serving', icon: 'calendar-check' }
+  ];
+  return places.filter(p => p.always || (have(p.url) && canSee(p.url)));
+}
+
+/* The hub has its own Menu; every other page gets the shell's. More
+   opens whichever this page actually has, rather than assuming. */
+function openMenuHere() {
+  if (typeof openTools === 'function') { openTools(); return; }
+  if (window.EGBCShell && EGBCShell.openMenu) { openMenuHere(); return; }
+}
+
+function renderNavigation() {
+  const here = (location.pathname.split('/').pop() || 'hub.html').toLowerCase();
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 17}px;height:${s || 17}px"></i>`;
+  const places = navPlaces();
+
+  const bar = document.getElementById('egbc-tabbar');
+  if (bar) {
+    bar.innerHTML = '<div class="tbs">' +
+      places.map(p => `<a href="${p.url}" class="${p.url.toLowerCase() === here ? 'on' : ''}">${I(p.icon, 20)}<span>${esc(p.label)}</span></a>`).join('') +
+      `<button onclick="openMenuHere()">${I('menu', 20)}<span>More</span></button>` +
+      '</div>';
+  }
+
+  /* The sidebar is the same list, then the sections this person
+     administers - which is the whole of "role-based, not realm-based":
+     same app, same sign-in, more doors. */
+  const side = document.getElementById('sidebar');
+  if (side) {
+    const admin = PAGES.filter(p => p.adminOnly && visibleOne(p) && isTile(p))
+      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
+    side.innerHTML =
+      places.map(p => `<a href="${p.url}" class="${p.url.toLowerCase() === here ? 'on' : ''}">${I(p.icon)}<span>${esc(p.label)}</span></a>`).join('') +
+      `<button onclick="openMenuHere()">${I('menu')}<span>Everything else</span></button>` +
+      (admin.length
+        ? '<div class="sgrp">What you look after</div>' +
+          admin.map(p => `<a href="${p.url}">${I(EGBCUI && EGBCUI.pageIcon ? EGBCUI.pageIcon(p) : 'file-text')}<span>${esc(p.title)}</span></a>`).join('')
+        : '');
+  }
+
+  /* The view-as strip is fixed to the bottom too. Measure it rather than
+     assume a height, because it wraps onto two lines on a narrow phone. */
+  const va = document.getElementById('egbc-viewas');
+  const h = va && va.offsetHeight ? va.offsetHeight : 0;
+  if (bar) bar.style.bottom = h + 'px';
+  if (window.matchMedia('(max-width:1100px)').matches) {
+    document.body.style.paddingBottom = (72 + h) + 'px';
+  }
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+window.addEventListener('resize', () => { try { renderNavigation(); } catch (e) {} });
+
+/* ── Waiting for you ────────────────────────────────────────────────
+   The top card of the personal home: the things that need this person
+   rather than the things that exist.
+
+   Today there is one kind of item - a notice that has to be confirmed as
+   read. Rota accept/decline was in the brief for this card and Martin has
+   since said not to build it (NEXT-BRIEF §10), so it is not here. Forms,
+   approvals and payments arrive with their own chunks; each adds to the
+   list below rather than to a page of its own. */
+function waitingItems() {
+  const out = [];
+  NEWS.filter(n => n.requireAck && !ACKED.has(n.id)).forEach(n => {
+    out.push({
+      icon: 'megaphone',
+      what: esc(n.title || 'A notice'),
+      why: 'Confirm you have read it',
+      go: `<button class="btn sm" onclick="ackNews('${esc(n.id)}')">Confirm</button>`
+    });
+  });
+  return out;
+}
+
+function renderWaiting() {
+  const box = document.getElementById('waitingCard');
+  if (!box) return;
+  const items = waitingItems();
+  /* Nothing waiting is the normal state, and a card saying so every day
+     teaches people to ignore the card. */
+  if (!items.length) { box.innerHTML = ''; return; }
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 16}px;height:${s || 16}px"></i>`;
+  box.innerHTML = `<div class="card flush">
+      <div class="ch">
+        <div class="ic">${I('inbox', 18)}</div>
+        <h2>Waiting for you</h2>
+        <div class="sp"><span class="sub">${items.length}</span></div>
+      </div>
+      <div class="cb" style="padding-top:6px;padding-bottom:14px">
+        ${items.map(it => `<div class="meet">
+          <div style="width:36px;height:36px;border-radius:8px;background:var(--tint);color:var(--brand);
+            display:flex;align-items:center;justify-content:center;flex:none">${I(it.icon)}</div>
+          <div style="flex:1;min-width:0"><div class="t">${it.what}</div><div class="s">${it.why}</div></div>
+          ${it.go}
+        </div>`).join('')}
+      </div>
+    </div>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
+/* ── My serving ─────────────────────────────────────────────────────
+   The next dates this person is on the rota for, with the role and the
+   time, and a way through to the whole rota.
+
+   Read-only on purpose. The brief's version of this card had "can't do
+   it" on each date; Martin's answer to F-018 is that accept/decline is
+   not wanted, so the card says what is coming and nothing more. */
+function myServing() {
+  const mid = ME && ME.memberId;
+  if (!mid) return [];
+  const out = [];
+  UPCOMING.forEach(ev => {
+    Object.keys(ev.assignments || {}).forEach(role => {
+      const raw = ev.assignments[role];
+      const people = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+      if (people.some(p => p && p.id === mid)) out.push({ ev, role });
+    });
+  });
+  return out.sort((a, b) => (a.ev.date + (a.ev.startTime || '')).localeCompare(b.ev.date + (b.ev.startTime || '')))
+    .slice(0, 6);
+}
+
+function renderServing() {
+  const box = document.getElementById('servingCard');
+  if (!box) return;
+  const rows = myServing();
+  if (!rows.length) { box.innerHTML = ''; return; }
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
+  const today = new Date().toISOString().split('T')[0];
+  box.innerHTML = `<div class="card flush">
+      <div class="ch">
+        <div class="ic">${I('calendar-check', 18)}</div>
+        <h2>My serving</h2>
+        <div class="sp"><a class="btn sm ghost" href="view-only-rota.html">The whole rota</a></div>
+      </div>
+      <div class="cb" style="padding-top:6px;padding-bottom:14px">
+        ${rows.map(({ ev, role }) => {
+          const d = new Date(ev.date + 'T12:00');
+          return `<div class="meet">
+            <div class="dt"><div class="m">${d.toLocaleDateString('en-GB', { month: 'short' })}</div><div class="d">${d.getDate()}</div></div>
+            <div style="flex:1;min-width:0">
+              <div class="t">${esc(role)}</div>
+              <div class="s">${I('clock')}${d.toLocaleDateString('en-GB', { weekday: 'short' })}${ev.startTime ? ' ' + esc(ev.startTime) : ''}
+                <span>&middot;</span> ${esc(ev.type || 'Service')}</div>
+            </div>
+            ${ev.date === today ? '<span class="pill">Today</span>' : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
 async function renderMyEvents() {
   const box = document.getElementById('myEventsCard');
   if (!box) return;
@@ -1102,6 +1281,10 @@ async function ackNews(id) {
     const n = NEWS.find(x => x.id === id);
     if (n) n.ackedBy = [...(n.ackedBy || []), ME.memberId];
     renderNews();
+    /* The same acknowledgement is what "Waiting for you" counts, so that
+       card has to be redrawn too - otherwise it keeps asking for something
+       already done. */
+    try { renderWaiting(); } catch (e) {}
   } catch (e) { alert('Could not record that: ' + e.message); }
 }
 
@@ -1755,7 +1938,28 @@ function renderTools() {
 
   /* One group open at a time - the team you are in. Everything expanded at
      once is the wall of text this replaced. Searching opens them all. */
-  el.innerHTML = order.map((team, i) => {
+  /* Apps first. The hub has its own Menu - it does not load the shell -
+     so this is the same heading drawn from the same list. */
+  const appsGroupHtml = (() => {
+    if (q) return '';
+    const apps = ((window.EGBCUI && EGBCUI.APPS) || []).filter(a => {
+      const p = PAGES.filter(x => decodeURIComponent(String(x.url || '')).toLowerCase() === a.url.toLowerCase())[0];
+      return p ? visibleOne(p) : true;
+    });
+    if (!apps.length) return '';
+    return `<button class="grp open" onclick="toggleGroup(this)">
+        <span class="arw"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
+        <span class="dot" style="background:#3d6263"></span>
+        <span>Apps</span>
+        <span class="cnt">${apps.length}</span>
+      </button>
+      <div class="grp-body open">${apps.map(a => `<a class="tool" href="${esc(a.url)}" title="${esc(a.description || '')}">
+        <span class="ic"><i data-lucide="${esc(a.icon)}" style="width:18px;height:18px"></i></span>
+        <span class="tx"><span class="nm">${esc(a.title)}</span><span class="ds">${esc(a.description || '')}</span></span>
+      </a>`).join('')}</div>`;
+  })();
+
+  el.innerHTML = appsGroupHtml + order.map((team, i) => {
     const c = team === '__help'
       ? { label: 'Everyone', colour: '#6b8281' }
       : (EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' });

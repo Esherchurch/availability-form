@@ -95,6 +95,26 @@
     '\u{1F389}': 'party-popper', '\u{1F382}': 'cake', '\u{1F4FA}': 'tv', '\u{1F50A}': 'volume-2'
   };
 
+
+  /* ---- the apps that can live on a phone's home screen ----------------
+     One list, read by both menus: egbc-shell.js draws it on every page
+     that uses the shared bar, and hub-app.js draws it in the hub's own
+     Menu. The hub does not load the shell, so without one shared list the
+     two would drift apart within a month.
+
+     Worship Hub, Mix Builder and Calla Design are deliberately absent.
+     They are out of scope for the one-app brief and listing them here
+     would quietly bring them into it. */
+  var APPS = [
+    { url: 'hub.html', title: 'EGBC Hub', icon: 'house', description: 'Everything in one place' },
+    { url: 'CoreTeamApp.html', title: 'Core Team', icon: 'users', description: 'Services, rota and email on a phone' },
+    { url: 'Planner.html', title: 'Rota Planner', icon: 'calendar-range', description: 'Build and send the rota' },
+    { url: 'SundayServicePlanner.html', title: 'Service Planner', icon: 'list-music', description: 'Plan the running order' },
+    { url: 'youthapp2.html', title: 'Youth Hub', icon: 'zap', description: 'Youth, on a phone' },
+    { url: 'youthserviceplanner.html', title: 'Youth Planner', icon: 'church', description: 'Plan a youth service' },
+    { url: 'index.html', title: 'Availability', icon: 'calendar-check', description: 'Say which dates you can do' }
+  ];
+
   function pageIcon(p) {
     if (!p) return 'file-text';
     var url = decodeURIComponent(String(p.url || '')).split('?')[0].split('/').pop().toLowerCase();
@@ -279,6 +299,7 @@
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
   }
 
-  window.EGBCUI = { icon: icon, pageIcon: pageIcon, refresh: refresh };
+  window.EGBCUI = {
+    APPS: APPS, icon: icon, pageIcon: pageIcon, refresh: refresh };
   load();
 })();

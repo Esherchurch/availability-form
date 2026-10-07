@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EGBC Team Hub</title>
+<title>EGBC Hub</title>
 <link rel="manifest" href="./manifest-hub.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#3d6263">
@@ -102,6 +102,43 @@
   .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
   @media(max-width:900px){.wrap{grid-template-columns:1fr;gap:20px}.top{padding:16px 12px 0}.wrap{padding:16px 12px 48px}.hero{padding:22px}}
   .lab{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 10px}
+
+  /* ---- getting about: a tab bar on a phone, a sidebar on a computer ----
+     The same five places either way, so nobody has to learn the app twice.
+
+     The sidebar appears only above 1100px, where there is room for it
+     beside the two columns the hub already has. Between 900 and 1100 the
+     tab bar does the job - a laptop at that width is closer to a phone in
+     what it can show than to a desk monitor. */
+  .side{display:none}
+  .side .sgrp{font-size:12px;font-weight:600;color:var(--muted);margin:18px 0 6px}
+  .side a,.side button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border-radius:8px;
+    font:500 14px Inter,sans-serif;color:var(--body);text-decoration:none;background:none;border:none;
+    cursor:pointer;text-align:left;margin-bottom:2px}
+  .side a:hover,.side button:hover{background:#f3f4f6}
+  .side a.on{background:var(--tint,#eef5f4);color:var(--ink);font-weight:600}
+  .side i{width:17px;height:17px;flex:none;color:var(--brand)}
+
+  #egbc-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:45;display:none;
+    background:#fff;border-top:1px solid var(--line);box-shadow:0 -1px 2px rgba(16,24,40,.05);
+    padding:6px 4px env(safe-area-inset-bottom,0) 4px}
+  #egbc-tabbar .tbs{display:flex;max-width:620px;margin:0 auto}
+  #egbc-tabbar a,#egbc-tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:6px 2px 8px;font:500 11px Inter,sans-serif;color:var(--muted);text-decoration:none;
+    background:none;border:none;cursor:pointer}
+  #egbc-tabbar a.on{color:var(--brand)}
+  #egbc-tabbar a.on i{color:var(--brand)}
+  #egbc-tabbar i{width:20px;height:20px;color:var(--muted)}
+  @media(max-width:1100px){
+    #egbc-tabbar{display:block}
+    /* Room for the bar, so the last card is not under it. The view-as
+       strip adds its own height on top; that is measured at runtime. */
+    body{padding-bottom:72px}
+  }
+  @media(min-width:1101px){
+    .wrap{grid-template-columns:210px minmax(0,1fr) 340px}
+    .side{display:block;position:sticky;top:16px;align-self:start}
+  }
 
   /* ---- cards ---- */
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;box-shadow:var(--sh-sm);margin-bottom:16px}
@@ -280,7 +317,7 @@
   <a class="brand" href="hub.html">
     <img id="logo" alt="EGBC">
     <div>
-      <div class="n">Team Hub</div>
+      <div class="n">EGBC Hub</div>
       <div class="k">Esher Green Baptist Church</div>
     </div>
   </a>
@@ -311,8 +348,11 @@
 </div>
 
 <div class="wrap">
+  <aside class="side" id="sidebar"></aside>
   <div>
+    <div id="waitingCard"></div>
     <div id="pinned"></div>
+    <div id="servingCard"></div>
     <div id="meetingsCard"></div>
     <div id="myEventsCard"></div>
 
@@ -562,6 +602,7 @@
     if (m && !e.target.closest('.who')) m.classList.remove('on');
   });
 </script>
+<nav id="egbc-tabbar" aria-label="Main"></nav>
 <script src="hub-app.js?v=202610062000"></script>
 </body>
 </html>

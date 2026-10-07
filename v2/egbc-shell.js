@@ -227,6 +227,20 @@
 
   var NAV = null;   /* cached page list */
 
+  /* The apps that can be installed on a phone, in the order they are most
+     used. These are pages like any other - the heading exists so that
+     somebody standing in Core Team can find their way to the rota without
+     knowing it is a different app.
+
+     Worship Hub, Mix Builder and Calla Design are deliberately absent:
+     they are out of scope for the one-app brief, and listing them here
+     would quietly bring them into it.
+
+     Each row still goes through maySee(), so nobody is offered a planner
+     they cannot open. */
+  /* One list, in egbc-ui.js, which this file already loads. */
+  function installedApps() { return (window.EGBCUI && EGBCUI.APPS) || []; }
+
   function navPanel() {
     var p = document.getElementById('egbc-nav');
     if (p) return p;
@@ -316,6 +330,11 @@
     });
   }
 
+  /* The Menu, openable from anywhere - the hub's More tab needs it, and
+     clicking the bar button from script is a trick that breaks the first
+     time somebody renames the button. */
+  window.EGBCShell = { openMenu: function () { openNav(); } };
+
   window.egbcToggleGroup = function (btn) {
     btn.classList.toggle('open');
     var body = btn.nextElementSibling;
@@ -363,7 +382,25 @@
       if (decodeURIComponent(p.url).toLowerCase() === decodeURIComponent(here)) hereGroup = groupOf(p);
     });
 
-    list.innerHTML = groupOrder(Object.keys(buckets)).map(function (k, i) {
+    /* Apps first, then the pages. An app is a page you can keep on your
+       home screen; the heading is what tells people that. */
+    var appRows = installedApps().filter(function (a) {
+      var reg = NAV.filter(function (p) {
+        return decodeURIComponent(String(p.url || '')).toLowerCase() === a.url.toLowerCase();
+      })[0];
+      return reg ? maySee(reg) : true;
+    });
+    var appsHtml = appRows.length
+      ? '<button class="en-g open" onclick="egbcToggleGroup(this)">' +
+          '<span class="en-arw">' + ic('chevron-right', 14) + '</span>' +
+          '<span class="en-dot" style="background:#3d6263"></span>' +
+          '<span>Apps</span>' +
+          '<span class="en-cnt">' + appRows.length + '</span>' +
+        '</button>' +
+        '<div class="en-b open">' + appRows.map(item).join('') + '</div>'
+      : '';
+
+    list.innerHTML = appsHtml + groupOrder(Object.keys(buckets)).map(function (k, i) {
       var g = groupInfo(k);
       var open = (k === SHARED) || k === hereGroup || (i === 0);
       return '<button class="en-g' + (open ? ' open' : '') + '" onclick="egbcToggleGroup(this)">' +

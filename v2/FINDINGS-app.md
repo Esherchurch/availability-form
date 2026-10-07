@@ -233,3 +233,109 @@ can still write to the live project. That is what made the Step A accident
 possible and what `firestore.rules` would stop. The rules are not deployed, and
 deploying them is Martin's, after the remaining 29 pages are moved — deploying
 sooner would lock out every page still on an app of its own.
+
+---
+
+# Chunk 2 — the hub as the main app (Step D)
+
+## A-014 — the companion app names, ready for Martin to confirm one at a time
+
+The hub is renamed, because that name was already decided: **EGBC Hub**, in
+`manifest-hub.json`'s `name` and `short_name`. `id`, `start_url` and `scope`
+are untouched, so a phone that already has it installed keeps it.
+
+The six companions are **not** renamed. Each needs Martin's word, so here is
+what each one is called now and what it would become:
+
+| Manifest | On the phone now | Proposed |
+|---|---|---|
+| manifest-coreteam.json | Core Team v2 | Core Team |
+| manifest-planner.json | Rota Planner v2 | Rota Planner |
+| manifest-service.json | Service Planner v2 | Service Planner |
+| manifest-youth.json | Youth Hub v2 | Youth Hub |
+| manifest-youthservice.json | Youth Planner v2 | Youth Planner |
+| manifest-availability.json | Availability v2 | Availability |
+
+In every case it is only the "v2" that goes, and only from `short_name` - the
+long `name` already reads "EGBC Core Team" and so on. Say the word on any of
+them and it is a one-line change each.
+
+A renamed app does not rename itself on a phone that already has it: the
+label is taken when the app is installed. Anyone already using one will keep
+seeing the old name until they remove it and add it again. That is worth
+saying in the message that announces the change, rather than being a surprise.
+
+## A-015 — what cannot be checked from here: the real-phone tests
+
+Three things in this chunk can only be settled on Martin's own iPhone and
+Android phone, and none of them should be reported as done until they are:
+
+1. **Does signing in to one app sign you in to the others?** Each installed
+   app may get its own storage, in which case each needs signing in once.
+   Firefox and Safari differ from Chrome here, and no emulator answers it.
+   *To test:* install EGBC Hub and Core Team from the home screen, sign in on
+   the hub, open Core Team. If it asks again, that is the answer - say so and
+   the sign-in gets a one-tap "continue as" rather than a fresh form.
+2. **Does a video call work inside the installed app?** Camera, microphone,
+   screen share, leaving and rejoining, on both phones, from the hub's Meet
+   tab. iOS has refused camera access inside installed web apps in the past.
+3. **Does the tab bar sit clear of the home indicator?** It is written with
+   `env(safe-area-inset-bottom)`, which is the right thing, but only a real
+   iPhone shows whether it worked.
+
+Everything else in this chunk is proved in the emulator against a headless
+Chrome at 375px, which is not the same thing and is not claimed to be.
+
+## A-016 — the hub has its own Menu, and the shell's "Apps" heading missed it
+
+The brief asks for an "Apps" heading in the Menu. There are two menus: every
+other page uses `egbc-shell.js`, and the hub - the main app - has its own,
+built into `hub.html` and `hub-app.js`. The first version of this put the
+heading in the shell only, which left it out of exactly the app it matters
+most in. Found by opening the Menu on the hub and finding no heading at all.
+
+Both now draw it from one list, `EGBCUI.APPS` in `egbc-ui.js`, which is the
+file both already load. Two menus is the thing to fix one day; one list is
+the thing that stops them drifting in the meantime.
+
+## A-017 — "My serving" is read-only, on purpose
+
+`ONE-APP-BRIEF.md` §5 describes this card with a "can't do it" action on each
+date, going to unavailability. `NEXT-BRIEF.md` §10 then says accept/decline is
+not wanted - volunteers will not use it, and the availability form already
+gathers what the planner needs. §10 is the later decision, so the card shows
+what is coming and nothing more. Worth knowing the briefs disagree, so that
+the next person reading §5 does not build it.
+
+## A-018 — "Waiting for you" has one kind of item today
+
+The card is built and works: a notice that has to be confirmed as read
+appears, Confirm writes the acknowledgement, and the card goes when there is
+nothing left. That is the only item that exists today - forms, approvals and
+payments all belong to chunks not yet built, and rota accept/decline is not
+coming at all (A-017). Each later chunk adds to `waitingItems()` rather than
+building a page of its own, which is what the one-dashboard rule asks for.
+
+## A-019 — two pages are still on Montserrat, and were before this step
+
+`birthday.html` and `youth-access.html` compute to Montserrat rather than
+Inter. Proved to pre-date this step by stashing these changes and measuring
+the same two pages again: the same answer. They are Group 4 in the restyle
+brief and are due there.
+
+The same sweep is the lock-out check for this step: 32 in-scope pages, 128
+checks, every page loads, renders, keeps its controls and throws nothing.
+`login.html` sends a signed-in person to the hub, which is what it is for.
+
+## A-020 — Storage had no emulator, so development uploads went to the live bucket
+
+Found while fixing F-016. `egbc-auth.js` pointed Firestore and Auth at the
+emulators on localhost and left Storage pointing at the real bucket, so every
+upload made while developing - knowledge base videos, the team shelf, banners
+- went to the live one. Now hooked, and proved by watching what leaves the
+browser rather than by reading the code: the event picture goes to
+127.0.0.1:9199 and nothing goes to firebasestorage.googleapis.com.
+
+**Martin may want to look in the live bucket** for files put there by
+development before today: `banners/`, `resources/` and `kb/` are where they
+would be. Nothing is deleted from here without being asked.
