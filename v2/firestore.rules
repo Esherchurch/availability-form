@@ -718,6 +718,117 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── EVENTS (events window) ──────────────────────────────────────
+    // Everything between this line and "end EVENTS" belongs to the events
+    // window (EVENTS-WINDOW-BRIEF.md). The main window does not edit it,
+    // and nothing in it changes a rule outside it.
+
+    // ---- check-in and attendance (Chunk 3, stage 1) -----------------
+    //
+    // ONE DOCUMENT PER PERSON PER EVENT, and its id is worked out, never
+    // random: <calEventId>__<signupKey>__<attendee number>. Two phones
+    // scanning the same child at the same moment write to the same
+    // document, and the update rule below refuses "in" on someone already
+    // in - so the second phone is told, and nobody is counted twice.
+    //
+    // Admins only, for now. There is no "leader of this event" yet (that
+    // is stage 3), and these hold names, times and who collected a child.
+
+    function checkinShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['calEventId', 'signupKey', 'attendeeIndex', 'name', 'kind', 'state',
+                               'inAt', 'inBy', 'inByName', 'outAt', 'outBy', 'outByName',
+                               'collectedBy', 'collectorListed', 'overrideReason',
+                               'roomId', 'day', 'updatedAt'])
+             && d.calEventId is string && d.calEventId.size() > 0
+             && d.signupKey is string && d.signupKey.size() > 0
+             && d.attendeeIndex is int && d.attendeeIndex >= 0 && d.attendeeIndex < 20
+             && d.name is string && d.name.size() > 0 && d.name.size() <= 120
+             && d.kind in ['booked', 'walkin', 'leader']
+             && d.state in ['in', 'out']
+             && d.get('collectedBy', '') is string && d.get('collectedBy', '').size() <= 120
+             && d.get('overrideReason', '') is string && d.get('overrideReason', '').size() <= 300;
+    }
+
+    function checkinIdAgrees(checkinId) {
+      let d = request.resource.data;
+      return checkinId == d.calEventId + '__' + d.signupKey + '__' + string(d.attendeeIndex);
+    }
+
+    // Check-out on an event that asks for it: a child goes to a named
+    // person, and if that person is not on the booking's list, a reason
+    // is written down. Leaders are never "collected".
+    function checkoutSettings(calEventId) {
+      return get(/databases/$(database)/documents/checkinSettings/$(calEventId)).data;
+    }
+    function collectionAllowed() {
+      let d = request.resource.data;
+      return d.kind == 'leader'
+             || !exists(/databases/$(database)/documents/checkinSettings/$(d.calEventId))
+             || checkoutSettings(d.calEventId).get('checkoutRequired', false) != true
+             || (d.get('collectedBy', '').size() > 0
+                 && (d.get('collectorListed', false) == true
+                     || d.get('overrideReason', '').size() >= 3));
+    }
+
+    match /checkins/{checkinId} {
+      allow read: if isAdmin();
+      // You arrive before you leave.
+      allow create: if isAdmin() && checkinShape() && checkinIdAgrees(checkinId)
+                    && request.resource.data.state == 'in';
+      allow update: if isAdmin() && checkinShape()
+                    && request.resource.data.calEventId == resource.data.calEventId
+                    && request.resource.data.signupKey == resource.data.signupKey
+                    && request.resource.data.attendeeIndex == resource.data.attendeeIndex
+                    && request.resource.data.kind == resource.data.kind
+                    && ((resource.data.state == 'in' && request.resource.data.state == 'out'
+                         && collectionAllowed())
+                        || (resource.data.state == 'out' && request.resource.data.state == 'in'));
+      // A register that can be quietly edited away is not a register.
+      allow delete: if false;
+    }
+
+    // Per event: does check-out need a collector, which question holds the
+    // collectors' names, which questions are shown as a flag at the door.
+    match /checkinSettings/{calEventId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin()
+                   && request.resource.data.keys().hasOnly(['checkoutRequired', 'collectorsQuestionId',
+                                                             'flagQuestionIds', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.get('checkoutRequired', false) is bool
+                   && request.resource.data.get('flagQuestionIds', []) is list;
+    }
+
+    // Every download that holds a flagged (medical, allergy) column, and
+    // every register, is written here first. Append-only, and always in
+    // the name of the person downloading.
+    match /downloadsLog/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+                    && request.resource.data.by == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['by', 'byName', 'at', 'calEventId', 'what',
+                                                              'format', 'columns', 'sensitive'])
+                    && request.resource.data.sensitive is bool;
+      allow update, delete: if false;
+    }
+
+    // Quick headcounts ("Gatherings"): adults, children and online for a
+    // Sunday service or an event. Numbers only, no names.
+    match /headcounts/{countId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['date', 'label', 'calEventId', 'adults',
+                                                              'children', 'online', 'notes', 'by', 'byName', 'at'])
+                    && request.resource.data.date is string && request.resource.data.date.size() == 10
+                    && request.resource.data.label is string && request.resource.data.label.size() <= 120
+                    && request.resource.data.adults is int && request.resource.data.adults >= 0
+                    && request.resource.data.children is int && request.resource.data.children >= 0
+                    && request.resource.data.online is int && request.resource.data.online >= 0;
+      allow delete: if isAdmin();
+    }
+
+    // ── end EVENTS ──────────────────────────────────────────────────
+
     // ---- everything else --------------------------------------------
     // Closed by default. Add an explicit rule per collection as you migrate
     // each tool onto authentication.

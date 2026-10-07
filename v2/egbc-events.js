@@ -342,6 +342,12 @@
       '<p><a href="' + manageUrl(o.manageKey) + '" style="display:inline-block;background:#3d6263;color:#fff;' +
       'text-decoration:none;padding:10px 16px;border-radius:8px;font:500 14px Inter,Arial,sans-serif">View or cancel your place</a></p>' +
       '<p style="color:#6b7280;font-size:13px">The calendar file attached adds it to your diary.</p>';
+    var qr = checkinCodes(o);
+    if (qr.length) {
+      body += '<p><strong>Checking in:</strong> show ' + (qr.length > 1 ? 'these codes' : 'this code') +
+        ' at the door. ' + (qr.length > 1 ? 'There is one for each person, attached' : 'It is attached') +
+        ', and on the page behind the button above.</p>';
+    }
     return {
       to: [o.email],
       subject: (waiting ? 'Waiting list: ' : 'You are signed up: ') + ev.title,
@@ -351,9 +357,27 @@
         filename: 'event.ics',
         content: EGBCICS.base64(icsFor(ev, where)),
         type: 'text/calendar'
-      }],
+      }].concat(qr),
       log: { calEventId: ev.id, kind: 'confirmation' }
     };
+  }
+
+  /* One QR code per person coming, as PNG attachments (Chunk 3). Only for
+     a confirmed place - a waiting-list place has nothing to check in to -
+     and only on pages that load the two check-in files, so a page that
+     does not is unchanged. */
+  function checkinCodes(o) {
+    if (o.status === 'waiting' || !o.manageKey || !global.EGBCEventsQR || !global.EGBCCheckin) return [];
+    var people = (o.attendees && o.attendees.length) ? o.attendees : [{ name: o.name || 'you' }];
+    try {
+      return people.map(function (a, i) {
+        return {
+          filename: 'check-in ' + String(a.name || ('person ' + (i + 1))).replace(/[^a-z0-9 \-]/gi, '').trim().slice(0, 40) + '.png',
+          content: EGBCEventsQR.pngBase64(EGBCCheckin.codeFor(o.ev.id, o.manageKey, i), 8),
+          type: 'image/png'
+        };
+      });
+    } catch (e) { return []; }
   }
 
   function esc(s) {
@@ -383,6 +407,7 @@
     icsFor: icsFor,
     manageUrl: manageUrl,
     confirmationEmail: confirmationEmail,
+    checkinCodes: checkinCodes,
     CATEGORIES: [
       { id: 'service', name: 'Service', colour: '#3d6263' },
       { id: 'social', name: 'Social', colour: '#b07d2e' },

@@ -13,7 +13,9 @@
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610062100"></script>
-<script src="egbc-events.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-qr.js?v=202610072300"></script>
+<script src="egbc-events-checkin.js?v=202610072300"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -89,23 +91,29 @@
   function left() { return CAP ? E.placesLeft(CAP) : null; }
   function full() { var l = left(); return l !== null && l <= 0; }
 
-  function questionField(q, idPrefix) {
+  /* `value` puts back what was already typed. Without it, adding or
+     removing a person redrew every person's answers empty - so a parent who
+     wrote one child's allergy and then added a second child lost the
+     allergy without being told (FINDINGS-events.md F-026). */
+  function questionField(q, idPrefix, value) {
     var id = idPrefix + q.id;
+    var v = value == null ? '' : String(value);
+    var sel = function (o) { return o === v ? ' selected' : ''; };
     var lab = '<label for="' + id + '">' + esc(q.label || 'Question') + (q.required ? ' *' : '') + '</label>';
     if (q.kind === 'choice') {
       return '<div class="field">' + lab + '<select id="' + id + '" ' + (q.required ? 'required' : '') + '>' +
         '<option value="">Choose…</option>' +
-        (q.options || []).map(function (o) { return '<option>' + esc(o) + '</option>'; }).join('') +
+        (q.options || []).map(function (o) { return '<option' + sel(o) + '>' + esc(o) + '</option>'; }).join('') +
         '</select></div>';
     }
     if (q.kind === 'yesno') {
       return '<div class="field">' + lab + '<select id="' + id + '" ' + (q.required ? 'required' : '') + '>' +
-        '<option value="">Choose…</option><option>Yes</option><option>No</option></select></div>';
+        '<option value="">Choose…</option><option' + sel('Yes') + '>Yes</option><option' + sel('No') + '>No</option></select></div>';
     }
     if (q.kind === 'number') {
-      return '<div class="field">' + lab + '<input class="inp" type="number" id="' + id + '" ' + (q.required ? 'required' : '') + '></div>';
+      return '<div class="field">' + lab + '<input class="inp" type="number" id="' + id + '" value="' + esc(v) + '" ' + (q.required ? 'required' : '') + '></div>';
     }
-    return '<div class="field">' + lab + '<input class="inp" type="text" id="' + id + '" maxlength="300" ' + (q.required ? 'required' : '') + '></div>';
+    return '<div class="field">' + lab + '<input class="inp" type="text" id="' + id + '" value="' + esc(v) + '" maxlength="300" ' + (q.required ? 'required' : '') + '></div>';
   }
 
   function attendeeRows() {
@@ -117,7 +125,7 @@
         (i > 0 ? '<button type="button" class="btn ghost" data-drop="' + i + '" aria-label="Remove">' +
                  '<i data-lucide="x" style="width:16px;height:16px"></i></button>' : '') +
         '</div>' +
-        perAtt.map(function (q) { return questionField(q, 'a' + i + '_'); }).join('');
+        perAtt.map(function (q) { return questionField(q, 'a' + i + '_', a['q_' + q.id]); }).join('');
     }).join('');
   }
 

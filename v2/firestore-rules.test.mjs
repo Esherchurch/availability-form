@@ -125,6 +125,30 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'eventChanges', 'ch1'), { calEventId: 'ev_public', by: 'u_martin', what: 'created' });
   await setDoc(doc(db, 'commsLog', 'log1'), { calEventId: 'ev_public', to: 1, subject: 'Test' });
 
+  // ── EVENTS (events window) ── seed data for check-in (Chunk 3, stage 1)
+  /* An invented kids' event that needs a collector at check-out, a family
+     of three invented children, two of them already in, and one leader.
+     Capacity has one place left, so a walk-in can take it once. */
+  await setDoc(doc(db, 'calEvents', 'ev_kids'), {
+    title: 'Test Kids Club', visibility: 'members', status: 'confirmed', audience: ['members'],
+    startLocal: '2026-11-14T10:00', startUtc: 1763114400000, createdBy: 'u_karen', teams: [], signupOn: true, capacity: 4 });
+  await setDoc(doc(db, 'capacity', 'ev_kids'), { calEventId: 'ev_kids', taken: 3, capacity: 4 });
+  await setDoc(doc(db, 'signups', 'key_kids_family_0000000000000000'), {
+    calEventId: 'ev_kids', personKind: 'contacts', personId: 'c_guest', name: 'Parent Synthetic',
+    email: 'parent@example.invalid', places: 3, status: 'confirmed', answers: { q_collect: 'Parent Synthetic, Aunt Invented' },
+    attendees: [{ name: 'Child One' }, { name: 'Child Two' }, { name: 'Child Three' }] });
+  await setDoc(doc(db, 'checkinSettings', 'ev_kids'), { checkoutRequired: true, collectorsQuestionId: 'q_collect', flagQuestionIds: [] });
+  const IN = (i) => ({ calEventId: 'ev_kids', signupKey: 'key_kids_family_0000000000000000', attendeeIndex: i,
+    name: 'Child ' + i, kind: 'booked', state: 'in', inAt: '2026-11-14T10:01:00Z', inBy: 'u_karen', roomId: 'room_hall', day: '2026-11-14' });
+  await setDoc(doc(db, 'checkins', 'ev_kids__key_kids_family_0000000000000000__1'), IN(1));
+  await setDoc(doc(db, 'checkins', 'ev_kids__key_kids_family_0000000000000000__2'), IN(2));
+  await setDoc(doc(db, 'checkins', 'ev_kids__l_leader_00000000000000000000000000__0'), {
+    calEventId: 'ev_kids', signupKey: 'l_leader_00000000000000000000000000', attendeeIndex: 0,
+    name: 'Leader Invented', kind: 'leader', state: 'in', day: '2026-11-14' });
+  await setDoc(doc(db, 'downloadsLog', 'dl1'), { by: 'u_karen', at: '2026-11-14T12:00:00Z', sensitive: true });
+  await setDoc(doc(db, 'headcounts', 'hc1'), { date: '2026-11-15', label: 'Sunday morning', adults: 80, children: 20, online: 12 });
+  // ── end EVENTS ──
+
 });
 
 const as = (who) => env.authenticatedContext(PEOPLE[who].uid).firestore();
@@ -425,6 +449,69 @@ await check('a master admin can', 'allow', () => setDoc(doc(as('martin'), 'inven
 await check('a member reads the AV schematic', 'allow', () => getDoc(doc(as('samy'), 'av_schematic', 'main')));
 await check('a member cannot redraw it', 'deny', () => setDoc(doc(as('samy'), 'av_schematic', 'main'), { boxes: [] }));
 await check('nobody without an account can read either', 'deny', () => getDoc(doc(anon(), 'inventory', 'inv1')));
+
+// ── EVENTS (events window) ── check-in and attendance (Chunk 3, stage 1)
+{
+  const FAM = 'key_kids_family_0000000000000000';
+  const CK = (i) => 'ev_kids__' + FAM + '__' + i;
+  const arrive = (i, extra) => ({ calEventId: 'ev_kids', signupKey: FAM, attendeeIndex: i, name: 'Child ' + i,
+    kind: 'booked', state: 'in', inAt: '2026-11-14T10:02:00Z', inBy: 'u_karen', inByName: 'u_karen',
+    roomId: 'room_hall', day: '2026-11-14', updatedAt: '2026-11-14T10:02:00Z', ...(extra || {}) });
+  const leave = (extra) => ({ state: 'out', outAt: '2026-11-14T12:00:00Z', outBy: 'u_karen', outByName: 'u_karen', ...(extra || {}) });
+
+  await check('the public cannot read a check-in', 'deny', () => getDoc(doc(anon(), 'checkins', CK(1))));
+  await check('a member cannot read the check-ins', 'deny', () => getDoc(doc(as('samy'), 'checkins', CK(1))));
+  await check('an admin reads the check-ins', 'allow', () => getDocs(query(collection(as('karen'), 'checkins'), where('calEventId', '==', 'ev_kids'))));
+  await check('a member cannot check anyone in', 'deny', () => setDoc(doc(as('samy'), 'checkins', CK(0)), arrive(0)));
+  await check('an admin checks a child in', 'allow', () => setDoc(doc(as('karen'), 'checkins', CK(0)), arrive(0)));
+  /* The double-count test: a second phone scanning the same child a moment
+     later writes the same document, and is refused. */
+  await check('a second device cannot check the same child in again', 'deny', () => setDoc(doc(as('martin'), 'checkins', CK(0)), arrive(0, { inBy: 'u_martin' })));
+  await check('a check-in cannot be filed under a made-up id', 'deny', () => setDoc(doc(as('karen'), 'checkins', 'ev_kids__anything'), arrive(0)));
+  await check('nobody arrives already checked out', 'deny', () => setDoc(doc(as('karen'), 'checkins', 'ev_kids__w_new_0000__0'),
+    { ...arrive(0), signupKey: 'w_new_0000', kind: 'walkin', state: 'out' }));
+  await check('a check-in holds only its own fields', 'deny', () => setDoc(doc(as('karen'), 'checkins', 'ev_kids__w_extra_000__0'),
+    { ...arrive(0), signupKey: 'w_extra_000', kind: 'walkin', medical: 'nut allergy' }));
+  await check('a child cannot go home with nobody named', 'deny', () => updateDoc(doc(as('karen'), 'checkins', CK(1)), leave()));
+  await check('a child goes home with a listed collector', 'allow', () => updateDoc(doc(as('karen'), 'checkins', CK(1)), leave({ collectedBy: 'Aunt Invented', collectorListed: true })));
+  await check('someone not listed cannot collect without a reason', 'deny', () => updateDoc(doc(as('karen'), 'checkins', CK(2)), leave({ collectedBy: 'Stranger Unknown', collectorListed: false })));
+  await check('someone not listed collects when a reason is written down', 'allow', () => updateDoc(doc(as('karen'), 'checkins', CK(2)), leave({ collectedBy: 'Grandparent Invented', collectorListed: false, overrideReason: 'Parent phoned the leader to say so' })));
+  await check('a leader leaves without being collected', 'allow', () => updateDoc(doc(as('karen'), 'checkins', 'ev_kids__l_leader_00000000000000000000000000__0'), leave()));
+  await check('someone checked out can come back in', 'allow', () => updateDoc(doc(as('karen'), 'checkins', CK(1)), { state: 'in', inAt: '2026-11-14T12:10:00Z' }));
+  await check('a check-in cannot be moved to another event', 'deny', () => updateDoc(doc(as('karen'), 'checkins', CK(1)), { ...leave({ collectedBy: 'Parent Synthetic', collectorListed: true }), calEventId: 'ev_public' }));
+  await check('a check-in cannot be deleted, even by a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'checkins', CK(1))));
+
+  /* A walk-in is a real sign-up, so the capacity rule counts it. One place
+     is left: the first walk-in has it, the second is refused. */
+  const walkIn = (dbx, n) => {
+    const b = writeBatch(dbx), key = ('w_walkin_' + n).padEnd(32, '0');
+    b.set(doc(dbx, 'contacts', 'c_walk_' + n), { name: 'Walk In ' + n, email: '', phone: '', source: 'signup', createdAt: '2026-11-14T10:05:00Z' });
+    b.set(doc(dbx, 'signups', key), { calEventId: 'ev_kids', personKind: 'contacts', personId: 'c_walk_' + n, name: 'Walk In ' + n,
+      email: '', phone: '', attendees: [{ name: 'Walk In ' + n }], answers: {}, places: 1, ticketTypeId: '', status: 'confirmed',
+      donation: 0, notes: 'Walk-in at the door', memberUid: '', createdAt: '2026-11-14T10:05:00Z' });
+    b.update(doc(dbx, 'capacity', 'ev_kids'), { taken: 3 + n });   // counts honestly every time
+    b.set(doc(dbx, 'checkins', 'ev_kids__' + key + '__0'), { ...arrive(0), signupKey: key, kind: 'walkin', name: 'Walk In ' + n });
+    return b.commit();
+  };
+  await check('a walk-in takes the last place', 'allow', () => walkIn(as('karen'), 1));
+  await check('a walk-in cannot take a place that is not there', 'deny', () => walkIn(as('karen'), 2));
+
+  await check('a member cannot read the check-in settings', 'deny', () => getDoc(doc(as('samy'), 'checkinSettings', 'ev_kids')));
+  await check('an admin sets who may collect', 'allow', () => setDoc(doc(as('karen'), 'checkinSettings', 'ev_public'), { checkoutRequired: false, collectorsQuestionId: '', flagQuestionIds: ['q_diet'] }));
+  await check('check-in settings hold only their own fields', 'deny', () => setDoc(doc(as('karen'), 'checkinSettings', 'ev_public'), { checkoutRequired: false, anything: 1 }));
+
+  await check('an admin logs their own download', 'allow', () => setDoc(doc(as('karen'), 'downloadsLog', 'dl2'), { by: 'u_karen', byName: 'Karen', at: '2026-11-14T12:01:00Z', calEventId: 'ev_kids', what: 'register', format: 'pdf', columns: ['Name'], sensitive: false }));
+  await check('a download cannot be logged in someone else\'s name', 'deny', () => setDoc(doc(as('karen'), 'downloadsLog', 'dl3'), { by: 'u_martin', at: '2026-11-14T12:01:00Z', sensitive: true }));
+  await check('the downloads log cannot be rewritten', 'deny', () => updateDoc(doc(as('martin'), 'downloadsLog', 'dl1'), { sensitive: false }));
+  await check('the downloads log cannot be deleted', 'deny', () => deleteDoc(doc(as('martin'), 'downloadsLog', 'dl1')));
+  await check('a member cannot read the downloads log', 'deny', () => getDoc(doc(as('samy'), 'downloadsLog', 'dl1')));
+
+  await check('an admin records a headcount', 'allow', () => setDoc(doc(as('karen'), 'headcounts', 'hc2'), { date: '2026-11-22', label: 'Sunday morning', calEventId: '', adults: 75, children: 18, online: 10, notes: '', by: 'u_karen', byName: 'Karen', at: '2026-11-22T12:00:00Z' }));
+  await check('a headcount cannot be negative', 'deny', () => setDoc(doc(as('karen'), 'headcounts', 'hc3'), { date: '2026-11-22', label: 'Sunday morning', adults: -1, children: 0, online: 0 }));
+  await check('a headcount holds numbers, not names', 'deny', () => setDoc(doc(as('karen'), 'headcounts', 'hc4'), { date: '2026-11-22', label: 'Sunday morning', adults: 1, children: 0, online: 0, names: ['Someone'] }));
+  await check('a member cannot read the headcounts', 'deny', () => getDoc(doc(as('samy'), 'headcounts', 'hc1')));
+}
+// ── end EVENTS ──
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));

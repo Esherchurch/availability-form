@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Headcounts — EGBC</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Headcounts"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-checkin.js?v=202610072300"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--danger:#b0392c;--danger-bg:#fdf1ef;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 12px;padding-bottom:12px;
+           border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .badge{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);
+         display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .spacer{flex:1}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .inp,select{width:100%;height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;
+       font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  .inp:focus,select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(61,98,99,.15)}
+  .field{margin-bottom:14px}
+  .two{display:flex;gap:12px;flex-wrap:wrap}
+  .two>.field{flex:1;min-width:120px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;
+       border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;border:1px solid transparent;
+       background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand-dark)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.sec:hover{background:#f3f4f6}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{background:#f3f4f6}
+  .btn.sm{height:32px;padding:0 10px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .hint{font-size:13px;color:var(--muted)}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%}
+  th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:8px 10px;white-space:nowrap}
+  td{font-size:14px;color:var(--body);padding:8px 10px;border-top:1px solid var(--line);white-space:nowrap}
+  td.r,th.r{text-align:right}
+  .up{color:var(--ok)} .down{color:var(--danger)}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
+         padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Headcounts</h1>
+  <p class="sub">A quick count for each Sunday service or event: how many adults, children and people online. Numbers only, no names.</p>
+  <div class="card" id="form"></div>
+  <div class="card" id="list"><p class="hint">Loading…</p></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, C = window.EGBCCheckin, esc = E.esc;
+  var ALL = [], RECENT = [];
+  var LABELS = ['Sunday morning service', 'Sunday evening service'];
+
+  function db() { return EGBCAuth.db; }
+  function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
+  function ico(n, px) { return '<i data-lucide="' + n + '" style="width:' + (px || 15) + 'px;height:' + (px || 15) + 'px"></i>'; }
+  function toast(m) {
+    var t = document.getElementById('toast');
+    t.textContent = m; t.style.display = 'block';
+    clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 2800);
+  }
+  function n(id) { var v = parseInt(document.getElementById(id).value, 10); return isNaN(v) || v < 0 ? 0 : v; }
+
+  /* Today if it is a Sunday, otherwise the Sunday just gone. */
+  function lastSunday() {
+    var d = new Date(); d.setDate(d.getDate() - d.getDay());
+    var p = function (x) { return (x < 10 ? '0' : '') + x; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+
+  function drawForm() {
+    document.getElementById('form').innerHTML =
+      '<h2><span class="badge">' + ico('plus', 17) + '</span>Add a count</h2>' +
+      '<div class="two">' +
+        '<div class="field"><label for="hDate">Date</label><input class="inp" id="hDate" type="date" value="' + lastSunday() + '"></div>' +
+        '<div class="field" style="flex:2;min-width:200px"><label for="hWhat">What</label><select id="hWhat">' +
+          LABELS.map(function (l) { return '<option value="label:' + esc(l) + '">' + esc(l) + '</option>'; }).join('') +
+          RECENT.map(function (e) { return '<option value="event:' + esc(e.id) + '">' + esc(e.title) + ' · ' + esc(E.fmtDateShort(e.startLocal || e.startUtc)) + '</option>'; }).join('') +
+          '<option value="other">Something else…</option>' +
+        '</select></div>' +
+      '</div>' +
+      '<div class="field" id="otherBox" style="display:none"><label for="hOther">Name it</label><input class="inp" id="hOther" maxlength="120"></div>' +
+      '<div class="two">' +
+        '<div class="field"><label for="hAdults">Adults</label><input class="inp" id="hAdults" type="number" min="0" inputmode="numeric" value="0"></div>' +
+        '<div class="field"><label for="hChildren">Children</label><input class="inp" id="hChildren" type="number" min="0" inputmode="numeric" value="0"></div>' +
+        '<div class="field"><label for="hOnline">Online</label><input class="inp" id="hOnline" type="number" min="0" inputmode="numeric" value="0"></div>' +
+      '</div>' +
+      '<div class="field"><label for="hNotes">Notes (optional)</label><input class="inp" id="hNotes" maxlength="300" placeholder="e.g. half term, baptisms"></div>' +
+      '<button class="btn" id="hSave">' + ico('check', 16) + 'Save the count</button>';
+    var w = document.getElementById('hWhat');
+    w.onchange = function () {
+      document.getElementById('otherBox').style.display = w.value === 'other' ? '' : 'none';
+      if (w.value.indexOf('event:') === 0) {
+        var ev = RECENT.filter(function (e) { return 'event:' + e.id === w.value; })[0];
+        if (ev) document.getElementById('hDate').value = String(ev.startLocal || '').slice(0, 10);
+      }
+    };
+    document.getElementById('hSave').onclick = save;
+    icons();
+  }
+
+  function save() {
+    var w = document.getElementById('hWhat').value, label = '', calEventId = '';
+    if (w === 'other') label = document.getElementById('hOther').value.trim();
+    else if (w.indexOf('label:') === 0) label = w.slice(6);
+    else {
+      calEventId = w.slice(6);
+      label = (RECENT.filter(function (e) { return e.id === calEventId; })[0] || {}).title || 'Event';
+    }
+    var date = document.getElementById('hDate').value;
+    if (!label) { toast('Say what was counted.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Choose a date.'); return; }
+    var d = {
+      date: date, label: label.slice(0, 120), calEventId: calEventId,
+      adults: n('hAdults'), children: n('hChildren'), online: n('hOnline'),
+      notes: document.getElementById('hNotes').value.trim().slice(0, 300),
+      by: (EGBCAuth.user() || {}).uid || '', byName: (EGBCAuth.profile() || {}).name || '',
+      at: new Date().toISOString()
+    };
+    document.getElementById('hSave').disabled = true;
+    db().collection('headcounts').add(d).then(function () {
+      toast('Saved.'); drawForm(); return load();
+    }).catch(function (e) {
+      document.getElementById('hSave').disabled = false;
+      toast('Could not save: ' + (e.message || e));
+    });
+  }
+
+  /* Newest first. The change is against the last count with the same
+     name, so Sunday mornings compare with Sunday mornings. */
+  function drawList() {
+    var rows = ALL.slice().sort(function (a, b) { return (b.date + b.at).localeCompare(a.date + a.at); });
+    var total = function (r) { return (r.adults || 0) + (r.children || 0) + (r.online || 0); };
+    var prevOf = function (r, i) {
+      for (var j = i + 1; j < rows.length; j++) if (rows[j].label === r.label) return rows[j];
+      return null;
+    };
+    document.getElementById('list').innerHTML =
+      '<h2><span class="badge">' + ico('chart-column', 17) + '</span>Counts so far<span class="spacer"></span>' +
+      (rows.length ? '<button class="btn sec sm" id="hCsv">' + ico('file-text') + 'CSV</button>' : '') + '</h2>' +
+      (rows.length ? '<div class="scroll"><table><thead><tr><th>Date</th><th>What</th><th class="r">Adults</th><th class="r">Children</th>' +
+        '<th class="r">Online</th><th class="r">Total</th><th class="r">Change</th><th></th></tr></thead><tbody>' +
+        rows.map(function (r, i) {
+          var p = prevOf(r, i), ch = p ? total(r) - total(p) : null;
+          return '<tr><td>' + esc(E.fmtDateShort(r.date + 'T12:00')) + '</td><td>' + esc(r.label) +
+            (r.notes ? '<br><span class="hint">' + esc(r.notes) + '</span>' : '') + '</td>' +
+            '<td class="r">' + (r.adults || 0) + '</td><td class="r">' + (r.children || 0) + '</td><td class="r">' + (r.online || 0) + '</td>' +
+            '<td class="r"><strong>' + total(r) + '</strong></td>' +
+            '<td class="r ' + (ch > 0 ? 'up' : ch < 0 ? 'down' : '') + '">' + (ch === null ? '' : (ch > 0 ? '+' : '') + ch) + '</td>' +
+            '<td><button class="btn ghost sm del" data-id="' + esc(r.id) + '" title="Remove">' + ico('trash-2') + '</button></td></tr>';
+        }).join('') + '</tbody></table></div>'
+        : '<p class="hint">No counts yet.</p>');
+    document.querySelectorAll('.del').forEach(function (b) {
+      b.onclick = function () {
+        if (!confirm('Remove this count?')) return;
+        db().collection('headcounts').doc(b.getAttribute('data-id')).delete().then(load)
+          .catch(function (e) { toast('Could not remove it: ' + (e.message || e)); });
+      };
+    });
+    var c = document.getElementById('hCsv');
+    if (c) c.onclick = function () {
+      var head = ['Date', 'What', 'Adults', 'Children', 'Online', 'Total', 'Notes'];
+      var body = rows.map(function (r) { return [r.date, r.label, r.adults || 0, r.children || 0, r.online || 0, total(r), r.notes || '']; });
+      C.saveFile('EGBC headcounts.csv', new Blob(['﻿' + C.csvText(head, body)], { type: 'text/csv;charset=utf-8' }));
+    };
+    icons();
+  }
+
+  function load() {
+    return db().collection('headcounts').get().then(function (s) {
+      ALL = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      drawList();
+    });
+  }
+
+  EGBCAuth.require().then(function () {
+    return E.listUpcoming({ from: Date.now() - 21 * 24 * 3600 * 1000, limit: 60 }).catch(function () { return []; });
+  }).then(function (evs) {
+    RECENT = evs.filter(function (e) { return e.startUtc <= Date.now() + 24 * 3600 * 1000 && e.status !== 'cancelled'; }).reverse();
+    drawForm();
+    return load();
+  }).catch(function (e) {
+    document.getElementById('list').innerHTML = '<p class="hint">Could not load: ' + esc(e.message || e) + '</p>';
+  });
+})();
+</script>
+</body>
+</html>

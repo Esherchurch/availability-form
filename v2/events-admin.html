@@ -16,7 +16,7 @@
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610062100"></script>
-<script src="egbc-events.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -443,6 +443,8 @@
     return '<div class="bar">' +
         '<button class="btn sec" id="csv"><i data-lucide="download" style="width:15px;height:15px"></i>Download the list</button>' +
         '<button class="btn sec" id="mailAll"><i data-lucide="mail" style="width:15px;height:15px"></i>Email everyone</button>' +
+        '<a class="btn sec" href="checkin.html?event=' + encodeURIComponent(CUR.id) + '"><i data-lucide="scan-line" style="width:15px;height:15px"></i>Check-in</a>' +
+        '<a class="btn sec" href="attendance.html?event=' + encodeURIComponent(CUR.id) + '"><i data-lucide="file-down" style="width:15px;height:15px"></i>Registers and downloads</a>' +
         '<span class="hint">' + live.length + ' booked · ' +
           live.reduce(function (n, s) { return n + (s.places || 1); }, 0) + ' places · ' +
           wait.length + ' waiting</span>' +

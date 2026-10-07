@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registers — EGBC</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Registers"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-checkin.js?v=202610072300"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 12px;padding-bottom:12px;
+           border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .badge{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);
+         display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .spacer{flex:1}
+  .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--body);margin:0}
+  .check input{width:16px;height:16px;accent-color:var(--brand);flex:none}
+  .cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 16px;margin-bottom:14px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;
+       border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;border:1px solid transparent;
+       background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand-dark)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.sec:hover{background:#f3f4f6}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{background:#f3f4f6}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .flag{display:inline-block;font-size:12px;font-weight:500;border-radius:6px;padding:1px 7px;margin-left:4px}
+  .flag.warn{background:var(--danger-bg);color:var(--danger)}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:14px}
+  .banner.warn{background:var(--danger-bg);color:var(--danger)}
+  .banner.info{background:var(--tint);color:var(--body);border:1px solid #cfe0de}
+  .hint{font-size:13px;color:var(--muted)}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{border-collapse:collapse;width:100%}
+  th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:8px 10px;white-space:nowrap}
+  td{font-size:14px;color:var(--body);padding:8px 10px;border-top:1px solid var(--line);white-space:nowrap}
+  td.c,th.c{text-align:center}
+  td.yes{color:var(--ok);font-weight:600}
+  td.no{color:var(--faint)}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
+         padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, C = window.EGBCCheckin, esc = E.esc;
+  var EVID = new URLSearchParams(location.search).get('event') || '';
+  var EV = null, QS = [], TT = [], SIGNUPS = [], CHECKINS = [], SETTINGS = {}, LOOK = {}, ROWS = [];
+  var SERIES = null;   /* { events: [...], byEvent: { id: { signups, checkins } } } */
+
+  function db() { return EGBCAuth.db; }
+  function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
+  function ico(n, px) { return '<i data-lucide="' + n + '" style="width:' + (px || 15) + 'px;height:' + (px || 15) + 'px"></i>'; }
+  function toast(m) {
+    var t = document.getElementById('toast');
+    t.textContent = m; t.style.display = 'block';
+    clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3200);
+  }
+  function stamp(iso) { return iso ? E.fmtDateShort(iso) + ' ' + E.fmtTime(iso) : ''; }
+  function fileBase() { return (EV.title || 'event').replace(/[^a-z0-9 \-]/gi, '').trim() + ' ' + (EV.startLocal || '').slice(0, 10); }
+
+  /* ---------- the columns ----------
+     Every column a download can have. `sensitive` ones (questions marked
+     as a medical flag at check-in) start unticked, and choosing one logs
+     the download before the file is made. */
+
+  function columns() {
+    var ck = function (r) { return byId[r.id] || {}; };
+    var byId = {};
+    CHECKINS.forEach(function (c) { byId[c.id] = c; });
+    var tname = {};
+    TT.forEach(function (t) { tname[t.id] = t.name; });
+    var cols = [
+      { id: 'name', label: 'Name', on: true, get: function (r) { return r.name; } },
+      { id: 'bookedBy', label: 'Booked by', on: true, get: function (r) { return r.bookedBy; } },
+      { id: 'email', label: 'Email', on: false, get: function (r) { return r.email; } },
+      { id: 'phone', label: 'Phone', on: false, get: function (r) { return r.phone; } },
+      { id: 'ticket', label: 'Ticket type', on: TT.length > 0, get: function (r) { return tname[r.ticketTypeId] || ''; } },
+      { id: 'came', label: 'Came', on: true, get: function (r) { var c = ck(r); return (c.state || r.attended) ? 'Yes' : 'No'; } },
+      { id: 'inAt', label: 'Checked in', on: true, get: function (r) { return stamp(ck(r).inAt); } },
+      { id: 'inBy', label: 'Checked in by', on: true, get: function (r) { return ck(r).inByName || ''; } },
+      { id: 'outAt', label: 'Checked out', on: true, get: function (r) { return stamp(ck(r).outAt); } },
+      { id: 'outBy', label: 'Checked out by', on: false, get: function (r) { return ck(r).outByName || ''; } },
+      { id: 'collectedBy', label: 'Collected by', on: !!SETTINGS.checkoutRequired, get: function (r) {
+          var c = ck(r); return c.collectedBy ? c.collectedBy + (c.collectorListed ? '' : ' (not listed: ' + (c.overrideReason || '') + ')') : ''; } },
+      { id: 'walkIn', label: 'Walk-in', on: false, get: function (r) { return r.walkIn ? 'Yes' : ''; } }
+    ];
+    QS.forEach(function (q) {
+      var sensitive = (SETTINGS.flagQuestionIds || []).indexOf(q.id) >= 0;
+      cols.push({ id: 'q_' + q.id, label: q.label || 'Question', on: !sensitive, sensitive: sensitive,
+                  get: function (r) { return r.answer ? r.answer(q) : ''; } });
+    });
+    return cols;
+  }
+
+  function chosen() {
+    var on = {};
+    document.querySelectorAll('.col:checked').forEach(function (c) { on[c.value] = 1; });
+    return columns().filter(function (c) { return on[c.id]; });
+  }
+
+  /* ---------- drawing ---------- */
+
+  function draw() {
+    var cols = columns();
+    var hc = C.headcount(ROWS, CHECKINS);
+    var came = ROWS.filter(function (r) { return CHECKINS.some(function (c) { return c.id === r.id; }) || r.attended; }).length;
+    var where = E.locationText(EV, LOOK);
+    document.getElementById('wrap').innerHTML =
+      '<h1>' + esc(EV.title) + '</h1>' +
+      '<p class="sub">' + esc(E.fmtWhen(EV)) + (where ? ' · ' + esc(where) : '') + '</p>' +
+      '<div class="bar">' +
+        '<a class="btn sec" href="checkin.html?event=' + encodeURIComponent(EVID) + '">' + ico('scan-line') + 'Check-in</a>' +
+        '<a class="btn ghost" href="headcounts.html">' + ico('chart-column') + 'Headcounts</a>' +
+        '<a class="btn ghost" href="events-admin.html">' + ico('calendar-days') + 'Events</a>' +
+      '</div>' +
+
+      '<div class="card"><h2><span class="badge">' + ico('file-down', 17) + '</span>Download who came' +
+        '<span class="spacer"></span><span class="hint">' + came + ' of ' + ROWS.length + ' came · ' + hc.walkIns + ' walk-ins</span></h2>' +
+        '<p class="hint" style="margin-top:0">Choose the columns, then the format.</p>' +
+        '<div class="cols">' + cols.map(function (c) {
+          return '<label class="check"><input type="checkbox" class="col" value="' + esc(c.id) + '"' + (c.on ? ' checked' : '') + '>' +
+            esc(c.label) + (c.sensitive ? '<span class="flag warn">Medical</span>' : '') + '</label>';
+        }).join('') + '</div>' +
+        ((SETTINGS.flagQuestionIds || []).length
+          ? '<div class="banner info">Columns marked Medical are only for the people looking after this event. Any download that includes one is recorded: who, when and which columns.</div>' : '') +
+        '<div class="bar">' +
+          '<button class="btn sec" id="dlCsv">' + ico('file-text') + 'CSV</button>' +
+          '<button class="btn sec" id="dlXlsx">' + ico('sheet') + 'Excel</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="card"><h2><span class="badge">' + ico('printer', 17) + '</span>Printed registers</h2>' +
+        '<p class="hint" style="margin-top:0">For when there is no signal: a page with tick boxes for in and out, and a sheet for walk-ins to write their names.</p>' +
+        '<div class="bar">' +
+          '<button class="btn sec" id="pdfReg">' + ico('clipboard-list') + 'Register (PDF)</button>' +
+          (EV.seriesId ? '<button class="btn sec" id="pdfSeries">' + ico('files') + 'Registers for every date (PDF)</button>' : '') +
+          '<button class="btn sec" id="pdfSheet">' + ico('pen-line') + 'Walk-in sign-in sheet (PDF)</button>' +
+        '</div>' +
+      '</div>' +
+
+      (EV.seriesId ? '<div class="card" id="seriesCard"><h2><span class="badge">' + ico('calendar-range', 17) + '</span>Across the series</h2>' +
+        '<div id="seriesBody"><p class="hint">Loading…</p></div></div>' : '');
+
+    document.getElementById('dlCsv').onclick = function () { download('csv'); };
+    document.getElementById('dlXlsx').onclick = function () { download('xlsx'); };
+    document.getElementById('pdfReg').onclick = function () { registerPdf([{ ev: EV, rows: ROWS }]); };
+    document.getElementById('pdfSheet').onclick = signInSheet;
+    var ps = document.getElementById('pdfSeries');
+    if (ps) ps.onclick = function () {
+      loadSeries().then(function (s) {
+        registerPdf(s.events.map(function (ev) {
+          return { ev: ev, rows: C.people(ev.id, s.byEvent[ev.id].signups, QS, SETTINGS) };
+        }));
+      });
+    };
+    icons();
+    if (EV.seriesId) loadSeries().then(drawSeries).catch(function (e) {
+      document.getElementById('seriesBody').innerHTML = '<div class="banner warn">' + esc(e.message || e) + '</div>';
+    });
+  }
+
+  /* ---------- downloads ---------- */
+
+  function table(cols) {
+    return { head: cols.map(function (c) { return c.label; }), rows: ROWS.map(function (r) { return cols.map(function (c) { return c.get(r); }); }) };
+  }
+
+  /* The log is written first. No log, no file. */
+  function logged(what, format, cols) {
+    var sensitive = cols.some(function (c) { return c.sensitive; });
+    return C.logDownload({ calEventId: EVID, what: what, format: format,
+                           columns: cols.map(function (c) { return c.label; }), sensitive: sensitive })
+      .catch(function (e) { throw new Error('The download could not be recorded, so it was not made (' + (e.message || e) + ').'); });
+  }
+
+  function download(format) {
+    var cols = chosen();
+    if (!cols.length) { toast('Choose at least one column.'); return; }
+    var t = table(cols);
+    logged('who came', format, cols).then(function () {
+      if (format === 'csv') {
+        C.saveFile(fileBase() + ' who came.csv', new Blob(['﻿' + C.csvText(t.head, t.rows)], { type: 'text/csv;charset=utf-8' }));
+        return;
+      }
+      return lib('xlsx').then(function () { xlsx(fileBase() + ' who came.xlsx', [{ name: 'Who came', head: t.head, rows: t.rows }]); });
+    }).catch(function (e) { toast(e.message || String(e)); });
+  }
+
+  function xlsx(name, sheets) {
+    var wb = XLSX.utils.book_new();
+    sheets.forEach(function (s) {
+      var ws = XLSX.utils.aoa_to_sheet([s.head].concat(s.rows.map(function (r) {
+        return r.map(function (c) { var v = String(c == null ? '' : c); return /^[=+\-@]/.test(v) ? "'" + v : v; });
+      })));
+      ws['!cols'] = s.head.map(function (h) { return { wch: Math.max(10, String(h).length + 2) }; });
+      XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0, 31));
+    });
+    var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    C.saveFile(name, new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  }
+
+  var LIBS = {
+    xlsx: ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'],
+    pdf: ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+          'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js']
+  };
+  var loaded = {};
+  function lib(name) {
+    if (loaded[name]) return loaded[name];
+    loaded[name] = LIBS[name].reduce(function (p, src) {
+      return p.then(function () {
+        return new Promise(function (res, rej) {
+          var s = document.createElement('script');
+          s.src = src; s.onload = res;
+          s.onerror = function () { delete loaded[name]; rej(new Error('Could not load what makes the file. Check the signal and try again.')); };
+          document.head.appendChild(s);
+        });
+      });
+    }, Promise.resolve());
+    return loaded[name];
+  }
+
+  /* ---------- printed registers ----------
+     One page per event (or date), two empty boxes per person for in and
+     out, and the collectors' names where the event needs a collector.
+     A medical column only appears when one is chosen above, and then the
+     download is recorded like any other. */
+
+  function registerPdf(list) {
+    var flagCols = chosen().filter(function (c) { return c.sensitive; });
+    var cols = [{ label: 'Name' }].concat(flagCols);
+    logged(list.length > 1 ? 'registers for the series' : 'register', 'pdf', cols).then(function () {
+      return lib('pdf');
+    }).then(function () {
+      var doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      list.forEach(function (item, n) {
+        if (n) doc.addPage();
+        var ev = item.ev, rows = item.rows.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+        var where = E.locationText(ev, LOOK);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+        doc.text(String(ev.title || 'Event'), 14, 16);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
+        doc.text(E.fmtWhen(ev) + (where ? '  ·  ' + where : ''), 14, 22);
+        doc.text(rows.length + ' expected  ·  Leader: ______________________', 14, 27);
+        doc.setTextColor(0);
+        var head = ['In', 'Out', 'Name', 'Booked by']
+          .concat(SETTINGS.checkoutRequired ? ['May be collected by'] : [])
+          .concat(flagCols.map(function (c) { return c.label; }));
+        var body = rows.map(function (r) {
+          return ['', '', r.name, r.bookedBy !== r.name ? r.bookedBy : '']
+            .concat(SETTINGS.checkoutRequired ? [(r.collectors || []).join(', ')] : [])
+            .concat(flagCols.map(function (c) { return c.get(r); }));
+        });
+        for (var i = 0; i < 6; i++) body.push(['', '', '', ''].concat(SETTINGS.checkoutRequired ? [''] : []).concat(flagCols.map(function () { return ''; })));
+        doc.autoTable({
+          startY: 32, head: [head], body: body, theme: 'grid',
+          styles: { fontSize: 10, cellPadding: 2.4, minCellHeight: 8, valign: 'middle' },
+          headStyles: { fillColor: [61, 98, 99], textColor: 255 },
+          columnStyles: { 0: { cellWidth: 11 }, 1: { cellWidth: 11 } },
+          didDrawCell: function (d) {
+            if (d.section === 'body' && d.column.index < 2) {
+              var s = 4.5;
+              doc.setDrawColor(60); doc.rect(d.cell.x + (d.cell.width - s) / 2, d.cell.y + (d.cell.height - s) / 2, s, s);
+            }
+          }
+        });
+        doc.setFontSize(8); doc.setTextColor(120);
+        doc.text('Printed ' + E.fmtDate(new Date()) + ' ' + E.fmtTime(new Date()) + '. Enter ticks into Check-in when the signal is back.', 14, 290);
+        doc.setTextColor(0);
+      });
+      doc.save(fileBase() + (list.length > 1 ? ' registers.pdf' : ' register.pdf'));
+    }).catch(function (e) { toast(e.message || String(e)); });
+  }
+
+  function signInSheet() {
+    logged('walk-in sign-in sheet', 'pdf', []).then(function () { return lib('pdf'); }).then(function () {
+      var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text('Sign in: ' + (EV.title || 'Event'), 14, 16);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
+      doc.text(E.fmtWhen(EV) + '  ·  Please write your name. Email and phone are optional.', 14, 22);
+      doc.setTextColor(0);
+      var body = [];
+      for (var i = 0; i < 18; i++) body.push(['', '', '', '', '']);
+      doc.autoTable({
+        startY: 28, head: [['Name', 'Email (optional)', 'Phone (optional)', 'Time in', 'Time out']], body: body, theme: 'grid',
+        styles: { fontSize: 10, minCellHeight: 8.5 }, headStyles: { fillColor: [61, 98, 99], textColor: 255 },
+        columnStyles: { 0: { cellWidth: 75 }, 1: { cellWidth: 85 }, 2: { cellWidth: 50 } }
+      });
+      doc.save(fileBase() + ' sign-in sheet.pdf');
+    }).catch(function (e) { toast(e.message || String(e)); });
+  }
+
+  /* ---------- across a series ----------
+     People down the side, dates across the top. A person is the same
+     person on every date when the booking points at the same person id
+     and the attendee has the same name: a family booking each week is
+     one row per child, not one per week. */
+
+  function loadSeries() {
+    if (SERIES) return Promise.resolve(SERIES);
+    return db().collection('calEvents').where('audience', 'array-contains-any', E.myAudiences()).get().then(function (snap) {
+      var evs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .filter(function (e) { return e.seriesId === EV.seriesId; })
+        .sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); });
+      return Promise.all(evs.map(function (ev) {
+        return Promise.all([
+          db().collection('signups').where('calEventId', '==', ev.id).get(),
+          db().collection('checkins').where('calEventId', '==', ev.id).get()
+        ]).then(function (r) {
+          return {
+            signups: r[0].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }),
+            checkins: r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+          };
+        });
+      })).then(function (parts) {
+        var byEvent = {};
+        evs.forEach(function (ev, i) { byEvent[ev.id] = parts[i]; });
+        SERIES = { events: evs, byEvent: byEvent };
+        return SERIES;
+      });
+    });
+  }
+
+  function seriesGrid(s) {
+    var people = {}, order = [];
+    s.events.forEach(function (ev, col) {
+      var part = s.byEvent[ev.id];
+      var cks = {};
+      part.checkins.forEach(function (c) { cks[c.id] = c; });
+      var personOf = {};
+      part.signups.forEach(function (su) { personOf[su.key] = su.personId || su.email || su.name; });
+      C.people(ev.id, part.signups, [], {}).forEach(function (r) {
+        var pid = (personOf[r.signupKey] || '') + '|' + r.name.toLowerCase().trim();
+        if (!people[pid]) { people[pid] = { name: r.name, bookedBy: r.bookedBy, cells: {} }; order.push(pid); }
+        people[pid].cells[ev.id] = (cks[r.id] || r.attended) ? 'came' : 'booked';
+      });
+    });
+    order.sort(function (a, b) { return people[a].name.localeCompare(people[b].name); });
+    return { people: people, order: order };
+  }
+
+  function drawSeries(s) {
+    var g = seriesGrid(s);
+    var cell = function (v) { return v === 'came' ? '<td class="c yes">Yes</td>' : v === 'booked' ? '<td class="c no">No</td>' : '<td class="c no"></td>'; };
+    var totals = s.events.map(function (ev) {
+      return g.order.filter(function (p) { return g.people[p].cells[ev.id] === 'came'; }).length;
+    });
+    document.getElementById('seriesBody').innerHTML =
+      '<p class="hint" style="margin-top:0">' + s.events.length + ' dates · ' + g.order.length + ' people. ' +
+      '"Yes" came · "No" booked but did not come · blank: not booked for that date.</p>' +
+      '<div class="bar"><button class="btn sec" id="serCsv">' + ico('file-text') + 'CSV</button>' +
+      '<button class="btn sec" id="serXlsx">' + ico('sheet') + 'Excel</button></div>' +
+      '<div class="scroll"><table><thead><tr><th>Name</th>' +
+        s.events.map(function (ev) { return '<th class="c">' + esc(E.fmtDateShort(ev.startLocal || ev.startUtc)) + '</th>'; }).join('') +
+        '<th class="c">Came</th></tr></thead><tbody>' +
+        g.order.map(function (p) {
+          var per = g.people[p], n = 0;
+          return '<tr><td>' + esc(per.name) + '</td>' + s.events.map(function (ev) {
+            if (per.cells[ev.id] === 'came') n++;
+            return cell(per.cells[ev.id]);
+          }).join('') + '<td class="c">' + n + '</td></tr>';
+        }).join('') +
+        '<tr><td><strong>Came</strong></td>' + totals.map(function (t) { return '<td class="c"><strong>' + t + '</strong></td>'; }).join('') + '<td></td></tr>' +
+      '</tbody></table></div>';
+
+    function sheet() {
+      var head = ['Name', 'Booked by'].concat(s.events.map(function (ev) { return (ev.startLocal || '').slice(0, 10); })).concat(['Came']);
+      var rows = g.order.map(function (p) {
+        var per = g.people[p], n = 0;
+        return [per.name, per.bookedBy].concat(s.events.map(function (ev) {
+          var v = per.cells[ev.id]; if (v === 'came') n++;
+          return v === 'came' ? 'Yes' : v === 'booked' ? 'No' : '';
+        })).concat([n]);
+      });
+      rows.push(['Came', ''].concat(totals).concat(['']));
+      return { head: head, rows: rows };
+    }
+    var cols = [{ label: 'Series attendance' }];
+    document.getElementById('serCsv').onclick = function () {
+      var t = sheet();
+      logged('series attendance', 'csv', cols).then(function () {
+        C.saveFile(fileBase() + ' series attendance.csv', new Blob(['﻿' + C.csvText(t.head, t.rows)], { type: 'text/csv;charset=utf-8' }));
+      }).catch(function (e) { toast(e.message); });
+    };
+    document.getElementById('serXlsx').onclick = function () {
+      var t = sheet();
+      logged('series attendance', 'xlsx', cols).then(function () { return lib('xlsx'); }).then(function () {
+        xlsx(fileBase() + ' series attendance.xlsx', [{ name: 'Series attendance', head: t.head, rows: t.rows }]);
+      }).catch(function (e) { toast(e.message); });
+    };
+    icons();
+  }
+
+  /* ---------- start ---------- */
+
+  EGBCAuth.require().then(function () {
+    if (!EVID) throw new Error('Open this from an event: Events, then Who is coming, then Registers and downloads.');
+    return Promise.all([
+      E.load(EVID), E.lookups(),
+      db().collection('checkinSettings').doc(EVID).get(),
+      db().collection('signups').where('calEventId', '==', EVID).get(),
+      db().collection('checkins').where('calEventId', '==', EVID).get()
+    ]);
+  }).then(function (r) {
+    if (!r[0]) throw new Error('That event could not be found.');
+    EV = r[0].ev; QS = r[0].questions; TT = r[0].ticketTypes; LOOK = r[1];
+    SETTINGS = r[2].exists ? r[2].data() : {};
+    SIGNUPS = r[3].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); });
+    CHECKINS = r[4].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    ROWS = C.people(EVID, SIGNUPS, QS, SETTINGS);
+    var known = {};
+    ROWS.forEach(function (x) { known[x.id] = 1; });
+    CHECKINS.forEach(function (c) {
+      if (c.kind === 'walkin' && !known[c.id]) ROWS.push({ id: c.id, signupKey: c.signupKey, index: 0, name: c.name, bookedBy: 'Walk-in', walkIn: true, collectors: [], flags: [] });
+    });
+    ROWS.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    draw();
+  }).catch(function (e) {
+    document.getElementById('wrap').innerHTML = '<div class="card"><div class="banner warn">' + esc(e.message || e) + '</div>' +
+      '<a class="btn sec" href="events-admin.html">Events</a></div>';
+  });
+})();
+</script>
+</body>
+</html>

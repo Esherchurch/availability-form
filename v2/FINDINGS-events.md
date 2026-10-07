@@ -313,3 +313,99 @@ cannot run it. **Request for the main window:** commit the smoke script, with
 the port it serves on as a setting, so both windows run the same check.
 Until then the E0 report proves the lock-out another way: a page on any port
 other than 5601 still reports 8181 / 9099, and both rules suites pass in full.
+
+## Chunk 3, stage 1 (E1): check-in and attendance
+
+### F-024 — check-in is for admins until stage 3 brings event leaders
+Check-ins, the roll-call, registers and downloads all need an admin. The rules
+have no "leader of this event" yet (that is E3), and a check-in holds names,
+times and who collected a child. A volunteer at the door who is not an admin
+cannot check people in until then. Leaders are added by hand at the door
+("Leader" button), not yet read from the rota.
+
+### F-025 — REQUEST for the main window: the page header drops the address's `?…`
+`egbc-shell.js` `checkFresh()` reloads a page once per tab when `version.json`
+differs from the page's own stamp, and does it with
+`location.replace(location.pathname + '?v=' + v.stamp + location.hash)`. That
+throws away everything else after the `?`. Today every page's stamp differs
+from `version.json`, so the first page in each new tab loses it:
+- the "View or cancel your place" link in a confirmation email opens to
+  "This link is missing its key"
+- `signup.html?event=…` opens to "No event was named"
+- `checkin.html?event=…` opens the event picker
+- probably `meeting.html?room=…` and any other page with a `?` (not checked)
+
+Shown by the E1 test (the KNOWN line): a fresh tab opening
+`my-signup.html?key=anything` lands on `?v=202609041833`.
+**Suggested fix:** keep the other parameters, e.g.
+`var q = new URLSearchParams(location.search); q.set('v', v.stamp); location.replace(location.pathname + '?' + q + location.hash);`
+Not mine to change: `egbc-shell.js` belongs to the main window.
+
+### F-026 — fixed: adding a person to a sign-up wiped the answers already typed
+On `signup.html`, questions asked "for each person" (allergies, age) were
+redrawn empty whenever someone pressed "Add someone else" or removed a person.
+Names were kept, answers were not. A parent who typed one child's allergy and
+then added a second child sent the form with the allergy blank, without being
+told. Fixed: the answers are put back when the list is redrawn. Nothing else on
+the page changed. The E1 test checks it, and fails when the fix is taken out.
+
+### F-027 — poor signal: check-ins wait on the phone only while the page stays open
+The "Should" in §6.9. Firestore keeps writes made with no signal and sends them
+when it comes back, and the check-in page says so in a banner. But
+`egbc-auth.js` keeps that queue in memory, not on the phone, so closing or
+reloading the page with no signal loses any check-ins not yet sent. The printed
+register (with tick boxes) is the fallback. Making the queue survive a reload
+means turning on Firestore's saved cache in `egbc-auth.js`, which would change
+every page. Recorded for Martin; not requested.
+
+### F-028 — not built in E1 (Should items)
+- **Collection codes** (a short code at drop-off that must match at collection).
+- **Name badges and labels** (printable A4 label sheets).
+Both fit on top of what is here: the check-in record already has the place for
+who collected and why.
+
+### F-029 — medical answers: where they live until stage 2 and 3
+Until the forms in E2, the "medical flag" at the door comes from ordinary
+sign-up questions that an admin marks in Check-in settings. Those answers sit
+on the sign-up record, as every answer does today.
+- On the new Registers page, a medical column is off by default, and any
+  download that includes one is logged (who, when, which columns) **before**
+  the file is made: no log, no file.
+- **But** the older "Download the list" button on the events page (Chunk 2)
+  puts every answer in its CSV, medical ones included, with no log. I have
+  left it as it is, because the new rule is not to change how an existing page
+  behaves. Proposal for E3: that button either leaves out medical answers or
+  goes through the same log.
+
+### F-030 — "sign up to the whole series" is a setting with nothing behind it
+The events page lets an admin choose "Sign up to: the whole series", but
+`signup.html` never reads that setting. Every sign-up is for one date (Chunk 2).
+Series attendance therefore treats someone as the same person on different
+dates when the bookings point at the same person record and the attendee has
+the same name. Building whole-series sign-up is a Chunk 2 change for Martin to
+approve.
+
+### F-031 — REQUEST for the main window: hub entries for E1
+For the "Where to?" registry (`hubPages`), admins only:
+- **Check-in**: `checkin.html` (icon `scan-line`). Opens a picker of today's
+  and this week's events, and the roll-call.
+- **Headcounts**: `headcounts.html` (icon `chart-column`).
+The Registers page needs an event, so it is reached from the event, not the hub.
+Nothing personal for "My EGBC" in E1. Later, a member's own sign-ups could show
+their check-in code there.
+
+### F-032 — scanning: what each phone uses
+Chrome on Android reads QR codes itself. Everywhere else, including iPhones,
+the page loads a small reader (jsQR, from jsdelivr) the first time Scan is
+pressed, so that first press needs signal. A hand-held USB or Bluetooth scanner
+that types the code and presses Enter into the "Find by name" box works too.
+The camera only works on https or localhost; GitHub Pages is https. Searching
+by name always works.
+
+### F-033 — how a check-in code is made, and what it does not carry
+The code is `EGBC1|<event>|<first 10 characters of the sign-up key>|<person number>`.
+It never carries the whole key, because the whole key is the manage link: a
+code photographed at the door must not let anyone cancel the booking. Ten
+characters is still far too many to guess. QR codes are drawn by
+`egbc-events-qr.js` in the page, not fetched from a QR website, so nobody else
+learns who is coming.
