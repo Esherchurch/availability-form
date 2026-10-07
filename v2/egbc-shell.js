@@ -218,7 +218,12 @@
           if (sessionStorage.getItem(key)) return;
           sessionStorage.setItem(key, '1');
         } catch (e) { return; }
-        location.replace(location.pathname + '?v=' + v.stamp + location.hash);
+        /* Keep everything else after the "?" - a sign-up's key, a meeting's
+           room and host token. Dropping them broke every emailed link the
+           first time it was opened in a new tab (F-025). */
+        var q = new URLSearchParams(location.search);
+        q.set('v', v.stamp);
+        location.replace(location.pathname + '?' + q.toString() + location.hash);
       })
       .catch(function () {});
   }
