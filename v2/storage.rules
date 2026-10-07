@@ -111,7 +111,30 @@ service firebase.storage {
       allow delete: if adminHere();
     }
 
+    // ── Rota PDFs, on their way to an email ───────────────────────────
+    //
+    // "Send all rotas" builds one PDF per person, puts it here, reads it
+    // straight back as base64 to attach to the email, and deletes it. The
+    // files exist for a few seconds and nothing ever links to them.
+    //
+    // This path had NO rule at all, which meant the whole send failed the
+    // moment the rules were applied - every person's upload refused, and
+    // the planner reporting "Error for <name>" with nothing sent. Found by
+    // driving the real button against the emulator (S0); it would otherwise
+    // have been found by the church, on the day the rules were deployed.
+
+    match /rota-temp/{packageId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 25 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+      allow delete: if request.auth != null;
+    }
+
     // ── Rota PDFs (existing behaviour) ────────────────────────────────
+    // Nothing in the repo writes here any more - see FINDINGS-restyle.md.
+    // Left as it was rather than tightened blind: it is reachable from the
+    // original site, which is still live.
     match /rotas/{fileName} {
       allow read: if true;
       allow write: if request.resource.size < 25 * 1024 * 1024

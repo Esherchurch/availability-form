@@ -115,6 +115,23 @@ await check('an admin puts a picture on a room', 'allow',
 await check('a member cannot', 'deny',
   () => put(as('samy'), 'rooms/room_hall/photo.png'));
 
+/* ---- the rota on its way to an email -------------------------------
+   The planner writes one PDF per person here, reads it back to attach,
+   and deletes it. There was no rule for this path at all, so applying
+   these rules would have stopped 'Send all rotas' dead. */
+await check('the planner puts a rota PDF where it can read it back', 'allow',
+  () => uploadBytes(ref(as('karen'), 'rota-temp/pkg1/Alex_Rota.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('and reads it back to attach to the email', 'allow',
+  () => getBytes(ref(as('karen'), 'rota-temp/pkg1/Alex_Rota.pdf')));
+await check('and clears it up afterwards', 'allow',
+  () => deleteObject(ref(as('karen'), 'rota-temp/pkg1/Alex_Rota.pdf')));
+await check('somebody with no account cannot put anything there', 'deny',
+  () => uploadBytes(ref(anon(), 'rota-temp/pkg1/sneak.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('and cannot read a rota that is mid-flight', 'deny',
+  () => getBytes(ref(anon(), 'rota-temp/pkg1/Alex_Rota.pdf')));
+await check('a rota PDF has to be a PDF', 'deny',
+  () => uploadBytes(ref(as('karen'), 'rota-temp/pkg1/not.png'), PIC(), { contentType: 'image/png' }));
+
 /* ---- nothing else moved ------------------------------------------- */
 /* Banners are uploaded from the hub by anyone signed in, and were before
    this change. If tightening events had caught them too, this fails. */

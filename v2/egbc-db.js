@@ -42,6 +42,16 @@
    even though every later one is fine.
    =================================================================== */
 
+/* Nothing may leave the machine while testing on localhost: a request to
+   the email service is answered inside the page instead of going out.
+   First, so it is in place before anything here can send. Off localhost
+   it does nothing at all. See egbc-nosend.js.
+
+   Imported rather than loaded with a script tag because the modular
+   pages have no tag of their own - this file is the one thing they all
+   load. */
+import './egbc-nosend.js';
+
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getStorage, connectStorageEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';

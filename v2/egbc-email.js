@@ -34,7 +34,11 @@
   var FUNCTION_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
 
   var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
-  var outbox = [];
+  /* Shared with egbc-nosend.js, which stops the pages that still call the
+     service directly. One outbox, so a test reads one list whichever
+     route the page took. */
+  window.__egbcOutbox = window.__egbcOutbox || [];
+  var outbox = window.__egbcOutbox;
 
   function logSend(opts, result) {
     var l = opts.log;
@@ -63,7 +67,7 @@
 
     /* Everything composed during this page's life, newest last. */
     outbox: function () { return outbox.slice(); },
-    clearOutbox: function () { outbox = []; },
+    clearOutbox: function () { outbox.length = 0; },
 
     send: function (opts) {
       opts = opts || {};
