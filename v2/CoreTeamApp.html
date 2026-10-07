@@ -1433,6 +1433,14 @@ function renderServiceDetail() {
   }, 100);
 }
 
+/* The worship planners are for the worship team: Kids Church slots share the
+   Sunday event in the Rota Planner but are never part of the worship plan.
+   (Martin, 7 Oct 2026. Kids Church gets its own lesson planner later.) */
+const isWorshipRole = r => {
+  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) !== 'Kids Church';
+  return !/^(Session Leader|Helper d+|Leader (|Assistant ()/.test(r);
+};
+
 function renderServiceRotaTable() {
   const assignments = currentService._rotaAssignments || {};
   const roleNotes   = currentService.roleNotes || {};
@@ -1443,7 +1451,7 @@ function renderServiceRotaTable() {
     return;
   }
 
-  table.innerHTML = Object.entries(assignments).map(([role, person]) => `
+  table.innerHTML = Object.entries(assignments).filter(([r]) => isWorshipRole(r)).map(([role, person]) => `
     <div class="rota-assignment-row" style="flex-wrap:wrap;gap:6px;">
       <div class="rota-role-label" style="width:auto;min-width:100px;">${role}</div>
       <div style="flex:1;font-size:13px;font-weight:600;color:var(--teal);">${personName(person) || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
@@ -1978,7 +1986,7 @@ async function spSelectEvent() {
   [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
     if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
   });
-  spSortAssignments(Object.entries(data.assignments || {})).forEach(([role, person]) => {
+  spSortAssignments(Object.entries(data.assignments || {}).filter(([r]) => isWorshipRole(r))).forEach(([role, person]) => {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${personName(person)}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
   });
 
@@ -2301,9 +2309,9 @@ function buildServicePlanText() {
     }
   });
 
-  if (Object.keys(assignments).length) {
+  if (Object.keys(assignments).some(isWorshipRole)) {
     plan += `\nSERVICE TEAM\n${'─'.repeat(40)}\n`;
-    Object.entries(assignments).forEach(([role, person]) => {
+    Object.entries(assignments).filter(([r]) => isWorshipRole(r)).forEach(([role, person]) => {
       plan += `${role}: ${person?.name||'—'}`;
       if (roleNotes[role]) plan += ` — ${roleNotes[role]}`;
       plan += '\n';
