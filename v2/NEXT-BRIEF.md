@@ -164,6 +164,19 @@ Checked: the four remaining Group 1 pages, screenshots read (rota and Rota Plann
 
 **After launch, in this order:** E Share to WhatsApp, F/K notifications, G check-in, forms, safeguarding and the one-off upload links, the events calendar feed, I room bookings, J profile and directory, L hire and charges (Condeco level), N kids registration, O small groups and the giving seam.
 
+## 13. A3b accepted (f1a843be) — one safety fix before Step S
+
+A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in Planner and the Sunday planner are inside the emailed templates (R-020, agreed).
+
+**The near-miss.** The A3b check pressed "Send all rotas". Only the sign-off failsafe stopped real email going to the whole team. `egbc-email.js` already sends nothing on localhost, but **nine places still call the live service directly**: CoreTeamApp (2), EmailBuilder2, Planner (3), SundayServicePlanner, youthapp2, youthserviceplanner and hub-app.js. Step S is about to exercise every action, including sending, so close this first.
+
+**S0 (do first, before the audit):**
+- In `egbc-auth.js` (loaded on every page), when the host is localhost, 127.0.0.1 or [::1], wrap `fetch` so that any request to the sendEmail service (either address, `sendemail-irkwdhx3xq-uc.a.run.app` or `cloudfunctions.net/sendEmail`) never leaves the machine. It goes into the same outbox `EGBCEmail.outbox()` uses and answers `{ ok: true, stubbed: true }`. Do the same for `XMLHttpRequest` if any page uses it.
+- The live site (github.io) is untouched.
+- Deliberate break: on localhost, call the service directly from a page with the guard removed, and show the test catches it (the request is attempted). With the guard in place, it lands in the outbox.
+- Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
+- Moving these pages onto `egbc-email.js` properly stays in Step T.
+
 ## 3. Order of work across the three briefs (superseded by §12)
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
