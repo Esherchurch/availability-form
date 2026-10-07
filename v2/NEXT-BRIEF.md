@@ -125,6 +125,25 @@ Checked: the four remaining Group 1 pages, screenshots read (rota and Rota Plann
 
 **Next: Step D** (One app — Chunk 2), then A3.
 
+## 11. Martin's decisions, 7 Oct 2026 (these replace two lines in §10)
+
+**These replace the "Rota calendars" and "F-016" lines in §10.**
+
+- **Live rota calendar: wanted.** Each person gets their own subscribe link (Google, Apple, Outlook). It shows only their own rota slots and stays up to date when the rota changes, with no new email needed. The .ics attachments on rota emails stay as they are.
+  - It needs a small server: a Cloud Function in `egbc-worship-planner`, code in **`v2/functions/`**, Firebase `codebase: "hub"` in `v2/firebase.json`.
+  - The link carries a long random key per person, stored in Firestore and readable only by that person. "Reset my calendar link" stops the old one working. The feed holds times, role and service only: no other people's names, no private notes.
+  - The same function serves the **events feed** (F-015's subscribe item). One server step, not two.
+  - **Deploy safety:** `sendEmail` lives in the same Google project but belongs to the Calla window and is not in this repo. Martin deploys only with `firebase deploy --only functions:hub` (or the named function). **Never a bare `firebase deploy --only functions`**, because it would offer to delete `sendEmail`. Say this plainly in the hand-over steps.
+  - Test on the Functions emulator with synthetic data only.
+  - **When:** new **Step R**, after Step F. Establish first, build second, stop and report.
+- **F-016 "send a link to people" means a one-off upload link** (e.g. pictures from a party). An admin makes a link for an event; anyone with the link can upload pictures without signing in.
+  - `uploadLinks/{randomId}`: event, made by, expiry (default 14 days), max files (default 50), on/off. An admin can switch it off at any time.
+  - New page `upload.html?k=…`: phone-first, pick photos, upload, thank-you. No account; name optional.
+  - Storage path `uploads/{linkId}/…`. `storage.rules` allows a write only when the link exists, is on and unexpired, the file is an image (JPEG, PNG, HEIC, WebP) and under 15 MB. Only admins can read or list them. Rules tests with deliberate breaks: expired link, switched-off link, a PDF, a 20 MB file, a guest trying to read.
+  - **Safeguarding:** uploads land in a **review queue** in `events-admin.html`. Nothing appears anywhere until an admin approves it, because photos may show children. Approve, reject, download all as a zip. Rejected files are deleted by Martin, not by code you run.
+  - Share the link with Share to WhatsApp (Step E) and a QR code.
+  - **When:** with **Step G** (Events Chunk 3).
+
 ## 3. Order of work across the three briefs
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
@@ -143,6 +162,7 @@ One step at a time. Stop and report after each. Pull before each step; commit sm
 | A3 | **Controls and emoji on Group 1** (R-012, R-013) | RESTYLE |
 | E | **Share — Chunk 1:** Share to WhatsApp on notices and meetings (events join when built) | SHARE-NOTIFY |
 | F | **Notify — Chunk 1:** establish how notifications can be sent; write Martin's manual steps; **stop before building** | SHARE-NOTIFY |
+| R | **Live calendars:** per-person rota feed and the events feed, one Cloud Function in `v2/functions/` (§11) | this file |
 | G | Events — Chunk 3: check-in, attendance, forms and safeguarding | EVENTS |
 | H | Restyle — Group 2 (Worship & AV pages) | RESTYLE |
 | I | Events — Chunk 4: room bookings | EVENTS |
