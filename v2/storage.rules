@@ -192,7 +192,12 @@ service firebase.storage {
                     && formRequest(key).status in ['sent', 'reuse'];
       allow read: if firestore.exists(/databases/(default)/documents/formRequests/$(key))
                   && storageSgLead(formRequest(key).get('siteId', ''));
-      allow update, delete: if false;
+      allow update: if false;
+      // Only when the answer it belongs to is due for deletion, from the
+      // retention list - which only a master admin can act on.
+      allow delete: if request.auth != null
+                    && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+                    && storageMe().status == 'active' && storageMe().get('masterAdmin', false) == true;
     }
 
     // ── end EVENTS ──────────────────────────────────────────────────

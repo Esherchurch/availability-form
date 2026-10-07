@@ -723,6 +723,17 @@ service cloud.firestore {
     // window (EVENTS-WINDOW-BRIEF.md). The main window does not edit it,
     // and nothing in it changes a rule outside it.
 
+    // ---- who leads an event (Chunk 3, stage 3) ------------------------
+    // eventLeaders/{calEventId}.leaderUids names the people leading that
+    // event. Being on that list is what lets a leader who is not an admin
+    // check children in, see their forms and medical answers, and record
+    // an incident - for that event only.
+    function isEventLeader(calEventId) {
+      return active() && calEventId is string && calEventId != ''
+             && exists(/databases/$(database)/documents/eventLeaders/$(calEventId))
+             && request.auth.uid in get(/databases/$(database)/documents/eventLeaders/$(calEventId)).data.get('leaderUids', []);
+    }
+
     // ---- check-in and attendance (Chunk 3, stage 1) -----------------
     //
     // ONE DOCUMENT PER PERSON PER EVENT, and its id is worked out, never
@@ -772,11 +783,11 @@ service cloud.firestore {
     }
 
     match /checkins/{checkinId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || isEventLeader(resource.data.calEventId);
       // You arrive before you leave.
-      allow create: if isAdmin() && checkinShape() && checkinIdAgrees(checkinId)
+      allow create: if (isAdmin() || isEventLeader(request.resource.data.calEventId)) && checkinShape() && checkinIdAgrees(checkinId)
                     && request.resource.data.state == 'in';
-      allow update: if isAdmin() && checkinShape()
+      allow update: if (isAdmin() || isEventLeader(resource.data.calEventId)) && checkinShape()
                     && request.resource.data.calEventId == resource.data.calEventId
                     && request.resource.data.signupKey == resource.data.signupKey
                     && request.resource.data.attendeeIndex == resource.data.attendeeIndex
@@ -791,7 +802,7 @@ service cloud.firestore {
     // Per event: does check-out need a collector, which question holds the
     // collectors' names, which questions are shown as a flag at the door.
     match /checkinSettings/{calEventId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || isEventLeader(calEventId);
       allow write: if isAdmin()
                    && request.resource.data.keys().hasOnly(['checkoutRequired', 'collectorsQuestionId',
                                                              'flagQuestionIds', 'updatedAt', 'updatedBy'])
@@ -804,7 +815,9 @@ service cloud.firestore {
     // the name of the person downloading.
     match /downloadsLog/{entryId} {
       allow read: if isAdmin();
-      allow create: if isAdmin()
+      // Anyone allowed to download something sensitive - an admin, a
+      // leader, a safeguarding lead - logs it in their own name.
+      allow create: if active()
                     && request.resource.data.by == request.auth.uid
                     && request.resource.data.keys().hasOnly(['by', 'byName', 'at', 'calEventId', 'what',
                                                               'format', 'columns', 'sensitive'])
@@ -879,7 +892,8 @@ service cloud.firestore {
 
     match /formRequests/{key} {
       allow get: if true;
-      allow list, create, delete: if isAdmin();
+      allow list: if isAdmin() || isEventLeader(resource.data.calEventId) || sgLeadOf(resource.data.siteId);
+      allow create, delete: if isAdmin();
       // The admin who sends it may change anything. The person with the
       // link may only mark it done: with a new answer written in the same
       // batch, or - for "still correct?" - by pointing at the answer it
@@ -919,9 +933,21 @@ service cloud.firestore {
 
     match /sensitiveResponses/{secret} {
       allow get: if true;
-      allow list: if isMaster() || sgLeadOf(resource.data.siteId);
-      allow create: if request.resource.data.keys().hasOnly(['responseId', 'requestKey', 'formId', 'siteId',
+      // Stage 3: the leaders of the event it was given for, too.
+      allow list: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.get('calEventId', ''));
+      // A copy for another event's leaders, when a family said "still
+      // correct" for it. Only the safeguarding lead or a master admin can
+      // read the original, so only they can make the copy.
+      allow create: if (isMaster() || sgLeadOf(request.resource.data.siteId))
+                    && request.resource.data.keys().hasOnly(['responseId', 'requestKey', 'formId', 'siteId', 'calEventId',
+                                                              'answers', 'submittedAt', 'deleteAfter', 'sharedFrom', 'sharedBy', 'sharedAt'])
+                    && request.resource.data.get('sharedFrom', '') != ''
+                    && request.resource.data.calEventId is string && request.resource.data.calEventId != ''
+                    && get(/databases/$(database)/documents/sensitiveResponses/$(request.resource.data.sharedFrom)).data.responseId == request.resource.data.responseId
+                    && get(/databases/$(database)/documents/sensitiveResponses/$(request.resource.data.sharedFrom)).data.siteId == request.resource.data.siteId;
+      allow create: if request.resource.data.keys().hasOnly(['responseId', 'requestKey', 'formId', 'siteId', 'calEventId',
                                                               'answers', 'submittedAt', 'deleteAfter'])
+                    && request.resource.data.get('calEventId', '') == requestAfter(request.resource.data.requestKey).get('calEventId', '')
                     && request.resource.data.answers is map
                     // Only while the form is still open: once it is done,
                     // nothing more can be added to it.
@@ -933,6 +959,97 @@ service cloud.firestore {
                     && request.resource.data.formId == requestAfter(request.resource.data.requestKey).formId;
       allow update: if false;
       allow delete: if isMaster();
+    }
+
+    // ---- safeguarding (Chunk 3, stage 3) ----------------------------
+    //
+    // Who may see what is decided here, not in the pages:
+    //   eventLeaders   who leads an event, its ratios and whether leaders
+    //                  must have their checks. Members may read it (a
+    //                  leader needs to know who else is on); admins and the
+    //                  site's safeguarding lead set it.
+    //   leaderChecks   a leader's DBS status, the date it was seen, and the
+    //                  date of their training. Dates and status only: the
+    //                  rule has no room for a certificate number.
+    //   incidents      the incident and accident log. The site's
+    //                  safeguarding lead, master admins and that event's
+    //                  leaders only - not ordinary admins. Never deleted.
+    //   concerns       a concern goes to the site's safeguarding lead and
+    //                  deputy and NOBODY else: not master admins, not the
+    //                  person who reported it. Never deleted.
+    //   retentionLog   what was deleted from the "due for deletion" list,
+    //                  by whom and when.
+
+    match /eventLeaders/{calEventId} {
+      allow read: if active();
+      allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
+                   && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
+                                                             'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.leaderUids is list
+                   && request.resource.data.get('siteId', '')
+                        == get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '');
+    }
+
+    // Leaders may list the sign-ups of the event they lead, for check-in,
+    // and the site's safeguarding lead those of the site's events, for the
+    // ratios. Rules for one path add up, so this widens the Chunk 2 rule
+    // without editing it.
+    function sgLeadOfEvent(calEventId) {
+      return sgLeadOf(get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', ''));
+    }
+    match /signups/{manageKey} {
+      allow list: if isEventLeader(resource.data.calEventId) || sgLeadOfEvent(resource.data.calEventId);
+    }
+
+    match /leaderChecks/{memberId} {
+      allow read: if isAdmin() || sgLeadOf(resource.data.get('siteId', ''))
+                  || (active() && me().get('memberId', '') == memberId);
+      allow write: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', '')))
+                   && request.resource.data.keys().hasOnly(['name', 'dbsStatus', 'dbsSeen', 'trainingDate', 'siteId', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.dbsStatus in ['current', 'applied', 'none']
+                   && request.resource.data.get('dbsSeen', '') is string && request.resource.data.get('dbsSeen', '').size() <= 10
+                   && request.resource.data.get('trainingDate', '') is string && request.resource.data.get('trainingDate', '').size() <= 10;
+    }
+
+    function incidentShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['calEventId', 'siteId', 'happenedAt', 'people', 'what', 'firstAid', 'firstAidBy',
+                               'parentInformed', 'informedBy', 'informedAt', 'followUp', 'reportedBy', 'reportedByName', 'createdAt'])
+             && d.calEventId is string && d.calEventId != ''
+             && d.what is string && d.what.size() > 0 && d.what.size() <= 4000
+             && d.siteId == get(/databases/$(database)/documents/calEvents/$(d.calEventId)).data.get('location', {}).get('siteId', '');
+    }
+
+    match /incidents/{incidentId} {
+      allow read: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.calEventId);
+      allow create: if (isMaster() || sgLeadOf(request.resource.data.siteId) || isEventLeader(request.resource.data.calEventId))
+                    && incidentShape() && request.resource.data.reportedBy == request.auth.uid;
+      // The lead adds the follow-up; what was reported stays as it was.
+      allow update: if (isMaster() || sgLeadOf(resource.data.siteId)) && incidentShape()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followUp']);
+      allow delete: if false;
+    }
+
+    match /concerns/{concernId} {
+      allow read: if sgLeadOf(resource.data.siteId);
+      allow create: if active()
+                    && request.resource.data.keys().hasOnly(['siteId', 'calEventId', 'about', 'concern', 'reportedBy',
+                                                              'reportedByName', 'createdAt', 'status'])
+                    && request.resource.data.reportedBy == request.auth.uid
+                    && request.resource.data.status == 'new'
+                    && request.resource.data.concern is string && request.resource.data.concern.size() > 0
+                    && request.resource.data.concern.size() <= 6000
+                    // Never into a site with nobody to read it.
+                    && exists(/databases/$(database)/documents/bookingSettings/$(request.resource.data.siteId))
+                    && get(/databases/$(database)/documents/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingLead', '') != '';
+      allow update: if sgLeadOf(resource.data.siteId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'leadNotes', 'seenAt']);
+      allow delete: if false;
+    }
+
+    match /retentionLog/{entryId} {
+      allow read, create: if isMaster();
+      allow update, delete: if false;
     }
 
     // ── end EVENTS ──────────────────────────────────────────────────

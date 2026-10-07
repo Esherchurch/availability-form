@@ -255,7 +255,7 @@
         submittedAt: now, validUntil: until, deleteAfter: del
       });
       if (sid) b.set(db().collection('sensitiveResponses').doc(sid), {
-        responseId: rid, requestKey: KEY, formId: REQ.formId, siteId: REQ.siteId || '',
+        responseId: rid, requestKey: KEY, formId: REQ.formId, siteId: REQ.siteId || '', calEventId: REQ.calEventId || '',
         answers: parts.sensitive, submittedAt: now, deleteAfter: del
       });
       b.update(db().collection('formRequests').doc(KEY), { status: 'done', completedAt: now, responseId: rid });

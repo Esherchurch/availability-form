@@ -11,10 +11,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
-<script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
+<script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610062100"></script>
 <script src="egbc-events.js?v=202610072300"></script>
-<script src="egbc-events-checkin.js?v=202610072300"></script>
+<script src="egbc-events-checkin.js?v=202610080900"></script>
+<script src="egbc-events-safeguarding.js?v=202610081200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -119,6 +120,9 @@
   var VIEW = params.get('view') || '';
   var EV = null, QS = [], SIGNUPS = [], CHECKINS = [], SETTINGS = {}, LOOK = { sites: {}, rooms: {}, venues: {} };
   var ROWS = [], FILTER = '', OPEN_FLAGS = {}, SCANNING = false, STREAM = null, LAST = { code: '', at: 0 }, SCANMSG = '';
+  /* Stage 3: event leaders who are not admins use this page too, and the
+     children's consent forms add collectors and medical flags. */
+  var SG = window.EGBCSafeguarding, ADMIN = false, FORMINFO = { children: {} };
 
   function db() { return EGBCAuth.db; }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
@@ -136,9 +140,15 @@
     var from = Date.now() - 12 * 3600 * 1000;
     E.listUpcoming({ from: from, limit: 60 }).then(function (list) {
       var soon = list.filter(function (e) { return e.status !== 'cancelled' && e.startUtc < Date.now() + 8 * 24 * 3600 * 1000; });
+      if (ADMIN) return soon;
+      var uid = SG.me().uid;
+      return Promise.all(soon.map(function (e) { return SG.leadersOf(e.id); })).then(function (ls) {
+        return soon.filter(function (e, i) { return ls[i] && (ls[i].leaderUids || []).indexOf(uid) >= 0; });
+      });
+    }).then(function (soon) {
       document.getElementById('wrap').innerHTML =
-        '<h1>Check-in</h1><p class="sub">Choose the event you are checking people in to.</p>' +
-        '<div class="bar"><a class="btn sec" href="checkin.html?view=rollcall">' + ico('siren', 15) + 'Roll-call: who is in now</a></div>' +
+        '<h1>Check-in</h1><p class="sub">Choose the event you are checking people in to.' + (ADMIN ? '' : ' These are the events you lead.') + '</p>' +
+        (ADMIN ? '<div class="bar"><a class="btn sec" href="checkin.html?view=rollcall">' + ico('siren', 15) + 'Roll-call: who is in now</a></div>' : '') +
         '<div class="card"><h2><span class="badge">' + ico('calendar-days', 17) + '</span>Today and this week</h2>' +
         (soon.length ? soon.map(function (e) {
           return '<div class="row"><span class="ib">' + ico('calendar', 17) + '</span>' +
@@ -161,6 +171,18 @@
       if (c.kind === 'walkin' && !known[c.id]) {
         ROWS.push({ id: c.id, signupKey: c.signupKey, index: c.attendeeIndex || 0, name: c.name, bookedBy: 'Walk-in',
                     walkIn: true, collectors: [], flags: [], kind: 'walkin' });
+      }
+    });
+    ROWS.forEach(function (r) {
+      var fi = FORMINFO.children[SG.norm(r.name)];
+      if (!fi) return;
+      r.formDone = true;
+      r.collectors = (r.collectors || []).concat(fi.collectors).filter(function (n, i, a) { return a.indexOf(n) === i; });
+      r.flags = (r.flags || []).concat(fi.flags);
+      /* Medical answers exist but this person may not read them: say so,
+         rather than show a child as having nothing to know. */
+      if (fi.medicalHeld && !fi.medicalVisible) {
+        r.flags.push({ label: 'Medical details', value: 'Held on their consent form. This event\'s leaders and the safeguarding lead can see them.' });
       }
     });
     ROWS.sort(function (a, b) { return a.name.localeCompare(b.name); });
@@ -191,7 +213,7 @@
         '<button class="btn sec" id="walk">' + ico('user-plus', 15) + 'Walk-in</button>' +
         '<button class="btn sec" id="lead">' + ico('badge-check', 15) + 'Leader</button>' +
         '<span class="spacer"></span>' +
-        '<button class="btn ghost sm" id="sett" title="Check-in settings">' + ico('settings', 16) + '</button>' +
+        (ADMIN ? '<button class="btn ghost sm" id="sett" title="Check-in settings">' + ico('settings', 16) + '</button>' : '') +
       '</div>' +
       '<div class="card" id="scanBox"' + (SCANNING ? ' style="display:block"' : '') + '>' +
         '<video id="vid" playsinline muted></video><div id="scanResult">' + SCANMSG + '</div>' +
@@ -215,7 +237,8 @@
       '</div>' +
       '<div class="bar noprint">' +
         '<a class="btn ghost" href="attendance.html?event=' + encodeURIComponent(EVID) + '">' + ico('file-down', 15) + 'Registers and downloads</a>' +
-        '<a class="btn ghost" href="checkin.html?view=rollcall">' + ico('siren', 15) + 'Roll-call</a>' +
+        (ADMIN ? '<a class="btn ghost" href="checkin.html?view=rollcall">' + ico('siren', 15) + 'Roll-call</a>' : '') +
+        '<a class="btn ghost" href="safeguarding.html?event=' + encodeURIComponent(EVID) + '">' + ico('shield-check', 15) + 'Safeguarding</a>' +
         '<a class="btn ghost" href="events-admin.html">' + ico('calendar-days', 15) + 'Events</a>' +
       '</div>';
 
@@ -279,7 +302,7 @@
     document.getElementById('scan').onclick = function () { SCANNING ? stopScan() : startScan(); };
     document.getElementById('walk').onclick = function () { walkInModal('walkin'); };
     document.getElementById('lead').onclick = function () { walkInModal('leader'); };
-    document.getElementById('sett').onclick = settingsModal;
+    var st = document.getElementById('sett'); if (st) st.onclick = settingsModal;
     var s = document.getElementById('search');
     s.oninput = function () { FILTER = s.value; redrawPeople(); };
     document.querySelectorAll('.lact').forEach(function (b) {
@@ -599,16 +622,30 @@
   window.addEventListener('offline', function () { if (EV) draw(); });
 
   EGBCAuth.require().then(function () {
-    if (VIEW === 'rollcall') return rollCall();
+    ADMIN = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
+    if (VIEW === 'rollcall') {
+      if (!ADMIN) throw new Error('The roll-call is for admins. Leaders see who is in on their own event\'s check-in.');
+      return rollCall();
+    }
     if (!EVID) return pickEvent();
-    return Promise.all([
-      E.load(EVID),
-      E.lookups(),
-      db().collection('checkinSettings').doc(EVID).get()
-    ]).then(function (r) {
+    return Promise.all([SG.leadersOf(EVID), SG.myLeadSites()]).then(function (who) {
+      var leader = who[0] && (who[0].leaderUids || []).indexOf(SG.me().uid) >= 0;
+      if (!ADMIN && !leader) throw new Error('Check-in for this event is for admins and the event\'s leaders.');
+      return Promise.all([
+        E.load(EVID),
+        E.lookups(),
+        db().collection('checkinSettings').doc(EVID).get().catch(function () { return { exists: false }; }),
+        who[1]
+      ]);
+    }).then(function (r) {
       if (!r[0]) throw new Error('That event could not be found.');
       EV = r[0].ev; QS = r[0].questions; LOOK = r[1];
       SETTINGS = r[2].exists ? r[2].data() : {};
+      var site = (EV.location || {}).siteId || '';
+      SG.formsForEvent(EVID, [site].concat(r[3] || [])).then(function (fi) {
+        FORMINFO = fi;
+        if (first.s && first.c) { rebuild(); draw(); }
+      }).catch(function () {});
       var first = { s: false, c: false };
       function maybeDraw() {
         if (!first.s || !first.c) return;

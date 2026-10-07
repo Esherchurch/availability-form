@@ -177,6 +177,9 @@ await check('a signed-in person can clear an old one away', 'allow',
   await check('an admin who is not that site\'s safeguarding lead cannot either', 'deny', () => getBytes(ref(as('karen'), 'formUploads/req_up_open/care-plan.pdf')));
   await check('the site\'s safeguarding lead opens it', 'allow', () => getBytes(ref(lena(), 'formUploads/req_up_open/care-plan.pdf')));
   await check('a master admin opens it', 'allow', () => getBytes(ref(as('martin'), 'formUploads/req_up_open/care-plan.pdf')));
+  /* Stage 3: deleting a file whose answer is due for deletion. */
+  await check('the safeguarding lead cannot delete an attached file', 'deny', () => deleteObject(ref(lena(), 'formUploads/req_up_open/care-plan.pdf')));
+  await check('a master admin deletes it from the retention list', 'allow', () => deleteObject(ref(as('martin'), 'formUploads/req_up_open/care-plan.pdf')));
 }
 // ── end EVENTS ──
 

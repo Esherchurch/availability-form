@@ -170,6 +170,28 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     formId: 'form_consent', siteId: 'site_kids', answers: { allergies: 'Invented nut allergy' } });
   await setDoc(doc(db, 'sensitiveResponses', 'secret_test_site_00000000000000'), { responseId: 'resp_x', requestKey: 'req_x',
     formId: 'form_consent', siteId: 'site_test', answers: {} });
+
+  /* Safeguarding (Chunk 3, stage 3). Leo is a plain member - not an admin
+     - who leads one invented event on the kids' site and not another. */
+  await setDoc(doc(db, 'users', 'u_leo'), { memberId: 'm_u_leo', name: 'u_leo', teams: ['Kids Church'], adminFor: [], masterAdmin: false, status: 'active' });
+  const EV = (title, siteId) => ({ title, visibility: 'members', status: 'confirmed', audience: ['members'], startLocal: '2026-11-21T10:00',
+    startUtc: 1763719200000, createdBy: 'u_martin', teams: [], location: { kind: 'room', siteId, roomIds: [] } });
+  await setDoc(doc(db, 'calEvents', 'ev_safe'), EV('Test Kids Holiday Club', 'site_kids'));
+  await setDoc(doc(db, 'calEvents', 'ev_other'), EV('Test Other Club', 'site_kids'));
+  await setDoc(doc(db, 'eventLeaders', 'ev_safe'), { leaders: [{ uid: 'u_leo', name: 'Leo' }], leaderUids: ['u_leo'], siteId: 'site_kids' });
+  await setDoc(doc(db, 'eventLeaders', 'ev_other'), { leaders: [], leaderUids: [], siteId: 'site_kids' });
+  await setDoc(doc(db, 'bookingSettings', 'site_nolead'), { bookingsAdmins: [], safeguardingLead: '', safeguardingDeputy: '' });
+  await setDoc(doc(db, 'signups', 'key_safe_family_0000000000000000'), { calEventId: 'ev_safe', personKind: 'contacts', personId: 'c_guest',
+    name: 'Parent Synthetic', email: 'parent@example.invalid', places: 1, status: 'confirmed', attendees: [{ name: 'Child Safe' }], answers: {} });
+  await setDoc(doc(db, 'checkinSettings', 'ev_safe'), { checkoutRequired: true, collectorsQuestionId: '', flagQuestionIds: [] });
+  await setDoc(doc(db, 'formRequests', 'req_safe'), { formId: 'form_consent', calEventId: 'ev_safe', siteId: 'site_kids', email: 'parent@example.invalid', status: 'done', responseId: 'resp_safe' });
+  await setDoc(doc(db, 'sensitiveResponses', 'secret_safe_000000000000000000000'), { responseId: 'resp_safe', requestKey: 'req_safe',
+    formId: 'form_consent', siteId: 'site_kids', calEventId: 'ev_safe', answers: { allergies: 'Invented sesame allergy' } });
+  await setDoc(doc(db, 'sensitiveResponses', 'secret_other_00000000000000000000'), { responseId: 'resp_o', requestKey: 'req_o',
+    formId: 'form_consent', siteId: 'site_kids', calEventId: 'ev_other', answers: {} });
+  await setDoc(doc(db, 'leaderChecks', 'm_u_leo'), { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2024-03-01', siteId: 'site_kids' });
+  await setDoc(doc(db, 'incidents', 'inc_1'), { calEventId: 'ev_safe', siteId: 'site_kids', what: 'Invented grazed knee', reportedBy: 'u_leo', createdAt: '2026-11-21T11:00:00Z' });
+  await setDoc(doc(db, 'concerns', 'con_1'), { siteId: 'site_kids', concern: 'Invented concern', reportedBy: 'u_leo', status: 'new', createdAt: '2026-11-21T11:00:00Z' });
   // ── end EVENTS ──
 
 });
@@ -543,7 +565,7 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
     personKind: 'contacts', personId: 'c_guest', email: 'parent@example.invalid', name: 'Parent Synthetic',
     subjects: ['Child One'], siteId: 'site_kids', answers: { collectors: 'Parent Synthetic' }, hasSensitive: true,
     submittedAt: '2026-11-01T10:00:00Z', validUntil: '2027-08-31', deleteAfter: '2028-08-31', ...(extra || {}) });
-  const SENS = (key, rid, extra) => ({ responseId: rid, requestKey: key, formId: 'form_consent', siteId: 'site_kids',
+  const SENS = (key, rid, extra) => ({ responseId: rid, requestKey: key, formId: 'form_consent', siteId: 'site_kids', calEventId: 'ev_kids',
     answers: { children: [{ allergies: 'Invented peanut allergy' }] }, submittedAt: '2026-11-01T10:00:00Z', deleteAfter: '2028-08-31', ...(extra || {}) });
   /* What form.html writes: the answer, its medical half, and the request
      marked done - all in one batch, as somebody with no account. */
@@ -591,6 +613,100 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('but not another site\'s', 'deny', () => getDocs(query(collection(lena(), 'sensitiveResponses'), where('siteId', '==', 'site_test'))));
   await check('a master admin lists the medical answers', 'allow', () => getDocs(query(collection(as('martin'), 'sensitiveResponses'), where('siteId', '==', 'site_kids'))));
   await check('a member who is not a lead cannot list the answers', 'deny', () => getDocs(query(collection(as('samy'), 'formResponses'), where('siteId', '==', 'site_kids'))));
+}
+
+// ── EVENTS (events window) ── safeguarding (Chunk 3, stage 3)
+{
+  const leo = () => env.authenticatedContext('u_leo').firestore();
+  const ella = () => env.authenticatedContext('u_ella').firestore();
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  const q = (dbx, c, field, v) => getDocs(query(collection(dbx, c), where(field, '==', v)));
+  const KID = { calEventId: 'ev_safe', signupKey: 'key_safe_family_0000000000000000', attendeeIndex: 0, name: 'Child Safe',
+    kind: 'booked', state: 'in', inAt: '2026-11-21T10:01:00Z', inBy: 'u_leo', roomId: '', day: '2026-11-21' };
+  const INC = (extra) => ({ calEventId: 'ev_safe', siteId: 'site_kids', happenedAt: '2026-11-21T10:30', people: 'Child Safe',
+    what: 'Invented: tripped on the stairs, grazed knee', firstAid: true, firstAidBy: 'Leo', parentInformed: true,
+    informedBy: 'Leo', informedAt: '2026-11-21T12:00', followUp: '', reportedBy: 'u_leo', reportedByName: 'Leo',
+    createdAt: '2026-11-21T10:40:00Z', ...(extra || {}) });
+  const CONCERN = (extra) => ({ siteId: 'site_kids', calEventId: 'ev_safe', about: 'An invented child', concern: 'Invented words for a test',
+    reportedBy: 'u_leo', reportedByName: 'Leo', createdAt: '2026-11-21T10:50:00Z', status: 'new', ...(extra || {}) });
+
+  /* An event's leaders: who may set them. */
+  await check('a member can see who leads an event', 'allow', () => getDoc(doc(as('samy'), 'eventLeaders', 'ev_safe')));
+  await check('a member cannot make themselves a leader', 'deny', () => setDoc(doc(as('samy'), 'eventLeaders', 'ev_other'), { leaders: [], leaderUids: ['u_samy'], siteId: 'site_kids' }));
+  await check('an admin names the leaders', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_other'), { leaders: [], leaderUids: [], siteId: 'site_kids', ratioAll: 8, ratioUnder8: 4 }));
+  await check('the leaders\' site has to be the event\'s site', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_other'), { leaders: [], leaderUids: [], siteId: 'site_test' }));
+  await check('the site\'s safeguarding lead names leaders without being an admin', 'allow', () => setDoc(doc(lena(), 'eventLeaders', 'ev_other'), { leaders: [], leaderUids: [], siteId: 'site_kids' }));
+
+  /* What a leader who is not an admin can do - for their event only. */
+  await check('a leader lists the sign-ups of the event they lead', 'allow', () => q(leo(), 'signups', 'calEventId', 'ev_safe'));
+  await check('but not another event\'s', 'deny', () => q(leo(), 'signups', 'calEventId', 'ev_kids'));
+  await check('a member who is not a leader cannot list them', 'deny', () => q(as('samy'), 'signups', 'calEventId', 'ev_safe'));
+  await check('the site’s safeguarding lead lists them, for the ratios', 'allow', () => q(lena(), 'signups', 'calEventId', 'ev_safe'));
+  await check('but not those of an event on another site', 'deny', () => q(lena(), 'signups', 'calEventId', 'ev_kids'));
+  await check('a leader checks a child in at their event', 'allow', () => setDoc(doc(leo(), 'checkins', 'ev_safe__key_safe_family_0000000000000000__0'), KID));
+  await check('but not at another event', 'deny', () => setDoc(doc(leo(), 'checkins', 'ev_kids__key_safe_family_0000000000000000__0'), { ...KID, calEventId: 'ev_kids' }));
+  await check('a leader reads their event\'s check-in settings', 'allow', () => getDoc(doc(leo(), 'checkinSettings', 'ev_safe')));
+  await check('a leader lists the forms done for their event', 'allow', () => q(leo(), 'formRequests', 'calEventId', 'ev_safe'));
+  await check('but not another event\'s', 'deny', () => q(leo(), 'formRequests', 'calEventId', 'ev_kids'));
+
+  /* §7.4: who may read medical answers. */
+  await check('a leader reads the medical answers given for their event', 'allow', () => q(leo(), 'sensitiveResponses', 'calEventId', 'ev_safe'));
+  await check('a leader cannot read another event\'s medical answers', 'deny', () => q(leo(), 'sensitiveResponses', 'calEventId', 'ev_other'));
+  await check('a member who is not a leader of that event cannot read them', 'deny', () => q(as('samy'), 'sensitiveResponses', 'calEventId', 'ev_safe'));
+  await check('an ordinary admin cannot read them either', 'deny', () => q(ella(), 'sensitiveResponses', 'calEventId', 'ev_safe'));
+  await check('a guest\'s private key opens their own record', 'allow', () => getDoc(doc(anon(), 'sensitiveResponses', 'secret_safe_000000000000000000000')));
+  await check('and nothing else: a guest cannot list them', 'deny', () => q(anon(), 'sensitiveResponses', 'calEventId', 'ev_safe'));
+
+  /* "Still correct" for a second event: the lead shares a copy. */
+  const COPY = (extra) => ({ responseId: 'resp_safe', requestKey: 'req_safe', formId: 'form_consent', siteId: 'site_kids', calEventId: 'ev_other',
+    answers: { allergies: 'Invented sesame allergy' }, submittedAt: '2026-11-01T10:00:00Z', deleteAfter: '2028-08-31',
+    sharedFrom: 'secret_safe_000000000000000000000', sharedBy: 'u_lena', sharedAt: '2026-11-20T09:00:00Z', ...(extra || {}) });
+  await check('the safeguarding lead shares a family\'s medical answers with another event\'s leaders', 'allow', () => setDoc(doc(lena(), 'sensitiveResponses', 'share_1_0000000000000000000000'), COPY()));
+  await check('an ordinary admin cannot', 'deny', () => setDoc(doc(ella(), 'sensitiveResponses', 'share_2_0000000000000000000000'), COPY()));
+  await check('a share must be a copy of the record it names', 'deny', () => setDoc(doc(lena(), 'sensitiveResponses', 'share_3_0000000000000000000000'), COPY({ responseId: 'resp_someone_else' })));
+  await check('a leader cannot share medical answers', 'deny', () => setDoc(doc(leo(), 'sensitiveResponses', 'share_4_0000000000000000000000'), COPY()));
+
+  /* Leader checks: dates and status, never a certificate number. */
+  await check('the safeguarding lead records a leader\'s checks', 'allow', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
+    { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', updatedAt: 'x', updatedBy: 'u_lena' }));
+  await check('there is no room for a DBS certificate number', 'deny', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
+    { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', certificate: '001234567890' }));
+  await check('an ordinary admin cannot record checks', 'deny', () => setDoc(doc(ella(), 'leaderChecks', 'm_u_leo'), { dbsStatus: 'current', siteId: 'site_kids' }));
+  await check('an admin can see a leader\'s checks, to plan', 'allow', () => getDoc(doc(ella(), 'leaderChecks', 'm_u_leo')));
+  await check('a leader sees their own', 'allow', () => getDoc(doc(leo(), 'leaderChecks', 'm_u_leo')));
+  await check('a member cannot see someone else\'s', 'deny', () => getDoc(doc(as('samy'), 'leaderChecks', 'm_u_leo')));
+
+  /* The incident log. */
+  await check('a leader records an incident at their event', 'allow', () => setDoc(doc(leo(), 'incidents', 'inc_2'), INC()));
+  await check('not in somebody else\'s name', 'deny', () => setDoc(doc(leo(), 'incidents', 'inc_3'), INC({ reportedBy: 'u_karen' })));
+  await check('not at an event they do not lead', 'deny', () => setDoc(doc(leo(), 'incidents', 'inc_4'), INC({ calEventId: 'ev_other' })));
+  await check('not filed under another site', 'deny', () => setDoc(doc(lena(), 'incidents', 'inc_5'), INC({ siteId: 'site_test', reportedBy: 'u_lena' })));
+  await check('the leader reads their event\'s incidents', 'allow', () => q(leo(), 'incidents', 'calEventId', 'ev_safe'));
+  await check('the safeguarding lead reads the site\'s incidents', 'allow', () => q(lena(), 'incidents', 'siteId', 'site_kids'));
+  await check('an ordinary admin cannot read the incident log', 'deny', () => q(ella(), 'incidents', 'siteId', 'site_kids'));
+  await check('a member cannot read it', 'deny', () => getDoc(doc(as('samy'), 'incidents', 'inc_1')));
+  await check('the lead adds a follow-up', 'allow', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { followUp: 'Parent spoken to the next day' }));
+  await check('what was reported cannot be changed, even by the lead', 'deny', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { what: 'Something else' }));
+  await check('an incident cannot be deleted, even by a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'incidents', 'inc_1')));
+
+  /* §7.4: concerns go to the safeguarding lead and nobody else. */
+  await check('a leader reports a concern', 'allow', () => setDoc(doc(leo(), 'concerns', 'con_2'), CONCERN()));
+  await check('not in somebody else\'s name', 'deny', () => setDoc(doc(leo(), 'concerns', 'con_3'), CONCERN({ reportedBy: 'u_karen' })));
+  await check('not to a site with no safeguarding lead to read it', 'deny', () => setDoc(doc(leo(), 'concerns', 'con_4'), CONCERN({ siteId: 'site_nolead' })));
+  await check('the safeguarding lead reads it', 'allow', () => getDoc(doc(lena(), 'concerns', 'con_2')));
+  await check('a master admin cannot read a concern', 'deny', () => getDoc(doc(as('martin'), 'concerns', 'con_2')));
+  await check('an admin cannot read a concern', 'deny', () => q(as('karen'), 'concerns', 'siteId', 'site_kids'));
+  await check('the person who reported it cannot read it back', 'deny', () => getDoc(doc(leo(), 'concerns', 'con_2')));
+  await check('the lead marks it seen', 'allow', () => updateDoc(doc(lena(), 'concerns', 'con_2'), { status: 'seen', seenAt: '2026-11-21T12:00:00Z' }));
+  await check('the lead cannot rewrite what was reported', 'deny', () => updateDoc(doc(lena(), 'concerns', 'con_2'), { concern: 'changed' }));
+  await check('a concern cannot be deleted', 'deny', () => deleteDoc(doc(lena(), 'concerns', 'con_1')));
+
+  /* Retention: what was deleted is recorded, by master admins only. */
+  await check('a master admin records what was deleted', 'allow', () => setDoc(doc(as('martin'), 'retentionLog', 'r1'), { by: 'u_martin', count: 2 }));
+  await check('an ordinary admin cannot', 'deny', () => setDoc(doc(ella(), 'retentionLog', 'r2'), { by: 'u_ella', count: 2 }));
+  await check('the record cannot be rewritten', 'deny', () => updateDoc(doc(as('martin'), 'retentionLog', 'r1'), { count: 0 }));
+  await check('a leader logs a download in their own name', 'allow', () => setDoc(doc(leo(), 'downloadsLog', 'dl_leo'),
+    { by: 'u_leo', byName: 'Leo', at: '2026-11-21T13:00:00Z', calEventId: 'ev_safe', what: 'incidents', format: 'csv', columns: [], sensitive: true }));
 }
 // ── end EVENTS ──
 

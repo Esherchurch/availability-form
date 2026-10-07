@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Due for deletion — EGBC</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Due for deletion"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 12px;padding-bottom:12px;
+           border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);
+         display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .spacer{flex:1}
+  .check{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--body);padding:10px 0;border-top:1px solid var(--line);margin:0}
+  .check:first-of-type{border-top:none}
+  .check input{width:16px;height:16px;accent-color:var(--brand);flex:none;margin-top:3px}
+  .n{font-weight:600;color:var(--ink)} .m{font-size:13px;color:var(--muted)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;
+       border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;border:1px solid transparent;
+       background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#e8c3bd}
+  .btn.danger:hover{background:var(--danger-bg)}
+  .flag{display:inline-block;font-size:12px;font-weight:500;border-radius:6px;padding:1px 7px;margin-left:6px}
+  .flag.warn{background:var(--danger-bg);color:var(--danger)}
+  .flag.wait{background:var(--gold-bg);color:var(--gold)}
+  .hint{font-size:13px;color:var(--muted)}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:12px}
+  .banner.info{background:var(--tint);color:var(--body);border:1px solid #cfe0de}
+  .banner.warn{background:var(--danger-bg);color:var(--danger)}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
+         padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var DUE = [], SOON = [], FORMS = {};
+
+  function db() { return EGBCAuth.db; }
+  function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
+  function ico(n, px) { return '<i data-lucide="' + n + '" style="width:' + (px || 15) + 'px;height:' + (px || 15) + 'px"></i>'; }
+  function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3400); }
+  function day(offset) { var d = new Date(Date.now() + (offset || 0) * 864e5), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+
+  /* Files the answer points at (a hirer's policy, a care plan). */
+  function filesOf(r) {
+    var out = [];
+    (function walk(v) {
+      if (!v || typeof v !== 'object') return;
+      if (v.path && /^formUploads\//.test(v.path)) { out.push(v.path); return; }
+      Object.keys(v).forEach(function (k) { walk(v[k]); });
+    })(r.answers || {});
+    return out;
+  }
+
+  function line(r, box) {
+    var f = FORMS[r.formId] || {};
+    return '<label class="check">' + (box ? '<input type="checkbox" class="pick" value="' + esc(r.id) + '" checked>' : '') +
+      '<span><span class="n">' + esc(r.name || r.email) + '</span> · ' + esc(f.title || 'Form') +
+      (r.hasSensitive ? '<span class="flag warn">' + ico('lock', 11) + ' with medical answers</span>' : '') +
+      '<br><span class="m">For ' + esc((r.subjects || []).join(', ') || r.email) + ' · sent ' + esc(E.fmtDate(r.submittedAt)) +
+      ' · ran out ' + esc(E.fmtDate(r.validUntil + 'T12:00')) + ' · delete after ' + esc(E.fmtDate(r.deleteAfter + 'T12:00')) +
+      (filesOf(r).length ? ' · ' + filesOf(r).length + ' file' + (filesOf(r).length === 1 ? '' : 's') : '') + '</span></span></label>';
+  }
+
+  function draw() {
+    document.getElementById('wrap').innerHTML =
+      '<h1>Due for deletion</h1>' +
+      '<p class="sub">Form answers whose time is up, by the period each form sets. Nothing is deleted until you confirm it here.</p>' +
+      '<div class="banner info">Look at this once a month. Incidents and concerns are not on this list: they are kept.</div>' +
+      '<div class="card"><h2><span class="badge">' + ico('archive', 17) + '</span>Due now<span class="spacer"></span><span class="hint">' + DUE.length + '</span></h2>' +
+        (DUE.length ? DUE.map(function (r) { return line(r, true); }).join('') +
+          '<div style="margin-top:14px"><button class="btn danger" id="del">' + ico('trash-2') + 'Delete the ticked answers</button></div>'
+          : '<p class="hint">Nothing is due.</p>') + '</div>' +
+      '<div class="card"><h2><span class="badge">' + ico('calendar-clock', 17) + '</span>Due in the next 30 days<span class="spacer"></span><span class="hint">' + SOON.length + '</span></h2>' +
+        (SOON.length ? SOON.map(function (r) { return line(r, false); }).join('') : '<p class="hint">Nothing.</p>') + '</div>';
+    var b = document.getElementById('del');
+    if (b) b.onclick = del;
+    icons();
+  }
+
+  /* An answer goes with its medical half, every copy shared with another
+     event's leaders, and its files. What went, and who did it, is
+     recorded. */
+  function del() {
+    var ids = [].slice.call(document.querySelectorAll('.pick:checked')).map(function (c) { return c.value; });
+    if (!ids.length) return;
+    if (!confirm('Delete ' + ids.length + ' answer' + (ids.length === 1 ? '' : 's') + ', with their medical details and files? This cannot be undone.')) return;
+    var btn = document.getElementById('del'); btn.disabled = true;
+    var counts = { formResponses: 0, sensitiveResponses: 0, files: 0 };
+    ids.reduce(function (p, id) {
+      return p.then(function () {
+        var r = DUE.filter(function (x) { return x.id === id; })[0];
+        return db().collection('sensitiveResponses').where('responseId', '==', id).get().then(function (s) {
+          return Promise.all(s.docs.map(function (d) { counts.sensitiveResponses++; return d.ref.delete(); }));
+        }).then(function () {
+          return Promise.all(filesOf(r).map(function (path) {
+            return EGBCAuth.storage().ref(path).delete().then(function () { counts.files++; }).catch(function () {});
+          }));
+        }).then(function () { counts.formResponses++; return db().collection('formResponses').doc(id).delete(); });
+      });
+    }, Promise.resolve()).then(function () {
+      var u = EGBCAuth.user() || {}, p = EGBCAuth.profile() || {};
+      return db().collection('retentionLog').add({ by: u.uid || '', byName: p.name || '', at: new Date().toISOString(),
+        responseIds: ids, formResponses: counts.formResponses, sensitiveResponses: counts.sensitiveResponses, files: counts.files });
+    }).then(function () {
+      toast('Deleted ' + counts.formResponses + ' answers, ' + counts.sensitiveResponses + ' medical records and ' + counts.files + ' files.');
+      return load();
+    }).catch(function (e) { btn.disabled = false; toast('Stopped: ' + (e.message || e)); });
+  }
+
+  function load() {
+    return Promise.all([
+      db().collection('formResponses').where('deleteAfter', '<=', day(30)).get(),
+      db().collection('forms').get()
+    ]).then(function (r) {
+      r[1].docs.forEach(function (d) { FORMS[d.id] = d.data(); });
+      var all = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .sort(function (a, b) { return String(a.deleteAfter).localeCompare(String(b.deleteAfter)); });
+      DUE = all.filter(function (x) { return x.deleteAfter <= day(0); });
+      SOON = all.filter(function (x) { return x.deleteAfter > day(0); });
+      draw();
+    });
+  }
+
+  EGBCAuth.require({ adminAny: true }).then(function () {
+    if (!(EGBCAuth.isMaster && EGBCAuth.isMaster())) {
+      document.getElementById('wrap').innerHTML = '<div class="card"><h1>Due for deletion</h1><p>This list is for master admins: only they can delete records.</p></div>';
+      return;
+    }
+    return load();
+  }).catch(function (e) {
+    document.getElementById('wrap').innerHTML = '<div class="card"><div class="banner warn">' + esc(e.message || e) + '</div></div>';
+  });
+})();
+</script>
+</body>
+</html>

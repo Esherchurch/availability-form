@@ -316,7 +316,10 @@ other than 5601 still reports 8181 / 9099, and both rules suites pass in full.
 
 ## Chunk 3, stage 1 (E1): check-in and attendance
 
-### F-024 — check-in is for admins until stage 3 brings event leaders
+### F-024 — check-in is for admins until stage 3 brings event leaders (settled in E3)
+**Settled in E3.** An event's named leaders now use check-in for that event
+without being admins, and the rules allow exactly that. The original note follows.
+
 Check-ins, the roll-call, registers and downloads all need an admin. The rules
 have no "leader of this event" yet (that is E3), and a check-in holds names,
 times and who collected a child. A volunteer at the door who is not an admin
@@ -421,9 +424,21 @@ needs the screens it should open:
   the event's chase list (`forms-admin.html?event=<id>`); the answers sheet.
 - `form.html?k=<key>` (E2, no sign-in): needs a request in the emulator. The
   E2 test (`screenshots/events/e2-forms.test.mjs`) shows how to make one.
+- `safeguarding.html` (E3): the page alone (concerns, coming up); with
+  `?event=<id>` (leaders, ratios, incidents); the sheets for adding a leader,
+  the rota, checks, an incident and a concern. Best seen signed in as a
+  safeguarding lead. The E3 test shows how to make one.
+- `retention.html` (E3): master admins; one screen.
 
 And for the hub's "Where to?" list, admins only:
 - **Forms**: `forms-admin.html` (icon `file-text`).
+- **Safeguarding**: `safeguarding.html` (icon `shield-check`), for **everyone
+  signed in**, because "Report a concern" is there. Leaders and leads see more.
+- **Due for deletion**: `retention.html` (icon `archive`), master admins.
+
+**And the logo** (`egbc-shell.js`, line 30): every page loads a 1 MB photo from
+the storage bucket as the logo in the header. That is slow on a phone signal. A
+small copy kept with the pages would load at once.
 Nothing personal for "My EGBC" in E1. Later, a member's own sign-ups could show
 their check-in code there.
 
@@ -455,7 +470,11 @@ earlier answer, and that check has to see other people's answers. It needs a
 server, or a rule-checked public write without the reuse check. Proposal for
 Martin.
 
-### F-035 — safeguarding leads who are not admins: the rules let them in, the page does not yet
+### F-035 — safeguarding leads who are not admins: the rules let them in, the page does not yet (settled in E3)
+**Settled in E3.** `safeguarding.html` is the lead's page, whether or not they are
+an admin, and check-in now takes collectors and medical flags from the consent
+forms. The original note follows.
+
 The rules already let a site's safeguarding lead or deputy list that site's
 medical answers and open attached files, even if they are not an admin. The
 tests prove it. But `forms-admin.html` is an admin page, so a lead who is not
@@ -534,3 +553,70 @@ medical ones again, because that page cannot read them.
 needs a rule letting a signed-in member list their own requests (matched on
 their email or member id), which I would add in the events section, plus the
 dashboard tile, which is the main window's. Not done in E2.
+
+
+## Chunk 3, stage 3 (E3): safeguarding
+
+### F-043 — "still correct" medical details wait for the safeguarding lead to share them
+When a family says their consent form is still correct for a new event, their
+medical answers stay filed under the event they were first given for. The new
+event's leaders cannot read them, because only the safeguarding lead (or a
+master admin) can read the original. Until the lead presses "Share with this
+event's leaders" on the event's Safeguarding page:
+- the leaders see "Medical details held on their consent form" at check-in,
+  not nothing
+- the lead's page says how many families are waiting
+
+Doing it without the lead would need a server.
+
+### F-044 — a leader must have signed in to use the leader pages
+Leaders are picked from the people who have signed in at least once, or from
+the rota for that date. Someone on the rota who has never signed in can still
+be named, and is shown as "has not signed in yet", but cannot open check-in or
+see medical answers until they do.
+
+### F-045 — what shows as a flag at check-in
+From the consent forms, a flag is a written medical answer: a condition, an
+allergy, a medicine, a need, unless it is "none" or similar. A yes or no is a
+permission, not a warning. For example, the first-aid question (private because
+of F-038) is kept private, but is not shown as a red flag at the door. The
+collectors are any question that mentions "collect".
+
+### F-046 — how long a DBS check and training count, per event
+Each event sets how many years a DBS check (from the date it was seen) and
+training count. The default is 3 years each. A DBS certificate has no official
+expiry, so this is EGBC's policy to set: **for Martin's safeguarding lead.** No
+certificate number is ever stored: the rule has no field for one, and a test
+proves it.
+
+### F-047 — incidents and concerns are never deleted, and are not on the deletion list
+Safeguarding records are usually kept far longer than consent forms, and the
+period is EGBC's policy, not mine. So incidents and concerns have no "delete
+after" date, the rules refuse to delete them, and the "due for deletion" list
+does not show them. **For Martin's safeguarding lead to set.** The list also
+does not email anyone monthly, because there is nothing here that can run on a
+timer (F-015). It says "look at this once a month" instead.
+
+### F-048 — how private a concern is
+- Only the site's safeguarding lead and deputy can read it. Master admins
+  cannot, and neither can the person who reported it.
+- The lead is emailed that there is one; the email does not say what it is.
+- If a site has no safeguarding lead set, a concern cannot be sent at all.
+  The page says to speak to the church office or a minister that day, and
+  that anyone in danger now needs 999.
+- If the lead changes, the new lead reads the site's earlier concerns. That
+  is probably right, but it is Martin's call.
+
+### F-049 — under-8s are counted from the consent forms
+A child's age comes from the date of birth on their consent form. A child
+without a form yet is counted in the total but not as under 8, and the page
+says how many ages are not known. Asking the age at sign-up (F-039) would close
+that gap.
+
+### F-050 — what stays admin-only
+- **The roll-call** across all events: leaders see who is in on their own
+  event's check-in.
+- **Check-in settings.**
+- **Downloading the incident log:** the safeguarding lead and master admins
+  only. Leaders read and add to it, but cannot download it, and every download
+  is logged.
