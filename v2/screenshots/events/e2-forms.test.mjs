@@ -31,6 +31,10 @@ import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
+import { createGuard } from './guard.mjs';
+/* Only localhost and the public script and font sites may be reached; no
+   service worker; any reply from elsewhere fails the run (guard.mjs). */
+const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const V2 = path.resolve(HERE, '..', '..');
@@ -113,10 +117,13 @@ const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(asyn
 /* ---- browsers ---- */
 const errors = [];
 async function launch(label) {
-  return puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, label + '-')), args: ['--no-first-run'] });
+  const b = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, label + '-')), args: ['--no-first-run'] });
+  GUARD.watchBrowser(b);
+  return b;
 }
 async function pageOf(b, label, width) {
   const p = await b.newPage();
+  await GUARD.protect(p, label);
   await p.setViewport({ width: width || 1100, height: 900 });
   p.on('pageerror', e => errors.push(label + ': ' + e.message));
   p.on('dialog', d => d.accept());
@@ -345,6 +352,7 @@ try {
   ok('the run finished', false, e.stack);
 }
 
+ok('nothing came back from outside the allowed sites, and no service worker started', GUARD.leaks().length === 0, GUARD.leaks().join(' | '));
 ok('no page threw an error', errors.length === 0, errors.join(' | '));
 await env.cleanup();
 server.close();

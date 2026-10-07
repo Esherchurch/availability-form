@@ -9,8 +9,9 @@
    Run it on a copy of the code before the change and on the code after,
    and compare: a page that throws after but not before is a regression.
 
-   SAFETY. Any request to the live Google services (Firestore, Auth, Storage)
-   is blocked and counted. Pages that open their own Firebase app, or another
+   SAFETY. Only localhost and the public script and font sites may be
+   reached, no service worker may start, and a reply from anywhere else
+   fails the run (guard.mjs). Pages that open their own Firebase app, or another
    project, are not loaded at all - see check-firebase-apps.mjs. Nothing is
    clicked: pages are opened and read, never saved. */
 
@@ -22,6 +23,8 @@ import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
+import { createGuard } from './guard.mjs';
+const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SELF = path.resolve(HERE, '..', '..');
@@ -67,16 +70,12 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 const stamp = JSON.parse(fs.readFileSync(path.join(DIR, 'version.json'), 'utf8').replace(/^\uFEFF/, '')).stamp;
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new',
   userDataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'egbc-smoke-')), args: ['--no-first-run'] });
-/* Judged on the server name: the emulators' own addresses carry the same
-   words in their path (localhost:9098/identitytoolkit.googleapis.com/...). */
-const LIVE = /(^|\.)(firestore|identitytoolkit|securetoken|firebasestorage|firebaseinstallations)\.googleapis\.com$|\.run\.app$/;
-let blocked = [];
+GUARD.watchBrowser(browser);
 async function open(url) {
   const p = await browser.newPage();
+  await GUARD.protect(p, decodeURI(url.split('/').pop()));
   await p.setViewport({ width: 1100, height: 900 });
   await p.evaluateOnNewDocument((k) => { try { sessionStorage.setItem(k, '1'); } catch (e) {} }, 'egbc_fresh_' + stamp);
-  await p.setRequestInterception(true);
-  p.on('request', r => { if (LIVE.test(new URL(r.url()).hostname)) { blocked.push(url.split('/').pop() + ' -> ' + new URL(r.url()).hostname); r.abort(); } else r.continue(); });
   const errs = [];
   p.on('pageerror', e => errs.push(String(e.message).split('\n')[0].slice(0, 160)));
   try { await p.goto(url, { waitUntil: 'networkidle2', timeout: 20000 }); } catch (e) { errs.push('load: ' + e.message.split('\n')[0]); }
@@ -107,8 +106,10 @@ server.close();
 const bad = Object.keys(out).filter(k => out[k].length);
 fs.writeFileSync(path.join(os.tmpdir(), 'egbc-smoke-' + LABEL + '.json'), JSON.stringify(out, null, 1));
 console.log(LABEL + ': ' + pages.length + ' pages loaded, ' + (pages.length - bad.length) + ' without an error, ' +
-  blocked.length + ' requests to live services blocked');
-const tally = {}; blocked.forEach(b => { tally[b] = (tally[b] || 0) + 1; });
-Object.keys(tally).sort().forEach(k => console.log("  blocked: " + k + " x" + tally[k]));
+  GUARD.refused().length + ' requests outside the allowed sites refused, ' + GUARD.leaks().length + ' replies from outside them');
+const tally = {}; GUARD.refused().forEach(b => { tally[b] = (tally[b] || 0) + 1; });
+Object.keys(tally).sort().forEach(k => console.log('  refused: ' + k + ' x' + tally[k]));
+GUARD.leaks().forEach(l => console.log('  LEAK: ' + l));
 bad.forEach(k => console.log('  ' + k + ': ' + out[k].join(' | ')));
 console.log('RESULT ' + path.join(os.tmpdir(), 'egbc-smoke-' + LABEL + '.json'));
+if (GUARD.leaks().length) { console.log('FAIL: a reply came from outside the allowed sites'); process.exit(1); }

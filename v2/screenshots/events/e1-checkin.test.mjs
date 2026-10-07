@@ -43,6 +43,10 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import jsQR from 'jsqr';
+import { createGuard } from './guard.mjs';
+/* Only localhost and the public script and font sites may be reached; no
+   service worker; any reply from elsewhere fails the run (guard.mjs). */
+const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const V2 = path.resolve(HERE, '..', '..');
@@ -147,6 +151,7 @@ async function launch(label, extraArgs = []) {
   const dir = fs.mkdtempSync(path.join(TMP, label + '-'));
   const b = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: dir,
     args: ['--no-first-run', '--use-fake-ui-for-media-stream'].concat(extraArgs) });
+  GUARD.watchBrowser(b);
   b.__dl = fs.mkdtempSync(path.join(TMP, label + '-dl-'));
   const s = await b.target().createCDPSession();
   await s.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: b.__dl, eventsEnabled: true });
@@ -159,6 +164,7 @@ async function launch(label, extraArgs = []) {
 const STAMP = JSON.parse(fs.readFileSync(path.join(V2, 'version.json'), 'utf8').replace(/^﻿/, '')).stamp;
 async function pageOf(b, label, width = 1100, raw = false) {
   const p = await b.newPage();
+  await GUARD.protect(p, label);
   if (!raw) await p.evaluateOnNewDocument((k) => { try { sessionStorage.setItem(k, '1'); } catch (e) {} }, 'egbc_fresh_' + STAMP);
   await p.setViewport({ width, height: 900 });
   p.on('pageerror', e => errors.push(label + ': ' + e.message));
@@ -478,6 +484,7 @@ try {
   ok('the run finished', false, e.stack);
 }
 
+ok('nothing came back from outside the allowed sites, and no service worker started', GUARD.leaks().length === 0, GUARD.leaks().join(' | '));
 ok('no page threw an error', errors.length === 0, errors.join('\n          '));
 await env.cleanup();
 server.close();
