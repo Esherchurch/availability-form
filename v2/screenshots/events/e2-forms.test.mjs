@@ -201,9 +201,18 @@ try {
   await val(G, '#f_' + asthmaId, 'Yes');
   await tap(G, '#go');
   await sleep(800);
-  ok('it cannot be sent unsigned', /Please answer/.test(await G.$eval('#err', e => e.textContent)));
+  const unsigned = await G.$eval('#err', e => e.textContent);
+  ok('unsigned, it says what to do: type your name and tick the box', /Please sign the form: type your full name and tick the box/.test(unsigned), unsigned);
   await val(G, '#f_sign_n', 'Parent Synthetic');
-  await G.$eval('#f_sign_a', e => { e.checked = true; });
+  ok('the message goes as soon as they start putting it right', (await G.$eval('#err', e => e.textContent)) === '');
+  await tap(G, '#go');
+  await sleep(500);
+  const unticked = await G.$eval('#err', e => e.textContent);
+  ok('name typed but box not ticked: it asks for the tick', /Please sign the form: tick the box under your name/.test(unticked), unticked);
+  await tap(G, '#f_sign_a');
+  ok('ticking the box clears that message too', (await G.$eval('#err', e => e.textContent)) === '');
+  ok('the logo in the page header draws (a stand-in for the live picture)',
+    await G.$eval('img[alt="EGBC"]', i => i.complete && i.naturalWidth > 0).catch(() => false));
   await G.screenshot({ path: path.join(HERE, 'e2-form-fill-375.png'), fullPage: true });
   await tap(G, '#go');
   await until(() => G.$eval('body', e => /Your form is in/.test(e.innerText)), 15000);

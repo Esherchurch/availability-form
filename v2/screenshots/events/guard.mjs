@@ -21,13 +21,22 @@ const ALLOWED = new Set(['localhost', '127.0.0.1',
   'www.gstatic.com', 'fonts.googleapis.com', 'fonts.gstatic.com',
   'cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'unpkg.com']);
 
+/* The page header's logo lives in the live storage bucket. Rather than
+   reach it, or leave a broken picture in every screenshot, that one
+   request is answered with the app icon from this repo. */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const ICON = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'icon-192.png'));
+const LOGO_PATH = '/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg';
+
 function hostOf(url) {
   try { const u = new URL(url); return /^(https?|wss?):$/.test(u.protocol) ? u.hostname : null; }
   catch (e) { return null; }
 }
 
 export function createGuard() {
-  const refused = [], leaks = [];
+  const refused = [], leaks = [], stoodIn = new Set();
   async function protect(page, label) {
     await page.evaluateOnNewDocument(() => {
       try {
@@ -40,12 +49,17 @@ export function createGuard() {
     await page.setRequestInterception(true);
     page.on('request', r => {
       const h = hostOf(r.url());
+      if (h === 'firebasestorage.googleapis.com' && new URL(r.url()).pathname === LOGO_PATH) {
+        stoodIn.add(r.url());
+        r.respond({ status: 200, contentType: 'image/png', body: ICON }).catch(() => {});
+        return;
+      }
       if (h && !ALLOWED.has(h)) { refused.push(label + ' -> ' + h); r.abort().catch(() => {}); }
       else r.continue().catch(() => {});
     });
     page.on('response', r => {
       const h = hostOf(r.url());
-      if (h && !ALLOWED.has(h)) leaks.push(label + ' <- ' + h + ' ' + r.url().slice(0, 90));
+      if (h && !ALLOWED.has(h) && !stoodIn.has(r.url())) leaks.push(label + ' <- ' + h + ' ' + r.url().slice(0, 90));
     });
   }
   /* A service worker that starts anyway, from any page, fails the run:

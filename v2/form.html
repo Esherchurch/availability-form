@@ -148,6 +148,11 @@
       '</form>');
     wireRows();
     document.getElementById('f').onsubmit = submit;
+    /* A message about something missing goes as soon as the person changes
+       anything, so it is never left on screen after they have fixed it. */
+    var clear = function () { var e = document.getElementById('err'); if (e && e.innerHTML) e.innerHTML = ''; };
+    document.getElementById('f').addEventListener('input', clear);
+    document.getElementById('f').addEventListener('change', clear);
   }
 
   function readRows() {
@@ -216,12 +221,16 @@
         return;
       }
       var v = read(f, 'f_' + f.id);
-      if (f.required && empty(f, v)) missing = missing || f.label;
+      /* A signature's label is the sentence being agreed to, which reads
+         like a question when quoted back - so say what to do instead. */
+      if (f.required && empty(f, v)) missing = missing || (f.type === 'signature'
+        ? { sign: (!v || !v.name) ? 'type your full name' + (v && v.agreed ? '' : ' and tick the box') : 'tick the box under your name' }
+        : f.label);
       if (f.type === 'file') { if (v) files.push({ id: f.id, file: v }); return; }
       if (f.type === 'signature') { if (v && v.name) answers[f.id] = { name: v.name, agreed: v.agreed, at: new Date().toISOString() }; return; }
       if (v !== undefined && v !== '') answers[f.id] = v;
     });
-    if (missing) return fail('Please answer: ' + missing);
+    if (missing) return fail(missing.sign ? 'Please sign the form: ' + missing.sign + '.' : 'Please answer: ' + missing);
     var big = files.filter(function (x) { return x.file.size > 10 * 1024 * 1024; })[0];
     if (big) return fail('That file is too big. Please keep it under 10 MB.');
 
