@@ -10,12 +10,35 @@ Run every one of these from `v2/`, not from here.
 | No start-up handler is attached after a top-level await | `node tests/check-late-handlers.mjs` |
 | The news board on the dashboard can still be managed | `node tests/check-news-dashboard.mjs` |
 | A Kids Church role stored under its old name survives a save | `node tests/check-old-kids-roles.mjs` |
+| v2's hub still offers every page the original's hub offers | `node tests/check-hub-tools.mjs` |
+| The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
 
 Each file starts with a comment saying which real failure it exists for. That
 is the point of them: every check here was written after something got
 through, and the comment is how the next person knows what it is guarding.
+
+## A page with an error on its console is a failure
+
+Every browser check here shares `console-watch.mjs`. An uncaught exception or a
+`console.error` fails the run, on **either** side of a comparison.
+
+It exists because the Sunday Service Planner opened with an empty order of
+service twice. The second time was this window's own fix: calling the start-up
+directly when the page had already loaded ran it before the module had defined
+`addSong`, so it threw and stopped. The page served 200, drew its frame, and
+lost its contents - and the check meant to prove that fix passed, because the
+emulator was slow enough that the branch which breaks was never taken. The
+browser had said so in one line the whole time and nothing was reading it.
+
+The first thing it found was the church logo: it sits at the root of the
+storage bucket, no rule reached it, and deploying would have refused it on
+every page including the two with no sign-in at all.
+
+The short list of lines it excuses is the harness cutting the network off.
+Every excused line is counted and can be printed, so that list cannot quietly
+grow into a place where real errors hide.
 
 ## Known to fail, on purpose
 

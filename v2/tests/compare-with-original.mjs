@@ -498,7 +498,13 @@ function seedBranding() {
  * drawn in: v2 offers every page the original offers, and fifteen more.
  */
 const COVERED_BY = {
-  'hub.html': 'tests/check-hub-tools.mjs (compares what each hub offers, by title)'
+  'hub.html': 'tests/check-hub-tools.mjs (compares what each hub offers, by title)',
+  /* Signed in, BOTH login pages send you to the hub, which is what a login
+     page is for - so there is nothing to compare unless the run is signed out,
+     and the run cannot be signed out for this page alone without signing out
+     of all the others. One command, and it reports the page properly:
+       EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html */
+  'login.html': 'EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html'
 };
 
 /* ------------------------------------------------- driving the main flow */
@@ -816,7 +822,8 @@ function missingFrom(origRows, v2Rows) {
   const table = [];
   let ungradable = 0;
   for (const page of pages) {
-    if (COVERED_BY[page]) {
+    /* ...unless this run IS the one that covers it. */
+    if (COVERED_BY[page] && !(only && pages.length === 1)) {
       console.log(page.padEnd(32) + 'settled by ' + COVERED_BY[page]);
       table.push({ page, a: 0, b: 0, d: 0, c: 0, losses: [], coveredBy: COVERED_BY[page] });
       continue;
