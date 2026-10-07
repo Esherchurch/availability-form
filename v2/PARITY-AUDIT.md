@@ -292,6 +292,78 @@ failures that were nothing of the kind.
    originals' storage is also wiped between pages: all 51 share one origin, and
    the training pages keep their whole working copy in `sessionStorage`.
 
+## The per-page table
+
+Run on 9e86f0ce. Every page is opened on both sides and everything behind a
+tab, sheet or modal is revealed in one pass, so "states" is not a count per
+page here — it is every panel the page has. (The style check,
+`check-style-every-screen.mjs`, is the one that works through named states one
+at a time; CoreTeamApp has 19 of them.)
+
+**(a)** agreed · **(b)** restyle · **data** differs only because the original
+is read with no database and v2 against the synthetic one · **(c)** loss.
+
+| Page | a | b | data | c | c fixed |
+|---|---|---|---|---|---|
+| AVteamlandingpage.html | 0 | 0 | 0 | 0 | — |
+| CoreTeamApp.html | 2 | 0 | 3 | 0 | — |
+| Coreteamcharter.html | 0 | 0 | 0 | 0 | — |
+| EGBC-HowTo-AV.html | 0 | 0 | 0 | 0 | — |
+| EGBC-PlayThrough.html | 0 | 0 | 0 | 0 | — |
+| EGBC-Training-Worship.html | 0 | 0 | 0 | 0 | — |
+| EGBC-Troubleshoot-AV.html | 0 | 0 | 0 | 0 | — |
+| **EGBCWorship&AV.html** | 0 | 0 | 4 | **4** | **4** |
+| EmailBuilder2.html | 0 | 0 | 2 | 0 | — |
+| Handover.html | 0 | 0 | 0 | 0 | — |
+| Library.html | 0 | 0 | 0 | 0 | — |
+| MonitorStageMap.html | 0 | 0 | 0 | 0 | — |
+| Performancenotes.html | 0 | 0 | 0 | 0 | — |
+| Planner.html | 0 | 0 | 0 | 0 | — |
+| Serviceplannerinstructions.html | 0 | 0 | 0 | 0 | — |
+| SharepointHeader.html | 0 | 0 | 0 | 0 | — |
+| SundayServicePlanner.html | 0 | 0 | 0 | 0 | — |
+| Videoeditor.html | 0 | 0 | 0 | 0 | — |
+| Worshipteamcharter.html | 0 | 0 | 0 | 0 | — |
+| Youthcharter.html | 0 | 0 | 0 | 0 | — |
+| **addressbook.html** | 6 | 0 | 0 | **1** | **1** |
+| batchupload.html | 0 | 0 | 0 | 0 | — |
+| birthday.html | 0 | 0 | 0 | 0 | — |
+| emailcompilerinstructions.html | 0 | 0 | 0 | 0 | — |
+| hub.html *(driven by hand)* | — | — | — | 0 | — |
+| hubresources.html | 0 | 0 | 0 | 0 | — |
+| index.html | 0 | 0 | 0 | 0 | — |
+| inventory-system-2.html | 0 | 0 | 0 | 0 | — |
+| login.html *(signed out)* | 0 | 1 | 1 | 0 | — |
+| music-uploader.html | 0 | 0 | 0 | 0 | — |
+| photoeditor.html | 0 | 0 | 0 | 0 | — |
+| resources.html *(original on the emulator)* | 2 | 2 | 2 | 0 | — |
+| rotaplannerinstructions.html | 0 | 0 | 0 | 0 | — |
+| schematic.html | 0 | 0 | 0 | 0 | — |
+| sitemaker.html | 0 | 0 | 0 | 0 | — |
+| socialmaker.html | 0 | 0 | 0 | 0 | — |
+| song-summary.html | 0 | 0 | 0 | 0 | — |
+| stickynotes.html | 1 | 0 | 0 | 0 | — |
+| studio.html | 0 | 0 | 0 | 0 | — |
+| sundayplannersonglibrary.html | 0 | 0 | 0 | 0 | — |
+| **training Sunday planner.html** | 0 | 0 | 0 | **1** | **1** |
+| **trainingbatchimporter.html** | 0 | 0 | 0 | **1** | **1** |
+| **trainingmusicdatabase.html** | 0 | 0 | 0 | **1** | **1** |
+| **trainingportalhub.html** | 1 | 0 | 0 | **1** | **1** |
+| **trainingrotaplanner.html** | 0 | 0 | 0 | **1** | **1** |
+| uploaderinstructions.html | 0 | 0 | 0 | 0 | — |
+| view-only-rota.html | 0 | 0 | 0 | 0 | — |
+| worshiphubapp.html | 0 | 0 | 0 | 0 | — |
+| youth-access.html | 0 | 0 | 1 | 0 | — |
+| youthapp2.html | 1 | 0 | 0 | 0 | — |
+| youthserviceplanner.html | 0 | 0 | 0 | 0 | — |
+| **51 pages** | **13** | **3** | **13** | **10** | **10** |
+
+The ten losses are the four on the news board, the five pages building their
+own Firebase app on the live config, and the Kids Church role that was being
+erased. They are counted on the page they were found on; the `c` columns are
+what S2c **found**, and a re-run of the comparison on the finished tree reports
+`losses to fix: 0`.
+
 ## Still open, for Martin
 
 - **`worshiphubapp.html` reaches live Firestore from localhost.** It builds its
