@@ -97,11 +97,18 @@ export const storage = getStorage(app);
 export const usingEmulator =
   location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 
+/* localhost:5601 is the events window, with its own emulators
+   (firebase.events.json); every other localhost port keeps 8181 / 9099 / 9199.
+   Same rule in egbc-auth.js. */
+const EMU = location.port === '5601'
+  ? { firestore: 8182, auth: 9098, storage: 9198 }
+  : { firestore: 8181, auth: 9099, storage: 9199 };
+
 if (usingEmulator) {
   try {
-    connectFirestoreEmulator(db, 'localhost', 8181);
-    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-    connectStorageEmulator(storage, 'localhost', 9199);
+    connectFirestoreEmulator(db, 'localhost', EMU.firestore);
+    connectAuthEmulator(auth, 'http://localhost:' + EMU.auth, { disableWarnings: true });
+    connectStorageEmulator(storage, 'localhost', EMU.storage);
     console.info('EGBCDb: using local emulators');
   } catch (e) {
     console.warn('EGBCDb: emulator not available', e.message);

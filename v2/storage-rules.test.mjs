@@ -20,7 +20,10 @@ import {
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, deleteObject, getBytes } from 'firebase/storage';
 
-const cfg = JSON.parse(fs.readFileSync('firebase.json', 'utf8'));
+/* Ports come from firebase.json. EGBC_FIREBASE_CONFIG=firebase.events.json
+   runs this against the events window's emulators instead; unset, nothing
+   changes. */
+const cfg = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.json', 'utf8'));
 const FS_PORT = cfg?.emulators?.firestore?.port ?? 8080;
 const ST_PORT = cfg?.emulators?.storage?.port ?? 9199;
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || 'demo-egbc';

@@ -11,8 +11,10 @@ import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, 
 
 /* Read the port from firebase.json rather than repeating it here. They used
    to be two numbers that had to agree, and when 8080 turned out to be taken
-   on a real machine only one of them moved. */
-const cfg = JSON.parse(fs.readFileSync('firebase.json', 'utf8'));
+   on a real machine only one of them moved.
+   EGBC_FIREBASE_CONFIG=firebase.events.json runs them against the events
+   window's emulators instead; unset, nothing changes. */
+const cfg = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.json', 'utf8'));
 const PORT = cfg?.emulators?.firestore?.port ?? 8080;
 
 /* firebase.json has singleProjectMode on, so the project the tests talk to

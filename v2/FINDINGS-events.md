@@ -304,3 +304,12 @@ the fields a sign-up has. That is the whole of it.
 
 App Check would help and is **not** enabled, as the brief says. Recorded as
 the option it is: it would also give F-014's function something to check.
+
+### F-023 — the 32-page smoke test is not in the repo
+`EVENTS-WINDOW-BRIEF.md` §7 asks each report to show the main window's
+32-page smoke test still passes. No such script is committed (`PARITY-AUDIT.md`
+names a `smokeall.js`, which is not in `v2/` either), so the events window
+cannot run it. **Request for the main window:** commit the smoke script, with
+the port it serves on as a setting, so both windows run the same check.
+Until then the E0 report proves the lock-out another way: a page on any port
+other than 5601 still reports 8181 / 9099, and both rules suites pass in full.

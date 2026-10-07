@@ -76,8 +76,15 @@
          so every page served from localhost was pointed at the wrong port and
          silently failed to reach the emulator. The test harness already reads
          the port out of firebase.json; a page cannot, so the number is here. */
-      db.useEmulator('localhost', 8181);
-      auth.useEmulator('http://localhost:9099');
+      /* A page served from localhost:5601 belongs to the events window,
+         which runs its own emulators (firebase.events.json) so its test data
+         never meets the main window's. Every other localhost port keeps
+         8181 / 9099 / 9199 exactly as before. Same rule in egbc-db.js. */
+      var EMU = location.port === '5601'
+        ? { firestore: 8182, auth: 9098, storage: 9198 }
+        : { firestore: 8181, auth: 9099, storage: 9199 };
+      db.useEmulator('localhost', EMU.firestore);
+      auth.useEmulator('http://localhost:' + EMU.auth);
       /* Storage was missing from this list, so every upload made from a
          page served on localhost went to the LIVE bucket - the knowledge
          base videos, the team shelf, banners, and now event pictures.
@@ -86,7 +93,7 @@
          files are not.
          Guarded, because not every page loads the storage SDK; where it is
          absent there is nothing to point anywhere. */
-      if (firebase.storage) firebase.storage(app).useEmulator('localhost', 9199);
+      if (firebase.storage) firebase.storage(app).useEmulator('localhost', EMU.storage);
       console.info('EGBCAuth: using local emulators');
     } catch (e) {
       console.warn('EGBCAuth: emulator not available', e.message);

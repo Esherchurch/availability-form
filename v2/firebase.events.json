@@ -1,0 +1,32 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "comment": "The events window's emulators (EVENTS-WINDOW-BRIEF.md). Pages served from localhost:5601 use these; firebase.json keeps the main window's. Hub and logging are moved too, so both sets can run at once.",
+    "auth": {
+      "port": 9098
+    },
+    "firestore": {
+      "port": 8182
+    },
+    "storage": {
+      "port": 9198
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4001
+    },
+    "hub": {
+      "port": 4401
+    },
+    "logging": {
+      "port": 4501
+    },
+    "singleProjectMode": true
+  }
+}
