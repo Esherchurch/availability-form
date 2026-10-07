@@ -108,6 +108,12 @@ Rules: build the cards for what exists now (1–4, 9) and leave a clear slot for
 - The hub and the six companion apps (§4) each installed from the home screen on a real iPhone and Android phone, signed in, and its main job done. App names without "v2". A test video call made from inside the installed hub on each phone (camera, microphone, screen share, leave and rejoin).
 - Youth access codes tested end to end.
 - Backup taken (`data-tools.html`).
+- **To remove someone's access, remove them from the team in the address book.**
+  That is the whole of it: the address book is where access comes from, and
+  every page reads it through the mirrored record. Where one address is shared
+  between two people, a parent's and a child's say, an administrator settles
+  which record is whose — the rules cannot tell, because proving it needs a
+  query and rules cannot query.
 
 ## 8. Chunks — do Chunk 1, then stop and report
 

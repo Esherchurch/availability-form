@@ -58,6 +58,11 @@ const PORT = 9620, ORIG_PORT = 8893, V2_PORT = 8894;
 
 const args = process.argv.slice(2);
 const wantShots = args.includes('--shots');
+/* Some originals are sign-in gated and draw nothing without a database, so
+   there is nothing to compare. This points them at the SYNTHETIC emulator
+   instead - in the served copy only - which is also the stronger comparison
+   generally, because then both sides are reading the same data. */
+const onEmulator = args.includes('--originals-on-emulator');
 const only = args.find(a => !a.startsWith('--'));
 
 /* A synthetic member in the emulator, with nothing to do with any real
@@ -86,9 +91,14 @@ const ALLOWED_HOSTS = [
    written for it, and a half-read is worse than no read. */
 const EMU_PORTS = ['8181', '9099', '9199', '8182', '9098', '9198'];
 
-/* A url this check cannot even parse is refused, not allowed. */
+/* A url this check cannot even parse is refused, not allowed.
+   data:, blob: and about: have no host and never leave the machine, so they
+   are local - treating them as unparseable made the leak detector cry wolf on
+   half the pages, which is as bad as missing a real one. */
+const LOCAL_SCHEME = /^(data|blob|about|chrome|chrome-extension|filesystem):/i;
 const hostOf = u => { try { return new URL(u).host; } catch { return null; } };
 const isLive = u => {
+  if (LOCAL_SCHEME.test(String(u))) return false;
   const h = hostOf(u);
   if (h === null) return true;
   if (/^(localhost|127\.0\.0\.1)(:|$)/.test(h)) return false;
@@ -124,12 +134,95 @@ const SIGNIN = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>sign-in<
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js"></script></head><body>sign-in harness</body></html>`;
 
-function serve(dir, port, extra) {
+/* The same, for the ORIGINALS' origin. A sign-in is kept per origin, and the
+   two sides are served on different ports, so signing in on one does nothing
+   for the other - which is why the gated originals still went to login.html.
+   This one builds the app itself, pointed at the emulator, so it can never
+   reach a real account. The config is the public one already in every page. */
+const ORIG_SIGNIN = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>sign-in</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head><body>sign-in harness (originals)
+<script>
+var app = firebase.initializeApp({
+  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
+  authDomain: "egbc-worship-planner.firebaseapp.com",
+  projectId: "egbc-worship-planner",
+  storageBucket: "egbc-worship-planner.firebasestorage.app",
+  appId: "1:199442060489:web:7eaf85a76334c753db6918"
+});
+firebase.firestore(app).useEmulator('localhost', 8181);
+firebase.auth(app).useEmulator('http://localhost:9099', { disableWarnings: true });
+</script></body></html>`;
+
+/* Points an ORIGINAL page at the emulator, in the copy that is served and
+   never on disk. Some originals are sign-in gated - hub.html and
+   resources.html send anyone without an account to login.html - so with no
+   database they draw nothing and there is nothing to compare. This is the only
+   way to see them, and it is the safe way round: the page talks to the
+   synthetic emulator instead of the church's data, and the allowlist still
+   refuses everything that would leave the machine.
+   Injected straight after the last Firebase compat script, which is where
+   `firebase` exists and the page's own code has not run yet. */
+const EMULATOR_HOOK = `<script>/* injected by tests/compare-with-original.mjs */
+(function () {
+  if (!window.firebase || !firebase.initializeApp) return;
+  var realInit = firebase.initializeApp;
+  firebase.initializeApp = function () {
+    var app = realInit.apply(this, arguments);
+    try { firebase.firestore(app).useEmulator('localhost', 8181); } catch (e) {}
+    try { firebase.auth(app).useEmulator('http://localhost:9099', { disableWarnings: true }); } catch (e) {}
+    try { if (firebase.storage) firebase.storage(app).useEmulator('localhost', 9199); } catch (e) {}
+    return app;
+  };
+})();
+</script>`;
+/* No service workers, on either side.
+ *
+ * THIS IS THE HOLE THROUGH WHICH LIVE DATA CAME BACK. Several pages register
+ * ./sw.js. A service worker is a separate context: its own fetches are NOT
+ * intercepted, so nothing here could refuse them - and its scope is the whole
+ * origin, so once one page had registered it, every later page on that origin
+ * could be served through it. That is why the leak was intermittent and why
+ * running a page on its own looked clean.
+ *
+ * Stubbing the registration is also the right comparison: what is being
+ * compared is what the page draws, not what it caches for offline use.
+ */
+const NO_SW = `<script>/* injected by tests/compare-with-original.mjs */
+(function () {
+  try {
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.register = function () { return Promise.resolve(undefined); };
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        rs.forEach(function (r) { r.unregister(); });
+      }).catch(function () {});
+    }
+  } catch (e) {}
+})();
+</script>`;
+function stripServiceWorker(html) {
+  const head = /<head[^>]*>/i.exec(html);
+  if (head) return html.slice(0, head.index + head[0].length) + NO_SW + html.slice(head.index + head[0].length);
+  return NO_SW + html;
+}
+
+const COMPAT_TAG = /<script[^>]+firebasejs\/[^"']*-compat\.js[^>]*><\/script>/gi;
+function pointAtEmulator(html) {
+  let last = null, m;
+  COMPAT_TAG.lastIndex = 0;
+  while ((m = COMPAT_TAG.exec(html))) last = m.index + m[0].length;
+  if (last === null) return html;
+  return html.slice(0, last) + '\n' + EMULATOR_HOOK + html.slice(last);
+}
+
+function serve(dir, port, extra, hookEmulator) {
   return http.createServer((req, res) => {
     const url = decodeURIComponent(req.url.split('?')[0]);
-    if (extra && url === '/__signin.html') {
+    if (url === '/__signin.html' && (extra || hookEmulator)) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-      return res.end(SIGNIN);
+      return res.end(extra ? SIGNIN : ORIG_SIGNIN);
     }
     const name = url.replace(/^\//, '') || 'index.html';
     const file = path.join(dir, name);
@@ -141,7 +234,13 @@ function serve(dir, port, extra) {
       '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml',
       '.webmanifest': 'application/manifest+json' }[ext] || 'application/octet-stream';
     res.writeHead(200, { 'Content-Type': type + '; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(fs.readFileSync(file));
+    let body = fs.readFileSync(file);
+    if (ext === '.html') {
+      let text = stripServiceWorker(body.toString('utf8'));
+      if (hookEmulator) text = pointAtEmulator(text);
+      body = Buffer.from(text, 'utf8');
+    }
+    res.end(body);
   }).listen(port);
 }
 
@@ -272,7 +371,9 @@ function missingFrom(origRows, v2Rows) {
   if (!pages.length) { console.error('no page matched ' + only); process.exit(1); }
   if (wantShots) fs.mkdirSync(SHOTS, { recursive: true });
 
-  const sOrig = serve(ROOT, ORIG_PORT, false), sV2 = serve(V2, V2_PORT, true);
+  const sOrig = serve(ROOT, ORIG_PORT, false, onEmulator), sV2 = serve(V2, V2_PORT, true, false);
+  if (onEmulator) console.log('the originals are pointed at the emulator for this run, in the copy\n' +
+    'that is served - nothing on disk is touched, and nothing may still leave this machine\n');
   /* A FRESH browser profile every run, thrown away afterwards. Reusing one
      cost a morning: run page by page and four pages reported no differences,
      run the same four in one go on a kept profile and one of them reported
@@ -296,7 +397,8 @@ function missingFrom(origRows, v2Rows) {
   if (!list) { console.error('Chrome did not start - set CHROME_PATH'); process.exit(1); }
   const ws = new WebSocket(list.find(x => x.type === 'page').webSocketDebuggerUrl);
   let id = 0; const pend = new Map();
-  let side = 'orig', nowPage = '(start-up)', refusedLive = 0, refusedEmu = 0, leaked = [];
+  let side = 'orig', nowPage = '(start-up)', refusedLive = 0, refusedEmu = 0;
+  const leaked = [], gotData = [];
   const send = (m, p = {}) => new Promise(r => {
     const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p }));
   });
@@ -304,6 +406,16 @@ function missingFrom(origRows, v2Rows) {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); return; }
+    /* A RESPONSE from somewhere that is not this machine means data actually
+       came back, whatever the interception thinks it did. This is the detector
+       that would have caught the live Firestore reads immediately instead of
+       after they had already happened: an attempt is not a leak, a reply is. */
+    if (m.method === 'Network.responseReceived') {
+      const u = m.params.response && m.params.response.url;
+      if (u && isLive(u) && !/firebasestorage|storage\.googleapis|gstatic|fonts\./.test(String(hostOf(u))))
+        gotData.push((side === 'orig' ? 'original ' : 'v2 ') + nowPage + ' <- ' + hostOf(u));
+      return;
+    }
     if (m.method !== 'Fetch.requestPaused') return;
     const u = m.params.request.url || '';
     const fail = () => send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' });
@@ -317,7 +429,7 @@ function missingFrom(origRows, v2Rows) {
         leaked.push(nowPage + ' -> ' + String(u).split('?')[0]);
       return fail();
     }
-    if (side === 'orig' && isEmulator(u)) { refusedEmu++; return fail(); }
+    if (side === 'orig' && !onEmulator && isEmulator(u)) { refusedEmu++; return fail(); }
     send('Fetch.continueRequest', { requestId: m.params.requestId });
   };
   await send('Runtime.enable'); await send('Page.enable');
@@ -330,7 +442,13 @@ function missingFrom(origRows, v2Rows) {
     return r.result && r.result.value;
   };
 
-  /* Sign in once on the v2 origin. Every v2 page shares that session. */
+  /* Sign in once on the v2 origin. Every v2 page shares that session.
+     EGBC_SKIP_SIGNIN=1 leaves it signed out, which is the only way to compare
+     login.html: signed in, v2's login page sends you straight to the hub, as
+     it is meant to. */
+  if (process.env.EGBC_SKIP_SIGNIN === '1') {
+    console.log('signed out, by EGBC_SKIP_SIGNIN=1\n');
+  } else {
   side = 'v2';
   await send('Page.navigate', { url: 'http://localhost:' + V2_PORT + '/__signin.html' });
   await sleep(4000);
@@ -348,6 +466,18 @@ function missingFrom(origRows, v2Rows) {
   }
   console.log('signed in to v2 as ' + who + '\n');
 
+  /* And again on the originals' origin, where that run needs it. */
+  if (onEmulator) {
+    side = 'orig';
+    await send('Page.navigate', { url: 'http://localhost:' + ORIG_PORT + '/__signin.html' });
+    await sleep(4000);
+    await ev('firebase.auth().signInWithEmailAndPassword(' +
+      JSON.stringify(ACCOUNT.email) + ',' + JSON.stringify(ACCOUNT.pw) + ')', true);
+    const whoOrig = await ev('((firebase.auth().currentUser)||{}).email || "(nobody)"');
+    console.log('signed in to the originals as ' + whoOrig + '\n');
+  }
+  }
+
   const grab = async (which, page, shot) => {
     side = which; nowPage = page;
     const port = which === 'orig' ? ORIG_PORT : V2_PORT;
@@ -359,6 +489,18 @@ function missingFrom(origRows, v2Rows) {
        same page reported nineteen headings it had never had. */
     await send('Page.navigate', { url: 'about:blank' });
     await sleep(500);
+    /* Wipe what the last page left behind on this origin. All 51 originals
+       share one origin, so they share its storage, and the training pages keep
+       their whole working copy in sessionStorage - so anything one page got
+       hold of was still there for the next twenty. That is how a page reported
+       rows it had never loaded.
+       Only the originals' origin: v2's sign-in is kept in storage on its own
+       origin, and wiping that would sign every v2 page out and make the whole
+       run a list of false failures. */
+    await send('Storage.clearDataForOrigin', {
+      origin: 'http://localhost:' + ORIG_PORT,
+      storageTypes: 'local_storage,session_storage,indexeddb,websql,cache_storage,service_workers'
+    });
     await send('Page.navigate', { url: 'http://localhost:' + port + '/' + encodeURI(page) });
     await sleep(which === 'orig' ? 6000 : 9000);
     /* And then prove what is actually on screen. A snapshot of the wrong page
@@ -428,8 +570,26 @@ function missingFrom(origRows, v2Rows) {
     }
     const v2Controls = (b.controls || []).map(norm);
     const have = new Set(v2Controls);
+    /* Same tag, same id, same handler - only the words on it differ. That is
+       the control, reworded; it is not a control that has gone. login.html's
+       "Send me a link" became "Email me a sign in link" and nothing else about
+       it changed. */
+    /* An id or a handler is required: without one, every plain button on the
+       page would look like every other, and a control that really had gone
+       would be waved through as "reworded". */
+    const skeletonOf = c => {
+      const p = String(c).split('|');
+      return (p[1] || p[3]) ? norm(p[0] + ' | ' + (p[1] || '') + ' | ' + (p[3] || '')) : null;
+    };
+    const sameButton = new Set((b.controls || []).map(skeletonOf).filter(Boolean));
     for (const c of a.controls || []) {
       if (have.has(norm(c))) continue;
+      const p = String(c).split('|');
+      const skeleton = skeletonOf(c);
+      if (skeleton && sameButton.has(skeleton)) {
+        diffs.push({ kind: 'control reworded', what: c, orig: p[2], v2: p[2], dataOnly: false });
+        continue;
+      }
       /* Say what v2 has in its place. A bare "no match" sends you reading the
          page to find out whether the control is gone or merely renamed, which
          is work the check can do once instead of a person doing it 51 times. */
@@ -476,10 +636,15 @@ function missingFrom(origRows, v2Rows) {
     '\ncontainers skipped because their id is generated: ' + ungradable +
     '\nlosses to fix: ' + total);
   if (leaked.length) console.log('\nA v2 page tried to reach live: ' + [...new Set(leaked)].join(', '));
+  if (gotData.length) {
+    console.log('\n*** STOP. Data came back from somewhere off this machine, so this run read');
+    console.log('*** something it should not have, and nothing in it can be trusted:');
+    for (const g of [...new Set(gotData)]) console.log('      ' + g);
+  }
   fs.writeFileSync(path.join(V2, 'tests', 'compare-last.json'), JSON.stringify(table, null, 1));
   console.log('full result: tests/compare-last.json');
 
   sOrig.close(); sV2.close(); chrome.kill();
   try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Chrome may still hold a file; it is in the temp directory either way. */ }
-  process.exit(total ? 1 : 0);
+  process.exit(total || gotData.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

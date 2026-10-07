@@ -80,7 +80,15 @@ const PAGES = [
     first: "(()=>{try{if(typeof endTour==='function')endTour()}catch(e){}" +
            "const o=document.getElementById('tour-overlay');if(o)o.classList.remove('active');})()",
     states: [
-      ['home', "openSection('home')"],
+      /* The tour FIRST, before it is dismissed. A3b ran endTour() as its very
+         first action and so never looked at it - which left the two controls a
+         new person sees before anything else, Skip and Next, as the only
+         capsules on the page. A screen that the measurement's own set-up hides
+         is still a screen. */
+      ['the welcome tour', "(()=>{ if (typeof startTour === 'function') { startTour(); return 'started'; } " +
+        "const o = document.getElementById('tour-overlay'); if (o) { o.classList.add('active'); return 'shown'; } return 'no tour'; })()"],
+      ['home', "(()=>{ try { if (typeof endTour === 'function') endTour(); } catch (e) {} " +
+        "const o = document.getElementById('tour-overlay'); if (o) o.classList.remove('active'); return openSection('home'); })()"],
       ['service planner', "openSection('service')"],
       ['service detail', "(()=>{const c=document.querySelector('#service-list .service-card,#service-list [onclick]');if(c)c.click();else openSection('service-detail')})()"],
       ['rota', "openSection('rota')"],

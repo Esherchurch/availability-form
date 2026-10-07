@@ -88,11 +88,40 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
    a live hostname refuses the emulator's own sign-in. */
 const ALLOWED_HOSTS = ['www.gstatic.com', 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com',
   'cdn.jsdelivr.net', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const LOCAL_SCHEME = /^(data|blob|about|chrome|chrome-extension|filesystem):/i;
 const isLive = u => {
+  if (LOCAL_SCHEME.test(String(u))) return false;
   let h; try { h = new URL(u).host; } catch { return true; }
   if (/^(localhost|127\.0\.0\.1)(:|$)/.test(h)) return false;
   return !ALLOWED_HOSTS.includes(h.split(':')[0]);
 };
+/* Reading or writing the church's records, as opposed to fetching a picture
+   or an embedded video. This is what makes a page's connection a fault. */
+const DATA_HOST = /\/\/(firestore\.googleapis\.com|[^/]*\.firebaseio\.com|identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com|[^/]*\.firebasedatabase\.app|[^/]*\.cloudfunctions\.net|[^/]*\.run\.app|api\.resend\.com)\//i;
+
+/* No service workers. A service worker is a separate context: its own fetches
+   are not intercepted, so the refusal above cannot see them, and its scope is
+   the whole origin - so one page registering ./sw.js can serve every other
+   page on that origin. That is how live data got past the refusal in the
+   side-by-side comparison. Nothing here is about offline caching, so the
+   registration is stubbed. */
+const NO_SW = `<script>/* injected by tests/smoke-all-pages.mjs */
+(function () {
+  try {
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.register = function () { return Promise.resolve(undefined); };
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        rs.forEach(function (r) { r.unregister(); });
+      }).catch(function () {});
+    }
+  } catch (e) {}
+})();
+</script>`;
+function stripServiceWorker(html) {
+  const head = /<head[^>]*>/i.exec(html);
+  if (head) return html.slice(0, head.index + head[0].length) + NO_SW + html.slice(head.index + head[0].length);
+  return NO_SW + html;
+}
 
 const R = [];
 const ok = (n, v, x) => { R.push(v); console.log((v ? '  PASS  ' : '  FAIL  ') + n + (x ? '  [' + x + ']' : '')); };
@@ -108,9 +137,12 @@ const ok = (n, v, x) => { R.push(v); console.log((v ? '  PASS  ' : '  FAIL  ') +
     if (!path.resolve(file).startsWith(V2) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404); return res.end('not found');
     }
-    res.writeHead(200, { 'Content-Type': (TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream') +
+    const ext = path.extname(file).toLowerCase();
+    res.writeHead(200, { 'Content-Type': (TYPES[ext] || 'application/octet-stream') +
       '; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(fs.readFileSync(file));
+    let body = fs.readFileSync(file);
+    if (ext === '.html') body = Buffer.from(stripServiceWorker(body.toString('utf8')), 'utf8');
+    res.end(body);
   }).listen(SERVE);
 
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
@@ -136,7 +168,14 @@ const ok = (n, v, x) => { R.push(v); console.log((v ? '  PASS  ' : '  FAIL  ') +
     }
     if (m.method === 'Fetch.requestPaused') {
       const u = m.params.request.url || '';
-      if (isLive(u)) { reachedLive.push(nowPage); return send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' }); }
+      if (isLive(u)) {
+        /* Only a DATA api counts. The pages have always linked their pictures
+           out of the storage bucket and embedded the odd video, and reporting
+           those as "reading the church's real data" made the warning useless:
+           it named twenty-nine pages, nearly all of them for a logo. */
+        if (DATA_HOST.test(String(u))) reachedLive.push(nowPage + ' -> ' + u.split('/')[2]);
+        return send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' });
+      }
       send('Fetch.continueRequest', { requestId: m.params.requestId });
     }
   };

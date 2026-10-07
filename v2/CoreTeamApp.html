@@ -499,8 +499,12 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 .tour-tooltip-title { font-size: 14px; font-weight:600; margin-bottom: 6px; }
 .tour-tooltip-text  { font-size: 12px; font-weight: 600; opacity: 0.85; line-height: 1.5; margin-bottom: 12px; }
 .tour-btn-row { display: flex; align-items: center; gap: 8px; }
-.tour-skip { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: var(--r-pill); font-family: var(--font); font-size:13px; font-weight:500; cursor: pointer; }
-.tour-next { background: white; border: none; color: var(--teal); padding: 8px 16px; border-radius: var(--r-pill); font-family: var(--font); font-size:13px; font-weight:500; cursor: pointer; margin-left: auto; }
+/* 8px, not a capsule. A3 took the pills off every control on this page except
+   these two, because the measurement dismissed the tour before it looked - so
+   the only two controls a new person sees first were the only two left round.
+   DESIGN.md: 8px controls, no pills. */
+.tour-skip { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: var(--r-sm); font-family: var(--font); font-size:13px; font-weight:500; cursor: pointer; }
+.tour-next { background: white; border: none; color: var(--teal); padding: 8px 16px; border-radius: var(--r-sm); font-family: var(--font); font-size:13px; font-weight:500; cursor: pointer; margin-left: auto; }
 .tour-step-count { font-size:13px; opacity: 0.6; font-weight:600; }
 
 /* ══ SERVICE PLANNER ══ */

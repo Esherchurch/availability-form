@@ -9,6 +9,7 @@ Run every one of these from `v2/`, not from here.
 | Every v2 page against the original it replaced, side by side | `node tests/compare-with-original.mjs` (add a page name for one; `--shots` also saves screenshots) |
 | No start-up handler is attached after a top-level await | `node tests/check-late-handlers.mjs` |
 | The news board on the dashboard can still be managed | `node tests/check-news-dashboard.mjs` |
+| A Kids Church role stored under its old name survives a save | `node tests/check-old-kids-roles.mjs` |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
 

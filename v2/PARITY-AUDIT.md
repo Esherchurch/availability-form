@@ -174,3 +174,130 @@ Not a decision — a recommendation for S2:
 3. **The Sunday planner and the email builder**, which send.
 4. The rest in the order the church actually opens them, which Martin knows
    and I do not.
+
+---
+
+# S2c — every page side by side against the original
+
+Run 7 October 2026. This closes S-006: §3 said an action was still *there*;
+this says what each page actually *draws*.
+
+`node tests/compare-with-original.mjs` loads each page from the original site
+and from v2, opens everything behind a tab or a sheet on both, and compares
+what a person would see before touching anything: the rows a list opens with
+and their order, the values already in the fields, which option is selected,
+every control and what it is wired to, and every heading.
+
+## The short answer
+
+**48 of the 51 pages compare with nothing lost.** The other three are handled
+below, and nothing is lost on them either. Six real losses were found and all
+six are fixed, each with a check that fails when the fix is taken out again.
+
+## What was lost, and is not any more
+
+**The news board on the dashboard** (`EGBCWorship&AV.html`) had lost most of
+itself, and a comparison of the source could not have seen it, because the page
+still had a news feature:
+
+- the **Manage** button, and with it any way to edit or remove a news item that
+  already existed — v2 could only ever add another one;
+- **Show until**, so an item could no longer be set to disappear by itself
+  after a day: the field, the stored value and the filter had all gone;
+- the strip that takes `<style>` and `<meta>` out of a pasted newsletter, so
+  one pasted email would have restyled the whole dashboard;
+- `saveDashToDb()` saying whether it had saved, and the roll-back that goes
+  with it. A failed save left the change on screen with nothing but a small
+  status chip, so whoever made it had no reason to think it had not been kept.
+
+Proof: `node tests/check-news-dashboard.mjs`, 7/7. Put the expiry filter and
+the style strip back the way they were and exactly those two checks fail.
+
+**Five pages were building their own Firebase app on the live config** —
+`trainingbatchimporter`, `trainingmusicdatabase`, `trainingportalhub`,
+`training Sunday planner`, `trainingrotaplanner`. Two consequences: served from
+localhost they read the **live** database while every other page read the
+emulator, so development on them was working on real data; and their reads
+carried no signed-in user, so the day the rules are deployed they would have
+been refused and a training session would open on an empty page. All five now
+use the shared connection. Giving two of them `await ready` also gave them the
+start-up race from S2a, so one needed that fix as well —
+`tests/check-late-handlers.mjs` is what said so.
+
+**A Kids Church role stored under its old name was being erased.** The role
+names were deliberately redone (Leader, Assistant and Helper, with Crèche,
+replacing Group Leader (Younger/Older) and Supporting Adult) — that is an
+agreed change. But a record written before it still holds the old words, the
+loader did not find a checkbox to tick, and because saving rebuilds the list
+from whatever *is* ticked, the next save deleted the role without a word. An
+unmapped role is now kept, shown ticked and labelled "(old name)".
+Proof: `node tests/check-old-kids-roles.mjs`, 4/4; take the fix out and the
+save deletes the role.
+
+**What the mapping should be is still a decision**, not a guess: nothing here
+says that Supporting Adult becomes Assistant or Helper. The old name is kept
+visible until somebody says.
+
+## The three pages that are not compared this way
+
+- **`hub.html`** — the original keeps its admin panel as hidden markup; v2
+  builds the same panel in `hub-app.js` when it is opened, so revealing hidden
+  elements finds nothing and the comparison reported 51 losses that were not
+  losses. Driven by hand instead, opening the panel on both: v2 has the People
+  tab, the Youth access codes tab and the Page registry, with Unlink, Wrong
+  person?, Send code, Add page and Edit — everything the original had, plus
+  Notices, Check every link and the bring-across tools. Nothing lost.
+- **`login.html`** — signed in, v2's login page sends you to the hub, which is
+  what it is for. Compared signed out (`EGBC_SKIP_SIGNIN=1`): one difference,
+  the button `linkBtn` reading "Email me a sign in link" where the original
+  said "Send me a link". Same id, same handler. Wording.
+- **`resources.html`** — the original is sign-in gated and draws nothing
+  without a database. Compared with the original pointed at the **synthetic**
+  emulator (`--originals-on-emulator`): nothing lost.
+
+## What the check deliberately does not compare
+
+**Data.** The original is read with no database at all and v2 against the
+synthetic emulator, so a list can hold "No news yet" on one side and three
+invented notices on the other. Where both sides have rows, the difference is
+counted as data and reported separately. Where **v2's list is empty and the
+original's is not**, that is a loss — which is exactly the shape of the bug
+that started all this, the Sunday planner opening with no order of service.
+
+**Generated ids.** Rows are built with ids from `Date.now()` or a random
+string, so the same container has a different name on each side and on every
+load. Containers named that way are counted and skipped.
+
+## Three ways this check lied before it was trusted
+
+Worth writing down, because each one produced a long, confident list of
+failures that were nothing of the kind.
+
+1. **It read the church's live database.** Live Firebase was blocked with a
+   list of hosts to *refuse*, and the original pages got past it: real members'
+   names and a real service note came back in the output. The hole was
+   `./sw.js` — several pages register a service worker, a service worker's own
+   fetches are not intercepted, and its scope is the whole origin, so one page
+   registering it could serve every later page. Now: an **allowlist** of
+   localhost and seven CDN hosts; service worker registration stubbed on both
+   sides; and a **response** from any host off this machine fails the run
+   outright. An attempt is not a leak; a reply is. Every output file and
+   screenshot made before that was deleted, and none was ever committed.
+2. **It kept one browser profile between runs**, and state carried over. One
+   page reported nineteen headings that are in neither copy of it and nowhere
+   in the repository. A fresh profile every run, thrown away afterwards.
+3. **It trusted that it had loaded the page it asked for.** Several pages
+   navigate themselves once they know who you are. It now proves which page it
+   measured and says "not compared" rather than inventing a page of losses. The
+   originals' storage is also wiped between pages: all 51 share one origin, and
+   the training pages keep their whole working copy in `sessionStorage`.
+
+## Still open, for Martin
+
+- **`worshiphubapp.html` reaches live Firestore from localhost.** It builds its
+  own Firebase app and hooks no emulator, exactly as the five training pages
+  did. It is out of scope for this window, so it has been left alone — but the
+  same two consequences apply to it.
+- **`birthday.html` and `youth-access.html` are still drawn in Montserrat.**
+  Group 2, not yet restyled; `tests/smoke-all-pages.mjs` reports 126/128 and
+  those are the two.
