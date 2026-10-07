@@ -115,6 +115,16 @@ Checked: the four remaining Group 1 pages, screenshots read (rota and Rota Plann
 
 **F-013** (a fresh hub with no registry applied shows 0 tools) goes on the launch checklist (Q), not fixed now.
 
+## 10. Chunk 2 (Events) accepted (2fd48116) — Martin's decisions on the findings
+
+- **F-018 Rota parity: not wanted.** The availability form gathers the data, auto-fill spreads serving by frequency, and volunteers will not use accept/decline. Do not build accept/decline, swaps, self sign-up, reminders or clash reports. (Lesson for both windows: survey how the church actually runs the rota before calling something missing.)
+- **Rota calendars:** rota emails already attach an .ics. A subscribable rota feed is **not** requested. (F-015's subscribe item is about the events feed only; leave it with the server chunk.)
+- **F-016 Pictures: admins only.** Event and room pictures may be uploaded only by admins (or the event's overseers if Martin says so later). Fix `storage.rules` with rules tests and a deliberate break. Martin will say what "send a link to people" means before anything else is built for it.
+- **F-014 email service:** confirmed open — an empty POST is answered without any login. The service is Calla's (Resend). It is fixed **in Calla**, not here, from a separate brief. Do not change the hub's email calls until that brief lands.
+- **F-019 index:** Martin deploys indexes only (`firebase deploy --only firestore:indexes`) — safe, it cannot lock anyone out.
+
+**Next: Step D** (One app — Chunk 2), then A3.
+
 ## 3. Order of work across the three briefs
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
@@ -128,7 +138,7 @@ One step at a time. Stop and report after each. Pull before each step; commit sm
 | ~~B~~ | ~~One app — Chunk 1~~ — done (4b6c375e), gate reads 0 |
 | (was B) | **One app — Chunk 1:** every in-scope page onto the one signed-in connection — **the five live-writing pages first** (§0, §5) | ONE-APP |
 | ~~A2~~ | ~~Finish Restyle Group 1: cards and lists~~ — done (2998c851) | RESTYLE |
-| C | **Events — Chunk 2:** events and sign-ups (`contacts` first) | EVENTS |
+| ~~C~~ | ~~Events — Chunk 2~~ — done (2fd48116) | EVENTS |
 | D | One app — Chunk 2: EGBC Hub as the main app, companions, Meet tab, real-phone tests | ONE-APP |
 | A3 | **Controls and emoji on Group 1** (R-012, R-013) | RESTYLE |
 | E | **Share — Chunk 1:** Share to WhatsApp on notices and meetings (events join when built) | SHARE-NOTIFY |
