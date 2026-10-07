@@ -135,16 +135,36 @@ Checked: the four remaining Group 1 pages, screenshots read (rota and Rota Plann
   - The same function serves the **events feed** (F-015's subscribe item). One server step, not two.
   - **Deploy safety:** `sendEmail` lives in the same Google project but belongs to the Calla window and is not in this repo. Martin deploys only with `firebase deploy --only functions:hub` (or the named function). **Never a bare `firebase deploy --only functions`**, because it would offer to delete `sendEmail`. Say this plainly in the hand-over steps.
   - Test on the Functions emulator with synthetic data only.
-  - **When:** new **Step R**, after Step F. Establish first, build second, stop and report.
+  - **When:** **Step R, before launch** (see §12). Build the rota feed first; the events feed waits until after launch. Establish first, build second, stop and report.
 - **F-016 "send a link to people" means a one-off upload link** (e.g. pictures from a party). An admin makes a link for an event; anyone with the link can upload pictures without signing in.
   - `uploadLinks/{randomId}`: event, made by, expiry (default 14 days), max files (default 50), on/off. An admin can switch it off at any time.
   - New page `upload.html?k=…`: phone-first, pick photos, upload, thank-you. No account; name optional.
   - Storage path `uploads/{linkId}/…`. `storage.rules` allows a write only when the link exists, is on and unexpired, the file is an image (JPEG, PNG, HEIC, WebP) and under 15 MB. Only admins can read or list them. Rules tests with deliberate breaks: expired link, switched-off link, a PDF, a 20 MB file, a guest trying to read.
   - **Safeguarding:** uploads land in a **review queue** in `events-admin.html`. Nothing appears anywhere until an admin approves it, because photos may show children. Approve, reject, download all as a zip. Rejected files are deleted by Martin, not by code you run.
   - Share the link with Share to WhatsApp (Step E) and a QR code.
-  - **When:** with **Step G** (Events Chunk 3).
+  - **When:** with **Step G** (Events Chunk 3), after launch (see §12).
 
-## 3. Order of work across the three briefs
+## 12. The launch line (Martin, 7 Oct 2026) — this order replaces the table in §3
+
+**Before switch-over, v2 only has to match what the original site does today, plus what is already built, plus the live rota calendar.** Events, room hire and everything else the original site never had come **after** launch. Do not extend events or bookings before launch. What is already built (Events Chunks 1–2, sign-up pages, Places) stays, and must not break, but gets no new features.
+
+**Before switch-over, in this order:**
+
+| Step | Work |
+|---|---|
+| A3b | Finish Group 1: every screen, tab, sheet and modal measured, not just the first view |
+| S | **Parity audit (establish only, then stop and report).** List every page and every action on the original site (repo root, outside `v2/`). For each, name the v2 page that does it and prove it works in v2 on the emulator with synthetic data. Gaps go in a numbered list. Do not build, and do not call something missing without checking how the church actually uses it (see the F-018 lesson). |
+| S2 | Close the parity gaps Martin approves from S |
+| R | Live rota calendar (§11). The events feed waits until after launch. |
+| H | Restyle Group 2 (Worship & AV) |
+| M | Restyle Group 3 (Youth & kids, **Worship Hub excluded**) |
+| P | Restyle Group 4 (everything else, including login and the Availability form) |
+| T | Email lock, hub side: v2 pages onto `egbc-email.js` with the sign-in token. Only once the Calla window's Stage 2 is deployed and accepting both ways. |
+| Q | Launch checklist page, plus Martin's switch-over steps in plain words: rules deploy, indexes, app renames (A-014), phone tests, turning off the email service's old way |
+
+**After launch, in this order:** E Share to WhatsApp, F/K notifications, G check-in, forms, safeguarding and the one-off upload links, the events calendar feed, I room bookings, J profile and directory, L hire and charges (Condeco level), N kids registration, O small groups and the giving seam.
+
+## 3. Order of work across the three briefs (superseded by §12)
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
 
