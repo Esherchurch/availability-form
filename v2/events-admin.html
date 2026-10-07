@@ -17,6 +17,7 @@
 <script src="egbc-ics.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610062100"></script>
 <script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-checkin.js?v=202610072300"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -121,7 +122,7 @@
   var E = window.EGBCEvents, esc = E.esc;
   var ALL = [], LOOK = { sites: {}, rooms: {}, venues: {} }, SITES = [], ROOMS = [], VENUES = [];
   var CUR = null, TT = [], QS = [], CAP = null, ED = null, TAB = 'details', showPast = false;
-  var SIGNUPS = [], CHECK = null, NOTES = '', CHANGES = [], COMMS = [];
+  var SIGNUPS = [], CHECK = null, NOTES = '', CHANGES = [], COMMS = [], CSET = {};
 
   function db() { return EGBCAuth.db; }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
@@ -204,7 +205,9 @@
         db().collection('eventChecklists').doc(id).get(),
         db().collection('eventNotes').doc(id).get(),
         db().collection('eventChanges').where('calEventId', '==', id).get(),
-        db().collection('commsLog').where('calEventId', '==', id).get()
+        db().collection('commsLog').where('calEventId', '==', id).get(),
+        /* Which questions are medical, for the download (F-029). */
+        db().collection('checkinSettings').doc(id).get().catch(function () { return null; })
       ]);
     }).then(function (r) {
       /* Sorted here rather than in the query on purpose: an orderBy drops
@@ -219,6 +222,7 @@
         .sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
       COMMS = r[4].docs.map(function (d) { return d.data(); })
         .sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
+      CSET = (r[5] && r[5].exists) ? r[5].data() : {};
       drawEditor();
     }).catch(function (e) { toast('Could not open that: ' + (e.message || e)); });
   }
@@ -442,6 +446,8 @@
     }
     return '<div class="bar">' +
         '<button class="btn sec" id="csv"><i data-lucide="download" style="width:15px;height:15px"></i>Download the list</button>' +
+        (QS.some(function (q) { return EGBCCheckin.isMedical(q, CSET); })
+          ? '<label class="check" style="margin:0"><input type="checkbox" id="csvMed">Include medical details</label>' : '') +
         '<button class="btn sec" id="mailAll"><i data-lucide="mail" style="width:15px;height:15px"></i>Email everyone</button>' +
         '<a class="btn sec" href="checkin.html?event=' + encodeURIComponent(CUR.id) + '"><i data-lucide="scan-line" style="width:15px;height:15px"></i>Check-in</a>' +
         '<a class="btn sec" href="attendance.html?event=' + encodeURIComponent(CUR.id) + '"><i data-lucide="file-down" style="width:15px;height:15px"></i>Registers and downloads</a>' +
@@ -753,15 +759,34 @@
     });
   }
 
+  /* F-029, Martin's decision: medical answers stay out of this download
+     unless "Include medical details" is ticked, and a download that has
+     them is logged first - who, when, which columns - the same as the
+     registers. No log, no file. Ticked, the answers asked for each person
+     come too, one column per question ("Child One: peanuts; Child Two: none"). */
   function csv() {
-    var qcols = QS.filter(function (q) { return q.per !== 'attendee'; });
+    var withMed = !!(document.getElementById('csvMed') || {}).checked;
+    var med = function (q) { return EGBCCheckin.isMedical(q, CSET); };
+    var qcols = QS.filter(function (q) { return q.per !== 'attendee' && (withMed || !med(q)); });
+    var pcols = withMed ? QS.filter(function (q) { return q.per === 'attendee' && med(q); }) : [];
     var head = ['Name', 'Email', 'Phone', 'Places', 'Status', 'Who is coming', 'Notes']
-      .concat(qcols.map(function (q) { return q.label; }));
+      .concat(qcols.map(function (q) { return q.label; }))
+      .concat(pcols.map(function (q) { return q.label + ' (each person)'; }));
     var rows = SIGNUPS.map(function (s) {
       return [s.name, s.email, s.phone || '', s.places || 1, s.status,
               (s.attendees || []).map(function (a) { return a.name; }).join('; '), s.notes || '']
-        .concat(qcols.map(function (q) { return (s.answers || {})[q.id] || ''; }));
+        .concat(qcols.map(function (q) { return (s.answers || {})[q.id] || ''; }))
+        .concat(pcols.map(function (q) {
+          return (s.attendees || []).map(function (a) { return a.name + ': ' + (a['q_' + q.id] || ''); }).join('; ');
+        }));
     });
+    if (!withMed) return saveCsv(head, rows);
+    EGBCCheckin.logDownload({ calEventId: CUR.id, what: 'who is coming', format: 'csv', columns: head, sensitive: true })
+      .then(function () { saveCsv(head, rows); })
+      .catch(function (e) { toast('The download could not be recorded, so it was not made: ' + (e.message || e)); });
+  }
+
+  function saveCsv(head, rows) {
     var out = [head].concat(rows).map(function (r) {
       return r.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(',');
     }).join('\r\n');

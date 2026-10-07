@@ -135,6 +135,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'capacity', 'ev_e1b'), { calEventId: 'ev_e1b', taken: 0, capacity: 4 });
   for (const e of ['ev_e1', 'ev_e1b']) {
     await setDoc(doc(db, 'calEvents', e, 'questions', 'q_collect'), { label: 'Who may collect your children?', kind: 'text', per: 'booking', required: false, options: [], order: 1 });
+    await setDoc(doc(db, 'calEvents', e, 'questions', 'q_medical'), { label: 'Any medical conditions we should know about?', kind: 'text', per: 'booking', required: false, options: [], order: 3 });
     await setDoc(doc(db, 'calEvents', e, 'questions', 'q_allergy'), { label: 'Allergies or medical needs', kind: 'text', per: 'attendee', required: false, options: [], order: 2 });
   }
 });
@@ -152,10 +153,9 @@ async function launch(label, extraArgs = []) {
   return b;
 }
 /* egbc-shell.js reloads a page once per tab when version.json's stamp
-   differs from its own, and that reload drops the query string
-   (FINDINGS-events.md F-025, a request to the main window). Marking the tab
-   as already refreshed lets these tests reach the pages; the separate
-   "known" check below shows the problem itself. */
+   differs from its own. Marking the tab as already refreshed keeps that
+   reload out of the way of the other checks; the F-025 check below opens a
+   tab WITHOUT the mark, to prove the reload keeps the rest of the address. */
 const STAMP = JSON.parse(fs.readFileSync(path.join(V2, 'version.json'), 'utf8').replace(/^﻿/, '')).stamp;
 async function pageOf(b, label, width = 1100, raw = false) {
   const p = await b.newPage();
@@ -177,16 +177,6 @@ const tap = (p, sel) => p.$eval(sel, e => e.click());
 const toastText = (p) => p.$eval('#toast', t => t.style.display === 'block' ? t.textContent : '').catch(() => '');
 
 try {
-  /* ---------- 0. known, not mine to fix: F-025 ---------- */
-  const rawB = await launch('raw');
-  const raw = await pageOf(rawB, 'raw', 390, true);
-  await raw.goto(URLB + 'my-signup.html?key=anything', { waitUntil: 'networkidle2' });
-  await sleep(1500);
-  const landed = await raw.evaluate(() => location.search);
-  console.log('  KNOWN  F-025: a fresh tab opening my-signup.html?key=anything lands on "' + landed + '"' +
-    (/key=/.test(landed) ? ' (fixed - the key survived)' : ' - the key is lost'));
-  await rawB.close();
-
   /* ---------- 1. a guest signs up ---------- */
   const guestB = await launch('guest');
   const guest = await pageOf(guestB, 'guest', 390);
@@ -205,6 +195,7 @@ try {
   await guest.type('#att1', 'Child Two');
   await guest.type('#a1_q_allergy', 'None');
   await guest.type('#b_q_collect', 'Parent Synthetic, Aunt Invented');
+  await guest.type('#b_q_medical', 'Asthma - inhaler in bag');
   await sleep(2700);   /* the form's minimum fill time */
   await tap(guest, '#go');
   const mail = await until(() => guest.evaluate(() => (window.__egbcOutbox || []).slice(-1)[0] || null), 15000);
@@ -239,6 +230,20 @@ try {
   const shown = await guest.$$eval('[data-code]', els => els.map(e => e.getAttribute('data-code')));
   ok('the booking page shows the same two codes', JSON.stringify(shown) === JSON.stringify(expected));
   await guest.screenshot({ path: path.join(OUT, 'e1-my-signup-375.png'), fullPage: true });
+
+  /* F-025: the email link, opened in a brand-new tab, the way a guest does.
+     The page header reloads it once for a fresh copy; the key must survive. */
+  {
+    const rawB = await launch('raw');
+    const raw = await pageOf(rawB, 'raw', 390, true);
+    await raw.goto(URLB + 'my-signup.html?key=' + manageKey, { waitUntil: 'networkidle2' });
+    await until(() => raw.evaluate(() => /[?&]v=/.test(location.search)).catch(() => false), 8000);
+    await raw.waitForSelector('[data-code]', { timeout: 15000 }).catch(() => {});
+    const landed = await raw.evaluate(() => location.search);
+    ok('F-025: a fresh tab reloads for a fresh copy and keeps the key',
+      /[?&]v=/.test(landed) && landed.indexOf('key=' + manageKey) >= 0 && !!(await raw.$('[data-code]')), landed);
+    await rawB.close();
+  }
 
   /* A camera picture of Child One's code, made from the email's own PNG:
      a Y4M video Chrome plays as if it were the phone's camera. */
@@ -396,7 +401,7 @@ try {
   const text1 = csv1 ? fs.readFileSync(path.join(aB.__dl, csv1), 'utf8') : '';
   ok('CSV: one row per person, with who checked them in and out', text1 && text1.split('\r\n').length === 5 &&
     /"Name","Booked by","Came","Checked in","Checked in by","Checked out","Collected by"/.test(text1) && /Stranger Unknown \(not listed/.test(text1), text1.split('\r\n')[0]);
-  ok('the medical column is left out unless chosen', !/EpiPen/.test(text1));
+  ok('the medical columns are left out unless chosen', !/EpiPen|Asthma/.test(text1));
   await tap(W, '.col[value="q_q_allergy"]');
   const csv2 = await grab('#dlCsv', /who came\.csv$/);
   const text2 = fs.readFileSync(path.join(aB.__dl, csv2), 'utf8');
@@ -452,6 +457,21 @@ try {
   const links = await W.$$eval('#tabBody a.btn', as => as.map(a => a.getAttribute('href')));
   ok('Who is coming links to check-in and registers', links.includes('checkin.html?event=ev_e1') && links.includes('attendance.html?event=ev_e1'), JSON.stringify(links));
   ok('the existing download and email buttons are still there', !!(await W.$('#csv')) && !!(await W.$('#mailAll')));
+
+  /* F-029, Martin's decision: "Download the list" leaves medical answers
+     out unless "Include medical details" is ticked, and logs it when it is. */
+  const logsBefore = (await readDb(db => getDocs(collection(db, 'downloadsLog')))).size;
+  const list1 = await grab('#csv', /who is coming\.csv$/);
+  const lt1 = list1 ? fs.readFileSync(path.join(aB.__dl, list1), 'utf8') : '';
+  ok('F-029: the list leaves medical answers out by default', lt1 && /Parent Synthetic/.test(lt1) && !/Asthma|EpiPen/.test(lt1) && /Who may collect/.test(lt1), lt1.split('\r\n')[0]);
+  ok('F-029: a download without them is not logged', (await readDb(db => getDocs(collection(db, 'downloadsLog')))).size === logsBefore);
+  await tap(W, '#csvMed');
+  const list2 = await grab('#csv', /who is coming\.csv$/);
+  const lt2 = list2 ? fs.readFileSync(path.join(aB.__dl, list2), 'utf8') : '';
+  ok('F-029: ticked, the medical answers are in, for each person too', /Asthma - inhaler in bag/.test(lt2) && /Child One: Peanuts - carries an EpiPen/.test(lt2), lt2.split('\r\n')[0]);
+  const medLog = (await readDb(db => getDocs(collection(db, 'downloadsLog')))).docs.map(d => d.data()).filter(l => l.what === 'who is coming');
+  ok('F-029: and that download is logged as sensitive, in the admin’s name', medLog.length === 1 && medLog[0].sensitive === true &&
+    medLog[0].by === ADMIN1.uid && medLog[0].columns.includes('Any medical conditions we should know about?'), JSON.stringify(medLog));
 
   await aB.close(); await bB.close();
 } catch (e) {

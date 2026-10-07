@@ -75,6 +75,18 @@
 
   function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
+  /* Which questions count as medical for downloads (F-029, Martin's
+     decision): any marked as a flag in Check-in settings, and any whose
+     wording says it is about health - so an allergy question nobody
+     remembered to mark is still left out unless "include medical details"
+     is ticked. Leaving out too much is the safe way to be wrong. */
+  var MEDICAL_WORDS = /allerg|medic|health|condition|asthma|diabet|epilep|epi-?pen|disabilit|additional need|first aid/i;
+  function isMedical(q, settings) {
+    if (!q) return false;
+    if (((settings || {}).flagQuestionIds || []).indexOf(q.id) >= 0) return true;
+    return MEDICAL_WORDS.test(q.label || '');
+  }
+
   function questionAnswer(su, att, q) {
     if (!q) return '';
     if (q.per === 'attendee') return att ? att['q_' + q.id] : '';
@@ -261,7 +273,7 @@
   var api = {
     codeFor: codeFor, parseCode: parseCode, checkinId: checkinId,
     people: people, isListedCollector: isListedCollector, splitNames: splitNames,
-    meaningful: meaningful, answerText: answerText, headcount: headcount,
+    meaningful: meaningful, answerText: answerText, headcount: headcount, isMedical: isMedical,
     checkIn: checkIn, checkOut: checkOut, walkIn: walkIn, today: today,
     logDownload: logDownload, csvText: csvText, saveFile: saveFile, KEY_PART: KEY_PART
   };

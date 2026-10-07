@@ -115,7 +115,7 @@
       { id: 'walkIn', label: 'Walk-in', on: false, get: function (r) { return r.walkIn ? 'Yes' : ''; } }
     ];
     QS.forEach(function (q) {
-      var sensitive = (SETTINGS.flagQuestionIds || []).indexOf(q.id) >= 0;
+      var sensitive = C.isMedical(q, SETTINGS);
       cols.push({ id: 'q_' + q.id, label: q.label || 'Question', on: !sensitive, sensitive: sensitive,
                   get: function (r) { return r.answer ? r.answer(q) : ''; } });
     });
@@ -151,7 +151,7 @@
           return '<label class="check"><input type="checkbox" class="col" value="' + esc(c.id) + '"' + (c.on ? ' checked' : '') + '>' +
             esc(c.label) + (c.sensitive ? '<span class="flag warn">Medical</span>' : '') + '</label>';
         }).join('') + '</div>' +
-        ((SETTINGS.flagQuestionIds || []).length
+        (QS.some(function (q) { return C.isMedical(q, SETTINGS); })
           ? '<div class="banner info">Columns marked Medical are only for the people looking after this event. Any download that includes one is recorded: who, when and which columns.</div>' : '') +
         '<div class="bar">' +
           '<button class="btn sec" id="dlCsv">' + ico('file-text') + 'CSV</button>' +

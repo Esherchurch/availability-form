@@ -323,7 +323,12 @@ times and who collected a child. A volunteer at the door who is not an admin
 cannot check people in until then. Leaders are added by hand at the door
 ("Leader" button), not yet read from the rota.
 
-### F-025 — REQUEST for the main window: the page header drops the address's `?…`
+### F-025 — fixed (617dceb, reviewing window): the page header dropped the address's `?…`
+**Fixed.** The reviewing window changed `egbc-shell.js` to keep the rest of the
+address. The E1 test now opens the guest's real email link in a brand-new tab
+and checks that the key survives the reload and the booking shows. Put the old
+line back and that check fails. The original report follows.
+
 `egbc-shell.js` `checkFresh()` reloads a page once per tab when `version.json`
 differs from the page's own stamp, and does it with
 `location.replace(location.pathname + '?v=' + v.stamp + location.hash)`. That
@@ -377,6 +382,19 @@ on the sign-up record, as every answer does today.
   behaves. Proposal for E3: that button either leaves out medical answers or
   goes through the same log.
 
+**Done in E1, Martin's decision:** "Download the list" now leaves medical answers
+out unless "Include medical details" is ticked, and a download that includes
+them is logged first (who, when, which columns), the same as the registers: no
+log, no file. Ticked, it also includes the answers asked for each person, which
+it never did before. A download without medical answers is not logged, and
+otherwise the button behaves as it always has.
+**What counts as medical:** any question marked as a flag in Check-in settings,
+**and** any question whose wording mentions allergies, medical, health,
+conditions, asthma, diabetes, epilepsy, EpiPen, disability, additional needs or
+first aid. So an allergy question nobody remembered to mark is still left out.
+The Registers page uses the same rule. If a medical question is worded some
+other way, an admin marks it in Check-in settings.
+
 ### F-030 — "sign up to the whole series" is a setting with nothing behind it
 The events page lets an admin choose "Sign up to: the whole series", but
 `signup.html` never reads that setting. Every sign-up is for one date (Chunk 2).
@@ -385,7 +403,7 @@ dates when the bookings point at the same person record and the attendee has
 the same name. Building whole-series sign-up is a Chunk 2 change for Martin to
 approve.
 
-### F-031 — REQUEST for the main window: hub entries for E1
+### F-031 — REQUEST for the main window: hub entries for E1 (noted for the main window)
 For the "Where to?" registry (`hubPages`), admins only:
 - **Check-in**: `checkin.html` (icon `scan-line`). Opens a picker of today's
   and this week's events, and the roll-call.
