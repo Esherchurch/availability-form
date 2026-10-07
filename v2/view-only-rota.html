@@ -268,7 +268,9 @@
         .text-\[\#9bc34a\] { color:var(--success) !important; }
 
         /* Typography — tame heavy weights + shouty tracking */
-        .font-black { font-weight:800 !important; }
+        /* DESIGN.md caps weight at 600; a page title is the exception and
+           sets its own. */
+        .font-semibold { font-weight:600 !important; }
         .tracking-widest { letter-spacing:.08em !important; }
 
         /* Radii → tokens (pills/badges keep rounded-full) */
@@ -282,11 +284,18 @@
         .shadow-xl, .shadow-lg { box-shadow:var(--shadow) !important; }
         .shadow-md, .shadow-sm { box-shadow:var(--shadow-sm) !important; }
 
+        /* Nothing below 12px; 13px is the secondary size in the guide. */
+        .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\] { font-size:13px !important; }
+        select, input, textarea { font-size:13px !important; border-radius:8px !important; min-height:36px; }
+
         /* Buttons → one system (text action buttons all carry .uppercase) */
+        /* A button: 36px tall, 8px corners, 13px/500, sentence case. */
         button.uppercase{
-            border-radius:var(--r-md) !important;
-            font-weight:700 !important;
-            letter-spacing:.02em !important;
+            border-radius:8px !important;
+            font-weight:500 !important;
+            font-size:13px !important;
+            min-height:36px; padding:0 14px !important;
+            letter-spacing:0 !important;
             text-transform:none !important;
             transition:background .15s ease, transform .05s ease, box-shadow .15s ease !important;
         }
@@ -307,8 +316,9 @@
             outline:none !important;
         }
 
-        /* Readability pass (additive, brand-safe): lift tiny sub-11px labels */
-        .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size: 11px !important; }
+        /* The readability pass that lifted tiny labels to 11px has gone: the
+           rule above puts them at 13px, which is the guide's own size, and
+           two rules of equal weight meant the later one quietly won. */
 
         /* Loading shimmer skeleton (design-system component) */
         .sk{ background:linear-gradient(90deg,var(--surface-2) 25%,var(--hairline) 37%,var(--surface-2) 63%); background-size:400% 100%; animation:sh 1.4s ease infinite; border-radius:6px; }
@@ -334,13 +344,13 @@
         <header class="flex flex-wrap items-center justify-end gap-3 mb-6 bg-white p-4 rounded-[14px] border border-[#e5e7eb] shadow-sm">
             <span class="text-[13px] font-semibold text-[#111827] mr-auto ml-2">Rota downloads</span>
             
-            <button onclick="generatePDF('full')" class="bg-[#f0f6f6] text-[#3d6263] px-5 py-2 rounded-full font-black text-[9px] uppercase hover:bg-[#d1dfdf] transition-all">Full Rota PDF</button>
+            <button onclick="generatePDF('full')" class="bg-[#f0f6f6] text-[#3d6263] px-5 py-2 rounded-full font-semibold text-[9px] uppercase hover:bg-[#d1dfdf] transition-all">Full Rota PDF</button>
             <div class="h-4 w-[1px] bg-[#d1dfdf] mx-1"></div>
             
-            <select id="memberPdfSelect" class="bg-[#f0f6f6] rounded-full px-4 py-2 text-[10px] font-bold uppercase border border-[#d1dfdf] outline-none"></select>
-            <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Individual PDF</button>
-            <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-[#9bc34a] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Household PDF</button>
-            <button onclick="generatePDF('wall', document.getElementById('memberPdfSelect').value)" class="bg-[#b07d2e] text-white px-5 py-2 rounded-full font-black text-[9px] uppercase hover:scale-105 transition-all shadow-md">Wall Planner</button>
+            <select id="memberPdfSelect" class="bg-[#f0f6f6] rounded-full px-4 py-2 text-[10px] font-medium uppercase border border-[#d1dfdf] outline-none"></select>
+            <button onclick="generatePDF('individual', document.getElementById('memberPdfSelect').value)" class="bg-[#3d6263] text-white px-5 py-2 rounded-full font-semibold text-[9px] uppercase hover:scale-105 transition-all shadow-md">Individual PDF</button>
+            <button onclick="generatePDF('household', document.getElementById('memberPdfSelect').value)" class="bg-[#9bc34a] text-white px-5 py-2 rounded-full font-semibold text-[9px] uppercase hover:scale-105 transition-all shadow-md">Household PDF</button>
+            <button onclick="generatePDF('wall', document.getElementById('memberPdfSelect').value)" class="bg-[#b07d2e] text-white px-5 py-2 rounded-full font-semibold text-[9px] uppercase hover:scale-105 transition-all shadow-md">Wall Planner</button>
         </header>
 
         <div id="rotaContent">

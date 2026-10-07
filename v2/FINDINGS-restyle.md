@@ -131,7 +131,7 @@ no uncaught error, computes to Inter and keeps its controls.
 
 ## Found and not fixed
 
-### R-012 — the controls on these pages are still the old style
+### R-012 — the controls on these pages are still the old style — DONE in A3
 Cards and rows are done; buttons, selects, inputs and form labels are not, and
 they are what is left shouting. On the Planner: 11px labels in 700 beside every
 checkbox, date and time controls as filled capsules, "SEND ALL ROTAS" in caps.
@@ -147,7 +147,7 @@ titles, which are legitimately 700.
 Controls are their own job across all four groups, so they are parked here
 rather than half-done on four pages.
 
-### R-013 — emoji are still on the Group 1 pages, and R-002 overstated it
+### R-013 — emoji are still on the Group 1 pages, and R-002 overstated it — DONE in A3
 R-002 said "emoji replaced in Group 1". That was true of the pages it names and
 not of these: `CoreTeamApp.html` carries 80 emoji — the email compiler toolbar,
 the team chips, the modal titles, the service-item type glyphs, the whole
@@ -183,3 +183,90 @@ due until Group 4.
 1280px and 375px, full page, both sets against the same synthetic data. The
 after set predates Step A's changes and should be retaken when Group 1 is
 actually finished.
+
+---
+
+# Step A3 — controls and emoji
+
+Measured before and after on the rendered page, not read off the source. A
+control or a line of text counts as off the guide when it is 700 weight or
+heavier, set in capitals, under 12px, a capsule, or in Montserrat.
+
+| Page | Before | After |
+|---|---|---|
+| addressbook.html | 214 | 0 |
+| Planner.html | 130 | 0 |
+| places-admin.html | 24 | 0 |
+| SundayServicePlanner.html | 14 | 0 |
+| view-only-rota.html | 5 | 0 |
+| CoreTeamApp.html | 4 | 0 |
+| resources.html | 2 | 0 |
+| videos.html | 2 | 0 |
+| **Total** | **395** | **0** |
+
+Emoji, outside comments: **115 to 0**. CoreTeamApp held 86 of them.
+
+### R-014 — the theming engine beats any page rule, and that is why this took a different shape
+`egbc-ui.js` injects
+`html:not(.egbc-no-theme) .font-extrabold:not([contenteditable] *):not([contenteditable])`
+with `font-weight:700!important`. That is four class-level pieces and it is
+injected after the page's own stylesheet, so no sensible page rule outranks
+it. The first attempt at A3 was a block of CSS per page, and the weights
+stayed at 700 however the selectors were written.
+
+That engine is right: it was built to tame pages nobody had restyled yet,
+and it still does. The answer for a page that **is** being restyled is not to
+out-specify it but to stop the markup asking for a weight the guide does not
+have — `font-extrabold` and `font-black` became `font-semibold`, and
+`font-bold` became `font-medium`, in the markup. The engine then has nothing
+to clamp.
+
+Worth knowing before Group 2: the engine will go on quietly making a page
+look *nearly* right, which is what hid this.
+
+### R-015 — two rules of equal weight, and the later one wins silently
+`view-only-rota.html` carried two floors for small text: a new one at 13px
+and an older "readability pass" at 11px, both `!important`, both equally
+specific. The later won, so the member picker stayed at 11px through three
+attempts to fix it. The old pass is gone.
+
+### R-016 — capitals that no stylesheet can fix
+The team ticks in the address book were typed `CORE`, `WORSHIP`,
+`KIDS CHURCH`. The capitals are the text, not a `text-transform`, so the
+engine left them exactly as written — correctly. Eighteen labels and two
+headings now read in sentence case. **The checkbox values are untouched**:
+those are the team names the rota matches on, and changing one would quietly
+unassign people. Counted before and after: 16 either way.
+
+### R-017 — places-admin had two headers
+`egbc-guard.js` drops a sign-out chip into `#userChip` on any page that has
+one, and `egbc-shell.js` puts a bar with Hub, Menu and sign-out on any page
+that loads it. Places had both, one above the other. The guard now stands
+down where the shared bar is already there. Nothing lost: the bar offers the
+same three things.
+
+### R-018 — the Places walk was not repeatable, and said so in the wrong voice
+It failed 6 of 15 checks before this step and after it. Not the page: the
+walk seeds eight rooms by pressing the page's own Seed button, and that
+button does nothing once a site exists. A site existed because the events
+seed from Step C had invented one. So the fixture the walk needed never
+appeared and four checks failed for a reason that had nothing to do with
+Places.
+
+Both ends fixed: the events seed now hangs its events on whatever site and
+room are already there, and the walk clears the place records before it
+starts. 15/15, twice in a row.
+
+### R-019 — found and not fixed: two pages are still on Montserrat
+`birthday.html` and `youth-access.html`. Both are Group 4 and due there.
+Proved to pre-date this step by stashing these changes and measuring again.
+
+### R-020 — found and not fixed: the emailed service plan
+`SundayServicePlanner.html` builds an HTML email with its own inline styles
+— Arial, 9 and 10px, capitals, 800 weight. It is left alone. An email is not
+the interface, it cannot use the icon font or the web font, and every mail
+client re-renders it anyway. Changing it is a decision about what the church
+sends out, not a restyle, and it should be made deliberately.
+
+The plain-text version of the same plan **was** changed, because it used
+emoji as list markers: it now reads `1. Song: …`, `2. Prayer: …`.

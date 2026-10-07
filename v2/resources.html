@@ -43,8 +43,8 @@
     <div class="flex items-center gap-4">
       <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-14 h-14 rounded-full object-cover flex-shrink-0" style="border:2px solid #dde7e6">
       <div>
-        <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC Team Hub</div>
-        <h1 class="text-3xl font-black tracking-tight">Resources</h1>
+        <div class="text-[13px] text-[#6b7280] mb-1">EGBC Team Hub</div>
+        <h1 class="text-3xl font-semibold tracking-tight">Resources</h1>
         <p class="text-sm font-semibold opacity-60 mt-1">Documents, guides and links for your teams</p>
       </div>
     </div>
@@ -55,7 +55,7 @@
       <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input id="search" placeholder="Search resources…" oninput="render()" class="w-full pl-12 pr-5 py-3 rounded-full border border-[#dde7e6] bg-white font-semibold text-sm">
     </div>
-    <button id="addBtn" onclick="openEditor()" class="hidden bg-[#3d6263] text-white px-7 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all whitespace-nowrap">+ Add resource</button>
+    <button id="addBtn" onclick="openEditor()" class="hidden bg-[#3d6263] text-white px-4 h-9 rounded-lg font-medium text-[13px] hover:bg-[#2a4a4b] transition-colors whitespace-nowrap">+ Add resource</button>
   </div>
 
   <div id="teamTabs" class="flex gap-2 flex-wrap mb-6"></div>
@@ -64,8 +64,8 @@
   <!-- UPLOAD -->
   <div id="uploadArea" class="hidden mb-8">
     <div id="dropZone" class="drop-zone rounded-[1.5rem] px-6 py-10 text-center cursor-pointer bg-white" onclick="document.getElementById('files').click()">
-      <div class="text-3xl mb-2 opacity-30">📎</div>
-      <div class="text-[13px] font-black uppercase tracking-widest opacity-70">Drop files here</div>
+      <div class="mb-2" style="color:#9ca3af"><i data-lucide="paperclip" style="width:28px;height:28px"></i></div>
+      <div class="text-[13px] font-semibold uppercase tracking-widest opacity-70">Drop files here</div>
       <div class="text-[12px] opacity-45 mt-1">PDFs, Word, Excel, images, anything · or click to browse</div>
     </div>
     <input id="files" type="file" multiple class="hidden" onchange="queueFiles(Array.from(this.files))">
@@ -75,25 +75,25 @@
   <!-- EDITOR -->
   <div id="editor" class="hidden bg-white rounded-[1.5rem] border-2 border-[#3d6263] p-6 mb-8 space-y-3">
     <div class="flex justify-between items-center mb-1">
-      <h3 class="font-black uppercase text-[11px] tracking-widest">Add a resource</h3>
-      <button onclick="closeEditor()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-lg">✕</button>
+      <h3 class="font-semibold uppercase text-[11px] tracking-widest">Add a resource</h3>
+      <button onclick="closeEditor()" aria-label="Close" class="text-[#9ca3af] hover:text-[#3d6263] font-medium text-lg"><i data-lucide="x" style="width:15px;height:15px"></i></button>
     </div>
     <div class="flex gap-2 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
-      <button onclick="editorMode('file')" id="em-file" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest bg-[#3d6263] text-white">Upload files</button>
-      <button onclick="editorMode('link')" id="em-link" class="px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest">Add a link</button>
+      <button onclick="editorMode('file')" id="em-file" class="px-3 h-8 rounded-lg font-medium text-[13px] bg-[#eef5f4] text-[#111827] border border-[#3d6263]">Upload files</button>
+      <button onclick="editorMode('link')" id="em-link" class="px-3 h-8 rounded-lg font-medium text-[13px] border border-[#d1d5db] text-[#374151]">Add a link</button>
     </div>
 
     <div id="linkFields" class="hidden space-y-3 pt-2">
-      <input id="lkTitle" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-sm">
+      <input id="lkTitle" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-medium text-sm">
       <input id="lkUrl" placeholder="https://…" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm">
       <input id="lkDesc" placeholder="One-line description — optional" class="w-full px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm">
     </div>
 
     <div class="grid md:grid-cols-3 gap-3 pt-2">
-      <select id="edTeam" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-sm"></select>
+      <select id="edTeam" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-medium text-sm"></select>
       <input id="edFolder" list="folderOptions" placeholder="Folder (e.g. Policies)" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-sm">
       <datalist id="folderOptions"></datalist>
-      <select id="edRole" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-sm">
+      <select id="edRole" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-medium text-sm">
         <option value="member">Everyone on the team</option>
         <option value="leader">Leaders and above</option>
         <option value="admin">Admins only</option>
@@ -101,7 +101,7 @@
     </div>
 
     <div id="linkSave" class="hidden pt-1">
-      <button onclick="saveLink()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Save link</button>
+      <button onclick="saveLink()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-semibold text-[10px] uppercase tracking-widest hover:bg-black transition-all">Save link</button>
     </div>
   </div>
 
@@ -181,7 +181,7 @@ function renderFolders(){
   if(!f.length){el.innerHTML='';return;}
   const chip=(val,label)=>{
     const on=activeFolder===val;
-    return `<button onclick="activeFolder='${val.replace(/'/g,"\\'")}';render()" class="px-5 py-2 rounded-full font-bold text-[11px] border transition-all ${on?'bg-[#3d6263] text-white border-[#3d6263]':'bg-white border-[#dde7e6] hover:bg-[#f0f6f6]'}">${esc(label)}</button>`;
+    return `<button onclick="activeFolder='${val.replace(/'/g,"\\'")}';render()" class="px-5 py-2 rounded-full font-medium text-[11px] border transition-all ${on?'bg-[#3d6263] text-white border-[#3d6263]':'bg-white border-[#dde7e6] hover:bg-[#f0f6f6]'}">${esc(label)}</button>`;
   };
   el.innerHTML=chip('','All')+f.map(x=>chip(x,x)).join('');
 }
@@ -334,15 +334,15 @@ function renderQueue(){
     <div class="bg-white rounded-[1.25rem] border border-[#dde7e6] p-4">
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-xl">${iconFor({fileName:q.file.name})}</span>
-        <input value="${esc(q.title)}" oninput="setQ('${q.id}',this.value)" class="flex-grow min-w-[180px] px-4 py-2 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-bold text-[13px]">
-        <span class="text-[10px] font-bold opacity-40">${fmtSize(q.file.size)}</span>
-        ${q.status==='done'?'<span class="text-[10px] font-black uppercase text-green-700">Uploaded</span>':
-          q.status==='failed'?'<span class="text-[10px] font-black uppercase text-red-600">Failed</span>':
-          `<button onclick="dropQ('${q.id}')" class="text-[#d1dfdf] hover:text-red-500 font-black">✕</button>`}
+        <input value="${esc(q.title)}" oninput="setQ('${q.id}',this.value)" class="flex-grow min-w-[180px] px-4 py-2 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-medium text-[13px]">
+        <span class="text-[10px] font-medium opacity-40">${fmtSize(q.file.size)}</span>
+        ${q.status==='done'?'<span class="text-[10px] font-semibold uppercase text-green-700">Uploaded</span>':
+          q.status==='failed'?'<span class="text-[10px] font-semibold uppercase text-red-600">Failed</span>':
+          `<button onclick="dropQ('${q.id}')" class="text-[#d1dfdf] hover:text-red-500 font-semibold"><i data-lucide="x" style="width:15px;height:15px"></i></button>`}
       </div>
       ${q.status==='uploading'?`<div class="progress-track mt-3"><div class="progress-fill" style="width:${q.progress}%"></div></div>`:''}
     </div>`).join('')
-    +`<button onclick="uploadAll()" id="upBtn" class="w-full bg-[#3d6263] text-white py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Upload ${uploadQ.filter(q=>q.status!=='done').length} file(s)</button>`;
+    +`<button onclick="uploadAll()" id="upBtn" class="w-full bg-[#3d6263] text-white py-3 rounded-full font-semibold text-[10px] uppercase tracking-widest hover:bg-black transition-all">Upload ${uploadQ.filter(q=>q.status!=='done').length} file(s)</button>`;
 }
 
 function setQ(id,v){const q=uploadQ.find(x=>x.id===id);if(q)q.title=v;}

@@ -124,17 +124,17 @@
                             </div>
                           </div>
                         </td>
-                        <td class="p-4 text-xs font-bold text-gray-500">${escapeHtml(householdDisplay)}</td>
+                        <td class="p-4 text-xs font-medium text-gray-500">${escapeHtml(householdDisplay)}</td>
                         <td class="p-4">
-                            <div class="text-[11px] text-[#3d6263] font-extrabold uppercase tracking-tighter">P: ${member.primaryInstruments ? escapeHtml(member.primaryInstruments.join(', ')) : ''}</div>
+                            <div class="text-[11px] text-[#3d6263] font-semibold uppercase tracking-tighter">P: ${member.primaryInstruments ? escapeHtml(member.primaryInstruments.join(', ')) : ''}</div>
                             <div class="text-[10px] text-gray-400 italic">S: ${member.secondaryInstruments ? escapeHtml(member.secondaryInstruments.join(', ')) : ''}</div>
                         </td>
-                        <td class="p-4 text-center font-bold text-[#3d6263]">${escapeHtml(member.maxFrequency)}</td>
+                        <td class="p-4 text-center font-medium text-[#3d6263]">${escapeHtml(member.maxFrequency)}</td>
                         <td class="p-4 text-right space-x-3">
                             ${canEditMember(member)
-                              ? `<button onclick="editMember('${member.id}')" class="text-[#3d6263] font-bold text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
-                                 <button onclick="deleteMember('${member.id}')" class="text-red-300 hover:text-red-500 font-bold text-xl leading-none">&times;</button>`
-                              : `<span class="text-[10px] text-gray-300 font-bold uppercase" title="Not one of your teams">&mdash;</span>`}
+                              ? `<button onclick="editMember('${member.id}')" class="text-[#3d6263] font-medium text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
+                                 <button onclick="deleteMember('${member.id}')" class="text-red-300 hover:text-red-500 font-medium text-xl leading-none">&times;</button>`
+                              : `<span class="text-[10px] text-gray-300 font-medium uppercase" title="Not one of your teams">&mdash;</span>`}
                         </td>
                     </tr>
                 `;
@@ -287,6 +287,84 @@ document.addEventListener('egbc-ready',()=>{
         #memberListBody tr { border-color: var(--hairline) !important; }
         #memberListBody td { padding: 16px !important; }
 
+
+        /* ---- A3: controls to DESIGN.md ------------------------------
+           Buttons 36px tall, 8px corners, 13px/500. Inputs 40px, 8px, 14px.
+           Labels 13px/500 in sentence case. Nothing in capitals, nothing
+           tracked out, nothing heavier than 600, no capsules.
+
+           !important throughout because each of these fights a Tailwind
+           utility written into the markup, and a utility class beats a
+           plain element selector. */
+
+        html .card label, html .card summary, html .card .text-\[10px\], html .card .text-\[9px\], 
+        html .card .text-\[11px\] {
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
+            color: var(--muted) !important;
+        }
+        html .card label { color: var(--ink) !important; margin-bottom: 5px !important; }
+
+        html .card input:not([type=checkbox]):not([type=radio]), 
+        html .card select, html .card textarea {
+            height: 40px;
+            border-radius: 8px !important;
+            border: 1px solid #d1d5db !important;
+            background: #fff !important;
+            padding: 0 12px !important;
+            font-size: 14px !important;
+            font-weight: 400 !important;
+            text-align: left !important;
+            color: var(--ink) !important;
+        }
+        html .card textarea { height: auto; padding: 10px 12px !important; }
+        html .card input:focus, html .card select:focus, html .card textarea:focus {
+            border-color: var(--brand) !important;
+            box-shadow: 0 0 0 3px rgba(61,98,99,.15) !important;
+            outline: none !important;
+        }
+
+        html .card button, html .card .btn, html table button {
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
+            min-height: 36px;
+            padding: 0 14px !important;
+        }
+        /* The row buttons in the directory are small by design. */
+        html table button { min-height: 32px; padding: 0 11px !important; }
+
+        /* Team and instrument ticks read as a list, not as shouted tags. */
+        html .card .instr-grid label, html .card .instr-grid span, 
+        html .card [class*="marker"] span, html .card .text-\[10px\] span {
+            font-size: 13px !important;
+            font-weight: 400 !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
+        }
+
+        /* The page title, and the two headings over the panels. */
+        html .card h1 { font-size: 24px !important; font-weight: 700 !important; letter-spacing: 0 !important; }
+        html .card h2, html .card h3 { font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important; }
+
+        /* Column headings in the directory: a heading, not a shout. */
+        html table td { font-weight: 400 !important; }
+        html thead th {
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
+            color: var(--muted) !important;
+        }
+
+        /* Anything still asking to be a capsule, inside the page's own
+           panels, is an 8px control instead. */
+        html .card .rounded-full:not(.w-7):not(.h-7), html table .rounded-full { border-radius: 8px !important; }
+
         @media (max-width: 768px) {
             table { min-width: 560px; }
             #memberListBody td { padding: 12px 10px !important; }
@@ -301,74 +379,74 @@ document.addEventListener('egbc-ready',()=>{
              reports as --egbc-bar, so the Save button stays on screen. -->
         <div class="xl:col-span-1 card p-8 sticky top-12 flex flex-col"
              style="height: calc(100vh - 6rem - var(--egbc-bar, 0px))">
-            <h1 class="text-3xl font-extrabold text-[#14201f] tracking-tight mb-8 shrink-0">Member Entry</h1>
+            <h1 class="text-3xl font-semibold text-[#14201f] tracking-tight mb-8 shrink-0">Member entry</h1>
             
             <div id="entryFields" class="space-y-6 overflow-y-auto pr-2 flex-grow">
                 <div>
-                    <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Full Name</label>
-                    <input type="text" id="fullName" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-bold outline-none focus:border-[#9bc34a]">
+                    <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Full Name</label>
+                    <input type="text" id="fullName" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-medium outline-none focus:border-[#9bc34a]">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Email Address</label>
-                    <input type="email" id="email" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-bold outline-none focus:border-[#9bc34a]">
+                    <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Email Address</label>
+                    <input type="email" id="email" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-sm font-medium outline-none focus:border-[#9bc34a]">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Max / Mo</label>
-                        <input type="number" id="freq" value="2" min="0" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-center font-bold outline-none focus:border-[#9bc34a]">
+                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Max / Mo</label>
+                        <input type="number" id="freq" value="2" min="0" class="w-full bg-[#f8fafc] border border-[#d1dfdf] p-3 rounded-full text-center font-medium outline-none focus:border-[#9bc34a]">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Household</label>
-                        <select id="relatedTo" class="w-full bg-[#f0f6f6] border border-[#d1dfdf] p-3 rounded-full text-xs font-bold text-[#3d6263] outline-none focus:border-[#9bc34a]">
+                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Household</label>
+                        <select id="relatedTo" class="w-full bg-[#f0f6f6] border border-[#d1dfdf] p-3 rounded-full text-xs font-medium text-[#3d6263] outline-none focus:border-[#9bc34a]">
                             <option value="">None / New</option>
                         </select>
                     </div>
                 </div>
 
                 <details class="pt-1">
-                    <summary class="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#3d6263]">Most per team &mdash; optional</summary>
+                    <summary class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#3d6263]">Most per team &mdash; optional</summary>
                     <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mt-2 mb-3">Max / Mo above is the total across everything. Use these to stop one team taking all of it &mdash; three a month with a cap of two on each means two and one, either way round. Blank means no separate limit.</p>
                     <div class="space-y-2">
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Worship</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Worship Team" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">AV Team</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="AV Team" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Choir</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Choir" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Youth</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Youth Worship" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Kids Church</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Kids Church" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">Lazers</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="Lazers" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-gray-500 uppercase flex-grow">ReNu</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-bold outline-none" data-team="ReNu" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Worship</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Worship Team" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">AV Team</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="AV Team" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Choir</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Choir" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Youth</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Youth Worship" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Kids Church</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Kids Church" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Lazers</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Lazers" placeholder="&mdash;"></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">ReNu</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="ReNu" placeholder="&mdash;"></div>
                     </div>
                 </details>
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
-                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Teams</label>
-                    <div class="grid grid-cols-2 gap-2 text-[10px] font-bold text-gray-600">
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Core Team"> CORE</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Worship Team"> WORSHIP</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="AV Team"> AV TEAM</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Choir"> CHOIR</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Youth Worship"> YOUTH</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Kids Church"> KIDS CHURCH</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Lazers"> LAZERS</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="ReNu"> RENU</label>
+                    <label class="block text-[10px] font-semibold text-[#3d6263] uppercase tracking-widest">Teams</label>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-medium text-gray-600">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Core Team"> Core Team</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Worship Team"> Worship</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="AV Team"> AV</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Choir"> Choir</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Youth Worship"> Youth</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Kids Church"> Kids Church</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Lazers"> Lazers</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="ReNu"> ReNu</label>
                     </div>
 
                     <div class="pt-3 mt-1 border-t border-[#dde7e6] space-y-3">
                         <div>
-                            <label class="block text-[10px] font-extrabold text-[#6b4a7a] uppercase tracking-widest mb-1">Admin for</label>
+                            <label class="block text-[10px] font-semibold text-[#6b4a7a] uppercase tracking-widest mb-1">Admin for</label>
                             <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mb-2">Which areas they manage - pages, resources and people. Core Team usually means Worship and AV. Leave blank for ordinary members.</p>
-                            <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Worship Team"> WORSHIP</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="AV Team"> AV TEAM</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Choir"> CHOIR</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Youth Worship"> YOUTH</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Kids Church"> KIDS CHURCH</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Lazers"> LAZERS</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="ReNu"> RENU</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Core Team"> CORE TEAM</label>
+                            <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Worship Team"> Worship</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="AV Team"> AV</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Choir"> Choir</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Youth Worship"> Youth</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Kids Church"> Kids Church</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Lazers"> Lazers</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="ReNu"> ReNu</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Core Team"> Core Team</label>
                             </div>
                         </div>
 
-                        <label class="flex items-center gap-2 cursor-pointer text-[#6b4a7a] pt-1"><input type="checkbox" id="masterAdmin" class="w-3.5 h-3.5"> MASTER ADMIN</label>
+                        <label class="flex items-center gap-2 cursor-pointer text-[#6b4a7a] pt-1"><input type="checkbox" id="masterAdmin" class="w-3.5 h-3.5"> Master admin</label>
                         <p class="text-[9px] text-gray-400 font-semibold leading-relaxed -mt-2">Everything, everywhere, including making other people admins. Very few people.</p>
 
                         <label class="flex items-center gap-2 cursor-pointer text-[#8a5f1e] pt-1"><input type="checkbox" id="isMinor" class="w-3.5 h-3.5"> UNDER 16</label>
@@ -377,8 +455,8 @@ document.addEventListener('egbc-ready',()=>{
                 </div>
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
-                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Primary)</label>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                    <label class="block text-[10px] font-semibold text-[#3d6263] uppercase tracking-widest">Instruments (Primary)</label>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Worship Leader"> Worship Leader</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Sound"> Sound</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Words"> Words</label>
@@ -398,8 +476,8 @@ document.addEventListener('egbc-ready',()=>{
                 </div>
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
-                    <label class="block text-[10px] font-extrabold text-[#3d6263] uppercase tracking-widest">Instruments (Secondary)</label>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                    <label class="block text-[10px] font-semibold text-[#3d6263] uppercase tracking-widest">Instruments (Secondary)</label>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Worship Leader"> Worship Leader</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Sound"> Sound</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Words"> Words</label>
@@ -419,11 +497,11 @@ document.addEventListener('egbc-ready',()=>{
                 </div>
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
-                    <label class="block text-[10px] font-extrabold text-[#7a5f4a] uppercase tracking-widest">Kids Church Roles</label>
+                    <label class="block text-[10px] font-semibold text-[#7a5f4a] uppercase tracking-widest">Kids Church Roles</label>
                     <p class="text-[9px] text-gray-400 font-semibold leading-relaxed">Younger = Nursery, Reception, Y1, Y2 &middot; Older = Y3, Y4, Y5 &middot; Cr&egrave;che = under 3s.<br>Tick <strong>Usually</strong> for what they normally do, <strong>Can cover</strong> for what they will step into.<br>Helpers are not tied to a group &mdash; which group they take is decided when the week is planned.</p>
 
-                    <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-1">Usually</div>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                    <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-widest pt-1">Usually</div>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Session Leader"> Session Leader</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Younger)"> Leader &mdash; Younger</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Older)"> Leader &mdash; Older</label>
@@ -434,8 +512,8 @@ document.addEventListener('egbc-ready',()=>{
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Helper"> Helper</label>
                     </div>
 
-                    <div class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest pt-2">Can cover</div>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                    <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-widest pt-2">Can cover</div>
+                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Session Leader"> Session Leader</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Younger)"> Leader &mdash; Younger</label>
                         <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Older)"> Leader &mdash; Older</label>
@@ -450,18 +528,18 @@ document.addEventListener('egbc-ready',()=>{
 
             <!-- Always in view: it is the only way to save an edit. -->
             <div class="sticky-footer shrink-0">
-                <button id="saveBtn" onclick="saveMember()" class="w-full bg-[#3d6263] text-white font-bold py-3 rounded-xl text-sm shadow-lg hover:bg-[#9bc34a] transition-all">
+                <button id="saveBtn" onclick="saveMember()" class="w-full bg-[#3d6263] text-white font-medium py-3 rounded-xl text-sm shadow-lg hover:bg-[#9bc34a] transition-all">
                     Add to Address Book
                 </button>
             </div>
         </div>
 
         <div class="xl:col-span-3 card p-10">
-            <h2 class="text-3xl font-extrabold text-[#14201f] tracking-tight mb-8 border-b border-[#dde7e6] pb-8">Team Directory</h2>
+            <h2 class="text-3xl font-semibold text-[#14201f] tracking-tight mb-8 border-b border-[#dde7e6] pb-8">Team directory</h2>
             <div class="table-container">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="text-[10px] uppercase font-extrabold text-gray-400 tracking-[0.08em] border-b border-[#dde7e6]">
+                        <tr class="text-[10px] uppercase font-semibold text-gray-400 tracking-[0.08em] border-b border-[#dde7e6]">
                             <th class="pb-6">Member / Email</th>
                             <th class="pb-6">Family</th>
                             <th class="pb-6">Instruments</th>

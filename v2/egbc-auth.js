@@ -773,14 +773,21 @@
       var initials = (currentProfile.name || currentProfile.email || '?')
         .split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
       var onHub = location.pathname.split('/').pop() === HUB_PAGE;
+      /* DESIGN.md: 13px controls in sentence case, 8px corners, the initials
+         in a tinted square rather than a dark circle. Inline styles, because
+         the pages that mount this do not all load the same stylesheet. */
+      var L = 'font:500 13px Inter,system-ui,sans-serif;color:#6b7280;text-decoration:none;'
+            + 'padding:6px 8px;border-radius:8px;cursor:pointer;background:none;border:none';
       el.innerHTML =
-        '<div class="flex items-center gap-3">' +
-          (onHub ? '' : '<a href="' + HUB_PAGE + '" class="text-[10px] font-black uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity">&larr; Hub</a>') +
-          '<div class="flex items-center gap-2 bg-white border border-[#d1dfdf] rounded-full pl-1.5 pr-4 py-1.5">' +
-            '<div class="w-7 h-7 rounded-full bg-[#3d6263] text-white flex items-center justify-center text-[10px] font-black">' + initials + '</div>' +
-            '<span class="text-[11px] font-bold">' + (currentProfile.name || currentProfile.email) + '</span>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          (onHub ? '' : '<a href="' + HUB_PAGE + '" style="' + L + '">Hub</a>') +
+          '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e5e7eb;' +
+            'border-radius:8px;padding:4px 10px 4px 4px">' +
+            '<div style="width:28px;height:28px;border-radius:8px;background:#eef5f4;color:#3d6263;' +
+              'display:flex;align-items:center;justify-content:center;font:600 12px Inter,system-ui,sans-serif">' + initials + '</div>' +
+            '<span style="font:500 14px Inter,system-ui,sans-serif;color:#111827">' + (currentProfile.name || currentProfile.email) + '</span>' +
           '</div>' +
-          '<button onclick="EGBCAuth.signOut()" class="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Sign out</button>' +
+          '<button onclick="EGBCAuth.signOut()" style="' + L + '">Sign out</button>' +
         '</div>';
     },
 

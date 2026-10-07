@@ -10,7 +10,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Places — EGBC</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   :root{
@@ -22,40 +22,40 @@
     --shadow-sm:0 1px 2px rgba(20,32,31,.05);
     --shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);
   }
-  body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--body);-webkit-font-smoothing:antialiased}
+  body{background:var(--canvas);font-family:Inter,system-ui,sans-serif;color:var(--body);-webkit-font-smoothing:antialiased}
   h1,h2,h3{color:var(--ink)}
-  .card{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
-  .inp{background:var(--surface);border:1px solid var(--hairline-strong);border-radius:var(--r-md);
-       padding:9px 12px;font-weight:600;color:var(--ink);font-size:13px;width:100%}
-  .inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
-  .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:4px}
+  .card{background:var(--surface);border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+  .inp{background:var(--surface);border:1px solid #d1d5db;border-radius:8px;
+       height:40px;padding:0 12px;font-weight:400;color:var(--ink);font-size:14px;width:100%}
+  .inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(61,98,99,.15)}
+  .lbl{font-size:13px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink);display:block;margin-bottom:5px}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--brand);color:#fff;
-       padding:9px 16px;border-radius:var(--r-md);font-weight:800;font-size:12px;border:1px solid transparent;cursor:pointer}
+       height:36px;padding:0 14px;border-radius:8px;font-weight:500;font-size:13px;border:1px solid transparent;cursor:pointer}
   .btn:hover{background:var(--brand-dark)}
-  .btn-2{background:var(--brand-tint);color:var(--brand);border-color:var(--hairline)}
-  .btn-2:hover{background:#dbe8e7}
+  .btn-2{background:#fff;color:var(--ink);border-color:#d1d5db}
+  .btn-2:hover{background:#f3f4f6}
   .btn-d{background:var(--danger-tint);color:var(--danger);border-color:#e8c3bd}
-  .btn-x{background:transparent;color:var(--muted);border:1px solid var(--hairline-strong);padding:5px 9px;font-size:11px}
-  .tab{padding:9px 14px;border-radius:var(--r-pill);font-weight:800;font-size:12px;cursor:pointer;
-       background:transparent;color:var(--muted);border:1px solid transparent;white-space:nowrap}
-  .tab.on{background:var(--brand);color:#fff}
+  .btn-x{background:transparent;color:var(--muted);border:1px solid #d1d5db;height:32px;padding:0 11px;font-size:13px}
+  .tab{height:32px;padding:0 12px;border-radius:8px;font-weight:500;font-size:13px;cursor:pointer;
+       background:#fff;color:var(--body);border:1px solid #d1d5db;white-space:nowrap}
+  .tab.on{background:#eef5f4;color:var(--ink);border-color:var(--brand)}
   .row{border-top:1px solid var(--hairline);padding:12px 0}
   .row:first-child{border-top:none}
-  .pill{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
-        padding:3px 9px;border-radius:var(--r-pill);background:var(--brand-tint);color:var(--brand)}
-  .pill.off{background:var(--danger-tint);color:var(--danger)}
-  .pill.on{background:var(--success-tint);color:var(--success)}
+  .pill{display:inline-block;font-size:12px;font-weight:500;text-transform:none;letter-spacing:0;
+        padding:1px 8px;border-radius:6px;background:#f9fafb;color:var(--muted);border:1px solid #e5e7eb}
+  .pill.off{background:#fdf1ef;color:var(--danger);border-color:#f0d8d4}
+  .pill.on{background:#ecfdf3;color:#15803d;border-color:#cdeedd}
   .swatch{width:22px;height:22px;border-radius:var(--r-sm);border:1px solid var(--hairline-strong);padding:0;cursor:pointer}
-  .hint{font-size:11px;color:var(--muted);line-height:1.6}
+  .hint{font-size:13px;color:var(--muted);line-height:1.6}
   .tabs-scroll{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .tabs-scroll::-webkit-scrollbar{display:none}
   .lookup{position:absolute;z-index:40;left:0;right:0;top:100%;margin-top:4px;background:var(--surface);
           border:1px solid var(--hairline-strong);border-radius:var(--r-md);box-shadow:var(--shadow);max-height:240px;overflow:auto}
-  .lookup div{padding:9px 12px;font-size:12px;font-weight:600;cursor:pointer;border-top:1px solid var(--hairline)}
+  .lookup div{padding:9px 12px;font-size:14px;font-weight:400;cursor:pointer;border-top:1px solid #e5e7eb}
   .lookup div:first-child{border-top:none}
   .lookup div:hover{background:var(--surface-2)}
-  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:90;background:var(--brand);color:#fff;
-         padding:11px 20px;border-radius:var(--r-pill);font-size:12px;font-weight:800;box-shadow:var(--shadow);display:none}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:90;background:#111827;color:#fff;
+         padding:10px 16px;border-radius:8px;font-size:13px;font-weight:400;box-shadow:var(--shadow);display:none}
   @media (max-width:420px){ body{padding:12px!important} .btn{padding:9px 12px} }
 </style>
 </head>
@@ -64,7 +64,7 @@
 
   <div class="flex items-start justify-between gap-3 mb-5">
     <div>
-      <h1 class="text-xl sm:text-2xl font-black">Places</h1>
+      <h1 class="text-xl sm:text-2xl font-semibold">Places</h1>
       <p class="hint mt-1">Sites, rooms, bookable kit and outside venues. Everything else refers to these by
         their record, never by name — so renaming is always safe.</p>
     </div>
@@ -82,7 +82,7 @@
   <!-- ── SITES ──────────────────────────────────────────────────────── -->
   <section id="tab-sites">
     <div class="card p-4 sm:p-5 mb-4">
-      <h2 class="text-sm font-black mb-3">Add a site</h2>
+      <h2 class="text-sm font-semibold mb-3">Add a site</h2>
       <div class="grid sm:grid-cols-2 gap-3">
         <div><label class="lbl">Name</label><input id="s-name" class="inp" placeholder="Esher Green"></div>
         <div><label class="lbl">Postcode</label>
@@ -101,13 +101,13 @@
       <p class="hint mt-2">Seeding makes one site called <strong>Esher Green</strong> with Online and the seven
         rooms. Every name can be changed afterwards. It will not run twice.</p>
     </div>
-    <div class="card p-4 sm:p-5"><h2 class="text-sm font-black mb-1">Sites</h2><div id="sites-list"></div></div>
+    <div class="card p-4 sm:p-5"><h2 class="text-sm font-semibold mb-1">Sites</h2><div id="sites-list"></div></div>
   </section>
 
   <!-- ── ROOMS ──────────────────────────────────────────────────────── -->
   <section id="tab-rooms" class="hidden">
     <div class="card p-4 sm:p-5 mb-4">
-      <h2 class="text-sm font-black mb-3">Add a room</h2>
+      <h2 class="text-sm font-semibold mb-3">Add a room</h2>
       <div class="grid sm:grid-cols-2 gap-3">
         <div><label class="lbl">Name</label><input id="r-name" class="inp" placeholder="Upper Main Room 1"></div>
         <div><label class="lbl">Kind</label>
@@ -121,7 +121,7 @@
         <div><label class="lbl">Capacity</label><input id="r-cap" class="inp" type="number" min="0" placeholder="40"></div>
         <div><label class="lbl">Colour</label><input id="r-colour" class="inp" type="color" value="#3d6263"></div>
       </div>
-      <div class="flex flex-wrap gap-4 mt-3 text-xs font-bold" style="color:var(--brand)">
+      <div class="flex flex-wrap gap-4 mt-3 text-xs font-medium" style="color:var(--brand)">
         <label class="flex items-center gap-2"><input type="checkbox" id="r-acc" class="w-4 h-4"> Step-free access</label>
         <label class="flex items-center gap-2"><input type="checkbox" id="r-mem" class="w-4 h-4" checked> Members may book</label>
         <label class="flex items-center gap-2"><input type="checkbox" id="r-hire" class="w-4 h-4"> Outside hirers may book</label>
@@ -130,7 +130,7 @@
     </div>
     <div class="card p-4 sm:p-5">
       <div class="flex items-center justify-between gap-3 mb-1 flex-wrap">
-        <h2 class="text-sm font-black">Rooms</h2>
+        <h2 class="text-sm font-semibold">Rooms</h2>
         <select id="r-filter" class="inp" style="width:auto;min-width:160px"></select>
       </div>
       <div id="rooms-list"></div>
@@ -140,13 +140,13 @@
   <!-- ── KIT ────────────────────────────────────────────────────────── -->
   <section id="tab-kit" class="hidden">
     <div class="card p-4 sm:p-5 mb-4">
-      <h2 class="text-sm font-black mb-3">Add bookable kit</h2>
+      <h2 class="text-sm font-semibold mb-3">Add bookable kit</h2>
       <div class="grid sm:grid-cols-2 gap-3">
         <div><label class="lbl">Name</label><input id="k-name" class="inp" placeholder="Projector"></div>
         <div><label class="lbl">Lives in (optional)</label><select id="k-room" class="inp"></select></div>
         <div><label class="lbl">How many</label><input id="k-qty" class="inp" type="number" min="0" value="1"></div>
         <div class="flex items-end">
-          <label class="flex items-center gap-2 text-xs font-bold" style="color:var(--brand)">
+          <label class="flex items-center gap-2 text-xs font-medium" style="color:var(--brand)">
             <input type="checkbox" id="k-unl" class="w-4 h-4"> Unlimited (tea, coffee, cups)
           </label>
         </div>
@@ -154,13 +154,13 @@
       <button class="btn mt-3" id="k-add">Add kit</button>
       <p class="hint mt-2">A booking warns when more of something is wanted than there is. Unlimited things never warn.</p>
     </div>
-    <div class="card p-4 sm:p-5"><h2 class="text-sm font-black mb-1">Kit</h2><div id="kit-list"></div></div>
+    <div class="card p-4 sm:p-5"><h2 class="text-sm font-semibold mb-1">Kit</h2><div id="kit-list"></div></div>
   </section>
 
   <!-- ── VENUES ─────────────────────────────────────────────────────── -->
   <section id="tab-venues" class="hidden">
     <div class="card p-4 sm:p-5 mb-4">
-      <h2 class="text-sm font-black mb-3">Find an outside venue</h2>
+      <h2 class="text-sm font-semibold mb-3">Find an outside venue</h2>
       <div class="relative">
         <label class="lbl">Search by name or place</label>
         <input id="v-q" class="inp" placeholder="The Bear, Esher" autocomplete="off">
@@ -177,13 +177,13 @@
         <a href="https://photon.komoot.io/" target="_blank" rel="noreferrer noopener" class="underline">Photon</a>,
         built on data © OpenStreetMap contributors.</p>
     </div>
-    <div class="card p-4 sm:p-5"><h2 class="text-sm font-black mb-1">Saved venues</h2><div id="venues-list"></div></div>
+    <div class="card p-4 sm:p-5"><h2 class="text-sm font-semibold mb-1">Saved venues</h2><div id="venues-list"></div></div>
   </section>
 
   <!-- ── WHO APPROVES ───────────────────────────────────────────────── -->
   <section id="tab-who" class="hidden">
     <div class="card p-4 sm:p-5">
-      <h2 class="text-sm font-black mb-1">Who approves bookings, and who the safeguarding lead is</h2>
+      <h2 class="text-sm font-semibold mb-1">Who approves bookings, and who the safeguarding lead is</h2>
       <p class="hint mb-3">Set per site. Core Team can always approve a booking, whatever is set here.</p>
       <div id="who-list"></div>
     </div>
@@ -270,7 +270,7 @@
      The whole point of the chunk: a name is a label on a record, so editing
      it writes one field and nothing anywhere else has to be told. */
   function nameField(coll, rec) {
-    return '<input class="inp" style="font-weight:800" value="' + esc(rec.name) +
+    return '<input class="inp" style="font-weight:600" value="' + esc(rec.name) +
            '" data-rename="' + coll + '" data-id="' + rec.id + '">';
   }
   document.addEventListener('change', function (e) {
@@ -547,7 +547,7 @@
       var cfg = settings[s.id] || {};
       var admins = cfg.bookingsAdmins || [];
       return '<div class="row">' +
-        '<h3 class="text-sm font-black mb-2">' + esc(s.name) + '</h3>' +
+        '<h3 class="text-sm font-semibold mb-2">' + esc(s.name) + '</h3>' +
         '<div class="grid sm:grid-cols-2 gap-3">' +
           '<div><label class="lbl">Safeguarding lead</label><select class="inp" data-sg="' + s.id + '">' +
             personOpts(cfg.safeguardingLead) + '</select></div>' +
@@ -560,7 +560,7 @@
               (admins.length ? admins.map(function (id) {
                 var p = people.find(function (x) { return x.id === id; });
                 return '<span class="pill">' + esc(p ? p.name : id) +
-                  ' <button data-brm="' + s.id + '" data-pid="' + id + '" style="font-weight:900">&times;</button></span>';
+                  ' <button data-brm="' + s.id + '" data-pid="' + id + '" style="font-weight:700">&times;</button></span>';
               }).join('') : '<span class="hint">Nobody yet — only Core Team can approve here.</span>') +
             '</div>' +
           '</div>' +

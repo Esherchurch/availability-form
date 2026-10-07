@@ -77,8 +77,11 @@
     EGBCAuth.require(opts).then(function (profile) {
       reveal();
 
-      // Drop a sign-out chip into #userChip if the page has one.
-      if (document.getElementById('userChip')) {
+      /* A sign-out chip, but only where there is no shared bar already
+         offering Hub, Menu and sign-out. egbc-shell.js puts that bar on
+         every page it is loaded on, and places-admin ended up with both -
+         two headers, one above the other, each with its own way out. */
+      if (document.getElementById('userChip') && !document.getElementById('egbc-bar')) {
         EGBCAuth.mountUserChip('userChip');
       }
 

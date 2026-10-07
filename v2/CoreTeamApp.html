@@ -64,7 +64,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 }
 #back-btn.visible { display: flex; }
 #header-title {
-  flex: 1; font-size: 16px; font-weight: 800;
+  flex: 1; font-size: 16px; font-weight: 600;
   color: var(--teal); text-align: center;
   letter-spacing: -0.01em;
 }
@@ -107,8 +107,8 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   object-fit: cover; border: 2px solid rgba(255,255,255,0.3);
   flex-shrink: 0;
 }
-.home-hero-title { font-size: 20px; font-weight: 900; color: white; line-height: 1.1; }
-.home-hero-sub { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.15em; margin-top: 3px; }
+.home-hero-title { font-size: 20px; font-weight: 600; color: white; line-height: 1.15; }
+.home-hero-sub { font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.72); text-transform: none; letter-spacing: 0; margin-top: 4px; }
 
 .home-tiles {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -571,11 +571,11 @@ select.sp-input { appearance: none; cursor: pointer; }
 
 <!-- HEADER -->
 <div id="app-header">
-  <button id="back-btn" onclick="goBack()">←</button>
+  <button id="back-btn" onclick="goBack()"><i data-lucide="arrow-left" style="width:18px;height:18px"></i></button>
   <div id="header-title">Worship Planner</div>
   <button id="header-action"></button>
   <button onclick="startTour(true)" title="Help"
-    style="width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--border);color:var(--teal);font-family:var(--font);font-weight:800;font-size:14px;cursor:pointer;flex-shrink:0;">?</button>
+    style="width:32px;height:32px;border-radius:8px;background:var(--bg);border:1px solid var(--border);color:var(--teal);font-family:var(--font);font-weight:500;font-size:14px;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center"><i data-lucide="circle-help" style="width:16px;height:16px"></i></button>
 </div>
 
 <div id="app-content">
@@ -716,9 +716,9 @@ select.sp-input { appearance: none; cursor: pointer; }
       <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyLeft')">L</button>
       <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyCenter')">C</button>
       <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyRight')">R</button>
-      <button class="tool-btn" onclick="insertSideLayout()">⬜⬜</button>
-      <button class="tool-btn" onclick="uploadEmailImage()">📷</button>
-      <button class="tool-btn" onclick="resizeImg()">↔</button>
+      <button class="tool-btn" onclick="insertSideLayout()" title="Side-by-side layout"><i data-lucide="columns-2" style="width:16px;height:16px"></i></button>
+      <button class="tool-btn" onclick="uploadEmailImage()" title="Add a picture"><i data-lucide="image-plus" style="width:16px;height:16px"></i></button>
+      <button class="tool-btn" onclick="resizeImg()" title="Resize"><i data-lucide="move-horizontal" style="width:16px;height:16px"></i></button>
     </div>
 
     <div id="email-editor-wrap">
@@ -728,8 +728,8 @@ select.sp-input { appearance: none; cursor: pointer; }
           <div id="draft-bar-name" style="font-size:13px;font-weight:800;color:var(--teal);"></div>
           <div id="draft-bar-meta" style="font-size:10px;color:var(--teal);opacity:0.6;"></div>
         </div>
-        <button class="btn btn-green btn-sm" onclick="overwriteDraft()">💾 Save</button>
-        <button class="btn btn-secondary btn-sm" onclick="clearEditor()">✕ Close</button>
+        <button class="btn btn-green btn-sm" onclick="overwriteDraft()"><i data-lucide="save" style="width:15px;height:15px"></i> Save</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearEditor()"><i data-lucide="x" style="width:15px;height:15px"></i> Close</button>
       </div>
 
       <div id="email-canvas">
@@ -741,10 +741,10 @@ select.sp-input { appearance: none; cursor: pointer; }
 
     <!-- Bottom bar -->
     <div style="padding:8px 12px;background:var(--white);border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
-      <button class="btn btn-secondary btn-sm" onclick="openDraftsSheet()">📂 Drafts</button>
-      <button class="btn btn-secondary btn-sm" onclick="openMailingSheet()">👥 Mailing List</button>
-      <button class="btn btn-green btn-sm" onclick="saveNewDraft()">💾 New Draft</button>
-      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="compileEmail()">📋 Copy HTML</button>
+      <button class="btn btn-secondary btn-sm" onclick="openDraftsSheet()"><i data-lucide="folder-open" style="width:15px;height:15px"></i> Drafts</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMailingSheet()"><i data-lucide="users" style="width:15px;height:15px"></i> Mailing list</button>
+      <button class="btn btn-green btn-sm" onclick="saveNewDraft()"><i data-lucide="file-plus" style="width:15px;height:15px"></i> New draft</button>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="compileEmail()"><i data-lucide="clipboard-copy" style="width:15px;height:15px"></i> Copy HTML</button>
     </div>
   </div>
 
@@ -793,7 +793,7 @@ select.sp-input { appearance: none; cursor: pointer; }
 
     <!-- Song editor header -->
     <div style="padding:12px 16px;background:var(--teal);display:flex;align-items:center;gap:10px;flex-shrink:0;">
-      <button onclick="closeSongModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+      <button onclick="closeSongModal()" aria-label="Close" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button>
       <div style="flex:1;font-size:15px;font-weight:800;color:white;" id="song-modal-title">Add Song</div>
       <button onclick="saveSongItem()" style="background:white;border:none;color:var(--teal);padding:8px 16px;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;text-transform:uppercase;">Save</button>
     </div>
@@ -850,10 +850,10 @@ select.sp-input { appearance: none; cursor: pointer; }
       <div class="form-field">
         <label class="form-label">Type</label>
         <select class="form-select" id="item-type">
-          <option value="prayer">🙏 Prayer</option>
-          <option value="reading">📖 Reading</option>
-          <option value="announcement">📢 Announcement</option>
-          <option value="other">📌 Other</option>
+          <option value="prayer">Prayer</option>
+          <option value="reading">Reading</option>
+          <option value="announcement">Announcement</option>
+          <option value="other">Other</option>
         </select>
       </div>
       <div class="form-field">
@@ -872,7 +872,7 @@ select.sp-input { appearance: none; cursor: pointer; }
 <div class="modal-overlay" id="modal-email-team">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title">📧 Email Team</div>
+    <div class="modal-title">Email the team</div>
     <p style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;">The full worship plan will be copied to your clipboard and your email app will open.</p>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button class="btn btn-primary btn-full" onclick="emailWholeTeam()">Email Whole Team</button>
@@ -968,7 +968,7 @@ select.sp-input { appearance: none; cursor: pointer; }
 <!-- ══ WHO ARE YOU MODAL ══ -->
 <div class="modal-overlay center" id="modal-who">
   <div class="modal-center">
-    <div class="modal-title">👋 Who are you?</div>
+    <div class="modal-title">Who are you?</div>
     <p style="font-size:13px;font-weight:600;color:var(--teal);opacity:0.7;margin-bottom:16px;">Your name is saved with any drafts you create or edit.</p>
     <div class="form-field" style="margin-bottom:14px;">
       <input class="form-input" id="who-input" type="text" placeholder="Your first name..." maxlength="30"
@@ -982,7 +982,7 @@ select.sp-input { appearance: none; cursor: pointer; }
 <div class="modal-overlay" id="modal-drafts">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title">📂 Saved Drafts</div>
+    <div class="modal-title">Saved drafts</div>
     <div id="drafts-count" style="font-size:11px;color:var(--teal);opacity:0.5;margin-bottom:12px;font-weight:700;"></div>
     <div id="drafts-list" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div style="margin-top:14px;">
@@ -995,16 +995,16 @@ select.sp-input { appearance: none; cursor: pointer; }
 <div class="modal-overlay" id="modal-mailing">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title">👥 Mailing List</div>
+    <div class="modal-title">Mailing list</div>
     <div class="form-field" style="margin-bottom:14px;">
       <label class="form-label">Select Teams</label>
       <div style="display:flex;flex-wrap:wrap;gap:8px;" id="team-chips">
-        <div class="team-chip" data-team="Worship Team" onclick="toggleMailTeam(this)">🎸 Worship</div>
-        <div class="team-chip" data-team="AV Team" onclick="toggleMailTeam(this)">🎬 AV</div>
-        <div class="team-chip" data-team="Youth Worship" onclick="toggleMailTeam(this)">⚡ Youth</div>
-        <div class="team-chip" data-team="Core Team" onclick="toggleMailTeam(this)">⭐ Core</div>
-        <div class="team-chip" data-team="Choir" onclick="toggleMailTeam(this)">🎤 Choir</div>
-        <div class="team-chip" data-team="Everyone" onclick="toggleMailTeam(this)">👥 Everyone</div>
+        <div class="team-chip" data-team="Worship Team" onclick="toggleMailTeam(this)">Worship</div>
+        <div class="team-chip" data-team="AV Team" onclick="toggleMailTeam(this)">AV</div>
+        <div class="team-chip" data-team="Youth Worship" onclick="toggleMailTeam(this)">Youth</div>
+        <div class="team-chip" data-team="Core Team" onclick="toggleMailTeam(this)">Core</div>
+        <div class="team-chip" data-team="Choir" onclick="toggleMailTeam(this)">Choir</div>
+        <div class="team-chip" data-team="Everyone" onclick="toggleMailTeam(this)">Everyone</div>
       </div>
     </div>
     <div id="recipient-count" style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.6;margin-bottom:14px;text-align:center;"></div>
@@ -1251,7 +1251,7 @@ async function loadServiceList() {
     if (hasDupes) {
       const bar = document.createElement('div');
       bar.style.cssText = 'margin:0 12px 8px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;';
-      bar.innerHTML = `<div style="flex:1;font-size:12px;font-weight:700;color:#991b1b;">⚠ Duplicate services found for some dates</div>
+      bar.innerHTML = `<div style="flex:1;font-size:12px;font-weight:700;color:#991b1b;">Duplicate services found for some dates</div>
         <button onclick="deduplicateServices()" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:8px;font-family:var(--font);font-size:11px;font-weight:800;cursor:pointer;">Fix</button>`;
       $('service-list').insertAdjacentElement('beforebegin', bar);
     }
@@ -1284,7 +1284,7 @@ async function deduplicateServices() {
           await db.collection('services').doc(services[i].id).delete();
         }
       }
-      toast('Duplicates fixed ✓');
+      toast('Duplicates fixed');
       // Remove the warning bar
       document.querySelectorAll('[style*="fef2f2"]').forEach(el => el.remove());
       await loadServiceList();
@@ -1300,7 +1300,7 @@ function renderServiceList() {
     (s.worshipLeader||'').toLowerCase().includes(q)
   );
   if (!list.length) {
-    $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗓</div><div class="empty-state-text">No services yet — tap + to create one</div></div>';
+    $('service-list').innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="calendar-days" style="width:28px;height:28px"></i></div><div class="empty-state-text">No services yet — tap + to create one</div></div>';
     return;
   }
   $('service-list').innerHTML = list.map(s => `
@@ -1331,7 +1331,7 @@ async function createService() {
         type, serviceNotes: typeNotes, worshipLeader: leader, archived: false, updatedAt: TS()
       });
       currentService = { id: serviceId, ...existing.docs[0].data(), type, serviceNotes: typeNotes, worshipLeader: leader };
-      toast('Service updated ✓');
+      toast('Service updated');
     } else {
       const ref = await db.collection('services').add({
         date, type, serviceNotes: typeNotes, worshipLeader: leader,
@@ -1414,7 +1414,7 @@ function renderServiceDetail() {
       </div>
       <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-left:10px;" onclick="openEditServiceMeta()">Edit</button>
     </div>
-    ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;margin-top:10px;">🎸 ${s.worshipLeader}</div>` : ''}`;
+    ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;margin-top:10px;">${s.worshipLeader}</div>` : ''}`;
 
   renderOrderList();
   renderServiceRotaTable();
@@ -1464,24 +1464,23 @@ function renderOrderList() {
   if (!order.length) { list.innerHTML = ''; empty.style.display = 'flex'; return; }
   empty.style.display = 'none';
 
-  const typeLabels = { song:'🎵', prayer:'🙏', reading:'📖', announcement:'📢', other:'📌' };
   const typeNames  = { song:'Song', prayer:'Prayer', reading:'Reading', announcement:'Announcement', other:'Other' };
 
   list.innerHTML = order.map((item, i) => {
     const useBadge = item.type === 'song' && item._useCount > 0
-      ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:9999px;flex-shrink:0;background:${item._useCount >= 4 ? 'var(--teal)' : 'var(--teal-light)'};color:${item._useCount >= 4 ? 'white' : 'var(--teal)'};">${item._useCount}×</span>`
+      ? `<span style="font-size:12px;font-weight:500;padding:1px 7px;border-radius:6px;flex-shrink:0;background:${item._useCount >= 4 ? 'var(--teal)' : 'var(--teal-light)'};color:${item._useCount >= 4 ? 'white' : 'var(--teal)'};">${item._useCount}×</span>`
       : '';
     return `<div class="order-item" data-index="${i}"
         ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
         ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
-      <div class="order-drag-handle" draggable="true">⠿</div>
+      <div class="order-drag-handle" draggable="true"><i data-lucide="grip-vertical" style="width:16px;height:16px"></i></div>
       <div class="order-item-title" onclick="${item.type==='song'?`editSongItem(${i})`:`editOrderItem(${i})`}">
         <span class="order-item-type type-${item.type||'other'}">${typeNames[item.type]||'Other'}</span>
         <span style="margin-left:6px;">${item.title||'—'}</span>
       </div>
       ${item.keys?.length ? `<span class="order-item-key">${item.keys.join(', ')}</span>` : ''}
       ${useBadge}
-      <button class="order-item-delete" onclick="deleteOrderItem(${i})" title="Remove">✕</button>
+      <button class="order-item-delete" onclick="deleteOrderItem(${i})" title="Remove"><i data-lucide="x" style="width:14px;height:14px"></i></button>
     </div>`;
   }).join('');
 }
@@ -1615,8 +1614,8 @@ async function loadSongInfoPanel(title, keys) {
 
     // Links row
     html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      ${youtube ? `<a href="${youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:#ff0000;color:white;font-size:11px;font-weight:800;text-decoration:none;">▶ YouTube</a>` : ''}
-      <a href="${songSelectLink}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:var(--teal-light);color:var(--teal);font-size:11px;font-weight:800;text-decoration:none;border:1px solid var(--border);">🔎 SongSelect${ccli?` · CCLI ${ccli}`:''}</a>
+      ${youtube ? `<a href="${youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:#ff0000;color:white;font-size:11px;font-weight:800;text-decoration:none;"><i data-lucide="play" style="width:14px;height:14px"></i> YouTube</a>` : ''}
+      <a href="${songSelectLink}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:var(--teal-light);color:var(--teal);font-size:11px;font-weight:800;text-decoration:none;border:1px solid var(--border);"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect${ccli?` · CCLI ${ccli}`:''}</a>
     </div>`;
 
     // Sheet music files by key
@@ -1658,12 +1657,12 @@ async function loadSongInfoPanel(title, keys) {
       });
       if (ptMatches.length) {
         html += `<div style="margin-top:10px;padding:10px;background:var(--white);border-radius:10px;border:1px dashed var(--teal);">
-          <div style="font-size:9px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">▶ Play Through Videos</div>
+          <div style="font-size:9px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;"><i data-lucide="play" style="width:14px;height:14px"></i> Play Through Videos</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">`;
         ptMatches.forEach(pt => {
           const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
           const lbl = pt.instrument ? `${pt.ourKey} (${pt.instrument})` : pt.ourKey;
-          html += `<a href="${url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:#7c3aed;color:white;font-size:11px;font-weight:800;text-decoration:none;">▶ ${lbl}</a>`;
+          html += `<a href="${url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:#7c3aed;color:white;font-size:11px;font-weight:800;text-decoration:none;"><i data-lucide="play" style="width:14px;height:14px"></i> ${lbl}</a>`;
         });
         html += `</div></div>`;
       }
@@ -1796,7 +1795,7 @@ function spToggle(btn) {
   const content = block.querySelector('.song-content');
   block.classList.toggle('is-collapsed');
   content.classList.toggle('hidden');
-  btn.textContent = content.classList.contains('hidden') ? '▶' : '▼';
+  btn.textContent = content.classList.contains('hidden') ? '<i data-lucide=\'chevron-right\' style=\'width:14px;height:14px\'></i>' : '<i data-lucide=\'chevron-down\' style=\'width:14px;height:14px\'></i>';
   if (!content.classList.contains('hidden')) spAutoFit();
 }
 
@@ -1809,7 +1808,7 @@ function spAddSong() {
   div.innerHTML = `
     <div class="song-block-header">
       <div class="sp-drag-handle">⠿</div>
-      <button onclick="spToggle(this)" class="sp-collapse-btn">${isFirst ? '▼' : '▶'}</button>
+      <button onclick="spToggle(this)" class="sp-collapse-btn">${isFirst ? '<i data-lucide=\'chevron-down\' style=\'width:14px;height:14px\'></i>' : '<i data-lucide=\'chevron-right\' style=\'width:14px;height:14px\'></i>'}</button>
       <span class="sp-song-number">Song</span>
       <div class="sp-title-wrap">
         <input class="song-title" oninput="spSearch(this,'${id}')" placeholder="Song title">
@@ -1883,8 +1882,8 @@ async function spSearch(input, id) {
     const enc = encodeURIComponent(input.value);
     box.innerHTML = `<div class="sp-suggest-item" style="color:#b22222;">Not in library</div>
       <div style="padding:8px 14px;font-size:11px;display:flex;gap:12px;background:white;">
-        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">🔎 SongSelect</a>
-        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">▶ YouTube</a>
+        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:700;"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
+        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:700;"><i data-lucide="play" style="width:14px;height:14px"></i> YouTube</a>
       </div>`;
   } else {
     box.innerHTML = matches.map(s=>`<div class="sp-suggest-item" onclick="spSelectSong('${s.title.replace(/'/g,"\\'")}','${id}')">${s.title}</div>`).join('');
@@ -1916,8 +1915,8 @@ async function spKeyChanged(id) {
   const ccli = data.ccli || '';
   const ssLink = ccli ? `https://songselect.ccli.com/Songs/${ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
   let html = `<div class="sp-files-box"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;font-weight:700;">
-    ${youtube?`<a href="${youtube}" target="_blank" style="color:#b22222;text-decoration:none;">🎬 YouTube</a>`:''}
-    <a href="${ssLink}" target="_blank" style="color:var(--teal);text-decoration:none;">🔎 SongSelect</a>
+    ${youtube?`<a href="${youtube}" target="_blank" style="color:#b22222;text-decoration:none;">YouTube</a>`:''}
+    <a href="${ssLink}" target="_blank" style="color:var(--teal);text-decoration:none;"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
     ${ccli?`<span style="color:var(--teal);opacity:0.5;">CCLI: ${ccli}</span>`:''}
   </div>`;
   if (keys.length) {
@@ -2009,7 +2008,7 @@ async function spSelectEvent() {
         spKeyChanged(id);
         last.querySelector('.song-content').classList.remove('hidden');
         last.classList.remove('is-collapsed');
-        last.querySelector('.sp-collapse-btn').textContent = '▼';
+        last.querySelector('.sp-collapse-btn').textContent = '<i data-lucide=\'chevron-down\' style=\'width:14px;height:14px\'></i>';
       } else { spAddItem(item.title); }
     });
   } else {
@@ -2043,7 +2042,7 @@ async function spSave() {
     const snap = await db.collection('services').where('date','==',date).get();
     if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
     else await db.collection('services').add(serviceData);
-    toast('✓ Service saved');
+    toast('Service saved');
   } catch(e) { toast('Error saving'); }
   loader(false);
 }
@@ -2126,9 +2125,9 @@ async function spEmail() {
         body: JSON.stringify({ to: spRecipients, subject: spSubject, html, replyTo: senderEmail })
       });
       const result = await resp.json();
-      if (result.ok) toast('✓ Plan sent to ' + spRecipients.length + ' people!');
-      else toast('✗ Error: ' + (result.error || 'Unknown'));
-    } catch(e) { toast('✗ Network error'); }
+      if (result.ok) toast('Plan sent to ' + spRecipients.length + ' people');
+      else toast('Could not send: ' + (result.error || 'unknown error'));
+    } catch(e) { toast('Could not send: no connection'); }
   } else { toast('No recipients found'); }
 }
 
@@ -2155,7 +2154,7 @@ async function saveService() {
       worshipLeader: currentService.worshipLeader || '',
       updatedAt: TS()
     });
-    toast('✓ Service saved');
+    toast('Service saved');
     if (window._services) {
       const idx = window._services.findIndex(s=>s.id===currentService.id);
       if (idx!==-1) window._services[idx] = { ...currentService };
@@ -2291,13 +2290,13 @@ function buildServicePlanText() {
   plan += `ORDER OF SERVICE\n${'─'.repeat(40)}\n`;
   (s.order||[]).forEach((item,i) => {
     if (item.type==='song') {
-      plan += `${i+1}. 🎵 ${item.title}`;
+      plan += `${i+1}. Song: ${item.title}`;
       if (item.keys?.length) plan += ` — Key: ${item.keys.join(', ')}`;
       plan += '\n';
       if (item.notes) plan += `   Notes: ${item.notes}\n`;
     } else {
-      const emoji = {prayer:'🙏',reading:'📖',announcement:'📢',other:'📌'}[item.type]||'📌';
-      plan += `${i+1}. ${emoji} ${item.title}\n`;
+      const kind = {prayer:'Prayer',reading:'Reading',announcement:'Announcement',other:'Item'}[item.type]||'Item';
+      plan += `${i+1}. ${kind}: ${item.title}\n`;
     }
   });
 
@@ -2434,7 +2433,7 @@ function renderMeetings() {
     const d = new Date(ev.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
     html += `<div style="${card}"><div style="flex:1;min-width:160px;">
       <div style="font-size:13px;font-weight:800;color:#3d6263;">${ev.type}${ev.description?' · '+ev.description:''}</div>
-      <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;">${d}${ev.startTime?' · '+ev.startTime+(ev.endTime?'–'+ev.endTime:''):''} · 📹 ${videoRoomLabel(videoRoomFor(ev))}</div>
+      <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;">${d}${ev.startTime?' · '+ev.startTime+(ev.endTime?'–'+ev.endTime:''):''} · ${videoRoomLabel(videoRoomFor(ev))}</div>
     </div>${joinBtn(meetingPage(videoRoomFor(ev), ev.id))}${copyBtn(link)}</div>`;
   });
 
@@ -2452,7 +2451,7 @@ function renderMeetings() {
 }
 
 window.copyMeetingLink = async link => {
-  try { await navigator.clipboard.writeText(link); toast('Link copied ✓'); }
+  try { await navigator.clipboard.writeText(link); toast('Link copied'); }
   catch { prompt('Copy this link:', link); }
 };
 
@@ -2734,8 +2733,8 @@ window.openNewEventModal = () => {
   $('new-event-date').value = new Date().toISOString().split('T')[0];
   $('new-event-type').value = 'Sunday Morning Worship';
   $('new-event-term').value = '';
-  $('new-event-video').innerHTML = '<option value="">📹 No call</option>' +
-    VIDEO_ROOMS.map(([r,label]) => `<option value="${r}">📹 ${label}</option>`).join('');
+  $('new-event-video').innerHTML = '<option value="">No video call</option>' +
+    VIDEO_ROOMS.map(([r,label]) => `<option value="${r}">${label}</option>`).join('');
   syncNewEventVideo();
   openModal('modal-new-event');
 };
@@ -2762,7 +2761,7 @@ window.createRotaEvent = async () => {
       archived:false,
     });
     closeModal('modal-new-event');
-    toast('Event created ✓');
+    toast('Event created');
   } catch (e) {
     toast('Could not create event: ' + e.message);
   } finally {
@@ -2788,7 +2787,7 @@ window.generateTerm = async () => {
     await db.collection('events').add({ date:ds, termLabel:getTermLabel(ds), type:"Sunday Morning Worship", description:"", teams:["Worship Team","AV Team"], startTime:"08:00", endTime:"11:30", roles:[...MANDATORY_SUNDAY_ROLES], archived:false });
     curr.setDate(curr.getDate()+7);
   }
-  loader(false); toast('Term populated ✓');
+  loader(false); toast('Term populated');
 };
 
 window.addThursdayPractices = async () => {
@@ -2804,7 +2803,7 @@ window.addThursdayPractices = async () => {
     await db.collection('events').add({ date:ds, termLabel:getTermLabel(ds), type:"Sunday Team Practice", description:"Thursday Rehearsal", teams:["Worship Team"], startTime:"19:30", endTime:"21:30", roles:["Worship Leader","Keyboard","Guitar","Drums","Bass"], archived:false });
     curr.setDate(curr.getDate()+7);
   }
-  loader(false); toast('Practices added ✓');
+  loader(false); toast('Practices added');
 };
 
 window.autoFillPractice = async (practiceId) => {
@@ -2815,7 +2814,7 @@ window.autoFillPractice = async (practiceId) => {
   const updates = {};
   (practice.roles||[]).forEach(r => { const p=sunday.assignments?.[r]; if(p&&rotaAvailability[practiceId]?.[p.id]==='avail') updates[`assignments.${r}`]={id:p.id,name:p.name}; });
   if (Object.keys(updates).length) await db.collection('events').doc(practiceId).update(updates);
-  toast('Synced ✓');
+  toast('Synced');
 };
 
 window.autoFillAllEvents = async () => {
@@ -2858,7 +2857,7 @@ window.autoFillAllEvents = async () => {
     });
     await db.collection('events').doc(ev.id).update({ assignments:asgn, roles });
   }
-  loader(false); toast('Auto-fill complete ✓');
+  loader(false); toast('Auto-fill complete');
 };
 
 window.gatherTermAvailability = async () => {
@@ -3056,8 +3055,8 @@ function generateEventHtml(ev, blockIdx) {
   html += '</select>';
   html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:Inter, system-ui, sans-serif;font-size:11px;font-weight:700;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
   const vRoom = videoRoomFor(ev);
-  html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>📹 No call</option>`;
-  VIDEO_ROOMS.forEach(([r,label]) => { html+=`<option value="${r}"${vRoom===r?' selected':''}>📹 ${label}</option>`; });
+  html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>No call</option>`;
+  VIDEO_ROOMS.forEach(([r,label]) => { html+=`<option value="${r}"${vRoom===r?' selected':''}>${label}</option>`; });
   html += '</select>';
   if (vRoom) html += `<a href="meeting.html?room=${encodeURIComponent(vRoom)}&event=${encodeURIComponent(ev.id)}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;text-decoration:none;">Join</a>`;
   html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:9999px;border:1px solid #d1dfdf;">';
@@ -3066,8 +3065,8 @@ function generateEventHtml(ev, blockIdx) {
   });
   html += '</div>';
   if (!isSunday) html += `<button onclick="autoFillPractice('${ev.id}')" style="background:#d1dfdf;color:#3d6263;border:none;padding:5px 8px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Sync</button>`;
-  html += `<button onclick="toggleBucket('${ev.id}')" style="width:28px;height:28px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;cursor:pointer;font-size:14px;" title="Availability">🪣</button>`;
-  html += `<button onclick="deleteEvent('${ev.id}')" style="background:none;border:none;color:#d1dfdf;font-size:16px;cursor:pointer;" title="Delete">🗑</button>`;
+  html += `<button onclick="toggleBucket('${ev.id}')" style="width:28px;height:28px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;cursor:pointer;font-size:14px;" title="Availability"><i data-lucide="inbox" style="width:15px;height:15px"></i></button>`;
+  html += `<button onclick="deleteEvent('${ev.id}')" style="background:none;border:none;color:#d1dfdf;font-size:16px;cursor:pointer;" title="Delete"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>`;
   html += '</div>';
 
   if (isExp) {
@@ -3081,7 +3080,7 @@ function generateEventHtml(ev, blockIdx) {
       const nc = isPend ? '#f97316' : '#3d6263';
       const sr = r.replace(/'/g,"\\'");
       html += `<div ondragover="event.preventDefault()" ondrop="onDropRole(event,'${ev.id}','${sr}')" style="background:white;border:2px ${asgn?'solid':'dashed'} ${border};border-radius:10px;padding:8px 10px;min-width:100px;">`;
-      html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;opacity:0.4;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:11px;cursor:pointer;padding:0;">✕</button></div>`;
+      html += `<div style="font-size:12px;font-weight:500;text-transform:none;color:#6b7280;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:11px;cursor:pointer;padding:0;" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button></div>`;
       html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" onclick="roleTap('${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:pointer;padding:2px 0;">${asgn?personName(asgn):'Tap to assign'}</div>`;
       html += '</div>';
     });
@@ -3200,7 +3199,7 @@ async function openDraftsSheet() {
     const snap = await db.collection('emailDrafts').orderBy('updatedAt','desc').limit(MAX_DRAFTS).get();
     $('drafts-count').textContent = `${snap.size} of ${MAX_DRAFTS} slots used`;
     if (!snap.size) {
-      list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-text">No saved drafts yet</div></div>';
+      list.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="folder-open" style="width:28px;height:28px"></i></div><div class="empty-state-text">No saved drafts yet</div></div>';
       return;
     }
     list.innerHTML = snap.docs.map(d => {
@@ -3208,12 +3207,12 @@ async function openDraftsSheet() {
       const isActive = d.id === activeDraftId;
       return `<div class="draft-card ${isActive?'active-draft':''}">
         <div class="draft-info">
-          <div class="draft-name">${data.name||'Untitled'}${isActive?'<span style="font-size:9px;background:var(--teal);color:white;padding:2px 7px;border-radius:20px;margin-left:6px;">LOADED</span>':''}</div>
-          <div class="draft-meta">✏️ ${data.createdBy||'?'} · 🔄 ${data.updatedBy||'?'}<br>${formatDate(data.updatedAt)}</div>
+          <div class="draft-name">${data.name||'Untitled'}${isActive?'<span style="font-size:12px;background:#eef5f4;color:#3d6263;padding:1px 7px;border-radius:6px;margin-left:6px;">Open</span>':''}</div>
+          <div class="draft-meta">Created by ${data.createdBy||'?'} · last edited by ${data.updatedBy||'?'}<br>${formatDate(data.updatedAt)}</div>
         </div>
         <div class="draft-actions">
           <button class="btn btn-primary btn-sm" onclick="loadDraft('${d.id}')">Load</button>
-          <button class="btn btn-red btn-sm" onclick="deleteDraft('${d.id}','${(data.name||'this draft').replace(/'/g,"\\'")}')">🗑</button>
+          <button class="btn btn-red btn-sm" onclick="deleteDraft('${d.id}','${(data.name||'this draft').replace(/'/g,"\\'")}')"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
         </div>
       </div>`;
     }).join('');
@@ -3268,7 +3267,7 @@ async function overwriteDraft() {
       content: $('editable-body').innerHTML,
       updatedBy: currentUser, updatedAt: TS()
     });
-    toast('Draft updated ✓');
+    toast('Draft updated');
   } catch(e) { toast('Error saving'); }
   loader(false);
 }
@@ -3359,7 +3358,7 @@ async function compileEmail() {
 
   try {
     await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([finalHtml], { type:'text/html' }) })]);
-    toast('Email HTML copied! ✓');
+    toast('Email copied');
   } catch(e) {
     // Fallback for Android
     const ta = document.createElement('textarea');
@@ -3368,7 +3367,7 @@ async function compileEmail() {
     ta.select();
     document.execCommand('copy');
     ta.remove();
-    toast('HTML copied to clipboard ✓');
+    toast('Copied to the clipboard');
   }
 }
 
@@ -3386,10 +3385,10 @@ if (currentUser) {
 // ── ONBOARDING TOUR ───────────────────────────────────────────────────────
 const TOUR_STEPS = {
   home: [
-    { target: '.home-tiles', title: 'Welcome to Worship Planner! 👋', text: 'Three tools in one app. Tap any tile to get started.' },
-    { target: '#screen-home .home-tile.tile-service', title: '🗓 Service Planner', text: 'Build the order of service — add songs with sheet music, keys, YouTube links and play-throughs. Email the plan to your team.' },
-    { target: '#screen-home .home-tile.tile-rota',    title: '👥 Rota Planner',   text: 'Full rota management — populate a term, auto-fill from availability, assign roles, and manage the availability bucket.' },
-    { target: '#screen-home .home-tile.tile-email',   title: '📧 Email Compiler', text: 'Build rich team emails with images, layouts and formatting. Save drafts, select mailing lists and copy HTML.' },
+    { target: '.home-tiles', title: 'Welcome to Worship Planner', text: 'Three tools in one app. Tap any tile to get started.' },
+    { target: '#screen-home .home-tile.tile-service', title: 'Service Planner', text: 'Build the order of service — add songs with sheet music, keys, YouTube links and play-throughs. Email the plan to your team.' },
+    { target: '#screen-home .home-tile.tile-rota',    title: 'Rota Planner',   text: 'Full rota management — populate a term, auto-fill from availability, assign roles, and manage the availability bucket.' },
+    { target: '#screen-home .home-tile.tile-email',   title: 'Email Compiler', text: 'Build rich team emails with images, layouts and formatting. Save drafts, select mailing lists and copy HTML.' },
   ],
   service: [
     { target: '#service-list',    title: 'Service List', text: 'All your saved service plans, newest first. Tap one to open it, or tap + to create a new one.' },
@@ -3407,10 +3406,10 @@ const TOUR_STEPS = {
     { target: '#screen-rota .btn-row, #screen-rota div:first-child', title: 'Toolbar',    text: 'Populate creates all Sundays for the term. Auto-Fill assigns people based on availability and instruments. + Practices adds Thursday rehearsals. Gather Avail emails the team for their availability.' },
     { target: '#eventList',            title: 'Events by Term', text: 'Events are grouped by term. Tap a term header to collapse it. Tap + on any event to expand roles and the availability bucket.' },
     { target: '#eventList',            title: 'Assigning Roles', text: 'Drag a person from the Available bucket into a role card. Or tap the role card name to type directly. Orange names mean no availability response yet.' },
-    { target: '#eventList',            title: '🪣 Availability Bucket', text: 'Tap the bucket icon on any event to see Available / Declined / Pending. Drag people between buckets to update their status.' },
+    { target: '#eventList',            title: 'Availability bucket', text: 'Tap the bucket icon on any event to see Available / Declined / Pending. Drag people between buckets to update their status.' },
   ],
   email: [
-    { target: '.email-toolbar',     title: 'Formatting Toolbar', text: 'Bold, italic, underline, font size, colour, alignment. Use ⬜⬜ for a two-column layout. 📷 uploads an image to Firebase.' },
+    { target: '.email-toolbar',     title: 'Formatting Toolbar', text: 'Bold, italic, underline, font size, colour, alignment. The two-column button splits the message in half; the picture button uploads an image.' },
     { target: '#email-canvas',      title: 'Email Canvas',       text: 'Click to place your cursor and start typing. Tap an image to select it, then use ↔ to resize.' },
     { target: '#screen-email > div:last-child', title: 'Bottom Bar', text: 'Drafts saves and loads from Firebase. Mailing List selects teams and opens your email app. Copy HTML copies the full formatted email to clipboard ready to paste.' },
   ],
