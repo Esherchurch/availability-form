@@ -36,6 +36,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { watchConsole } from './console-watch.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -185,7 +186,13 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   let id = 0; const pend = new Map();
   const send = (m, p = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
   await new Promise(r => ws.onopen = r);
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); } };
+  const watch = watchConsole();
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); return; }
+    /* A page that throws is not a page that works, however tidy it looks. */
+    watch.handle(m);
+  };
   await send('Runtime.enable'); await send('Page.enable');
   /* Never read a cached page: a check that quietly tests the previous version
      of a file is worse than no check. */
@@ -210,9 +217,10 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   }
   console.log('signed in as ' + who);
 
-  let grand = 0; const rows = [];
+  let grand = 0; const rows = []; const pagesWithErrors = [];
   for (const P of PAGES) {
     if (only && !P.page.toLowerCase().includes(only.toLowerCase())) continue;
+    watch.reset();
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + P.page });
     await sleep(P.wait);
     /* A dialog in headless Chrome stops the page until something answers it,
@@ -236,9 +244,19 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
       (r.eg || []).forEach(x => console.log('        ' + x));
     }
     console.log('  ' + '-'.repeat(22) + String(pageTotal).padStart(4) + '  on this page');
+    console.log('  ' + 'error console'.padEnd(22) + '  ' + watch.summary());
+    if (watch.errors.length) pagesWithErrors.push({ page: P.page, errors: watch.errors.slice() });
   }
   console.log('\nTOTAL across every screen: ' + grand);
-  fs.writeFileSync(path.join(V2, 'tests', 'screens-last.json'), JSON.stringify(rows, null, 1));
+  if (pagesWithErrors.length) {
+    console.log('\nPAGES WITH AN ERROR ON THE CONSOLE. A page that throws is not a page that works:');
+    for (const p of pagesWithErrors) {
+      console.log('  ' + p.page);
+      p.errors.slice(0, 4).forEach(e => console.log('      ' + e));
+    }
+  }
+  fs.writeFileSync(path.join(V2, 'tests', 'screens-last.json'),
+    JSON.stringify({ rows, pagesWithErrors }, null, 1));
   server.close(); chrome.kill();
-  process.exit(grand ? 1 : 0);
+  process.exit(grand || pagesWithErrors.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -25,6 +25,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { watchConsole } from './console-watch.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -114,9 +115,12 @@ function seed() {
   let id = 0; const pend = new Map(); const refused = [];
   const send = (m, p = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
   await new Promise(r => ws.onopen = r);
+  const watch = watchConsole();
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); return; }
+    /* A page that throws is not a page that works. */
+    if (watch.handle(m)) return;
     if (m.method === 'Fetch.requestPaused') {
       const u = m.params.request.url || '';
       if (offMachine(u)) { refused.push(u.split('?')[0]); return send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' }); }
@@ -184,6 +188,7 @@ function seed() {
   ok('Delete removes an item from the record', after === before - 1, before + ' -> ' + after);
 
   console.log('\nnothing left this machine. refused: ' + JSON.stringify([...new Set(refused)]).slice(0, 180));
+  ok('the error console is empty', watch.errors.length === 0, watch.summary());
   console.log(R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
   process.exit(R.some(v => !v) ? 1 : 0);

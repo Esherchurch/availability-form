@@ -49,6 +49,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { watchConsole } from './console-watch.mjs';
 
 const V2 = path.resolve('.');
 const ROOT = path.resolve('..');
@@ -58,11 +59,14 @@ const PORT = 9620, ORIG_PORT = 8893, V2_PORT = 8894;
 
 const args = process.argv.slice(2);
 const wantShots = args.includes('--shots');
-/* Some originals are sign-in gated and draw nothing without a database, so
-   there is nothing to compare. This points them at the SYNTHETIC emulator
-   instead - in the served copy only - which is also the stronger comparison
-   generally, because then both sides are reading the same data. */
-const onEmulator = args.includes('--originals-on-emulator');
+/* The originals are pointed at the SYNTHETIC emulator - in the served copy
+   only, never on disk - so that BOTH SIDES SHOW THE SAME DATA. This is the
+   default, and it is the comparison that is worth having: read with no
+   database at all, an original draws its empty state and half of what it has
+   is simply absent, so a real difference and a missing database look the same.
+   --originals-offline goes back to starving them, which is only useful for
+   seeing what a page builds with no data of any kind. */
+const onEmulator = !args.includes('--originals-offline');
 const only = args.find(a => !a.startsWith('--'));
 
 /* A synthetic member in the emulator, with nothing to do with any real
@@ -124,7 +128,16 @@ const AGREED = [
      and Helper. Named here one by one rather than by a pattern, so a role that
      really did go missing still shows up. */
   { re: /group leader \((younger|older)\)/i, why: 'agreed: Kids Church roles renamed to Leader (Younger/Older/Creche)' },
-  { re: /supporting adult/i, why: 'agreed: Kids Church roles renamed - Assistant and Helper replace it' }
+  { re: /supporting adult/i, why: 'agreed: Kids Church roles renamed - Assistant and Helper replace it' },
+  /* Martin's decision (05c9be63, 6761860b): the worship planners - the Sunday
+     Service Planner, and CoreTeamApp's planner, team table and emailed plan -
+     show Worship and AV roles only, never Kids Church slots. Kids Church never
+     existed on the original site; its slots appear there at all only because
+     v2 writes them to the shared database. So a Kids Church row the ORIGINAL
+     shows is itself a thing v2 put there, and leaving it out is the agreed
+     behaviour, not a loss. */
+  { re: /kids church|session leader|leader \((younger|older|creche)\)|assistant \((younger|older|creche)\)/i,
+    why: 'agreed (Martin, 05c9be63): worship planners show Worship and AV roles only' }
 ];
 
 /* ---------------------------------------------------------------- servers */
@@ -165,15 +178,26 @@ firebase.auth(app).useEmulator('http://localhost:9099', { disableWarnings: true 
    refuses everything that would leave the machine.
    Injected straight after the last Firebase compat script, which is where
    `firebase` exists and the page's own code has not run yet. */
-const EMULATOR_HOOK = `<script>/* injected by tests/compare-with-original.mjs */
+const emulatorHook = (account) => `<script>/* injected by tests/compare-with-original.mjs */
 (function () {
   if (!window.firebase || !firebase.initializeApp) return;
   var realInit = firebase.initializeApp;
   firebase.initializeApp = function () {
     var app = realInit.apply(this, arguments);
     try { firebase.firestore(app).useEmulator('localhost', 8181); } catch (e) {}
-    try { firebase.auth(app).useEmulator('http://localhost:9099', { disableWarnings: true }); } catch (e) {}
     try { if (firebase.storage) firebase.storage(app).useEmulator('localhost', 9199); } catch (e) {}
+    /* And sign in. The original pages mostly do not, because the live site has
+       open rules and never needed an account. The emulator has the real rules
+       loaded, so an unsigned read is refused and the page draws nothing - the
+       original would look as though it had lost everything v2 has. Where the
+       page does not load the auth SDK at all, it is added above. */
+    try {
+      var auth = firebase.auth(app);
+      auth.useEmulator('http://localhost:9099', { disableWarnings: true });
+      window.__harnessSignIn = auth.signInWithEmailAndPassword(${JSON.stringify(account.email)}, ${JSON.stringify(account.pw)})
+        .then(function () { return 'signed in'; })
+        .catch(function (e) { return 'sign-in failed: ' + e.code; });
+    } catch (e) { window.__harnessSignIn = Promise.resolve('no auth sdk: ' + e.message); }
     return app;
   };
 })();
@@ -208,13 +232,93 @@ function stripServiceWorker(html) {
   return NO_SW + html;
 }
 
-const COMPAT_TAG = /<script[^>]+firebasejs\/[^"']*-compat\.js[^>]*><\/script>/gi;
-function pointAtEmulator(html) {
-  let last = null, m;
-  COMPAT_TAG.lastIndex = 0;
-  while ((m = COMPAT_TAG.exec(html))) last = m.index + m[0].length;
+
+/* The modular half of the same job, and it is the half that matters: 26 of the
+ * 51 originals import the SDK as ES modules, including the Rota Planner, the
+ * Sunday Service Planner, the address book, the availability form,
+ * view-only-rota and the youth planner. There is no `firebase` global on those
+ * pages to patch, so the compat hook above did nothing and they stayed pointed
+ * at live - refused, drawing nothing, and every difference that followed was
+ * really just a page with no database.
+ *
+ * So the page's import of firebase-app.js is answered with a module of our own
+ * that re-exports the real one and wraps initializeApp. getFirestore(app)
+ * hands back the same instance every time it is called, and the module itself
+ * is loaded once, so connecting it here connects the one the page then uses.
+ *
+ * Per SDK version, because 10.7.1 and 10.12.2 are different modules with
+ * different instances: a 10.7.1 getFirestore cannot connect a 10.12.2 app.
+ */
+const sdkShim = () => `/* injected by tests/compare-with-original.mjs */
+import * as realApp from BASE_APP_URL;
+export * from BASE_APP_URL;
+import { getFirestore, connectFirestoreEmulator } from BASE_FS_URL;
+import { getAuth, connectAuthEmulator, signInWithEmailAndPassword } from BASE_AUTH_URL;
+
+/* The page's own signInWithEmailAndPassword is not used - the original pages
+   do not sign in at all, because the live site has open rules. The emulator
+   has the real rules loaded, so without a signed-in member most reads are
+   refused and the page draws nothing. Signing in here is what makes the two
+   sides comparable. */
+export function initializeApp() {
+  const app = realApp.initializeApp.apply(null, arguments);
+  try { connectFirestoreEmulator(getFirestore(app), 'localhost', 8181); } catch (e) {}
+  try {
+    const auth = getAuth(app);
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+    window.__harnessSignIn = signInWithEmailAndPassword(auth, EMAIL, PASSWORD)
+      .then(() => 'signed in').catch(e => 'sign-in failed: ' + e.code);
+  } catch (e) { window.__harnessSignIn = Promise.resolve('no auth: ' + e.message); }
+  return app;
+}
+`;
+
+function shimFor(version, account) {
+  const base = 'https://www.gstatic.com/firebasejs/' + version + '/';
+  return sdkShim()
+    .replace(/BASE_APP_URL/g, JSON.stringify(base + 'firebase-app.js'))
+    .replace(/BASE_FS_URL/g, JSON.stringify(base + 'firebase-firestore.js'))
+    .replace(/BASE_AUTH_URL/g, JSON.stringify(base + 'firebase-auth.js'))
+    .replace(/EMAIL/g, JSON.stringify(account.email))
+    .replace(/PASSWORD/g, JSON.stringify(account.pw));
+}
+
+/* Only an `import ... from "<the app module>"` is replaced, never a
+   <script src>. Firebase 8.10.1 is loaded with a plain script tag whose file
+   has the same name, firebase-app.js, and swapping that for an ES module broke
+   eight pages outright: "Cannot use import statement outside a module", then
+   "Cannot instantiate firebase-firestore.js - be sure to load firebase-app.js
+   first", and the page gone. The check reported those as losses in v2, which
+   they were not. */
+const MODULAR_APP_IMPORT = /(from\s*['"])https:\/\/www\.gstatic\.com\/firebasejs\/([0-9.]+)\/firebase-app\.js(['"])/g;
+
+/* Any SDK loaded as a classic script: 8.10.1's firebase-app.js and 9+'s
+   firebase-app-compat.js both put `firebase` on the window, so both are
+   patched the same way. Matching only "-compat" left every version 8 page
+   with no hook at all, pointed at live and drawing nothing. */
+const SDK_SCRIPT_TAG = /<script[^>]+src=["'][^"']*firebasejs\/[^"']*\.js["'][^>]*><\/script>/gi;
+
+function pointAtEmulator(html, account) {
+  /* modular: answer the app import with the shim */
+  html = html.replace(MODULAR_APP_IMPORT, (_m, pre, version, post) =>
+    pre + '/__shim-app-' + version + '.js' + post);
+  /* namespaced or compat: patch the global, after the last SDK script tag */
+  let last = null, m, version = null;
+  SDK_SCRIPT_TAG.lastIndex = 0;
+  while ((m = SDK_SCRIPT_TAG.exec(html))) {
+    last = m.index + m[0].length;
+    const v = /firebasejs\/([0-9.]+)\//.exec(m[0]);
+    if (v) version = v[1];
+  }
   if (last === null) return html;
-  return html.slice(0, last) + '\n' + EMULATOR_HOOK + html.slice(last);
+  /* Several originals load app and firestore but not auth, because they never
+     signed in. Add it, at their own SDK version, so the hook can. */
+  const needsAuth = version && !/firebasejs\/[0-9.]+\/firebase-auth(-compat)?\.js/i.test(html);
+  const authTag = needsAuth
+    ? '<script src="https://www.gstatic.com/firebasejs/' + version + '/firebase-auth' +
+      (/-compat\.js/i.test(html) ? '-compat' : '') + '.js"></script>\n'
+    : '';
+  return html.slice(0, last) + '\n' + authTag + emulatorHook(account) + html.slice(last);
 }
 
 function serve(dir, port, extra, hookEmulator) {
@@ -223,6 +327,11 @@ function serve(dir, port, extra, hookEmulator) {
     if (url === '/__signin.html' && (extra || hookEmulator)) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(extra ? SIGNIN : ORIG_SIGNIN);
+    }
+    const shim = hookEmulator && /^\/__shim-app-([0-9.]+)\.js$/.exec(url);
+    if (shim) {
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(shimFor(shim[1], ACCOUNT));
     }
     const name = url.replace(/^\//, '') || 'index.html';
     const file = path.join(dir, name);
@@ -237,7 +346,7 @@ function serve(dir, port, extra, hookEmulator) {
     let body = fs.readFileSync(file);
     if (ext === '.html') {
       let text = stripServiceWorker(body.toString('utf8'));
-      if (hookEmulator) text = pointAtEmulator(text);
+      if (hookEmulator) text = pointAtEmulator(text, ACCOUNT);
       body = Buffer.from(text, 'utf8');
     }
     res.end(body);
@@ -343,6 +452,93 @@ const MASK_STAMP = /\d{10,}/g;
 /* An element id that was generated rather than written. Containers named this
    way cannot be matched between the two sides at all. */
 const GENERATED_ID = /\d{10,}/;
+/* ------------------------------------------------- driving the main flow */
+/* Most of what these pages do is behind choosing something first, so looking
+ * at the state a page opens in says very little. The same steps run on both
+ * sides, in the same order, against the same synthetic data.
+ *
+ * NOTHING HERE WRITES. Both sides now share one synthetic database, so a step
+ * that saved would change what the other side then read, and the comparison
+ * would be of two different states. Picking a date, picking a service and
+ * opening a person are all reads.
+ *
+ * Written in plain DOM terms rather than against either side's internals, so
+ * one list of steps serves both copies of the page.
+ */
+const SET_DATE = (id, value) => `(() => { const el = document.getElementById('${id}');
+  if (!el) return 'no #${id}';
+  el.value = '${value}';
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  return el.value; })()`;
+
+const PICK_OPTION = (id, n) => `(() => { const s = document.getElementById('${id}');
+  if (!s) return 'no #${id}';
+  if (s.options.length <= ${n}) return 'only ' + s.options.length + ' option(s)';
+  s.selectedIndex = ${n};
+  s.dispatchEvent(new Event('change', { bubbles: true }));
+  return (s.options[s.selectedIndex] || {}).text; })()`;
+
+const CLICK_NTH = (selector, n, what) => `(() => {
+  const els = [...document.querySelectorAll(${JSON.stringify(selector)})].filter(e => e.offsetParent);
+  if (els.length <= ${n}) return 'only ' + els.length + ' ${what}';
+  els[${n}].click();
+  return 'opened ' + (els[${n}].textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 30); })()`;
+
+const CALL = (fn, arg) => `(() => { try {
+  if (typeof ${fn} !== 'function') return 'no ${fn}()';
+  ${fn}(${arg === undefined ? '' : JSON.stringify(arg)}); return 'called';
+} catch (e) { return 'threw: ' + e.message; } })()`;
+
+/* A Sunday the emulator has an event and a service on. */
+const SEEDED_SUNDAY = '2026-10-11';
+/* A synthetic member, so the availability form has somebody to look up. */
+const SEEDED_EMAIL = 'ab_p1@example.invalid';
+
+const FLOWS = {
+  'SundayServicePlanner.html': [
+    ['pick the date', SET_DATE('serviceDate', SEEDED_SUNDAY)],
+    ['pick the service', PICK_OPTION('eventSelect', 1)]
+  ],
+  'youthserviceplanner.html': [
+    ['pick the date', SET_DATE('serviceDate', SEEDED_SUNDAY)],
+    ['pick the service', PICK_OPTION('eventSelect', 1)]
+  ],
+  'youthapp2.html': [
+    ['open the planner', CALL('openSection', 'planner')],
+    ['pick the date', SET_DATE('serviceDate', SEEDED_SUNDAY)],
+    ['pick the service', PICK_OPTION('eventSelect', 1)]
+  ],
+  'Planner.html': [
+    ['pick a term', PICK_OPTION('termSelect', 1)],
+    ['expand every term', `(() => { const h = [...document.querySelectorAll('[onclick^="toggleTermCollapse"]')];
+       h.forEach(e => e.click()); return h.length + ' term(s)'; })()`],
+    ['pick a member for the PDF', PICK_OPTION('memberPdfSelect', 1)]
+  ],
+  'view-only-rota.html': [
+    ['pick a member', PICK_OPTION('memberPdfSelect', 1)],
+    ['expand every term', `(() => { const h = [...document.querySelectorAll('[onclick^="toggleTermCollapse"]')];
+       h.forEach(e => e.click()); return h.length + ' term(s)'; })()`]
+  ],
+  'CoreTeamApp.html': [
+    ['put the tour away', CALL('endTour')],
+    ['the service planner', CALL('openSection', 'service')],
+    ['open the first service', CLICK_NTH('#service-list .service-card, #service-list [onclick]', 0, 'service(s)')],
+    ['the rota', CALL('openSection', 'rota')],
+    ['the meetings', CALL('openSection', 'meetings')]
+  ],
+  'addressbook.html': [
+    ['open the first person', CLICK_NTH('button[onclick^="editMember"], .member-row button', 0, 'people')],
+    ['open the second person', CLICK_NTH('button[onclick^="editMember"], .member-row button', 1, 'people')]
+  ],
+  'index.html': [
+    ['type a member\'s address', `(() => { const el = document.getElementById('memberEmail');
+       if (!el) return 'no #memberEmail'; el.value = '${SEEDED_EMAIL}';
+       el.dispatchEvent(new Event('input', { bubbles: true })); return el.value; })()`],
+    ['press Check My Services', CALL('loginMember')]
+  ]
+};
+
 const norm = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
   .replace(/\s+/g, ' ').trim().replace(MASK_STAMP, '#').replace(MASK_ID, '#');
 const agreedWhy = s => (AGREED.find(a => a.re.test(s)) || {}).why || '';
@@ -399,6 +595,7 @@ function missingFrom(origRows, v2Rows) {
   let id = 0; const pend = new Map();
   let side = 'orig', nowPage = '(start-up)', refusedLive = 0, refusedEmu = 0;
   const leaked = [], gotData = [];
+  const watch = watchConsole();
   const send = (m, p = {}) => new Promise(r => {
     const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p }));
   });
@@ -406,6 +603,8 @@ function missingFrom(origRows, v2Rows) {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); return; }
+    /* A page that throws is not a page that works, whichever side it is on. */
+    if (watch.handle(m)) return;
     /* A RESPONSE from somewhere that is not this machine means data actually
        came back, whatever the interception thinks it did. This is the detector
        that would have caught the live Firestore reads immediately instead of
@@ -480,6 +679,7 @@ function missingFrom(origRows, v2Rows) {
 
   const grab = async (which, page, shot) => {
     side = which; nowPage = page;
+    watch.reset();
     const port = which === 'orig' ? ORIG_PORT : V2_PORT;
     /* Clear the tab between pages. Without this the previous page is still
        live while the next one is asked for, and a page that navigates itself
@@ -515,13 +715,46 @@ function missingFrom(origRows, v2Rows) {
       return { wrongPage: (which === 'orig' ? 'original' : 'v2') + ' ended up at ' + (at || '(nothing)') };
     }
     await ev('window.alert=()=>{};window.confirm=()=>false;window.prompt=()=>null;1');
+    /* The originals do not sign in - the live site has open rules and never
+       needed an account - so the hook signs them in. That is asynchronous, and
+       the page's first reads beat it: the rules refuse them, the page draws
+       nothing, and everything v2 has then reads as a difference.
+       So: wait for the sign-in, then load the page again. The second load
+       starts with the session already in storage, and its reads carry it. */
+    if (which === 'orig' && onEmulator) {
+      const signedIn = await ev('window.__harnessSignIn || Promise.resolve("(no hook)")', true);
+      if (/failed/.test(String(signedIn))) console.log('      note: the original could not sign in - ' + signedIn);
+      watch.reset();
+      await send('Page.navigate', { url: 'http://localhost:' + port + '/' + encodeURI(page) });
+      await sleep(7000);
+      await ev('window.alert=()=>{};window.confirm=()=>false;window.prompt=()=>null;1');
+    }
     if (shot) {
       const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
       if (r.data) fs.writeFileSync(path.join(SHOTS, page.replace(/\.html$/i, '') + '--' + which + '.png'), Buffer.from(r.data, 'base64'));
     }
+    /* Drive the page's main flow before measuring, where there is one: pick a
+       date, pick a service, open each person or role. Revealing what is
+       already on the page only shows the state it opens in, and most of what
+       these pages do is behind choosing something first. The same steps run on
+       both sides, in the same order, against the same data. */
+    const flow = FLOWS[page];
+    const flowSteps = [];
+    if (flow) {
+      for (const [label, code] of flow) {
+        const r = await ev(code);
+        await sleep(1400);
+        flowSteps.push(label + ' = ' + String(r === undefined || r === null ? '' : r).slice(0, 60));
+      }
+    }
     await ev(REVEAL);
     await sleep(600);
-    try { return JSON.parse(await ev(SNAPSHOT) || '{}'); } catch { return {}; }
+    let snap = {};
+    try { snap = JSON.parse(await ev(SNAPSHOT) || '{}'); } catch { snap = {}; }
+    snap.errors = watch.errors.slice();
+    snap.ignored = watch.ignored.slice();
+    snap.flow = flowSteps;
+    return snap;
   };
 
   const table = [];
@@ -608,13 +841,33 @@ function missingFrom(origRows, v2Rows) {
     });
     const losses = classed.filter(d => d.cls === 'c');
     const data = classed.filter(d => d.cls === 'd');
+    /* An error on EITHER side is a failure. A page that throws is not a page
+       that works, and the one time this mattered most the browser had been
+       saying so in one line all along with nothing reading it. */
+    const errs = [
+      ...(a.errors || []).map(e => 'original: ' + e),
+      ...(b.errors || []).map(e => 'v2: ' + e)
+    ];
     table.push({ page, a: classed.filter(d => d.cls === 'a').length,
-      b: classed.filter(d => d.cls === 'b').length, d: data.length, c: losses.length, losses, data });
+      b: classed.filter(d => d.cls === 'b').length, d: data.length, c: losses.length,
+      losses, data, errors: errs, flow: { orig: a.flow || [], v2: b.flow || [] } });
 
     console.log(page.padEnd(32) + 'agreed ' + String(classed.filter(d => d.cls === 'a').length).padStart(3) +
       '   restyle ' + String(classed.filter(d => d.cls === 'b').length).padStart(3) +
       '   data ' + String(data.length).padStart(3) +
-      '   LOSS ' + String(losses.length).padStart(3));
+      '   LOSS ' + String(losses.length).padStart(3) +
+      (errs.length ? '   ERRORS ' + errs.length : ''));
+    /* What the flow did, where there was one - so a step that silently did
+       nothing ("no #eventSelect", "only 1 option") is visible rather than
+       being mistaken for agreement. */
+    if ((a.flow || []).length) {
+      for (let i = 0; i < a.flow.length; i++) {
+        const sameStep = a.flow[i] === (b.flow || [])[i];
+        console.log('      flow  ' + (sameStep ? '=  ' : '*  ') + a.flow[i] +
+          (sameStep ? '' : '\n              v2: ' + ((b.flow || [])[i] || '(no step)')));
+      }
+    }
+    errs.slice(0, 6).forEach(e => console.log('      ERROR  ' + e));
     losses.slice(0, 8).forEach(d => {
       console.log('      ' + d.kind + '  ' + String(d.what).slice(0, 56));
       if (d.detail) console.log('         ' + d.detail);
@@ -631,9 +884,20 @@ function missingFrom(origRows, v2Rows) {
     console.log('nothing to conclude about these. Run each on its own to see why:');
     for (const r of skipped) console.log('  ' + r.page + '  (' + r.notCompared + ')');
   }
+  const withErrors = table.filter(r => (r.errors || []).length);
+  if (withErrors.length) {
+    console.log('\nPAGES WITH AN ERROR ON THE CONSOLE. A page that throws is not a page that');
+    console.log('works, whichever side it is on:');
+    for (const r of withErrors) {
+      console.log('  ' + r.page);
+      for (const e of r.errors.slice(0, 4)) console.log('      ' + e);
+      if (r.errors.length > 4) console.log('      ... and ' + (r.errors.length - 4) + ' more');
+    }
+  }
   console.log('\npages compared: ' + (table.length - skipped.length) + ' of ' + table.length +
     '\nlive requests refused: ' + refusedLive + '   emulator requests refused to originals: ' + refusedEmu +
     '\ncontainers skipped because their id is generated: ' + ungradable +
+    '\npages with a console error: ' + withErrors.length +
     '\nlosses to fix: ' + total);
   if (leaked.length) console.log('\nA v2 page tried to reach live: ' + [...new Set(leaked)].join(', '));
   if (gotData.length) {
@@ -646,5 +910,5 @@ function missingFrom(origRows, v2Rows) {
 
   sOrig.close(); sV2.close(); chrome.kill();
   try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Chrome may still hold a file; it is in the temp directory either way. */ }
-  process.exit(total || gotData.length ? 1 : 0);
+  process.exit(total || gotData.length || withErrors.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

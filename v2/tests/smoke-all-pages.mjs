@@ -25,6 +25,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { watchConsole } from './console-watch.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -155,17 +156,18 @@ const ok = (n, v, x) => { R.push(v); console.log((v ? '  PASS  ' : '  FAIL  ') +
   for (let i = 0; i < 40; i++) { try { list = await getJSON('/json/list'); break; } catch { await sleep(500); } }
   if (!list) { console.error('Chrome did not start - set CHROME_PATH'); process.exit(1); }
   const ws = new WebSocket(list.find(x => x.type === 'page').webSocketDebuggerUrl);
-  let id = 0; const pend = new Map(); let logs = []; const reachedLive = [];
+  let id = 0; const pend = new Map(); const reachedLive = [];
+  const watch = watchConsole();
   let nowPage = '(start-up)';
   const send = (m, p = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
   await new Promise(r => ws.onopen = r);
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); return; }
-    if (m.method === 'Runtime.exceptionThrown') {
-      const d = m.params.exceptionDetails;
-      logs.push(String((d.exception && d.exception.description) || d.text || '').split('\n')[0].slice(0, 100));
-    }
+    /* An uncaught exception OR a console.error: a page that throws is not a
+       page that works, and this is the check that would have caught the
+       planner's ReferenceError the day it shipped. */
+    if (watch.handle(m)) return;
     if (m.method === 'Fetch.requestPaused') {
       const u = m.params.request.url || '';
       if (isLive(u)) {
@@ -203,7 +205,7 @@ const ok = (n, v, x) => { R.push(v); console.log((v ? '  PASS  ' : '  FAIL  ') +
   console.log('signed in as ' + who + '\n');
 
   for (const [page, sel] of PAGES) {
-    logs = []; nowPage = page;
+    watch.reset(); nowPage = page;
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + page });
     await sleep(7000);
     /* CoreTeamApp opens on a chooser; the home screen is behind it. */
@@ -223,7 +225,7 @@ const ok = (n, v, x) => { R.push(v); console.log((v ? '  PASS  ' : '  FAIL  ') +
       (page === 'login.html' && /hub\.html/.test(info.path));
     ok(name + ' loads and renders', info.vis === 'visible' && info.chars > 60 && landedRight,
       info.chars + ' chars' + (landedRight && page === 'login.html' ? ', redirected to the hub as it should' : ''));
-    ok(name + ' no uncaught errors', logs.length === 0, logs.slice(0, 1).join('') || 'clean');
+    ok(name + ' error console is empty', watch.errors.length === 0, watch.summary());
     ok(name + ' is on Inter', /Inter/.test(info.font || ''), (info.font || '').slice(0, 42));
     ok(name + ' keeps its controls', info.ctrl > 0, info.ctrl + ' matched');
   }
