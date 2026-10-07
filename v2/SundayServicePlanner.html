@@ -246,7 +246,7 @@ window.searchSong = async (input, id) => {
     }).slice(0, 10);
     if (matches.length === 0) {
         const encoded = encodeURIComponent(input.value);
-        box.innerHTML = `<div class="p-3 text-xs text-red-800 font-medium bg-[#f0f6f6]">Not in library</div><div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white"><a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-[#3d6263] hover:underline"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a><a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" rel="noreferrer noopener" class="text-[#3d6263] hover:underline">▶ YouTube</a><a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">Upload Song</a></div>`;
+        box.innerHTML = `<div class="p-3 text-xs text-red-800 font-medium bg-[#f0f6f6]">Not in library</div><div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white"><a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white hover:bg-[#f3f4f6] no-underline border-[#d1dfdf] text-[#3d6263]"><i data-lucide="search" style="width:16px;height:16px"></i> SongSelect</a><a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white hover:bg-[#f3f4f6] no-underline border-[#fecaca] text-red-700"><i data-lucide="youtube" style="width:16px;height:16px"></i> YouTube</a><a href="music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">Upload Song</a></div>`;
         box.classList.remove('hidden');
         return;
     }
@@ -326,9 +326,9 @@ window.keyChanged = async (id) => {
     const allFiles = data.files || [];
 
     let html = `<div class="mt-4 p-4 bg-[#f0f6f6] rounded-xl border border-[#d1dfdf]">`;
-    html += `<div class="text-[11px] mb-3 flex gap-4 flex-wrap font-medium">
-        ${youtube ? `<a href="${youtube}" target="_blank" rel="noreferrer noopener" class="text-red-700 hover:underline">YouTube Video</a>` : `<span class="text-[#d1dfdf]">No YouTube</span>`}
-        <a href="${songSelectLink}" target="_blank" class="text-[#3d6263] hover:underline"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
+    html += `<div class="text-[13px] mb-3 flex gap-2 flex-wrap items-center font-medium">
+        ${youtube ? `<a href="${youtube}" target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white hover:bg-[#f3f4f6] no-underline border-[#fecaca] text-red-700"><i data-lucide="youtube" style="width:16px;height:16px"></i> YouTube video</a>` : `<span class="text-[#d1dfdf]">No YouTube</span>`}
+        <a href="${songSelectLink}" target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white hover:bg-[#f3f4f6] no-underline border-[#d1dfdf] text-[#3d6263]"><i data-lucide="search" style="width:16px;height:16px"></i> SongSelect</a>
         ${ccli ? `<span class="text-[#3d6263] opacity-50 ml-auto">CCLI: ${ccli}</span>` : `<span class="text-[#d1dfdf] ml-auto">No CCLI</span>`}
     </div>`;
     if (keys.length > 0) {
