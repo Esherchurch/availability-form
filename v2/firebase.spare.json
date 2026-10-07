@@ -1,0 +1,25 @@
+{
+  "comment": "Same rules, emulators on spare ports, so a rules run can happen while the dev emulators (firebase.json) are up with seeded data. Run it with: firebase emulators:exec --config firebase.spare.json --project demo-egbc \"node firestore-rules.test.mjs\" after setting EGBC_FIREBASE_CONFIG=firebase.spare.json so the test reads the same port.",
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9089
+    },
+    "firestore": {
+      "port": 8171
+    },
+    "storage": {
+      "port": 9189
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  }
+}

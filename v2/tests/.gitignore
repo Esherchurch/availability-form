@@ -1,0 +1,5 @@
+# Run output, not source. Each check rewrites these every time it runs.
+compare-last.json
+screens-last.json
+dbg-snapshots.json
+shots/

@@ -47,6 +47,23 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     });
   }
   await setDoc(doc(db, 'addressBook', 'm_u_samy'), { name: 'Samy', markers: ['Worship Team'] });
+  /* Two invented people who have NOT signed in yet, so there is no users
+     record for them. Everything above is created with the rules switched off,
+     which is why nothing here ever exercised a first sign-in - and why the
+     rules could refuse every member without a test noticing. */
+  await setDoc(doc(db, 'addressBook', 'm_newbie'), {
+    name: 'New Synthetic', email: 'newbie@example.invalid', markers: ['Worship Team'] });
+  await setDoc(doc(db, 'addressBook', 'm_boss'), {
+    name: 'Boss Synthetic', email: 'boss@example.invalid', markers: ['Core Team'],
+    adminFor: ['Core Team'], masterAdmin: true });
+  await setDoc(doc(db, 'addressBook', 'm_nobody'), {
+    name: 'Nobody Synthetic', email: 'nobody@example.invalid', markers: ['Core Team'] });
+  /* Already signed in once, and visiting again - the refreshFromBook() path. */
+  await setDoc(doc(db, 'addressBook', 'm_samy2'), {
+    name: 'Samy Two', email: 'samy2@example.invalid', markers: ['Worship Team'] });
+  await setDoc(doc(db, 'users', 'u_samy2'), {
+    uid: 'u_samy2', email: 'samy2@example.invalid', name: 'Samy Two', memberId: 'm_samy2',
+    linkedBy: 'auto', teams: ['Worship Team'], adminFor: [], masterAdmin: false, status: 'active' });
   await setDoc(doc(db, 'events', 'e1'), { date: '2026-09-06', roles: ['Guitar'] });
   await setDoc(doc(db, 'worshipBoardState', 'state'), { notes: [] });
   await setDoc(doc(db, 'worshipBoardState', 'kids-church'), { notes: [] });
@@ -55,6 +72,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'teamVideos', 'v_worship'), { title: 'Worship clip', team: 'Worship Team' });
   await setDoc(doc(db, 'videoSections', 'kids-church'), { team: 'Kids Church', names: ['Church Show'] });
   await setDoc(doc(db, 'services', 's1'), { date: '2026-09-06' });
+  await setDoc(doc(db, 'inventory', 'inv1'), { name: 'Synthetic mixing desk', where: 'Main Hall' });
+  await setDoc(doc(db, 'av_schematic', 'main'), { boxes: [] });
   await setDoc(doc(db, 'resources', 'r1'), { title: 'Charter' });
   await setDoc(doc(db, 'kb_playthrough', 'k1'), { title: 'Play-through' });
   await setDoc(doc(db, 'rotaSignoff', 'Autumn 2026__Kids Church'), { by: 'Karen' });
@@ -110,6 +129,10 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 
 const as = (who) => env.authenticatedContext(PEOPLE[who].uid).firestore();
 const anon = () => env.unauthenticatedContext().firestore();
+/* Signing in for the first time, with the verified email the rules check
+   against the address book. */
+const asNewcomer = (uid, email) =>
+  env.authenticatedContext(uid, { email, email_verified: true }).firestore();
 
 /* ---- the checks --------------------------------------------------- */
 
@@ -141,6 +164,70 @@ await check('team member reads the rota', 'allow', () => getDoc(doc(as('samy'), 
 await check('team member reads the address book', 'allow', () => getDocs(collection(as('samy'), 'addressBook')));
 await check('team member cannot rewrite the registry', 'deny', () => setDoc(doc(as('samy'), 'hubPages', 'p1'), { title: 'x' }));
 await check('master rewrites the registry', 'allow', () => updateDoc(doc(as('martin'), 'hubPages', 'p1'), { title: 'Rota' }));
+
+/* ---- signing in for the first time -------------------------------
+   The mirror at users/{uid} is what every other rule on this page reads, and
+   egbc-auth.js writes it by matching the address book. If that write is
+   refused, the person is signed in and has no access to anything, for ever -
+   so these are the checks that stand between the church and a locked door.
+   Each one writes exactly what provisionProfile() writes. */
+await check('a first sign-in writes the membership the address book gives', 'allow',
+  () => setDoc(doc(asNewcomer('u_newbie', 'newbie@example.invalid'), 'users', 'u_newbie'), {
+    uid: 'u_newbie', email: 'newbie@example.invalid', name: 'New Synthetic',
+    memberId: 'm_newbie', linkedBy: 'auto', teams: ['Worship Team'],
+    adminFor: [], masterAdmin: false, status: 'active' }));
+await check('an admin in the book comes back an admin', 'allow',
+  () => setDoc(doc(asNewcomer('u_boss', 'boss@example.invalid'), 'users', 'u_boss'), {
+    uid: 'u_boss', email: 'boss@example.invalid', name: 'Boss Synthetic',
+    memberId: 'm_boss', linkedBy: 'auto', teams: ['Core Team'],
+    adminFor: ['Core Team'], masterAdmin: true, status: 'active' }));
+await check('nobody in the book at all still gets a record, as pending', 'allow',
+  () => setDoc(doc(asNewcomer('u_stranger', 'stranger@example.invalid'), 'users', 'u_stranger'), {
+    uid: 'u_stranger', email: 'stranger@example.invalid', memberId: null,
+    teams: [], status: 'pending' }));
+await check('a shared address waits for an admin to settle it', 'allow',
+  () => setDoc(doc(asNewcomer('u_shared', 'shared@example.invalid'), 'users', 'u_shared'), {
+    uid: 'u_shared', email: 'shared@example.invalid', memberId: null, teams: [],
+    status: 'ambiguous', candidates: [{ id: 'm_newbie', name: 'New Synthetic', admin: false }] }));
+
+/* The other half: what it must still refuse. */
+await check('but not a team the book does not give', 'deny',
+  () => setDoc(doc(asNewcomer('u_greedy', 'newbie@example.invalid'), 'users', 'u_greedy'), {
+    uid: 'u_greedy', memberId: 'm_newbie', teams: ['Worship Team', 'Core Team'],
+    adminFor: [], masterAdmin: false, status: 'active' }));
+await check('and not making yourself an admin', 'deny',
+  () => setDoc(doc(asNewcomer('u_climber', 'newbie@example.invalid'), 'users', 'u_climber'), {
+    uid: 'u_climber', memberId: 'm_newbie', teams: ['Worship Team'],
+    adminFor: ['Core Team'], masterAdmin: false, status: 'active' }));
+await check('and not making yourself a master admin', 'deny',
+  () => setDoc(doc(asNewcomer('u_master', 'newbie@example.invalid'), 'users', 'u_master'), {
+    uid: 'u_master', memberId: 'm_newbie', teams: ['Worship Team'],
+    adminFor: [], masterAdmin: true, status: 'active' }));
+await check('and not claiming a record that is not yours', 'deny',
+  () => setDoc(doc(asNewcomer('u_thief', 'newbie@example.invalid'), 'users', 'u_thief'), {
+    uid: 'u_thief', memberId: 'm_nobody', teams: ['Core Team'],
+    adminFor: [], masterAdmin: false, status: 'active' }));
+await check('and not on an unverified address', 'deny',
+  () => setDoc(doc(env.authenticatedContext('u_unver', { email: 'newbie@example.invalid', email_verified: false }).firestore(),
+    'users', 'u_unver'), {
+    uid: 'u_unver', memberId: 'm_newbie', teams: ['Worship Team'],
+    adminFor: [], masterAdmin: false, status: 'active' }));
+await check('and not calling yourself active with nothing behind it', 'deny',
+  () => setDoc(doc(asNewcomer('u_bluff', 'stranger@example.invalid'), 'users', 'u_bluff'), {
+    uid: 'u_bluff', memberId: null, teams: [], status: 'active' }));
+await check('and not writing somebody else\'s record', 'deny',
+  () => setDoc(doc(asNewcomer('u_newbie', 'newbie@example.invalid'), 'users', 'u_samy'), {
+    teams: ['Worship Team'], status: 'active' }));
+
+/* Picking up a change an admin made since the last visit. Samy is in the book
+   on Worship Team; the stored mirror says the same, and re-writing it from the
+   book has to be allowed or refreshFromBook() fails silently every load. */
+await check('a member picks up what the book now says', 'allow',
+  () => updateDoc(doc(asNewcomer('u_samy2', 'samy2@example.invalid'), 'users', 'u_samy2'),
+    { teams: ['Worship Team'], status: 'active', name: 'Samy Two' }));
+await check('but still cannot add a team to their own record', 'deny',
+  () => updateDoc(doc(asNewcomer('u_samy2', 'samy2@example.invalid'), 'users', 'u_samy2'),
+    { teams: ['Worship Team', 'AV Team'], status: 'active' }));
 
 /* Someone in the book but with no teams ticked yet. The rota itself is open
    now, so this has to test something that is actually gated. */
@@ -328,6 +415,16 @@ await check('history cannot be rewritten, even by a master admin', 'deny', () =>
 await check('history cannot be deleted', 'deny', () => deleteDoc(doc(as('martin'), 'eventChanges', 'ch1')));
 await check('what was emailed cannot be rewritten', 'deny', () => updateDoc(doc(as('martin'), 'commsLog', 'log1'), { subject: 'changed' }));
 await check('the public cannot read the change history', 'deny', () => getDoc(doc(anon(), 'eventChanges', 'ch1')));
+
+/* The AV inventory and the schematic. Neither had a rule, so both were
+   denied by the catch-all - the pages would not have read, let alone
+   saved, once the rules were deployed. */
+await check('a member can look up what kit there is', 'allow', () => getDoc(doc(as('samy'), 'inventory', 'inv1')));
+await check('a member cannot change the inventory', 'deny', () => setDoc(doc(as('samy'), 'inventory', 'inv1'), { name: 'Mine now' }));
+await check('a master admin can', 'allow', () => setDoc(doc(as('martin'), 'inventory', 'inv1'), { name: 'Synthetic mixing desk' }));
+await check('a member reads the AV schematic', 'allow', () => getDoc(doc(as('samy'), 'av_schematic', 'main')));
+await check('a member cannot redraw it', 'deny', () => setDoc(doc(as('samy'), 'av_schematic', 'main'), { boxes: [] }));
+await check('nobody without an account can read either', 'deny', () => getDoc(doc(anon(), 'inventory', 'inv1')));
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));

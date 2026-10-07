@@ -412,15 +412,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-const firebaseConfig = {
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner",
-    storageBucket: "egbc-worship-planner.firebasestorage.app",
-    appId: "1:199442060489:web:7eaf85a76334c753db6918"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+/* The shared connection, not one of its own - see trainingbatchimporter.html
+   for what building a second app from the live config cost: live reads from
+   localhost, and no signed-in user on them. This page writes as well as
+   reads, so it was the one most exposed. */
+const db = firebase.firestore(EGBCAuth.app);
 
 // ── SEPARATE FIREBASE COLLECTIONS — never touches live portal ──────────────
 const MENU_DOC      = db.collection('training_portal').doc('menuItems');

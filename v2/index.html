@@ -135,11 +135,37 @@
         };
 
         function loadResponses() {
-            onSnapshot(query(collection(db, "availability"), where("memberId", "==", currentUser.id)), (snap) => {
-                availabilityData = {};
-                snap.forEach(d => { availabilityData[d.data().eventId] = d.data().status; });
-                renderDates();
-            });
+            /* Draw the dates FIRST, and never wait on the read below.
+
+               This page has no sign-in, by decision. firestore.rules lets it
+               read the dates and write an answer, and deliberately does not
+               let it read anybody's answers back - there is no identity here
+               to check them against. But this function used to call
+               renderDates() only from inside the snapshot callback, so when
+               that read was refused the callback never fired and the form
+               showed no dates at all. Nobody noticed because the rules are
+               not deployed yet: the day they are, the one page the whole
+               church uses would have gone blank.
+
+               So: the dates are drawn, and the previous answers are a bonus
+               that arrives if the read is allowed. */
+            renderDates();
+
+            try {
+                onSnapshot(
+                    query(collection(db, "availability"), where("memberId", "==", currentUser.id)),
+                    (snap) => {
+                        availabilityData = {};
+                        snap.forEach(d => { availabilityData[d.data().eventId] = d.data().status; });
+                        renderDates();
+                    },
+                    () => {
+                        /* Refused, which is what the rules say should happen.
+                           The form still works; it just cannot show what this
+                           person said last time. See PARITY-AUDIT.md S-007. */
+                    }
+                );
+            } catch (e) { /* same again, for a browser that throws instead */ }
         }
 
         async function renderDates() {

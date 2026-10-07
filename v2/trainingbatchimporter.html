@@ -213,14 +213,13 @@ button:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--brand-ring); }
 // Nothing written to Firebase Storage or Firestore
 // ═══════════════════════════════════════════════════════════════════════════
 
-const firebaseConfig = {
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner",
-    storageBucket: "egbc-worship-planner.firebasestorage.app"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+/* The shared connection, not one of its own. This page used to build a
+   second Firebase app from the live config, which had two consequences: on
+   localhost it read the LIVE database while every other page read the
+   emulator, and its reads carried no signed-in user, so once the rules are
+   deployed they would be refused and the page would show nothing. Both go
+   away by using the app egbc-auth.js already made. */
+const db = firebase.firestore(EGBCAuth.app);
 
 const TS_SONGS_KEY = "EGBC_TR_SONGS"; // shared with library page
 

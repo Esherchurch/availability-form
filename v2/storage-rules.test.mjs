@@ -135,6 +135,23 @@ await check('and cannot read a rota that is mid-flight', 'deny',
 await check('a rota PDF has to be a PDF', 'deny',
   () => uploadBytes(ref(as('karen'), 'rota-temp/pkg1/not.png'), PIC(), { contentType: 'image/png' }));
 
+/* ---- S-003: the old rotas/ path ------------------------------------
+   It took a 25MB PDF from anybody at all. Nothing writes there on either
+   site, so it is closed to people with no account. Reading stays open, in
+   case an old email still links to a PDF somebody was sent. */
+await check('an old rota PDF can still be read by anyone with the link', 'allow',
+  () => getBytes(ref(anon(), 'rotas/old-rota.pdf')).catch(e => {
+    /* not found is fine - what matters is that it was not refused */
+    if (/object-not-found|404/.test(String(e))) return true; throw e; }));
+await check('somebody with no account can no longer upload one', 'deny',
+  () => uploadBytes(ref(anon(), 'rotas/sneak.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('a signed-in person still can', 'allow',
+  () => uploadBytes(ref(as('karen'), 'rotas/term.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('and it still has to be a PDF', 'deny',
+  () => uploadBytes(ref(as('karen'), 'rotas/term.png'), PIC(), { contentType: 'image/png' }));
+await check('a signed-in person can clear an old one away', 'allow',
+  () => deleteObject(ref(as('karen'), 'rotas/term.pdf')));
+
 /* ---- nothing else moved ------------------------------------------- */
 /* Banners are uploaded from the hub by anyone signed in, and were before
    this change. If tightening events had caught them too, this fails. */

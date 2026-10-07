@@ -200,23 +200,19 @@
         // "Send All Rotas" → faithful replica of PowerShell sender UI (simulated sends)
         // ═══════════════════════════════════════════════════════════════════════════
 
-        import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy, getDoc, getDocs, doc, where }
+        import { db, storage, ready } from './egbc-db.js';
+        import { collection, onSnapshot, query, orderBy, getDoc, getDocs, doc, where }
                                     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getStorage, ref, getDownloadURL }
+        import { ref, getDownloadURL }
                                     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-        const firebaseConfig = {
-            apiKey:"AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-            authDomain:"egbc-worship-planner.firebaseapp.com",
-            projectId:"egbc-worship-planner",
-            storageBucket:"egbc-worship-planner.firebasestorage.app",
-            messagingSenderId:"199442060489",
-            appId:"1:199442060489:web:7eaf85a76334c753db6918"
-        };
-        const app=initializeApp(firebaseConfig);
-        const db=getFirestore(app);
-        const storage=getStorage(app);
+        /* The shared connection, not one of its own. This page used to build a
+           second Firebase app from the live config, which had two
+           consequences: on localhost it read the LIVE database while every
+           other page read the emulator, and its reads carried no signed-in
+           user, so once the rules are deployed they would be refused and a
+           training session would open on an empty rota. */
+        await ready;
 
         const OPTIONAL_ROLES        = ['Sound','Words','Cameras','Violin','Congas','2nd Guitar','2nd Keys','Electric Guitar','Oboe','Trumpet','Cahon','Singer 1','Singer 2','Singer 3','Other','Other 2','Other 3','Choir'];
         const MANDATORY_SUNDAY_ROLES= ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];

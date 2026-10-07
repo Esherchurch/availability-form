@@ -277,13 +277,10 @@
 // Save/delete goes to sessionStorage only — no Firebase writes
 // ═══════════════════════════════════════════════════════════════════════════
 
-const firebaseConfig = {
-    apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
-    projectId: "egbc-worship-planner"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+/* The shared connection, not one of its own - see trainingbatchimporter.html
+   for what building a second app from the live config cost: live reads from
+   localhost, and no signed-in user on them. */
+const db = firebase.firestore(EGBCAuth.app);
 
 const TS_SONGS_KEY = "EGBC_TR_SONGS";
 

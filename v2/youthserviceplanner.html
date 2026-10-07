@@ -286,7 +286,11 @@ function autoFitTextAreas() {
     });
 }
 
-window.onload = async () => {
+/* Step B added `await ready` above this, and a handler assigned after an
+   await is attached too late: the load event has already fired, so none of
+   this ever ran. The page opened with an empty order of service.
+   Run it now if the page is already loaded; wait for load if it is not. */
+const startPage = async () => {
     Sortable.create(document.getElementById('service-order'), {
         animation: 150,
         handle: '.drag-handle',
@@ -312,6 +316,8 @@ window.onload = async () => {
     } catch (e) { console.error("Address book load failed", e); }
 };
 
+if (document.readyState === 'complete') { startPage(); }
+else { window.addEventListener('load', startPage); }
 document.addEventListener('input', (e) => {
     if (e.target.id === 'introBox' || e.target.id === 'outroBox') {
         autoFitTextAreas();

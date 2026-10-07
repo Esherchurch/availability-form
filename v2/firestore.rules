@@ -71,21 +71,96 @@ service cloud.firestore {
     }
 
     // ---- users ------------------------------------------------------
-    // A person may read and create their own record, but never grant
-    // themselves teams or roles. Only an owner or a team admin can do that.
+    // A person may read and create their own record. They may not invent what
+    // it says about them - but they MUST be able to write what the address
+    // book already says, because that is how signing in works at all.
+    //
+    // This rule used to allow a create only with status 'pending' and no
+    // teams, and an update to nothing but lastSeen and name. egbc-auth.js
+    // provisions a first sign-in by matching the address book and writing the
+    // membership it finds, in one set(). So for every member who matches a
+    // record - which is every member - the create was refused, the mirror was
+    // never written, and active() was false for ever after. The page still
+    // looked signed in, because the client keeps its own copy and the failed
+    // write was swallowed; it is the rules that read the stored document. The
+    // whole site would have refused every member the day these rules were
+    // deployed, and the suite missed it because every test created users/{uid}
+    // with the rules switched off.
+    //
+    // So: copying from the address book is allowed, and checked against it.
+    // The address book is editable only by admins, so this grants nothing an
+    // admin has not already granted.
+    //
+    // RESIDUAL RISK, worth knowing about: where two people share an address -
+    // a parent's email on a child's record - either of them could claim
+    // either record, including an admin one. The client refuses that (it
+    // marks the account ambiguous for an admin to settle) but these rules
+    // cannot, because proving it needs a query for every record carrying the
+    // address and rules cannot query. Tightening it further needs a decision
+    // about who links shared addresses.
+
+    function book(id) {
+      return get(/databases/$(database)/documents/addressBook/$(id)).data;
+    }
+
+    // A record that carries this person's own verified sign-in address.
+    function bookIsMine(id) {
+      return exists(/databases/$(database)/documents/addressBook/$(id))
+             && request.auth.token.get('email_verified', false) == true
+             && book(id).get('email', '') == request.auth.token.get('email', '');
+    }
+
+    // Says exactly what the address book says, and nothing more.
+    function mirrorsBook(d) {
+      return d.get('memberId', '') != ''
+             && bookIsMine(d.get('memberId', ''))
+             && d.get('teams', []) == book(d.get('memberId', '')).get('markers', [])
+             && d.get('adminFor', []) == book(d.get('memberId', '')).get('adminFor', [])
+             && d.get('masterAdmin', false) == book(d.get('memberId', '')).get('masterAdmin', false)
+             && d.get('status', '') == (
+                  (d.get('teams', []).size() > 0 || d.get('adminFor', []).size() > 0
+                   || d.get('masterAdmin', false) == true) ? 'active' : 'pending');
+    }
+
+    // Claiming nothing: waiting to be recognised, or waiting for an admin to
+    // settle which of two records with this address is this person.
+    function claimsNothing(d) {
+      return (d.get('status', '') == 'pending' || d.get('status', '') == 'ambiguous')
+             && d.get('teams', []).size() == 0
+             && d.get('adminFor', []).size() == 0
+             && d.get('masterAdmin', false) == false;
+    }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || active());
 
       allow create: if signedIn()
                     && request.auth.uid == uid
-                    && request.resource.data.status == 'pending'
-                    && request.resource.data.teams.size() == 0;
+                    && (claimsNothing(request.resource.data)
+                        || mirrorsBook(request.resource.data));
 
-      // Own record: only the heartbeat field may change.
+      // Own record: the heartbeat, and nothing else.
       allow update: if signedIn() && request.auth.uid == uid
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['lastSeen', 'name']);
+
+      // Own record: picking up a change an admin made in the address book, so
+      // somebody added to a team does not have to be told to sign out and
+      // back in. Checked against that record, so it grants nothing new.
+      allow update: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['lastSeen', 'name', 'teams', 'adminFor', 'masterAdmin',
+                                   'status', 'memberId', 'linkedBy', 'candidates'])
+                    && mirrorsBook(request.resource.data);
+
+      // Own record: standing down to 'ambiguous' when a second record turns
+      // out to carry this address. Gives nothing up to an attacker and takes
+      // nothing: it is the state that asks an admin to decide.
+      allow update: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['lastSeen', 'name', 'teams', 'adminFor', 'masterAdmin',
+                                   'status', 'memberId', 'candidates'])
+                    && claimsNothing(request.resource.data);
 
       // Admins may change teams, roles and status.
       // Master admins may change anything. A team admin may change teams and
@@ -319,6 +394,23 @@ service cloud.firestore {
     match /services/{serviceId} {
       allow read: if active();
       allow write: if canAct('Worship Team') || canAct('Youth Worship');
+    }
+
+    // ---- the AV team's own two -------------------------------------
+    // Neither of these had a rule, so the catch-all at the bottom denied
+    // them: the inventory and the schematic would not have read, let alone
+    // saved, the day the rules were deployed. Both are AV's working tools,
+    // and both are read by anyone on a team who wants to know what is
+    // plugged into what.
+
+    match /inventory/{itemId} {
+      allow read: if active();
+      allow write: if canAct('AV Team') || isAdmin();
+    }
+
+    match /av_schematic/{docId} {
+      allow read: if active();
+      allow write: if canAct('AV Team') || isAdmin();
     }
 
     match /schedules/{scheduleId} {
