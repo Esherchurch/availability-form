@@ -409,6 +409,21 @@ For the "Where to?" registry (`hubPages`), admins only:
   and this week's events, and the roll-call.
 - **Headcounts**: `headcounts.html` (icon `chart-column`).
 The Registers page needs an event, so it is reached from the event, not the hub.
+
+**Also, for the style check** (`tests/check-style-every-screen.mjs`, main window's
+file): please add the events pages to its page list, so it covers them. Each
+needs the screens it should open:
+- `checkin.html?event=<id>`: the list; the walk-in, leader, check-out and
+  settings sheets; the roll-call (`checkin.html?view=rollcall`).
+- `attendance.html?event=<id>`: one screen.
+- `headcounts.html`: one screen.
+- `forms-admin.html` (E2): the list; the builder (`#newTpl` set to `parent`);
+  the event's chase list (`forms-admin.html?event=<id>`); the answers sheet.
+- `form.html?k=<key>` (E2, no sign-in): needs a request in the emulator. The
+  E2 test (`screenshots/events/e2-forms.test.mjs`) shows how to make one.
+
+And for the hub's "Where to?" list, admins only:
+- **Forms**: `forms-admin.html` (icon `file-text`).
 Nothing personal for "My EGBC" in E1. Later, a member's own sign-ups could show
 their check-in code there.
 
@@ -427,3 +442,95 @@ code photographed at the door must not let anyone cancel the booking. Ten
 characters is still far too many to guess. QR codes are drawn by
 `egbc-events-qr.js` in the page, not fetched from a QR website, so nobody else
 learns who is coming.
+
+
+## Chunk 3, stage 2 (E2): forms and consent
+
+### F-034 — forms are sent by an admin, not when someone signs up
+An admin presses "Send to … not yet asked" on the event's forms list. A family
+that books after that press is not asked until the next press. The button says
+how many are waiting, so the list shows it. Sending at the moment of sign-up
+would mean the public sign-up page creating the request and checking for an
+earlier answer, and that check has to see other people's answers. It needs a
+server, or a rule-checked public write without the reuse check. Proposal for
+Martin.
+
+### F-035 — safeguarding leads who are not admins: the rules let them in, the page does not yet
+The rules already let a site's safeguarding lead or deputy list that site's
+medical answers and open attached files, even if they are not an admin. The
+tests prove it. But `forms-admin.html` is an admin page, so a lead who is not
+an admin has nowhere to look yet. Stage 3 adds event leaders and gives leads
+and leaders their view. Until then:
+- check-in still takes collectors and medical flags from sign-up questions (E1)
+- forms do not feed check-in yet
+Stage 3 joins them.
+
+### F-036 — template wording, and the default periods I used
+The five templates are shapes with plain placeholder wording. EGBC supplies the
+real wording and the policy behind it. **Defaults used, for Martin to confirm
+or change** (each is a setting on the form):
+
+| Template | Answer lasts | Kept after that |
+|---|---|---|
+| Parent or guardian consent | to the end of the school year (31 August) | 12 months |
+| Trip or residential consent | that event only | 12 months |
+| Leader or volunteer declaration | 365 days | 12 months |
+| Hirer safeguarding | 365 days | 12 months |
+| Health and access needs | that event only | 6 months |
+
+Nothing is deleted automatically. Each answer carries its "delete after" date
+for the retention list in stage 3. The leader declaration asks for the DBS
+status and the date it was seen, and says in the form not to write the
+certificate number. There is no field for one.
+
+### F-037 — the page splits medical answers off; the rules check everything else
+Which answers are medical is decided as the form is sent, by the rule Martin
+approved in E1: questions marked medical, plus the keyword list. The rules then
+make sure of everything around it:
+- an answer belongs to the person, form, event and site its request names
+- the request is marked done in the same write
+- nothing can be added once the request is done
+- answers can never be changed
+- only master admins and the site's safeguarding lead can list the medical half
+
+The rules cannot look inside an answer to check that no medical answer is in the
+ordinary half. The tests prove the page splits them, and fail if the split is
+taken out.
+
+### F-038 — "first aid" makes the first-aid permission private
+Because "first aid" is on the keyword list, the parent consent question "May a
+trained leader give first aid?" is kept with the medical answers, and an
+ordinary admin cannot see the yes or no. That follows the rule as approved. If
+Martin wants first-aid permission visible to all admins, it is a change to the
+keyword list.
+
+### F-039 — not built in E2
+- **Age band on sign-up** (§6.10: ask the date of birth or school year at
+  sign-up and enforce the event's age band). That is a change to the sign-up
+  form, so it belongs with stage 3 or Chunk 6.
+- **Forms on ticket types and booking types.** Forms attach to an event. Ticket
+  types only matter once an event has more than one, and booking types arrive
+  in Chunk 4.
+- **Downloading form answers.** Answers are read one booking at a time. A
+  download would go through the same medical tick and log as E1.
+
+### F-040 — the youth access codes, established
+`youthGrants` holds a one-time code, the young person's name (`memberName`)
+and the parent's email (`sentTo`). `youthAccess` records who redeemed it, so a
+young person can open the youth pages. It links a young person to a parent's
+email for app access. It does not record consent. Forms already get the same
+link from the booking (the parent's email and the children's names), so I have
+not built a second parent-child store. Reuse matches on that same email.
+
+### F-041 — reuse needs the same email and every child named before
+A family is asked "still correct?" only when an answer that has not run out came
+from the same email and names every child on the new booking. A different email
+or a new child means the full form again. That is the safe direction to be
+wrong. "Something has changed" brings back the ordinary answers, but asks the
+medical ones again, because that page cannot read them.
+
+### F-042 — REQUEST for the main window: forms waiting on the personal dashboard
+"Waiting for you" (ONE-APP-BRIEF §5) could list a member's open forms. That
+needs a rule letting a signed-in member list their own requests (matched on
+their email or member id), which I would add in the events section, plus the
+dashboard tile, which is the main window's. Not done in E2.

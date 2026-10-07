@@ -150,6 +150,53 @@ service firebase.storage {
       allow delete: if request.auth != null;
     }
 
+    // ── EVENTS (events window) ──────────────────────────────────────
+    // Owned by the events window (EVENTS-WINDOW-BRIEF.md); nothing in here
+    // changes a rule outside it.
+
+    // Files attached to a form: a hirer's safeguarding policy, a child's
+    // care plan. The person filling the form in has no account, so the
+    // upload is allowed only into the folder of a request that is still
+    // open - its key is the folder name, and only they have it.
+    //
+    // Reading is the master admin and the safeguarding lead or deputy of
+    // the site the form belongs to, because a file may hold medical detail
+    // and the rules cannot see inside it. Never replaced, never deleted
+    // from the page.
+    function formRequest(key) {
+      return firestore.get(/databases/(default)/documents/formRequests/$(key)).data;
+    }
+    function storageMe() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    function storageSgLead(siteId) {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && storageMe().status == 'active'
+             && (storageMe().get('masterAdmin', false) == true
+                 || (siteId != ''
+                     && storageMe().get('memberId', '') != ''
+                     && firestore.exists(/databases/(default)/documents/bookingSettings/$(siteId))
+                     && (firestore.get(/databases/(default)/documents/bookingSettings/$(siteId)).data.get('safeguardingLead', '') == storageMe().get('memberId', '')
+                         || firestore.get(/databases/(default)/documents/bookingSettings/$(siteId)).data.get('safeguardingDeputy', '') == storageMe().get('memberId', ''))));
+    }
+
+    match /formUploads/{key}/{fileName} {
+      // resource == null: a new file only. Writing over one already there
+      // counts as "create" too, and must not be allowed.
+      allow create: if resource == null
+                    && request.resource.size < 10 * 1024 * 1024
+                    && (request.resource.contentType.matches('image/.*')
+                        || request.resource.contentType == 'application/pdf')
+                    && firestore.exists(/databases/(default)/documents/formRequests/$(key))
+                    && formRequest(key).status in ['sent', 'reuse'];
+      allow read: if firestore.exists(/databases/(default)/documents/formRequests/$(key))
+                  && storageSgLead(formRequest(key).get('siteId', ''));
+      allow update, delete: if false;
+    }
+
+    // ── end EVENTS ──────────────────────────────────────────────────
+
     // ── Everything else is closed ─────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forms — EGBC</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Forms"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
+<script src="egbc-email.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-checkin.js?v=202610080900"></script>
+<script src="egbc-events-forms.js?v=202610080900"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:20px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 14px;padding-bottom:12px;
+           border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);
+         display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .spacer{flex:1}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .inp,select,textarea{width:100%;height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;
+       font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  textarea{height:auto;min-height:64px;padding:10px 12px;resize:vertical}
+  .inp:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(61,98,99,.15)}
+  .field{margin-bottom:12px}
+  .two{display:flex;gap:12px;flex-wrap:wrap}
+  .two>.field{flex:1;min-width:170px}
+  .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--body);margin:0 0 8px;font-weight:400}
+  .check input{width:16px;height:16px;accent-color:var(--brand);flex:none}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;
+       border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;border:1px solid transparent;
+       background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand-dark)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.sec:hover{background:#f3f4f6}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{background:#f3f4f6}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#e8c3bd}
+  .btn.sm{height:32px;padding:0 10px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .row{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:none}
+  .row .ib{width:36px;height:36px;border-radius:8px;background:var(--tint);color:var(--brand);
+           display:flex;align-items:center;justify-content:center;flex:none}
+  .row .who{flex:1;min-width:0}
+  .row .n{font-size:14px;font-weight:600;color:var(--ink)}
+  .row .m{font-size:13px;color:var(--muted)}
+  .fieldbox{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fafafa}
+  .fieldbox .fieldbox{background:#fff}
+  .flag{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;border-radius:6px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+  .flag.med{background:var(--danger-bg);color:var(--danger)}
+  .flag.ok{background:var(--ok-bg);color:var(--ok)}
+  .flag.wait{background:var(--gold-bg);color:var(--gold)}
+  .flag.off{background:#f3f4f6;color:var(--muted)}
+  .hint{font-size:13px;color:var(--muted)}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:14px}
+  .banner.info{background:var(--tint);color:var(--body);border:1px solid #cfe0de}
+  .banner.warn{background:var(--danger-bg);color:var(--danger)}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%}
+  th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:8px 10px;white-space:nowrap}
+  td{font-size:14px;color:var(--body);padding:10px;border-top:1px solid var(--line);vertical-align:top}
+  .modal-back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;
+              padding:40px 12px;z-index:80;overflow:auto}
+  .modal{background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.15)}
+  .modal h3{font-size:17px;font-weight:600;color:var(--ink);margin:0 0 14px;display:flex;align-items:center;gap:8px}
+  .ans{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+  .ans .k{color:var(--muted)} .ans .v{color:var(--ink);font-weight:500;text-align:right;white-space:pre-wrap}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
+         padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Forms</h1>
+  <p class="sub">Consent forms, declarations and questionnaires: build them, send them for an event, and see who has not filled them in.</p>
+  <div class="card" id="forms"><p class="hint">Loading…</p></div>
+  <div id="editor"></div>
+  <div class="card" id="send"></div>
+  <div class="card" id="one"></div>
+</div>
+<div class="modal-back" id="mBack"><div class="modal" id="modal"></div></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var F = window.EGBCForms, E = window.EGBCEvents, esc = E.esc;
+  var FORMS = [], SITES = [], EVENTS = [], ED = null, EVID = new URLSearchParams(location.search).get('event') || '';
+
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
+  function ico(n, px) { return '<i data-lucide="' + n + '" style="width:' + (px || 15) + 'px;height:' + (px || 15) + 'px"></i>'; }
+  function toast(m) {
+    var t = document.getElementById('toast');
+    t.textContent = m; t.style.display = 'block';
+    clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3200);
+  }
+  function fid() { return 'q' + E.key(6); }
+  function formById(id) { return FORMS.filter(function (f) { return f.id === id; })[0]; }
+
+  /* ================= the forms ================= */
+
+  function drawForms() {
+    document.getElementById('forms').innerHTML =
+      '<h2><span class="badge">' + ico('file-text', 17) + '</span>Forms<span class="spacer"></span>' +
+        '<select id="newTpl" style="width:auto;max-width:100%;height:32px"><option value="">New form from…</option><option value="__blank">A blank form</option>' +
+        F.TEMPLATES.map(function (t) { return '<option value="' + t.id + '">' + esc(t.title) + '</option>'; }).join('') + '</select></h2>' +
+      (FORMS.length ? FORMS.map(function (f) {
+        var med = medicalCount(f);
+        return '<div class="row"><span class="ib">' + ico('file-text', 16) + '</span>' +
+          '<span class="who"><span class="n">' + esc(f.title) + '</span>' + (med ? '<span class="flag med">' + ico('lock', 11) + med + ' medical</span>' : '') +
+          '<br><span class="m">' + (f.fields || []).length + ' questions · ' + esc(F.validityText(f)) + '</span></span>' +
+          '<button class="btn sec sm edit" data-id="' + esc(f.id) + '">' + ico('pencil') + 'Edit</button></div>';
+      }).join('') : '<p class="hint">No forms yet. Start from one of the templates above: the parent consent form is the usual first one.</p>');
+    document.getElementById('newTpl').onchange = function () {
+      var v = this.value; if (!v) return;
+      ED = v === '__blank'
+        ? { id: null, title: '', purpose: '', validity: { mode: 'event' }, retentionMonths: 12, siteId: SITES[0] ? SITES[0].id : '', fields: [] }
+        : Object.assign({ id: null, siteId: SITES[0] ? SITES[0].id : '' }, F.fromTemplate(v));
+      ED.fields.forEach(function (f) { f.id = f.id || fid(); });
+      drawEditor();
+    };
+    document.querySelectorAll('.edit').forEach(function (b) {
+      b.onclick = function () { ED = JSON.parse(JSON.stringify(formById(b.getAttribute('data-id')))); drawEditor(); };
+    });
+    icons();
+  }
+
+  function medicalCount(f) {
+    var n = 0;
+    (f.fields || []).forEach(function (x) {
+      if (x.type === 'repeat') (x.fields || []).forEach(function (s) { if (F.isSensitive(s)) n++; });
+      else if (F.isSensitive(x)) n++;
+    });
+    return n;
+  }
+
+  /* ================= the builder ================= */
+
+  function fieldEditor(f, path, nested) {
+    var types = F.TYPES.filter(function (t) { return !nested || (t[0] !== 'repeat' && t[0] !== 'file'); });
+    var auto = !f.sensitive && F.isSensitive(f);
+    return '<div class="fieldbox" data-path="' + path + '">' +
+      '<div class="two">' +
+        '<div class="field" style="flex:2;min-width:220px"><label>Question</label><input class="inp fe-label" value="' + esc(f.label || '') + '" maxlength="200"></div>' +
+        '<div class="field"><label>Answer</label><select class="fe-type">' +
+          types.map(function (t) { return '<option value="' + t[0] + '"' + (f.type === t[0] ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') +
+        '</select></div>' +
+      '</div>' +
+      (f.type === 'choice' ? '<div class="field"><label>Choices (separated by commas)</label><input class="inp fe-opts" value="' + esc((f.options || []).join(', ')) + '"></div>' : '') +
+      (f.type !== 'repeat' ? '<div class="field"><label>Help under the question (optional)</label><input class="inp fe-help" value="' + esc(f.help || '') + '" maxlength="300"></div>' : '') +
+      '<div class="bar" style="margin:0">' +
+        '<label class="check" style="margin:0"><input type="checkbox" class="fe-req"' + (f.required ? ' checked' : '') + '>Must be answered</label>' +
+        (f.type !== 'repeat' ? '<label class="check" style="margin:0 0 0 10px"><input type="checkbox" class="fe-sens"' + (f.sensitive ? ' checked' : '') + '>Medical: keep private</label>' +
+          (auto ? '<span class="flag med">' + ico('lock', 11) + 'Private anyway, from its wording</span>' : '') : '') +
+        '<span class="spacer"></span>' +
+        '<button type="button" class="btn ghost sm fe-up" title="Move up">' + ico('arrow-up') + '</button>' +
+        '<button type="button" class="btn ghost sm fe-down" title="Move down">' + ico('arrow-down') + '</button>' +
+        '<button type="button" class="btn ghost sm fe-del" title="Remove">' + ico('trash-2') + '</button>' +
+      '</div>' +
+      (f.type === 'repeat'
+        ? '<div style="margin-top:12px;padding-left:10px;border-left:2px solid var(--line)">' +
+            '<p class="hint" style="margin:0 0 8px">Asked once for each child. The first question should be their name.</p>' +
+            (f.fields || []).map(function (sf, j) { return fieldEditor(sf, path + '.' + j, true); }).join('') +
+            '<button type="button" class="btn sec sm fe-addsub">' + ico('plus') + 'Add a question to this section</button></div>'
+        : '') +
+    '</div>';
+  }
+
+  function drawEditor() {
+    var v = ED.validity || { mode: 'event' };
+    document.getElementById('editor').innerHTML = '<div class="card">' +
+      '<h2><span class="badge">' + ico(ED.id ? 'pencil' : 'plus', 17) + '</span>' + (ED.id ? esc(ED.title) : 'New form') +
+        '<span class="spacer"></span><button class="btn ghost sm" id="edClose">' + ico('x', 16) + '</button></h2>' +
+      '<div class="field"><label for="edTitle">Title</label><input class="inp" id="edTitle" value="' + esc(ED.title || '') + '" maxlength="140"></div>' +
+      '<div class="field"><label for="edPurpose">Why we ask (shown at the top of the form)</label>' +
+        '<textarea id="edPurpose" maxlength="600" placeholder="We need this to keep your child safe at …">' + esc(ED.purpose || '') + '</textarea></div>' +
+      '<div class="two">' +
+        '<div class="field"><label for="edSite">Site (whose safeguarding lead sees the medical answers)</label><select id="edSite">' +
+          '<option value="">No site: master admins only</option>' +
+          SITES.map(function (s) { return '<option value="' + esc(s.id) + '"' + (ED.siteId === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="field"><label for="edValid">An answer lasts</label><select id="edValid">' +
+          '<option value="event"' + (v.mode === 'event' ? ' selected' : '') + '>For one event only</option>' +
+          '<option value="schoolyear"' + (v.mode === 'schoolyear' ? ' selected' : '') + '>To the end of the school year</option>' +
+          '<option value="days"' + (v.mode === 'days' ? ' selected' : '') + '>A number of days</option>' +
+        '</select></div>' +
+        '<div class="field" id="edDaysBox" style="max-width:140px;' + (v.mode === 'days' ? '' : 'display:none') + '"><label for="edDays">Days</label>' +
+          '<input class="inp" id="edDays" type="number" min="1" value="' + (v.days || 365) + '"></div>' +
+        '<div class="field" style="max-width:220px"><label for="edKeep">Keep answers for (months after they run out)</label>' +
+          '<input class="inp" id="edKeep" type="number" min="1" max="120" value="' + (ED.retentionMonths || 12) + '"></div>' +
+      '</div>' +
+      '<p class="hint" style="margin-top:-4px">While an answer lasts, the same family is asked "is this still correct?" for the next event instead of filling it in again.</p>' +
+      '<h2 style="margin-top:18px"><span class="badge">' + ico('list', 17) + '</span>Questions</h2>' +
+      '<div id="edFields">' + (ED.fields || []).map(function (f, i) { return fieldEditor(f, String(i), false); }).join('') + '</div>' +
+      '<div class="bar"><button class="btn sec sm" id="edAdd">' + ico('plus') + 'Add a question</button></div>' +
+      '<div class="bar" style="margin:16px 0 0;padding-top:14px;border-top:1px solid var(--line)">' +
+        '<button class="btn" id="edSave">' + ico('check', 16) + 'Save the form</button>' +
+      '</div></div>';
+    wireEditor(); icons();
+    document.getElementById('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function at(path) {
+    var parts = String(path).split('.').map(Number), list = ED.fields, f = null;
+    parts.forEach(function (p, i) { f = list[p]; if (i < parts.length - 1) list = f.fields; });
+    return { field: f, list: list, index: parts[parts.length - 1] };
+  }
+
+  /* Everything typed goes back into ED before any redraw. */
+  function readEditor() {
+    if (!document.getElementById('edTitle')) return;
+    ED.title = document.getElementById('edTitle').value.trim();
+    ED.purpose = document.getElementById('edPurpose').value.trim();
+    ED.siteId = document.getElementById('edSite').value;
+    var mode = document.getElementById('edValid').value;
+    ED.validity = mode === 'days' ? { mode: 'days', days: parseInt(document.getElementById('edDays').value, 10) || 365 } : { mode: mode };
+    ED.retentionMonths = parseInt(document.getElementById('edKeep').value, 10) || 12;
+    document.querySelectorAll('.fieldbox').forEach(function (box) {
+      var f = at(box.getAttribute('data-path')).field;
+      var q = function (c) { return box.querySelector(':scope > .two .' + c + ', :scope > .field .' + c + ', :scope > .bar .' + c); };
+      f.label = q('fe-label').value.trim();
+      f.type = q('fe-type').value;
+      f.required = q('fe-req').checked;
+      if (q('fe-sens')) f.sensitive = q('fe-sens').checked;
+      if (q('fe-help')) f.help = q('fe-help').value.trim();
+      if (q('fe-opts')) f.options = q('fe-opts').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (f.type === 'repeat' && !f.fields) f.fields = [{ id: 'name', type: 'text', label: 'Name', required: true }];
+    });
+  }
+
+  function wireEditor() {
+    document.getElementById('edClose').onclick = function () { ED = null; document.getElementById('editor').innerHTML = ''; };
+    document.getElementById('edValid').onchange = function () { document.getElementById('edDaysBox').style.display = this.value === 'days' ? '' : 'none'; };
+    document.getElementById('edAdd').onclick = function () { readEditor(); ED.fields.push({ id: fid(), type: 'text', label: '', required: false }); drawEditor(); };
+    document.getElementById('edSave').onclick = saveForm;
+    document.querySelectorAll('.fieldbox').forEach(function (box) {
+      var path = box.getAttribute('data-path');
+      var on = function (c, fn) { var b = box.querySelector(':scope > .bar .' + c + ', :scope > div > .' + c); if (b) b.onclick = function () { readEditor(); fn(at(path)); drawEditor(); }; };
+      on('fe-del', function (a) { a.list.splice(a.index, 1); });
+      on('fe-up', function (a) { if (a.index > 0) a.list.splice(a.index - 1, 0, a.list.splice(a.index, 1)[0]); });
+      on('fe-down', function (a) { if (a.index < a.list.length - 1) a.list.splice(a.index + 1, 0, a.list.splice(a.index, 1)[0]); });
+      on('fe-addsub', function (a) { a.field.fields = (a.field.fields || []).concat([{ id: fid(), type: 'text', label: '', required: false }]); });
+      var t = box.querySelector(':scope > .two .fe-type');
+      t.onchange = function () { readEditor(); drawEditor(); };
+    });
+  }
+
+  function saveForm() {
+    readEditor();
+    if (!ED.title) { toast('The form needs a title.'); return; }
+    if (!ED.purpose) { toast('Say why you are asking. It is shown at the top of the form.'); return; }
+    var empty = [];
+    (function walk(list) { list.forEach(function (f) { if (!f.label) empty.push(f); if (f.fields) walk(f.fields); }); })(ED.fields);
+    if (empty.length) { toast('Every question needs wording.'); return; }
+    var id = ED.id || ('form_' + E.key(12));
+    var d = {
+      title: ED.title, purpose: ED.purpose, siteId: ED.siteId || '', validity: ED.validity,
+      retentionMonths: ED.retentionMonths, fields: ED.fields, template: ED.template || '',
+      kind: ED.kind || 'custom', version: (ED.version || 0) + 1,
+      updatedAt: new Date().toISOString(), updatedBy: uid()
+    };
+    db().collection('forms').doc(id).set(d).then(function () {
+      toast('Saved.'); ED = null; document.getElementById('editor').innerHTML = '';
+      return loadForms();
+    }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+  }
+
+  /* ================= sending for an event, and chasing ================= */
+
+  var EV = null, ATTACHED = [], SIGNUPS = [], REQS = [];
+
+  function drawSend() {
+    var el = document.getElementById('send');
+    el.innerHTML = '<h2><span class="badge">' + ico('send', 17) + '</span>Send for an event, and chase</h2>' +
+      '<div class="field"><label for="evPick">Event</label><select id="evPick"><option value="">Choose an event…</option>' +
+        EVENTS.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === EVID ? ' selected' : '') + '>' + esc(e.title) + ' · ' + esc(E.fmtDateShort(e.startLocal || e.startUtc)) + '</option>'; }).join('') +
+      '</select></div><div id="evBody"></div>';
+    document.getElementById('evPick').onchange = function () { EVID = this.value; openEvent(); };
+    icons();
+    if (EVID) openEvent();
+  }
+
+  function openEvent() {
+    var body = document.getElementById('evBody');
+    if (!EVID) { body.innerHTML = ''; return; }
+    body.innerHTML = '<p class="hint">Loading…</p>';
+    Promise.all([
+      E.load(EVID),
+      db().collection('eventForms').doc(EVID).get(),
+      db().collection('signups').where('calEventId', '==', EVID).get(),
+      db().collection('formRequests').where('calEventId', '==', EVID).get()
+    ]).then(function (r) {
+      EV = r[0].ev;
+      ATTACHED = r[1].exists ? (r[1].data().forms || []) : [];
+      SIGNUPS = r[2].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); })
+        .filter(function (s) { return s.status === 'confirmed'; })
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      REQS = r[3].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); });
+      drawEvent();
+    }).catch(function (e) { body.innerHTML = '<div class="banner warn">' + esc(e.message || e) + '</div>'; });
+  }
+
+  function reqFor(formId, signupKey) {
+    return REQS.filter(function (q) { return q.formId === formId && q.signupKey === signupKey; })[0] || null;
+  }
+
+  function statusOf(q) {
+    if (!q) return '<span class="flag off">Not sent</span>';
+    var last = (q.reminders || []).slice(-1)[0];
+    if (q.status === 'done') return '<span class="flag ok">' + ico('check', 11) + (q.confirmedStillCorrect ? 'Still correct, ' : 'Done, ') + esc(E.fmtDateShort(q.completedAt)) + '</span>';
+    return '<span class="flag wait">' + (q.status === 'reuse' ? 'Asked "still correct?" ' : 'Sent ') + esc(E.fmtDateShort(q.sentAt)) +
+      (last ? ' · reminded ' + esc(E.fmtDateShort(last)) : '') + '</span>';
+  }
+
+  function drawEvent() {
+    var body = document.getElementById('evBody');
+    var avail = FORMS.filter(function (f) { return !ATTACHED.some(function (a) { return a.formId === f.id; }); });
+    body.innerHTML =
+      '<div class="bar">' +
+        (avail.length ? '<select id="attPick" style="width:auto;max-width:100%"><option value="">Ask for a form…</option>' +
+          avail.map(function (f) { return '<option value="' + esc(f.id) + '">' + esc(f.title) + '</option>'; }).join('') + '</select>' : '') +
+        '<span class="hint">' + SIGNUPS.length + ' booking' + (SIGNUPS.length === 1 ? '' : 's') + '</span>' +
+      '</div>' +
+      (ATTACHED.length ? ATTACHED.map(function (a) {
+        var f = formById(a.formId); if (!f) return '';
+        var done = SIGNUPS.filter(function (s) { var q = reqFor(f.id, s.key); return q && q.status === 'done'; }).length;
+        var unsent = SIGNUPS.filter(function (s) { return !reqFor(f.id, s.key); }).length;
+        var open = SIGNUPS.filter(function (s) { var q = reqFor(f.id, s.key); return q && q.status !== 'done'; }).length;
+        return '<div class="fieldbox" style="background:#fff">' +
+          '<div class="bar"><strong style="color:var(--ink)">' + esc(f.title) + '</strong>' +
+            '<span class="hint">' + done + ' of ' + SIGNUPS.length + ' done</span><span class="spacer"></span>' +
+            '<button class="btn sm sendAll" data-f="' + esc(f.id) + '"' + (unsent ? '' : ' disabled') + '>' + ico('send') + 'Send to ' + unsent + ' not yet asked</button>' +
+            '<button class="btn sec sm remind" data-f="' + esc(f.id) + '"' + (open ? '' : ' disabled') + '>' + ico('bell') + 'Remind ' + open + ' not finished</button>' +
+            '<button class="btn ghost sm detach" data-f="' + esc(f.id) + '" title="Stop asking for this form">' + ico('x') + '</button>' +
+          '</div>' +
+          (SIGNUPS.length ? '<div class="scroll"><table><thead><tr><th>Booked by</th><th>For</th><th>Status</th><th></th></tr></thead><tbody>' +
+            SIGNUPS.map(function (s) {
+              var q = reqFor(f.id, s.key);
+              return '<tr><td>' + esc(s.name) + '<br><span class="hint">' + esc(s.email) + '</span></td>' +
+                '<td>' + esc((s.attendees || []).map(function (x) { return x.name; }).join(', ') || s.name) + '</td>' +
+                '<td>' + statusOf(q) + '</td>' +
+                '<td style="white-space:nowrap">' + (q && q.status === 'done' ? '<button class="btn ghost sm view" data-k="' + esc(q.key) + '">' + ico('eye') + 'Answers</button>' : '') + '</td></tr>';
+            }).join('') + '</tbody></table></div>' : '<p class="hint">Nobody has booked yet.</p>') +
+        '</div>';
+      }).join('') : '<p class="hint">This event does not ask for any forms yet.</p>');
+
+    var ap = document.getElementById('attPick');
+    if (ap) ap.onchange = function () { if (this.value) setAttached(ATTACHED.concat([{ formId: this.value }])); };
+    document.querySelectorAll('.detach').forEach(function (b) {
+      b.onclick = function () {
+        if (!confirm('Stop asking for this form at this event? Answers already given are kept.')) return;
+        setAttached(ATTACHED.filter(function (a) { return a.formId !== b.getAttribute('data-f'); }));
+      };
+    });
+    document.querySelectorAll('.sendAll').forEach(function (b) { b.onclick = function () { sendAll(b.getAttribute('data-f'), b); }; });
+    document.querySelectorAll('.remind').forEach(function (b) { b.onclick = function () { remindAll(b.getAttribute('data-f'), b); }; });
+    document.querySelectorAll('.view').forEach(function (b) { b.onclick = function () { viewAnswers(b.getAttribute('data-k')); }; });
+    icons();
+  }
+
+  function setAttached(list) {
+    db().collection('eventForms').doc(EVID).set({ forms: list, updatedAt: new Date().toISOString(), updatedBy: uid() })
+      .then(openEvent).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+  }
+
+  /* One request per booking. Before writing it, look for a still-valid
+     answer from the same email covering the same people: if there is one,
+     the parent is asked "still correct?" instead of filling it all in. */
+  function sendAll(formId, btn) {
+    var f = formById(formId);
+    var todo = SIGNUPS.filter(function (s) { return !reqFor(formId, s.key); });
+    if (!todo.length) return;
+    btn.disabled = true;
+    db().collection('formResponses').where('formId', '==', formId).get().then(function (snap) {
+      var prior = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      var sent = 0, reused = 0;
+      return todo.reduce(function (p, s) {
+        return p.then(function () {
+          var subjects = (s.attendees && s.attendees.length ? s.attendees.map(function (a) { return a.name; }) : [s.name]).filter(Boolean);
+          var prev = F.findReusable(prior, { formId: formId, email: s.email, subjects: subjects, onDate: String(EV.startLocal || '').slice(0, 10) });
+          var key = E.key(32);
+          var req = {
+            formId: formId, formTitle: f.title, calEventId: EV.id, eventTitle: EV.title, eventStart: EV.startLocal || '',
+            signupKey: s.key, personKind: s.personKind || '', personId: s.personId || '', name: s.name, email: s.email,
+            subjects: subjects, siteId: f.siteId || '', status: prev ? 'reuse' : 'sent', reuseOf: prev ? prev.id : '',
+            sentAt: new Date().toISOString(), reminders: [], createdBy: uid()
+          };
+          return db().collection('formRequests').doc(key).set(req).then(function () {
+            REQS.push(Object.assign({ key: key }, req));
+            if (prev) reused++; else sent++;
+            return EGBCEmail.send(F.requestEmail(Object.assign({ key: key }, req), false));
+          });
+        });
+      }, Promise.resolve()).then(function () {
+        toast('Sent: ' + sent + ' to fill in' + (reused ? ', ' + reused + ' asked "still correct?"' : '') + (EGBCEmail.isLocal ? ' (development: composed, not sent).' : '.'));
+        drawEvent();
+      });
+    }).catch(function (e) { btn.disabled = false; toast('Could not send: ' + (e.message || e)); });
+  }
+
+  function remindAll(formId, btn) {
+    var open = REQS.filter(function (q) { return q.formId === formId && q.status !== 'done' && SIGNUPS.some(function (s) { return s.key === q.signupKey; }); });
+    if (!open.length) return;
+    btn.disabled = true;
+    var now = new Date().toISOString();
+    open.reduce(function (p, q) {
+      return p.then(function () {
+        q.reminders = (q.reminders || []).concat([now]);
+        return db().collection('formRequests').doc(q.key).update({ reminders: q.reminders })
+          .then(function () { return EGBCEmail.send(F.requestEmail(q, true)); });
+      });
+    }, Promise.resolve()).then(function () {
+      toast('Reminded ' + open.length + '.'); drawEvent();
+    }).catch(function (e) { btn.disabled = false; toast('Could not remind: ' + (e.message || e)); });
+  }
+
+  /* Ordinary answers for any admin. The medical half is asked for too;
+     the rules give it only to the site's safeguarding lead and master
+     admins, and the page says so when it is refused. */
+  function viewAnswers(key) {
+    var q = REQS.filter(function (x) { return x.key === key; })[0];
+    var f = formById(q.formId);
+    db().collection('formResponses').doc(q.responseId).get().then(function (r) {
+      var resp = r.data();
+      var sens = !resp.hasSensitive ? Promise.resolve(null)
+        : db().collection('sensitiveResponses').where('siteId', '==', resp.siteId || '').where('responseId', '==', q.responseId).get()
+            .then(function (s) { return s.docs[0] ? s.docs[0].data() : null; })
+            .catch(function () { return 'refused'; });
+      return sens.then(function (sx) {
+        var all = F.merge(f, resp.answers, sx && sx !== 'refused' ? sx.answers : {});
+        var html = (f.fields || []).map(function (fl) {
+          if (fl.type === 'repeat') return (all[fl.id] || []).map(function (row) {
+            return '<div class="fieldbox"><strong>' + esc(row.name || '') + '</strong>' + (fl.fields || []).filter(function (s) { return F.show(s, row[s.id]); }).map(function (s) {
+              return '<div class="ans"><span class="k">' + esc(s.label) + (F.isSensitive(s) ? ' ' + ico('lock', 11) : '') + '</span><span class="v">' + esc(F.show(s, row[s.id])) + '</span></div>';
+            }).join('') + '</div>';
+          }).join('');
+          var v = F.show(fl, all[fl.id]);
+          return v ? '<div class="ans"><span class="k">' + esc(fl.label) + '</span><span class="v">' + esc(v) + '</span></div>' : '';
+        }).join('');
+        modal('<h3>' + ico('file-check', 18) + esc(q.name) + ': ' + esc(f.title) + '</h3>' +
+          '<p class="hint" style="margin-top:0">Sent ' + esc(E.fmtDate(resp.submittedAt)) + ' · valid until ' + esc(E.fmtDate(resp.validUntil + 'T12:00')) +
+          (q.confirmedStillCorrect ? ' · confirmed still correct ' + esc(E.fmtDate(q.completedAt)) : '') + '</p>' +
+          (sx === 'refused' ? '<div class="banner info" id="medRefused">' + ico('lock', 13) + ' Medical answers were given. Only the site\'s safeguarding lead and master admins can see them.</div>' : '') +
+          html + '<div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn sec" data-close>Close</button></div>');
+      });
+    }).catch(function (e) { toast('Could not open the answers: ' + (e.message || e)); });
+  }
+
+  /* ================= one person, no event ================= */
+
+  var ONE = [];
+  function drawOne() {
+    document.getElementById('one').innerHTML =
+      '<h2><span class="badge">' + ico('user-plus', 17) + '</span>Send to one person</h2>' +
+      '<p class="hint" style="margin-top:0">For a form that is not tied to an event: a leader\'s declaration, a hirer\'s safeguarding form.</p>' +
+      '<div class="two">' +
+        '<div class="field"><label for="oForm">Form</label><select id="oForm"><option value="">Choose…</option>' +
+          FORMS.map(function (f) { return '<option value="' + esc(f.id) + '">' + esc(f.title) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label for="oName">Name</label><input class="inp" id="oName" maxlength="120"></div>' +
+        '<div class="field"><label for="oEmail">Email</label><input class="inp" id="oEmail" type="email" maxlength="200"></div>' +
+      '</div><div class="bar"><button class="btn" id="oSend">' + ico('send') + 'Send</button></div>' +
+      (ONE.length ? ONE.map(function (q) {
+        return '<div class="row"><span class="ib">' + ico('file-text', 16) + '</span><span class="who"><span class="n">' + esc(q.name) + '</span> ' + statusOf(q) +
+          '<br><span class="m">' + esc(q.formTitle) + ' · ' + esc(q.email) + '</span></span>' +
+          (q.status === 'done' ? '<button class="btn ghost sm oview" data-k="' + esc(q.key) + '">' + ico('eye') + 'Answers</button>'
+            : '<button class="btn ghost sm oremind" data-k="' + esc(q.key) + '">' + ico('bell') + 'Remind</button>') + '</div>';
+      }).join('') : '');
+    document.getElementById('oSend').onclick = function () {
+      var formId = document.getElementById('oForm').value, name = document.getElementById('oName').value.trim(),
+          email = document.getElementById('oEmail').value.trim().toLowerCase();
+      if (!formId || !name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Choose a form, and give a name and an email address.'); return; }
+      var f = formById(formId), key = E.key(32);
+      var req = { formId: formId, formTitle: f.title, calEventId: '', eventTitle: '', eventStart: '', signupKey: '',
+        personKind: '', personId: '', name: name, email: email, subjects: [name], siteId: f.siteId || '',
+        status: 'sent', reuseOf: '', sentAt: new Date().toISOString(), reminders: [], createdBy: uid() };
+      db().collection('formRequests').doc(key).set(req).then(function () {
+        return EGBCEmail.send(F.requestEmail(Object.assign({ key: key }, req), false));
+      }).then(function () { toast('Sent to ' + name + '.'); return loadOne(); })
+        .catch(function (e) { toast('Could not send: ' + (e.message || e)); });
+    };
+    document.querySelectorAll('.oremind').forEach(function (b) {
+      b.onclick = function () {
+        var q = ONE.filter(function (x) { return x.key === b.getAttribute('data-k'); })[0];
+        q.reminders = (q.reminders || []).concat([new Date().toISOString()]);
+        db().collection('formRequests').doc(q.key).update({ reminders: q.reminders })
+          .then(function () { return EGBCEmail.send(F.requestEmail(q, true)); })
+          .then(function () { toast('Reminded.'); drawOne(); });
+      };
+    });
+    document.querySelectorAll('.oview').forEach(function (b) {
+      b.onclick = function () { REQS = REQS.concat(ONE); viewAnswers(b.getAttribute('data-k')); };
+    });
+    icons();
+  }
+
+  function loadOne() {
+    return db().collection('formRequests').where('calEventId', '==', '').get().then(function (s) {
+      ONE = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); })
+        .sort(function (a, b) { return String(b.sentAt).localeCompare(String(a.sentAt)); }).slice(0, 30);
+      drawOne();
+    });
+  }
+
+  /* ================= modal ================= */
+
+  function modal(html) {
+    document.getElementById('modal').innerHTML = html;
+    document.getElementById('mBack').style.display = 'flex';
+    document.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = closeModal; });
+    icons();
+  }
+  function closeModal() { document.getElementById('mBack').style.display = 'none'; }
+  document.getElementById('mBack').onclick = function (e) { if (e.target.id === 'mBack') closeModal(); };
+
+  /* ================= start ================= */
+
+  function loadForms() {
+    return db().collection('forms').get().then(function (s) {
+      FORMS = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .sort(function (a, b) { return a.title.localeCompare(b.title); });
+      drawForms();
+      drawSend();
+      drawOne();
+    });
+  }
+
+  EGBCAuth.require().then(function () {
+    return Promise.all([
+      db().collection('sites').get(),
+      E.listUpcoming({ from: Date.now() - 14 * 864e5, limit: 100 }).catch(function () { return []; })
+    ]);
+  }).then(function (r) {
+    SITES = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (s) { return s.active !== false; });
+    EVENTS = r[1].filter(function (e) { return e.status !== 'cancelled'; });
+    return loadForms().then(loadOne);
+  }).catch(function (e) {
+    document.getElementById('forms').innerHTML = '<div class="banner warn">Could not load: ' + esc(e.message || e) + '</div>';
+  });
+})();
+</script>
+</body>
+</html>

@@ -152,6 +152,34 @@ await check('and it still has to be a PDF', 'deny',
 await check('a signed-in person can clear an old one away', 'allow',
   () => deleteObject(ref(as('karen'), 'rotas/term.pdf')));
 
+// ── EVENTS (events window) ── files attached to forms (Chunk 3, stage 2)
+{
+  /* Invented: Lena, a plain member who is the safeguarding lead of an
+     invented kids' site; one open request and one already done. */
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'users', 'u_lena'), { memberId: 'm_u_lena', teams: ['Kids Church'], adminFor: [], masterAdmin: false, status: 'active' });
+    await setDoc(doc(db, 'bookingSettings', 'site_kids'), { safeguardingLead: 'm_u_lena', safeguardingDeputy: '' });
+    await setDoc(doc(db, 'formRequests', 'req_up_open'), { formId: 'f', siteId: 'site_kids', status: 'sent' });
+    await setDoc(doc(db, 'formRequests', 'req_up_done'), { formId: 'f', siteId: 'site_kids', status: 'done' });
+    await uploadBytes(ref(ctx.storage(), 'formUploads/req_up_open/care-plan.pdf'), PIC(), { contentType: 'application/pdf' });
+  });
+  const lena = () => env.authenticatedContext('u_lena').storage();
+  const pdf = (st, p, type) => uploadBytes(ref(st, p), PIC(), { contentType: type || 'application/pdf' });
+
+  await check('a parent attaches a PDF to their open form, with no account', 'allow', () => pdf(anon(), 'formUploads/req_up_open/policy.pdf'));
+  await check('or a picture', 'allow', () => pdf(anon(), 'formUploads/req_up_open/photo.png', 'image/png'));
+  await check('nothing can be attached once the form is done', 'deny', () => pdf(anon(), 'formUploads/req_up_done/late.pdf'));
+  await check('nothing can be attached to a form nobody sent', 'deny', () => pdf(anon(), 'formUploads/req_made_up/x.pdf'));
+  await check('only PDFs and pictures', 'deny', () => pdf(anon(), 'formUploads/req_up_open/thing.zip', 'application/zip'));
+  await check('an attached file cannot be replaced', 'deny', () => pdf(anon(), 'formUploads/req_up_open/care-plan.pdf'));
+  await check('nobody without an account can open an attached file', 'deny', () => getBytes(ref(anon(), 'formUploads/req_up_open/care-plan.pdf')));
+  await check('an admin who is not that site\'s safeguarding lead cannot either', 'deny', () => getBytes(ref(as('karen'), 'formUploads/req_up_open/care-plan.pdf')));
+  await check('the site\'s safeguarding lead opens it', 'allow', () => getBytes(ref(lena(), 'formUploads/req_up_open/care-plan.pdf')));
+  await check('a master admin opens it', 'allow', () => getBytes(ref(as('martin'), 'formUploads/req_up_open/care-plan.pdf')));
+}
+// ── end EVENTS ──
+
 /* ---- nothing else moved ------------------------------------------- */
 /* Banners are uploaded from the hub by anyone signed in, and were before
    this change. If tightening events had caught them too, this fails. */

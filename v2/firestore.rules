@@ -827,6 +827,114 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---- forms and consent (Chunk 3, stage 2) -----------------------
+    //
+    // A parent fills a form in from a link, with no account, so - as with
+    // sign-ups - the rules carry the weight:
+    //
+    //   forms              the form itself. Holds questions, not answers,
+    //                      so anyone may read one; only admins write.
+    //   eventForms         which forms an event asks for. Admins only.
+    //   formRequests       one per person asked. The id IS the link key,
+    //                      so `get` is open and `list` is admins only.
+    //   formResponses      the ordinary answers. Written once, in the same
+    //                      batch that marks the request done, and only for
+    //                      the person, form, event and site that request
+    //                      names. Admins and the site's safeguarding lead
+    //                      may list them.
+    //   sensitiveResponses the medical answers, split off by the page. Only
+    //                      a master admin and the site's safeguarding lead
+    //                      or deputy may list them - not ordinary admins.
+    //                      The id is a second secret only the parent is
+    //                      sent, which is how they see what is held about
+    //                      them. Event leaders are added in stage 3.
+
+    // The safeguarding lead or deputy of a site, set in Places
+    // (bookingSettings). Member ids, compared with the reader's own.
+    function sgLeadOf(siteId) {
+      return active() && siteId is string && siteId != ''
+             && me().get('memberId', '') != ''
+             && exists(/databases/$(database)/documents/bookingSettings/$(siteId))
+             && (get(/databases/$(database)/documents/bookingSettings/$(siteId)).data.get('safeguardingLead', '') == me().get('memberId', '')
+                 || get(/databases/$(database)/documents/bookingSettings/$(siteId)).data.get('safeguardingDeputy', '') == me().get('memberId', ''));
+    }
+
+    match /forms/{formId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow write: if isAdmin()
+                   && request.resource.data.title is string && request.resource.data.title.size() > 0
+                   && request.resource.data.title.size() <= 140
+                   && request.resource.data.fields is list
+                   && request.resource.data.get('siteId', '') is string;
+    }
+
+    match /eventForms/{calEventId} {
+      allow read, write: if isAdmin();
+    }
+
+    function requestAfter(key) {
+      return getAfter(/databases/$(database)/documents/formRequests/$(key)).data;
+    }
+
+    match /formRequests/{key} {
+      allow get: if true;
+      allow list, create, delete: if isAdmin();
+      // The admin who sends it may change anything. The person with the
+      // link may only mark it done: with a new answer written in the same
+      // batch, or - for "still correct?" - by pointing at the answer it
+      // already names.
+      allow update: if isAdmin()
+                    || (resource.data.status in ['sent', 'reuse']
+                        && request.resource.data.status == 'done'
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['status', 'completedAt', 'responseId', 'confirmedStillCorrect'])
+                        && ((request.resource.data.get('confirmedStillCorrect', false) == true
+                             && resource.data.status == 'reuse'
+                             && request.resource.data.responseId == resource.data.reuseOf)
+                            || getAfter(/databases/$(database)/documents/formResponses/$(request.resource.data.responseId)).data.requestKey == key));
+    }
+
+    match /formResponses/{rid} {
+      allow get: if true;
+      allow list: if isAdmin() || sgLeadOf(resource.data.siteId);
+      allow create: if request.resource.data.keys().hasOnly(['formId', 'formVersion', 'requestKey', 'calEventId',
+                                 'personKind', 'personId', 'email', 'name', 'subjects', 'siteId', 'answers',
+                                 'hasSensitive', 'submittedAt', 'validUntil', 'deleteAfter'])
+                    && request.resource.data.answers is map
+                    && request.resource.data.validUntil is string && request.resource.data.validUntil.size() == 10
+                    && request.resource.data.deleteAfter is string && request.resource.data.deleteAfter.size() == 10
+                    && get(/databases/$(database)/documents/formRequests/$(request.resource.data.requestKey)).data.status in ['sent', 'reuse']
+                    && requestAfter(request.resource.data.requestKey).responseId == rid
+                    && requestAfter(request.resource.data.requestKey).status == 'done'
+                    && request.resource.data.formId == requestAfter(request.resource.data.requestKey).formId
+                    && request.resource.data.email == requestAfter(request.resource.data.requestKey).email
+                    && request.resource.data.siteId == requestAfter(request.resource.data.requestKey).siteId
+                    && request.resource.data.calEventId == requestAfter(request.resource.data.requestKey).calEventId;
+      // An answer, once given, is the record of what was said. Deleting it
+      // when its time is up is the retention list's job (stage 3).
+      allow update: if false;
+      allow delete: if isMaster();
+    }
+
+    match /sensitiveResponses/{secret} {
+      allow get: if true;
+      allow list: if isMaster() || sgLeadOf(resource.data.siteId);
+      allow create: if request.resource.data.keys().hasOnly(['responseId', 'requestKey', 'formId', 'siteId',
+                                                              'answers', 'submittedAt', 'deleteAfter'])
+                    && request.resource.data.answers is map
+                    // Only while the form is still open: once it is done,
+                    // nothing more can be added to it.
+                    && get(/databases/$(database)/documents/formRequests/$(request.resource.data.requestKey)).data.status in ['sent', 'reuse']
+                    && requestAfter(request.resource.data.requestKey).responseId == request.resource.data.responseId
+                    && getAfter(/databases/$(database)/documents/formResponses/$(request.resource.data.responseId)).data.requestKey
+                         == request.resource.data.requestKey
+                    && request.resource.data.siteId == requestAfter(request.resource.data.requestKey).siteId
+                    && request.resource.data.formId == requestAfter(request.resource.data.requestKey).formId;
+      allow update: if false;
+      allow delete: if isMaster();
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------

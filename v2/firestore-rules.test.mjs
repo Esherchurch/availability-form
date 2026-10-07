@@ -147,6 +147,29 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     name: 'Leader Invented', kind: 'leader', state: 'in', day: '2026-11-14' });
   await setDoc(doc(db, 'downloadsLog', 'dl1'), { by: 'u_karen', at: '2026-11-14T12:00:00Z', sensitive: true });
   await setDoc(doc(db, 'headcounts', 'hc1'), { date: '2026-11-15', label: 'Sunday morning', adults: 80, children: 20, online: 12 });
+
+  /* Forms and consent (Chunk 3, stage 2). Two more invented people: Ella
+     administers the AV Team and is nobody's safeguarding lead; Lena is a
+     plain member who IS the safeguarding lead of an invented kids' site.
+     Between them they show that "admin" and "may read medical answers"
+     are not the same thing. */
+  await setDoc(doc(db, 'users', 'u_ella'), { memberId: 'm_u_ella', name: 'u_ella', teams: [], adminFor: ['AV Team'], masterAdmin: false, status: 'active' });
+  await setDoc(doc(db, 'users', 'u_lena'), { memberId: 'm_u_lena', name: 'u_lena', teams: ['Kids Church'], adminFor: [], masterAdmin: false, status: 'active' });
+  await setDoc(doc(db, 'bookingSettings', 'site_kids'), { bookingsAdmins: [], safeguardingLead: 'm_u_lena', safeguardingDeputy: '' });
+  await setDoc(doc(db, 'forms', 'form_consent'), { title: 'Test consent', fields: [], siteId: 'site_kids' });
+  const REQ = (status, extra) => ({ formId: 'form_consent', formTitle: 'Test consent', calEventId: 'ev_kids', eventTitle: 'Test Kids Club',
+    name: 'Parent Synthetic', email: 'parent@example.invalid', siteId: 'site_kids', subjects: ['Child One'], status, ...(extra || {}) });
+  for (const k of ['req_open_0', 'req_open_1', 'req_open_2', 'req_open_3']) await setDoc(doc(db, 'formRequests', k), REQ('sent'));
+  await setDoc(doc(db, 'formRequests', 'req_old'), REQ('done', { responseId: 'resp_old' }));
+  await setDoc(doc(db, 'formRequests', 'req_reuse_0'), REQ('reuse', { reuseOf: 'resp_old' }));
+  await setDoc(doc(db, 'formRequests', 'req_reuse_1'), REQ('reuse', { reuseOf: 'resp_old' }));
+  await setDoc(doc(db, 'formResponses', 'resp_old'), { formId: 'form_consent', requestKey: 'req_old', calEventId: 'ev_kids',
+    email: 'parent@example.invalid', siteId: 'site_kids', answers: { collectors: 'Parent Synthetic' }, validUntil: '2027-08-31', deleteAfter: '2028-08-31' });
+  await setDoc(doc(db, 'formResponses', 'resp_other'), { formId: 'form_consent', requestKey: 'req_x', siteId: 'site_kids', answers: {} });
+  await setDoc(doc(db, 'sensitiveResponses', 'secret_old_00000000000000000000'), { responseId: 'resp_old', requestKey: 'req_old',
+    formId: 'form_consent', siteId: 'site_kids', answers: { allergies: 'Invented nut allergy' } });
+  await setDoc(doc(db, 'sensitiveResponses', 'secret_test_site_00000000000000'), { responseId: 'resp_x', requestKey: 'req_x',
+    formId: 'form_consent', siteId: 'site_test', answers: {} });
   // ── end EVENTS ──
 
 });
@@ -510,6 +533,64 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a headcount cannot be negative', 'deny', () => setDoc(doc(as('karen'), 'headcounts', 'hc3'), { date: '2026-11-22', label: 'Sunday morning', adults: -1, children: 0, online: 0 }));
   await check('a headcount holds numbers, not names', 'deny', () => setDoc(doc(as('karen'), 'headcounts', 'hc4'), { date: '2026-11-22', label: 'Sunday morning', adults: 1, children: 0, online: 0, names: ['Someone'] }));
   await check('a member cannot read the headcounts', 'deny', () => getDoc(doc(as('samy'), 'headcounts', 'hc1')));
+}
+
+// ── EVENTS (events window) ── forms and consent (Chunk 3, stage 2)
+{
+  const ella = () => env.authenticatedContext('u_ella').firestore();
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  const RESP = (key, extra) => ({ formId: 'form_consent', formVersion: 1, requestKey: key, calEventId: 'ev_kids',
+    personKind: 'contacts', personId: 'c_guest', email: 'parent@example.invalid', name: 'Parent Synthetic',
+    subjects: ['Child One'], siteId: 'site_kids', answers: { collectors: 'Parent Synthetic' }, hasSensitive: true,
+    submittedAt: '2026-11-01T10:00:00Z', validUntil: '2027-08-31', deleteAfter: '2028-08-31', ...(extra || {}) });
+  const SENS = (key, rid, extra) => ({ responseId: rid, requestKey: key, formId: 'form_consent', siteId: 'site_kids',
+    answers: { children: [{ allergies: 'Invented peanut allergy' }] }, submittedAt: '2026-11-01T10:00:00Z', deleteAfter: '2028-08-31', ...(extra || {}) });
+  /* What form.html writes: the answer, its medical half, and the request
+     marked done - all in one batch, as somebody with no account. */
+  const complete = (key, rid, sid, over) => {
+    const dbx = anon(), b = writeBatch(dbx);
+    b.set(doc(dbx, 'formResponses', rid), RESP(key, over && over.resp));
+    if (sid) b.set(doc(dbx, 'sensitiveResponses', sid), SENS(key, rid, over && over.sens));
+    if (!(over && over.leaveOpen)) b.update(doc(dbx, 'formRequests', key), { status: 'done', completedAt: '2026-11-01T10:00:00Z', responseId: rid });
+    return b.commit();
+  };
+
+  await check('anyone with the link can read the form itself', 'allow', () => getDoc(doc(anon(), 'forms', 'form_consent')));
+  await check('the public cannot list the forms', 'deny', () => getDocs(collection(anon(), 'forms')));
+  await check('a member cannot write a form', 'deny', () => setDoc(doc(as('samy'), 'forms', 'form_x'), { title: 'Mine', fields: [], siteId: '' }));
+  await check('an admin builds a form', 'allow', () => setDoc(doc(as('karen'), 'forms', 'form_new'), { title: 'Test trip', fields: [], siteId: 'site_kids' }));
+  await check('a member cannot see which forms an event asks for', 'deny', () => getDoc(doc(as('samy'), 'eventForms', 'ev_kids')));
+  await check('an admin attaches forms to an event', 'allow', () => setDoc(doc(as('karen'), 'eventForms', 'ev_kids'), { forms: [{ formId: 'form_consent' }] }));
+
+  await check('the link opens its own request', 'allow', () => getDoc(doc(anon(), 'formRequests', 'req_open_0')));
+  await check('nobody without an account can list the requests', 'deny', () => getDocs(collection(anon(), 'formRequests')));
+  await check('a member cannot send a form', 'deny', () => setDoc(doc(as('samy'), 'formRequests', 'req_sneak'), { formId: 'form_consent', status: 'sent' }));
+  await check('an admin sends a form', 'allow', () => setDoc(doc(as('karen'), 'formRequests', 'req_sent_by_admin'), { formId: 'form_consent', status: 'sent' }));
+
+  await check('a parent sends the form: answers, medical half, request done', 'allow', () => complete('req_open_0', 'resp_new_0', 'secret_new_0_000000000000000000'));
+  await check('the same link cannot send a second answer', 'deny', () => complete('req_open_0', 'resp_new_0b', 'secret_new_0b_00000000000000000'));
+  await check('nor add medical details to a form already done', 'deny', () => setDoc(doc(anon(), 'sensitiveResponses', 'secret_late_000000000000000000'), SENS('req_open_0', 'resp_new_0')));
+  await check('an answer cannot claim another site', 'deny', () => complete('req_open_1', 'resp_new_1', null, { resp: { siteId: 'site_test' } }));
+  await check('an answer cannot claim another person', 'deny', () => complete('req_open_1', 'resp_new_1', null, { resp: { email: 'someone.else@example.invalid' } }));
+  await check('an answer is refused unless the request is marked done with it', 'deny', () => complete('req_open_1', 'resp_new_1', null, { leaveOpen: true }));
+  await check('the medical half cannot point at another site', 'deny', () => complete('req_open_2', 'resp_new_2', 'secret_new_2_000000000000000000', { sens: { siteId: 'site_test' } }));
+  await check('the link cannot change who or what the request is for', 'deny', () => updateDoc(doc(anon(), 'formRequests', 'req_open_3'), { email: 'me@example.invalid' }));
+  await check('"still correct": the parent confirms the answer on file', 'allow', () => updateDoc(doc(anon(), 'formRequests', 'req_reuse_0'),
+    { status: 'done', completedAt: '2026-11-01T10:00:00Z', responseId: 'resp_old', confirmedStillCorrect: true }));
+  await check('"still correct" cannot point at somebody else\'s answer', 'deny', () => updateDoc(doc(anon(), 'formRequests', 'req_reuse_1'),
+    { status: 'done', completedAt: '2026-11-01T10:00:00Z', responseId: 'resp_other', confirmedStillCorrect: true }));
+  await check('an answer cannot be changed afterwards, even by a master admin', 'deny', () => updateDoc(doc(as('martin'), 'formResponses', 'resp_old'), { answers: {} }));
+  await check('a medical answer cannot be changed afterwards', 'deny', () => updateDoc(doc(as('martin'), 'sensitiveResponses', 'secret_old_00000000000000000000'), { answers: {} }));
+
+  /* Who may read the medical half. */
+  await check('the parent\'s private link opens what they sent', 'allow', () => getDoc(doc(anon(), 'sensitiveResponses', 'secret_old_00000000000000000000')));
+  await check('nobody without an account can list medical answers', 'deny', () => getDocs(collection(anon(), 'sensitiveResponses')));
+  await check('an ordinary admin lists the ordinary answers', 'allow', () => getDocs(query(collection(ella(), 'formResponses'), where('formId', '==', 'form_consent'))));
+  await check('an ordinary admin cannot list the medical answers', 'deny', () => getDocs(query(collection(ella(), 'sensitiveResponses'), where('siteId', '==', 'site_kids'))));
+  await check('the site\'s safeguarding lead lists its medical answers, without being an admin', 'allow', () => getDocs(query(collection(lena(), 'sensitiveResponses'), where('siteId', '==', 'site_kids'))));
+  await check('but not another site\'s', 'deny', () => getDocs(query(collection(lena(), 'sensitiveResponses'), where('siteId', '==', 'site_test'))));
+  await check('a master admin lists the medical answers', 'allow', () => getDocs(query(collection(as('martin'), 'sensitiveResponses'), where('siteId', '==', 'site_kids'))));
+  await check('a member who is not a lead cannot list the answers', 'deny', () => getDocs(query(collection(as('samy'), 'formResponses'), where('siteId', '==', 'site_kids'))));
 }
 // ── end EVENTS ──
 
