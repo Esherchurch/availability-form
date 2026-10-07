@@ -224,6 +224,35 @@ to clamp.
 Worth knowing before Group 2: the engine will go on quietly making a page
 look *nearly* right, which is what hid this.
 
+**And the rule A3b exists because of — measure every screen, not the first one.**
+A3 measured each page as it loaded, found nothing, and reported zero. That was
+true of the opening screen and false of the page. CoreTeamApp keeps five more
+screens and a dozen sheets behind buttons: its rota toolbar, its term buttons
+and its inline labels were all still 11px, 700 weight and capsule-shaped, and
+the source still held 71 weights of 800 or 900 and 26 round-cornered controls.
+The measurement could not see any of it, so it said the work was done.
+
+For Group 2, and every group after it:
+
+1. **Name every state a page can be in** before measuring anything — each
+   screen, tab, sheet, modal, expanded panel and empty state.
+2. **Open each one and measure it on its own.** An element with no
+   `offsetParent` is not counted, so a shut sheet contributes nothing to the
+   screen in front of it and a measurement taken on the home screen says
+   nothing about the other five.
+3. **Measure each sheet over the same background** (the home screen), or the
+   screen behind it is counted again in every modal and the numbers inflate.
+4. **Check the source as well as the screen.** Counting
+   `font-weight: 800|900`, `font-size: 7-11px` and `border-radius: 9999px` in
+   the file takes one command and catches what no amount of clicking will
+   reach. If the source count is not zero, the page is not done, whatever the
+   rendered check says.
+5. **Skip the email templates, deliberately.** Any line naming Arial is an
+   email, which cannot use the web font or the icon font. R-020, agreed.
+
+`measure_screens.js` in the scratchpad does 1-3 and names each state in its
+output, so the report can say "rota: 151 to 2" rather than "the page: 0".
+
 ### R-015 — two rules of equal weight, and the later one wins silently
 `view-only-rota.html` carried two floors for small text: a new one at 13px
 and an older "readability pass" at 11px, both `!important`, both equally
@@ -270,3 +299,72 @@ sends out, not a restyle, and it should be made deliberately.
 
 The plain-text version of the same plan **was** changed, because it used
 emoji as list markers: it now reads `1. Song: …`, `2. Prayer: …`.
+
+---
+
+# Step A3b — every screen, not the first one
+
+A3 measured each page as it loaded and reported 0. True of the opening
+screen, false of the page. Measured again with every screen, tab, sheet and
+modal opened one at a time:
+
+| Page | Before | After |
+|---|---|---|
+| CoreTeamApp.html | 290 | 0 |
+| SundayServicePlanner.html | 12 | 0 |
+| resources.html | 3 | 0 |
+| places-admin.html | 1 | 0 |
+| Planner.html | 0 | 0 |
+| addressbook.html | 0 | 0 |
+| videos.html | 0 | 0 |
+| view-only-rota.html | 0 | 0 |
+| **42 screens in total** | **306** | **0** |
+
+CoreTeamApp screen by screen, before: rota 151, service planner 40, email
+compiler 19, meetings 16, song modal 18, mailing list 10, new service 8,
+new event 7, add item 5, email team 5, confirm 3, drafts 2, who are you 2,
+service detail 1, the three role sheets 1 each. Home was 0, which is the
+only screen A3 ever looked at.
+
+In the source, counting outside the email templates: 71 weights of 800 or
+900, 26 round-cornered controls and 90 sizes under 12px, all now 0.
+
+### R-021 — a weight written as an expression, which no search can find
+The assigned name on a rota row was `font-weight:${asgn?'800':'600'}`.
+Searching the source for `800` does not find it, and A3b's own source sweep
+did not either. Only the page, drawn, showed it — the rendered check kept
+reporting one `w700` on the rota screen after three passes that each
+claimed to have finished.
+
+Two things follow for Group 2. A source count reaching zero does not mean
+the page is done; and a rendered check that still reports something after a
+fix is usually right, so look for a second source rather than assuming the
+first fix failed.
+
+### R-022 — the measurement pressed "Send all rotas", and the page stopped it
+Writing a check that opens every screen, I had it press the button that
+opens the send panel. That button is `prepareDistributionPackage()`, which
+emails the whole team through the **live** email service — `Planner.html`
+calls the address directly, not through `egbc-email.js`, so the emulator
+would not have caught it.
+
+**Nothing was sent.** The page's own failsafe ran first: it checks every
+team has signed the term off, and with no `rotaSignoff` documents in the
+test database (confirmed: zero) it raised "Not ready to send yet" and
+returned. In headless Chrome that alert blocks the page, which is why the
+run hung for twenty minutes — the hang *is* the evidence it stopped there.
+
+Both ends fixed. The measurement now reveals panels instead of pressing
+anything, and stubs `confirm`, `alert` and `prompt` on every page before it
+opens a single state. The rule for anything that drives a page: **never
+press a control that sends, even to see what it looks like.** Reveal it.
+
+That failsafe is worth knowing about for its own sake: it is the one thing
+standing between a stray click and the whole team's inbox, and it worked.
+
+### R-023 — the first A3b numbers were inflated, and the harness was wrong
+An early run reported 579 on CoreTeamApp. It measured each sheet over
+whatever screen happened to be open, so the email compiler behind a modal
+was counted again in every modal after it. Each sheet is now measured over
+the home screen and the honest figure is 290. Worth saying because the
+first number was quoted before it was checked.

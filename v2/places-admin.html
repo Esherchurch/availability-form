@@ -560,7 +560,7 @@
               (admins.length ? admins.map(function (id) {
                 var p = people.find(function (x) { return x.id === id; });
                 return '<span class="pill">' + esc(p ? p.name : id) +
-                  ' <button data-brm="' + s.id + '" data-pid="' + id + '" style="font-weight:700">&times;</button></span>';
+                  ' <button data-brm="' + s.id + '" data-pid="' + id + '" style="font-weight:500">&times;</button></span>';
               }).join('') : '<span class="hint">Nobody yet — only Core Team can approve here.</span>') +
             '</div>' +
           '</div>' +

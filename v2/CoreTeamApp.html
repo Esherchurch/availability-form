@@ -60,20 +60,20 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   background: var(--bg); border: 1px solid var(--border);
   color: var(--teal); font-size: 18px; cursor: pointer;
   display: none; align-items: center; justify-content: center;
-  font-weight: 800; flex-shrink: 0;
+  font-weight:600; flex-shrink: 0;
 }
 #back-btn.visible { display: flex; }
 #header-title {
   flex: 1; font-size: 16px; font-weight: 600;
   color: var(--teal); text-align: center;
-  letter-spacing: -0.01em;
+  letter-spacing:normal;
 }
 #header-action {
   width: 36px; height: 36px; border-radius: 10px;
   background: var(--teal); border: none; color: white;
   font-size: 20px; cursor: pointer; display: none;
   align-items: center; justify-content: center;
-  font-weight: 800; flex-shrink: 0;
+  font-weight:600; flex-shrink: 0;
 }
 #header-action.visible { display: flex; }
 
@@ -153,8 +153,8 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 
 .form-field { display: flex; flex-direction: column; gap: 6px; }
 .form-label {
-  font-size: 11px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--muted);
+  font-size:13px; font-weight:600; text-transform:none;
+  letter-spacing:normal; color: var(--muted);
 }
 .form-input, .form-select, .form-textarea {
   width: 100%; padding: 12px 14px;
@@ -172,7 +172,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
   gap: 6px; padding: 11px 20px; border-radius: var(--r-md);
-  font-family: var(--font); font-size: 13px; font-weight: 700;
+  font-family: var(--font); font-size: 13px; font-weight:500;
   border: none; cursor: pointer;
   letter-spacing: 0; transition: transform 0.1s, background 0.15s;
   white-space: nowrap;
@@ -185,7 +185,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 .btn-red       { background: var(--red); color: white; }
 .btn-blue      { background: var(--blue); color: white; }
 .btn-full      { width: 100%; }
-.btn-sm        { padding: 8px 14px; font-size: 11px; border-radius: var(--r-sm); }
+.btn-sm        { padding: 8px 14px; font-size:13px; border-radius: var(--r-sm); }
 
 .empty-state {
   display: flex; flex-direction: column;
@@ -193,7 +193,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   padding: 48px 24px; gap: 10px; text-align: center;
 }
 .empty-state-icon { font-size: 40px; }
-.empty-state-text { font-size: 13px; font-weight: 700; color: var(--muted); }
+.empty-state-text { font-size: 13px; font-weight:600; color: var(--muted); }
 
 /* ══ SERVICE PLANNER ══ */
 .service-list { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
@@ -206,9 +206,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 }
 .service-card:active { background: var(--teal-light); }
 .service-card-info { flex: 1; min-width: 0; }
-.service-card-date { font-size: 11px; font-weight: 800; color: var(--teal); opacity: 0.5; text-transform: uppercase; letter-spacing: 0.08em; }
-.service-card-title { font-size: 15px; font-weight: 800; color: var(--teal); margin: 2px 0; }
-.service-card-meta { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; }
+.service-card-date { font-size:13px; font-weight:600; color: var(--teal); opacity: 0.5; text-transform:none; letter-spacing:normal; }
+.service-card-title { font-size: 15px; font-weight:600; color: var(--teal); margin: 2px 0; }
+.service-card-meta { font-size:13px; font-weight: 600; color: var(--teal); opacity: 0.5; }
 .service-card-arrow { font-size: 20px; color: var(--teal); opacity: 0.3; }
 
 .order-item {
@@ -227,8 +227,8 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   cursor: grab;
 }
 .order-item-type {
-  font-size: 10px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.08em; padding: 4px 9px;
+  font-size:13px; font-weight:600; text-transform:none;
+  letter-spacing:normal; padding: 4px 9px;
   border-radius: var(--r-pill); flex-shrink: 0;
 }
 .type-song        { background: #fef9c3; color: #854d0e; }
@@ -238,13 +238,13 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 .type-other       { background: var(--bg); color: var(--teal); }
 
 .order-item-title {
-  flex: 1; font-size: 14px; font-weight: 700;
+  flex: 1; font-size: 14px; font-weight:600;
   color: var(--teal); min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   cursor: pointer; padding: 4px 0;
 }
 .order-item-key {
-  font-size: 11px; font-weight: 800; color: var(--teal);
+  font-size:13px; font-weight:600; color: var(--teal);
   opacity: 0.5; flex-shrink: 0;
 }
 .order-item-delete {
@@ -265,7 +265,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   z-index: 100; max-height: 200px; overflow-y: auto;
 }
 .song-suggestion-item {
-  padding: 12px 14px; font-size: 13px; font-weight: 700;
+  padding: 12px 14px; font-size: 13px; font-weight:600;
   color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg);
 }
 .song-suggestion-item:hover { background: var(--teal-light); }
@@ -273,9 +273,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 /* Keys chips */
 .key-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .key-chip {
-  padding: 5px 12px; border-radius: 9999px;
+  padding: 5px 12px; border-radius:8px;
   border: 1.5px solid var(--border); background: var(--bg);
-  font-size: 11px; font-weight: 800; color: var(--teal);
+  font-size:13px; font-weight:600; color: var(--teal);
   cursor: pointer; transition: all 0.15s;
 }
 .key-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
@@ -290,23 +290,23 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   background: var(--teal); padding: 12px 16px;
   display: flex; align-items: center; justify-content: space-between;
 }
-.rota-event-date { font-size: 13px; font-weight: 800; color: white; }
-.rota-event-type { font-size: 11px; color: rgba(255,255,255,0.7); font-weight: 700; }
+.rota-event-date { font-size: 13px; font-weight:600; color: white; }
+.rota-event-type { font-size:13px; color: rgba(255,255,255,0.7); font-weight:600; }
 .rota-event-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
 .rota-assignment-row {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px; border-radius: 10px; background: var(--bg);
 }
 .rota-role-label {
-  font-size: 11px; font-weight: 800; color: var(--teal);
-  text-transform: uppercase; letter-spacing: 0.08em;
+  font-size:13px; font-weight:600; color: var(--teal);
+  text-transform:none; letter-spacing:normal;
   width: 120px; flex-shrink: 0;
 }
-.rota-member-name { flex: 1; font-size: 13px; font-weight: 700; color: var(--teal); }
+.rota-member-name { flex: 1; font-size: 13px; font-weight:600; color: var(--teal); }
 .rota-member-select {
   flex: 1; padding: 6px 10px; border-radius: 8px;
   border: 1.5px solid var(--border); font-family: var(--font);
-  font-size: 12px; font-weight: 700; color: var(--teal);
+  font-size: 12px; font-weight:500; color: var(--teal);
   background: white; appearance: none; -webkit-appearance: none;
   outline: none;
 }
@@ -314,9 +314,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 /* Role management */
 .role-tag {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: 9999px;
+  padding: 6px 12px; border-radius:8px;
   background: var(--teal-light); border: 1px solid var(--border);
-  font-size: 12px; font-weight: 700; color: var(--teal);
+  font-size: 12px; font-weight:600; color: var(--teal);
 }
 .role-tag-delete {
   background: none; border: none; color: var(--red);
@@ -341,7 +341,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   padding: 7px 12px; border-radius: 8px;
   background: var(--bg); border: 1px solid var(--border);
   font-family: var(--font); font-size: 12px;
-  font-weight: 800; color: var(--teal);
+  font-weight:600; color: var(--teal);
   cursor: pointer; white-space: nowrap;
 }
 .tool-btn:active { background: var(--teal-light); }
@@ -351,7 +351,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   padding: 7px 10px; border-radius: 8px;
   border: 1px solid var(--border); background: var(--bg);
   font-family: var(--font); font-size: 12px;
-  font-weight: 700; color: var(--teal); outline: none;
+  font-weight:500; color: var(--teal); outline: none;
 }
 
 .color-swatch {
@@ -384,16 +384,16 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 }
 .draft-card.active-draft { border-color: var(--teal); background: var(--teal-light); }
 .draft-info { flex: 1; min-width: 0; }
-.draft-name { font-size: 14px; font-weight: 800; color: var(--teal); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.draft-meta { font-size: 11px; font-weight: 600; color: var(--teal); opacity: 0.5; line-height: 1.5; }
+.draft-name { font-size: 14px; font-weight:600; color: var(--teal); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-meta { font-size:13px; font-weight: 600; color: var(--teal); opacity: 0.5; line-height: 1.5; }
 .draft-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
 /* Address book chips */
 .team-chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 7px 14px; border-radius: 9999px;
+  padding: 7px 14px; border-radius:8px;
   border: 1.5px solid var(--border); background: var(--bg);
-  font-size: 12px; font-weight: 800; color: var(--teal);
+  font-size: 12px; font-weight:600; color: var(--teal);
   cursor: pointer; transition: all 0.15s;
 }
 .team-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
@@ -418,12 +418,12 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 }
 
 .modal-handle {
-  width: 36px; height: 4px; border-radius: 9999px;
+  width: 36px; height: 4px; border-radius:8px;
   background: var(--border); margin: 0 auto 16px;
 }
 .modal-title {
-  font-size: 18px; font-weight: 800; color: var(--teal);
-  margin-bottom: 16px; letter-spacing: -0.01em;
+  font-size: 18px; font-weight:600; color: var(--teal);
+  margin-bottom: 16px; letter-spacing:normal;
 }
 
 /* Center modal variant */
@@ -445,7 +445,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   left: 50%; transform: translateX(-50%);
   background: var(--teal); color: white;
   padding: 10px 22px; border-radius: var(--r-pill);
-  font-size: 12px; font-weight: 700;
+  font-size: 12px; font-weight:600;
   letter-spacing: 0; z-index: 9000;
   display: none; white-space: nowrap;
   box-shadow: 0 4px 16px rgba(61,98,99,0.3);
@@ -466,7 +466,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loader-msg { color: white; font-size: 13px; font-weight: 700; opacity: 0.8; }
+.loader-msg { color: white; font-size: 13px; font-weight:600; opacity: 0.8; }
 
 /* ══ TOUR ══ */
 #tour-overlay {
@@ -495,12 +495,12 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
   pointer-events: all; z-index: 3; cursor: default;
 }
-.tour-tooltip-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.tour-tooltip-title { font-size: 14px; font-weight:600; margin-bottom: 6px; }
 .tour-tooltip-text  { font-size: 12px; font-weight: 600; opacity: 0.85; line-height: 1.5; margin-bottom: 12px; }
 .tour-btn-row { display: flex; align-items: center; gap: 8px; }
-.tour-skip { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: var(--r-pill); font-family: var(--font); font-size: 11px; font-weight: 700; cursor: pointer; }
-.tour-next { background: white; border: none; color: var(--teal); padding: 8px 16px; border-radius: var(--r-pill); font-family: var(--font); font-size: 11px; font-weight: 700; cursor: pointer; margin-left: auto; }
-.tour-step-count { font-size: 10px; opacity: 0.6; font-weight: 700; }
+.tour-skip { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: var(--r-pill); font-family: var(--font); font-size:13px; font-weight:500; cursor: pointer; }
+.tour-next { background: white; border: none; color: var(--teal); padding: 8px 16px; border-radius: var(--r-pill); font-family: var(--font); font-size:13px; font-weight:500; cursor: pointer; margin-left: auto; }
+.tour-step-count { font-size:13px; opacity: 0.6; font-weight:600; }
 
 /* ══ SERVICE PLANNER ══ */
 .sp-input {
@@ -515,49 +515,49 @@ select.sp-input { appearance: none; cursor: pointer; }
 .sp-top { padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--white); border-bottom: 1px solid var(--border); }
 .sp-date-row { display: flex; gap: 8px; }
 .sp-date-row input, .sp-date-row select { flex: 1; }
-.sp-leader { font-size: 11px; font-weight: 700; color: var(--teal); opacity: 0.6; padding: 0 2px; }
-.sp-leader span { font-weight: 800; opacity: 1; }
+.sp-leader { font-size:13px; font-weight:600; color: var(--teal); opacity: 0.6; padding: 0 2px; }
+.sp-leader span { font-weight:600; opacity: 1; }
 .sp-section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 12px 8px; flex-wrap: wrap; gap: 8px; }
-.sp-section-header h2 { font-size: 15px; font-weight: 800; color: var(--teal); }
+.sp-section-header h2 { font-size: 15px; font-weight:600; color: var(--teal); }
 .sp-btn-row { display: flex; gap: 6px; }
-.sp-btn { padding: 8px 14px; border-radius: var(--r-md); font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--hairline); background: var(--brand-tint); color: var(--brand); letter-spacing: 0; text-decoration: none; display: inline-flex; align-items: center; }
+.sp-btn { padding: 8px 14px; border-radius: var(--r-md); font-family: var(--font); font-size: 12px; font-weight:600; cursor: pointer; border: 1px solid var(--hairline); background: var(--brand-tint); color: var(--brand); letter-spacing: 0; text-decoration: none; display: inline-flex; align-items: center; }
 .song-block { background: var(--white); border: 1px solid var(--border); border-radius: 1.5rem; margin: 0 12px 10px; }
 .song-block-header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
 .sp-drag-handle { cursor: grab; color: var(--border); font-size: 1.2rem; display: flex; align-items: center; flex-shrink: 0; touch-action: none; }
-.sp-song-number { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); white-space: nowrap; min-width: 48px; }
+.sp-song-number { font-size:13px; font-weight:600; text-transform:none; letter-spacing:normal; color: var(--muted); white-space: nowrap; min-width: 48px; }
 .sp-title-wrap { flex: 1; position: relative; min-width: 0; }
-.song-title { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; padding: 8px 10px; font-family: var(--font); font-weight: 700; font-size: 13px; color: var(--teal); outline: none; }
+.song-title { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; padding: 8px 10px; font-family: var(--font); font-weight:600; font-size: 13px; color: var(--teal); outline: none; }
 .song-title:focus { border-color: var(--teal); }
 .sp-suggest-box { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1px solid var(--border); border-radius: 0.75rem; box-shadow: 0 8px 24px rgba(61,98,99,0.15); z-index: 300; overflow: hidden; margin-top: 2px; display: none; }
-.sp-suggest-item { padding: 10px 14px; font-size: 13px; font-weight: 700; color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg); }
+.sp-suggest-item { padding: 10px 14px; font-size: 13px; font-weight:600; color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg); }
 .sp-suggest-item:last-child { border-bottom: none; }
 .sp-suggest-item:hover { background: var(--bg); }
-.sp-collapse-btn { width: 28px; height: 28px; border: none; background: none; font-size: 11px; color: var(--teal); cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s; }
+.sp-collapse-btn { width: 28px; height: 28px; border: none; background: none; font-size:13px; color: var(--teal); cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s; }
 .is-collapsed .sp-collapse-btn { transform: rotate(-90deg); }
 .sp-remove-btn { width: 28px; height: 28px; border: none; background: none; font-size: 1.3rem; color: var(--border); cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .sp-remove-btn:hover { color: #b22222; }
 .song-content { padding: 0 14px 14px; border-top: 1px solid var(--bg); }
 .song-content.hidden { display: none; }
 .sp-keys-row { display: flex; gap: 6px; margin-top: 10px; }
-.song-key { flex: 1; font-size: 12px; padding: 8px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: var(--font); font-weight: 700; color: var(--teal); outline: none; }
-.song-note { margin-top: 8px; width: 100%; background: var(--white); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.75rem 1rem; font-family: var(--font); font-weight: 700; color: var(--teal); outline: none; font-size: 14px; resize: none; overflow: hidden; }
+.song-key { flex: 1; font-size: 12px; padding: 8px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: var(--font); font-weight:600; color: var(--teal); outline: none; }
+.song-note { margin-top: 8px; width: 100%; background: var(--white); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.75rem 1rem; font-family: var(--font); font-weight:600; color: var(--teal); outline: none; font-size: 14px; resize: none; overflow: hidden; }
 .song-note:focus { border-color: var(--teal); }
-.sp-key-info { margin-top: 8px; padding: 8px 10px; background: var(--bg); border-radius: 8px; font-size: 11px; font-weight: 600; color: var(--teal); line-height: 1.5; }
-.sp-files-box { margin-top: 8px; padding: 10px 12px; background: var(--bg); border-radius: 10px; font-size: 11px; }
-.sp-files-box a { display: inline-block; background: var(--teal); color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; margin: 2px 2px 0 0; }
-.sp-serve-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; border-radius: var(--r-pill); font-size: 12px; font-weight: 800; padding: 0 0.5rem; background: var(--brand-tint); color: var(--brand); border: 1px solid var(--hairline-strong); flex-shrink: 0; }
+.sp-key-info { margin-top: 8px; padding: 8px 10px; background: var(--bg); border-radius: 8px; font-size:13px; font-weight: 600; color: var(--teal); line-height: 1.5; }
+.sp-files-box { margin-top: 8px; padding: 10px 12px; background: var(--bg); border-radius: 10px; font-size:13px; }
+.sp-files-box a { display: inline-block; background: var(--teal); color: white; padding: 5px 10px; border-radius: 6px; font-size:13px; font-weight:600; text-decoration: none; margin: 2px 2px 0 0; }
+.sp-serve-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; border-radius: var(--r-pill); font-size: 12px; font-weight:600; padding: 0 0.5rem; background: var(--brand-tint); color: var(--brand); border: 1px solid var(--hairline-strong); flex-shrink: 0; }
 .sp-serve-badge.is-peak { background: var(--teal); color: white; border-color: var(--teal); }
 .sp-serve-badge.hidden-badge { visibility: hidden; }
 .item-block { background: var(--bg); border: 1px solid transparent; border-radius: 1rem; margin: 0 12px 8px; display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
 .item-block:hover { border-color: var(--border); }
-.item-title { flex: 1; background: transparent; border: none; font-family: var(--font); font-weight: 700; font-size: 15px; color: var(--teal); outline: none; min-width: 0; }
+.item-title { flex: 1; background: transparent; border: none; font-family: var(--font); font-weight:600; font-size: 15px; color: var(--teal); outline: none; min-width: 0; }
 .sp-rota-table { width: 100%; border-collapse: collapse; }
-.sp-rota-table th { text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 800; border-bottom: 1px solid var(--hairline-strong); }
+.sp-rota-table th { text-align: left; padding: 8px 12px; font-size:13px; text-transform:none; letter-spacing:normal; color: var(--muted); font-weight:600; border-bottom: 1px solid var(--hairline-strong); }
 .sp-rota-table td { padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--body); border-bottom: 1px solid var(--hairline); }
-.sp-rota-table td:first-child { font-weight: 800; color: var(--teal); }
+.sp-rota-table td:first-child { font-weight:600; color: var(--teal); }
 .sp-rota-table textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--teal); outline: none; resize: none; overflow: hidden; }
 .sp-actions { display: flex; gap: 10px; padding: 16px 12px; }
-.sp-actions button { flex: 1; padding: 14px; border: none; border-radius: var(--r-md); font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; }
+.sp-actions button { flex: 1; padding: 14px; border: none; border-radius: var(--r-md); font-family: var(--font); font-size: 14px; font-weight:600; cursor: pointer; }
 .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
 @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
@@ -647,7 +647,7 @@ select.sp-input { appearance: none; cursor: pointer; }
 
     <div style="padding:0 12px;">
       <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;margin-bottom:12px;">
-        <div style="font-size:13px;font-weight:800;color:var(--teal);margin-bottom:12px;">Service Team &amp; Roles</div>
+        <div style="font-size:13px;font-weight:600;color:var(--teal);margin-bottom:12px;">Service Team &amp; Roles</div>
         <div style="overflow-x:auto;">
           <table class="sp-rota-table">
             <thead><tr><th>Role</th><th>Person</th><th>Notes</th></tr></thead>
@@ -658,7 +658,7 @@ select.sp-input { appearance: none; cursor: pointer; }
       <textarea id="spOutro" class="sp-input" placeholder="Closing remarks (appears at end of team email)…" rows="2" style="margin-bottom:12px;"></textarea>
       <div class="sp-actions">
         <button onclick="spSave()" style="background:var(--teal);color:white;">Save</button>
-        <input id="spSenderEmail" type="email" placeholder="Your email..." style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:var(--teal);font-family:var(--font);outline:none;margin-bottom:6px;width:100%;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+        <input id="spSenderEmail" type="email" placeholder="Your email..." style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;color:var(--teal);font-family:var(--font);outline:none;margin-bottom:6px;width:100%;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
         <button onclick="spEmail()" style="background:var(--bg);color:var(--teal);border:1.5px solid var(--border);">Email Team</button>
       </div>
     </div>
@@ -672,18 +672,18 @@ select.sp-input { appearance: none; cursor: pointer; }
 
     <!-- Top toolbar — same as desktop but wraps on mobile -->
     <div style="background:white;border-bottom:1px solid #d1dfdf;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex-shrink:0;">
-      <select id="termSelect" style="background:#f0f6f6;border:1px solid #d1dfdf;border-radius:9999px;padding:8px 14px;font-family:Inter, system-ui, sans-serif;font-weight:700;font-size:12px;color:#3d6263;outline:none;flex:1;min-width:100px;">
+      <select id="termSelect" style="background:#f0f6f6;border:1px solid #d1dfdf;border-radius:8px;padding:8px 14px;font-family:Inter, system-ui, sans-serif;font-weight:500;font-size:12px;color:#3d6263;outline:none;flex:1;min-width:100px;">
         <option value="">Term…</option>
         <option value="Spring">Spring</option>
         <option value="Summer">Summer</option>
         <option value="Autumn">Autumn</option>
       </select>
-      <button onclick="generateTerm()" style="background:#f0f6f6;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Populate</button>
-      <button onclick="autoFillAllEvents()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Auto-Fill</button>
-      <button onclick="addThursdayPractices()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Practices</button>
-      <button onclick="addSingleLine()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">+ Service</button>
-      <button onclick="gatherTermAvailability()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Gather Avail</button>
-      <button onclick="toggleHideAssigned()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;">Hide Assigned</button>
+      <button onclick="generateTerm()" style="background:#f0f6f6;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">Populate</button>
+      <button onclick="autoFillAllEvents()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">Auto-Fill</button>
+      <button onclick="addThursdayPractices()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">+ Practices</button>
+      <button onclick="addSingleLine()" style="background:#3d6263;color:white;border:none;padding:8px 14px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">+ Service</button>
+      <button onclick="gatherTermAvailability()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">Gather Avail</button>
+      <button onclick="toggleHideAssigned()" style="background:white;color:#3d6263;border:1px solid #d1dfdf;padding:8px 14px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">Hide Assigned</button>
     </div>
 
     <!-- Scrollable event list — same renderPlanner() output as desktop -->
@@ -725,8 +725,8 @@ select.sp-input { appearance: none; cursor: pointer; }
       <!-- Draft info bar -->
       <div id="draft-bar" style="display:none;background:var(--teal-light);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <div style="flex:1;min-width:0;">
-          <div id="draft-bar-name" style="font-size:13px;font-weight:800;color:var(--teal);"></div>
-          <div id="draft-bar-meta" style="font-size:10px;color:var(--teal);opacity:0.6;"></div>
+          <div id="draft-bar-name" style="font-size:13px;font-weight:600;color:var(--teal);"></div>
+          <div id="draft-bar-meta" style="font-size:13px;color:var(--teal);opacity:0.6;"></div>
         </div>
         <button class="btn btn-green btn-sm" onclick="overwriteDraft()"><i data-lucide="save" style="width:15px;height:15px"></i> Save</button>
         <button class="btn btn-secondary btn-sm" onclick="clearEditor()"><i data-lucide="x" style="width:15px;height:15px"></i> Close</button>
@@ -765,7 +765,7 @@ select.sp-input { appearance: none; cursor: pointer; }
         <select class="form-select" id="new-service-type" style="font-size:15px;">
           <option value="">Loading...</option>
         </select>
-        <div style="font-size:10px;font-weight:700;color:var(--teal);opacity:0.5;margin-top:4px;">Pick a date first to see available service types</div>
+        <div style="font-size:13px;font-weight:600;color:var(--teal);opacity:0.5;margin-top:4px;">Pick a date first to see available service types</div>
       </div>
       <div class="form-field">
         <label class="form-label">Service Description / Notes</label>
@@ -794,8 +794,8 @@ select.sp-input { appearance: none; cursor: pointer; }
     <!-- Song editor header -->
     <div style="padding:12px 16px;background:var(--teal);display:flex;align-items:center;gap:10px;flex-shrink:0;">
       <button onclick="closeSongModal()" aria-label="Close" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button>
-      <div style="flex:1;font-size:15px;font-weight:800;color:white;" id="song-modal-title">Add Song</div>
-      <button onclick="saveSongItem()" style="background:white;border:none;color:var(--teal);padding:8px 16px;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;text-transform:uppercase;">Save</button>
+      <div style="flex:1;font-size:15px;font-weight:600;color:white;" id="song-modal-title">Add Song</div>
+      <button onclick="saveSongItem()" style="background:white;border:none;color:var(--teal);padding:8px 16px;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;text-transform:none;">Save</button>
     </div>
 
     <!-- Scrollable song editor body -->
@@ -983,7 +983,7 @@ select.sp-input { appearance: none; cursor: pointer; }
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">Saved drafts</div>
-    <div id="drafts-count" style="font-size:11px;color:var(--teal);opacity:0.5;margin-bottom:12px;font-weight:700;"></div>
+    <div id="drafts-count" style="font-size:13px;color:var(--teal);opacity:0.5;margin-bottom:12px;font-weight:600;"></div>
     <div id="drafts-list" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div style="margin-top:14px;">
       <button class="btn btn-secondary btn-full" onclick="closeModal('modal-drafts')">Close</button>
@@ -1007,7 +1007,7 @@ select.sp-input { appearance: none; cursor: pointer; }
         <div class="team-chip" data-team="Everyone" onclick="toggleMailTeam(this)">Everyone</div>
       </div>
     </div>
-    <div id="recipient-count" style="font-size:12px;font-weight:700;color:var(--teal);opacity:0.6;margin-bottom:14px;text-align:center;"></div>
+    <div id="recipient-count" style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;text-align:center;"></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-secondary btn-full" onclick="closeModal('modal-mailing')">Cancel</button>
       <button class="btn btn-primary btn-full" onclick="launchEmail()">Open Email App</button>
@@ -1251,8 +1251,8 @@ async function loadServiceList() {
     if (hasDupes) {
       const bar = document.createElement('div');
       bar.style.cssText = 'margin:0 12px 8px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;';
-      bar.innerHTML = `<div style="flex:1;font-size:12px;font-weight:700;color:#991b1b;">Duplicate services found for some dates</div>
-        <button onclick="deduplicateServices()" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:8px;font-family:var(--font);font-size:11px;font-weight:800;cursor:pointer;">Fix</button>`;
+      bar.innerHTML = `<div style="flex:1;font-size:12px;font-weight:600;color:#991b1b;">Duplicate services found for some dates</div>
+        <button onclick="deduplicateServices()" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:8px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;">Fix</button>`;
       $('service-list').insertAdjacentElement('beforebegin', bar);
     }
   } catch(e) {
@@ -1306,7 +1306,7 @@ function renderServiceList() {
   $('service-list').innerHTML = list.map(s => `
     <div class="service-card fade-in" onclick="openServiceDetail('${s.id}')">
       <div class="service-card-info">
-        <div class="service-card-date">${fmtShortDate(s.date)}${s._isDuplicate ? ' <span style="color:#ef4444;font-size:9px;">● DUPLICATE</span>' : ''}</div>
+        <div class="service-card-date">${fmtShortDate(s.date)}${s._isDuplicate ? ' <span style="color:#ef4444;font-size:13px;">● DUPLICATE</span>' : ''}</div>
         <div class="service-card-title">${s._eventType || s.type || 'Service'}</div>
         <div class="service-card-meta">${(s.order||[]).filter(i=>i.type==='song').length} songs · ${s.worshipLeader || 'No leader set'}</div>
       </div>
@@ -1409,12 +1409,12 @@ function renderServiceDetail() {
   $('service-info-card').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--teal);opacity:0.45;margin-bottom:3px;">${fmtShortDate(s.date)}</div>
-        <div style="font-size:16px;font-weight:800;color:var(--teal);line-height:1.2;">${eventType}</div>
+        <div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--teal);opacity:0.45;margin-bottom:3px;">${fmtShortDate(s.date)}</div>
+        <div style="font-size:16px;font-weight:600;color:var(--teal);line-height:1.2;">${eventType}</div>
       </div>
       <button class="btn btn-secondary btn-sm" style="flex-shrink:0;margin-left:10px;" onclick="openEditServiceMeta()">Edit</button>
     </div>
-    ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;margin-top:10px;">${s.worshipLeader}</div>` : ''}`;
+    ${s.worshipLeader ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;padding:4px 10px;border-radius:6px;font-size:13px;font-weight:600;margin-top:10px;">${s.worshipLeader}</div>` : ''}`;
 
   renderOrderList();
   renderServiceRotaTable();
@@ -1445,8 +1445,8 @@ function renderServiceRotaTable() {
   table.innerHTML = Object.entries(assignments).map(([role, person]) => `
     <div class="rota-assignment-row" style="flex-wrap:wrap;gap:6px;">
       <div class="rota-role-label" style="width:auto;min-width:100px;">${role}</div>
-      <div style="flex:1;font-size:13px;font-weight:700;color:var(--teal);">${personName(person) || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
-      <input style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-family:var(--font);font-size:11px;font-weight:700;color:var(--teal);background:var(--bg);"
+      <div style="flex:1;font-size:13px;font-weight:600;color:var(--teal);">${personName(person) || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
+      <input style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-family:var(--font);font-size:13px;font-weight:500;color:var(--teal);background:var(--bg);"
         placeholder="Role notes..." value="${(roleNotes[role]||'').replace(/"/g,'&quot;')}"
         oninput="setRoleNote('${role}',this.value)">
     </div>`).join('');
@@ -1579,7 +1579,7 @@ async function selectSongFromSearch(title, id) {
 async function loadSongInfoPanel(title, keys) {
   const panel = $('song-info-panel');
   if (!title) { panel.innerHTML = ''; return; }
-  panel.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:700;">Loading song info...</div>';
+  panel.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:600;">Loading song info...</div>';
 
   try {
     const id  = title.toLowerCase().replace(/\s+/g,'-');
@@ -1607,32 +1607,32 @@ async function loadSongInfoPanel(title, keys) {
     // Use count badge
     if (useCount > 0) {
       const urgent = useCount >= 4;
-      html += `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:9999px;background:${urgent?'var(--teal)':'var(--teal-light)'};color:${urgent?'white':'var(--teal)'};font-size:11px;font-weight:800;margin-bottom:10px;">
+      html += `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;background:${urgent?'var(--teal)':'var(--teal-light)'};color:${urgent?'white':'var(--teal)'};font-size:13px;font-weight:600;margin-bottom:10px;">
         Used ${useCount} time${useCount!==1?'s':''}${urgent?' — consider resting this song':''}
       </div>`;
     }
 
     // Links row
     html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      ${youtube ? `<a href="${youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:#ff0000;color:white;font-size:11px;font-weight:800;text-decoration:none;"><i data-lucide="play" style="width:14px;height:14px"></i> YouTube</a>` : ''}
-      <a href="${songSelectLink}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9999px;background:var(--teal-light);color:var(--teal);font-size:11px;font-weight:800;text-decoration:none;border:1px solid var(--border);"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect${ccli?` · CCLI ${ccli}`:''}</a>
+      ${youtube ? `<a href="${youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;background:#ff0000;color:white;font-size:13px;font-weight:600;text-decoration:none;"><i data-lucide="play" style="width:14px;height:14px"></i> YouTube</a>` : ''}
+      <a href="${songSelectLink}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;background:var(--teal-light);color:var(--teal);font-size:13px;font-weight:600;text-decoration:none;border:1px solid var(--border);"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect${ccli?` · CCLI ${ccli}`:''}</a>
     </div>`;
 
     // Sheet music files by key
     if (keys.length > 0 && allFiles.length > 0) {
       keys.forEach(k => {
         const files = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
-        html += `<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px;">Key: ${k}</div>`;
+        html += `<div style="margin-bottom:10px;"><div style="font-size:13px;font-weight:600;color:var(--teal);text-transform:none;letter-spacing:normal;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px;">Key: ${k}</div>`;
         if (!files.length) {
           html += `<div style="font-size:12px;color:var(--teal);opacity:0.4;font-style:italic;">No files for ${k}</div>`;
         } else {
           const grouped = {};
           files.forEach(f => { if(!grouped[f.type]) grouped[f.type]=[]; grouped[f.type].push(f); });
           Object.entries(grouped).forEach(([type, fs]) => {
-            html += `<div style="font-size:9px;font-weight:800;color:var(--teal);opacity:0.4;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">${type}</div>`;
+            html += `<div style="font-size:13px;font-weight:600;color:var(--teal);opacity:0.4;text-transform:none;letter-spacing:normal;margin-bottom:5px;">${type}</div>`;
             html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">`;
             fs.forEach(file => {
-              html += `<a href="${file.url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:var(--teal);color:white;font-size:11px;font-weight:800;text-decoration:none;">Open File</a>`;
+              html += `<a href="${file.url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:8px;background:var(--teal);color:white;font-size:13px;font-weight:600;text-decoration:none;">Open File</a>`;
             });
             html += `</div>`;
           });
@@ -1657,12 +1657,12 @@ async function loadSongInfoPanel(title, keys) {
       });
       if (ptMatches.length) {
         html += `<div style="margin-top:10px;padding:10px;background:var(--white);border-radius:10px;border:1px dashed var(--teal);">
-          <div style="font-size:9px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;"><i data-lucide="play" style="width:14px;height:14px"></i> Play Through Videos</div>
+          <div style="font-size:13px;font-weight:600;color:var(--teal);text-transform:none;letter-spacing:normal;margin-bottom:8px;"><i data-lucide="play" style="width:14px;height:14px"></i> Play Through Videos</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">`;
         ptMatches.forEach(pt => {
           const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
           const lbl = pt.instrument ? `${pt.ourKey} (${pt.instrument})` : pt.ourKey;
-          html += `<a href="${url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:9999px;background:#7c3aed;color:white;font-size:11px;font-weight:800;text-decoration:none;"><i data-lucide="play" style="width:14px;height:14px"></i> ${lbl}</a>`;
+          html += `<a href="${url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:8px;background:#7c3aed;color:white;font-size:13px;font-weight:600;text-decoration:none;"><i data-lucide="play" style="width:14px;height:14px"></i> ${lbl}</a>`;
         });
         html += `</div></div>`;
       }
@@ -1854,7 +1854,7 @@ async function spShowKeyInfo(id, title) {
   const missing = SP_ALL_KEYS.filter(k=>!unique.includes(k));
   const box = document.getElementById('sp-keyinfo-' + id);
   box.style.display = 'block';
-  box.innerHTML = `<span style="font-weight:800;color:var(--teal);">Available:</span> ${unique.sort().join(', ')||'None'} &nbsp;·&nbsp; <span style="font-weight:800;color:#b22222;">Missing:</span> <span style="opacity:0.6;">${missing.join(', ')}</span>`;
+  box.innerHTML = `<span style="font-weight:600;color:var(--teal);">Available:</span> ${unique.sort().join(', ')||'None'} &nbsp;·&nbsp; <span style="font-weight:600;color:#b22222;">Missing:</span> <span style="opacity:0.6;">${missing.join(', ')}</span>`;
   const sundayHistory = (data.servingHistory||[]).filter(s=>s.day&&s.day.toLowerCase()==='sunday');
   const badge = document.getElementById('sp-serve-' + id);
   if (sundayHistory.length) {
@@ -1881,9 +1881,9 @@ async function spSearch(input, id) {
   if (!matches.length) {
     const enc = encodeURIComponent(input.value);
     box.innerHTML = `<div class="sp-suggest-item" style="color:#b22222;">Not in library</div>
-      <div style="padding:8px 14px;font-size:11px;display:flex;gap:12px;background:white;">
-        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:700;"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
-        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:700;"><i data-lucide="play" style="width:14px;height:14px"></i> YouTube</a>
+      <div style="padding:8px 14px;font-size:13px;display:flex;gap:12px;background:white;">
+        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:500;"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
+        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:600;"><i data-lucide="play" style="width:14px;height:14px"></i> YouTube</a>
       </div>`;
   } else {
     box.innerHTML = matches.map(s=>`<div class="sp-suggest-item" onclick="spSelectSong('${s.title.replace(/'/g,"\\'")}','${id}')">${s.title}</div>`).join('');
@@ -1914,7 +1914,7 @@ async function spKeyChanged(id) {
   const youtube = data.youtube || '';
   const ccli = data.ccli || '';
   const ssLink = ccli ? `https://songselect.ccli.com/Songs/${ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-  let html = `<div class="sp-files-box"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;font-weight:700;">
+  let html = `<div class="sp-files-box"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:13px;font-weight:500;">
     ${youtube?`<a href="${youtube}" target="_blank" style="color:#b22222;text-decoration:none;">YouTube</a>`:''}
     <a href="${ssLink}" target="_blank" style="color:var(--teal);text-decoration:none;"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
     ${ccli?`<span style="color:var(--teal);opacity:0.5;">CCLI: ${ccli}</span>`:''}
@@ -1922,12 +1922,12 @@ async function spKeyChanged(id) {
   if (keys.length) {
     keys.forEach(k => {
       const kFiles = (data.files||[]).filter(f=>f.key&&f.key.trim().toLowerCase()===k.trim().toLowerCase());
-      html += `<div style="margin-top:6px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.5;margin-bottom:4px;">Key: ${k}</div>`;
-      if (!kFiles.length) { html += `<span style="font-size:11px;opacity:0.5;font-weight:600;">No files for ${k}</span>`; }
-      else { const g={}; kFiles.forEach(f=>{if(!g[f.type])g[f.type]=[];g[f.type].push(f);}); Object.keys(g).forEach(t=>{html+=`<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.4;margin-top:4px;">${t}</div>`;g[t].forEach(f=>{html+=`<a href="${f.url}" target="_blank">Open File</a>`;});}); }
+      html += `<div style="margin-top:6px;"><div style="font-size:13px;font-weight:600;text-transform:none;color:var(--teal);opacity:0.5;margin-bottom:4px;">Key: ${k}</div>`;
+      if (!kFiles.length) { html += `<span style="font-size:13px;opacity:0.5;font-weight:600;">No files for ${k}</span>`; }
+      else { const g={}; kFiles.forEach(f=>{if(!g[f.type])g[f.type]=[];g[f.type].push(f);}); Object.keys(g).forEach(t=>{html+=`<div style="font-size:13px;font-weight:600;text-transform:none;color:var(--teal);opacity:0.4;margin-top:4px;">${t}</div>`;g[t].forEach(f=>{html+=`<a href="${f.url}" target="_blank">Open File</a>`;});}); }
       html += `</div>`;
     });
-  } else { html += `<div style="font-size:11px;opacity:0.5;font-weight:600;">Select keys to see sheet music</div>`; }
+  } else { html += `<div style="font-size:13px;opacity:0.5;font-weight:600;">Select keys to see sheet music</div>`; }
   html += `</div>`;
   container.innerHTML = html;
 }
@@ -2054,16 +2054,16 @@ async function spEmail() {
   const outroText = document.getElementById('spOutro').value || '';
 
   let html = `<div style="font-family:Inter, system-ui, sans-serif;color:#3d6263;max-width:650px;padding:30px;background:#fff;margin:auto;">
-    <h1 style="color:#3d6263;font-size:24px;font-weight:800;text-align:center;">Service Plan</h1>
-    <p style="text-transform:uppercase;font-weight:700;color:#3d6263;opacity:.6;letter-spacing:1.5px;font-size:11px;text-align:center;">${date} · Leader: ${spLeader}</p>
+    <h1 style="color:#3d6263;font-size:24px;font-weight:600;text-align:center;">Service Plan</h1>
+    <p style="text-transform:none;font-weight:600;color:#3d6263;opacity:.6;letter-spacing:1.5px;font-size:13px;text-align:center;">${date} · Leader: ${spLeader}</p>
     ${serviceNotes?`<div style="background:#f0f6f6;border-left:4px solid #3d6263;padding:15px;margin:16px 0;font-size:13px;">${serviceNotes.replace(/\n/g,'<br>')}</div>`:''}
     ${introText?`<div style="font-size:14px;margin:16px 0;">${introText.replace(/\n/g,'<br>')}</div>`:''}
-    <h2 style="border-bottom:3px solid #3d6263;padding-bottom:8px;text-transform:uppercase;font-size:13px;letter-spacing:1px;margin:16px 0;">Order of Service</h2>
+    <h2 style="border-bottom:3px solid #3d6263;padding-bottom:8px;text-transform:none;font-size:13px;letter-spacing:1px;margin:16px 0;">Order of Service</h2>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
       <thead style="background:#f0f6f6;"><tr>
-        <th style="text-align:left;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Title</th>
-        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Key</th>
-        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Resources</th>
+        <th style="text-align:left;padding:8px;font-size:13px;text-transform:none;color:#3d6263;border-bottom:1px solid #d1dfdf;">Title</th>
+        <th style="text-align:center;padding:8px;font-size:13px;text-transform:none;color:#3d6263;border-bottom:1px solid #d1dfdf;">Key</th>
+        <th style="text-align:center;padding:8px;font-size:13px;text-transform:none;color:#3d6263;border-bottom:1px solid #d1dfdf;">Resources</th>
       </tr></thead><tbody>`;
 
   const blocks = document.querySelectorAll('#sp-order .service-block');
@@ -2080,31 +2080,31 @@ async function spEmail() {
       if (snap.exists) {
         const d = snap.data();
         const ss = d.ccli?`https://songselect.ccli.com/Songs/${d.ccli}`:`https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-        res = `<div style="margin-bottom:6px;">${d.youtube?`<a href="${d.youtube}" style="color:#3d6263;font-weight:700;font-size:11px;padding:0 5px;text-decoration:none;">YouTube</a><span style="color:#cbd5e1;">&nbsp;|&nbsp;</span>`:''}<a href="${ss}" style="color:#3d6263;font-weight:700;font-size:11px;padding:0 5px;text-decoration:none;">SongSelect</a></div>`;
+        res = `<div style="margin-bottom:6px;">${d.youtube?`<a href="${d.youtube}" style="color:#3d6263;font-weight:500;font-size:13px;padding:0 5px;text-decoration:none;">YouTube</a><span style="color:#cbd5e1;">&nbsp;|&nbsp;</span>`:''}<a href="${ss}" style="color:#3d6263;font-weight:500;font-size:13px;padding:0 5px;text-decoration:none;">SongSelect</a></div>`;
         keys.forEach(k => {
           const kf = (d.files||[]).filter(f=>f.key&&f.key.trim().toLowerCase()===k.trim().toLowerCase());
-          if (kf.length) { res+=`<div style="font-size:10px;color:#3d6263;font-weight:bold;margin-top:4px;">Key: ${k}</div>`; kf.forEach(f=>{res+=`<div><a href="${f.url}" style="color:#3d6263;text-decoration:underline;font-size:11px;">Download ${f.type}</a></div>`;}); }
+          if (kf.length) { res+=`<div style="font-size:13px;color:#3d6263;font-weight:600;margin-top:4px;">Key: ${k}</div>`; kf.forEach(f=>{res+=`<div><a href="${f.url}" style="color:#3d6263;text-decoration:underline;font-size:13px;">Download ${f.type}</a></div>`;}); }
         });
       }
       html += `<tr>
-        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;"><p style="font-weight:800;font-size:14px;color:#1e293b;margin:0;">${songIdx}. ${title}</p>${notes?`<p style="font-style:italic;font-size:11px;color:#64748b;margin:4px 0 0;">${notes}</p>`:''}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;color:#3d6263;">${keys.join(', ')||'-'}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;"><p style="font-weight:600;font-size:14px;color:#1e293b;margin:0;">${songIdx}. ${title}</p>${notes?`<p style="font-style:italic;font-size:13px;color:#64748b;margin:4px 0 0;">${notes}</p>`:''}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:600;color:#3d6263;">${keys.join(', ')||'-'}</td>
         <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;">${res}</td>
       </tr>`;
       songIdx++;
     } else {
       const item = b.querySelector('.item-title')?.value;
-      if (item) html += `<tr><td colspan="3" style="padding:10px 8px;background:#f8fafc;border-left:4px solid #3d6263;font-weight:800;font-size:12px;color:#3d6263;text-transform:uppercase;">${item}</td></tr>`;
+      if (item) html += `<tr><td colspan="3" style="padding:10px 8px;background:#f8fafc;border-left:4px solid #3d6263;font-weight:600;font-size:12px;color:#3d6263;text-transform:none;">${item}</td></tr>`;
     }
   }
   html += `</tbody></table>`;
 
   const teamRows = Array.from(document.querySelectorAll('#spTeamBody tr'));
   let rosterNames = [];
-  html += `<p style="font-weight:700;font-size:13px;margin:16px 0 8px;">Team for this service:</p><table style="width:100%;border-collapse:collapse;"><tbody>`;
+  html += `<p style="font-weight:600;font-size:13px;margin:16px 0 8px;">Team for this service:</p><table style="width:100%;border-collapse:collapse;"><tbody>`;
   spSortAssignments(teamRows.map(r=>[r.children[0].textContent, r.children[1].textContent, r.querySelector('.sp-instr-note')?.value||''])).forEach(([role,name,note])=>{
     if (name&&name!=='None') rosterNames.push(name.trim());
-    html+=`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;width:35%;color:#3d6263;font-weight:700;">${role}</td><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">${name}${note?`<br><i style="font-size:11px;color:#666;">Note: ${note}</i>`:''}</td></tr>`;
+    html+=`<tr><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;width:35%;color:#3d6263;font-weight:600;">${role}</td><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">${name}${note?`<br><i style="font-size:13px;color:#666;">Note: ${note}</i>`:''}</td></tr>`;
   });
   html += `</tbody></table>`;
   if (outroText) html += `<div style="font-size:14px;color:#444;margin-top:16px;">${outroText.replace(/\n/g,'<br>')}</div>`;
@@ -2432,8 +2432,8 @@ function renderMeetings() {
     const link = videoLinkFor(ev);
     const d = new Date(ev.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
     html += `<div style="${card}"><div style="flex:1;min-width:160px;">
-      <div style="font-size:13px;font-weight:800;color:#3d6263;">${ev.type}${ev.description?' · '+ev.description:''}</div>
-      <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;">${d}${ev.startTime?' · '+ev.startTime+(ev.endTime?'–'+ev.endTime:''):''} · ${videoRoomLabel(videoRoomFor(ev))}</div>
+      <div style="font-size:13px;font-weight:600;color:#3d6263;">${ev.type}${ev.description?' · '+ev.description:''}</div>
+      <div style="font-size:13px;font-weight:600;color:#3d6263;opacity:0.6;">${d}${ev.startTime?' · '+ev.startTime+(ev.endTime?'–'+ev.endTime:''):''} · ${videoRoomLabel(videoRoomFor(ev))}</div>
     </div>${joinBtn(meetingPage(videoRoomFor(ev), ev.id))}${copyBtn(link)}</div>`;
   });
 
@@ -2441,12 +2441,12 @@ function renderMeetings() {
   VIDEO_ROOMS.forEach(([room,label]) => {
     const link = VIDEO_BASE + room;
     html += `<div style="${card}"><div style="flex:1;min-width:160px;">
-      <div style="font-size:13px;font-weight:800;color:#3d6263;">${label}</div>
-      <div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;word-break:break-all;">${link}</div>
+      <div style="font-size:13px;font-weight:600;color:#3d6263;">${label}</div>
+      <div style="font-size:13px;font-weight:600;color:#3d6263;opacity:0.6;word-break:break-all;">${link}</div>
     </div>${joinBtn(meetingPage(room))}${copyBtn(link)}</div>`;
   });
 
-  html += `<div style="font-size:11px;font-weight:600;color:#3d6263;opacity:0.6;margin:12px 2px;line-height:1.5;">Rooms are private: people type their name and knock, then the host lets them in. Hosts use their own private host link.</div>`;
+  html += `<div style="font-size:13px;font-weight:600;color:#3d6263;opacity:0.6;margin:12px 2px;line-height:1.5;">Rooms are private: people type their name and knock, then the host lets them in. Hosts use their own private host link.</div>`;
   container.innerHTML = html;
 }
 
@@ -2513,10 +2513,10 @@ function sheetShell(title, sub, body) {
        <div style="padding:16px 20px 12px;border-bottom:1px solid #f0f6f6;flex-shrink:0">
          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
            <div>
-             <div style="font-size:15px;font-weight:800;color:#14201f">${title}</div>
-             <div style="font-size:11px;color:#6b8281;margin-top:2px">${sub}</div>
+             <div style="font-size:15px;font-weight:600;color:#14201f">${title}</div>
+             <div style="font-size:13px;color:#6b8281;margin-top:2px">${sub}</div>
            </div>
-           <button onclick="closeSheet()" style="background:#f0f6f6;border:none;width:30px;height:30px;border-radius:50%;font-size:15px;color:#3d6263;cursor:pointer;flex-shrink:0">&times;</button>
+           <button onclick="closeSheet()" style="background:#f0f6f6;border:none;width:30px;height:30px;border-radius:8px;font-size:15px;color:#3d6263;cursor:pointer;flex-shrink:0">&times;</button>
          </div>
        </div>
        <div style="padding:12px 16px 22px;overflow-y:auto">${body}</div>
@@ -2528,8 +2528,8 @@ function sheetBtn(label, note, onclick, tone) {
   const c = tone === 'danger' ? '#b0392c' : tone === 'muted' ? '#6b8281' : '#14201f';
   const bg = tone === 'danger' ? '#f7e7e4' : '#f6faf9';
   return `<button onclick="${onclick}" style="display:block;width:100%;text-align:left;background:${bg};border:1px solid #e4eeed;border-radius:11px;padding:11px 14px;margin-bottom:7px;font-family:Inter, system-ui, sans-serif;cursor:pointer">
-    <div style="font-size:13px;font-weight:700;color:${c}">${label}</div>
-    ${note ? `<div style="font-size:11px;color:#93a8a6;margin-top:2px">${note}</div>` : ''}</button>`;
+    <div style="font-size:13px;font-weight:600;color:${c}">${label}</div>
+    ${note ? `<div style="font-size:13px;color:#93a8a6;margin-top:2px">${note}</div>` : ''}</button>`;
 }
 
 /* Everyone eligible for this event, ordered so the people who said yes
@@ -2575,9 +2575,9 @@ window.roleTap = (eventId, role) => {
   if (asgn) {
     body += sheetBtn('Remove ' + personName(asgn), 'Leaves this role empty',
                      `doUnassign('${eventId}','${role.replace(/'/g,"\\'")}')`, 'danger');
-    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:14px 0 8px 2px">Or replace with</div>';
+    body += '<div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:#93a8a6;margin:14px 0 8px 2px">Or replace with</div>';
   } else {
-    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:2px 0 8px 2px">Assign</div>';
+    body += '<div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:#93a8a6;margin:2px 0 8px 2px">Assign</div>';
   }
 
   const list = candidatesFor(ev, role).filter(m => !asgn || m.id !== asgn.id);
@@ -2603,9 +2603,9 @@ window.personTap = (eventId, personId, personName_) => {
   if (current) {
     body += sheetBtn('Take off ' + current[0], 'They are on this event already',
                      `doUnassign('${eventId}','${current[0].replace(/'/g,"\\'")}')`, 'danger');
-    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:14px 0 8px 2px">Or move to</div>';
+    body += '<div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:#93a8a6;margin:14px 0 8px 2px">Or move to</div>';
   } else {
-    body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:2px 0 8px 2px">Put on</div>';
+    body += '<div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:#93a8a6;margin:2px 0 8px 2px">Put on</div>';
   }
 
   const roles = (ev.roles || []).filter(r => !current || r !== current[0]);
@@ -2623,7 +2623,7 @@ window.personTap = (eventId, personId, personName_) => {
 
   const status = rotaAvailability[eventId]?.[personId];
   const now = status === 'avail' ? 'avail' : (status ? 'not-avail' : 'pending');
-  body += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93a8a6;margin:14px 0 8px 2px">Availability</div>';
+  body += '<div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:#93a8a6;margin:14px 0 8px 2px">Availability</div>';
   [['avail', 'Available'], ['not-avail', 'Declined'], ['pending', 'Pending (no reply)']].forEach(([st, label]) => {
     if (st !== now) body += sheetBtn('Move to ' + label, '', `doSetAvailability('${eventId}','${personId}','${st}')`, 'muted');
   });
@@ -2926,17 +2926,17 @@ window.gatherTermAvailability = async () => {
   const body = (n, onlyNew) => {
     const dates = (onlyNew ? n.fresh : [...n.dates]).sort();
     return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
+      <p style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:3px;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
       <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Hi ${n.member.name.split(' ')[0]},</p>
       <p style="font-size:15px;color:#3a4d4c;line-height:1.6">${onlyNew
         ? `A few more dates have been added to ${sel}. Could you let us know about these ones?`
         : `Could you let us know which Sundays you are around for in ${sel}?`}</p>
       <div style="background:#f0f6f6;border:1px solid #dde7e6;border-radius:14px;padding:16px 20px;margin:18px 0">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#6b8281;margin-bottom:8px">${dates.length} date${dates.length===1?'':'s'}</div>
+        <div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;color:#6b8281;margin-bottom:8px">${dates.length} date${dates.length===1?'':'s'}</div>
         <div style="font-size:14px;color:#14201f;line-height:1.9">${dates.map(fmt).join(' &middot; ')}</div>
       </div>
       <p style="text-align:center;margin:24px 0">
-        <a href="https://esherchurch.github.io/availability-form/" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;text-decoration:none">Fill in your availability</a>
+        <a href="https://esherchurch.github.io/availability-form/" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;text-decoration:none">Fill in your availability</a>
       </p>
       <p style="font-size:13px;color:#6b8281;line-height:1.6">One form covers everything you are on - worship, AV, Kids Church - so you only need to do this once.</p>
     </div>`;
@@ -3003,8 +3003,8 @@ function renderPlanner() {
     const isCol = rotaCollapsedTerms.has(term);
     let html = '<div style="margin-bottom:20px;">';
     html += `<div style="display:flex;justify-content:space-between;align-items:center;background:#3d6263;color:white;padding:12px 16px;border-radius:${isCol?'14px':'14px 14px 0 0'};">`;
-    html += `<button onclick="toggleTermCollapse('${term}')" style="background:none;border:none;color:white;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:13px;text-transform:uppercase;cursor:pointer;">${term}</button>`;
-    html += `<button onclick="archiveTerm('${term}')" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 10px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Archive</button>`;
+    html += `<button onclick="toggleTermCollapse('${term}')" style="background:none;border:none;color:white;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">${term}</button>`;
+    html += `<button onclick="archiveTerm('${term}')" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 10px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">Archive</button>`;
     html += '</div>';
     if (!isCol) {
       html += '<div style="background:white;padding:10px;border:1px solid #d1dfdf;border-top:none;border-radius:0 0 14px 14px;">';
@@ -3012,7 +3012,7 @@ function renderPlanner() {
       const byMonth = {};
       sorted.forEach(ev => { const mk=new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'}); if(!byMonth[mk])byMonth[mk]=[]; byMonth[mk].push(ev); });
       Object.keys(byMonth).forEach(month => {
-        html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:#3d6263;opacity:0.5;margin:12px 0 8px;">${month}</div>`;
+        html += `<div style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:#3d6263;opacity:0.5;margin:12px 0 8px;">${month}</div>`;
         const blocks=[]; let cur=[];
         byMonth[month].forEach(ev => { cur.push(ev); if(ev.type==="Sunday Morning Worship"){blocks.push(cur);cur=[];} });
         if (cur.length) blocks.push(cur);
@@ -3020,8 +3020,8 @@ function renderPlanner() {
         const stats={};
         byMonth[month].forEach(ev => { if(ev.type==='Sunday Morning Worship'&&ev.assignments) Object.values(ev.assignments).forEach(raw=>{const pp=Array.isArray(raw)?raw:[raw];pp.forEach(p=>{if(p?.name)stats[p.name]=(stats[p.name]||0)+1;});}); });
         if (Object.keys(stats).length) {
-          html += '<div style="margin-top:10px;background:#f0f6f6;border-radius:10px;padding:10px;border:1px solid #d1dfdf;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3d6263;text-align:center;margin-bottom:8px;">Monthly Serving Totals</div><div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">';
-          Object.entries(stats).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([n,c]) => { html+=`<div style="background:white;border:1px solid #d1dfdf;padding:3px 8px;border-radius:9999px;font-size:10px;font-weight:700;color:#3d6263;">${n}: <strong>${c}</strong></div>`; });
+          html += '<div style="margin-top:10px;background:#f0f6f6;border-radius:10px;padding:10px;border:1px solid #d1dfdf;"><div style="font-size:13px;font-weight:600;text-transform:none;color:#3d6263;text-align:center;margin-bottom:8px;">Monthly Serving Totals</div><div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">';
+          Object.entries(stats).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([n,c]) => { html+=`<div style="background:white;border:1px solid #d1dfdf;padding:3px 8px;border-radius:8px;font-size:13px;font-weight:600;color:#3d6263;">${n}: <span style="font-weight:600">${c}</span></div>`; });
           html += '</div></div>';
         }
       });
@@ -3045,27 +3045,27 @@ function generateEventHtml(ev, blockIdx) {
 
   let html = `<div style="background:${bg};border:1px solid #d1dfdf;border-radius:12px;padding:10px;margin-bottom:8px;">`;
   html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">';
-  html += `<button onclick="toggleEventExpand('${ev.id}')" style="width:26px;height:26px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0;">${isExp?'−':'+'}</button>`;
-  html += `<input type="date" value="${ev.date}" onchange="updateField('${ev.id}','date',this.value)" style="background:${isSunday?'#3d6263':'#d1dfdf'};color:${isSunday?'white':'#3d6263'};border:none;padding:5px 8px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:700;font-size:11px;">`;
-  html += `<select onchange="updateField('${ev.id}','startTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;">${buildTimeOptions(ev.startTime||'08:00')}</select>`;
-  html += `<span style="font-size:10px;color:#d1dfdf;">–</span>`;
-  html += `<select onchange="updateField('${ev.id}','endTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:9999px;font-size:10px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;">${buildTimeOptions(ev.endTime||'11:30')}</select>`;
-  html += `<select onchange="updateField('${ev.id}','type',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;flex:1;min-width:120px;">`;
+  html += `<button onclick="toggleEventExpand('${ev.id}')" style="width:26px;height:26px;border-radius:8px;background:white;border:1px solid #d1dfdf;color:#3d6263;font-weight:600;font-size:13px;cursor:pointer;flex-shrink:0;">${isExp?'−':'+'}</button>`;
+  html += `<input type="date" value="${ev.date}" onchange="updateField('${ev.id}','date',this.value)" style="background:${isSunday?'#3d6263':'#d1dfdf'};color:${isSunday?'white':'#3d6263'};border:none;padding:5px 8px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:500;font-size:13px;">`;
+  html += `<select onchange="updateField('${ev.id}','startTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;">${buildTimeOptions(ev.startTime||'08:00')}</select>`;
+  html += `<span style="font-size:13px;color:#d1dfdf;">–</span>`;
+  html += `<select onchange="updateField('${ev.id}','endTime',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;">${buildTimeOptions(ev.endTime||'11:30')}</select>`;
+  html += `<select onchange="updateField('${ev.id}','type',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;flex:1;min-width:120px;">`;
   EVENT_TYPES_LIST.forEach(t => { html+=`<option value="${t}"${ev.type===t?' selected':''}>${t}</option>`; });
   html += '</select>';
-  html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:Inter, system-ui, sans-serif;font-size:11px;font-weight:700;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
+  html += `<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:500;color:#3d6263;outline:none;resize:none;">${ev.description||''}</textarea>`;
   const vRoom = videoRoomFor(ev);
-  html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:9999px;font-size:11px;font-weight:700;font-family:Inter, system-ui, sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>No call</option>`;
+  html += `<select onchange="updateField('${ev.id}','videoRoom',this.value)" title="Video call" style="background:${vRoom?'#3d6263':'white'};border:1px solid #d1dfdf;color:${vRoom?'white':'#3d6263'};padding:5px 8px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;"><option value=""${vRoom?'':' selected'}>No call</option>`;
   VIDEO_ROOMS.forEach(([r,label]) => { html+=`<option value="${r}"${vRoom===r?' selected':''}>${label}</option>`; });
   html += '</select>';
-  if (vRoom) html += `<a href="meeting.html?room=${encodeURIComponent(vRoom)}&event=${encodeURIComponent(ev.id)}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;text-decoration:none;">Join</a>`;
-  html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:9999px;border:1px solid #d1dfdf;">';
+  if (vRoom) html += `<a href="meeting.html?room=${encodeURIComponent(vRoom)}&event=${encodeURIComponent(ev.id)}" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;text-decoration:none;">Join</a>`;
+  html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:8px;border:1px solid #d1dfdf;">';
   ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t => {
-    html+=`<label style="font-size:9px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;color:#3d6263;cursor:pointer;white-space:nowrap;"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} style="width:11px;height:11px;accent-color:#3d6263;"><span>${t}</span></label>`;
+    html+=`<label style="font-size:13px;font-weight:600;text-transform:none;display:flex;align-items:center;gap:3px;color:#3d6263;cursor:pointer;white-space:nowrap;"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} style="width:11px;height:11px;accent-color:#3d6263;"><span>${t}</span></label>`;
   });
   html += '</div>';
-  if (!isSunday) html += `<button onclick="autoFillPractice('${ev.id}')" style="background:#d1dfdf;color:#3d6263;border:none;padding:5px 8px;border-radius:9999px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;cursor:pointer;">Sync</button>`;
-  html += `<button onclick="toggleBucket('${ev.id}')" style="width:28px;height:28px;border-radius:50%;background:white;border:1px solid #d1dfdf;color:#3d6263;cursor:pointer;font-size:14px;" title="Availability"><i data-lucide="inbox" style="width:15px;height:15px"></i></button>`;
+  if (!isSunday) html += `<button onclick="autoFillPractice('${ev.id}')" style="background:#d1dfdf;color:#3d6263;border:none;padding:5px 8px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;">Sync</button>`;
+  html += `<button onclick="toggleBucket('${ev.id}')" style="width:28px;height:28px;border-radius:8px;background:white;border:1px solid #d1dfdf;color:#3d6263;cursor:pointer;font-size:14px;" title="Availability"><i data-lucide="inbox" style="width:15px;height:15px"></i></button>`;
   html += `<button onclick="deleteEvent('${ev.id}')" style="background:none;border:none;color:#d1dfdf;font-size:16px;cursor:pointer;" title="Delete"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>`;
   html += '</div>';
 
@@ -3080,11 +3080,11 @@ function generateEventHtml(ev, blockIdx) {
       const nc = isPend ? '#f97316' : '#3d6263';
       const sr = r.replace(/'/g,"\\'");
       html += `<div ondragover="event.preventDefault()" ondrop="onDropRole(event,'${ev.id}','${sr}')" style="background:white;border:2px ${asgn?'solid':'dashed'} ${border};border-radius:10px;padding:8px 10px;min-width:100px;">`;
-      html += `<div style="font-size:12px;font-weight:500;text-transform:none;color:#6b7280;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:11px;cursor:pointer;padding:0;" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button></div>`;
-      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" onclick="roleTap('${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'800':'600'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:pointer;padding:2px 0;">${asgn?personName(asgn):'Tap to assign'}</div>`;
+      html += `<div style="font-size:12px;font-weight:500;text-transform:none;color:#6b7280;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${r}</span><button onclick="removeRole('${ev.id}','${sr}')" style="background:none;border:none;color:#fca5a5;font-size:13px;cursor:pointer;padding:0;" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button></div>`;
+      html += `<div draggable="true" ondragstart="onDragStart(event,'${asgn?.id||''}','${(asgn?.name||'').replace(/'/g,"\\'")}','${ev.id}','${sr}')" onclick="roleTap('${ev.id}','${sr}')" style="font-size:12px;font-weight:${asgn?'600':'400'};color:${asgn?nc:'#d1dfdf'};font-style:${asgn?'normal':'italic'};cursor:pointer;padding:2px 0;">${asgn?personName(asgn):'Tap to assign'}</div>`;
       html += '</div>';
     });
-    html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:Inter, system-ui, sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;
+    html += `<select onchange="addRole('${ev.id}',this.value);this.value='';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;align-self:center;"><option value="">+ Role</option>`;
     OPTIONAL_ROLES_LIST.forEach(o => { html+=`<option value="${o}">${o}</option>`; });
     html += '</select></div>';
 
@@ -3092,9 +3092,9 @@ function generateEventHtml(ev, blockIdx) {
       html += '<div style="background:#f0f6f6;border-radius:12px;border:1px solid #d1dfdf;padding:10px;">';
       const bucket = (label, items, status, col, bg2, border2) => {
         let b = `<div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}','${status}');event.stopPropagation();" style="margin-bottom:8px;">`;
-        b += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:${col};margin-bottom:5px;">${label}</div>`;
+        b += `<div style="font-size:13px;font-weight:600;text-transform:none;color:${col};margin-bottom:5px;">${label}</div>`;
         b += '<div style="display:flex;flex-wrap:wrap;gap:5px;min-height:24px;">';
-        items.forEach(m => { b+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}')" onclick="personTap('${ev.id}','${m.id}','${m.name.replace(/'/g,"\\'")}')"`+` style="padding:5px 9px;background:${bg2};color:${col};border:1px solid ${border2};border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">${m.name}</div>`; });
+        items.forEach(m => { b+=`<div draggable="true" ondragstart="onDragStart(event,'${m.id}','${m.name.replace(/'/g,"\\'")}')" onclick="personTap('${ev.id}','${m.id}','${m.name.replace(/'/g,"\\'")}')"`+` style="padding:5px 9px;background:${bg2};color:${col};border:1px solid ${border2};border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;">${m.name}</div>`; });
         b += '</div></div>'; return b;
       };
       html += bucket('Available', avail,    'avail',       '#166534','#f0fdf4','#86efac');
@@ -3194,7 +3194,7 @@ function updateDraftBar(name, createdBy, updatedBy) {
 async function openDraftsSheet() {
   openModal('modal-drafts');
   const list = $('drafts-list');
-  list.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:700;padding:10px 0;">Loading...</div>';
+  list.innerHTML = '<div style="color:var(--teal);opacity:0.5;font-size:12px;font-weight:600;padding:10px 0;">Loading...</div>';
   try {
     const snap = await db.collection('emailDrafts').orderBy('updatedAt','desc').limit(MAX_DRAFTS).get();
     $('drafts-count').textContent = `${snap.size} of ${MAX_DRAFTS} slots used`;
@@ -3333,7 +3333,7 @@ async function compileEmail() {
       <td style="padding:32px 40px;">
         <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="160" style="display:block;">
       </td>
-      <td align="right" style="padding:32px 40px;font-family:Segoe UI,sans-serif;font-size:16px;color:#3d6263;font-weight:700;">
+      <td align="right" style="padding:32px 40px;font-family:Segoe UI,sans-serif;font-size:16px;color:#3d6263;font-weight:600;">
         Worship &amp; AV Team
       </td>
     </tr>
@@ -3527,7 +3527,7 @@ function maybeTriggerTour(section) {
   <div class="tour-tooltip" id="tour-tooltip" onclick="event.stopPropagation()">
     <div class="tour-tooltip-title" id="tour-title"></div>
     <div class="tour-tooltip-text"  id="tour-text"></div>
-    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.75;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.75;margin-bottom:10px;">
       <input type="checkbox" id="tour-dont-show" style="width:16px;height:16px;accent-color:#9bc34a;cursor:pointer;" onclick="event.stopPropagation()">
       <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
     </div>

@@ -275,7 +275,11 @@ document.addEventListener('egbc-ready',()=>{
         input:focus, select:focus { border-color: var(--brand) !important; box-shadow: 0 0 0 3px var(--brand-ring); outline: none; }
 
         /* Legibility: lift faint greys to muted and bump sub-11px text */
-        .text-\[10px\] { font-size: 11px !important; }
+        /* 13px, the guide's secondary size. This was 11px from a readability
+           pass written before the guide existed - R-015 found the same rule
+           on the rota page, where two floors of equal weight meant the
+           later one quietly won. */
+        .text-\[10px\] { font-size: 13px !important; }
         .text-gray-400 { color: var(--muted) !important; }
         .text-gray-500 { color: var(--muted) !important; }
         .text-gray-600 { color: var(--body) !important; }
@@ -348,7 +352,7 @@ document.addEventListener('egbc-ready',()=>{
         }
 
         /* The page title, and the two headings over the panels. */
-        html .card h1 { font-size: 24px !important; font-weight: 700 !important; letter-spacing: 0 !important; }
+        html .card h1 { font-size: 24px !important; font-weight:600 !important; letter-spacing: 0 !important; }
         html .card h2, html .card h3 { font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important; }
 
         /* Column headings in the directory: a heading, not a shout. */

@@ -53,7 +53,7 @@
     #emailModal { display: none; position: fixed; inset: 0; background: rgba(20,32,31,0.45); z-index: 1000; align-items: center; justify-content: center; }
     #emailModal.active { display: flex; }
     #emailModalBox { background: var(--surface); border-radius: var(--r-lg); padding: 2rem; max-width: 420px; width: 90%; box-shadow: var(--shadow-lg); font-family: Inter, system-ui, sans-serif; }
-    #helpBtn { position: fixed; bottom: 24px; right: 24px; z-index: 900; width: 38px; height: 38px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--hairline-strong); color: var(--brand); font-family: Inter, system-ui, sans-serif; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: var(--shadow); transition: all 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+    #helpBtn { position: fixed; bottom: 24px; right: 24px; z-index: 900; width: 38px; height: 38px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--hairline-strong); color: var(--brand); font-family: Inter, system-ui, sans-serif; font-weight:600; font-size: 15px; cursor: pointer; box-shadow: var(--shadow); transition: all 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
     #helpBtn:hover { background: var(--brand); color: #ffffff; border-color: var(--brand); box-shadow: var(--shadow-lg); transform: translateY(-1px); }
     .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
     @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
@@ -597,36 +597,36 @@ window.emailSchedule = async () => {
             let linksHtml = "";
             if (snap.exists()) {
                 const data = snap.data();
-                if (data.youtube) linksHtml += `<a href="${data.youtube}" target="_blank" rel="noreferrer noopener" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">YouTube</font></a>`;
+                if (data.youtube) linksHtml += `<a href="${data.youtube}" target="_blank" rel="noreferrer noopener" style="color: #3d6263; text-decoration: none; font-weight:600; font-size:13px; padding: 0 5px;"><font color="#3d6263">YouTube</font></a>`;
                 const sSelect = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
-                if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size: 11px;">&nbsp;|&nbsp;</span>`;
-                linksHtml += `<a href="${sSelect}" style="color: #3d6263; text-decoration: none; font-weight: 700; font-size: 11px; padding: 0 5px;"><font color="#3d6263">SongSelect</font></a>`;
+                if (linksHtml) linksHtml += `<span style="color: #cbd5e1; font-size:13px;">&nbsp;|&nbsp;</span>`;
+                linksHtml += `<a href="${sSelect}" style="color: #3d6263; text-decoration: none; font-weight:500; font-size:13px; padding: 0 5px;"><font color="#3d6263">SongSelect</font></a>`;
                 resourcesHtml += `<div style="margin-bottom: 8px;">${linksHtml}</div>`;
                 if (keys.length > 0) {
                     keys.forEach(k => {
                         const files = (data.files || []).filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
                         if (files.length > 0) {
-                            resourcesHtml += `<div style="font-size: 10px; color: #3d6263; font-weight: bold; margin-top: 5px;">Key: ${k}</div>`;
-                            files.forEach(f => { resourcesHtml += `<div style="margin-top: 2px;"><a href="${f.url}" style="color: #3d6263; text-decoration: underline; font-size: 11px; font-weight: 600;"><font color="#3d6263">Download ${f.type}</font></a></div>`; });
+                            resourcesHtml += `<div style="font-size:13px; color: #3d6263; font-weight: bold; margin-top: 5px;">Key: ${k}</div>`;
+                            files.forEach(f => { resourcesHtml += `<div style="margin-top: 2px;"><a href="${f.url}" style="color: #3d6263; text-decoration: underline; font-size:13px; font-weight: 600;"><font color="#3d6263">Download ${f.type}</font></a></div>`; });
                         }
                     });
                 }
             }
             const ptEmailMatches = await getPlayThroughLinks(title, keys);
             if (ptEmailMatches.length > 0) {
-                resourcesHtml += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #d1dfdf;"><div style="font-size:10px; color:#3d6263; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">&#9654; Play Through</div>`;
+                resourcesHtml += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #d1dfdf;"><div style="font-size:13px; color:#3d6263; font-weight:bold; margin-bottom:4px; text-transform:none;">&#9654; Play Through</div>`;
                 ptEmailMatches.forEach(pt => {
                     const ptUrl = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle || pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
                     const inst = pt.instrument ? ` (${pt.instrument})` : '';
-                    resourcesHtml += `<div style="margin-top:3px;"><a href="${ptUrl}" style="color:#3d6263; text-decoration:underline; font-size:11px; font-weight:700;"><font color="#3d6263">&#9654; How we play ${pt.ourKey}${inst}</font></a></div>`;
+                    resourcesHtml += `<div style="margin-top:3px;"><a href="${ptUrl}" style="color:#3d6263; text-decoration:underline; font-size:13px; font-weight:600;"><font color="#3d6263">&#9654; How we play ${pt.ourKey}${inst}</font></a></div>`;
                 });
                 resourcesHtml += `</div>`;
             }
             htmlEmail += `
               <tr>
                 <td style="padding:14px 10px;border-bottom:1px solid #eaf2f2;vertical-align:top;font-family:Arial,sans-serif;">
-                  <p style="margin:0 0 3px;font-size:14px;font-weight:800;color:#1e293b;">${songIdx}. ${title}</p>
-                  ${notes ? `<p style="margin:0;font-size:11px;font-style:italic;color:#64748b;line-height:1.5;">${notes}</p>` : ""}
+                  <p style="margin:0 0 3px;font-size:14px;font-weight:600;color:#1e293b;">${songIdx}. ${title}</p>
+                  ${notes ? `<p style="margin:0;font-size:13px;font-style:italic;color:#64748b;line-height:1.5;">${notes}</p>` : ""}
                 </td>
                 <td style="padding:14px 10px;border-bottom:1px solid #eaf2f2;vertical-align:top;text-align:center;font-family:Arial,sans-serif;font-size:14px;font-weight:800;color:#3d6263;">${keys.join(", ") || "—"}</td>
                 <td style="padding:14px 10px;border-bottom:1px solid #eaf2f2;vertical-align:top;font-family:Arial,sans-serif;">${resourcesHtml}</td>
@@ -661,8 +661,8 @@ window.emailSchedule = async () => {
     <tr>
       <td width="4" bgcolor="#3d6263" style="font-size:0;border-radius:2px;">&nbsp;</td>
       <td style="padding:14px 18px;background:#f4f9f9;font-family:Arial,sans-serif;">
-        <p style="margin:0 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#7a9e9f;">Projection / Song Summary</p>
-        <a href="${summaryUrl}" style="font-size:13px;color:#3d6263;font-weight:700;text-decoration:none;">View simplified song list (songs, CCLI &amp; notes) &rarr;</a>
+        <p style="margin:0 0 4px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;color:#7a9e9f;">Projection / Song Summary</p>
+        <a href="${summaryUrl}" style="font-size:13px;color:#3d6263;font-weight:600;text-decoration:none;">View simplified song list (songs, CCLI &amp; notes) &rarr;</a>
       </td>
     </tr>
   </table>
@@ -717,20 +717,20 @@ window.emailSchedule = async () => {
 <body class="p-4 md:p-12">
 <div id="emailModal">
     <div id="emailModalBox">
-        <h2 style="font-size:18px; font-weight:800; color:#3d6263; margin-bottom:6px;">Send Worship Plan</h2>
-        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:16px; font-weight:700;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
+        <h2 style="font-size:18px; font-weight:600; color:#3d6263; margin-bottom:6px;">Send Worship Plan</h2>
+        <p style="font-size:12px; color:#3d6263; opacity:0.6; margin-bottom:16px; font-weight:600;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
         <div style="margin-bottom:16px;">
-            <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:6px;">Your Email (reply-to)</label>
-            <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+            <label style="display:block;font-size:13px;font-weight:600;text-transform:none;letter-spacing:1px;color:#3d6263;margin-bottom:6px;">Your Email (reply-to)</label>
+            <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:500;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
         </div>
         <button id="modalTeamBtn" class="btn-primary" style="width:100%; display:block; text-align:center; border:none; cursor:pointer; margin-bottom:20px;">Email Whole Team</button>
         <div style="border-top:1px solid #d1dfdf; padding-top:20px;">
-            <p style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#3d6263; opacity:0.5; margin-bottom:8px;">Or email one person:</p>
+            <p style="font-size:13px; font-weight:600; text-transform:none; letter-spacing:normal; color:#3d6263; opacity:0.5; margin-bottom:8px;">Or email one person:</p>
             <select id="modalIndividualSelect" class="styled-input" style="width:100%; margin-bottom:10px;"></select>
             <button id="modalIndividualBtn" class="btn-secondary" style="width:100%; display:block; text-align:center; cursor:pointer;">Email This Person</button>
         </div>
-        <div id="modalStatus" style="margin-top:14px; font-size:13px; font-weight:700; min-height:20px; text-align:center;"></div>
-        <div style="margin-top:12px; text-align:center;"><button id="modalCancelBtn" style="font-size:12px; font-weight:700; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button></div>
+        <div id="modalStatus" style="margin-top:14px; font-size:13px; font-weight:600; min-height:20px; text-align:center;"></div>
+        <div style="margin-top:12px; text-align:center;"><button id="modalCancelBtn" style="font-size:12px; font-weight:500; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button></div>
     </div>
 </div>
 <a id="helpBtn" href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html" target="_blank" rel="noopener" aria-label="Open instructions">?</a>
