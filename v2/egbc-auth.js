@@ -78,6 +78,15 @@
          the port out of firebase.json; a page cannot, so the number is here. */
       db.useEmulator('localhost', 8181);
       auth.useEmulator('http://localhost:9099');
+      /* Storage was missing from this list, so every upload made from a
+         page served on localhost went to the LIVE bucket - the knowledge
+         base videos, the team shelf, banners, and now event pictures.
+         Firestore and Auth were pointed at the emulator and Storage was
+         not, which is the worst of both: development looks local and the
+         files are not.
+         Guarded, because not every page loads the storage SDK; where it is
+         absent there is nothing to point anywhere. */
+      if (firebase.storage) firebase.storage(app).useEmulator('localhost', 9199);
       console.info('EGBCAuth: using local emulators');
     } catch (e) {
       console.warn('EGBCAuth: emulator not available', e.message);

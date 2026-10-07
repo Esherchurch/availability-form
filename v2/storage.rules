@@ -62,22 +62,53 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // ── Who is an administrator ───────────────────────────────────────
+    // These rules CAN see Firestore - firestore.get() works here, and the
+    // earlier note saying they could not was wrong. The users document is
+    // the same one firestore.rules reads, mirrored from the address book,
+    // so there is one answer to "is this person an admin" across both.
+    //
+    // exists() first: get() on a missing document fails the whole rule
+    // rather than returning null, and a person signing in for the first
+    // time has no users document for a moment.
+
+    function adminHere() {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active'
+             && (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('masterAdmin', false) == true
+                 || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('adminFor', []).size() > 0);
+    }
+
     // ── Event pictures ────────────────────────────────────────────────
     // What's On and the event page are public, and the picture is drawn
     // before anyone has signed in to anything, so read is open - the same
-    // reasoning as banners. Writing needs an account.
+    // reasoning as banners.
     //
-    // It does not check for an admin, because these rules have no view of
-    // the address book; the page does, and the event document the picture
-    // belongs to is admin-only to write. Recorded in FINDINGS-events.md
-    // rather than left as an unstated assumption.
+    // Writing is administrators only (Martin's decision on F-016). The
+    // event document the picture belongs to is already admin-only, so a
+    // member who could write here could only have put an orphan file in
+    // the bucket - but "only an orphan file" is not a reason to leave a
+    // door open on a public read path.
+    //
+    // Room pictures will live at rooms/{roomId}/{fileName} when they are
+    // uploaded rather than linked; the same rule applies, and it is written
+    // below ready for it.
 
     match /events/{calEventId}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null
+      allow write: if adminHere()
                    && request.resource.size < 8 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null;
+      allow delete: if adminHere();
+    }
+
+    match /rooms/{roomId}/{fileName} {
+      allow read: if true;
+      allow write: if adminHere()
+                   && request.resource.size < 8 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if adminHere();
     }
 
     // ── Rota PDFs (existing behaviour) ────────────────────────────────
