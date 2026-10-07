@@ -316,7 +316,10 @@ const startPage = async () => {
     } catch (e) { console.error("Address book load failed", e); }
 };
 
-if (document.readyState === 'complete') { startPage(); }
+/* setTimeout, not a direct call: the rest of this module (addSong, addItem
+   and the other window.* functions) is defined further down, and has to
+   have run before the default order can be built. */
+if (document.readyState === 'complete') { setTimeout(startPage, 0); }
 else { window.addEventListener('load', startPage); }
 document.addEventListener('input', (e) => {
     if (e.target.id === 'introBox' || e.target.id === 'outroBox') {
