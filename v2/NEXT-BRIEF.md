@@ -177,6 +177,44 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 15. Martin found lost behaviour — S2 is now a side-by-side comparison of every page
+
+**What Martin found.** On v2, the Sunday Service Planner opens with an **empty Order of Service**. The original opens with the church's fixed layout: Opening Remarks, 3 songs, Welcome and Notices, a song, Message, 3 songs, Closing Remarks. Martin's words: *"You cannot lose functionality … It will be hugely problematic if you do."*
+
+**Cause (found by the reviewing window).** In Step B the page's module got `await ready;` at the top. `window.onload = async () => { … setupDefaultOrder(); … }` is assigned *after* that await. By the time sign-in has been restored, the load event has usually already fired, so the handler never runs. That one handler does four things, and all four are lost:
+- the default order (`setupDefaultOrder`)
+- drag-to-reorder (`Sortable.create`)
+- the textarea auto-fit
+- the address book that fills the names list
+
+The parity audit compared source, so it saw the function was still there and called it "not missing".
+
+**The same bug is in `youthserviceplanner.html`** (line ~289). No other page has `window.onload` or `DOMContentLoaded` after `await ready`. Check that claim yourself.
+
+### S2 replaces the earlier S2 wording. Do it in this order
+
+**S2a: fix the two pages now.** Run the start-up code whether or not the load event has already happened. For example: `if (document.readyState === 'complete') start(); else window.addEventListener('load', start);`. Prove it on each page:
+- the default order appears exactly as the original, item by item and in order
+- dragging reorders
+- the names list is filled
+
+Deliberate break: put the old assignment back, and show your test catches the empty order.
+
+**S2b: a static check for the whole class.** Add a check that fails if any page registers a `load` / `DOMContentLoaded` / `window.onload` / `<body onload>` handler that can only run after a top-level `await`. Run it across all of `v2/`.
+
+**S2c: every page, side by side with the original.** For **every** page that exists in both places (all 51):
+1. Load the original page (repo root) and the v2 page against **the same synthetic emulator data**. You can serve the root pages on localhost so they also hit the emulator. Check that first, and if a root page can't be pointed at the emulator, say so; don't touch live data.
+2. On both, open every screen, tab, sheet and modal, as in A3b. At each state compare the following, and list every difference:
+   - **what appears without anyone touching anything:** default items and their order, prefilled fields, default selections, lists that fill themselves, the date it opens on
+   - **every control:** what's there, what each one does
+   - **what each main action writes or produces:** the saved document's fields, the email's subject, recipients and attachments in the outbox, the PDF's pages, the export's columns
+3. Every difference must be one of: **(a)** a deliberate, agreed change (name the step and the decision), **(b)** a restyle-only change (same structure, same order, same wording apart from case), or **(c)** a loss. **Every (c) is fixed** in this step, with a proof against the original.
+4. The **Rota Planner** (`Planner.html`), the **Sunday Service Planner**, the **availability form** and **login** go first.
+
+**Structure is never a restyle choice.** The order of items, which items appear by default, the sections of a page, the columns of a table and the fields of a form stay exactly as the original. The restyle changes how things look, never what is there or in what order. If you think a structural change is right, write it in FINDINGS for Martin and leave it as it was.
+
+The report gives a per-page table: states compared, differences found, how many are (a), (b) and (c), and (c) fixed. It includes side-by-side screenshots for the four first pages. Stop after S2.
+
 ## 14. A second window now builds events (from 7 Oct 2026)
 
 Martin has opened a second Code window for the post-launch events work. Its rules are in `EVENTS-WINDOW-BRIEF.md`. What this means for you, the main window:
