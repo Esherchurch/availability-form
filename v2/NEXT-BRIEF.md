@@ -177,6 +177,17 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 14. A second window now builds events (from 7 Oct 2026)
+
+Martin has opened a second Code window for the post-launch events work. Its rules are in `EVENTS-WINDOW-BRIEF.md`. What this means for you, the main window:
+
+- **It owns** `events-admin.html`, `signup.html`, `my-signup.html`, `whatson.html`, `places-admin.html`, `egbc-events.js` and `FINDINGS-events.md`, plus any new events files. Don't edit these. If one of your steps needs a change there, write it in your report instead.
+- **It edits the rules only inside a marked events section.** Keep your own rule changes outside that section. Both rules suites must stay fully green for both windows.
+- **Its first step (E0) changes `egbc-auth.js` and `egbc-db.js`** so pages served from localhost:5601 use its own emulator ports (8182, 9098, 9198). Your ports and behaviour don't change. Pull before you touch either file.
+- **It sends you requests** for shared files (hub tiles, the dashboard, the shell) through `FINDINGS-events.md`. Martin passes on the ones he wants.
+- Commits from that window start with `Events:`.
+- Always run `git pull --rebase` before a push. If a rebase clashes on a file you don't own, stop and report.
+
 ## 3. Order of work across the three briefs (superseded by §12)
 
 One step at a time. Stop and report after each. Pull before each step; commit small; push often.
