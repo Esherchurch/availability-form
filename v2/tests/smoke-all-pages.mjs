@@ -80,15 +80,18 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 
-/* Matched on HOST, never on the whole url: the Auth emulator answers on
-   localhost:9099/identitytoolkit.googleapis.com/... , so a substring match
-   refuses the emulator's own sign-in. */
-const LIVE_HOSTS = ['firestore.googleapis.com', 'firebaseio.com', 'identitytoolkit.googleapis.com',
-  'securetoken.googleapis.com', 'api.resend.com', 'sendemail-irkwdhx3xq-uc.a.run.app'];
+/* ONLY these hosts may be reached. An ALLOWLIST: the blocklist that was here
+   first did not hold, and real church data came back through a host it did not
+   name. A list of hosts to refuse has to be complete to work and never is.
+   Matched on HOST, never on the whole url: the Auth emulator answers on
+   localhost:9099/identitytoolkit.googleapis.com/... , so a substring match on
+   a live hostname refuses the emulator's own sign-in. */
+const ALLOWED_HOSTS = ['www.gstatic.com', 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com',
+  'cdn.jsdelivr.net', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 const isLive = u => {
-  let h; try { h = new URL(u).host; } catch { return false; }
+  let h; try { h = new URL(u).host; } catch { return true; }
   if (/^(localhost|127\.0\.0\.1)(:|$)/.test(h)) return false;
-  return LIVE_HOSTS.some(x => h === x) || /\.cloudfunctions\.net$/.test(h) || /\.run\.app$/.test(h);
+  return !ALLOWED_HOSTS.includes(h.split(':')[0]);
 };
 
 const R = [];

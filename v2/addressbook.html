@@ -37,6 +37,31 @@
             if(confirm(`Remove ${name} permanently?`)) await deleteDoc(doc(db, "addressBook", id));
         };
 
+        /* A Kids Church role stored under a name this page no longer offers.
+           It is added as a ticked box of its own rather than dropped, because
+           dropping it means the next save deletes it: the saved list is
+           rebuilt from whatever is ticked. The label says the name is an old
+           one so whoever sees it knows to re-tick it properly. */
+        function keepUnknownKidsRoles(cls, stored) {
+            /* Clear the ones added for whoever was open before, or they pile up
+               as each record is looked at. */
+            document.querySelectorAll('label[data-old-role="' + cls + '"]').forEach(el => el.remove());
+            if (!Array.isArray(stored) || !stored.length) return;
+            const group = document.querySelector('.' + cls);
+            if (!group) return;
+            const holder = group.closest('.instr-grid') || group.parentElement;
+            stored.forEach(value => {
+                if (document.querySelector('.' + cls + '[value="' + String(value).replace(/"/g, '&quot;') + '"]')) return;
+                const label = document.createElement('label');
+                label.setAttribute('data-old-role', cls);
+                label.className = 'flex items-center gap-2 cursor-pointer text-[#7a5f4a]';
+                label.innerHTML = '<input type="checkbox" class="' + cls + '" checked> <span></span>';
+                label.querySelector('input').value = value;
+                label.querySelector('span').textContent = value + ' (old name)';
+                holder.appendChild(label);
+            });
+        }
+
         // 2. EDIT - look up member by id (Unicode-safe, no btoa)
         window.editMember = (id) => {
             const data = memberCache[id];
@@ -54,6 +79,18 @@
             if(data.secondaryInstruments) data.secondaryInstruments.forEach(i => { const el = document.querySelector(`.secondary[value="${i}"]`); if(el) el.checked = true; });
             if(data.kidsRolesPrimary) data.kidsRolesPrimary.forEach(i => { const el = document.querySelector(`.kidsprimary[value="${i}"]`); if(el) el.checked = true; });
             if(data.kidsRolesSecondary) data.kidsRolesSecondary.forEach(i => { const el = document.querySelector(`.kidssecondary[value="${i}"]`); if(el) el.checked = true; });
+            /* The Kids Church role names changed: the original had Group Leader
+               (Younger / Older) and Supporting Adult, v2 has Leader, Assistant
+               and Helper, with Creche. Records written before that still hold
+               the old words, and the two lines above simply do not find them -
+               so the tick was dropped, and because saveMember() rebuilds the
+               list from the boxes that ARE ticked, the next save erased the
+               role from the record without saying anything.
+               A role nobody has mapped yet is kept, shown ticked and labelled,
+               so saving preserves it and somebody can decide later what it
+               should become. */
+            keepUnknownKidsRoles('kidsprimary', data.kidsRolesPrimary);
+            keepUnknownKidsRoles('kidssecondary', data.kidsRolesSecondary);
             document.getElementById('isMinor').checked = !!data.isMinor;
             document.getElementById('masterAdmin').checked = !!data.masterAdmin;
             document.querySelectorAll('.teamcap').forEach(i => {

@@ -15,10 +15,14 @@
  * HOW THE TWO SIDES ARE LOADED, which is the whole difficulty.
  *
  *   The ORIGINAL pages carry the church's live Firebase config and hook no
- *   emulator, so opening one normally reads real data. Every request to a
- *   live Google data API is therefore REFUSED at the browser while an
- *   original is loading, and so is anything that sends email. An original is
- *   compared on what it draws with no database at all.
+ *   emulator, so opening one normally reads real data. EVERY request that
+ *   leaves this machine is therefore refused, apart from the few CDN hosts in
+ *   ALLOWED_HOSTS. An original is compared on what it draws with no database.
+ *
+ *   That used to be a list of hosts to REFUSE, and it leaked: the original
+ *   pages reached the live Firestore through a host the list did not name, and
+ *   real members' names came back in the output. A list of things to refuse
+ *   has to be complete to work. This one names what is allowed instead.
  *
  *   The v2 pages run signed in against the emulator, as they always do. They
  *   cannot be cut off the same way: every v2 page waits for sign-in before it
@@ -63,27 +67,32 @@ const ACCOUNT = {
   pw: process.env.EGBC_EMU_PW || 'test-only-password'
 };
 
-/* Anything that would reach the church's real data, or send an email.
-   Matched on the URL's HOST and never on the whole URL: the Auth emulator
-   answers on http://localhost:9099/identitytoolkit.googleapis.com/v1/... , so
-   a substring match on 'identitytoolkit.googleapis.com' refuses the
-   emulator's own sign-in. It did exactly that, and every page then looked
-   broken because nothing was signed in. */
-const LIVE_HOSTS = ['firestore.googleapis.com', 'firebaseio.com', 'identitytoolkit.googleapis.com',
-  'securetoken.googleapis.com', 'firebasestorage.googleapis.com', 'storage.googleapis.com',
-  'www.googleapis.com', 'sendemail-irkwdhx3xq-uc.a.run.app', 'api.resend.com'];
+/* ONLY these hosts may be reached, and everything else off this machine is
+   refused. An ALLOWLIST, because the blocklist that was here first did not
+   hold: the original pages reached the church's LIVE Firestore through it and
+   real members' names came back into the test output. A list of hosts to
+   refuse has to be complete to work, and it never is. A list of hosts to
+   permit fails the other way - something legitimate gets refused, and the
+   check says so loudly instead of quietly reading real data.
+   Matched on HOST, never on the whole URL: the Auth emulator answers on
+   http://localhost:9099/identitytoolkit.googleapis.com/v1/... , so a
+   substring match on a live hostname refuses the emulator's own sign-in. */
+const ALLOWED_HOSTS = [
+  'www.gstatic.com', 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com',
+  'cdn.jsdelivr.net', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'
+];
 /* The emulator, refused only while an ORIGINAL page is loading, so that an
    original can never reach the synthetic database either - it was never
    written for it, and a half-read is worse than no read. */
 const EMU_PORTS = ['8181', '9099', '9199', '8182', '9098', '9198'];
 
-const hostOf = u => { try { return new URL(u).host; } catch { return ''; } };
+/* A url this check cannot even parse is refused, not allowed. */
+const hostOf = u => { try { return new URL(u).host; } catch { return null; } };
 const isLive = u => {
   const h = hostOf(u);
+  if (h === null) return true;
   if (/^(localhost|127\.0\.0\.1)(:|$)/.test(h)) return false;
-  return LIVE_HOSTS.some(x => h === x || h.endsWith('.' + x)) ||
-         /\.cloudfunctions\.net$/.test(h) || /\.firebasedatabase\.app$/.test(h) ||
-         /\.run\.app$/.test(h);
+  return !ALLOWED_HOSTS.includes(h.split(':')[0]);
 };
 const isEmulator = u => {
   const h = hostOf(u);
@@ -98,7 +107,14 @@ const AGREED = [
   { re: /[\u{1F300}-\u{1FAFF}\u{2190}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{2800}-\u{28FF}]/u,
     why: 'R-013 / A3: emoji replaced with Lucide icons' },
   { re: /training mode/i, why: 'A3: training banner reworded, same controls' },
-  { re: /^(send all rotas)$/i, why: 'A3: sentence case' }
+  { re: /^(send all rotas)$/i, why: 'A3: sentence case' },
+  /* The Kids Church role names were deliberately redone: the original offered
+     Session Leader, Group Leader (Younger / Older) and Supporting Adult; v2
+     offers Session Leader, Leader and Assistant for Younger, Older and Creche,
+     and Helper. Named here one by one rather than by a pattern, so a role that
+     really did go missing still shows up. */
+  { re: /group leader \((younger|older)\)/i, why: 'agreed: Kids Church roles renamed to Leader (Younger/Older/Creche)' },
+  { re: /supporting adult/i, why: 'agreed: Kids Church roles renamed - Assistant and Helper replace it' }
 ];
 
 /* ---------------------------------------------------------------- servers */
@@ -171,8 +187,17 @@ const SNAPSHOT = `(() => {
       const label = tag === 'select'
         ? ((el.options[0] || {}).text || '').trim().slice(0, 44)
         : (txt(el) || el.placeholder || el.value || el.getAttribute('aria-label') || '').slice(0, 44);
+      /* The handler's NAME, with its arguments masked. Rows are built with ids
+         from Date.now() or a random string - keyChanged('5pwmgqho0'),
+         toggleEventExpand('WEQzmoXQqAFPN5Tel1Li') - and a document id is
+         different on the two sides and on every load, so every row of every
+         list read as a control v2 had lost. What is worth comparing is that
+         the control is still wired to the same function. */
       const wired = (el.getAttribute('onclick') || el.getAttribute('onchange') ||
-                     el.getAttribute('href') || '').replace(/\\s+/g, '').slice(0, 44);
+                     el.getAttribute('href') || '')
+        .replace(/\\s+/g, '')
+        .replace(/'[^']*'/g, "'#'").replace(/"[^"]*"/g, '"#"')
+        .slice(0, 44);
       return tag + '|' + (el.id || el.name || '') + '|' + label + '|' + wired;
     });
 
@@ -212,8 +237,15 @@ const DATEISH = new RegExp([
    pattern is deliberately narrow (letters AND digits, 7 to 14 characters) so
    that a real name such as keyChanged('worship') is left alone. */
 const MASK_ID = /\b(?=[a-z0-9]{7,14}\b)(?=[a-z0-9]*[a-z])(?=[a-z0-9]*[0-9])[a-z0-9]{7,14}\b/g;
+/* And ids made from Date.now(), as sitemaker.html's rows are: a run of ten or
+   more digits is a timestamp, not content. Narrow enough to leave a year, a
+   price or a phone number alone. */
+const MASK_STAMP = /\d{10,}/g;
+/* An element id that was generated rather than written. Containers named this
+   way cannot be matched between the two sides at all. */
+const GENERATED_ID = /\d{10,}/;
 const norm = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
-  .replace(/\s+/g, ' ').trim().replace(MASK_ID, '#');
+  .replace(/\s+/g, ' ').trim().replace(MASK_STAMP, '#').replace(MASK_ID, '#');
 const agreedWhy = s => (AGREED.find(a => a.re.test(s)) || {}).why || '';
 
 /* Is every row the original shows present in v2, in the same order?
@@ -277,12 +309,12 @@ function missingFrom(origRows, v2Rows) {
     const fail = () => send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' });
     if (isLive(u)) {
       refusedLive++;
-      /* A v2 page reaching a live DATA api is a fault in v2, not in the test:
-         it means that page is not hooked to the emulator. Image files served
-         out of the storage bucket are not that - the site has always linked
-         its pictures there - so only the data apis are reported. */
-      if (side === 'v2' && !/firebasestorage|storage\.googleapis/.test(hostOf(u)))
-        leaked.push(nowPage + ' -> ' + hostOf(u));
+      /* A v2 page reaching off this machine for DATA is a fault in v2, not in
+         the test: it means that page is not hooked to the emulator. Pictures
+         served out of the storage bucket are not that - the site has always
+         linked its images there - so only the data apis are reported. */
+      if (side === 'v2' && !/firebasestorage|storage\.googleapis/.test(String(hostOf(u))))
+        leaked.push(nowPage + ' -> ' + String(u).split('?')[0]);
       return fail();
     }
     if (side === 'orig' && isEmulator(u)) { refusedEmu++; return fail(); }
@@ -351,6 +383,7 @@ function missingFrom(origRows, v2Rows) {
   };
 
   const table = [];
+  let ungradable = 0;
   for (const page of pages) {
     const shot = wantShots;
     const a = await grab('orig', page, shot);
@@ -364,12 +397,30 @@ function missingFrom(origRows, v2Rows) {
     const diffs = [];
 
     for (const key of Object.keys(a.lists || {})) {
-      const miss = missingFrom(a.lists[key], (b.lists || {})[key] || []);
-      if (miss.length) diffs.push({ kind: 'list', what: '#' + key,
-        orig: a.lists[key].join(' | '), v2: ((b.lists || {})[key] || []).join(' | ') || '(nothing)',
+      /* An id built from Date.now() or a random string is a different id on
+         every load, so the same container has a different name on the two
+         sides and there is nothing to line up. Those get counted and left
+         alone rather than reported as losses - sitemaker.html's rows are all
+         like this, and every one of them read as a loss. */
+      if (GENERATED_ID.test(key)) { ungradable++; continue; }
+      const v2Rows = (b.lists || {})[key] || [];
+      const miss = missingFrom(a.lists[key], v2Rows);
+      if (!miss.length) continue;
+      /* An empty v2 list where the original had rows is the shape of the bug
+         that started all this - the Sunday planner opening with no order of
+         service. That is a loss.
+         Rows on both sides that do not match are a different thing: the
+         original is read with no database at all and v2 is read against the
+         synthetic one, so one says "No news yet" and the other lists three
+         invented notices. That is data, and it is reported separately rather
+         than counted as a loss - counting it would bury the real ones. */
+      diffs.push({ kind: v2Rows.length ? 'list content (data)' : 'list', what: '#' + key,
+        orig: a.lists[key].join(' | '), v2: v2Rows.join(' | ') || '(nothing)',
+        dataOnly: v2Rows.length > 0,
         detail: miss.length + ' row(s) missing: ' + miss.slice(0, 4).join(' / ') });
     }
     for (const key of Object.keys(a.fields || {})) {
+      if (GENERATED_ID.test(key)) { ungradable++; continue; }
       const A = a.fields[key], B = (b.fields || {})[key];
       if (B === undefined) diffs.push({ kind: 'field missing', what: key, orig: A, v2: '(no such field)' });
       else if (norm(A) !== norm(B) && !(DATEISH.test(A) && DATEISH.test(B)))
@@ -392,14 +443,17 @@ function missingFrom(origRows, v2Rows) {
 
     const classed = diffs.map(d => {
       const why = agreedWhy(d.what + ' ' + (d.orig || '') + ' ' + (d.v2 || ''));
-      return { ...d, cls: why ? 'a' : (norm(d.orig) === norm(d.v2) ? 'b' : 'c'), why };
+      const cls = d.dataOnly ? 'd' : why ? 'a' : (norm(d.orig) === norm(d.v2) ? 'b' : 'c');
+      return { ...d, cls, why };
     });
     const losses = classed.filter(d => d.cls === 'c');
+    const data = classed.filter(d => d.cls === 'd');
     table.push({ page, a: classed.filter(d => d.cls === 'a').length,
-      b: classed.filter(d => d.cls === 'b').length, c: losses.length, losses });
+      b: classed.filter(d => d.cls === 'b').length, d: data.length, c: losses.length, losses, data });
 
     console.log(page.padEnd(32) + 'agreed ' + String(classed.filter(d => d.cls === 'a').length).padStart(3) +
       '   restyle ' + String(classed.filter(d => d.cls === 'b').length).padStart(3) +
+      '   data ' + String(data.length).padStart(3) +
       '   LOSS ' + String(losses.length).padStart(3));
     losses.slice(0, 8).forEach(d => {
       console.log('      ' + d.kind + '  ' + String(d.what).slice(0, 56));
@@ -419,6 +473,7 @@ function missingFrom(origRows, v2Rows) {
   }
   console.log('\npages compared: ' + (table.length - skipped.length) + ' of ' + table.length +
     '\nlive requests refused: ' + refusedLive + '   emulator requests refused to originals: ' + refusedEmu +
+    '\ncontainers skipped because their id is generated: ' + ungradable +
     '\nlosses to fix: ' + total);
   if (leaked.length) console.log('\nA v2 page tried to reach live: ' + [...new Set(leaked)].join(', '));
   fs.writeFileSync(path.join(V2, 'tests', 'compare-last.json'), JSON.stringify(table, null, 1));

@@ -8,12 +8,21 @@ Run every one of these from `v2/`, not from here.
 | The drawn page obeys DESIGN.md, on every screen and not just the first | `node tests/check-style-every-screen.mjs` (add a page name to do one page) |
 | Every v2 page against the original it replaced, side by side | `node tests/compare-with-original.mjs` (add a page name for one; `--shots` also saves screenshots) |
 | No start-up handler is attached after a top-level await | `node tests/check-late-handlers.mjs` |
+| The news board on the dashboard can still be managed | `node tests/check-news-dashboard.mjs` |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
 
 Each file starts with a comment saying which real failure it exists for. That
 is the point of them: every check here was written after something got
 through, and the comment is how the next person knows what it is guarding.
+
+## Known to fail, on purpose
+
+`smoke-all-pages.mjs` currently reports **126/128**. The two failures are
+`birthday.html` and `youth-access.html`, both still drawn in Montserrat. They
+are Group 2 pages and the restyle has not reached them yet - R-014. They are
+left failing rather than skipped, because a check that quietly excuses the
+thing it is for is worse than a red line.
 
 ## What they need
 
@@ -45,10 +54,19 @@ as "Send all rotas"; the sign-off failsafe stopped it.
 of a file is worse than no check, and that happened: a restored file still
 reported as broken.
 
-**Live Firebase is refused.** A page served from localhost belongs on the
-emulator. Where one is not, the check says so instead of reading the church's
-real data - which is how it was found that five pages were building their own
-Firebase app on the live config.
+**Nothing may leave this machine, and that is an ALLOWLIST.** Only localhost
+and a short list of CDN hosts get through; everything else is refused,
+whatever it is.
+
+It was a list of hosts to *refuse* first, and it leaked. The original pages
+carry the live Firebase config and hook no emulator, and they reached the
+church's real Firestore through a host the list did not name - real members'
+names came back in the comparison's output. A list of things to refuse has to
+be complete to work, and it never is. A list of things to allow fails the
+other way: something legitimate gets refused and the check says so loudly.
+
+The same refusal is what found five pages building their own Firebase app on
+the live config, so development on them was reading real data.
 
 **Synthetic data only.** Nothing here reads, copies or compares against a real
 person's record.
