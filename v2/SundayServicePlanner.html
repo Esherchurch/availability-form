@@ -402,7 +402,7 @@ window.loadRota = async () => {
    (Martin, 7 Oct 2026. Kids Church gets its own lesson planner later.) */
 const isWorshipRole = r => {
     if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) !== 'Kids Church';
-    return !/^(Session Leader|Helper d+|Leader (|Assistant ()/.test(r);
+    return !(r === 'Session Leader' || r.startsWith('Helper ') || r.startsWith('Leader (') || r.startsWith('Assistant ('));
 };
 function sortAssignments(assignmentsArray) {
     const techRoles = ["Sound","Words","Camera","Cameras"];
