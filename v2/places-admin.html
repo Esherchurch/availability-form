@@ -7,11 +7,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610061500"></script>
+<script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
 <script src="egbc-guard.js?v=202610061500" data-admin="any"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Places — EGBC</title>
+<title>Places</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
@@ -78,7 +79,8 @@
     <div>
       <h1 class="text-xl sm:text-2xl font-semibold">Places</h1>
       <p class="hint mt-1">Sites, rooms, bookable kit and outside venues. Everything else refers to these by
-        their record, never by name — so renaming is always safe.</p>
+        their record, never by name — so renaming is always safe.
+        <a href="church-settings.html" style="color:var(--brand)">Church details</a>: the name, enquiry email and logo.</p>
     </div>
     <div id="userChip"></div>
   </div>
@@ -97,21 +99,21 @@
     <div class="card p-4 sm:p-5 mb-4">
       <h2 class="text-sm font-semibold mb-3">Add a site</h2>
       <div class="grid sm:grid-cols-2 gap-3">
-        <div><label class="lbl">Name</label><input id="s-name" class="inp" placeholder="Esher Green"></div>
+        <div><label class="lbl">Name</label><input id="s-name" class="inp" placeholder="Main site"></div>
         <div><label class="lbl">Postcode</label>
           <div class="flex gap-2">
             <input id="s-pc" class="inp" placeholder="KT10 8AA">
             <button class="btn btn-2 shrink-0" id="s-pc-check" type="button">Check</button>
           </div>
         </div>
-        <div class="sm:col-span-2"><label class="lbl">Address</label><input id="s-addr" class="inp" placeholder="Church Street, Esher"></div>
+        <div class="sm:col-span-2"><label class="lbl">Address</label><input id="s-addr" class="inp" placeholder="Church Street"></div>
       </div>
       <p class="hint mt-2" id="s-pc-out"></p>
       <div class="mt-3 flex flex-wrap gap-2">
         <button class="btn" id="s-add">Add site</button>
         <button class="btn btn-2" id="seed">Seed the starting rooms</button>
       </div>
-      <p class="hint mt-2">Seeding makes one site called <strong>Esher Green</strong> with Online and the seven
+      <p class="hint mt-2">Seeding makes one site, named after the church in Church details, with Online and the seven
         rooms. Every name can be changed afterwards. It will not run twice.</p>
     </div>
     <div class="card p-4 sm:p-5"><h2 class="text-sm font-semibold mb-1">Sites</h2><div id="sites-list"></div></div>
@@ -196,7 +198,7 @@
       <h2 class="text-sm font-semibold mb-3">Find an outside venue</h2>
       <div class="relative">
         <label class="lbl">Search by name or place</label>
-        <input id="v-q" class="inp" placeholder="The Bear, Esher" autocomplete="off">
+        <input id="v-q" class="inp" placeholder="The Red Lion" autocomplete="off">
         <div id="v-hits" class="lookup hidden"></div>
       </div>
       <div class="grid sm:grid-cols-2 gap-3 mt-3">
@@ -835,9 +837,10 @@
   /* ---- seed --------------------------------------------------------- */
   $('seed').addEventListener('click', function () {
     if (sites.length || rooms.length) { toast('Already set up — nothing seeded'); return; }
-    if (!confirm('Create the site "Esher Green" with Online and the seven rooms?')) return;
+    var siteName = EGBCChurch.name() || 'Main site';
+    if (!confirm('Create the site "' + siteName + '" with Online and the seven rooms?')) return;
     db.collection('sites').add({
-      name: 'Esher Green', address: '', postcode: '', lat: null, lng: null, active: true, order: 1
+      name: siteName, address: '', postcode: '', lat: null, lng: null, active: true, order: 1
     }).then(function (ref) {
       var batch = db.batch();
       SEED_ROOMS.forEach(function (r, i) {

@@ -163,7 +163,7 @@
     return {
       to: [req.email],
       subject: (reminder ? 'Reminder: ' : '') + req.formTitle + (req.eventTitle ? ' - ' + req.eventTitle : ''),
-      html: EGBCEmail.wrap(title, body),
+      html: EGBCChurch.wrap(title, body),
       log: req.calEventId ? { calEventId: req.calEventId, kind: reminder ? 'form reminder' : 'form request' } : null
     };
   }
@@ -174,7 +174,7 @@
       button(formUrl(req.key, secret), 'See what you sent') +
       '<p style="color:#6b7280;font-size:13px">Keep this email: the link shows everything we hold from this form, ' +
       'including any medical details, and only you have it.</p>';
-    return { to: [req.email], subject: 'Received: ' + req.formTitle, html: EGBCEmail.wrap('Form received', body) };
+    return { to: [req.email], subject: 'Received: ' + req.formTitle, html: EGBCChurch.wrap('Form received', body) };
   }
 
   /* ---- templates ----

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>What's on — EGBC</title>
+<title>What's on</title>
 
 <!-- The bar and menu. It copes with nobody being signed in: this page is
      public, and a visitor who has never heard of the hub lands here. -->
@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-ics.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610062100"></script>
 <script src="egbc-events.js?v=202610062100"></script>
@@ -89,7 +90,7 @@
 <body>
 <div class="wrap">
   <h1>What's on</h1>
-  <p class="sub" id="sub">Everything coming up at Esher Green Baptist Church.</p>
+  <p class="sub" id="sub">Everything coming up.</p>
 
   <div id="signedOutNote" class="note" style="display:none">
     You are seeing the public events. <a href="login.html" style="color:var(--brand)">Sign in</a> to see members' and team events too.
@@ -202,11 +203,11 @@
     if (!shown.length) return;
     EGBCICS.download('egbc-whats-on', EGBCICS.buildMany(shown.map(function (ev) {
       return {
-        uid: 'egbc-event-' + ev.id + '@esherchurch.org',
+        uid: 'egbc-event-' + ev.id + '@' + location.hostname,
         title: ev.title, description: ev.description, location: E.locationText(ev, LOOK),
         start: ev.startLocal || ev.startUtc, end: ev.endLocal || ev.endUtc, allDay: !!ev.allDay
       };
-    }), "Esher Green Baptist Church — what's on"));
+    }), (EGBCChurch.name() ? EGBCChurch.name() + ' — ' : '') + "what's on"));
   };
 
   /* Wait for the sign-in state before asking for anything: which events

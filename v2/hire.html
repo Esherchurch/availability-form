@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hire our rooms — EGBC</title>
+<title>Hire our rooms</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610062100" data-title="Hire our rooms"></script>
+<script src="egbc-ui.js?v=202610062100"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -47,12 +48,21 @@
   .hint{font-size:13px;color:var(--muted)}
   .nofit{margin-top:18px}
   .nofit li{font-size:13px;color:var(--muted);margin:4px 0}
+  /* The plain header for the public hire pages: the church's logo and name
+     (from Church details) and a way back to the list. No hub menu, no
+     sign-in - someone arriving from the church website stays in these pages. */
+  .chead{background:#fff;border-bottom:1px solid var(--line)}
+  .ch-in{max-width:1000px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ch-logo{width:32px;height:32px;object-fit:contain;border-radius:6px}
+  .ch-name{font-size:15px;font-weight:600;color:var(--ink);flex:1;min-width:0}
+  .ch-back{font-size:13px;font-weight:500;color:var(--brand);text-decoration:none}
 </style>
 </head>
 <body>
+<header class="chead" id="chead"></header>
 <div class="wrap">
   <h1>Hire our rooms</h1>
-  <p class="sub">Rooms at Esher Green Baptist Church for meetings, parties, classes and groups. Tell us what you need and we will show the rooms that fit.</p>
+  <p class="sub" id="sub">Rooms for meetings, parties, classes and groups. Tell us what you need and we will show the rooms that fit.</p>
   <div class="card search" id="search"></div>
   <div id="results"><p class="hint">Loading…</p></div>
 </div>
@@ -99,7 +109,7 @@
 
   function card(r) {
     var ph = R.mainPhoto(r), a = R.area(r);
-    return '<a class="card room" href="room.html?r=' + encodeURIComponent(r.id) + '" data-room="' + esc(r.id) + '">' +
+    return '<a class="card room" href="room.html?id=' + encodeURIComponent(r.id) + '" data-room="' + esc(r.id) + '">' +
       '<div class="pic"' + (ph ? ' style="background-image:url(\'' + esc(ph.url) + '\')"' : '') + '>' + (ph ? '' : '<i data-lucide="image" style="width:28px;height:28px"></i>') + '</div>' +
       '<div class="b"><h3>' + esc(r.name) + '</h3>' +
         '<div class="m">' + esc(SITES[r.siteId] || '') + (a ? ' · ' + a + ' m²' : '') + '</div>' +
@@ -124,7 +134,11 @@
     icons();
   }
 
-  EGBCAuth.optional().then(function () {
+  /* Read as anyone would: these pages never look at who is signed in. */
+  EGBCChurch.load().then(function (c) {
+    EGBCChurch.header(document.getElementById('chead'), { back: false });
+    if (c.name) document.getElementById('sub').textContent = 'Rooms at ' + c.name + ' for meetings, parties, classes and groups. Tell us what you need and we will show the rooms that fit.';
+    EGBCChurch.title('Hire our rooms');
     var db = EGBCAuth.db;
     return Promise.all([db.collection('rooms').where('active', '==', true).get(), db.collection('sites').where('active', '==', true).get()]);
   }).then(function (r) {

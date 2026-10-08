@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Events — EGBC</title>
+<title>Events</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-shell.js?v=202610062100" data-title="Events"></script>
@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610062100"></script>
@@ -886,10 +887,10 @@
     }).then(function () {
       var live = SIGNUPS.filter(function (s) { return s.status !== 'cancelled'; });
       if (!live.length) return { ok: true, none: true };
-      return EGBCEmail.send({
+      return EGBCChurch.send({
         to: live.map(function (s) { return s.email; }).filter(Boolean),
         subject: 'Cancelled: ' + CUR.title,
-        html: EGBCEmail.wrap('This event has been cancelled',
+        html: EGBCChurch.wrap('This event has been cancelled',
           '<p><strong>' + esc(CUR.title) + '</strong> on ' + esc(E.fmtWhen(CUR)) + ' is not going ahead.</p>' +
           '<p>Sorry for the change of plan. Nothing more is needed from you.</p>'),
         log: { calEventId: CUR.id, kind: 'cancellation' }
@@ -904,10 +905,10 @@
   function offerPlace(key) {
     var s = SIGNUPS.filter(function (x) { return x.key === key; })[0];
     if (!s) return;
-    EGBCEmail.send({
+    EGBCChurch.send({
       to: [s.email],
       subject: 'A place has come free: ' + CUR.title,
-      html: EGBCEmail.wrap('A place has come free',
+      html: EGBCChurch.wrap('A place has come free',
         '<p>A place has come free for <strong>' + esc(CUR.title) + '</strong> on ' + esc(E.fmtWhen(CUR)) + '.</p>' +
         '<p>Sign up again to take it — first come, first served.</p>' +
         '<p><a href="' + location.origin + location.pathname.replace(/[^/]*$/, '') + 'signup.html?event=' + esc(CUR.id) +
@@ -925,10 +926,10 @@
     if (!live.length) { toast('Nobody has signed up yet.'); return; }
     var msg = prompt('What do you want to say to the ' + live.length + ' people coming?');
     if (!msg) return;
-    EGBCEmail.send({
+    EGBCChurch.send({
       to: live.map(function (s) { return s.email; }).filter(Boolean),
       subject: CUR.title,
-      html: EGBCEmail.wrap(CUR.title, '<p>' + esc(msg).replace(/\n/g, '<br>') + '</p>' +
+      html: EGBCChurch.wrap(CUR.title, '<p>' + esc(msg).replace(/\n/g, '<br>') + '</p>' +
         '<p style="color:#6b7280;font-size:13px">About ' + esc(E.fmtWhen(CUR)) + '.</p>'),
       log: { calEventId: CUR.id, kind: 'message to attendees' }
     }).then(function (r) {

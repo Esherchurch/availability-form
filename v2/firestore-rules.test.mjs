@@ -772,6 +772,16 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a record cannot be deleted, even by a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'uploadItems', 'up_open__0')));
 }
 
+// ── EVENTS (events window) ── church details (F-058)
+{
+  const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });
+  await check('an admin sets the church details', 'allow', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D()));
+  await check('anyone reads them, for the public pages', 'allow', () => getDoc(doc(anon(), 'churchSettings', 'details')));
+  await check('a member cannot change them', 'deny', () => setDoc(doc(as('samy'), 'churchSettings', 'details'), D({ updatedBy: 'u_samy' })));
+  await check('the enquiry address has to look like one', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ enquiryEmail: 'not an address' })));
+  await check('there is one church details document', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'other'), D()));
+}
+
 // ── EVENTS (events window) ── room hire, R1
 {
   await check('anyone reads a room’s profile when it is in use', 'allow', () => getDoc(doc(anon(), 'rooms', 'room_hire')));

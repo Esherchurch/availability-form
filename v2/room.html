@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Room — EGBC</title>
+<title>Room</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610062100" data-title="Room"></script>
+<script src="egbc-ui.js?v=202610062100"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -45,16 +46,26 @@
   .btn:hover{background:var(--brand-dark)}
   .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
   .hint{font-size:13px;color:var(--muted)}
+  /* The plain header for the public hire pages: the church's logo and name
+     (from Church details) and a way back to the list. No hub menu, no
+     sign-in - someone arriving from the church website stays in these pages. */
+  .chead{background:#fff;border-bottom:1px solid var(--line)}
+  .ch-in{max-width:1000px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ch-logo{width:32px;height:32px;object-fit:contain;border-radius:6px}
+  .ch-name{font-size:15px;font-weight:600;color:var(--ink);flex:1;min-width:0}
+  .ch-back{font-size:13px;font-weight:500;color:var(--brand);text-decoration:none}
 </style>
 </head>
 <body>
+<header class="chead" id="chead"></header>
 <div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
 
 <script>
 (function () {
   'use strict';
   var R = window.EGBCRooms;
-  var ID = new URLSearchParams(location.search).get('r') || '';
+  /* ?id= is the address the church website uses; ?r= still works. */
+  var Q = new URLSearchParams(location.search), ID = Q.get('id') || Q.get('r') || '';
   var ROOM = null, SITE = null, SHOWN = 0;
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
@@ -64,18 +75,18 @@
   function draw() {
     var r = ROOM, d = r.dims || {}, ph = r.photos || [], a = R.area(r);
     var floor = (R.FLOORS.filter(function (f) { return f[0] === r.floor; })[0] || [])[1];
-    document.title = r.name + ' — EGBC';
-    /* Until booking requests arrive (next stage), asking means an email to
-       the church office. */
-    var ask = 'mailto:office@esherchurch.org?subject=' + encodeURIComponent('Hiring the ' + r.name);
+    EGBCChurch.title(r.name);
+    var mail = EGBCChurch.email();
     document.getElementById('wrap').innerHTML =
-      '<p style="margin:0 0 10px"><a class="hint" href="hire.html" style="color:var(--brand)">&larr; All rooms for hire</a></p>' +
       '<h1>' + esc(r.name) + '</h1><p class="sub">' + esc(SITE ? SITE.name + (SITE.address ? ', ' + SITE.address : '') : '') + '</p>' +
       (ph.length ? '<img class="main" id="mainPic" src="' + esc(ph[SHOWN].url) + '" alt="' + esc(r.name) + '">' +
         (ph.length > 1 ? '<div class="thumbs">' + ph.map(function (p, i) {
           return '<button data-i="' + i + '" class="' + (i === SHOWN ? 'on' : '') + '" aria-label="Photo ' + (i + 1) + '"><img src="' + esc(p.url) + '" alt=""></button>'; }).join('') + '</div>' : '')
         : '') +
-      '<div style="margin:16px 0"><a class="btn" id="ask" href="' + ask + '">' + ico('mail', 16) + 'Ask about hiring this room</a></div>' +
+      '<div style="margin:16px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
+        '<a class="btn" id="ask" href="book.html?room=' + encodeURIComponent(r.id) + '">' + ico('calendar-plus', 16) + 'Ask to book this room</a>' +
+        (mail ? '<span class="hint">Questions? <a href="mailto:' + esc(mail) + '?subject=' + encodeURIComponent(r.name) + '" style="color:var(--brand)">' + esc(mail) + '</a></span>' : '') +
+      '</div>' +
       (r.description ? '<div class="card"><p class="words" style="margin:0">' + esc(r.description) + '</p></div>' : '') +
       '<div class="card"><h2><span class="badge">' + ico('ruler') + '</span>The room</h2><div class="facts">' +
         fact('Floor area', a ? a + ' m²' : '') +
@@ -104,11 +115,12 @@
   }
 
   function none() {
-    document.getElementById('wrap').innerHTML = '<div class="card">That room could not be found, or is not for hire. <a href="hire.html" style="color:var(--brand)">See the rooms for hire</a>.</div>';
+    document.getElementById('wrap').innerHTML = '<div class="card">That room could not be found, or is not for hire. Use "Back to all rooms" above to see the rooms that are.</div>';
   }
 
+  EGBCChurch.load().then(function () { EGBCChurch.header(document.getElementById('chead'), { back: true }); });
   if (!ID) return none();
-  EGBCAuth.optional().then(function () { return EGBCAuth.db.collection('rooms').doc(ID).get(); }).then(function (s) {
+  EGBCChurch.load().then(function () { return EGBCAuth.db.collection('rooms').doc(ID).get(); }).then(function (s) {
     if (!s.exists) return none();
     ROOM = Object.assign({ id: s.id }, s.data());
     if (!R.hireable([ROOM]).length) return none();

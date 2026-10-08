@@ -1186,6 +1186,18 @@ service cloud.firestore {
                    && request.resource.data.get('price', 0) is number && request.resource.data.get('price', 0) >= 0;
     }
 
+    // ---- church details (Martin, F-058) -----------------------------
+    // One document: the church's name, its enquiry email and its logo. The
+    // public hire pages show them, so anyone may read it; admins set it.
+    match /churchSettings/{id} {
+      allow read: if true;
+      allow write: if isAdmin() && id == 'details'
+                   && request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.name is string && request.resource.data.name.size() <= 120
+                   && request.resource.data.enquiryEmail is string && request.resource.data.enquiryEmail.size() <= 200
+                   && (request.resource.data.enquiryEmail == '' || request.resource.data.enquiryEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'));
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Forms — EGBC</title>
+<title>Forms</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-shell.js?v=202610062100" data-title="Forms"></script>
@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
 <script src="egbc-email.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610062100"></script>
@@ -414,7 +415,7 @@
           return db().collection('formRequests').doc(key).set(req).then(function () {
             REQS.push(Object.assign({ key: key }, req));
             if (prev) reused++; else sent++;
-            return EGBCEmail.send(F.requestEmail(Object.assign({ key: key }, req), false));
+            return EGBCChurch.send(F.requestEmail(Object.assign({ key: key }, req), false));
           });
         });
       }, Promise.resolve()).then(function () {
@@ -433,7 +434,7 @@
       return p.then(function () {
         q.reminders = (q.reminders || []).concat([now]);
         return db().collection('formRequests').doc(q.key).update({ reminders: q.reminders })
-          .then(function () { return EGBCEmail.send(F.requestEmail(q, true)); });
+          .then(function () { return EGBCChurch.send(F.requestEmail(q, true)); });
       });
     }, Promise.resolve()).then(function () {
       toast('Reminded ' + open.length + '.'); drawEvent();
@@ -500,7 +501,7 @@
         personKind: '', personId: '', name: name, email: email, subjects: [name], siteId: f.siteId || '',
         status: 'sent', reuseOf: '', sentAt: new Date().toISOString(), reminders: [], createdBy: uid() };
       db().collection('formRequests').doc(key).set(req).then(function () {
-        return EGBCEmail.send(F.requestEmail(Object.assign({ key: key }, req), false));
+        return EGBCChurch.send(F.requestEmail(Object.assign({ key: key }, req), false));
       }).then(function () { toast('Sent to ' + name + '.'); return loadOne(); })
         .catch(function (e) { toast('Could not send: ' + (e.message || e)); });
     };
@@ -509,7 +510,7 @@
         var q = ONE.filter(function (x) { return x.key === b.getAttribute('data-k'); })[0];
         q.reminders = (q.reminders || []).concat([new Date().toISOString()]);
         db().collection('formRequests').doc(q.key).update({ reminders: q.reminders })
-          .then(function () { return EGBCEmail.send(F.requestEmail(q, true)); })
+          .then(function () { return EGBCChurch.send(F.requestEmail(q, true)); })
           .then(function () { toast('Reminded.'); drawOne(); });
       };
     });

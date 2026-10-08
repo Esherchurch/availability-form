@@ -311,7 +311,9 @@
 
   function icsFor(ev, where) {
     return EGBCICS.build({
-      uid: 'egbc-event-' + ev.id + '@esherchurch.org',
+      /* Unique to this site's address, so another church's copy of these
+         pages never collides with it in a diary. */
+      uid: 'egbc-event-' + ev.id + '@' + location.hostname,
       title: ev.title,
       description: ev.description || '',
       location: where || '',
@@ -351,8 +353,8 @@
     return {
       to: [o.email],
       subject: (waiting ? 'Waiting list: ' : 'You are signed up: ') + ev.title,
-      html: EGBCEmail.wrap(waiting ? 'You are on the waiting list' : 'You are signed up', body,
-        'Esher Green Baptist Church &middot; If this was not you, ignore this message.'),
+      html: EGBCChurch.wrap(waiting ? 'You are on the waiting list' : 'You are signed up', body,
+        (global.EGBCChurch && EGBCChurch.name() ? esc(EGBCChurch.name()) + ' &middot; ' : '') + 'If this was not you, ignore this message.'),
       attachments: [{
         filename: 'event.ics',
         content: EGBCICS.base64(icsFor(ev, where)),

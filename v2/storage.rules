@@ -245,6 +245,14 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // The church's logo (church-settings.html): shown on the public hire
+    // pages, so anyone reads it; admins put it there.
+    match /church/{fileName} {
+      allow read: if true;
+      allow create, update: if adminHere() && request.resource.size < 2 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+      allow delete: if adminHere();
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────
