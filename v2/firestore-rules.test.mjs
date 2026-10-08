@@ -228,6 +228,18 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     day: '2026-11-25', startMin: 600, endMin: 660, setupMins: 0, packdownMins: 0, slotFrom: 40, slotTo: 44, memberUid: '', title: 'Test party' });
   await setDoc(doc(db, 'bookings', 'bk_careful_000000000000000000'), { kind: 'member', status: 'requested', siteId: 'site_appr', roomId: 'room_apsite',
     day: '2026-11-25', startMin: 600, endMin: 660, setupMins: 0, packdownMins: 0, slotFrom: 40, slotTo: 44, memberUid: 'u_samy', title: 'Test' });
+  /* R3: Samy's own bookings to cancel, one the office booked over, and
+     somebody else's. Wednesdays in December 2026, 10:00-11:00 (40 to 43). */
+  const held = (n) => { const a = Array(96).fill(0); for (let i = 40; i < 44; i++) a[i] = n; return a; };
+  const own = (key, day, status, uid, extra) => setDoc(doc(db, 'bookings', key), { kind: 'member', status, siteId: 'site_bk', roomId: 'room_band', day,
+    startMin: 600, endMin: 660, setupMins: 0, packdownMins: 0, slotFrom: 40, slotTo: 44, memberUid: uid, title: 'Test', ...(extra || {}) });
+  await own('bk_samy_conf_00000000000000000', '2026-12-02', 'confirmed', 'u_samy');
+  await setDoc(doc(db, 'roomDays', 'room_band_2026-12-02'), { slots: held(1).map((v, i) => i >= 56 && i < 60 ? 1 : v), lastBooking: 'bk_samy_conf_00000000000000000', roomId: 'room_band', day: '2026-12-02', siteId: 'site_bk' });
+  await own('bk_samy_over_00000000000000000', '2026-12-09', 'confirmed', 'u_samy');
+  await setDoc(doc(db, 'roomDays', 'room_band_2026-12-09'), { slots: held(2), lastBooking: '', roomId: 'room_band', day: '2026-12-09', siteId: 'site_bk' });
+  await own('bk_samy_req_000000000000000000', '2026-12-16', 'requested', 'u_samy');
+  await own('bk_mart_conf_00000000000000000', '2026-12-23', 'confirmed', 'u_martin');
+  await setDoc(doc(db, 'roomDays', 'room_band_2026-12-23'), { slots: held(1), lastBooking: 'bk_mart_conf_00000000000000000', roomId: 'room_band', day: '2026-12-23', siteId: 'site_bk' });
   await setDoc(doc(db, 'uploadItems', 'up_open__0'), { linkId: 'up_open', slot: 0, calEventId: 'ev_public', path: 'uploads/up_open/0', name: 'a.jpg', status: 'pending' });
   // ── end EVENTS ──
 
@@ -876,6 +888,55 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the office may book over something, with a reason', 'allow', () => setDoc(doc(lena(), 'roomDays', 'room_band_2026-11-18'),
     { slots: Array(96).fill(2), lastBooking: '', roomId: 'room_band', day: '2026-11-18', siteId: 'site_bk' }));
   await check('a booking is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'bookings', 'bk_existing_000000000000000000')));
+}
+
+// ── EVENTS (events window) ── room bookings, R3: repeating, members cancelling their own
+{
+  const Z = () => Array(96).fill(0);
+  const held = (n) => { const a = Z(); for (let i = 40; i < 44; i++) a[i] = n; return a; };
+  const day = (id) => ({ roomId: 'room_band', day: id.slice(-10), siteId: 'site_bk' });
+  const stamp = { status: 'cancelled', cancelledAt: 'x', cancelledBy: 'u_samy' };
+  /* Cancel, giving the time back: the booking and its day in one write. */
+  const cancel = (who, key, dayId, slots, lastBooking, extra) => {
+    const x = writeBatch(who);
+    x.update(doc(who, 'bookings', key), { ...stamp, ...(extra || {}) });
+    if (slots) x.set(doc(who, 'roomDays', dayId), { slots, lastBooking, ...day(dayId), lastCancel: key });
+    return x.commit();
+  };
+  /* 2 Dec once Samy's 10:00 is given back: the 14:00 booking is still there. */
+  const after2 = () => Z().map((v, i) => i >= 56 && i < 60 ? 1 : v);
+  const SC = 'bk_samy_conf_00000000000000000', SO = 'bk_samy_over_00000000000000000', SR = 'bk_samy_req_000000000000000000', MC = 'bk_mart_conf_00000000000000000';
+
+  await check('a member cannot cancel a confirmed booking without giving its time back', 'deny',
+    () => updateDoc(doc(as('samy'), 'bookings', SC), stamp));
+  await check('nor give the time back without cancelling', 'deny',
+    () => setDoc(doc(as('samy'), 'roomDays', 'room_band_2026-12-02'), { slots: Z(), lastBooking: SC, ...day('room_band_2026-12-02'), lastCancel: SC }));
+  await check('nor free more than its own quarter-hours', 'deny', () => {
+    return cancel(as('samy'), SC, 'room_band_2026-12-02', Z(), SC); });
+  await check('nor change anything else about it while cancelling (moving it)', 'deny',
+    () => cancel(as('samy'), SC, 'room_band_2026-12-02', after2(), SC, { day: '2026-12-03' }));
+  await check('a member cancels their own confirmed booking, giving its time back', 'allow',
+    () => cancel(as('samy'), SC, 'room_band_2026-12-02', after2(), SC));
+  await check('and cannot then bring it back', 'deny',
+    () => updateDoc(doc(as('samy'), 'bookings', SC), { status: 'confirmed' }));
+  await check('not one the office booked over (2 on the day): the office cancels that', 'deny',
+    () => cancel(as('samy'), SO, 'room_band_2026-12-09', held(1), ''));
+  await check('nor by setting it to nothing', 'deny',
+    () => cancel(as('samy'), SO, 'room_band_2026-12-09', Z(), ''));
+  await check('a waiting booking is cancelled on its own (it holds no time)', 'allow',
+    () => updateDoc(doc(as('samy'), 'bookings', SR), stamp));
+  await check('nobody cancels someone else\u2019s booking', 'deny',
+    () => cancel(as('samy'), MC, 'room_band_2026-12-23', Z(), MC));
+
+  /* A repeating booking: every date its own booking, with the series. */
+  const S = (extra) => ({ kind: 'member', status: 'requested', siteId: 'site_bk', roomId: 'room_band', groupId: '', day: '2026-12-30', startMin: 600, endMin: 660,
+    startLocal: 'x', endLocal: 'x', setupMins: 0, packdownMins: 0, slotFrom: 40, slotTo: 44, title: 'Test weekly', people: 4, layout: '',
+    av: { needed: false, what: '' }, refreshments: { needed: false }, resources: [], notes: '', requester: { name: 'Samy', email: 'samy@example.invalid', phone: '', org: '' },
+    memberUid: 'u_samy', memberName: 'Samy', createdAt: 'x', series: { id: 's_test', rule: 'week', n: 1, of: 3 }, ...(extra || {}) });
+  await check('a date of a weekly series is a booking like any other', 'allow', () => setDoc(doc(as('samy'), 'bookings', 'bk_series_1_0000000000000000000'), S()));
+  await check('a series says which date of how many, and never "4 of 3"', 'deny', () => setDoc(doc(as('samy'), 'bookings', 'bk_series_2_0000000000000000000'), S({ series: { id: 's_test', rule: 'week', n: 4, of: 3 } })));
+  await check('only weekly, fortnightly or monthly', 'deny', () => setDoc(doc(as('samy'), 'bookings', 'bk_series_3_0000000000000000000'), S({ series: { id: 's_test', rule: 'daily', n: 1, of: 3 } })));
+  await check('never more than 52 dates', 'deny', () => setDoc(doc(as('samy'), 'bookings', 'bk_series_4_0000000000000000000'), S({ series: { id: 's_test', rule: 'week', n: 1, of: 53 } })));
 }
 
 // ── EVENTS (events window) ── church details (F-058)

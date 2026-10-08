@@ -765,8 +765,11 @@ A room's id is the last part of the address when its page is open from
 
 The main window has put "Hire our rooms" in the hub Menu (a23cd7df). A member who
 opens it from the hub is in the closed set too, so the way back to the hub is
-the browser's Back button. That follows from the decision; say if members
-should get a way back.
+the browser's Back button. **Decided (Martin), built in R3:** the header shows
+"Back to the hub" only when someone is signed in. The public never see it: it
+appears only once the browser says a person is signed in, and the pages never
+ask anyone to sign in. The closed-set crawl (signed out) still passes, and
+`r3-bookings.test.mjs` checks all three pages both ways.
 
 **Still a REQUEST for the main window:** a way in for members from the hub
 (the Menu) to `rooms.html` (Book a room) and, for admins and bookings admins,
@@ -854,6 +857,85 @@ event before gets it twice. So it is left exactly as it was, as the main
 window advised (FINDINGS-app A-021). It is the one place the church's
 web address is still in the events code, and nobody sees it. Room bookings,
 which are new, use an id with no church in it (`room-booking-<reference>`).
-**To decide (with the rota feed's ids, which are the same kind):** keep these
-for this church and use a neutral form for any new church, or change them once
-before launch while v2 has no real users. Before launch is the cheap time.
+**Decided (Martin):** leave them as they are.
+
+## Chunk 4, stage R3: repeating bookings, cancelling, emails, the setup sheet
+
+### F-069 — how a repeating booking is kept
+Every date is its own booking, carrying the series (its id, the rule, which
+date of how many). So each date is checked, held, approved, moved and cancelled
+exactly like a single booking, and the rules that stop double-booking apply to
+every date unchanged. The rule is every week, every two weeks, or every month on
+the same weekday (the second Tuesday); a month with no fifth Tuesday is
+skipped. At most 52 dates, and 100 bookings in one go (rooms × dates).
+
+**Per-date exceptions** are dates left out: a date that is not free is shown,
+with why, and cannot be ticked; any other date can be unticked (a holiday
+week). The dates left out are simply not booked; nothing records them as
+"skipped", because nothing needs to.
+
+**The clash report before approval** is the office's card for the series: a row
+per date saying whether it is still free. "Approve every free date" approves
+those in one go and leaves the rest waiting for the office to approve with a
+reason, move, or decline one by one.
+
+### F-070 — members cancelling their own: what the rules allow
+A member can cancel their own booking, and change nothing else about it. A
+confirmed one must give its time back in the same write, and the rules only let
+a member take their own quarter-hours from 1 to 0. If the office booked
+something over it (a 2 on the day), a member cannot free that time without
+freeing the office's too, so the page says to ask the office, who can. Members
+cannot un-cancel. **Hirers** (the public) still ask the office to cancel: the
+brief's `my-booking.html` page, with a private link, belongs with charges in
+Chunk 5.
+
+### F-071 — where the office's emails go
+Each site can have its own address for booking requests and cancellations
+(Places, Bookings tab). Empty, they go to the church's enquiry email. The
+address sits on the site's record, which anyone can read (the public pages read
+sites), so the page says to use an office address, not a person's own. The
+brief's "the site's bookings admins" are members in the address book, which the
+public pages cannot read, which is why it is an address and not a list of
+people.
+
+### F-072 — what R3 leaves
+- **Reminders** ("your booking is tomorrow") need something that runs on a
+  timer. Nothing in the hub does (the email function only sends when asked), so
+  none are sent. A scheduled function would do it; that is a deploy for Martin.
+- **Events in rooms** (events-admin) still do not book the room. Doing it means
+  changing how an existing page saves an event (NEXT-BRIEF §15), so it waits for
+  a decision: should creating an event in a room book it, and if the room is
+  taken, refuse the event or warn?
+- **The caterer's own view** (mark prepared / served) is not built; the setup
+  sheet has the kitchen's list for each day, which prints.
+- **The setup sheet** is on the office's page. A caretaker who is not a bookings
+  admin cannot open it; they get the printout. Say if a caretaker should have
+  their own way in.
+- **Changing a whole series** (a new time for every date) is one date at a time
+  for now: the office moves each.
+
+### F-073 — going back and forth between the rooms left a page on "Loading…" (found and fixed)
+Found while running the R2 closed-set test, which failed now and then with the
+room page still saying "Loading…". Measured on the emulator, 40 page loads
+alternating between `hire.html` and a room, in one tab:
+
+| | Pages that never drew (12 seconds) | Slowest that did |
+|---|---|---|
+| before, one tab | 17 of 40 | 9.7 s |
+| before, a new tab each time | 0 of 40 | 0.15 s |
+| after the fix, one tab | 0 of 40 | 0.46 s |
+
+The test's network guard was not the cause (it stalled as often without it).
+Each page's database connection lingered after the visitor moved on, including
+in pages the browser keeps for the Back button, until the browser's few
+connections to the database were used up. **Fixed** for the three public pages:
+each closes its connection as the visitor leaves, and a page brought back by
+Back loads afresh. `r3-bookings.test.mjs` goes back and forth twelve times and
+fails if any page takes over 3 seconds; with the fix taken out it failed (7 of 12).
+
+The live database connects differently from the emulator and may not show
+this at all; it could not be tried there (no live testing). **For the main
+window:** hub pages are just as able to pile up on the emulator when a test
+moves one tab through many pages; if a page check ever hangs on "Loading…",
+this is the likely reason, and the same two lines in `egbc-shell.js` would cover
+every hub page.

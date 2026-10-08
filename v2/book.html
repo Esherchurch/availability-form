@@ -11,13 +11,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
-<script src="egbc-church.js?v=202610082000"></script>
+<script src="egbc-church.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610062100"></script>
-<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610082200"></script>
-<script src="egbc-events-bookform.js?v=202610082200"></script>
+<script src="egbc-events-bookings.js?v=202610091200"></script>
+<script src="egbc-events-bookform.js?v=202610091200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -64,6 +64,7 @@
 <script>
 (function () {
   'use strict';
+  EGBCChurch.closeOnLeave();
   var B = window.EGBCBookings, R = window.EGBCRooms;
   var ROOMS = [], SITES = {}, MENUS = [], DAYS = null, OPENED = Date.now();
   var Q = new URLSearchParams(location.search);
@@ -73,48 +74,66 @@
   function form() { return document.getElementById('f'); }
 
   /* The room's day, so people can see when it is free before they ask. */
-  var checking = 0;
+  var checking = 0, PLAN = null;
   function check(v) {
     var go = document.getElementById('f-go'), out = document.getElementById('f-status'), r = roomById(v.rooms[0]), mine = ++checking;
-    go.disabled = true;
+    go.disabled = true; PLAN = null;
     if (!r) { out.innerHTML = '<div class="st wait">Choose a room.</div>'; return; }
     var s = B.slots(B.toMin(v.start), B.toMin(v.end), v.setup, v.pack);
     var day = v.day || B.today();
-    B.loadDays([r], day).then(function (days) {
+    var list = v.day && v.repeat.rule && v.repeat.until ? B.repeatDays(v.day, v.repeat.rule, v.repeat.until) : [day];
+    Promise.all(list.map(function (d) { return B.loadDays([r], d); })).then(function (all) {
       if (mine !== checking) return;
-      DAYS = days;
-      var site = SITES[r.siteId] || {};
+      var days = {}, site = SITES[r.siteId] || {};
+      list.forEach(function (d, i) { days[r.id + '_' + d] = all[i][r.id]; });
       document.getElementById('day').innerHTML = '<h2>' + esc(r.name) + ', ' + esc(EGBCEvents.fmtDate(day + 'T12:00')) + '</h2>' +
-        '<div class="scroll"><div>' + B.axis(true) + B.bar(days[r.id], { service: function (i) { return B.serviceAt(site, r.id, day, i); }, pick: s && v.day ? s : null }) + B.key(false) + '</div></div>' +
+        '<div class="scroll"><div>' + B.axis(true) + B.bar(all[0][r.id], { service: function (i) { return B.serviceAt(site, r.id, day, i); }, pick: s && v.day ? s : null }) + B.key(false) + '</div></div>' +
         '<p class="hint" style="margin:8px 0 0"><a href="room.html?id=' + encodeURIComponent(r.id) + '" style="color:var(--brand)">More about this room</a></p>';
-      var msg = [];
+      var msg = [], chosen = [];
       if (!v.day) msg.push(['wait', 'Choose a date.']);
       else if (v.day < B.today()) msg.push(['no', 'That date has gone.']);
       else if (!s) msg.push(['no', 'The finish has to be after the start, and with setting up and clearing away it has to fit within the day.']);
-      else if (!B.free(days[r.id], s)) msg.push(['no', 'The room is not free for all of that time. The day above shows when it is.']);
+      else if (v.repeat.rule && !v.repeat.until) msg.push(['wait', 'Choose when it stops repeating.']);
+      else if (v.repeat.rule) {
+        /* A repeating request: every date checked, the ones not free left out. */
+        var report = list.map(function (d) {
+          var sl = days[r.id + '_' + d], free = B.free(sl, s), sv = '';
+          for (var k = s.from; k < s.to && !free && !sv; k++) sv = sl[k] ? B.serviceAt(site, r.id, d, k) : '';
+          return { day: d, ok: free, why: free ? '' : (sv || 'booked') };
+        });
+        EGBCBookForm.dates(form(), report);
+        var skip = EGBCBookForm.values(form()).skip;
+        chosen = report.filter(function (x) { return x.ok && skip.indexOf(x.day) < 0; }).map(function (x) { return x.day; });
+        if (!chosen.length) msg.push(['no', 'None of those dates is free.']);
+      } else if (!B.free(all[0][r.id], s)) msg.push(['no', 'The room is not free for all of that time. The day above shows when it is.']);
+      else chosen = [v.day];
       if (r.fireMax && v.people > r.fireMax) msg.push(['no', 'This room can never hold more than ' + r.fireMax + ' people.']);
       if (!v.title || !(v.people > 0)) msg.push(['wait', 'Say what it is for, and how many people.']);
       if (!v.requester.name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.requester.email)) msg.push(['wait', 'We need your name and email to reply.']);
       out.innerHTML = msg.length ? msg.map(function (m) { return '<div class="st ' + m[0] + '">' + esc(m[1]) + '</div>'; }).join('')
-        : '<div class="st ok">The room is free then. We will look at your request and email you.</div>';
+        : '<div class="st ok">' + (chosen.length > 1 ? 'The room is free on ' + chosen.length + ' of those dates.' : 'The room is free then.') + ' We will look at your request and email you.</div>';
+      if (!msg.length) PLAN = { dates: chosen, days: days, rule: v.repeat.rule };
       go.disabled = msg.length > 0;
     });
   }
 
   function submit() {
-    var v = EGBCBookForm.values(form()), go = document.getElementById('f-go'), r = roomById(v.rooms[0]);
-    if (!DAYS || !r) return;
+    var v = EGBCBookForm.values(form()), go = document.getElementById('f-go'), r = roomById(v.rooms[0]), plan = PLAN;
+    if (!plan || !r) return;
     /* Robots fill in the hidden box, or send the form within a second or
        two of opening it. They are thanked and nothing is saved. */
-    if (v.trap || Date.now() - OPENED < 4000) { thanks(null, r); return; }
+    if (v.trap || Date.now() - OPENED < 4000) { thanks([], r); return; }
     go.disabled = true; go.textContent = 'Sending…';
-    var b;
+    var sid = plan.rule ? 's_' + EGBCEvents.key(12) : '', list;
     try {
-      b = B.prepare({ kind: 'hire', room: r, site: SITES[r.siteId], day: v.day, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
-        title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: [], notes: v.notes, requester: v.requester });
+      list = plan.dates.map(function (d, i) {
+        return { booking: B.prepare({ kind: 'hire', room: r, site: SITES[r.siteId], day: d, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
+          title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: [], notes: v.notes, requester: v.requester,
+          series: sid ? { id: sid, rule: plan.rule, n: i + 1, of: plan.dates.length } : null }) };
+      });
     } catch (e) { toast(e.message); go.disabled = false; go.textContent = 'Send the request'; return; }
-    B.write([{ booking: b }], DAYS).then(function (made) {
-      return Promise.all([B.email(made[0], r.name, 'waiting'), B.tellOffice(made[0], r.name)]).then(function () { thanks(made[0], r); });
+    B.write(list, plan.days).then(function (made) {
+      return Promise.all([B.emailMany(made, r.name, 'waiting'), B.tellOffice(made, r.name, SITES[r.siteId])]).then(function () { thanks(made, r); });
     }).catch(function (e) {
       toast(/permission/i.test(String(e && (e.code || e.message))) ? 'That time has just been taken. Please look again.' : 'Sorry, that could not be sent. Please try again.');
       go.disabled = false; go.textContent = 'Send the request';
@@ -122,11 +141,12 @@
     });
   }
 
-  function thanks(b, r) {
+  function thanks(made, r) {
+    var b = made[0];
     document.getElementById('wrap').innerHTML = '<h1>Thank you</h1><div class="card" id="done">' +
-      '<p style="margin:0 0 8px">We have your request for <b>' + esc(r.name) + '</b>' + (b ? ', ' + esc(B.when(b)) : '') + '.</p>' +
+      '<p style="margin:0 0 8px">We have your request for <b>' + esc(r.name) + '</b>' + (b ? (made.length > 1 ? ', ' + made.length + ' dates from ' : ', ') + esc(B.when(b)) : '') + '.</p>' +
       '<p style="margin:0 0 8px">Nothing is booked yet. We will look at it and email you either way.</p>' +
-      (b ? '<p class="hint" style="margin:0">Your reference is <b id="ref">' + esc(B.ref(b)) + '</b>.</p>' : '') + '</div>' +
+      (b ? '<p class="hint" style="margin:0">Your reference' + (made.length > 1 ? 's are' : ' is') + ' <b id="ref">' + made.map(function (x) { return esc(B.ref(x)); }).join(', ') + '</b>.</p>' : '') + '</div>' +
       '<p><a href="room.html?id=' + encodeURIComponent(r.id) + '" style="color:var(--brand)">Back to ' + esc(r.name) + '</a></p>';
   }
 

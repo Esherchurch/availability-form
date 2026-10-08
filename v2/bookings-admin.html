@@ -11,13 +11,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
-<script src="egbc-church.js?v=202610082000"></script>
+<script src="egbc-church.js?v=202610091200"></script>
 <script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610062100"></script>
-<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610082200"></script>
+<script src="egbc-events-bookings.js?v=202610091200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -57,6 +57,22 @@
   .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
   .scroll{overflow-x:auto}.scroll>div{min-width:560px}
+  .dates{border:1px solid var(--line);border-radius:8px;margin:10px 0}
+  .drow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-top:1px solid #f1f3f4;font-size:13px}
+  .drow:first-child{border-top:none}.drow .d{flex:1;min-width:150px;color:var(--ink)}
+  .drow .st{margin:0;padding:3px 8px}.drow .btn{height:30px;padding:0 10px}.drow .act{flex-basis:100%;margin:0}
+  /* The setup sheet: plain, printable. */
+  .sheet-day{margin:0 0 18px}.sheet-day h3{font-size:16px;font-weight:700;color:var(--ink);margin:0 0 8px;border-bottom:2px solid var(--ink);padding-bottom:4px}
+  .sheet-room{margin:0 0 12px}.sheet-room h4{font-size:14px;font-weight:600;color:var(--brand);margin:0 0 4px}
+  .sheet-b{border-left:3px solid var(--line-2);padding:4px 0 4px 10px;margin:0 0 8px;font-size:13px}
+  .sheet-b .w{font-weight:600;color:var(--ink)} .sheet-b div{margin:1px 0}
+  .kitchen{background:var(--gold-bg);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:6px}
+  @media print{
+    body *{visibility:hidden}
+    #print,#print *{visibility:visible}
+    #print{position:absolute;left:0;top:0;width:100%;padding:0 8mm}
+    .sheet-b{break-inside:avoid}
+  }
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
 </style>
 </head>
@@ -90,7 +106,7 @@
 
   function draw() {
     var waiting = LIST.filter(function (b) { return b.status === 'requested' && b.day >= B.today(); });
-    var tabs = [['waiting', 'Waiting', waiting.length], ['coming', 'Coming up'], ['day', 'Day view'], ['past', 'Past and cancelled']];
+    var tabs = [['waiting', 'Waiting', waiting.length], ['coming', 'Coming up'], ['day', 'Day view'], ['setup', 'Setup sheet'], ['past', 'Past and cancelled']];
     document.getElementById('main').innerHTML =
       '<div class="row">' + (SITES.length > 1 ? '<div class="f"><label class="l" for="a-site">Site</label><select id="a-site">' + SITES.map(function (s) {
         return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div>' : '<h2 style="margin:0">' + esc(site().name) + '</h2>') + '</div>' +
@@ -101,10 +117,20 @@
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });
     var el = document.getElementById('list');
     if (V.tab === 'day') return drawDay(el);
+    if (V.tab === 'setup') return drawSetup(el);
     var show = V.tab === 'waiting' ? waiting
       : V.tab === 'coming' ? LIST.filter(function (b) { return b.status === 'confirmed' && b.day >= B.today(); })
       : LIST.filter(function (b) { return b.day < B.today() || b.status === 'cancelled' || b.status === 'declined'; }).reverse();
-    el.innerHTML = show.length ? show.map(card).join('') : '<div class="card hint">' + (V.tab === 'waiting' ? 'Nothing is waiting.' : 'Nothing here.') + '</div>';
+    var seen = {}, cards = [];
+    show.forEach(function (b) {
+      if (V.tab === 'waiting' && b.series) {
+        if (seen[b.series.id]) return;
+        seen[b.series.id] = true;
+        cards.push(seriesCard(show.filter(function (x) { return x.series && x.series.id === b.series.id; })));
+      } else cards.push(card(b));
+    });
+    el.innerHTML = cards.length ? cards.join('') : '<div class="card hint">' + (V.tab === 'waiting' ? 'Nothing is waiting.' : 'Nothing here.') + '</div>';
+    wireSeries(el);
     wire(el);
     /* Is each waiting request's time still free? */
     show.filter(function (b) { return b.status === 'requested'; }).forEach(function (b) {
@@ -142,8 +168,62 @@
         (b.decidedByName ? '<dt>Last decided by</dt><dd>' + esc(b.decidedByName) + (b.decisionNote ? ': ' + esc(b.decisionNote) : '') + '</dd>' : '') +
       '</dl>' +
       (b.status === 'requested' ? '<div class="acts"><button class="btn" data-do="approve">Approve</button><button class="btn sec" data-do="decline">Decline</button><button class="btn sec" data-do="move">Change the time</button></div>' : '') +
-      (b.status === 'confirmed' && b.day >= B.today() ? '<div class="acts"><button class="btn sec" data-do="move">Move</button><button class="btn sec" data-do="cancel">Cancel</button></div>' : '') +
+      (b.status === 'confirmed' && b.day >= B.today() ? '<div class="acts"><button class="btn sec" data-do="move">Move</button><button class="btn sec" data-do="cancel">Cancel</button>' +
+        (laterIn(b).length ? '<button class="btn sec" data-do="cancelrest">Cancel this and the ' + laterIn(b).length + ' after it</button>' : '') + '</div>' : '') +
       '<div class="act"></div></div>';
+  }
+  /* Later dates of the same repeating booking that are still on. */
+  function laterIn(b) {
+    return b.series ? LIST.filter(function (x) { return x.series && x.series.id === b.series.id && x.day > b.day && (x.status === 'confirmed' || x.status === 'requested'); }) : [];
+  }
+
+  /* A repeating request: the details once, then every date with whether it
+     is free (the clash report), so the office can approve the free ones in
+     one go and deal with the rest one by one. */
+  function seriesCard(list) {
+    var b = list[0], r = room(b.roomId), q = b.requester || {};
+    return '<div class="card bk" data-series="' + esc(b.series.id) + '">' +
+      '<div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap"><div><h3>' + esc(b.title || 'Booking') + '</h3>' +
+        '<span class="hint">' + esc(r.name) + ', ' + esc(B.hhmm(b.startMin) + ' to ' + B.hhmm(b.endMin)) + ' · ' + esc(B.RULES[b.series.rule] || '') + ' · ' +
+        (b.kind === 'hire' ? 'hire request' : 'member') + '</span></div><span class="pill wait">' + list.length + ' waiting</span></div>' +
+      '<dl><dt>Who</dt><dd>' + esc(q.name || b.memberName || '') + (q.org ? ' (' + esc(q.org) + ')' : '') + (q.email ? ' · ' + esc(q.email) : '') + (q.phone ? ' · ' + esc(q.phone) : '') + '</dd>' +
+        '<dt>People</dt><dd>' + esc(b.people) + (b.layout ? ', ' + esc(b.layout) : '') + '</dd>' +
+        (b.notes ? '<dt>Notes</dt><dd>' + esc(b.notes) + '</dd>' : '') + '</dl>' +
+      '<div class="dates">' + list.map(function (x) {
+        return '<div class="drow" data-key="' + esc(x.key) + '"><span class="d">' + esc(EGBCEvents.fmtDate(x.day + 'T12:00')) + '</span>' +
+          '<span class="st wait" data-free="' + esc(x.key) + '">Checking…</span>' +
+          '<button class="btn sec" data-do="approve">Approve</button><button class="btn sec" data-do="decline">Decline</button><div class="act"></div></div>';
+      }).join('') + '</div>' +
+      '<div class="acts"><button class="btn" data-sdo="approve">Approve every free date</button><button class="btn sec" data-sdo="decline">Decline them all</button></div>' +
+      '<div class="sact"></div></div>';
+  }
+  function wireSeries(el) {
+    el.querySelectorAll('[data-sdo]').forEach(function (btn) {
+      btn.onclick = function () {
+        var c = btn.closest('[data-series]'), id = c.dataset.series, act = c.querySelector('.sact');
+        var list = LIST.filter(function (x) { return x.series && x.series.id === id && x.status === 'requested'; }), r = room(list[0].roomId);
+        if (btn.dataset.sdo === 'approve') {
+          var done = [], left = 0;
+          list.reduce(function (p, b) {
+            return p.then(function () { return B.approve(b, r).then(function (x) { done.push(x); }, function (e) { if (e.clash) left++; else throw e; }); });
+          }, Promise.resolve()).then(function () {
+            return done.length ? B.emailMany(done, r.name, 'approved') : null;
+          }).then(function () {
+            toast('Approved ' + done.length + (left ? '; ' + left + ' not free, still waiting for you' : '') + '. They have been emailed.'); load();
+          }).catch(function (e) { toast('Could not approve: ' + (e.message || e)); load(); });
+          return;
+        }
+        act.innerHTML = '<label class="l">Why not? (it goes in the email)</label><input class="inp a-note" maxlength="500">' +
+          '<div class="acts"><button class="btn warn a-go">Decline all ' + list.length + '</button></div>';
+        act.querySelector('.a-go').onclick = function () {
+          var note = act.querySelector('.a-note').value.trim(), done = [];
+          list.reduce(function (p, b) { return p.then(function () { return B.decline(b, note).then(function (x) { done.push(x); }); }); }, Promise.resolve())
+            .then(function () { return B.emailMany(done, r.name, 'declined', note); })
+            .then(function () { toast('Declined, and they have been told'); load(); })
+            .catch(function (e) { toast('Could not: ' + (e.message || e)); load(); });
+        };
+      };
+    });
   }
 
   function times(sel) { var o = ''; for (var m = 360; m <= 1425; m += 15) { var t = B.hhmm(m); o += '<option' + (t === sel ? ' selected' : '') + '>' + t + '</option>'; } return o; }
@@ -162,6 +242,19 @@
             job.then(function (x) { return B.email(x, room(x.roomId).name, what === 'decline' ? 'declined' : 'cancelled', note); })
               .then(function () { toast(what === 'decline' ? 'Declined, and they have been told' : 'Cancelled, and they have been told'); load(); })
               .catch(function (e) { toast('Could not: ' + (e.message || e)); });
+          };
+          return;
+        }
+        if (what === 'cancelrest') {
+          var rest = [b].concat(laterIn(b));
+          act.innerHTML = '<label class="l">Why? (it goes in the email)</label><input class="inp a-note" maxlength="500">' +
+            '<div class="acts"><button class="btn warn a-go">Cancel these ' + rest.length + '</button></div>';
+          act.querySelector('.a-go').onclick = function () {
+            var note = act.querySelector('.a-note').value.trim(), done = [];
+            rest.reduce(function (p, x) { return p.then(function () { return B.cancel(x, room(x.roomId), note).then(function (y) { done.push(y); }); }); }, Promise.resolve())
+              .then(function () { return B.emailMany(done, room(b.roomId).name, 'cancelled', note); })
+              .then(function () { toast('Cancelled ' + done.length + ', and they have been told'); load(); })
+              .catch(function (e) { toast('Could not: ' + (e.message || e)); load(); });
           };
           return;
         }
@@ -209,6 +302,52 @@
       if (e.clash) { act.querySelector('.m-out').innerHTML = ''; overrideBox(act.querySelector('.m-out'), e.message, function (nt) { move(b, act, nt); }); }
       else toast('Could not move: ' + (e.message || e));
     });
+  }
+
+  /* ---- the setup sheet (R3) ----
+     What to set up where, day by day and room by room: the times with
+     setting up and clearing away, how many and the layout, sound and
+     projection, kit and where to fetch it from, refreshments, notes. The
+     kitchen's list underneath each day. Printing prints the sheet only. */
+  function drawSetup(el) {
+    var span = V.span || 1, days = []; for (var i = 0; i < span; i++) days.push(B.addDays(V.day, i));
+    var LAY = {}; (window.EGBCRooms ? EGBCRooms.LAYOUTS : []).forEach(function (x) { LAY[x.id] = x.label; });
+    var kitHome = function (id) { var k = KIT.filter(function (x) { return x.id === id; })[0]; return k && k.homeRoomId ? room(k.homeRoomId).name : ''; };
+    var diets = function (f) { return Object.keys(f.dietary || {}).map(function (k) { return f.dietary[k] + ' ' + ({ vegetarian: 'vegetarian', vegan: 'vegan', glutenFree: 'gluten-free', dairyFree: 'dairy-free' }[k] || k); }).join(', '); };
+    var body = days.map(function (d) {
+      var those = LIST.filter(function (b) { return b.day === d && b.status === 'confirmed'; }).sort(byTime);
+      var rooms = ROOMS.filter(function (r) { return those.some(function (b) { return b.roomId === r.id; }); });
+      var food = those.filter(function (b) { return b.refreshments && b.refreshments.needed; });
+      return '<section class="sheet-day" data-sheetday="' + d + '"><h3>' + esc(EGBCEvents.fmtDate(d + 'T12:00')) + '</h3>' +
+        (rooms.length ? rooms.map(function (r) {
+          return '<div class="sheet-room"><h4>' + esc(r.name) + '</h4>' + those.filter(function (b) { return b.roomId === r.id; }).map(function (b) {
+            var f = b.refreshments || {}, q = b.requester || {};
+            return '<div class="sheet-b" data-sheet="' + esc(b.key) + '">' +
+              '<div class="w">' + (b.setupMins ? 'Set up from ' + B.hhmm(b.startMin - b.setupMins) + ' · ' : '') + B.hhmm(b.startMin) + '–' + B.hhmm(b.endMin) + ' ' + esc(b.title || 'Booking') +
+                (b.packdownMins ? ' · cleared by ' + B.hhmm(b.endMin + b.packdownMins) : '') + '</div>' +
+              '<div>' + esc(b.people) + ' people' + (b.layout ? ', set out ' + esc((LAY[b.layout] || b.layout).toLowerCase()) : '') + '</div>' +
+              (b.av && b.av.needed ? '<div>Sound and projection: ' + esc(b.av.what || 'yes') + '</div>' : '') +
+              ((b.resources || []).length ? '<div>Kit: ' + b.resources.map(function (x) { var h = kitHome(x.id); return esc(x.qty + ' × ' + x.name) + (h && h !== r.name ? ' (from ' + esc(h) + ')' : ''); }).join(', ') + '</div>' : '') +
+              (f.needed ? '<div>Refreshments' + (f.servingAt ? ' at ' + esc(f.servingAt) : '') + ': ' + (f.items || []).map(function (i) { return esc(i.qty + ' × ' + i.name); }).join(', ') + (diets(f) ? ' (' + esc(diets(f)) + ')' : '') + '</div>' : '') +
+              (b.notes ? '<div>Notes: ' + esc(b.notes) + '</div>' : '') +
+              '<div class="hint">' + esc(q.name || b.memberName || '') + (q.phone ? ', ' + esc(q.phone) : '') + '</div></div>';
+          }).join('') + '</div>';
+        }).join('') : '<p class="hint">Nothing to set up.</p>') +
+        (food.length ? '<div class="kitchen" data-kitchen="' + d + '"><b>Kitchen</b>' + food.map(function (b) {
+          var f = b.refreshments;
+          return '<div>' + esc(f.servingAt || B.hhmm(b.startMin)) + ', ' + esc(room(b.roomId).name) + ': ' + (f.items || []).map(function (i) { return esc(i.qty + ' × ' + i.name); }).join(', ') +
+            (diets(f) ? '; ' + esc(diets(f)) : '') + (f.notes ? '; ' + esc(f.notes) : '') + '</div>';
+        }).join('') + '</div>' : '') + '</section>';
+    }).join('');
+    el.innerHTML = '<div class="card"><div class="row"><div class="f"><label class="l" for="s-day">From</label><input class="inp" type="date" id="s-day" value="' + esc(V.day) + '"></div>' +
+      '<div><button class="tab' + (span === 1 ? ' on' : '') + '" id="s-1">One day</button> <button class="tab' + (span === 7 ? ' on' : '') + '" id="s-7">A week</button></div>' +
+      '<div style="margin-left:auto"><button class="btn" id="s-print">Print</button></div></div>' +
+      '<div id="print"><h2 style="font-size:18px">Setup sheet: ' + esc(site().name) + ', ' + esc(EGBCEvents.fmtDate(days[0] + 'T12:00')) +
+        (span > 1 ? ' to ' + esc(EGBCEvents.fmtDate(days[span - 1] + 'T12:00')) : '') + '</h2>' + body + '</div></div>';
+    document.getElementById('s-day').onchange = function () { if (this.value) { V.day = this.value; drawSetup(el); } };
+    document.getElementById('s-1').onclick = function () { V.span = 1; drawSetup(el); };
+    document.getElementById('s-7').onclick = function () { V.span = 7; drawSetup(el); };
+    document.getElementById('s-print').onclick = function () { window.print(); };
   }
 
   /* Every room at the site on one day, with what is booked. */

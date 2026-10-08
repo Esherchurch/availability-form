@@ -14,6 +14,10 @@
        contact: true,       the public give their name and email
        onChange: fn         called whenever anything changes
      })
+     EGBCBookForm.dates(el, [{ day, ok, why }])  the dates of a repeating
+       booking, each with a tick; the page says which are free. A date
+       that is not free cannot be ticked; any other can be unticked to
+       leave it out (a holiday week).
      EGBCBookForm.values(el)  -> what was filled in
 
    It only collects. Whether the time is free, and whether the booking is
@@ -36,7 +40,11 @@
     '.bf .item{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}.bf .item .inp{width:80px;height:34px}' +
     '.bf .item span{flex:1;min-width:140px;font-size:14px}.bf .hint{font-size:13px;color:var(--muted,#6b7280)}' +
     '.bf .trap{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}' +
-    '.bf .hidden{display:none}';
+    '.bf .hidden{display:none}' +
+    '.bf .dl{border:1px solid var(--line,#e5e7eb);border-radius:8px;max-height:260px;overflow:auto;margin-top:8px}' +
+    '.bf .dl label{display:flex;gap:8px;align-items:center;padding:7px 10px;border-top:1px solid #f1f3f4;font-size:14px;margin:0;font-weight:400}' +
+    '.bf .dl label:first-child{border-top:none}.bf .dl .why{margin-left:auto;font-size:12px;color:var(--muted,#6b7280);text-align:right}' +
+    '.bf .dl .no{color:var(--danger,#b0392c)}.bf .dl input{width:16px;height:16px;accent-color:var(--brand,#3d6263);flex:none}';
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function css() {
@@ -84,6 +92,12 @@
         '<div class="field"><label class="l" for="bf-pack">Time to clear away after</label><select id="bf-pack">' + mins(o.pack || 0) + '</select></div>' +
       '</div>' +
       '<p class="hint" style="margin:-4px 0 10px">The room is held for these too, so nobody else is booked in while you set up or clear away.</p>' +
+      '<div class="two">' +
+        '<div class="field"><label class="l" for="bf-rep">Repeats</label><select id="bf-rep"><option value="">Just this once</option>' +
+          Object.keys(EGBCBookings.RULES).map(function (k) { return '<option value="' + k + '">' + esc(EGBCBookings.RULES[k]) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field hidden" id="bf-until-f"><label class="l" for="bf-until">Until</label><input class="inp" type="date" id="bf-until"></div>' +
+      '</div>' +
+      '<div id="bf-dates" class="hidden" style="margin:-4px 0 12px"></div>' +
       '<div class="field"><label class="l" for="bf-title">What is it for?</label><input class="inp" id="bf-title" maxlength="120" placeholder="' + (o.contact ? 'A birthday party' : 'Band practice') + '"></div>' +
       '<div class="two">' +
         '<div class="field"><label class="l" for="bf-people">How many people</label><input class="inp" id="bf-people" type="number" min="1" inputmode="numeric" value="' + esc(o.people || '') + '"></div>' +
@@ -130,6 +144,11 @@
 
     function q(s) { return el.querySelector(s); }
     if (q('#bf-av')) q('#bf-av').onchange = function () { q('#bf-av-more').classList.toggle('hidden', !this.checked); };
+    q('#bf-rep').addEventListener('change', function () {
+      q('#bf-until-f').classList.toggle('hidden', !this.value);
+      q('#bf-dates').classList.toggle('hidden', !this.value);
+      if (this.value && !q('#bf-until').value && q('#bf-day').value) q('#bf-until').value = EGBCBookings.addDays(q('#bf-day').value, 7 * 9);
+    });
     if (q('#bf-ref')) q('#bf-ref').onchange = function () { q('#bf-ref-more').classList.toggle('hidden', !this.checked); };
     el.oninput = el.onchange = function () {
       var v = values(el);
@@ -166,11 +185,29 @@
         return { id: x.dataset.id, name: k.name || '', qty: Math.round(+x.value) };
       }),
       notes: val('#bf-notes'),
+      repeat: { rule: val('#bf-rep'), until: val('#bf-rep') ? val('#bf-until') : '' },
+      /* Dates of a repeating booking left out, on purpose or because they clash. */
+      skip: [].slice.call(el.querySelectorAll('.bf-date')).filter(function (x) { return !x.checked; }).map(function (x) { return x.value; }),
       requester: o.contact ? { name: val('#bf-name'), email: val('#bf-email').toLowerCase(), phone: val('#bf-phone'), org: val('#bf-org') } : null,
       trap: val('#bf-website')
     };
   }
 
-  global.EGBCBookForm = { render: render, values: values };
+  /* The dates of a repeating booking. The ticks a person set are kept when
+     the list is drawn again. */
+  function dates(el, list) {
+    var box = el.querySelector('#bf-dates'); if (!box) return;
+    var was = {};
+    [].slice.call(box.querySelectorAll('.bf-date')).forEach(function (x) { was[x.value] = x.checked; });
+    var n = list.filter(function (d) { return d.ok && was[d.day] !== false; }).length;
+    box.innerHTML = '<p class="hint" style="margin:0" id="bf-count">' + n + ' of ' + list.length + ' dates will be booked. Untick any you do not want.</p>' +
+      '<div class="dl">' + list.map(function (d) {
+        var on = d.ok && was[d.day] !== false;
+        return '<label><input type="checkbox" class="bf-date" value="' + d.day + '"' + (on ? ' checked' : '') + (d.ok ? '' : ' disabled') + '> ' +
+          esc(EGBCEvents.fmtDate(d.day + 'T12:00')) + '<span class="why' + (d.ok ? '' : ' no') + '">' + esc(d.ok ? 'free' : d.why || 'not free') + '</span></label>';
+      }).join('') + '</div>';
+  }
+
+  global.EGBCBookForm = { render: render, values: values, dates: dates };
 
 })(window);

@@ -63,14 +63,38 @@
     el.innerHTML = '<div class="ch-in">' +
       (D.logoUrl ? '<img class="ch-logo" src="' + esc(D.logoUrl) + '" alt="">' : '') +
       '<span class="ch-name">' + esc(D.name || 'Rooms for hire') + '</span>' +
+      '<span class="ch-hub"></span>' +
       (o.back ? '<a class="ch-back" href="hire.html">&larr; Back to all rooms</a>' : '') + '</div>';
+    /* Martin (F-062): someone already signed in to the hub gets a way back
+       to it. The public never see it - it appears only once the browser
+       says a person is signed in, and this never asks anyone to sign in. */
+    try {
+      firebase.auth(firebase.app('egbc')).onAuthStateChanged(function (u) {
+        var h = el.querySelector('.ch-hub'); if (!h) return;
+        h.innerHTML = u ? '<a class="ch-back" href="hub.html" id="ch-hub">Back to the hub</a>' : '';
+      });
+    } catch (e) { /* no sign-in on this page: nothing to show */ }
+  }
+
+  /* The public pages close their database connection as the visitor leaves.
+     Left open, each page's connection lingers after the next page opens;
+     going back and forth between the rooms and a room a few times filled the
+     browser's few connections to the database, and the next page sat on
+     "Loading…" (seen on the emulator: F-073). A page the browser keeps for
+     the Back button keeps its connection too, so it is closed either way, and
+     a page brought back by Back loads afresh. */
+  function closeOnLeave() {
+    global.addEventListener('pagehide', function () {
+      try { EGBCAuth.db.terminate(); } catch (x) { /* already closed */ }
+    });
+    global.addEventListener('pageshow', function (e) { if (e.persisted) global.location.reload(); });
   }
 
   /* Each page sets its own <title> from this, so the tab shows the church. */
   function title(page) { document.title = page + (D.name ? ' — ' + D.name : ''); }
 
   var api = {
-    load: load, wrap: wrap, send: send, header: header, title: title,
+    load: load, wrap: wrap, send: send, header: header, title: title, closeOnLeave: closeOnLeave,
     name: function () { return D.name; }, email: function () { return D.enquiryEmail; }, logo: function () { return D.logoUrl; }
   };
   global.EGBCChurch = api;

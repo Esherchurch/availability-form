@@ -11,14 +11,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
-<script src="egbc-church.js?v=202610082000"></script>
+<script src="egbc-church.js?v=202610091200"></script>
 <script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610062100"></script>
-<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610082200"></script>
-<script src="egbc-events-bookform.js?v=202610082200"></script>
+<script src="egbc-events-bookings.js?v=202610091200"></script>
+<script src="egbc-events-bookform.js?v=202610091200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -146,16 +146,47 @@
     g('c-book').onclick = function () { openSheet({ room: V.view === 'week' ? V.room : '', day: V.day }); };
   }
 
-  /* ---- your bookings ---- */
+  /* ---- your bookings ----
+     A member can cancel their own (R3). A date of a repeating booking can
+     be cancelled on its own, or with every later date. */
   function drawMine() {
     var up = MINE.filter(function (b) { return b.day >= B.today(); }).sort(function (a, b) { return (a.day + a.startMin / 10000) < (b.day + b.startMin / 10000) ? -1 : 1; });
     document.getElementById('mine').innerHTML = '<h2>Your bookings</h2>' + (up.length ? up.map(function (b) {
-      var r = roomById(b.roomId) || { name: 'A room' };
+      var r = roomById(b.roomId) || { name: 'A room' }, live = b.status === 'confirmed' || b.status === 'requested';
+      var later = b.series ? up.filter(function (x) { return x.series && x.series.id === b.series.id && x.day > b.day && (x.status === 'confirmed' || x.status === 'requested'); }) : [];
       var pill = { confirmed: '<span class="pill ok">Confirmed</span>', requested: '<span class="pill wait">Waiting for approval</span>',
                    declined: '<span class="pill no">Declined</span>', cancelled: '<span class="pill no">Cancelled</span>' }[b.status] || '';
       return '<div class="bk" data-bk="' + esc(b.key) + '"><div class="t"><b>' + esc(b.title || 'Booking') + '</b><br><span class="hint">' + esc(r.name) + ', ' + esc(B.when(b)) +
-        ' · reference ' + esc(B.ref(b)) + '</span>' + (b.decisionNote && b.status !== 'confirmed' ? '<br><span class="hint">' + esc(b.decisionNote) + '</span>' : '') + '</div>' + pill + '</div>';
-    }).join('') + '<p class="hint" style="margin-top:8px">To change or cancel a booking, ask the office.</p>' : '<p class="hint">Nothing booked yet.</p>');
+        (b.series ? ' · ' + esc(B.RULES[b.series.rule] || '') + ', date ' + b.series.n + ' of ' + b.series.of : '') +
+        ' · reference ' + esc(B.ref(b)) + '</span>' + (b.decisionNote && b.status !== 'confirmed' ? '<br><span class="hint">' + esc(b.decisionNote) + '</span>' : '') +
+        (live ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn sec" data-cancel="one">Cancel</button>' +
+          (later.length ? '<button class="btn sec" data-cancel="later">Cancel this and the ' + later.length + ' after it</button>' : '') + '</div>' : '') +
+        '</div>' + pill + '</div>';
+    }).join('') : '<p class="hint">Nothing booked yet.</p>');
+    document.querySelectorAll('[data-cancel]').forEach(function (btn) {
+      btn.onclick = function () {
+        var b = MINE.filter(function (x) { return x.key === btn.closest('[data-bk]').dataset.bk; })[0];
+        var list = [b].concat(btn.dataset.cancel === 'later' ? MINE.filter(function (x) {
+          return x.series && x.series.id === b.series.id && x.day > b.day && (x.status === 'confirmed' || x.status === 'requested'); }) : []);
+        if (!confirm(list.length > 1 ? 'Cancel these ' + list.length + ' bookings? The rooms become free for others.' : 'Cancel this booking? The room becomes free for others.')) return;
+        cancelMine(list);
+      };
+    });
+  }
+  /* One at a time, so one the office has to deal with does not stop the rest. */
+  function cancelMine(list) {
+    var done = [], stuck = [];
+    list.reduce(function (p, b) {
+      return p.then(function () { return B.cancelOwn(b).then(function (x) { done.push(x); }, function (e) { stuck.push(b); if (!e.shared) throw e; }); });
+    }, Promise.resolve()).then(function () {
+      if (!done.length) return;
+      var r = roomById(done[0].roomId) || { name: 'A room' }, site = SITES.filter(function (s) { return s.id === done[0].siteId; })[0];
+      return Promise.all([B.emailMany(done, r.name, 'cancelled'), B.tellOffice(done, r.name, site, 'cancelled')]);
+    }).then(function () {
+      toast(stuck.length ? (done.length ? 'Cancelled ' + done.length + '. ' : '') + stuck.length + ' overlap a booking the office made: ask the office to cancel ' + (stuck.length === 1 ? 'it' : 'them') + '.'
+        : 'Cancelled, and the room is free again. We have emailed you.');
+      return loadMine().then(drawCal);
+    }).catch(function (e) { toast('Could not cancel: ' + (e.message || e)); loadMine(); });
   }
   function loadMine() {
     return db().collection('bookings').where('memberUid', '==', ME.uid).get().then(function (s) {
@@ -165,7 +196,7 @@
   }
 
   /* ---- the booking sheet ---- */
-  var DAYS = null;
+  var PLAN = null;
   function openSheet(o) {
     var rs = siteRooms();
     var sh = document.getElementById('sheet');
@@ -180,34 +211,58 @@
     document.getElementById('f-go').onclick = submit;
     check(EGBCBookForm.values(document.getElementById('f')));
   }
-  function closeSheet() { document.getElementById('back').style.display = 'none'; DAYS = null; }
+  function closeSheet() { document.getElementById('back').style.display = 'none'; PLAN = null; }
 
-  /* Free or not, and confirmed straight away or waiting, room by room. */
+  /* Free or not, and confirmed straight away or waiting, room by room;
+     for a repeating booking, date by date as well. */
   var checking = 0;
   function check(v) {
-    var go = document.getElementById('f-go'), out = document.getElementById('f-status'), mine = ++checking;
-    go.disabled = true;
+    var go = document.getElementById('f-go'), out = document.getElementById('f-status'), mine = ++checking, form = document.getElementById('f');
+    go.disabled = true; PLAN = null;
     var s = B.slots(B.toMin(v.start), B.toMin(v.end), v.setup, v.pack);
     if (!v.rooms.length) { out.innerHTML = '<div class="st wait">Choose a room.</div>'; return; }
     if (!v.day) { out.innerHTML = '<div class="st wait">Choose a date.</div>'; return; }
     if (v.day < B.today()) { out.innerHTML = '<div class="st no">That date has gone.</div>'; return; }
     if (!s) { out.innerHTML = '<div class="st no">The finish has to be after the start, and with setting up and clearing away it has to fit within the day.</div>'; return; }
-    var rooms = v.rooms.map(roomById);
-    B.loadDays(rooms, v.day).then(function (days) {
+    if (v.repeat.rule && !v.repeat.until) { out.innerHTML = '<div class="st wait">Choose when it stops repeating.</div>'; return; }
+    var rooms = v.rooms.map(roomById), list = v.repeat.rule ? B.repeatDays(v.day, v.repeat.rule, v.repeat.until) : [v.day];
+    if (rooms.length * list.length > 100) { out.innerHTML = '<div class="st no">That is more than 100 bookings at once. Choose fewer rooms or an earlier end.</div>'; return; }
+    Promise.all(list.map(function (d) { return B.loadDays(rooms, d); })).then(function (all) {
       if (mine !== checking) return;
-      DAYS = days;
-      var ok = true, waits = false;
-      out.innerHTML = rooms.map(function (r) {
-        var free = B.free(days[r.id], s), mode = B.memberMode(r, site()), cap = R.holds(r, v.layout || undefined);
-        if (!free) { ok = false; var sv = ''; for (var i = s.from; i < s.to && !sv; i++) sv = days[r.id][i] ? B.serviceAt(site(), r.id, v.day, i) : '';
-          return '<div class="st no"><b>' + esc(r.name) + '</b> is not free then' + (sv ? ' (' + esc(sv) + ')' : '') + '. Pick another time.</div>'; }
-        if (r.fireMax && v.people > r.fireMax) { ok = false; return '<div class="st no"><b>' + esc(r.name) + '</b> can never hold more than ' + r.fireMax + ' people.</div>'; }
+      var days = {}, report = list.map(function (d, i) {
+        var why = '';
+        rooms.forEach(function (r) {
+          days[r.id + '_' + d] = all[i][r.id];
+          if (!why && !B.free(all[i][r.id], s)) {
+            var sv = ''; for (var k = s.from; k < s.to && !sv; k++) sv = all[i][r.id][k] ? B.serviceAt(site(), r.id, d, k) : '';
+            why = r.name + (sv ? ': ' + sv : ' is booked');
+          }
+        });
+        return { day: d, ok: !why, why: why };
+      });
+      if (v.repeat.rule) EGBCBookForm.dates(form, report);
+      var skip = EGBCBookForm.values(form).skip;
+      var chosen = report.filter(function (x) { return x.ok && (!v.repeat.rule || skip.indexOf(x.day) < 0); }).map(function (x) { return x.day; });
+      var ok = chosen.length > 0, waits = false, msgs = [];
+      if (!v.repeat.rule && !report[0].ok) msgs.push('<div class="st no"><b>' + esc(report[0].why.split(':')[0].replace(/ is booked$/, '')) + '</b> is not free then' +
+        (report[0].why.indexOf(':') > 0 ? ' (' + esc(report[0].why.split(': ')[1]) + ')' : '') + '. Pick another time.</div>');
+      if (v.repeat.rule) {
+        var clash = report.filter(function (x) { return !x.ok; }).length;
+        msgs.push('<div class="st ' + (chosen.length ? 'ok' : 'no') + '">' + chosen.length + ' date' + (chosen.length === 1 ? '' : 's') + ' to book' +
+          (clash ? '; ' + clash + ' not free, left out' : '') + '.</div>');
+      }
+      rooms.forEach(function (r) {
+        var mode = B.memberMode(r, site()), cap = R.holds(r, v.layout || undefined);
+        if (r.fireMax && v.people > r.fireMax) { ok = false; msgs.push('<div class="st no"><b>' + esc(r.name) + '</b> can never hold more than ' + r.fireMax + ' people.</div>'); return; }
+        if (!chosen.length) return;
         if (mode === 'approval') waits = true;
-        return '<div class="st ' + (mode === 'approval' ? 'wait' : 'ok') + '"><b>' + esc(r.name) + '</b> is free. ' +
+        msgs.push('<div class="st ' + (mode === 'approval' ? 'wait' : 'ok') + '"><b>' + esc(r.name) + '</b> is free' + (v.repeat.rule ? ' on those dates' : '') + '. ' +
           (mode === 'approval' ? 'Bookings here wait for the office to approve.' : 'It will be confirmed straight away.') +
-          (cap && v.people > cap ? ' It usually holds ' + cap + ' set out that way.' : '') + '</div>';
-      }).join('');
-      if (!v.title || !(v.people > 0)) { ok = false; out.innerHTML += '<div class="st wait">Say what it is for, and how many people.</div>'; }
+          (cap && v.people > cap ? ' It usually holds ' + cap + ' set out that way.' : '') + '</div>');
+      });
+      if (!v.title || !(v.people > 0)) { ok = false; msgs.push('<div class="st wait">Say what it is for, and how many people.</div>'); }
+      out.innerHTML = msgs.join('');
+      if (ok) PLAN = { dates: chosen, days: days, rule: v.repeat.rule };
       go.disabled = !ok;
       go.textContent = waits ? 'Ask for it' : 'Book it';
     });
@@ -215,21 +270,25 @@
   var R = window.EGBCRooms;
 
   function submit() {
-    var v = EGBCBookForm.values(document.getElementById('f')), go = document.getElementById('f-go');
-    if (!DAYS) return;
+    var v = EGBCBookForm.values(document.getElementById('f')), go = document.getElementById('f-go'), plan = PLAN;
+    if (!plan) return;
     go.disabled = true; go.textContent = 'Booking…';
-    var group = v.rooms.length > 1 ? 'g_' + EGBCEvents.key(12) : '', list;
+    var group = v.rooms.length > 1 ? 'g_' + EGBCEvents.key(12) : '', sid = plan.rule ? 's_' + EGBCEvents.key(12) : '', list = [];
     try {
-      list = v.rooms.map(function (id) {
-        return { booking: B.prepare({ kind: 'member', room: roomById(id), site: site(), day: v.day, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
-          title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: v.resources, notes: v.notes, groupId: group }) };
+      v.rooms.forEach(function (id) {
+        plan.dates.forEach(function (d, i) {
+          list.push({ booking: B.prepare({ kind: 'member', room: roomById(id), site: site(), day: d, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
+            title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: v.resources, notes: v.notes, groupId: group,
+            series: sid ? { id: sid, rule: plan.rule, n: i + 1, of: plan.dates.length } : null }) });
+        });
       });
     } catch (e) { toast(e.message); go.disabled = false; return; }
-    B.write(list, DAYS).then(function (made) {
-      return Promise.all(made.map(function (b) {
-        var name = roomById(b.roomId).name;
-        return b.status === 'confirmed' ? B.email(b, name, 'confirmed')
-          : Promise.all([B.email(b, name, 'waiting'), B.tellOffice(b, name)]);
+    B.write(list, plan.days).then(function (made) {
+      /* One email per room: every date in it, and one calendar file. */
+      return Promise.all(v.rooms.map(function (id) {
+        var these = made.filter(function (b) { return b.roomId === id; }), name = roomById(id).name;
+        return these[0].status === 'confirmed' ? B.emailMany(these, name, 'confirmed')
+          : Promise.all([B.emailMany(these, name, 'waiting'), B.tellOffice(these, name, site())]);
       })).then(function () { return made; });
     }).then(function (made) {
       var waits = made.some(function (b) { return b.status !== 'confirmed'; });

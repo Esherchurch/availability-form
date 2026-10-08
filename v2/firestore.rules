@@ -1268,7 +1268,13 @@ service cloud.firestore {
       return d.keys().hasOnly(['kind', 'status', 'siteId', 'roomId', 'groupId', 'day', 'startMin', 'endMin', 'startLocal', 'endLocal',
                                'setupMins', 'packdownMins', 'slotFrom', 'slotTo', 'title', 'people', 'layout', 'av', 'refreshments',
                                'resources', 'notes', 'requester', 'memberUid', 'memberName', 'createdAt', 'calEventId',
-                               'decidedBy', 'decidedByName', 'decidedAt', 'decisionNote', 'override', 'cancelledAt', 'movedAt'])
+                               'decidedBy', 'decidedByName', 'decidedAt', 'decisionNote', 'override', 'cancelledAt', 'movedAt',
+                               'series', 'cancelledBy'])
+             // A repeating booking (R3): one booking per date, each carrying
+             // the series id, which date it is, of how many, and the rule.
+             && (!('series' in d) || (d.series is map && d.series.keys().hasOnly(['id', 'rule', 'n', 'of'])
+                 && d.series.id is string && d.series.id.size() <= 40 && d.series.rule in ['week', 'fortnight', 'month']
+                 && d.series.n is int && d.series.of is int && d.series.n >= 1 && d.series.n <= d.series.of && d.series.of <= 52))
              && d.title is string && d.title.size() <= 120
              && d.notes is string && d.notes.size() <= 2000
              && d.people is int && d.people >= 1
@@ -1313,7 +1319,8 @@ service cloud.firestore {
                   || (active() && resource.data.get('memberUid', '') == request.auth.uid);
       allow create: if key.size() >= 20 && bookingShape()
                     && (memberCreate(key) || publicCreate() || theOffice(request.resource.data.siteId));
-      allow update: if theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId);
+      allow update: if (theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId))
+                    || memberCancel(key);
       allow delete: if false;
     }
 
@@ -1338,9 +1345,46 @@ service cloud.firestore {
              && n.slots[b.slotTo:96] == before[b.slotTo:96];
     }
 
+    // ---- members cancel their own (R3) --------------------------------
+    // A member may cancel their own booking, and nothing else about it. A
+    // confirmed one must give its time back in the same write: the room's
+    // day names it as lastCancel, and that write is allowed only by
+    // unmarksOwnBooking below.
+    function memberCancel(key) {
+      let b = resource.data;
+      let n = request.resource.data;
+      return active() && b.kind == 'member' && b.get('memberUid', '') == request.auth.uid
+             && b.status in ['requested', 'confirmed'] && n.status == 'cancelled'
+             && n.diff(b).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy'])
+             && n.cancelledBy == request.auth.uid
+             && (b.status == 'requested'
+                 || getAfter(/databases/$(database)/documents/roomDays/$(b.roomId + '_' + b.day)).data.get('lastCancel', '') == key);
+    }
+    // Giving the time back: only the member's own confirmed booking, being
+    // cancelled in this same write; only its own quarter-hours, each from
+    // exactly 1 to 0 (so nothing the office booked over it is freed); and
+    // nothing else on the day changes.
+    function unmarksOwnBooking(dayId) {
+      let n = request.resource.data;
+      let o = resource.data;
+      let key = n.get('lastCancel', '');
+      let b = get(/databases/$(database)/documents/bookings/$(key)).data;
+      let a = getAfter(/databases/$(database)/documents/bookings/$(key)).data;
+      return key is string && key.size() >= 20
+             && n.keys().hasOnly(['slots', 'lastBooking', 'roomId', 'day', 'siteId', 'lastCancel'])
+             && n.lastBooking == o.lastBooking && n.roomId == o.roomId && n.day == o.day && n.siteId == o.siteId
+             && b.get('memberUid', '') == request.auth.uid && b.status == 'confirmed' && a.status == 'cancelled'
+             && dayId == b.roomId + '_' + b.day
+             && n.slots is list && n.slots.size() == 96
+             && o.slots[b.slotFrom:b.slotTo].hasOnly([1]) && n.slots[b.slotFrom:b.slotTo].hasOnly([0])
+             && n.slots[0:b.slotFrom] == o.slots[0:b.slotFrom]
+             && n.slots[b.slotTo:96] == o.slots[b.slotTo:96];
+    }
+
     match /roomDays/{dayId} {
       allow read: if true;
-      allow create, update: if theOffice(request.resource.data.get('siteId', '')) || marksNewBooking(dayId);
+      allow create: if theOffice(request.resource.data.get('siteId', '')) || marksNewBooking(dayId);
+      allow update: if theOffice(request.resource.data.get('siteId', '')) || marksNewBooking(dayId) || unmarksOwnBooking(dayId);
       allow delete: if false;
     }
 

@@ -108,6 +108,35 @@
     return hit ? hit.type : '';
   }
 
+  /* ---- repeating bookings (R3) ----
+     rule: 'week', 'fortnight' or 'month' (the same weekday in the same
+     week of the month: the second Tuesday). The first date is always in.
+     At most MAX dates. A month with no fifth Tuesday is skipped. */
+  var MAX = 52;
+  var RULES = { week: 'Every week', fortnight: 'Every two weeks', month: 'Every month, on the same weekday' };
+  function nthOfMonth(day) { return Math.ceil(+day.slice(8, 10) / 7); }
+  function repeatDays(day, rule, until) {
+    if (!rule || !RULES[rule] || !until || until < day) return [day];
+    var out = [day];
+    if (rule === 'week' || rule === 'fortnight') {
+      var step = rule === 'week' ? 7 : 14, d = addDays(day, step);
+      while (d <= until && out.length < MAX) { out.push(d); d = addDays(d, step); }
+      return out;
+    }
+    var n = nthOfMonth(day), w = dow(day), y = +day.slice(0, 4), m = +day.slice(5, 7);
+    var p = function (x) { return (x < 10 ? '0' : '') + x; };
+    for (var k = 1; k < 120 && out.length < MAX; k++) {
+      var mm = m + k, yy = y + Math.floor((mm - 1) / 12); mm = ((mm - 1) % 12) + 1;
+      var first = yy + '-' + p(mm) + '-01', off = (w - dow(first) + 7) % 7, dd = 1 + off + (n - 1) * 7;
+      var cand = yy + '-' + p(mm) + '-' + p(dd);
+      if (dd > 28 && addDays(yy + '-' + p(mm) + '-28', dd - 28).slice(5, 7) !== p(mm)) continue;
+      if (cand > until) break;
+      out.push(cand);
+    }
+    return out;
+  }
+  function seriesWords(rule, n) { return (RULES[rule] || '') + (n ? ', ' + n + ' date' + (n === 1 ? '' : 's') : ''); }
+
   /* ---- members: confirmed straight away, or waiting? ----
      A room says 'instant', 'approval' or 'site' (the default: whatever its
      site says). A site says 'instant' (the default) or 'approval'. The
@@ -142,6 +171,9 @@
       memberUid: o.kind === 'hire' ? '' : (u.uid || ''), memberName: o.kind === 'hire' ? '' : (p.name || ''),
       createdAt: new Date().toISOString()
     };
+    /* A repeating booking: one booking per date, all carrying the same
+       series id, which date of how many it is, and the rule. */
+    if (o.series) d.series = { id: o.series.id, rule: o.series.rule, n: o.series.n, of: o.series.of };
     return d;
   }
 
@@ -153,7 +185,7 @@
       var key = 'bk_' + EGBCEvents.key(28);
       batch.set(db().collection('bookings').doc(key), x.booking);
       if (x.booking.status === 'confirmed') {
-        var sl = days[x.booking.roomId].slice();
+        var sl = (days[x.booking.roomId + '_' + x.booking.day] || days[x.booking.roomId]).slice();
         for (var i = x.booking.slotFrom; i < x.booking.slotTo; i++) sl[i] = 1;
         batch.set(db().collection('roomDays').doc(x.booking.roomId + '_' + x.booking.day),
           { slots: sl, lastBooking: key, roomId: x.booking.roomId, day: x.booking.day, siteId: x.booking.siteId });
@@ -258,6 +290,34 @@
     });
   }
 
+  /* ---- members cancel their own (R3) ----
+     A waiting booking just changes to cancelled. A confirmed one gives its
+     quarter-hours back in the same transaction; the rules let a member do
+     that only for their own booking, only taking 1 back to 0, and only if
+     nothing else holds those quarter-hours too (the office booking over it
+     with a reason). Then the page says to ask the office. */
+  function canSelfCancel(b, daySlots) {
+    if (b.status === 'requested') return true;
+    if (b.status !== 'confirmed') return false;
+    for (var i = b.slotFrom; i < b.slotTo; i++) if (daySlots[i] !== 1) return false;
+    return true;
+  }
+  function cancelOwn(b) {
+    var u = (EGBCAuth.user && EGBCAuth.user()) || {}, bref = db().collection('bookings').doc(b.key), ref = dayRef(b.roomId, b.day);
+    var patch = { status: 'cancelled', cancelledAt: new Date().toISOString(), cancelledBy: u.uid || '' };
+    if (b.status === 'requested') return bref.update(patch).then(function () { return Object.assign({}, b, patch); });
+    return db().runTransaction(function (tx) {
+      return tx.get(ref).then(function (s) {
+        var v = s.exists ? s.data() : null;
+        if (!v || !canSelfCancel(b, v.slots)) { var e = new Error('This booking overlaps one the office made, so the office needs to cancel it.'); e.shared = true; throw e; }
+        var sl = v.slots.slice();
+        for (var i = b.slotFrom; i < b.slotTo; i++) sl[i] = 0;
+        tx.set(ref, { slots: sl, lastBooking: v.lastBooking || '', roomId: v.roomId, day: v.day, siteId: v.siteId, lastCancel: b.key });
+        tx.update(bref, patch);
+      });
+    }).then(function () { return Object.assign({}, b, patch); });
+  }
+
   /* Kit is a warning, not a rule: the rules cannot add up quantities
      across bookings. others: the site's confirmed bookings that day. */
   function kitClash(b, others, kit) {
@@ -338,22 +398,59 @@
   }
 
   /* The office hears about every request that waits for it. */
-  function tellOffice(b, roomName) {
-    var to = (typeof EGBCChurch !== 'undefined' && EGBCChurch.email()) || '';
-    if (!to) return Promise.resolve({ ok: false, error: 'no enquiry email set' });
-    var r = b.requester || {};
-    var body = '<p>' + esc(roomName) + ', ' + esc(when(b)) + (b.title ? ': <strong>' + esc(b.title) + '</strong>' : '') + '.</p>' +
-      '<p>From ' + esc(r.name || b.memberName || '') + (r.org ? ' (' + esc(r.org) + ')' : '') + (b.kind === 'hire' ? ', a hirer' : ', a member') + '.</p>' +
-      '<p>Open <strong>Room bookings</strong> in the hub to approve or decline it.</p>';
-    return EGBCChurch.send({ to: [to], subject: 'Booking request: ' + roomName + ', ' + when(b), html: EGBCChurch.wrap('A booking is waiting for you', body) });
+  /* The office hears about every request that waits for it, and about a
+     member cancelling. It goes to the site's own bookings address (Places,
+     Bookings tab), or the church's enquiry email if the site has none.
+     what: 'request' (the default) or 'cancelled'. list: one booking, or
+     every date of a series. */
+  function tellOffice(list, roomName, site, what) {
+    list = [].concat(list);
+    var b = list[0], to = (site && site.bookingsEmail) || (typeof EGBCChurch !== 'undefined' && EGBCChurch.email()) || '';
+    if (!to) return Promise.resolve({ ok: false, error: 'no address to tell' });
+    var r = b.requester || {}, cancel = what === 'cancelled';
+    var body = '<p>' + esc(roomName) + ', ' + (list.length > 1 ? esc(seriesWords(b.series && b.series.rule, list.length)) + ':</p>' + dateList(list) + '<p>'
+                 : esc(when(b))) + (b.title ? ': <strong>' + esc(b.title) + '</strong>' : '') + '.</p>' +
+      '<p>' + (cancel ? 'Cancelled by ' : 'From ') + esc(r.name || b.memberName || '') + (r.org ? ' (' + esc(r.org) + ')' : '') + (b.kind === 'hire' ? ', a hirer' : ', a member') + '.</p>' +
+      (cancel ? '<p>The time has been given back.</p>' : '<p>Open <strong>Room bookings</strong> in the hub to approve or decline it.</p>');
+    return EGBCChurch.send({ to: [to], subject: (cancel ? 'Booking cancelled: ' : 'Booking request: ') + roomName + ', ' + (list.length > 1 ? list.length + ' dates from ' : '') + when(b),
+      html: EGBCChurch.wrap(cancel ? 'A member cancelled a booking' : 'A booking is waiting for you', body) });
+  }
+  function dateList(list) {
+    return '<ul style="margin:6px 0 12px;padding-left:20px">' + list.map(function (x) { return '<li>' + esc(when(x)) + '</li>'; }).join('') + '</ul>';
   }
   function ref(b) { return String(b.key || '').slice(3, 11).toUpperCase(); }
 
   function when(b) { return EGBCEvents.fmtDate(b.day + 'T12:00') + ', ' + hhmm(b.startMin) + ' to ' + hhmm(b.endMin); }
+  function icsOpts(b, roomName) {
+    return { uid: 'room-booking-' + b.key, title: (b.title || 'Room booking') + ' (' + roomName + ')',
+      description: b.notes || '', location: roomName, start: b.startLocal, end: b.endLocal, allDay: false, status: b.status === 'cancelled' ? 'cancelled' : 'confirmed' };
+  }
   function ics(b, roomName) {
     return EGBCICS.build({ uid: 'room-booking-' + b.key, title: (b.title || 'Room booking') + ' (' + roomName + ')',
       description: b.notes || '', location: roomName, start: b.startLocal, end: b.endLocal, allDay: false, status: b.status === 'cancelled' ? 'cancelled' : 'confirmed' });
   }
+  /* One email for a whole series: the dates listed, and one calendar file
+     holding all of them. A single booking goes to email() below. */
+  function emailMany(list, roomName, what, note) {
+    list = [].concat(list);
+    if (list.length === 1) return email(list[0], roomName, what, note);
+    var b = list[0], to = (b.requester && b.requester.email) || '';
+    if (!to) return Promise.resolve({ ok: false, error: 'no address' });
+    var head = { confirmed: 'Your repeating booking is confirmed', waiting: 'Your repeating booking is waiting for approval', approved: 'Your repeating booking is confirmed',
+                 declined: 'Your repeating booking could not go ahead', cancelled: 'Your bookings have been cancelled' }[what] || 'Your bookings';
+    var body = '<p>' + esc(roomName) + (b.title ? ': <strong>' + esc(b.title) + '</strong>' : '') + ', ' + esc(seriesWords(b.series && b.series.rule, list.length)) + ':</p>' + dateList(list) +
+      (what === 'waiting' ? '<p>Someone at the church will look at it and let you know. Nothing is confirmed until then.</p>' : '') +
+      ((what === 'declined' || what === 'cancelled') && note ? '<p>' + esc(note) + '</p>' : '') +
+      (what === 'confirmed' || what === 'approved' ? '<p style="color:#6b7280;font-size:13px">The calendar file attached adds every date to your diary.</p>' : '') +
+      '<p style="color:#6b7280;font-size:13px">References ' + list.map(function (x) { return esc(ref(x)); }).join(', ') + '</p>';
+    var mail = { to: [to], subject: head + ': ' + roomName + ', ' + list.length + ' dates from ' + when(b), html: EGBCChurch.wrap(head, body) };
+    if (what === 'confirmed' || what === 'approved') {
+      var cal = EGBCICS.buildMany(list.map(function (x) { return icsOpts(x, roomName); }), (b.title || 'Room booking') + ' (' + roomName + ')');
+      mail.attachments = [{ filename: 'booking.ics', content: EGBCICS.base64(cal), type: 'text/calendar' }];
+    }
+    return EGBCChurch.send(mail);
+  }
+
   function email(b, roomName, what, note) {
     var to = (b.requester && b.requester.email) || '';
     if (!to) return Promise.resolve({ ok: false, error: 'no address' });
@@ -378,7 +475,9 @@
               memberMode: memberMode, prepare: prepare, write: write, mark: mark, email: email, when: when,
               approve: approve, decline: decline, cancel: cancel, move: move, kitClash: kitClash,
               workingDays: workingDays, lateItems: lateItems, tellOffice: tellOffice, ref: ref,
-              bar: bar, axis: axis, key: key, FROM: FROM, TO: TO };
+              bar: bar, axis: axis, key: key, FROM: FROM, TO: TO,
+              MAX: MAX, RULES: RULES, repeatDays: repeatDays, seriesWords: seriesWords, canSelfCancel: canSelfCancel, cancelOwn: cancelOwn,
+              emailMany: emailMany, dateList: dateList };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCBookings = api;
 
