@@ -194,7 +194,222 @@
     return acc;
   }
 
+  /* ============ ONE MENU, DRAWN ONE WAY, ON EVERY PAGE ================
+
+     Martin, 9 Oct 2026: the Menu differs between pages. hub.html loaded this
+     file and drew the approved structure; every other page got egbc-shell.js,
+     which still built its own groups out of the registry - Apps, Everyone, AV,
+     Core Team, Worship. Two arrangements of the same pages, which is the whole
+     thing Step N exists to stop, and he found it on the live site.
+
+     So the markup AND the look live here, and both the hub's panel and the
+     shell's call them. Not "the same structure drawn twice" - the same
+     function, so there is nowhere for them to drift apart.
+
+     The container needs class="egbc-menu"; css() puts the rules in once. */
+
+  const CSS = [
+    '.egbc-menu .grp{display:flex;align-items:center;gap:8px;width:100%;padding:12px 8px 6px;margin:4px 0 0;border:0;background:none;cursor:pointer;',
+    '  font:600 12px Inter,system-ui,sans-serif;color:#6b7280;text-align:left;border-radius:6px}',
+    '.egbc-menu .grp:hover{color:#111827}',
+    '.egbc-menu .grp .cnt{margin-left:auto;font-weight:500;color:#9ca3af}',
+    '.egbc-menu .grp .arw{display:inline-flex;align-items:center;color:#9ca3af;transition:transform .18s;',
+    '  border:0;background:none;padding:0;cursor:pointer}',
+    '.egbc-menu .grp.open .arw{transform:rotate(90deg)}',
+    /* A heading that is also a page: the words open the charter, the arrow
+       expands the group. */
+    /* A heading that is also a page has to LOOK like something you can press.
+       With no underline it read as a heading, and the three charters - Worship
+       & AV, Youth, Core Team - were links nobody could tell were links. That
+       is the fault Martin hit from the other side when he could not find the
+       charters at all. Dotted at rest, solid on hover: visible, not shouty. */
+    '.egbc-menu .grp .grp-link{color:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;text-decoration-color:#9ca3af}',
+    '.egbc-menu .grp .grp-link:hover{color:#111827;text-decoration-style:solid;text-decoration-color:currentColor}',
+    '.egbc-menu .grp .dot{width:8px;height:8px;border-radius:50%;background:#3d6263}',
+    '.egbc-menu .grp-body{overflow:hidden;max-height:0;transition:max-height .22s ease}',
+    '.egbc-menu .grp-body.open{max-height:2400px}',
+    /* A heading inside a group - Worship, AV, Music Databases, Planning.
+       Quieter than the group above it and than the pages below it, so the
+       three levels read as three levels. */
+    '.egbc-menu .grp-body .sub{font-size:12px;font-weight:500;color:#9ca3af;margin:10px 0 2px;letter-spacing:.01em}',
+    '.egbc-menu .tool{display:flex;align-items:center;gap:12px;padding:8px;border-radius:8px;text-decoration:none;color:#111827;transition:background .12s;min-width:0}',
+    '.egbc-menu .tool:hover{background:#f3f4f6}',
+    '.egbc-menu .tool.on{background:#eef5f4}',
+    '.egbc-menu .tool .ic{width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;justify-content:center;color:#3d6263;flex-shrink:0}',
+    '.egbc-menu .tool .nm{font-size:14px;font-weight:500;line-height:1.3}',
+    '.egbc-menu .tool .ds{display:block;font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.egbc-menu .tool .tx{min-width:0}',
+    /* Beside the name, not under it. As a block it made the row three lines
+       tall, and the icon no longer sat level with the first of them - which
+       is exactly what the icon check calls "icon on its own line", and it
+       said so. */
+    '.egbc-menu .tool em{font-size:11px;font-style:normal;color:#3d6263;font-weight:600;margin-left:6px}',
+    '.egbc-menu .mt-empty{padding:22px 10px;text-align:center;font-size:13px;color:#6b7280}'
+  ].join('\n');
+
+  function css() {
+    if (document.getElementById('egbc-menu-css')) return;
+    var s = document.createElement('style');
+    s.id = 'egbc-menu-css';
+    s.textContent = CSS;
+    document.head.appendChild(s);
+  }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+  }
+
+  /* An icon, however the page draws them. The hub has Lucide loaded and
+     swaps <i data-lucide> in place; a page without it still gets the element
+     and simply shows nothing, which is what it did before. */
+  function icon(name, size) {
+    return '<i data-lucide="' + esc(name || 'file') + '" style="width:' +
+      (size || 18) + 'px;height:' + (size || 18) + 'px"></i>';
+  }
+
+  /* THE MENU AS HTML.
+   *
+   *   who         from EGBCMenu.who(), or passed in for a test
+   *   query       what is typed in the search box; searching flattens the
+   *               tree, because when you are hunting for one page the
+   *               headings are in the way
+   *   here        the file name of the page being looked at, so it can say
+   *               "You are here"
+   *   switchedOff a function(url) -> true for a page an admin has disabled.
+   *               The registry still decides what is switched ON; this
+   *               decides where it sits.
+   */
+  function panelHtml(opts) {
+    opts = opts || {};
+    const who = opts.who || api.who();
+    const q = String(opts.query || '').trim().toLowerCase();
+    const here = String(opts.here || '').toLowerCase();
+    const off = opts.switchedOff || function () { return false; };
+
+    const matches = (n) =>
+      !q || ((n.title || '') + ' ' + (n.description || '')).toLowerCase().indexOf(q) !== -1;
+
+    function filterTree(nodes) {
+      const out = [];
+      for (const n of nodes) {
+        if (n.url && off(n.url)) continue;
+        const kids = n.children ? filterTree(n.children) : null;
+        if (!(matches(n) || (kids && kids.length))) continue;
+        out.push(kids && kids.length ? Object.assign({}, n, { children: kids })
+                                     : Object.assign({}, n, { children: undefined }));
+      }
+      return out;
+    }
+
+    const tree = filterTree(prune(TREE, who));
+    if (!tree.length) {
+      return '<div class="mt-empty">' + (q ? 'Nothing matches that.' : 'Nothing here.') + '</div>';
+    }
+
+    const isHere = (n) => here && String(n.url || '').toLowerCase() === here;
+
+    /* One row, whether it is a page or a heading that is also a page. */
+    const row = (n, depth) =>
+      '<a class="tool' + (isHere(n) ? ' on' : '') + '" href="' + esc(n.url) +
+        '" title="' + esc(n.description || '') + '"' +
+        (depth ? ' style="padding-left:' + (14 + depth * 14) + 'px"' : '') + '>' +
+        '<span class="ic">' + icon(n.icon, 18) + '</span>' +
+        '<span class="tx"><span class="nm">' + esc(n.title) + '</span>' +
+        (isHere(n) ? '<em>You are here</em>' : '') +
+        '<span class="ds">' + esc(n.description || '') + '</span></span>' +
+      '</a>';
+
+    /* Searching flattens it. */
+    if (q) {
+      const flat = [];
+      (function walk(nodes) {
+        nodes.forEach(function (n) {
+          if (n.url && matches(n)) flat.push(n);
+          if (n.children) walk(n.children);
+        });
+      })(tree);
+      return flat.length ? flat.map(function (n) { return row(n, 0); }).join('')
+                         : '<div class="mt-empty">Nothing matches that.</div>';
+    }
+
+    function inner(nodes, depth) {
+      return nodes.map(function (n) {
+        if (!n.children) return row(n, depth);
+        return '<div class="sub" style="padding-left:' + (14 + depth * 14) + 'px">' +
+                 esc(n.title) + '</div>' +
+               (n.url ? row(n, depth + 1) : '') +
+               inner(n.children, depth + 1);
+      }).join('');
+    }
+
+    /* Which group opens itself: the one holding the page being looked at,
+       otherwise Core Team for Core Team and Worship & AV for everybody else -
+       the section each person lives in. Everything open at once is the wall
+       this replaced. */
+    const holdsHere = (n) => {
+      let found = false;
+      (function walk(nodes) {
+        nodes.forEach(function (c) {
+          if (isHere(c)) found = true;
+          if (c.children) walk(c.children);
+        });
+      })(n.children || []);
+      return found || isHere(n);
+    };
+
+    return tree.map(function (n, i) {
+      if (!n.children) return row(n, 0);
+      const open = holdsHere(n) || (who.isCore ? n.title === 'Core Team' : n.title === 'Worship & AV');
+      const count = inner(n.children, 0).split('class="tool').length - 1;
+      /* A heading that is ALSO a page - Worship & AV, Youth, Core Team - opens
+         its charter, as on the original. So the words are a link and the arrow
+         is what expands it. */
+      const head = n.url
+        ? '<a class="grp-link" href="' + esc(n.url) + '" title="' + esc(n.description || '') + '">' + esc(n.title) + '</a>'
+        : '<span>' + esc(n.title) + '</span>';
+      return '<div class="grp' + (open ? ' open' : '') + '">' +
+          '<button class="arw" onclick="EGBCMenu.toggleGroup(this.parentElement)" aria-label="Show or hide ' + esc(n.title) + '">' +
+            icon('chevron-right', 14) + '</button>' +
+          '<span class="dot"></span>' + head +
+          '<span class="cnt">' + count + '</span>' +
+        '</div>' +
+        '<div class="grp-body' + (open ? ' open' : '') + '">' + inner(n.children, 0) + '</div>';
+    }).join('');
+  }
+
+  /* Draw it into an element, put the CSS in, and let the page swap its icons.
+     Both the hub and the shell call this and nothing else. */
+  function paint(el, opts) {
+    if (!el) return;
+    css();
+    el.classList.add('egbc-menu');
+    el.innerHTML = panelHtml(opts);
+    /* §19: "Powered by Church HQ", under the last item. Here rather than in
+       the two panels, so the shell's Menu and the hub's cannot end up with
+       one having it and the other not. Quiet by design: the church's own
+       name and logo are the brand everywhere else on the screen.
+
+       A page that has not loaded the snippet simply has no credit, which is
+       better than the Menu failing to draw. */
+    if (window.EGBCPoweredBy) {
+      el.insertAdjacentHTML('beforeend', EGBCPoweredBy.html({ padding: '18px 12px 10px' }));
+    }
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+    else if (window.lucide && lucide.createIcons) lucide.createIcons();
+  }
+
+  function toggleGroup(grp) {
+    if (!grp) return;
+    const body = grp.nextElementSibling;
+    const open = grp.classList.toggle('open');
+    if (body) body.classList.toggle('open', open);
+  }
+
   window.EGBCMenu = {
+
     TREE: TREE,
     OPENED_FROM_A_TOOL: OPENED_FROM_A_TOOL,
     /* who: { isCore, isAdmin } */
@@ -213,6 +428,15 @@
            which is the safe way round. */
         isBookingsAdmin: window.EGBC_BOOKINGS_ADMIN === true
       };
-    }
+    },
+
+    /* The Menu as HTML, and the one way of drawing it. Both the hub's panel
+       and egbc-shell.js's call paint() - not two renderers agreeing, one
+       renderer. */
+    panelHtml: panelHtml,
+    paint: paint,
+    css: css,
+    toggleGroup: toggleGroup
   };
+  const api = window.EGBCMenu;
 })();

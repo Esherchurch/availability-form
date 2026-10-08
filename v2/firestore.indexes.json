@@ -1,12 +1,46 @@
 {
   "indexes": [
     {
-      "__comment": "What's On asks for the events whose audience includes one of mine, from now on, soonest first. Firestore will not run that without this index - the emulator makes one up as it goes, so it only bites in production. Martin deploys it with the rules.",
+      "__comment": "What's On asks for the events whose audience includes one of mine, from now on, soonest first. Firestore will not run that without this index - the emulator makes one up as it goes, so it only bites in production. Martin deploys it with the rules. Created live from the console on 8 Oct 2026, and this matches it.",
       "collectionGroup": "calEvents",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "audience", "arrayConfig": "CONTAINS" },
         { "fieldPath": "startUtc", "order": "ASCENDING" }
+      ]
+    },
+
+    {
+      "__comment": "THE FOUR KNOWLEDGE-BASE PAGES. These four indexes already exist in the live project and were not in this file. That is not a tidiness problem: `firebase deploy --only firestore:indexes` deletes what the live project has and this file does not, so a deploy would have taken all four away and the four pages would have stopped listing anything. Written here exactly as they are live - published ascending, createdAt descending - so a deploy leaves them alone. Do not reorder the fields: the order IS the index.",
+      "collectionGroup": "kb_howto_av",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "kb_playthrough",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "kb_training_worship",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "kb_troubleshoot_av",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],

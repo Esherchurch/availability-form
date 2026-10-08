@@ -20,6 +20,7 @@ Run every one of these from `v2/`, not from here.
 | A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
 | "My calendar" works through the browser, end to end | `node tests/check-calendar-end-to-end.mjs` |
 | An email carries this church's name and address, not one in the code | `node tests/check-email-church-details.mjs` |
+| "Powered by Church HQ" is in its three places and nowhere else | `node tests/check-poweredby.mjs` (add `--shots`) |
 | The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
@@ -153,3 +154,22 @@ and the Sunday Service Planner use.
 Other checks rewrite this account's profile to suit themselves — `check-menu.mjs`
 reads the Menu as three different people and leaves it as the last one. Set it
 back before a style sweep, or the sweep reports on doors.
+
+## The Menu, and where it is checked
+
+`check-menu.mjs` does two things, and the second is the one Step N needed.
+
+1. It reads the Menu on the hub as three different people, and as a fourth who
+   looks after a site's room bookings without being on Core Team, and compares
+   it name for name with the structure Martin approved — **written out by hand
+   in the check**, not read from `egbc-menu.js`, so the check cannot agree with
+   itself.
+2. It then opens the Menu on **every page** — 77 looked at, 55 with a Menu —
+   and fails if any of them differs from the hub's.
+
+The second exists because the first was not enough. The Menu was right on the
+hub and wrong on the other 55 pages for a fortnight, and a check that read one
+page could not see it (A-024 in `FINDINGS-app.md`).
+
+Pages with no Menu are listed in the check with the reason — public pages,
+phone apps, the out-of-scope apps — and a page falling out of that list fails.

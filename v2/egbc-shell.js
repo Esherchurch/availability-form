@@ -102,26 +102,10 @@
       'font-family:inherit;font-size:14px;outline:none;background:#fff;color:var(--egbc-ink)}',
       '#egbc-nav .en-q:focus{border-color:var(--egbc-brand);box-shadow:0 0 0 3px rgba(61,98,99,.15)}',
       '#egbc-nav .en-list{flex:1;overflow-y:auto;padding:6px 12px 24px}',
-      '#egbc-nav .en-g{display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;',
-      'font:inherit;font-size:12px;font-weight:600;color:var(--egbc-muted);background:none;border:0;',
-      'border-radius:6px;padding:10px 8px 6px;margin:6px 0 0}',
-      '#egbc-nav .en-g:hover{color:var(--egbc-ink)}',
-      '#egbc-nav .en-g .en-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}',
-      '#egbc-nav .en-g .en-cnt{margin-left:auto;font-weight:500;color:var(--egbc-faint)}',
-      '#egbc-nav .en-g .en-arw{display:inline-flex;transition:transform .18s;color:var(--egbc-faint)}',
-      '#egbc-nav .en-g.open .en-arw{transform:rotate(90deg)}',
-      '#egbc-nav .en-b{overflow:hidden;max-height:0;transition:max-height .22s ease}',
-      '#egbc-nav .en-b.open{max-height:2400px}',
-      '#egbc-nav .en-i{display:flex;align-items:center;gap:12px;padding:8px;border-radius:8px;',
-      'text-decoration:none;color:var(--egbc-ink);transition:background .12s}',
-      '#egbc-nav .en-i:hover{background:#f3f4f6}',
-      '#egbc-nav .en-i.on{background:var(--egbc-tint)}',
-      '#egbc-nav .en-ic{width:34px;height:34px;border-radius:8px;border:1px solid var(--egbc-line);background:#fff;display:flex;',
-      'align-items:center;justify-content:center;color:var(--egbc-brand);flex-shrink:0}',
-      '#egbc-nav .en-t{font-size:14px;font-weight:500;line-height:1.3;min-width:0}',
-      '#egbc-nav .en-d{display:block;font-size:12px;font-weight:400;color:var(--egbc-muted);margin-top:1px;',
-      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '#egbc-nav .en-t em{font-style:normal;font-size:11px;font-weight:500;color:var(--egbc-brand);margin-left:6px}',
+      /* The Menu rows and group headings are drawn by egbc-menu.js, which
+         brings its own look - one set of rules for the hub and every other
+         page, so they cannot drift apart. What is left here is the panel
+         around them: the header, the close button and the search box. */
       '#egbc-nav .en-e{padding:26px 16px;font-size:13px;color:var(--egbc-muted);text-align:center}',
 
       '@media(max-width:700px){',
@@ -232,20 +216,6 @@
 
   var NAV = null;   /* cached page list */
 
-  /* The apps that can be installed on a phone, in the order they are most
-     used. These are pages like any other - the heading exists so that
-     somebody standing in Core Team can find their way to the rota without
-     knowing it is a different app.
-
-     Worship Hub, Mix Builder and Calla Design are deliberately absent:
-     they are out of scope for the one-app brief, and listing them here
-     would quietly bring them into it.
-
-     Each row still goes through maySee(), so nobody is offered a planner
-     they cannot open. */
-  /* One list, in egbc-ui.js, which this file already loads. */
-  function installedApps() { return (window.EGBCUI && EGBCUI.APPS) || []; }
-
   function navPanel() {
     var p = document.getElementById('egbc-nav');
     if (p) return p;
@@ -274,181 +244,90 @@
     return p;
   }
 
-  /* The same exclusions the hub makes. A charter is read on the landing
-     page, a phone app is installed rather than browsed to, and an
-     instruction page hangs off the tool it explains - so all three are noise
-     in a list of places to go. */
-  var NAV_SKIP = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html',
-                  'performancenotes.html', 'worshipteamcharter.html',
-                  'youthcharter.html', 'coreteamcharter.html',
-                  'avteamlandingpage.html', 'egbcworship&av.html'];
+  /* ================= THE MENU IS egbc-menu.js, EVERYWHERE =============
 
-  function pageTeams(p) {
-    if (p.teams && p.teams.length) return p.teams;
-    return p.team ? [p.team] : [];
+     Martin, 9 Oct 2026, on the live whatson.html: the Menu differs between
+     pages. It did. hub.html loaded egbc-menu.js and drew the structure he
+     approved; every other page got this file, which built its own groups out
+     of the registry - Apps, Everyone, AV, Core Team, Worship. Two arrangements
+     of the same pages, which is the one thing Step N exists to stop, and the
+     reason he could not find anything in the first place.
+
+     So this file no longer arranges anything. It loads egbc-menu.js and calls
+     EGBCMenu.paint, which is the same function the hub's panel calls. Not two
+     renderers kept in step - one renderer.
+
+     NO PAGE NEEDS A SCRIPT TAG FOR IT. This loads it, so the Menu is right on
+     a page nobody remembered to update. */
+
+  var MENU_SRC = 'egbc-menu.js';
+  var POWERED_SRC = 'egbc-poweredby.js';
+  var menuLoading = null;
+
+  /* Alongside this file, with our own version stamp on it, so a cached copy
+     of one is never paired with a fresh copy of the other. */
+  function sibling(name) {
+    var me = document.querySelector('script[src*="egbc-shell.js"]');
+    var base = me ? me.getAttribute('src').split('egbc-shell.js')[0] : '';
+    var stamp = me ? (me.getAttribute('src').split('?v=')[1] || '') : '';
+    return base + name + (stamp ? '?v=' + stamp : '');
   }
 
-  function maySee(p) {
-    if (p.enabled === false || p.heading || !p.url) return false;
-    if (p.helpFor) return false;
-    if (NAV_SKIP.indexOf(decodeURIComponent(p.url).toLowerCase()) !== -1) return false;
-    /* Was asking about the single `team` field, so a page belonging to
-       several only showed to admins of the first. */
-    if (p.adminOnly && !pageTeams(p).some(function (t) { return EGBCAuth.isAdminOf(t); })) return false;
-    if (p.everyone) return true;
-    if (EGBCAuth.isMaster()) return true;
-    var mine = EGBCAuth.effectiveTeams();
-    var admin = EGBCAuth.adminAreas();
-    return pageTeams(p).some(function (t) { return mine.indexOf(t) !== -1 || admin.indexOf(t) !== -1; });
-  }
-
-  /* ---- grouped the way the hub groups them ---------------------------
-
-     This list was flat, and on a master admin's screen that is forty-odd
-     pages in one column with the old ones mixed in. The hub already solved
-     it: headings you can fold, a count on each, everyone's pages at the top.
-     Same shape here, so the two do not feel like different products. */
-
-  var SHARED = '__shared';
-
-  function groupOf(p) {
-    if (p.everyone) return SHARED;
-    var list = pageTeams(p);
-    return list.length ? list[0] : SHARED;
-  }
-
-  function groupInfo(key) {
-    if (key === SHARED) return { label: 'Everyone', colour: '#6b8281' };
-    var t = EGBCAuth.TEAMS && EGBCAuth.TEAMS[key];
-    return { label: (t && t.label) || key, colour: (t && t.colour) || '#6b8281' };
-  }
-
-  /* Everyone first, then your own areas, then the rest alphabetically. */
-  function groupOrder(keys) {
-    var mine = (EGBCAuth.effectiveTeams() || []).concat(EGBCAuth.adminAreas() || []);
-    return keys.sort(function (a, b) {
-      if (a === SHARED) return -1;
-      if (b === SHARED) return 1;
-      var am = mine.indexOf(a) !== -1, bm = mine.indexOf(b) !== -1;
-      if (am !== bm) return am ? -1 : 1;
-      return groupInfo(a).label.localeCompare(groupInfo(b).label);
+  /* §19's credit, on the end of the Menu. It is drawn by egbc-menu.js, which
+     only needs this to be loaded first. A page where it fails to load gets a
+     Menu with no credit, which is the right way round. */
+  function loadPoweredBy() {
+    if (window.EGBCPoweredBy) return Promise.resolve();
+    return new Promise(function (res) {
+      var s = document.createElement('script');
+      s.src = sibling(POWERED_SRC);
+      s.onload = res; s.onerror = function () { res(); };
+      document.head.appendChild(s);
     });
   }
 
-  /* The Menu, openable from anywhere - the hub's More tab needs it, and
-     clicking the bar button from script is a trick that breaks the first
-     time somebody renames the button. */
-  window.EGBCShell = { openMenu: function () { openNav(); } };
-
-  window.egbcToggleGroup = function (btn) {
-    btn.classList.toggle('open');
-    var body = btn.nextElementSibling;
-    if (body) body.classList.toggle('open');
-  };
-
-  function renderNav(q) {
-    var list = document.getElementById('egbc-nav-list');
-    if (!NAV) { list.innerHTML = '<div class="en-e">Loading&hellip;</div>'; return; }
-
-    var here = (location.pathname.split('/').pop() || '').toLowerCase();
-    var rows = NAV.filter(maySee).filter(function (p) {
-      if (!q) return true;
-      return (p.title || '').toLowerCase().indexOf(q) !== -1 ||
-             (p.description || '').toLowerCase().indexOf(q) !== -1;
+  function loadMenuScript() {
+    if (window.EGBCMenu) return Promise.resolve();
+    if (menuLoading) return menuLoading;
+    menuLoading = new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = sibling(MENU_SRC);
+      s.onload = res;
+      s.onerror = function () { rej(new Error('could not load ' + s.src)); };
+      document.head.appendChild(s);
     });
-
-    if (!rows.length) { list.innerHTML = '<div class="en-e">Nothing matches that.</div>'; return; }
-
-    var item = function (p) {
-      var on = decodeURIComponent(p.url).toLowerCase() === decodeURIComponent(here);
-      return '<a class="en-i' + (on ? ' on' : '') + '" href="' + p.url + '">' +
-               '<span class="en-ic">' + ic(pageIc(p), 18) + '</span>' +
-               '<span class="en-t">' + String(p.title || '').replace(/</g, '&lt;') +
-               (on ? '<em>You are here</em>' : '') +
-               (p.description ? '<span class="en-d">' + String(p.description).replace(/</g, '&lt;') + '</span>' : '') +
-               '</span>' +
-             '</a>';
-    };
-
-    /* Searching flattens it. When you are hunting for one page, headings are
-       in the way. */
-    if (q) { list.innerHTML = rows.map(item).join(''); return; }
-
-    var buckets = {};
-    rows.forEach(function (p) {
-      var k = groupOf(p);
-      (buckets[k] = buckets[k] || []).push(p);
-    });
-
-    /* The group holding the page you are on opens itself, along with the
-       shared one. Everything expanded at once is the wall this replaced. */
-    var hereGroup = null;
-    rows.forEach(function (p) {
-      if (decodeURIComponent(p.url).toLowerCase() === decodeURIComponent(here)) hereGroup = groupOf(p);
-    });
-
-    /* Apps first, then the pages. An app is a page you can keep on your
-       home screen; the heading is what tells people that. */
-    var appRows = installedApps().filter(function (a) {
-      var reg = NAV.filter(function (p) {
-        return decodeURIComponent(String(p.url || '')).toLowerCase() === a.url.toLowerCase();
-      })[0];
-      return reg ? maySee(reg) : true;
-    });
-    var appsHtml = appRows.length
-      ? '<button class="en-g open" onclick="egbcToggleGroup(this)">' +
-          '<span class="en-arw">' + ic('chevron-right', 14) + '</span>' +
-          '<span class="en-dot" style="background:#3d6263"></span>' +
-          '<span>Apps</span>' +
-          '<span class="en-cnt">' + appRows.length + '</span>' +
-        '</button>' +
-        '<div class="en-b open">' + appRows.map(item).join('') + '</div>'
-      : '';
-
-    list.innerHTML = appsHtml + groupOrder(Object.keys(buckets)).map(function (k, i) {
-      var g = groupInfo(k);
-      var open = (k === SHARED) || k === hereGroup || (i === 0);
-      return '<button class="en-g' + (open ? ' open' : '') + '" onclick="egbcToggleGroup(this)">' +
-               '<span class="en-arw">' + ic('chevron-right', 14) + '</span>' +
-               '<span class="en-dot" style="background:' + g.colour + '"></span>' +
-               '<span>' + g.label.replace(/</g, '&lt;') + '</span>' +
-               '<span class="en-cnt">' + buckets[k].length + '</span>' +
-             '</button>' +
-             '<div class="en-b' + (open ? ' open' : '') + '">' +
-               buckets[k].map(item).join('') +
-             '</div>';
-    }).join('');
+    return menuLoading;
   }
 
-  function openNav() {
-    navPanel();
-    document.getElementById('egbc-nav-scrim').classList.add('on');
-    document.getElementById('egbc-nav').classList.add('on');
+  /* The registry, for one question only: has an admin switched this page off?
+     It used to decide where every page SAT as well, which is what made the
+     Menu different here. */
+  function loadRegistry() {
+    if (NAV) return Promise.resolve(NAV);
+    /* The Menu must draw without it. The registry answers one question - has
+       an admin switched this page off - and not knowing the answer is a
+       reason to show the page, not a reason to show nothing.
 
-    if (NAV) { renderNav(''); return; }
-    renderNav('');
+       youthserviceplanner.html is the case that proved it: it loads this file
+       and no egbc-auth.js at all, so EGBCAuth is not there to read with, and
+       the Menu sat on "Loading..." for ever. It did that before this rewrite
+       too; nothing had looked. */
+    if (!window.EGBCAuth || !EGBCAuth.db) { NAV = []; return Promise.resolve(NAV); }
+    return EGBCAuth.db.collection('hubPages').get().then(function (snap) {
+      NAV = snap.docs.map(function (d) { return d.data(); });
+      return NAV;
+    }).catch(function (e) {
+      console.error('egbc-shell: page list failed', e);
+      NAV = [];
+      return NAV;
+    });
+  }
 
-    /* Read the same registry the hub reads, so there is one list to keep
-       right rather than a second copy that drifts. */
-    try {
-      EGBCAuth.db.collection('hubPages').get().then(function (snap) {
-        NAV = snap.docs.map(function (d) { return d.data(); })
-                 .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-        /* Reachable before an admin registers it - same entry as
-           BUILT_IN_PAGES in hub-app.js. The registered copy wins. */
-        var hasMeeting = NAV.some(function (p) { return (p.url || '').toLowerCase() === 'meeting.html'; });
-        if (!hasMeeting) NAV.unshift({ url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
-          description: 'Video meetings - set one up, join a call, every meeting room' });
-        renderNav(document.getElementById('egbc-nav-q').value.trim().toLowerCase());
-      }).catch(function (e) {
-        document.getElementById('egbc-nav-list').innerHTML =
-          '<div class="en-e">Could not load the page list.<br>Use Hub instead.</div>';
-        console.error('egbc-shell: page list failed', e);
-      });
-    } catch (e) {
-      document.getElementById('egbc-nav-list').innerHTML =
-        '<div class="en-e">Could not load the page list.<br>Use Hub instead.</div>';
-    }
+  function switchedOff(url) {
+    var u = String(url || '').toLowerCase();
+    return (NAV || []).some(function (p) {
+      return String(p.url || '').toLowerCase() === u && p.enabled === false;
+    });
   }
 
   function closeNav() {
@@ -456,6 +335,46 @@
     var p = document.getElementById('egbc-nav');
     if (s) s.classList.remove('on');
     if (p) p.classList.remove('on');
+  }
+
+  /* The Menu, openable from anywhere - the hub's More tab needs it, and
+     clicking the bar button from script is a trick that breaks the first time
+     somebody renames the button.
+
+     This went missing when the old registry grouping was taken out, and every
+     page then had a Menu button that did nothing. check-menu.mjs caught it,
+     but only through "every page that should have a Menu has one" - the
+     name-for-name comparison passed, because a page with no Menu has no names
+     to disagree about. Two assertions, and the quiet one was the one that
+     mattered. */
+  window.EGBCShell = { openMenu: function () { openNav(); } };
+
+  function renderNav(q) {
+    var list = document.getElementById('egbc-nav-list');
+    if (!list) return;
+    if (!window.EGBCMenu) { list.innerHTML = '<div class="en-e">Loading&hellip;</div>'; return; }
+    EGBCMenu.paint(list, {
+      who: EGBCMenu.who(),
+      query: q || '',
+      here: (location.pathname.split('/').pop() || '').toLowerCase(),
+      switchedOff: switchedOff
+    });
+  }
+
+  function openNav() {
+    navPanel();
+    document.getElementById('egbc-nav-scrim').classList.add('on');
+    document.getElementById('egbc-nav').classList.add('on');
+    renderNav('');
+
+    Promise.all([loadMenuScript(), loadRegistry(), loadPoweredBy()]).then(function () {
+      var q = document.getElementById('egbc-nav-q');
+      renderNav(q ? q.value.trim().toLowerCase() : '');
+    }).catch(function (e) {
+      var list = document.getElementById('egbc-nav-list');
+      if (list) list.innerHTML = '<div class="en-e">Could not load the menu.<br>Use Hub instead.</div>';
+      console.error('egbc-shell: menu failed', e);
+    });
   }
 
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeNav(); });

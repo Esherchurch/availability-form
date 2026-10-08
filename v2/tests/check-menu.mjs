@@ -350,6 +350,146 @@ const READ_MENU = `(() => {
     }
   }
 
+  /* ============== THE SAME MENU ON EVERY PAGE ========================
+
+     Martin, 9 Oct 2026, looking at the live whatson.html: the Menu differs
+     between pages. It did. egbc-menu.js was loaded by hub.html alone, and
+     egbc-shell.js - which draws the Menu on all the others - built its own
+     groups out of the registry: Apps, Everyone, AV, Core Team, Worship.
+
+     Reading the Menu on the hub and calling Step N done is exactly how that
+     survived. So this reads it on EVERY page that has one and compares it,
+     name for name, with the hub's.                                      */
+
+  console.log('');
+  console.log('the same Menu on every page');
+
+  /* Pages with no shell and no Menu, and why. A page that turns up with no
+     Menu and is not in here fails the check - which is the point: the list
+     is the decision, and a page falling out of the Menu by accident is the
+     thing being guarded against. */
+  const NO_MENU = {
+    'hub.html': 'the Menu is its own panel, read above',
+    'login.html': 'nobody is signed in yet',
+    'index.html': 'the availability form, filled in by people with no account',
+    'birthday.html': 'public',
+    'youth-access.html': 'a young person with a code, not an account',
+    'book.html': 'public hire page (events window)',
+    'my-booking.html': 'public hire page (events window) - somebody with a booking reference, not an account',
+    'hire.html': 'public hire page (events window)',
+    'room.html': 'public hire page (events window)',
+    'CoreTeamApp.html': 'phone app, installed rather than browsed to',
+    'Performancenotes.html': 'phone app',
+    'youthapp2.html': 'phone app',
+    'worshiphubapp.html': 'phone app, and out of scope',
+    'Handover.html': 'a one-off note, not part of the suite',
+    'SharepointHeader.html': 'a fragment embedded elsewhere, not a page',
+    'mix-builder.html': 'out of scope', 'mix-player.html': 'out of scope',
+    'mix-analyser.html': 'out of scope', 'studio.html': 'out of scope',
+    'photoeditor.html': 'out of scope', 'sitemaker.html': 'out of scope',
+    'socialmaker.html': 'out of scope', 'Videoeditor.html': 'out of scope'
+  };
+
+  /* Read the drawn Menu, whichever panel it is in. Both carry .egbc-menu now,
+     which is the point: one component. */
+  const READ_ANY = `(() => {
+    const el = document.querySelector('.egbc-menu');
+    if (!el) return JSON.stringify({ none: true });
+    const titles = [];
+    el.querySelectorAll('.grp > span:not(.arw):not(.dot):not(.cnt), .grp .grp-link, .grp-body .sub, .grp-body .tool .nm, .tool > .tx > .nm')
+      .forEach(n => { const t = (n.textContent || '').trim(); if (t) titles.push(t); });
+    return JSON.stringify({ titles });
+  })()`;
+
+  /* Be one person for all of it - a master admin, who sees the most, so a
+     page that drops a whole section is caught. */
+  await rest('PATCH', `/v1/projects/${PROJECT}/databases/(default)/documents/addressBook/ab_tester`, {
+    fields: { name: val('Menu Tester'), email: val(ACCOUNT.email),
+      markers: val(['Core Team']), adminFor: val(['Core Team']), masterAdmin: val(true) }
+  });
+  await rest('PATCH', `/v1/projects/${PROJECT}/databases/(default)/documents/users/${uid}`, {
+    fields: { uid: val(uid), email: val(ACCOUNT.email), name: val('Menu Tester'),
+      memberId: val('ab_tester'), linkedBy: val('admin'), status: val('active'),
+      teams: val(['Core Team']), adminFor: val(['Core Team']), masterAdmin: val(true) }
+  });
+
+  /* The hub's Menu is the reference. Everything else has to match it. */
+  await send('Page.navigate', { url: 'about:blank' }); await sleep(300);
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hub.html' }); await sleep(12000);
+  await ev('window.alert=()=>{};window.confirm=()=>false;1');
+  await ev("(()=>{const b=document.querySelector('#pickList .pick-t');if(b)b.click();})();1");
+  await sleep(1200);
+  await ev("(()=>{try{openTools()}catch(e){const el=document.getElementById('panel');if(el)el.classList.add('open')}})();1");
+  await sleep(1500);
+  const refRaw = await ev(READ_ANY);
+  const reference = (JSON.parse(String(refRaw) || '{}').titles || []);
+  ok('  the hub draws a Menu to compare against', reference.length > 10,
+    reference.length + ' names');
+
+  const pages = fs.readdirSync(V2).filter(f => /\.html$/i.test(f)).sort();
+  /* Pages that draw the Menu but cannot know who is looking, so they draw the
+     signed-out one. Listed, not excused: each is a decision somebody has to
+     take, and the reason is here so the next person does not work it out
+     again. */
+  const SIGNED_OUT = {
+    'youthserviceplanner.html':
+      "an installable offline app - it loads no Firebase and no egbc-auth.js, so " +
+      "the Menu cannot know who is looking. A personal Menu there means giving " +
+      "the page sign-in, which is a decision for Martin (A-025)."
+  };
+  const differs = [], noMenu = [], broke = [], signedOut = [];
+
+  for (const page of pages) {
+    const hasShell = /egbc-shell\.js/.test(fs.readFileSync(path.join(V2, page), 'utf8'));
+    if (!hasShell) {
+      if (!NO_MENU[page]) noMenu.push(page + ' - has no shell and no reason given');
+      continue;
+    }
+    watch.reset();
+    await send('Page.navigate', { url: 'about:blank' }); await sleep(250);
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + encodeURI(page) });
+    await sleep(6500);
+    await ev('window.alert=()=>{};window.confirm=()=>false;window.prompt=()=>null;1');
+    /* Open it the way the bar button does. */
+    await ev("(()=>{try{EGBCShell.openMenu();return 1}catch(e){return String(e)}})()");
+    await sleep(2600);
+    const raw = await ev(READ_ANY);
+    let got;
+    try { got = JSON.parse(String(raw) || '{}'); } catch { got = { bad: String(raw).slice(0, 80) }; }
+
+    if (got.none) { noMenu.push(page + ' - loads the shell but drew no Menu'); continue; }
+    if (!got.titles) { broke.push(page + ' - ' + (got.bad || 'could not read it')); continue; }
+    if (SIGNED_OUT[page]) {
+      /* It must still be THE Menu, just the part a stranger sees: every name
+         on it one of the hub's, and none of them a Core Team one. */
+      const strayed = got.titles.filter(t => reference.indexOf(t) === -1);
+      const core = got.titles.filter(t => ['Core Team', 'Planning', 'Rota Planner', 'Address Book'].indexOf(t) !== -1);
+      if (strayed.length || core.length || !got.titles.length) {
+        differs.push(page + ' (signed out): ' + (strayed.concat(core).join(', ') || 'drew nothing'));
+      } else {
+        signedOut.push(page + ' - ' + SIGNED_OUT[page]);
+      }
+      continue;
+    }
+    if (JSON.stringify(got.titles) !== JSON.stringify(reference)) {
+      differs.push(page + ': ' + got.titles.slice(0, 6).join(' > ') +
+        (got.titles.length > 6 ? ' …' : '') + '  (' + got.titles.length + ' names, hub has ' + reference.length + ')');
+    }
+  }
+
+  console.log('  looked at ' + pages.length + ' pages, ' +
+    (pages.length - Object.keys(NO_MENU).length) + ' of them with a Menu');
+  ok('  every page draws the same Menu as the hub', differs.length === 0,
+    differs.slice(0, 5).join('\n          ') || 'name for name, all of them');
+  ok('  every page that should have a Menu has one', noMenu.length === 0,
+    noMenu.slice(0, 5).join('\n          ') || 'none missing');
+  if (signedOut.length) {
+    console.log('          drawing the signed-out Menu, on purpose:');
+    signedOut.forEach(s => console.log('            ' + s));
+  }
+  ok('  and none of them threw reading it', broke.length === 0,
+    broke.slice(0, 5).join('\n          ') || 'none');
+
   /* Take the stale row out again. Leaving it behind made check-hub-tools.mjs
      report the retired page as missing from v2 on its next run - a true
      statement about data this check had planted. */

@@ -491,3 +491,132 @@ emulator from a mistyped shell command (`UID` is read-only in bash, so the
 write went to the literal string). Deleted. It is worth knowing that the
 profile-setting helpers find a user by email and will happily pick the wrong
 one of two.
+
+## A-024 — the Menu was right on the hub and wrong everywhere else
+
+Martin, 9 Oct 2026, looking at the live `whatson.html`: the Menu differs
+between pages.
+
+**It did.** `egbc-menu.js` — the structure he approved in Step N — was loaded
+by `hub.html` and by nothing else. Every other page gets `egbc-shell.js`, which
+built its own Menu out of the registry: groups called Apps, Everyone, AV, Core
+Team and Worship, the pages sorted by team. Two arrangements of the same pages,
+on 55 pages against one.
+
+**Why Step N did not catch it.** `check-menu.mjs` read the Menu on the hub,
+three times, very carefully — and the hub was the one page that was right. The
+check was thorough in one place and silent everywhere else, which is a shape
+worth recognising: a gate that looks rigorous because of how hard it works on
+the sample it happens to have.
+
+**Fixed.**
+- The markup **and the look** are now in `egbc-menu.js` (`EGBCMenu.paint`).
+  Both the hub's panel and the shell's call it — not two renderers kept in
+  step, one renderer. The CSS moved with it, so there is one copy of that too.
+- `egbc-shell.js` loads `egbc-menu.js` itself, so **no page needs a script tag
+  for it** and a page nobody remembers to update still gets the right Menu.
+- The shell's grouping is gone: `groupOf`, `groupInfo`, `groupOrder`,
+  `maySee`, `pageTeams`, `installedApps`, the Apps heading and the `.en-g` /
+  `.en-i` CSS that drew them. The registry is still read, for one question
+  only: has an admin switched this page off.
+- The shell's version stamp is bumped on all 55 pages and in `version.json`,
+  so browsers fetch the new copy rather than the cached old one.
+
+**`check-menu.mjs` now opens the Menu on every page** — 77 looked at, 55 with a
+Menu — and compares it name for name with the hub's. Pages with no Menu are
+listed with the reason (public pages, phone apps, out-of-scope apps), and a
+page that falls out of that list fails the check.
+
+**Two things the rewrite broke, and which assertion caught each.**
+
+1. Taking the old grouping out took `window.EGBCShell` with it, so every page
+   had a Menu button that did nothing. The **name-for-name comparison passed** —
+   a page with no Menu has no names to disagree about — and the failure came
+   from "every page that should have a Menu has one". The quiet assertion was
+   the one that mattered, which is the second time in two days that has been
+   true (see A-023).
+2. The same cut took `closeNav`, so the panel could be opened and not shut.
+   Caught by the same probe, one line further on.
+
+Both are the same mistake: deleting a range by its end marker rather than by
+what is in it.
+
+## A-025 — DECISION for Martin: the Youth Service Planner has no sign-in, so its Menu is the signed-out one
+
+Found while making every page draw the same Menu (A-024).
+
+`youthserviceplanner.html` loads `egbc-shell.js` and **nothing else** — no
+Firebase, no `egbc-auth.js`. It is an installable app with its own manifest
+(`manifest-youthservice.json`) and it keeps its work locally, so it runs with
+no network and no account.
+
+**What that means for the Menu.** The Menu can only show somebody their own
+teams if it knows who they are. On this one page it does not, so it draws the
+part a stranger would see: Dashboard, Rota, Meetings, What's on, Hire our
+rooms, Book a room, Worship & AV, Youth, Resources — and no Core Team section.
+Every name on it is one of the hub's; there is nothing on it that should not
+be. It is the same Menu, smaller.
+
+**What it also means, which matters more.** The page itself is reachable by
+anyone with the address. That is not something this step changed, and it may
+well be deliberate — a youth leader opening a planner on a phone in a hall
+with no signal is a real thing.
+
+**The decision.** Giving it a personal Menu means giving it the Firebase SDK
+and `egbc-auth.js`, which means it stops working without a network and starts
+asking people to sign in. That is a change to what the page *is*, so it is
+Martin's to make, not mine.
+
+Until then `check-menu.mjs` names it, says why, and still insists it draws the
+signed-out Menu rather than nothing — so if it ever drew something else, or
+nothing, the check would say so.
+
+**One thing I did fix**: `egbc-shell.js` used to leave the Menu on
+"Loading…" for ever on that page, because it read the registry through
+`EGBCAuth` without checking there was one. The registry only answers "has an
+admin switched this page off", and not knowing is a reason to show the page,
+not a reason to show nothing. It drew nothing there before this step too;
+nobody had looked.
+
+## A-026 — "Powered by Church HQ", and the one switch
+
+§19 built. `egbc-poweredby.js` holds the line — the doorway mark from
+`brand/church-hq/svg/mark-light.svg` at 16px, then "Powered by Church HQ" in
+12px #6b7280, centred — and three places use it: under the sign-in box on
+`login.html`, and the bottom of the Menu, which is the shell's panel (so every
+page) and the hub's. The events window uses the same file for the public hire
+pages.
+
+**The link is one switch.** `LINK` at the top of `egbc-poweredby.js` is empty,
+so the credit is plain text. churchhq.co.uk is not live, and a link to a site
+that does not answer is worse than no link. Put the address in that one
+constant and all three places become links, in a new tab, with nothing else to
+change anywhere.
+
+**The words survive the picture.** The mark is an `<img>` that hides itself if
+it cannot be fetched, so an old cached page or a folder that did not deploy
+shows the credit with no mark rather than a broken-image icon beside it.
+
+**It is checked both ways.** `check-poweredby.mjs` asks whether the credit is
+in the three places — right size, right colour, centred, mark beside the
+words, no link — *and* whether it has spread: no page writes the words in for
+itself, and `egbc-email.js`, `egbc-events.js`, `egbc-ics.js` and
+`egbc-rota-pdf.js` do not mention Church HQ at all. The risk here is not that
+the credit goes missing; it is that it ends up beside the church's own logo in
+a header, or on an email. 24/24.
+
+**One thing the check caught in itself**: it opened `login.html` while signed
+in, and `login.html` sends a signed-in person straight to the hub. So it
+photographed the hub and reported the credit missing from a page it had never
+opened — the same shape as A-023, a fortnight's lesson arriving again within
+the day. It signs out first now.
+
+**Two faults it surfaced in the Menu** while measuring it:
+- The "You are here" marker was a block, which made a Menu row three lines
+  tall and left the icon no longer level with the first of them. The icon
+  check calls that "icon on its own line" and it said so. It is inline now.
+- A heading that is also a page — Worship & AV, Youth, Core Team, each linking
+  to its charter — had no underline, so it read as a heading rather than
+  something you could press. That is the fault Martin hit from the other side
+  when he could not find the charters. Dotted underline at rest, solid on
+  hover.

@@ -2374,96 +2374,26 @@ function renderTools() {
 
   const q = (document.getElementById('toolSearch').value || '').toLowerCase();
 
-  /* The Menu is the structure Martin approved, from egbc-menu.js - names,
-     order and headings as the original portal has them. It is not built from
-     the registry any more: the registry said which pages EXIST and said
-     nothing about where they belong, so the Menu grouped them by team, which
-     is not how anybody looks for anything. The registry still decides what is
-     switched on; this decides where it sits.
+  /* ONE MENU, DRAWN ONE WAY. The markup and the look are in egbc-menu.js and
+     egbc-shell.js draws from the same function, so the Menu is the same here
+     as it is on every other page. It used not to be: this panel drew the
+     structure Martin approved while the shell built its own groups out of the
+     registry, and he found the difference on the live site.
 
-     The Apps group has gone: those are the same pages twice, and "add to your
-     phone" is explained on Apps and downloads. */
-  const who = EGBCMenu.who();
+     The registry still decides what is switched ON. It does not decide where
+     anything sits - that is the structure, and the structure is the file. */
   const registry = {};
   PAGES.forEach(p => { if (p.url) registry[String(p.url).toLowerCase()] = p; });
 
-  /* A page an admin has switched off stays off, wherever it sits in here. */
-  const switchedOff = (url) => {
-    const p = registry[String(url || '').toLowerCase()];
-    return !!(p && p.enabled === false);
-  };
-
-  const matches = (node) =>
-    !q || ((node.title || '') + ' ' + (node.description || '')).toLowerCase().includes(q);
-
-  /* Searching looks through the whole tree and keeps a heading only when
-     something under it matched. */
-  function filterTree(nodes) {
-    const out = [];
-    for (const n of nodes) {
-      if (n.url && switchedOff(n.url)) continue;
-      const kids = n.children ? filterTree(n.children) : null;
-      const keep = matches(n) || (kids && kids.length);
-      if (!keep) continue;
-      out.push(kids && kids.length ? Object.assign({}, n, { children: kids })
-                                   : Object.assign({}, n, { children: undefined }));
+  EGBCMenu.paint(document.getElementById('toolList'), {
+    who: EGBCMenu.who(),
+    query: q,
+    here: (location.pathname.split('/').pop() || '').toLowerCase(),
+    switchedOff: (url) => {
+      const p = registry[String(url || '').toLowerCase()];
+      return !!(p && p.enabled === false);
     }
-    return out;
-  }
-
-  const tree = filterTree(EGBCMenu.forPerson(who));
-  console.info(`Menu: ${EGBCMenu.allPages().length} pages in the structure, ${tree.length} top-level for this person`);
-
-  if (!tree.length) {
-    el.innerHTML = `<div class="empty"><div class="i"><i data-lucide="search-x" style="width:28px;height:28px"></i></div>
-      <div class="t">${q ? 'Nothing matches' : 'Nothing here'}</div></div>`;
-    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
-    return;
-  }
-
-  /* One row, whether it is a page or a heading that is also a page. */
-  const row = (n, depth) => `<a class="tool" href="${esc(n.url)}" title="${esc(n.description || '')}" style="${depth ? 'padding-left:' + (14 + depth * 14) + 'px' : ''}">
-      <span class="ic"><i data-lucide="${esc(n.icon || 'file')}" style="width:18px;height:18px"></i></span>
-      <span class="tx"><span class="nm">${esc(n.title)}</span><span class="ds">${esc(n.description || '')}</span></span>
-    </a>`;
-
-  /* A heading inside a group: its own line, then its children indented. A
-     heading that is also a page gets a row of its own first, so Worship & AV
-     still opens the charter the way it does on the original. */
-  function inner(nodes, depth) {
-    return nodes.map(n => {
-      if (!n.children) return row(n, depth);
-      return `<div class="sub" style="padding-left:${14 + depth * 14}px">${esc(n.title)}</div>
-        ${n.url ? row(n, depth + 1) : ''}
-        ${inner(n.children, depth + 1)}`;
-    }).join('');
-  }
-
-  el.innerHTML = tree.map((n, i) => {
-    if (!n.children) return row(n, 0);
-    /* Open: whatever matched a search, and otherwise Core Team for Core Team,
-       Worship & AV for everybody else - the section each person lives in. */
-    const open = q ? true : (who.isCore ? n.title === 'Core Team' : i === 4);
-    const count = inner(n.children, 0).split('class="tool"').length - 1;
-    /* A heading that is ALSO a page - Worship & AV, Youth, Core Team - opens
-       its charter, as on the original. So the words are a link and the arrow
-       is what expands it. Drawing the charter as a row inside as well put the
-       same name on the screen twice, one above the other, which is how the
-       Menu got confusing in the first place. */
-    const head = n.url
-      ? `<a class="grp-link" href="${esc(n.url)}" title="${esc(n.description || '')}">${esc(n.title)}</a>`
-      : `<span>${esc(n.title)}</span>`;
-    return `<div class="grp ${open ? 'open' : ''}">
-        <button class="arw" onclick="toggleGroup(this.parentElement)" aria-label="Show or hide ${esc(n.title)}"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></button>
-        <span class="dot" style="background:var(--brand)"></span>
-        ${head}
-        <span class="cnt">${count}</span>
-      </div>
-      <div class="grp-body ${open ? 'open' : ''}">
-        ${inner(n.children, 0)}
-      </div>`;
-  }).join('');
-  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+  });
 }
 
 function toggleGroup(btn) {

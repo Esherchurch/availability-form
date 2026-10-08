@@ -119,6 +119,11 @@
   <p class="text-center text-[11px] opacity-35 mt-8 font-semibold">
     Trouble signing in? Speak to your team leader.
   </p>
+
+  <!-- §19: the one small credit. The church's own name and logo are the brand
+       above; this sits under the box, quiet, and is the same snippet the Menu
+       and the public hire pages use. -->
+  <div id="poweredBy"></div>
 </div>
 
 <script>
@@ -222,5 +227,7 @@ function friendly(e){
   return map[e.code]||e.message;
 }
 </script>
+<script src="egbc-poweredby.js?v=202610081518"></script>
+<script>EGBCPoweredBy.mount(document.getElementById("poweredBy"), { padding: "18px 12px 0" });</script>
 </body>
 </html>
