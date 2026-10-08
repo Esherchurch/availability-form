@@ -177,6 +177,40 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 17. Step N2: the hub's home on one screen, and no more link to the portal copy (Martin, 8 Oct 2026)
+
+Do this after Step N and before Step R.
+
+### a. No link to the portal copy
+Martin: *"why does it still link to the old site? There is nothing on there that wont be on the new one so we dont need that."*
+- Remove "Worship & AV Hub" (`EGBCWorship&AV.html`) from the hub sidebar, the Menu, "Where to?" and the registry, so nothing in v2 links to it. Don't delete the file.
+- **First prove the hub does everything that page does.** Measured on the live sites on 8 Oct: the original portal's news panel showed an item ("All Team Zoom Meeting", Thursday 8 October) while v2's hub "Latest" said "Nothing new".
+  - The portal keeps its news in `portal/dashboardContent`. The hub's Latest reads the `news` collection. **That is a loss:** news posted the way the church posts it today does not reach the hub.
+  - Make the hub show the portal's news, and make adding, editing, managing, "show until" and removing news work from the hub, on the same data the original site uses. That way, news posted on either site shows on both until switch-over.
+  - Check every other feature of `EGBCWorship&AV.html`, including everything restored in S2c, against the hub. List each one and where it now lives in the hub.
+
+### b. The home page fits on one screen
+Martin: *"this needs to see everything in one. you have to scroll quite a way down to see the team charter. The widgets can be smaller. Maybe make the latest news a pop out rather than fixed if that frees up page real estate?"*
+
+Today at 1920×945 the page is 1831px tall. My serving starts at 308px and the Core Team Charter at 1212px.
+
+- **Target:** at 1440×900 and 1920×1080, everything on the home page is visible without scrolling. At phone width, the order is: My serving, Meetings, Pin board, Charter.
+- **Banner:** much shorter, about 100px.
+- **Latest news becomes a pop-out:** a "Latest" button in the hub's top bar with a count of unread items, which opens a panel from the right. Its column is freed for the widgets.
+- **Compact widgets:**
+  - My serving shows the next 3 with "The whole rota".
+  - Video meetings is a single row unless one is coming up.
+  - The pin board shows its newest 3.
+- **The team charter** is a compact card: the title and its section headings (e.g. "Our Identity & How We Carry Ourselves"). Each heading opens its section. Nothing is lost; it is folded.
+- Structure rule (§15): nothing is removed from the home page. It is made smaller or folded.
+
+Prove it:
+- screenshots at 1440×900, 1920×1080 and 375px wide
+- a check that measures the page height at 1440×900 and fails if anything on the home page is below the fold
+- the news shown and managed from the hub on the same synthetic data the original reads
+
+Stop and report.
+
 ## 16. Step N: the Menu matches the original portal (before Step R)
 
 Martin was confused by v2's Menu. The full audit is in `NAV-AUDIT.md`: the original portal's two views (normal, and Core Team via `?role=core`), v2's Menu today, and the links that leave v2. Martin approved this Menu on 8 Oct 2026. Build it exactly.
