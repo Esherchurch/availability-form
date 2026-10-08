@@ -184,10 +184,11 @@ Do this after Step N and before Step R.
 ### a. No link to the portal copy
 Martin: *"why does it still link to the old site? There is nothing on there that wont be on the new one so we dont need that."*
 - Remove "Worship & AV Hub" (`EGBCWorship&AV.html`) from the hub sidebar, the Menu, "Where to?" and the registry, so nothing in v2 links to it. Don't delete the file.
-- **First prove the hub does everything that page does.** Measured on the live sites on 8 Oct: the original portal's news panel showed an item ("All Team Zoom Meeting", Thursday 8 October) while v2's hub "Latest" said "Nothing new".
-  - The portal keeps its news in `portal/dashboardContent`. The hub's Latest reads the `news` collection. **That is a loss:** news posted the way the church posts it today does not reach the hub.
-  - Make the hub show the portal's news, and make adding, editing, managing, "show until" and removing news work from the hub, on the same data the original site uses. That way, news posted on either site shows on both until switch-over.
-  - Check every other feature of `EGBCWorship&AV.html`, including everything restored in S2c, against the hub. List each one and where it now lives in the hub.
+- **First prove the hub does everything that page does.**
+  - **News stays separate (Martin's correction):** the original portal keeps its news in `portal/dashboardContent`, and the hub uses the `news` collection. That's fine. Only Martin uses v2 before launch, so news is posted on the original, and after switch-over it's posted on the hub. **Do not** make the hub read the portal's news.
+  - The hub's news must do everything the portal's news panel does, including what S2c restored. Today it has no **"show until"**. Check and fill: add, edit, manage the list, remove, "show until", paste from an email with the `<style>` strip, and a failed save that says so.
+  - The hub's existing "bring old notices across" stays available for switch-over day.
+  - Check every other feature of `EGBCWorship&AV.html` against the hub. List each one and where it now lives in the hub.
 
 ### b. The home page fits on one screen
 Martin: *"this needs to see everything in one. you have to scroll quite a way down to see the team charter. The widgets can be smaller. Maybe make the latest news a pop out rather than fixed if that frees up page real estate?"*
