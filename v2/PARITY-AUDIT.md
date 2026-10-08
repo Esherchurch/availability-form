@@ -454,6 +454,60 @@ stays inside the installed app (ONE-APP Â§5), and sentence case (A3).
   builds its own Firebase app on the live config, exactly as the five training
   pages did.
 
+## The emoji A3 replaced, one at a time
+
+Added after Martin found that the Sunday Service Planner's YouTube link had
+lost its icon and SongSelect's had broken onto its own line, so neither looked
+like anything you could press. The reviewing window fixed both in 6027733.
+
+`node tests/check-icon-buttons.mjs` now asks two questions.
+
+**One at a time, from the markup of both copies.** 243 controls had an emoji in
+the original. **None is left with nothing** in v2: each has an icon, or words,
+or kept its emoji. This is done on source because the three controls that
+broke are on no screen at all until you type a song title that is not in the
+library - which is exactly why A3, A3b and the first side-by-side comparison
+all missed them.
+
+**On the drawn page, every control on every screen.** 4,516 controls. Three
+rules, each one of the three ways that single line of markup went wrong:
+
+| Rule | Why |
+|---|---|
+| it has an icon, or something to read | YouTube came back as the bare word "YouTube" |
+| it is marked out from the words around it | both links were coloured text with an underline that only appears under a pointer, and a phone has no pointer |
+| its icon is on the same line as its words | the Lucide `<i>` rendered as an svg inside an `<a>` that was not `inline-flex`, in a wrapping row, so it sat above the words |
+
+**What it found, beyond the two already fixed: one.** `Upload Song`, the third
+link in that same row, had `➕` in the original, lost it in A3, and the fix in
+6027733 did not reach it - it was still plain text beside its two mended
+neighbours. It is now a bordered button with a plus icon, like them. Proof:
+revert 6027733 and the check names all three faults; put it back and run again
+and it is clean.
+
+Two controls are **looked at and left**, named in the check with the reason:
+the "Training" tab on Play-Through, in both states it appears in. It is the
+unselected half of a two-tab pair - "Play Through" beside it is filled in,
+which is what says which one you are on - it is identical to the original, and
+the original never had an emoji on it.
+
+### Three pages had never been measured at all
+
+Counting the emoji turned up something else: 42 were taken out of `hub.html`,
+one out of `stickynotes.html` and one out of `EGBC-PlayThrough.html`, and none
+of those three was on the style check's list. They are on it now, walked by the
+icon check, and `node tests/check-style-every-screen.mjs --all` measures them:
+
+| Page | DESIGN.md problems |
+|---|---|
+| hub.html | 167 |
+| stickynotes.html | 152 |
+| EGBC-PlayThrough.html | 81 |
+
+They are **not** asserted on by default, because the restyle has not reached
+them - that is R-014 - and failing a gate for work nobody has scheduled turns
+it into noise. Group 1 remains 0 across every screen.
+
 ## Still open, for Martin
 
 - **`worshiphubapp.html` reaches live Firestore from localhost.** It builds its
@@ -465,6 +519,10 @@ stays inside the installed app (ONE-APP Â§5), and sentence case (A3).
 - **`birthday.html` and `youth-access.html` are still drawn in Montserrat.**
   Group 2, not yet restyled; `tests/smoke-all-pages.mjs` reports 126/128 and
   those are the two.
+- **`hub.html` breaches DESIGN.md 167 times**, mostly 700 weights in the admin
+  panel. The hub was rebuilt in Step D and was never in A3's Group 1, so
+  nothing had measured it. With `stickynotes.html` (152) and
+  `EGBC-PlayThrough.html` (81) that is 400 waiting on R-014.
 - **What a Kids Church "Supporting Adult" should become** — Assistant or
   Helper — is a decision nobody has made. Records holding the old names are
   kept and labelled "(old name)" so that nothing is lost in the meantime.

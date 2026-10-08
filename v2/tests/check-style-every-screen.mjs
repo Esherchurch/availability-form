@@ -37,11 +37,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { PAGES } from './group1-screens.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9622, SERVE = 8897;
-const only = process.argv[2];
+/* A flag is not a page name. Reading argv[2] blindly meant `--all` was taken
+   as the page to measure, matched nothing, and reported a total of 0 - a
+   measurement that looked like a clean sweep and had measured nothing. */
+const only = process.argv.slice(2).find(a => !a.startsWith('--'));
 const ACCOUNT = {
   email: process.env.EGBC_EMU_EMAIL || 'places.tester@example.invalid',
   pw: process.env.EGBC_EMU_PW || 'test-only-password'
@@ -56,7 +60,11 @@ const PROBE = `(() => {
     const px = parseFloat(s.fontSize) || 0;
     const rad = parseFloat(s.borderTopLeftRadius) || 0;
     const ctrl = /^(BUTTON|INPUT|SELECT|TEXTAREA|LABEL)$/.test(e.tagName);
-    const pill = ctrl && rad >= 20 && e.offsetHeight > 0 && e.offsetHeight < 60;
+    /* A round control that is as wide as it is tall is an avatar or an icon
+       button, not a capsule - the user's initials in the corner of the hub are
+       one. A pill is wide and short. */
+    const squarish = e.offsetWidth > 0 && Math.abs(e.offsetWidth - e.offsetHeight) <= e.offsetHeight * 0.25;
+    const pill = ctrl && rad >= 20 && e.offsetHeight > 0 && e.offsetHeight < 60 && !squarish;
     const leaf = e.children.length === 0 && (e.textContent || '').trim();
     if (!leaf && !ctrl) return;
     const bad = [];
@@ -74,79 +82,9 @@ const PROBE = `(() => {
   return JSON.stringify({ n: Object.keys(seen).reduce((a, k) => a + seen[k], 0), eg: out.slice(0, 6) });
 })()`;
 
-const SHUT = "(()=>{document.querySelectorAll('.modal,.sheet,[id^=modal-]').forEach(m=>m.classList.remove('open'));try{openSection('home')}catch(e){}})()";
-
-const PAGES = [
-  { page: 'CoreTeamApp.html', wait: 9000,
-    first: "(()=>{try{if(typeof endTour==='function')endTour()}catch(e){}" +
-           "const o=document.getElementById('tour-overlay');if(o)o.classList.remove('active');})()",
-    states: [
-      /* The tour FIRST, before it is dismissed. A3b ran endTour() as its very
-         first action and so never looked at it - which left the two controls a
-         new person sees before anything else, Skip and Next, as the only
-         capsules on the page. A screen that the measurement's own set-up hides
-         is still a screen. */
-      ['the welcome tour', "(()=>{ if (typeof startTour === 'function') { startTour(); return 'started'; } " +
-        "const o = document.getElementById('tour-overlay'); if (o) { o.classList.add('active'); return 'shown'; } return 'no tour'; })()"],
-      ['home', "(()=>{ try { if (typeof endTour === 'function') endTour(); } catch (e) {} " +
-        "const o = document.getElementById('tour-overlay'); if (o) o.classList.remove('active'); return openSection('home'); })()"],
-      ['service planner', "openSection('service')"],
-      ['service detail', "(()=>{const c=document.querySelector('#service-list .service-card,#service-list [onclick]');if(c)c.click();else openSection('service-detail')})()"],
-      ['rota', "openSection('rota')"],
-      ['meetings', "openSection('meetings')"],
-      ['email compiler', "openSection('email')"],
-      ['sheet: role', SHUT + ";openModal('modal-role-sheet')"],
-      ['sheet: availability', SHUT + ";openModal('modal-avail-sheet')"],
-      ['sheet: add role', SHUT + ";openModal('modal-add-role-sheet')"],
-      ['sheet: drafts', SHUT + ";openModal('modal-drafts')"],
-      ['sheet: mailing list', SHUT + ";openModal('modal-mailing')"],
-      ['modal: new event', SHUT + ";openModal('modal-new-event')"],
-      ['modal: new service', SHUT + ";openModal('modal-new-service')"],
-      ['modal: song', SHUT + ";openModal('modal-song')"],
-      ['modal: add item', SHUT + ";openModal('modal-add-item')"],
-      ['modal: email team', SHUT + ";openModal('modal-email-team')"],
-      ['modal: who are you', SHUT + ";openModal('modal-who')"],
-      ['modal: confirm', SHUT + ";openModal('modal-confirm')"]
-    ] },
-  { page: 'Planner.html', wait: 10000, states: [
-      ['main', '1'],
-      ['archived terms', "(()=>{const a=[...document.querySelectorAll('button')].find(b=>/Restore/i.test(b.textContent));return a?'shown':'none seeded'})()"],
-      /* REVEALED, never pressed: the button that opens this panel emails the
-         whole team. */
-      ['send panel', "(()=>{let n=0;document.querySelectorAll('[id*=odal],[id*=istribution],[id*=send]').forEach(m=>{if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"],
-      ['every term expanded', "(()=>{document.querySelectorAll('[onclick^=\"toggleTermCollapse\"]').forEach(h=>h.click());return 1})()"]
-    ] },
-  { page: 'SundayServicePlanner.html', wait: 9000, states: [
-      ['main', '1'],
-      ['email modal', "(()=>{const m=document.getElementById('emailModal');if(m){m.classList.remove('hidden');m.style.display='flex'}return 1})()"],
-      ['every panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=odal],details').forEach(m=>{if(m.tagName==='DETAILS'){m.open=true;n++}else if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
-    ] },
-  { page: 'addressbook.html', wait: 8000, states: [
-      ['main', '1'],
-      ['per-team caps open', "(()=>{document.querySelectorAll('details').forEach(d=>d.open=true);return 1})()"],
-      ['editing somebody', "(()=>{const b=[...document.querySelectorAll('button')].find(x=>/^Edit$/i.test(x.textContent.trim()));if(b)b.click();return 1})()"]
-    ] },
-  { page: 'resources.html', wait: 8000, states: [
-      ['main', '1'],
-      ['editor: upload', 'openEditor();'],
-      ['editor: add a link', "openEditor();setTimeout(()=>{try{editorMode('link')}catch(e){}},300);1"]
-    ] },
-  { page: 'videos.html', wait: 8000, states: [
-      ['main', '1'],
-      ['a video open', "(()=>{const c=document.querySelector('.card');if(c)c.click();return 1})()"]
-    ] },
-  { page: 'view-only-rota.html', wait: 8000, states: [
-      ['main', '1'],
-      ['a term collapsed', "(()=>{const h=document.querySelector('[onclick^=\"toggleTermCollapse\"]');if(h)h.click();return 1})()"]
-    ] },
-  { page: 'places-admin.html', wait: 8000, states: [
-      ['tab: sites', "(()=>{const b=[...document.querySelectorAll('.tab')][0];if(b)b.click();return 1})()"],
-      ['tab: rooms', "(()=>{const b=[...document.querySelectorAll('.tab')][1];if(b)b.click();return 1})()"],
-      ['tab: kit', "(()=>{const b=[...document.querySelectorAll('.tab')][2];if(b)b.click();return 1})()"],
-      ['tab: outside venues', "(()=>{const b=[...document.querySelectorAll('.tab')][3];if(b)b.click();return 1})()"],
-      ['tab: who approves', "(()=>{const b=[...document.querySelectorAll('.tab')][4];if(b)b.click();return 1})()"]
-    ] }
-];
+/* The screens come from group1-screens.mjs, which the icon check walks too.
+   One list, so a screen cannot be covered by one check and missed by the
+   other. */
 
 const SIGNIN = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>sign-in</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -220,6 +158,14 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   let grand = 0; const rows = []; const pagesWithErrors = [];
   for (const P of PAGES) {
     if (only && !P.page.toLowerCase().includes(only.toLowerCase())) continue;
+    /* Pages the restyle has not reached are walked by the icon check, not
+       measured here. Asserting DESIGN.md on work that is not scheduled turns a
+       gate into noise - what this finds on them is written up for R-014
+       instead. Run with --all to see them anyway. */
+    if (P.restyled === false && !process.argv.includes('--all')) {
+      console.log('\n' + P.page + '   not restyled yet (R-014); run with --all to measure it');
+      continue;
+    }
     watch.reset();
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + P.page });
     await sleep(P.wait);

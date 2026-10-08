@@ -1,0 +1,38 @@
+[
+ {
+  "page": "EGBC-PlayThrough.html",
+  "state": "main",
+  "what": "a \"Training\"",
+  "wired": "https://esherchurch.github.io/availability-form/EG",
+  "noLabel": false,
+  "notMarked": true,
+  "iconOnItsOwnLine": false,
+  "detail": "",
+  "box": {
+   "x": 910,
+   "y": 161,
+   "w": 80,
+   "h": 31
+  },
+  "why": "reads as plain text",
+  "judged": "the unselected half of a two-tab pair - \"Play Through\" beside it is filled in, which is what says which one you are on. Identical to the original, and the original never had an emoji on it."
+ },
+ {
+  "page": "EGBC-PlayThrough.html",
+  "state": "the admin panel revealed",
+  "what": "a \"Training\"",
+  "wired": "https://esherchurch.github.io/availability-form/EG",
+  "noLabel": false,
+  "notMarked": true,
+  "iconOnItsOwnLine": false,
+  "detail": "",
+  "box": {
+   "x": 906,
+   "y": 161,
+   "w": 80,
+   "h": 31
+  },
+  "why": "reads as plain text",
+  "judged": "the unselected half of a two-tab pair - \"Play Through\" beside it is filled in, which is what says which one you are on. Identical to the original, and the original never had an emoji on it."
+ }
+]

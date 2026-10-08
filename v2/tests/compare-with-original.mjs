@@ -553,7 +553,22 @@ const SEEDED_EMAIL = 'ab_p1@example.invalid';
 const FLOWS = {
   'SundayServicePlanner.html': [
     ['pick the date', SET_DATE('serviceDate', SEEDED_SUNDAY)],
-    ['pick the service', PICK_OPTION('eventSelect', 1)]
+    ['pick the service', PICK_OPTION('eventSelect', 1)],
+    /* The SongSelect, YouTube and Upload Song links exist only once a title
+       has been typed that is not in the library. All three lost their emoji in
+       A3 and none of them was on any screen, so nothing had ever compared
+       them: one came back as bare words, one had its icon break onto its own
+       line, and the third was left as plain text. */
+    ['a song title that is not in the library', `(() => {
+       const find = () => document.querySelector('input.song-title, input[placeholder="Song title"]');
+       let i = find();
+       /* Loading a service replaces the rows, so there may be none to type in.
+          Add one, the way a person would. */
+       if (!i && typeof addSong === 'function') { addSong(); i = find(); }
+       if (!i) return 'no song input';
+       i.value = 'Synthetic Song Nobody Has';
+       i.dispatchEvent(new Event('input', { bubbles: true }));
+       return 'typed'; })()`]
   ],
   'youthserviceplanner.html': [
     ['pick the date', SET_DATE('serviceDate', SEEDED_SUNDAY)],
@@ -791,10 +806,6 @@ function missingFrom(origRows, v2Rows) {
       await sleep(7000);
       await ev('window.alert=()=>{};window.confirm=()=>false;window.prompt=()=>null;1');
     }
-    if (shot) {
-      const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
-      if (r.data) fs.writeFileSync(path.join(SHOTS, page.replace(/\.html$/i, '') + '--' + which + '.png'), Buffer.from(r.data, 'base64'));
-    }
     /* Drive the page's main flow before measuring, where there is one: pick a
        date, pick a service, open each person or role. Revealing what is
        already on the page only shows the state it opens in, and most of what
@@ -808,6 +819,15 @@ function missingFrom(origRows, v2Rows) {
         await sleep(1400);
         flowSteps.push(label + ' = ' + String(r === undefined || r === null ? '' : r).slice(0, 60));
       }
+    }
+    /* The picture is taken AFTER the flow and before revealing, so it shows
+       what a person would be looking at having done those steps - which is
+       what was compared. Taken before the flow it showed the page untouched,
+       which is a picture of nothing in particular. */
+    if (shot) {
+      const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
+      if (r.data) fs.writeFileSync(path.join(SHOTS, page.replace(/\.html$/i, '') + '--' + which + '.png'),
+        Buffer.from(r.data, 'base64'));
     }
     await ev(REVEAL);
     await sleep(600);

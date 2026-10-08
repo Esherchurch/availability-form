@@ -1,0 +1,131 @@
+/* The Group 1 pages and every screen each one has.
+ *
+ * Shared, because two checks walk the same screens and a second copy of this
+ * list is how one of them quietly stops covering a screen the other does. The
+ * style check measures what each screen looks like; the icon check measures
+ * whether its controls still read as controls.
+ *
+ * A screen the set-up hides is still a screen - see "the welcome tour" below,
+ * which A3b dismissed as its first action and so never measured, leaving the
+ * only two capsules on CoreTeamApp in place.
+ */
+const SHUT = "(()=>{document.querySelectorAll('.modal,.sheet,[id^=modal-]').forEach(m=>m.classList.remove('open'));try{openSection('home')}catch(e){}})()";
+
+export const PAGES = [
+  { page: 'CoreTeamApp.html', wait: 9000,
+    first: "(()=>{try{if(typeof endTour==='function')endTour()}catch(e){}" +
+           "const o=document.getElementById('tour-overlay');if(o)o.classList.remove('active');})()",
+    states: [
+      /* The tour FIRST, before it is dismissed. A3b ran endTour() as its very
+         first action and so never looked at it - which left the two controls a
+         new person sees before anything else, Skip and Next, as the only
+         capsules on the page. A screen that the measurement's own set-up hides
+         is still a screen. */
+      ['the welcome tour', "(()=>{ if (typeof startTour === 'function') { startTour(); return 'started'; } " +
+        "const o = document.getElementById('tour-overlay'); if (o) { o.classList.add('active'); return 'shown'; } return 'no tour'; })()"],
+      ['home', "(()=>{ try { if (typeof endTour === 'function') endTour(); } catch (e) {} " +
+        "const o = document.getElementById('tour-overlay'); if (o) o.classList.remove('active'); return openSection('home'); })()"],
+      ['service planner', "openSection('service')"],
+      ['service detail', "(()=>{const c=document.querySelector('#service-list .service-card,#service-list [onclick]');if(c)c.click();else openSection('service-detail')})()"],
+      ['rota', "openSection('rota')"],
+      ['meetings', "openSection('meetings')"],
+      ['email compiler', "openSection('email')"],
+      ['sheet: role', SHUT + ";openModal('modal-role-sheet')"],
+      ['sheet: availability', SHUT + ";openModal('modal-avail-sheet')"],
+      ['sheet: add role', SHUT + ";openModal('modal-add-role-sheet')"],
+      ['sheet: drafts', SHUT + ";openModal('modal-drafts')"],
+      ['sheet: mailing list', SHUT + ";openModal('modal-mailing')"],
+      ['modal: new event', SHUT + ";openModal('modal-new-event')"],
+      ['modal: new service', SHUT + ";openModal('modal-new-service')"],
+      ['modal: song', SHUT + ";openModal('modal-song')"],
+      ['modal: add item', SHUT + ";openModal('modal-add-item')"],
+      ['modal: email team', SHUT + ";openModal('modal-email-team')"],
+      ['modal: who are you', SHUT + ";openModal('modal-who')"],
+      ['modal: confirm', SHUT + ";openModal('modal-confirm')"]
+    ] },
+  { page: 'Planner.html', wait: 10000, states: [
+      ['main', '1'],
+      ['archived terms', "(()=>{const a=[...document.querySelectorAll('button')].find(b=>/Restore/i.test(b.textContent));return a?'shown':'none seeded'})()"],
+      /* REVEALED, never pressed: the button that opens this panel emails the
+         whole team. */
+      ['send panel', "(()=>{let n=0;document.querySelectorAll('[id*=odal],[id*=istribution],[id*=send]').forEach(m=>{if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"],
+      ['every term expanded', "(()=>{document.querySelectorAll('[onclick^=\"toggleTermCollapse\"]').forEach(h=>h.click());return 1})()"]
+    ] },
+  { page: 'SundayServicePlanner.html', wait: 9000, states: [
+      ['main', '1'],
+      /* The two states where the YouTube and SongSelect links exist at all.
+         They are built into innerHTML when you type a song title or choose a
+         key, so they are on no screen until you do - which is why nothing had
+         ever looked at them, and why all three faults in them survived A3,
+         A3b and the first side-by-side comparison. A control that only exists
+         once you have done something is still a control. */
+      ['a song title that is not in the library', `(() => {
+         const i = document.querySelector('input.song-title');
+         if (!i) return 'no song input';
+         i.value = 'Synthetic Song Nobody Has';
+         i.dispatchEvent(new Event('input', { bubbles: true }));
+         return 'typed'; })()`],
+      ['a key chosen on a song', `(() => {
+         const i = document.querySelector('input.song-title');
+         const s = document.querySelector('select.song-key');
+         if (!i || !s) return 'no song row';
+         i.value = 'Synthetic Song One';
+         i.dispatchEvent(new Event('input', { bubbles: true }));
+         if (s.options.length > 1) { s.selectedIndex = 1; s.dispatchEvent(new Event('change', { bubbles: true })); }
+         return 'chose ' + (s.options[s.selectedIndex] || {}).text; })()`],
+      ['email modal', "(()=>{const m=document.getElementById('emailModal');if(m){m.classList.remove('hidden');m.style.display='flex'}return 1})()"],
+      ['every panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=odal],details').forEach(m=>{if(m.tagName==='DETAILS'){m.open=true;n++}else if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
+    ] },
+  { page: 'addressbook.html', wait: 8000, states: [
+      ['main', '1'],
+      ['per-team caps open', "(()=>{document.querySelectorAll('details').forEach(d=>d.open=true);return 1})()"],
+      ['editing somebody', "(()=>{const b=[...document.querySelectorAll('button')].find(x=>/^Edit$/i.test(x.textContent.trim()));if(b)b.click();return 1})()"]
+    ] },
+  { page: 'resources.html', wait: 8000, states: [
+      ['main', '1'],
+      ['editor: upload', 'openEditor();'],
+      ['editor: add a link', "openEditor();setTimeout(()=>{try{editorMode('link')}catch(e){}},300);1"]
+    ] },
+  { page: 'videos.html', wait: 8000, states: [
+      ['main', '1'],
+      ['a video open', "(()=>{const c=document.querySelector('.card');if(c)c.click();return 1})()"]
+    ] },
+  { page: 'view-only-rota.html', wait: 8000, states: [
+      ['main', '1'],
+      ['a term collapsed', "(()=>{const h=document.querySelector('[onclick^=\"toggleTermCollapse\"]');if(h)h.click();return 1})()"]
+    ] },
+  { page: 'places-admin.html', wait: 8000, states: [
+      ['tab: sites', "(()=>{const b=[...document.querySelectorAll('.tab')][0];if(b)b.click();return 1})()"],
+      ['tab: rooms', "(()=>{const b=[...document.querySelectorAll('.tab')][1];if(b)b.click();return 1})()"],
+      ['tab: kit', "(()=>{const b=[...document.querySelectorAll('.tab')][2];if(b)b.click();return 1})()"],
+      ['tab: outside venues', "(()=>{const b=[...document.querySelectorAll('.tab')][3];if(b)b.click();return 1})()"],
+      ['tab: who approves', "(()=>{const b=[...document.querySelectorAll('.tab')][4];if(b)b.click();return 1})()"]
+    ] },
+
+  /* Added when the emoji were counted: A3 took 42 out of the hub, 1 out of the
+     pin board and 1 out of Play-Through, and none of those three was on this
+     list - so nothing had ever measured them.
+     `restyled: false` says they are not in A3's Group 1. The icon check walks
+     them, because an emoji was taken out of them. The style check does not
+     assert on them, because the restyle has not reached them: making it fail
+     for work that is not scheduled turns a gate into noise. What it finds on
+     them is in PARITY-AUDIT.md for whoever schedules R-014. */
+  { page: 'hub.html', wait: 11000, restyled: false, states: [
+      ['the tools', '1'],
+      ['the admin panel', "(()=>{try{openAdmin();return 'opened'}catch(e){return 'no openAdmin'}})()"],
+      ['admin: people', "(()=>{try{adminTab('people');return 1}catch(e){return 'no adminTab'}})()"],
+      ['admin: pages', "(()=>{try{adminTab('pages');return 1}catch(e){return 'no adminTab'}})()"],
+      ['admin: youth codes', "(()=>{try{adminTab('youth');return 1}catch(e){return 'no adminTab'}})()"],
+      ['admin: notices', "(()=>{try{adminTab('news');return 1}catch(e){return 'no adminTab'}})()"],
+      ['the team picker', "(()=>{try{openTeamPicker();return 'opened'}catch(e){const b=[...document.querySelectorAll('button')].find(x=>/^switch$/i.test((x.textContent||'').trim()));if(b){b.click();return 'clicked'}return 'no picker'}})()"]
+    ] },
+  { page: 'stickynotes.html', wait: 8000, restyled: false, states: [
+      ['main', '1'],
+      ['every panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=odal],details').forEach(m=>{if(m.tagName==='DETAILS'){m.open=true;n++}else if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
+    ] },
+  { page: 'EGBC-PlayThrough.html', wait: 8000, restyled: false, states: [
+      ['main', '1'],
+      ['the admin panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=dmin],[id*=odal]').forEach(m=>{if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
+    ] }
+];
+

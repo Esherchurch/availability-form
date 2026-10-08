@@ -11,6 +11,7 @@ Run every one of these from `v2/`, not from here.
 | The news board on the dashboard can still be managed | `node tests/check-news-dashboard.mjs` |
 | A Kids Church role stored under its old name survives a save | `node tests/check-old-kids-roles.mjs` |
 | v2's hub still offers every page the original's hub offers | `node tests/check-hub-tools.mjs` |
+| Every control still reads as a control, now the emoji have gone | `node tests/check-icon-buttons.mjs` |
 | The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
@@ -18,6 +19,17 @@ Run every one of these from `v2/`, not from here.
 Each file starts with a comment saying which real failure it exists for. That
 is the point of them: every check here was written after something got
 through, and the comment is how the next person knows what it is guarding.
+
+## One list of screens
+
+`group1-screens.mjs` holds the pages and every screen each one has. Two checks
+walk it — the style check and the icon check — because a second copy is how one
+of them quietly stops covering a screen the other does.
+
+Pages marked `restyled: false` are walked by the icon check but not asserted on
+by the style check: the restyle has not reached them (R-014), and failing a
+gate for work nobody has scheduled turns it into noise. `--all` measures them
+anyway.
 
 ## A page with an error on its console is a failure
 
