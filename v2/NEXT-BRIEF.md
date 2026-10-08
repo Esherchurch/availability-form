@@ -313,6 +313,11 @@ Prove it:
 - the pin board card on the hub at phone and desktop width
 - a check that fails if any v2 page links to the original site outside an email
 
+**Added by Martin, 8 Oct 2026:**
+- "Hire our rooms" (`hire.html`), for everyone, under "What's on".
+- "Book a room" (the members' booking page), for everyone, directly under "Hire our rooms".
+- "Room bookings" (the office page) under Core Team, then Events and rooms, for admins and each site's bookings admins.
+
 Stop and report, then go on to Step R.
 
 ## 15. Martin found lost behaviour — S2 is now a side-by-side comparison of every page
