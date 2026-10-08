@@ -647,3 +647,44 @@ goes live rather than assume.
 **What the checks cannot tell him**, and the deploy steps say so plainly: the
 emulator never calls `sendEmail`, so whether email actually arrives is not
 proved by anything here. The first real test is the Force run in step 8.
+
+## A-028 — Node 20 is decommissioned on 30 October 2026, so the functions moved to 22
+
+The deploy warned it. The part that matters is what it stops: after that date
+**nothing in this codebase can be deployed at all** — not a fix, not a
+rollback. What is already live keeps running, so it is a deadline on deploying
+rather than on the service. That is a worse kind of deadline, because nothing
+breaks to remind you.
+
+| | was | now |
+|---|---|---|
+| Node | 20 | **22** |
+| `firebase-functions` | 6.6.0 | **7.4.0** |
+| `firebase-admin` | 12.7.0 | **14.5.0** |
+
+Two major versions on each library. Every import this codebase uses still
+resolves — `onRequest`, `onCall`, `HttpsError`, `setGlobalOptions`,
+`onSchedule`, `initializeApp`, `getFirestore` — checked one at a time before
+anything else was run, and then by the checks.
+
+**All three function checks pass on the new libraries**: the rota feed 45/45,
+the calendar end to end through the hub 23/23, the reminders 38/38. The two
+server-side ones run under `emulators:exec`, which starts a fresh process
+against the new `node_modules`; the browser one was re-run after restarting
+the dev emulators, so it is not reading a cached copy either.
+
+**The runtime comes from `engines.node`** in `functions/package.json`. There is
+no `runtime` in `firebase.json` and no flag to pass — the emulator confirms it
+by echoing *"Your requested node version 22"*, which it did not say before.
+
+**What none of this proves.** The emulator runs functions on whatever Node the
+machine has, which here is 24, and says so. So the checks show the code works
+on the new **libraries**, not on Node 22 in particular. Nothing in these five
+functions touches anything that differs between 22 and 24 — they use `fetch`,
+`Intl`, `crypto.randomBytes` and plain JavaScript — but the first true test of
+the runtime is the deploy itself. `SERVER-DEPLOY.md` says that plainly and
+tells Martin what to look for in the CLI's output (nodejs22 against each
+function, and no offer to delete `sendEmail`).
+
+**`monitor-bridge/package.json` says `>=18`** and was left alone: it is a local
+development tool and is never deployed.
