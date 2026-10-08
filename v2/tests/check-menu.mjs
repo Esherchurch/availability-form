@@ -222,6 +222,21 @@ const READ_MENU = `(() => {
 
   for (const [label, p] of Object.entries(PEOPLE)) {
     /* Rewrite who this person is, then reload the hub. */
+    /* THE ADDRESS BOOK FIRST, BECAUSE IT WINS.
+       EGBCAuth.refreshFromBook() re-reads addressBook/{memberId} on every page
+       load and writes teams, adminFor and masterAdmin back over users/{uid}.
+       Writing only the user document worked for as long as ab_tester had no
+       address book record at all - refreshFromBook leaves the profile alone
+       when there is nothing to read. The moment test-account.mjs started
+       making that record (a master admin, so the sweeps can open every page),
+       this check began reading the Menu as a master admin three times over
+       and reporting a Worship member who could see Core Team. */
+    await rest('PATCH', `/v1/projects/${PROJECT}/databases/(default)/documents/addressBook/ab_tester`, {
+      fields: {
+        name: val('Menu Tester'), email: val(ACCOUNT.email),
+        markers: val(p.teams), adminFor: val(p.adminFor), masterAdmin: val(p.masterAdmin)
+      }
+    });
     await rest('PATCH', `/v1/projects/${PROJECT}/databases/(default)/documents/users/${uid}`, {
       fields: {
         uid: val(uid), email: val(ACCOUNT.email), name: val('Menu Tester'),

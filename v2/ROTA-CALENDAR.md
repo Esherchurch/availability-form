@@ -53,10 +53,29 @@ key → uid → memberId → their slots.
 
 ---
 
-## 2. What each person's feed holds
+## 2. The three feeds, and what each one holds
 
-One `VEVENT` per event they are in, from events that are **not archived and not
-draft**. Exactly what today's `.ics` attachment holds, and nothing more:
+Martin, 8 Oct 2026: *"we need to let them choose. for example we need a feed
+for the whole family, or for the full rota if they prefer. Karen as an example
+needs to know if Oliver is on."*
+
+A person may have **any or all** of these. Each has **its own link** and its
+own "Reset this link", so resetting one leaves the others working — which is
+the point of them being separate: somebody who has given the household link to
+a grandparent can reset that one alone.
+
+| Choice | What is in it |
+|---|---|
+| **Just me** | The services and meetings this person is on. Nobody else is named. |
+| **My household** | Every event anyone in their household is on, saying who. |
+| **The full rota — Worship & AV** | Every service, with the whole Worship and AV team on each one. |
+| **The full rota — Kids Church** | Every service, with the whole Kids Church team on each one. |
+| **The full rota — Everything** | Every service, with everybody **they are allowed to see**. |
+
+Every feed leaves out events that are **archived** (last term) or **draft**
+(not agreed yet).
+
+### Just me
 
 | Line | Content |
 |---|---|
@@ -68,15 +87,70 @@ draft**. Exactly what today's `.ics` attachment holds, and nothing more:
 
 **What it does NOT hold**, by decision (§11): no other people's names, no
 service leader or speaker, no private notes, no availability, nothing about
-anybody else at all. A person's feed is their own slots and nothing else. If
-their link ever did get out, what leaks is "somebody is on guitar at 8am on
-Sunday" — which is on the wall planner anyway.
+anybody else at all. If their link ever did get out, what leaks is "somebody
+is on guitar at 8am on Sunday" — which is on the wall planner anyway.
+
+### My household
+
+| Line | Content |
+|---|---|
+| `SUMMARY` | `EGBC: Oliver: Drums · Karen: Session Leader` — **first names**, so it fits the line a phone shows in its month view |
+| `DESCRIPTION` | the service, then every household member in full with their roles: `Oliver Synthetic — Drums` |
+| `UID` | `egbc-rota-<eventId>-household@esherchurch.org` |
+
+**Who is in the household is worked out when the calendar app asks**, not when
+the link was made. Somebody joining or leaving the house changes the feed on
+its next refresh, with nothing to reset and nobody to tell.
+
+**The household rule is not invented here.** It is the one the household PDF
+uses — follow every `householdId` pointer, both directions, until nothing new
+turns up. The address book records a household two ways (some point at a head,
+some point at each other) and following one link only loses people in the
+second shape.
+
+It carries **names and roles and nothing else**: no addresses, no telephone
+numbers, no notes.
+
+### The full rota
+
+| Line | Content |
+|---|---|
+| `SUMMARY` | `EGBC: Sunday Morning Worship — Communion` |
+| `DESCRIPTION` | the whole visible team, a role to a line: `Guitar: Alex Synthetic` |
+| `UID` | `egbc-rota-<eventId>-full-<scope>@esherchurch.org` |
+
+**Two filters, and the first is not negotiable.**
+
+1. **What this person may see on the read-only rota.** The same rule
+   `view-only-rota.html` filters its table with: Worship and AV see each
+   other's slots, Choir folds into Worship, Youth Worship see the worship rota
+   they actually serve on, and an admin sees the areas they administer. It is
+   worked out **when the calendar app asks**, from their record as it then
+   stands — so somebody who leaves a team stops seeing it, without anybody
+   remembering to reset a link.
+2. **Their own choice** of Worship & AV, Kids Church or Everything, which can
+   only ever narrow. **"Everything" means everything they may see, never
+   everything there is.**
+
+Asking for a team they cannot see is **refused in words** by the function, not
+answered with an empty calendar — an empty calendar reads as "nothing is on",
+which is a different and worse thing to tell somebody.
+
+An event where nothing is visible is left out entirely, rather than appearing
+as a blank entry that says a Kids Church service happened.
+
+### Why each feed has a different UID
+
+A person may subscribe to two of these at once. iCalendar identifies an entry
+by its `UID`, so if "just me" and "my household" used the same one for the
+same service, the second calendar would quietly replace the first and they
+would end up with one. The kind is part of the UID, so they keep both.
 
 **One difference from the email attachment, on purpose.** The attachment's UID
 includes the date (`egbc-rota-<id>-<date>@…`). In a one-off file that is fine.
 In a *subscription* it is not: move an event from the 11th to the 18th and the
 UID changes, so the calendar keeps the old entry and adds a new one, and the
-person has two. The feed keys on the event id alone, so a moved event moves.
+person has two. These feeds key on the event id, so a moved event moves.
 
 ---
 
@@ -90,8 +164,12 @@ treated as a password.
 
 | Document | Holds | Who can read it |
 |---|---|---|
-| `calendarKeys/{uid}` | `{ key, createdAt }` | that person, and nobody else |
-| `calendarFeeds/{key}` | `{ uid, memberId, createdAt }` | **nobody** — only the function, through the Admin SDK |
+| `calendarKeys/{uid}` | `{ feeds: { me: {key}, household: {key}, 'full:kids': {key}, … } }` | **nobody** — the hub asks the `myCalendarLinks` function, which answers only about the person asking |
+| `calendarFeeds/{key}` | `{ uid, memberId, kind, scope, createdAt }` | **nobody** — only the function, through the Admin SDK |
+
+One key per feed, which is what makes "reset this one" mean this one. A link
+made before the three feeds existed has no `kind`; it is treated as "just me"
+and keeps working, so nothing anybody has already put in their phone breaks.
 
 `calendarFeeds` is the one the function looks a key up in. It is closed to
 every client, in rules, so a key cannot be turned back into a person by anyone
@@ -125,8 +203,19 @@ says that in plain words rather than implying the old entries vanish.
 `firebase.json` gains a `functions` block with **`codebase: "hub"`** and the
 functions emulator on port 5101.
 
-`node tests/check-rota-feed.mjs` runs against `firebase emulators:exec` with
-firestore, auth and functions, on synthetic data only, and proves:
+```
+set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec ^
+  --config firebase.spare.json --only firestore,auth,functions ^
+  --project egbc-worship-planner "node tests/check-rota-feed.mjs"
+```
+
+The spare config, so it can run while the dev emulators are up. **45 checks**,
+on synthetic data only. (The run line used to say neither the config nor the
+port, so the check talked to whatever happened to be on the dev ports - once
+that was a different dataset, and it reported the function refusing somebody
+it had never been told about.)
+
+It proves:
 
 - a person's feed holds **their** slots and only theirs
 - their roles are on the `SUMMARY`, and **no other person's name appears
@@ -140,9 +229,40 @@ firestore, auth and functions, on synthetic data only, and proves:
   `BEGIN:VEVENT` per expected slot, CRLF line endings, lines folded at 75
   characters
 
+and, for the three feeds (§18), with Karen and Oliver invented for it:
+
+- **Karen's household feed has Oliver's date** — the Sunday he is on and she
+  is not — and the line reads exactly `EGBC: Oliver: Drums`
+- **her "Just me" feed does not have it**, nor his name anywhere in the file
+- **a Worship member's full rota leaves out a Kids Church role they cannot
+  see**, while Karen's own Kids Church rota has it and leaves out the worship
+  roles
+- a team somebody cannot see is **refused in words**, not handed over empty
+- **resetting the household link leaves "Just me" working**: the old household
+  address 404s at once, the new one works, and the other link is untouched
+- the two feeds' UIDs differ, so subscribing to both keeps both
+
 Each with a deliberate break: take out the archived filter and the archived
 event appears; take out the person filter and somebody else's name appears;
-skip the delete on reset and the old key still works.
+skip the delete on reset and the old key still works; build the household from
+one person and Oliver's date disappears from Karen's household feed; drop the
+visibility filter and a Kids Church role turns up in a Worship member's feed;
+delete every key on a reset and "Just me" stops working.
+
+**And through the browser**, driving the hub as a person would:
+`node tests/check-calendar-end-to-end.mjs` — **22 checks**. The three choices
+are offered in plain words, no link exists until one is asked for, "Add to my
+calendar" offers Google, Apple/iPhone and Outlook, Copy link and Reset this
+link are on each one, the household feed holds the other person in the house,
+resetting one leaves the other working, and reopening the panel shows the
+links already made without making more.
+
+**A fault those checks found in themselves.** The first version of the
+household summary asked only "is the name in there somewhere", and passed -
+while `firstName()` had lost a backslash and was splitting on the letter *s*,
+so "Rota Tester" came out as "Rota Te". The test name it was checking, "Other
+Synthetic", happens to contain no lower-case s. Both checks now compare the
+whole `SUMMARY` line.
 
 ---
 
@@ -185,19 +305,36 @@ Step by step, from the `v2` folder:
    the deploy reports that it could not, run:
    `gcloud functions add-invoker-policy-binding rotaFeed --region=europe-west2 --member=allUsers`
 
-5. **Check it, with your own link:** open the hub, go to your profile, copy
-   "My calendar link", and paste it into a browser. You should see a file of
-   text beginning `BEGIN:VCALENDAR` with your own slots in it and nobody
-   else's.
+5. **Check it, with your own links.** Open the hub, open the Menu, and press
+   **My rota**. You will see the three choices. Press **Add to my calendar**
+   on "Just me", copy the address and paste it into a browser: you should see
+   a file of text beginning `BEGIN:VCALENDAR` with your own slots in it and
+   nobody else's.
 
-6. **Only then tell anybody.** Once it is right, the link is in the hub for
-   everyone, and the wording there explains the three calendar apps.
+   Then do the same for **My household** and check it holds the rest of your
+   house, and for **The full rota** and check it holds the teams you would see
+   on the read-only rota and no others.
+
+6. **Check a reset does what it says.** Press **Reset this link** on one of
+   them. The old address should stop working at once — paste it in again and
+   you should get "Not found" — and the *other* links should still work. That
+   last part is the one worth checking by hand, because it is the whole reason
+   each feed has its own key.
+
+7. **Only then tell anybody.** Once it is right, My rota is in the Menu for
+   everyone, and the wording there explains the choices and the calendar apps.
 
 **If it goes wrong**, nothing on the site breaks: the feed is a separate
 address, and nothing on any page depends on it. Delete it with
 `firebase functions:delete rotaFeed --region=europe-west2` and the site carries
-on exactly as before.
+on exactly as before. There are three functions in this codebase now -
+`rotaFeed`, `myCalendarLink` and `myCalendarLinks` - so delete all three if
+you are taking the whole thing out.
 
 **What this costs.** The function runs when a calendar app asks, which is
 roughly every few hours per person. For a team of fifty that is a few thousand
-calls a month, inside the free allowance.
+calls a month, inside the free allowance. Somebody with all three feeds is
+three subscriptions rather than one, so the honest figure is a few thousand
+times however many feeds people actually add - still well inside it.
+
+**Nothing here has been deployed.** Step R stops before that, as asked.

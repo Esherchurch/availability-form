@@ -198,9 +198,17 @@ service cloud.firestore {
     // Rules cannot hide one field of a document, so a key kept there would be
     // readable by the whole church.
 
+    // Each feed now has its own key (NEXT-BRIEF 18): just me, my household,
+    // and the full rota for a team. They live in a `feeds` map on this
+    // document, and resetting one leaves the others alone.
+    //
+    // NOBODY reads this from a page any more. The hub asks the myCalendarLinks
+    // function instead, which answers only about the person asking. A key is a
+    // password, and the fewer places one can be read from the better - so this
+    // is shut to everything except the Admin SDK inside the functions, which
+    // does not go through these rules.
     match /calendarKeys/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     match /calendarFeeds/{key} {

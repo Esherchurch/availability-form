@@ -2158,12 +2158,16 @@ function renderCalendarRow() {
 
 window.openMyCalendar = async function () {
   const box = document.getElementById('calendarModal');
-  if (box) box.classList.add('open');
+  if (box) box.classList.add('on');
   const out = document.getElementById('calendarBody');
-  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Getting your linkâ€¦</p>';
+  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Looking up your links...</p>';
   try {
-    const link = await askForCalendarLink(false);
-    showCalendarLink(link);
+    /* 18: three feeds now, each with its own link. Which ones this person
+       already has is asked for once, here - a link is made only when
+       somebody asks for one, because every address that exists is an
+       address that can get out. */
+    await loadCalendarKeys();
+    showCalendarChoices();
   } catch (e) {
     if (out) out.innerHTML = `<p style="font-size:13px;color:var(--danger)">${esc(calendarProblem(e))}</p>`;
   }
@@ -2188,7 +2192,39 @@ function calendarProblem(e) {
    arriving. */
 const FUNCTIONS_REGION = 'europe-west2';
 
-async function askForCalendarLink(reset) {
+/* ---- WHICH FEED (NEXT-BRIEF 18) ------------------------------------
+
+   Martin: "we need to let them choose. for example we need a feed for the
+   whole family, or for the full rota if they prefer. Karen as an example
+   needs to know if Oliver is on."
+
+   Three choices in plain words. The full rota asks which team as well,
+   because "the full rota" means something different to Karen than it does to
+   a guitarist, and a link has to mean one thing for ever - so each team
+   choice is its own link rather than a setting on one.
+
+   The ids match FEEDS in functions/index.js. They are what is stored, so
+   renaming one stops every link of that kind working. */
+const CALENDAR_FEEDS = [
+  { id: 'me', title: 'Just me',
+    blurb: 'The services and meetings you are on. Nobody else is named in it.' },
+  { id: 'household', title: 'My household',
+    blurb: 'Everyone in your house, with who is doing what: "Oliver: Drums". ' +
+           'It follows the household, so somebody joining or leaving changes it by itself.' },
+  { id: 'full:worship', title: 'The full rota \u2014 Worship & AV', full: true,
+    blurb: 'Every service, with the whole Worship and AV team on each one.' },
+  { id: 'full:kids', title: 'The full rota \u2014 Kids Church', full: true,
+    blurb: 'Every service, with the whole Kids Church team on each one.' },
+  { id: 'full:all', title: 'The full rota \u2014 Everything', full: true,
+    blurb: 'Every service, with everybody you are allowed to see on the rota.' }
+];
+
+/* Which links this person already has. Asked for once when the panel opens:
+   a link is made only when somebody asks for one, because every address that
+   exists is an address that can get out. */
+let CALENDAR_KEYS = {};
+
+function calendarFns() {
   const fns = (firebase && firebase.functions)
     ? firebase.app(EGBCAuth.app.name).functions(FUNCTIONS_REGION)
     : null;
@@ -2196,72 +2232,118 @@ async function askForCalendarLink(reset) {
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     try { fns.useEmulator('localhost', 5101); } catch (e) { /* already pointed there */ }
   }
-  const res = await fns.httpsCallable('myCalendarLink')({ reset: !!reset });
-  const key = res && res.data && res.data.key;
-  if (!key) throw new Error('No link came back.');
-  return FEED_BASE + '?k=' + encodeURIComponent(key);
+  return fns;
 }
 
-function showCalendarLink(url) {
+async function askForCalendarLink(feedId, reset) {
+  const res = await calendarFns().httpsCallable('myCalendarLink')({
+    feed: feedId || 'me', reset: !!reset
+  });
+  const key = res && res.data && res.data.key;
+  if (!key) throw new Error('No link came back.');
+  return key;
+}
+
+async function loadCalendarKeys() {
+  try {
+    const res = await calendarFns().httpsCallable('myCalendarLinks')({});
+    CALENDAR_KEYS = (res && res.data && res.data.feeds) || {};
+  } catch (e) {
+    /* Not knowing which links exist is not a reason to show nothing: every
+       choice still offers to make one. */
+    console.error('Could not read which calendar links exist', e);
+    CALENDAR_KEYS = {};
+  }
+}
+
+const calendarUrlFor = (key) => FEED_BASE + '?k=' + encodeURIComponent(key);
+
+/* The whole panel: the three choices, and for each the buttons that matter
+   once a link exists. */
+function showCalendarChoices() {
   const out = document.getElementById('calendarBody');
   if (!out) return;
+
+  out.innerHTML = `
+    <p style="font-size:13px;color:var(--body);line-height:1.6;margin-bottom:16px">
+      Add one of these once and it stays up to date in your calendar. When the
+      rota changes, your calendar follows, with no new email.
+    </p>
+    ${CALENDAR_FEEDS.map(f => calendarChoiceRow(f)).join('')}
+    <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:16px">
+      Treat these addresses like passwords: anyone who has one can see that
+      rota. Each has its own link, so resetting one leaves the others working.
+    </p>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
+function calendarChoiceRow(f) {
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 15}px;height:${s || 15}px"></i>`;
+  const key = CALENDAR_KEYS[f.id];
+  const url = key ? calendarUrlFor(key) : '';
   /* webcal:// is what makes Apple and Outlook offer to subscribe rather than
      download the file once. Google wants the https address. */
   const webcal = url.replace(/^https?:\/\//, 'webcal://');
   const google = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal);
-  out.innerHTML = `
-    <p style="font-size:13px;color:var(--body);line-height:1.6;margin-bottom:14px">
-      Add this once and your rota stays in your calendar. When the rota changes,
-      your calendar follows, with no new email. It shows <strong>your</strong>
-      slots only &mdash; nobody else's name is in it.
-    </p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <a class="btn" href="${esc(google)}" target="_blank" rel="noopener"
-         style="display:inline-flex;align-items:center;gap:6px"><i data-lucide="calendar" style="width:16px;height:16px"></i> Google Calendar</a>
-      <a class="btn" href="${esc(webcal)}"
-         style="display:inline-flex;align-items:center;gap:6px"><i data-lucide="apple" style="width:16px;height:16px"></i> Apple Calendar</a>
-      <a class="btn" href="${esc(webcal)}"
-         style="display:inline-flex;align-items:center;gap:6px"><i data-lucide="mail" style="width:16px;height:16px"></i> Outlook</a>
-    </div>
-    <label style="font-size:12px;color:var(--muted)">Or copy the address</label>
-    <div style="display:flex;gap:8px;margin:6px 0 16px">
-      <input id="calendarUrl" readonly value="${esc(url)}"
-             style="flex:1;font-size:12px;padding:8px 10px;border:1px solid var(--hairline-strong);border-radius:8px">
-      <button class="btn" onclick="copyCalendarUrl()">Copy</button>
-    </div>
-    <p style="font-size:12px;color:var(--muted);line-height:1.6">
-      Treat this address like a password: anyone who has it can see your rota.
-      If it gets out, reset it.
-    </p>
-    <button class="btn" onclick="resetMyCalendar()"
-            style="margin-top:10px;color:var(--danger);display:inline-flex;align-items:center;gap:6px">
-      <i data-lucide="rotate-ccw" style="width:16px;height:16px"></i> Reset my calendar link
-    </button>`;
-  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+    <div style="font-size:14px;font-weight:600;color:var(--ink)">${esc(f.title)}</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.55;margin:3px 0 10px">${esc(f.blurb)}</div>
+    ${!key ? `<button class="btn sm solid" onclick="makeCalendarLink('${f.id}')">${I('plus')} Add to my calendar</button>`
+    : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <a class="btn sm" href="${esc(google)}" target="_blank" rel="noopener">${I('calendar')} Google</a>
+        <a class="btn sm" href="${esc(webcal)}">${I('apple')} Apple / iPhone</a>
+        <a class="btn sm" href="${esc(webcal)}">${I('mail')} Outlook</a>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <input readonly value="${esc(url)}" id="calurl-${esc(f.id)}"
+               style="flex:1;min-width:150px;font-size:11px;padding:6px 8px;border:1px solid var(--hairline-strong);border-radius:8px">
+        <button class="btn sm" onclick="copyCalendarUrl('${f.id}')">${I('copy')} Copy link</button>
+        <button class="btn sm" style="color:var(--danger)" onclick="resetCalendarLink('${f.id}')">${I('rotate-ccw')} Reset this link</button>
+      </div>`}
+  </div>`;
 }
 
-window.copyCalendarUrl = function () {
-  const i = document.getElementById('calendarUrl');
+window.makeCalendarLink = async function (feedId) {
+  const out = document.getElementById('calendarBody');
+  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Making your link\u2026</p>';
+  try {
+    CALENDAR_KEYS[feedId] = await askForCalendarLink(feedId, false);
+    showCalendarChoices();
+  } catch (e) {
+    if (out) out.innerHTML = `<p style="font-size:13px;color:var(--danger)">${esc(calendarProblem(e))}</p>
+      <button class="btn sm" style="margin-top:10px" onclick="openMyCalendar()">Back</button>`;
+  }
+};
+
+window.resetCalendarLink = async function (feedId) {
+  const f = CALENDAR_FEEDS.find(x => x.id === feedId) || { title: 'this' };
+  /* Said plainly, because no server can reach into somebody's phone: the old
+     address stops working at once, but entries already downloaded stay until
+     they remove the old subscription themselves. */
+  if (!confirm('Reset the link for "' + f.title + '"?\n\n' +
+               'The old address stops working straight away. Anything already in your ' +
+               'calendar from it stays there until you remove that subscription on your ' +
+               'phone or computer, and add the new one.\n\nYour other calendar links ' +
+               'are not affected.')) return;
+  const out = document.getElementById('calendarBody');
+  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Making a new link\u2026</p>';
+  try {
+    CALENDAR_KEYS[feedId] = await askForCalendarLink(feedId, true);
+    showCalendarChoices();
+  } catch (e) {
+    if (out) out.innerHTML = `<p style="font-size:13px;color:var(--danger)">${esc(calendarProblem(e))}</p>
+      <button class="btn sm" style="margin-top:10px" onclick="openMyCalendar()">Back</button>`;
+  }
+};
+
+window.copyCalendarUrl = function (feedId) {
+  const i = document.getElementById('calurl-' + feedId);
   if (!i) return;
   i.select();
   navigator.clipboard.writeText(i.value).catch(() => document.execCommand('copy'));
 };
 
-window.resetMyCalendar = async function () {
-  /* Said plainly, because no server can reach into somebody's phone: the old
-     address stops working at once, but entries already downloaded stay until
-     they remove the old subscription themselves. */
-  if (!confirm('Reset your calendar link?\n\nThe old address stops working straight away. ' +
-               'Anything already in your calendar from it stays there until you remove that ' +
-               'subscription on your phone or computer, and you add the new one.')) return;
-  const out = document.getElementById('calendarBody');
-  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Making a new linkâ€¦</p>';
-  try {
-    showCalendarLink(await askForCalendarLink(true));
-  } catch (e) {
-    if (out) out.innerHTML = `<p style="font-size:13px;color:var(--danger)">${esc(calendarProblem(e))}</p>`;
-  }
-};
 
 function renderTools() {
   const el = document.getElementById('toolList');

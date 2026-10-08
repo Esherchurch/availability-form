@@ -97,6 +97,39 @@ const R = [];
 const ok = (n, v, x) => { R.push(v); console.log('  ' + (v ? 'PASS  ' : 'FAIL  ') + n + (x !== undefined ? '\n          ' + String(x).slice(0, 300) : '')); };
 
 (async () => {
+  /* SEED THE REGISTRY, rather than hoping something else has.
+
+     This check compares what the original hub offers with what v2 offers,
+     and both read hubPages. An empty hubPages makes both hubs offer
+     nothing, and "v2 offers every page the original offers" then passes
+     while proving nothing at all - which is exactly what happened once
+     check-menu.mjs started tidying up the one row it had planted.
+
+     "the original hub was read with something on it" is the assertion that
+     catches that, and it did. Seeding here means it never has to. */
+  const SEED = [
+    { url: 'view-only-rota.html', title: 'Rota', team: 'Worship Team', everyone: true },
+    { url: 'resources.html', title: 'Team Resources', team: 'Worship Team', everyone: true },
+    { url: 'stickynotes.html', title: "Idea's pin board", team: 'Worship Team', everyone: true },
+    { url: 'videos.html', title: 'Team Videos', team: 'Worship Team', everyone: true }
+  ];
+  for (let n = 0; n < SEED.length; n++) {
+    const p = SEED[n];
+    await new Promise((res, rej) => {
+      const data = JSON.stringify({ fields: {
+        url: { stringValue: p.url }, title: { stringValue: p.title },
+        team: { stringValue: p.team }, everyone: { booleanValue: true },
+        enabled: { booleanValue: true }, order: { integerValue: String((n + 1) * 10) }
+      } });
+      const req = http.request({ host: 'localhost', port: 8181, method: 'PATCH',
+        path: '/v1/projects/egbc-worship-planner/databases/(default)/documents/hubPages/synthetic_' + n,
+        headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json',
+                   'Content-Length': Buffer.byteLength(data) } },
+        r => { r.resume(); r.on('end', res); });
+      req.on('error', rej); req.end(data);
+    });
+  }
+
   const reg = await registry();
   const wanted = (reg.documents || []).map(d => ({
     url: (d.fields.url || {}).stringValue || '',

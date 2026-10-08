@@ -257,6 +257,143 @@ const has = (body, s) => body.includes(s);
   ok('somebody with no account cannot ask for a link', anon.status >= 400,
     anon.status + ' ' + String(anon.body).slice(0, 80));
 
+
+  /* ================= THE THREE FEEDS (NEXT-BRIEF 18) ==================
+
+     Martin: "we need to let them choose. for example we need a feed for the
+     whole family, or for the full rota if they prefer. Karen as an example
+     needs to know if Oliver is on."
+
+     Karen and Oliver are invented, and so is everybody else in this file.
+     Oliver points at Karen as his household, which is one of the two shapes
+     the address book uses; the other is two people pointing at each other,
+     and householdIds handles both - the household PDF has been doing it that
+     way since it was written, and this reads the same rule.           */
+
+  const KAREN = 'ab_karen_synth';
+  const OLIVER = 'ab_oliver_synth';
+
+  await put('addressBook/' + KAREN, { name: 'Karen Synthetic',
+    email: 'karen@example.invalid', markers: ['Kids Church'] });
+  await put('addressBook/' + OLIVER, { name: 'Oliver Synthetic',
+    email: 'oliver@example.invalid', markers: ['Worship Team'], householdId: KAREN });
+
+  const hBase = { termLabel: 'Autumn 2026', teams: ['Worship Team', 'AV Team', 'Kids Church'],
+    roles: ['Drums', 'Guitar', 'Session Leader'], archived: false, draft: false,
+    serviceLeader: 'Carol Synthetic', speaker: 'Dee Synthetic' };
+
+  /* Both of them on, which is the entry 18 gives as its example. */
+  await put('events/ev_house_both', { ...hBase, date: '2026-11-01',
+    startTime: '08:00', endTime: '11:30', type: 'Sunday Morning Worship', description: '',
+    assignments: {
+      Drums: { id: OLIVER, name: 'Oliver Synthetic' },
+      'Session Leader': { id: KAREN, name: 'Karen Synthetic' },
+      Guitar: { id: ALEX, name: 'Alex Synthetic' }
+    } });
+
+  /* THE ONE THAT MATTERS: Oliver is on and Karen is not. This date has to be
+     in her household feed and must not be in her "Just me" feed. */
+  await put('events/ev_house_oliver', { ...hBase, date: '2026-11-08',
+    startTime: '08:00', endTime: '11:30', type: 'Sunday Morning Worship', description: '',
+    assignments: { Drums: { id: OLIVER, name: 'Oliver Synthetic' } } });
+
+  /* Karen's own account, so the callable has somebody to answer. */
+  const karenAcct = await authReq('/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
+    { email: 'karen.feed@example.invalid', password: 'test-only-password', returnSecureToken: true });
+  const kUid = karenAcct.localId, kToken = karenAcct.idToken;
+  await put('users/' + kUid, { uid: kUid, email: 'karen.feed@example.invalid',
+    name: 'Karen Synthetic', memberId: KAREN, status: 'active',
+    teams: ['Kids Church'], adminFor: [], masterAdmin: false });
+
+  const callAs = (token, fn, data) => new Promise((res, rej) => {
+    const payload = JSON.stringify({ data: data || {} });
+    const r = http.request({ host: 'localhost', port: FN_PORT, method: 'POST',
+      path: '/' + PROJECT + '/' + REGION + '/' + fn,
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload),
+                 Authorization: 'Bearer ' + token } },
+      s => { let d = ''; s.on('data', c => d += c); s.on('end', () => { try { res(JSON.parse(d || '{}')); } catch { res({ raw: d }); } }); });
+    r.on('error', rej); r.end(payload);
+  });
+  const keyOf = (r) => (r && r.result && r.result.key) || '';
+  /* The UIDs in a feed. Two feeds a person may subscribe to at once must not
+     share one, or the second quietly replaces the first. */
+  const uids = (body) => (String(body || '').match(/^UID:.*$/gm) || []).map(l => l.trim());
+
+  console.log('');
+  console.log('Karen, her household, and the full rota (18)');
+
+  const kMe = keyOf(await callAs(kToken, 'myCalendarLink', { feed: 'me' }));
+  const kHouse = keyOf(await callAs(kToken, 'myCalendarLink', { feed: 'household' }));
+  ok('each feed has a link of its own', !!kMe && !!kHouse && kMe !== kHouse,
+    'me=' + kMe.slice(0, 8) + '... household=' + kHouse.slice(0, 8) + '...');
+
+  const meFeed = await get(feedUrl(kMe));
+  const houseFeed = await get(feedUrl(kHouse));
+
+  ok("Karen's household feed has Oliver's date", /20261108/.test(houseFeed.body || ''),
+    houseFeed.status + ', ' + vevents(houseFeed.body || '').length + ' entries');
+  /* THE EXACT LINE Karen reads in her month view. 18 gives the shape:
+     "Oliver: Drums". Asking only whether the name appears somewhere let a
+     real fault through - firstName() had lost a backslash and split on the
+     letter s, so "Rota Tester" came out as "Rota Te", and a test looking
+     for a name with no lower-case s in it passed anyway. */
+  const hSum = (String(houseFeed.body || '').match(/SUMMARY:[^\r\n]+/g) || []);
+  ok('  and it says it is Oliver, and what he is doing',
+    hSum.includes('SUMMARY:EGBC: Oliver: Drums'),
+    hSum.join(' | ').slice(0, 200));
+  ok("her \"Just me\" feed does NOT have Oliver's date", !/20261108/.test(meFeed.body || ''),
+    meFeed.status + ', ' + vevents(meFeed.body || '').length + ' entries');
+  ok("  nor his name anywhere in it", !/Oliver/.test(meFeed.body || ''),
+    'Oliver Synthetic');
+  ok('  but it does have the Sunday she is on', /20261101/.test(meFeed.body || ''));
+  ok('the two feeds do not collide in one calendar',
+    uids(houseFeed.body).length > 0 && uids(meFeed.body).length > 0 &&
+    !uids(houseFeed.body).some(u => uids(meFeed.body).includes(u)),
+    'every UID differs, so subscribing to both keeps both');
+
+  /* ---- the full rota, and what a Worship member may see ------------- */
+  const aAll = keyOf(await callAs(idToken, 'myCalendarLink', { feed: 'full:all' }));
+  const fullFeed = await get(feedUrl(aAll));
+  ok('a Worship member can have the full rota', !!aAll && fullFeed.status === 200,
+    fullFeed.status + ', ' + vevents(fullFeed.body || '').length + ' entries');
+  ok('  it holds the whole team, not just their own slot',
+    /Oliver Synthetic/.test(fullFeed.body || '') && /Drums/.test(fullFeed.body || ''),
+    'Drums: Oliver Synthetic');
+  ok('  and NOT a Kids Church role they cannot see',
+    !/Session Leader/.test(fullFeed.body || '') && !/Karen/.test(fullFeed.body || ''),
+    'Session Leader / Karen Synthetic are Kids Church');
+
+  const kKids = keyOf(await callAs(kToken, 'myCalendarLink', { feed: 'full:kids' }));
+  const kidsFeed = await get(feedUrl(kKids));
+  ok('Karen, who is Kids Church, CAN have the Kids Church rota',
+    !!kKids && /Session Leader/.test(kidsFeed.body || ''),
+    kidsFeed.status + ', ' + vevents(kidsFeed.body || '').length + ' entries');
+  ok('  and her Kids Church rota leaves out the worship roles',
+    !/Drums/.test(kidsFeed.body || ''), 'Drums is a Worship role');
+
+  const refused = await callAs(kToken, 'myCalendarLink', { feed: 'full:worship' });
+  ok('a rota somebody cannot see is refused in words, not given empty',
+    !!(refused && refused.error && /permission/i.test(JSON.stringify(refused.error))),
+    JSON.stringify(refused).slice(0, 140));
+
+  /* ---- resetting one link leaves the others working ----------------- */
+  const kHouse2 = keyOf(await callAs(kToken, 'myCalendarLink', { feed: 'household', reset: true }));
+  ok('resetting the household link gives a different one', !!kHouse2 && kHouse2 !== kHouse,
+    kHouse.slice(0, 8) + '... -> ' + kHouse2.slice(0, 8) + '...');
+  ok('  the old household address stops working at once',
+    (await get(feedUrl(kHouse))).status === 404, 'was 200, now 404');
+  ok('  the new one works', (await get(feedUrl(kHouse2))).status === 200);
+  ok('  and "Just me" is untouched',
+    (await get(feedUrl(kMe))).status === 200 &&
+    keyOf(await callAs(kToken, 'myCalendarLink', { feed: 'me' })) === kMe,
+    'same key, still 200');
+
+  const listed = await callAs(kToken, 'myCalendarLinks', {});
+  const feeds = (listed && listed.result && listed.result.feeds) || {};
+  ok('the page can ask which links she already has',
+    !!feeds.me && !!feeds.household && !!feeds['full:kids'] && !feeds['full:worship'],
+    Object.keys(feeds).join(', ') + '  (full:worship was refused, so there is none)');
+
   const bad = R.filter(x => !x.v);
   console.log('\n' + (R.length - bad.length) + '/' + R.length + ' passed');
   process.exit(bad.length ? 1 : 0);

@@ -519,11 +519,11 @@
 </div>
 
 <!-- MY CALENDAR (Step R) -->
-<div class="modal" id="calendarModal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" id="calendarModal" onclick="if(event.target===this)this.classList.remove('on')">
   <div class="box" style="max-width:560px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px">
       <h2 style="font-size:20px;font-weight:700;line-height:1.25">My rota in my calendar</h2>
-      <button class="btn x" onclick="document.getElementById('calendarModal').classList.remove('open')" title="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+      <button class="btn x" onclick="document.getElementById('calendarModal').classList.remove('on')" title="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     </div>
     <div id="calendarBody"></div>
   </div>
