@@ -13,8 +13,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-email.js?v=202610062100"></script>
 <script src="egbc-events.js?v=202610072300"></script>
-<script src="egbc-events-bookings.js?v=202610101500"></script>
+<script src="egbc-events-bookings.js?v=202610101900"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -70,7 +71,7 @@
   'use strict';
   EGBCChurch.closeOnLeave();
   var B = window.EGBCBookings, QT = window.EGBCQuote;
-  var KEY = new URLSearchParams(location.search).get('k') || '', BK = null, ROOM = null, TYPE = null, TERMS = null;
+  var KEY = new URLSearchParams(location.search).get('k') || '', BK = null, ROOM = null, TYPE = null, TERMS = null, SITE = null;
   function db() { return EGBCAuth.db; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function fmtAt(v) {
@@ -96,10 +97,14 @@
         '<dt>People</dt><dd>' + esc(b.people) + '</dd><dt>Reference</dt><dd>' + esc(B.ref(b)) + '</dd></dl>' +
         (b.status === 'requested' ? '<p class="st wait">We will look at it and email you. We confirm the price when we confirm the booking.</p>' : '') +
         (b.status === 'declined' && b.decisionNote ? '<p class="st no">' + esc(b.decisionNote) + '</p>' : '') +
+        askBox() +
       '</div>' +
       (confirmed && q ? quoteDoc() : '') +
+      (b.invoice ? '<div class="card" id="invoice"><h2>Invoice ' + esc(b.invoice.number) + '</h2><p style="margin:0">Issued ' + esc(fmtAt(b.invoice.issuedAt)) +
+        (b.invoice.dueDate ? '; please pay by ' + esc(EGBCEvents.fmtDate(b.invoice.dueDate + 'T12:00')) : '') + (b.invoice.monthly ? ' (your monthly invoice, with your other bookings that month)' : '') + '.</p></div>' : '') +
       (confirmed && q && pay ? '<div class="card" id="paid"><h2>Payments</h2><p style="margin:0">' +
         (pay.status === 'paid' ? '<b>Paid in full</b>, ' + QT.pounds(pay.paid) + '. Thank you.' : 'Paid ' + QT.pounds(pay.paid || 0) + ' of ' + QT.pounds(pay.total) + '.') + '</p></div>' : '') +
+      (b.damage && b.damage.status && b.damage.status !== 'none' ? '<div class="card" id="damage"><h2>Damage deposit</h2><p style="margin:0">' + damageWords(b.damage) + '</p></div>' : '') +
       '<p class="hint">Questions? Reply to any of our emails' + (EGBCChurch.email() ? ', or write to <a href="mailto:' + esc(EGBCChurch.email()) + '" style="color:var(--brand)">' + esc(EGBCChurch.email()) + '</a>' : '') + '.</p>';
     wire();
   }
@@ -122,7 +127,43 @@
       '<div class="noprint" style="margin-top:12px"><button class="btn sec" id="print">Print, or save as a PDF</button></div></div>';
   }
 
+  /* Where the refundable damage deposit stands (Chunk 5, stage 3). */
+  function damageWords(d) {
+    if (d.status === 'held') return 'We hold your damage deposit of ' + QT.pounds(d.amount) + '. It comes back to you after the booking, if all is well.';
+    if (d.status === 'returned') return 'Returned to you: ' + QT.pounds(d.returned) + (d.kept ? '. Kept: ' + QT.pounds(d.kept) + (d.note ? ' (' + esc(d.note) + ')' : '') : ', all of it') + '.';
+    if (d.status === 'kept') return 'Kept: ' + QT.pounds(d.kept) + (d.note ? ' (' + esc(d.note) + ')' : '') + '.';
+    return '';
+  }
+  /* Asking to cancel (Martin, F-080): it asks, and the church answers. It
+     never cancels by itself. */
+  function askBox() {
+    var b = BK, c = b.cancelRequest;
+    if (b.status !== 'confirmed' && b.status !== 'requested') return '';
+    if (c && c.status === 'asked') return '<p class="st wait" id="asked">You asked to cancel on ' + esc(fmtAt(c.at)) + '. We will reply by email. Until then, the booking stands.</p>';
+    return (c && c.status === 'declined' ? '<p class="st wait" id="keptMsg">We kept the booking' + (c.answer ? ': ' + esc(c.answer) : '') + '.</p>' : '') +
+      '<div class="noprint" id="askWrap"><button class="btn sec" id="askOpen">Ask to cancel</button>' +
+      '<div id="askForm" style="display:none;margin-top:10px"><label class="l" for="askWhy">Why? (optional)</label>' +
+      '<textarea class="inp" id="askWhy" maxlength="1000" style="height:80px;padding:10px 12px"></textarea>' +
+      '<p class="hint">This asks us to cancel; it does not cancel by itself. We will reply, and tell you about any refund.</p>' +
+      '<button class="btn" id="askGo">Send</button> <span class="hint" id="askMsg"></span></div></div>';
+  }
+
   function wire() {
+    var ao = document.getElementById('askOpen');
+    if (ao) ao.onclick = function () { document.getElementById('askForm').style.display = 'block'; ao.style.display = 'none'; };
+    var ag = document.getElementById('askGo');
+    if (ag) ag.onclick = function () {
+      ag.disabled = true; document.getElementById('askMsg').textContent = 'Sending…';
+      var why = document.getElementById('askWhy').value.trim().slice(0, 1000);
+      db().collection('bookings').doc(KEY).update({ cancelRequest: { status: 'asked', at: firebase.firestore.FieldValue.serverTimestamp(), reason: why } })
+        .then(function () {
+          var to = (SITE && SITE.bookingsEmail) || EGBCChurch.email(), r = BK.requester || {};
+          return to ? EGBCChurch.send({ to: [to], subject: 'Asking to cancel: ' + (ROOM ? ROOM.name + ', ' : '') + B.when(BK),
+            html: EGBCChurch.wrap('A hirer is asking to cancel', '<p>' + esc(r.name || BK.memberName || '') + (r.org ? ' (' + esc(r.org) + ')' : '') + ' asks to cancel <strong>' + esc(BK.title || 'a booking') +
+              '</strong>, ' + esc(ROOM ? ROOM.name : '') + ', ' + esc(B.when(BK)) + ' (reference ' + esc(B.ref(BK)) + ').</p>' + (why ? '<p>' + esc(why) + '</p>' : '') +
+              '<p>Open <strong>Room bookings</strong> in the hub to cancel it or keep it.</p>') }).catch(function () {}) : null;
+        }).then(load).catch(function () { ag.disabled = false; document.getElementById('askMsg').textContent = 'That could not be sent. Please reply to our email instead.'; });
+    };
     var p = document.getElementById('print'); if (p) p.onclick = function () { window.print(); };
     var ag = document.getElementById('agree'); if (ag) ag.onchange = function () { document.getElementById('acceptMsg').textContent = ''; };
     var go = document.getElementById('accept');
@@ -148,10 +189,11 @@
       BK = s.data(); BK.key = KEY;
       return Promise.all([
         db().collection('rooms').doc(BK.roomId).get().catch(function () { return null; }),
+        db().collection('sites').doc(BK.siteId).get().then(function (x) { SITE = x.exists ? x.data() : null; }, function () {}),
         BK.bookingType ? db().collection('bookingTypes').doc(BK.bookingType).get().catch(function () { return null; }) : null
       ]).then(function (r) {
         ROOM = r[0] && r[0].exists ? r[0].data() : null;
-        TYPE = r[1] && r[1].exists ? r[1].data() : null;
+        TYPE = r[2] && r[2].exists ? r[2].data() : null;
         /* The terms to show: the version accepted, if accepted; otherwise
            the kind's current version. */
         var v = BK.accepted ? BK.accepted.termsVersion : (TYPE && TYPE.termsVersion) || 0;

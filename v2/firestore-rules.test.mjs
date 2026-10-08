@@ -1049,6 +1049,51 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the hirer cannot', 'deny', () => updateDoc(doc(anon(), 'bookings', C), { payment: { status: 'paid', paid: 5000, total: 5000 } }));
 }
 
+// ── EVENTS (events window) ── invoices, hirers, accounts, asking to cancel (Chunk 5, stage 3)
+{
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  const INV = (seq, extra) => ({ seq, number: 'INV-' + String(seq).padStart(5, '0'), siteId: 'site_bk', chargeIds: ['ch_test_1'], payer: { name: 'Hirer', email: 'h@example.invalid' },
+    lines: [{ label: 'Room hire', amount: 4000 }], subtotal: 4000, vat: 0, total: 4000, issuedAt: 'x', dueDate: 'x', status: 'unpaid', ...(extra || {}) });
+  const issue = (who, seq, next, extra) => { const x = writeBatch(who); x.set(doc(who, 'invoices', 'inv_' + seq), INV(seq, extra)); if (next) x.set(doc(who, 'counters', 'invoices'), { next }); return x.commit(); };
+  await check('the office issues invoice number 1, moving the counter to 2', 'allow', () => issue(lena(), 1, 2));
+  await check('number 1 is never issued twice', 'deny', () => issue(lena(), 1, 2));
+  await check('nor is a number skipped (3 before 2)', 'deny', () => issue(lena(), 3, 4));
+  await check('nor an invoice without moving the counter', 'deny', () => issue(lena(), 2, 0));
+  await check('nor the counter moved with no invoice', 'deny', () => setDoc(doc(lena(), 'counters', 'invoices'), { next: 3 }));
+  await check('number 2 next, in order', 'allow', () => issue(lena(), 2, 3));
+  await check('the total must be its lines plus VAT', 'deny', () => issue(lena(), 3, 4, { total: 1 }));
+  await check('a member cannot issue an invoice', 'deny', () => issue(as('samy'), 3, 4));
+  await check('an invoice\u2019s status changes when it is paid', 'allow', () => updateDoc(doc(lena(), 'invoices', 'inv_1'), { status: 'paid', paidAt: 'x' }));
+  await check('but never its amounts', 'deny', () => updateDoc(doc(lena(), 'invoices', 'inv_1'), { total: 1, subtotal: 1 }));
+  await check('nor is it deleted', 'deny', () => deleteDoc(doc(as('karen'), 'invoices', 'inv_1')));
+  await check('a member cannot read invoices', 'deny', () => getDoc(doc(as('samy'), 'invoices', 'inv_1')));
+
+  const HR = (extra) => ({ siteId: 'site_bk', name: 'Hirer Synthetic', org: 'Invented Club', email: 'h@example.invalid', phone: '', address: '', charity: true, charityNumber: '000000',
+    charityChecked: true, regular: true, monthly: true, notes: '', documents: [{ kind: 'insurance', name: 'Test.pdf', path: 'x', expires: '2027-01-01' }], ...(extra || {}) });
+  await check('the site\u2019s bookings admin keeps a hirer\u2019s record', 'allow', () => setDoc(doc(lena(), 'hirers', 'hr_1'), HR()));
+  await check('not for a site they do not look after', 'deny', () => setDoc(doc(lena(), 'hirers', 'hr_2'), HR({ siteId: 'site_appr' })));
+  await check('a member cannot read hirers\u2019 records', 'deny', () => getDoc(doc(as('samy'), 'hirers', 'hr_1')));
+  await check('nor can the public', 'deny', () => getDoc(doc(anon(), 'hirers', 'hr_1')));
+
+  await check('an admin sets the accounts mode', 'allow', () => setDoc(doc(as('karen'), 'settings', 'accounts'), { mode: 'calla', invoiceNumbersBy: 'hub' }));
+  await check('only "none" or "calla"', 'deny', () => setDoc(doc(as('karen'), 'settings', 'accounts'), { mode: 'sage' }));
+  await check('a bookings admin cannot change it', 'deny', () => setDoc(doc(lena(), 'settings', 'accounts'), { mode: 'none' }));
+  await check('the office queues an invoice for Calla Accounts', 'allow', () => setDoc(doc(lena(), 'accountsQueue', 'q_1'), { kind: 'invoice', refId: 'inv_1', siteId: 'site_bk', status: 'waiting', tries: 0, at: 'x' }));
+  await check('a member cannot', 'deny', () => setDoc(doc(as('samy'), 'accountsQueue', 'q_2'), { kind: 'invoice', refId: 'inv_1', siteId: 'site_bk', status: 'waiting' }));
+
+  await check('the damage deposit is tracked on the charge', 'allow', () => updateDoc(doc(lena(), 'charges', 'ch_test_1'), { damage: { status: 'held', amount: 10000, method: 'Card', takenOn: '2026-11-01' } }));
+  await check('as held, returned or kept, nothing else', 'deny', () => updateDoc(doc(lena(), 'charges', 'ch_test_1'), { damage: { status: 'lost', amount: 10000 } }));
+
+  const C = 'bk_s2_conf_0000000000000000000';
+  const ask = (extra) => ({ cancelRequest: { status: 'asked', at: serverTimestamp(), reason: 'Test: the party is off', ...(extra || {}) } });
+  await check('the hirer cannot ask to cancel with their own clock', 'deny', () => updateDoc(doc(anon(), 'bookings', C), ask({ at: '2026-01-01' })));
+  await check('nor cancel it outright', 'deny', () => updateDoc(doc(anon(), 'bookings', C), { ...ask(), status: 'cancelled' }));
+  await check('with the link, the hirer asks to cancel, with a reason', 'allow', () => updateDoc(doc(anon(), 'bookings', C), ask()));
+  await check('not again while the office has not answered', 'deny', () => updateDoc(doc(anon(), 'bookings', C), ask({ reason: 'Again' })));
+  await check('the office answers it', 'allow', () => updateDoc(doc(lena(), 'bookings', C), { cancelRequest: { status: 'declined', at: 'x', reason: 'Test', answer: 'Kept: inside the notice period' } }));
+  await check('after an answer, the hirer may ask again', 'allow', () => updateDoc(doc(anon(), 'bookings', C), ask({ reason: 'Asking again' })));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

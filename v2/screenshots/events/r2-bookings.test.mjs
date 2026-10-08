@@ -391,6 +391,8 @@ try {
     for (const h of info.links) {
       if (/^mailto:/i.test(h)) { if (!/^mailto:office@example\.invalid/i.test(h)) outside.push(u + ' -> ' + h); continue; }
       const x = new URL(h);
+      /* NEXT-BRIEF §19: the one outside link allowed, the 'Powered by Church HQ' credit. */
+      if (x.origin === 'https://churchhq.co.uk') continue;
       if (x.origin !== 'http://localhost:5601' || !SET.has(x.pathname)) { outside.push(u + ' -> ' + h); continue; }
       x.hash = '';
       if (!seen.has(x.href)) queue.push(x.href);

@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-guard.js?v=202610062100"></script>
@@ -17,8 +18,10 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101500"></script>
+<script src="egbc-events-bookings.js?v=202610101900"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
+<script src="egbc-accounts.js?v=202610101900"></script>
+<script src="egbc-events-money.js?v=202610101900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -103,10 +106,24 @@
   function byTime(a, b) { return (a.day + B.hhmm(a.startMin)) < (b.day + B.hhmm(b.startMin)) ? -1 : 1; }
   function find(key) { return LIST.filter(function (b) { return b.key === key; })[0]; }
 
+  /* ---- stage 3: hirers, invoices, accounts (egbc-events-money.js) ---- */
+  var HIRERS = [], INVOICES = [], ACC = { mode: 'none' };
+  var MCTX = { db: db, esc: esc, toast: toast, room: room, siteId: function () { return V.site; }, state: V,
+    list: function () { return LIST; }, charges: function () { return CHARGES; }, hirers: function () { return HIRERS; }, invoices: function () { return INVOICES; },
+    settings: function () { return ACC; }, payText: function () { return ACC.payText || ''; }, isAdmin: false,
+    pageLink: function (b) { return pageLink(b); },
+    reload: function (o) { o = o || {}; if (o.tab) V.tab = o.tab; return load().then(function () { if (o.open) MONEY.drawHirers(document.getElementById('list'), o.open); }); } };
+  var MONEY = EGBCMoney(MCTX);
   function load() {
     return Promise.all([db().collection('bookings').where('siteId', '==', V.site).get(),
-                        db().collection('charges').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; })]).then(function (r) {
+                        db().collection('charges').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
+                        db().collection('hirers').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
+                        db().collection('invoices').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
+                        EGBCAccounts.settings(true)]).then(function (r) {
       var s = r[0];
+      HIRERS = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      INVOICES = r[3].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      ACC = r[4];
       CHARGES = {}; r[1].docs.forEach(function (d) { CHARGES[d.data().bookingKey] = Object.assign({ id: d.id }, d.data()); });
       LIST = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }).sort(byTime);
       draw();
@@ -115,7 +132,9 @@
 
   function draw() {
     var waiting = LIST.filter(function (b) { return b.status === 'requested' && b.day >= B.today(); });
-    var tabs = [['waiting', 'Waiting', waiting.length], ['coming', 'Coming up'], ['day', 'Day view'], ['setup', 'Setup sheet'], ['past', 'Past and cancelled']];
+    var asks = LIST.filter(function (b) { return b.cancelRequest && b.cancelRequest.status === 'asked' && (b.status === 'confirmed' || b.status === 'requested'); });
+    var tabs = [['waiting', 'Waiting', waiting.length + asks.length], ['coming', 'Coming up'], ['day', 'Day view'], ['setup', 'Setup sheet'],
+                ['invoices', 'Invoices'], ['hirers', 'Hirers'], ['accounts', 'Accounts'], ['past', 'Past and cancelled']];
     document.getElementById('main').innerHTML =
       '<div class="row">' + (SITES.length > 1 ? '<div class="f"><label class="l" for="a-site">Site</label><select id="a-site">' + SITES.map(function (s) {
         return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div>' : '<h2 style="margin:0">' + esc(site().name) + '</h2>') + '</div>' +
@@ -127,6 +146,9 @@
     var el = document.getElementById('list');
     if (V.tab === 'day') return drawDay(el);
     if (V.tab === 'setup') return drawSetup(el);
+    if (V.tab === 'invoices') return MONEY.drawInvoices(el);
+    if (V.tab === 'hirers') return MONEY.drawHirers(el);
+    if (V.tab === 'accounts') return MONEY.drawAccounts(el);
     var show = V.tab === 'waiting' ? waiting
       : V.tab === 'coming' ? LIST.filter(function (b) { return b.status === 'confirmed' && b.day >= B.today(); })
       : LIST.filter(function (b) { return b.day < B.today() || b.status === 'cancelled' || b.status === 'declined'; }).reverse();
@@ -138,7 +160,9 @@
         cards.push(seriesCard(show.filter(function (x) { return x.series && x.series.id === b.series.id; })));
       } else cards.push(card(b));
     });
+    if (V.tab === 'waiting') cards = asks.map(askCard).concat(cards);
     el.innerHTML = cards.length ? cards.join('') : '<div class="card hint">' + (V.tab === 'waiting' ? 'Nothing is waiting.' : 'Nothing here.') + '</div>';
+    wireAsks(el);
     wireSeries(el);
     wireMoney(el);
     wire(el);
@@ -177,9 +201,12 @@
         (b.notes ? '<dt>Notes</dt><dd>' + esc(b.notes) + '</dd>' : '') +
         (b.decidedByName ? '<dt>Last decided by</dt><dd>' + esc(b.decidedByName) + (b.decisionNote ? ': ' + esc(b.decisionNote) : '') + '</dd>' : '') +
       '</dl>' +
+      MONEY.hirerLine(b) +
       (b.status === 'requested' ? chargesBox(b) : '') +
       (CHARGES[b.key] ? '<div class="st ' + (CHARGES[b.key].status === 'paid' ? 'ok' : 'wait') + '" data-owed="' + esc(b.key) + '">Charges: ' + Q.pounds(CHARGES[b.key].total) +
-        ', ' + esc(CHARGES[b.key].status.replace('-', ' ')) + (paidOf(CHARGES[b.key]) && CHARGES[b.key].status !== 'paid' ? ' (' + Q.pounds(paidOf(CHARGES[b.key])) + ' paid)' : '') + '</div>' +
+        ', ' + esc(CHARGES[b.key].status.replace('-', ' ')) + (paidOf(CHARGES[b.key]) && CHARGES[b.key].status !== 'paid' ? ' (' + Q.pounds(paidOf(CHARGES[b.key])) + ' paid)' : '') +
+        (CHARGES[b.key].invoiceNumber ? ' · invoice ' + esc(CHARGES[b.key].invoiceNumber) : '') + '</div>' +
+        (CHARGES[b.key].damageDeposit ? '<div class="hint" data-dmg="' + esc(b.key) + '">Damage deposit ' + Q.pounds(CHARGES[b.key].damageDeposit) + ': ' + damageWords(CHARGES[b.key].damage) + '</div>' : '') +
         ((CHARGES[b.key].payments || []).length ? '<div class="hint" data-payments="' + esc(b.key) + '">' + CHARGES[b.key].payments.map(function (p) {
           return (p.kind === 'refund' ? 'Refunded ' : 'Paid ') + Q.pounds(p.amount) + ', ' + esc(p.method) + ', ' + esc(p.date) + (p.ref ? ' (' + esc(p.ref) + ')' : ''); }).join('<br>') + '</div>' : '') +
         (b.accepted ? '<div class="st ok" data-acc="' + esc(b.key) + '">Accepted by ' + esc(b.accepted.name) + (b.accepted.termsVersion ? ', terms version ' + b.accepted.termsVersion : '') + '</div>'
@@ -187,6 +214,9 @@
       (b.status === 'requested' ? '<div class="acts"><button class="btn" data-do="approve">Approve</button><button class="btn sec" data-do="decline">Decline</button><button class="btn sec" data-do="move">Change the time</button></div>' : '') +
       (b.status === 'confirmed' && b.day >= B.today() ? '<div class="acts"><button class="btn sec" data-do="move">Move</button><button class="btn sec" data-do="cancel">Cancel</button>' +
         (CHARGES[b.key] && CHARGES[b.key].status !== 'cancelled' ? '<button class="btn sec" data-do="pay">Record a payment</button>' : '') +
+        (CHARGES[b.key] && !CHARGES[b.key].invoiceId && !(MONEY.hirerFor(b) && MONEY.hirerFor(b).monthly) ? '<button class="btn sec" data-do="invoice">Issue an invoice</button>' : '') +
+        (CHARGES[b.key] && CHARGES[b.key].damageDeposit && !(CHARGES[b.key].damage && CHARGES[b.key].damage.status !== 'none') ? '<button class="btn sec" data-do="dtake">Damage deposit taken</button>' : '') +
+        (CHARGES[b.key] && CHARGES[b.key].damage && CHARGES[b.key].damage.status === 'held' ? '<button class="btn sec" data-do="dreturn">Return the damage deposit</button>' : '') +
         (laterIn(b).length ? '<button class="btn sec" data-do="cancelrest">Cancel this and the ' + laterIn(b).length + ' after it</button>' : '') + '</div>' : '') +
       '<div class="act"></div></div>';
   }
@@ -198,13 +228,17 @@
   /* Which prices: the members' rate only for a member's own booking (F-077). */
   function pickOf(b) { return Q.pick(b.kind, TYPES[b.bookingType], b.roomId, CARDS); }
   function cardOf(b) { var k = pickOf(b); return k && k.card; }
+  function hirerOf(b) { return b.kind === 'hire' ? MONEY.hirerFor(b) : null; }
   function charged(b) { var t = TYPES[b.bookingType]; return !!(t && t.charged); }
   function priceOf(b) {
     var k = pickOf(b), card = k && k.card; if (!card || !charged(b)) return null;
     if (EDIT[b.key]) return Q.totals(EDIT[b.key], card);
     var kit = (b.resources || []).map(function (x) { var k = KIT.filter(function (y) { return y.id === x.id; })[0] || {}; return { name: x.name, qty: x.qty, hirePrice: k.hirePrice || 0 }; });
     return Q.price({ card: card, day: b.day, start: b.startMin, end: b.endMin, setup: b.setupMins, pack: b.packdownMins, people: b.people,
-      items: b.refreshments && b.refreshments.needed ? b.refreshments.items : [], kit: kit, av: b.av, charity: !!b.charity, memberPct: k.memberPct, memberList: k.memberList });
+      items: b.refreshments && b.refreshments.needed ? b.refreshments.items : [], kit: kit, av: b.av, memberPct: k.memberPct, memberList: k.memberList,
+      /* A hirer's record, once the office has one, decides charity and
+         regular: a charity only once its number is checked. */
+      charity: hirerOf(b) ? !!(hirerOf(b).charity && hirerOf(b).charityChecked) : !!b.charity, regular: !!(hirerOf(b) && hirerOf(b).regular) });
   }
   function chargesBox(b) {
     if (!b.bookingType || !charged(b)) return '';
@@ -340,6 +374,30 @@
           };
           return;
         }
+        if (what === 'invoice') {
+          btn.disabled = true;
+          MONEY.issueOne(b).then(function (inv) { toast('Invoice ' + inv.number + ' issued and emailed'); load(); }).catch(function (e) { btn.disabled = false; toast('Could not issue it: ' + (e.message || e)); });
+          return;
+        }
+        if (what === 'dtake') {
+          act.innerHTML = '<div class="two"><div><label class="l">How</label><select class="d-how">' + ['Card', 'Bank transfer', 'Cash', 'Cheque'].map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select></div>' +
+            '<div><label class="l">Date</label><input class="inp d-date" type="date" value="' + B.today() + '"></div></div><div class="acts"><button class="btn d-go">Record it as taken</button></div>';
+          act.querySelector('.d-go').onclick = function () { damage(b, { status: 'held', amount: CHARGES[b.key].damageDeposit, method: act.querySelector('.d-how').value, takenOn: act.querySelector('.d-date').value || B.today() }); };
+          return;
+        }
+        if (what === 'dreturn') {
+          var dd = CHARGES[b.key].damage;
+          act.innerHTML = '<div class="two"><div><label class="l">Returned £</label><input class="inp d-amt" type="number" min="0" step="0.01" value="' + (dd.amount / 100).toFixed(2) + '"></div>' +
+            '<div><label class="l">How</label><select class="d-how">' + ['Card', 'Bank transfer', 'Cash', 'Cheque'].map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select></div>' +
+            '<div><label class="l">Date</label><input class="inp d-date" type="date" value="' + B.today() + '"></div>' +
+            '<div><label class="l">Why any is kept (it goes in the email)</label><input class="inp d-note" maxlength="300"></div></div><div class="acts"><button class="btn d-go">Record it</button></div>';
+          act.querySelector('.d-go').onclick = function () {
+            var back = Math.min(dd.amount, Q.toPence(act.querySelector('.d-amt').value)), kept = dd.amount - back, note = act.querySelector('.d-note').value.trim();
+            if (kept && !note) { toast('Say why some is kept'); return; }
+            damage(b, Object.assign({}, dd, { status: back ? 'returned' : 'kept', returned: back, kept: kept, note: note, returnMethod: act.querySelector('.d-how').value, closedOn: act.querySelector('.d-date').value || B.today() }));
+          };
+          return;
+        }
         if (what === 'pay') {
           var ch = CHARGES[b.key], left = Math.max(0, ch.total - paidOf(ch));
           act.innerHTML = '<div class="two"><div><label class="l">Amount £</label><input class="inp p-amt" type="number" min="0" step="0.01" value="' + (left / 100).toFixed(2) + '"></div>' +
@@ -389,7 +447,7 @@
     var w = EGBCAuth.user() || {}, entry = { kind: kind, amount: amount, method: act.querySelector('.p-how').value, date: act.querySelector('.p-date').value || B.today(),
       ref: act.querySelector('.p-ref').value.trim().slice(0, 80), by: w.uid || '', at: new Date().toISOString() };
     var payments = (ch.payments || []).concat([entry]), net = paidOf({ payments: payments });
-    var status = net >= ch.total ? 'paid' : net > 0 ? 'part-paid' : 'unpaid';
+    var status = b.status === 'cancelled' && net <= 0 ? 'cancelled' : net >= ch.total ? 'paid' : net > 0 ? 'part-paid' : 'unpaid';
     db().collection('charges').doc(ch.id).update({ payments: payments, status: status, updatedAt: new Date().toISOString(), updatedBy: w.uid || '' })
       .then(function () { return db().collection('bookings').doc(b.key).update({ payment: { status: status, paid: net, total: ch.total } }); })
       .then(function () {
@@ -400,8 +458,87 @@
             '<p>' + (status === 'paid' ? 'That is paid in full: ' + Q.pounds(ch.total) + '.' : 'Paid so far: ' + Q.pounds(net) + ' of ' + Q.pounds(ch.total) + '.') + '</p>' +
             '<p style="color:#6b7280;font-size:13px">' + esc(room(b.roomId).name) + ', ' + esc(B.when(b)) + ', reference ' + esc(B.ref(b)) + '</p>' + linkButton(b, 'See your booking')) }) : null;
       })
+      .then(function () { EGBCAccounts.sendPayment(ch, entry, payments.length - 1); return MONEY.settleInvoice(ch.invoiceId); })
       .then(function () { toast(kind === 'refund' ? 'Refund recorded' : 'Payment recorded: ' + status.replace('-', ' ')); load(); })
       .catch(function (e) { toast('Could not record it: ' + (e.message || e)); });
+  }
+
+  /* ---- the damage deposit, taken and returned (stage 3) ---- */
+  function damageWords(d) {
+    if (!d || d.status === 'none') return 'not taken yet';
+    if (d.status === 'held') return 'held (' + esc(d.method || '') + ', ' + esc(d.takenOn || '') + ')';
+    if (d.status === 'returned') return 'returned ' + Q.pounds(d.returned) + (d.kept ? ', kept ' + Q.pounds(d.kept) + ' (' + esc(d.note || '') + ')' : '');
+    return 'kept ' + Q.pounds(d.kept) + ' (' + esc(d.note || '') + ')';
+  }
+  function damage(b, d) {
+    var ch = CHARGES[b.key];
+    db().collection('charges').doc(ch.id).update({ damage: d, updatedAt: new Date().toISOString(), updatedBy: (EGBCAuth.user() || {}).uid || '' })
+      .then(function () { return db().collection('bookings').doc(b.key).update({ damage: { status: d.status, amount: d.amount, returned: d.returned || 0, kept: d.kept || 0, note: d.note || '' } }); })
+      .then(function () {
+        var to = (ch.payer || {}).email;
+        if (!to || d.status === 'held') return;
+        return EGBCChurch.send({ to: [to], subject: 'Your damage deposit: ' + room(b.roomId).name + ', ' + B.when(b),
+          html: EGBCChurch.wrap('Your damage deposit', '<p>' + (d.returned ? 'We have returned ' + Q.pounds(d.returned) + ' by ' + esc(String(d.returnMethod || '').toLowerCase()) + '.' : '') +
+            (d.kept ? ' We have kept ' + Q.pounds(d.kept) + ': ' + esc(d.note) + '.' : ' That is all of it.') + '</p>' + linkButton(b, 'See your booking')) });
+      }).then(function () { toast(d.status === 'held' ? 'Damage deposit recorded as taken' : 'Damage deposit recorded'); load(); })
+      .catch(function (e) { toast('Could not record it: ' + (e.message || e)); });
+  }
+
+  /* ---- asking to cancel (Martin, F-080) ----
+     The hirer asks from their page; the office cancels the booking or
+     keeps it, says why, and records any refund as a payment. */
+  function askCard(b) {
+    var c = b.cancelRequest, r = room(b.roomId), ch = CHARGES[b.key], paid = ch ? paidOf(ch) : 0;
+    var at = c.at && c.at.toDate ? c.at.toDate() : new Date(c.at);
+    return '<div class="card bk" data-key="' + esc(b.key) + '" data-ask="' + esc(b.key) + '"><div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap">' +
+      '<div><h3>' + esc(b.title || 'Booking') + '</h3><span class="hint">' + esc(r.name) + ', ' + esc(B.when(b)) + ' · reference ' + esc(B.ref(b)) + '</span></div><span class="pill no">Asking to cancel</span></div>' +
+      '<p style="margin:8px 0">' + esc((b.requester || {}).name || b.memberName || '') + ' asked on ' + esc(isNaN(at) ? '' : at.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })) +
+      (c.reason ? ': "' + esc(c.reason) + '"' : '.') + '</p>' + (paid ? '<p class="hint">They have paid ' + Q.pounds(paid) + '. Cancelling then offers to record a refund.</p>' : '') +
+      '<label class="l">Your answer (it goes in the email)</label><input class="inp a-answer" maxlength="500">' +
+      '<div class="acts"><button class="btn warn" data-askdo="cancel">Cancel the booking</button><button class="btn sec" data-askdo="keep">Keep the booking</button></div><div class="act"></div></div>';
+  }
+  function wireAsks(el) {
+    el.querySelectorAll('[data-askdo]').forEach(function (btn) {
+      btn.onclick = function () {
+        var c = btn.closest('[data-ask]'), b = find(c.dataset.ask), answer = c.querySelector('.a-answer').value.trim(), act = c.querySelector('.act');
+        var who = EGBCAuth.user() || {}, reply = { status: btn.dataset.askdo === 'cancel' ? 'accepted' : 'declined', at: b.cancelRequest.at, reason: b.cancelRequest.reason || '',
+          answer: answer.slice(0, 500), answeredAt: new Date().toISOString(), answeredBy: who.uid || '' };
+        if (btn.dataset.askdo === 'keep') {
+          if (!answer) { toast('Say why it is kept'); return; }
+          db().collection('bookings').doc(b.key).update({ cancelRequest: reply }).then(function () {
+            return B.email(b, room(b.roomId).name, 'kept', answer);
+          }).then(function () { toast('Kept, and they have been told'); load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+          return;
+        }
+        B.cancel(b, room(b.roomId), answer || 'Cancelled, as you asked.').then(function () {
+          return db().collection('bookings').doc(b.key).update({ cancelRequest: reply });
+        }).then(function () {
+          var ch = CHARGES[b.key];
+          if (ch && !paidOf(ch)) return db().collection('charges').doc(ch.id).update({ status: 'cancelled', updatedAt: new Date().toISOString() });
+        }).then(function () {
+          return B.email(Object.assign({}, b, { status: 'cancelled' }), room(b.roomId).name, 'cancelled', answer || 'Cancelled, as you asked.');
+        }).then(function () {
+          var ch = CHARGES[b.key], paid = ch ? paidOf(ch) : 0;
+          if (!paid) { toast('Cancelled, and they have been told'); return load(); }
+          /* The refund, recorded as a payment the other way. */
+          b.status = 'cancelled';
+          act.innerHTML = '<p class="st wait">Cancelled. They had paid ' + Q.pounds(paid) + ': record the refund.</p>' +
+            '<div class="two"><div><label class="l">Amount £</label><input class="inp p-amt" type="number" min="0" step="0.01" value="' + (paid / 100).toFixed(2) + '"></div>' +
+            '<div><label class="l">How</label><select class="p-how">' + ['Bank transfer', 'Cash', 'Cheque', 'Card on the day'].map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select></div>' +
+            '<div><label class="l">Date</label><input class="inp p-date" type="date" value="' + B.today() + '"></div><div><label class="l">Reference (optional)</label><input class="inp p-ref" maxlength="80"></div></div>' +
+            '<div class="acts"><button class="btn p-go">Record the refund</button></div>';
+          act.querySelector('.p-go').onclick = function () { pay(b, act, 'refund'); };
+          c.querySelectorAll('[data-askdo]').forEach(function (x) { x.disabled = true; });
+        }).catch(function (e) { toast('Could not cancel: ' + (e.message || e)); });
+      };
+    });
+    el.querySelectorAll('[data-addhirer]').forEach(function (btn) {
+      btn.onclick = function () {
+        var b = find(btn.dataset.addhirer), q = b.requester || {};
+        V.tab = 'hirers'; draw();
+        MONEY.drawHirers(document.getElementById('list'), null, { name: q.name || '', org: q.org || '', email: String(q.email || '').toLowerCase(), phone: q.phone || '', charity: !!b.charity });
+      };
+    });
   }
 
   /* A clash is refused unless the office books over it on purpose, with
@@ -514,6 +651,7 @@
         .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       ROOMS = all(r[1]).filter(function (x) { return x.kind !== 'online'; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       KIT = all(r[3]);
+      MCTX.isAdmin = EGBCAuth.isAdmin();
       all(r[4]).forEach(function (t) { TYPES[t.id] = t; });
       all(r[5]).forEach(function (c) { CARDS[c.id] = c; });
       if (!SITES.length) {

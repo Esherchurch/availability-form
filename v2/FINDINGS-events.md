@@ -1150,3 +1150,86 @@ booking of kind `event` linked to the event (`calEventId`).
   export.
 - **Changing a price after it is accepted**: the office can still record
   payments, but changing the charge lines after approval is not on the page.
+
+## Chunk 5, stage 3: invoices, hirers, the damage deposit, the accounts export
+
+### F-081 — asking to cancel (Martin, F-080: built)
+"Ask to cancel" on `my-booking.html`, with an optional reason. It records the
+ask (at the server's time) and tells the site's bookings address; it never
+cancels anything, and the rules let it change nothing else. The office sees it
+at the top of Waiting and either keeps the booking (a reason is required, and
+goes in the email) or cancels it. If the hirer had paid, cancelling opens the
+refund straight away, recorded as a payment the other way; a charge with
+nothing paid is marked cancelled. After an answer the hirer may ask again.
+
+### F-082 — what stage 3 built
+- **Numbered invoices**: INV-00001 onwards, one counter for the church. The
+  number is taken in the same write as the counter moves on by one; the rules
+  hold both sides, so two people issuing at once cannot share or skip a number.
+  An invoice's amounts never change after it is issued, and it is never
+  deleted. A one-off hire is invoiced from its card ("Issue an invoice"); the
+  email has the lines, the due date (pay within a set number of days), "how to
+  pay" text and the hirer's page. When every charge on it is paid, the invoice
+  is paid.
+- **Monthly invoicing**: hirers marked "invoice monthly" get all their
+  bookings in a month on one invoice (Room bookings, Invoices tab, choose the
+  month). Their bookings have no single-invoice button.
+- **Hirer records** (Hirers tab): name, organisation, email (how a booking is
+  matched to them), phone, invoice address, charity (with number, and whether
+  the office has checked it), regular hirer, monthly, notes, and documents
+  (insurance, safeguarding policy, risk assessment, other) with expiry dates,
+  stored in `hirerDocs/` for the site's office only. A document expired or
+  expiring within 30 days is flagged on the record and on every booking of
+  theirs. **The record decides the rate**: the charity rate only once the
+  number is checked (the hirer's own tick no longer counts once there is a
+  record), and the regular hirer rate; one discount, the largest.
+- **The damage deposit**: recorded as taken (how, when), then returned in full
+  or part, or kept, with the reason; the hirer is emailed and their page says
+  where it stands.
+- **The accounts export** (Accounts tab): CSV, Excel and JSON for a date range,
+  a row per charge line, VAT, payment, refund and damage deposit move, each with
+  an id that never changes (e.g. `ch_…#L0`, `#VAT`, `#P1`, `#DT`). Each row is
+  marked when exported, so "only what is new" never sends a row twice.
+- **The Calla Accounts seam** (`egbc-accounts.js`): admins choose None (the
+  default) or Calla Accounts. With Calla on, hirers, invoices and payments are
+  queued for it; nothing in the hub waits for it; the Accounts tab lists what
+  has not been sent, with the reason, and "Try again".
+
+### F-083 — DECISIONS for Martin (Calla Accounts)
+- **The Calla connection itself is not built.** The brief says not to guess at
+  Calla's API: it needs its own brief, written against Calla's code. Until then
+  Calla mode queues everything with "not built yet", and the hub works exactly
+  as in None mode.
+- **Who numbers invoices in Calla mode** (the brief: establish with Martin):
+  recorded as "the hub" until you decide.
+- Bank details for "how to pay" are typed on the Accounts tab; nothing is
+  assumed.
+
+### F-084 — what stage 3 leaves
+- **Expiry reminders by email** (a hirer's insurance running out) need the
+  same timer as booking reminders. Added to the spec below (F-074 addendum).
+  Until then the page flags them.
+- **A hirer uploading their own documents** from their page: not built; the
+  office uploads what the hirer sends. It would use the one-off upload links
+  from E4.
+- **Credit notes**: a cancelled booking that was invoiced keeps its invoice;
+  the refund shows in the export. A formal credit note is not built.
+
+### F-074 addendum — document expiry reminders (for the main window's server step)
+- **Who:** the hirer (the email on their record) and the site's bookings
+  address.
+- **When:** 30 days before a document's expiry date, and on the day it expires;
+  once each (mark `remindedAt` on the document in the hirer's record).
+- **What:** "Your <insurance> runs out on <date>. Please send us the new one."
+  To the office: the same, with the hirer's name and their next booking.
+
+### F-085 — REQUEST for the main window: egbc-email.js's version tag
+`egbc-email.js` changed (no default reply address or footer), but every page,
+the events pages included, still loads it as `?v=202610062100`, so a browser
+may keep the old copy. It is the main window's file, so the new tag is theirs
+to choose; the events pages will follow it.
+
+### F-086 — "Powered by Church HQ" (NEXT-BRIEF §19): waiting for the shared file
+The footer of `hire.html`, `room.html`, `book.html` and `my-booking.html` will
+use `EGBCPoweredBy.html()` once `egbc-poweredby.js` exists. The closed-set test
+already allows churchhq.co.uk as its one outside link.

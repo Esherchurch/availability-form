@@ -1277,7 +1277,8 @@ service cloud.firestore {
                                'setupMins', 'packdownMins', 'slotFrom', 'slotTo', 'title', 'people', 'layout', 'av', 'refreshments',
                                'resources', 'notes', 'requester', 'memberUid', 'memberName', 'createdAt', 'calEventId',
                                'decidedBy', 'decidedByName', 'decidedAt', 'decisionNote', 'override', 'cancelledAt', 'movedAt',
-                               'series', 'cancelledBy', 'bookingType', 'charity', 'quote', 'memberRate', 'accepted', 'payment'])
+                               'series', 'cancelledBy', 'bookingType', 'charity', 'quote', 'memberRate', 'accepted', 'payment',
+                               'cancelRequest', 'invoice', 'damage'])
              && (!('memberRate' in d) || d.memberRate is bool)
              // Chunk 5: the kind of booking, a charity's say-so (the office
              // checks it), and the quote as it stood. Amounts are the
@@ -1365,6 +1366,22 @@ service cloud.firestore {
              && a.termsId == (tv == 0 ? '' : b.bookingType + '_v' + string(tv));
     }
 
+    // ---- the hirer asks to cancel (Martin, F-080) ----------------------
+    // With the link, a hirer may ask, with a reason, at the server's time.
+    // Asking changes nothing else: the office cancels or keeps the booking
+    // (Room bookings). Asking again is allowed once the office has answered.
+    function hirerAsksCancel() {
+      let b = resource.data;
+      let n = request.resource.data;
+      let c = n.cancelRequest;
+      return b.status in ['requested', 'confirmed']
+             && (!('cancelRequest' in b) || b.cancelRequest.status != 'asked')
+             && n.diff(b).affectedKeys().hasOnly(['cancelRequest'])
+             && c.keys().hasOnly(['status', 'at', 'reason'])
+             && c.status == 'asked' && c.at == request.time
+             && c.reason is string && c.reason.size() <= 1000;
+    }
+
     match /bookings/{key} {
       // The key is the booking's private reference (32 random characters).
       allow get: if true;
@@ -1373,7 +1390,7 @@ service cloud.firestore {
       allow create: if key.size() >= 20 && bookingShape()
                     && (memberCreate(key) || publicCreate() || officeCreate());
       allow update: if (theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId))
-                    || memberCancel(key) || hirerAccepts();
+                    || memberCancel(key) || hirerAccepts() || hirerAsksCancel();
       allow delete: if false;
     }
 
@@ -1473,7 +1490,9 @@ service cloud.firestore {
     function chargeShape() {
       let c = request.resource.data;
       return c.keys().hasOnly(['bookingKey', 'seriesId', 'siteId', 'roomId', 'kind', 'payer', 'lines', 'subtotal', 'vat', 'vatRate', 'total',
-                               'deposit', 'damageDeposit', 'status', 'payments', 'dueDate', 'createdAt', 'createdBy', 'adjusted', 'updatedAt', 'updatedBy', 'note'])
+                               'deposit', 'damageDeposit', 'status', 'payments', 'dueDate', 'createdAt', 'createdBy', 'adjusted', 'updatedAt', 'updatedBy', 'note',
+                               'invoiceId', 'invoiceNumber', 'damage', 'exportedAt', 'payerKey'])
+             && (!('damage' in c) || (c.damage is map && c.damage.get('status', 'none') in ['none', 'held', 'returned', 'kept']))
              && c.siteId is string && c.bookingKey is string
              && c.lines is list && c.lines.size() <= 60
              && c.subtotal is int && c.vat is int && c.total is int && c.total == c.subtotal + c.vat
@@ -1493,6 +1512,72 @@ service cloud.firestore {
                     && termsId == request.resource.data.typeId + '_v' + string(request.resource.data.version)
                     && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 20000;
       allow update, delete: if false;
+    }
+
+    // ---- invoices, numbered (Chunk 5, stage 3) -------------------------
+    // One counter for the whole church: counters/invoices.next is the next
+    // number. An invoice takes it in the same write as the counter moves on
+    // by exactly one, so two people issuing at once cannot get the same
+    // number, and no number is skipped. Invoices are never deleted.
+    function invoiceNumberTaken(seq) {
+      return seq is int && seq >= 1
+             && (exists(/databases/$(database)/documents/counters/invoices)
+                   ? get(/databases/$(database)/documents/counters/invoices).data.next == seq
+                   : seq == 1)
+             && getAfter(/databases/$(database)/documents/counters/invoices).data.next == seq + 1;
+    }
+    match /invoices/{invId} {
+      allow read: if theOffice(resource.data.siteId);
+      allow create: if theOffice(request.resource.data.siteId)
+                    && invId == 'inv_' + string(request.resource.data.seq)
+                    && invoiceNumberTaken(request.resource.data.seq)
+                    && request.resource.data.number is string
+                    && request.resource.data.chargeIds is list && request.resource.data.chargeIds.size() >= 1 && request.resource.data.chargeIds.size() <= 200
+                    && request.resource.data.total is int && request.resource.data.total == request.resource.data.subtotal + request.resource.data.vat;
+      allow update: if theOffice(resource.data.siteId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt', 'accounts', 'emailedAt', 'exportedAt']);
+      allow delete: if false;
+    }
+    match /counters/{counterId} {
+      allow read: if active();
+      allow create, update: if active() && counterId == 'invoices'
+                            && request.resource.data.keys().hasOnly(['next'])
+                            && request.resource.data.next == (resource == null ? 2 : resource.data.next + 1)
+                            && existsAfter(/databases/$(database)/documents/invoices/$('inv_' + string(request.resource.data.next - 1)));
+      allow delete: if false;
+    }
+
+    // ---- hirers (Chunk 5, stage 3) ---------------------------------------
+    // Who hires: contact, invoice address, charity (and whether the office has
+    // checked it), regular hirer, monthly invoicing, documents with expiry
+    // dates. Personal details: only the office of the site that keeps them.
+    match /hirers/{hirerId} {
+      allow read: if theOffice(resource.data.siteId);
+      allow create, update: if theOffice(request.resource.data.siteId)
+                            && (resource == null || theOffice(resource.data.siteId))
+                            && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+                            && request.resource.data.email is string && request.resource.data.email.size() <= 200
+                            && request.resource.data.get('documents', []) is list && request.resource.data.get('documents', []).size() <= 30;
+      allow delete: if false;
+    }
+
+    // ---- the accounts setting, and what waits for Calla Accounts ----------
+    // settings/accounts: 'none' (the hub is the whole money system; the
+    // default) or 'calla'. Who numbers invoices in Calla mode is Martin's to
+    // decide (the brief): recorded as 'hub' until he does.
+    match /settings/accounts {
+      allow read: if active();
+      allow write: if isAdmin()
+                   && request.resource.data.mode in ['none', 'calla']
+                   && request.resource.data.get('invoiceNumbersBy', 'hub') in ['hub', 'calla'];
+    }
+    match /accountsQueue/{itemId} {
+      allow read: if theOffice(resource.data.siteId);
+      allow create: if theOffice(request.resource.data.siteId)
+                    && request.resource.data.kind in ['customer', 'invoice', 'payment']
+                    && request.resource.data.status in ['waiting', 'sent', 'failed'];
+      allow update: if theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId);
+      allow delete: if false;
     }
 
     match /charges/{chargeId} {

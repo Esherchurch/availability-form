@@ -589,13 +589,15 @@
     var to = (b.requester && b.requester.email) || '';
     if (!to) return Promise.resolve({ ok: false, error: 'no address' });
     var head = { confirmed: 'Your room is booked', waiting: 'Your booking is waiting for approval', approved: 'Your booking is confirmed',
-                 declined: 'Your booking could not go ahead', cancelled: 'Your booking has been cancelled', moved: 'Your booking has moved' }[what];
+                 declined: 'Your booking could not go ahead', cancelled: 'Your booking has been cancelled', moved: 'Your booking has moved',
+                 kept: 'We have kept your booking' }[what];
     var body = '<p>' + esc(roomName) + ', ' + esc(when(b)) + (b.title ? ': <strong>' + esc(b.title) + '</strong>' : '') + '.</p>' +
       (b.setupMins || b.packdownMins ? '<p style="color:#6b7280;font-size:13px">Including ' + (b.setupMins || 0) + ' minutes to set up and ' + (b.packdownMins || 0) + ' to clear away.</p>' : '') +
       (what === 'waiting' ? '<p>Someone at the church will look at it and let you know. Nothing is confirmed until then.</p>' : '') +
       (what === 'declined' && note ? '<p>' + esc(note) + '</p>' : '') +
       (what === 'confirmed' || what === 'approved' || what === 'moved' ? '<p style="color:#6b7280;font-size:13px">The calendar file attached adds it to your diary.</p>' : '') +
       (what === 'moved' && note ? '<p>' + esc(note) + '</p>' : '') + (what === 'cancelled' && note ? '<p>' + esc(note) + '</p>' : '') +
+      (what === 'kept' ? '<p>You asked to cancel. ' + (note ? esc(note) : '') + '</p>' : '') +
       (extra || '') +
       '<p style="color:#6b7280;font-size:13px">Reference ' + esc(ref(b)) + '</p>';
     var mail = { to: [to], subject: head + ': ' + roomName + ', ' + when(b), html: EGBCChurch.wrap(head, body) };

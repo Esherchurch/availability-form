@@ -228,6 +228,18 @@ await check('a signed-in person can clear an old one away', 'allow',
 }
 // ── end EVENTS ──
 
+// ── EVENTS (events window) ── a hirer's documents (Chunk 5, stage 3)
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'bookingSettings', 'site_s'), { bookingsAdmins: ['m_u_samy'] });
+});
+await check('a site\u2019s bookings admin stores a hirer\u2019s insurance', 'allow', () => put(as('samy'), 'hirerDocs/site_s/hr_1/insurance.pdf', { type: 'application/pdf' }));
+await check('and reads it back', 'allow', () => getBytes(ref(as('samy'), 'hirerDocs/site_s/hr_1/insurance.pdf')));
+await check('not at a site they do not look after', 'deny', () => put(as('samy'), 'hirerDocs/site_x/hr_1/insurance.pdf', { type: 'application/pdf' }));
+await check('an admin may', 'allow', () => put(as('karen'), 'hirerDocs/site_x/hr_1/risk.pdf', { type: 'application/pdf' }));
+await check('the public may not read them', 'deny', () => getBytes(ref(anon(), 'hirerDocs/site_s/hr_1/insurance.pdf')));
+await check('only a PDF or a picture', 'deny', () => put(as('samy'), 'hirerDocs/site_s/hr_1/notes.txt', { type: 'text/plain' }));
+await check('never replaced or deleted from the page', 'deny', () => deleteObject(ref(as('samy'), 'hirerDocs/site_s/hr_1/insurance.pdf')));
+
 // ── EVENTS (events window) ── the church's logo (Church details, F-058)
 await check('an admin puts the church logo up', 'allow', () => put(as('karen'), 'church/logo-1.jpg', { type: 'image/jpeg' }));
 await check('anyone, with no account, can see it (the public hire pages show it)', 'allow', () => getBytes(ref(anon(), 'church/logo-1.jpg')));

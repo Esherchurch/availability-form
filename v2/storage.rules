@@ -245,6 +245,23 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // A hirer's documents (insurance, safeguarding policy, risk assessment):
+    // the site's office only - an admin, or that site's bookings admin.
+    // PDFs and pictures, under 15 MB. Kept: replaced only by a new upload.
+    function storageOffice(siteId) {
+      return adminHere()
+             || (request.auth != null
+                 && firestore.exists(/databases/(default)/documents/bookingSettings/$(siteId))
+                 && storageMe().status == 'active'
+                 && storageMe().get('memberId', '-') in firestore.get(/databases/(default)/documents/bookingSettings/$(siteId)).data.get('bookingsAdmins', []));
+    }
+    match /hirerDocs/{siteId}/{hirerId}/{fileName} {
+      allow read: if storageOffice(siteId);
+      allow create: if storageOffice(siteId) && request.resource.size < 15 * 1024 * 1024
+                    && (request.resource.contentType == 'application/pdf' || request.resource.contentType.matches('image/.*'));
+      allow update, delete: if false;
+    }
+
     // The church's logo (church-settings.html): shown on the public hire
     // pages, so anyone reads it; admins put it there.
     match /church/{fileName} {
