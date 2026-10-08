@@ -174,7 +174,65 @@
     return out;
   }
 
-  global.EGBCKids = { YEARS: YEARS, DAYS: DAYS, norm: norm, meaningful: meaningful, splitNames: splitNames, ageOn: ageOn, yearFor: yearFor,
+  /* ---- registers (stage 3) ----
+     Terms as the register counts them: autumn September to December,
+     spring January to March, summer April to August. (School terms move
+     with Easter; a register only needs the right Sundays in roughly the
+     right bucket, and the dates can always be chosen by hand.) */
+  function termOf(day) {
+    var y = +String(day).slice(0, 4), m = +String(day).slice(5, 7);
+    if (m >= 9) return { name: 'Autumn ' + y, from: y + '-09-01', to: y + '-12-31' };
+    if (m <= 3) return { name: 'Spring ' + y, from: y + '-01-01', to: y + '-03-31' };
+    return { name: 'Summer ' + y, from: y + '-04-01', to: y + '-08-31' };
+  }
+  function termBefore(day) {
+    var t = termOf(day), d = new Date(t.from + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() - 1);
+    return termOf(d.toISOString().slice(0, 10));
+  }
+  /* Every date from..to (inclusive) that falls on a group's day
+     (1 Monday ... 7 Sunday, as the groups store it). */
+  function sessionDates(weekday, from, to) {
+    var out = [], d = new Date(String(from).slice(0, 10) + 'T12:00:00Z'), end = String(to).slice(0, 10);
+    while (d.toISOString().slice(0, 10) <= end && out.length < 400) {
+      if ((d.getUTCDay() || 7) === (weekday || 7)) out.push(d.toISOString().slice(0, 10));
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return out;
+  }
+  /* A register: rows of children, a column per date, true where the child
+     was checked in that day (in or since gone home). */
+  function register(children, checkins, dates) {
+    var seen = {}, rows = [];
+    (children || []).forEach(function (c) { seen[c.id] = { id: c.id, name: c.name, days: {} }; rows.push(seen[c.id]); });
+    (checkins || []).forEach(function (k) {
+      if (!seen[k.signupKey]) { seen[k.signupKey] = { id: k.signupKey, name: k.name, days: {} }; rows.push(seen[k.signupKey]); }
+      seen[k.signupKey].days[k.day] = true;
+    });
+    rows.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    rows.forEach(function (r) { r.total = dates.filter(function (d) { return r.days[d]; }).length; });
+    var totals = dates.map(function (d) { return rows.filter(function (r) { return r.days[d]; }).length; });
+    return { rows: rows, totals: totals };
+  }
+  /* The morning's date (UTC, as the rules count it). */
+  function morningDay(now) { return (now || new Date()).toISOString().slice(0, 10); }
+
+  /* "Not set up yet" (the register and Sunday check-in). Admins get the
+     steps, with links; everyone else is told to ask the office.
+     o: { admin, noSite, canChooseTeam } */
+  function notSetUpHtml(o) {
+    if (!o.admin) return '<div class="card" id="notsetup"><h2>Not set up yet</h2><p>The children\'s register is not set up yet. Please ask the church office.</p></div>';
+    var step = function (done, html) { return '<li style="margin:6px 0">' + (done ? '<s>' + html + '</s> (done)' : html) + '</li>'; };
+    return '<div class="card" id="notsetup"><h2>Not set up yet</h2><p>Two steps, once:</p><ol>' +
+      step(!o.noSite, '<b>Places</b>: add the site where the children\'s groups meet. <a href="places-admin.html" id="ns-places">Open Places</a>') +
+      step(false, '<b>Children\'s register, Settings</b>: choose the children\'s team (Kids Church, for example). ' +
+        (o.canChooseTeam ? '<a href="kids-admin.html?tab=settings" id="ns-settings">Open Settings</a>' : 'A master admin or the safeguarding lead does this.')) +
+      '</ol><p class="hint">Then the team\'s admins can register children, set up the groups and run Sunday check-in.</p></div>';
+  }
+
+  global.EGBCKids = {
+    notSetUpHtml: notSetUpHtml,
+    termOf: termOf, termBefore: termBefore, sessionDates: sessionDates, register: register, morningDay: morningDay, YEARS: YEARS, DAYS: DAYS, norm: norm, meaningful: meaningful, splitNames: splitNames, ageOn: ageOn, yearFor: yearFor,
     groupFor: groupFor, familyCode: familyCode, fromResponse: fromResponse, consentOk: consentOk,
     sessionId: sessionId, checkinIdFor: checkinIdFor, pickupCode: pickupCode, cleanCode: cleanCode, familyQR: familyQR, parseFamilyQR: parseFamilyQR,
     digits: digits, findFamilies: findFamilies, listedCollector: listedCollector, leadersNeeded: leadersNeeded, visitorProblems: visitorProblems };

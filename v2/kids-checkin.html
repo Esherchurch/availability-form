@@ -16,8 +16,8 @@
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610082100"></script>
-<script src="egbc-events-checkin.js?v=202610082100"></script>
+<script src="egbc-events-kids.js?v=202610082330"></script>
+<script src="egbc-events-checkin.js?v=202610082300"></script>
 <script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-scan.js?v=202610082100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -73,6 +73,12 @@
   .label .flag{display:inline-block;background:var(--danger);color:#fff;font-weight:700;font-size:13px;border-radius:6px;padding:2px 8px;margin-top:6px}
   .label.slip{border-style:dashed}
   .label .qr{width:110px;height:110px;margin-top:6px}
+  table.reg{border-collapse:collapse;font-size:13px;min-width:100%}
+  table.reg th,table.reg td{border:1px solid var(--line);padding:4px 6px;text-align:center;white-space:nowrap}
+  table.reg th:first-child,table.reg td:first-child{text-align:left}
+  table.reg tr.tot td{font-weight:600;background:var(--tint)}
+  .scroll{overflow-x:auto}
+  .rname{background:none;border:none;padding:0;font:600 14px Inter,sans-serif;color:var(--brand);cursor:pointer;text-decoration:underline}
   .page-call{font-size:22px;font-weight:700;color:var(--ink)}
   #back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 12px;z-index:80;overflow:auto}
   #modal{background:#fff;border-radius:14px;max-width:480px;width:100%;padding:18px}
@@ -80,8 +86,8 @@
   @media print{
     body{background:#fff}
     body *{visibility:hidden}
-    #labels,#labels *{visibility:visible}
-    #labels{position:absolute;left:0;top:0}
+    #labels,#labels *,#roll,#roll *{visibility:visible}
+    #labels,#roll{position:absolute;left:0;top:0;width:100%}
   }
 </style>
 </head>
@@ -104,7 +110,11 @@
      This is E1's check-in (the checkins collection), a session per group
      per day; nothing here is a second check-in. */
   var K = window.EGBCKids, C = window.EGBCCheckin, F = window.EGBCForms, E = window.EGBCEvents, QR = window.EGBCEventsQR;
-  var SITES = [], GROUPS = [], CHILDREN = [], CKS = {}, SETTINGS = {}, ME = {}, LEAD = false, MYGROUPS = [];
+  var SITES = [], GROUPS = [], CHILDREN = [], CKS = {}, ROLL = {}, MED = {}, SETTINGS = {}, ME = {}, LEAD = false, MYGROUPS = [];
+  /* The morning (stage 3, F-094): MORNING is today's record if this person may
+     read it; SESSION is true for the rota's Session Leader while it is open;
+     ROLLALL when they may see every group's roll-call. */
+  var MORNING = null, SESSION = false, ROLLALL = false, SLNAME = '';
   var V = { site: '', tab: '', q: '', group: '', labels: null, scanning: false, msg: '' }, UNSUB = [];
   var DAY = C.today();
   function db() { return EGBCAuth.db; }
@@ -121,21 +131,25 @@
   function openModal(html) { document.getElementById('modal').innerHTML = html; document.getElementById('back').style.display = 'flex'; }
   function closeModal() { document.getElementById('back').style.display = 'none'; }
   document.getElementById('back').onclick = function (e) { if (e.target.id === 'back') closeModal(); };
+  function myGroupsHere() { return MYGROUPS.filter(function (g) { return g.siteId === V.site; }); }
+  function notSetUp(noSite, canChoose) {
+    document.getElementById('main').innerHTML = K.notSetUpHtml({ admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()), noSite: noSite, canChooseTeam: canChoose });
+  }
   function noAccess() {
     document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team leads and each group\'s leaders. If you lead a children\'s group, ask a lead to add you to it on the Children\'s register.</div>';
   }
 
   /* ---- load: the leads read the site; a group leader reads their groups ---- */
   function load() {
-    UNSUB.forEach(function (u) { u(); }); UNSUB = []; CKS = {};
+    UNSUB.forEach(function (u) { u(); }); UNSUB = []; CKS = {}; ROLL = {};
     var site = V.site, mine = MYGROUPS.filter(function (g) { return g.siteId === site; });
     var kids = LEAD ? db().collection('kidsChildren').where('siteId', '==', site).get().then(all)
-      : Promise.all(mine.map(function (g) { return db().collection('kidsChildren').where('groupId', '==', g.id).get().then(all); }))
+      : !mine.length ? Promise.resolve([]) : Promise.all(mine.map(function (g) { return db().collection('kidsChildren').where('groupId', '==', g.id).get().then(all); }))
           .then(function (l) { return [].concat.apply([], l); });
     return Promise.all([db().collection('kidsGroups').where('siteId', '==', site).get(), kids]).then(function (r) {
       GROUPS = all(r[0]).filter(function (g) { return g.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       CHILDREN = r[1].filter(function (c) { return c.status !== 'left'; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
-      if (!V.tab) V.tab = LEAD ? 'desk' : 'groups';
+      if (!V.tab) V.tab = LEAD ? 'desk' : mine.length ? 'groups' : 'roll';
       if (!V.group || !visibleGroups().some(function (g) { return g.id === V.group; })) V.group = (visibleGroups()[0] || {}).id || '';
       /* Today's check-ins, live: by site for the leads, by group for a leader. */
       var queries = LEAD ? [db().collection('checkins').where('siteId', '==', site).where('day', '==', DAY)]
@@ -146,12 +160,25 @@
           refresh();
         }, function (e) { toast('Could not load today\'s check-ins: ' + (e.message || e)); }));
       });
+      /* The roll-call copies: the whole site for the leads and this morning's
+         leaders; otherwise a group leader's own groups. */
+      var rq = LEAD || ROLLALL ? [db().collection('kidsRoll').where('siteId', '==', site).where('day', '==', DAY)]
+        : mine.map(function (g) { return db().collection('kidsRoll').where('groupId', '==', g.id).where('day', '==', DAY); });
+      rq.forEach(function (q) {
+        UNSUB.push(q.onSnapshot(function (snap) {
+          snap.docChanges().forEach(function (ch) { if (ch.type === 'removed') delete ROLL[ch.doc.id]; else ROLL[ch.doc.id] = Object.assign({ id: ch.doc.id }, ch.doc.data()); });
+          if (V.tab === 'roll') drawRollBody();
+        }, function () {}));
+      });
+      if (LEAD) openMorning();
       draw();
     });
   }
 
   function draw() {
-    var tabs = LEAD ? [['desk', 'Desk'], ['visitor', 'First time here'], ['groups', 'Groups']] : [['groups', 'Your group' + (MYGROUPS.length > 1 ? 's' : '')]];
+    var mine = myGroupsHere();
+    var tabs = LEAD ? [['desk', 'Desk'], ['visitor', 'First time here'], ['groups', 'Groups'], ['roll', 'Roll-call'], ['register', 'Registers'], ['visitors', 'Visitors']]
+      : (mine.length ? [['groups', 'Your group' + (mine.length > 1 ? 's' : '')]] : []).concat([['roll', 'Roll-call']]).concat(mine.length ? [['register', 'Registers']] : []);
     document.getElementById('main').innerHTML =
       (SITES.length > 1 ? '<div class="row"><div class="f"><label class="l" for="k-site">Site</label><select id="k-site">' + SITES.map(function (s) {
         return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div></div>' : '') +
@@ -163,12 +190,16 @@
     var el = document.getElementById('body');
     if (V.tab === 'visitor') return drawVisitor(el);
     if (V.tab === 'groups') return drawGroup(el);
+    if (V.tab === 'roll') return drawRoll(el);
+    if (V.tab === 'register') return drawRegister(el);
+    if (V.tab === 'visitors') return drawVisitors(el);
     drawDesk(el);
   }
   /* A check-in changed: redraw the part that shows it, not the search box. */
   function refresh() {
     if (V.tab === 'desk') drawResults();
     else if (V.tab === 'groups') drawGroupBody();
+    else if (V.tab === 'roll') drawRollBody();
   }
 
   function pills(c) {
@@ -184,7 +215,8 @@
       '<div class="two"><div style="flex:3 1 200px"><input class="inp big" id="d-q" value="' + esc(V.q) + '" placeholder="A name, the parent\'s phone, or the family code" autocomplete="off"></div>' +
       '<div style="flex:1 1 150px"><button class="btn sec tall" id="d-scan" style="width:100%">' + (V.scanning ? 'Stop the camera' : 'Scan their code') + '</button></div></div>' +
       (V.scanning ? '<video id="vid" playsinline muted></video>' : '') +
-      '<div id="d-msg">' + V.msg + '</div></div><div id="d-results"></div><div id="d-labels"></div>';
+      '<div id="d-msg">' + V.msg + '</div></div><div id="d-morning"></div><div id="d-results"></div><div id="d-labels"></div>';
+    drawMorningNote();
     var q = document.getElementById('d-q');
     q.oninput = function () { V.q = this.value; V.msg = ''; V.labels = null; drawResults(); };
     /* A hand-held scanner types the code and presses Enter. */
@@ -219,12 +251,37 @@
             (ck && ck.state === 'out' ? '<br><span class="hint">Went home ' + esc(time(ck.outAt)) + ' with ' + esc(ck.collectedBy) + '</span>' : '') + '</div>' +
             (isIn ? '<button class="btn sec" data-out="' + esc(ck.id) + '">Check out</button>' : '') + '</div>';
         }).join('') +
+        (SETTINGS.formId && f.children.some(function (c) { return !K.consentOk(c, DAY); })
+          ? '<div class="st no" style="margin-top:8px">Consent has run out or is missing. Let them in, and give the parent the form to renew it. <button class="btn sec" data-renew="' + esc(f.familyId) + '">Show the renewal QR code</button></div>' : '') +
         (f.children.some(function (c) { var ck = ckOf(c); return group(c.groupId) && !(ck && ck.state === 'in'); })
           ? '<div style="margin-top:10px"><button class="btn tall" data-checkin="' + esc(f.familyId) + '">Check in</button></div>' : '') + '</div>';
     }).join('') : '<div class="card"><p class="hint">Nobody found. New here? Use <b>First time here</b>.</p></div>';
     box.querySelectorAll('[data-checkin]').forEach(function (b) { b.onclick = function () { checkInFamily(b.dataset.checkin, b); }; });
     box.querySelectorAll('[data-out]').forEach(function (b) { b.onclick = function () { checkOutBox(b.dataset.out); }; });
+    box.querySelectorAll('[data-renew]').forEach(function (b) { b.onclick = function () { renewConsent(b.dataset.renew, b); }; });
     drawLabels();
+  }
+
+  /* Expired consent (Martin, F-094): the child comes in, and the parent is
+     shown a QR code for the registration form, to fill in on their phone.
+     If we have their email, the link goes there too. */
+  function renewConsent(familyId, btn) {
+    var kids = CHILDREN.filter(function (c) { return c.familyId === familyId; }), first = kids[0] || {};
+    btn.disabled = true;
+    var key = E.key(32);
+    var req = { formId: SETTINGS.formId, formTitle: SETTINGS.formTitle || 'Children\'s registration', calEventId: '', eventTitle: '', eventStart: '', signupKey: '',
+      personKind: '', personId: '', name: first.parentName || '', email: first.email || '', subjects: kids.map(function (c) { return c.name; }), siteId: V.site, status: 'sent', reuseOf: '',
+      sentAt: new Date().toISOString(), reminders: [], createdBy: uid() };
+    db().collection('formRequests').doc(key).set(req).then(function () {
+      var url = F.formUrl(key);
+      openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">Renew consent</h2><p class="hint">' + esc(first.parentName || 'The parent') + ' scans this with their phone camera and fills in the form there.</p>' +
+        '<div id="renew-qr" style="width:220px;height:220px;margin:8px 0">' + QR.svg(url, 220) + '</div>' +
+        (first.email ? '<p class="hint" id="renew-mail">The same link is on its way to ' + esc(first.email) + '.</p>' : '<p class="hint">We have no email for them, so the QR code is the way.</p>') +
+        '<button class="btn" id="m-done">Done</button>');
+      document.getElementById('m-done').onclick = closeModal;
+      btn.disabled = false;
+      if (first.email) return EGBCChurch.send(F.requestEmail(Object.assign({ key: key }, req), false)).catch(function () { toast('The email could not be sent; the QR code still works.'); });
+    }).catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
   }
 
   /* One collection code per family per morning: a brother checked in later
@@ -293,6 +350,7 @@
         if (code !== ck.pickupCode) { err.innerHTML = '<div class="st no" id="o-nomatch">That code does not match. Do not let ' + esc(c.name) + ' go: find a lead, and ring the parent.</div>'; return; }
         o = { collectedBy: name, code: code };
       } else o = { collectedBy: pick.value, listed: true };
+      o.groupName = (group(ck.groupId) || {}).name || '';
       this.disabled = true;
       C.kidsOut(ck, o).then(function () { closeModal(); toast(c.name + ' has gone home with ' + o.collectedBy); })
         .catch(function (e) { document.getElementById('o-go').disabled = false; err.innerHTML = '<div class="st no">Not allowed: ' + esc(e.message || e) + '</div>'; });
@@ -400,10 +458,12 @@
     box.innerHTML = '<div class="count"><div><b id="g-in">' + ins.length + '</b><span class="hint">in now</span></div>' +
       '<div><b>' + K.leadersNeeded(ins.length, g.ratio) + '</b><span class="hint">leaders needed (1 to ' + esc(g.ratio || '?') + ')</span></div>' +
       '<div><b>' + outs.length + '</b><span class="hint">gone home</span></div></div>' +
+      '<div id="g-allergy"></div>' +
       '<div class="card" id="g-ins"><h2>In now</h2>' + (ins.length ? ins.map(function (c) { return row(c, 'in'); }).join('') : '<p class="hint">Nobody yet.</p>') + '</div>' +
       '<div class="card" id="g-not"><h2>Not here yet</h2>' + (notYet.length ? notYet.map(function (c) { return row(c, 'not'); }).join('') : '<p class="hint">Everyone has come.</p>') + '</div>' +
       (outs.length ? '<div class="card" id="g-outs"><h2>Gone home</h2>' + outs.map(function (c) { return row(c, 'out'); }).join('') + '</div>' : '');
     box.querySelectorAll('[data-more]').forEach(function (b) { b.onclick = function () { details(child(b.dataset.more)); }; });
+    allergiesInRoom(ins);
     box.querySelectorAll('[data-gout]').forEach(function (b) { b.onclick = function () { checkOutBox(b.dataset.gout); }; });
     box.querySelectorAll('[data-gin]').forEach(function (b) {
       b.onclick = function () {
@@ -418,6 +478,178 @@
       };
     });
   }
+  /* For snack time: every allergy and medical need among the children in
+     the room now, in one place. */
+  function medOf(id) {
+    if (MED[id]) return Promise.resolve(MED[id]);
+    return db().collection('kidsMedical').doc(id).get().then(function (s) { MED[id] = s.exists ? s.data() : {}; return MED[id]; });
+  }
+  function allergiesInRoom(ins) {
+    var who = ins.filter(function (c) { return c.flags && (c.flags.allergies || c.flags.medical); });
+    var box = document.getElementById('g-allergy'); if (!box) return;
+    if (!who.length) { box.innerHTML = ''; return; }
+    Promise.all(who.map(function (c) { return medOf(c.id).then(function (m) { return { c: c, m: m }; }, function () { return { c: c, m: {} }; }); })).then(function (l) {
+      var b = document.getElementById('g-allergy'); if (!b) return;
+      b.innerHTML = '<div class="st no" id="g-allergies"><b>Allergies and medical needs in the room now</b>' + l.map(function (x) {
+        var bits = [x.m.allergies && K.meaningful(x.m.allergies) ? 'Allergies: ' + x.m.allergies : '', x.m.medical && K.meaningful(x.m.medical) ? 'Medical: ' + x.m.medical : '',
+          x.m.medication && K.meaningful(x.m.medication) ? 'Medication: ' + x.m.medication : '', x.m.needs && K.meaningful(x.m.needs) ? 'Needs: ' + x.m.needs : ''].filter(Boolean);
+        return '<br>' + esc(x.c.name) + ': ' + esc(bits.join('; ') || 'see their details');
+      }).join('') + '</div>';
+    });
+  }
+
+  /* ================= the morning, and the fire roll-call ================= */
+  /* A lead opening the page on a day a group meets opens the morning: every
+     group leader meeting today, and the rota's Session Leader, see the
+     roll-call until the end of the day. The rules check the Session Leader
+     against the rota. */
+  function openMorning() {
+    var wd = new Date().getDay() || 7, meeting = GROUPS.filter(function (g) { return (g.day || 7) === wd; });
+    if (!meeting.length) return;
+    var mday = K.morningDay();
+    db().collection('events').where('date', '==', mday).get().then(function (snap) {
+      var rotaId = '', sl = '';
+      snap.docs.forEach(function (d) { var a = (d.data().assignments || {})['Session Leader']; if (!sl && a && !Array.isArray(a) && a.id) { sl = a.id; SLNAME = a.name || ''; rotaId = d.id; } });
+      var ids = {}; meeting.forEach(function (g) { (g.leaderIds || []).forEach(function (m) { ids[m] = 1; }); });
+      var end = new Date(); end.setHours(23, 59, 0, 0);
+      var exp = new Date(Math.min(end.getTime(), Date.now() + 17 * 3600000));
+      var d = { siteId: V.site, day: mday, rotaId: rotaId, leaderIds: Object.keys(ids).slice(0, 60), sessionLeaderIds: sl ? [sl] : [],
+        expiresAt: firebase.firestore.Timestamp.fromDate(exp), updatedAt: new Date().toISOString(), updatedBy: uid() };
+      return db().collection('kidsMornings').doc(V.site + '_' + mday).set(d).then(function () { MORNING = d; drawMorningNote(); });
+    }).catch(function (e) { toast('Could not open the morning: ' + (e.message || e)); });
+  }
+  function drawMorningNote() {
+    var box = document.getElementById('d-morning'); if (!box || !MORNING) return;
+    box.innerHTML = '<div class="st ok" id="morning-note">This morning: ' + (MORNING.sessionLeaderIds.length ? 'Session Leader <b>' + esc(SLNAME || 'from the rota') + '</b> (from the rota). ' : 'no Session Leader on the rota. ') +
+      MORNING.leaderIds.length + ' group leader' + (MORNING.leaderIds.length === 1 ? '' : 's') + ' and the Session Leader see the roll-call until ' +
+      esc(E.fmtTime(MORNING.expiresAt.toDate().toISOString())) + '.</div>';
+  }
+  function drawRoll(el) {
+    el.innerHTML = (ROLLALL || LEAD ? '' : '<div class="st wait">You see your own group here. The whole roll-call opens to this morning\'s leaders when a lead opens the desk.</div>') +
+      '<div style="margin-bottom:10px"><button class="btn sec" id="r-print">Print the roll-call</button></div><div id="roll"></div>';
+    document.getElementById('r-print').onclick = function () { window.print(); };
+    drawRollBody();
+  }
+  /* Who is in the building now, by group: name and time in. The Session
+     Leader (and the leads) can open a child's medical details. */
+  function drawRollBody() {
+    var box = document.getElementById('roll'); if (!box) return;
+    var ins = Object.keys(ROLL).map(function (k) { return ROLL[k]; }).filter(function (x) { return x.state === 'in'; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var gids = GROUPS.map(function (g) { return g.id; }).filter(function (id) { return ins.some(function (x) { return x.groupId === id; }); });
+    ins.forEach(function (x) { if (gids.indexOf(x.groupId) < 0) gids.push(x.groupId); });
+    var canMed = LEAD || SESSION;
+    box.innerHTML = '<div class="card"><h2>Fire roll-call · ' + esc(E.fmtDate(DAY + 'T12:00')) + '</h2><div class="count"><div><b id="roll-total">' + ins.length + '</b><span class="hint">children in now</span></div>' +
+      gids.map(function (id) { var g = group(id); return '<div><b>' + ins.filter(function (x) { return x.groupId === id; }).length + '</b><span class="hint">' + esc(g ? g.name : (ins.filter(function (x) { return x.groupId === id; })[0] || {}).groupName) + '</span></div>'; }).join('') + '</div>' +
+      (gids.length ? gids.map(function (id) {
+        var g = group(id), list = ins.filter(function (x) { return x.groupId === id; });
+        return '<div data-rgroup="' + esc(id) + '" style="margin-top:10px"><h2>' + esc(g ? g.name : list[0].groupName) + '</h2>' + list.map(function (x) {
+          return '<div class="kid" data-roll="' + esc(x.childId) + '"><div class="t">' + (canMed ? '<button class="rname" data-rmed="' + esc(x.childId) + '">' + esc(x.name) + '</button>' : '<b>' + esc(x.name) + '</b>') +
+            ' <span class="hint">in since ' + esc(time(x.inAt)) + '</span></div><span style="font-size:20px;color:var(--muted)">&#9744;</span></div>';
+        }).join('') + '</div>';
+      }).join('') : '<p class="hint">Nobody is checked in right now.</p>') + '</div>';
+    box.querySelectorAll('[data-rmed]').forEach(function (b) {
+      b.onclick = function () {
+        var x = Object.keys(ROLL).map(function (k) { return ROLL[k]; }).filter(function (r) { return r.childId === b.dataset.rmed; })[0];
+        openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">' + esc(x.name) + '</h2><p class="hint">' + esc(x.groupName) + (SESSION && !LEAD ? ' · shown to the Session Leader this morning only' : '') + '</p>' +
+          '<div id="m-med" class="st wait">Loading the medical details…</div><button class="btn sec" id="m-close">Close</button>');
+        document.getElementById('m-close').onclick = closeModal;
+        medOf(x.childId).then(function (m) {
+          document.getElementById('m-med').innerHTML = '<span data-med="' + esc(x.childId) + '"><b>Allergies</b>: ' + esc(m.allergies || 'none given') + '<br><b>Medical</b>: ' + esc(m.medical || 'none given') +
+            '<br><b>Medication</b>: ' + esc(m.medication || 'none given') + '<br><b>Additional needs</b>: ' + esc(m.needs || 'none given') + '</span>';
+        }).catch(function () { document.getElementById('m-med').textContent = 'Could not open the medical details.'; });
+      };
+    });
+  }
+
+  /* ================= registers ================= */
+  function drawRegister(el) {
+    var gs = visibleGroups();
+    if (!gs.length) { el.innerHTML = '<div class="card hint">No groups yet.</div>'; return; }
+    if (!V.rgroup || !gs.some(function (g) { return g.id === V.rgroup; })) V.rgroup = gs[0].id;
+    V.rperiod = V.rperiod || 'term';
+    var t = K.termOf(DAY), lt = K.termBefore(DAY);
+    el.innerHTML = '<div class="card"><div class="row"><div class="f"><label class="l" for="reg-group">Group</label><select id="reg-group">' + gs.map(function (g) {
+        return '<option value="' + esc(g.id) + '"' + (g.id === V.rgroup ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="f"><label class="l" for="reg-period">Which weeks</label><select id="reg-period">' + [['week', 'The latest week'], ['term', 'This term (' + t.name + ')'], ['last', 'Last term (' + lt.name + ')'], ['custom', 'Choose the dates']].map(function (o) {
+        return '<option value="' + o[0] + '"' + (V.rperiod === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="f" id="reg-dates" style="display:' + (V.rperiod === 'custom' ? 'block' : 'none') + '"><label class="l" for="reg-from">From</label><input class="inp" type="date" id="reg-from" value="' + esc(V.rfrom || t.from) + '"></div>' +
+      '<div class="f" style="display:' + (V.rperiod === 'custom' ? 'block' : 'none') + '"><label class="l" for="reg-to">Until</label><input class="inp" type="date" id="reg-to" value="' + esc(V.rto || DAY) + '"></div></div>' +
+      '<div id="reg-body" class="hint">Loading…</div></div>';
+    document.getElementById('reg-group').onchange = function () { V.rgroup = this.value; drawRegister(el); };
+    document.getElementById('reg-period').onchange = function () { V.rperiod = this.value; drawRegister(el); };
+    document.getElementById('reg-from').onchange = function () { V.rfrom = this.value; drawRegister(el); };
+    document.getElementById('reg-to').onchange = function () { V.rto = this.value; drawRegister(el); };
+    var g = group(V.rgroup), from, to;
+    if (V.rperiod === 'week') { var d7 = new Date(DAY + 'T12:00:00Z'); d7.setUTCDate(d7.getUTCDate() - 6); from = d7.toISOString().slice(0, 10); to = DAY; }
+    else if (V.rperiod === 'last') { from = lt.from; to = lt.to; }
+    else if (V.rperiod === 'custom') { from = V.rfrom || t.from; to = V.rto || DAY; }
+    else { from = t.from; to = t.to; }
+    if (to > DAY) to = DAY;
+    var dates = K.sessionDates(g.day, from, to);
+    if (V.rperiod === 'week') dates = dates.slice(-1);
+    if (!dates.length) { document.getElementById('reg-body').innerHTML = 'No ' + esc(K.DAYS[g.day || 7]) + 's in those dates yet.'; return; }
+    Promise.all(dates.map(function (d) {
+      var q = LEAD ? db().collection('checkins').where('siteId', '==', V.site).where('day', '==', d) : db().collection('checkins').where('groupId', '==', g.id).where('day', '==', d);
+      return q.get().then(all).then(function (l) { return l.filter(function (k) { return k.groupId === g.id; }); });
+    })).then(function (lists) {
+      var reg = K.register(CHILDREN.filter(function (c) { return c.groupId === g.id; }), [].concat.apply([], lists), dates);
+      var short = function (d) { return +d.slice(8, 10) + '/' + +d.slice(5, 7); };
+      var b = document.getElementById('reg-body'); if (!b) return;
+      b.className = '';
+      b.innerHTML = '<div class="scroll"><table class="reg" id="reg-table"><thead><tr><th>' + esc(g.name) + '</th>' + dates.map(function (d) { return '<th>' + short(d) + '</th>'; }).join('') + '<th>Weeks</th></tr></thead><tbody>' +
+        reg.rows.map(function (rw) { return '<tr><td>' + esc(rw.name) + '</td>' + dates.map(function (d) { return '<td>' + (rw.days[d] ? '&#10003;' : '') + '</td>'; }).join('') + '<td>' + rw.total + '</td></tr>'; }).join('') +
+        '<tr class="tot"><td>Children</td>' + reg.totals.map(function (n) { return '<td>' + n + '</td>'; }).join('') + '<td></td></tr></tbody></table></div>' +
+        '<div style="margin-top:10px"><button class="btn sec" id="reg-csv">Download (CSV, for Excel)</button></div>';
+      document.getElementById('reg-csv').onclick = function () {
+        var head = ['Child'].concat(dates).concat(['Weeks']);
+        var rows = reg.rows.map(function (rw) { return [rw.name].concat(dates.map(function (d) { return rw.days[d] ? 'Yes' : ''; })).concat([rw.total]); })
+          .concat([['Children'].concat(reg.totals).concat([''])]);
+        C.logDownload({ calEventId: 'kids_' + g.id, what: 'Register: ' + g.name + ' ' + dates[0] + ' to ' + dates[dates.length - 1], format: 'csv', columns: head, sensitive: false }).then(function () {
+          C.saveFile('Register ' + g.name + ' ' + dates[0] + '.csv', new Blob(['\ufeff' + C.csvText(head, rows)], { type: 'text/csv' }));
+        }).catch(function (e) { toast('Could not download: ' + (e.message || e)); });
+      };
+    }).catch(function (e) { var b = document.getElementById('reg-body'); if (b) b.textContent = 'Could not load the register: ' + (e.message || e); });
+  }
+
+  /* ================= visitors to follow up (the leads) ================= */
+  function drawVisitors(el) {
+    V.vsince = V.vsince || '7';
+    el.innerHTML = '<div class="card"><h2>New families to welcome</h2><p class="hint">Families who came for the first time, so the children\'s team can say hello and help with the form.</p>' +
+      '<div class="row"><div class="f"><label class="l" for="vis-since">Since</label><select id="vis-since"><option value="7"' + (V.vsince === '7' ? ' selected' : '') + '>This week</option><option value="28"' + (V.vsince === '28' ? ' selected' : '') + '>The last four weeks</option></select></div></div>' +
+      '<div id="vis-body" class="hint">Loading…</div></div>';
+    document.getElementById('vis-since').onchange = function () { V.vsince = this.value; drawVisitors(el); };
+    var since = new Date(DAY + 'T12:00:00Z'); since.setUTCDate(since.getUTCDate() - (+V.vsince - 1)); since = since.toISOString().slice(0, 10);
+    db().collection('kidsFamilies').where('siteId', '==', V.site).get().then(all).then(function (fams) {
+      var list = fams.filter(function (f) { return f.visitor === true && (f.firstVisit || '') >= since; }).sort(function (a, b) { return a.firstVisit < b.firstVisit ? 1 : -1; });
+      var b = document.getElementById('vis-body'); if (!b) return;
+      b.className = '';
+      b.innerHTML = list.length ? list.map(function (f) {
+        var kids = CHILDREN.filter(function (c) { return c.familyId === f.id; }), back = kids.length && kids.every(function (c) { return c.status === 'registered'; });
+        return '<div class="kid" data-vfam="' + esc(f.id) + '"><div class="t"><b>' + esc(f.parentName) + '</b> <span class="hint">first came ' + esc(E.fmtDateShort(f.firstVisit + 'T12:00')) + '</span><br>' +
+          kids.map(function (c) { return esc(c.name) + ' <span class="hint">(' + esc((group(c.groupId) || {}).name || 'no group') + ')</span>'; }).join(', ') + '<br>' +
+          (f.phone ? '<a href="tel:' + esc(tel(f.phone)) + '" style="color:var(--brand)">' + esc(f.phone) + '</a>' : '') + (f.email ? ' · ' + esc(f.email) : '') + '<br>' +
+          (back ? '<span class="pill ok">Full form back</span>' : '<span class="pill wait">Full form not back yet</span>') +
+          (f.welcomedAt ? '<span class="pill ok">Welcomed by ' + esc(f.welcomedByName || 'the team') + ', ' + esc(E.fmtDateShort(f.welcomedAt)) + '</span>' : '') + '</div>' +
+          (f.welcomedAt ? '' : '<button class="btn sec" data-welcome="' + esc(f.id) + '">We have said hello</button>') +
+          (!back && f.email && SETTINGS.formId ? '<button class="btn sec" data-resend="' + esc(f.id) + '">Send the form again</button>' : '') + '</div>';
+      }).join('') : '<p class="hint">No new families in that time.</p>';
+      b.querySelectorAll('[data-welcome]').forEach(function (x) {
+        x.onclick = function () {
+          x.disabled = true;
+          db().collection('kidsFamilies').doc(x.dataset.welcome).update({ welcomedAt: new Date().toISOString(), welcomedBy: uid(), welcomedByName: ME.name || '', updatedAt: new Date().toISOString(), updatedBy: uid() })
+            .then(function () { toast('Noted'); drawVisitors(el); }).catch(function (e) { x.disabled = false; toast('Could not: ' + (e.message || e)); });
+        };
+      });
+      b.querySelectorAll('[data-resend]').forEach(function (x) {
+        x.onclick = function () {
+          var f = list.filter(function (y) { return y.id === x.dataset.resend; })[0];
+          x.disabled = true;
+          sendFullForm({ parentName: f.parentName, email: f.email }, CHILDREN.filter(function (c) { return c.familyId === f.id; })).then(function (ok) { if (ok) toast('Sent to ' + f.email); });
+        };
+      });
+    }).catch(function (e) { var b = document.getElementById('vis-body'); if (b) b.textContent = 'Could not load: ' + (e.message || e); });
+  }
+
   /* A child's details for the leader: medical, and the parent on tap. */
   function details(c) {
     openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">' + esc(c.name) + '</h2>' + pills(c) +
@@ -443,6 +675,7 @@
   function start() {
     var s = SITES.filter(function (x) { return x.id === V.site; })[0] || {};
     SETTINGS = s._settings || {}; LEAD = !!s._lead; V.tab = ''; V.labels = null;
+    MORNING = s._mdoc || null; SESSION = !!s._session; ROLLALL = !!s._morning; SLNAME = '';
     return load().catch(function () { noAccess(); });
   }
   function begin() {
@@ -453,13 +686,27 @@
       var bs = {}, ks = {};
       all(r[1]).forEach(function (s) { bs[s.id] = s; }); all(r[2]).forEach(function (s) { ks[s.id] = s; });
       MYGROUPS = all(r[3]);
-      SITES = all(r[0]).filter(function (s) { return s.active !== false; }).map(function (s) {
+      return Promise.all(all(r[0]).map(function (s) {
+        return db().collection('kidsMornings').doc(s.id + '_' + K.morningDay()).get().then(function (m) { return m.exists ? m.data() : null; }, function () { return null; });
+      })).then(function (ms) { return { r: r, ms: ms, bs: bs, ks: ks }; });
+    }).then(function (x) {
+      var r = x.r, bs = x.bs, ks = x.ks, mid = ME.memberId || '-', adminFor = ME.adminFor || [];
+      /* Not set up yet: no site in Places, or no children's team chosen. */
+      var live = all(r[0]).filter(function (s) { return s.active !== false; });
+      var anyTeam = live.some(function (s) { return ((ks[s.id] || {}).teams || []).length > 0; });
+      var canChoose = !!ME.masterAdmin || live.some(function (s) { var b = bs[s.id] || {}; return b.safeguardingLead === mid || b.safeguardingDeputy === mid; });
+      if (!live.length || !anyTeam) return notSetUp(!live.length, canChoose);
+      SITES = all(r[0]).map(function (s, i) { s._i = i; return s; }).filter(function (s) { return s.active !== false; }).map(function (s) { var i = s._i;
         s._settings = ks[s.id] || {};
         var sg = (bs[s.id] || {}).safeguardingLead === mid || (bs[s.id] || {}).safeguardingDeputy === mid;
         s._lead = !!(ME.masterAdmin || sg || (s._settings.teams || []).some(function (t) { return adminFor.indexOf(t) >= 0; }));
         s._leader = MYGROUPS.some(function (g) { return g.siteId === s.id; });
+        var m = x.ms[i], open = m && m.expiresAt && m.expiresAt.toMillis() > Date.now();
+        s._session = !!(open && (m.sessionLeaderIds || []).indexOf(mid) >= 0);
+        s._morning = !!(open && (s._session || (m.leaderIds || []).indexOf(mid) >= 0));
+        s._mdoc = m;
         return s;
-      }).filter(function (s) { return s._lead || s._leader; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      }).filter(function (s) { return s._lead || s._leader || s._morning; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       if (!SITES.length) return noAccess();
       if (!SITES.some(function (s) { return s.id === V.site; })) V.site = SITES[0].id;
       return start();

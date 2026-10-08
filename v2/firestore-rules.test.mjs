@@ -1243,6 +1243,57 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a Sunday check-in is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'checkins', id('kid_cat', 'grp_junior'))));
 }
 
+// ── EVENTS (events window) ── the morning: fire roll-call and the Session Leader (Chunk 6, stage 3; Martin, F-094)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const YESTERDAY = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const { Timestamp } = await import('firebase/firestore');
+  const soon = (h) => Timestamp.fromMillis(Date.now() + h * 3600000);
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const U = (uid, mid, teams, adminFor) => setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor, masterAdmin: false });
+    await U('u_sam', 'm_sam', ['Kids Church'], []);
+    await U('u_nat', 'm_nat', ['Kids Church'], []);
+    await setDoc(doc(db, 'events', 'rota_today'), { date: TODAY, roles: ['Session Leader'], assignments: { 'Session Leader': { id: 'm_sam', name: 'Sam Session' }, 'Helper 1': [{ id: 'm_nat', name: 'Nat' }] } });
+    await setDoc(doc(db, 'events', 'rota_yesterday'), { date: YESTERDAY, roles: ['Session Leader'], assignments: { 'Session Leader': { id: 'm_nat', name: 'Nat' } } });
+    await setDoc(doc(db, 'kidsMedical', 'kid_cat'), { siteId: 'site_kids', groupId: 'grp_junior', allergies: 'Sesame (invented)', medical: '', medication: '', needs: '', responseId: 'r2' });
+    await setDoc(doc(db, 'kidsMedical', 'kid_dan'), { siteId: 'site_kids', groupId: 'grp_little', allergies: 'None', medical: '', medication: '', needs: '', responseId: 'r2' });
+    await setDoc(doc(db, 'kidsRoll', 'old_roll'), { siteId: 'site_kids', day: YESTERDAY, groupId: 'grp_junior', groupName: 'Juniors', childId: 'kid_cat', name: 'Cat Synthetic', state: 'in', inAt: 'x', outAt: '', roomId: '', updatedAt: 'x' });
+  });
+  const MORNING = (extra) => ({ siteId: 'site_kids', day: TODAY, rotaId: 'rota_today', leaderIds: ['m_lou', 'm_jo', 'm_sid'], sessionLeaderIds: ['m_sam'], expiresAt: soon(10), updatedAt: 'x', updatedBy: 'u_kim', ...(extra || {}) });
+  const mref = (who) => doc(who, 'kidsMornings', 'site_kids_' + TODAY);
+  await check('a group leader cannot open the morning', 'deny', () => setDoc(mref(ctx('u_lou')), MORNING()));
+  await check('a lead cannot name a Session Leader the rota does not', 'deny', () => setDoc(mref(ctx('u_kim')), MORNING({ sessionLeaderIds: ['m_nat'] })));
+  await check('nor use another day\u2019s rota', 'deny', () => setDoc(mref(ctx('u_kim')), MORNING({ rotaId: 'rota_yesterday', sessionLeaderIds: ['m_nat'] })));
+  await check('nor keep a morning open for days', 'deny', () => setDoc(mref(ctx('u_kim')), MORNING({ expiresAt: soon(48) })));
+  await check('a lead opens the morning, with the rota\u2019s Session Leader', 'allow', () => setDoc(mref(ctx('u_kim')), MORNING()));
+
+  const CKID = (kid, g) => 'kids_' + g + '_' + TODAY + '__' + kid + '__0';
+  const CK = (kid, g) => ({ calEventId: 'kids_' + g + '_' + TODAY, signupKey: kid, attendeeIndex: 0, name: kid === 'kid_cat' ? 'Cat Synthetic' : 'Dan Synthetic', kind: 'child', state: 'in',
+    inAt: 'x', inBy: 'x', inByName: 'x', roomId: '', day: TODAY, updatedAt: 'x', groupId: g, siteId: 'site_kids', familyId: 'fam_2', pickupCode: 'Q7P2' });
+  const ROLL = (kid, g, extra) => ({ siteId: 'site_kids', day: TODAY, groupId: g, groupName: 'x', childId: kid, name: CK(kid, g).name, state: 'in', inAt: 'x', outAt: '', roomId: '', updatedAt: 'x', ...(extra || {}) });
+  const both = (who, kid, g, rollExtra) => { const b = writeBatch(who); b.set(doc(who, 'checkins', CKID(kid, g)), CK(kid, g)); b.set(doc(who, 'kidsRoll', CKID(kid, g)), ROLL(kid, g, rollExtra)); return b.commit(); };
+  await check('a roll-call copy must say what the check-in says', 'deny', () => both(ctx('u_kim'), 'kid_cat', 'grp_junior', { name: 'Someone Else' }));
+  await check('the desk checks Cat in, with her roll-call copy, in one write', 'allow', () => both(ctx('u_kim'), 'kid_cat', 'grp_junior'));
+  const roll = (who, day) => getDocs(query(collection(who, 'kidsRoll'), where('siteId', '==', 'site_kids'), where('day', '==', day || TODAY)));
+  await check('FIRE ROLL-CALL: the leader of Little ones sees every child checked in this morning, Cat included', 'allow', () => roll(ctx('u_lou')));
+  await check('but still not Cat\u2019s check-in itself (her collection code)', 'deny', () => getDoc(doc(ctx('u_lou'), 'checkins', CKID('kid_cat', 'grp_junior'))));
+  await check('nor her medical details, nor her record (phone numbers)', 'deny', () => Promise.all([getDoc(doc(ctx('u_lou'), 'kidsMedical', 'kid_cat')).catch(e => { throw e; }), getDoc(doc(ctx('u_lou'), 'kidsChildren', 'kid_cat'))]));
+  await check('nor last week\u2019s roll-call', 'deny', () => roll(ctx('u_lou'), YESTERDAY));
+  await check('the rota\u2019s Session Leader sees the roll-call', 'allow', () => roll(ctx('u_sam')));
+  await check('THE SESSION LEADER SEES THE MEDICAL DETAILS OF A CHILD CHECKED IN THIS MORNING', 'allow', () => getDoc(doc(ctx('u_sam'), 'kidsMedical', 'kid_cat')));
+  await check('but not of a child who has not come this morning', 'deny', () => getDoc(doc(ctx('u_sam'), 'kidsMedical', 'kid_dan')));
+  await check('nor a child\u2019s record (names and groups come from the roll-call)', 'deny', () => getDoc(doc(ctx('u_sam'), 'kidsChildren', 'kid_cat')));
+  await check('someone on Kids Church not leading this morning sees no roll-call', 'deny', () => roll(ctx('u_nat')));
+  await check('nor an admin of another team', 'deny', () => roll(ctx('u_wes')));
+  await check('a roll-call copy is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'kidsRoll', CKID('kid_cat', 'grp_junior'))));
+  await env.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'kidsMornings', 'site_kids_' + TODAY), { expiresAt: Timestamp.fromMillis(Date.now() - 60000) }); });
+  await check('WHEN THE MORNING CLOSES: the Session Leader no longer sees the medical details', 'deny', () => getDoc(doc(ctx('u_sam'), 'kidsMedical', 'kid_cat')));
+  await check('nor the leader of Little ones the roll-call', 'deny', () => roll(ctx('u_lou')));
+  await check('the leads still do', 'allow', () => roll(ctx('u_kim')));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

@@ -1509,3 +1509,72 @@ children's check-ins are in the same place and other admins may not see them.
 So it now asks for event check-ins by kind, and adds children for the people
 allowed to see them. What admins see for events is unchanged. The E1 tests
 still pass.
+
+### F-094 — decided (Martin) and built
+- **No override at the door:** kept as built.
+- **Expired consent:** the red warning stays and the child comes in. The
+  desk now has "Show the renewal QR code": the parent scans it and fills in
+  the registration form on their phone. If we have their email, the same
+  link is sent there too.
+- **The fire roll-call, during a session:** everyone leading that morning
+  sees every child checked in, with name, group and time in only. That means
+  the group leaders, the rota's Session Leader and the leads. The rules
+  enforce it, through a roll-call copy (`kidsRoll`) that holds nothing else.
+  See F-097.
+- **The rota's Session Leader** sees every group that morning, and the
+  medical details of the children checked in that morning only. They see
+  nothing once the morning closes, and never a child's record or phone
+  numbers. Group leaders stay named on the Groups tab.
+- **Parents checking in on their phone:** later.
+
+### F-097 — what K3 built (Chunk 6, stage 3: the rest of Sunday kids)
+- **The morning.** A lead opening Sunday check-in on a day a group meets
+  opens the morning (`kidsMornings`, one per site per day). It names every
+  group leader meeting that day, and the rota's Session Leader, whom the rules
+  check against the rota for that date. It closes by itself at the end of the
+  day (never more than 18 hours). The desk shows who the Session Leader is.
+- **Roll-call tab:** who is in now, by group, with name and time in, and a
+  print button. The leads and the Session Leader can tap a name for that
+  child's medical details. Group leaders can't. Outside a morning, a group
+  leader sees only their own group.
+- **Leader screen extra:** "Allergies and medical needs in the room now", the
+  list for snack time, covering only the children who are in.
+- **Registers tab:** by group, for the latest week, this term, last term or
+  chosen dates. It shows a tick per child per week, the weeks each child came
+  and the number of children each week. It downloads as CSV for Excel, and the
+  download is logged. Leads see every group; a group leader sees their own.
+  Terms are counted as Sept–Dec, Jan–Mar and Apr–Aug; any dates can be chosen.
+- **Visitors tab (leads):** new families this week or in the last four weeks,
+  with their children and groups, phone and email, and whether the full form
+  is back. It has "We have said hello" (who and when is noted) and "Send the
+  form again".
+- **Not set up yet** (from your message), on the Children's register and on
+  Sunday check-in:
+  - **No site in Places:** admins see the two steps with links (Places, then
+    the register's Settings to choose the children's team). Everyone else
+    sees "ask the church office".
+  - **A site but no team chosen:** a master admin or the safeguarding lead
+    goes straight to Settings. On the live site today, that is what a master
+    admin will see.
+- Tests: rules ("the morning", 21 checks); k3-kids-unit (11);
+  k3-morning in the browser (30).
+
+### F-098 — DECISIONS for Martin (K3)
+a. **The morning opens when a lead opens the desk** on a day a group meets.
+   If no lead opens Sunday check-in that morning, the group leaders and the
+   Session Leader see only their own group (the Session Leader sees nothing).
+   Is a lead always at the desk, or should the Session Leader be able to open
+   the morning too? The rules could allow it, since they already check the rota.
+b. **Only one Session Leader** per morning, as the rota has one slot. Say if
+   there can be two.
+c. **Terms** are counted as Sept–Dec, Jan–Mar and Apr–Aug. If you want the
+   real school term dates, they could be a setting.
+d. **"Page a parent"** still shows the number to call. A text message needs
+   an SMS service, which would be its own brief.
+
+### F-099 — for the main window
+- **Style check:** add `kids-checkin.html` (as F-095), now with its Roll-call,
+  Registers and Visitors tabs.
+- **For Martin, on deploying the rules:** two new collections, `kidsMornings`
+  and `kidsRoll`. Their lists ask by site and day, or by group and day, so no
+  new index should be needed.

@@ -242,26 +242,37 @@
      day (EGBCKids.sessionId), the record says the group, site and family,
      and carries the collection code from the parent's slip. The rules
      check that the child really is in that group, and who may see it. */
+  /* Each child's check-in has a roll-call copy (kidsRoll), written in the
+     same batch: name, group and time only, for everyone leading that
+     morning (stage 3, F-094). The rules check it says what the check-in says. */
+  function rollCopy(ck, groupName) {
+    return { siteId: ck.siteId, day: ck.day, groupId: ck.groupId, groupName: groupName || '', childId: ck.signupKey, name: ck.name,
+      state: ck.state, inAt: ck.inAt || '', outAt: ck.state === 'out' ? (ck.outAt || '') : '', roomId: ck.roomId || '', updatedAt: ck.updatedAt };
+  }
   function kidsIn(child, group, day, code, existing) {
     var who = me(), at = now();
-    var id = EGBCKids.checkinIdFor(child.id, group.id, day), ref = db().collection('checkins').doc(id);
-    if (existing) return ref.update({ state: 'in', inAt: at, inBy: who.uid, inByName: who.name, updatedAt: at }).then(function () { return id; });
-    return ref.set({
+    var id = EGBCKids.checkinIdFor(child.id, group.id, day), ref = db().collection('checkins').doc(id), batch = db().batch();
+    var ck = existing ? Object.assign({}, existing, { state: 'in', inAt: at, inBy: who.uid, inByName: who.name, updatedAt: at }) : {
       calEventId: EGBCKids.sessionId(group.id, day), signupKey: child.id, attendeeIndex: 0,
       name: child.name, kind: 'child', state: 'in', inAt: at, inBy: who.uid, inByName: who.name,
       roomId: group.roomId || '', day: day, updatedAt: at,
       groupId: group.id, siteId: child.siteId, familyId: child.familyId, pickupCode: code
-    }).then(function () { return id; });
+    };
+    if (existing) batch.update(ref, { state: 'in', inAt: at, inBy: who.uid, inByName: who.name, updatedAt: at });
+    else batch.set(ref, ck);
+    batch.set(db().collection('kidsRoll').doc(id), rollCopy(ck, group.name));
+    return batch.commit().then(function () { return id; });
   }
   /* Out to someone on the child's list (o.listed, the name exactly as the
      list has it), or to anyone with the code (o.code). Nothing else. */
   function kidsOut(ck, o) {
-    var who = me(), at = now();
-    return db().collection('checkins').doc(ck.id).update({
-      state: 'out', outAt: at, outBy: who.uid, outByName: who.name,
+    var who = me(), at = now(), batch = db().batch();
+    var ch = { state: 'out', outAt: at, outBy: who.uid, outByName: who.name,
       collectedBy: String(o.collectedBy || '').slice(0, 120), collectorListed: !!o.listed, codeGiven: o.listed ? '' : String(o.code || ''),
-      updatedAt: at
-    });
+      updatedAt: at };
+    batch.update(db().collection('checkins').doc(ck.id), ch);
+    if (ck.siteId) batch.set(db().collection('kidsRoll').doc(ck.id), rollCopy(Object.assign({}, ck, ch), o.groupName));
+    return batch.commit();
   }
 
   /* ---- downloads -----------------------------------------------------

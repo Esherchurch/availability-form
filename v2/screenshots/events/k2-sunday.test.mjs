@@ -155,7 +155,7 @@ try {
   /* ---------- 1. the desk ---------- */
   const sB = await as('samy'); const S = sB.page;
   await go(S, 'kids-checkin.html', '#d-q');
-  ok('1. a lead opens Sunday check-in at the desk', J(await S.$$eval('[data-tab]', b => b.map(x => x.textContent))) === J(['Desk', 'First time here', 'Groups']));
+  ok('1. a lead opens Sunday check-in at the desk', J(await S.$$eval('[data-tab]', b => b.map(x => x.textContent))) === J(['Desk', 'First time here', 'Groups', 'Roll-call', 'Registers', 'Visitors']));
   await val(S, '#d-q', '900 111');
   await S.waitForSelector('[data-fam="fam_1"]');
   ok('   found by part of the parent\'s phone: the whole family, both ticked', J(await S.$$eval('[data-fam="fam_1"] .d-tick:checked', x => x.map(e => e.value))) === J(['kc_ada', 'kc_ben']));
@@ -187,7 +187,7 @@ try {
   /* ---------- 2. the leader of Little ones ---------- */
   const lB = await as('lou', 375); const L = lB.page;
   await go(L, 'kids-checkin.html', '#g-ins');
-  ok('2. the leader of Little ones sees only their group', J(await L.$$eval('[data-tab]', b => b.map(x => x.textContent))) === J(['Your group']) && !(await L.$('#g-pick')));
+  ok('2. the leader of Little ones sees only their group', J(await L.$$eval('[data-tab]', b => b.map(x => x.textContent))) === J(['Your group', 'Roll-call', 'Registers']) && !(await L.$('#g-pick')));
   const lt = await text(L, '#g-body');
   ok('   Ada is in, with her allergy flag; Ben (a Junior) is nowhere', /In now Ada Synthetic Allergies/.test(lt) && !/Ben/.test(lt), lt);
   ok('   the count: 1 in, 1 leader needed at 1 to 4', /^1 in now 1 leaders needed \(1 to 4\)/.test(lt), lt.slice(0, 80));

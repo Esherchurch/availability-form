@@ -1768,10 +1768,91 @@ service cloud.firestore {
     }
     // One child's medical details, from the private half of their form.
     match /kidsMedical/{childId} {
-      allow read: if kidsLead(resource.data.siteId) || kidsGroupLeader(resource.data.get('groupId', ''));
+      // ...and the rota's Session Leader, that morning, for the children
+      // checked in that morning (Martin, F-094).
+      allow read: if kidsLead(resource.data.siteId) || kidsGroupLeader(resource.data.get('groupId', ''))
+                  || (kidsSessionLeaderNow(resource.data.siteId)
+                      && exists(/databases/$(database)/documents/checkins/$('kids_' + resource.data.get('groupId', '') + '_' + kidsToday() + '__' + childId + '__0')));
       allow create, update: if kidsLead(request.resource.data.siteId) && (resource == null || kidsLead(resource.data.siteId))
                             && request.resource.data.keys().hasOnly(['siteId', 'groupId', 'allergies', 'medical', 'medication', 'needs', 'responseId', 'updatedAt', 'updatedBy'])
                             && request.resource.data.groupId == getAfter(/databases/$(database)/documents/kidsChildren/$(childId)).data.get('groupId', '');
+      allow delete: if false;
+    }
+
+    // ---- the morning (Chunk 6, stage 3; Martin, F-094) -----------------
+    //
+    // A MORNING is one site on one day: kidsMornings/<site>_<YYYY-MM-DD>,
+    // opened by a lead (the desk does it when a group meets that day). It
+    // names everyone leading that morning - every group's leaders, and the
+    // rota's Session Leader, checked here against the rota itself - and it
+    // closes by itself (expiresAt, never more than 18 hours on).
+    // While it is open:
+    //   - everyone leading that morning sees the FIRE ROLL-CALL: each child
+    //     checked in, their group and time in - a copy (kidsRoll) that holds
+    //     nothing else: no medical details, no phone numbers, no code;
+    //   - the Session Leader also sees the medical details of the children
+    //     checked in that morning (kidsMedical, above), and nothing more.
+    // Today is the UTC date: the same as the UK date except between
+    // midnight and 1am in summer, when no group meets.
+    function kidsToday() {
+      let t = request.time;
+      return string(t.year()) + '-' + (t.month() < 10 ? '0' : '') + string(t.month()) + '-' + (t.day() < 10 ? '0' : '') + string(t.day());
+    }
+    function kidsMorningPath(siteId) {
+      return /databases/$(database)/documents/kidsMornings/$(siteId + '_' + kidsToday());
+    }
+    function kidsMorningOpen(siteId) {
+      return active() && siteId is string && siteId != '' && exists(kidsMorningPath(siteId))
+             && get(kidsMorningPath(siteId)).data.expiresAt > request.time;
+    }
+    function kidsMorningLeader(siteId) {
+      return kidsMorningOpen(siteId)
+             && (me().get('memberId', '-') in get(kidsMorningPath(siteId)).data.get('leaderIds', [])
+                 || me().get('memberId', '-') in get(kidsMorningPath(siteId)).data.get('sessionLeaderIds', []));
+    }
+    function kidsSessionLeaderNow(siteId) {
+      return kidsMorningOpen(siteId)
+             && me().get('memberId', '-') in get(kidsMorningPath(siteId)).data.get('sessionLeaderIds', []);
+    }
+    // The Session Leader on a rota date (the rota keeps one person per role
+    // as {id, name}).
+    function rotaSessionLeader(rotaId) {
+      let a = get(/databases/$(database)/documents/events/$(rotaId)).data.get('assignments', {}).get('Session Leader', null);
+      return a is map ? a.get('id', '') : '';
+    }
+    match /kidsMornings/{morningId} {
+      allow read: if kidsLead(resource.data.siteId)
+                  || me().get('memberId', '-') in resource.data.get('leaderIds', [])
+                  || me().get('memberId', '-') in resource.data.get('sessionLeaderIds', []);
+      allow create, update: if kidsLead(request.resource.data.siteId)
+                   && request.resource.data.keys().hasOnly(['siteId', 'day', 'rotaId', 'leaderIds', 'sessionLeaderIds', 'expiresAt', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.day is string
+                   && morningId == request.resource.data.siteId + '_' + request.resource.data.day
+                   && request.resource.data.leaderIds is list && request.resource.data.leaderIds.size() <= 60
+                   && request.resource.data.expiresAt is timestamp
+                   && request.resource.data.expiresAt <= request.time + duration.value(18, 'h')
+                   && request.resource.data.sessionLeaderIds is list
+                   && (request.resource.data.sessionLeaderIds.size() == 0
+                       || (request.resource.data.sessionLeaderIds.size() == 1
+                           && request.resource.data.rotaId is string && request.resource.data.rotaId != ''
+                           && get(/databases/$(database)/documents/events/$(request.resource.data.rotaId)).data.get('date', '') == request.resource.data.day
+                           && request.resource.data.sessionLeaderIds[0] == rotaSessionLeader(request.resource.data.rotaId)
+                           && request.resource.data.sessionLeaderIds[0] != ''));
+      allow delete: if false;
+    }
+    // The roll-call copy of a child's check-in: written in the same batch,
+    // and it must say what the check-in says.
+    match /kidsRoll/{checkinId} {
+      allow read: if kidsLead(resource.data.siteId) || kidsGroupLeader(resource.data.get('groupId', ''))
+                  || (kidsMorningLeader(resource.data.siteId) && resource.data.day == kidsToday());
+      allow create, update: if kidsCkTeam(request.resource.data)
+                   && request.resource.data.keys().hasOnly(['siteId', 'day', 'groupId', 'groupName', 'childId', 'name', 'state', 'inAt', 'outAt', 'roomId', 'updatedAt'])
+                   && request.resource.data.siteId == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.siteId
+                   && request.resource.data.groupId == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.groupId
+                   && request.resource.data.childId == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.signupKey
+                   && request.resource.data.name == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.name
+                   && request.resource.data.day == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.day
+                   && request.resource.data.state == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.state;
       allow delete: if false;
     }
 

@@ -17,7 +17,7 @@
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610082100"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610082100"></script>
+<script src="egbc-events-kids.js?v=202610082300"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -75,7 +75,7 @@
      nothing else. */
   var K = window.EGBCKids, F = window.EGBCForms, E = window.EGBCEvents;
   var SITES = [], ROOMS = [], GROUPS = [], FAMILIES = [], CHILDREN = [], SETTINGS = {}, RESPONSES = [], REQUESTS = [], SENS = [], PEOPLE = [];
-  var V = { site: '', tab: 'children', group: '', q: '', open: '' }, ME = {}, LEAD = false, MYGROUPS = [], CAN_TEAMS = false;
+  var V = { site: '', tab: new URLSearchParams(location.search).get('tab') === 'settings' ? 'settings' : 'children', group: '', q: '', open: '' }, ME = {}, LEAD = false, MYGROUPS = [], CAN_TEAMS = false;
   function db() { return EGBCAuth.db; }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -84,6 +84,9 @@
   function group(id) { return GROUPS.filter(function (g) { return g.id === id; })[0] || null; }
   function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
   function person(mid) { return PEOPLE.filter(function (p) { return p.id === mid; })[0] || null; }
+  function notSetUp(noSite, canChoose) {
+    document.getElementById('main').innerHTML = K.notSetUpHtml({ admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()), noSite: noSite, canChooseTeam: canChoose });
+  }
   function noAccess() {
     document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team leads and each group\'s leaders. If you lead a children\'s group, ask a lead to add you to it.</div>';
   }
@@ -124,6 +127,7 @@
       '<div id="body"></div>';
     var ks = document.getElementById('k-site'); if (ks) ks.onchange = function () { V.site = this.value; start(); };
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });
+    if (CAN_TEAMS && !(SETTINGS.teams || []).length) document.getElementById('body').insertAdjacentHTML('beforebegin', '<div class="st wait" id="notsetup-team">Not set up yet: choose the children\'s team on Settings. Its admins become the leads.</div>');
     var el = document.getElementById('body');
     if (V.tab === 'registration') return drawRegistration(el);
     if (V.tab === 'groups') return drawGroups(el);
@@ -388,6 +392,13 @@
       MYGROUPS = all(r[4]);
       PEOPLE = all(r[5]).map(function (p) { return { id: p.id, name: String(p.name || p.fullName || '').trim() }; }).filter(function (p) { return p.name; })
         .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      /* Not set up yet: no site in Places, or no children's team chosen. */
+      var live = all(r[0]).filter(function (s) { return s.active !== false; });
+      var anyTeam = live.some(function (s) { return ((ks[s.id] || {}).teams || []).length > 0; });
+      var canChoose = !!ME.masterAdmin || live.some(function (s) { var b = bs[s.id] || {}; return b.safeguardingLead === mid || b.safeguardingDeputy === mid; });
+      if (!live.length || (!anyTeam && !canChoose)) return notSetUp(!live.length, canChoose);
+      /* No team yet, but this person chooses it: straight to Settings. */
+      if (!anyTeam && V.tab === 'children') V.tab = 'settings';
       SITES = all(r[0]).filter(function (s) { return s.active !== false; }).map(function (s) {
         s._settings = ks[s.id] || {};
         s._sg = (bs[s.id] || {}).safeguardingLead === mid || (bs[s.id] || {}).safeguardingDeputy === mid;
