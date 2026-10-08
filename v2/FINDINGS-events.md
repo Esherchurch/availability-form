@@ -1095,3 +1095,58 @@ booking of kind `event` linked to the event (`calEventId`).
 - **A member's booking** is never charged in stage 1; a member kind of booking
   that is charged would need the same form on `rooms.html`. Say if that is wanted.
 - VAT is 20% when ticked; another rate would need a box on the price form.
+
+### F-078 — members' rate and the VAT rate (Martin, F-077: built)
+- **Members choose a kind of booking** in Book a room. Church and ministry kinds
+  are free, and first (with none set up, "Church or ministry use" is offered).
+  A kind marked "charged" is charged to members too.
+- **Members' rate**, per charged kind (Places, Hire prices): none, a percentage
+  off the room (and its surcharges), or a price list of its own (a second price
+  card per room, "Prices for: Members"). A signed-in member gets it
+  automatically and the quote says "Members' rate, 25% off the room" (or
+  "Members' rate: room hire…" for the own price list). With none set, they see
+  the standard price, and the quote says so. One discount at a time: the
+  largest of members', charity and regular hirer.
+- **The public never get it.** The office's page prices every booking the same
+  way: the members' rate only for a member's own booking (kind "member", which
+  only a signed-in member can make). The rules refuse a public request that
+  claims it, or one that pretends to be a member's.
+- **Decided here, say if not:** a member's booking of a charged kind waits for
+  the office, like a hire, even at a room where members' bookings are confirmed
+  straight away. The office confirms the price and records the charge; a member
+  cannot. The rules hold this. Free kinds behave exactly as before.
+- **VAT** stays off unless ticked; its rate is a box next to the tick (20 to
+  start), per price card.
+
+## Chunk 5, stage 2: the hirer's page, terms, payments
+
+### F-079 — what stage 2 built
+- **Terms by kind of booking** (Places, Hire prices): saving makes a new version
+  (`terms/<kind>_v<n>`). The rules let nobody change or delete a version, so
+  what a hirer accepted stays on record exactly as they saw it.
+- **The hirer's own page**, `my-booking.html?k=<booking>`: the private link is in
+  the approval email (one per date for a repeating booking). It shows the
+  booking and its status; once confirmed, the quote as a document with the
+  church's name and logo, and the terms; and "I accept" with their name. The
+  rules let the link-holder accept once, on a confirmed booking with a price,
+  only with the confirmed total and the current terms version, at the server's
+  time, and change nothing else. "Print, or save as a PDF" prints the document
+  alone. It belongs to no menu and has no sign-in, like the hire pages.
+- **Payments recorded by hand** (Room bookings, Coming up): amount, how (bank
+  transfer, cash, cheque, card on the day), date, reference; a refund the same
+  way. The charge becomes part-paid or paid; the booking carries the same, so
+  the hirer's page shows "Paid £50.00 of £70.00" or "Paid in full"; the payer
+  gets a receipt. The office sees whether the quote was accepted.
+
+### F-080 — what stage 2 leaves
+- **A hirer cancelling** from their page (the brief's "cancel request"): not
+  built; they reply to the email. Say if it is wanted, and whether it should
+  cancel or only ask.
+- **The damage deposit** is shown on the quote but not tracked separately as
+  taken and returned; a refund can be recorded against the charge. The brief
+  puts the refund workflow later.
+- **The quote PDF** is the browser's own "save as PDF" from the print window,
+  not a file the hub makes. Numbered invoices are stage 3, with the accounts
+  export.
+- **Changing a price after it is accepted**: the office can still record
+  payments, but changing the charge lines after approval is not on the page.

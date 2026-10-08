@@ -385,7 +385,7 @@ try {
       shell: !!document.querySelector('script[src*="egbc-shell"]'),
       signIn: /sign in|log in/i.test(document.body.innerText)
     }));
-    if (/room.html/.test(u) && !info.links.some(h => /book.html/.test(h))) outside.push(u + ' drew no way to ask: ' + (await G.$eval('#wrap', e => e.innerText)).replace(/s+/g, ' ').slice(0, 200));
+    if (/room.html/.test(u) && !info.links.some(h => /book.html/.test(h))) outside.push(u + ' drew no way to ask: ' + (await G.$eval('#wrap', e => e.innerText)).replace(/\s+/g, ' ').slice(0, 200));
     if (info.shell) outside.push(u + ' loads the hub shell');
     if (info.signIn) outside.push(u + ' offers a sign-in');
     for (const h of info.links) {

@@ -9,8 +9,8 @@
 <script src="egbc-auth.js?v=202610061500"></script>
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101200"></script>
-<script src="egbc-events-quote.js?v=202610101000"></script>
+<script src="egbc-events-bookings.js?v=202610101500"></script>
+<script src="egbc-events-quote.js?v=202610101700"></script>
 <script src="egbc-guard.js?v=202610061500" data-admin="any"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -239,6 +239,14 @@
       <div class="flex gap-2 mt-3 flex-wrap"><input id="t-name" class="inp" style="max-width:260px" placeholder="Private hire">
         <button class="btn btn-2" id="t-add">Add a kind of booking</button></div>
     </div>
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-semibold mb-1">Terms and conditions</h2>
+      <p class="hint mb-3">For each kind of booking. Hirers accept them online with the quote. Saving makes a new version;
+        anyone who accepted an earlier one keeps the version they accepted.</p>
+      <div class="mb-3"><label class="lbl" for="tm-type">Kind of booking</label><select id="tm-type" class="inp"></select></div>
+      <textarea id="tm-text" class="inp" style="height:200px;padding:10px 12px" maxlength="20000" placeholder="Leave the room as you found it..."></textarea>
+      <div class="flex gap-2 items-center mt-2 flex-wrap"><button class="btn" id="tm-save">Save as a new version</button><span class="hint" id="tm-ver"></span></div>
+    </div>
     <div class="card p-4 sm:p-5">
       <h2 class="text-sm font-semibold mb-1">A room's prices</h2>
       <p class="hint mb-3">In pounds. Leave a box empty if that way of charging does not apply. Room hire is whichever is
@@ -246,6 +254,7 @@
       <div class="grid sm:grid-cols-2 gap-3 mb-3">
         <div><label class="lbl" for="rc-room">Room</label><select id="rc-room" class="inp"></select></div>
         <div><label class="lbl" for="rc-type">Kind of booking</label><select id="rc-type" class="inp"></select></div>
+        <div id="rc-who-f" class="hidden"><label class="lbl" for="rc-who">Prices for</label><select id="rc-who" class="inp"><option value="">Everyone</option><option value="members">Members (their own price list)</option></select></div>
       </div>
       <div id="rc-form"></div>
       <div id="rc-list" class="mt-4"></div>
@@ -1012,6 +1021,11 @@
       return '<div class="row flex flex-wrap gap-3 items-center"><span class="font-semibold text-sm" style="min-width:140px">' + esc(t.name) + '</span>' +
         '<label class="fac"><input type="checkbox" data-tpub="' + t.id + '"' + (t.forPublic ? ' checked' : '') + '> For the public</label>' +
         '<label class="fac"><input type="checkbox" data-tchg="' + t.id + '"' + (t.charged ? ' checked' : '') + '> Charged</label>' +
+        (t.charged ? '<span class="fac">Members\' rate <select class="inp" style="width:auto;height:32px" data-tmr="' + t.id + '">' +
+          [['none', 'None: the standard price'], ['percent', 'A percentage off'], ['list', 'A price list of their own']].map(function (o) {
+            return '<option value="' + o[0] + '"' + (((t.membersRate || {}).mode || 'none') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+          (((t.membersRate || {}).mode) === 'percent' ? '<input class="inp" style="width:70px;height:32px" type="number" min="0" max="100" data-tmrp="' + t.id + '" value="' + ((t.membersRate || {}).pct || '') + '" aria-label="Percent off for members"> % off' : '') +
+          '</span>' : '') +
         '<button class="btn btn-x" data-tog="bookingTypes" data-id="' + t.id + '">' + (t.active === false ? 'Bring back' : 'Take out of use') + '</button></div>';
     }).join('') : '<p class="hint">None yet. Add "Private hire" to start.</p>';
     var rs = rooms.filter(function (r) { return r.kind !== 'online'; }).sort(byOrder), keepR = $('rc-room').value, keepT = $('rc-type').value;
@@ -1020,36 +1034,78 @@
     if (keepR) $('rc-room').value = keepR; if (keepT) $('rc-type').value = keepT;
     drawCard();
   }
+  /* ---- terms, a version at a time (Chunk 5, stage 2) ---- */
+  function drawTerms() {
+    var sel = $('tm-type'), keep = sel.value;
+    sel.innerHTML = types.filter(function (t) { return t.active !== false; }).sort(byOrder).map(function (t) { return '<option value="' + t.id + '">' + esc(t.name) + '</option>'; }).join('');
+    if (keep) sel.value = keep;
+    loadTerms();
+  }
+  function loadTerms() {
+    var t = types.find(function (x) { return x.id === $('tm-type').value; });
+    if (!t) { $('tm-text').value = ''; $('tm-ver').textContent = ''; return; }
+    var v = t.termsVersion || 0;
+    if (!v) { $('tm-text').value = ''; $('tm-ver').textContent = 'No terms yet.'; return; }
+    db.collection('terms').doc(t.id + '_v' + v).get().then(function (s) {
+      var d = s.exists ? s.data() : {};
+      $('tm-text').value = d.text || '';
+      $('tm-ver').textContent = 'Version ' + v + (d.at ? ', saved ' + new Date(d.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '') + '.';
+    }).catch(oops);
+  }
+  $('tm-type').addEventListener('change', loadTerms);
+  $('tm-save').addEventListener('click', function () {
+    var t = types.find(function (x) { return x.id === $('tm-type').value; }), text = $('tm-text').value.trim();
+    if (!t) { toast('Add a kind of booking first'); return; }
+    if (!text) { toast('Write the terms first'); return; }
+    var v = (t.termsVersion || 0) + 1;
+    db.collection('terms').doc(t.id + '_v' + v).set({ typeId: t.id, version: v, text: text, at: new Date().toISOString(), by: (EGBCAuth.user() || {}).uid || '' })
+      .then(function () { return db.collection('bookingTypes').doc(t.id).update({ termsVersion: v }); })
+      .then(function () { toast('Saved as version ' + v); }).catch(oops);
+  });
+
   function drawCard() {
     var room = $('rc-room').value, type = $('rc-type').value;
     if (!room || !type) { $('rc-form').innerHTML = '<p class="hint">Add a room and a kind of booking first.</p>'; $('rc-list').innerHTML = ''; return; }
-    var c = cards.find(function (x) { return x.id === room + '__' + type; }) || {};
+    /* A kind with a members' price list has a second card, for members. */
+    var tp = types.find(function (x) { return x.id === type; }) || {}, ownList = (tp.membersRate || {}).mode === 'list';
+    $('rc-who-f').classList.toggle('hidden', !ownList);
+    if (!ownList) $('rc-who').value = '';
+    var cid = room + '__' + type + ($('rc-who').value === 'members' ? '__members' : '');
+    var c = cards.find(function (x) { return x.id === cid; }) || {};
     var money = function (k) { return c[k] ? (c[k] / 100).toFixed(2) : ''; };
     $('rc-form').innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">' +
       MONEY.map(function (m) { return '<div><label class="lbl" for="rc-' + m[0] + '">' + m[1] + ' £</label><input class="inp" type="number" min="0" step="0.01" id="rc-' + m[0] + '" value="' + money(m[0]) + '"></div>'; }).join('') +
       PCTS.map(function (m) { return '<div><label class="lbl" for="rc-' + m[0] + '">' + m[1] + '</label><input class="inp" type="number" min="0" max="100" step="1" id="rc-' + m[0] + '" value="' + (c[m[0]] || '') + '"></div>'; }).join('') +
       '</div><div class="flex flex-wrap gap-4 mt-3 text-sm">' +
         '<label class="fac"><input type="checkbox" id="rc-setupCharged"' + (c.setupCharged ? ' checked' : '') + '> Setting up and clearing away are charged</label>' +
-        '<label class="fac"><input type="checkbox" id="rc-vat"' + (c.vat ? ' checked' : '') + '> Charge VAT (20%)</label></div>' +
+        '<label class="fac"><input type="checkbox" id="rc-vat"' + (c.vat ? ' checked' : '') + '> Charge VAT at</label>' +
+        '<label class="fac"><input class="inp" style="width:70px;height:32px" type="number" min="0" max="100" step="1" id="rc-vatRate" value="' + (c.vatRate != null ? c.vatRate : 20) + '" aria-label="VAT rate, percent"> %</label></div>' +
       '<button class="btn mt-3" id="rc-save">Save these prices</button>';
     $('rc-save').onclick = saveCard;
     $('rc-list').innerHTML = cards.length ? '<p class="lbl">Prices set</p>' + cards.map(function (x) {
       var r = rooms.find(function (y) { return y.id === x.roomId; }), t = types.find(function (y) { return y.id === x.typeId; });
-      return '<p class="hint" style="margin:2px 0">' + esc(r ? r.name : x.roomId) + ', ' + esc(t ? t.name : x.typeId) + ': ' +
+      return '<p class="hint" style="margin:2px 0">' + esc(r ? r.name : x.roomId) + ', ' + esc(t ? t.name : x.typeId) + (x.forMembers ? ', members' : '') + ': ' +
         [x.hourly ? Qt.pounds(x.hourly) + ' an hour' : '', x.halfDay ? Qt.pounds(x.halfDay) + ' half day' : '', x.evening ? Qt.pounds(x.evening) + ' evening' : '', x.fullDay ? Qt.pounds(x.fullDay) + ' day' : '']
           .filter(Boolean).join(', ') + '</p>';
     }).join('') : '';
   }
   function saveCard() {
     var room = rooms.find(function (r) { return r.id === $('rc-room').value; }), type = $('rc-type').value, c = { roomId: room.id, typeId: type, siteId: room.siteId };
+    var forMembers = $('rc-who').value === 'members';
+    if (forMembers) c.forMembers = true;
     MONEY.forEach(function (m) { c[m[0]] = Qt.toPence($('rc-' + m[0]).value); });
     PCTS.forEach(function (m) { c[m[0]] = Math.max(0, Math.min(100, Math.round(Number($('rc-' + m[0]).value) || 0))); });
-    c.setupCharged = $('rc-setupCharged').checked; c.vat = $('rc-vat').checked; c.vatRate = 20; c.active = true; c.updatedAt = new Date().toISOString();
-    db.collection('rateCards').doc(room.id + '__' + type).set(c).then(function () { toast('Prices saved'); }).catch(oops);
+    c.setupCharged = $('rc-setupCharged').checked; c.vat = $('rc-vat').checked; c.active = true; c.updatedAt = new Date().toISOString();
+    c.vatRate = Math.max(0, Math.min(100, Math.round(Number($('rc-vatRate').value) || 0)));
+    db.collection('rateCards').doc(room.id + '__' + type + (forMembers ? '__members' : '')).set(c).then(function () { toast('Prices saved'); }).catch(oops);
   }
   document.addEventListener('change', function (e) {
     var d = e.target.dataset || {};
-    if (e.target.id === 'rc-room' || e.target.id === 'rc-type') drawCard();
+    if (e.target.id === 'rc-room' || e.target.id === 'rc-type' || e.target.id === 'rc-who') drawCard();
+    if (d.tmr) db.collection('bookingTypes').doc(d.tmr).update({ membersRate: { mode: e.target.value, pct: ((types.find(function (x) { return x.id === d.tmr; }) || {}).membersRate || {}).pct || 0 } })
+      .then(function () { toast('Saved'); }).catch(oops);
+    if (d.tmrp) db.collection('bookingTypes').doc(d.tmrp).update({ membersRate: { mode: 'percent', pct: Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0))) } })
+      .then(function () { toast('Saved'); }).catch(oops);
     if (d.tpub) db.collection('bookingTypes').doc(d.tpub).update({ forPublic: e.target.checked }).catch(oops);
     if (d.tchg) db.collection('bookingTypes').doc(d.tchg).update({ charged: e.target.checked }).catch(oops);
     if (d.kprice) db.collection('bookableResources').doc(d.kprice).update({ hirePrice: Qt.toPence(e.target.value) }).then(function () { toast('Saved'); }).catch(oops);
@@ -1101,7 +1157,7 @@
     watch('bookableResources', function (v) { kit = v; }, drawKit);
     watch('venues', function (v) { venues = v; }, drawVenues);
     watch('menus', function (v) { menus = v; }, drawMenus);
-    watch('bookingTypes', function (v) { types = v; }, drawTypes);
+    watch('bookingTypes', function (v) { types = v; }, function () { drawTypes(); drawTerms(); });
     watch('rateCards', function (v) { cards = v; }, drawCard);
     watch('bookingSettings', function (v) {
       settings = {}; v.forEach(function (s) { settings[s.id] = s; });

@@ -17,8 +17,9 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101200"></script>
+<script src="egbc-events-bookings.js?v=202610101500"></script>
 <script src="egbc-events-bookform.js?v=202610101200"></script>
+<script src="egbc-events-quote.js?v=202610101700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -54,6 +55,7 @@
   .back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;z-index:60;overflow:auto;padding:24px 12px}
   .sheet{background:#fff;border-radius:14px;max-width:640px;margin:0 auto;padding:20px}
   .sheet h3{font-size:17px;font-weight:600;color:var(--ink);margin:0 0 12px}
+  .quote{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:#fbfcfc}.quote h4{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 8px}
   .scroll{overflow-x:auto}
   .scroll>div{min-width:560px}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
@@ -74,7 +76,7 @@
 (function () {
   'use strict';
   var B = window.EGBCBookings;
-  var SITES = [], ROOMS = [], MENUS = [], KIT = [], MINE = [], ME = null;
+  var SITES = [], ROOMS = [], MENUS = [], KIT = [], MINE = [], ME = null, KINDS = [], CARDS = {}, QT = window.EGBCQuote;
   var V = { site: '', view: 'day', day: B.today(), room: '' };
   function db() { return EGBCAuth.db; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -200,7 +202,12 @@
   function openSheet(o) {
     var rs = siteRooms();
     var sh = document.getElementById('sheet');
-    sh.innerHTML = '<h3>Book a room</h3><div id="f"></div><div id="f-status"></div>' +
+    sh.innerHTML = '<h3>Book a room</h3>' +
+      /* What kind of booking (F-077): church and ministry kinds are free;
+         a charged kind is priced, at the members' rate where there is one. */
+      (KINDS.length ? '<div class="bf"><div class="field"><label class="l" for="bt">What kind of booking</label><select id="bt">' +
+        KINDS.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.name) + (t.charged ? ' (charged)' : '') + '</option>'; }).join('') + '</select></div></div>' : '') +
+      '<div id="f"></div><div id="f-status"></div><div id="quoteBox"></div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn sec" id="f-cancel">Close</button><button class="btn" id="f-go" disabled>Book it</button></div>';
     EGBCBookForm.render(document.getElementById('f'), {
       rooms: rs, multi: true, chosen: o.room ? [o.room] : [], day: o.day, start: o.start, end: o.end,
@@ -209,7 +216,32 @@
     document.getElementById('back').style.display = 'block';
     document.getElementById('f-cancel').onclick = closeSheet;
     document.getElementById('f-go').onclick = submit;
+    var bt = document.getElementById('bt'); if (bt) bt.onchange = function () { check(EGBCBookForm.values(document.getElementById('f'))); };
     check(EGBCBookForm.values(document.getElementById('f')));
+  }
+  function kind() { var t = document.getElementById('bt'); return KINDS.filter(function (x) { return t && t.value && x.id === t.value; })[0] || null; }
+  /* The quote for a charged kind, room by room, at the members' rate. */
+  function quoteFor(v, rooms, dates) {
+    var t = kind(), box = document.getElementById('quoteBox');
+    if (!box) return null;
+    if (!t || !t.charged || !dates.length) { box.innerHTML = ''; return null; }
+    var out = {}, html = '';
+    rooms.forEach(function (r) {
+      var k = QT.pick('member', t, r.id, CARDS);
+      if (!k || !k.card) { html += '<div class="st wait"><b>' + esc(r.name) + '</b>: the office will tell you the price.</div>'; return; }
+      var each = dates.map(function (d) {
+        return QT.price({ card: k.card, day: d, start: B.toMin(v.start), end: B.toMin(v.end), setup: v.setup, pack: v.pack, people: v.people,
+          items: v.refreshments.needed ? v.refreshments.items : [], kit: v.resources.map(function (x) { var kk = KIT.filter(function (y) { return y.id === x.id; })[0] || {}; return { name: x.name, qty: x.qty, hirePrice: kk.hirePrice || 0 }; }),
+          av: v.av, memberPct: k.memberPct, memberList: k.memberList });
+      });
+      out[r.id] = { each: each, members: k.members };
+      var all = each.reduce(function (n, x) { return n + x.total; }, 0);
+      html += '<div class="quote" data-quote="' + esc(r.id) + '"><h4>' + esc(r.name) + (dates.length > 1 ? ', ' + esc(EGBCEvents.fmtDate(dates[0] + 'T12:00')) : '') + '</h4>' +
+        QT.table(each[0]) + (dates.length > 1 ? '<p style="margin:8px 0 0"><b>' + dates.length + ' dates in all: ' + QT.pounds(all) + '</b></p>' : '') +
+        (k.members ? '' : '<p class="hint" style="margin:6px 0 0">There is no members\' rate for this kind of booking, so this is the standard price.</p>') + '</div>';
+    });
+    box.innerHTML = html + '<p class="hint">' + esc(t.name) + ' is charged, so it waits for the office to confirm the price.</p>';
+    return out;
   }
   function closeSheet() { document.getElementById('back').style.display = 'none'; PLAN = null; }
 
@@ -255,14 +287,15 @@
         var mode = B.memberMode(r, site()), cap = R.holds(r, v.layout || undefined);
         if (r.fireMax && v.people > r.fireMax) { ok = false; msgs.push('<div class="st no"><b>' + esc(r.name) + '</b> can never hold more than ' + r.fireMax + ' people.</div>'); return; }
         if (!chosen.length) return;
-        if (mode === 'approval') waits = true;
+        if (mode === 'approval' || (kind() && kind().charged)) waits = true;
         msgs.push('<div class="st ' + (mode === 'approval' ? 'wait' : 'ok') + '"><b>' + esc(r.name) + '</b> is free' + (v.repeat.rule ? ' on those dates' : '') + '. ' +
           (mode === 'approval' ? 'Bookings here wait for the office to approve.' : 'It will be confirmed straight away.') +
           (cap && v.people > cap ? ' It usually holds ' + cap + ' set out that way.' : '') + '</div>');
       });
       if (!v.title || !(v.people > 0)) { ok = false; msgs.push('<div class="st wait">Say what it is for, and how many people.</div>'); }
       out.innerHTML = msgs.join('');
-      if (ok) PLAN = { dates: chosen, days: days, rule: v.repeat.rule };
+      if (ok) PLAN = { dates: chosen, days: days, rule: v.repeat.rule, quotes: quoteFor(v, rooms, chosen) };
+      else quoteFor(v, rooms, chosen);
       go.disabled = !ok;
       go.textContent = waits ? 'Ask for it' : 'Book it';
     });
@@ -280,6 +313,17 @@
           list.push({ booking: B.prepare({ kind: 'member', room: roomById(id), site: site(), day: d, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
             title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: v.resources, notes: v.notes, groupId: group,
             series: sid ? { id: sid, rule: plan.rule, n: i + 1, of: plan.dates.length } : null }) });
+          /* The kind, and for a charged one: it waits, at the members' rate. */
+          var b = list[list.length - 1].booking, t = kind();
+          if (t) {
+            b.bookingType = t.id;
+            if (t.charged) {
+              b.status = 'requested';
+              var qq = plan.quotes && plan.quotes[id], qt = qq && qq.each[i];
+              b.memberRate = !!(qq && qq.members);
+              if (qt) b.quote = { lines: qt.lines, subtotal: qt.subtotal, vat: qt.vat, vatRate: qt.vatRate, total: qt.total, deposit: qt.deposit, damageDeposit: qt.damageDeposit, by: 'price list' };
+            }
+          }
         });
       });
     } catch (e) { toast(e.message); go.disabled = false; return; }
@@ -315,13 +359,19 @@
       db().collection('rooms').where('active', '==', true).get(),
       db().collection('menus').where('active', '==', true).get().catch(function () { return { docs: [] }; }),
       db().collection('bookableResources').get().catch(function () { return { docs: [] }; }),
-      db().collection('bookingSettings').get().catch(function () { return { docs: [] }; })
+      db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
+      db().collection('bookingTypes').where('active', '==', true).get().catch(function () { return { docs: [] }; }),
+      db().collection('rateCards').get().catch(function () { return { docs: [] }; })
     ]).then(function (r) {
       var all = function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); };
       SITES = all(r[0]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       ROOMS = all(r[1]).filter(function (x) { return x.kind !== 'online' && x.bookableByMembers !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       MENUS = all(r[2]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       KIT = all(r[3]).filter(function (k) { return k.active !== false; });
+      KINDS = all(r[5]).sort(function (a, b) { return (a.charged ? 1 : 0) - (b.charged ? 1 : 0) || (a.order || 0) - (b.order || 0); });
+      all(r[6]).forEach(function (c) { CARDS[c.id] = c; });
+      /* Church and ministry use is always there, and free, first. */
+      if (KINDS.length && !KINDS.some(function (t) { return !t.charged; })) KINDS.unshift({ id: '', name: 'Church or ministry use', charged: false });
       SITES = SITES.filter(function (s) { return ROOMS.some(function (x) { return x.siteId === s.id; }); });
       V.site = SITES[0] ? SITES[0].id : '';
       var mid = (profile && profile.memberId) || '-';

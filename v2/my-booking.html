@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Your booking</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-ui.js?v=202610062100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-bookings.js?v=202610101500"></script>
+<script src="egbc-events-quote.js?v=202610101700"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--card:0 1px 2px rgba(16,24,40,.05);
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 6px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 10px}
+  .hint{font-size:13px;color:var(--muted)}
+  .pill{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.wait{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}
+  .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:10px 0}
+  .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .inp{width:100%;height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .ck{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin:10px 0}.ck input{width:16px;height:16px;margin-top:2px;accent-color:var(--brand);flex:none}
+  dl{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:0;font-size:14px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+  .doc-head{display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:12px}
+  .doc-head img{width:40px;height:40px;object-fit:contain}.doc-head .n{font-size:17px;font-weight:700;color:var(--ink);flex:1}
+  .terms{white-space:pre-wrap;border:1px solid var(--line);border-radius:8px;padding:12px;max-height:280px;overflow:auto;font-size:13px;background:#fbfcfc}
+  /* The plain header for the public pages (Church details). */
+  .chead{background:#fff;border-bottom:1px solid var(--line)}
+  .ch-in{max-width:1000px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ch-logo{width:32px;height:32px;object-fit:contain;border-radius:6px}
+  .ch-name{font-size:15px;font-weight:600;color:var(--ink);flex:1;min-width:0}
+  .ch-back{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;background:#fff;font-size:13px;font-weight:500;color:var(--brand);text-decoration:none}
+  /* Printing (or saving as a PDF) gives the quote document alone. */
+  @media print{
+    body *{visibility:hidden}
+    #doc,#doc *{visibility:visible}
+    #doc{position:absolute;left:0;top:0;width:100%;border:none;box-shadow:none}
+    #doc .noprint{display:none}
+    .terms{max-height:none;overflow:visible}
+  }
+</style>
+</head>
+<body>
+<header class="chead" id="chead"></header>
+<div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
+
+<script>
+(function () {
+  'use strict';
+  EGBCChurch.closeOnLeave();
+  var B = window.EGBCBookings, QT = window.EGBCQuote;
+  var KEY = new URLSearchParams(location.search).get('k') || '', BK = null, ROOM = null, TYPE = null, TERMS = null;
+  function db() { return EGBCAuth.db; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fmtAt(v) {
+    var d = v && v.toDate ? v.toDate() : new Date(v);
+    return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function none() {
+    document.getElementById('wrap').innerHTML = '<div class="card" id="nolink">We cannot find that booking. Check the link in your email, or reply to it and we will help.</div>';
+  }
+
+  function draw() {
+    var b = BK, q = b.quote, confirmed = b.status === 'confirmed';
+    var pill = { confirmed: '<span class="pill ok">Confirmed</span>', requested: '<span class="pill wait">Waiting for us to confirm</span>',
+                 declined: '<span class="pill no">Not going ahead</span>', cancelled: '<span class="pill no">Cancelled</span>' }[b.status] || '';
+    var r = b.requester || {}, pay = b.payment || null;
+    document.getElementById('wrap').innerHTML =
+      '<h1>Your booking</h1>' +
+      '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0">' + esc(b.title || 'Booking') + '</h2>' + pill + '</div>' +
+        '<dl style="margin-top:10px"><dt>Room</dt><dd>' + esc(ROOM ? ROOM.name : '') + '</dd><dt>When</dt><dd>' + esc(B.when(b)) +
+        (b.setupMins || b.packdownMins ? '<br><span class="hint">The room is yours from ' + B.hhmm(b.slotFrom * 15) + ' to ' + B.hhmm(b.slotTo * 15) + '</span>' : '') + '</dd>' +
+        (b.series ? '<dt>Repeats</dt><dd>' + esc(B.RULES[b.series.rule] || '') + ': this is date ' + b.series.n + ' of ' + b.series.of + '</dd>' : '') +
+        '<dt>People</dt><dd>' + esc(b.people) + '</dd><dt>Reference</dt><dd>' + esc(B.ref(b)) + '</dd></dl>' +
+        (b.status === 'requested' ? '<p class="st wait">We will look at it and email you. We confirm the price when we confirm the booking.</p>' : '') +
+        (b.status === 'declined' && b.decisionNote ? '<p class="st no">' + esc(b.decisionNote) + '</p>' : '') +
+      '</div>' +
+      (confirmed && q ? quoteDoc() : '') +
+      (confirmed && q && pay ? '<div class="card" id="paid"><h2>Payments</h2><p style="margin:0">' +
+        (pay.status === 'paid' ? '<b>Paid in full</b>, ' + QT.pounds(pay.paid) + '. Thank you.' : 'Paid ' + QT.pounds(pay.paid || 0) + ' of ' + QT.pounds(pay.total) + '.') + '</p></div>' : '') +
+      '<p class="hint">Questions? Reply to any of our emails' + (EGBCChurch.email() ? ', or write to <a href="mailto:' + esc(EGBCChurch.email()) + '" style="color:var(--brand)">' + esc(EGBCChurch.email()) + '</a>' : '') + '.</p>';
+    wire();
+  }
+
+  /* The quote as a document: printable, or saved as a PDF from the print
+     window. Then the terms, and accepting both. */
+  function quoteDoc() {
+    var b = BK, q = b.quote, a = b.accepted, r = b.requester || {};
+    return '<div class="card" id="doc">' +
+      '<div class="doc-head">' + (EGBCChurch.logo() ? '<img src="' + esc(EGBCChurch.logo()) + '" alt="">' : '') + '<span class="n">' + esc(EGBCChurch.name() || '') + '</span>' +
+        '<span class="hint">Quote ' + esc(B.ref(b)) + '</span></div>' +
+      '<p style="margin:0 0 4px"><b>For</b> ' + esc(r.name || b.memberName || '') + (r.org ? ', ' + esc(r.org) : '') + '</p>' +
+      '<p style="margin:0 0 12px"><b>' + esc(b.title || 'Booking') + '</b>: ' + esc(ROOM ? ROOM.name : '') + ', ' + esc(B.when(b)) + '</p>' +
+      QT.table(q, { id: 'quoteTable' }) +
+      (TERMS ? '<h2 style="margin:16px 0 6px">Terms and conditions <span class="hint">(version ' + TERMS.version + ')</span></h2><div class="terms" id="terms">' + esc(TERMS.text) + '</div>' : '') +
+      (a ? '<p class="st ok" id="accepted">Accepted by <b>' + esc(a.name) + '</b> on ' + esc(fmtAt(a.at)) + (a.termsVersion ? ', with the terms (version ' + a.termsVersion + ')' : '') + '.</p>'
+         : '<div class="noprint" id="acceptBox"><label class="ck"><input type="checkbox" id="agree"> I accept this quote' + (TERMS ? ' and the terms and conditions above' : '') + '.</label>' +
+           '<div style="margin:0 0 10px"><label class="l" for="who">Your name</label><input class="inp" id="who" maxlength="120" autocomplete="name" value="' + esc(r.name || '') + '"></div>' +
+           '<button class="btn" id="accept">Accept</button> <span class="hint" id="acceptMsg"></span></div>') +
+      '<div class="noprint" style="margin-top:12px"><button class="btn sec" id="print">Print, or save as a PDF</button></div></div>';
+  }
+
+  function wire() {
+    var p = document.getElementById('print'); if (p) p.onclick = function () { window.print(); };
+    var ag = document.getElementById('agree'); if (ag) ag.onchange = function () { document.getElementById('acceptMsg').textContent = ''; };
+    var go = document.getElementById('accept');
+    if (go) go.onclick = function () {
+      var name = document.getElementById('who').value.trim(), msg = document.getElementById('acceptMsg');
+      if (!document.getElementById('agree').checked) { msg.textContent = 'Tick the box to say you accept.'; return; }
+      if (!name) { msg.textContent = 'Type your name.'; return; }
+      go.disabled = true; msg.textContent = 'Saving…';
+      var tv = TERMS ? TERMS.version : 0;
+      db().collection('bookings').doc(KEY).update({ accepted: {
+        name: name.slice(0, 120), at: firebase.firestore.FieldValue.serverTimestamp(),
+        termsId: tv ? BK.bookingType + '_v' + tv : '', termsVersion: tv, total: BK.quote.total } })
+        .then(load).catch(function () {
+          go.disabled = false;
+          msg.textContent = 'That could not be saved. The price or the terms may have just changed: reload the page and look again.';
+        });
+    };
+  }
+
+  function load() {
+    return db().collection('bookings').doc(KEY).get().then(function (s) {
+      if (!s.exists) return none();
+      BK = s.data(); BK.key = KEY;
+      return Promise.all([
+        db().collection('rooms').doc(BK.roomId).get().catch(function () { return null; }),
+        BK.bookingType ? db().collection('bookingTypes').doc(BK.bookingType).get().catch(function () { return null; }) : null
+      ]).then(function (r) {
+        ROOM = r[0] && r[0].exists ? r[0].data() : null;
+        TYPE = r[1] && r[1].exists ? r[1].data() : null;
+        /* The terms to show: the version accepted, if accepted; otherwise
+           the kind's current version. */
+        var v = BK.accepted ? BK.accepted.termsVersion : (TYPE && TYPE.termsVersion) || 0;
+        return v ? db().collection('terms').doc(BK.bookingType + '_v' + v).get().then(function (t) { TERMS = t.exists ? t.data() : null; }) : (TERMS = null);
+      }).then(draw);
+    }).catch(none);
+  }
+
+  EGBCChurch.load().then(function () {
+    EGBCChurch.header(document.getElementById('chead'), { back: true });
+    EGBCChurch.title('Your booking');
+    if (!/^bk_[a-z0-9_]{20,}$/.test(KEY)) return none();
+    return load();
+  });
+})();
+</script>
+</body>
+</html>

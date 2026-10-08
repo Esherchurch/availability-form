@@ -17,8 +17,8 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101200"></script>
-<script src="egbc-events-quote.js?v=202610101000"></script>
+<script src="egbc-events-bookings.js?v=202610101500"></script>
+<script src="egbc-events-quote.js?v=202610101700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -179,9 +179,14 @@
       '</dl>' +
       (b.status === 'requested' ? chargesBox(b) : '') +
       (CHARGES[b.key] ? '<div class="st ' + (CHARGES[b.key].status === 'paid' ? 'ok' : 'wait') + '" data-owed="' + esc(b.key) + '">Charges: ' + Q.pounds(CHARGES[b.key].total) +
-        ', ' + esc(CHARGES[b.key].status.replace('-', ' ')) + '</div>' : '') +
+        ', ' + esc(CHARGES[b.key].status.replace('-', ' ')) + (paidOf(CHARGES[b.key]) && CHARGES[b.key].status !== 'paid' ? ' (' + Q.pounds(paidOf(CHARGES[b.key])) + ' paid)' : '') + '</div>' +
+        ((CHARGES[b.key].payments || []).length ? '<div class="hint" data-payments="' + esc(b.key) + '">' + CHARGES[b.key].payments.map(function (p) {
+          return (p.kind === 'refund' ? 'Refunded ' : 'Paid ') + Q.pounds(p.amount) + ', ' + esc(p.method) + ', ' + esc(p.date) + (p.ref ? ' (' + esc(p.ref) + ')' : ''); }).join('<br>') + '</div>' : '') +
+        (b.accepted ? '<div class="st ok" data-acc="' + esc(b.key) + '">Accepted by ' + esc(b.accepted.name) + (b.accepted.termsVersion ? ', terms version ' + b.accepted.termsVersion : '') + '</div>'
+          : b.status === 'confirmed' ? '<div class="hint" data-acc="' + esc(b.key) + '">The quote has not been accepted yet. <a href="' + pageLink(b) + '" target="_blank" rel="noopener" style="color:var(--brand)">The hirer\'s page</a></div>' : '') : '') +
       (b.status === 'requested' ? '<div class="acts"><button class="btn" data-do="approve">Approve</button><button class="btn sec" data-do="decline">Decline</button><button class="btn sec" data-do="move">Change the time</button></div>' : '') +
       (b.status === 'confirmed' && b.day >= B.today() ? '<div class="acts"><button class="btn sec" data-do="move">Move</button><button class="btn sec" data-do="cancel">Cancel</button>' +
+        (CHARGES[b.key] && CHARGES[b.key].status !== 'cancelled' ? '<button class="btn sec" data-do="pay">Record a payment</button>' : '') +
         (laterIn(b).length ? '<button class="btn sec" data-do="cancelrest">Cancel this and the ' + laterIn(b).length + ' after it</button>' : '') + '</div>' : '') +
       '<div class="act"></div></div>';
   }
@@ -190,14 +195,16 @@
      can change any line, add one or take one away before approving; the
      total is always the lines added up. Approving records the charge. */
   var Q = window.EGBCQuote, TYPES = {}, CARDS = {}, CHARGES = {}, EDIT = {};
-  function cardOf(b) { return CARDS[b.roomId + '__' + b.bookingType] || null; }
+  /* Which prices: the members' rate only for a member's own booking (F-077). */
+  function pickOf(b) { return Q.pick(b.kind, TYPES[b.bookingType], b.roomId, CARDS); }
+  function cardOf(b) { var k = pickOf(b); return k && k.card; }
   function charged(b) { var t = TYPES[b.bookingType]; return !!(t && t.charged); }
   function priceOf(b) {
-    var card = cardOf(b); if (!card || !charged(b)) return null;
+    var k = pickOf(b), card = k && k.card; if (!card || !charged(b)) return null;
     if (EDIT[b.key]) return Q.totals(EDIT[b.key], card);
     var kit = (b.resources || []).map(function (x) { var k = KIT.filter(function (y) { return y.id === x.id; })[0] || {}; return { name: x.name, qty: x.qty, hirePrice: k.hirePrice || 0 }; });
     return Q.price({ card: card, day: b.day, start: b.startMin, end: b.endMin, setup: b.setupMins, pack: b.packdownMins, people: b.people,
-      items: b.refreshments && b.refreshments.needed ? b.refreshments.items : [], kit: kit, av: b.av, charity: !!b.charity });
+      items: b.refreshments && b.refreshments.needed ? b.refreshments.items : [], kit: kit, av: b.av, charity: !!b.charity, memberPct: k.memberPct, memberList: k.memberList });
   }
   function chargesBox(b) {
     if (!b.bookingType || !charged(b)) return '';
@@ -238,7 +245,7 @@
   function recordCharge(b, q) {
     if (!q) return Promise.resolve(null);
     var w = EGBCAuth.user() || {}, r = b.requester || {};
-    var c = { bookingKey: b.key, seriesId: (b.series && b.series.id) || '', siteId: b.siteId, roomId: b.roomId, kind: 'hire',
+    var c = { bookingKey: b.key, seriesId: (b.series && b.series.id) || '', siteId: b.siteId, roomId: b.roomId, kind: b.kind === 'member' ? 'member' : 'hire',
       payer: { name: r.name || '', email: r.email || '', org: r.org || '' }, lines: q.lines.map(function (l) { return { code: l.code, label: l.label, amount: l.amount }; }),
       subtotal: q.subtotal, vat: q.vat, vatRate: q.vatRate || 0, total: q.total, deposit: q.deposit || 0, damageDeposit: q.damageDeposit || 0,
       status: 'unpaid', payments: [], dueDate: b.day, createdAt: new Date().toISOString(), createdBy: w.uid || '', adjusted: !!EDIT[b.key] };
@@ -247,7 +254,14 @@
         deposit: c.deposit, damageDeposit: c.damageDeposit, by: c.adjusted ? 'office, adjusted' : 'price list' } });
     }).then(function () { delete EDIT[b.key]; return c; });
   }
-  function priceWords(q) { return q ? '<p><strong>The price</strong></p>' + Q.table(q) : ''; }
+  /* The hirer's own page: the quote as a document, the terms, accepting. */
+  function pageLink(b) { return location.origin + location.pathname.replace(/[^/]*$/, '') + 'my-booking.html?k=' + encodeURIComponent(b.key); }
+  function linkButton(b, words) {
+    return '<p><a href="' + pageLink(b) + '" style="display:inline-block;background:#3d6263;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font:500 14px Inter,Arial,sans-serif">' + words + '</a></p>';
+  }
+  function priceWords(q, b) {
+    return q ? '<p><strong>The price</strong></p>' + Q.table(q) + (b ? linkButton(b, 'See your quote, and accept it and the terms') : '') : '';
+  }
 
   /* Later dates of the same repeating booking that are still on. */
   function laterIn(b) {
@@ -287,7 +301,8 @@
           }, Promise.resolve()).then(function () {
             var sum = done.reduce(function (n, x) { return n + (x.price ? x.price.total : 0); }, 0);
             return done.length ? B.emailMany(done, r.name, 'approved', '', sum ? '<p><strong>The price:</strong> ' + Q.pounds(sum) + ' for the ' + done.length + ' dates (' +
-              done.map(function (x) { return Q.pounds(x.price ? x.price.total : 0); }).join(', ') + ').</p>' : '') : null;
+              done.map(function (x) { return Q.pounds(x.price ? x.price.total : 0); }).join(', ') + ').</p>' +
+              '<p>Each date has its own quote to accept:</p><ul>' + done.map(function (x) { return '<li><a href="' + pageLink(x) + '">' + esc(B.when(x)) + '</a></li>'; }).join('') + '</ul>' : '') : null;
           }).then(function () {
             toast('Approved ' + done.length + (left ? '; ' + left + ' not free, still waiting for you' : '') + '. They have been emailed.'); load();
           }).catch(function (e) { toast('Could not approve: ' + (e.message || e)); load(); });
@@ -325,6 +340,16 @@
           };
           return;
         }
+        if (what === 'pay') {
+          var ch = CHARGES[b.key], left = Math.max(0, ch.total - paidOf(ch));
+          act.innerHTML = '<div class="two"><div><label class="l">Amount £</label><input class="inp p-amt" type="number" min="0" step="0.01" value="' + (left / 100).toFixed(2) + '"></div>' +
+            '<div><label class="l">How</label><select class="p-how">' + ['Bank transfer', 'Cash', 'Cheque', 'Card on the day'].map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select></div>' +
+            '<div><label class="l">Date</label><input class="inp p-date" type="date" value="' + B.today() + '"></div>' +
+            '<div><label class="l">Reference (optional)</label><input class="inp p-ref" maxlength="80"></div></div>' +
+            '<div class="acts"><button class="btn p-go" data-kind="payment">Record the payment</button><button class="btn sec p-go" data-kind="refund">Record a refund</button></div>';
+          act.querySelectorAll('.p-go').forEach(function (g) { g.onclick = function () { pay(b, act, g.dataset.kind); }; });
+          return;
+        }
         if (what === 'cancelrest') {
           var rest = [b].concat(laterIn(b));
           act.innerHTML = '<label class="l">Why? (it goes in the email)</label><input class="inp a-note" maxlength="500">' +
@@ -352,6 +377,33 @@
     });
   }
 
+  /* ---- payments (Chunk 5, stage 2) ----
+     Recorded by hand: how much, how, when, a reference. A refund is the
+     same, the other way. The charge says unpaid, part-paid or paid; the
+     booking carries the same, so the hirer's page can show it; the payer
+     gets a receipt. */
+  function paidOf(ch) { return (ch.payments || []).reduce(function (n, p) { return n + (p.kind === 'refund' ? -p.amount : p.amount); }, 0); }
+  function pay(b, act, kind) {
+    var ch = CHARGES[b.key], amount = Q.toPence(act.querySelector('.p-amt').value);
+    if (!amount) { toast('Type the amount'); return; }
+    var w = EGBCAuth.user() || {}, entry = { kind: kind, amount: amount, method: act.querySelector('.p-how').value, date: act.querySelector('.p-date').value || B.today(),
+      ref: act.querySelector('.p-ref').value.trim().slice(0, 80), by: w.uid || '', at: new Date().toISOString() };
+    var payments = (ch.payments || []).concat([entry]), net = paidOf({ payments: payments });
+    var status = net >= ch.total ? 'paid' : net > 0 ? 'part-paid' : 'unpaid';
+    db().collection('charges').doc(ch.id).update({ payments: payments, status: status, updatedAt: new Date().toISOString(), updatedBy: w.uid || '' })
+      .then(function () { return db().collection('bookings').doc(b.key).update({ payment: { status: status, paid: net, total: ch.total } }); })
+      .then(function () {
+        var to = (ch.payer || {}).email;
+        return to ? EGBCChurch.send({ to: [to], subject: (kind === 'refund' ? 'Refund: ' : 'Payment received: ') + Q.pounds(amount) + ', ' + room(b.roomId).name + ', ' + B.when(b),
+          html: EGBCChurch.wrap(kind === 'refund' ? 'We have refunded you' : 'Thank you, we have your payment',
+            '<p>' + Q.pounds(amount) + ' by ' + esc(entry.method.toLowerCase()) + ' on ' + esc(EGBCEvents.fmtDate(entry.date + 'T12:00')) + (entry.ref ? ' (reference ' + esc(entry.ref) + ')' : '') + '.</p>' +
+            '<p>' + (status === 'paid' ? 'That is paid in full: ' + Q.pounds(ch.total) + '.' : 'Paid so far: ' + Q.pounds(net) + ' of ' + Q.pounds(ch.total) + '.') + '</p>' +
+            '<p style="color:#6b7280;font-size:13px">' + esc(room(b.roomId).name) + ', ' + esc(B.when(b)) + ', reference ' + esc(B.ref(b)) + '</p>' + linkButton(b, 'See your booking')) }) : null;
+      })
+      .then(function () { toast(kind === 'refund' ? 'Refund recorded' : 'Payment recorded: ' + status.replace('-', ' ')); load(); })
+      .catch(function (e) { toast('Could not record it: ' + (e.message || e)); });
+  }
+
   /* A clash is refused unless the office books over it on purpose, with
      a reason. */
   function overrideBox(act, msg, go) {
@@ -368,7 +420,7 @@
   function approve(b, act, note) {
     var q = priceOf(b);
     B.approve(b, room(b.roomId), note ? { override: true, note: note } : {}).then(function (x) {
-      return recordCharge(b, q).then(function () { return B.email(x, room(x.roomId).name, 'approved', '', priceWords(q)); });
+      return recordCharge(b, q).then(function () { return B.email(x, room(x.roomId).name, 'approved', '', priceWords(q, b)); });
     }).then(function () { toast('Approved, and they have been emailed'); load(); }).catch(function (e) {
       if (e.clash) { act.innerHTML = ''; overrideBox(act, e.message, function (n) { approve(b, act, n); }); }
       else toast('Could not approve: ' + (e.message || e));

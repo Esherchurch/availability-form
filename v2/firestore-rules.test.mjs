@@ -7,7 +7,7 @@ import {
   assertSucceeds,
   assertFails,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 /* Read the port from firebase.json rather than repeating it here. They used
    to be two numbers that had to agree, and when 8080 turned out to be taken
@@ -986,6 +986,67 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
     setupMins: 0, packdownMins: 0, slotFrom: 56, slotTo: 64, title: 'Test party', people: 20, layout: '', av: { needed: false, what: '' }, refreshments: { needed: false },
     resources: [], notes: '', requester: { name: 'Hirer', email: 'h@example.invalid', phone: '', org: '' }, memberUid: '', memberName: '', createdAt: 'x',
     bookingType: 'type_hire', charity: true, quote: { lines: [{ code: 'hire', label: 'Room hire', amount: 4000 }], total: 4000 } }));
+}
+
+// ── EVENTS (events window) ── members' rate (Martin, F-077)
+{
+  const H = (extra) => ({ kind: 'hire', status: 'requested', siteId: 'site_bk', roomId: 'room_band', groupId: '', day: '2026-12-03', startMin: 840, endMin: 960, startLocal: 'x', endLocal: 'x',
+    setupMins: 0, packdownMins: 0, slotFrom: 56, slotTo: 64, title: 'Test party', people: 20, layout: '', av: { needed: false, what: '' }, refreshments: { needed: false },
+    resources: [], notes: '', requester: { name: 'Hirer', email: 'h@example.invalid', phone: '', org: '' }, memberUid: '', memberName: '', createdAt: 'x', bookingType: 'type_hire', ...(extra || {}) });
+  await check('an admin gives a kind of booking a members\u2019 rate, 25% off', 'allow', () => setDoc(doc(as('karen'), 'bookingTypes', 'type_hire'), { name: 'Private hire', forPublic: true, charged: true, active: true, order: 1, membersRate: { mode: 'percent', pct: 25 } }));
+  await check('never more than 100% off', 'deny', () => setDoc(doc(as('karen'), 'bookingTypes', 'type_hire'), { name: 'Private hire', forPublic: true, charged: true, membersRate: { mode: 'percent', pct: 120 } }));
+  await check('or a members\u2019 price list of its own, filed apart', 'allow', () => setDoc(doc(as('karen'), 'rateCards', 'room_band__type_hire__members'), { roomId: 'room_band', typeId: 'type_hire', siteId: 'site_bk', forMembers: true, hourly: 1000, vat: false }));
+  await check('VAT at the rate set next to the tick, a whole number', 'allow', () => setDoc(doc(as('karen'), 'rateCards', 'room_band__type_hire'), { roomId: 'room_band', typeId: 'type_hire', siteId: 'site_bk', hourly: 2000, vat: true, vatRate: 5 }));
+  await check('not a fraction', 'deny', () => setDoc(doc(as('karen'), 'rateCards', 'room_band__type_hire'), { roomId: 'room_band', typeId: 'type_hire', siteId: 'site_bk', hourly: 2000, vat: true, vatRate: 17.5 }));
+  await check('a public request can never claim the members\u2019 rate', 'deny', () => setDoc(doc(anon(), 'bookings', 'bk_mr_public_00000000000000000'), H({ memberRate: true })));
+  await check('without the claim, the same request is fine', 'allow', () => setDoc(doc(anon(), 'bookings', 'bk_mr_public_ok_00000000000000'), H()));
+  await check('nor can it pretend to be a member\u2019s booking', 'deny', () => setDoc(doc(anon(), 'bookings', 'bk_mr_public_m_000000000000000'), H({ kind: 'member', memberRate: true })));
+  const M = (extra) => H({ kind: 'member', memberUid: 'u_samy', memberName: 'Samy', memberRate: true, ...(extra || {}) });
+  await check('a member asks for a charged kind at the members\u2019 rate: it waits', 'allow', () => setDoc(doc(as('samy'), 'bookings', 'bk_mr_member_00000000000000000'), M()));
+  await check('a member cannot confirm a charged kind themselves', 'deny', () => {
+    const sa = as('samy'), x = writeBatch(sa), b = M({ status: 'confirmed', day: '2026-12-10' });
+    x.set(doc(sa, 'bookings', 'bk_mr_member_c_00000000000000'), b);
+    x.set(doc(sa, 'roomDays', 'room_band_2026-12-10'), { slots: Array(96).fill(0).map((v, i) => i >= 56 && i < 64 ? 1 : 0), lastBooking: 'bk_mr_member_c_00000000000000', roomId: 'room_band', day: '2026-12-10', siteId: 'site_bk' });
+    return x.commit();
+  });
+}
+
+// ── EVENTS (events window) ── terms, and the hirer accepting online (Chunk 5, stage 2)
+{
+  await check('an admin saves the terms for a kind of booking, as version 1', 'allow',
+    () => setDoc(doc(as('karen'), 'terms', 'type_hire_v1'), { typeId: 'type_hire', version: 1, text: 'Test terms: leave the hall tidy.', at: 'x', by: 'u_karen' }));
+  await check('filed under its own number, or not at all', 'deny',
+    () => setDoc(doc(as('karen'), 'terms', 'type_hire_v2'), { typeId: 'type_hire', version: 1, text: 'x', at: 'x', by: 'u_karen' }));
+  await check('a version is never changed after it is saved', 'deny',
+    () => setDoc(doc(as('karen'), 'terms', 'type_hire_v1'), { typeId: 'type_hire', version: 1, text: 'Changed after the event', at: 'x', by: 'u_karen' }));
+  await check('nor deleted', 'deny', () => deleteDoc(doc(as('karen'), 'terms', 'type_hire_v1')));
+  await check('a member cannot write terms', 'deny',
+    () => setDoc(doc(as('samy'), 'terms', 'type_hire_v9'), { typeId: 'type_hire', version: 9, text: 'Mine', at: 'x', by: 'u_samy' }));
+  await check('anyone can read them', 'allow', () => getDoc(doc(anon(), 'terms', 'type_hire_v1')));
+  await check('the kind points at its current version', 'allow',
+    () => setDoc(doc(as('karen'), 'bookingTypes', 'type_hire'), { name: 'Private hire', forPublic: true, charged: true, active: true, order: 1, membersRate: { mode: 'percent', pct: 25 }, termsVersion: 1 }));
+
+  const base = { kind: 'hire', siteId: 'site_bk', roomId: 'room_band', groupId: '', day: '2026-12-17', startMin: 840, endMin: 960, startLocal: 'x', endLocal: 'x',
+    setupMins: 0, packdownMins: 0, slotFrom: 56, slotTo: 64, title: 'Test party', people: 20, layout: '', av: { needed: false, what: '' }, refreshments: { needed: false },
+    resources: [], notes: '', requester: { name: 'Hirer', email: 'h@example.invalid', phone: '', org: '' }, memberUid: '', memberName: '', createdAt: 'x',
+    bookingType: 'type_hire', quote: { lines: [{ code: 'hire', label: 'Room hire', amount: 5000 }], total: 5000 } };
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'bookings', 'bk_s2_conf_0000000000000000000'), { ...base, status: 'confirmed' });
+    await setDoc(doc(c.firestore(), 'bookings', 'bk_s2_req_00000000000000000000'), { ...base, status: 'requested' });
+  });
+  const A = (extra) => ({ accepted: { name: 'Hirer Synthetic', at: serverTimestamp(), termsId: 'type_hire_v1', termsVersion: 1, total: 5000, ...(extra || {}) } });
+  const C = 'bk_s2_conf_0000000000000000000';
+  await check('the hirer cannot accept with the time their own computer says', 'deny', () => updateDoc(doc(anon(), 'bookings', C), A({ at: '2026-01-01T00:00' })));
+  await check('nor a different total from the price confirmed', 'deny', () => updateDoc(doc(anon(), 'bookings', C), A({ total: 1 })));
+  await check('nor terms that are not the current version', 'deny', () => updateDoc(doc(anon(), 'bookings', C), A({ termsId: 'type_hire_v0', termsVersion: 0 })));
+  await check('nor with no name', 'deny', () => updateDoc(doc(anon(), 'bookings', C), A({ name: '' })));
+  await check('nor change anything else while accepting', 'deny', () => updateDoc(doc(anon(), 'bookings', C), { ...A(), title: 'Free party' }));
+  await check('nor accept a booking that is still waiting', 'deny', () => updateDoc(doc(anon(), 'bookings', 'bk_s2_req_00000000000000000000'), A()));
+  await check('with the link, the hirer accepts the quote and the terms, timed by the server', 'allow', () => updateDoc(doc(anon(), 'bookings', C), A()));
+  await check('once only', 'deny', () => updateDoc(doc(anon(), 'bookings', C), A({ name: 'Someone else' })));
+  await check('the office records a payment on the booking', 'allow',
+    () => updateDoc(doc(env.authenticatedContext('u_lena').firestore(), 'bookings', C), { payment: { status: 'part-paid', paid: 2000, total: 5000 } }));
+  await check('the hirer cannot', 'deny', () => updateDoc(doc(anon(), 'bookings', C), { payment: { status: 'paid', paid: 5000, total: 5000 } }));
 }
 
 // ── EVENTS (events window) ── church details (F-058)

@@ -49,8 +49,18 @@ r = q({ kit: [{ name: 'Projector', qty: 1, hirePrice: 2500 }, { name: 'Free urn'
 ok('kit with a hire price is charged; kit with none is not', line(r, 'kit') === 2500 && r.lines.filter(l => l.code === 'kit').length === 1);
 r = q({ av: { needed: true } });
 ok('a technician for the two hours, £15 an hour', line(r, 'av') === 3000);
-r = q({ card: Object.assign({}, CARD, { vat: true }) });
+r = q({ card: Object.assign({}, CARD, { vat: true, vatRate: 20 }) });
 ok('VAT at 20% on £70 is £14', r.vat === 1400 && r.total === 8400);
+r = q({ card: Object.assign({}, CARD, { vat: true, vatRate: 5 }) });
+ok('VAT is the rate set next to the tick: 5% on £70 is £3.50', r.vat === 350 && r.vatRate === 5);
+r = q({ card: Object.assign({}, CARD, { vatRate: 20 }) });
+ok('no tick, no VAT, whatever the rate says', r.vat === 0);
+r = q({ memberPct: 25 });
+ok("members' rate: 25% off the room (£40, so £10 off), and the quote says so", line(r, 'member') === -1000 && /Members' rate, 25% off the room/.test(r.lines.find(l => l.code === 'member').label));
+r = q({ memberPct: 25, charity: true });
+ok("one discount only, the largest: members' 25% beats charity 20%", r.lines.filter(l => l.amount < 0).length === 1 && line(r, 'member') === -1000);
+r = q({ memberList: true, card: Object.assign({}, CARD, { hourly: 1000, minimum: 0 }) });
+ok("members' own price list: the hire line says so", /^Members' rate: room hire, 2 hours at £10.00/.test(r.lines[0].label) && line(r, 'hire') === 2000, r.lines[0].label);
 r = q({});
 ok('the deposit is part of the total; the damage deposit is on top', r.deposit === 5000 && r.damageDeposit === 10000 && r.total === 7000);
 r = q({ end: 660, card: { hourly: 2000, deposit: 5000 } });
@@ -58,7 +68,7 @@ ok('a deposit is never more than the total', r.total === 2000 && r.deposit === 2
 const adj = Q.totals([{ code: 'hire', label: 'Room hire', amount: 4000 }, { code: 'cleaning', label: 'Cleaning', amount: 0 }], CARD);
 ok('the office\'s adjusted lines are added up the same way', adj.total === 4000 && adj.subtotal === 4000);
 ok('no rate card, nothing charged', Q.price({ card: {}, day: WED, start: 600, end: 720 }).total === 0);
-ok('pounds: £1,234.50; and "£12.5" typed is 1250 pence', Q.pounds(123450) === '£1,234.50' && Q.toPence('£12.5') === 1250 && Q.toPence('') === 0);
+ok('pounds: £1,234.50, a discount -£10.00; and "£12.5" typed is 1250 pence', Q.pounds(123450) === '£1,234.50' && Q.pounds(-1000) === '-£10.00' && Q.toPence('£12.5') === 1250 && Q.toPence('') === 0);
 
 const failed = results.filter(x => !x).length;
 console.log('\n' + (results.length - failed) + '/' + results.length + ' passed');

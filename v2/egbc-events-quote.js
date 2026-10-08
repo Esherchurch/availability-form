@@ -19,7 +19,13 @@
      cleaning         - a fixed fee
      avHourly         - a sound and projection technician, by the hour
      charityPct, regularPct - off the room hire and its surcharges
-     vat              - true if VAT is charged; vatRate (default 20)
+     vat, vatRate     - whether VAT is charged, and at what rate (a setting
+                        next to the tick; off unless ticked)
+
+   MEMBERS' RATE (Martin, F-077): a kind of booking may give signed-in
+   members either a percentage off the room (q.memberPct), or a price list
+   of their own (the page passes that card, with q.memberList). The public
+   never get it. One discount only: the largest that applies.
      deposit          - due when the booking is confirmed (part of the total)
      damageDeposit    - refundable, on top of the total
 
@@ -31,7 +37,7 @@
   'use strict';
 
   function p(x) { return Math.round(+x || 0); }
-  function pounds(pence) { var n = (p(pence) / 100).toFixed(2); return '£' + n.replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function pounds(pence) { var v = p(pence), n = (Math.abs(v) / 100).toFixed(2); return (v < 0 ? '-' : '') + '£' + n.replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function toPence(poundsText) { var n = Number(String(poundsText == null ? '' : poundsText).replace(/[£,\s]/g, '')); return isFinite(n) && n > 0 ? Math.round(n * 100) : 0; }
   function isoDow(day) { var d = new Date(day + 'T12:00'); return ((d.getDay() + 6) % 7) + 1; }
   function hrs(min) { var h = min / 60; return (Math.round(h * 100) / 100) + (h === 1 ? ' hour' : ' hours'); }
@@ -55,6 +61,7 @@
     options.sort(function (a, b) { return a.amount - b.amount; });
     var hire = options[0] || { amount: 0, label: 'Room hire' };
     if (p(c.minimum) && hire.amount < p(c.minimum)) hire = { amount: p(c.minimum), label: hire.label + ' (the minimum charge)' };
+    if (q.memberList) hire.label = "Members' rate: " + hire.label.charAt(0).toLowerCase() + hire.label.slice(1);
     if (hire.amount) lines.push({ code: 'hire', label: hire.label + (setup || pack ? ', including setting up and clearing away' : ''), amount: hire.amount });
 
     var base = hire.amount;
@@ -66,8 +73,13 @@
       var o2 = Math.round(hire.amount * p(c.outOfHoursPct) / 100);
       lines.push({ code: 'outofhours', label: 'Out-of-hours surcharge, before 08:00 or after 22:00 (' + p(c.outOfHoursPct) + '%)', amount: o2 }); base += o2;
     }
-    var pct = q.charity ? p(c.charityPct) : q.regular ? p(c.regularPct) : 0;
-    if (pct && base) lines.push({ code: 'discount', label: (q.charity ? 'Charity rate' : 'Regular hirer rate') + ' (' + pct + '% off the room)', amount: -Math.round(base * pct / 100) });
+    var offers = [];
+    if (q.charity && p(c.charityPct)) offers.push({ pct: p(c.charityPct), code: 'discount', label: 'Charity rate' });
+    if (q.regular && p(c.regularPct)) offers.push({ pct: p(c.regularPct), code: 'discount', label: 'Regular hirer rate' });
+    if (p(q.memberPct)) offers.push({ pct: p(q.memberPct), code: 'member', label: "Members' rate" });
+    offers.sort(function (a, b) { return b.pct - a.pct; });
+    var best = offers[0];
+    if (best && base) lines.push({ code: best.code, label: best.label + ', ' + best.pct + '% off the room', amount: -Math.round(base * best.pct / 100) });
 
     (q.kit || []).forEach(function (k) {
       if (p(k.hirePrice) && (+k.qty || 0) > 0) lines.push({ code: 'kit', label: k.qty + ' × ' + k.name, amount: p(k.hirePrice) * k.qty });
@@ -89,8 +101,8 @@
   function totals(lines, c) {
     c = c || {};
     var subtotal = lines.reduce(function (n, l) { return n + p(l.amount); }, 0);
-    var vat = c.vat ? Math.round(subtotal * (p(c.vatRate) || 20) / 100) : 0, total = subtotal + vat;
-    return { lines: lines, subtotal: subtotal, vat: vat, vatRate: c.vat ? (p(c.vatRate) || 20) : 0, total: total,
+    var rate = c.vat ? p(c.vatRate) : 0, vat = Math.round(subtotal * rate / 100), total = subtotal + vat;
+    return { lines: lines, subtotal: subtotal, vat: vat, vatRate: rate, total: total,
              deposit: Math.min(p(c.deposit), total), damageDeposit: p(c.damageDeposit) };
   }
 
@@ -107,7 +119,21 @@
       (qt.damageDeposit ? row('Refundable damage deposit, on top', pounds(qt.damageDeposit)) : '') + '</table>';
   }
 
-  var api = { price: price, totals: totals, table: table, pounds: pounds, toPence: toPence };
+  /* Which prices apply, and any members' rate. Only a member's own booking
+     (kind 'member') ever gets it; a hire request from the public never does,
+     whatever it says about itself. cards: { '<room>__<kind>': card, ... }.
+     -> { card, memberPct, memberList, members } or null if not charged. */
+  function pick(kind, type, roomId, cards) {
+    if (!type || !type.charged) return null;
+    var m = type.membersRate || {}, member = kind === 'member';
+    var own = cards[roomId + '__' + type.id + '__members'], std = cards[roomId + '__' + type.id];
+    if (member && m.mode === 'list' && own) return { card: own, memberPct: 0, memberList: true, members: true };
+    if (!std) return { card: null, memberPct: 0, memberList: false, members: false };
+    var pct = member && m.mode === 'percent' ? p(m.pct) : 0;
+    return { card: std, memberPct: pct, memberList: false, members: pct > 0 };
+  }
+
+  var api = { price: price, totals: totals, table: table, pounds: pounds, toPence: toPence, pick: pick };
   global.EGBCQuote = api;
 
 })(typeof window !== 'undefined' ? window : this);
