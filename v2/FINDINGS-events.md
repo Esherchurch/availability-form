@@ -939,3 +939,50 @@ window:** hub pages are just as able to pile up on the emulator when a test
 moves one tab through many pages; if a page check ever hangs on "Loading…",
 this is the likely reason, and the same two lines in `egbc-shell.js` would cover
 every hub page.
+
+## Back from the main window
+
+### F-067 — done, and what the checks then found
+`rooms.html`, `bookings-admin.html`, `book.html` and `church-settings.html` are
+in `tests/group1-screens.mjs` now, with the screens each one has (the four tabs
+on Room bookings, the day and week views on Book a room, the filled-in form on
+`book.html`). The style check and the icon check both walk them.
+
+**Style: all four clean**, 0 against DESIGN.md on every screen.
+
+**Icons: two controls do not read as controls.** Neither is mine to change, so
+they are here rather than fixed:
+
+| Page | Control | Goes to | What the check says |
+|---|---|---|---|
+| `places-admin.html` | "Church details" (on all five tabs) | `church-settings.html` | reads as plain text — no icon, no border, nothing marking it out |
+| `book.html` | "← Back to all rooms" | `hire.html` | the same |
+
+The rule is the one A3 was held to: a thing you can click has to look like one,
+by an icon or by being marked out from the words around it. An arrow glyph
+inside the text is not enough on its own — that was the Sunday Service
+Planner's SongSelect fault in a different place.
+
+**The Menu entries are in**, as Martin approved them on 8 Oct: "Book a room"
+(everyone, directly under "Hire our rooms") and "Room bookings" (under Core
+Team → Events and rooms). Room bookings is **not** gated on `admin`: it is
+visible to an admin *or* to anyone in a site's `bookingSettings.bookingsAdmins`,
+who is usually on neither Core Team nor any admin list. The Menu opens the two
+headings above it for that person and withholds everything else inside them,
+including the Core Team charter the heading itself links to.
+`check-menu.mjs` reads the Menu as that person and checks both halves.
+
+**`egbc-email.js` no longer names this church.** The reply address and the
+footer come from Church details. Nothing set means nothing said, and `replyTo`
+is left off the payload rather than guessed — so if `sendEmail` ever required
+that field, this is the thing to look at. I could not prove that end to end,
+because nothing here sends. `tests/check-email-church-details.mjs` covers the
+rest, 10/10.
+
+### Worth knowing: a door is not a page
+`EGBCAuth._blockPage()` now marks the body it replaces with
+`data-egbc-blocked="<title>"`. Our two sweeps had been measuring that refusal
+card as though it were the page behind it — and, the way round that matters,
+scoring a clean 0 on pages they had never opened. If an events check walks
+pages as one account, read that attribute before believing a result. The whole
+story is A-023 in `FINDINGS-app.md`.

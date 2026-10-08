@@ -853,6 +853,13 @@
       var splash = document.getElementById('egbc-guard-splash');
       if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
 
+      /* A door is not a page, and anything looking at this body has to be
+         able to tell. The style check used to measure this screen as though
+         it were the page behind it: it put 57 DESIGN.md faults on CoreTeamApp
+         that belong to this card - and, far worse, it would have reported a
+         clean 0 on a page it had never opened. One attribute settles it. */
+      document.body.setAttribute('data-egbc-blocked', title || 'blocked');
+
       document.body.innerHTML =
         '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
         'font-family:Montserrat,system-ui,sans-serif;background:#eef4f3;color:#14201f">' +

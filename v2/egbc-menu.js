@@ -16,6 +16,7 @@
  *   (nothing)      everyone who is signed in
  *   core: true     somebody on Core Team
  *   admin: true    somebody who administers at least one area
+ *   bookings: true an admin, or a bookings admin for any site
  * A heading with nothing visible under it is not drawn at all.
  *
  * A HEADING THAT IS ALSO A PAGE opens its charter - Worship & AV, Youth and
@@ -35,6 +36,8 @@
       description: 'Church events, and signing up' },
     { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
       description: 'What we have, and asking about it' },
+    { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',
+      description: 'See what is free and book it' },
 
     { title: 'Worship & AV', url: 'Worshipteamcharter.html', icon: 'music',
       description: 'What the team is for, and how it works',
@@ -101,7 +104,14 @@
           { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', core: true, admin: true,
             description: 'Make an event, see who is coming' },
           { title: 'Places', url: 'places-admin.html', icon: 'map-pin', core: true, admin: true,
-            description: 'Sites, rooms and what is in them' }
+            description: 'Sites, rooms and what is in them' },
+          /* Not `admin`: a site's bookings admin looks after that site's
+             bookings without administering a team, and gating this on admin
+             alone hid the page from the very people it is for. The page turns
+             anybody else away politely, so a wrong guess here is a wasted
+             click and not a leak. */
+          { title: 'Room bookings', url: 'bookings-admin.html', icon: 'calendar-check-2', bookings: true,
+            description: 'Requests to approve, and what is booked' }
         ] },
         { title: 'Admin', icon: 'settings', core: true, admin: true, children: [
           { title: 'Backup & Restore', url: 'data-tools.html', icon: 'database-backup', core: true, admin: true,
@@ -141,19 +151,34 @@
   function visible(node, who) {
     if (node.core && !who.isCore) return false;
     if (node.admin && !who.isAdmin) return false;
+    if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
     return true;
   }
 
   function prune(nodes, who) {
     const out = [];
     for (const node of nodes) {
-      if (!visible(node, who)) continue;
+      /* Look under a heading BEFORE deciding about the heading. Somebody who
+         looks after a site's room bookings is often not on Core Team, and
+         Room bookings lives under Core Team > Events and rooms - testing the
+         heading first hid the page from exactly the people it is for.
+
+         A heading that is only opened by what is under it loses its own page:
+         that person may reach Room bookings, and must not thereby be handed
+         the Core Team charter. */
       const kids = node.children ? prune(node.children, who) : null;
+      const hasKids = !!(kids && kids.length);
+      const self = visible(node, who);
+      if (!self && !hasKids) continue;
+
       /* A heading with nothing left under it and no page of its own is not
          drawn: an empty "Events and rooms" tells a member nothing except that
          there is something they cannot have. */
-      if (node.children && (!kids || !kids.length) && !node.url) continue;
-      out.push(kids && kids.length ? Object.assign({}, node, { children: kids }) : Object.assign({}, node, { children: undefined }));
+      if (node.children && !hasKids && !node.url) continue;
+
+      const copy = Object.assign({}, node, { children: hasKids ? kids : undefined });
+      if (!self) copy.url = undefined;
+      out.push(copy);
     }
     return out;
   }
@@ -181,7 +206,12 @@
       const teams = (p && p.teams) || [];
       return {
         isCore: teams.indexOf('Core Team') !== -1,
-        isAdmin: !!(window.EGBCAuth && EGBCAuth.isAdmin && EGBCAuth.isAdmin())
+        isAdmin: !!(window.EGBCAuth && EGBCAuth.isAdmin && EGBCAuth.isAdmin()),
+        /* Who looks after a site's bookings is a list of member ids inside
+           bookingSettings, which means a read. Whoever draws the Menu does
+           that read and sets this before drawing; unset means "not one",
+           which is the safe way round. */
+        isBookingsAdmin: window.EGBC_BOOKINGS_ADMIN === true
       };
     }
   };

@@ -34,6 +34,33 @@
   var FUNCTION_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
 
   var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
+
+  /* THE CHURCH'S OWN DETAILS ARE A SETTING, NOT SOMETHING THIS FILE KNOWS.
+     churchSettings/details, read by egbc-church.js and edited on
+     church-settings.html. This used to fall back to one church's name and
+     office address, which is the wrong default for every other church that
+     ever uses this. (F-067 / F-063, from the events window.)
+
+     Nothing set yet means nothing is said. A blank footer is honest; a
+     guess at whose church this is, is not. */
+  function churchName() {
+    try { return (window.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || ''; }
+    catch (e) { return ''; }
+  }
+  function churchEmail() {
+    try { return (window.EGBCChurch && EGBCChurch.email && EGBCChurch.email()) || ''; }
+    catch (e) { return ''; }
+  }
+  function escText(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  /* Ask for the setting as soon as this file loads, so a send that happens
+     later already has it. egbc-church.js starts its own load too; load()
+     keeps one promise, so asking twice costs nothing. */
+  try { if (window.EGBCChurch && EGBCChurch.load) EGBCChurch.load(); } catch (e) {}
+
   /* Shared with egbc-nosend.js, which stops the pages that still call the
      service directly. One outbox, so a test reads one list whichever
      route the page took. */
@@ -77,9 +104,15 @@
       var payload = {
         to: to,
         subject: opts.subject || '',
-        html: opts.html || '',
-        replyTo: opts.replyTo || 'office@esherchurch.org'
+        html: opts.html || ''
       };
+      /* The reply address is a setting now, not something this file knows.
+         A page that gives one is obeyed; otherwise it comes from Church
+         details, and if that is empty the field is left off altogether.
+         This has to work for any church, and no reply address is honest
+         where somebody else's is not. (F-067, from the events window.) */
+      var reply = opts.replyTo || churchEmail();
+      if (reply) payload.replyTo = reply;
       if (opts.attachments && opts.attachments.length) payload.attachments = opts.attachments;
 
       if (LOCAL) {
@@ -119,7 +152,7 @@
         '</td></tr>' +
         '<tr><td style="padding:0 24px 24px;font:400 12px/1.6 Inter,Segoe UI,Arial,sans-serif;color:#6b7280;' +
         'border-top:1px solid #e5e7eb;padding-top:16px">' +
-        (footer || 'Esher Green Baptist Church') +
+        (footer || escText(churchName())) +
         '</td></tr></table></td></tr></table></body></html>';
     }
   };

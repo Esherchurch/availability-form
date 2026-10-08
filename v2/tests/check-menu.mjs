@@ -44,6 +44,7 @@ const APPROVED = [
   ['Meetings'],
   ["What's on"],
   ['Hire our rooms'],
+  ['Book a room'],
   ['Worship & AV', [
     ['Worship', [['Play-Through'], ['Worship Training'],
       ['Music Databases', [['Music Database'], ['Music Uploader']]]]],
@@ -55,7 +56,7 @@ const APPROVED = [
     ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
     ['People and email', [['Address Book'], ['Email Compiler']]],
     ['Music', [['Music Upload']]],
-    ['Events and rooms', [['Events'], ['Places']]],
+    ['Events and rooms', [['Events'], ['Places'], ['Room bookings']]],
     ['Admin', [['Backup & Restore']]]
   ]],
   ['Resources', [["Idea's pin board"], ['Apps and downloads'], ['Team Resources'], ['Team Videos']]]
@@ -77,6 +78,9 @@ const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Plan
   'Availability form', 'People and email', 'Address Book', 'Email Compiler', 'Music',
   'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore'];
 const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore'];
+/* "Room bookings" is the one entry that is not gated on Core Team or on
+   administering a team: a site's bookings admin is usually neither (F-067). */
+const BOOKINGS_ONLY = ['Room bookings'];
 
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
@@ -84,7 +88,16 @@ const PEOPLE = {
   'somebody on Core Team': { teams: ['Core Team'], adminFor: [], masterAdmin: false,
     sees: ['Core Team', 'Planning', 'People and email'], doesNot: ['Events and rooms', 'Admin'] },
   'a master admin': { teams: ['Core Team'], adminFor: ['Core Team'], masterAdmin: true,
-    sees: ['Core Team', 'Events and rooms', 'Admin', 'Backup & Restore'], doesNot: [] }
+    sees: ['Core Team', 'Events and rooms', 'Admin', 'Backup & Restore'], doesNot: [] },
+  /* The person F-067 is about: looks after one site's room bookings, is on
+     Worship, is on neither Core Team nor any team's admin list. The entry
+     lives under Core Team > Events and rooms, so the two headings above it
+     have to open for them - and must not hand them the Core Team charter or
+     anything else underneath. */
+  'a bookings admin who is not Core Team': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
+    bookingsAdmin: true,
+    sees: ['Book a room', 'Core Team', 'Events and rooms', 'Room bookings'],
+    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Admin', 'Backup & Restore'] }
 };
 
 const flat = (nodes, out = []) => {
@@ -216,6 +229,13 @@ const READ_MENU = `(() => {
         teams: val(p.teams), adminFor: val(p.adminFor), masterAdmin: val(p.masterAdmin)
       }
     });
+    /* Who looks after a site's room bookings is a list of member ids on the
+       site's own settings, not a flag on the person - so it is seeded here
+       the same way the real thing is written. */
+    await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/bookingSettings/synthetic_site', {
+      fields: { bookingsAdmins: val(p.bookingsAdmin ? ['ab_tester'] : []) }
+    });
+
     watch.reset();
     await send('Page.navigate', { url: 'about:blank' }); await sleep(400);
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hub.html' }); await sleep(12000);
@@ -244,8 +264,18 @@ const READ_MENU = `(() => {
        what is on the screen - name for name, in order. Comparing two lists
        that had both been filtered by "is it on the screen" was no test at all:
        it could only ever agree with itself. */
-    const expected = want.filter(w => !(CORE_ONLY.includes(w) && !p.teams.includes('Core Team')))
-                         .filter(w => !(ADMIN_ONLY.includes(w) && !p.adminFor.length && !p.masterAdmin));
+    const onCore = p.teams.includes('Core Team');
+    const anAdmin = !!p.adminFor.length || !!p.masterAdmin;
+    const books = anAdmin || !!p.bookingsAdmin;
+    /* The two headings Room bookings sits under. A bookings admin who is on
+       neither Core Team nor any admin list still has to get through them -
+       and must get nothing else from inside them, not even the Core Team
+       charter the heading itself links to. */
+    const OPENED_FOR_BOOKINGS = ['Core Team', 'Events and rooms'];
+    const expected = want
+      .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
+      .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w)))
+      .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w)));
     ok('  the names are the approved ones, in order',
       JSON.stringify(seen) === JSON.stringify(expected),
       JSON.stringify(seen) === JSON.stringify(expected)
@@ -261,6 +291,19 @@ const READ_MENU = `(() => {
     const toOldPortal = String(await ev(
       "[...document.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'')" +
       ".filter(h=>/egbcworship(&|%26)av/i.test(h)).join(', ')"));
+    /* A heading that only opened because of what is under it must not also
+       be a way in. The bookings admin reaches Room bookings through Core
+       Team > Events and rooms; the Core Team heading links to the Core Team
+       charter, and they are not on Core Team. */
+    const charterLink = String(await ev(
+      "[...document.querySelectorAll('#toolList a[href]')].map(a=>a.getAttribute('href')||'')" +
+      ".filter(h=>/coreteamcharter/i.test(h)).join(', ')"));
+    ok('  a heading opened only by what is under it is not itself a link',
+      p.teams.includes('Core Team') ? !!charterLink : !charterLink,
+      p.teams.includes('Core Team')
+        ? 'on Core Team, so the charter link is theirs: ' + (charterLink || '(MISSING)')
+        : (charterLink ? 'the Core Team charter is linked and should not be: ' + charterLink
+                       : 'no link to the Core Team charter'));
     ok('  nothing links to the old dashboard page', !toOldPortal,
       toOldPortal || 'no link to EGBCWorship&AV.html anywhere on the hub');
     ok('  the things taken out stay out', stillHere.length === 0,
@@ -273,13 +316,13 @@ const READ_MENU = `(() => {
       "(()=>{const el=document.getElementById('sidebar');if(!el)return '';" +
       "const i=[...el.children].findIndex(c=>c.className==='sgrp');" +
       "return i===-1?'':[...el.children].slice(i+1).map(a=>(a.textContent||'').trim()).join('|')})()"));
-    const wantAdmin = ADMIN_ONLY.filter(a => !['Events and rooms', 'Admin'].includes(a))
-      .filter(() => p.masterAdmin || p.adminFor.length);
-    ok('  the sidebar lists what they look after, in the Menu\'s order',
-      p.masterAdmin || p.adminFor.length
-        ? sidebar === wantAdmin.join('|')
-        : sidebar === '',
-      (p.masterAdmin || p.adminFor.length)
+    /* In the Menu's order: Events, Places, Room bookings, Backup & Restore. */
+    const wantAdmin = (anAdmin
+      ? ['Events', 'Places', 'Room bookings', 'Backup & Restore']
+      : (p.bookingsAdmin ? ['Room bookings'] : []));
+    ok("  the sidebar lists what they look after, in the Menu's order",
+      sidebar === wantAdmin.join('|'),
+      wantAdmin.length
         ? 'sidebar: ' + (sidebar || '(nothing)') + '   menu order: ' + wantAdmin.join('|')
         : 'nothing to look after, and nothing listed');
 
@@ -296,6 +339,7 @@ const READ_MENU = `(() => {
      report the retired page as missing from v2 on its next run - a true
      statement about data this check had planted. */
   await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/hubPages/stale_portal_row');
+  await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/bookingSettings/synthetic_site');
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();

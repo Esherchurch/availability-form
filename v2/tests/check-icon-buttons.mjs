@@ -33,6 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { giveFullAccess } from './test-account.mjs';
 import { PAGES } from './group1-screens.mjs';
 
 const V2 = path.resolve('.');
@@ -267,6 +268,18 @@ function emojiControlsLost() {
   return { lost, looked };
 }
 
+/* Is this the page, or the door? EGBCAuth._blockPage() marks the body it
+   replaces. This check walks the same screens the style check does, and it
+   would count the refusal card's own "Back to hub" and "Sign out" as the
+   page's controls - or find no fault at all on a page it never opened,
+   which is how a clean sweep came to mean nothing (A-023). */
+const REFUSED_PROBE = "(function(){var b=document.body;if(!b)return '';"
+  + "if(b.getAttribute('data-egbc-blocked'))return b.getAttribute('data-egbc-blocked');"
+  + "var h=b.querySelector('h1');var t=(h&&h.textContent||'').trim();if(!t)return '';"
+  + "var shut=/cannot|not allowed|no access|members only|team only|not signed in/i.test(t);"
+  + "return (shut && b.querySelectorAll('*').length < 40) ? t : '';})()";
+const turnedAway = [];
+
 (async () => {
   if (wantShots) fs.mkdirSync(SHOTS, { recursive: true });
 
@@ -335,6 +348,12 @@ function emojiControlsLost() {
   await send('Runtime.evaluate', { awaitPromise: true, expression:
     'firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' +
     JSON.stringify(ACCOUNT.email) + ',' + JSON.stringify(ACCOUNT.pw) + ')' });
+  const uid = await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).uid || ""');
+  /* Ask for an account that can open every page, rather than hoping whichever
+     check ran last left one. Six pages used to go unwalked behind a quiet
+     zero because check-menu.mjs had left this account as a Worship member
+     (A-023). */
+  if (uid) await giveFullAccess(uid, ACCOUNT.email);
   const who = await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).email || "(nobody)"');
   if (who === '(nobody)') {
     console.error('Could not sign in as ' + ACCOUNT.email + '. Signed out, most of these screens\n' +
@@ -353,6 +372,13 @@ function emojiControlsLost() {
     await ev('window.confirm=()=>false;window.alert=()=>{};window.prompt=()=>null;1');
     if (P.first) { await ev(P.first); await sleep(1200); }
     console.log('\n' + P.page);
+    const refused = await ev(REFUSED_PROBE);
+    if (refused) {
+      console.log('  TURNED AWAY - not walked: ' + JSON.stringify(String(refused).slice(0, 70)));
+      turnedAway.push({ page: P.page, said: String(refused).slice(0, 100) });
+      continue;
+    }
+
     for (const [name, open] of P.states) {
       await ev(open);
       await sleep(1100);
@@ -396,5 +422,10 @@ function emojiControlsLost() {
   fs.writeFileSync(path.join(V2, 'tests', 'icons-last.json'), JSON.stringify(faults, null, 1));
   console.log(R.filter(Boolean).length + '/' + R.length + ' passed   (detail: tests/icons-last.json)');
   server.close(); chrome.kill();
-  process.exit(open.length || lost.length ? 1 : 0);
+  if (turnedAway.length) {
+    console.log('');
+    console.log('PAGES THIS RUN NEVER WALKED. Nothing above is about them:');
+    turnedAway.forEach(x => console.log('  ' + x.page + '  - ' + x.said));
+  }
+  process.exit(open.length || lost.length || turnedAway.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -135,7 +135,7 @@ EGBCAuth.require().then(async profile => {
     setEditButton();
   }
 
-  await Promise.all([loadNews(), loadPages(), loadTeamPanels(), loadMeetings()]);
+  await Promise.all([loadNews(), loadPages(), loadTeamPanels(), loadMeetings(), loadBookingsAdmin()]);
 
   const teams = availableTeams();
   const saved = localStorage.getItem(TEAM_KEY);
@@ -572,13 +572,41 @@ async function loadHero() {
     bg.style.backgroundRepeat = 'no-repeat';
     bg.style.backgroundPosition = `${px}% ${py}%`;
 
-    document.getElementById('bodyContent').innerHTML = d.body ||
-      '<p style="color:var(--faint);font-style:italic">Nothing here yet.</p>';
+    renderWelcome(d.body);
   } catch (e) {
     console.error('Hero load failed', e);
     document.getElementById('heroTitle').textContent = 'EGBC Hub';
-    document.getElementById('bodyContent').innerHTML = '';
+    renderWelcome('');
   }
+}
+
+/* The welcome words, which are church-wide and are usually empty.
+
+   Martin, on the live hub as Core Team: an empty card saying "Nothing here
+   yet." sat in the bottom right of the home page. It was telling everybody in
+   the church about a gap only an admin can fill, on the one page that is
+   supposed to fit on a screen.
+
+   So: no words and cannot edit - no card at all. No words and CAN edit - the
+   card, saying what it is for and offering to fill it, which is the only way
+   an admin would ever find out the feature exists. */
+function renderWelcome(html) {
+  const card = document.getElementById('bodyCard');
+  const body = document.getElementById('bodyContent');
+  if (!card || !body) return;
+
+  const words = String(html || '').replace(/<[^>]*>/g, '').trim();
+  const canEdit = !!(window.EGBCAuth && EGBCAuth.isAdmin && EGBCAuth.isAdmin());
+
+  if (words) { card.style.display = ''; body.innerHTML = html; return; }
+
+  if (!canEdit) { card.style.display = 'none'; body.innerHTML = ''; return; }
+
+  card.style.display = '';
+  body.innerHTML = '<p style="color:var(--faint);font-style:italic;margin:0">' +
+    'No welcome words yet. This is the first thing people read on the hub - ' +
+    'a sentence about what is going on is enough.</p>' +
+    '<button class="btn sm solid" style="margin-top:12px" onclick="editBody()">Add a welcome</button>';
 }
 
 /* Banner editing. Karen is not going to open Firebase, so the picture is
@@ -1127,7 +1155,9 @@ function renderNavigation() {
     const admin = [];
     (function walk(nodes) {
       nodes.forEach(n => {
-        if (n.url && n.admin) admin.push({ url: n.url, title: n.title, icon: n.icon });
+        /* `bookings` as well as `admin`: Room bookings is the one thing a
+           site's bookings admin looks after, and they administer no team. */
+        if (n.url && (n.admin || n.bookings)) admin.push({ url: n.url, title: n.title, icon: n.icon });
         if (n.children) walk(n.children);
       });
     })(EGBCMenu.forPerson(EGBCMenu.who()));
@@ -1656,6 +1686,28 @@ async function saveNews() {
 
 /* ---- TOOLS PANEL --------------------------------------------------- */
 
+/* Does this person look after any site's room bookings?
+
+   It is a list of member ids inside bookingSettings, so it takes a read, and
+   the Menu needs the answer before it draws - "Room bookings" is under Core
+   Team > Events and rooms, and the person it is for is often on neither.
+   EGBCMenu.who() reads the flag this sets. Unset means "not one", so a read
+   that fails hides the entry rather than offering a page that will turn them
+   away. (F-067, from the events window.) */
+async function loadBookingsAdmin() {
+  window.EGBC_BOOKINGS_ADMIN = false;
+  try {
+    if (EGBCAuth.isAdmin()) { window.EGBC_BOOKINGS_ADMIN = true; return; }
+    const mid = ME && ME.memberId;
+    if (!mid) return;
+    const snap = await db.collection('bookingSettings').get();
+    window.EGBC_BOOKINGS_ADMIN = snap.docs
+      .some(d => ((d.data() || {}).bookingsAdmins || []).includes(mid));
+  } catch (e) {
+    console.error('Bookings admin check failed', e);
+  }
+}
+
 async function loadPages() {
   try {
     const snap = await db.collection('hubPages').orderBy('order').get();
@@ -1671,15 +1723,6 @@ async function loadPages() {
    to it, so it is registered - but it stays out of the tools list while it
    is named here. Take it out of this list if it should be a tile. */
 const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html', 'performancenotes.html'];
-
-/* Shown in Where to? even before an admin has pressed "Add the missing
-   pages", so a new feature is reachable the moment it ships. Once the page is
-   in hubPages that copy wins and this one is skipped. egbc-shell.js carries
-   the same entry for its menu. */
-const BUILT_IN_PAGES = [
-  { id: 'builtin-meeting', url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
-    description: 'Video meetings - set one up, join a call, every meeting room' },
-];
 
 /* Charters live on the landing page now, so a link to them here is noise. */
 function isCharterPage(url) {
@@ -2076,59 +2119,6 @@ async function seedRegistry() {
   } catch (e) { alert('Could not add: ' + e.message); }
 }
 
-
-
-
-/* An entry may name several teams. The song library is the case that forced
-   it: Worship need the songs and AV need the lyrics, but Kids Church and
-   Lazers should not see either. `everyone` was too wide and one `team` was
-   too narrow, so `teams` sits between them.
-
-   `team` stays the single owning team - it decides which group the tile
-   appears under and which admin may edit the entry. `teams`, when present,
-   only widens who can SEE it. */
-function pageTeams(p) {
-  if (Array.isArray(p.teams) && p.teams.length) return p.teams;
-  return p.team ? [p.team] : [];
-}
-
-/* Reasons an entry exists but is not a tile of its own. */
-function isTile(p) {
-  if (p.enabled === false) return false;
-  if (p.mobileOnly || MOBILE_APPS.includes((p.url || '').toLowerCase())) return false;
-  if (p.heading) return false;
-  if (p.helpFor) return false;        /* shows as ? on the tool it explains */
-  if (isCharterPage(p.url)) return false;
-  return true;
-}
-
-/* adminOnly used to look at the single `team` field, so a page listed for
-   several teams only showed to admins of the first - which is how the rota
-   planner stayed invisible to the person who administers Kids Church. All
-   three checks below now count any team the page belongs to. */
-function visibleOne(p) {
-  if (!isTile(p)) return false;
-  if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
-  if (p.everyone) return true;
-  const mine = myTeams(), admin = EGBCAuth.adminAreas();
-  return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
-}
-
-function visibleTools() {
-  const mine = myTeams();
-  const admin = EGBCAuth.adminAreas();
-  const have = new Set(PAGES.map(p => (p.url || '').toLowerCase()));
-  const all = [...BUILT_IN_PAGES.filter(b => !have.has(b.url.toLowerCase())), ...PAGES];
-  return all.filter(p => {
-    if (!isTile(p)) return false;
-    if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
-    /* Help and training is not a team's tool - anyone may need to learn how
-       the system works. */
-    if (p.everyone) return true;
-    return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
-  });
-}
-
 /* ---- My calendar (Step R) ------------------------------------------
    The rota, in a person's own calendar, kept up to date without another
    email. The link carries a long random key, which is the whole of what
@@ -2394,61 +2384,6 @@ function renderTools() {
   if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
 
-/* The imported menu nests - Worship > Music Databases > Music Database. Keep
-   that shape: a sub-heading with its pages indented beneath. */
-function nestTools(list) {
-  const headings = PAGES.filter(p => p.heading);
-  const childrenOf = id => list.filter(p => p.legacyParent === id);
-  const top = list.filter(p => !p.legacyParent || !headings.some(h => h.legacyId === p.legacyParent));
-
-  /* An instruction page can be hung on the tool it explains rather than
-     sitting beside it as a tile. Nothing uses this at the moment: the four
-     instruction pages are already linked from their own tools - Planner,
-     SundayServicePlanner, EmailBuilder2 and batchupload each link to theirs -
-     so they need no registry entry. Kept for a page that has no such link. */
-  const mine = myTeams(), admin = EGBCAuth.adminAreas();
-  const mayOpen = p => {
-    if (p.adminOnly && !pageTeams(p).some(t => EGBCAuth.isAdminOf(t))) return false;
-    if (p.everyone) return true;
-    return pageTeams(p).some(t => mine.includes(t) || admin.includes(t));
-  };
-
-  const help = {};
-  PAGES.forEach(p => {
-    /* Only offer the ? to someone who can actually open it. Today every
-       instruction page and its tool are both Core Team, so this never
-       bites - but a help page narrower than its tool would otherwise put a
-       dead link on the tile. */
-    if (p.helpFor && p.enabled !== false && p.url && mayOpen(p)) {
-      help[String(p.helpFor).toLowerCase()] = p;
-    }
-  });
-
-  const row = p => {
-    const tile = `<a class="tool" href="${esc(p.url)}" title="${esc(p.description || '')}">
-      <span class="ic"><i data-lucide="${EGBCUI.pageIcon(p)}" style="width:18px;height:18px"></i></span>
-      <span class="tx"><span class="nm">${esc(p.title)}</span>${p.description ? `<span class="ds">${esc(p.description)}</span>` : ''}</span>
-    </a>`;
-    const h = help[(p.url || '').toLowerCase()];
-    if (!h) return tile;
-    return `<div class="toolrow">${tile}<a class="toolhelp" href="${esc(h.url)}"
-      title="${esc(h.title)}" aria-label="${esc(h.title)}"><i data-lucide="circle-help" style="width:17px;height:17px"></i></a></div>`;
-  };
-
-  const sub = h => {
-    const kids = childrenOf(h.legacyId);
-    if (!kids.length) return '';
-    return `<div class="subgrp">
-        <div class="sublab">${esc(h.title)}</div>
-        ${kids.map(row).join('')}
-      </div>`;
-  };
-
-  const usedHeadings = headings.filter(h => childrenOf(h.legacyId).length);
-
-  return top.map(row).join('') + usedHeadings.map(sub).join('');
-}
-
 function toggleGroup(btn) {
   const body = btn.nextElementSibling;
   const open = btn.classList.toggle('open');
@@ -2577,8 +2512,6 @@ function when(ts) {
   if (days < 60) return Math.floor(days / 7) + ' weeks ago';
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
-
-
 
 let BOOK=[];
 
@@ -2906,9 +2839,6 @@ async function deletePage(){
     cancelPage();await loadPages();renderPagesList();renderTools();
   }catch(e){alert('Delete failed: '+e.message);}
 }
-
-
-
 
 function youngPeople(){
   return BOOK.filter(m=>m.isMinor===true&&m.householdId);

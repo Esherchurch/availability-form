@@ -440,3 +440,54 @@ Menu comes from `egbc-menu.js` now. No test in `v2/tests/` mentions any of
 them, so nothing would have to change with them. I have not done it because
 deleting code is not what this step was for, and it is a tidy-up rather than a
 fix - it should go in with the next piece of work on the hub's tools panel.
+
+## A-023 — the style check reported a clean sweep over six pages it never opened
+
+**This one corrects a number I gave Martin.** The Step N2b report said
+`check-style-every-screen` found 0 problems across every screen. It did say 0.
+It was not measuring six of the screens.
+
+**What happened.** The check signs in as one invented account and walks every
+page. Six pages are behind a gate — Core Team, admin, or leader access for a
+team. The account had none of those, so `EGBCAuth._blockPage()` replaced the
+body with its refusal card, and the check measured the card.
+
+The card breaks three DESIGN.md rules of its own (an 11px line and two 10px
+uppercase pills), so some runs scored 9, 12, 15, 57 — numbers that had nothing
+to do with the page and sent me looking for a regression in the events window's
+work that was not there. **And some runs scored 0**, because a page is only
+measured for the rules it can break, and a door that shows three elements can
+break at most three. Six unopened pages and six clean pages are the same number
+on the page this prints.
+
+**Why it moved about.** Every check that drives the hub rewrites that one
+account's profile. `check-menu.mjs` reads the Menu as three different people and
+leaves it as the last of them. Whether a page opened therefore depended on which
+check had run last — which is why the same commit measured 0 one hour and 108
+the next, with no code having changed. I confirmed that by running the sweep in
+a worktree at the exact commit I had reported 0 on: it gave 108.
+
+**Fixed.**
+- `egbc-auth.js`: `_blockPage()` marks the body it replaces with
+  `data-egbc-blocked="<the title>"`. One attribute, no guessing, and anything
+  else that walks pages can use it. (The first attempt put it in the "Which of
+  you is this?" picker instead, and the probe quietly kept reporting no door —
+  a reminder that two functions in a file can both end in `document.body.
+  innerHTML =`.)
+- `tests/check-style-every-screen.mjs`: a page showing a door is named, not
+  measured, and listed under "PAGES THIS RUN NEVER SAW. The number above is not
+  about them."
+- `tests/README.md`: what the invented account needs. `roles: {team: "owner"}`
+  is the one that is easy to miss — `adminFor` and `masterAdmin` do not clear a
+  `data-role="leader"` gate, which is what the Rota Planner and the Sunday
+  Service Planner use.
+
+**The real answer, with every page open: 0 across all twelve, no console
+errors.** So nothing was broken. What was broken was the gate, and a gate that
+cannot fail is not a gate.
+
+**Also found on the way:** I had left a junk `users/197609` document in the
+emulator from a mistyped shell command (`UID` is read-only in bash, so the
+write went to the literal string). Deleted. It is worth knowing that the
+profile-setting helpers find a user by email and will happily pick the wrong
+one of two.

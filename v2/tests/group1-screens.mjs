@@ -102,6 +102,28 @@ export const PAGES = [
       ['tab: who approves', "(()=>{const b=[...document.querySelectorAll('.tab')][4];if(b)b.click();return 1})()"]
     ] },
 
+  /* F-067, from the events window: the four pages R1 and R2 added that
+     nothing was measuring. Their screens are the tabs and views each one
+     actually has, read off the pages, not guessed. */
+  { page: 'rooms.html', wait: 9000, states: [
+      ['main', '1'],
+      ['the week view', "(()=>{const b=[...document.querySelectorAll('button')].find(x=>/week/i.test(x.textContent||''));if(b)b.click();return 1})()"],
+      ['the day view', "(()=>{const b=[...document.querySelectorAll('button')].find(x=>/^\s*day/i.test(x.textContent||''));if(b)b.click();return 1})()"]
+    ] },
+  { page: 'bookings-admin.html', wait: 9000, states: [
+      ['tab: waiting', "(()=>{const b=document.querySelector('[data-tab=\"waiting\"]');if(b)b.click();return 1})()"],
+      ['tab: coming up', "(()=>{const b=document.querySelector('[data-tab=\"coming\"]');if(b)b.click();return 1})()"],
+      ['tab: day view', "(()=>{const b=document.querySelector('[data-tab=\"day\"]');if(b)b.click();return 1})()"],
+      ['tab: past and cancelled', "(()=>{const b=document.querySelector('[data-tab=\"past\"]');if(b)b.click();return 1})()"]
+    ] },
+  { page: 'book.html', wait: 9000, states: [
+      ['main', '1'],
+      ['the form filled in', "(()=>{document.querySelectorAll('#f input,#f textarea').forEach(i=>{if(!i.value&&i.type!=='file')i.value=i.type==='email'?'nobody@example.invalid':'Synthetic'});return 1})()"]
+    ] },
+  { page: 'church-settings.html', wait: 9000, states: [
+      ['main', '1']
+    ] },
+
   /* Added when the emoji were counted: A3 took 42 out of the hub, 1 out of the
      pin board and 1 out of Play-Through, and none of those three was on this
      list - so nothing had ever measured them.

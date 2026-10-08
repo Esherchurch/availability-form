@@ -19,6 +19,7 @@ Run every one of these from `v2/`, not from here.
 | The home page fits on one screen, and the phone order is right | `node tests/check-home-fits.mjs` (add `--shots`) |
 | A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
 | "My calendar" works through the browser, end to end | `node tests/check-calendar-end-to-end.mjs` |
+| An email carries this church's name and address, not one in the code | `node tests/check-email-church-details.mjs` |
 | The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
@@ -118,3 +119,37 @@ person's record.
 watch the right check fail, put it back. `check-late-handlers.mjs` was
 confirmed that way: it catches `window.onload` the moment it is put back after
 the await, and passes once the handler is named and called either way.
+
+## The test account has to be able to open the pages
+
+`check-style-every-screen.mjs` signs in as one invented account and walks every
+page. Six of those pages are behind a gate — Core Team, admin, or leader access
+for a team — and if the account cannot get in, **EGBCAuth replaces the body with
+its refusal card**: "No access to this page", "Admins only", "Not enough
+permissions".
+
+That card is not the page. Measured as though it were, it put 57 DESIGN.md
+faults on CoreTeamApp that belong to the card — and, the way round that
+actually matters, **it once reported a clean 0 across every screen while six
+pages had never been opened at all.** Zero problems and zero pages are the same
+number.
+
+`EGBCAuth._blockPage()` now marks the body it replaces (`data-egbc-blocked`),
+and the check stops on it, names the page and says the number is not about it.
+
+So the invented account needs, in `users/{uid}`:
+
+```
+teams:       every team
+adminFor:    every team
+masterAdmin: true
+roles:       { "<each team>": "owner" }
+```
+
+`roles` is the one that is easy to miss: `adminFor` and `masterAdmin` do not
+clear a `data-role="leader"` gate on their own, which is what the Rota Planner
+and the Sunday Service Planner use.
+
+Other checks rewrite this account's profile to suit themselves — `check-menu.mjs`
+reads the Menu as three different people and leaves it as the last one. Set it
+back before a style sweep, or the sweep reports on doors.

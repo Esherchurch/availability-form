@@ -37,6 +37,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { giveFullAccess } from './test-account.mjs';
 import { PAGES } from './group1-screens.mjs';
 
 const V2 = path.resolve('.');
@@ -147,6 +148,12 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   await send('Runtime.evaluate', { awaitPromise: true, expression:
     'firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' +
     JSON.stringify(ACCOUNT.email) + ',' + JSON.stringify(ACCOUNT.pw) + ')' });
+  const uid = await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).uid || ""');
+  /* Ask for an account that can open every page, rather than hoping whichever
+     check ran last left one. Six pages used to go unwalked behind a quiet
+     zero because check-menu.mjs had left this account as a Worship member
+     (A-023). */
+  if (uid) await giveFullAccess(uid, ACCOUNT.email);
   const who = await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).email || "(nobody)"');
   if (who === '(nobody)') {
     console.error('Could not sign in as ' + ACCOUNT.email + ' on the emulator. Signed out, most of\n' +
@@ -155,7 +162,25 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   }
   console.log('signed in as ' + who);
 
-  let grand = 0; const rows = []; const pagesWithErrors = [];
+/* EGBCAuth draws this when somebody may not see a page: it replaces the
+   whole body with a card holding a heading, a line of explanation and two
+   pills. A short body whose only heading says no is the shape of a door. */
+/* Is this the page, or the door?
+
+   EGBCAuth._blockPage() marks the body it replaces (data-egbc-blocked), so
+   this is an answer and not a guess. The text test behind it is for a page
+   that turns somebody away in its own words rather than through EGBCAuth.
+
+   It matters in the direction nobody looks: a door that happens to obey
+   DESIGN.md scores 0, and a run of all-zeroes reads as a clean sweep. This
+   check reported exactly that once, with five pages unopened. */
+const REFUSED_PROBE = "(function(){var b=document.body;if(!b)return '';"
+  + "if(b.getAttribute('data-egbc-blocked'))return b.getAttribute('data-egbc-blocked');"
+  + "var h=b.querySelector('h1');var t=(h&&h.textContent||'').trim();if(!t)return '';"
+  + "var shut=/cannot|not allowed|no access|members only|team only|not signed in/i.test(t);"
+  + "return (shut && b.querySelectorAll('*').length < 40) ? t : '';})()";
+
+  let grand = 0; const rows = []; const pagesWithErrors = []; const turnedAway = [];
   for (const P of PAGES) {
     if (only && !P.page.toLowerCase().includes(only.toLowerCase())) continue;
     /* Pages the restyle has not reached are walked by the icon check, not
@@ -175,6 +200,28 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
     await ev('window.confirm=()=>false;window.alert=()=>{};window.prompt=()=>null;1');
     if (P.first) { await ev(P.first); await sleep(1200); }
     console.log('\n' + P.page);
+
+    /* IS THIS THE PAGE, OR THE DOOR?
+       EGBCAuth's refusal screen replaces the whole body with "You cannot
+       see this page", and that screen breaks three DESIGN.md rules of its
+       own: an 11px line and two 10px uppercase pills. Measured as though it
+       were the page, it put 57 faults on CoreTeamApp and 15 on the Sunday
+       Service Planner that had nothing to do with either - and it would
+       just as happily report 0 on a page it had never opened, which is the
+       way round that matters: this check once said every screen was clean
+       while five of them had not been seen at all.
+
+       So: if the door is what is on screen, say so, and do not count it. */
+    const refused = await ev(REFUSED_PROBE);
+    if (refused) {
+      console.log('  TURNED AWAY - not measured: ' + JSON.stringify(String(refused).slice(0, 70)));
+      console.log('  The account this ran as cannot open this page, so nothing measured');
+      console.log('  here would be about the page. Give the test account the teams it');
+      console.log('  needs, and run it again.');
+      turnedAway.push({ page: P.page, said: String(refused).slice(0, 100) });
+      continue;
+    }
+
     let pageTotal = 0;
     for (const [name, open] of P.states) {
       const r0 = await ev(open);
@@ -194,6 +241,10 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
     if (watch.errors.length) pagesWithErrors.push({ page: P.page, errors: watch.errors.slice() });
   }
   console.log('\nTOTAL across every screen: ' + grand);
+  if (turnedAway.length) {
+    console.log(''); console.log('PAGES THIS RUN NEVER SAW. The number above is not about them:');
+    turnedAway.forEach(x => console.log('  ' + x.page + '  - ' + x.said));
+  }
   if (pagesWithErrors.length) {
     console.log('\nPAGES WITH AN ERROR ON THE CONSOLE. A page that throws is not a page that works:');
     for (const p of pagesWithErrors) {
@@ -202,7 +253,10 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
     }
   }
   fs.writeFileSync(path.join(V2, 'tests', 'screens-last.json'),
-    JSON.stringify({ rows, pagesWithErrors }, null, 1));
+    JSON.stringify({ rows, pagesWithErrors, turnedAway }, null, 1));
   server.close(); chrome.kill();
-  process.exit(grand || pagesWithErrors.length ? 1 : 0);
+  /* A page that was never opened fails the run. Carrying on with a quiet zero
+     is the whole of what went wrong before: six pages went unmeasured for days
+     behind a total of 0. */
+  process.exit(grand || pagesWithErrors.length || turnedAway.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
