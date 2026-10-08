@@ -920,7 +920,9 @@
         }).join('') +
         '<label class="lbl mt-2" for="be-' + s.id + '">Send booking requests and cancellations to</label>' +
         '<input class="inp" type="email" id="be-' + s.id + '" data-bemail="' + s.id + '" value="' + esc(s.bookingsEmail || '') + '" placeholder="' + esc(EGBCChurch.email() || 'office@example.org') + '">' +
-        '<p class="hint mt-1">Leave empty to use the church\'s enquiry email (Church details). Anyone could read this address, so use an office one, not a person\'s own.</p></div>';
+        '<p class="hint mt-1">Leave empty to use the church\'s enquiry email (Church details). Anyone could read this address, so use an office one, not a person\'s own.</p>' +
+        /* For the main window's morning email (F-074): off unless a site asks. */
+        '<label class="fac mt-2"><input type="checkbox" data-sheetmail="' + s.id + '"' + (s.setupSheetEmail ? ' checked' : '') + '> Email the day\'s setup sheet to that address each morning</label></div>';
     }).join('');
     $('rota-list').innerHTML = list.map(function (s) {
       if (!RB[s.id]) RB[s.id] = JSON.parse(JSON.stringify(s.rotaBusy || []));
@@ -951,6 +953,7 @@
     var d = e.target.dataset || {};
     if (d.mbsite) db.collection('sites').doc(d.mbsite).update({ memberBookings: e.target.value })
       .then(function () { toast('Saved'); }).catch(oops);
+    if (d.sheetmail) db.collection('sites').doc(d.sheetmail).update({ setupSheetEmail: e.target.checked }).then(function () { toast('Saved'); }).catch(oops);
     if (d.bemail) {
       var em = e.target.value.trim().toLowerCase();
       if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('That email address does not look right'); return; }

@@ -1334,3 +1334,12 @@ Family check-in and labels, check-out to a collector or the matching code, the
 first-time visitor form at the door, the leader screen (K2); weekly and termly
 registers, headcount per group, the visitor follow-up list (K3). Each group's
 leaders on a Sunday come from the rota (K2), as E3 does for events.
+
+### F-091 — for the main window: the setup sheet switch is there
+Places, Bookings tab: "Email the day's setup sheet to that address each
+morning", per site, saved as `sites.setupSheetEmail` (true or false; absent
+means off). "That address" is the site's `bookingsEmail`, or the church's
+enquiry email when the site has none. The sheet's content is on Room bookings,
+Setup sheet tab (`drawSetup` in `bookings-admin.html`): confirmed bookings for
+the day, by room, with setting up and clearing away, numbers and layout, sound
+and projection, kit and where to fetch it, refreshments and the kitchen's list.

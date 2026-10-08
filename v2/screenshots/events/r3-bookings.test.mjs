@@ -212,6 +212,8 @@ try {
   await val(K, '[data-bemail="site_t"]', 'bookings@example.invalid');
   await until(async () => (await get('sites', 'site_t')).bookingsEmail === 'bookings@example.invalid');
   ok('1. the site\'s address for booking requests is saved on the Places page', (await get('sites', 'site_t')).bookingsEmail === 'bookings@example.invalid');
+  await check(K, '[data-sheetmail="site_t"]', true);
+  ok('   and the switch for the morning setup-sheet email (F-091)', !!(await until(async () => (await get('sites', 'site_t')).setupSheetEmail === true)));
 
   /* ---------- 2. a weekly practice ---------- */
   await go(S, 'rooms.html', '#c-date');
