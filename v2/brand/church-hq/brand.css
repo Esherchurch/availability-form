@@ -1,0 +1,13 @@
+/* Church HQ brand tokens */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --chq-slate: #2F4A48;  /* primary: door, text, dark backgrounds */
+  --chq-teal:  #5B9A8B;  /* secondary: "hq", open door, links */
+  --chq-lime:  #9CC65A;  /* accent: cross, highlights, light on floor */
+  --chq-mint:  #C9E3A6;  /* soft accent: doorway light, tints */
+  --chq-paper: #F4F7F2;  /* off-white for use on slate */
+
+  --chq-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --chq-tracking: -0.03em;
+}

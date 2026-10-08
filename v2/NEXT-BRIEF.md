@@ -177,6 +177,23 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 19. "Powered by Church HQ" (Martin, 8 Oct 2026)
+
+The product is called **Church HQ** (churchhq.co.uk). EGBC is its first church. **Members still see "EGBC Hub"**: the church's own name and logo stay the brand, and every future church gets the same. Church HQ appears only as a small, quiet credit.
+
+The brand kit is in `v2/brand/church-hq/` (from Martin's OneDrive). See its README for the rules: light version on light backgrounds, never recolour the cross, never stretch the mark.
+
+**One small line, in three places only:** the doorway mark (`svg/mark-light.svg`, about 16px high) followed by "Powered by Church HQ" in 12px muted text (#6b7280), centred, linking to https://churchhq.co.uk in a new tab:
+1. **The sign-in page** (`login.html`), under the sign-in box. **Main window.**
+2. **The bottom of the Menu** (the shell's Menu panel, so every page, and the hub's), under the last item. **Main window.**
+3. **The public hire pages**: the footer of `hire.html`, `room.html`, `book.html` and `my-booking.html`. **Events window.** The closed-set test must still pass, so add churchhq.co.uk as the one allowed outside link.
+
+Rules:
+- Never replace or sit beside the church's own logo in a header. Never on emails or PDFs. Nowhere else.
+- One shared snippet (`egbc-poweredby.js`, made by the main window, with `EGBCPoweredBy.html()` returning the markup) so the three places can't drift. The events window uses it once it exists.
+- The page shows the credit even if the image fails to load.
+- Prove it with screenshots of each place at phone width.
+
 ## 18. Step R: people choose which calendar feed (Martin, 8 Oct 2026)
 
 Martin: *"we need to let them choose. for example we need a feed for the whole family, or for the full rota if they prefer. Karen as an example needs to know if Oliver is on."*
