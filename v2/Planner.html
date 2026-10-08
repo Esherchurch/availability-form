@@ -20,6 +20,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="egbc-rota-pdf.js?v=202610081200"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -839,18 +840,8 @@
             docRef.setFillColor(240, 246, 246); docRef.roundedRect(12, 12, 230, 10, 4, 4, 'F');
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
-            const allRolesRaw = [...new Set(termEvents.flatMap(e => e.roles || []))];
-            const allRoles = [...allRolesRaw.filter(r => !AV_ROLES.includes(r)), ...allRolesRaw.filter(r => AV_ROLES.includes(r))];
-            docRef.autoTable({
-                startY: 35, head: [['DATE', 'TIME', 'SERVICE', ...allRoles.map(r => r.toUpperCase())]],
-                body: termEvents.map(e => [
-                    new Date(e.date).toLocaleDateString('en-GB'),
-                    (e.startTime || '') + (e.startTime && e.endTime ? '–' : '') + (e.endTime || ''),
-                    e.type,
-                    ...allRoles.map(r => { const raw = e.assignments?.[r]; if (!raw) return "---"; return Array.isArray(raw) ? raw.map(p=>p.name).join(", ") : raw.name; })
-                ]),
-                headStyles: { fillColor: [61, 98, 99] }, styles: { fontSize: 7 }
-            });
+            /* The table is shared with the read-only rota: egbc-rota-pdf.js. */
+            EGBCRotaPdf.drawTables(docRef, termEvents, { avRoles: AV_ROLES });
             return docRef;
         };
 

@@ -224,34 +224,114 @@
     /* The full rota can be narrowed to the reader's own teams. A personal or
        household one never is: it shows the whole team for those dates, which
        is how you know who you are serving with. */
-    var raw = [];
-    events.forEach(function (e) {
-      var roles = (type === 'full' && opts.roleFilter) ? opts.roleFilter(e) : (e.roles || []);
-      roles.forEach(function (r) { if (raw.indexOf(r) === -1) raw.push(r); });
-    });
-    var roles = raw.filter(function (r) { return avRoles.indexOf(r) === -1; })
-             .concat(raw.filter(function (r) { return avRoles.indexOf(r) !== -1; }));
-
-    doc.autoTable({
-      startY: 35,
-      head: [['DATE', 'TIME', 'SERVICE'].concat(roles.map(function (r) { return r.toUpperCase(); }))],
-      body: events.map(function (e) {
-        return [
-          new Date(e.date).toLocaleDateString('en-GB'),
-          (e.startTime || '') + (e.startTime && e.endTime ? '–' : '') + (e.endTime || ''),
-          e.type
-        ].concat(roles.map(function (r) {
-          var p = peopleIn(e.assignments && e.assignments[r]);
-          if (p.length) return p.map(function (x) { return x.name; }).join(', ');
-          return (r === 'Choir' && (e.roles || []).indexOf('Choir') !== -1) ? 'Choir' : '---';
-        }));
-      }),
-      headStyles: { fillColor: [61, 98, 99] },
-      styles: { fontSize: 7 }
+    drawTables(doc, events, {
+      avRoles: avRoles,
+      roleFilter: (type === 'full' && opts.roleFilter) ? opts.roleFilter : null
     });
 
     return doc;
   }
 
-  global.EGBCRotaPdf = { build: build, householdIds: householdIds, peopleIn: peopleIn };
+  /* ---- the rota table, shared by the Rota Planner and the read-only rota --
+
+     Martin, 8 Oct 2026: the household PDF had twenty columns once Kids Church
+     slots joined the Sunday event - names broke mid-word and the dates ran
+     together. So:
+       - Worship & AV in one table, Kids Church in its own underneath; the
+         worship rota was never meant to carry Kids Church slots.
+       - a role column appears only if somebody is in it on these dates.
+       - one "When" column: the date on its own line, then time and service.
+       - banded rows with a rule between dates. */
+  function isKidsRole(r) {
+    if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) === 'Kids Church';
+    return r === 'Session Leader' || r.indexOf('Helper ') === 0 ||
+           r.indexOf('Leader (') === 0 || r.indexOf('Assistant (') === 0;
+  }
+
+  function whenText(e) {
+    var d = new Date(e.date + 'T12:00:00');
+    var day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    var time = (e.startTime || '') + (e.startTime && e.endTime ? '–' : '') + (e.endTime || '');
+    return day + '\n' + [time, e.type || ''].filter(Boolean).join('  ·  ');
+  }
+
+  function drawTables(doc, events, opts) {
+    var avRoles = opts.avRoles || [];
+    var raw = [];
+    events.forEach(function (e) {
+      var roles = opts.roleFilter ? opts.roleFilter(e) : (e.roles || []);
+      roles.forEach(function (r) { if (raw.indexOf(r) === -1) raw.push(r); });
+      Object.keys(e.assignments || {}).forEach(function (r) {
+        if (raw.indexOf(r) === -1 && (!opts.roleFilter || opts.roleFilter(e).indexOf(r) !== -1)) raw.push(r);
+      });
+    });
+    var cell = function (e, r) {
+      var p = peopleIn(e.assignments && e.assignments[r]);
+      if (p.length) return p.map(function (x) { return x.name; }).join(', ');
+      return (r === 'Choir' && (e.roles || []).indexOf('Choir') !== -1) ? 'Choir' : '';
+    };
+    var used = function (r) { return events.some(function (e) { return cell(e, r) !== ''; }); };
+
+    var worship = raw.filter(function (r) { return !isKidsRole(r) && avRoles.indexOf(r) === -1 && used(r); });
+    var av = raw.filter(function (r) { return avRoles.indexOf(r) !== -1 && used(r); });
+    var kids = raw.filter(function (r) { return isKidsRole(r) && used(r); });
+
+    /* Each team's own colour, the same ones the app uses (egbc-auth.js TEAMS):
+       on the column headings, and a key under the title. Martin, 8 Oct 2026. */
+    var TEAM_RGB = { worship: [61, 98, 99], av: [74, 95, 122], kids: [122, 95, 74] };
+    var teamOf = function (r) { return isKidsRole(r) ? 'kids' : (avRoles.indexOf(r) !== -1 ? 'av' : 'worship'); };
+
+    var keyX = 14;
+    [['worship', 'Worship', worship], ['av', 'AV', av], ['kids', 'Kids Church', kids]].forEach(function (k) {
+      if (!k[2].length) return;
+      doc.setFillColor.apply(doc, TEAM_RGB[k[0]]);
+      doc.roundedRect(keyX, 25.2, 3.2, 3.2, 0.6, 0.6, 'F');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(75, 85, 99);
+      doc.text(k[1], keyX + 4.6, 27.8);
+      keyX += 4.6 + doc.getTextWidth(k[1]) + 7;
+    });
+
+    var y = 32;
+    var section = function (title, roles) {
+      var rows = events.filter(function (e) { return roles.some(function (r) { return cell(e, r) !== ''; }); });
+      if (!roles.length || !rows.length) return;
+      var allKids = roles.every(function (r) { return teamOf(r) === 'kids'; });
+      if (y > 32) {
+        if (y > 175) { doc.addPage(); y = 15; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        doc.setTextColor.apply(doc, allKids ? TEAM_RGB.kids : TEAM_RGB.worship);
+        doc.text(title, 14, y + 3); y += 6;
+      }
+      doc.autoTable({
+        startY: y,
+        margin: { left: 12, right: 12, bottom: 8 },
+        head: [['When'].concat(roles)],
+        body: rows.map(function (e) {
+          return [whenText(e)].concat(roles.map(function (r) { return cell(e, r) || '—'; }));
+        }),
+        theme: 'grid',
+        headStyles: { fillColor: [61, 98, 99], textColor: 255, fontStyle: 'bold', fontSize: 7.5, valign: 'middle', halign: 'left' },
+        styles: { fontSize: 7.5, cellPadding: 1.8, valign: 'middle', overflow: 'linebreak',
+                  lineColor: [209, 223, 223], lineWidth: 0.25, textColor: [31, 41, 55] },
+        alternateRowStyles: { fillColor: [240, 246, 246] },
+        columnStyles: { 0: { cellWidth: 54, textColor: [17, 24, 39] } },
+        didParseCell: function (data) {
+          if (data.section === 'head' && data.column.index > 0) data.cell.styles.fillColor = TEAM_RGB[teamOf(roles[data.column.index - 1])];
+          if (data.section === 'head' && data.column.index === 0 && allKids) data.cell.styles.fillColor = TEAM_RGB.kids;
+          if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '—') data.cell.styles.textColor = [190, 200, 200];
+          if (data.section === 'body' && data.column.index === 0) data.cell.styles.fontStyle = 'bold';
+        }
+      });
+      y = doc.lastAutoTable.finalY + 7;
+    };
+    var first = worship.concat(av);
+    section('Worship & AV', first);
+    section('Kids Church', kids);
+    if (!first.length && !kids.length) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+      doc.text('Nobody is on the rota for these dates.', 14, 40);
+    }
+  }
+
+  global.EGBCRotaPdf = { build: build, drawTables: drawTables, householdIds: householdIds, peopleIn: peopleIn };
 })(window);
