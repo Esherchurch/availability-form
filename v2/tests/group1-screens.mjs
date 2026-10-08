@@ -123,6 +123,10 @@ export const PAGES = [
   { page: 'church-settings.html', wait: 9000, states: [
       ['main', '1']
     ] },
+  /* F-089, from the events window: the children's register. */
+  { page: 'kids-admin.html', wait: 9000, states: [
+      ['main', '1']
+    ] },
 
   /* Added when the emoji were counted: A3 took 42 out of the hub, 1 out of the
      pin board and 1 out of Play-Through, and none of those three was on this

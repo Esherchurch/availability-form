@@ -320,15 +320,16 @@
 
   var WHO = null;
 
-  function whoFromAuth() {
-    return {
-      isCore: ((EGBCAuth.profile() || {}).teams || []).indexOf('Core Team') !== -1,
-      isAdmin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()),
-      isBookingsAdmin: window.EGBC_BOOKINGS_ADMIN === true
-    };
-  }
+  /* EGBCMenu.who() and nothing else. This used to be a second copy of the
+     same three lines, and it had already fallen behind: EGBCMenu.who() reads
+     "View the site as" so a master admin previewing as a Worship member gets
+     that member's Menu, and it carries the teams a team-gated entry needs.
+     The copy here did neither, so the Menu differed between the hub and
+     every other page again - quietly, and only for an admin previewing. */
+  function whoFromAuth() { return EGBCMenu.who(); }
 
-  var NOBODY = { isCore: false, isAdmin: false, isBookingsAdmin: false };
+  var NOBODY = { teams: [], adminFor: [], isMaster: false,
+                 isCore: false, isAdmin: false, isBookingsAdmin: false };
 
   /* The modular side: egbc-db.js for the session, and the same users/{uid}
      document egbc-auth.js mirrors its profile from. */
@@ -362,9 +363,17 @@
           var p = (snap && snap.exists && snap.exists()) ? snap.data() : {};
           /* Exactly the test egbc-auth.js makes, so the same person gets the
              same Menu whichever SDK the page happens to use. */
+          /* The same fields EGBCMenu.who() produces, worked out from the
+             same document egbc-auth.js mirrors its profile from. There is no
+             "View the site as" on a modular page - that is an EGBCAuth
+             feature - so this is simply the person as they are. */
+          var teams = p.teams || [], adminFor = p.adminFor || [];
           WHO = {
-            isCore: (p.teams || []).indexOf('Core Team') !== -1,
-            isAdmin: p.masterAdmin === true || (p.adminFor || []).length > 0,
+            teams: teams,
+            adminFor: adminFor,
+            isMaster: p.masterAdmin === true,
+            isCore: teams.indexOf('Core Team') !== -1 || p.masterAdmin === true,
+            isAdmin: p.masterAdmin === true || adminFor.length > 0,
             isBookingsAdmin: window.EGBC_BOOKINGS_ADMIN === true
           };
           return WHO;
@@ -454,7 +463,8 @@
     document.getElementById('egbc-nav').classList.add('on');
     renderNav('');
 
-    Promise.all([loadMenuScript(), loadRegistry(), loadPoweredBy(), loadWho()]).then(function () {
+    /* loadWho() asks EGBCMenu.who(), so it waits for the script. */
+    Promise.all([loadMenuScript().then(loadWho), loadRegistry(), loadPoweredBy()]).then(function () {
       var q = document.getElementById('egbc-nav-q');
       renderNav(q ? q.value.trim().toLowerCase() : '');
     }).catch(function (e) {

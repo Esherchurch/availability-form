@@ -688,3 +688,48 @@ function, and no offer to delete `sendEmail`).
 
 **`monitor-bridge/package.json` says `>=18`** and was left alone: it is a local
 development tool and is never deployed.
+
+## A-029 — F-089: the children's register goes under a Kids Church heading, not inside Core Team
+
+F-089 asked for "Children's register" (`kids-admin.html`) "for the children's
+team and admins, **near Safeguarding**", and Safeguarding was pencilled in
+under **Core Team → Events and rooms** (F-031). Martin offered either that or
+a Kids Church heading and asked which.
+
+**A Kids Church heading, beside Worship & AV and Youth.** Three reasons:
+
+1. **Events and rooms is about rooms and events** — Events, Places, Room
+   bookings. A register of children is neither.
+2. **The people who need it are not on Core Team.** A Kids Church leader would
+   reach their own register through a heading called Core Team and then one
+   called Events and rooms — two headings about somebody else's work, neither
+   of which says what they are looking for. That is the exact complaint Martin
+   made about the Menu in the first place, and the reason Step N exists.
+3. **It would be the second thing bent into that shape.** Room bookings
+   already sits under those two headings while deliberately *not* being gated
+   on Core Team, so its people get through headings that are not theirs
+   (A-024). Once is a workaround. Twice means the structure is wrong.
+
+Kids Church has a charter but no page of its own, so the heading is a heading
+only. **Safeguarding and Check-in belong here too** when the events window
+ships them, rather than under Events and rooms — that is a change to F-031's
+plan and it is theirs to accept or argue with.
+
+**Who sees it.** A new, reusable `team: 'X'` flag on a Menu entry: somebody on
+that team, the person who administers it, or a master admin. **Not every
+admin** — whoever looks after Worship is not the children's team, and a Menu
+that offers everybody everything is the wall this replaced. If Martin meant
+"anyone who administers anything", it is one word in `visible()`.
+
+**`check-menu.mjs` reads the Menu as two more people**: a Kids Church leader
+who is on no other team and administers nothing, and Karen, who administers
+Kids Church without being on its rota. Both get the heading and the register;
+the Worship member and the bookings admin get neither.
+
+**One thing fixed on the way.** `egbc-shell.js` had its own `whoFromAuth()` —
+a second copy of `EGBCMenu.who()`'s three lines — and it had already fallen
+behind: `EGBCMenu.who()` now honours "View the site as", so a master admin
+previewing as a Worship member sees that member's Menu, and the shell's copy
+did not. The Menu would have differed between the hub and every other page
+again, quietly, and only for an admin previewing. It calls the one function
+now. That is A-024's lesson arriving a second time in the same file.

@@ -1375,3 +1375,35 @@ How the rules hold it:
 One thing to know: an admin of Kids Church is an "admin" in the hub's general
 sense too, so the older forms rules (E2) already let them send any form and
 read every form's answers at the site. That was true before Chunk 6.
+### F-089 — done, with one change to where it sits
+**"Children's register" is in the Menu**, and `kids-admin.html` is in the
+style check (`tests/group1-screens.mjs`). It measures **0** against DESIGN.md
+and its console is clean.
+
+**It is NOT under Core Team → Events and rooms.** F-089 said "near
+Safeguarding" and F-031 had pencilled Safeguarding in there. I have put it
+under a **Kids Church** heading instead, beside Worship & AV and Youth:
+
+- Events and rooms is about rooms and events. A register of children is
+  neither.
+- **The children's team are not on Core Team.** They would reach their own
+  register through a heading called Core Team and then one called Events and
+  rooms — neither about their work, neither saying what they are looking for.
+  That is the complaint Step N exists to answer.
+- Room bookings already had to be bent into that shape, sitting under those
+  two headings while not being gated on Core Team so that its people get
+  through. Once is a workaround; twice is the wrong structure.
+
+**So Safeguarding and Check-in should go under Kids Church too** when you ship
+them, not under Events and rooms. That is a change to F-031's plan — say if
+you disagree and I will move it.
+
+**Who sees it:** somebody on Kids Church, the person who administers Kids
+Church, or a master admin. Deliberately **not** every admin — whoever looks
+after Worship is not the children's team. `check-menu.mjs` reads the Menu as a
+Kids Church leader and as Karen (administers it, not on its rota); both get
+it, a Worship member and a bookings admin do not.
+
+**F-087's rules work is not mine** — children's records, group-level medical
+access, the safeguarding lead. That was in the same message and I have left it
+alone; it reads as yours.

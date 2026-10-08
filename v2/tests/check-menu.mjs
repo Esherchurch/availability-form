@@ -52,6 +52,7 @@ const APPROVED = [
       ['Equipment', [['Inventory'], ['AV Infrastructure Mapper'], ['Monitor Setup']]]]]
   ]],
   ['Youth', [['Youth Service Planner']]],
+  ['Kids Church', [["Children's register"]]],
   ['Core Team', [
     ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
     ['People and email', [['Address Book'], ['Email Compiler']]],
@@ -81,6 +82,10 @@ const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & R
 /* "Room bookings" is the one entry that is not gated on Core Team or on
    administering a team: a site's bookings admin is usually neither (F-067). */
 const BOOKINGS_ONLY = ['Room bookings'];
+/* The children's team's own section (F-089). Only somebody on Kids Church,
+   the person who administers it, or a master admin. Deliberately not every
+   admin: whoever looks after Worship is not the children's team. */
+const KIDS_ONLY = ['Kids Church', "Children's register"];
 
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
@@ -88,7 +93,25 @@ const PEOPLE = {
   'somebody on Core Team': { teams: ['Core Team'], adminFor: [], masterAdmin: false,
     sees: ['Core Team', 'Planning', 'People and email'], doesNot: ['Events and rooms', 'Admin'] },
   'a master admin': { teams: ['Core Team'], adminFor: ['Core Team'], masterAdmin: true,
-    sees: ['Core Team', 'Events and rooms', 'Admin', 'Backup & Restore'], doesNot: [] },
+    sees: ['Core Team', 'Events and rooms', 'Admin', 'Backup & Restore', 'Kids Church'], doesNot: [] },
+  /* F-089. A children's leader is on no other team and administers nothing,
+     and must still reach the register - which is the whole reason it is a
+     team heading beside Youth rather than buried under Core Team. */
+  'a Kids Church leader': { teams: ['Kids Church'], adminFor: [], masterAdmin: false,
+    sees: ['Kids Church', "Children's register"],
+    doesNot: ['Core Team', 'Planning', 'Rota Planner', 'Events and rooms', 'Admin'] },
+  /* Karen: administers Kids Church without being on its rota.
+
+     She DOES reach "Core Team" as a heading, and that is correct: Room
+     bookings sits under it and is open to anyone who administers anything
+     (F-067), so the headings above it open for her. She gets the heading
+     without the charter link and without anything else inside it - which is
+     the rule a heading opened only by its children follows, and there is an
+     assertion for exactly that below. */
+  'Karen, who administers Kids Church': { teams: [], adminFor: ['Kids Church'], masterAdmin: false,
+    sees: ['Kids Church', "Children's register", 'Room bookings'],
+    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places',
+              'Admin', 'Backup & Restore'] },
   /* The person F-067 is about: looks after one site's room bookings, is on
      Worship, is on neither Core Team nor any team's admin list. The entry
      lives under Core Team > Events and rooms, so the two headings above it
@@ -97,7 +120,8 @@ const PEOPLE = {
   'a bookings admin who is not Core Team': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
     bookingsAdmin: true,
     sees: ['Book a room', 'Core Team', 'Events and rooms', 'Room bookings'],
-    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Admin', 'Backup & Restore'] }
+    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Admin',
+              'Backup & Restore', 'Kids Church', "Children's register"] }
 };
 
 const flat = (nodes, out = []) => {
@@ -287,8 +311,12 @@ const READ_MENU = `(() => {
        and must get nothing else from inside them, not even the Core Team
        charter the heading itself links to. */
     const OPENED_FOR_BOOKINGS = ['Core Team', 'Events and rooms'];
+    /* On Kids Church, administers it, or a master admin (F-089). */
+    const kids = p.teams.includes('Kids Church') ||
+                 p.adminFor.includes('Kids Church') || !!p.masterAdmin;
     const expected = want
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
+      .filter(w => !(KIDS_ONLY.includes(w) && !kids))
       .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w)))
       .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w)));
     ok('  the names are the approved ones, in order',
@@ -331,10 +359,16 @@ const READ_MENU = `(() => {
       "(()=>{const el=document.getElementById('sidebar');if(!el)return '';" +
       "const i=[...el.children].findIndex(c=>c.className==='sgrp');" +
       "return i===-1?'':[...el.children].slice(i+1).map(a=>(a.textContent||'').trim()).join('|')})()"));
-    /* In the Menu's order: Events, Places, Room bookings, Backup & Restore. */
-    const wantAdmin = (anAdmin
-      ? ['Events', 'Places', 'Room bookings', 'Backup & Restore']
-      : (p.bookingsAdmin ? ['Room bookings'] : []));
+    /* What this person actually looks after, in the Menu's order. Not a flat
+       list for "any admin": Events, Places and Backup & Restore are Core Team
+       pages as well as admin ones, so Karen - who administers Kids Church and
+       is on no team - looks after Room bookings and nothing else. Asserting
+       the flat list said she should see three pages she cannot reach. */
+    const wantAdmin = [
+      ...(onCore && anAdmin ? ['Events', 'Places'] : []),
+      ...(books ? ['Room bookings'] : []),
+      ...(onCore && anAdmin ? ['Backup & Restore'] : [])
+    ];
     ok("  the sidebar lists what they look after, in the Menu's order",
       sidebar === wantAdmin.join('|'),
       wantAdmin.length

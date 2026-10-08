@@ -77,6 +77,35 @@
           description: 'Plan a youth service' }
       ] },
 
+    /* KIDS CHURCH, beside Youth rather than inside Core Team.
+
+       F-089 asked for "Children's register ... near Safeguarding", and
+       Safeguarding was pencilled in under Core Team > Events and rooms
+       (F-031). That heading is for rooms and events - Events, Places, Room
+       bookings - and a children's register is neither. More to the point,
+       THE PEOPLE WHO NEED IT ARE NOT ON CORE TEAM: a Kids Church leader
+       would reach their own register through a heading called Core Team and
+       another called Events and rooms, neither of which is about their work
+       or says what they are looking for. That is the exact complaint Martin
+       made about the old Menu.
+
+       Room bookings already had to be bent into that shape - it sits under
+       those two headings and is not gated on `core`, so its people get
+       through headings that are not theirs. Once is a workaround; twice
+       would be the wrong structure.
+
+       So: a team heading, like Worship & AV and Youth. Kids Church has a
+       charter but no page of its own, so the heading is only a heading.
+       Safeguarding and Check-in belong here too when they ship. */
+    { title: 'Kids Church', icon: 'baby', team: 'Kids Church',
+      description: "The children's team, and the children in their care",
+      children: [
+        { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', team: 'Kids Church',
+          description: 'The children, their groups, and who may collect them' }
+        /* Safeguarding and Check-in go here when the events window ships
+           them (F-031, F-090), not under Events and rooms. */
+      ] },
+
     { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', core: true,
       description: 'What Core Team is for, and how it works',
       children: [
@@ -152,7 +181,19 @@
     if (node.core && !who.isCore) return false;
     if (node.admin && !who.isAdmin) return false;
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
+    /* On that team, or the person who administers it, or a master admin.
+       Deliberately NOT "any admin": somebody who administers Worship is not
+       the children's team, and a Menu that offers everybody everything is
+       the wall this replaced. The page turns away anyone who gets there
+       another way. */
+    if (node.team && !onTeam(node.team, who)) return false;
     return true;
+  }
+
+  function onTeam(team, who) {
+    if (who.isMaster) return true;
+    return (who.teams || []).indexOf(team) !== -1 ||
+           (who.adminFor || []).indexOf(team) !== -1;
   }
 
   function prune(nodes, who) {
@@ -425,7 +466,13 @@
       const p = (A && A.profile && A.profile()) || null;
       const previewing = !!(A && A.viewingAs && A.viewingAs());
       const teams = (A && A.effectiveTeams) ? A.effectiveTeams() : ((p && p.teams) || []);
+      /* adminAreas honours the preview the same way: a master admin looking
+         as a Worship member administers Worship and nothing else. */
+      const adminFor = (A && A.adminAreas) ? A.adminAreas() : ((p && p.adminFor) || []);
       return {
+        teams: teams,
+        adminFor: adminFor,
+        isMaster: !!(A && A.isMaster && A.isMaster()),
         isCore: teams.indexOf('Core Team') !== -1 || !!(A && A.isMaster && A.isMaster()),
         isAdmin: !!(A && A.isAdmin && A.isAdmin()),
         /* Who looks after a site's bookings is a list of member ids inside
