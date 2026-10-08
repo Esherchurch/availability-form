@@ -1,0 +1,17 @@
+{
+  "name": "egbc-hub-functions",
+  "description": "The hub's own Cloud Functions. sendEmail is NOT here - it belongs to the Calla window and lives only in the Google project, which is why every deploy must name this codebase: firebase deploy --only functions:hub",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions,firestore,auth"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

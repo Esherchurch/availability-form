@@ -175,6 +175,38 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---- the live rota calendar (Step R) -----------------------------
+    //
+    // A calendar app cannot sign in, so the long random key in the subscribe
+    // link stands in for signing in. That makes the key a password, and it is
+    // kept where a password has to be kept.
+    //
+    // calendarKeys/{uid} is the person's own copy, so the hub can show them
+    // their link. Only they can read it.
+    //
+    // calendarFeeds/{key} is the lookup the Cloud Function uses to turn a key
+    // back into a person. NOBODY may read it - not even the person it belongs
+    // to - because being able to read it is being able to turn anyone's key
+    // into their name. Only the Admin SDK inside the function sees it, and the
+    // Admin SDK does not go through these rules.
+    //
+    // Neither is written by any page. The function makes the key, because a
+    // page that could write calendarFeeds could point a key at somebody else.
+    //
+    // Why not keep the key on users/{uid}: that document is readable by every
+    // active member, which is deliberate - the hub shows who is on which team.
+    // Rules cannot hide one field of a document, so a key kept there would be
+    // readable by the whole church.
+
+    match /calendarKeys/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /calendarFeeds/{key} {
+      allow read, write: if false;
+    }
+
     // ---- hub page registry ------------------------------------------
 
     match /hubPages/{pageId} {

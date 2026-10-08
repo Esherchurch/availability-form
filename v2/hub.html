@@ -14,8 +14,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<!-- Step R: myCalendarLink is a callable, so the hub needs the functions SDK. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
 <script src="egbc-ui.js?v=202610062000"></script>
+<!-- Step N: the Menu's structure, shared by the Menu, the sidebar and Where to? -->
+<script src="egbc-menu.js?v=202610081200"></script>
 <script src="egbc-editor.js?v=202610062000"></script>
 <style>
   /* v108 design: Inter, line icons (egbc-ui.js), sentence case, quiet greys
@@ -236,13 +240,22 @@
        font:600 12px Inter,sans-serif;color:var(--muted);text-align:left;border-radius:6px}
   .grp:hover{color:var(--ink)}
   .grp .cnt{margin-left:auto;font-weight:500;color:var(--faint)}
-  .grp .arw{display:inline-flex;color:var(--faint);transition:transform .18s}
+  .grp .arw{display:inline-flex;align-items:center;color:var(--faint);transition:transform .18s;
+            border:0;background:none;padding:0;cursor:pointer}
   .grp.open .arw{transform:rotate(90deg)}
+  /* A heading that is also a page: the words open the charter, the arrow
+     expands the group. */
+  .grp .grp-link{color:inherit;text-decoration:none}
+  .grp .grp-link:hover{color:var(--ink);text-decoration:underline}
   .grp .dot{width:8px;height:8px;border-radius:50%}
   .grp-body{overflow:hidden;max-height:0;transition:max-height .22s ease}
   .grp-body.open{max-height:2400px}
   .subgrp{margin:2px 0 6px 18px;padding-left:10px;border-left:1px solid var(--line)}
   .sublab{font-size:12px;font-weight:500;color:var(--faint);margin:8px 0 4px 8px}
+  /* Step N: a heading inside a group - Worship, AV, Music Databases, Planning.
+     Quieter than the group above it and quieter than the pages below it, so
+     the three levels read as three levels. */
+  .grp-body .sub{font-size:12px;font-weight:500;color:var(--faint);margin:10px 0 2px;letter-spacing:.01em}
 
   .tool{display:flex;align-items:center;gap:12px;padding:8px;border-radius:8px;text-decoration:none;color:var(--ink);transition:background .12s;min-width:0}
   .tool:hover{background:#f3f4f6}
@@ -355,6 +368,9 @@
     <div id="pinned"></div>
     <div id="servingCard"></div>
     <div id="meetingsCard"></div>
+    <!-- Step N: the pin board, which Martin said was "actually important but
+         buried". Filled by renderPinBoardCard() in hub-app.js. -->
+    <div id="pinBoardCard"></div>
     <div id="myEventsCard"></div>
 
     <div class="card flush" id="charterCard" style="display:none">
@@ -407,6 +423,8 @@
   <div class="bd">
     <div id="panelTeam"></div>
     <div class="qwrap"><i data-lucide="search" style="width:16px;height:16px"></i><input id="toolSearch" placeholder="Search pages" oninput="renderTools()" autocomplete="off"></div>
+    <!-- My calendar (Step R). Filled by renderCalendarRow() in hub-app.js. -->
+    <div id="panelCalendar"></div>
     <div id="toolList"></div>
     <div id="panelBuild" style="font-size:11px;color:var(--faint);text-align:center;margin-top:24px"></div>
   </div>
@@ -423,6 +441,17 @@
       <button class="btn x" onclick="closeRead()" title="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     </div>
     <div class="rich" id="rdBody" style="max-height:64vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MY CALENDAR (Step R) -->
+<div class="modal" id="calendarModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="box" style="max-width:560px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px">
+      <h2 style="font-size:20px;font-weight:700;line-height:1.25">My rota in my calendar</h2>
+      <button class="btn x" onclick="document.getElementById('calendarModal').classList.remove('open')" title="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+    </div>
+    <div id="calendarBody"></div>
   </div>
 </div>
 

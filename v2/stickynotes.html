@@ -1007,6 +1007,11 @@ function whenSignedIn() {
   paintAdmin();
   renderPages();
   renderNotes();
+  /* ?add=1 opens straight on the Add Note box. The hub's pin board card uses
+     it for "Add an idea": somebody who has had the thought should not have to
+     find the button first. Opened after the board has loaded, so the note
+     lands on the right board. */
+  if (new URLSearchParams(location.search).get('add')) openNoteModal();
   setTimeout(() => {
     const h = document.getElementById('dragHint');
     setTimeout(() => h.classList.add('fade'), 3500);

@@ -1,4 +1,4 @@
-/* ===================================================================
+﻿/* ===================================================================
    EGBC Team Hub
    ===================================================================
 
@@ -81,10 +81,15 @@ function openTeamPicker() {
 
   document.getElementById('pickList').innerHTML = teams.map(t => {
     const c = EGBCAuth.TEAMS[t] || { label: t, colour: 'var(--brand)' };
-    const n = PAGES.filter(p => p.team === t && p.enabled !== false).length;
+    /* No "N tools" any more. It counted registry entries whose team matched,
+       and it read 0 for every team, because this picker opens before the
+       registry has loaded. It would be wrong even once it loaded: since Step N
+       the Menu is not grouped by team - everybody sees the same structure, and
+       only Core Team adds to it - so a per-team count says nothing true. What
+       the team changes is which notices you see, which the line below says. */
     return `<button class="pick-t" onclick="chooseTeam('${t}')">
       <span style="width:10px;height:10px;border-radius:50%;background:${c.colour};flex-shrink:0;margin:0 4px"></span>
-      <span style="flex:1"><span class="nm">${esc(c.label)}</span><span class="ct">${n} tool${n === 1 ? '' : 's'}</span></span>
+      <span style="flex:1"><span class="nm">${esc(c.label)}</span></span>
       <i data-lucide="chevron-right" style="width:16px;height:16px;color:var(--faint)"></i>
     </button>`;
   }).join('');
@@ -283,15 +288,15 @@ let CHARTER_OPEN = false;
 const CHARTER_DEFAULTS = {
  "wider-worship-charter": {
   "title": "Worship & AV Team Charter",
-  "html": "<h2>Worship &amp; AV Team Charter</h2>\n<blockquote>We are worshippers first, team members second, musicians and technicians third.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We are a family of worshippers who serve together with humility, joy, and unity. Every person — musician, vocalist, or AV — plays a vital role in helping the church encounter God.</p>\n\n<h3>When We Disagree</h3>\n<p>We understand that we may not always share the same theological views or ways of doing things. When differences arise, we commit to talking with love, respect, and humility, keeping Jesus at the centre. Unity is not about agreeing on everything — it's about choosing love in everything.</p>\n\n<h3>Living as Followers of Jesus</h3>\n<p>As people who serve visibly, our lives should reflect the way of Jesus — not perfectly, but sincerely. We aim to honour Him in our relationships, decisions, and behaviour.</p>\n<p>We recognise that lifestyle choices shaped by a hedonistic or self-centred approach to life do not align with the calling of serving in worship ministry. This applies to choices, not to identity or things people cannot control.</p>\n<p>We choose to grow, to be accountable, and to live lives that point others to Jesus.</p>\n\n<h3>How We Serve Together</h3>\n<ul>\n<li><strong>We prepare well</strong> — learning our parts, listening to the set, and arriving ready</li>\n<li><strong>We stay flexible</strong> — songs and arrangements may change</li>\n<li><strong>We honour one another</strong> — with kindness and encouragement</li>\n<li><strong>We communicate early</strong> — about availability or challenges</li>\n<li><strong>We follow the worship leader's direction</strong> — with unity and trust</li>\n<li><strong>We partner with AV as one team</strong> — not two</li>\n<li><strong>We pray together</strong> — because worship is spiritual before it is musical</li>\n</ul>\n\n<h3>Sunday Expression</h3>\n<ul>\n<li>We arrive prepared, prayerful, and ready to bless the church</li>\n<li>We support the worship leader and each other with unity</li>\n<li>We respond to the Holy Spirit with sensitivity and trust</li>\n<li>We serve with cheerful hearts, remembering our goal is to help others see Jesus</li>\n</ul>"
+  "html": "<h2>Worship &amp; AV Team Charter</h2>\n<blockquote>We are worshippers first, team members second, musicians and technicians third.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We are a family of worshippers who serve together with humility, joy, and unity. Every person â€” musician, vocalist, or AV â€” plays a vital role in helping the church encounter God.</p>\n\n<h3>When We Disagree</h3>\n<p>We understand that we may not always share the same theological views or ways of doing things. When differences arise, we commit to talking with love, respect, and humility, keeping Jesus at the centre. Unity is not about agreeing on everything â€” it's about choosing love in everything.</p>\n\n<h3>Living as Followers of Jesus</h3>\n<p>As people who serve visibly, our lives should reflect the way of Jesus â€” not perfectly, but sincerely. We aim to honour Him in our relationships, decisions, and behaviour.</p>\n<p>We recognise that lifestyle choices shaped by a hedonistic or self-centred approach to life do not align with the calling of serving in worship ministry. This applies to choices, not to identity or things people cannot control.</p>\n<p>We choose to grow, to be accountable, and to live lives that point others to Jesus.</p>\n\n<h3>How We Serve Together</h3>\n<ul>\n<li><strong>We prepare well</strong> â€” learning our parts, listening to the set, and arriving ready</li>\n<li><strong>We stay flexible</strong> â€” songs and arrangements may change</li>\n<li><strong>We honour one another</strong> â€” with kindness and encouragement</li>\n<li><strong>We communicate early</strong> â€” about availability or challenges</li>\n<li><strong>We follow the worship leader's direction</strong> â€” with unity and trust</li>\n<li><strong>We partner with AV as one team</strong> â€” not two</li>\n<li><strong>We pray together</strong> â€” because worship is spiritual before it is musical</li>\n</ul>\n\n<h3>Sunday Expression</h3>\n<ul>\n<li>We arrive prepared, prayerful, and ready to bless the church</li>\n<li>We support the worship leader and each other with unity</li>\n<li>We respond to the Holy Spirit with sensitivity and trust</li>\n<li>We serve with cheerful hearts, remembering our goal is to help others see Jesus</li>\n</ul>"
  },
  "core-team-charter": {
   "title": "Core Team Charter",
-  "html": "<h2>Core Team Charter</h2>\n<blockquote>We lead not by talent or title, but by character, humility, and a servant heart.</blockquote>\n\n<h3>Our Identity &amp; How We Carry Ourselves</h3>\n<p>The Core Team exists to set the culture of the Worship &amp; AV Ministry. We model what we want the whole team to become: worshippers first, musicians second, servants always.</p>\n\n<h3>When We Disagree</h3>\n<p>We recognise that we may not always share the same theological views or ministry preferences. When differences arise, we commit to speaking with love, humility, and respect, keeping Jesus at the centre of every conversation. Our unity is not built on sameness, but on Christ-like love (John 13:35).</p>\n\n<h3>Visible Lives of Discipleship</h3>\n<p>Because we serve in a visible ministry, our lives should reflect the character and way of Jesus — not perfectly, but sincerely. We commit to living in a way that honours Christ in our relationships, choices, and conduct.</p>\n<p>We recognise that certain lifestyle choices that reflect a hedonistic or self-centred way of living are not compatible with the calling of leading others in worship. This applies to behaviours we choose, not to aspects of identity or circumstances people cannot control.</p>\n<p>We choose integrity, accountability, and holiness, seeking to grow in Christ.</p>\n\n<h3>How We Lead</h3>\n<ul>\n<li><strong>Servant leadership</strong> — we lead by example, not position</li>\n<li><strong>Visible support on Sundays</strong> — present, engaged, and encouraging</li>\n<li><strong>Teachable spirits</strong> — always willing to learn and grow</li>\n<li><strong>Culture carriers</strong> — we set the tone for the whole team</li>\n<li><strong>Spiritual sensitivity</strong> — attuned to God and to one another</li>\n</ul>\n\n<h3>Our Commitment</h3>\n<ul>\n<li>We lead by example</li>\n<li>We protect unity</li>\n<li>We champion others</li>\n<li>We communicate clearly</li>\n<li>We honour AV as equal partners</li>\n<li>We steward Sundays with prayer</li>\n</ul>"
+  "html": "<h2>Core Team Charter</h2>\n<blockquote>We lead not by talent or title, but by character, humility, and a servant heart.</blockquote>\n\n<h3>Our Identity &amp; How We Carry Ourselves</h3>\n<p>The Core Team exists to set the culture of the Worship &amp; AV Ministry. We model what we want the whole team to become: worshippers first, musicians second, servants always.</p>\n\n<h3>When We Disagree</h3>\n<p>We recognise that we may not always share the same theological views or ministry preferences. When differences arise, we commit to speaking with love, humility, and respect, keeping Jesus at the centre of every conversation. Our unity is not built on sameness, but on Christ-like love (John 13:35).</p>\n\n<h3>Visible Lives of Discipleship</h3>\n<p>Because we serve in a visible ministry, our lives should reflect the character and way of Jesus â€” not perfectly, but sincerely. We commit to living in a way that honours Christ in our relationships, choices, and conduct.</p>\n<p>We recognise that certain lifestyle choices that reflect a hedonistic or self-centred way of living are not compatible with the calling of leading others in worship. This applies to behaviours we choose, not to aspects of identity or circumstances people cannot control.</p>\n<p>We choose integrity, accountability, and holiness, seeking to grow in Christ.</p>\n\n<h3>How We Lead</h3>\n<ul>\n<li><strong>Servant leadership</strong> â€” we lead by example, not position</li>\n<li><strong>Visible support on Sundays</strong> â€” present, engaged, and encouraging</li>\n<li><strong>Teachable spirits</strong> â€” always willing to learn and grow</li>\n<li><strong>Culture carriers</strong> â€” we set the tone for the whole team</li>\n<li><strong>Spiritual sensitivity</strong> â€” attuned to God and to one another</li>\n</ul>\n\n<h3>Our Commitment</h3>\n<ul>\n<li>We lead by example</li>\n<li>We protect unity</li>\n<li>We champion others</li>\n<li>We communicate clearly</li>\n<li>We honour AV as equal partners</li>\n<li>We steward Sundays with prayer</li>\n</ul>"
  },
  "youth-charter": {
   "title": "Youth Worship & AV Charter",
-  "html": "<h2>Youth Worship &amp; AV Team Charter</h2>\n<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We serve with love, joy, and unity — on instruments, with our voices, or on the AV team. Every one of us matters.</p>\n\n<h3>When We Don't Agree</h3>\n<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>\n\n<h3>Living Like Jesus Outside of Sundays</h3>\n<p>Because we're on a team that people can see, our lives should show that we follow Jesus — not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>\n<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>\n<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>\n\n<h3>How We Serve</h3>\n<ul>\n<li><strong>We show up ready</strong> — prepared and on time</li>\n<li><strong>We stay flexible</strong> — things change, and that's okay</li>\n<li><strong>We encourage each other</strong> — words build up, not tear down</li>\n<li><strong>We follow the leader</strong> — with trust and unity</li>\n<li><strong>We work with AV as one team</strong> — everyone counts</li>\n<li><strong>We pray together</strong> — because this is about more than music</li>\n</ul>\n\n<h3>Sundays</h3>\n<ul>\n<li>We arrive early</li>\n<li>We support the leader</li>\n<li>We help create a joyful atmosphere</li>\n<li>We worship wholeheartedly</li>\n<li>We serve visibly and kindly</li>\n</ul>"
+  "html": "<h2>Youth Worship &amp; AV Team Charter</h2>\n<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We serve with love, joy, and unity â€” on instruments, with our voices, or on the AV team. Every one of us matters.</p>\n\n<h3>When We Don't Agree</h3>\n<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>\n\n<h3>Living Like Jesus Outside of Sundays</h3>\n<p>Because we're on a team that people can see, our lives should show that we follow Jesus â€” not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>\n<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>\n<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>\n\n<h3>How We Serve</h3>\n<ul>\n<li><strong>We show up ready</strong> â€” prepared and on time</li>\n<li><strong>We stay flexible</strong> â€” things change, and that's okay</li>\n<li><strong>We encourage each other</strong> â€” words build up, not tear down</li>\n<li><strong>We follow the leader</strong> â€” with trust and unity</li>\n<li><strong>We work with AV as one team</strong> â€” everyone counts</li>\n<li><strong>We pray together</strong> â€” because this is about more than music</li>\n</ul>\n\n<h3>Sundays</h3>\n<ul>\n<li>We arrive early</li>\n<li>We support the leader</li>\n<li>We help create a joyful atmosphere</li>\n<li>We worship wholeheartedly</li>\n<li>We serve visibly and kindly</li>\n</ul>"
  }
 };
 
@@ -764,6 +769,11 @@ async function loadMeetings() {
   }
   renderMeetings();
   try { renderServing(); } catch (e) {}
+  /* console.error, not warn: a card that fails to draw is a card nobody sees,
+     and the checks here treat an error as a failure and a warning as noise.
+     This one drew nothing at all for a while because its icon helper was out
+     of scope, and the warning said so to an empty room. */
+  renderPinBoardCard().catch(e => console.error('Pin board card failed', e && e.message));
 }
 
 function renderMeetings() {
@@ -803,6 +813,74 @@ function renderMeetings() {
         <div class="note">Type your name and knock &mdash; the host will let you in.</div>
       </div>
     </div>`;
+}
+
+/* ---- the pin board, on the landing page (Step N) --------------------
+   Martin: "It is actually important but buried." It was one line in the Menu
+   and nothing on the page anybody actually lands on.
+
+   This reads the same document stickynotes.html reads and changes nothing
+   about the pin board itself - no writing, no archiving, no reordering. Which
+   board depends on the team, exactly as the pin board decides it: Worship
+   Team, AV Team and Choir share one, Kids Church and Youth Worship have their
+   own. */
+const PIN_BOARDS = [
+  { doc: 'state', title: 'Worship', teams: ['Worship Team', 'AV Team', 'Choir'] },
+  { doc: 'kids-church', title: 'Kids Church', teams: ['Kids Church'] },
+  { doc: 'youth', title: 'Youth', teams: ['Youth Worship'] }
+];
+
+function myPinBoard() {
+  const mine = myTeams();
+  return PIN_BOARDS.find(b => b.teams.some(t => mine.includes(t))) || PIN_BOARDS[0];
+}
+
+async function renderPinBoardCard() {
+  const box = document.getElementById('pinBoardCard');
+  if (!box) return;
+  /* Every card builder in this file keeps its own, at its own size. */
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
+  const board = myPinBoard();
+  let notes = [];
+  try {
+    const snap = await db.collection('worshipBoardState').doc(board.doc).get();
+    notes = ((snap.exists && snap.data().notes) || [])
+      .filter(n => n && !n.archived)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, 4);
+  } catch (e) {
+    /* Not being able to read the board is not a reason to lose the card: the
+       two buttons are the point of it. */
+    console.warn('Pin board card: could not read the board', e && e.message);
+  }
+
+  const rows = notes.map(n => {
+    /* A note is a title and a body; some have only a body. Either way what
+       goes here is the first line, not the whole thing. */
+    const line = (n.title || (n.body || '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+    const when = n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-GB',
+      { day: 'numeric', month: 'short' }) : '';
+    return `<a class="row" href="stickynotes.html" style="display:flex;gap:10px;align-items:baseline;padding:7px 0;text-decoration:none;color:inherit">
+        <span style="flex:1;min-width:0;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(line.slice(0, 90) || '(no title)')}</span>
+        <span style="font-size:12px;color:var(--muted);flex:none">${esc(n.author || 'Anonymous')}${when ? ' &middot; ' + when : ''}</span>
+      </a>`;
+  }).join('');
+
+  box.innerHTML = `<div class="card flush">
+      <div class="ch">
+        <div class="ic">${I('sticky-note', 18)}</div>
+        <h2>Pin board</h2>
+        <div class="sub">${esc(board.title)} &middot; anything anybody wants to raise</div>
+        <div class="sp">
+          <a class="btn sm" href="stickynotes.html?add=1">${I('plus', 15)}<span class="hide-sm">Add an idea</span></a>
+          <a class="btn sm ghost" href="stickynotes.html">Open the pin board</a>
+        </div>
+      </div>
+      <div class="cb" style="padding-top:6px;padding-bottom:14px">
+        ${rows || '<div style="font-size:14px;color:var(--muted);padding:6px 0">Nothing on the board yet. Be the first.</div>'}
+      </div>
+    </div>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
 
 async function loadNews() {
@@ -868,7 +946,7 @@ function canEditNews(n) {
   return teams.some(t => EGBCAuth.isAdminOf(t));
 }
 
-/* ── My events ──────────────────────────────────────────────────────
+/* â”€â”€ My events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    The events brief says every chunk that gives a person something of
    their own adds it to this one dashboard rather than building a "my
    something" page of its own. This is that slot for sign-ups.
@@ -881,7 +959,7 @@ function canEditNews(n) {
    Sorted here rather than in the query. An orderBy drops every document
    missing the field, silently, and these are written by a public page
    that has changed twice already. */
-/* ── Getting about ──────────────────────────────────────────────────
+/* â”€â”€ Getting about â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Home, Calendar, Meet, My serving, More - as a tab bar on a phone and a
    sidebar on a computer, from one list so they cannot drift apart.
 
@@ -953,13 +1031,13 @@ function renderNavigation() {
 }
 window.addEventListener('resize', () => { try { renderNavigation(); } catch (e) {} });
 
-/* ── Waiting for you ────────────────────────────────────────────────
+/* â”€â”€ Waiting for you â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    The top card of the personal home: the things that need this person
    rather than the things that exist.
 
    Today there is one kind of item - a notice that has to be confirmed as
    read. Rota accept/decline was in the brief for this card and Martin has
-   since said not to build it (NEXT-BRIEF §10), so it is not here. Forms,
+   since said not to build it (NEXT-BRIEF Â§10), so it is not here. Forms,
    approvals and payments arrive with their own chunks; each adds to the
    list below rather than to a page of its own. */
 function waitingItems() {
@@ -1001,7 +1079,7 @@ function renderWaiting() {
   if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
 
-/* ── My serving ─────────────────────────────────────────────────────
+/* â”€â”€ My serving â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    The next dates this person is on the rota for, with the role and the
    time, and a way through to the whole rota.
 
@@ -1594,7 +1672,7 @@ const REGISTRY = [
     description: 'When something is not working' },
   { url: 'Youthcharter.html', title: 'Youth', icon: '\u{1F4DC}', team: 'Youth Worship', everyone: true,
     description: 'How the youth team serve' },
-  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: '⛪', team: 'Youth Worship', everyone: true,
+  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: 'â›ª', team: 'Youth Worship', everyone: true,
     description: 'Planning a youth-led service' },
   { url: 'stickynotes.html', title: "Idea's pin board", icon: '\u{1F4CC}', team: 'Worship Team', everyone: true,
     description: 'Song suggestions and ideas' },
@@ -1606,14 +1684,14 @@ const REGISTRY = [
 
   { url: 'Coreteamcharter.html', title: 'Core Team', icon: '\u{1F4DC}', team: 'Core Team',
     description: 'How the core team work' },
-  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: '✉', team: 'Core Team',
+  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: 'âœ‰', team: 'Core Team',
     description: 'Write and send to a team' },
   /* One file holds every department's rota, so it belongs to all of them.
      adminOnly keeps it off an ordinary member's hub - it sends email. */
   { url: 'Planner.html', title: 'Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
     teams: ['Core Team', 'Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
     description: 'Build and send the rota' },
-  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: '⛪', team: 'Core Team',
+  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: 'â›ª', team: 'Core Team',
     description: 'Plan the running order' },
   { url: 'addressbook.html', title: 'Address Book', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
     description: 'People, households and teams' },
@@ -1659,8 +1737,11 @@ const REGISTRY = [
   { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Core Team', hidden: true,
     description: 'Practice copies of the main tools' },
   /* Still the only editor for the news feed, so it cannot go yet. */
-  { url: 'EGBCWorship&AV.html', title: 'Worship & AV Hub (old)', icon: '\u{1F310}', team: 'Core Team', adminOnly: true,
-    description: 'The old portal - still the only news editor' },
+  /* Not "(old)" any more (Step N). It is a v2 page, and the word made it read
+     as something left behind rather than the thing that still edits the news.
+     Named for what it does. */
+  { url: 'EGBCWorship&AV.html', title: 'Worship & AV Hub', icon: '\u{1F310}', team: 'Core Team', adminOnly: true,
+    description: 'The dashboard and the news board' },
   { url: 'index.html', title: 'Availability Form', icon: '\u{1F4CB}', team: 'Core Team',
     description: 'The public form - this is the link to send out' },
 
@@ -1721,7 +1802,7 @@ async function checkRegistryLinks() {
     if (btn) btn.textContent = was;
     if (!bad.length) { alert(`All ${urls.length} links work.`); return; }
     alert(`${bad.length} of ${urls.length} do not load:\n\n` +
-      bad.map(u => '• ' + u).join('\n') +
+      bad.map(u => 'â€¢ ' + u).join('\n') +
       '\n\nUsually the filename is spelt or capitalised differently in the repo. ' +
       'Edit the entry rather than deleting it.');
   } catch (e) {
@@ -1763,7 +1844,7 @@ async function seedRegistry() {
   let msg = `${missing.length} page${missing.length === 1 ? '' : 's'} not yet registered.\n\n`;
   if (bad.length) {
     msg += `${bad.length} of them did not load and will be SKIPPED:\n` +
-           bad.map(u => '• ' + u).join('\n') +
+           bad.map(u => 'â€¢ ' + u).join('\n') +
            '\n\nThat is almost always a filename spelt differently in the repo.\n\n';
   }
   if (!good.length) { alert(msg + 'Nothing left to add.'); return; }
@@ -1901,7 +1982,7 @@ window.openMyCalendar = async function () {
   const box = document.getElementById('calendarModal');
   if (box) box.classList.add('open');
   const out = document.getElementById('calendarBody');
-  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Getting your link…</p>';
+  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Getting your linkâ€¦</p>';
   try {
     const link = await askForCalendarLink(false);
     showCalendarLink(link);
@@ -1989,7 +2070,7 @@ window.resetMyCalendar = async function () {
                'Anything already in your calendar from it stays there until you remove that ' +
                'subscription on your phone or computer, and you add the new one.')) return;
   const out = document.getElementById('calendarBody');
-  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Making a new link…</p>';
+  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Making a new linkâ€¦</p>';
   try {
     showCalendarLink(await askForCalendarLink(true));
   } catch (e) {
@@ -2026,93 +2107,96 @@ function renderTools() {
 
   const q = (document.getElementById('toolSearch').value || '').toLowerCase();
 
-  let tools = [];
-  try {
-    tools = visibleTools().filter(p =>
-      !q || ((p.title || '') + ' ' + (p.description || '')).toLowerCase().includes(q));
-  } catch (e) {
-    console.error('Tools render failed', e);
+  /* The Menu is the structure Martin approved, from egbc-menu.js - names,
+     order and headings as the original portal has them. It is not built from
+     the registry any more: the registry said which pages EXIST and said
+     nothing about where they belong, so the Menu grouped them by team, which
+     is not how anybody looks for anything. The registry still decides what is
+     switched on; this decides where it sits.
 
-    /* Work out which entry is at fault, so this is fixable rather than just
-       reported. */
-    let culprit = '';
-    for (const p of PAGES) {
-      try { visibleOne(p); }
-      catch (x) { culprit = `${p.title || '(no title)'} - ${JSON.stringify(p).slice(0, 160)}`; break; }
+     The Apps group has gone: those are the same pages twice, and "add to your
+     phone" is explained on Apps and downloads. */
+  const who = EGBCMenu.who();
+  const registry = {};
+  PAGES.forEach(p => { if (p.url) registry[String(p.url).toLowerCase()] = p; });
+
+  /* A page an admin has switched off stays off, wherever it sits in here. */
+  const switchedOff = (url) => {
+    const p = registry[String(url || '').toLowerCase()];
+    return !!(p && p.enabled === false);
+  };
+
+  const matches = (node) =>
+    !q || ((node.title || '') + ' ' + (node.description || '')).toLowerCase().includes(q);
+
+  /* Searching looks through the whole tree and keeps a heading only when
+     something under it matched. */
+  function filterTree(nodes) {
+    const out = [];
+    for (const n of nodes) {
+      if (n.url && switchedOff(n.url)) continue;
+      const kids = n.children ? filterTree(n.children) : null;
+      const keep = matches(n) || (kids && kids.length);
+      if (!keep) continue;
+      out.push(kids && kids.length ? Object.assign({}, n, { children: kids })
+                                   : Object.assign({}, n, { children: undefined }));
     }
-
-    el.innerHTML = `<div class="empty"><div class="t">Could not build the list</div>
-      <div style="font-size:11px;font-weight:600;margin-top:8px">${esc(e.message)}</div>
-      <div style="font-size:10px;margin-top:6px;opacity:.7">build ${HUB_BUILD} &middot; ${PAGES.length} registered</div>
-      ${culprit ? `<div style="font-size:10px;margin-top:8px;text-align:left;word-break:break-all">${esc(culprit)}</div>` : ''}
-    </div>`;
-    return;
+    return out;
   }
 
-  console.info(`Tools: ${PAGES.length} registered, ${tools.length} visible, team ${TEAM}`);
+  const tree = filterTree(EGBCMenu.forPerson(who));
+  console.info(`Menu: ${EGBCMenu.allPages().length} pages in the structure, ${tree.length} top-level for this person`);
 
-  if (!tools.length) {
+  if (!tree.length) {
     el.innerHTML = `<div class="empty"><div class="i"><i data-lucide="search-x" style="width:28px;height:28px"></i></div>
-      <div class="t">${q ? 'Nothing matches' : 'Nothing here'}</div>
-      ${!q ? `<div style="font-size:12px;font-weight:600;margin-top:10px;line-height:1.6">
-        ${PAGES.length
-          ? `${PAGES.length} registered, but none for <strong>${esc(TEAM || 'this team')}</strong>.`
-          : 'Nothing is registered yet.'}
-        ${EGBCAuth.isAdmin() ? '<br>Open <strong>Administration</strong> (the cog) and go to <strong>Pages</strong>.' : ''}</div>` : ''}
-    </div>`;
+      <div class="t">${q ? 'Nothing matches' : 'Nothing here'}</div></div>`;
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
     return;
   }
 
-  const byTeam = {};
-  tools.forEach(p => {
-    const key = p.everyone ? '__help' : p.team;
-    (byTeam[key] = byTeam[key] || []).push(p);
-  });
+  /* One row, whether it is a page or a heading that is also a page. */
+  const row = (n, depth) => `<a class="tool" href="${esc(n.url)}" title="${esc(n.description || '')}" style="${depth ? 'padding-left:' + (14 + depth * 14) + 'px' : ''}">
+      <span class="ic"><i data-lucide="${esc(n.icon || 'file')}" style="width:18px;height:18px"></i></span>
+      <span class="tx"><span class="nm">${esc(n.title)}</span><span class="ds">${esc(n.description || '')}</span></span>
+    </a>`;
 
-  /* Current team first, help last. */
-  const order = Object.keys(byTeam).sort((a, b) => {
-    const rank = k => k === '__help' ? 0 : (k === TEAM ? 1 : 2);
-    return rank(a) - rank(b);
-  });
+  /* A heading inside a group: its own line, then its children indented. A
+     heading that is also a page gets a row of its own first, so Worship & AV
+     still opens the charter the way it does on the original. */
+  function inner(nodes, depth) {
+    return nodes.map(n => {
+      if (!n.children) return row(n, depth);
+      return `<div class="sub" style="padding-left:${14 + depth * 14}px">${esc(n.title)}</div>
+        ${n.url ? row(n, depth + 1) : ''}
+        ${inner(n.children, depth + 1)}`;
+    }).join('');
+  }
 
-  /* One group open at a time - the team you are in. Everything expanded at
-     once is the wall of text this replaced. Searching opens them all. */
-  /* Apps first. The hub has its own Menu - it does not load the shell -
-     so this is the same heading drawn from the same list. */
-  const appsGroupHtml = (() => {
-    if (q) return '';
-    const apps = ((window.EGBCUI && EGBCUI.APPS) || []).filter(a => {
-      const p = PAGES.filter(x => decodeURIComponent(String(x.url || '')).toLowerCase() === a.url.toLowerCase())[0];
-      return p ? visibleOne(p) : true;
-    });
-    if (!apps.length) return '';
-    return `<button class="grp open" onclick="toggleGroup(this)">
-        <span class="arw"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
-        <span class="dot" style="background:#3d6263"></span>
-        <span>Apps</span>
-        <span class="cnt">${apps.length}</span>
-      </button>
-      <div class="grp-body open">${apps.map(a => `<a class="tool" href="${esc(a.url)}" title="${esc(a.description || '')}">
-        <span class="ic"><i data-lucide="${esc(a.icon)}" style="width:18px;height:18px"></i></span>
-        <span class="tx"><span class="nm">${esc(a.title)}</span><span class="ds">${esc(a.description || '')}</span></span>
-      </a>`).join('')}</div>`;
-  })();
-
-  el.innerHTML = appsGroupHtml + order.map((team, i) => {
-    const c = team === '__help'
-      ? { label: 'Everyone', colour: '#6b8281' }
-      : (EGBCAuth.TEAMS[team] || { label: team, colour: '#6b8281' });
-    const open = q ? true : (team === TEAM || (i === 0 && !order.includes(TEAM)));
-    return `<button class="grp ${open ? 'open' : ''}" onclick="toggleGroup(this)">
-        <span class="arw"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
-        <span class="dot" style="background:${c.colour}"></span>
-        <span>${esc(c.label)}</span>
-        <span class="cnt">${byTeam[team].length}</span>
-      </button>
+  el.innerHTML = tree.map((n, i) => {
+    if (!n.children) return row(n, 0);
+    /* Open: whatever matched a search, and otherwise Core Team for Core Team,
+       Worship & AV for everybody else - the section each person lives in. */
+    const open = q ? true : (who.isCore ? n.title === 'Core Team' : i === 4);
+    const count = inner(n.children, 0).split('class="tool"').length - 1;
+    /* A heading that is ALSO a page - Worship & AV, Youth, Core Team - opens
+       its charter, as on the original. So the words are a link and the arrow
+       is what expands it. Drawing the charter as a row inside as well put the
+       same name on the screen twice, one above the other, which is how the
+       Menu got confusing in the first place. */
+    const head = n.url
+      ? `<a class="grp-link" href="${esc(n.url)}" title="${esc(n.description || '')}">${esc(n.title)}</a>`
+      : `<span>${esc(n.title)}</span>`;
+    return `<div class="grp ${open ? 'open' : ''}">
+        <button class="arw" onclick="toggleGroup(this.parentElement)" aria-label="Show or hide ${esc(n.title)}"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></button>
+        <span class="dot" style="background:var(--brand)"></span>
+        ${head}
+        <span class="cnt">${count}</span>
+      </div>
       <div class="grp-body ${open ? 'open' : ''}">
-        ${nestTools(byTeam[team])}
+        ${inner(n.children, 0)}
       </div>`;
   }).join('');
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
 
 /* The imported menu nests - Worship > Music Databases > Music Database. Keep
@@ -2308,7 +2392,7 @@ const SEND_FUNCTION_URL='https://sendemail-irkwdhx3xq-uc.a.run.app';
 
 async function loadPeople(){
   const list=document.getElementById('peopleList');
-  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loading…</div>';
+  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loadingâ€¦</div>';
   try{
     const [users,book]=await Promise.all([
       db.collection('users').orderBy('email').get(),
@@ -2336,7 +2420,7 @@ function renderPeople(){
   if(noTeams.length)bits.push(`${noTeams.length} ${noTeams.length===1?'person has':'people have'} no teams ticked`);
   if(bits.length){
     banner.classList.remove('hidden');
-    banner.querySelector('span').textContent=bits.join(' · ')+'.';
+    banner.querySelector('span').textContent=bits.join(' Â· ')+'.';
   }else banner.classList.add('hidden');
 
   const shown=PEOPLE
@@ -2377,8 +2461,8 @@ function renderPeople(){
         : 'They signed in with an address the address book does not hold. Pick their record and it will be remembered.'}</div>
       <div class="flex gap-2 flex-wrap">
         <select id="link-${p.id}" class="flex-grow min-w-[200px] px-4 py-2.5 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[12px]">
-          <option value="">Choose a person…</option>
-          ${BOOK.map(m=>`<option value="${m.id}">${esc(m.name||'(no name)')}${Array.isArray(m.markers)&&m.markers.includes('Core Team')?' [ADMIN]':''}${m.email?' — '+esc(m.email):''}</option>`).join('')}
+          <option value="">Choose a personâ€¦</option>
+          ${BOOK.map(m=>`<option value="${m.id}">${esc(m.name||'(no name)')}${Array.isArray(m.markers)&&m.markers.includes('Core Team')?' [ADMIN]':''}${m.email?' â€” '+esc(m.email):''}</option>`).join('')}
         </select>
         <button onclick="linkPerson('${p.id}',document.getElementById('link-${p.id}').value)" class="bg-[#3d6263] text-white px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Link</button>
       </div>
@@ -2537,14 +2621,14 @@ function renderPagesList(){
       : (Array.isArray(p.teams) && p.teams.length>1
           ? p.teams.map(t=>(EGBCAuth.TEAMS[t]||{label:t}).label).join(' + ')
           : cfg.label);
-    const why = p.helpFor ? ` · help for ${p.helpFor}`
-      : (isCharterPage(p.url) ? ' · on the landing page'
-      : (MOBILE_APPS.includes((p.url||'').toLowerCase()) ? ' · phone app' : ''));
+    const why = p.helpFor ? ` Â· help for ${p.helpFor}`
+      : (isCharterPage(p.url) ? ' Â· on the landing page'
+      : (MOBILE_APPS.includes((p.url||'').toLowerCase()) ? ' Â· phone app' : ''));
     return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${p.enabled===false?'opacity-50':''}">
-      <span class="text-lg">${esc(p.icon||'📄')}</span>
+      <span class="text-lg">${esc(p.icon||'ðŸ“„')}</span>
       <div class="flex-grow min-w-0">
         <div class="font-bold text-sm truncate">${esc(p.title)}</div>
-        <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(seen)}${p.adminOnly?' · admin only':''}${esc(why)}${p.enabled===false?' · hidden':''}</div>
+        <div class="text-[10px] opacity-50">${esc(p.url)} Â· ${esc(seen)}${p.adminOnly?' Â· admin only':''}${esc(why)}${p.enabled===false?' Â· hidden':''}</div>
       </div>
       <button onclick="editPage('${p.id}')" class="bg-white border border-[#dde7e6] px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
     </div>`;
@@ -2594,7 +2678,7 @@ async function savePage(){
     title:document.getElementById('pgTitle').value.trim(),
     url:document.getElementById('pgUrl').value.trim(),
     description:document.getElementById('pgDesc').value.trim(),
-    icon:document.getElementById('pgIcon').value.trim()||'📄',
+    icon:document.getElementById('pgIcon').value.trim()||'ðŸ“„',
     team:document.getElementById('pgTeam').value,
     adminOnly:document.getElementById('pgAdminOnly').checked,
     order:parseInt(document.getElementById('pgOrder').value,10)||0,
@@ -2647,7 +2731,7 @@ function parentFor(member){
 
 async function loadYouth(){
   const list=document.getElementById('youthList');
-  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loading…</div>';
+  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loadingâ€¦</div>';
   if(!BOOK.length)await loadPeople();
 
   try{
@@ -2674,9 +2758,9 @@ function fillYouthPicker(){
     document.getElementById('youthTo').innerHTML='Tick <strong>Under 16</strong> against young people in the address book and they will appear here.';
     return;
   }
-  sel.innerHTML='<option value="">Choose a young person…</option>'+people.map(m=>{
+  sel.innerHTML='<option value="">Choose a young personâ€¦</option>'+people.map(m=>{
     const p=parentFor(m);
-    return `<option value="${m.id}"${p?'':' disabled'}>${esc(m.name||'(no name)')}${p?'':' — no parent email'}</option>`;
+    return `<option value="${m.id}"${p?'':' disabled'}>${esc(m.name||'(no name)')}${p?'':' â€” no parent email'}</option>`;
   }).join('');
   sel.onchange=()=>{
     const m=BOOK.find(x=>x.id===sel.value);
@@ -2717,7 +2801,7 @@ function renderYouth(){
     return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${g.active===false?'opacity-50':''}">
       <div class="flex-grow min-w-0">
         <div class="font-bold text-sm truncate">${esc(g.memberName||'(unknown)')}</div>
-        <div class="text-[10px] opacity-50">${g.redeemedAt?'Used':'Sent'} · to ${esc(g.sentTo||'')}</div>
+        <div class="text-[10px] opacity-50">${g.redeemedAt?'Used':'Sent'} Â· to ${esc(g.sentTo||'')}</div>
       </div>
       <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${tone}">${badge}</span>
       ${g.active!==false?`<button onclick="revokeGrant('${g.code}')" class="text-[9px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">Revoke</button>`:''}
@@ -2790,7 +2874,7 @@ async function sendCode(){
 
   if(!confirm(`Email an access code for ${member.name} to ${parent.email}?`))return;
 
-  const btn=document.getElementById('sendCodeBtn');btn.disabled=true;btn.textContent='Sending…';
+  const btn=document.getElementById('sendCodeBtn');btn.disabled=true;btn.textContent='Sendingâ€¦';
   try{
     await issueCode(member,parent);
     sel.value='';document.getElementById('youthTo').innerHTML='';
