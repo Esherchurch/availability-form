@@ -58,20 +58,21 @@
 
   /* The header for the public hire pages: logo and name, and a way back
      to the list of rooms. Nothing from the members' side. */
+  var ICON = { back: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>', hub: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>' };
   function header(el, o) {
     o = o || {};
     el.innerHTML = '<div class="ch-in">' +
       (D.logoUrl ? '<img class="ch-logo" src="' + esc(D.logoUrl) + '" alt="">' : '') +
       '<span class="ch-name">' + esc(D.name || 'Rooms for hire') + '</span>' +
       '<span class="ch-hub"></span>' +
-      (o.back ? '<a class="ch-back" href="hire.html">&larr; Back to all rooms</a>' : '') + '</div>';
+      (o.back ? '<a class="ch-back" href="hire.html">' + ICON.back + 'Back to all rooms</a>' : '') + '</div>';
     /* Martin (F-062): someone already signed in to the hub gets a way back
        to it. The public never see it - it appears only once the browser
        says a person is signed in, and this never asks anyone to sign in. */
     try {
       firebase.auth(firebase.app('egbc')).onAuthStateChanged(function (u) {
         var h = el.querySelector('.ch-hub'); if (!h) return;
-        h.innerHTML = u ? '<a class="ch-back" href="hub.html" id="ch-hub">Back to the hub</a>' : '';
+        h.innerHTML = u ? '<a class="ch-back" href="hub.html" id="ch-hub">' + ICON.hub + 'Back to the hub</a>' : '';
       });
     } catch (e) { /* no sign-in on this page: nothing to show */ }
   }

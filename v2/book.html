@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
-<script src="egbc-church.js?v=202610091200"></script>
+<script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-email.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
@@ -47,7 +47,9 @@
   .ch-in{max-width:1000px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .ch-logo{width:32px;height:32px;object-fit:contain;border-radius:6px}
   .ch-name{font-size:15px;font-weight:600;color:var(--ink);flex:1;min-width:0}
-  .ch-back{font-size:13px;font-weight:500;color:var(--brand);text-decoration:none}
+  /* Marked out as buttons, so they read as things to click (F-067). */
+  .ch-back{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;background:#fff;font-size:13px;font-weight:500;color:var(--brand);text-decoration:none}
+  .ch-back:hover{background:var(--tint)}
 </style>
 </head>
 <body>
