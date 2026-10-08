@@ -292,6 +292,11 @@ const READ_MENU = `(() => {
     }
   }
 
+  /* Take the stale row out again. Leaving it behind made check-hub-tools.mjs
+     report the retired page as missing from v2 on its next run - a true
+     statement about data this check had planted. */
+  await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/hubPages/stale_portal_row');
+
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
   process.exit(R.some(v => !v) ? 1 : 0);

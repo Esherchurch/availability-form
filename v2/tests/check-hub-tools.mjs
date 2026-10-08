@@ -197,7 +197,19 @@ const ok = (n, v, x) => { R.push(v); console.log('  ' + (v ? 'PASS  ' : 'FAIL  '
 
   const has = (text, title) => text.toLowerCase().includes(title.toLowerCase());
   const onOrig = wanted.filter(p => has(orig.text, p.title));
-  const missingFromV2 = onOrig.filter(p => !has(v2.text, p.title));
+  /* Pages v2 is meant not to offer, and why. A page in here is a decision, not
+     a loss: without this the check reports the retired dashboard page every
+     run and the report trains people to ignore it.
+     Keyed on the url, because titles are the thing most likely to change. */
+  const RETIRED_ON_PURPOSE = {
+    'egbcworship&av.html':
+      'the hub does everything it did - 17a. The file stays for the phone app.'
+  };
+  const retired = p => RETIRED_ON_PURPOSE[String(p.url || '').toLowerCase()];
+  const missingFromV2 = onOrig.filter(p => !has(v2.text, p.title) && !retired(p));
+  const onPurpose = onOrig.filter(p => !has(v2.text, p.title) && retired(p));
+  if (onPurpose.length) console.log('not offered, on purpose : ' +
+    onPurpose.map(p => p.title + ' - ' + retired(p)).join('; '));
   const extraInV2 = wanted.filter(p => !has(orig.text, p.title) && has(v2.text, p.title));
 
   console.log('the original hub offers : ' + onOrig.length + ' of the ' + wanted.length + ' registered');

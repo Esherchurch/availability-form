@@ -609,3 +609,92 @@ registry — and it is Martin's to delete from Administration → Pages.
 link on the hub, for all three people, and fails if any of them points at the
 old page. Proved by putting the page back into `egbc-menu.js` on purpose: the
 check failed, for all three.
+
+---
+
+# Step N2b — the home page on one screen
+
+Martin: *"this needs to see everything in one. you have to scroll quite a way
+down to see the team charter. The widgets can be smaller. Maybe make the
+latest news a pop out rather than fixed if that frees up page real estate?"*
+
+## Where it started and where it is
+
+Measured by `tests/check-home-fits.mjs` on a deliberately full page — six rota
+events, four meetings, five pin notes, a five-heading charter, six notices.
+A page that only fits when there is nothing on it has not been fixed.
+
+| | before | after |
+|---|---|---|
+| page height at 1440×900 | 1404px (fold at 780) | **780px — nothing below the fold** |
+| page height at 1920×1080 | 1464px (fold at 960) | **960px — nothing below the fold** |
+| banner | 180px | 96px |
+| the charter starts at | not drawn in the first screen at all | 450px, on the first screen |
+
+## What changed, and what did not
+
+**Nothing was removed.** Every card is still on the page; three are smaller and
+one is folded.
+
+- **The banner** is 96px instead of 180px, with smaller type to match.
+- **Latest is a pop-out.** It was a fixed 340px column. It is now a button in
+  the top bar with a count of the notices this person has not opened, and a
+  panel that slides in from the right. Same card, same scroller, same editing.
+  The count is kept in the browser, not the database: it is a convenience, and
+  putting it in `users/{uid}` would mean changing the rules on the document
+  that decides who can sign in at all. A notice with "ask people to confirm
+  they have read it" keeps its own, stronger record, untouched by this.
+- **My serving** shows the next three. "The whole rota" was already in its
+  header and is how you see the rest.
+- **Video meetings** is one row — the next meeting — unless something is today
+  or tomorrow, when it opens out and shows them all. A line reading "N more
+  coming up" goes to the full list.
+- **The pin board** shows the newest three.
+- **The charter** is folded to its section headings. Each heading opens its own
+  section; "Open them all" opens the lot; "Open full page" is unchanged.
+
+## Two columns, not a grid of rows
+
+The first attempt put the cards in a CSS grid of rows. A row grid makes every
+row as tall as its tallest card, so a 163px Video meetings card sat in a 320px
+hole beside My serving and the page was 200px taller than it needed to be.
+The cards are now in two columns that fill independently.
+
+On a phone the columns stop being boxes (`display:contents`) and the cards
+become children of one flex column, where `order` puts them in the order 17b
+asks for: **My serving, Meetings, Pin board, Charter**. The check reads their
+positions at 375px and compares.
+
+## Three things the check caught in itself
+
+Worth writing down, because each would have made the measurement a lie.
+
+1. **It seeded the charter under two invented document ids**, neither of which
+   was the one `CHARTER_PAGE` names (`wider-worship-charter`). The card was not
+   drawn, and the check reported "no charter card drawn" — true, and the
+   check's fault, not the page's.
+2. **It wrote each notice twice** — once with its text, then a second REST
+   PATCH to add `createdAt`. A PATCH with no `updateMask` *replaces* the
+   document, so every notice lost its title and the panel showed six blank
+   cards.
+3. **"The count goes once they have been seen" passed while there was no
+   Latest button at all**, because it only asked whether the button's text had
+   a digit in it. It now insists the button exists first.
+
+## Proof
+
+- `tests/check-home-fits.mjs` — 18 checks. **18/18.**
+- Screenshots in `tests/shots/`: `home--1440x900.png`, `home--1920x1080.png`,
+  `home--375.png`, `home--latest-open.png`.
+- Proved by deliberate break: putting the banner back to 260px and the widgets
+  back into one column failed "the whole home page is above the fold" at both
+  sizes, "the banner is about 100px" at both, and "the charter is on the first
+  screen". The pop-out and the phone-order checks had already failed for real
+  on the first run, before any of this was built.
+- Regression: `check-menu` 21/21, `check-pinboard-card` 12/12,
+  `check-news-features` 29/29, `check-hub-tools` 3/3, `check-icon-buttons` 4/4,
+  `check-style-every-screen` 0 problems, `check-calendar-end-to-end` 11/11,
+  `check-rota-feed` 27/27, `check-news-dashboard` 8/8, `check-old-kids-roles`
+  5/5, `check-late-handlers` clean, `check-links-stay-in-v2` clean,
+  `smoke-all-pages` 125/128 — the three being A-019 (two pages still on
+  Montserrat) and a logo that is not in a freshly started Storage emulator.

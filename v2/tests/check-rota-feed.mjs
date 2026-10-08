@@ -1,11 +1,16 @@
 /* The live rota calendar: does a person's feed hold their slots, and only
  * theirs?
  *
- *   firebase emulators:exec --only firestore,auth,functions --project egbc-worship-planner ^
- *     "node tests/check-rota-feed.mjs"
+ *   set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec ^
+ *     --config firebase.spare.json --only firestore,auth,functions ^
+ *     --project egbc-worship-planner "node tests/check-rota-feed.mjs"
  *
  * (from v2/. The functions emulator has to be up, so this one brings its own
- * emulators rather than using the dev ones.)
+ * emulators - on the SPARE ports, so it can run while the dev emulators are
+ * up. The line above used to leave out both the config and the port, and the
+ * check then talked to whichever emulator happened to be on the dev ports:
+ * once that was a different dataset, and it reported the function refusing a
+ * person it had never been told about.)
  *
  * WHAT IT IS FOR. The link in a subscribe URL cannot be protected by signing
  * in - a calendar app has no way to sign in - so the key in it IS the

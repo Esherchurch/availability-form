@@ -410,7 +410,34 @@ async function loadCharter() {
   document.getElementById('charterTitle').textContent = (d && d.title) || `${c.label} charter`;
   /* The charter text starts with its own heading, which would repeat the
      title above it. Drop the first one. */
-  body.innerHTML = stripLeadingHeading(safeHtml(CHARTER_HTML));
+  const cardTitle = document.getElementById('charterTitle').textContent;
+  const clean = stripLeadingHeading(safeHtml(CHARTER_HTML), cardTitle);
+
+  /* 17b: folded to its section headings. Martin: "you have to scroll quite a
+     way down to see the team charter" - it was the tallest thing on the page
+     by a long way. Each heading opens its own section; nothing is taken away,
+     it is put away. A charter with no headings has nothing to fold, so it
+     keeps the old "Read it all". */
+  const secs = charterSections(clean);
+  if (secs.length > 1) {
+    body.classList.remove('short');
+    body.innerHTML = secs.map((s, i) =>
+      `<div class="chsec">
+        <button class="chsec-h" onclick="toggleCharterSection(${i})" aria-expanded="false">
+          <span>${esc(s.heading)}</span>
+          <i data-lucide="chevron-down" style="width:16px;height:16px"></i>
+        </button>
+        <div class="chsec-b rich" id="chsec${i}" hidden>${s.html}</div>
+      </div>`).join('');
+    more.style.display = '';
+    more.textContent = 'Open them all';
+    CHARTER_OPEN = false;
+    card.style.display = '';
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+    return;
+  }
+
+  body.innerHTML = clean;
   body.classList.add('short');
   card.style.display = '';
 
@@ -420,18 +447,67 @@ async function loadCharter() {
   });
 }
 
+/* The charter, cut at its headings. Anything before the first heading is kept
+   under the heading "In short", so a charter that opens with a paragraph does
+   not quietly lose it. */
+function charterSections(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const out = [];
+  let cur = null;
+  [...doc.body.children].forEach(el => {
+    if (/^H[1-3]$/.test(el.tagName)) {
+      cur = { heading: (el.textContent || '').trim() || 'More', html: '' };
+      out.push(cur);
+      return;
+    }
+    if (!cur) {
+      if (!(el.textContent || '').trim()) return;
+      cur = { heading: 'In short', html: '' };
+      out.push(cur);
+    }
+    cur.html += el.outerHTML;
+  });
+  return out.filter(s => s.heading);
+}
+
+function toggleCharterSection(i) {
+  const b = document.getElementById('chsec' + i);
+  if (!b) return;
+  const open = b.hasAttribute('hidden');
+  if (open) b.removeAttribute('hidden'); else b.setAttribute('hidden', '');
+  const h = b.previousElementSibling;
+  if (h) { h.setAttribute('aria-expanded', open ? 'true' : 'false'); h.classList.toggle('on', open); }
+}
+
 let CHARTER_HTML = '';
 
-function stripLeadingHeading(html) {
+function stripLeadingHeading(html, title) {
   const d = new DOMParser().parseFromString(html, 'text/html');
   const first = d.body.firstElementChild;
-  if (first && /^H[1-3]$/.test(first.tagName)) first.remove();
+  if (!first || !/^H[1-3]$/.test(first.tagName)) return d.body.innerHTML;
+  /* Only if it says the same thing as the title above it. A charter whose
+     first heading is a section of its own keeps it: folding the charter made
+     that difference matter, because a dropped heading took its section's
+     name with it. */
+  const same = (s) => String(s || '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase();
+  if (title === undefined || same(first.textContent) === same(title)) first.remove();
   return d.body.innerHTML;
 }
 
 function toggleCharter() {
   CHARTER_OPEN = !CHARTER_OPEN;
-  document.getElementById('charterBody').classList.toggle('short', !CHARTER_OPEN);
+  const body = document.getElementById('charterBody');
+  const secs = body.querySelectorAll('.chsec-b');
+  if (secs.length) {
+    secs.forEach((b, i) => {
+      if (CHARTER_OPEN) b.removeAttribute('hidden'); else b.setAttribute('hidden', '');
+      const h = b.previousElementSibling;
+      if (h) { h.setAttribute('aria-expanded', CHARTER_OPEN ? 'true' : 'false'); h.classList.toggle('on', CHARTER_OPEN); }
+    });
+    document.getElementById('charterMore').textContent = CHARTER_OPEN ? 'Close them all' : 'Open them all';
+    return;
+  }
+  body.classList.toggle('short', !CHARTER_OPEN);
   document.getElementById('charterMore').textContent = CHARTER_OPEN ? 'Show less' : 'Read it all';
 }
 
@@ -796,7 +872,15 @@ function renderMeetings() {
   if (!box) return;
   const today = new Date().toISOString().split('T')[0];
   const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
-  const rows = MEETINGS.slice(0, 5).map(ev => {
+  /* 17b: "Video meetings is a single row unless one is coming up." Normally
+     the next one is all anybody needs; when something is today or tomorrow
+     the card opens out and shows all of them, because that is when it
+     matters. "All rooms" in the header is still the way to everything. */
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const soon = MEETINGS.filter(ev => ev.date <= tomorrow);
+  const shown = soon.length ? soon.slice(0, 5) : MEETINGS.slice(0, 1);
+  const more = MEETINGS.length - shown.length;
+  const rows = shown.map(ev => {
     const link = `meeting.html?room=${encodeURIComponent(videoRoomFor(ev))}&event=${encodeURIComponent(ev.id)}`;
     const d = new Date(ev.date + 'T12:00');
     const mon = d.toLocaleDateString('en-GB', { month: 'short' });
@@ -825,6 +909,7 @@ function renderMeetings() {
       </div>
       <div class="cb" style="padding-top:6px;padding-bottom:14px">
         ${rows}${none}
+        ${more > 0 ? `<a href="meeting.html" style="display:block;font-size:13px;color:var(--brand);text-decoration:none;padding:6px 0">${more} more coming up</a>` : ''}
         <div class="note">Type your name and knock &mdash; the host will let you in.</div>
       </div>
     </div>`;
@@ -862,7 +947,7 @@ async function renderPinBoardCard() {
     notes = ((snap.exists && snap.data().notes) || [])
       .filter(n => n && !n.archived)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-      .slice(0, 4);
+      .slice(0, 3);
   } catch (e) {
     /* Not being able to read the board is not a reason to lose the card: the
        two buttons are the point of it. */
@@ -1133,8 +1218,10 @@ function myServing() {
       if (people.some(p => p && p.id === mid)) out.push({ ev, role });
     });
   });
+  /* 17b: the next three. "The whole rota" in the card's header is how you
+     get the rest, and it was always there. */
   return out.sort((a, b) => (a.ev.date + (a.ev.startTime || '')).localeCompare(b.ev.date + (b.ev.startTime || '')))
-    .slice(0, 6);
+    .slice(0, 3);
 }
 
 function renderServing() {
@@ -1267,6 +1354,7 @@ function renderNews() {
   if (!rest.length) {
     track.innerHTML = '<div class="empty"><div class="i"><i data-lucide="megaphone" style="width:28px;height:28px"></i></div><div class="t">Nothing new</div></div>';
     stopNewsScroll();
+    renderLatestCount();
     return;
   }
 
@@ -1277,7 +1365,61 @@ function renderNews() {
   });
 
   track.innerHTML = ordered.map(n => newsCard(n)).join('');
+  renderLatestCount();
+  /* The panel is closed to begin with, so the scroller has no height to
+     measure. It starts when the panel opens. */
+  if (document.getElementById('latestPanel').classList.contains('on')) startNewsScroll();
+}
+
+/* 17b: Latest is a pop-out now, with a count of what this person has not
+   opened. The count is kept in this browser, not in the database: it is a
+   convenience, not a record, and putting it in users/{uid} would mean a rules
+   change on the document that controls who can sign in at all.
+
+   A notice with "ask people to confirm they have read it" has its own,
+   stronger record (ackedBy) and that is untouched by this. */
+const NEWS_SEEN_KEY = 'egbc-hub-news-seen';
+
+function newsSeenAt() {
+  try { return Number(localStorage.getItem(NEWS_SEEN_KEY) || 0) || 0; } catch (e) { return 0; }
+}
+
+function newsMillis(n) {
+  const c = n && n.createdAt;
+  if (!c) return 0;
+  if (typeof c.toMillis === 'function') return c.toMillis();
+  if (c.seconds) return c.seconds * 1000;
+  return Number(c) || 0;
+}
+
+function unreadNews() {
+  const since = newsSeenAt();
+  return NEWS.filter(n => !isNewsExpired(n) && newsMillis(n) > since).length;
+}
+
+function renderLatestCount() {
+  const el = document.getElementById('latestCount');
+  if (!el) return;
+  const n = unreadNews();
+  el.textContent = n > 9 ? '9+' : String(n);
+  el.style.display = n ? '' : 'none';
+}
+
+function openLatest() {
+  document.getElementById('latestPanel').classList.add('on');
+  document.getElementById('latestScrim').classList.add('on');
+  /* Opened is read. The newest notice decides the mark, so a notice posted
+     while the panel is open still counts as unread next time. */
+  const newest = NEWS.reduce((m, n) => Math.max(m, newsMillis(n)), 0);
+  try { localStorage.setItem(NEWS_SEEN_KEY, String(Math.max(newest, newsSeenAt()))); } catch (e) {}
+  renderLatestCount();
   startNewsScroll();
+}
+
+function closeLatest() {
+  document.getElementById('latestPanel').classList.remove('on');
+  document.getElementById('latestScrim').classList.remove('on');
+  stopNewsScroll();
 }
 
 function newsCard(n) {

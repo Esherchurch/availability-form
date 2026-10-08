@@ -12,6 +12,13 @@ Run every one of these from `v2/`, not from here.
 | A Kids Church role stored under its old name survives a save | `node tests/check-old-kids-roles.mjs` |
 | v2's hub still offers every page the original's hub offers | `node tests/check-hub-tools.mjs` |
 | Every control still reads as a control, now the emoji have gone | `node tests/check-icon-buttons.mjs` |
+| The Menu is the one Martin approved, read as three different people | `node tests/check-menu.mjs` (add `--shots`) |
+| The pin board card is on the page people land on | `node tests/check-pinboard-card.mjs` (add `--shots`) |
+| No page links out of v2, and every email link is a full v2 address | `node tests/check-links-stay-in-v2.mjs` |
+| The hub's news does everything the portal's news panel does | `node tests/check-news-features.mjs` (add `--shots`) |
+| The home page fits on one screen, and the phone order is right | `node tests/check-home-fits.mjs` (add `--shots`) |
+| A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
+| "My calendar" works through the browser, end to end | `node tests/check-calendar-end-to-end.mjs` |
 | The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |

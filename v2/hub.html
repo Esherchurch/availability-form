@@ -93,20 +93,65 @@
   .wrap>div{min-width:0}
 
   /* ---- page ---- */
-  .top{max-width:1180px;margin:0 auto;padding:24px 20px 0}
-  .hero{position:relative;min-height:180px;display:flex;align-items:flex-end;padding:28px 30px;overflow:hidden;background:var(--brand);border-radius:14px}
+  .top{max-width:1180px;margin:0 auto;padding:14px 20px 0}
+  .hero{position:relative;min-height:96px;display:flex;align-items:flex-end;padding:16px 24px;overflow:hidden;background:var(--brand);border-radius:14px}
   .hero .bg{position:absolute;inset:0;background-size:cover;background-position:center 30%}
   .hero::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(17,24,39,.78) 0%,rgba(17,24,39,.45) 55%,rgba(17,24,39,.15) 100%);pointer-events:none}
   .hero .in{position:relative;z-index:1;max-width:720px}
-  .hero h1{font-size:clamp(22px,3.4vw,30px);font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1.15}
-  .hero p{font-size:15px;color:rgba(255,255,255,.85);margin:6px 0 0}
-  .hero .edit{position:absolute;z-index:2;top:14px;right:14px;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
+  .hero h1{font-size:clamp(19px,2.2vw,23px);font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1.2}
+  .hero p{font-size:13px;color:rgba(255,255,255,.85);margin:2px 0 0}
+  .hero .edit{position:absolute;z-index:2;top:10px;right:12px;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
               font:500 13px Inter,sans-serif;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;cursor:pointer}
   .hero .edit:hover{background:rgba(255,255,255,.28)}
 
-  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
-  @media(max-width:900px){.wrap{grid-template-columns:1fr;gap:20px}.top{padding:16px 12px 0}.wrap{padding:16px 12px 48px}.hero{padding:22px}}
+  .wrap{max-width:1180px;margin:0 auto;padding:14px 20px 24px;display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start}
+
+  /* 17b: "this needs to see everything in one." The home page used to be one
+     tall column of full-width cards with the news beside it, so the charter -
+     the thing that says what the team is for - was 1212px down. The news is a
+     pop-out now, which frees its column, and the widgets sit two abreast.
+
+     On a phone this collapses to one column and the order is the DOM order,
+     which is why My serving, Meetings, Pin board and Charter are in that
+     order in the markup: 17b asks for exactly that order on a phone.
+
+     `dense` matters: an empty card is display:none, and without dense a
+     second-column card would leave a hole in the first. */
+  /* TWO REAL COLUMNS, not a grid of rows. A row grid makes each row as tall
+     as its tallest card, so a short Video meetings card sat in a 320px hole
+     beside My serving and the page was 200px taller than it needed to be.
+     Two columns fill independently.
+
+     On a phone the columns stop being boxes (`display:contents`) and the
+     cards become children of one flex column, where `order` puts them in
+     the order 17b asks for: My serving, Meetings, Pin board, Charter. */
+  .home{display:flex;flex-direction:column}
+  .home .hcol{display:contents}
+  .home>div:empty,.hcol>div:empty{display:none}
+  #waitingCard{order:-2} #pinned{order:-1}
+  #servingCard{order:1} #meetingsCard{order:2} #pinBoardCard{order:3}
+  #charterCard{order:4} #myEventsCard{order:5} #bodyCard{order:6} #teamPanels{order:7}
+  @media(min-width:901px){
+    .home{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 16px;align-items:start}
+    .home .hcol{display:block;min-width:0}
+    .home>#teamPanels{grid-column:1/-1}
+  }
+  @media(max-width:900px){.wrap{grid-template-columns:1fr;gap:20px}.top{padding:16px 12px 0}.wrap{padding:16px 12px 48px}.hero{padding:14px 16px}}
   .lab{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 10px}
+
+  /* ---- Latest, as a pop-out (17b) ---- */
+  /* Above the top bar (z-index 95), or the bar covers the panel's own title
+     and its close button - which is how the first version shipped a pop-out
+     you could open and not shut. */
+  .latest{position:fixed;top:0;right:0;bottom:0;width:380px;max-width:92vw;z-index:96;
+    background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(16,24,40,.10);
+    transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column}
+  .latest.on{transform:none}
+  #latestScrim{z-index:94}
+  .latest #newsWrapper{flex:1;min-height:0}
+  .btn .cnt{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;
+    padding:0 5px;margin-left:2px;border-radius:9px;background:var(--brand);color:#fff;
+    font:700 11px Inter,sans-serif}
 
   /* ---- getting about: a tab bar on a phone, a sidebar on a computer ----
      The same five places either way, so nobody has to learn the app twice.
@@ -141,19 +186,19 @@
     body{padding-bottom:72px}
   }
   @media(min-width:1101px){
-    .wrap{grid-template-columns:210px minmax(0,1fr) 340px}
+    .wrap{grid-template-columns:210px minmax(0,1fr)}
     .side{display:block;position:sticky;top:16px;align-self:start}
   }
 
   /* ---- cards ---- */
-  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;box-shadow:var(--sh-sm);margin-bottom:16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 20px;box-shadow:var(--sh-sm);margin-bottom:12px}
   .card.flush{padding:0}
-  .ch{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .ch{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
   .ch h2{font-size:15px;font-weight:600;color:var(--ink);margin:0}
   .ch .ic{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .ch .sp{margin-left:auto;display:flex;gap:6px;align-items:center}
   .ch .sub{font-size:12px;color:var(--muted)}
-  .cb{padding:16px 20px 20px}
+  .cb{padding:12px 16px 14px}
 
   /* ---- pinned ---- */
   .pin{background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:14px;padding:16px 20px;margin-bottom:16px}
@@ -164,6 +209,17 @@
 
   /* ---- rich text ---- */
   .rich{font-size:14px;color:var(--body);line-height:1.65}
+
+  /* ---- the charter, folded to its headings (17b) ---- */
+  .chsec{border-top:1px solid var(--line)}
+  .chsec:first-child{border-top:none}
+  .chsec-h{display:flex;align-items:center;gap:10px;width:100%;padding:7px 2px;background:none;border:none;
+    cursor:pointer;text-align:left;font:600 14px Inter,sans-serif;color:var(--ink)}
+  .chsec-h span{flex:1;min-width:0}
+  .chsec-h i{flex:none;color:var(--muted);transition:transform .15s ease}
+  .chsec-h:hover{color:var(--brand)}
+  .chsec-h.on i{transform:rotate(180deg)}
+  .chsec-b{padding:0 2px 10px}
   .rich h1,.rich h2{font-size:19px;font-weight:700;margin:0 0 8px;letter-spacing:-.01em}
   .rich h3{font-size:15px;font-weight:600;margin:16px 0 4px}
   .rich p{margin:0 0 10px}
@@ -175,11 +231,11 @@
   #charterBody.short{max-height:250px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 72%,transparent)}
 
   /* ---- meetings ---- */
-  .meet{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .meet{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
   .meet:last-child{border-bottom:0}
-  .dt{width:48px;flex-shrink:0;text-align:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .dt{width:42px;flex-shrink:0;text-align:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
   .dt .m{font-size:10px;font-weight:600;color:#fff;background:var(--brand);padding:2px 0;text-transform:uppercase;letter-spacing:.04em}
-  .dt .d{font-size:17px;font-weight:700;color:var(--ink);padding:3px 0;line-height:1.3}
+  .dt .d{font-size:16px;font-weight:700;color:var(--ink);padding:1px 0;line-height:1.25}
   .meet .t{font-weight:600;color:var(--ink)}
   .meet .s{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap}
   .pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;background:var(--ok-50);color:var(--ok)}
@@ -337,6 +393,10 @@
   </a>
   <div class="bar-r">
     <button class="btn" id="teamSwitch" style="display:none" onclick="openTeamPicker()" title="Switch team"></button>
+    <!-- 17b: "Maybe make the latest news a pop out rather than fixed if that
+         frees up page real estate?" It did - it was a 340px column. The count
+         is how many notices this person has not opened yet. -->
+    <button class="btn ghost" id="latestBtn" onclick="openLatest()" title="Latest notices"><i data-lucide="megaphone" style="width:16px;height:16px"></i><span class="hide-sm">Latest</span><span class="cnt" id="latestCount" style="display:none"></span></button>
     <button class="btn primary" onclick="openTools()"><i data-lucide="layout-grid" style="width:16px;height:16px"></i><span class="hide-sm">Menu</span></button>
     <button class="btn ghost" id="editModeBtn" style="display:none" onclick="toggleEditMode()"></button>
     <button class="btn ghost icon" id="adminBtn" style="display:none" onclick="openAdmin()" title="Administration"><i data-lucide="settings" style="width:18px;height:18px"></i></button>
@@ -363,15 +423,12 @@
 
 <div class="wrap">
   <aside class="side" id="sidebar"></aside>
-  <div>
+  <div class="home">
     <div id="waitingCard"></div>
     <div id="pinned"></div>
+
+    <div class="hcol">
     <div id="servingCard"></div>
-    <div id="meetingsCard"></div>
-    <!-- Step N: the pin board, which Martin said was "actually important but
-         buried". Filled by renderPinBoardCard() in hub-app.js. -->
-    <div id="pinBoardCard"></div>
-    <div id="myEventsCard"></div>
 
     <div class="card flush" id="charterCard" style="display:none">
       <div class="ch">
@@ -382,28 +439,45 @@
         </div>
         <div class="sp">
           <button class="btn sm ghost edit-only" id="charterEdit" style="display:none" onclick="editCharter()"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit</button>
+          <button class="btn sm ghost" id="charterMore" onclick="toggleCharter()">Read it all</button>
           <a id="charterLink" class="btn sm ghost" href="#">Open full page<i data-lucide="arrow-up-right" style="width:15px;height:15px"></i></a>
         </div>
       </div>
       <div class="cb">
         <div class="rich" id="charterBody"></div>
-        <button class="btn sm" id="charterMore" style="margin-top:12px" onclick="toggleCharter()">Read it all</button>
       </div>
     </div>
+    </div>
+
+    <div class="hcol">
+    <!-- Step N: the pin board, which Martin said was "actually important but
+         buried". Filled by renderPinBoardCard() in hub-app.js. -->
+    <div id="meetingsCard"></div>
+    <div id="pinBoardCard"></div>
+    <div id="myEventsCard"></div>
 
     <div class="card" id="bodyCard">
       <div class="rich" id="bodyContent"><div class="skel" style="height:15px;width:45%;margin-bottom:12px"></div><div class="skel" style="height:12px;margin-bottom:7px"></div><div class="skel" style="height:12px;width:80%"></div></div>
       <button class="btn sm edit-only" id="bodyEdit" style="display:none;margin-top:14px" onclick="editBody()"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit this</button>
     </div>
 
+    </div>
+
     <div id="teamPanels"></div>
   </div>
+</div>
 
-  <div class="card flush">
+<!-- LATEST (17b): it used to be a 340px column that pushed the charter two
+     screens down. Same card, same scroller, same editing - it just opens
+     when asked for instead of always being there. -->
+<div class="scrim" id="latestScrim" onclick="closeLatest()"></div>
+<aside class="latest" id="latestPanel">
+  <div class="card flush" style="margin:0;border:none;box-shadow:none;height:100%;display:flex;flex-direction:column">
     <div class="ch">
       <div class="ic"><i data-lucide="megaphone" style="width:18px;height:18px"></i></div>
       <h2>Latest</h2>
       <div class="sp">
+        <button class="btn x" onclick="closeLatest()" title="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
         <button class="btn sm ghost edit-only" id="newsAdd" style="display:none" onclick="openNewsEditor()"><i data-lucide="plus" style="width:15px;height:15px"></i>Post</button>
       </div>
     </div>
@@ -411,7 +485,7 @@
       <div id="newsTrack"><div class="skel" style="height:230px;margin:16px"></div></div>
     </div>
   </div>
-</div>
+</aside>
 
 <!-- MENU -->
 <div class="scrim" id="scrim" onclick="closeTools()"></div>
