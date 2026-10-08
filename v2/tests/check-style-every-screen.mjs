@@ -56,7 +56,10 @@ const PROBE = `(() => {
   /* Pictographs, dingbats and the arrows block, plus the variation selector
      that turns a plain glyph into an emoji one. The same ranges the
      comparison's AGREED list uses for "emoji replaced with Lucide". */
-  const EMOJI = /[🌀-🫿☀-➿⬀-⯿️←-⇿]/u;
+  /* Pictographs, dingbats and arrows - but NOT U+2669 to U+266F, the musical
+     symbols. A flat sign in "B♭" is notation a musician reads, not a picture
+     standing in for an icon, and Play-Through's key buttons are full of them. */
+  const EMOJI = /[🌀-🫿☀-♨♰-➿⬀-⯿️←-⇿]/u;
   const out = [], seen = {};
   document.querySelectorAll('button,a,input,select,textarea,label,div,span,h1,h2,h3,h4,p,td,th,li').forEach(e => {
     if (!e.offsetParent && e.tagName !== 'BODY') return;

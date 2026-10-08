@@ -497,11 +497,18 @@ const CAT_META = {
   other:   { label:'Other',   emoji:'📎', cls:'note-other'   },
 };
 const REACTIONS = [
-  { key:'love',    emoji:'❤️', label:'Love it'  },
-  { key:'like',    emoji:'👍', label:'Like'     },
-  { key:'dislike', emoji:'👎', label:'Not sure' },
-  { key:'pray',    emoji:'🙌', label:'Amen'     },
+  { key:'love',    emoji:'❤️', icon:'heart', label:'Love it'  },
+  { key:'like',    emoji:'👍', icon:'thumbs-up', label:'Like'     },
+  { key:'dislike', emoji:'👎', icon:'thumbs-down', label:'Not sure' },
+  { key:'pray',    emoji:'🙌', icon:'sparkles', label:'Amen'     },
 ];
+
+/* A Lucide icon at the size the reaction buttons want. egbc-ui.js draws
+   these even when they arrive later through innerHTML, which is how the
+   notes are rendered. */
+function reactionIcon(name) {
+  return '<i data-lucide="' + name + '" style="width:14px;height:14px;vertical-align:-2px"></i>';
+}
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 function blankState() {
@@ -738,7 +745,7 @@ function buildNoteEl(note, idx) {
   const mr = note.myReactions || {};
   const reactHtml = REACTIONS.map(r => {
     const c = (note.reactions||{})[r.key] || 0;
-    return `<button class="reaction-btn${mr[r.key]?' active':''}" onclick="react('${note.id}','${r.key}')" title="${r.label}">${r.emoji}<span id="rc_${note.id}_${r.key}">${c||''}</span></button>`;
+    return `<button class="reaction-btn${mr[r.key]?' active':''}" onclick="react('${note.id}','${r.key}')" title="${r.label}">${reactionIcon(r.icon)}<span id="rc_${note.id}_${r.key}">${c||''}</span></button>`;
   }).join('');
 
   const date = new Date(note.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});

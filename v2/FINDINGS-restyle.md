@@ -2,28 +2,22 @@
 
 Numbered so they can be scheduled. Nothing here blocks anything.
 
-## R-020 — 40 emoji are built in JavaScript, not written in the markup
+## R-020 — WITHDRAWN: the last 40 were done too
 
-Step H replaced every emoji that sits in a control or a heading **in the
-markup** — 112 of them — with the Lucide icon that means the same thing.
-Forty are left, and they are left because they are not in the markup:
+This said 40 emoji were left in JavaScript-built markup and should be
+scheduled. They are done.
 
-| Where | How many | What they are |
-|---|---|---|
-| `stickynotes.html` | 32 | `REACTIONS` and `CAT_META`, two JavaScript tables with an `emoji:` field, rendered into the reaction buttons (❤ 👍 👎 🙌) and the category chips (🎵 📅 🎬 🙏 💡 📎) |
-| `EmailBuilder2.html` | 6 | labels built into `innerHTML` strings |
-| `EGBC-PlayThrough.html` | 2 | **B♭** — a musical flat. Notation, not an icon, and it should stay |
+- **The pin board’s reaction buttons** (32): `REACTIONS` keeps its `emoji`
+  field, because the plain-text report people paste into an email still uses
+  it and a text file is not the interface, and gains an `icon` field that the
+  button shows. Same four reactions, same order, same labels, same keys in
+  the database.
+- **The Email Compiler’s six**: swapped with the rest.
+- **Play-Through’s two** were **B♭** — a musical flat. That is notation a
+  musician reads, not a picture standing in for an icon, so the emoji rule now
+  excludes U+2669 to U+266F and the key buttons are left alone.
 
-**Why they were not swept up with the rest.** Changing them means editing a
-data table and every place that renders it, not a label. On the pin board the
-category mark also appears on notes people have already written, so it is
-arguably their content rather than the interface — and RESTYLE-BRIEF is
-explicit that user content keeps its emoji. That is a decision worth making
-deliberately rather than at the end of a long pass.
-
-**It is measured.** The style check now has an emoji rule (see R-021), so the
-number cannot drift upward without something saying so, and it will go to zero
-the day somebody converts those two tables.
+**0 across every screen.**
 
 ## R-021 — the style check now measures emoji, and did not before
 

@@ -86,6 +86,13 @@ const BOOKINGS_ONLY = ['Room bookings'];
    the person who administers it, or a master admin. Deliberately not every
    admin: whoever looks after Worship is not the children's team. */
 const KIDS_ONLY = ['Kids Church', "Children's register", 'Sunday check-in'];
+/* Martin's decision (fd2ff569, 8f5519bf): Worship & AV is a team section like
+   Kids Church, so somebody who is only on Kids Church does not see it - and a
+   team heading that does not match hides its whole subtree, not just its own
+   line. Written out by hand, as the rest of this list is. */
+const WORSHIP_ONLY = ['Worship & AV', 'Worship', 'Play-Through', 'Worship Training',
+  'Music Databases', 'Music Database', 'Music Uploader', 'AV', 'How-To AV',
+  'AV Troubleshoot', 'Equipment', 'Inventory', 'AV Infrastructure Mapper', 'Monitor Setup'];
 
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
@@ -99,7 +106,10 @@ const PEOPLE = {
      team heading beside Youth rather than buried under Core Team. */
   'a Kids Church leader': { teams: ['Kids Church'], adminFor: [], masterAdmin: false,
     sees: ['Kids Church', "Children's register", 'Sunday check-in'],
-    doesNot: ['Core Team', 'Planning', 'Rota Planner', 'Events and rooms', 'Admin'] },
+    /* Worship & AV too: a team section they are not on, and the whole subtree
+       goes with the heading - Play-Through and the rest, not just the name. */
+    doesNot: ['Core Team', 'Planning', 'Rota Planner', 'Events and rooms', 'Admin',
+              'Worship & AV', 'Play-Through', 'How-To AV', 'Monitor Setup'] },
   /* Karen: administers Kids Church without being on its rota.
 
      She DOES reach "Core Team" as a heading, and that is correct: Room
@@ -109,9 +119,9 @@ const PEOPLE = {
      the rule a heading opened only by its children follows, and there is an
      assertion for exactly that below. */
   'Karen, who administers Kids Church': { teams: [], adminFor: ['Kids Church'], masterAdmin: false,
-    sees: ['Kids Church', "Children's register", 'Room bookings'],
+    sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Room bookings'],
     doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places',
-              'Admin', 'Backup & Restore'] },
+              'Admin', 'Backup & Restore', 'Worship & AV', 'Play-Through'] },
   /* The person F-067 is about: looks after one site's room bookings, is on
      Worship, is on neither Core Team nor any team's admin list. The entry
      lives under Core Team > Events and rooms, so the two headings above it
@@ -314,9 +324,14 @@ const READ_MENU = `(() => {
     /* On Kids Church, administers it, or a master admin (F-089). */
     const kids = p.teams.includes('Kids Church') ||
                  p.adminFor.includes('Kids Church') || !!p.masterAdmin;
+    /* Worship & AV: on Worship, AV or Core Team, or a master admin. */
+    const worship = p.teams.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t)) ||
+                    p.adminFor.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t)) ||
+                    !!p.masterAdmin;
     const expected = want
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
+      .filter(w => !(WORSHIP_ONLY.includes(w) && !worship))
       .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w)))
       .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w)));
     ok('  the names are the approved ones, in order',
