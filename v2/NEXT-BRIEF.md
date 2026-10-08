@@ -207,6 +207,8 @@ Rules:
 
 Fold this into Step R and finish it. Report with Martin's deploy steps; nothing deployed.
 
+**Next server step, after Step R is accepted: booking reminders (Martin, 8 Oct 2026: "just dont forget it").** Send "your booking is tomorrow" emails for room bookings (events window F-072b). They need a scheduled Cloud Function in the same `v2/functions/` codebase "hub", deployed only with `--only functions:hub`. The events window owns the booking data and writes the spec in `FINDINGS-events.md`; the main window builds the function. Do it as its own small step so Martin deploys the server once for both, or as close to that as possible.
+
 ## 17. Step N2: the hub's home on one screen, and no more link to the portal copy (Martin, 8 Oct 2026)
 
 Do this after Step N and before Step R.
