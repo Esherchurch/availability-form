@@ -763,6 +763,11 @@ allowed out is the church's enquiry email, as a mailto).
 A room's id is the last part of the address when its page is open from
 `hire.html`. `room.html?r=<room id>` (the R1 address) still works.
 
+The main window has put "Hire our rooms" in the hub Menu (a23cd7df). A member who
+opens it from the hub is in the closed set too, so the way back to the hub is
+the browser's Back button. That follows from the decision; say if members
+should get a way back.
+
 **Still a REQUEST for the main window:** a way in for members from the hub
 (the Menu) to `rooms.html` (Book a room) and, for admins and bookings admins,
 `bookings-admin.html` (Room bookings). See F-067.
@@ -776,12 +781,12 @@ address and the logo. What was written in, and what reads the setting now:
 | `room.html` | the enquiry address office@esherchurch.org | Church details' enquiry email |
 | `hire.html` | "Esher Green Baptist Church" in the opening line | Church details' name |
 | `hire.html`, `room.html` | the hub header's logo and name | their own header from Church details |
-| `whatson.html` | church name in the subtitle, the calendar's name, a calendar id at esherchurch.org | the setting; the id uses the site's own address |
-| `egbc-events.js` | calendar ids at esherchurch.org; the email footer | the site's own address; Church details' name |
+| `whatson.html` | church name in the subtitle and the calendar's name | the setting (calendar ids left alone, F-068) |
+| `egbc-events.js` | the email footer | Church details' name (calendar ids left alone, F-068) |
 | `places-admin.html` | the church's name as the seeded site's name and in examples | the setting, or "Main site" |
 | every events email (events-admin, signup, forms, form, safeguarding) | the footer and reply address, by default | Church details, through `egbc-church.js` |
 | the tab titles of 17 events pages | "— EGBC" | the church's name from the setting |
-| `egbc-ics.js` (calendar files) | "Esher Green Baptist Church" in every file, a calendar id at esherchurch.org | the setting's name; the site's own address |
+| `egbc-ics.js` (calendar files) | "Esher Green Baptist Church" in every file; a stand-in id at esherchurch.org for an entry given none | the setting's name; the site's own address (a stand-in id is new every time anyway) |
 
 `egbc-ics.js` is not on my brief's list of files, but it was made for events
 and only events pages use it (the rota feed has its own copy, untouched).
@@ -842,3 +847,13 @@ nobody is emailed and the request still waits on Room bookings.
   Church details (or to nothing) rather than this church's address and name
   (F-063).
 
+### F-068 — DECISION for Martin: the calendar ids of events still say esherchurch.org
+Every event added to someone's diary carries an id, `egbc-event-<event>@esherchurch.org`.
+A diary treats a new id as a new entry: change it, and anyone who added an
+event before gets it twice. So it is left exactly as it was, as the main
+window advised (FINDINGS-app A-021). It is the one place the church's
+web address is still in the events code, and nobody sees it. Room bookings,
+which are new, use an id with no church in it (`room-booking-<reference>`).
+**To decide (with the rota feed's ids, which are the same kind):** keep these
+for this church and use a neutral form for any new church, or change them once
+before launch while v2 has no real users. Before launch is the cheap time.

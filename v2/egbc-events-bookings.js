@@ -326,11 +326,11 @@
     return '<div class="bk-row"' + (o.attrs || '') + '>' + (o.label != null ? '<span class="bk-lab" title="' + esc(o.label) + '">' + esc(o.label) + '</span>' : '') +
       '<div class="bk-bar">' + cells + '</div></div>';
   }
-  function axis() {
+  function axis(bare) {
     css();
     var s = '';
     for (var h = FROM / 4; h < TO / 4; h += 2) s += '<span>' + (h < 10 ? '0' : '') + h + ':00</span>';
-    return '<div class="bk-ax">' + s + '</div>';
+    return '<div class="bk-ax"' + (bare ? ' style="margin-left:0"' : '') + '>' + s + '</div>';
   }
   function key(mine) {
     return '<div class="bk-key"><span><i style="background:#fff"></i>Free</span><span><i style="background:#cfd4d8"></i>Booked</span>' +
@@ -351,7 +351,7 @@
 
   function when(b) { return EGBCEvents.fmtDate(b.day + 'T12:00') + ', ' + hhmm(b.startMin) + ' to ' + hhmm(b.endMin); }
   function ics(b, roomName) {
-    return EGBCICS.build({ uid: 'egbc-booking-' + b.key + '@' + location.hostname, title: (b.title || 'Room booking') + ' (' + roomName + ')',
+    return EGBCICS.build({ uid: 'room-booking-' + b.key, title: (b.title || 'Room booking') + ' (' + roomName + ')',
       description: b.notes || '', location: roomName, start: b.startLocal, end: b.endLocal, allDay: false, status: b.status === 'cancelled' ? 'cancelled' : 'confirmed' });
   }
   function email(b, roomName, what, note) {

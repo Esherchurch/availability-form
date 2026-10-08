@@ -311,9 +311,8 @@
 
   function icsFor(ev, where) {
     return EGBCICS.build({
-      /* Unique to this site's address, so another church's copy of these
-         pages never collides with it in a diary. */
-      uid: 'egbc-event-' + ev.id + '@' + location.hostname,
+      /* Left as it was (F-068): a calendar treats a new UID as a new entry. */
+      uid: 'egbc-event-' + ev.id + '@esherchurch.org',
       title: ev.title,
       description: ev.description || '',
       location: where || '',

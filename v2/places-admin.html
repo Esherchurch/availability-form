@@ -739,12 +739,13 @@
       '<p class="hint">Hire rates come with the next stage of room hire.</p>' +
 
       '<h4>Members\' bookings</h4>' +
-      '<div><label class="lbl" for="p-mb">When a member books this room in the hub</label><select id="p-mb" class="inp">' +
+      '<p class="lbl">When a member books this room in the hub</p>' +
         [['site', 'As the site says (' + (siteMode(p.siteId) === 'approval' ? 'wait for approval' : 'confirmed straight away') + ')'],
          ['instant', 'Members\' bookings are confirmed straight away'],
          ['approval', 'Members\' bookings wait for the office to approve']].map(function (o) {
-          return '<option value="' + o[0] + '"' + ((p.memberBookings || 'site') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') +
-      '</select></div><p class="hint mt-1">Either way, nobody can book over a confirmed booking or a service.</p>' +
+          return '<label class="fac" style="margin:4px 0"><input type="radio" name="p-mb" id="p-mb-' + o[0] + '" value="' + o[0] + '"' +
+            ((p.memberBookings || 'site') === o[0] ? ' checked' : '') + '> ' + esc(o[1]) + '</label>'; }).join('') +
+      '<p class="hint mt-1">Either way, nobody can book over a confirmed booking or a service.</p>' +
 
       '<div class="flex gap-2 mt-4 pt-4" style="border-top:1px solid #e5e7eb;justify-content:flex-end">' +
         '<button class="btn btn-2" id="p-cancel">Cancel</button><button class="btn" id="p-save">Save the profile</button></div>';
@@ -764,7 +765,7 @@
       else if ($('p-fac-' + x.id).checked) p.facilities[x.id] = true;
     });
     p.description = $('p-desc').value.trim(); p.houseRules = $('p-rules').value.trim(); p.externalCaterers = $('p-cater').checked;
-    p.memberBookings = $('p-mb').value;
+    p.memberBookings = (document.querySelector('input[name="p-mb"]:checked') || {}).value || 'site';
   }
 
   /* Photos are stored straight away, so a long upload is never lost by
@@ -875,11 +876,11 @@
     var list = sites.slice().sort(byOrder);
     if (!list.length) { $('mb-list').innerHTML = $('rota-list').innerHTML = '<p class="hint py-3">Add a site first.</p>'; return; }
     $('mb-list').innerHTML = list.map(function (s) {
-      return '<div class="row"><label class="lbl" for="mb-' + s.id + '">' + esc(s.name) + '</label>' +
-        '<select class="inp" id="mb-' + s.id + '" data-mbsite="' + s.id + '">' +
-          '<option value="instant"' + (siteMode(s.id) === 'instant' ? ' selected' : '') + '>Members\' bookings are confirmed straight away</option>' +
-          '<option value="approval"' + (siteMode(s.id) === 'approval' ? ' selected' : '') + '>Members\' bookings wait for the office to approve</option>' +
-        '</select></div>';
+      return '<div class="row"><p class="lbl">' + esc(s.name) + '</p>' +
+        [['instant', 'Members\' bookings are confirmed straight away'], ['approval', 'Members\' bookings wait for the office to approve']].map(function (o) {
+          return '<label class="fac" style="margin:4px 0"><input type="radio" name="mb-' + s.id + '" data-mbsite="' + s.id + '" value="' + o[0] + '"' +
+            (siteMode(s.id) === o[0] ? ' checked' : '') + '> ' + o[1] + '</label>';
+        }).join('') + '</div>';
     }).join('');
     $('rota-list').innerHTML = list.map(function (s) {
       if (!RB[s.id]) RB[s.id] = JSON.parse(JSON.stringify(s.rotaBusy || []));

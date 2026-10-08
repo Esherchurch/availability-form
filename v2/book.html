@@ -85,7 +85,7 @@
       DAYS = days;
       var site = SITES[r.siteId] || {};
       document.getElementById('day').innerHTML = '<h2>' + esc(r.name) + ', ' + esc(EGBCEvents.fmtDate(day + 'T12:00')) + '</h2>' +
-        '<div class="scroll"><div>' + B.axis() + B.bar(days[r.id], { label: '', service: function (i) { return B.serviceAt(site, r.id, day, i); }, pick: s && v.day ? s : null }) + B.key(false) + '</div></div>' +
+        '<div class="scroll"><div>' + B.axis(true) + B.bar(days[r.id], { service: function (i) { return B.serviceAt(site, r.id, day, i); }, pick: s && v.day ? s : null }) + B.key(false) + '</div></div>' +
         '<p class="hint" style="margin:8px 0 0"><a href="room.html?id=' + encodeURIComponent(r.id) + '" style="color:var(--brand)">More about this room</a></p>';
       var msg = [];
       if (!v.day) msg.push(['wait', 'Choose a date.']);

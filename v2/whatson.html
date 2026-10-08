@@ -203,7 +203,8 @@
     if (!shown.length) return;
     EGBCICS.download('egbc-whats-on', EGBCICS.buildMany(shown.map(function (ev) {
       return {
-        uid: 'egbc-event-' + ev.id + '@' + location.hostname,
+        /* Left as it was (F-068): a calendar treats a new UID as a new entry. */
+        uid: 'egbc-event-' + ev.id + '@esherchurch.org',
         title: ev.title, description: ev.description, location: E.locationText(ev, LOOK),
         start: ev.startLocal || ev.startUtc, end: ev.endLocal || ev.endUtc, allDay: !!ev.allDay
       };

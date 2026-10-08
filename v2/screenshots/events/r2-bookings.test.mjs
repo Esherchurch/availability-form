@@ -222,8 +222,8 @@ try {
   await tap(K, '.tab[data-tab="rooms"]');
   await K.waitForSelector('[data-prof="room_band"]');
   await tap(K, '[data-prof="room_band"]');
-  await K.waitForSelector('#p-mb');
-  await K.select('#p-mb', 'approval');
+  await K.waitForSelector('#p-mb-approval');
+  await tap(K, '#p-mb-approval');
   await tap(K, '#p-save');
   await until(async () => (await get('rooms', 'room_band')).memberBookings === 'approval');
   ok('4. the admin switches the band room to "wait for the office to approve"', (await get('rooms', 'room_band')).memberBookings === 'approval');
@@ -268,8 +268,8 @@ try {
   /* ---------- 5. a site whose default is "wait" ---------- */
   await go(K, 'places-admin.html', '.tab[data-tab="bookings"]');
   await tap(K, '.tab[data-tab="bookings"]');
-  await K.waitForSelector('[data-mbsite="site_t"]');
-  await K.select('[data-mbsite="site_t"]', 'approval');
+  await K.waitForSelector('[data-mbsite="site_t"][value="approval"]');
+  await tap(K, '[data-mbsite="site_t"][value="approval"]');
   await until(async () => (await get('sites', 'site_t')).memberBookings === 'approval');
   await go(S, 'rooms.html', '#c-date');
   await val(S, '#c-date', WED);
@@ -280,7 +280,8 @@ try {
   await settled(S);
   const b5 = (await bookings(['memberUid', P.samy.uid])).find(b => b.title === 'Test prayer meeting');
   ok('5. the site says "wait": the vestry, which follows the site, holds the booking', b5 && b5.status === 'requested');
-  await K.select('[data-mbsite="site_t"]', 'instant');
+  await tap(K, '[data-mbsite="site_t"][value="instant"]');
+  await until(async () => (await get('sites', 'site_t')).memberBookings === 'instant');
 
   /* ---------- 6. the public ---------- */
   const gB = await launch('guest'); const G = await pageOf(gB, 'guest', 390);
