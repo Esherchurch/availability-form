@@ -564,9 +564,9 @@
   }
   /* One email for a whole series: the dates listed, and one calendar file
      holding all of them. A single booking goes to email() below. */
-  function emailMany(list, roomName, what, note) {
+  function emailMany(list, roomName, what, note, extra) {
     list = [].concat(list);
-    if (list.length === 1) return email(list[0], roomName, what, note);
+    if (list.length === 1) return email(list[0], roomName, what, note, extra);
     var b = list[0], to = (b.requester && b.requester.email) || '';
     if (!to) return Promise.resolve({ ok: false, error: 'no address' });
     var head = { confirmed: 'Your repeating booking is confirmed', waiting: 'Your repeating booking is waiting for approval', approved: 'Your repeating booking is confirmed',
@@ -575,6 +575,7 @@
       (what === 'waiting' ? '<p>Someone at the church will look at it and let you know. Nothing is confirmed until then.</p>' : '') +
       ((what === 'declined' || what === 'cancelled') && note ? '<p>' + esc(note) + '</p>' : '') +
       (what === 'confirmed' || what === 'approved' ? '<p style="color:#6b7280;font-size:13px">The calendar file attached adds every date to your diary.</p>' : '') +
+      (extra || '') +
       '<p style="color:#6b7280;font-size:13px">References ' + list.map(function (x) { return esc(ref(x)); }).join(', ') + '</p>';
     var mail = { to: [to], subject: head + ': ' + roomName + ', ' + list.length + ' dates from ' + when(b), html: EGBCChurch.wrap(head, body) };
     if (what === 'confirmed' || what === 'approved') {
@@ -584,7 +585,7 @@
     return EGBCChurch.send(mail);
   }
 
-  function email(b, roomName, what, note) {
+  function email(b, roomName, what, note, extra) {
     var to = (b.requester && b.requester.email) || '';
     if (!to) return Promise.resolve({ ok: false, error: 'no address' });
     var head = { confirmed: 'Your room is booked', waiting: 'Your booking is waiting for approval', approved: 'Your booking is confirmed',
@@ -595,6 +596,7 @@
       (what === 'declined' && note ? '<p>' + esc(note) + '</p>' : '') +
       (what === 'confirmed' || what === 'approved' || what === 'moved' ? '<p style="color:#6b7280;font-size:13px">The calendar file attached adds it to your diary.</p>' : '') +
       (what === 'moved' && note ? '<p>' + esc(note) + '</p>' : '') + (what === 'cancelled' && note ? '<p>' + esc(note) + '</p>' : '') +
+      (extra || '') +
       '<p style="color:#6b7280;font-size:13px">Reference ' + esc(ref(b)) + '</p>';
     var mail = { to: [to], subject: head + ': ' + roomName + ', ' + when(b), html: EGBCChurch.wrap(head, body) };
     if (what === 'confirmed' || what === 'approved' || what === 'moved') {

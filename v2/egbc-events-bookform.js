@@ -117,7 +117,7 @@
               (m.noticeDays ? ', ' + m.noticeDays + ' working days\' notice' : '') + '</span></span>' +
               '<input class="inp bf-menu" type="number" min="0" data-id="' + esc(m.id) + '" aria-label="How many: ' + esc(m.name) + '" placeholder="0"></div>';
           }).join('') +
-          '<div class="two" style="margin-top:8px"><div class="field"><label class="l" for="bf-serve">Serve at</label><select id="bf-serve">' + times(360, 1425, '') + '</select></div></div>' +
+          '<div class="two" style="margin-top:8px"><div class="field"><label class="l" for="bf-serve">Serve at</label><select id="bf-serve"><option value="">When you arrive</option>' + times(360, 1425, '') + '</select></div></div>' +
           '<p class="l" style="font-size:13px;font-weight:500;margin:0 0 5px">Special diets (how many people)</p><div class="two">' +
             [['vegetarian', 'Vegetarian'], ['vegan', 'Vegan'], ['glutenFree', 'Gluten-free'], ['dairyFree', 'Dairy-free']].map(function (d) {
               return '<div class="field"><label class="l" for="bf-diet-' + d[0] + '">' + d[1] + '</label><input class="inp bf-diet" type="number" min="0" id="bf-diet-' + d[0] + '" data-k="' + d[0] + '"></div>';

@@ -1050,3 +1050,48 @@ booking of kind `event` linked to the event (`calEventId`).
   calendars, the office page (as "event") and the setup sheet.
 - **Not changed:** an event at an outside venue or online books nothing. Events
   saved before this change have no booking until they are next saved.
+
+## Chunk 5, stage 1: prices, the instant quote, charges
+
+### F-076 — how a hire is priced
+- **Kinds of booking** (Places, Hire prices): each says whether it is for the
+  public (on `book.html`) and whether it is charged. Church use is usually
+  neither.
+- **A room's prices for a kind** (`rateCards/<room>__<kind>`), typed in pounds
+  and kept in whole pence: by the hour, half day (up to 4 hours), full day (up to
+  10), evening (18:00 to 23:00), a minimum charge, cleaning, a technician by the
+  hour, a deposit (part of the total) and a refundable damage deposit (on top);
+  weekend and out-of-hours (before 08:00, after 22:00) surcharges, charity and
+  regular-hirer discounts, as percentages; whether setting up and clearing away
+  are charged; VAT. Room hire is whichever way of charging is cheapest for the
+  times chosen. Kit has a hire price (Kit tab); catering uses the menu's prices.
+- **The instant quote** on `book.html` shows every line as the hirer fills in
+  the form, and for a repeating booking prices every date (a Saturday costs
+  more) with the total for all of them. It is an estimate: it says so, and the
+  office confirms the price.
+- **The office** sees the same lines on each waiting hire request, worked out
+  afresh from the price list, and can change any line, add one, take one away,
+  or start again. Approving records the **charge** (`charges/ch_<booking>`):
+  the lines, VAT, total, deposits, "unpaid", and whether it was adjusted. The
+  booking keeps the price it was confirmed at, the hirer's email shows it, and
+  "Coming up" shows what is owed. The rules refuse a charge whose total is not
+  its lines plus VAT, or for a booking that is not at that site, and nobody but
+  the site's office can read one.
+- Prices are readable by anyone, because the public's quote is worked out from
+  them in the browser.
+
+### F-077 — what stage 1 leaves for stages 2 and 3
+- **The hirer's own page** (`my-booking.html` with a private link): the quote as a
+  document, accepting it and the terms online, paying. Stage 2.
+- **Terms and conditions**, versioned per kind of booking. Stage 2.
+- **Recording payments**, part-payments and refunds of deposits. Stage 2.
+- **A repeating hire** is priced date by date from the price list and approved in
+  one go; the office cannot yet change lines across a whole series at once (it
+  can per date, before approving each). Monthly invoicing for regular hirers is
+  stage 3.
+- **"We are a registered charity"** is the hirer's say-so; the office sees a
+  "check" mark and can take the discount line off. Hirer records (charity,
+  regular) are stage 3, with insurance and risk-assessment uploads.
+- **A member's booking** is never charged in stage 1; a member kind of booking
+  that is charged would need the same form on `rooms.html`. Say if that is wanted.
+- VAT is 20% when ticked; another rate would need a box on the price form.

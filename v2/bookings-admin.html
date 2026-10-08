@@ -17,7 +17,8 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101000"></script>
+<script src="egbc-events-bookings.js?v=202610101200"></script>
+<script src="egbc-events-quote.js?v=202610101000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -57,6 +58,11 @@
   .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
   .scroll{overflow-x:auto}.scroll>div{min-width:560px}
+  .money{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;background:#fbfcfc}
+  .money h4{font-size:14px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .mrow{display:flex;gap:8px;align-items:center;margin:4px 0}.mrow .inp{height:34px}.mrow .ml{flex:1;min-width:0}.mrow .ma{width:110px;text-align:right}
+  @media (max-width:520px){.mrow{flex-wrap:wrap;padding-bottom:6px;border-bottom:1px solid #f1f3f4}.mrow .ml{flex-basis:100%}.mrow .ma{flex:1}}
+  .mtot{display:flex;justify-content:space-between;font-weight:600;color:var(--ink);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
   .dates{border:1px solid var(--line);border-radius:8px;margin:10px 0}
   .drow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-top:1px solid #f1f3f4;font-size:13px}
   .drow:first-child{border-top:none}.drow .d{flex:1;min-width:150px;color:var(--ink)}
@@ -98,7 +104,10 @@
   function find(key) { return LIST.filter(function (b) { return b.key === key; })[0]; }
 
   function load() {
-    return db().collection('bookings').where('siteId', '==', V.site).get().then(function (s) {
+    return Promise.all([db().collection('bookings').where('siteId', '==', V.site).get(),
+                        db().collection('charges').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; })]).then(function (r) {
+      var s = r[0];
+      CHARGES = {}; r[1].docs.forEach(function (d) { CHARGES[d.data().bookingKey] = Object.assign({ id: d.id }, d.data()); });
       LIST = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }).sort(byTime);
       draw();
     }).catch(function (e) { document.getElementById('list').innerHTML = '<div class="card">Could not load: ' + esc(e.message || e) + '</div>'; });
@@ -131,6 +140,7 @@
     });
     el.innerHTML = cards.length ? cards.join('') : '<div class="card hint">' + (V.tab === 'waiting' ? 'Nothing is waiting.' : 'Nothing here.') + '</div>';
     wireSeries(el);
+    wireMoney(el);
     wire(el);
     /* Is each waiting request's time still free? */
     show.filter(function (b) { return b.status === 'requested'; }).forEach(function (b) {
@@ -167,11 +177,78 @@
         (b.notes ? '<dt>Notes</dt><dd>' + esc(b.notes) + '</dd>' : '') +
         (b.decidedByName ? '<dt>Last decided by</dt><dd>' + esc(b.decidedByName) + (b.decisionNote ? ': ' + esc(b.decisionNote) : '') + '</dd>' : '') +
       '</dl>' +
+      (b.status === 'requested' ? chargesBox(b) : '') +
+      (CHARGES[b.key] ? '<div class="st ' + (CHARGES[b.key].status === 'paid' ? 'ok' : 'wait') + '" data-owed="' + esc(b.key) + '">Charges: ' + Q.pounds(CHARGES[b.key].total) +
+        ', ' + esc(CHARGES[b.key].status.replace('-', ' ')) + '</div>' : '') +
       (b.status === 'requested' ? '<div class="acts"><button class="btn" data-do="approve">Approve</button><button class="btn sec" data-do="decline">Decline</button><button class="btn sec" data-do="move">Change the time</button></div>' : '') +
       (b.status === 'confirmed' && b.day >= B.today() ? '<div class="acts"><button class="btn sec" data-do="move">Move</button><button class="btn sec" data-do="cancel">Cancel</button>' +
         (laterIn(b).length ? '<button class="btn sec" data-do="cancelrest">Cancel this and the ' + laterIn(b).length + ' after it</button>' : '') + '</div>' : '') +
       '<div class="act"></div></div>';
   }
+  /* ---- what a hire costs (Chunk 5, stage 1) ----
+     Worked out from the room's prices for the kind of booking. The office
+     can change any line, add one or take one away before approving; the
+     total is always the lines added up. Approving records the charge. */
+  var Q = window.EGBCQuote, TYPES = {}, CARDS = {}, CHARGES = {}, EDIT = {};
+  function cardOf(b) { return CARDS[b.roomId + '__' + b.bookingType] || null; }
+  function charged(b) { var t = TYPES[b.bookingType]; return !!(t && t.charged); }
+  function priceOf(b) {
+    var card = cardOf(b); if (!card || !charged(b)) return null;
+    if (EDIT[b.key]) return Q.totals(EDIT[b.key], card);
+    var kit = (b.resources || []).map(function (x) { var k = KIT.filter(function (y) { return y.id === x.id; })[0] || {}; return { name: x.name, qty: x.qty, hirePrice: k.hirePrice || 0 }; });
+    return Q.price({ card: card, day: b.day, start: b.startMin, end: b.endMin, setup: b.setupMins, pack: b.packdownMins, people: b.people,
+      items: b.refreshments && b.refreshments.needed ? b.refreshments.items : [], kit: kit, av: b.av, charity: !!b.charity });
+  }
+  function chargesBox(b) {
+    if (!b.bookingType || !charged(b)) return '';
+    var q = priceOf(b);
+    if (!q) return '<div class="st wait">No prices are set for this room and this kind of booking. Add them on Places, Hire prices, or approve it free.</div>';
+    return '<div class="money" data-money="' + esc(b.key) + '"><h4>Charges' + (b.charity ? ' <span class="pill wait">Says it is a charity: check</span>' : '') + '</h4>' +
+      q.lines.map(function (l, i) {
+        return '<div class="mrow"><input class="inp ml" data-ml="' + i + '" value="' + esc(l.label) + '" aria-label="What for">' +
+          '<input class="inp ma" data-ma="' + i + '" type="number" step="0.01" value="' + (l.amount / 100).toFixed(2) + '" aria-label="Amount in pounds">' +
+          '<button class="btn sec" data-mx="' + i + '" aria-label="Take this line off">&times;</button></div>';
+      }).join('') +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn sec" data-madd="1">Add a line</button>' +
+        (EDIT[b.key] ? '<button class="btn sec" data-mreset="1">Start again from the price list</button>' : '') + '</div>' +
+      (q.vat ? '<div class="mrow" style="justify-content:space-between"><span>VAT (' + q.vatRate + '%)</span><span>' + Q.pounds(q.vat) + '</span></div>' : '') +
+      '<div class="mtot"><span>Total</span><span data-mtotal="' + esc(b.key) + '">' + Q.pounds(q.total) + '</span></div>' +
+      (q.deposit ? '<p class="hint" style="margin:4px 0 0">Deposit ' + Q.pounds(q.deposit) + (q.damageDeposit ? '; refundable damage deposit ' + Q.pounds(q.damageDeposit) : '') + '</p>' : '') + '</div>';
+  }
+  /* The lines as the office has them on the screen. */
+  function readLines(box) {
+    return [].slice.call(box.querySelectorAll('[data-ml]')).map(function (el) {
+      var i = el.dataset.ml, a = box.querySelector('[data-ma="' + i + '"]').value;
+      var n = Number(a); return { code: 'office', label: el.value.trim() || 'Charge', amount: isFinite(n) ? Math.round(n * 100) : 0 };
+    });
+  }
+  function wireMoney(el) {
+    el.querySelectorAll('[data-money]').forEach(function (box) {
+      var key = box.dataset.money, b = find(key), redraw = function () { box.outerHTML = chargesBox(b); wireMoney(document.getElementById('list')); };
+      box.oninput = function () {
+        EDIT[key] = readLines(box);
+        var t = box.querySelector('[data-mtotal]'); if (t) t.textContent = Q.pounds(Q.totals(EDIT[key], cardOf(b)).total);
+      };
+      box.querySelectorAll('[data-mx]').forEach(function (x) { x.onclick = function () { var l = readLines(box); l.splice(+x.dataset.mx, 1); EDIT[key] = l; redraw(); }; });
+      var add = box.querySelector('[data-madd]'); if (add) add.onclick = function () { var l = readLines(box); l.push({ code: 'office', label: '', amount: 0 }); EDIT[key] = l; redraw(); };
+      var rs = box.querySelector('[data-mreset]'); if (rs) rs.onclick = function () { delete EDIT[key]; redraw(); };
+    });
+  }
+  /* On approval: the charge, and the price in the booking and the email. */
+  function recordCharge(b, q) {
+    if (!q) return Promise.resolve(null);
+    var w = EGBCAuth.user() || {}, r = b.requester || {};
+    var c = { bookingKey: b.key, seriesId: (b.series && b.series.id) || '', siteId: b.siteId, roomId: b.roomId, kind: 'hire',
+      payer: { name: r.name || '', email: r.email || '', org: r.org || '' }, lines: q.lines.map(function (l) { return { code: l.code, label: l.label, amount: l.amount }; }),
+      subtotal: q.subtotal, vat: q.vat, vatRate: q.vatRate || 0, total: q.total, deposit: q.deposit || 0, damageDeposit: q.damageDeposit || 0,
+      status: 'unpaid', payments: [], dueDate: b.day, createdAt: new Date().toISOString(), createdBy: w.uid || '', adjusted: !!EDIT[b.key] };
+    return db().collection('charges').doc('ch_' + b.key).set(c).then(function () {
+      return db().collection('bookings').doc(b.key).update({ quote: { lines: c.lines, subtotal: c.subtotal, vat: c.vat, vatRate: c.vatRate, total: c.total,
+        deposit: c.deposit, damageDeposit: c.damageDeposit, by: c.adjusted ? 'office, adjusted' : 'price list' } });
+    }).then(function () { delete EDIT[b.key]; return c; });
+  }
+  function priceWords(q) { return q ? '<p><strong>The price</strong></p>' + Q.table(q) : ''; }
+
   /* Later dates of the same repeating booking that are still on. */
   function laterIn(b) {
     return b.series ? LIST.filter(function (x) { return x.series && x.series.id === b.series.id && x.day > b.day && (x.status === 'confirmed' || x.status === 'requested'); }) : [];
@@ -205,9 +282,12 @@
         if (btn.dataset.sdo === 'approve') {
           var done = [], left = 0;
           list.reduce(function (p, b) {
-            return p.then(function () { return B.approve(b, r).then(function (x) { done.push(x); }, function (e) { if (e.clash) left++; else throw e; }); });
+            var q = priceOf(b);
+            return p.then(function () { return B.approve(b, r).then(function (x) { return recordCharge(b, q).then(function () { x.price = q; done.push(x); }); }, function (e) { if (e.clash) left++; else throw e; }); });
           }, Promise.resolve()).then(function () {
-            return done.length ? B.emailMany(done, r.name, 'approved') : null;
+            var sum = done.reduce(function (n, x) { return n + (x.price ? x.price.total : 0); }, 0);
+            return done.length ? B.emailMany(done, r.name, 'approved', '', sum ? '<p><strong>The price:</strong> ' + Q.pounds(sum) + ' for the ' + done.length + ' dates (' +
+              done.map(function (x) { return Q.pounds(x.price ? x.price.total : 0); }).join(', ') + ').</p>' : '') : null;
           }).then(function () {
             toast('Approved ' + done.length + (left ? '; ' + left + ' not free, still waiting for you' : '') + '. They have been emailed.'); load();
           }).catch(function (e) { toast('Could not approve: ' + (e.message || e)); load(); });
@@ -286,8 +366,9 @@
     };
   }
   function approve(b, act, note) {
+    var q = priceOf(b);
     B.approve(b, room(b.roomId), note ? { override: true, note: note } : {}).then(function (x) {
-      return B.email(x, room(x.roomId).name, 'approved');
+      return recordCharge(b, q).then(function () { return B.email(x, room(x.roomId).name, 'approved', '', priceWords(q)); });
     }).then(function () { toast('Approved, and they have been emailed'); load(); }).catch(function (e) {
       if (e.clash) { act.innerHTML = ''; overrideBox(act, e.message, function (n) { approve(b, act, n); }); }
       else toast('Could not approve: ' + (e.message || e));
@@ -371,7 +452,9 @@
 
   EGBCAuth.require().then(function (profile) {
     return Promise.all([db().collection('sites').get(), db().collection('rooms').get(), db().collection('bookingSettings').get(),
-                        db().collection('bookableResources').get().catch(function () { return { docs: [] }; })]).then(function (r) {
+                        db().collection('bookableResources').get().catch(function () { return { docs: [] }; }),
+                        db().collection('bookingTypes').get().catch(function () { return { docs: [] }; }),
+                        db().collection('rateCards').get().catch(function () { return { docs: [] }; })]).then(function (r) {
       var all = function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); };
       var mid = (profile && profile.memberId) || '-', settings = {};
       all(r[2]).forEach(function (s) { settings[s.id] = s; });
@@ -379,6 +462,8 @@
         .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       ROOMS = all(r[1]).filter(function (x) { return x.kind !== 'online'; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       KIT = all(r[3]);
+      all(r[4]).forEach(function (t) { TYPES[t.id] = t; });
+      all(r[5]).forEach(function (c) { CARDS[c.id] = c; });
       if (!SITES.length) {
         document.getElementById('main').innerHTML = '<div class="card">This page is for the people who look after room bookings. To book a room, use <a href="rooms.html" style="color:var(--brand)">Book a room</a>.</div>';
         return;

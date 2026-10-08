@@ -16,8 +16,9 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101000"></script>
-<script src="egbc-events-bookform.js?v=202610091200"></script>
+<script src="egbc-events-bookings.js?v=202610101200"></script>
+<script src="egbc-events-bookform.js?v=202610101200"></script>
+<script src="egbc-events-quote.js?v=202610101000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -39,6 +40,7 @@
   .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:10px 0}
   .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
   .scroll{overflow-x:auto}.scroll>div{min-width:480px}
+  .quote{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:#fbfcfc}.quote h2{font-size:15px;font-weight:600;color:var(--ink)}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
   /* The plain header for the public hire pages: the church's logo and name
      (from Church details) and a way back to the list. No hub menu, no
@@ -58,7 +60,7 @@
   <h1>Ask to book a room</h1>
   <p class="sub">Tell us when, and what for. Nothing is booked until we confirm it by email.</p>
   <div class="card" id="day"></div>
-  <div class="card"><div id="f"><p class="hint">Loading…</p></div><div id="f-status"></div>
+  <div class="card"><div id="kind"></div><div id="f"><p class="hint">Loading…</p></div><div id="f-status"></div><div id="quoteBox"></div>
     <div style="text-align:right;margin-top:10px"><button class="btn" id="f-go" disabled>Send the request</button></div></div>
 </div>
 <div id="toast"></div>
@@ -68,7 +70,36 @@
   'use strict';
   EGBCChurch.closeOnLeave();
   var B = window.EGBCBookings, R = window.EGBCRooms;
-  var ROOMS = [], SITES = {}, MENUS = [], DAYS = null, OPENED = Date.now();
+  var ROOMS = [], SITES = {}, MENUS = [], DAYS = null, OPENED = Date.now(), TYPES = [], CARDS = {}, QT = window.EGBCQuote;
+  function kind() { var t = document.getElementById('bt'); return TYPES.filter(function (x) { return t && x.id === t.value; })[0] || null; }
+  function charity() { var c = document.getElementById('charity'); return !!(c && c.checked); }
+  /* A room's prices for the kind of booking, read once. */
+  function cardFor(roomId, typeId) {
+    var k = roomId + '__' + typeId;
+    if (k in CARDS) return Promise.resolve(CARDS[k]);
+    return EGBCAuth.db.collection('rateCards').doc(k).get().then(function (s) { CARDS[k] = s.exists ? s.data() : null; return CARDS[k]; }, function () { return null; });
+  }
+  /* The instant quote: what these times, this room and these extras cost,
+     line by line, as the form is filled in (Chunk 5). For a repeating
+     booking, every date is priced (a Saturday costs more). */
+  function quoteFor(v, r, dates) {
+    var t = kind(), box = document.getElementById('quoteBox');
+    if (!t || !t.charged || !r || !dates.length) { box.innerHTML = ''; return Promise.resolve(null); }
+    return cardFor(r.id, t.id).then(function (card) {
+      if (!card) { box.innerHTML = '<div class="st wait">We will send you a price for this.</div>'; return null; }
+      var each = dates.map(function (d) {
+        return QT.price({ card: card, day: d, start: B.toMin(v.start), end: B.toMin(v.end), setup: v.setup, pack: v.pack, people: v.people,
+          items: v.refreshments.needed ? v.refreshments.items : [], kit: [], av: v.av, charity: charity() });
+      });
+      var all = each.reduce(function (n, x) { return n + x.total; }, 0);
+      box.innerHTML = '<div class="quote" id="quote"><h2 style="margin:0 0 8px">Your quote' + (dates.length > 1 ? ', for ' + esc(EGBCEvents.fmtDate(dates[0] + 'T12:00')) : '') + '</h2>' +
+        QT.table(each[0], { id: 'quoteTable' }) +
+        (dates.length > 1 ? '<p style="margin:8px 0 0"><b id="quoteAll">' + dates.length + ' dates in all: ' + QT.pounds(all) + '</b></p>' : '') +
+        '<p class="hint" style="margin:8px 0 0">An estimate from our price list' + (charity() ? ', with the charity rate, which we will check' : '') +
+        '. We confirm the price when we confirm the booking.</p></div>';
+      return each;
+    });
+  }
   var Q = new URLSearchParams(location.search);
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 4000); }
@@ -115,6 +146,7 @@
       out.innerHTML = msg.length ? msg.map(function (m) { return '<div class="st ' + m[0] + '">' + esc(m[1]) + '</div>'; }).join('')
         : '<div class="st ok">' + (chosen.length > 1 ? 'The room is free on ' + chosen.length + ' of those dates.' : 'The room is free then.') + ' We will look at your request and email you.</div>';
       if (!msg.length) PLAN = { dates: chosen, days: days, rule: v.repeat.rule };
+      quoteFor(v, r, chosen).then(function (q) { if (PLAN && mine === checking) PLAN.quotes = q; });
       go.disabled = msg.length > 0;
     });
   }
@@ -132,6 +164,15 @@
         return { booking: B.prepare({ kind: 'hire', room: r, site: SITES[r.siteId], day: d, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
           title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: [], notes: v.notes, requester: v.requester,
           series: sid ? { id: sid, rule: plan.rule, n: i + 1, of: plan.dates.length } : null }) };
+      });
+      /* The kind of booking, the charity tick and the quote they saw go with
+         the request; the office confirms the price. */
+      list.forEach(function (x, i) {
+        var t = kind();
+        if (t) x.booking.bookingType = t.id;
+        x.booking.charity = charity();
+        var qt = plan.quotes && plan.quotes[i];
+        if (qt) x.booking.quote = { lines: qt.lines, subtotal: qt.subtotal, vat: qt.vat, vatRate: qt.vatRate, total: qt.total, deposit: qt.deposit, damageDeposit: qt.damageDeposit, by: 'price list' };
       });
     } catch (e) { toast(e.message); go.disabled = false; go.textContent = 'Send the request'; return; }
     B.write(list, plan.days).then(function (made) {
@@ -157,11 +198,18 @@
     EGBCChurch.title('Ask to book a room');
     var db = EGBCAuth.db;
     return Promise.all([db.collection('rooms').where('active', '==', true).get(), db.collection('sites').where('active', '==', true).get(),
-                        db.collection('menus').where('active', '==', true).get().catch(function () { return { docs: [] }; })]);
+                        db.collection('menus').where('active', '==', true).get().catch(function () { return { docs: [] }; }),
+                        db.collection('bookingTypes').where('active', '==', true).get().catch(function () { return { docs: [] }; })]);
   }).then(function (r) {
     r[1].docs.forEach(function (d) { SITES[d.id] = Object.assign({ id: d.id }, d.data()); });
     ROOMS = R.hireable(r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     MENUS = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    TYPES = r[3].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (t) { return t.forPublic; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    document.getElementById('kind').innerHTML = TYPES.length ? '<div class="bf"><div class="field"><label class="l" for="bt" style="display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px">What kind of booking</label>' +
+      '<select id="bt" style="width:100%;height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif">' +
+      TYPES.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.name) + '</option>'; }).join('') + '</select></div>' +
+      '<label style="display:flex;gap:8px;align-items:center;font-size:14px;margin:0 0 12px"><input type="checkbox" id="charity" style="width:16px;height:16px;accent-color:var(--brand)"> We are a registered charity</label></div>' : '';
+    ['bt', 'charity'].forEach(function (id) { var el = document.getElementById(id); if (el) el.onchange = function () { check(EGBCBookForm.values(form())); }; });
     if (!ROOMS.length) { document.getElementById('wrap').innerHTML = '<div class="card">No rooms are open for hire just now.</div>'; return; }
     var want = Q.get('room') || Q.get('id') || '';
     EGBCBookForm.render(form(), { rooms: ROOMS, multi: false, chosen: [roomById(want) ? want : ROOMS[0].id], day: Q.get('day') || '',

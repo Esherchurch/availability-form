@@ -9,7 +9,8 @@
 <script src="egbc-auth.js?v=202610061500"></script>
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101000"></script>
+<script src="egbc-events-bookings.js?v=202610101200"></script>
+<script src="egbc-events-quote.js?v=202610101000"></script>
 <script src="egbc-guard.js?v=202610061500" data-admin="any"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -95,6 +96,7 @@
     <button class="tab" data-tab="catering">Catering</button>
     <button class="tab" data-tab="who">Who approves</button>
     <button class="tab" data-tab="bookings">Bookings</button>
+    <button class="tab" data-tab="prices">Hire prices</button>
   </div>
 
   <!-- ── SITES ──────────────────────────────────────────────────────── -->
@@ -227,6 +229,29 @@
     </div>
   </section>
 
+  <!-- ── HIRE PRICES (Chunk 5, stage 1) ─────────────────────────────── -->
+  <section id="tab-prices" class="hidden">
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-semibold mb-1">Kinds of booking</h2>
+      <p class="hint mb-3">Each kind has its own prices for each room. "For the public" puts it on the booking form;
+        "Charged" means a hire is priced and invoiced. Church use is usually neither.</p>
+      <div id="types-list"></div>
+      <div class="flex gap-2 mt-3 flex-wrap"><input id="t-name" class="inp" style="max-width:260px" placeholder="Private hire">
+        <button class="btn btn-2" id="t-add">Add a kind of booking</button></div>
+    </div>
+    <div class="card p-4 sm:p-5">
+      <h2 class="text-sm font-semibold mb-1">A room's prices</h2>
+      <p class="hint mb-3">In pounds. Leave a box empty if that way of charging does not apply. Room hire is whichever is
+        cheapest for the times a hirer chooses.</p>
+      <div class="grid sm:grid-cols-2 gap-3 mb-3">
+        <div><label class="lbl" for="rc-room">Room</label><select id="rc-room" class="inp"></select></div>
+        <div><label class="lbl" for="rc-type">Kind of booking</label><select id="rc-type" class="inp"></select></div>
+      </div>
+      <div id="rc-form"></div>
+      <div id="rc-list" class="mt-4"></div>
+    </div>
+  </section>
+
   <!-- ── BOOKINGS (Chunk 4, R2) ─────────────────────────────────────── -->
   <section id="tab-bookings" class="hidden">
     <div class="card p-4 sm:p-5 mb-4">
@@ -287,7 +312,7 @@
   function oops(e) { console.error(e); toast('Could not save — ' + (e && e.message ? e.message : 'unknown')); }
 
   /* ---- tabs -------------------------------------------------------- */
-  var TABS = ['sites', 'rooms', 'kit', 'venues', 'catering', 'who', 'bookings'];
+  var TABS = ['sites', 'rooms', 'kit', 'venues', 'catering', 'who', 'bookings', 'prices'];
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
     b.addEventListener('click', function () {
       Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.remove('on'); });
@@ -492,6 +517,8 @@
             '<input class="inp" style="width:74px" type="number" min="0" value="' + esc(k.quantity || 0) +
               '" data-qty="' + k.id + '"' + (k.unlimited ? ' disabled' : '') + '>' +
             '<button class="btn btn-x" data-unl="' + k.id + '">' + (k.unlimited ? 'Make countable' : 'Unlimited') + '</button>' +
+            '<label class="flex items-center gap-1 text-xs" style="color:var(--brand)">Hire £<input class="inp" style="width:80px" type="number" min="0" step="0.01" ' +
+              'aria-label="Hire price for ' + esc(k.name) + '" data-kprice="' + k.id + '" value="' + (k.hirePrice ? (k.hirePrice / 100).toFixed(2) : '') + '"></label>' +
             '<label class="flex items-center gap-1 text-xs" style="color:var(--brand)"><input type="checkbox" class="w-4 h-4" data-mov="' + k.id + '"' +
               (k.movable ? ' checked' : '') + '> Can be moved to another room</label>' +
             '<button class="btn btn-x" data-tog="bookableResources" data-id="' + k.id + '">' +
@@ -643,7 +670,7 @@
     var d = b.dataset || {};
     if (d.mv) move(d.mv, d.mv === 'sites' ? sites : d.mv === 'rooms' ? rooms : d.mv === 'menus' ? menus : kit, d.id, Number(d.d));
     if (d.tog) {
-      var list = d.tog === 'sites' ? sites : d.tog === 'rooms' ? rooms : d.tog === 'venues' ? venues : d.tog === 'menus' ? menus : kit;
+      var list = d.tog === 'sites' ? sites : d.tog === 'rooms' ? rooms : d.tog === 'venues' ? venues : d.tog === 'menus' ? menus : d.tog === 'bookingTypes' ? types : kit;
       var rec = list.find(function (x) { return x.id === d.id; });
       db.collection(d.tog).doc(d.id).update({ active: rec && rec.active === false }).catch(oops);
     }
@@ -972,6 +999,68 @@
     }).catch(oops);
   }
 
+  /* ---- hire prices (Chunk 5, stage 1) --------------------------------
+     Kinds of booking, and each room's prices for each kind, stored in
+     pence (rateCards/<room>__<kind>). Kit has a hire price of its own. */
+  var types = [], cards = [], Qt = window.EGBCQuote;
+  var MONEY = [['hourly', 'By the hour'], ['halfDay', 'Half day (up to 4 hours)'], ['fullDay', 'Full day (up to 10 hours)'], ['evening', 'Evening (18:00 to 23:00)'],
+               ['minimum', 'Minimum charge'], ['cleaning', 'Cleaning fee'], ['avHourly', 'Technician, by the hour'], ['deposit', 'Deposit (part of the total)'], ['damageDeposit', 'Damage deposit (refundable)']];
+  var PCTS = [['weekendPct', 'Weekend surcharge %'], ['outOfHoursPct', 'Before 08:00 or after 22:00, surcharge %'], ['charityPct', 'Charity rate, % off'], ['regularPct', 'Regular hirer, % off']];
+  function drawTypes() {
+    if (!$('types-list')) return;
+    $('types-list').innerHTML = types.length ? types.slice().sort(byOrder).map(function (t) {
+      return '<div class="row flex flex-wrap gap-3 items-center"><span class="font-semibold text-sm" style="min-width:140px">' + esc(t.name) + '</span>' +
+        '<label class="fac"><input type="checkbox" data-tpub="' + t.id + '"' + (t.forPublic ? ' checked' : '') + '> For the public</label>' +
+        '<label class="fac"><input type="checkbox" data-tchg="' + t.id + '"' + (t.charged ? ' checked' : '') + '> Charged</label>' +
+        '<button class="btn btn-x" data-tog="bookingTypes" data-id="' + t.id + '">' + (t.active === false ? 'Bring back' : 'Take out of use') + '</button></div>';
+    }).join('') : '<p class="hint">None yet. Add "Private hire" to start.</p>';
+    var rs = rooms.filter(function (r) { return r.kind !== 'online'; }).sort(byOrder), keepR = $('rc-room').value, keepT = $('rc-type').value;
+    $('rc-room').innerHTML = rs.map(function (r) { return '<option value="' + r.id + '">' + esc(r.name) + '</option>'; }).join('');
+    $('rc-type').innerHTML = types.filter(function (t) { return t.active !== false; }).sort(byOrder).map(function (t) { return '<option value="' + t.id + '">' + esc(t.name) + '</option>'; }).join('');
+    if (keepR) $('rc-room').value = keepR; if (keepT) $('rc-type').value = keepT;
+    drawCard();
+  }
+  function drawCard() {
+    var room = $('rc-room').value, type = $('rc-type').value;
+    if (!room || !type) { $('rc-form').innerHTML = '<p class="hint">Add a room and a kind of booking first.</p>'; $('rc-list').innerHTML = ''; return; }
+    var c = cards.find(function (x) { return x.id === room + '__' + type; }) || {};
+    var money = function (k) { return c[k] ? (c[k] / 100).toFixed(2) : ''; };
+    $('rc-form').innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">' +
+      MONEY.map(function (m) { return '<div><label class="lbl" for="rc-' + m[0] + '">' + m[1] + ' £</label><input class="inp" type="number" min="0" step="0.01" id="rc-' + m[0] + '" value="' + money(m[0]) + '"></div>'; }).join('') +
+      PCTS.map(function (m) { return '<div><label class="lbl" for="rc-' + m[0] + '">' + m[1] + '</label><input class="inp" type="number" min="0" max="100" step="1" id="rc-' + m[0] + '" value="' + (c[m[0]] || '') + '"></div>'; }).join('') +
+      '</div><div class="flex flex-wrap gap-4 mt-3 text-sm">' +
+        '<label class="fac"><input type="checkbox" id="rc-setupCharged"' + (c.setupCharged ? ' checked' : '') + '> Setting up and clearing away are charged</label>' +
+        '<label class="fac"><input type="checkbox" id="rc-vat"' + (c.vat ? ' checked' : '') + '> Charge VAT (20%)</label></div>' +
+      '<button class="btn mt-3" id="rc-save">Save these prices</button>';
+    $('rc-save').onclick = saveCard;
+    $('rc-list').innerHTML = cards.length ? '<p class="lbl">Prices set</p>' + cards.map(function (x) {
+      var r = rooms.find(function (y) { return y.id === x.roomId; }), t = types.find(function (y) { return y.id === x.typeId; });
+      return '<p class="hint" style="margin:2px 0">' + esc(r ? r.name : x.roomId) + ', ' + esc(t ? t.name : x.typeId) + ': ' +
+        [x.hourly ? Qt.pounds(x.hourly) + ' an hour' : '', x.halfDay ? Qt.pounds(x.halfDay) + ' half day' : '', x.evening ? Qt.pounds(x.evening) + ' evening' : '', x.fullDay ? Qt.pounds(x.fullDay) + ' day' : '']
+          .filter(Boolean).join(', ') + '</p>';
+    }).join('') : '';
+  }
+  function saveCard() {
+    var room = rooms.find(function (r) { return r.id === $('rc-room').value; }), type = $('rc-type').value, c = { roomId: room.id, typeId: type, siteId: room.siteId };
+    MONEY.forEach(function (m) { c[m[0]] = Qt.toPence($('rc-' + m[0]).value); });
+    PCTS.forEach(function (m) { c[m[0]] = Math.max(0, Math.min(100, Math.round(Number($('rc-' + m[0]).value) || 0))); });
+    c.setupCharged = $('rc-setupCharged').checked; c.vat = $('rc-vat').checked; c.vatRate = 20; c.active = true; c.updatedAt = new Date().toISOString();
+    db.collection('rateCards').doc(room.id + '__' + type).set(c).then(function () { toast('Prices saved'); }).catch(oops);
+  }
+  document.addEventListener('change', function (e) {
+    var d = e.target.dataset || {};
+    if (e.target.id === 'rc-room' || e.target.id === 'rc-type') drawCard();
+    if (d.tpub) db.collection('bookingTypes').doc(d.tpub).update({ forPublic: e.target.checked }).catch(oops);
+    if (d.tchg) db.collection('bookingTypes').doc(d.tchg).update({ charged: e.target.checked }).catch(oops);
+    if (d.kprice) db.collection('bookableResources').doc(d.kprice).update({ hirePrice: Qt.toPence(e.target.value) }).then(function () { toast('Saved'); }).catch(oops);
+  });
+  $('t-add').addEventListener('click', function () {
+    var name = $('t-name').value.trim();
+    if (!name) { toast('Give it a name'); return; }
+    db.collection('bookingTypes').add({ name: name, forPublic: true, charged: true, active: true, order: nextOrder(types) })
+      .then(function () { $('t-name').value = ''; toast('Added'); }).catch(oops);
+  });
+
   /* ---- seed --------------------------------------------------------- */
   $('seed').addEventListener('click', function () {
     if (sites.length || rooms.length) { toast('Already set up — nothing seeded'); return; }
@@ -1008,10 +1097,12 @@
     db = EGBCAuth.db;
 
     watch('sites', function (v) { sites = v; }, function () { drawSites(); drawRooms(); drawBookingsTab(); });
-    watch('rooms', function (v) { rooms = v; }, function () { drawRooms(); drawKit(); drawBookingsTab(); });
+    watch('rooms', function (v) { rooms = v; }, function () { drawRooms(); drawKit(); drawBookingsTab(); drawTypes(); });
     watch('bookableResources', function (v) { kit = v; }, drawKit);
     watch('venues', function (v) { venues = v; }, drawVenues);
     watch('menus', function (v) { menus = v; }, drawMenus);
+    watch('bookingTypes', function (v) { types = v; }, drawTypes);
+    watch('rateCards', function (v) { cards = v; }, drawCard);
     watch('bookingSettings', function (v) {
       settings = {}; v.forEach(function (s) { settings[s.id] = s; });
     }, drawWho);

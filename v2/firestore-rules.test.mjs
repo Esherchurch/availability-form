@@ -962,6 +962,32 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a bookings admin cannot book at a site they do not look after', 'deny', () => put(lena(), K('h'), EV('2027-01-20', { siteId: 'site_appr', roomId: 'room_apsite' })));
 }
 
+// ── EVENTS (events window) ── hire prices and charges (Chunk 5, stage 1)
+{
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  await check('anyone reads the booking types and prices (the instant quote needs them)', 'allow', () => getDoc(doc(anon(), 'rateCards', 'room_band__type_hire')));
+  await check('an admin sets a booking type', 'allow', () => setDoc(doc(as('karen'), 'bookingTypes', 'type_hire'), { name: 'Private hire', forPublic: true, charged: true, active: true, order: 1 }));
+  await check('a member cannot', 'deny', () => setDoc(doc(as('samy'), 'bookingTypes', 'type_x'), { name: 'Free for me', forPublic: true, charged: false }));
+  await check('an admin sets a room\u2019s prices for a type, in pence', 'allow', () => setDoc(doc(as('karen'), 'rateCards', 'room_band__type_hire'), { roomId: 'room_band', typeId: 'type_hire', siteId: 'site_bk', hourly: 2000, vat: false }));
+  await check('filed under the right room and type, or not at all', 'deny', () => setDoc(doc(as('karen'), 'rateCards', 'room_band__type_hire'), { roomId: 'room_hold', typeId: 'type_hire', siteId: 'site_bk', hourly: 2000 }));
+  await check('not in pounds and pence (a fraction is refused)', 'deny', () => setDoc(doc(as('karen'), 'rateCards', 'room_band__type_hire'), { roomId: 'room_band', typeId: 'type_hire', siteId: 'site_bk', hourly: 20.5 }));
+  await check('a bookings admin cannot change prices', 'deny', () => setDoc(doc(lena(), 'rateCards', 'room_band__type_hire'), { roomId: 'room_band', typeId: 'type_hire', siteId: 'site_bk', hourly: 1 }));
+  const CH = (extra) => ({ bookingKey: 'bk_requested_00000000000000000', seriesId: '', siteId: 'site_bk', roomId: 'room_band', kind: 'hire',
+    payer: { name: 'Hirer', email: 'h@example.invalid', org: '' }, lines: [{ code: 'hire', label: 'Room hire', amount: 4000 }],
+    subtotal: 4000, vat: 0, vatRate: 0, total: 4000, deposit: 0, damageDeposit: 0, status: 'unpaid', payments: [], dueDate: '2026-11-25', createdAt: 'x', createdBy: 'u_lena', adjusted: false, ...(extra || {}) });
+  await check('the site\u2019s bookings admin records what a hirer owes', 'allow', () => setDoc(doc(lena(), 'charges', 'ch_test_1'), CH()));
+  await check('the total must be the lines\u2019 sum plus VAT', 'deny', () => setDoc(doc(lena(), 'charges', 'ch_test_2'), CH({ total: 3999 })));
+  await check('only for a booking that exists, at the same site', 'deny', () => setDoc(doc(lena(), 'charges', 'ch_test_3'), CH({ bookingKey: 'bk_nothing_here_0000000000000' })));
+  await check('a member cannot see what a hirer owes', 'deny', () => getDoc(doc(as('samy'), 'charges', 'ch_test_1')));
+  await check('nor can the public', 'deny', () => getDoc(doc(anon(), 'charges', 'ch_test_1')));
+  await check('a charge is never deleted', 'deny', () => deleteDoc(doc(as('karen'), 'charges', 'ch_test_1')));
+  await check('a hire request carries its type, the charity tick and the quote it showed', 'allow', () => setDoc(doc(anon(), 'bookings', 'bk_c5_quote_000000000000000000'), {
+    kind: 'hire', status: 'requested', siteId: 'site_bk', roomId: 'room_band', groupId: '', day: '2026-11-26', startMin: 840, endMin: 960, startLocal: 'x', endLocal: 'x',
+    setupMins: 0, packdownMins: 0, slotFrom: 56, slotTo: 64, title: 'Test party', people: 20, layout: '', av: { needed: false, what: '' }, refreshments: { needed: false },
+    resources: [], notes: '', requester: { name: 'Hirer', email: 'h@example.invalid', phone: '', org: '' }, memberUid: '', memberName: '', createdAt: 'x',
+    bookingType: 'type_hire', charity: true, quote: { lines: [{ code: 'hire', label: 'Room hire', amount: 4000 }], total: 4000 } }));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

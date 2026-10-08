@@ -1269,7 +1269,13 @@ service cloud.firestore {
                                'setupMins', 'packdownMins', 'slotFrom', 'slotTo', 'title', 'people', 'layout', 'av', 'refreshments',
                                'resources', 'notes', 'requester', 'memberUid', 'memberName', 'createdAt', 'calEventId',
                                'decidedBy', 'decidedByName', 'decidedAt', 'decisionNote', 'override', 'cancelledAt', 'movedAt',
-                               'series', 'cancelledBy'])
+                               'series', 'cancelledBy', 'bookingType', 'charity', 'quote'])
+             // Chunk 5: the kind of booking, a charity's say-so (the office
+             // checks it), and the quote as it stood. Amounts are the
+             // office's to set: a hirer's own figures are only what they saw.
+             && (!('bookingType' in d) || (d.bookingType is string && d.bookingType.size() <= 60))
+             && (!('charity' in d) || d.charity is bool)
+             && (!('quote' in d) || (d.quote is map && d.quote.get('lines', []) is list && d.quote.get('lines', []).size() <= 60))
              // A repeating booking (R3): one booking per date, each carrying
              // the series id, which date it is, of how many, and the rule.
              && (!('series' in d) || (d.series is map && d.series.keys().hasOnly(['id', 'rule', 'n', 'of'])
@@ -1396,6 +1402,44 @@ service cloud.firestore {
       allow read: if true;
       allow create: if theOffice(request.resource.data.get('siteId', '')) || marksNewBooking(dayId);
       allow update: if theOffice(request.resource.data.get('siteId', '')) || marksNewBooking(dayId) || unmarksOwnBooking(dayId);
+      allow delete: if false;
+    }
+
+    // ---- hire prices and charges (Chunk 5, stage 1) -------------------
+    // Booking types (Private hire, Community group, Church use...) and each
+    // room's prices for each type. Anyone may read them: the public's
+    // instant quote is worked out from them. Only admins change them.
+    match /bookingTypes/{typeId} {
+      allow read: if true;
+      allow write: if isAdmin()
+                   && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+                   && request.resource.data.get('forPublic', false) is bool && request.resource.data.get('charged', false) is bool;
+    }
+    match /rateCards/{cardId} {
+      allow read: if true;
+      allow write: if isAdmin()
+                   && cardId == request.resource.data.roomId + '__' + request.resource.data.typeId
+                   && request.resource.data.get('hourly', 0) is int && request.resource.data.get('hourly', 0) >= 0
+                   && request.resource.data.get('vat', false) is bool;
+    }
+    // What a hirer owes for a booking. Only the office of that site sees or
+    // writes it (the hirer's own page comes in stage 2); never deleted, so
+    // the money always has a trail. Amounts are whole pence.
+    function chargeShape() {
+      let c = request.resource.data;
+      return c.keys().hasOnly(['bookingKey', 'seriesId', 'siteId', 'roomId', 'kind', 'payer', 'lines', 'subtotal', 'vat', 'vatRate', 'total',
+                               'deposit', 'damageDeposit', 'status', 'payments', 'dueDate', 'createdAt', 'createdBy', 'adjusted', 'updatedAt', 'updatedBy', 'note'])
+             && c.siteId is string && c.bookingKey is string
+             && c.lines is list && c.lines.size() <= 60
+             && c.subtotal is int && c.vat is int && c.total is int && c.total == c.subtotal + c.vat
+             && c.status in ['unpaid', 'part-paid', 'paid', 'cancelled']
+             && exists(/databases/$(database)/documents/bookings/$(c.bookingKey))
+             && get(/databases/$(database)/documents/bookings/$(c.bookingKey)).data.siteId == c.siteId;
+    }
+    match /charges/{chargeId} {
+      allow read: if theOffice(resource.data.siteId);
+      allow create: if theOffice(request.resource.data.siteId) && chargeShape();
+      allow update: if theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId) && chargeShape();
       allow delete: if false;
     }
 
