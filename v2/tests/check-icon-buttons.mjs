@@ -192,10 +192,17 @@ const PROBE = `(() => {
  * exactly as the original drew it, minus its emoji, and it was a real fault.
  * Sameness is not innocence.
  */
-const JUDGED = [
-  { page: 'EGBC-PlayThrough.html', label: 'Training',
-    why: 'the unselected half of a two-tab pair - "Play Through" beside it is filled in, which is what says which one you are on. Identical to the original, and the original never had an emoji on it.' }
-];
+/* EMPTY, and worth keeping empty.
+
+   It held one entry: Play-Through's "Training" tab, the unselected half of
+   a two-tab pair, left alone because it was identical to the original and
+   the filled half said which page you were on. Step H restyled those pages,
+   and the unselected half of every such pair now carries a border - so it
+   reads as something you can press and there is nothing to excuse.
+
+   A judged entry that no longer applies is worse than none: it makes the
+   list look considered while quietly covering nothing. */
+const JUDGED = [];
 const judgedFor = (page, what) =>
   (JUDGED.find(j => j.page === page && String(what).includes('"' + j.label)) || {}).why;
 

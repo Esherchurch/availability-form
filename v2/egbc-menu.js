@@ -105,7 +105,9 @@
       description: "The children's team, and the children in their care",
       children: [
         { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', team: 'Kids Church',
-          description: 'The children, their groups, and who may collect them' }
+          description: 'The children, their groups, and who may collect them' },
+        { title: 'Sunday check-in', url: 'checkin.html', icon: 'user-check', team: 'Kids Church',
+          description: 'Check children in and out, with labels and collection codes' }
         /* Safeguarding and Check-in go here when the events window ships
            them (F-031, F-090), not under Events and rooms. */
       ] },

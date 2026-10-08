@@ -50,6 +50,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { giveFullAccess } from './test-account.mjs';
 
 const V2 = path.resolve('.');
 const ROOT = path.resolve('..');
@@ -143,7 +144,21 @@ const AGREED = [
      installed app instead of opening the browser at daily.co. The room is the
      same either way; only the page that opens it changed. */
   { re: /daily\.co|meeting\.html\?room=/i,
-    why: 'agreed (ONE-APP section 5): Join opens meeting.html so the call stays in the app' }
+    why: 'agreed (ONE-APP section 5): Join opens meeting.html so the call stays in the app' },
+  /* Step N (NEXT-BRIEF 16): the 44 links that left v2 now stay in v2. The
+     original's ? button points at the live GitHub Pages address, so opening
+     it from v2 took you out of v2 and onto the old site. v2's points at the
+     page beside it: same page, same button, same place on the screen.
+
+     Named by the live address rather than by the word "instructions", so a
+     help page that genuinely went missing still shows up as a loss. */
+  /* The HOST alone. A control key is cut to a fixed length before it gets
+     here, so the full path never arrives - the string is
+     "a|helpBtn|?|https://esherchurch.github.io/availability-f". Matching
+     the path meant this entry never fired and the agreed change kept
+     reporting as a loss. */
+  { re: /esherchurch\.github\.io/i,
+    why: 'agreed (Step N 16): a link that left v2 now points at the page beside it' }
 ];
 
 /* ---------------------------------------------------------------- servers */
@@ -733,6 +748,14 @@ function missingFrom(origRows, v2Rows) {
   /* firebase's own currentUser, not EGBCAuth.user(): EGBCAuth only fills its
      own copy inside require()/optional(), which a bare harness page never
      calls, so EGBCAuth.user() is null here even on a good sign-in. */
+  const uid = await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).uid || ""');
+  /* A SIGNED-IN ACCOUNT IS NOT THE SAME AS ONE WITH A PROFILE. An account
+     with no users/{uid} document and no address book record cannot create
+     one - the rules refuse it - so every page shows EGBCAuth's refusal
+     instead of itself, and this reported 37 losses on a page with none.
+     Asking for the profile here costs one write and removes the whole
+     class of false reading. (Same lesson as A-023.) */
+  if (uid) await giveFullAccess(uid, ACCOUNT.email);
   const who = await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).email || "(nobody)"');
   if (who === '(nobody)') {
     console.error('Could not sign in as ' + ACCOUNT.email + ' on the emulator.\n' +

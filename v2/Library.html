@@ -9,7 +9,7 @@
 <script src="egbc-shell.js?v=202610082145" data-title="Music Database"></script>
 <script src="egbc-guard.js?v=202609041833" data-team="Worship Team"></script>
     <title>Song Library</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root{
@@ -19,13 +19,13 @@
         }
 
         body {
-            font-family: 'Montserrat', sans-serif;
+            font-family: 'Inter', sans-serif;
             display: flex;
             height: 100vh;
             margin: 0;
             color: var(--body);
             background-color: var(--canvas);
-            font-size: 16px;
+            font-size:16px;
         }
 
         #left {
@@ -62,7 +62,7 @@
 
         .song-title-text {
             font-weight: 600;
-            font-size: 14px;
+            font-size:14px;
             color: var(--ink);
         }
 
@@ -74,8 +74,8 @@
         }
 
         .stat-badge {
-            font-size: 11px;
-            font-weight: 700;
+            font-size:12px;
+            font-weight:600;
             padding: 3px 10px;
             border-radius: var(--r-pill);
             display: inline-flex;
@@ -108,18 +108,18 @@
             color: var(--muted);
         }
 
-        h2 { color: var(--ink); margin-top: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.02em; }
-        h3 { color: var(--ink); border-bottom: 1px solid var(--hairline-strong); padding-bottom: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+        h2 { color: var(--ink); margin-top: 0; font-weight:600; font-size:26px; letter-spacing: -0.02em; }
+        h3 { color: var(--ink); border-bottom: 1px solid var(--hairline-strong); padding-bottom: 10px; font-weight:600; font-size:18px; letter-spacing: -0.01em; }
 
         label {
             display: block;
-            font-weight: 800;
+            font-weight:600;
             margin-bottom: 8px;
             color: var(--muted);
             padding-left: 2px;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            font-size:12px;
+            
+            
         }
 
         input, textarea, select {
@@ -129,8 +129,8 @@
             border: 1px solid var(--hairline-strong);
             border-radius: var(--r-md);
             box-sizing: border-box;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            font-size:15px;
             color: var(--ink);
             background: var(--surface);
             outline: none;
@@ -149,9 +149,9 @@
             border: none;
             border-radius: var(--r-md);
             cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 14px;
-            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            font-size:14px;
+            font-weight:600;
             transition: background 0.15s;
         }
 
@@ -162,18 +162,18 @@
         .delete-btn {
             background-color: var(--danger);
             margin-top: 20px;
-            font-size: 13px;
+            font-size:13px;
         }
 
         .delete-btn:hover { background-color: #8f2d23; }
 
         .status-msg {
-            font-size: 11px;
+            font-size:12px;
             color: var(--muted);
             margin-top: -15px;
             margin-bottom: 15px;
             height: 15px;
-            font-weight: 700;
+            font-weight:600;
             padding-left: 6px;
         }
 
@@ -195,7 +195,7 @@
             display: inline-block;
             color: var(--brand);
             text-decoration: underline;
-            font-weight: 700;
+            font-weight:600;
         }
 
         .usage-panel {
@@ -218,18 +218,18 @@
         }
 
         .usage-stat-number {
-            font-size: 24px;
-            font-weight: 800;
+            font-size:24px;
+            font-weight:600;
             color: var(--brand);
             line-height: 1;
         }
 
         .usage-stat-label {
-            font-size: 11px;
-            font-weight: 800;
+            font-size:12px;
+            font-weight:600;
             color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            
+            
             text-align: center;
         }
 
@@ -240,22 +240,22 @@
         }
 
         .usage-last {
-            font-size: 13px;
-            font-weight: 700;
+            font-size:13px;
+            font-weight:600;
             color: var(--brand);
         }
 
         .usage-last-label {
-            font-size: 11px;
+            font-size:12px;
             color: var(--muted);
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            font-weight:600;
+            
+            
         }
 
         .usage-warning {
-            font-size: 11px;
-            font-weight: 700;
+            font-size:12px;
+            font-weight:600;
             color: var(--danger);
             background: var(--danger-tint);
             padding: 4px 12px;
@@ -263,9 +263,9 @@
         }
 
         #stats-loading {
-            font-size: 11px;
+            font-size:12px;
             color: var(--muted);
-            font-weight: 700;
+            font-weight:600;
             padding: 4px 0;
         }
 
@@ -291,8 +291,8 @@
             color: var(--brand);
             padding: 11px 16px;
             border-radius: var(--r-md);
-            font-weight: 700;
-            font-size: 13px;
+            font-weight:600;
+            font-size:13px;
             text-decoration: none;
             white-space: nowrap;
             transition: background 0.2s;
@@ -335,8 +335,8 @@
             color: white;
             padding: 11px 20px;
             border-radius: var(--r-md);
-            font-weight: 700;
-            font-size: 13px;
+            font-weight:600;
+            font-size:13px;
             text-decoration: none;
             transition: background 0.2s;
         }
@@ -357,11 +357,11 @@
             color: var(--brand);
             padding: 11px 16px;
             border-radius: var(--r-md);
-            font-weight: 700;
-            font-size: 13px;
+            font-weight:600;
+            font-size:13px;
             border: none;
             cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
+            font-family: 'Inter', sans-serif;
             transition: background 0.2s;
         }
 
@@ -436,7 +436,7 @@
             <a id="youtube-open-btn" href="#" target="_blank" class="youtube-open-btn disabled">
                 ▶ Open on YouTube
             </a>
-            <button type="button" class="youtube-edit-btn" onclick="toggleYoutubeEdit()">✎ Edit Link</button>
+            <button type="button" class="youtube-edit-btn" onclick="toggleYoutubeEdit()"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:-2px"></i> Edit Link</button>
         </div>
         <div class="youtube-input-row" id="youtube-input-row">
             <input id="youtube" onchange="smartScanArtist(); updateYoutubeButton();" placeholder="Paste YouTube link here">
@@ -447,9 +447,7 @@
         <label>CCLI Number</label>
         <div class="ccli-row">
             <input id="ccli" placeholder="e.g. 1234567" oninput="updateCcliLink()">
-            <a id="ccli-link" href="#" target="_blank" class="ccli-link-btn disabled">
-                🔗 Song Select
-            </a>
+            <a id="ccli-link" href="#" target="_blank" class="ccli-link-btn disabled"> <i data-lucide="link" style="width:15px;height:15px;vertical-align:-2px"></i> Song Select </a>
         </div>
 
         <h3>Associated Files</h3>
@@ -661,7 +659,7 @@ async function renderUsagePanel(songTitle) {
                 <span class="usage-stat-label">Times Used</span>
             </div>
             <div class="usage-divider"></div>
-            <span style="font-size:12px; color:#aaa; font-weight:700;">This song hasn't been used yet</span>
+            <span style="font-size:12px; color:#aaa; font-weight:600;">This song hasn't been used yet</span>
         `;
         return;
     }

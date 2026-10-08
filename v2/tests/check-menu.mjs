@@ -52,7 +52,7 @@ const APPROVED = [
       ['Equipment', [['Inventory'], ['AV Infrastructure Mapper'], ['Monitor Setup']]]]]
   ]],
   ['Youth', [['Youth Service Planner']]],
-  ['Kids Church', [["Children's register"]]],
+  ['Kids Church', [["Children's register"], ['Sunday check-in']]],
   ['Core Team', [
     ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
     ['People and email', [['Address Book'], ['Email Compiler']]],
@@ -85,7 +85,7 @@ const BOOKINGS_ONLY = ['Room bookings'];
 /* The children's team's own section (F-089). Only somebody on Kids Church,
    the person who administers it, or a master admin. Deliberately not every
    admin: whoever looks after Worship is not the children's team. */
-const KIDS_ONLY = ['Kids Church', "Children's register"];
+const KIDS_ONLY = ['Kids Church', "Children's register", 'Sunday check-in'];
 
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
@@ -98,7 +98,7 @@ const PEOPLE = {
      and must still reach the register - which is the whole reason it is a
      team heading beside Youth rather than buried under Core Team. */
   'a Kids Church leader': { teams: ['Kids Church'], adminFor: [], masterAdmin: false,
-    sees: ['Kids Church', "Children's register"],
+    sees: ['Kids Church', "Children's register", 'Sunday check-in'],
     doesNot: ['Core Team', 'Planning', 'Rota Planner', 'Events and rooms', 'Admin'] },
   /* Karen: administers Kids Church without being on its rota.
 
@@ -121,7 +121,7 @@ const PEOPLE = {
     bookingsAdmin: true,
     sees: ['Book a room', 'Core Team', 'Events and rooms', 'Room bookings'],
     doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Admin',
-              'Backup & Restore', 'Kids Church', "Children's register"] }
+              'Backup & Restore', 'Kids Church', "Children's register", 'Sunday check-in'] }
 };
 
 const flat = (nodes, out = []) => {

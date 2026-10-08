@@ -30,13 +30,13 @@ if (typeof EGBCAuth === 'undefined' || !EGBCAuth.db) {
       'padding:24px;font-family:Montserrat,system-ui,sans-serif;background:#eef4f3;color:#14201f">' +
         '<div style="background:#fff;border:1px solid #dde7e6;border-radius:24px;padding:48px;' +
         'max-width:440px;text-align:center;box-shadow:0 18px 48px rgba(20,32,31,.12)">' +
-          '<h1 style="font-size:19px;font-weight:900;margin:0 0 12px">Half of this page is out of date</h1>' +
+          '<h1 style="font-size:19px;font-weight:600;margin:0 0 12px">Half of this page is out of date</h1>' +
           '<p style="font-size:14px;line-height:1.6;color:#3a4d4c;margin:0 0 24px">' +
           'Your browser is holding an old copy of one of the scripts. A hard refresh ' +
           '(Ctrl and F5 together) should clear it.</p>' +
           '<button onclick="location.reload(true)" style="background:#3d6263;color:#fff;border:none;' +
-          'padding:12px 28px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;' +
-          'letter-spacing:.1em;cursor:pointer;font-family:inherit">Reload</button>' +
+          'padding:12px 28px;border-radius:8px;font-size:12px;font-weight:600;' +
+          'cursor:pointer;font-family:inherit">Reload</button>' +
         '</div>' +
       '</div>';
   });
@@ -2297,7 +2297,7 @@ function calendarChoiceRow(f) {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <input readonly value="${esc(url)}" id="calurl-${esc(f.id)}"
-               style="flex:1;min-width:150px;font-size:11px;padding:6px 8px;border:1px solid var(--hairline-strong);border-radius:8px">
+               style="flex:1;min-width:150px;font-size:12px;padding:6px 8px;border:1px solid var(--hairline-strong);border-radius:8px">
         <button class="btn sm" onclick="copyCalendarUrl('${f.id}')">${I('copy')} Copy link</button>
         <button class="btn sm" style="color:var(--danger)" onclick="resetCalendarLink('${f.id}')">${I('rotate-ccw')} Reset this link</button>
       </div>`}
@@ -2481,8 +2481,8 @@ function renderAdminNews() {
       return `<div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;background:var(--surface-2);
                 border:1px solid var(--line);border-radius:12px;padding:12px 15px;margin-bottom:7px">
         <div style="flex:1;min-width:170px">
-          <div style="font-size:13px;font-weight:800;color:var(--ink)">${n.pinned ? '&#9733; ' : ''}${esc(n.title)}</div>
-          <div style="font-size:10px;color:var(--faint);font-weight:700;margin-top:2px">
+          <div style="font-size:13px;font-weight:600;color:var(--ink)">${n.pinned ? '&#9733; ' : ''}${esc(n.title)}</div>
+          <div style="font-size:12px;color:var(--faint);font-weight:600;margin-top:2px">
             ${(n.teams || []).length ? esc(n.teams.join(', ')) : 'Everyone'} &middot; ${(n.date ? esc(n.date) : when(n.createdAt))}
             ${n.requireAck ? ` &middot; ${acks} confirmed` : ''}
             ${n.until ? (isNewsExpired(n)
@@ -2961,15 +2961,15 @@ function makeCode(){
 
 function codeEmail(name,code,parentName){
   return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
+    <p style="font-size:12px;font-weight:600;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
     <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Hi${parentName?' '+esc(parentName):''},</p>
     <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Here is an access code so ${esc(name)} can use the Youth Hub on their phone. It works once, on one device, and lasts six weeks - we will send a new one after that.</p>
     <div style="background:#f0f6f6;border:1px solid #dde7e6;border-radius:16px;padding:24px;text-align:center;margin:24px 0">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#6b8281;margin-bottom:10px">Access code</div>
-      <div style="font-size:26px;font-weight:900;letter-spacing:5px;color:#14201f">${code}</div>
+      <div style="font-size:12px;font-weight:600;color:#6b8281;margin-bottom:10px">Access code</div>
+      <div style="font-size:26px;font-weight:600;color:#14201f">${code}</div>
     </div>
     <p style="text-align:center;margin:24px 0">
-      <a href="https://esherchurch.github.io/availability-form/v2/youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:999px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;text-decoration:none">Enter the code</a>
+      <a href="https://esherchurch.github.io/availability-form/v2/youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none">Enter the code</a>
     </p>
     <p style="font-size:13px;color:#6b8281;line-height:1.6">Please pass this to ${esc(name)} rather than forwarding the email. If you would rather they did not have access, simply do not use it - and let us know.</p>
     <p style="font-size:12px;color:#93a8a6;line-height:1.6;margin-top:24px;border-top:1px solid #dde7e6;padding-top:16px">Sent by the youth team at Esher Green Baptist Church.</p>
@@ -3087,7 +3087,7 @@ function renderAdminPeople(){
         <input id="peopleSearch" class="fld" style="width:190px;margin:0" placeholder="Search&hellip;" oninput="renderPeople()">
       </div>
       <div id="pendingBanner" style="display:none;background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:14px;padding:13px 17px;margin-bottom:14px">
-        <span style="font-size:12px;font-weight:800;color:var(--gold-ink)"></span>
+        <span style="font-size:12px;font-weight:600;color:var(--gold-ink)"></span>
       </div>
       <div id="peopleList"></div>`;
   }
@@ -3102,7 +3102,7 @@ function renderAdminPages(){
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.6;max-width:480px">
           What appears in the menu, and who sees it.
-          <span id="pagesCount" style="display:block;margin-top:4px;font-weight:700"></span>
+          <span id="pagesCount" style="display:block;margin-top:4px;font-weight:600"></span>
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn solid" id="btnSeed" onclick="seedRegistry()">Add the missing pages</button>
@@ -3132,11 +3132,11 @@ function renderAdminPages(){
         </select>
         <label style="display:flex;gap:9px;align-items:center;cursor:pointer;margin:4px 0 12px">
           <input type="checkbox" id="pgAdminOnly" style="width:16px;height:16px;accent-color:var(--brand)">
-          <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Admins only</span>
+          <span style="font-size:12px;font-weight:600;color:var(--muted)">Admins only</span>
         </label>
         <label style="display:flex;gap:9px;align-items:center;cursor:pointer;margin-bottom:14px">
           <input type="checkbox" id="pgEnabled" checked style="width:16px;height:16px;accent-color:var(--brand)">
-          <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Visible</span>
+          <span style="font-size:12px;font-weight:600;color:var(--muted)">Visible</span>
         </label>
         <div style="display:flex;gap:9px;flex-wrap:wrap">
           <button class="btn solid" onclick="savePage()">Save</button>
@@ -3162,7 +3162,7 @@ function renderAdminYouth(){
         Under 16s cannot have accounts, so a code goes to their parent instead. It works once, on one device, and lasts 6 weeks.
       </p>
       <div id="youthExpiring" style="display:none;background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:14px;padding:13px 17px;margin-bottom:14px">
-        <div style="font-size:12px;font-weight:800;color:var(--gold-ink);margin-bottom:9px"></div>
+        <div style="font-size:12px;font-weight:600;color:var(--gold-ink);margin-bottom:9px"></div>
         <button class="btn gold" onclick="renewExpiring()">Send renewals</button>
       </div>
       <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:16px;padding:17px;margin-bottom:18px">
@@ -3171,7 +3171,7 @@ function renderAdminYouth(){
           <select id="youthWho" class="fld" style="flex:1;min-width:210px;margin:0"></select>
           <button class="btn solid" id="sendCodeBtn" onclick="sendCode()">Send</button>
         </div>
-        <div id="youthTo" style="font-size:11px;color:var(--muted);margin-top:10px;font-weight:600"></div>
+        <div id="youthTo" style="font-size:12px;color:var(--muted);margin-top:10px;font-weight:600"></div>
       </div>
       <div id="youthList"></div>`;
   }

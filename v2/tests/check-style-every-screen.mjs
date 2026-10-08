@@ -53,6 +53,10 @@ const ACCOUNT = {
 };
 
 const PROBE = `(() => {
+  /* Pictographs, dingbats and the arrows block, plus the variation selector
+     that turns a plain glyph into an emoji one. The same ranges the
+     comparison's AGREED list uses for "emoji replaced with Lucide". */
+  const EMOJI = /[🌀-🫿☀-➿⬀-⯿️←-⇿]/u;
   const out = [], seen = {};
   document.querySelectorAll('button,a,input,select,textarea,label,div,span,h1,h2,h3,h4,p,td,th,li').forEach(e => {
     if (!e.offsetParent && e.tagName !== 'BODY') return;
@@ -74,6 +78,15 @@ const PROBE = `(() => {
     if (px && px < 12) bad.push(px + 'px');
     if (pill) bad.push('pill' + Math.round(rad));
     if (/Montserrat/.test(s.fontFamily)) bad.push('Montserrat');
+    /* DESIGN.md: no emoji in the interface. Lucide only.
+
+       Only inside the CHROME - a control, a heading, a table header, an
+       option. An emoji in a notice somebody wrote, or in a song note, is
+       their content and stays; RESTYLE-BRIEF says so in those words. Judging
+       that by the element rather than by the character is what keeps the two
+       apart without a list of exceptions. */
+    if (EMOJI.test(e.textContent || '') &&
+        /^(BUTTON|A|LABEL|SELECT|OPTION|SUMMARY|H1|H2|H3|H4|TH)$/.test(e.tagName)) bad.push('emoji');
     if (!bad.length) return;
     const key = e.tagName + '|' + bad.join(',');
     seen[key] = (seen[key] || 0) + 1;

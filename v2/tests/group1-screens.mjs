@@ -123,20 +123,88 @@ export const PAGES = [
   { page: 'church-settings.html', wait: 9000, states: [
       ['main', '1']
     ] },
-  /* F-089, from the events window: the children's register. */
+  /* F-089 and F-095, from the events window: the children's register and
+     Sunday check-in. */
   { page: 'kids-admin.html', wait: 9000, states: [
       ['main', '1']
     ] },
+  { page: 'checkin.html', wait: 9000, states: [
+      ['main', '1']
+    ] },
+
+  /* ---- RESTYLE GROUP 2: the Worship & AV pages (Step H) --------------
+
+     NONE OF THESE WAS IN THIS LIST. The style check has been reporting a
+     clean sweep across twelve pages while eight of the group it is about had
+     never been opened by it - the same shape as A-023, where six gated pages
+     scored nothing and nothing scored read as nothing wrong.
+
+     So they go in BEFORE the restyle, to get a number to restyle against,
+     and each one's screens are read off the page rather than guessed: the
+     three tab buttons the AV pages have, the five dialogs the Email Compiler
+     has, the admin bar and HTML editor every charter has.
+
+     `restyled: false` comes off each as it is done. */
+
+  { page: 'Library.html', wait: 9000, states: [
+      ['main', '1'],
+      ['a song picked', "(()=>{const a=document.querySelector('#list a, #list .song, #list li');if(a)a.click();return 1})()"],
+      ['searching', "(()=>{const s=document.getElementById('search');if(s){s.value='a';s.dispatchEvent(new Event('input',{bubbles:true}))}return 1})()"]
+    ] },
+  { page: 'batchupload.html', wait: 9000, states: [
+      ['main', '1'],
+      ['the form filled in', "(()=>{document.querySelectorAll('input[type=text],textarea').forEach(i=>{if(!i.value)i.value='Synthetic'});return 1})()"]
+    ] },
+  { page: 'music-uploader.html', wait: 9000, states: [
+      ['main', '1'],
+      ['the form filled in', "(()=>{document.querySelectorAll('input[type=text],textarea').forEach(i=>{if(!i.value)i.value='Synthetic'});return 1})()"]
+    ] },
+  { page: 'EmailBuilder2.html', wait: 10000, states: [
+      ['main', '1'],
+      ['who it goes to', "(()=>{const m=document.getElementById('whoModal');if(m){m.classList.add('open','on');m.style.display='flex'}return 1})()"],
+      ['review before sending', "(()=>{const a=document.getElementById('whoModal');if(a){a.classList.remove('open','on');a.style.display='none'}const m=document.getElementById('reviewModal');if(m){m.classList.add('open','on');m.style.display='flex'}return 1})()"],
+      ['drafts', "(()=>{const a=document.getElementById('reviewModal');if(a){a.classList.remove('open','on');a.style.display='none'}const m=document.getElementById('draftsModal');if(m){m.classList.add('open','on');m.style.display='flex'}return 1})()"],
+      ['people', "(()=>{const a=document.getElementById('draftsModal');if(a){a.classList.remove('open','on');a.style.display='none'}const m=document.getElementById('peopleModal');if(m){m.classList.add('open','on');m.style.display='flex'}return 1})()"],
+      ['pictures', "(()=>{const a=document.getElementById('peopleModal');if(a){a.classList.remove('open','on');a.style.display='none'}const m=document.getElementById('gifModal');if(m){m.classList.add('open','on');m.style.display='flex'}return 1})()"]
+    ] },
+  { page: 'EGBC-HowTo-AV.html', wait: 9000, states: [
+      ['tab 1', "(()=>{const b=document.querySelectorAll('.tab-btn')[0];if(b)b.click();return 1})()"],
+      ['tab 2', "(()=>{const b=document.querySelectorAll('.tab-btn')[1];if(b)b.click();return 1})()"],
+      ['tab 3', "(()=>{const b=document.querySelectorAll('.tab-btn')[2];if(b)b.click();return 1})()"]
+    ] },
+  { page: 'EGBC-Troubleshoot-AV.html', wait: 9000, states: [
+      ['tab 1', "(()=>{const b=document.querySelectorAll('.tab-btn')[0];if(b)b.click();return 1})()"],
+      ['tab 2', "(()=>{const b=document.querySelectorAll('.tab-btn')[1];if(b)b.click();return 1})()"],
+      ['tab 3', "(()=>{const b=document.querySelectorAll('.tab-btn')[2];if(b)b.click();return 1})()"]
+    ] },
+  { page: 'EGBC-Training-Worship.html', wait: 9000, states: [
+      ['tab 1', "(()=>{const b=document.querySelectorAll('.tab-btn')[0];if(b)b.click();return 1})()"],
+      ['tab 2', "(()=>{const b=document.querySelectorAll('.tab-btn')[1];if(b)b.click();return 1})()"],
+      ['tab 3', "(()=>{const b=document.querySelectorAll('.tab-btn')[2];if(b)b.click();return 1})()"]
+    ] },
+
+  /* The four charters are one page four times over - same markup, same
+     admin bar, same HTML editor - so they get the same three screens, and a
+     fault in one is a fault in all four. */
+  ...['Worshipteamcharter.html', 'Youthcharter.html', 'Coreteamcharter.html',
+      'AVteamlandingpage.html'].map(page => ({
+    page, wait: 9000, states: [
+      ['main', '1'],
+      ['the password box', "(()=>{try{openPwModal()}catch(e){const m=document.getElementById('pw-modal');if(m)m.style.display='flex'}return 1})()"],
+      ['the admin bar unlocked', "(()=>{const m=document.getElementById('pw-modal');if(m)m.style.display='none';const u=document.getElementById('admin-unlocked-controls');if(u)u.style.display='flex';const l=document.getElementById('admin-locked-controls');if(l)l.style.display='none';return 1})()"],
+      ['the HTML editor', "(()=>{try{openHtmlEditor()}catch(e){const m=document.getElementById('html-editor-modal');if(m)m.style.display='flex'}return 1})()"]
+    ]
+  })),
 
   /* Added when the emoji were counted: A3 took 42 out of the hub, 1 out of the
      pin board and 1 out of Play-Through, and none of those three was on this
      list - so nothing had ever measured them.
-     `restyled: false` says they are not in A3's Group 1. The icon check walks
-     them, because an emoji was taken out of them. The style check does not
-     assert on them, because the restyle has not reached them: making it fail
-     for work that is not scheduled turns a gate into noise. What it finds on
-     them is in PARITY-AUDIT.md for whoever schedules R-014. */
-  { page: 'hub.html', wait: 11000, restyled: false, states: [
+
+     They carried `restyled: false` while the restyle had not reached them,
+     because a gate that fails for work nobody has scheduled is noise. Step H
+     restyled all three, so the flag is gone and the style check asserts on
+     them like every other page. */
+  { page: 'hub.html', wait: 11000, states: [
       ['the tools', '1'],
       ['the admin panel', "(()=>{try{openAdmin();return 'opened'}catch(e){return 'no openAdmin'}})()"],
       ['admin: people', "(()=>{try{adminTab('people');return 1}catch(e){return 'no adminTab'}})()"],
@@ -145,11 +213,11 @@ export const PAGES = [
       ['admin: notices', "(()=>{try{adminTab('news');return 1}catch(e){return 'no adminTab'}})()"],
       ['the team picker', "(()=>{try{openTeamPicker();return 'opened'}catch(e){const b=[...document.querySelectorAll('button')].find(x=>/^switch$/i.test((x.textContent||'').trim()));if(b){b.click();return 'clicked'}return 'no picker'}})()"]
     ] },
-  { page: 'stickynotes.html', wait: 8000, restyled: false, states: [
+  { page: 'stickynotes.html', wait: 8000, states: [
       ['main', '1'],
       ['every panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=odal],details').forEach(m=>{if(m.tagName==='DETAILS'){m.open=true;n++}else if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
     ] },
-  { page: 'EGBC-PlayThrough.html', wait: 8000, restyled: false, states: [
+  { page: 'EGBC-PlayThrough.html', wait: 8000, states: [
       ['main', '1'],
       ['the admin panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=dmin],[id*=odal]').forEach(m=>{if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
     ] }

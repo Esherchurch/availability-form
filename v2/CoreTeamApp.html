@@ -3458,7 +3458,8 @@ function showTourStep(steps) {
   title.textContent = step.title;
   text.textContent  = step.text;
   count.textContent = `${tourStepIndex + 1} / ${steps.length}`;
-  nextBtn.textContent = tourStepIndex < steps.length - 1 ? 'Next →' : 'Got it!';
+  nextBtn.innerHTML = tourStepIndex < steps.length - 1 ? "Next <i data-lucide=\"arrow-right\" style=\"width:15px;height:15px;vertical-align:-2px\"></i>" : "Got it!";
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 
   document.getElementById('tour-overlay').classList.add('active');
 
@@ -3547,7 +3548,7 @@ function maybeTriggerTour(section) {
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>
-      <button class="tour-next" id="tour-next-btn" onclick="nextTourStep()">Next →</button>
+      <button class="tour-next" id="tour-next-btn" onclick="nextTourStep()">Next <i data-lucide="arrow-right" style="width:15px;height:15px;vertical-align:-2px"></i></button>
     </div>
   </div>
 </div>

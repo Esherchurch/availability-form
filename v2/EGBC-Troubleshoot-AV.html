@@ -12,7 +12,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EGBC — AV Troubleshoot</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
@@ -24,7 +24,7 @@
       --shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12);
       --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
     }
-    body{background-color:var(--canvas);color:var(--brand);font-family:'Montserrat',sans-serif;-webkit-font-smoothing:antialiased}
+    body{background-color:var(--canvas);color:var(--brand);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
     h1{color:var(--ink)}
     ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:var(--r-pill)}
     .result-card{transition:transform 0.15s,box-shadow 0.15s}.result-card:hover{transform:translateY(-2px)!important;box-shadow:var(--shadow-lg)!important}
@@ -53,38 +53,38 @@
 
   <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
     <div>
-      <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC — AV Knowledge Base</div>
-      <h1 class="text-3xl font-black tracking-tight">AV Troubleshoot</h1>
+      <div class="text-[12px] font-semibold tracking-[0.3em] opacity-50 mb-1">EGBC — AV Knowledge Base</div>
+      <h1 class="text-3xl font-semibold tracking-tight">AV Troubleshoot</h1>
       <p class="text-sm font-semibold opacity-60 mt-1">Describe the problem and get instant help</p>
     </div>
     <div class="flex gap-3 items-center flex-wrap">
-      <nav class="flex flex-col gap-1 bg-white p-3 rounded-[2rem] border border-[#d1dfdf] shadow-sm">
-        <span class="text-[9px] font-black uppercase tracking-widest px-4 opacity-50">AV Knowledge Base</span>
+      <nav class="flex flex-col gap-1 bg-white p-3 rounded-[14px] border border-[#d1dfdf] shadow-sm">
+        <span class="text-[12px] font-semibold px-4 opacity-50">AV Knowledge Base</span>
         <div class="flex gap-1">
-          <a href="EGBC-HowTo-AV.html" class="px-5 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">How To</a>
-          <span class="px-5 py-2 rounded-full font-black text-[10px] uppercase bg-[#3d6263] text-white">Troubleshoot</span>
+          <a href="EGBC-HowTo-AV.html" class="px-5 py-2 rounded-lg font-semibold text-[12px] border border-[#d1d5db] hover:bg-[#f0f6f6] transition-all">How To</a>
+          <span class="px-5 py-2 rounded-lg font-semibold text-[12px] bg-[#3d6263] text-white">Troubleshoot</span>
         </div>
       </nav>
-      <button onclick="toggleAdmin()" class="bg-white border border-[#d1dfdf] px-6 py-2.5 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-[#3d6263] hover:text-white transition-all">⚙ Admin</button>
+      <button onclick="toggleAdmin()" class="bg-white border border-[#d1dfdf] px-6 py-2.5 rounded-lg font-semibold text-[12px] shadow-sm hover:bg-[#3d6263] hover:text-white transition-all"><i data-lucide="settings" style="width:15px;height:15px;vertical-align:-2px"></i> Admin</button>
     </div>
   </header>
 
-  <div class="bg-white rounded-[2rem] border border-[#d1dfdf] shadow-lg p-6 mb-8">
+  <div class="bg-white rounded-[14px] border border-[#d1dfdf] shadow-lg p-6 mb-8">
     <div class="flex gap-3 items-center">
       <div class="flex-grow relative">
         <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input id="searchInput" type="text" placeholder="Describe the problem… e.g. 'camera went black screen'" class="w-full pl-14 pr-6 py-4 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40 outline-none" onkeydown="if(event.key==='Enter')doSearch()">
+        <input id="searchInput" type="text" placeholder="Describe the problem… e.g. 'camera went black screen'" class="w-full pl-14 pr-6 py-4 rounded-lg border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40 outline-none" onkeydown="if(event.key==='Enter')doSearch()">
       </div>
-      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-full font-black text-[11px] uppercase shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
-      <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-lg font-semibold text-[12px] shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
+      <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-lg font-semibold text-[12px] hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
-      <span class="text-[10px] font-black uppercase opacity-40 self-center">Quick:</span>
-      <button onclick="quickSearch('no sound')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">No sound</button>
-      <button onclick="quickSearch('camera not working')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Camera not working</button>
-      <button onclick="quickSearch('black screen')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Black screen</button>
-      <button onclick="quickSearch('mic feedback')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Mic feedback</button>
-      <button onclick="quickSearch('projector')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[11px] font-bold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Projector</button>
+      <span class="text-[12px] font-semibold opacity-40 self-center">Quick:</span>
+      <button onclick="quickSearch('no sound')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">No sound</button>
+      <button onclick="quickSearch('camera not working')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Camera not working</button>
+      <button onclick="quickSearch('black screen')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Black screen</button>
+      <button onclick="quickSearch('mic feedback')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Mic feedback</button>
+      <button onclick="quickSearch('projector')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Projector</button>
     </div>
   </div>
 
@@ -95,30 +95,30 @@
     <!-- Upload and replace, from egbc-kbupload.js - the same panel on
          every knowledge-base page rather than four copies of a form. -->
     <div id="kb-upload-panel" class="mb-6"></div>
-    <div class="bg-white rounded-[2rem] border-2 border-[#3d6263] shadow-xl p-8">
+    <div class="bg-white rounded-[14px] border-2 border-[#3d6263] shadow-xl p-8">
       <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
-        <h2 class="font-black uppercase tracking-widest text-sm">⚙ Admin — AV Troubleshoot</h2>
-        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black text-xl">✕</button>
+        <h2 class="font-semibold text-sm"><i data-lucide="settings" style="width:18px;height:18px;vertical-align:-2px"></i> Admin — AV Troubleshoot</h2>
+        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-semibold text-xl"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>
       </div>
-      <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-full w-fit">
-        <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-full font-black text-[10px] uppercase">Add Content</button>
-        <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Categories</button>
-        <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-full font-black text-[10px] uppercase">Manage</button>
+      <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-lg w-fit">
+        <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-lg font-semibold text-[12px]">Add Content</button>
+        <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-lg font-semibold text-[12px]">Categories</button>
+        <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-lg font-semibold text-[12px]">Manage</button>
       </div>
 
       <div id="admin-content" class="admin-tab">
         <!-- BATCH DROP -->
-        <div class="flex items-center justify-between gap-4 flex-wrap mb-4 bg-[#f0f6f6] border border-[#d1dfdf] rounded-full px-5 py-3">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-4 bg-[#f0f6f6] border border-[#d1dfdf] rounded-lg px-5 py-3">
           <label class="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" id="autoTranscribe" checked class="w-4 h-4 accent-[#3d6263]">
-            <span class="text-[11px] font-black uppercase tracking-widest opacity-70">Transcribe automatically</span>
+            <span class="text-[12px] font-semibold opacity-70">Transcribe automatically</span>
           </label>
-          <span id="engineStatus" class="text-[10px] font-black uppercase tracking-widest opacity-40">Speech engine loads on first use</span>
+          <span id="engineStatus" class="text-[12px] font-semibold opacity-40">Speech engine loads on first use</span>
         </div>
 
         <div id="batchDrop" class="drop-zone rounded-[1.5rem] px-6 py-12 text-center cursor-pointer bg-[#f0f6f6] mb-6" onclick="document.getElementById('batchFiles').click()">
           <div class="text-4xl mb-3 opacity-30">📁</div>
-          <div class="text-sm font-black uppercase tracking-widest opacity-70">Drop your videos here</div>
+          <div class="text-sm font-semibold opacity-70">Drop your videos here</div>
           <div class="text-[12px] opacity-50 mt-2 leading-relaxed">Transcripts are generated in the browser automatically.<br>If you already have .txt or .vtt files, drop those too and they will be paired by filename.</div>
         </div>
         <input id="batchFiles" type="file" accept="video/*,image/*,.txt,.vtt" multiple class="hidden" onchange="handleDroppedFiles(Array.from(this.files))">
@@ -126,11 +126,11 @@
         <!-- QUEUE -->
         <div id="queueSection" class="hidden">
           <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest">Ready to publish — <span id="queueCount">0</span> item(s)</h3>
+            <h3 class="font-semibold text-[12px] opacity-60">Ready to publish — <span id="queueCount">0</span> item(s)</h3>
             <div class="flex gap-2 items-center flex-wrap">
-              <select id="batchCategory" class="px-5 py-2.5 rounded-full border border-[#d1dfdf] bg-white font-bold text-[11px] outline-none"><option value="">No category</option></select>
-              <button onclick="publishQueue()" id="publishAllBtn" class="bg-[#3d6263] text-white px-7 py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Upload &amp; Publish All</button>
-              <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-5 py-2.5 rounded-full font-black text-[10px] uppercase hover:bg-[#f0f6f6] transition-all">Clear</button>
+              <select id="batchCategory" class="px-5 py-2.5 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-[12px] outline-none"><option value="">No category</option></select>
+              <button onclick="publishQueue()" id="publishAllBtn" class="bg-[#3d6263] text-white px-7 py-2.5 rounded-lg font-semibold text-[12px] hover:bg-black transition-all">Upload &amp; Publish All</button>
+              <button onclick="resetAdminForm()" class="bg-white border border-[#d1dfdf] px-5 py-2.5 rounded-lg font-semibold text-[12px] hover:bg-[#f0f6f6] transition-all">Clear</button>
             </div>
           </div>
           <div id="queueList" class="space-y-3"></div>
@@ -138,27 +138,27 @@
 
         <!-- URL FALLBACK -->
         <details class="mt-6">
-          <summary class="text-[10px] font-black uppercase tracking-widest opacity-40 cursor-pointer hover:opacity-70">Add by URL instead</summary>
+          <summary class="text-[12px] font-semibold opacity-40 cursor-pointer hover:opacity-70">Add by URL instead</summary>
           <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mt-3 space-y-3">
-            <input id="adminContentURL" type="text" placeholder="https://…" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-            <input id="adminTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-            <select id="adminAssetType" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option></select>
-            <select id="adminCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
-            <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <input id="adminContentURL" type="text" placeholder="https://…" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <input id="adminTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+            <select id="adminAssetType" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none"><option value="Video">Video</option><option value="Image">Image</option><option value="Note">Note</option></select>
+            <select id="adminCategory" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none"><option value="">No category</option></select>
+            <input id="adminTags" type="text" placeholder="Tags (comma separated)" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
             <textarea id="adminTranscript" rows="3" placeholder="Transcript (optional)" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
             <textarea id="adminBullets" rows="4" placeholder="Bullets (optional)" class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
-            <button onclick="publishSingleUrl()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Publish</button>
+            <button onclick="publishSingleUrl()" class="bg-[#3d6263] text-white px-8 py-3 rounded-lg font-semibold text-[12px] hover:bg-black transition-all">Publish</button>
           </div>
         </details>
       </div>
 
       <div id="admin-categories" class="admin-tab hidden">
         <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-2">Page Categories</h3>
+          <h3 class="font-semibold text-[12px] opacity-60 mb-2">Page Categories</h3>
           <p class="text-[12px] opacity-60 mb-4">Visual sections on this page only — add as many as you like.</p>
           <div class="flex gap-3 mb-6">
-            <input id="newCatName" type="text" placeholder="New category name…" class="flex-grow px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
-            <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Add</button>
+            <input id="newCatName" type="text" placeholder="New category name…" class="flex-grow px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
+            <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-lg font-semibold text-[12px] hover:bg-black transition-all">Add</button>
           </div>
           <div id="categoryList" class="space-y-2"></div>
         </div>
@@ -166,19 +166,19 @@
 
       <div id="admin-manage" class="admin-tab hidden">
         <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-          <h3 class="font-black uppercase text-[11px] opacity-60 tracking-widest mb-4">All Content</h3>
+          <h3 class="font-semibold text-[12px] opacity-60 mb-4">All Content</h3>
           <div id="manageList" class="space-y-2"></div>
         </div>
         <div id="editModal" class="hidden mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border-2 border-[#3d6263] space-y-3">
-          <div class="flex justify-between items-center mb-2"><h3 class="font-black uppercase text-[11px] tracking-widest">Edit Item</h3><button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-black">✕</button></div>
+          <div class="flex justify-between items-center mb-2"><h3 class="font-semibold text-[12px]">Edit Item</h3><button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-semibold"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button></div>
           <input type="hidden" id="editId">
-          <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
-          <select id="editCategory" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-bold text-sm outline-none"><option value="">No category</option></select>
-          <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-full border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
+          <select id="editCategory" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none"><option value="">No category</option></select>
+          <input id="editTags" type="text" placeholder="Tags" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
           <textarea id="editBullets" rows="6" placeholder="How-to bullets..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
           <textarea id="editDescription" rows="3" placeholder="Description..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
           <textarea id="editTranscript" rows="4" placeholder="Transcript..." class="w-full px-5 py-3 rounded-2xl border border-[#d1dfdf] bg-white font-semibold text-sm outline-none resize-none"></textarea>
-          <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-black text-[10px] uppercase hover:bg-black transition-all">Save Changes</button>
+          <button onclick="saveEdit()" class="bg-[#3d6263] text-white px-8 py-3 rounded-lg font-semibold text-[12px] hover:bg-black transition-all">Save Changes</button>
         </div>
       </div>
     </div>
@@ -187,14 +187,14 @@
   <div id="contentArea"></div>
   <div id="emptyState" class="hidden text-center py-20">
     <div class="text-5xl mb-4">📭</div>
-    <div class="font-black uppercase opacity-40 tracking-widest text-sm">No content yet</div>
+    <div class="font-semibold opacity-40 text-sm">No content yet</div>
     <div class="text-sm opacity-30 mt-2">Use the Admin panel to add videos, images and notes</div>
   </div>
 </div>
 
 <div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
-  <div class="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
-    <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-full flex items-center justify-center font-black hover:bg-[#3d6263] hover:text-white transition-all">✕</button>
+  <div class="bg-white rounded-[14px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
+    <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-lg flex items-center justify-center font-semibold hover:bg-[#3d6263] hover:text-white transition-all"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>
     <div id="modalContent"></div>
   </div>
 </div>
@@ -292,11 +292,11 @@ function renderContent(assets,highlight=''){
   categories.forEach(cat=>{
     const items=grouped[cat]||[];if(!items.length)return;
     const sid='sec_'+safeid(cat);
-    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#3d6263] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm">${cat}</h2><span class="text-[10px] font-bold opacity-40">${items.length} item${items.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#3d6263] rounded-lg"></div><h2 class="font-semibold text-sm">${cat}</h2><span class="text-[12px] font-semibold opacity-40">${items.length} item${items.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
   });
   if(uncat.length){
     const label=categories.length?'Uncategorised':'All Content';const sid='sec_uncategorised';
-    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#d1dfdf] rounded-full"></div><h2 class="font-black uppercase tracking-widest text-sm opacity-50">${label}</h2><span class="text-[10px] font-bold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#d1dfdf] rounded-lg"></div><h2 class="font-semibold text-sm opacity-50">${label}</h2><span class="text-[12px] font-semibold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
   }
   area.innerHTML=html;
 }
@@ -310,14 +310,14 @@ function cardHTML(a,highlight=''){
   const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
   const tags=(a.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
   const title=highlight?hlText(escapeHtml(a.title||''),highlight):escapeHtml(a.title||'');
-  const jump=a._cue&&a._cue.t!==null?`<div class="mb-3 inline-flex items-center gap-2 bg-[#e7f0ef] border border-[#d1dfdf] px-3 py-1.5 rounded-full"><span class="text-[10px] font-black uppercase tracking-widest text-[#3d6263]">▶ ${fmtTime(a._cue.t)}</span></div>`:'';
+  const jump=a._cue&&a._cue.t!==null?`<div class="mb-3 inline-flex items-center gap-2 bg-[#e7f0ef] border border-[#d1dfdf] px-3 py-1.5 rounded-lg"><span class="text-[12px] font-semibold text-[#3d6263]">▶ ${fmtTime(a._cue.t)}</span></div>`:'';
   return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}'${a._cue&&a._cue.t!==null?','+a._cue.t:''})">
-    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'📄'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-full text-[10px] font-black uppercase">${a.assetType||'Video'}</span></div>
-    <h3 class="font-black text-base mb-3 leading-snug">${title}</h3>
+    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'📄'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-lg text-[12px] font-semibold">${a.assetType||'Video'}</span></div>
+    <h3 class="font-semibold text-base mb-3 leading-snug">${title}</h3>
     ${jump}
     ${a._cue?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed italic">"${hlText(escapeHtml(a._cue.text),highlight)}"</p>`:(a.description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${escapeHtml(a.description)}</p>`:'')}
-    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${escapeHtml(b.replace(/^[•\-\*]\s*/,''))}</span></div>`).join('')}${(a.bullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[10px] font-bold opacity-40 uppercase">+ more...</div>':''}</div>`:''}
-    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}
+    ${bullets.length?`<div class="space-y-1.5 mb-4">${bullets.map(b=>`<div class="flex gap-2 items-start text-[12px]"><span class="opacity-30 flex-shrink-0 mt-0.5">•</span><span class="opacity-70">${escapeHtml(b.replace(/^[•\-\*]\s*/,''))}</span></div>`).join('')}${(a.bullets||'').split('\n').filter(b=>b.trim()).length>3?'<div class="text-[12px] font-semibold opacity-40">+ more...</div>':''}</div>`:''}
+    ${tags.length?`<div class="flex flex-wrap gap-1.5">${tags.map(t=>`<span class="bg-[#f0f6f6] px-3 py-1 rounded-lg text-[12px] font-semibold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}
   </div>`;
 }
 
@@ -341,24 +341,24 @@ function openCard(id,startAt){
   const cues=parseCues(a.transcript).filter(c=>c.t!==null);
   const cueList=cues.length?`
     <details class="mb-6" ${currentQuery?'open':''}>
-      <summary class="text-[10px] font-black uppercase tracking-widest opacity-50 cursor-pointer hover:opacity-80 mb-3">Transcript — ${cues.length} moments</summary>
+      <summary class="text-[12px] font-semibold opacity-50 cursor-pointer hover:opacity-80 mb-3">Transcript — ${cues.length} moments</summary>
       <div class="bg-[#f0f6f6] rounded-[1.5rem] border border-[#d1dfdf] max-h-64 overflow-y-auto p-2">
         ${cues.map(c=>`<div class="cue-row flex gap-3 items-start px-3 py-2 rounded-xl cursor-pointer" onclick="seekTo(${c.t})">
-          <span class="text-[10px] font-black text-[#3d6263] opacity-60 pt-0.5 flex-shrink-0 w-12">${fmtTime(c.t)}</span>
+          <span class="text-[12px] font-semibold text-[#3d6263] opacity-60 pt-0.5 flex-shrink-0 w-12">${fmtTime(c.t)}</span>
           <span class="text-[12px] opacity-75 leading-relaxed">${hlText(escapeHtml(c.text),currentQuery)}</span>
         </div>`).join('')}
       </div>
     </details>`:'';
 
   document.getElementById('modalContent').innerHTML=`
-    <div class="mb-2 text-[10px] font-black uppercase tracking-widest opacity-40">AV Troubleshoot${a.category?' — '+escapeHtml(a.category):''}</div>
-    <h2 class="font-black text-2xl mb-6 leading-tight">${escapeHtml(a.title)}</h2>
+    <div class="mb-2 text-[12px] font-semibold opacity-40">AV Troubleshoot${a.category?' — '+escapeHtml(a.category):''}</div>
+    <h2 class="font-semibold text-2xl mb-6 leading-tight">${escapeHtml(a.title)}</h2>
     ${player}
     ${a.assetType==='Image'&&hasURL?`<img src="${escapeHtml(a.contentURL)}" alt="${escapeHtml(a.title)}" class="w-full rounded-[1rem] mb-6 border border-[#d1dfdf]">`:''}
     ${a.description?`<p class="text-sm opacity-70 mb-6 leading-relaxed">${escapeHtml(a.description)}</p>`:''}
-    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">How To Fix It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${escapeHtml(b.replace(/^[•\-\*\d\.]\s*/,''))}</span></div>`).join('')}</div></div>`:''}
+    ${bullets.length?`<div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf] mb-6"><div class="text-[12px] font-semibold opacity-50 mb-4">How To Fix It</div><div class="space-y-3">${bullets.map((b,i)=>`<div class="flex gap-4 items-start"><span class="w-7 h-7 bg-[#3d6263] text-white rounded-lg flex items-center justify-center text-[12px] font-semibold flex-shrink-0 mt-0.5">${i+1}</span><span class="text-sm font-semibold leading-relaxed">${escapeHtml(b.replace(/^[•\-\*\d\.]\s*/,''))}</span></div>`).join('')}</div></div>`:''}
     ${cueList}
-    ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-full text-[10px] font-bold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}`;
+    ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}`;
 
   document.getElementById('modal').classList.remove('hidden');
 
@@ -408,7 +408,7 @@ function doSearch(){
     showAssembledAnswer(query,scored);
     renderContent(scored,query);
   } else {
-    document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[2rem] px-6 py-4 text-sm font-semibold opacity-70">No results found for "<strong>${escapeHtml(query)}</strong>" — showing all content</div>`;
+    document.getElementById('searchResults').innerHTML=`<div class="bg-white border border-[#d1dfdf] rounded-[14px] px-6 py-4 text-sm font-semibold opacity-70">No results found for "<strong>${escapeHtml(query)}</strong>" — showing all content</div>`;
     document.getElementById('searchResults').classList.remove('hidden');
     renderContent(allAssets);
   }
@@ -422,26 +422,26 @@ function showAssembledAnswer(query,results){
     const hasJump=a._cue&&a._cue.t!==null;
     const label={Video:'▶ Watch',Image:'📷 View',Note:'📝 Read'}[a.assetType]||'View';
     steps+=`<div class="flex gap-4 items-start mb-4">
-      <span class="w-7 h-7 bg-[#3d6263] text-white rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5">${i+1}</span>
+      <span class="w-7 h-7 bg-[#3d6263] text-white rounded-lg flex items-center justify-center text-[12px] font-semibold flex-shrink-0 mt-0.5">${i+1}</span>
       <div class="flex-1">
-        <div class="font-black text-sm text-[#3d6263] mb-1">${escapeHtml(a.title)}</div>
+        <div class="font-semibold text-sm text-[#3d6263] mb-1">${escapeHtml(a.title)}</div>
         ${hasJump?`<div class="text-[12px] opacity-70 italic mb-1">"${hlText(escapeHtml(a._cue.text),query)}"</div>`:''}
         ${bullets.length?`<div class="text-[12px] opacity-70 space-y-1">${bullets.map(b=>`<div>• ${escapeHtml(b.replace(/^[•\-\*]\s*/,''))}</div>`).join('')}</div>`:''}
-        <button onclick="openCard('${a.id}'${hasJump?','+a._cue.t:''})" class="mt-2 bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-[#3d6263] hover:text-white transition-all">${hasJump?`▶ Jump to ${fmtTime(a._cue.t)}`:label}</button>
+        <button onclick="openCard('${a.id}'${hasJump?','+a._cue.t:''})" class="mt-2 bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-lg text-[12px] font-semibold hover:bg-[#3d6263] hover:text-white transition-all">${hasJump?`▶ Jump to ${fmtTime(a._cue.t)}`:label}</button>
       </div>
     </div>`;
   });
 
-  const html=`<div class="bg-white border-2 border-[#3d6263] rounded-[2rem] p-8 shadow-lg mb-8" id="assembledAnswer">
+  const html=`<div class="bg-white border-2 border-[#3d6263] rounded-[14px] p-8 shadow-lg mb-8" id="assembledAnswer">
     <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
       <div>
-        <div class="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Best answer for</div>
-        <h2 class="font-black text-xl">"${escapeHtml(query)}"</h2>
+        <div class="text-[12px] font-semibold opacity-40 mb-1">Best answer for</div>
+        <h2 class="font-semibold text-xl">"${escapeHtml(query)}"</h2>
       </div>
-      <span class="text-[10px] font-black uppercase px-4 py-1.5 rounded-full bg-[#f0f6f6] border border-[#d1dfdf]">${results.length} resource${results.length!==1?'s':''} found</span>
+      <span class="text-[12px] font-semibold px-4 py-1.5 rounded-lg bg-[#f0f6f6] border border-[#d1dfdf]">${results.length} resource${results.length!==1?'s':''} found</span>
     </div>
     <div class="bg-[#f0f6f6] rounded-[1.5rem] p-6 border border-[#d1dfdf]">
-      <div class="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Suggested steps</div>
+      <div class="text-[12px] font-semibold opacity-50 mb-4">Suggested steps</div>
       ${steps}
     </div>
   </div>`;
@@ -572,36 +572,36 @@ function renderQueue(){
     const cues=parseCues(q.transcript).filter(c=>c.t!==null).length;
     const mb=(q.file.size/1048576).toFixed(1);
     const badge={
-      'ready':`<span class="bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">${cues} moments</span>`,
-      'pending-transcript':'<span class="bg-[#f6efe1] text-[#b07d2e] border border-[#e8d9b8] px-3 py-1 rounded-full text-[10px] font-black uppercase">Queued for transcription</span>',
-      'transcribing':`<span class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">Transcribing ${q.transcribeProgress||0}%</span>`,
-      'no-transcript':'<span class="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">No transcript</span>',
-      'uploading':'<span class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">Uploading</span>',
-      'done':'<span class="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">Published</span>',
-      'failed':'<span class="bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">Failed</span>'
+      'ready':`<span class="bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-lg text-[12px] font-semibold">${cues} moments</span>`,
+      'pending-transcript':'<span class="bg-[#f6efe1] text-[#b07d2e] border border-[#e8d9b8] px-3 py-1 rounded-lg text-[12px] font-semibold">Queued for transcription</span>',
+      'transcribing':`<span class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-lg text-[12px] font-semibold">Transcribing ${q.transcribeProgress||0}%</span>`,
+      'no-transcript':'<span class="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-lg text-[12px] font-semibold">No transcript</span>',
+      'uploading':'<span class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-lg text-[12px] font-semibold">Uploading</span>',
+      'done':'<span class="bg-green-600 text-white px-3 py-1 rounded-lg text-[12px] font-semibold">Published</span>',
+      'failed':'<span class="bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-lg text-[12px] font-semibold">Failed</span>'
     }[q.status]||'';
 
     return `<div class="bg-white rounded-[1.5rem] border border-[#d1dfdf] p-5">
       <div class="flex items-start gap-4 flex-wrap">
         <span class="text-2xl">${q.assetType==='Image'?'📷':'🎬'}</span>
         <div class="flex-grow min-w-[200px]">
-          <input value="${escapeHtml(q.title)}" oninput="updateQueueItem('${q.id}','title',this.value)" class="w-full px-4 py-2 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-bold text-sm outline-none mb-2">
+          <input value="${escapeHtml(q.title)}" oninput="updateQueueItem('${q.id}','title',this.value)" class="w-full px-4 py-2 rounded-lg border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none mb-2">
           <div class="flex gap-2 items-center flex-wrap">
             ${badge}
-            <span class="text-[10px] font-bold opacity-40">${escapeHtml(q.file.name)} · ${mb} MB</span>
+            <span class="text-[12px] font-semibold opacity-40">${escapeHtml(q.file.name)} · ${mb} MB</span>
           </div>
         </div>
         <div class="flex gap-2 items-center flex-shrink-0">
-          ${q.assetType==='Video'&&q.status!=='transcribing'&&q.status!=='uploading'&&q.status!=='done'?`<button onclick="transcribeOne('${q.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">${q.transcript?'Re-transcribe':'Transcribe'}</button>`:''}
-          <button onclick="removeQueueItem('${q.id}')" class="text-[#d1dfdf] hover:text-red-500 font-black text-lg" title="Remove">✕</button>
+          ${q.assetType==='Video'&&q.status!=='transcribing'&&q.status!=='uploading'&&q.status!=='done'?`<button onclick="transcribeOne('${q.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-1.5 rounded-lg font-semibold text-[12px] hover:bg-[#3d6263] hover:text-white transition-all">${q.transcript?'Re-transcribe':'Transcribe'}</button>`:''}
+          <button onclick="removeQueueItem('${q.id}')" class="text-[#d1dfdf] hover:text-red-500 font-semibold text-lg" title="Remove"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>
         </div>
       </div>
       ${q.status==='transcribing'?`<div class="progress-track mt-3"><div class="progress-fill" style="width:${q.transcribeProgress||0}%"></div></div>`:(q.status==='uploading'||q.progress>0?`<div class="progress-track mt-3"><div class="progress-fill" style="width:${q.progress}%"></div></div>`:'')}
-      <input value="${escapeHtml(q.tags)}" oninput="updateQueueItem('${q.id}','tags',this.value)" placeholder="Tags (comma separated) — optional" class="w-full mt-3 px-4 py-2 rounded-full border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[12px] outline-none">
+      <input value="${escapeHtml(q.tags)}" oninput="updateQueueItem('${q.id}','tags',this.value)" placeholder="Tags (comma separated) — optional" class="w-full mt-3 px-4 py-2 rounded-lg border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[12px] outline-none">
       <details class="mt-3">
-        <summary class="text-[10px] font-black uppercase tracking-widest opacity-40 cursor-pointer hover:opacity-70">Bullets &amp; transcript</summary>
+        <summary class="text-[12px] font-semibold opacity-40 cursor-pointer hover:opacity-70">Bullets &amp; transcript</summary>
         <textarea rows="5" oninput="updateQueueItem('${q.id}','bullets',this.value)" placeholder="How-to bullets" class="w-full mt-2 px-4 py-3 rounded-2xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[12px] outline-none resize-none">${escapeHtml(q.bullets)}</textarea>
-        <textarea rows="4" oninput="updateQueueItem('${q.id}','transcript',this.value)" placeholder="Transcript — paste here if the script did not produce one" class="w-full mt-2 px-4 py-3 rounded-2xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[11px] outline-none resize-none">${escapeHtml(q.transcript)}</textarea>
+        <textarea rows="4" oninput="updateQueueItem('${q.id}','transcript',this.value)" placeholder="Transcript — paste here if the script did not produce one" class="w-full mt-2 px-4 py-3 rounded-2xl border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-[12px] outline-none resize-none">${escapeHtml(q.transcript)}</textarea>
       </details>
     </div>`;
   }).join('');
@@ -775,7 +775,7 @@ function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;
 function renderCategoryList(){
   const l=document.getElementById('categoryList');if(!l)return;
   if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
-  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-full px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-bold text-sm">${escapeHtml(c)}</span><button onclick="renameCategory(${i})" class="text-[10px] font-black uppercase opacity-50 hover:opacity-100 px-3 py-1 rounded-full border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-3 py-1 rounded-full border border-red-200 transition-all">Delete</button></div>`).join('');
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-lg px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-semibold text-sm">${escapeHtml(c)}</span><button onclick="renameCategory(${i})" class="text-[12px] font-semibold opacity-50 hover:opacity-100 px-3 py-1 rounded-lg border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[12px] font-semibold text-red-400 hover:text-red-600 px-3 py-1 rounded-lg border border-red-200 transition-all">Delete</button></div>`).join('');
 }
 function updateCatDropdowns(){
   ['adminCategory','editCategory','batchCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${escapeHtml(c)}"${c===v?' selected':''}>${escapeHtml(c)}</option>`).join('');});
@@ -792,10 +792,10 @@ async function renderManageList(){
     const legacy=a.contentURL&&!isVideoURL(a.contentURL)&&a.assetType==='Video';
     return `<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
     <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝'}[a.assetType]||'📄'}</span>
-    <div class="flex-grow min-w-0"><div class="font-bold text-sm truncate">${escapeHtml(a.title)}</div><div class="text-[10px] opacity-50">${escapeHtml(a.category||'Uncategorised')} · ${a.assetType} · ${a.published?'Published':'Unpublished'}${legacy?' · <span class="text-amber-600 font-black">LEGACY EMBED</span>':''}</div></div>
+    <div class="flex-grow min-w-0"><div class="font-semibold text-sm truncate">${escapeHtml(a.title)}</div><div class="text-[12px] opacity-50">${escapeHtml(a.category||'Uncategorised')} · ${a.assetType} · ${a.published?'Published':'Unpublished'}${legacy?' · <span class="text-amber-600 font-semibold">LEGACY EMBED</span>':''}</div></div>
     <div class="flex gap-2 flex-shrink-0">
-      <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-full font-black text-[10px] uppercase hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
-      <button onclick="togglePublish('${a.id}',${a.published})" class="px-4 py-2 rounded-full font-black text-[10px] uppercase border transition-all ${a.published?'bg-amber-50 text-amber-700 border-amber-200':'bg-green-50 text-green-700 border-green-200'}">${a.published?'Unpublish':'Publish'}</button>
+      <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-lg font-semibold text-[12px] hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
+      <button onclick="togglePublish('${a.id}',${a.published})" class="px-4 py-2 rounded-lg font-semibold text-[12px] border transition-all ${a.published?'bg-amber-50 text-amber-700 border-amber-200':'bg-green-50 text-green-700 border-green-200'}">${a.published?'Unpublish':'Publish'}</button>
     </div>
   </div>`;}).join('');
   window._manageItems=items;
@@ -840,7 +840,7 @@ function showSkeletons(){document.getElementById('contentArea').innerHTML=`<div 
 
 function parseVTT(vtt){const lines=vtt.split('\n');const result=[];let ts='';lines.forEach(line=>{line=line.trim();if(line.includes(' --> ')){ts='['+line.split(' --> ')[0].trim().substring(0,8)+']';}else if(line&&!line.match(/^\d+$/)&&!line.startsWith('WEBVTT')&&!line.startsWith('NOTE')){if(ts){result.push(ts+' '+line);ts='';}else{result.push(line);}}});return result.join('\n');}
 
-function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[11px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
+function setStatus(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=cls+' text-[12px] px-1 mt-1';el.classList.toggle('hidden',!msg);}
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function hlText(text,q){if(!q)return text;q.split(/\s+/).filter(w=>w.length>2).forEach(w=>{text=text.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi'),'<mark>$1</mark>');});return text;}
 

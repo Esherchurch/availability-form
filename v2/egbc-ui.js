@@ -198,7 +198,11 @@
     }
     if (s.textTransform === 'uppercase') s.setProperty('text-transform', 'none', s.getPropertyPriority('text-transform'));
     if (s.letterSpacing && parseFloat(s.letterSpacing) > 0) s.setProperty('letter-spacing', 'normal', s.getPropertyPriority('letter-spacing'));
-    if (s.fontWeight === '800' || s.fontWeight === '900') s.setProperty('font-weight', '700', s.getPropertyPriority('font-weight'));
+    /* 600, not 700. DESIGN.md allows 700 on an h1 and nowhere else, so
+       capping the old 800s and 900s at 700 left every one of them a fault -
+       and this shim was producing most of what the style check found on the
+       hub's admin panel. */
+    if (s.fontWeight === '800' || s.fontWeight === '900') s.setProperty('font-weight', '600', s.getPropertyPriority('font-weight'));
     var br = parseFloat(s.borderRadius);
     if (br >= 50 && BUTTONISH.test(r.selectorText || '')) s.setProperty('border-radius', '8px', s.getPropertyPriority('border-radius'));
   }
@@ -237,7 +241,7 @@
       H + '[style*="letter-spacing"]' + NE + ',' + H + '[class*="tracking-"]' + NE + '{letter-spacing:normal!important}',
       H + '[style*="font-weight:900"]' + NE + ',' + H + '[style*="font-weight: 900"]' + NE + ',' +
       H + '[style*="font-weight:800"]' + NE + ',' + H + '[style*="font-weight: 800"]' + NE + ',' +
-      H + '.font-black' + NE + ',' + H + '.font-extrabold' + NE + '{font-weight:700!important}',
+      H + '.font-black' + NE + ',' + H + '.font-extrabold' + NE + '{font-weight:600!important}',
       H + 'button.rounded-full,' + H + 'a.rounded-full,' + H + 'input.rounded-full,' + H + 'select.rounded-full,' +
       H + 'button[style*="border-radius:99"],' + H + 'button[style*="border-radius: 99"],' +
       H + 'a[style*="border-radius:99"],' + H + 'a[style*="border-radius: 99"],' +
