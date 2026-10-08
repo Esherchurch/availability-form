@@ -2024,9 +2024,16 @@ function calendarProblem(e) {
   return 'Could not get your link just now. Try again in a moment.';
 }
 
+/* London, and it has to be said out loud. The functions are deployed to
+   europe-west2; the SDK, asked for none, uses us-central1 and calls a region
+   with nothing in it. What comes back is the word "internal", which says
+   nothing about what is wrong - and the hub showed the link as simply not
+   arriving. */
+const FUNCTIONS_REGION = 'europe-west2';
+
 async function askForCalendarLink(reset) {
-  const fns = firebase.app
-    ? firebase.functions && firebase.functions(EGBCAuth.app)
+  const fns = (firebase && firebase.functions)
+    ? firebase.app(EGBCAuth.app.name).functions(FUNCTIONS_REGION)
     : null;
   if (!fns) throw new Error('The calendar service is not loaded on this page.');
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
