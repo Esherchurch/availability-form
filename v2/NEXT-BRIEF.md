@@ -177,6 +177,36 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 18. Step R: people choose which calendar feed (Martin, 8 Oct 2026)
+
+Martin: *"we need to let them choose. for example we need a feed for the whole family, or for the full rota if they prefer. Karen as an example needs to know if Oliver is on."*
+
+This adds to `ROTA-CALENDAR.md` and §11. Each person can have **any or all** of these feeds, each with its own private link and its own "Reset this link":
+
+1. **Just me.** The events I'm on. This is the design already built.
+2. **My household.** Every event anyone in my household is on. The household is the same one the household PDF uses (`EGBCRotaPdf.householdIds`, following the links both ways).
+   - Each calendar entry says who, e.g. **"Oliver: Drums · Karen: Session Leader, Sunday Morning Worship"**.
+   - The description lists every household member's role that day.
+3. **The full rota.** Every service, with the whole team in the description. Offer a choice of team: **Worship & AV**, **Kids Church**, or **Everything**.
+   - It may only include the teams that person is allowed to see on the read-only rota. Use the same `visibleRoles` rule `view-only-rota.html` uses, so a feed never shows more than the page does.
+
+On the hub's "My rota", show the three choices in plain words, each with:
+- **Add to my calendar**, with links for Google, Apple/iPhone and Outlook
+- **Copy link**
+- **Reset this link**, which explains that the old link stops working and anything already in their calendar stays until they remove it
+
+Rules:
+- Each feed's link carries its own long random key, stored so only that person can read it. Resetting one feed's key doesn't touch the others.
+- The **household** feed is worked out when the calendar app asks, not when the link was made. If someone joins or leaves the household, the feed follows.
+- The feeds hold times, roles, the service and names, and nothing else: no emails, phone numbers or notes.
+- On the emulator with synthetic data, prove:
+  - Karen's household feed contains Oliver's drums date
+  - her "Just me" feed doesn't
+  - a Worship member's full-rota feed doesn't contain a Kids Church team they can't see
+  - resetting the household link stops it working, and leaves "Just me" working
+
+Fold this into Step R and finish it. Report with Martin's deploy steps; nothing deployed.
+
 ## 17. Step N2: the hub's home on one screen, and no more link to the portal copy (Martin, 8 Oct 2026)
 
 Do this after Step N and before Step R.
