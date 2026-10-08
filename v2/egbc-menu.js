@@ -39,7 +39,11 @@
     { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',
       description: 'See what is free and book it' },
 
+    /* Worship and AV people (Choir folds into Worship), and Core Team, who
+       run them. Not Kids Church (Martin, 8 Oct 2026: "Kids church still sees
+       all the menu items for worship"). */
     { title: 'Worship & AV', url: 'Worshipteamcharter.html', icon: 'music',
+      team: ['Worship Team', 'AV Team', 'Core Team'],
       description: 'What the team is for, and how it works',
       children: [
         { title: 'Worship', icon: 'mic-vocal', children: [
@@ -190,10 +194,14 @@
     return true;
   }
 
+  /* `team` is one team or a list of them; being on (or administering) any
+     one of them is enough. */
   function onTeam(team, who) {
     if (who.isMaster) return true;
-    return (who.teams || []).indexOf(team) !== -1 ||
-           (who.adminFor || []).indexOf(team) !== -1;
+    return [].concat(team).some(function (t) {
+      return (who.teams || []).indexOf(t) !== -1 ||
+             (who.adminFor || []).indexOf(t) !== -1;
+    });
   }
 
   function prune(nodes, who) {
