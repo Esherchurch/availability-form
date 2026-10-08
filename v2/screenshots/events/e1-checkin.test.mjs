@@ -77,8 +77,13 @@ async function until(fn, ms = 10000, step = 150) {
 /* ---- a static server for v2/ on 5601 ---- */
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
   '.png': 'image/png', '.css': 'text/css', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+/* F-025: pages are now stamped with the current version, so a fresh tab no
+   longer needs a fresh copy. To prove the reload still keeps the address
+   when one IS needed, the check below makes the site announce a newer one. */
+let NEWER = '';
 const server = http.createServer((req, res) => {
   const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (p === '/version.json' && NEWER) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ stamp: NEWER })); return; }
   const f = path.join(V2, p === '/' ? 'index.html' : p);
   if (!f.startsWith(V2) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
@@ -240,6 +245,7 @@ try {
   /* F-025: the email link, opened in a brand-new tab, the way a guest does.
      The page header reloads it once for a fresh copy; the key must survive. */
   {
+    NEWER = String(STAMP) + '9';
     const rawB = await launch('raw');
     const raw = await pageOf(rawB, 'raw', 390, true);
     await raw.goto(URLB + 'my-signup.html?key=' + manageKey, { waitUntil: 'networkidle2' });
@@ -249,6 +255,7 @@ try {
     ok('F-025: a fresh tab reloads for a fresh copy and keeps the key',
       /[?&]v=/.test(landed) && landed.indexOf('key=' + manageKey) >= 0 && !!(await raw.$('[data-code]')), landed);
     await rawB.close();
+    NEWER = '';
   }
 
   /* A camera picture of Child One's code, made from the email's own PNG:

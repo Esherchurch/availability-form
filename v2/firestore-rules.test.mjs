@@ -1094,6 +1094,40 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('after an answer, the hirer may ask again', 'allow', () => updateDoc(doc(anon(), 'bookings', C), ask({ reason: 'Asking again' })));
 }
 
+// ── EVENTS (events window) ── Sunday kids registration (Chunk 6, stage 1)
+{
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  /* Samy is on the Kids Church team; Isla is a member on no team that counts. */
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'kidsSettings', 'site_bk'), { teams: ['Kids Church'], formId: 'form_kids' });
+    await setDoc(doc(db, 'forms', 'form_kids'), { title: 'Children\u2019s registration', siteId: 'site_bk', fields: [], template: 'parent', kind: 'consent', version: 1 });
+    await setDoc(doc(db, 'forms', 'form_other'), { title: 'Something else', siteId: 'site_bk', fields: [], version: 1 });
+  });
+  const FAM = (extra) => ({ siteId: 'site_bk', parentName: 'Parent Synthetic', phone: '07700 900111', email: 'parent@example.invalid', collectors: ['Parent Synthetic'], familyCode: 'ABC123', ...(extra || {}) });
+  const KID = (extra) => ({ siteId: 'site_bk', familyId: 'fam_1', name: 'Child Synthetic', dob: '2019-05-01', year: 'Year 1', groupId: 'grp_little', status: 'registered', ...(extra || {}) });
+  await check('the children\u2019s team (Kids Church) adds a family', 'allow', () => setDoc(doc(as('samy'), 'kidsFamilies', 'fam_1'), FAM()));
+  await check('and a child', 'allow', () => setDoc(doc(as('samy'), 'kidsChildren', 'kid_1'), KID()));
+  await check('and reads them', 'allow', () => getDoc(doc(as('samy'), 'kidsChildren', 'kid_1')));
+  await check('a member on no children\u2019s team cannot read a child', 'deny', () => getDoc(doc(as('isla'), 'kidsChildren', 'kid_1')));
+  await check('nor the public', 'deny', () => getDoc(doc(anon(), 'kidsChildren', 'kid_1')));
+  await check('nor at another site', 'deny', () => setDoc(doc(as('samy'), 'kidsChildren', 'kid_2'), KID({ siteId: 'site_appr' })));
+  await check('a child is never deleted from a page', 'deny', () => deleteDoc(doc(as('karen'), 'kidsChildren', 'kid_1')));
+  await check('only registered, visitor or left', 'deny', () => setDoc(doc(as('samy'), 'kidsChildren', 'kid_1'), KID({ status: 'gone' })));
+  await check('the team cannot change the groups (admins and the safeguarding lead do)', 'deny', () => setDoc(doc(as('samy'), 'kidsGroups', 'grp_little'), { siteId: 'site_bk', name: 'Little ones', ratio: 4 }));
+  await check('an admin sets a group up', 'allow', () => setDoc(doc(as('karen'), 'kidsGroups', 'grp_little'), { siteId: 'site_bk', name: 'Little ones', ratio: 4, years: ['Reception', 'Year 1'] }));
+  await check('nor who the children\u2019s team is', 'deny', () => setDoc(doc(as('samy'), 'kidsSettings', 'site_bk'), { teams: ['Kids Church', 'Worship Team'], formId: 'form_kids' }));
+  const REQ = (formId) => ({ formId, formTitle: 'x', calEventId: '', eventTitle: '', eventStart: '', signupKey: '', personKind: '', personId: '', name: 'Parent Synthetic',
+    email: 'parent@example.invalid', subjects: ['Parent Synthetic'], siteId: 'site_bk', status: 'sent', reuseOf: '', sentAt: 'x', reminders: [], createdBy: 'u_samy' });
+  await check('the team sends the registration form', 'allow', () => setDoc(doc(as('samy'), 'formRequests', 'req_kids_1_000000000000000000000'), REQ('form_kids')));
+  await check('but no other form', 'deny', () => setDoc(doc(as('samy'), 'formRequests', 'req_kids_2_000000000000000000000'), REQ('form_other')));
+  await check('and chases it (a reminder), changing nothing else', 'allow', () => updateDoc(doc(as('samy'), 'formRequests', 'req_kids_1_000000000000000000000'), { reminders: ['x'] }));
+  await check('not its address', 'deny', () => updateDoc(doc(as('samy'), 'formRequests', 'req_kids_1_000000000000000000000'), { email: 'elsewhere@example.invalid' }));
+  await check('the team lists that form\u2019s answers', 'allow', () => getDocs(query(collection(as('samy'), 'formResponses'), where('siteId', '==', 'site_bk'), where('formId', '==', 'form_kids'))));
+  await check('not another form\u2019s', 'deny', () => getDocs(query(collection(as('samy'), 'formResponses'), where('siteId', '==', 'site_bk'), where('formId', '==', 'form_other'))));
+  await check('nor can a member on no team list the registration answers', 'deny', () => getDocs(query(collection(as('isla'), 'formResponses'), where('siteId', '==', 'site_bk'), where('formId', '==', 'form_kids'))));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

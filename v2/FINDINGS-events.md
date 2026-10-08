@@ -1284,3 +1284,53 @@ stopped the day-of chase after the 30-day one.
 
 ### F-085 — done
 `egbc-email.js` is `?v=202610081729` on all 11 pages that load it.
+
+## Chunk 6, stage 1 (K1): groups, children and households, registration
+
+### F-087 — DECISIONS for Martin: where children's details live, and who sees them
+- **Where.** The brief (§6.16) says people live in the address book or
+  `contacts`. Children's details are kept apart instead, in `kidsFamilies` and
+  `kidsChildren`: the address book can be read by anyone (the availability form
+  needs that), and `contacts` by every signed-in member. A child's name, date of
+  birth and allergy flags should not be either. They can be linked to a person
+  id later (a CRM) without moving them. **Say if you want them in `contacts`
+  anyway.**
+- **Who.** "The children's team" for a site is: admins, the safeguarding lead
+  and deputy, and everyone on the rota teams named on the register's Settings
+  tab (e.g. Kids Church). All of them can see every child at that site,
+  including the medical details. The narrower choice is that each group's
+  leaders see only their group. **Say which you want**; the rules can do either.
+
+### F-088 — what K1 built
+- `kids-admin.html`, the children's register (Children, Registration, Groups,
+  Settings).
+- **Groups by school year**, each with its room, day, times and ratio (one
+  leader to N children). Admins and the safeguarding lead set them.
+- **Registration is the parent consent form (E2)**, set up once per site from
+  the "parent" template, lasting the school year: each child's name, date of
+  birth, school year, medical needs, allergies, photo and first-aid consent; the
+  parent's phone, emergency contacts and who may collect. The children's team
+  sends it and chases it; the rules let them use that form and no other.
+- **A completed form becomes a family and its children** ("Add to the
+  register"): each child goes into the group for their school year (worked out
+  from the date of birth when the form leaves it blank; moved up each
+  September); the parent is always one of the collectors; each family gets a
+  six-character family code (stage 2's QR code and collection code). Allergy and
+  medical are flags on the child; the detail stays in the form's private half,
+  behind "Show medical details". Next year's form refreshes the same family and
+  children, so nobody is on the register twice. A child moved to a group by hand
+  stays there.
+- Nothing is typed twice and there is no second form or second check-in.
+
+### F-089 — REQUEST for the main window
+- **Menu:** "Children's register" (`kids-admin.html`) for the children's team and
+  admins, near Safeguarding.
+- **Style check:** add `kids-admin.html`.
+- **The personal dashboard (§6.16a)**, later: a parent's own children and their
+  forms to complete. Stage 2 adds what the dashboard would link to.
+
+### F-090 — what K1 leaves for K2 and K3
+Family check-in and labels, check-out to a collector or the matching code, the
+first-time visitor form at the door, the leader screen (K2); weekly and termly
+registers, headcount per group, the visitor follow-up list (K3). Each group's
+leaders on a Sunday come from the rota (K2), as E3 does for events.

@@ -932,8 +932,16 @@ service cloud.firestore {
 
     match /formRequests/{key} {
       allow get: if true;
-      allow list: if isAdmin() || isEventLeader(resource.data.calEventId) || sgLeadOf(resource.data.siteId);
+      allow list: if isAdmin() || isEventLeader(resource.data.calEventId) || sgLeadOf(resource.data.siteId)
+                  || kidsFormOf(resource.data.siteId, resource.data.formId);
       allow create, delete: if isAdmin();
+      // Chunk 6: the children's team sends the registration form - that
+      // form, for their site, and no other - and may chase it.
+      allow create: if kidsFormOf(request.resource.data.siteId, request.resource.data.formId)
+                    && request.resource.data.get('calEventId', '') == ''
+                    && request.resource.data.status == 'sent';
+      allow update: if kidsFormOf(resource.data.siteId, resource.data.formId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reminders']);
       // The admin who sends it may change anything. The person with the
       // link may only mark it done: with a new answer written in the same
       // batch, or - for "still correct?" - by pointing at the answer it
@@ -951,7 +959,7 @@ service cloud.firestore {
 
     match /formResponses/{rid} {
       allow get: if true;
-      allow list: if isAdmin() || sgLeadOf(resource.data.siteId);
+      allow list: if isAdmin() || sgLeadOf(resource.data.siteId) || kidsFormOf(resource.data.siteId, resource.data.formId);
       allow create: if request.resource.data.keys().hasOnly(['formId', 'formVersion', 'requestKey', 'calEventId',
                                  'personKind', 'personId', 'email', 'name', 'subjects', 'siteId', 'answers',
                                  'hasSensitive', 'submittedAt', 'validUntil', 'deleteAfter'])
@@ -974,7 +982,8 @@ service cloud.firestore {
     match /sensitiveResponses/{secret} {
       allow get: if true;
       // Stage 3: the leaders of the event it was given for, too.
-      allow list: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.get('calEventId', ''));
+      allow list: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.get('calEventId', ''))
+                  || kidsFormOf(resource.data.siteId, resource.data.formId);
       // A copy for another event's leaders, when a family said "still
       // correct" for it. Only the safeguarding lead or a master admin can
       // read the original, so only they can make the copy.
@@ -1584,6 +1593,62 @@ service cloud.firestore {
       allow read: if theOffice(resource.data.siteId);
       allow create: if theOffice(request.resource.data.siteId) && chargeShape();
       allow update: if theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId) && chargeShape();
+      allow delete: if false;
+    }
+
+    // ---- Sunday kids registration (Chunk 6, stage 1) -------------------
+    //
+    // WHO IS "THE CHILDREN'S TEAM" for a site: admins, the site's
+    // safeguarding lead or deputy, and anyone on a rota team the site names
+    // in kidsSettings (e.g. Kids Church, Lazers). Children's details are
+    // theirs alone: not the address book (open to anyone) and not contacts
+    // (open to every member) - see FINDINGS F-087.
+    function kidsSettingsOf(siteId) {
+      return get(/databases/$(database)/documents/kidsSettings/$(siteId)).data;
+    }
+    function kidsTeamOf(siteId) {
+      return active() && siteId is string && siteId != ''
+             && (isAdmin() || sgLeadOf(siteId)
+                 || (exists(/databases/$(database)/documents/kidsSettings/$(siteId))
+                     && me().get('teams', []).hasAny(kidsSettingsOf(siteId).get('teams', []))));
+    }
+    // The registration form is the parent consent form (E2), set up once
+    // per site; the children's team may use that form and no other.
+    function kidsFormOf(siteId, formId) {
+      return siteId is string && siteId != '' && formId is string && formId != ''
+             && exists(/databases/$(database)/documents/kidsSettings/$(siteId))
+             && kidsSettingsOf(siteId).get('formId', '') == formId
+             && kidsTeamOf(siteId);
+    }
+    match /kidsSettings/{siteId} {
+      allow read: if active();
+      allow write: if (isAdmin() || sgLeadOf(siteId))
+                   && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20
+                   && request.resource.data.get('formId', '') is string;
+    }
+    // Groups by school year, each with its room, its day and time, its ratio.
+    match /kidsGroups/{groupId} {
+      allow read: if active();
+      allow write: if (isAdmin() || sgLeadOf(request.resource.data.siteId))
+                   && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+                   && request.resource.data.get('ratio', 0) is int;
+    }
+    // A family (the parent who registered, their contact, who may collect)
+    // and its children. Never deleted from a page: a child who leaves is
+    // marked so; the retention list removes records when their time is up.
+    match /kidsFamilies/{familyId} {
+      allow read: if kidsTeamOf(resource.data.siteId);
+      allow create, update: if kidsTeamOf(request.resource.data.siteId) && (resource == null || kidsTeamOf(resource.data.siteId))
+                            && request.resource.data.parentName is string && request.resource.data.parentName.size() > 0
+                            && request.resource.data.get('collectors', []) is list && request.resource.data.get('collectors', []).size() <= 20;
+      allow delete: if false;
+    }
+    match /kidsChildren/{childId} {
+      allow read: if kidsTeamOf(resource.data.siteId);
+      allow create, update: if kidsTeamOf(request.resource.data.siteId) && (resource == null || kidsTeamOf(resource.data.siteId))
+                            && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+                            && request.resource.data.familyId is string
+                            && request.resource.data.get('status', 'registered') in ['registered', 'visitor', 'left'];
       allow delete: if false;
     }
 

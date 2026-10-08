@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Children's register</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Children's register"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-guard.js?v=202610062100"></script>
+<script src="egbc-email.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-checkin.js?v=202610080900"></script>
+<script src="egbc-events-forms.js?v=202610081500"></script>
+<script src="egbc-events-kids.js?v=202610102000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .inp,select{height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff;width:100%}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)} .btn.sec:hover{background:#f3f4f6}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tab{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line-2);background:#fff;font:500 13px Inter,sans-serif;color:var(--body);cursor:pointer}
+  .tab.on{background:var(--tint);border-color:var(--brand);color:var(--ink)}
+  .tab .n{display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:999px;background:var(--gold);color:#fff;font-size:11px;margin-left:6px;text-align:center}
+  .hint{font-size:13px;color:var(--muted)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}.row .f{min-width:160px;flex:1}
+  .kid{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+  .kid:first-child{border-top:none}.kid .t{flex:1;min-width:200px}.kid .t b{color:var(--ink)}
+  .pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;margin:2px 4px 2px 0}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.wait{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}
+  .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
+  .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  dl{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;margin:8px 0;font-size:13px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+  .two{display:flex;gap:10px;flex-wrap:wrap}.two>div{flex:1;min-width:140px}
+  .ck{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:14px}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Children's register</h1>
+  <p class="sub">Sunday groups, the children registered for them, and registration: the parent consent form, once a school year.</p>
+  <div id="main"><div class="card hint">Loading…</div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var K = window.EGBCKids, F = window.EGBCForms, E = window.EGBCEvents;
+  var SITES = [], ROOMS = [], GROUPS = [], FAMILIES = [], CHILDREN = [], SETTINGS = {}, RESPONSES = [], REQUESTS = [], SENS = [];
+  var V = { site: '', tab: 'children', group: '', q: '', open: '' }, CAN_SET = false;
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function today() { return new Date().toISOString().slice(0, 10); }
+  function group(id) { return GROUPS.filter(function (g) { return g.id === id; })[0] || null; }
+  function family(id) { return FAMILIES.filter(function (f) { return f.id === id; })[0] || null; }
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+
+  /* ---- load ---- */
+  function load() {
+    var site = V.site, fid = SETTINGS.formId || '';
+    return Promise.all([
+      db().collection('kidsGroups').where('siteId', '==', site).get(),
+      db().collection('kidsFamilies').where('siteId', '==', site).get(),
+      db().collection('kidsChildren').where('siteId', '==', site).get(),
+      fid ? db().collection('formResponses').where('siteId', '==', site).where('formId', '==', fid).get().catch(function () { return { docs: [] }; }) : { docs: [] },
+      fid ? db().collection('formRequests').where('siteId', '==', site).where('formId', '==', fid).get().catch(function () { return { docs: [] }; }) : { docs: [] },
+      fid ? db().collection('sensitiveResponses').where('siteId', '==', site).where('formId', '==', fid).get().catch(function () { return { docs: [] }; }) : { docs: [] }
+    ]).then(function (r) {
+      GROUPS = all(r[0]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      FAMILIES = all(r[1]); CHILDREN = all(r[2]).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      RESPONSES = all(r[3]); REQUESTS = r[4].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }); SENS = all(r[5]);
+      draw();
+    });
+  }
+  /* A completed form not yet on the register. */
+  function pending() {
+    var done = {}; FAMILIES.forEach(function (f) { (f.responseIds || []).forEach(function (id) { done[id] = true; }); });
+    return RESPONSES.filter(function (x) { return !done[x.id]; }).sort(function (a, b) { return a.submittedAt < b.submittedAt ? -1 : 1; });
+  }
+
+  function draw() {
+    var waiting = pending().length;
+    var tabs = [['children', 'Children'], ['registration', 'Registration', waiting], ['groups', 'Groups'], ['settings', 'Settings']];
+    document.getElementById('main').innerHTML =
+      (SITES.length > 1 ? '<div class="row"><div class="f"><label class="l" for="k-site">Site</label><select id="k-site">' + SITES.map(function (s) {
+        return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div></div>' : '') +
+      '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>'; }).join('') + '</div>' +
+      '<div id="body"></div>';
+    var ks = document.getElementById('k-site'); if (ks) ks.onchange = function () { V.site = this.value; start(); };
+    document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });
+    var el = document.getElementById('body');
+    if (V.tab === 'registration') return drawRegistration(el);
+    if (V.tab === 'groups') return drawGroups(el);
+    if (V.tab === 'settings') return drawSettings(el);
+    drawChildren(el);
+  }
+
+  /* ---- children ---- */
+  function flags(c) {
+    var f = c.flags || null;
+    return (f ? (f.allergies ? '<span class="pill no">Allergies</span>' : '') + (f.medical ? '<span class="pill no">Medical</span>' : '') : '<span class="pill wait">Medical not checked</span>') +
+      (c.photo === false ? '<span class="pill wait">No photos</span>' : '') +
+      (c.status === 'visitor' ? '<span class="pill wait">Visitor</span>' : '') + (c.status === 'left' ? '<span class="pill">Left</span>' : '') +
+      (K.consentOk(c, today()) ? '<span class="pill ok">Consent until ' + esc(E.fmtDate(c.consentUntil + 'T12:00')) + '</span>' : '<span class="pill no">Consent ' + (c.consentUntil ? 'ran out' : 'missing') + '</span>');
+  }
+  function drawChildren(el) {
+    var q = K.norm(V.q), list = CHILDREN.filter(function (c) {
+      return (!V.group || c.groupId === V.group) && (V.group === '' ? c.status !== 'left' : true) && (!q || K.norm(c.name).indexOf(q) >= 0 || K.norm((family(c.familyId) || {}).parentName).indexOf(q) >= 0);
+    });
+    el.innerHTML = '<div class="card"><div class="row"><div class="f"><label class="l" for="c-group">Group</label><select id="c-group"><option value="">Every group</option>' +
+      GROUPS.map(function (g) { return '<option value="' + esc(g.id) + '"' + (V.group === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') +
+      '<option value="__none"' + (V.group === '__none' ? ' selected' : '') + '>Not in a group</option></select></div>' +
+      '<div class="f"><label class="l" for="c-q">Find</label><input class="inp" id="c-q" value="' + esc(V.q) + '" placeholder="A child or a parent"></div></div>' +
+      '<p class="hint" id="c-count">' + list.length + ' ' + (list.length === 1 ? 'child' : 'children') + '</p>' +
+      (list.length ? list.map(function (c) {
+        var f = family(c.familyId) || {}, g = group(c.groupId), age = K.ageOn(c.dob, today());
+        return '<div class="kid" data-child="' + esc(c.id) + '"><div class="t"><b>' + esc(c.name) + '</b> <span class="hint">' + esc(c.year || '') + (age != null ? ', ' + age : '') + ' · ' + esc(g ? g.name : 'not in a group') + '</span><br>' +
+          flags(c) + '<br><span class="hint">' + esc(f.parentName || '') + (f.phone ? ' · <a href="tel:' + esc(f.phone.replace(/\s/g, '')) + '" style="color:var(--brand)">' + esc(f.phone) + '</a>' : '') + '</span></div>' +
+          '<button class="btn sec" data-open="' + esc(c.id) + '">Open</button></div>' + (V.open === c.id ? detail(c) : '');
+      }).join('') : '<p class="hint">Nobody here yet. Registration adds them.</p>') + '</div>';
+    document.getElementById('c-group').onchange = function () { V.group = this.value; drawChildren(el); };
+    document.getElementById('c-q').oninput = function () { V.q = this.value; var p = this.selectionStart; drawChildren(el); var i = document.getElementById('c-q'); i.focus(); i.setSelectionRange(p, p); };
+    el.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { V.open = V.open === b.dataset.open ? '' : b.dataset.open; drawChildren(el); }; });
+    wireDetail(el);
+  }
+  function detail(c) {
+    var f = family(c.familyId) || {};
+    return '<div class="card" data-detail="' + esc(c.id) + '" style="margin:6px 0 10px">' +
+      '<dl><dt>Date of birth</dt><dd>' + esc(c.dob ? E.fmtDate(c.dob + 'T12:00') : '') + '</dd><dt>Parent</dt><dd>' + esc(f.parentName || '') + (f.email ? ' · ' + esc(f.email) : '') + '</dd>' +
+      '<dt>Phone</dt><dd>' + (f.phone ? '<a href="tel:' + esc(f.phone.replace(/\s/g, '')) + '" style="color:var(--brand)">' + esc(f.phone) + '</a>' : '') + '</dd>' +
+      '<dt>Emergency</dt><dd>' + esc(f.emergency || '') + '</dd><dt>May collect</dt><dd>' + esc((f.collectors || []).join(', ')) + '</dd>' +
+      '<dt>Family code</dt><dd>' + esc(f.familyCode || '') + '</dd>' +
+      '<dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd><dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No') + '</dd>' +
+      (c.dietary ? '<dt>Diet</dt><dd>' + esc(c.dietary) + '</dd>' : '') + '</dl>' +
+      '<div id="med-' + esc(c.id) + '"></div>' +
+      '<div class="two"><div><label class="l">Group</label><select class="d-group">' + '<option value="">Not in a group</option>' + GROUPS.map(function (g) {
+        return '<option value="' + esc(g.id) + '"' + (c.groupId === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="l">Status</label><select class="d-status">' + [['registered', 'Registered'], ['visitor', 'Visitor'], ['left', 'Left']].map(function (o) {
+        return '<option value="' + o[0] + '"' + ((c.status || 'registered') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' + (c.medicalRef ? '<button class="btn sec d-med">Show medical details</button>' : '') +
+      '<button class="btn d-save">Save</button></div></div>';
+  }
+  function wireDetail(el) {
+    el.querySelectorAll('[data-detail]').forEach(function (box) {
+      var c = CHILDREN.filter(function (x) { return x.id === box.dataset.detail; })[0];
+      var m = box.querySelector('.d-med');
+      if (m) m.onclick = function () {
+        /* The private half of the form, opened by its unguessable id. */
+        db().collection('sensitiveResponses').doc(c.medicalRef.secret).get().then(function (s) {
+          var row = s.exists ? (((s.data().answers || {}).children || [])[c.medicalRef.index] || {}) : {};
+          document.getElementById('med-' + c.id).innerHTML = '<div class="st wait" data-med="' + esc(c.id) + '"><b>Medical</b>: ' + esc(row.medical || 'none given') + '<br><b>Medication</b>: ' + esc(row.medication || 'none given') +
+            '<br><b>Allergies</b>: ' + esc(row.allergies || 'none given') + '<br><b>Additional needs</b>: ' + esc(row.needs || 'none given') + '</div>';
+        }).catch(function () { toast('Could not open the medical details'); });
+      };
+      box.querySelector('.d-save').onclick = function () {
+        var g = box.querySelector('.d-group').value, st = box.querySelector('.d-status').value;
+        db().collection('kidsChildren').doc(c.id).update({ groupId: g, groupFixed: g !== K.groupFor(Object.assign({}, c, { groupFixed: false }), GROUPS), status: st, updatedAt: new Date().toISOString(), updatedBy: uid() })
+          .then(function () { toast('Saved'); return load(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+      };
+    });
+  }
+
+  /* ---- registration ---- */
+  function drawRegistration(el) {
+    if (!SETTINGS.formId) { el.innerHTML = '<div class="card">The registration form is not set up yet. ' + (CAN_SET ? 'Set it up on the Settings tab.' : 'Ask an admin to set it up.') + '</div>'; return; }
+    var pend = pending(), sent = REQUESTS.filter(function (q) { return q.status !== 'done'; }).sort(function (a, b) { return a.sentAt < b.sentAt ? 1 : -1; });
+    el.innerHTML = '<div class="card"><h2>Send the registration form</h2><p class="hint">To a parent or guardian. They fill it in once a school year: their children, medical needs, who may collect.</p>' +
+      '<div class="two"><div><label class="l" for="r-name">Their name</label><input class="inp" id="r-name" maxlength="120"></div>' +
+      '<div><label class="l" for="r-email">Their email</label><input class="inp" id="r-email" type="email" maxlength="200"></div></div>' +
+      '<div style="margin-top:10px"><button class="btn" id="r-send">Send it</button></div></div>' +
+      '<div class="card"><h2>Ready to add to the register</h2>' + (pend.length ? pend.map(function (resp) {
+        var p = proposal(resp);
+        return '<div class="kid" data-resp="' + esc(resp.id) + '"><div class="t"><b>' + esc(p.family.parentName) + '</b> <span class="hint">' + esc(resp.email) + ' · sent ' + esc(E.fmtDateShort(resp.submittedAt)) + '</span><br>' +
+          p.children.map(function (c) { var g = group(c.groupId); return esc(c.name) + ' <span class="hint">(' + esc(c.year || '?') + ' → ' + esc(g ? g.name : 'no group yet') + ')</span>'; }).join('<br>') +
+          (existing(p.family) ? '<br><span class="pill wait">Already on the register: this updates them</span>' : '') + '</div>' +
+          '<button class="btn" data-add="' + esc(resp.id) + '">Add to the register</button></div>';
+      }).join('') : '<p class="hint">Nothing waiting.</p>') + '</div>' +
+      '<div class="card"><h2>Sent, not back yet</h2>' + (sent.length ? sent.map(function (q) {
+        return '<div class="kid"><div class="t"><b>' + esc(q.name) + '</b> <span class="hint">' + esc(q.email) + ' · sent ' + esc(E.fmtDateShort(q.sentAt)) +
+          ((q.reminders || []).length ? ' · reminded ' + q.reminders.length + '×' : '') + '</span></div><button class="btn sec" data-remind="' + esc(q.key) + '">Remind</button></div>';
+      }).join('') : '<p class="hint">None.</p>') + '</div>';
+    document.getElementById('r-send').onclick = sendForm;
+    el.querySelectorAll('[data-add]').forEach(function (b) { b.onclick = function () { b.disabled = true; addResponse(b.dataset.add).catch(function (e) { b.disabled = false; toast('Could not add: ' + (e.message || e)); }); }; });
+    el.querySelectorAll('[data-remind]').forEach(function (b) {
+      b.onclick = function () {
+        var q = REQUESTS.filter(function (x) { return x.key === b.dataset.remind; })[0];
+        q.reminders = (q.reminders || []).concat([new Date().toISOString()]);
+        db().collection('formRequests').doc(q.key).update({ reminders: q.reminders }).then(function () { return EGBCChurch.send(F.requestEmail(q, true)); })
+          .then(function () { toast('Reminded'); draw(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+      };
+    });
+  }
+  function sensFor(resp) { return SENS.filter(function (s) { return s.responseId === resp.id && !s.sharedFrom; })[0] || null; }
+  function proposal(resp) { return K.fromResponse(resp, sensFor(resp), GROUPS, today()); }
+  function existing(fam) { return FAMILIES.filter(function (f) { return f.email && f.email === fam.email; })[0] || null; }
+  function sendForm() {
+    var name = document.getElementById('r-name').value.trim(), email = document.getElementById('r-email').value.trim().toLowerCase();
+    if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Give their name and email address'); return; }
+    var key = E.key(32);
+    var req = { formId: SETTINGS.formId, formTitle: SETTINGS.formTitle || 'Children\'s registration', calEventId: '', eventTitle: '', eventStart: '', signupKey: '',
+      personKind: '', personId: '', name: name, email: email, subjects: [], siteId: V.site, status: 'sent', reuseOf: '', sentAt: new Date().toISOString(), reminders: [], createdBy: uid() };
+    db().collection('formRequests').doc(key).set(req).then(function () { return EGBCChurch.send(F.requestEmail(Object.assign({ key: key }, req), false)); })
+      .then(function () { toast('Sent to ' + name); return load(); }).catch(function (e) { toast('Could not send: ' + (e.message || e)); });
+  }
+  /* A completed form onto the register: the family (or the family already
+     there, by email) and each child (or the child already there, by name).
+     Next year's form refreshes them, so nobody is on the register twice. */
+  function addResponse(rid) {
+    var resp = RESPONSES.filter(function (x) { return x.id === rid; })[0], sens = sensFor(resp), p = K.fromResponse(resp, sens, GROUPS, today());
+    var fam = existing(p.family), now = new Date().toISOString(), batch = db().batch();
+    var famId = fam ? fam.id : 'kf_' + E.key(14);
+    var famDoc = Object.assign({}, p.family, { siteId: V.site, responseIds: ((fam && fam.responseIds) || []).concat([rid]), consentUntil: resp.validUntil,
+      familyCode: (fam && fam.familyCode) || K.familyCode(), updatedAt: now, updatedBy: uid() });
+    if (!fam) famDoc.createdAt = now;
+    batch.set(db().collection('kidsFamilies').doc(famId), famDoc, { merge: true });
+    p.children.forEach(function (c) {
+      var had = CHILDREN.filter(function (x) { return x.familyId === famId && K.norm(x.name) === K.norm(c.name); })[0];
+      var d = { siteId: V.site, familyId: famId, name: c.name, dob: c.dob, year: c.year, dietary: c.dietary, photo: c.photo, firstaid: c.firstaid, alone: c.alone,
+        flags: c.flags, medicalRef: sens ? { secret: sens.id, index: c.medicalIndex } : null, consentUntil: resp.validUntil, responseId: rid,
+        groupId: had && had.groupFixed ? had.groupId : c.groupId, groupFixed: !!(had && had.groupFixed), status: had && had.status === 'left' ? 'left' : 'registered',
+        updatedAt: now, updatedBy: uid() };
+      if (!had) { d.createdAt = now; d.firstSeen = ''; }
+      batch.set(db().collection('kidsChildren').doc(had ? had.id : 'kc_' + E.key(14)), d, { merge: true });
+    });
+    return batch.commit().then(function () { toast('Added: ' + p.children.length + ' ' + (p.children.length === 1 ? 'child' : 'children')); return load(); });
+  }
+
+  /* ---- groups ---- */
+  function drawGroups(el) {
+    var rooms = ROOMS.filter(function (r) { return r.siteId === V.site && r.kind !== 'online'; });
+    el.innerHTML = '<div class="card"><h2>Groups</h2><p class="hint">By school year. A child goes into the group for their year; you can move one by hand.</p>' +
+      (GROUPS.length ? GROUPS.map(function (g) {
+        var n = CHILDREN.filter(function (c) { return c.groupId === g.id && c.status !== 'left'; }).length, rm = rooms.filter(function (r) { return r.id === g.roomId; })[0];
+        return '<div class="kid" data-grow="' + esc(g.id) + '"><div class="t"><b>' + esc(g.name) + '</b> <span class="hint">' + esc((g.years || []).join(', ')) + '</span><br><span class="hint">' +
+          esc(K.DAYS[g.day || 7]) + ' ' + esc(g.start || '') + '–' + esc(g.end || '') + (rm ? ' · ' + esc(rm.name) : '') + ' · 1 leader to ' + (g.ratio || '?') + ' · ' + n + ' children' + (g.active === false ? ' · not running' : '') + '</span></div>' +
+          (CAN_SET ? '<button class="btn sec" data-gedit="' + esc(g.id) + '">Edit</button>' : '') + '</div>';
+      }).join('') : '<p class="hint">No groups yet.</p>') +
+      (CAN_SET ? '<div style="margin-top:10px"><button class="btn" id="g-new">Add a group</button></div>' : '<p class="hint">Admins and the safeguarding lead set the groups.</p>') + '</div><div id="g-form"></div>';
+    var nb = document.getElementById('g-new'); if (nb) nb.onclick = function () { groupForm(null, rooms); };
+    el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { groupForm(group(b.dataset.gedit), rooms); }; });
+  }
+  function groupForm(g, rooms) {
+    g = g || { name: '', years: [], day: 7, start: '10:30', end: '12:00', ratio: 8, roomId: '', active: true };
+    var box = document.getElementById('g-form');
+    box.innerHTML = '<div class="card" id="g-card"><h2>' + (g.id ? esc(g.name) : 'A new group') + '</h2>' +
+      '<div class="two"><div><label class="l" for="g-name">Name</label><input class="inp" id="g-name" maxlength="80" value="' + esc(g.name) + '"></div>' +
+      '<div><label class="l" for="g-room">Room</label><select id="g-room"><option value="">None set</option>' + rooms.map(function (r) { return '<option value="' + esc(r.id) + '"' + (g.roomId === r.id ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></div></div>' +
+      '<p class="l" style="margin-top:8px">School years</p><div style="display:flex;flex-wrap:wrap;gap:4px 14px">' + K.YEARS.map(function (y) {
+        return '<label class="ck"><input type="checkbox" class="g-year" value="' + esc(y) + '"' + ((g.years || []).indexOf(y) >= 0 ? ' checked' : '') + '> ' + esc(y) + '</label>'; }).join('') + '</div>' +
+      '<div class="two" style="margin-top:8px"><div><label class="l" for="g-day">Day</label><select id="g-day">' + [7, 1, 2, 3, 4, 5, 6].map(function (d) { return '<option value="' + d + '"' + ((g.day || 7) === d ? ' selected' : '') + '>' + K.DAYS[d] + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="l" for="g-start">From</label><input class="inp" type="time" id="g-start" value="' + esc(g.start) + '"></div>' +
+      '<div><label class="l" for="g-end">Until</label><input class="inp" type="time" id="g-end" value="' + esc(g.end) + '"></div>' +
+      '<div><label class="l" for="g-ratio">Children per leader</label><input class="inp" type="number" min="1" max="30" id="g-ratio" value="' + esc(g.ratio || 8) + '"></div></div>' +
+      '<label class="ck"><input type="checkbox" id="g-active"' + (g.active !== false ? ' checked' : '') + '> Running</label>' +
+      '<div style="margin-top:10px"><button class="btn" id="g-save">Save</button></div></div>';
+    document.getElementById('g-save').onclick = function () {
+      var d = { siteId: V.site, name: document.getElementById('g-name').value.trim().slice(0, 80), roomId: document.getElementById('g-room').value,
+        years: [].slice.call(document.querySelectorAll('.g-year:checked')).map(function (x) { return x.value; }), day: +document.getElementById('g-day').value,
+        start: document.getElementById('g-start').value, end: document.getElementById('g-end').value,
+        ratio: Math.max(1, Math.min(30, parseInt(document.getElementById('g-ratio').value, 10) || 8)), active: document.getElementById('g-active').checked,
+        order: g.order || GROUPS.length + 1, updatedAt: new Date().toISOString(), updatedBy: uid() };
+      if (!d.name) { toast('It needs a name'); return; }
+      var id = g.id || 'kg_' + E.key(10);
+      db().collection('kidsGroups').doc(id).set(d).then(function () {
+        /* Children not moved by hand follow their school year into it. */
+        var b = db().batch(), n = 0, groups = GROUPS.filter(function (x) { return x.id !== id; }).concat([Object.assign({ id: id }, d)]);
+        CHILDREN.forEach(function (c) { var to = K.groupFor(c, groups); if (!c.groupFixed && to !== c.groupId) { b.update(db().collection('kidsChildren').doc(c.id), { groupId: to }); n++; } });
+        return n ? b.commit() : null;
+      }).then(function () { toast('Saved'); return load(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+    };
+  }
+
+  /* ---- settings ---- */
+  function drawSettings(el) {
+    var teams = SETTINGS.teams || [];
+    el.innerHTML = '<div class="card"><h2>The children\'s team</h2><p class="hint">Everyone on these rota teams can see the register, the children\'s medical details and the check-in. Admins and the safeguarding lead always can.</p>' +
+      ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'].concat(teams.filter(function (t) { return ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'].indexOf(t) < 0; })).map(function (t) {
+        return '<label class="ck"><input type="checkbox" class="s-team" value="' + esc(t) + '"' + (teams.indexOf(t) >= 0 ? ' checked' : '') + (CAN_SET ? '' : ' disabled') + '> ' + esc(t) + '</label>'; }).join('') +
+      (CAN_SET ? '<div class="two" style="margin-top:6px"><div><input class="inp" id="s-other" placeholder="Another team, exactly as the rota names it"></div></div><div style="margin-top:10px"><button class="btn" id="s-save">Save</button></div>' : '') + '</div>' +
+      '<div class="card"><h2>The registration form</h2>' + (SETTINGS.formId ? '<p class="st ok" id="s-form">Set up: "' + esc(SETTINGS.formTitle || 'Children\'s registration') + '". Its wording is changed on the Forms page; its periods on Safeguarding settings.</p>'
+        : (EGBCAuth.isAdmin() ? '<p class="hint">Made from the parent and guardian consent form: each child, their medical needs, who may collect. It lasts the school year.</p><button class="btn" id="s-form-go">Set up the registration form</button>'
+          : '<p class="hint">An admin sets this up (it makes a form).</p>')) + '</div>';
+    var sv = document.getElementById('s-save');
+    if (sv) sv.onclick = function () {
+      var t = [].slice.call(document.querySelectorAll('.s-team:checked')).map(function (x) { return x.value; });
+      var o = document.getElementById('s-other').value.trim(); if (o) t.push(o.slice(0, 60));
+      db().collection('kidsSettings').doc(V.site).set({ teams: t, updatedAt: new Date().toISOString(), updatedBy: uid() }, { merge: true })
+        .then(function () { toast('Saved'); return start(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+    };
+    var fg = document.getElementById('s-form-go');
+    if (fg) fg.onclick = function () {
+      db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }).then(function (s) {
+        var t = F.fromTemplate('parent', s && s.exists ? s.data() : null), id = 'form_kids_' + V.site;
+        var d = { title: 'Children\'s registration', purpose: t.purpose, siteId: V.site, validity: t.validity, retentionMonths: t.retentionMonths, fields: t.fields,
+          template: 'parent', kind: t.kind || 'consent', version: 1, updatedAt: new Date().toISOString(), updatedBy: uid() };
+        return db().collection('forms').doc(id).set(d).then(function () {
+          return db().collection('kidsSettings').doc(V.site).set({ formId: id, formTitle: d.title, teams: SETTINGS.teams || [] }, { merge: true });
+        });
+      }).then(function () { toast('The registration form is set up'); return start(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+    };
+  }
+
+  /* ---- start ---- */
+  function start() {
+    return db().collection('kidsSettings').doc(V.site).get().then(function (s) { SETTINGS = s.exists ? s.data() : {}; })
+      .catch(function () { SETTINGS = {}; }).then(function () {
+        var sg = (SITES.filter(function (x) { return x.id === V.site; })[0] || {})._sg;
+        CAN_SET = EGBCAuth.isAdmin() || !!sg;
+        return load();
+      }).catch(function () {
+        document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team. If you help with a children\'s group, ask an admin to add your rota team on its Settings tab.</div>';
+      });
+  }
+
+  EGBCAuth.require().then(function (profile) {
+    var mid = (profile && profile.memberId) || '-', mine = (profile && profile.teams) || [];
+    return Promise.all([db().collection('sites').get(), db().collection('rooms').get(), db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
+                        db().collection('kidsSettings').get().catch(function () { return { docs: [] }; })]).then(function (r) {
+      var bs = {}, ks = {};
+      all(r[2]).forEach(function (s) { bs[s.id] = s; }); all(r[3]).forEach(function (s) { ks[s.id] = s; });
+      SITES = all(r[0]).filter(function (s) { return s.active !== false; }).map(function (s) {
+        s._sg = (bs[s.id] || {}).safeguardingLead === mid || (bs[s.id] || {}).safeguardingDeputy === mid;
+        s._team = ((ks[s.id] || {}).teams || []).some(function (t) { return mine.indexOf(t) >= 0; });
+        return s;
+      }).filter(function (s) { return EGBCAuth.isAdmin() || s._sg || s._team; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      ROOMS = all(r[1]);
+      if (!SITES.length) { document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team. If you help with a children\'s group, ask an admin to add your rota team on its Settings tab.</div>'; return; }
+      V.site = SITES[0].id;
+      return start();
+    });
+  }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>
