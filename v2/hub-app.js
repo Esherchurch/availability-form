@@ -719,6 +719,21 @@ function myTeams() {
 /* A notice with no teams goes to everyone. Otherwise it appears only for
    people on one of those teams - which is what lets youth news carrying
    places and times stay away from anyone who should not see it. */
+/* "Show until". A notice can take itself off the page on a day the person
+   posting it chooses - the original portal's news panel could do this and the
+   hub's could not, so last term's notice stayed up until somebody remembered
+   to delete it.
+
+   An expired notice is hidden, not deleted: it stays in the Notices list
+   marked hidden, so it can be given a new date or removed properly. The
+   comparison is on the plain yyyy-mm-dd string the date field gives us, so
+   "until today" means it is still showing today and gone tomorrow. */
+function todayIso() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function isNewsExpired(n) { return !!(n && n.until && n.until < todayIso()); }
+
 function forMe(n) {
   if (!Array.isArray(n.teams) || !n.teams.length) return true;
   if (EGBCAuth.isMaster()) return true;
@@ -1227,8 +1242,11 @@ async function renderMyEvents() {
 }
 
 function renderNews() {
-  const pinned = NEWS.filter(n => n.pinned && !(n.requireAck && ACKED.has(n.id)));
-  const rest = NEWS.filter(n => !pinned.includes(n));
+  /* NEWS keeps the expired ones so the Notices list can still manage them;
+     nothing on the page shows them. */
+  const live = NEWS.filter(n => !isNewsExpired(n));
+  const pinned = live.filter(n => n.pinned && !(n.requireAck && ACKED.has(n.id)));
+  const rest = live.filter(n => !pinned.includes(n));
 
   document.getElementById('pinned').innerHTML = pinned.map(n => {
     const seen = (n.ackedBy || []).length;
@@ -1270,7 +1288,7 @@ function newsCard(n) {
   return `<div class="nw">
     <div class="m">
       ${tags || '<span class="t"><span class="dot" style="background:#9ca3af"></span>Everyone</span>'}
-      <span class="d">&middot; ${when(n.createdAt)}</span>
+      <span class="d">&middot; ${n.date ? esc(n.date) : when(n.createdAt)}</span>
       ${EDITING && canEditNews(n) ? `<span class="acts">
         <button onclick="openNewsEditor('${n.id}')" title="Edit"><i data-lucide="pencil" style="width:13px;height:13px"></i>Edit</button>
         <button class="del" onclick="deleteNews('${n.id}')" title="Remove"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button>
@@ -1400,6 +1418,8 @@ function openNewsEditor(id) {
   document.getElementById('nwId').value = n ? n.id : '';
   document.getElementById('nwTitle').value = n ? n.title : '';
   newsEditor().setHTML(n ? n.body : '');
+  document.getElementById('nwDate').value = n ? (n.date || '') : '';
+  document.getElementById('nwUntil').value = n ? (n.until || '') : '';
   document.getElementById('nwPinned').checked = n ? !!n.pinned : false;
   document.getElementById('nwAck').checked = n ? !!n.requireAck : false;
 
@@ -1471,6 +1491,8 @@ async function saveNews() {
 
   const data = {
     title, body, teams,
+    date: document.getElementById('nwDate').value.trim(),
+    until: document.getElementById('nwUntil').value,
     pinned: document.getElementById('nwPinned').checked,
     requireAck: document.getElementById('nwAck').checked,
     postedBy: ME.name || ME.email
@@ -2369,8 +2391,11 @@ function renderAdminNews() {
         <div style="flex:1;min-width:170px">
           <div style="font-size:13px;font-weight:800;color:var(--ink)">${n.pinned ? '&#9733; ' : ''}${esc(n.title)}</div>
           <div style="font-size:10px;color:var(--faint);font-weight:700;margin-top:2px">
-            ${(n.teams || []).length ? esc(n.teams.join(', ')) : 'Everyone'} &middot; ${when(n.createdAt)}
+            ${(n.teams || []).length ? esc(n.teams.join(', ')) : 'Everyone'} &middot; ${(n.date ? esc(n.date) : when(n.createdAt))}
             ${n.requireAck ? ` &middot; ${acks} confirmed` : ''}
+            ${n.until ? (isNewsExpired(n)
+              ? ` &middot; <span style="color:#b0392c">Expired ${esc(n.until)} (hidden)</span>`
+              : ` &middot; Showing until ${esc(n.until)}`) : ''}
           </div>
         </div>
         <button class="btn" style="padding:6px 13px" onclick="closeAdmin();openNewsEditor('${n.id}')">Edit</button>

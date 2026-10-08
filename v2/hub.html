@@ -572,6 +572,23 @@
          cleaned to plain formatting, no HTML to deal with. -->
     <div id="nwBody"></div>
 
+    <!-- The original portal's news panel had both of these and the hub's did
+         not: a label for the day the notice is about, and a day on which it
+         takes itself off the page. Without "show until", last term's notice
+         stays up until somebody remembers to delete it. -->
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:18px">
+      <div style="flex:1;min-width:210px">
+        <label class="flab" for="nwDate">Date label (optional)</label>
+        <input class="fld" id="nwDate" placeholder="e.g. Sunday 4 May">
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Shown instead of the day you posted it</div>
+      </div>
+      <div style="flex:1;min-width:210px">
+        <label class="flab" for="nwUntil">Show until (optional)</label>
+        <input class="fld" type="date" id="nwUntil">
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">It takes itself off the page after this day</div>
+      </div>
+    </div>
+
     <div class="flab" style="margin-top:18px">Who sees it</div>
     <p style="font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.5">
       Pick the teams this is for. <strong>Everyone</strong> is for genuinely church-wide things &mdash; the bulletin, a whole-church event.
