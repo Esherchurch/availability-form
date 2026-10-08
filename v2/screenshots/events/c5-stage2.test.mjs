@@ -232,6 +232,9 @@ try {
   await G.waitForSelector('#quoteTable');
   const docText = await G.$eval('#quoteTable', e => e.innerText.replace(/\s+/g, ' '));
   ok('5. the hirer\'s page: the quote, £70, and the terms (version 1)', /Total £70.00/.test(docText) && /leave the hall as you found it/.test(await G.$eval('#terms', e => e.innerText)), docText);
+  ok('   my-booking.html has the Church HQ credit in its footer', /Powered by Church HQ/.test(await G.$eval('#poweredby', e => e.innerText)));
+  await G.evaluate(() => document.querySelectorAll('.firebase-emulator-warning').forEach(e => { e.style.display = 'none'; }));
+  await (await G.$('#poweredby')).screenshot({ path: path.join(HERE, 'c5-poweredby-my-booking-375.png') });
   await tap(G, '#accept');
   ok('   accepting needs the tick', /Tick the box/.test(await G.$eval('#acceptMsg', e => e.textContent)) && !(await get('bookings', hb.key)).accepted);
   await check(G, '#agree', true); await val(G, '#who', 'Hirer Synthetic');

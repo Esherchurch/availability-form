@@ -181,6 +181,12 @@ try {
     await go(G, u, '.ch-in'); await sleep(1500);
     await go(S, u, '.ch-in');
     const signedIn = await until(() => S.$eval('#ch-hub', e => e.getAttribute('href')), 8000);
+    /* NEXT-BRIEF §19: the credit, in the footer, at phone width. */
+    const pb = await G.evaluate(() => { const e = document.querySelector('#poweredby .egbc-poweredby'), i = e && e.querySelector('img'); return e ? { text: e.innerText.trim(), mark: !!(i && i.complete && i.naturalWidth > 0), links: e.querySelectorAll('a').length } : null; });
+    ok('   ' + u.split('?')[0] + ': "Powered by Church HQ" in the footer, with the mark', pb && pb.text === 'Powered by Church HQ' && pb.mark, JSON.stringify(pb));
+    /* The emulator's own warning bar sits over the foot of the page, so the footer is captured on its own. */
+    await G.evaluate(() => document.querySelectorAll('.firebase-emulator-warning').forEach(e => { e.style.display = 'none'; }));
+  await (await G.$('#poweredby')).screenshot({ path: path.join(HERE, 'r3-poweredby-' + u.split('.')[0] + '-375.png') });
     ok('0. ' + u.split('?')[0] + ': signed out, no way into the hub; signed in, "Back to the hub"', !(await G.$('#ch-hub')) && signedIn === 'hub.html', 'guest: ' + !!(await G.$('#ch-hub')) + ', member: ' + signedIn);
   }
   await S.screenshot({ path: path.join(HERE, 'r3-hub-link-member.png') });

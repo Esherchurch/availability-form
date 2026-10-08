@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-poweredby.js?v=202610081518"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-bookings.js?v=202610101900"></script>
@@ -71,9 +72,12 @@
   <div id="results"><p class="hint">Loading…</p></div>
 </div>
 
+<footer id="poweredby"></footer>
 <script>
 (function () {
   'use strict';
+  /* NEXT-BRIEF §19: the one small credit, from the shared snippet. */
+  if (window.EGBCPoweredBy) EGBCPoweredBy.mount(document.getElementById('poweredby'));
   EGBCChurch.closeOnLeave();
   var R = window.EGBCRooms;
   var ROOMS = [], SITES = {}, NEED = { people: '', layout: '', facilities: [], day: '', from: '', to: '' }, FREE = null, B = window.EGBCBookings;
@@ -157,7 +161,7 @@
     });
     var asked = need.people || need.layout || need.facilities.length || FREE;
     document.getElementById('results').innerHTML =
-      (fits.length ? '<p class="hint" id="count">' + (asked ? fits.length + ' room' + (fits.length === 1 ? '' : 's') + ' fit what you need' + (FREE ? ' and ' + (fits.length === 1 ? 'is' : 'are') + ' free then. Choose one to ask for it.' : '.') : ROOMS.length + ' rooms for hire.') + '</p>' +
+      (fits.length ? '<p class="hint" id="count">' + (asked ? fits.length + ' room' + (fits.length === 1 ? '' : 's') + ' fit what you need' + (FREE ? ' and ' + (fits.length === 1 ? 'is' : 'are') + ' free then. Choose one to ask for it.' : '.') : ROOMS.length + ' room' + (ROOMS.length === 1 ? '' : 's') + ' for hire.') + '</p>' +
         '<div class="grid">' + fits.map(function (x) { return card(x.r); }).join('') + '</div>'
         : '<div class="card" style="padding:18px"><p style="margin:0" id="count">No room fits all of that. Try fewer things, or ask us: we may be able to help.</p></div>') +
       (asked && not.length ? '<div class="nofit"><p class="hint" style="margin:0">Not shown:</p><ul>' + not.map(function (x) {

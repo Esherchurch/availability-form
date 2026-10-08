@@ -1200,8 +1200,9 @@ nothing paid is marked cancelled. After an answer the hirer may ask again.
   Calla's API: it needs its own brief, written against Calla's code. Until then
   Calla mode queues everything with "not built yet", and the hub works exactly
   as in None mode.
-- **Who numbers invoices in Calla mode** (the brief: establish with Martin):
-  recorded as "the hub" until you decide.
+- **Who numbers invoices in Calla mode:** decided (Martin): the hub keeps
+  numbering, and Calla takes the hub's number. The Calla connection waits for
+  its own brief.
 - Bank details for "how to pay" are typed on the Accounts tab; nothing is
   assumed.
 
@@ -1229,7 +1230,9 @@ the events pages included, still loads it as `?v=202610062100`, so a browser
 may keep the old copy. It is the main window's file, so the new tag is theirs
 to choose; the events pages will follow it.
 
-### F-086 — "Powered by Church HQ" (NEXT-BRIEF §19): waiting for the shared file
-The footer of `hire.html`, `room.html`, `book.html` and `my-booking.html` will
-use `EGBCPoweredBy.html()` once `egbc-poweredby.js` exists. The closed-set test
-already allows churchhq.co.uk as its one outside link.
+### F-086 — "Powered by Church HQ" (NEXT-BRIEF §19): done
+The footer of `hire.html`, `room.html`, `book.html` and `my-booking.html` mounts
+the main window's shared snippet (`EGBCPoweredBy.mount`). Plain text until the
+snippet's link is switched on; the closed-set test already allows
+churchhq.co.uk. Printing the quote hides it (never on PDFs). Screenshots:
+`r3-poweredby-*-375.png`, `c5-poweredby-my-booking-375.png`.

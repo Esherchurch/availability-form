@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-poweredby.js?v=202610081518"></script>
 <script src="egbc-email.js?v=202610062100"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-bookings.js?v=202610101900"></script>
@@ -66,9 +67,12 @@
 <header class="chead" id="chead"></header>
 <div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
 
+<footer id="poweredby"></footer>
 <script>
 (function () {
   'use strict';
+  /* NEXT-BRIEF §19: the one small credit, from the shared snippet. */
+  if (window.EGBCPoweredBy) EGBCPoweredBy.mount(document.getElementById('poweredby'));
   EGBCChurch.closeOnLeave();
   var B = window.EGBCBookings, QT = window.EGBCQuote;
   var KEY = new URLSearchParams(location.search).get('k') || '', BK = null, ROOM = null, TYPE = null, TERMS = null, SITE = null;
