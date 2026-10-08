@@ -967,20 +967,31 @@ function canEditNews(n) {
    dead: the brief asks for hidden, not greyed. Whether they can open it is
    the registry's answer, not a guess here - PAGES is what the hub already
    filters everything else by. */
+/* The few places that get a tab of their own at the bottom of a phone, and a
+   shortcut at the top of the sidebar. Short labels on purpose - "My serving"
+   is clearer on a tab than "Rota" - but WHETHER each one appears is decided by
+   egbc-menu.js, the same structure the Menu uses, so a page cannot be in one
+   and not the other. It used to be decided by the registry, which is about
+   what exists rather than where anything belongs. */
 function navPlaces() {
-  const have = url => PAGES.some(p => decodeURIComponent(String(p.url || '')).toLowerCase() === url)
-    || BUILT_IN_PAGES.some(p => p.url.toLowerCase() === url);
-  const canSee = url => {
-    const p = PAGES.filter(x => decodeURIComponent(String(x.url || '')).toLowerCase() === url)[0];
-    return p ? visibleOne(p) : true;
-  };
+  const inTheMenu = {};
+  EGBCMenu.forPerson(EGBCMenu.who()).length;        /* throws early if the structure is broken */
+  EGBCMenu.allPages().forEach(p => { inTheMenu[String(p.url).toLowerCase()] = true; });
+  const visibleNow = {};
+  (function walk(nodes) {
+    nodes.forEach(n => { if (n.url) visibleNow[String(n.url).toLowerCase()] = true; if (n.children) walk(n.children); });
+  })(EGBCMenu.forPerson(EGBCMenu.who()));
+
   const places = [
     { url: 'hub.html', label: 'Home', icon: 'house', always: true },
     { url: 'whatson.html', label: "What's on", icon: 'calendar-days' },
     { url: 'meeting.html', label: 'Meet', icon: 'video' },
     { url: 'view-only-rota.html', label: 'My serving', icon: 'calendar-check' }
   ];
-  return places.filter(p => p.always || (have(p.url) && canSee(p.url)));
+  /* Switched off in the registry still means switched off. */
+  const switchedOff = url => PAGES.some(p =>
+    decodeURIComponent(String(p.url || '')).toLowerCase() === url && p.enabled === false);
+  return places.filter(p => p.always || (visibleNow[p.url] && !switchedOff(p.url)));
 }
 
 /* The hub has its own Menu; every other page gets the shell's. More
@@ -1008,14 +1019,24 @@ function renderNavigation() {
      same app, same sign-in, more doors. */
   const side = document.getElementById('sidebar');
   if (side) {
-    const admin = PAGES.filter(p => p.adminOnly && visibleOne(p) && isTile(p))
-      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
+    /* The sections this person administers, from egbc-menu.js and IN THE
+       ORDER THE MENU HAS THEM - not the registry, sorted alphabetically.
+       Alphabetical was a second arrangement of the same pages, which is the
+       thing Step N exists to stop: Events, Places and Backup & Restore read
+       one way in the Menu and another here. */
+    const admin = [];
+    (function walk(nodes) {
+      nodes.forEach(n => {
+        if (n.url && n.admin) admin.push({ url: n.url, title: n.title, icon: n.icon });
+        if (n.children) walk(n.children);
+      });
+    })(EGBCMenu.forPerson(EGBCMenu.who()));
     side.innerHTML =
       places.map(p => `<a href="${p.url}" class="${p.url.toLowerCase() === here ? 'on' : ''}">${I(p.icon)}<span>${esc(p.label)}</span></a>`).join('') +
       `<button onclick="openMenuHere()">${I('menu')}<span>Everything else</span></button>` +
       (admin.length
         ? '<div class="sgrp">What you look after</div>' +
-          admin.map(p => `<a href="${p.url}">${I(EGBCUI && EGBCUI.pageIcon ? EGBCUI.pageIcon(p) : 'file-text')}<span>${esc(p.title)}</span></a>`).join('')
+          admin.map(p => `<a href="${esc(p.url)}">${I(p.icon || 'file-text')}<span>${esc(p.title)}</span></a>`).join('')
         : '');
   }
 

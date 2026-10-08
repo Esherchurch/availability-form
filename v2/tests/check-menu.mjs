@@ -43,6 +43,7 @@ const APPROVED = [
   ['Rota'],
   ['Meetings'],
   ["What's on"],
+  ['Hire our rooms'],
   ['Worship & AV', [
     ['Worship', [['Play-Through'], ['Worship Training'],
       ['Music Databases', [['Music Database'], ['Music Uploader']]]]],
@@ -243,6 +244,24 @@ const READ_MENU = `(() => {
       .concat(GONE_ANYWHERE.filter(g => (menu.text || '').toLowerCase().includes(g.toLowerCase())));
     ok('  the things taken out stay out', stillHere.length === 0,
       stillHere.join(', ') || 'the Apps group, the song library quick view, Song Summary and "(old)" are all gone');
+    /* One structure, not two: the sidebar's "What you look after" must hold
+       the admin pages the Menu holds, in the Menu's order. It used to come
+       from the registry sorted alphabetically, which is a second arrangement
+       of the same pages - the thing Step N exists to stop. */
+    const sidebar = String(await ev(
+      "(()=>{const el=document.getElementById('sidebar');if(!el)return '';" +
+      "const i=[...el.children].findIndex(c=>c.className==='sgrp');" +
+      "return i===-1?'':[...el.children].slice(i+1).map(a=>(a.textContent||'').trim()).join('|')})()"));
+    const wantAdmin = ADMIN_ONLY.filter(a => !['Events and rooms', 'Admin'].includes(a))
+      .filter(() => p.masterAdmin || p.adminFor.length);
+    ok('  the sidebar lists what they look after, in the Menu\'s order',
+      p.masterAdmin || p.adminFor.length
+        ? sidebar === wantAdmin.join('|')
+        : sidebar === '',
+      (p.masterAdmin || p.adminFor.length)
+        ? 'sidebar: ' + (sidebar || '(nothing)') + '   menu order: ' + wantAdmin.join('|')
+        : 'nothing to look after, and nothing listed');
+
     ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
     if (wantShots) {

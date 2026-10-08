@@ -33,6 +33,8 @@
       description: 'Set one up, join a call, every meeting room' },
     { title: "What's on", url: 'whatson.html', icon: 'calendar-heart',
       description: 'Church events, and signing up' },
+    { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
+      description: 'What we have, and asking about it' },
 
     { title: 'Worship & AV', url: 'Worshipteamcharter.html', icon: 'music',
       description: 'What the team is for, and how it works',

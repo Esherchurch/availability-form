@@ -339,3 +339,77 @@ browser rather than by reading the code: the event picture goes to
 **Martin may want to look in the live bucket** for files put there by
 development before today: `banners/`, `resources/` and `kb/` are where they
 would be. Nothing is deleted from here without being asked.
+
+## A-021 — where the church's own details are written into the code
+
+Martin, 8 Oct 2026: this will become a product other churches use, so nothing
+built from now on may hard-code the church's name, its email addresses or its
+logo. Those come from the **Church details** setting the events window is
+adding.
+
+**Nothing has been changed.** This is the list, as asked.
+
+### The name: "Esher Green Baptist Church"
+
+26 times, in 18 files. Three kinds of use, and they are not equally awkward:
+
+| Where | Count | What it is |
+|---|---|---|
+| the shell and the hub (`egbc-shell.js`, `hub.html`, `hub-app.js`) | 4 | the strapline under the title on every page |
+| email templates (`Planner`, `CoreTeamApp`, `SundayServicePlanner`, `youthserviceplanner`, `EmailBuilder2`, `hub-app.js`) | 11 | the sign-off and the header of what goes out |
+| page titles and headings (`index`, `login`, `hire`, `videos`, `whatson`, `meeting`, `youth-access`, `EGBC-PlayThrough`) | 11 | what a person reads at the top |
+
+`egbc-ics.js` has it three times as the calendar's name and in `PRODID`.
+
+### Email addresses
+
+| Address | Count | Where |
+|---|---|---|
+| `worship@esherchurch.org` | 22 | the reply-to on nearly every email the suite sends |
+| `av@esherchurch.org` | 3 | AV emails |
+| `youth@esherchurch.org` | 2 | youth emails |
+| `office@esherchurch.org` | 2 | the fallback on public pages |
+| `EGBCWorship@callasuite.uk` | 3 | what the send service posts **from** — the Calla window's, not ours |
+
+`esherchurch.org` also appears 28 times as a bare domain, mostly inside the
+`UID` of calendar entries (`egbc-rota-<id>@esherchurch.org`). **Those must not
+simply be swapped**: changing a UID makes every calendar treat the entry as a
+new one, so the old one stays behind and people get it twice. Whatever the
+setting does here needs a rule for calendars that already exist.
+
+### The logo and the header image
+
+Six files at the root of the storage bucket, referenced 37 times:
+
+| File | Count | What it is |
+|---|---|---|
+| `1774936285076.png` | 21 | the logo, on most pages and in every email |
+| `copilot_image_1775806874083.jpeg` | 8 | the shell and hub header |
+| `1777880144841.png` | 4 | the training portal's |
+| `1774933429062.png`, `1774933729776.png`, `1774936402880.png` | 4 | the old portal's dashboard |
+
+Declared as a constant in five places — `egbc-shell.js` (`LOGO`), `hub-app.js`
+(`LOGO`), `EGBCWorship&AV.html` and `trainingportalhub.html`
+(`DEFAULT_LOGO`), `trainingrotaplanner.html` (`LOGO_URL`) — and inline in the
+rest. The five constants are the easy half; the inline ones in email templates
+are the work.
+
+They are also named one by one in `storage.rules`, so that the availability
+form and login can show the logo with nobody signed in. A church that uploads
+its own logo will need that rule to be about a folder rather than six names.
+
+### The video rooms
+
+`https://egbc.daily.co/` is the base for every meeting link, in 7 places,
+with a room per meeting kind (`worship-core-team`, `Worship-AV`, `Prayer`,
+`Eldership`, `CMM`, `kids-ministries`, `interviews`). That is a second account
+belonging to the church, not just a name.
+
+### What I would say about the order of work
+
+The email templates are the biggest share and the hardest, because the name,
+the address and the logo all appear inside one block of HTML that is built as
+a string. The shell, the hub and the page headings are a handful of constants
+and would take an afternoon. The calendar UIDs should be left alone until
+somebody has decided what happens to calendars people have already added.
+
