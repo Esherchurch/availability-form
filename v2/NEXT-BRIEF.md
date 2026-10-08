@@ -177,6 +177,79 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 16. Step N: the Menu matches the original portal (before Step R)
+
+Martin was confused by v2's Menu. The full audit is in `NAV-AUDIT.md`: the original portal's two views (normal, and Core Team via `?role=core`), v2's Menu today, and the links that leave v2. Martin approved this Menu on 8 Oct 2026. Build it exactly.
+
+```
+Dashboard                                  (the hub)
+Rota                                       view-only-rota.html
+Meetings                         new       meeting.html
+What's on                        new       whatson.html
+Worship & AV                               Worshipteamcharter.html
+    Worship
+        Play-Through                       EGBC-PlayThrough.html
+        Worship Training                   EGBC-Training-Worship.html
+        Music Databases
+            Music Database                 Library.html
+            Music Uploader                 batchupload.html
+    AV
+        How-To AV                          EGBC-HowTo-AV.html
+        AV Troubleshoot                    EGBC-Troubleshoot-AV.html
+        Equipment
+            Inventory                      inventory-system-2.html
+            AV Infrastructure Mapper       schematic.html
+            Monitor Setup                  MonitorStageMap.html
+Youth                                      Youthcharter.html
+    Youth Service Planner                  youthserviceplanner.html
+Core Team             (Core Team only)     Coreteamcharter.html
+    Planning
+        Rota Planner                       Planner.html
+        Sunday Service Planner             SundayServicePlanner.html
+        Availability form                  index.html
+    People and email
+        Address Book                       addressbook.html
+        Email Compiler                     EmailBuilder2.html
+    Music
+        Music Upload                       music-uploader.html
+    Events and rooms  (admins only)
+        Events                             events-admin.html
+        Places                             places-admin.html
+    Admin             (admins only)
+        Backup & Restore                   data-tools.html
+Resources
+    Idea's pin board                       stickynotes.html
+    Apps and downloads                     hubresources.html
+    Team Resources            new          resources.html
+    Team Videos               new          videos.html
+```
+
+Rules:
+- **Names, order and headings exactly as above.** A heading that is also a page (Worship & AV, Youth, Core Team) opens its charter, as on the original.
+- **Who sees what comes from the login, not a link.** Core Team sees the Core Team section. Admins of the relevant team see "Events and rooms" and "Admin". A heading with nothing visible under it is hidden.
+- **Remove** the "Apps" group from the Menu. "Add to your phone" is explained on Apps and downloads.
+- **Remove** `sundayplannersonglibrary.html` and `song-summary.html` from the Menu; they open from inside the Sunday Service Planner.
+- **Remove** the label "Worship & AV Hub (old)" from the hub sidebar. It is a v2 page.
+- Leave out the original's empty "Worship Leaders" and "Heart and Direction" headings.
+- The hub's own sidebar and "Where to?" list follow the same structure and the same visibility rules. One structure, not two.
+- The events window's requests for new events pages (F-031) go in this structure. Check-in, Registers and Safeguarding go under **Events and rooms**. "Report a concern" goes under **Resources**, for everyone.
+
+**Pin board shortcut on the landing page.** Martin: *"It is actually important but buried."* Add a **"Pin board"** card to the hub's home (the "My EGBC" dashboard) for everyone signed in. It shows:
+- the newest 3 to 5 notes, title or first line and who added it
+- **"Add an idea"**, which opens the pin board ready to add
+- **"Open the pin board"**
+
+It reads the same data `stickynotes.html` uses, and changes nothing about the pin board itself.
+
+**The 44 links that leave v2** (NAV-AUDIT §3): make every in-page link relative so it stays in v2. Links inside **emails** need a full address. Point those at the v2 page and say in the report which ones they are; the original site's own emails are untouched.
+
+Prove it:
+- screenshots of the Menu as a Worship member, as Core Team, and as a master admin
+- the pin board card on the hub at phone and desktop width
+- a check that fails if any v2 page links to the original site outside an email
+
+Stop and report, then go on to Step R.
+
 ## 15. Martin found lost behaviour — S2 is now a side-by-side comparison of every page
 
 **What Martin found.** On v2, the Sunday Service Planner opens with an **empty Order of Service**. The original opens with the church's fixed layout: Opening Remarks, 3 songs, Welcome and Notices, a song, Message, 3 songs, Closing Remarks. Martin's words: *"You cannot lose functionality … It will be hugely problematic if you do."*
