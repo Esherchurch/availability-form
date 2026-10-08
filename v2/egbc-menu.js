@@ -417,16 +417,22 @@
     allPages: function () { return flatten(TREE); },
     /* Straight from the signed-in profile, so every caller asks the same way. */
     who: function () {
-      const p = (window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) || null;
-      const teams = (p && p.teams) || [];
+      /* effectiveTeams, isMaster and isAdmin honour "View the site as", so a
+         master admin previewing as a Worship member sees that member's Menu
+         (Martin, 8 Oct 2026: "If i am in as a worship team, i shouldnt even
+         see the links for core team"). The raw profile ignored the preview. */
+      const A = window.EGBCAuth;
+      const p = (A && A.profile && A.profile()) || null;
+      const previewing = !!(A && A.viewingAs && A.viewingAs());
+      const teams = (A && A.effectiveTeams) ? A.effectiveTeams() : ((p && p.teams) || []);
       return {
-        isCore: teams.indexOf('Core Team') !== -1,
-        isAdmin: !!(window.EGBCAuth && EGBCAuth.isAdmin && EGBCAuth.isAdmin()),
+        isCore: teams.indexOf('Core Team') !== -1 || !!(A && A.isMaster && A.isMaster()),
+        isAdmin: !!(A && A.isAdmin && A.isAdmin()),
         /* Who looks after a site's bookings is a list of member ids inside
            bookingSettings, which means a read. Whoever draws the Menu does
            that read and sets this before drawing; unset means "not one",
            which is the safe way round. */
-        isBookingsAdmin: window.EGBC_BOOKINGS_ADMIN === true
+        isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true
       };
     },
 
