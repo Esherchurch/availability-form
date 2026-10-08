@@ -4,7 +4,30 @@ Read on 8 Oct 2026 by the reviewing window from the live original portal (`EGBCW
 
 ## 1. The original portal's menu (what the church actually uses)
 
-The sidebar of `EGBCWorship&AV.html` is built from the `portal/menuItems` data and is the same for everyone:
+The sidebar of `EGBCWorship&AV.html` is built from the `portal/menuItems` data.
+
+**There are two views.** Opened normally, or with `?role=worship`, the portal shows only the Worship and AV items. Opened with **`?role=core`** (the Core Team's link), it also shows every item marked "Core (Admin Only)". The Core Team view is:
+
+```
+Dashboard
+Rota                            view-only-rota.html
+Worship & AV                    Worshipteamcharter.html
+    Worship / Play-Through, Worship Training, Music Databases (Music Database, Music Uploader)
+    AV / How-To AV, AV Troubleshoot
+Youth                           Youthcharter.html
+    Youth Service Planner       youthserviceplanner.html
+Core Team                       Coreteamcharter.html          [Core only]
+    Email Compiler              EmailBuilder2.html            [Core only]
+    Rota Planner                Planner.html                  [Core only]
+    Sunday Service Planner      SundayServicePlanner.html     [Core only]
+    Address Book                addressbook.html              [Core only]
+    Worship Leaders             (heading)                     [Core only]
+    Heart and Direction         (heading)                     [Core only]
+Resources
+    Idea's pin board, Apps and downloads
+```
+
+The Worship and AV view (the default) is:
 
 ```
 Dashboard                       (the portal's own landing page)
@@ -26,8 +49,8 @@ Resources                       (heading)
     Apps and downloads          hubresources.html
 ```
 
-**Not in that menu.** These are reached from inside another page, from the installed phone apps, or from SharePoint:
-- **The Core Team tools:** Rota Planner, Sunday Service Planner, Address Book, Email Builder, Music Uploader, Inventory, AV Schematic, Monitor Setup and the Availability form.
+**Not in either view.** These are reached from inside another page, from the installed phone apps, or from SharePoint:
+- Music Uploader (`music-uploader.html`), Inventory, AV Schematic, Monitor Setup and the Availability form.
 - **Pages opened from inside a tool, never from a menu:**
   - `sundayplannersonglibrary.html` (the cut-down song library): the Sunday Service Planner's "songs database viewer" button, CoreTeamApp, youthapp2, the Youth Service Planner
   - `song-summary.html`: from the Sunday Service Planner
