@@ -133,10 +133,14 @@
 
   /* ================= one event ================= */
 
+  /* The event's own choices, else the church's Safeguarding settings,
+     else the built-in defaults (1 to 8, 1 to 4, 3 years, not required). */
+  var SGDEF = {};
   function settingsOf() {
-    var l = LEAD || {};
-    return { ratioAll: l.ratioAll || 8, ratioUnder8: l.ratioUnder8 || 4, requireChecks: !!l.requireChecks,
-             dbsYears: l.dbsYears || 3, trainingYears: l.trainingYears || 3 };
+    var l = LEAD || {}, d = SGDEF || {};
+    return { ratioAll: l.ratioAll || d.ratioAll || 8, ratioUnder8: l.ratioUnder8 || d.ratioUnder8 || 4,
+             requireChecks: l.requireChecks !== undefined ? !!l.requireChecks : !!d.requireChecks,
+             dbsYears: l.dbsYears || d.dbsYears || 3, trainingYears: l.trainingYears || d.trainingYears || 3 };
   }
 
   function counts() {
@@ -451,7 +455,8 @@
   function drawHome(concerns, events) {
     var html = '<h1>Safeguarding</h1><p class="sub">Leaders, ratios, checks, incidents and concerns.</p>' +
       '<div class="bar"><button class="btn" id="concernBtn">' + ico('message-square-warning') + 'Report a concern</button>' +
-      (MASTER ? '<a class="btn sec" href="retention.html">' + ico('archive') + 'Due for deletion</a>' : '') + '</div>';
+      (MASTER ? '<a class="btn sec" href="retention.html">' + ico('archive') + 'Due for deletion</a>' : '') +
+      ((ADMIN || LEADSITES.length) ? '<a class="btn sec" href="safeguarding-settings.html">' + ico('settings') + 'Safeguarding settings</a>' : '') + '</div>';
     if (LEADSITES.length) {
       html += '<div class="card"><h2><span class="badge">' + ico('inbox', 17) + '</span>Concerns reported to you</h2>' +
         '<p class="hint" style="margin-top:-4px">You are safeguarding lead or deputy for ' + esc(LEADSITES.map(siteName).join(', ')) + '. Nobody else can read these.</p>' +
@@ -524,9 +529,11 @@
   EGBCAuth.require().then(function (profile) {
     ME = SG.me();
     ADMIN = !!EGBCAuth.isAdmin(); MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
-    return Promise.all([SG.myLeadSites(), db().collection('sites').get()]);
+    return Promise.all([SG.myLeadSites(), db().collection('sites').get(),
+      db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; })]);
   }).then(function (r) {
     LEADSITES = r[0];
+    SGDEF = r[2] && r[2].exists ? r[2].data() : {};
     SITES = r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (s) { return s.active !== false; });
     if (!EVID) return home();
     return E.load(EVID).then(function (x) {

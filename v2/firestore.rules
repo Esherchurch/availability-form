@@ -1047,9 +1047,97 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- safeguarding settings (Chunk 3, after E3) -------------------
+    // One document, safeguardingSettings/defaults: how long each form
+    // template's answers last and are kept, the default ratios, and how
+    // many years DBS and training count. New forms and events take these.
+    // Admins and any site's safeguarding lead change it; a lead who is not
+    // an admin says which site they lead (leadSiteId) and the rule checks it.
+    function wholeYears(v) { return v is int && v >= 1 && v <= 10; }
+    match /safeguardingSettings/{id} {
+      allow read: if active();
+      allow write: if id == 'defaults'
+                   && (isAdmin() || sgLeadOf(request.resource.data.get('leadSiteId', '')))
+                   && request.resource.data.keys().hasOnly(['templates', 'ratioAll', 'ratioUnder8', 'dbsYears', 'trainingYears',
+                                                             'requireChecks', 'leadSiteId', 'updatedAt', 'updatedBy', 'updatedByName'])
+                   && request.resource.data.templates is map
+                   && request.resource.data.ratioAll is int && request.resource.data.ratioAll >= 1 && request.resource.data.ratioAll <= 50
+                   && request.resource.data.ratioUnder8 is int && request.resource.data.ratioUnder8 >= 1 && request.resource.data.ratioUnder8 <= 50
+                   && wholeYears(request.resource.data.dbsYears) && wholeYears(request.resource.data.trainingYears)
+                   && request.resource.data.requireChecks is bool;
+    }
+
+    // "Also apply to the ones already made": a safeguarding lead who is not
+    // an admin may change how long a form's answers last and are kept, on
+    // their own site's forms, and nothing else about them. Rules for one
+    // path add up, so this widens the E2 rule without editing it.
+    match /forms/{formId} {
+      allow list: if sgLeadOf(resource.data.get('siteId', ''));
+      allow update: if sgLeadOf(resource.data.get('siteId', ''))
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['validity', 'retentionMonths', 'updatedAt', 'updatedBy']);
+    }
+
     match /retentionLog/{entryId} {
       allow read, create: if isMaster();
       allow update, delete: if false;
+    }
+
+    // ---- one-off upload links (E4, NEXT-BRIEF §11) ------------------
+    //
+    // uploadLinks/{id}: one link for one event. Anyone with it may read it
+    // (the id is the secret) and take the next numbered place on it - count
+    // up by exactly one, while it is on, unexpired and not full. Admins make
+    // it, and switch it off or change its expiry and limit.
+    // uploadItems/{link}__{n}: one record per photo, for the review queue.
+    // Written once by the uploader, for a place they took; read and
+    // reviewed by admins only. Nothing is deleted from a page.
+
+    function linkOpen(l) {
+      return l.active == true && l.expiresAt > request.time && l.count <= l.maxFiles;
+    }
+
+    match /uploadLinks/{linkId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['calEventId', 'eventTitle', 'createdBy', 'createdByName', 'createdAt',
+                                                              'expiresAt', 'maxFiles', 'active', 'count'])
+                    && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.count == 0 && request.resource.data.active == true
+                    && request.resource.data.maxFiles is int && request.resource.data.maxFiles >= 1 && request.resource.data.maxFiles <= 200
+                    && request.resource.data.expiresAt is timestamp;
+      allow update: if (isAdmin()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'expiresAt', 'maxFiles'])
+                        && request.resource.data.maxFiles is int && request.resource.data.maxFiles <= 200)
+                    || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count'])
+                        && resource.data.active == true && resource.data.expiresAt > request.time
+                        && request.resource.data.count == resource.data.count + 1
+                        && request.resource.data.count <= resource.data.maxFiles);
+      allow delete: if false;
+    }
+
+    function uploadLink(linkId) {
+      return get(/databases/$(database)/documents/uploadLinks/$(linkId)).data;
+    }
+
+    match /uploadItems/{itemId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['linkId', 'slot', 'calEventId', 'path', 'name', 'type', 'size',
+                                                              'uploaderName', 'at', 'status'])
+                    && request.resource.data.slot is int && request.resource.data.slot >= 0
+                    && itemId == request.resource.data.linkId + '__' + string(request.resource.data.slot)
+                    && request.resource.data.path == 'uploads/' + request.resource.data.linkId + '/' + string(request.resource.data.slot)
+                    && linkOpen(uploadLink(request.resource.data.linkId))
+                    && request.resource.data.slot < uploadLink(request.resource.data.linkId).count
+                    && request.resource.data.calEventId == uploadLink(request.resource.data.linkId).calEventId
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.uploaderName is string && request.resource.data.uploaderName.size() <= 80
+                    && request.resource.data.name is string && request.resource.data.name.size() <= 200;
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedByName', 'reviewedAt'])
+                    && request.resource.data.status in ['pending', 'approved', 'rejected'];
+      allow delete: if false;
     }
 
     // ── end EVENTS ──────────────────────────────────────────────────

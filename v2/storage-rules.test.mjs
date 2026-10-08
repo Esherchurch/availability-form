@@ -198,6 +198,36 @@ await check('a signed-in person can clear an old one away', 'allow',
 }
 // ── end EVENTS ──
 
+// ── EVENTS (events window) ── photos from one-off upload links (E4)
+{
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    /* Six places taken on each link, so every test below can aim at a
+       place of its own: a test that hits a place already filled is refused
+       for the wrong reason and proves nothing. */
+    const L = (extra) => ({ calEventId: 'ev', expiresAt: new Date(Date.now() + 14 * 864e5), maxFiles: 50, active: true, count: 6, ...(extra || {}) });
+    await setDoc(doc(db, 'uploadLinks', 'up_open'), L());
+    await setDoc(doc(db, 'uploadLinks', 'up_expired'), L({ expiresAt: new Date(Date.now() - 864e5) }));
+    await setDoc(doc(db, 'uploadLinks', 'up_off'), L({ active: false }));
+    await uploadBytes(ref(ctx.storage(), 'uploads/up_open/0'), PIC(), { contentType: 'image/jpeg' });
+  });
+  const img = (st, p, type, bytes) => uploadBytes(ref(st, p), PIC(bytes || 64), { contentType: type || 'image/jpeg' });
+
+  await check('a guest uploads a photo to a place they took on an open link', 'allow', () => img(anon(), 'uploads/up_open/1'));
+  await check('a HEIC photo from an iPhone', 'allow', () => img(anon(), 'uploads/up_open/2', 'image/heic'));
+  await check('not to an expired link', 'deny', () => img(anon(), 'uploads/up_expired/1'));
+  await check('not to a link switched off', 'deny', () => img(anon(), 'uploads/up_off/1'));
+  await check('not a PDF', 'deny', () => img(anon(), 'uploads/up_open/3', 'application/pdf'));
+  await check('not a 20 MB file', 'deny', () => img(anon(), 'uploads/up_open/4', 'image/jpeg', 20 * 1024 * 1024));
+  await check('not into a place nobody took', 'deny', () => img(anon(), 'uploads/up_open/6'));
+  await check('not over a photo already there', 'deny', () => img(anon(), 'uploads/up_open/0'));
+  await check('a guest cannot read a photo', 'deny', () => getBytes(ref(anon(), 'uploads/up_open/0')));
+  await check('nor can a member', 'deny', () => getBytes(ref(as('samy'), 'uploads/up_open/0')));
+  await check('an admin can', 'allow', () => getBytes(ref(as('karen'), 'uploads/up_open/0')));
+  await check('nobody deletes a photo from a page, not even a master admin', 'deny', () => deleteObject(ref(as('martin'), 'uploads/up_open/0')));
+}
+// ── end EVENTS ──
+
 /* ---- nothing else moved ------------------------------------------- */
 /* Banners are uploaded from the hub by anyone signed in, and were before
    this change. If tightening events had caught them too, this fails. */

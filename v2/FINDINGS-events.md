@@ -429,6 +429,12 @@ needs the screens it should open:
   the rota, checks, an incident and a concern. Best seen signed in as a
   safeguarding lead. The E3 test shows how to make one.
 - `retention.html` (E3): master admins; one screen.
+- `safeguarding-settings.html`: admins and safeguarding leads; one screen,
+  plus the "already made" part after saving.
+- `events-admin.html`, the new **Photos** tab (E4): links, a QR code open,
+  photos waiting, approved and rejected.
+- `upload.html?k=<link>` (E4, no sign-in): needs a link in the emulator. The
+  E4 test shows how to make one.
 
 And for the hub's "Where to?" list, admins only:
 - **Forms**: `forms-admin.html` (icon `file-text`).
@@ -582,14 +588,20 @@ permission, not a warning. For example, the first-aid question (private because
 of F-038) is kept private, but is not shown as a red flag at the door. The
 collectors are any question that mentions "collect".
 
-### F-046 — how long a DBS check and training count, per event
+### F-046 — how long a DBS check and training count, per event (decided)
+**Martin, 8 Oct 2026:** 3 years is the default, set on the Safeguarding settings
+page. Each event can still change it. The original note follows.
+
 Each event sets how many years a DBS check (from the date it was seen) and
 training count. The default is 3 years each. A DBS certificate has no official
 expiry, so this is EGBC's policy to set: **for Martin's safeguarding lead.** No
 certificate number is ever stored: the rule has no field for one, and a test
 proves it.
 
-### F-047 — incidents and concerns are never deleted, and are not on the deletion list
+### F-047 — incidents and concerns are never deleted, and are not on the deletion list (decided)
+**Martin, 8 Oct 2026:** kept, with no automatic deletion, until the safeguarding
+lead sets a policy. That is how it is built. The original note follows.
+
 Safeguarding records are usually kept far longer than consent forms, and the
 period is EGBC's policy, not mine. So incidents and concerns have no "delete
 after" date, the rules refuse to delete them, and the "due for deletion" list
@@ -597,7 +609,10 @@ does not show them. **For Martin's safeguarding lead to set.** The list also
 does not email anyone monthly, because there is nothing here that can run on a
 timer (F-015). It says "look at this once a month" instead.
 
-### F-048 — how private a concern is
+### F-048 — how private a concern is (decided)
+**Martin, 8 Oct 2026:** yes, a new safeguarding lead can read older concerns.
+That is how it is built. The original note follows.
+
 - Only the site's safeguarding lead and deputy can read it. Master admins
   cannot, and neither can the person who reported it.
 - The lead is emailed that there is one; the email does not say what it is.
@@ -620,3 +635,76 @@ that gap.
 - **Downloading the incident log:** the safeguarding lead and master admins
   only. Leaders read and add to it, but cannot download it, and every download
   is logged.
+
+
+## Safeguarding settings (after E3)
+
+### F-051 — what the Safeguarding settings change, and what they leave alone
+One page, `safeguarding-settings.html`, for admins and any safeguarding lead.
+It holds:
+- each form template's "answer lasts" and "kept after that"
+- the default ratios
+- how many years DBS and training count (3, F-046)
+- whether every leader must have in-date checks
+
+New forms made from a template, and events with no leaders set yet, take these.
+
+"Also apply to the ones already made" counts first, then changes only:
+- **forms made from a template** whose periods differ. A form built from
+  scratch is left alone.
+- **events coming up whose leaders are already set.**
+
+A safeguarding lead who is not an admin changes only their own site's forms and
+events, and the rules allow her nothing more on a form than its two periods.
+**Answers already given keep their dates.** The rules refuse any change to an
+answer, and a test proves it.
+
+## E4: one-off upload links (NEXT-BRIEF §11)
+
+### F-052 — the limit counts places taken, not photos received
+Each upload takes a numbered place on the link before the file is sent, and the
+rules refuse any file without a place. That is what lets the rules hold the
+limit, which cannot count files. If a phone loses signal halfway through a
+photo, that place is used up and the photo is not there. A link of 50 might
+then take 49. Make the limit a little higher than you need.
+
+### F-053 — rejected photos: Martin deletes them by hand
+Code never deletes a photo; the rules refuse it, even for a master admin. A
+rejected photo is not shown anywhere, but it is still stored. Under each
+rejected photo, the Photos tab shows where it is kept, for example
+`uploads/up_…/2`. To delete one:
+1. Open the Firebase console for `egbc-worship-planner`.
+2. Go to Storage, then the `uploads` folder, then the folder with that link's
+   name.
+3. Delete the file with that number.
+
+The review record stays, marked rejected, so there is a trace of what was
+removed.
+
+### F-054 — the zip on the live site needs one storage setting (not checked)
+"Download all approved" fetches each photo in the browser. The test storage
+allows that. The live storage bucket allows it only if it has been told the
+hub's address may fetch from it (a CORS setting), and I cannot check that from
+here. If the button says a photo "could not be fetched" on the live site, this
+one-off command sets it (Martin, with Google Cloud's `gsutil`):
+
+    gsutil cors set cors.json gs://egbc-worship-planner.firebasestorage.app
+
+with `cors.json` holding
+`[{"origin":["https://esherchurch.github.io"],"method":["GET"],"maxAgeSeconds":3600}]`.
+
+### F-055 — where Share to WhatsApp goes
+Each link has "Copy link" and "QR code". Share to WhatsApp is the main window's
+Step E. The spot is marked in `events-admin.html` (a comment beside Copy link),
+ready for it.
+
+### F-056 — iPhone (HEIC) photos are not drawn in the review queue
+Most browsers cannot draw HEIC pictures, so those show as "HEIC photo: download
+to see it". They are approved or rejected like any other, and the zip includes
+them as they are.
+
+### F-057 — "approved" means cleared for use; there is no gallery yet
+Nothing on any page shows uploaded photos, approved or not. Approving one clears
+it for the church to use: it goes in the zip, for the newsletter or the
+website. A gallery on the event page would be a later step, and it would show
+approved photos only.

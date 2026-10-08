@@ -192,6 +192,16 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'leaderChecks', 'm_u_leo'), { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2024-03-01', siteId: 'site_kids' });
   await setDoc(doc(db, 'incidents', 'inc_1'), { calEventId: 'ev_safe', siteId: 'site_kids', what: 'Invented grazed knee', reportedBy: 'u_leo', createdAt: '2026-11-21T11:00:00Z' });
   await setDoc(doc(db, 'concerns', 'con_1'), { siteId: 'site_kids', concern: 'Invented concern', reportedBy: 'u_leo', status: 'new', createdAt: '2026-11-21T11:00:00Z' });
+
+  /* One-off upload links (E4): one open, one expired, one switched off,
+     one full. Dates as timestamps, relative to now. */
+  const LINK = (extra) => ({ calEventId: 'ev_public', eventTitle: 'Test Carols', createdBy: 'u_karen', createdAt: '2026-10-08T10:00:00Z',
+    expiresAt: new Date(Date.now() + 14 * 864e5), maxFiles: 3, active: true, count: 1, ...(extra || {}) });
+  await setDoc(doc(db, 'uploadLinks', 'up_open'), LINK());
+  await setDoc(doc(db, 'uploadLinks', 'up_expired'), LINK({ expiresAt: new Date(Date.now() - 864e5) }));
+  await setDoc(doc(db, 'uploadLinks', 'up_off'), LINK({ active: false }));
+  await setDoc(doc(db, 'uploadLinks', 'up_full'), LINK({ count: 3 }));
+  await setDoc(doc(db, 'uploadItems', 'up_open__0'), { linkId: 'up_open', slot: 0, calEventId: 'ev_public', path: 'uploads/up_open/0', name: 'a.jpg', status: 'pending' });
   // ── end EVENTS ──
 
 });
@@ -707,7 +717,57 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the record cannot be rewritten', 'deny', () => updateDoc(doc(as('martin'), 'retentionLog', 'r1'), { count: 0 }));
   await check('a leader logs a download in their own name', 'allow', () => setDoc(doc(leo(), 'downloadsLog', 'dl_leo'),
     { by: 'u_leo', byName: 'Leo', at: '2026-11-21T13:00:00Z', calEventId: 'ev_safe', what: 'incidents', format: 'csv', columns: [], sensitive: true }));
+
+  /* Safeguarding settings: one place for the periods. */
+  const SET = (extra) => ({ templates: { parent: { validity: { mode: 'schoolyear' }, retentionMonths: 24 } }, ratioAll: 8, ratioUnder8: 4,
+    dbsYears: 3, trainingYears: 3, requireChecks: true, updatedAt: '2026-10-08T10:00:00Z', updatedBy: 'x', ...(extra || {}) });
+  await check('a member can read the safeguarding settings', 'allow', () => getDoc(doc(as('samy'), 'safeguardingSettings', 'defaults')));
+  await check('a member cannot change them', 'deny', () => setDoc(doc(as('samy'), 'safeguardingSettings', 'defaults'), SET()));
+  await check('an admin changes them', 'allow', () => setDoc(doc(as('karen'), 'safeguardingSettings', 'defaults'), SET()));
+  await check('a safeguarding lead who is not an admin changes them, naming her site', 'allow', () => setDoc(doc(lena(), 'safeguardingSettings', 'defaults'), SET({ leadSiteId: 'site_kids' })));
+  await check('not by naming a site she does not lead', 'deny', () => setDoc(doc(lena(), 'safeguardingSettings', 'defaults'), SET({ leadSiteId: 'site_test' })));
+  await check('years have to be whole years, 1 to 10', 'deny', () => setDoc(doc(as('karen'), 'safeguardingSettings', 'defaults'), SET({ dbsYears: 0 })));
+  await check('there is only one settings document', 'deny', () => setDoc(doc(as('karen'), 'safeguardingSettings', 'other'), SET()));
+  await check('the lead applies a new period to her site\u2019s forms', 'allow', () => updateDoc(doc(lena(), 'forms', 'form_consent'), { retentionMonths: 24, validity: { mode: 'schoolyear' } }));
+  await check('but cannot change anything else about the form', 'deny', () => updateDoc(doc(lena(), 'forms', 'form_consent'), { title: 'Changed' }));
+  await check('the lead lists her site\u2019s forms', 'allow', () => getDocs(query(collection(lena(), 'forms'), where('siteId', '==', 'site_kids'))));
+  await check('an answer already given keeps its dates: it cannot be changed', 'deny', () => updateDoc(doc(as('martin'), 'formResponses', 'resp_old'), { validUntil: '2030-01-01' }));
 }
+
+// ── EVENTS (events window) ── one-off upload links (E4)
+{
+  const ITEM = (link, slot, extra) => ({ linkId: link, slot, calEventId: 'ev_public', path: 'uploads/' + link + '/' + slot,
+    name: 'party.jpg', type: 'image/jpeg', size: 1000, uploaderName: 'A guest', at: '2026-10-08T10:00:00Z', status: 'pending', ...(extra || {}) });
+  const NEWLINK = (extra) => ({ calEventId: 'ev_public', eventTitle: 'Test Carols', createdBy: 'u_karen', createdByName: 'Karen', createdAt: 'x',
+    expiresAt: new Date(Date.now() + 14 * 864e5), maxFiles: 50, active: true, count: 0, ...(extra || {}) });
+
+  await check('an admin makes an upload link', 'allow', () => setDoc(doc(as('karen'), 'uploadLinks', 'up_new'), NEWLINK()));
+  await check('a member cannot', 'deny', () => setDoc(doc(as('samy'), 'uploadLinks', 'up_sneak'), NEWLINK({ createdBy: 'u_samy' })));
+  await check('a link starts empty: it cannot be made with places already taken', 'deny', () => setDoc(doc(as('karen'), 'uploadLinks', 'up_bad'), NEWLINK({ count: 5 })));
+  await check('anyone with the link can read it', 'allow', () => getDoc(doc(anon(), 'uploadLinks', 'up_open')));
+  await check('nobody without an account can list the links', 'deny', () => getDocs(collection(anon(), 'uploadLinks')));
+
+  await check('a guest takes the next place on an open link', 'allow', () => updateDoc(doc(anon(), 'uploadLinks', 'up_open'), { count: 2 }));
+  await check('not two places at once', 'deny', () => updateDoc(doc(anon(), 'uploadLinks', 'up_open'), { count: 4 }));
+  await check('not on an expired link', 'deny', () => updateDoc(doc(anon(), 'uploadLinks', 'up_expired'), { count: 2 }));
+  await check('not on a link switched off', 'deny', () => updateDoc(doc(anon(), 'uploadLinks', 'up_off'), { count: 2 }));
+  await check('not past the link\u2019s limit', 'deny', () => updateDoc(doc(anon(), 'uploadLinks', 'up_full'), { count: 4 }));
+  await check('a guest cannot switch a link back on', 'deny', () => updateDoc(doc(anon(), 'uploadLinks', 'up_off'), { active: true }));
+  await check('an admin switches a link off', 'allow', () => updateDoc(doc(as('karen'), 'uploadLinks', 'up_new'), { active: false }));
+
+  await check('a guest records a photo in a place they took', 'allow', () => setDoc(doc(anon(), 'uploadItems', 'up_open__1'), ITEM('up_open', 1)));
+  await check('not in a place nobody took', 'deny', () => setDoc(doc(anon(), 'uploadItems', 'up_open__9'), ITEM('up_open', 9)));
+  await check('not already approved', 'deny', () => setDoc(doc(anon(), 'uploadItems', 'up_open__1b'), ITEM('up_open', 1, { status: 'approved' })));
+  await check('not against an expired link', 'deny', () => setDoc(doc(anon(), 'uploadItems', 'up_expired__0'), ITEM('up_expired', 0)));
+  await check('not against a link switched off', 'deny', () => setDoc(doc(anon(), 'uploadItems', 'up_off__0'), ITEM('up_off', 0)));
+  await check('a guest cannot read the photos\u2019 records', 'deny', () => getDoc(doc(anon(), 'uploadItems', 'up_open__0')));
+  await check('nor can a member', 'deny', () => getDocs(query(collection(as('samy'), 'uploadItems'), where('calEventId', '==', 'ev_public'))));
+  await check('an admin reads the review queue', 'allow', () => getDocs(query(collection(as('karen'), 'uploadItems'), where('calEventId', '==', 'ev_public'))));
+  await check('an admin approves a photo', 'allow', () => updateDoc(doc(as('karen'), 'uploadItems', 'up_open__0'), { status: 'approved', reviewedBy: 'u_karen', reviewedAt: 'x' }));
+  await check('a guest cannot approve one', 'deny', () => updateDoc(doc(anon(), 'uploadItems', 'up_open__0'), { status: 'approved' }));
+  await check('a record cannot be deleted, even by a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'uploadItems', 'up_open__0')));
+}
+// ── end EVENTS ──
 // ── end EVENTS ──
 
 // Nothing else is open.

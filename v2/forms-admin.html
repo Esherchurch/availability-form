@@ -107,6 +107,8 @@
 (function () {
   'use strict';
   var F = window.EGBCForms, E = window.EGBCEvents, esc = E.esc;
+  /* The church's Safeguarding settings: the periods for each template. */
+  var DEFAULTS = null;
   var FORMS = [], SITES = [], EVENTS = [], ED = null, EVID = new URLSearchParams(location.search).get('event') || '';
 
   function db() { return EGBCAuth.db; }
@@ -139,7 +141,7 @@
       var v = this.value; if (!v) return;
       ED = v === '__blank'
         ? { id: null, title: '', purpose: '', validity: { mode: 'event' }, retentionMonths: 12, siteId: SITES[0] ? SITES[0].id : '', fields: [] }
-        : Object.assign({ id: null, siteId: SITES[0] ? SITES[0].id : '' }, F.fromTemplate(v));
+        : Object.assign({ id: null, siteId: SITES[0] ? SITES[0].id : '' }, F.fromTemplate(v, DEFAULTS));
       ED.fields.forEach(function (f) { f.id = f.id || fid(); });
       drawEditor();
     };
@@ -551,9 +553,11 @@
   EGBCAuth.require().then(function () {
     return Promise.all([
       db().collection('sites').get(),
-      E.listUpcoming({ from: Date.now() - 14 * 864e5, limit: 100 }).catch(function () { return []; })
+      E.listUpcoming({ from: Date.now() - 14 * 864e5, limit: 100 }).catch(function () { return []; }),
+      db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; })
     ]);
   }).then(function (r) {
+    DEFAULTS = r[2] && r[2].exists ? r[2].data() : null;
     SITES = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (s) { return s.active !== false; });
     EVENTS = r[1].filter(function (e) { return e.status !== 'cancelled'; });
     return loadForms().then(loadOne);

@@ -249,13 +249,27 @@
         f('sign', 'signature', 'What I have written is correct', { required: true })] }
   ];
 
-  function fromTemplate(id) {
+  /* A new form from a template. `settings` is the church's Safeguarding
+     settings (safeguardingSettings/defaults): where it names a period for
+     this template, that wins over the one written here. */
+  function fromTemplate(id, settings) {
     var t = TEMPLATES.filter(function (x) { return x.id === id; })[0];
     if (!t) return null;
     var c = JSON.parse(JSON.stringify(t));
     delete c.id;
     c.template = id;
+    var d = settings && settings.templates && settings.templates[id];
+    if (d) {
+      if (d.validity && d.validity.mode) c.validity = JSON.parse(JSON.stringify(d.validity));
+      if (d.retentionMonths) c.retentionMonths = d.retentionMonths;
+    }
     return c;
+  }
+
+  /* The periods a template has when nobody has changed them. */
+  function templateDefaults(id) {
+    var t = TEMPLATES.filter(function (x) { return x.id === id; })[0];
+    return t ? { validity: JSON.parse(JSON.stringify(t.validity)), retentionMonths: t.retentionMonths } : null;
   }
 
   /* An answer as words, for screens and downloads. */
@@ -277,7 +291,7 @@
   }
 
   var api = {
-    TYPES: TYPES, TEMPLATES: TEMPLATES, fromTemplate: fromTemplate,
+    TYPES: TYPES, TEMPLATES: TEMPLATES, fromTemplate: fromTemplate, templateDefaults: templateDefaults,
     isSensitive: isSensitive, split: split, merge: merge,
     validUntil: validUntil, deleteAfter: deleteAfter, validityText: validityText,
     findReusable: findReusable, formUrl: formUrl, requestEmail: requestEmail, doneEmail: doneEmail,

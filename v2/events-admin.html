@@ -18,6 +18,8 @@
 <script src="egbc-email.js?v=202610062100"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610072300"></script>
+<script src="egbc-events-qr.js?v=202610072300"></script>
+<script src="egbc-events-uploads.js?v=202610081600"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -231,7 +233,7 @@
 
   function tabBar() {
     var t = [['details', 'Details'], ['signups', 'Sign-ups'], ['checklist', 'Checklist'],
-             ['people', 'Who is coming'], ['history', 'History']];
+             ['people', 'Who is coming'], ['history', 'History'], ['photos', 'Photos']];
     return '<div class="tabs">' + t.map(function (x) {
       return '<button class="tab' + (TAB === x[0] ? ' on' : '') + '" data-tab="' + x[0] + '"' +
              (!CUR.id && x[0] !== 'details' && x[0] !== 'signups' ? ' disabled title="Save it first"' : '') +
@@ -464,6 +466,178 @@
       (gone.length ? '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="x" style="width:17px;height:17px"></i></span>Cancelled</h2>' + table(gone, 'gone') : '');
   }
 
+  /* ---------- photos: one-off upload links and the review queue (E4) ----------
+     Anyone with a link can send photos; nothing is shown anywhere until an
+     admin approves it here, because photos may show children. Rejected
+     photos are only marked: Martin deletes them by hand (FINDINGS F-053). */
+
+  var LINKS = [], ITEMS = [], URLS = {};
+  var U = window.EGBCUploads;
+
+  function loadPhotos() {
+    var id = CUR.id;
+    Promise.all([
+      db().collection('uploadLinks').where('calEventId', '==', id).get(),
+      db().collection('uploadItems').where('calEventId', '==', id).get()
+    ]).then(function (r) {
+      if (!CUR || CUR.id !== id || TAB !== 'photos') return;
+      LINKS = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .sort(function (a, b) { return String(b.createdAt).localeCompare(String(a.createdAt)); });
+      ITEMS = r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .sort(function (a, b) { return String(a.at).localeCompare(String(b.at)); });
+      drawPhotos();
+    }).catch(function (e) {
+      var el = document.getElementById('photosBody');
+      if (el) el.innerHTML = '<div class="banner warn">Could not load the photos: ' + esc(e.message || e) + '</div>';
+    });
+  }
+
+  function linkState(l) {
+    var st = U.state(l);
+    return { open: ['pub', 'Open'], full: ['held', 'Full'], expired: ['held', 'Run out'], off: ['off', 'Switched off'] }[st];
+  }
+
+  /* A picture only an admin can fetch: the URL is asked for when it is
+     drawn, never stored. HEIC (iPhone) photos cannot be shown by most
+     browsers, so they say so instead of a broken picture. */
+  function thumb(it) {
+    var heic = /heic|heif/.test(it.type || '');
+    return '<div class="ph" data-id="' + esc(it.id) + '" style="width:150px">' +
+      (heic ? '<div style="width:150px;height:150px;border-radius:8px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--muted);padding:8px">HEIC photo: download to see it</div>'
+            : '<img data-path="' + esc(it.path) + '" alt="" style="width:150px;height:150px;object-fit:cover;border-radius:8px;background:#f3f4f6;display:block">') +
+      '<div class="m" style="margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(it.uploaderName || 'No name given') + '</div>';
+  }
+
+  function drawPhotos() {
+    var el = document.getElementById('photosBody');
+    if (!el) return;
+    var pend = ITEMS.filter(function (i) { return i.status === 'pending'; });
+    var ok = ITEMS.filter(function (i) { return i.status === 'approved'; });
+    var no = ITEMS.filter(function (i) { return i.status === 'rejected'; });
+    el.innerHTML =
+      '<h2><span class="badge"><i data-lucide="link" style="width:17px;height:17px"></i></span>Upload links</h2>' +
+      '<p class="hint" style="margin-top:-6px">Anyone with a link can send photos without signing in. Nothing they send is shown anywhere until it is approved below.</p>' +
+      (LINKS.length ? LINKS.map(function (l) {
+        var st = linkState(l), url = U.linkUrl(l.id);
+        return '<div class="mini lnk" data-id="' + esc(l.id) + '">' +
+          '<div class="bar" style="margin-bottom:8px"><span class="flag ' + st[0] + '" style="margin-left:0">' + st[1] + '</span>' +
+            '<span class="hint">' + (l.count || 0) + ' of ' + l.maxFiles + ' photos · until ' + esc(E.fmtDate(new Date(U.millis(l.expiresAt)))) +
+            (l.createdByName ? ' · made by ' + esc(l.createdByName) : '') + '</span></div>' +
+          '<div class="two"><div class="field" style="min-width:220px"><input class="inp lurl" value="' + esc(url) + '" readonly></div>' +
+          '<div class="field" style="flex:none;display:flex;gap:6px">' +
+            /* Share to WhatsApp goes here when the main window's Step E
+               lands (FINDINGS F-055). Until then: copy the link. */
+            '<button class="btn sec sm lcopy">Copy link</button>' +
+            '<button class="btn sec sm lqr">QR code</button>' +
+            (l.active ? '<button class="btn danger sm loff">Switch off</button>' : '<button class="btn ghost sm lon">Switch on</button>') +
+          '</div></div><div class="lqrbox"></div></div>';
+      }).join('') : '<p class="hint">No links yet.</p>') +
+      '<div class="two" style="align-items:flex-end">' +
+        '<div class="field" style="max-width:160px"><label for="lDays">Works for (days)</label><input class="inp" id="lDays" type="number" min="1" max="90" value="14"></div>' +
+        '<div class="field" style="max-width:160px"><label for="lMax">Up to (photos)</label><input class="inp" id="lMax" type="number" min="1" max="200" value="50"></div>' +
+        '<div class="field" style="flex:none"><button class="btn sec" id="lMake"><i data-lucide="plus" style="width:15px;height:15px"></i>Make a link</button></div>' +
+      '</div>' +
+
+      '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="eye" style="width:17px;height:17px"></i></span>Waiting to be looked at<span class="spacer"></span><span class="hint" id="nPending">' + pend.length + '</span></h2>' +
+      (pend.length ? '<div style="display:flex;flex-wrap:wrap;gap:14px">' + pend.map(function (it) {
+        return thumb(it) + '<div style="display:flex;gap:6px;margin-top:6px">' +
+          '<button class="btn sm pok" data-id="' + esc(it.id) + '">Approve</button>' +
+          '<button class="btn danger sm pno" data-id="' + esc(it.id) + '">Reject</button></div></div>';
+      }).join('') + '</div>' : '<p class="hint">Nothing waiting.</p>') +
+
+      '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="check" style="width:17px;height:17px"></i></span>Approved<span class="spacer"></span><span class="hint" id="nApproved">' + ok.length + '</span></h2>' +
+      (ok.length ? '<div class="bar"><button class="btn sec" id="zip"><i data-lucide="download" style="width:15px;height:15px"></i>Download all approved (zip)</button></div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:14px">' + ok.map(function (it) {
+          return thumb(it) + '<button class="btn ghost sm pback" data-id="' + esc(it.id) + '">Back to waiting</button></div>';
+        }).join('') + '</div>' : '<p class="hint">None yet.</p>') +
+
+      (no.length ? '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="x" style="width:17px;height:17px"></i></span>Rejected<span class="spacer"></span><span class="hint" id="nRejected">' + no.length + '</span></h2>' +
+        '<p class="hint" style="margin-top:-6px">Rejected photos are not shown anywhere, but they are still stored until Martin deletes them.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:14px">' + no.map(function (it) {
+          return thumb(it) + '<div class="m" style="font-size:11px;word-break:break-all">Stored at ' + esc(it.path) + '</div>' +
+            '<button class="btn ghost sm pback" data-id="' + esc(it.id) + '">Back to waiting</button></div>';
+        }).join('') + '</div>' : '');
+
+    wirePhotos(); icons();
+    el.querySelectorAll('img[data-path]').forEach(function (img) {
+      var p = img.getAttribute('data-path');
+      (URLS[p] ? Promise.resolve(URLS[p]) : EGBCAuth.storage().ref(p).getDownloadURL().then(function (u) { URLS[p] = u; return u; }))
+        .then(function (u) { img.src = u; }).catch(function () { img.alt = 'Could not load'; });
+    });
+  }
+
+  function review(id, status) {
+    var p = EGBCAuth.profile() || {};
+    db().collection('uploadItems').doc(id).update({ status: status, reviewedBy: uid(), reviewedByName: p.name || '', reviewedAt: new Date().toISOString() })
+      .then(loadPhotos).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+  }
+
+  function wirePhotos() {
+    var mk = document.getElementById('lMake');
+    if (mk) mk.onclick = function () {
+      mk.disabled = true;
+      U.makeLink(CUR, { days: document.getElementById('lDays').value, maxFiles: document.getElementById('lMax').value })
+        .then(function () { toast('Link made.'); loadPhotos(); })
+        .catch(function (e) { mk.disabled = false; toast('Could not make the link: ' + (e.message || e)); });
+    };
+    document.querySelectorAll('.lnk').forEach(function (box) {
+      var id = box.getAttribute('data-id'), url = U.linkUrl(id);
+      box.querySelector('.lcopy').onclick = function () {
+        var inp = box.querySelector('.lurl'); inp.select();
+        (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).catch(function () { document.execCommand('copy'); })
+          .then(function () { toast('Link copied.'); });
+      };
+      box.querySelector('.lqr').onclick = function () {
+        var q = box.querySelector('.lqrbox');
+        q.innerHTML = q.innerHTML ? '' : '<div style="margin-top:8px;text-align:center;width:200px">' + EGBCEventsQR.svg(url, 200) +
+          '<div class="hint">Point a phone camera at this to open the link.</div></div>';
+      };
+      var off = box.querySelector('.loff'), on = box.querySelector('.lon');
+      if (off) off.onclick = function () { db().collection('uploadLinks').doc(id).update({ active: false }).then(loadPhotos).catch(function (e) { toast(e.message); }); };
+      if (on) on.onclick = function () { db().collection('uploadLinks').doc(id).update({ active: true }).then(loadPhotos).catch(function (e) { toast(e.message); }); };
+    });
+    document.querySelectorAll('.pok').forEach(function (b) { b.onclick = function () { review(b.getAttribute('data-id'), 'approved'); }; });
+    document.querySelectorAll('.pno').forEach(function (b) { b.onclick = function () { review(b.getAttribute('data-id'), 'rejected'); }; });
+    document.querySelectorAll('.pback').forEach(function (b) { b.onclick = function () { review(b.getAttribute('data-id'), 'pending'); }; });
+    var z = document.getElementById('zip'); if (z) z.onclick = zipApproved;
+  }
+
+  /* Every approved photo, in one file. Fetched one at a time with the
+     admin's own access; nothing is made public to do it. */
+  var zipLib = null;
+  function zipApproved() {
+    var ok = ITEMS.filter(function (i) { return i.status === 'approved'; });
+    var btn = document.getElementById('zip'); btn.disabled = true;
+    (zipLib = zipLib || new Promise(function (res, rej) {
+      if (window.JSZip) return res();
+      var sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      sc.onload = res; sc.onerror = function () { zipLib = null; rej(new Error('Could not load what makes the zip.')); };
+      document.head.appendChild(sc);
+    })).then(function () {
+      var zip = new JSZip(), used = {};
+      return ok.reduce(function (p, it) {
+        return p.then(function () {
+          return EGBCAuth.storage().ref(it.path).getDownloadURL().then(function (u) { return fetch(u); })
+            .then(function (r) { if (!r.ok) throw new Error('A photo could not be fetched (' + r.status + ').'); return r.blob(); })
+            .then(function (b) {
+              var n = String(it.name || ('photo-' + it.slot)).replace(/[^a-z0-9.\-_ ]/gi, '_');
+              while (used[n]) n = it.slot + '-' + n;
+              used[n] = 1;
+              zip.file(n, b);
+            });
+        });
+      }, Promise.resolve()).then(function () { return zip.generateAsync({ type: 'blob' }); });
+    }).then(function (blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (CUR.title || 'event').replace(/[^a-z0-9 \-]/gi, '') + ' photos.zip';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+      btn.disabled = false;
+    }).catch(function (e) { btn.disabled = false; toast(e.message || String(e)); });
+  }
+
   function historyTab() {
     return '<h2><span class="badge"><i data-lucide="history" style="width:17px;height:17px"></i></span>What changed</h2>' +
       (CHANGES.length ? CHANGES.map(function (c) {
@@ -486,6 +660,7 @@
       : TAB === 'signups' ? signupsTab()
       : TAB === 'checklist' ? checklistTab()
       : TAB === 'people' ? peopleTab()
+      : TAB === 'photos' ? '<div id="photosBody"><p class="hint">Loading…</p></div>'
       : historyTab();
 
     document.getElementById('editor').innerHTML =
@@ -512,6 +687,7 @@
       document.getElementById('f_vis').onchange = teamsBox;
     }
     wireEditor();
+    if (TAB === 'photos') loadPhotos();
     icons();
     document.getElementById('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }

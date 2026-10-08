@@ -224,6 +224,27 @@ service firebase.storage {
                     && storageMe().status == 'active' && storageMe().get('masterAdmin', false) == true;
     }
 
+    // Photos from a one-off upload link (E4, NEXT-BRIEF §11). Written only
+    // into a numbered place the uploader has taken on a link that is on and
+    // unexpired; photos only (JPEG, PNG, HEIC, WebP), under 15 MB; never
+    // over a file already there. Only admins can read or list them.
+    // Rejected photos are deleted by Martin by hand, never from a page.
+    function uploadLinkData(linkId) {
+      return firestore.get(/databases/(default)/documents/uploadLinks/$(linkId)).data;
+    }
+    match /uploads/{linkId}/{slot} {
+      allow create: if resource == null
+                    && request.resource.size < 15 * 1024 * 1024
+                    && request.resource.contentType.matches('image/(jpeg|png|heic|heif|webp)')
+                    && firestore.exists(/databases/(default)/documents/uploadLinks/$(linkId))
+                    && uploadLinkData(linkId).active == true
+                    && uploadLinkData(linkId).expiresAt > request.time
+                    && slot.matches('[0-9]{1,4}')
+                    && int(slot) < uploadLinkData(linkId).count;
+      allow read: if adminHere();
+      allow update, delete: if false;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────
