@@ -912,10 +912,30 @@ service cloud.firestore {
                  || get(/databases/$(database)/documents/bookingSettings/$(siteId)).data.get('safeguardingDeputy', '') == me().get('memberId', ''));
     }
 
+    // WHOSE FORMS (Martin, F-087): every form belongs to a team (forms.team).
+    // A team's admins send, chase and read that team's forms only; master
+    // admins and the safeguarding lead or deputy see all of them. A form with
+    // no team is the master admins' and the safeguarding lead's. The medical
+    // halves keep their own, narrower rule (sensitiveResponses, E3).
+    function formTeam(formId) {
+      return formId is string && formId != '' && exists(/databases/$(database)/documents/forms/$(formId))
+             ? get(/databases/$(database)/documents/forms/$(formId)).data.get('team', '') : '';
+    }
+    function formTeamAdmin(formId) {
+      return active() && formTeam(formId) != '' && formTeam(formId) in me().get('adminFor', []);
+    }
+    function formsOffice(formId, siteId) {
+      return isMaster() || sgLeadOf(siteId) || formTeamAdmin(formId);
+    }
     match /forms/{formId} {
       allow get: if true;
-      allow list: if isAdmin();
-      allow write: if isAdmin()
+      allow list: if isMaster() || (active() && resource.data.get('team', '') != '' && resource.data.get('team', '') in me().get('adminFor', []));
+      // The safeguarding lead sees every form but changes only its periods
+      // (the rule further down, from E3).
+      allow write: if (isMaster()
+                       || (active() && request.resource.data.get('team', '') != '' && request.resource.data.get('team', '') in me().get('adminFor', [])
+                           && (resource == null || resource.data.get('team', '') in me().get('adminFor', []))))
+                   && request.resource.data.get('team', '') is string
                    && request.resource.data.title is string && request.resource.data.title.size() > 0
                    && request.resource.data.title.size() <= 140
                    && request.resource.data.fields is list
@@ -932,9 +952,10 @@ service cloud.firestore {
 
     match /formRequests/{key} {
       allow get: if true;
-      allow list: if isAdmin() || isEventLeader(resource.data.calEventId) || sgLeadOf(resource.data.siteId)
+      allow list: if formsOffice(resource.data.formId, resource.data.siteId) || isEventLeader(resource.data.calEventId)
                   || kidsFormOf(resource.data.siteId, resource.data.formId);
-      allow create, delete: if isAdmin();
+      allow create: if formsOffice(request.resource.data.formId, request.resource.data.siteId);
+      allow delete: if formsOffice(resource.data.formId, resource.data.siteId);
       // Chunk 6: the children's team sends the registration form - that
       // form, for their site, and no other - and may chase it.
       allow create: if kidsFormOf(request.resource.data.siteId, request.resource.data.formId)
@@ -946,7 +967,7 @@ service cloud.firestore {
       // link may only mark it done: with a new answer written in the same
       // batch, or - for "still correct?" - by pointing at the answer it
       // already names.
-      allow update: if isAdmin()
+      allow update: if (formsOffice(resource.data.formId, resource.data.siteId) && request.resource.data.formId == resource.data.formId)
                     || (resource.data.status in ['sent', 'reuse']
                         && request.resource.data.status == 'done'
                         && request.resource.data.diff(resource.data).affectedKeys()
@@ -959,7 +980,7 @@ service cloud.firestore {
 
     match /formResponses/{rid} {
       allow get: if true;
-      allow list: if isAdmin() || sgLeadOf(resource.data.siteId) || kidsFormOf(resource.data.siteId, resource.data.formId);
+      allow list: if formsOffice(resource.data.formId, resource.data.siteId) || kidsFormOf(resource.data.siteId, resource.data.formId);
       allow create: if request.resource.data.keys().hasOnly(['formId', 'formVersion', 'requestKey', 'calEventId',
                                  'personKind', 'personId', 'email', 'name', 'subjects', 'siteId', 'answers',
                                  'hasSensitive', 'submittedAt', 'validUntil', 'deleteAfter'])

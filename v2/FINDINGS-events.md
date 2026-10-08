@@ -1407,3 +1407,29 @@ it, a Worship member and a bookings admin do not.
 **F-087's rules work is not mine** — children's records, group-level medical
 access, the safeguarding lead. That was in the same message and I have left it
 alone; it reads as yours.
+
+### F-092 — F-087 forms decided (Martin) and built: each team its own forms
+
+**What the rules now say.** Every form has a team (a new `team` field on
+`forms`). A team's admins may build, send, chase and read that team's forms
+only. Master admins and each site's safeguarding lead and deputy see all
+forms. A form with no team belongs to master admins and the safeguarding lead.
+The medical halves (`sensitiveResponses`) keep their E3 rule, unchanged.
+Tests: "whose forms" in firestore-rules.test.mjs; the deliberate break (any
+admin counts as the form's team) failed five checks, including "A KIDS CHURCH
+ADMIN CANNOT READ A WORSHIP LEADER'S DECLARATION".
+
+**This changes access on live data once Martin deploys the rules.** The forms
+already on the live site have no team. After the deploy, only master admins
+and the safeguarding lead can use them, until a master admin opens each form
+on Forms and picks its team. Worth doing straight after the deploy. Nothing is
+lost or deleted; it is only who can see.
+
+**Pages changed:** Forms (a Team choice on each form; each person's lists ask
+only for the forms they may see), Safeguarding settings (the list of every
+form is for master admins only), the check-in page (a team admin finds an
+event's answers through the forms asked for at that event), and the
+children's register (its registration form belongs to the children's team).
+
+**Events:** a form for an event is the form's team's, not the event's. An
+event leader still sees the requests for their own event, as before.

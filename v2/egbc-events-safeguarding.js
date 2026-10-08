@@ -87,14 +87,18 @@
      everything for their event; a safeguarding lead may only ask for their
      own site's, and the question has to say so or the whole list is
      refused. So: ask for the event, and if that is refused, ask once per
-     site this person might lead. Whatever comes back is merged. */
-  function listForEvent(col, evId, siteIds) {
+     site this person might lead, and once per form on the event (a team's
+     admins may ask about their own team's forms only, F-087). Whatever
+     comes back is merged. */
+  function listForEvent(col, evId, siteIds, formIds) {
     var seen = {}, out = [];
     function add(snap) { snap.docs.forEach(function (d) { if (!seen[d.id]) { seen[d.id] = 1; out.push(Object.assign({ _id: d.id }, d.data())); } }); }
     return db().collection(col).where('calEventId', '==', evId).get().then(add).catch(function () {
       return Promise.all((siteIds || []).filter(Boolean).map(function (sid) {
         return db().collection(col).where('calEventId', '==', evId).where('siteId', '==', sid).get().then(add).catch(function () {});
-      })).then(function () { if (!out.length) out.denied = true; });
+      }).concat((formIds || []).filter(Boolean).map(function (fid) {
+        return db().collection(col).where('calEventId', '==', evId).where('formId', '==', fid).get().then(add).catch(function () {});
+      }))).then(function () { if (!out.length) out.denied = true; });
     }).then(function () { return out; });
   }
 
@@ -111,7 +115,8 @@
   function formsForEvent(evId, siteIds) {
     var out = {}, forms = {};
     function child(name) { var k = norm(name); return (out[k] = out[k] || { name: name, collectors: [], dob: '', flags: [], medicalHeld: false, medicalVisible: false, responseIds: [] }); }
-    return listForEvent('formRequests', evId, siteIds).then(function (reqs) {
+    return db().collection('eventForms').doc(evId).get().then(function (d) { return d.exists ? (d.data().forms || []).map(function (a) { return a && a.formId; }) : []; }, function () { return []; })
+      .then(function (fids) { return listForEvent('formRequests', evId, siteIds, fids); }).then(function (reqs) {
       var done = reqs.filter(function (r) { return r.status === 'done' && r.responseId; });
       return Promise.all(done.map(function (r) {
         return Promise.all([

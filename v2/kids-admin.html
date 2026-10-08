@@ -350,7 +350,7 @@
     if (fg) fg.onclick = function () {
       db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }).then(function (s) {
         var t = F.fromTemplate('parent', s && s.exists ? s.data() : null), id = 'form_kids_' + V.site;
-        var d = { title: 'Children\'s registration', purpose: t.purpose, siteId: V.site, validity: t.validity, retentionMonths: t.retentionMonths, fields: t.fields,
+        var d = { title: 'Children\'s registration', purpose: t.purpose, siteId: V.site, team: (SETTINGS.teams || [])[0] || '', validity: t.validity, retentionMonths: t.retentionMonths, fields: t.fields,
           template: 'parent', kind: t.kind || 'consent', version: 1, updatedAt: new Date().toISOString(), updatedBy: uid() };
         return db().collection('forms').doc(id).set(d).then(function () {
           return db().collection('kidsSettings').doc(V.site).set({ formId: id, formTitle: d.title, teams: SETTINGS.teams || [] }, { merge: true });

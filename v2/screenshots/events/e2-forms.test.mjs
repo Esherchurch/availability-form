@@ -159,10 +159,14 @@ try {
   await M.$eval(last + ' > .two .fe-type', (e) => { e.value = 'yesno'; e.dispatchEvent(new Event('change', { bubbles: true })); });
   await sleep(300);
   ok('a new question about asthma is private from its wording alone', await M.$eval('#edFields > .fieldbox:last-child', e => /Private anyway, from its wording/.test(e.textContent)));
+  /* Whose form (F-087): the master admin gives it to the AV team, whose admin
+     then sends it and reads the ordinary answers below. */
+  ok('a master admin may give a form to any team, or none', JSON.stringify(await M.$$eval('#edTeam option', o => o.map(x => x.value))).includes('"AV Team"') && await M.$eval('#edTeam', e => e.options[0].value === ''));
+  await M.select('#edTeam', 'AV Team');
   await tap(M, '#edSave');
   const form = await until(() => readDb(db => getDocs(collection(db, 'forms')).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))[0])));
-  ok('the form is saved with its site, its purpose and how long it lasts',
-    form && form.siteId === 'site_t' && /keep your child safe/.test(form.purpose) && form.validity.mode === 'schoolyear', JSON.stringify(form && { siteId: form.siteId, v: form.validity }));
+  ok('the form is saved with its team, its site, its purpose and how long it lasts',
+    form && form.team === 'AV Team' && form.siteId === 'site_t' && /keep your child safe/.test(form.purpose) && form.validity.mode === 'schoolyear', JSON.stringify(form && { siteId: form.siteId, v: form.validity }));
   const asthmaId = form.fields.find(f => /asthma/i.test(f.label)).id;
 
   /* ---------- 2. ask for it at the event and send ---------- */
@@ -271,7 +275,7 @@ try {
   await until(() => AV.$('#modal .ans'));
   await sleep(500);
   const avModal = await AV.$eval('#modal', e => e.textContent);
-  ok('an ordinary admin sees the ordinary answers', /Aunt Invented/.test(avModal) && /Vegetarian/.test(avModal));
+  ok('an admin of the form2019s team sees the ordinary answers', /Aunt Invented/.test(avModal) && /Vegetarian/.test(avModal));
   ok('but is told the medical ones exist and cannot see them', !!(await AV.$('#medRefused')) && !/Peanuts|EpiPen/.test(avModal));
   await aB.close();
 

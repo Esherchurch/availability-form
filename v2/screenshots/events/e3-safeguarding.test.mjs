@@ -139,7 +139,9 @@ await env.withSecurityRulesDisabled(async (ctx2) => {
   /* The rota for that date: Leo leads, Nora helps and has never signed in. */
   await setDoc(doc(db, 'events', 'rota_x'), { date: ymd(X_DAY), roles: ['Kids Leader', 'Kids Helper'],
     assignments: { 'Kids Leader': { id: 'm_leo', name: 'Leo Leader' }, 'Kids Helper': [{ id: 'm_nora', name: 'Nora Notsignedin' }] } });
-  await setDoc(doc(db, 'forms', 'form_p'), { ...PARENT_FORM, siteId: 'site_t', version: 1 });
+  await setDoc(doc(db, 'forms', 'form_p'), { ...PARENT_FORM, siteId: 'site_t', team: 'AV Team', version: 1 });
+  /* the form is asked for at the event (forms-admin writes this) */
+  await setDoc(doc(db, 'eventForms', 'ev_x'), { forms: [{ formId: 'form_p' }] });
   await setDoc(doc(db, 'formRequests', 'req_x_fam_0000000000000000000000'), REQ('ev_x', X_DAY));
   /* An old answer whose time is up, with a medical half and a file. */
   await setDoc(doc(db, 'formRequests', 'req_old_00000000000000000000000'), REQ('', X_DAY, { calEventId: '', status: 'done', responseId: 'resp_old' }));
@@ -282,7 +284,7 @@ try {
   await until(() => A.$('[data-flag="' + oneId + '"]'));
   await tap(A, '[data-flag="' + oneId + '"]');
   const avPeople = await A.$eval('#people', e => e.innerText);
-  ok('an ordinary admin is told medical details are held, and cannot see them', /Held on their consent form/.test(avPeople) && !/Peanuts/.test(avPeople), avPeople.slice(0, 300));
+  ok('an admin of the form2019s team is told medical details are held, and cannot see them', /Held on their consent form/.test(avPeople) && !/Peanuts/.test(avPeople), avPeople.slice(0, 300));
 
   /* ---------- 4. "still correct" for the next event ---------- */
   await env.withSecurityRulesDisabled(async (c) => {
