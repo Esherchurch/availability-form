@@ -1094,38 +1094,70 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('after an answer, the hirer may ask again', 'allow', () => updateDoc(doc(anon(), 'bookings', C), ask({ reason: 'Asking again' })));
 }
 
-// ── EVENTS (events window) ── Sunday kids registration (Chunk 6, stage 1)
+// ── EVENTS (events window) ── Sunday kids: need to know (Chunk 6, stage 1; Martin, F-087)
 {
-  const lena = () => env.authenticatedContext('u_lena').firestore();
-  /* Samy is on the Kids Church team; Isla is a member on no team that counts. */
+  /* People for these checks: Kim is an admin of Kids Church (a lead); Lou
+     leads Little ones; Jo leads Juniors; Sid is on Kids Church, leading no
+     group; Wes is an admin of Worship only. Lena is the safeguarding lead of
+     site_bk in these tests? No - set here. */
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
   await env.withSecurityRulesDisabled(async (c) => {
     const db = c.firestore();
-    await setDoc(doc(db, 'kidsSettings', 'site_bk'), { teams: ['Kids Church'], formId: 'form_kids' });
-    await setDoc(doc(db, 'forms', 'form_kids'), { title: 'Children\u2019s registration', siteId: 'site_bk', fields: [], template: 'parent', kind: 'consent', version: 1 });
-    await setDoc(doc(db, 'forms', 'form_other'), { title: 'Something else', siteId: 'site_bk', fields: [], version: 1 });
+    const U = (uid, mid, teams, adminFor) => setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor, masterAdmin: false });
+    await U('u_kim', 'm_kim', ['Kids Church'], ['Kids Church']);
+    await U('u_lou', 'm_lou', ['Kids Church'], []);
+    await U('u_jo', 'm_jo', ['Kids Church'], []);
+    await U('u_sid', 'm_sid', ['Kids Church'], []);
+    await U('u_wes', 'm_wes', ['Worship Team'], ['Worship Team']);
+    await U('u_sg', 'm_sg', ['Kids Church'], []);
+    await setDoc(doc(db, 'bookingSettings', 'site_kids'), { bookingsAdmins: [], safeguardingLead: 'm_sg', safeguardingDeputy: '' });
+    await setDoc(doc(db, 'kidsSettings', 'site_kids'), { teams: ['Kids Church'], formId: 'form_kids' });
+    await setDoc(doc(db, 'forms', 'form_kids'), { title: 'Children\u2019s registration', siteId: 'site_kids', fields: [], template: 'parent', kind: 'consent', version: 1 });
+    await setDoc(doc(db, 'forms', 'form_other'), { title: 'Something else', siteId: 'site_kids', fields: [], version: 1 });
+    await setDoc(doc(db, 'kidsGroups', 'grp_little'), { siteId: 'site_kids', name: 'Little ones', ratio: 4, leaderIds: ['m_lou'] });
+    await setDoc(doc(db, 'kidsGroups', 'grp_junior'), { siteId: 'site_kids', name: 'Juniors', ratio: 8, leaderIds: ['m_jo'] });
   });
-  const FAM = (extra) => ({ siteId: 'site_bk', parentName: 'Parent Synthetic', phone: '07700 900111', email: 'parent@example.invalid', collectors: ['Parent Synthetic'], familyCode: 'ABC123', ...(extra || {}) });
-  const KID = (extra) => ({ siteId: 'site_bk', familyId: 'fam_1', name: 'Child Synthetic', dob: '2019-05-01', year: 'Year 1', groupId: 'grp_little', status: 'registered', ...(extra || {}) });
-  await check('the children\u2019s team (Kids Church) adds a family', 'allow', () => setDoc(doc(as('samy'), 'kidsFamilies', 'fam_1'), FAM()));
-  await check('and a child', 'allow', () => setDoc(doc(as('samy'), 'kidsChildren', 'kid_1'), KID()));
-  await check('and reads them', 'allow', () => getDoc(doc(as('samy'), 'kidsChildren', 'kid_1')));
-  await check('a member on no children\u2019s team cannot read a child', 'deny', () => getDoc(doc(as('isla'), 'kidsChildren', 'kid_1')));
-  await check('nor the public', 'deny', () => getDoc(doc(anon(), 'kidsChildren', 'kid_1')));
-  await check('nor at another site', 'deny', () => setDoc(doc(as('samy'), 'kidsChildren', 'kid_2'), KID({ siteId: 'site_appr' })));
-  await check('a child is never deleted from a page', 'deny', () => deleteDoc(doc(as('karen'), 'kidsChildren', 'kid_1')));
-  await check('only registered, visitor or left', 'deny', () => setDoc(doc(as('samy'), 'kidsChildren', 'kid_1'), KID({ status: 'gone' })));
-  await check('the team cannot change the groups (admins and the safeguarding lead do)', 'deny', () => setDoc(doc(as('samy'), 'kidsGroups', 'grp_little'), { siteId: 'site_bk', name: 'Little ones', ratio: 4 }));
-  await check('an admin sets a group up', 'allow', () => setDoc(doc(as('karen'), 'kidsGroups', 'grp_little'), { siteId: 'site_bk', name: 'Little ones', ratio: 4, years: ['Reception', 'Year 1'] }));
-  await check('nor who the children\u2019s team is', 'deny', () => setDoc(doc(as('samy'), 'kidsSettings', 'site_bk'), { teams: ['Kids Church', 'Worship Team'], formId: 'form_kids' }));
+  const FAM = { siteId: 'site_kids', parentName: 'Parent Synthetic', phone: '07700 900111', email: 'parent@example.invalid', collectors: ['Parent Synthetic'], familyCode: 'ABC123', responseIds: ['r1'] };
+  const KID = (name, groupId, extra) => ({ siteId: 'site_kids', familyId: 'fam_1', name, dob: '2019-05-01', year: 'Year 1', groupId, status: 'registered', phone: '07700 900111', ...(extra || {}) });
+  const MED = (groupId, allergies) => ({ siteId: 'site_kids', groupId, allergies, medical: 'none', medication: '', needs: '', responseId: 'r1' });
+  /* A lead writes a child and its medical copy together. */
+  const put = (who, id, kid, med) => { const x = writeBatch(who); x.set(doc(who, 'kidsChildren', id), kid); if (med) x.set(doc(who, 'kidsMedical', id), med); return x.commit(); };
+  await check('a lead (an admin of Kids Church) adds a family', 'allow', () => setDoc(doc(ctx('u_kim'), 'kidsFamilies', 'fam_1'), FAM));
+  await check('and Ada, in Little ones, with her medical copy', 'allow', () => put(ctx('u_kim'), 'kid_ada', KID('Ada Synthetic', 'grp_little'), MED('grp_little', 'Peanuts')));
+  await check('and Ben, her brother, in Juniors', 'allow', () => put(ctx('u_kim'), 'kid_ben', KID('Ben Synthetic', 'grp_junior'), MED('grp_junior', 'Bee stings')));
+  await check('a medical copy must carry the child\u2019s own group', 'deny', () => setDoc(doc(ctx('u_kim'), 'kidsMedical', 'kid_ada'), MED('grp_junior', 'Peanuts')));
+  await check('a child cannot carry a pointer to the family\u2019s whole form', 'deny', () => put(ctx('u_kim'), 'kid_ada', KID('Ada Synthetic', 'grp_little', { medicalRef: { secret: 'x', index: 0 } }), MED('grp_little', 'Peanuts')));
+
+  await check('the leader of Little ones reads Ada', 'allow', () => getDoc(doc(ctx('u_lou'), 'kidsChildren', 'kid_ada')));
+  await check('and Ada\u2019s medical details', 'allow', () => getDoc(doc(ctx('u_lou'), 'kidsMedical', 'kid_ada')));
+  await check('and lists Little ones', 'allow', () => getDocs(query(collection(ctx('u_lou'), 'kidsChildren'), where('groupId', '==', 'grp_little'))));
+  await check('THE LEADER OF LITTLE ONES CANNOT READ A JUNIOR\u2019S MEDICAL DETAILS', 'deny', () => getDoc(doc(ctx('u_lou'), 'kidsMedical', 'kid_ben')));
+  await check('nor Ben himself', 'deny', () => getDoc(doc(ctx('u_lou'), 'kidsChildren', 'kid_ben')));
+  await check('nor list Juniors', 'deny', () => getDocs(query(collection(ctx('u_lou'), 'kidsChildren'), where('groupId', '==', 'grp_junior'))));
+  await check('nor the family record, which points at the forms', 'deny', () => getDoc(doc(ctx('u_lou'), 'kidsFamilies', 'fam_1')));
+  await check('nor list the registration forms\u2019 private halves', 'deny', () => getDocs(query(collection(ctx('u_lou'), 'sensitiveResponses'), where('siteId', '==', 'site_kids'), where('formId', '==', 'form_kids'))));
+  await check('the leader of Juniors reads Ben\u2019s medical details, not Ada\u2019s', 'allow', () => getDoc(doc(ctx('u_jo'), 'kidsMedical', 'kid_ben')));
+  await check('(and not Ada\u2019s)', 'deny', () => getDoc(doc(ctx('u_jo'), 'kidsMedical', 'kid_ada')));
+  await check('a group leader cannot move a child or change their record', 'deny', () => put(ctx('u_lou'), 'kid_ada', KID('Ada Synthetic', 'grp_junior'), MED('grp_junior', 'Peanuts')));
+  await check('someone on Kids Church who leads no group sees no child', 'deny', () => getDoc(doc(ctx('u_sid'), 'kidsChildren', 'kid_ada')));
+  await check('an admin of another team (Worship) sees no child', 'deny', () => getDoc(doc(ctx('u_wes'), 'kidsMedical', 'kid_ada')));
+  await check('the safeguarding lead sees every child\u2019s medical details', 'allow', () => getDoc(doc(ctx('u_sg'), 'kidsMedical', 'kid_ben')));
+  await check('a master admin does too', 'allow', () => getDoc(doc(as('martin'), 'kidsMedical', 'kid_ada')));
+  await check('the lead moves Ben to Little ones, with his medical copy', 'allow', () => put(ctx('u_kim'), 'kid_ben', KID('Ben Synthetic', 'grp_little'), MED('grp_little', 'Bee stings')));
+  await check('but not without moving the medical copy too', 'deny', () => put(ctx('u_kim'), 'kid_ben', KID('Ben Synthetic', 'grp_junior')));
+  await check('after the move, Little ones\u2019 leader reads Ben\u2019s details', 'allow', () => getDoc(doc(ctx('u_lou'), 'kidsMedical', 'kid_ben')));
+  await check('and Juniors\u2019 leader no longer can', 'deny', () => getDoc(doc(ctx('u_jo'), 'kidsMedical', 'kid_ben')));
+  await check('the leads are set by a master admin or the safeguarding lead, not a lead', 'deny', () => setDoc(doc(ctx('u_kim'), 'kidsSettings', 'site_kids'), { teams: ['Kids Church', 'Worship Team'], formId: 'form_kids' }));
+  await check('a lead sets a group\u2019s leaders', 'allow', () => setDoc(doc(ctx('u_kim'), 'kidsGroups', 'grp_junior'), { siteId: 'site_kids', name: 'Juniors', ratio: 8, leaderIds: ['m_jo', 'm_sid'] }));
+  await check('a group leader cannot add themselves to another group', 'deny', () => setDoc(doc(ctx('u_lou'), 'kidsGroups', 'grp_junior'), { siteId: 'site_kids', name: 'Juniors', ratio: 8, leaderIds: ['m_jo', 'm_lou'] }));
   const REQ = (formId) => ({ formId, formTitle: 'x', calEventId: '', eventTitle: '', eventStart: '', signupKey: '', personKind: '', personId: '', name: 'Parent Synthetic',
-    email: 'parent@example.invalid', subjects: ['Parent Synthetic'], siteId: 'site_bk', status: 'sent', reuseOf: '', sentAt: 'x', reminders: [], createdBy: 'u_samy' });
-  await check('the team sends the registration form', 'allow', () => setDoc(doc(as('samy'), 'formRequests', 'req_kids_1_000000000000000000000'), REQ('form_kids')));
-  await check('but no other form', 'deny', () => setDoc(doc(as('samy'), 'formRequests', 'req_kids_2_000000000000000000000'), REQ('form_other')));
-  await check('and chases it (a reminder), changing nothing else', 'allow', () => updateDoc(doc(as('samy'), 'formRequests', 'req_kids_1_000000000000000000000'), { reminders: ['x'] }));
-  await check('not its address', 'deny', () => updateDoc(doc(as('samy'), 'formRequests', 'req_kids_1_000000000000000000000'), { email: 'elsewhere@example.invalid' }));
-  await check('the team lists that form\u2019s answers', 'allow', () => getDocs(query(collection(as('samy'), 'formResponses'), where('siteId', '==', 'site_bk'), where('formId', '==', 'form_kids'))));
-  await check('not another form\u2019s', 'deny', () => getDocs(query(collection(as('samy'), 'formResponses'), where('siteId', '==', 'site_bk'), where('formId', '==', 'form_other'))));
-  await check('nor can a member on no team list the registration answers', 'deny', () => getDocs(query(collection(as('isla'), 'formResponses'), where('siteId', '==', 'site_bk'), where('formId', '==', 'form_kids'))));
+    email: 'parent@example.invalid', subjects: [], siteId: 'site_kids', status: 'sent', reuseOf: '', sentAt: 'x', reminders: [], createdBy: 'u_kim' });
+  await check('a lead sends the registration form', 'allow', () => setDoc(doc(ctx('u_kim'), 'formRequests', 'req_kids_1_000000000000000000000'), REQ('form_kids')));
+  await check('the safeguarding lead sends it too, but no other form', 'deny', () => setDoc(doc(ctx('u_sg'), 'formRequests', 'req_kids_2_000000000000000000000'), REQ('form_other')));
+  await check('a group leader cannot send it', 'deny', () => setDoc(doc(ctx('u_lou'), 'formRequests', 'req_kids_3_000000000000000000000'), REQ('form_kids')));
+  await check('a lead lists that form\u2019s answers', 'allow', () => getDocs(query(collection(ctx('u_kim'), 'formResponses'), where('siteId', '==', 'site_kids'), where('formId', '==', 'form_kids'))));
+  await check('a group leader cannot list the registration answers', 'deny', () => getDocs(query(collection(ctx('u_lou'), 'formResponses'), where('siteId', '==', 'site_kids'), where('formId', '==', 'form_kids'))));
+  await check('a child is never deleted from a page', 'deny', () => deleteDoc(doc(as('martin'), 'kidsChildren', 'kid_ada')));
 }
 
 // ── EVENTS (events window) ── church details (F-058)

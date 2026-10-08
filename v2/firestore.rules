@@ -1598,57 +1598,88 @@ service cloud.firestore {
 
     // ---- Sunday kids registration (Chunk 6, stage 1) -------------------
     //
-    // WHO IS "THE CHILDREN'S TEAM" for a site: admins, the site's
-    // safeguarding lead or deputy, and anyone on a rota team the site names
-    // in kidsSettings (e.g. Kids Church, Lazers). Children's details are
-    // theirs alone: not the address book (open to anyone) and not contacts
-    // (open to every member) - see FINDINGS F-087.
+    // NEED TO KNOW (Martin, F-087). Children's details are kept apart from
+    // the address book (open to anyone) and contacts (open to every member),
+    // and inside them:
+    //   - THE LEADS see every child at the site, with medical details: master
+    //     admins, the site's safeguarding lead and deputy, and the admins of
+    //     the children's teams the site names in kidsSettings (e.g. an admin
+    //     of Kids Church).
+    //   - A GROUP'S LEADERS (kidsGroups.leaderIds, member ids) see that
+    //     group's children, with their medical details, and nobody else's.
+    //   - Nobody else sees any of it.
+    // Each child's medical details are their own copy (kidsMedical), carrying
+    // the child's group, so a leader of one group can never reach a brother
+    // or sister's details in another through the family's form. The family
+    // record (which points at the forms) is the leads' alone.
     function kidsSettingsOf(siteId) {
       return get(/databases/$(database)/documents/kidsSettings/$(siteId)).data;
     }
-    function kidsTeamOf(siteId) {
+    function kidsLead(siteId) {
       return active() && siteId is string && siteId != ''
-             && (isAdmin() || sgLeadOf(siteId)
+             && (isMaster() || sgLeadOf(siteId)
                  || (exists(/databases/$(database)/documents/kidsSettings/$(siteId))
-                     && me().get('teams', []).hasAny(kidsSettingsOf(siteId).get('teams', []))));
+                     && me().get('adminFor', []).hasAny(kidsSettingsOf(siteId).get('teams', []))));
+    }
+    function kidsGroupLeader(groupId) {
+      return active() && groupId is string && groupId != ''
+             && exists(/databases/$(database)/documents/kidsGroups/$(groupId))
+             && me().get('memberId', '-') in get(/databases/$(database)/documents/kidsGroups/$(groupId)).data.get('leaderIds', []);
     }
     // The registration form is the parent consent form (E2), set up once
-    // per site; the children's team may use that form and no other.
+    // per site; the leads may use that form and no other.
     function kidsFormOf(siteId, formId) {
       return siteId is string && siteId != '' && formId is string && formId != ''
              && exists(/databases/$(database)/documents/kidsSettings/$(siteId))
              && kidsSettingsOf(siteId).get('formId', '') == formId
-             && kidsTeamOf(siteId);
+             && kidsLead(siteId);
     }
     match /kidsSettings/{siteId} {
       allow read: if active();
-      allow write: if (isAdmin() || sgLeadOf(siteId))
+      // Who the leads are is set by a master admin or the safeguarding lead.
+      allow write: if (isMaster() || sgLeadOf(siteId))
                    && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20
                    && request.resource.data.get('formId', '') is string;
     }
-    // Groups by school year, each with its room, its day and time, its ratio.
+    // Groups by school year, each with its room, day and time, ratio and
+    // leaders. The leads set them.
     match /kidsGroups/{groupId} {
       allow read: if active();
-      allow write: if (isAdmin() || sgLeadOf(request.resource.data.siteId))
+      allow write: if kidsLead(request.resource.data.siteId)
                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
-                   && request.resource.data.get('ratio', 0) is int;
+                   && request.resource.data.get('ratio', 0) is int
+                   && request.resource.data.get('leaderIds', []) is list && request.resource.data.get('leaderIds', []).size() <= 30;
     }
-    // A family (the parent who registered, their contact, who may collect)
-    // and its children. Never deleted from a page: a child who leaves is
-    // marked so; the retention list removes records when their time is up.
+    // A family: the parent who registered, how to reach them, who may
+    // collect, and which forms it came from. The leads' alone. What a
+    // group's leaders need (phone, emergency contacts, collectors) is copied
+    // onto each child. Never deleted from a page.
     match /kidsFamilies/{familyId} {
-      allow read: if kidsTeamOf(resource.data.siteId);
-      allow create, update: if kidsTeamOf(request.resource.data.siteId) && (resource == null || kidsTeamOf(resource.data.siteId))
+      allow read: if kidsLead(resource.data.siteId);
+      allow create, update: if kidsLead(request.resource.data.siteId) && (resource == null || kidsLead(resource.data.siteId))
                             && request.resource.data.parentName is string && request.resource.data.parentName.size() > 0
                             && request.resource.data.get('collectors', []) is list && request.resource.data.get('collectors', []).size() <= 20;
       allow delete: if false;
     }
     match /kidsChildren/{childId} {
-      allow read: if kidsTeamOf(resource.data.siteId);
-      allow create, update: if kidsTeamOf(request.resource.data.siteId) && (resource == null || kidsTeamOf(resource.data.siteId))
+      allow read: if kidsLead(resource.data.siteId) || kidsGroupLeader(resource.data.get('groupId', ''));
+      allow create, update: if kidsLead(request.resource.data.siteId) && (resource == null || kidsLead(resource.data.siteId))
                             && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
                             && request.resource.data.familyId is string
-                            && request.resource.data.get('status', 'registered') in ['registered', 'visitor', 'left'];
+                            && request.resource.data.get('status', 'registered') in ['registered', 'visitor', 'left']
+                            && !('medicalRef' in request.resource.data)
+                            // A child who changes group takes their medical
+                            // copy with them, in the same write.
+                            && (!exists(/databases/$(database)/documents/kidsMedical/$(childId))
+                                || getAfter(/databases/$(database)/documents/kidsMedical/$(childId)).data.groupId == request.resource.data.get('groupId', ''));
+      allow delete: if false;
+    }
+    // One child's medical details, from the private half of their form.
+    match /kidsMedical/{childId} {
+      allow read: if kidsLead(resource.data.siteId) || kidsGroupLeader(resource.data.get('groupId', ''));
+      allow create, update: if kidsLead(request.resource.data.siteId) && (resource == null || kidsLead(resource.data.siteId))
+                            && request.resource.data.keys().hasOnly(['siteId', 'groupId', 'allergies', 'medical', 'medication', 'needs', 'responseId', 'updatedAt', 'updatedBy'])
+                            && request.resource.data.groupId == getAfter(/databases/$(database)/documents/kidsChildren/$(childId)).data.get('groupId', '');
       allow delete: if false;
     }
 

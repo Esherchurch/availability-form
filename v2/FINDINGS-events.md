@@ -1343,3 +1343,35 @@ enquiry email when the site has none. The sheet's content is on Room bookings,
 Setup sheet tab (`drawSetup` in `bookings-admin.html`): confirmed bookings for
 the day, by room, with setting up and clearing away, numbers and layout, sound
 and projection, kit and where to fetch it, refreshments and the kitchen's list.
+
+### F-087 — decided (Martin) and built: need to know
+Children's records stay separate, open only to the people below, and can be
+linked to the wider people records later.
+- **The leads** see every child at the site, with medical details: master
+  admins, the site's safeguarding lead and deputy, and the admins of the
+  children's teams named on the register's Settings tab (an admin of Kids
+  Church). "Site admins" is read as master admins: an admin of another team
+  (Worship) sees no child. **Say if you meant every admin.**
+- **A group's leaders** (named on the Groups tab, from the address book) see
+  that group's children, with their medical details, and no one else's.
+- **Everyone else** sees nothing, including people on Kids Church who lead no
+  group.
+
+How the rules hold it:
+- **Each child has their own medical copy** (`kidsMedical`), carrying the
+  child's group. The family's form covers all its children, so a pointer to it
+  on Ada's record would have let a Little ones leader read her Junior
+  brother's details. The pointer is gone, and the rules refuse to put one back.
+- **The family record** (which names the forms) is the leads' alone. What a
+  group leader needs (parent's phone, emergency contacts, collectors, family
+  code) is copied onto each child.
+- **A child who changes group takes their medical copy with them** in the same
+  write; the rules refuse one without the other. Afterwards the new group's
+  leaders can read it and the old group's cannot.
+- Only the leads send the registration form, add families, set groups and
+  move children. The leads themselves are set by a master admin or the
+  safeguarding lead.
+
+One thing to know: an admin of Kids Church is an "admin" in the hub's general
+sense too, so the older forms rules (E2) already let them send any form and
+read every form's answers at the site. That was true before Chunk 6.

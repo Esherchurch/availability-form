@@ -74,7 +74,10 @@ await fetch(`http://127.0.0.1:9098/emulator/v1/projects/${PROJECT}/accounts`, { 
 const P = {
   karen: { email: 'karen.admin@example.invalid', name: 'Karen Admin', mid: 'm_karen', admin: true },
   samy:  { email: 'samy.member@example.invalid', name: 'Samy Member', mid: 'm_samy' },
-  lena:  { email: 'lena.office@example.invalid', name: 'Lena Office', mid: 'm_lena' }
+  lena:  { email: 'lena.office@example.invalid', name: 'Lena Office', mid: 'm_lena' },
+  lou:   { email: 'lou.little@example.invalid', name: 'Lou Little', mid: 'm_lou' },
+  jo:    { email: 'jo.junior@example.invalid', name: 'Jo Junior', mid: 'm_jo' },
+  sid:   { email: 'sid.helper@example.invalid', name: 'Sid Helper', mid: 'm_sid' }
 };
 for (const k of Object.keys(P)) {
   P[k].uid = (await (await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake', {
@@ -82,13 +85,16 @@ for (const k of Object.keys(P)) {
 }
 const ROOM = (name, extra) => ({ siteId: 'site_t', name, kind: 'room', active: true, order: 1, capacity: 0, colour: '#3d6263', accessible: true,
   bookableByMembers: true, bookableByHirers: false, description: '', photoUrl: '', ...(extra || {}) });
-const TEAMS = { karen: ['Core Team'], samy: ['Kids Church'], lena: ['Worship'] };
+const TEAMS = { karen: ['Core Team'], samy: ['Kids Church'], lena: ['Worship'], lou: ['Kids Church'], jo: ['Kids Church'], sid: ['Kids Church'] };
+/* Need to know (F-087): Samy is an admin of Kids Church, so a lead; Lou and Jo
+   will lead a group each; Sid is on Kids Church and leads none. */
+const ADMINFOR = { samy: ['Kids Church'] };
 await env.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore();
   for (const k of Object.keys(P)) {
     const x = P[k];
-    await setDoc(doc(db, 'addressBook', x.mid), { name: x.name, email: x.email, markers: TEAMS[k], adminFor: [], masterAdmin: !!x.admin });
-    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: TEAMS[k], adminFor: [], masterAdmin: !!x.admin, status: 'active' });
+    await setDoc(doc(db, 'addressBook', x.mid), { name: x.name, email: x.email, markers: TEAMS[k], adminFor: ADMINFOR[k] || [], masterAdmin: !!x.admin });
+    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: TEAMS[k], adminFor: ADMINFOR[k] || [], masterAdmin: !!x.admin, status: 'active' });
   }
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
   await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });
@@ -156,18 +162,20 @@ try {
   const ks = await until(async () => { const x = await get('kidsSettings', 'site_t'); return x && x.formId ? x : null; });
   const form = ks && await get('forms', ks.formId);
   ok('1. the children\'s team is Kids Church; the registration form is made from the parent consent form', form && form.template === 'parent' && form.validity.mode === 'schoolyear' && form.fields.some(f => f.id === 'children'), J(ks));
-  for (const [name, years, room, ratio] of [['Little ones', ['Reception', 'Year 1', 'Year 2'], 'room_little', '4'], ['Juniors', ['Year 3', 'Year 4', 'Year 5', 'Year 6'], 'room_junior', '8']]) {
+  for (const [name, years, room, ratio, leader] of [['Little ones', ['Reception', 'Year 1', 'Year 2'], 'room_little', '4', 'm_lou'], ['Juniors', ['Year 3', 'Year 4', 'Year 5', 'Year 6'], 'room_junior', '8', 'm_jo']]) {
     await go(K, 'kids-admin.html', '[data-tab="groups"]'); await tap(K, '[data-tab="groups"]');
     await K.waitForSelector('#g-new'); await tap(K, '#g-new');
     await K.waitForSelector('#g-name');
     await val(K, '#g-name', name); await K.select('#g-room', room); await val(K, '#g-ratio', ratio);
     for (const y of years) await check(K, '.g-year[value="' + y + '"]', true);
+    await K.select('#g-addlead', leader);
     await tap(K, '#g-save');
     await until(async () => (await readDb(db => getDocs(query(collection(db, 'kidsGroups'), where('name', '==', name))))).size === 1);
   }
   const groups = (await readDb(db => getDocs(collection(db, 'kidsGroups')))).docs.map(d => ({ id: d.id, ...d.data() }));
   const little = groups.find(g => g.name === 'Little ones'), juniors = groups.find(g => g.name === 'Juniors');
-  ok('   two groups, by school year, each with its room and ratio', little && juniors && J(little.years) === J(['Reception', 'Year 1', 'Year 2']) && juniors.roomId === 'room_junior' && little.ratio === 4 && little.day === 7);
+  ok('   two groups, by school year, each with its room, ratio and leader', little && juniors && J(little.years) === J(['Reception', 'Year 1', 'Year 2']) && juniors.roomId === 'room_junior' && little.ratio === 4 && little.day === 7
+    && J(little.leaderIds) === J(['m_lou']) && J(juniors.leaderIds) === J(['m_jo']), J(groups.map(g => g.leaderIds)));
 
   /* ---------- 2. not for everyone ---------- */
   const lB = await as('lena'); const L = lB.page;
@@ -177,9 +185,10 @@ try {
   /* ---------- 3. Kids Church sends the form; a parent fills it in ---------- */
   const sB = await as('samy'); const S = sB.page;
   await go(S, 'kids-admin.html', '[data-tab="registration"]');
-  await tap(S, '[data-tab="groups"]');
-  await S.waitForSelector('[data-grow]');
-  ok('3. someone on Kids Church sees the groups, but cannot change them', !(await S.$('#g-new')));
+  const dB = await as('sid'); const Dd = dB.page;
+  await go(Dd, 'kids-admin.html', '#noaccess');
+  ok('3. someone on Kids Church who leads no group sees nothing', /children's team leads/.test(await Dd.$eval('#noaccess', e => e.textContent)));
+  await dB.close();
   async function sendTo(page) {
     await tap(page, '[data-tab="registration"]'); await page.waitForSelector('#r-name');
     await val(page, '#r-name', 'Parent Synthetic'); await val(page, '#r-email', 'parent@example.invalid');
@@ -243,6 +252,25 @@ try {
   await S.screenshot({ path: path.join(HERE, 'k1-children-375.png'), fullPage: true });
   await S.setViewport({ width: 1100, height: 900 });
 
+  /* ---------- need to know (Martin, F-087) ---------- */
+  const louB = await as('lou'); const LO = louB.page;
+  await go(LO, 'kids-admin.html', '[data-child]');
+  const louSees = await LO.evaluate(() => [...document.querySelectorAll('[data-child]')].map(x => x.innerText.split('\n')[0]));
+  ok('NEED TO KNOW: the leader of Little ones sees Ada, and not Ben (a Junior)', louSees.length === 1 && /Ada Synthetic/.test(louSees[0]), J(louSees));
+  ok('   and only the one tab: their group', J(await LO.evaluate(() => [...document.querySelectorAll('[data-tab]')].map(x => x.textContent))) === J(['Your group']));
+  await tap(LO, `[data-open="${ada.id}"]`);
+  await LO.waitForSelector(`[data-detail="${ada.id}"] .d-med`);
+  await tap(LO, `[data-detail="${ada.id}"] .d-med`);
+  await LO.waitForSelector(`[data-med="${ada.id}"]`);
+  ok('   with Ada\'s medical details, and the parent\'s phone and collectors', /EpiPen/.test(await LO.$eval(`[data-med="${ada.id}"]`, e => e.innerText)) && /Grandma Invented/.test(await LO.$eval(`[data-detail="${ada.id}"]`, e => e.innerText)));
+  const sneak = await LO.evaluate((b) => Promise.all([
+    EGBCAuth.db.collection('kidsMedical').doc(b).get().then(() => 'read', e => e.code),
+    EGBCAuth.db.collection('kidsChildren').doc(b).get().then(() => 'read', e => e.code),
+    EGBCAuth.db.collection('kidsFamilies').get().then(() => 'read', e => e.code)]), ben.id);
+  ok('   THE LEADER OF LITTLE ONES CANNOT READ A JUNIOR\'S MEDICAL DETAILS, even round the page (nor Ben, nor the family records)', sneak.every(x => /permission/.test(x)), J(sneak));
+  await LO.setViewport({ width: 375, height: 1200 });
+  await LO.screenshot({ path: path.join(HERE, 'k1-leader-view-375.png'), fullPage: true });
+
   /* ---------- 5. moved by hand ---------- */
   await go(S, 'kids-admin.html', `[data-open="${ben.id}"]`);
   await tap(S, `[data-open="${ben.id}"]`);
@@ -257,6 +285,12 @@ try {
   await until(async () => (await get('kidsGroups', juniors.id)).ratio === 9);
   await sleep(1000);
   ok('   and stays there when Juniors is changed', (await get('kidsChildren', ben.id)).groupId === little.id);
+  ok('   his medical copy moved with him', (await get('kidsMedical', ben.id)).groupId === little.id);
+  const joB = await as('jo'); const JO = joB.page;
+  const moved = await JO.evaluate((b) => EGBCAuth.db.collection('kidsMedical').doc(b).get().then(() => 'read', e => e.code), ben.id);
+  const louNow = await LO.evaluate((b) => EGBCAuth.db.collection('kidsMedical').doc(b).get().then(s => s.data().allergies, e => e.code), ben.id);
+  ok('   now Little ones\' leader can read Ben\'s details, and Juniors\' leader cannot', /permission/.test(moved) && louNow === 'None', moved + ' / ' + louNow);
+  await joB.close(); await louB.close();
 
   /* ---------- 6. next year's form ---------- */
   await go(S, 'kids-admin.html', '[data-tab="registration"]');
@@ -269,7 +303,7 @@ try {
   await until(async () => ((await readDb(db => getDocs(collection(db, 'kidsFamilies')))).docs[0].data().responseIds || []).length === 2, 15000);
   const kids2 = (await readDb(db => getDocs(collection(db, 'kidsChildren')))).docs.map(d => ({ id: d.id, ...d.data() }));
   ok('   still one family and two children: nobody twice', (await readDb(db => getDocs(collection(db, 'kidsFamilies')))).size === 1 && kids2.length === 2);
-  ok('   Ben is still where he was moved; Ada\'s medical half is the new one', kids2.find(c => c.id === ben.id).groupId === little.id && kids2.find(c => c.id === ada.id).medicalRef.secret !== ada.medicalRef.secret);
+  ok('   Ben is still where he was moved; Ada\'s medical copy is the new one', kids2.find(c => c.id === ben.id).groupId === little.id && /sesame/.test((await get('kidsMedical', ada.id)).allergies));
 
   await kB.close(); await lB.close(); await sB.close(); await gB.close();
 } catch (e) {
