@@ -446,7 +446,7 @@
     </div>
 </div>
 
-<a id="helpBtn" href="https://esherchurch.github.io/availability-form/emailcompilerinstructions.html"
+<a id="helpBtn" href="emailcompilerinstructions.html"
    target="_blank" rel="noopener" aria-label="Open instructions"
    style="position:fixed; bottom:24px; right:24px; z-index:900; width:38px; height:38px; border-radius:9999px; background:#fff; border:1.5px solid #d1dfdf; color:#3d6263; font-weight:800; font-size:15px; box-shadow:0 2px 12px rgba(61,98,99,0.12); display:flex; align-items:center; justify-content:center; text-decoration:none;">?</a>
 
@@ -624,7 +624,7 @@ function insertBlock(kind) {
     if (kind === 'button') {
         const label = prompt('Button label:', 'View the rota');
         if (!label) return;
-        const url = safeUrl(prompt('Where should it link? (https://…)', 'https://esherchurch.github.io/availability-form/'));
+        const url = safeUrl(prompt('Where should it link? (https://…)', 'https://esherchurch.github.io/availability-form/v2/'));
         if (!url) { alert('That link was empty or not a valid http(s):// address.'); return; }
         insertIntoEditor(`<table border="0" cellspacing="0" cellpadding="0" style="margin:20px auto;"><tr>` +
             `<td align="center" bgcolor="#3d6263" style="border-radius:9px;">` +

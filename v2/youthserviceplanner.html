@@ -485,7 +485,7 @@ window.searchSong = async (input, id) => {
             <div class="p-3 text-[11px] flex gap-3 flex-wrap bg-white">
                 <a href="https://songselect.ccli.com/search/results?search=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">🔎 SongSelect</a>
                 <a href="https://www.youtube.com/results?search_query=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">▶ YouTube</a>
-                <a href="https://esherchurch.github.io/availability-form/music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">➕ Upload Song</a>
+                <a href="music-uploader.html?title=${encoded}" target="_blank" class="text-[#3d6263] hover:underline">➕ Upload Song</a>
             </div>
         `;
         box.classList.remove('hidden');
@@ -785,7 +785,7 @@ async function saveSongSummaryToFirestore(date) {
     await setDoc(doc(db, "songSummaries", date), {
         date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString()
     });
-    return `https://esherchurch.github.io/availability-form/song-summary.html?date=${date}`;
+    return `song-summary.html?date=${date}`;
 }
 
 window.emailSchedule = async () => {
@@ -1028,7 +1028,7 @@ window.emailSchedule = async () => {
 
 <!-- Discrete help button -->
 <a id="helpBtn"
-   href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html"
+   href="Serviceplannerinstructions.html"
    target="_blank"
    rel="noopener"
    aria-label="Open instructions">?</a>
@@ -1063,7 +1063,7 @@ window.emailSchedule = async () => {
             <div class="flex gap-2">
                 <button id="addSongBtn" onclick="addSong()" class="btn-secondary text-sm !py-2">+ Add Song</button>
                 <button id="addItemBtn" onclick="addItem()" class="btn-secondary text-sm !py-2">+ Add Item</button>
-                <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">Songs Database</a>
+                <a href="sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">Songs Database</a>
             </div>
         </div>
         <div id="service-order" class="space-y-2"></div>

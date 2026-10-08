@@ -358,7 +358,7 @@ window.keyChanged = async (id) => {
         html += `<div class="mt-3 p-3 bg-[#f0f6f6] rounded-xl border border-dashed border-[#3d6263]">`;
         html += `<div class="text-[10px] font-semibold uppercase tracking-widest text-[#3d6263] opacity-60 mb-2">&#9654; Play Through Videos</div>`;
         ptMatches.forEach(pt => {
-            const ptUrl = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle || pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+            const ptUrl = `EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle || pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
             const inst = pt.instrument ? ` (${pt.instrument})` : '';
             html += `<div class="mb-1.5"><a href="${ptUrl}" target="_blank" class="inline-flex items-center gap-2 text-[11px] bg-[#3d6263] text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90">&#9654; How we play ${pt.ourKey}${inst}</a></div>`;
         });
@@ -550,7 +550,7 @@ async function saveSongSummaryToFirestore(date) {
         }
     }
     await setDoc(doc(db, "songSummaries", date), { date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString() });
-    return `https://esherchurch.github.io/availability-form/song-summary.html?date=${date}`;
+    return `song-summary.html?date=${date}`;
 }
 
 window.emailSchedule = async () => {
@@ -634,7 +634,7 @@ window.emailSchedule = async () => {
             if (ptEmailMatches.length > 0) {
                 resourcesHtml += `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #d1dfdf;"><div style="font-size:13px; color:#3d6263; font-weight:bold; margin-bottom:4px; text-transform:none;">&#9654; Play Through</div>`;
                 ptEmailMatches.forEach(pt => {
-                    const ptUrl = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle || pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+                    const ptUrl = `EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle || pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
                     const inst = pt.instrument ? ` (${pt.instrument})` : '';
                     resourcesHtml += `<div style="margin-top:3px;"><a href="${ptUrl}" style="color:#3d6263; text-decoration:underline; font-size:13px; font-weight:600;"><font color="#3d6263">&#9654; How we play ${pt.ourKey}${inst}</font></a></div>`;
                 });
@@ -751,7 +751,7 @@ window.emailSchedule = async () => {
         <div style="margin-top:12px; text-align:center;"><button id="modalCancelBtn" style="font-size:12px; font-weight:500; color:#aaa; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button></div>
     </div>
 </div>
-<a id="helpBtn" href="https://esherchurch.github.io/availability-form/Serviceplannerinstructions.html" target="_blank" rel="noopener" aria-label="Open instructions">?</a>
+<a id="helpBtn" href="Serviceplannerinstructions.html" target="_blank" rel="noopener" aria-label="Open instructions">?</a>
 <div class="max-w-[1200px] mx-auto space-y-10">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-white p-8 rounded-[14px] shadow-sm border border-[#e5e7eb]">
         <div class="flex items-center gap-6">
@@ -787,7 +787,7 @@ window.emailSchedule = async () => {
             <div class="flex gap-2">
                 <button onclick="addSong()" class="btn-secondary text-sm !py-2">+ Add Song</button>
                 <button onclick="addItem()" class="btn-secondary text-sm !py-2">+ Add Item</button>
-                <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">songs database viewer</a>
+                <a href="sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">songs database viewer</a>
             </div>
         </div>
         <div id="service-order" class="space-y-2"></div>

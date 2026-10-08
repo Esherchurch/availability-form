@@ -644,7 +644,7 @@ select.sp-input { appearance: none; cursor: pointer; }
       <div class="sp-btn-row">
         <button class="sp-btn" onclick="spAddSong()">+ Song</button>
         <button class="sp-btn" onclick="spAddItem()">+ Item</button>
-        <a href="https://esherchurch.github.io/availability-form/sundayplannersonglibrary.html" target="_blank" class="sp-btn">Songs DB</a>
+        <a href="sundayplannersonglibrary.html" target="_blank" class="sp-btn">Songs DB</a>
       </div>
     </div>
 
@@ -1673,7 +1673,7 @@ async function loadSongInfoPanel(title, keys) {
           <div style="font-size:13px;font-weight:600;color:var(--teal);text-transform:none;letter-spacing:normal;margin-bottom:8px;"><i data-lucide="play" style="width:14px;height:14px"></i> Play Through Videos</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">`;
         ptMatches.forEach(pt => {
-          const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+          const url = `EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
           const lbl = pt.instrument ? `${pt.ourKey} (${pt.instrument})` : pt.ourKey;
           html += `<a href="${url}" target="_blank" style="display:inline-flex;padding:7px 14px;border-radius:8px;background:#7c3aed;color:white;font-size:13px;font-weight:600;text-decoration:none;"><i data-lucide="play" style="width:14px;height:14px"></i> ${lbl}</a>`;
         });
@@ -2949,7 +2949,7 @@ window.gatherTermAvailability = async () => {
         <div style="font-size:14px;color:#14201f;line-height:1.9">${dates.map(fmt).join(' &middot; ')}</div>
       </div>
       <p style="text-align:center;margin:24px 0">
-        <a href="https://esherchurch.github.io/availability-form/" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;text-decoration:none">Fill in your availability</a>
+        <a href="https://esherchurch.github.io/availability-form/v2/" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;text-decoration:none">Fill in your availability</a>
       </p>
       <p style="font-size:13px;color:#6b8281;line-height:1.6">One form covers everything you are on - worship, AV, Kids Church - so you only need to do this once.</p>
     </div>`;

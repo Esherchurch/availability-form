@@ -1340,7 +1340,7 @@ function renderContent(s, allFiles, youtubeUrl, ptMatches, roleNotes, lastNotes,
   if (!pm) {
     if (youtubeUrl) row1 += `<button class="action-btn btn-yt" onclick="forceExternalYT('${youtubeUrl}')">▶ YouTube</button>`;
     ptMatches.forEach(pt => {
-      const url = `https://esherchurch.github.io/availability-form/EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
+      const url = `EGBC-PlayThrough.html?song=${encodeURIComponent(pt.songTitle||pt.title)}&key=${encodeURIComponent(pt.ourKey)}`;
       const lbl = pt.instrument ? `▶ ${pt.ourKey} (${pt.instrument})` : `▶ ${pt.ourKey}`;
       row1 += `<button class="action-btn btn-pt" onclick="openPDF('${url}')">${lbl}</button>`;
     });

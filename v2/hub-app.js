@@ -1860,6 +1860,143 @@ function visibleTools() {
   });
 }
 
+/* ---- My calendar (Step R) ------------------------------------------
+   The rota, in a person's own calendar, kept up to date without another
+   email. The link carries a long random key, which is the whole of what
+   protects it - a calendar app cannot sign in - so this treats it as a
+   password: it is fetched only when asked for, never put in the page source,
+   and "Reset my calendar link" stops the old one working that moment.
+
+   The link and the reset both come from the myCalendarLink function. The page
+   never invents the key: if it could, it could point a key at somebody else.
+*/
+const FEED_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  ? 'http://localhost:5101/egbc-worship-planner/europe-west2/rotaFeed'
+  : 'https://europe-west2-egbc-worship-planner.cloudfunctions.net/rotaFeed';
+
+function renderCalendarRow() {
+  const el = document.getElementById('panelCalendar');
+  if (!el) return;
+  /* Only somebody on a team has a rota to put in a calendar. EGBCAuth has no
+     isActive(); the status lives on the profile, and that is what the rules
+     read too. */
+  const p = EGBCAuth.profile && EGBCAuth.profile();
+  if (!EGBCAuth.user() || !p || p.status !== 'active' || !p.memberId) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `
+    <button class="switch-row" onclick="openMyCalendar()" style="width:100%">
+      <i data-lucide="calendar-plus" style="width:16px;height:16px;flex:none"></i>
+      <span style="flex:1;text-align:left">
+        <span class="lbl">My rota</span><br>
+        <span class="val">In your own calendar</span>
+      </span>
+      <i data-lucide="chevron-right" style="width:15px;height:15px"></i>
+    </button>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
+window.openMyCalendar = async function () {
+  const box = document.getElementById('calendarModal');
+  if (box) box.classList.add('open');
+  const out = document.getElementById('calendarBody');
+  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Getting your link…</p>';
+  try {
+    const link = await askForCalendarLink(false);
+    showCalendarLink(link);
+  } catch (e) {
+    if (out) out.innerHTML = `<p style="font-size:13px;color:var(--danger)">${esc(calendarProblem(e))}</p>`;
+  }
+};
+
+/* What went wrong, in words. Firebase's own messages are things like
+   "internal" and "unauthenticated", which tell somebody standing in a church
+   hall nothing at all. */
+function calendarProblem(e) {
+  const code = String((e && e.code) || '').replace(/^functions\//, '');
+  if (code === 'unauthenticated') return 'Sign in again and then try this.';
+  if (code === 'permission-denied') return 'Only someone on a team has a rota to put in a calendar.';
+  if (code === 'failed-precondition') return (e && e.message) ||
+    'Your account is not linked to the address book yet, so there is no rota to show.';
+  return 'Could not get your link just now. Try again in a moment.';
+}
+
+async function askForCalendarLink(reset) {
+  const fns = firebase.app
+    ? firebase.functions && firebase.functions(EGBCAuth.app)
+    : null;
+  if (!fns) throw new Error('The calendar service is not loaded on this page.');
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    try { fns.useEmulator('localhost', 5101); } catch (e) { /* already pointed there */ }
+  }
+  const res = await fns.httpsCallable('myCalendarLink')({ reset: !!reset });
+  const key = res && res.data && res.data.key;
+  if (!key) throw new Error('No link came back.');
+  return FEED_BASE + '?k=' + encodeURIComponent(key);
+}
+
+function showCalendarLink(url) {
+  const out = document.getElementById('calendarBody');
+  if (!out) return;
+  /* webcal:// is what makes Apple and Outlook offer to subscribe rather than
+     download the file once. Google wants the https address. */
+  const webcal = url.replace(/^https?:\/\//, 'webcal://');
+  const google = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal);
+  out.innerHTML = `
+    <p style="font-size:13px;color:var(--body);line-height:1.6;margin-bottom:14px">
+      Add this once and your rota stays in your calendar. When the rota changes,
+      your calendar follows, with no new email. It shows <strong>your</strong>
+      slots only &mdash; nobody else's name is in it.
+    </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <a class="btn" href="${esc(google)}" target="_blank" rel="noopener"
+         style="display:inline-flex;align-items:center;gap:6px"><i data-lucide="calendar" style="width:16px;height:16px"></i> Google Calendar</a>
+      <a class="btn" href="${esc(webcal)}"
+         style="display:inline-flex;align-items:center;gap:6px"><i data-lucide="apple" style="width:16px;height:16px"></i> Apple Calendar</a>
+      <a class="btn" href="${esc(webcal)}"
+         style="display:inline-flex;align-items:center;gap:6px"><i data-lucide="mail" style="width:16px;height:16px"></i> Outlook</a>
+    </div>
+    <label style="font-size:12px;color:var(--muted)">Or copy the address</label>
+    <div style="display:flex;gap:8px;margin:6px 0 16px">
+      <input id="calendarUrl" readonly value="${esc(url)}"
+             style="flex:1;font-size:12px;padding:8px 10px;border:1px solid var(--hairline-strong);border-radius:8px">
+      <button class="btn" onclick="copyCalendarUrl()">Copy</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);line-height:1.6">
+      Treat this address like a password: anyone who has it can see your rota.
+      If it gets out, reset it.
+    </p>
+    <button class="btn" onclick="resetMyCalendar()"
+            style="margin-top:10px;color:var(--danger);display:inline-flex;align-items:center;gap:6px">
+      <i data-lucide="rotate-ccw" style="width:16px;height:16px"></i> Reset my calendar link
+    </button>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
+window.copyCalendarUrl = function () {
+  const i = document.getElementById('calendarUrl');
+  if (!i) return;
+  i.select();
+  navigator.clipboard.writeText(i.value).catch(() => document.execCommand('copy'));
+};
+
+window.resetMyCalendar = async function () {
+  /* Said plainly, because no server can reach into somebody's phone: the old
+     address stops working at once, but entries already downloaded stay until
+     they remove the old subscription themselves. */
+  if (!confirm('Reset your calendar link?\n\nThe old address stops working straight away. ' +
+               'Anything already in your calendar from it stays there until you remove that ' +
+               'subscription on your phone or computer, and you add the new one.')) return;
+  const out = document.getElementById('calendarBody');
+  if (out) out.innerHTML = '<p style="font-size:13px;color:var(--muted)">Making a new link…</p>';
+  try {
+    showCalendarLink(await askForCalendarLink(true));
+  } catch (e) {
+    if (out) out.innerHTML = `<p style="font-size:13px;color:var(--danger)">${esc(calendarProblem(e))}</p>`;
+  }
+};
+
 function renderTools() {
   const el = document.getElementById('toolList');
   if (!el) return;
@@ -1884,6 +2021,8 @@ function renderTools() {
 
   const bd = document.getElementById('panelBuild');
   if (bd) bd.textContent = `build ${HUB_BUILD}`;
+
+  renderCalendarRow();
 
   const q = (document.getElementById('toolSearch').value || '').toLowerCase();
 
@@ -2606,7 +2745,7 @@ function codeEmail(name,code,parentName){
       <div style="font-size:26px;font-weight:900;letter-spacing:5px;color:#14201f">${code}</div>
     </div>
     <p style="text-align:center;margin:24px 0">
-      <a href="https://esherchurch.github.io/availability-form/youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:999px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;text-decoration:none">Enter the code</a>
+      <a href="https://esherchurch.github.io/availability-form/v2/youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:999px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;text-decoration:none">Enter the code</a>
     </p>
     <p style="font-size:13px;color:#6b8281;line-height:1.6">Please pass this to ${esc(name)} rather than forwarding the email. If you would rather they did not have access, simply do not use it - and let us know.</p>
     <p style="font-size:12px;color:#93a8a6;line-height:1.6;margin-top:24px;border-top:1px solid #dde7e6;padding-top:16px">Sent by the youth team at Esher Green Baptist Church.</p>
