@@ -14,7 +14,8 @@
      answer (sensitiveResponses). A child carries only "has allergies" and
      "has medical needs" flags, and a pointer to that private half, which
      the children's team may open.
-   - CHECK-IN (stage 2) IS E1's check-in, a session per group per Sunday.
+   - CHECK-IN (stage 2) IS E1's check-in, a session per group per Sunday
+     (sessionId below; the writes are in egbc-events-checkin.js).
 
    Nothing here reads or writes the database.
    =================================================================== */
@@ -106,7 +107,76 @@
   /* Is a child's consent in date on a day? */
   function consentOk(child, day) { return !!child.consentUntil && child.consentUntil >= String(day).slice(0, 10); }
 
+  /* ---- Sunday check-in (stage 2) ----
+     A session is one group on one day, and it is E1's check-in: its
+     calEventId is "kids_<groupId>_<YYYY-MM-DD>" and each child is one
+     check-in record, id "<session>__<childId>__0" (the rules insist). */
+  function sessionId(groupId, day) { return 'kids_' + groupId + '_' + String(day).slice(0, 10); }
+  function checkinIdFor(childId, groupId, day) { return sessionId(groupId, day) + '__' + childId + '__0'; }
+
+  /* The collection code: four characters, the same on every one of a
+     family's labels that morning and on the parent's slip. Anyone may
+     collect with it; without it, only someone on the child's list. */
+  function pickupCode(rand) {
+    var a = rand || (global.crypto && global.crypto.getRandomValues ? global.crypto.getRandomValues(new Uint8Array(4)) : null), out = '';
+    for (var i = 0; i < 4; i++) out += ALPHA[(a ? a[i] : Math.floor(Math.random() * 256)) % ALPHA.length];
+    return out;
+  }
+  /* A typed code: capitals, no spaces or dashes. (Codes never use 0, O, 1, I or L.) */
+  function cleanCode(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+  /* The family's QR code says only this: no name, nothing else. Shown on the
+     parent's slip, it finds the family at the desk next week. */
+  var QR_PREFIX = 'EGBCK1';
+  function familyQR(code) { return QR_PREFIX + '|' + code; }
+  function parseFamilyQR(text) {
+    var p = String(text || '').trim().split('|');
+    return p.length === 2 && p[0] === QR_PREFIX && /^[A-Z2-9]{6}$/.test(p[1]) ? p[1] : '';
+  }
+
+  function digits(s) { return String(s || '').replace(/\D/g, '').replace(/^44/, '0'); }
+
+  /* Families at the desk: by a child's or parent's name, the parent's phone
+     (any 4 or more digits of it), or the family code (typed or scanned).
+     Returns [{ familyId, parentName, phone, familyCode, children: [...] }]. */
+  function findFamilies(children, q) {
+    var code = parseFamilyQR(q) || (/^[A-Za-z2-9]{6}$/.test(String(q || '').trim()) ? String(q).trim().toUpperCase() : '');
+    var n = norm(q), d = digits(q), fams = {}, order = [];
+    if (!n && !code) return [];
+    (children || []).forEach(function (c) {
+      if (c.status === 'left') return;
+      var hit = (code && c.familyCode === code) || (n.length >= 2 && (norm(c.name).indexOf(n) >= 0 || norm(c.parentName).indexOf(n) >= 0)) ||
+                (d.length >= 4 && digits(c.phone).indexOf(d) >= 0);
+      if (hit && !fams[c.familyId]) { fams[c.familyId] = { familyId: c.familyId, parentName: c.parentName || '', phone: c.phone || '', familyCode: c.familyCode || '', children: [] }; order.push(c.familyId); }
+    });
+    (children || []).forEach(function (c) { if (fams[c.familyId] && c.status !== 'left') fams[c.familyId].children.push(c); });
+    return order.map(function (id) { fams[id].children.sort(function (a, b) { return a.name.localeCompare(b.name); }); return fams[id]; });
+  }
+
+  /* Is this the person named on the child's list? (The rules check the
+     very same: the name exactly as written there.) */
+  function listedCollector(child, name) {
+    return (child.collectors || []).filter(function (c) { return norm(c) === norm(name); })[0] || '';
+  }
+
+  /* Leaders needed for a number of children at a group's ratio. */
+  function leadersNeeded(children, ratio) { return children > 0 ? Math.ceil(children / Math.max(1, ratio || 8)) : 0; }
+
+  /* The first-time visitor's quick form, checked before anything is written. */
+  function visitorProblems(v) {
+    var out = [];
+    if (!String(v.childName || '').trim()) out.push("the child's name");
+    if (!v.year) out.push('their school year');
+    if (!String(v.parentName || '').trim()) out.push("the parent's name");
+    if (digits(v.phone).length < 10) out.push("the parent's phone number");
+    if (v.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.email)) out.push('an email address that works (or none)');
+    if (!v.consent) out.push('the parent\'s consent');
+    return out;
+  }
+
   global.EGBCKids = { YEARS: YEARS, DAYS: DAYS, norm: norm, meaningful: meaningful, splitNames: splitNames, ageOn: ageOn, yearFor: yearFor,
-    groupFor: groupFor, familyCode: familyCode, fromResponse: fromResponse, consentOk: consentOk };
+    groupFor: groupFor, familyCode: familyCode, fromResponse: fromResponse, consentOk: consentOk,
+    sessionId: sessionId, checkinIdFor: checkinIdFor, pickupCode: pickupCode, cleanCode: cleanCode, familyQR: familyQR, parseFamilyQR: parseFamilyQR,
+    digits: digits, findFamilies: findFamilies, listedCollector: listedCollector, leadersNeeded: leadersNeeded, visitorProblems: visitorProblems };
 
 })(typeof window !== 'undefined' ? window : this);

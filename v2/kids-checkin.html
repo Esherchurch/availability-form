@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sunday check-in</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Sunday check-in"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-guard.js?v=202610062100"></script>
+<script src="egbc-email.js?v=202610081729"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-forms.js?v=202610081500"></script>
+<script src="egbc-events-kids.js?v=202610082100"></script>
+<script src="egbc-events-checkin.js?v=202610082100"></script>
+<script src="egbc-events-qr.js?v=202610080900"></script>
+<script src="egbc-events-scan.js?v=202610082100"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .inp,select,textarea{border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff;width:100%}
+  .inp,select{height:40px} textarea{padding:8px 12px;min-height:60px}
+  .big{height:52px;font-size:18px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)} .btn.sec:hover{background:#f3f4f6}
+  .btn.tall{height:48px;font-size:16px;padding:0 20px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tab{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line-2);background:#fff;font:500 13px Inter,sans-serif;color:var(--body);cursor:pointer}
+  .tab.on{background:var(--tint);border-color:var(--brand);color:var(--ink)}
+  .hint{font-size:13px;color:var(--muted)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}.row .f{min-width:160px;flex:1}
+  .kid{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+  .kid:first-child{border-top:none}.kid .t{flex:1;min-width:180px}.kid .t b{color:var(--ink)}
+  .kid input[type=checkbox]{width:24px;height:24px}
+  .pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;margin:2px 4px 2px 0;background:#f3f4f6}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.wait{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}
+  .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
+  .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  dl{display:grid;grid-template-columns:120px 1fr;gap:4px 10px;margin:8px 0;font-size:13px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+  .two{display:flex;gap:10px;flex-wrap:wrap}.two>div{flex:1;min-width:140px}
+  .ck{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:14px}
+  .ck input{margin-top:3px}
+  .count{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .count div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:110px}
+  .count b{display:block;font-size:22px;color:var(--ink)}
+  video{width:100%;max-width:420px;border-radius:10px;background:#000;display:block;margin:8px 0}
+  /* labels: one per child, and the parent's slip */
+  #labels{display:flex;flex-wrap:wrap;gap:10px}
+  .label{width:260px;border:2px solid var(--ink);border-radius:10px;padding:10px 12px;background:#fff}
+  .label .n{font-size:20px;font-weight:700;color:var(--ink);line-height:1.2}
+  .label .g{font-size:13px;color:var(--body)}
+  .label .code{font:700 22px ui-monospace,Menlo,monospace;letter-spacing:3px;color:var(--ink);margin-top:6px}
+  .label .flag{display:inline-block;background:var(--danger);color:#fff;font-weight:700;font-size:13px;border-radius:6px;padding:2px 8px;margin-top:6px}
+  .label.slip{border-style:dashed}
+  .label .qr{width:110px;height:110px;margin-top:6px}
+  .page-call{font-size:22px;font-weight:700;color:var(--ink)}
+  #back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 12px;z-index:80;overflow:auto}
+  #modal{background:#fff;border-radius:14px;max-width:480px;width:100%;padding:18px}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+  @media print{
+    body{background:#fff}
+    body *{visibility:hidden}
+    #labels,#labels *{visibility:visible}
+    #labels{position:absolute;left:0;top:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sunday check-in</h1>
+  <p class="sub">Children into their groups, labels with a collection code, and home again only with someone on their list or with that code.</p>
+  <div id="main"><div class="card hint">Loading…</div></div>
+</div>
+<div id="back"><div id="modal"></div></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  /* NEED TO KNOW (Martin, F-087), as the rules enforce it:
+     the LEADS (master admins, the safeguarding lead and deputy, admins of
+     the children's teams) run the desk and see every group; a GROUP'S
+     LEADERS see and check in their own group's children, and nothing else.
+     This is E1's check-in (the checkins collection), a session per group
+     per day; nothing here is a second check-in. */
+  var K = window.EGBCKids, C = window.EGBCCheckin, F = window.EGBCForms, E = window.EGBCEvents, QR = window.EGBCEventsQR;
+  var SITES = [], GROUPS = [], CHILDREN = [], CKS = {}, SETTINGS = {}, ME = {}, LEAD = false, MYGROUPS = [];
+  var V = { site: '', tab: '', q: '', group: '', labels: null, scanning: false, msg: '' }, UNSUB = [];
+  var DAY = C.today();
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 4000); }
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+  function group(id) { return GROUPS.filter(function (g) { return g.id === id; })[0] || null; }
+  function child(id) { return CHILDREN.filter(function (c) { return c.id === id; })[0] || null; }
+  function ckOf(c) { return c && c.groupId ? CKS[K.checkinIdFor(c.id, c.groupId, DAY)] || null : null; }
+  function time(iso) { return iso ? E.fmtTime(iso) : ''; }
+  function tel(p) { return String(p || '').replace(/[^\d+]/g, ''); }
+  function visibleGroups() { return LEAD ? GROUPS : GROUPS.filter(function (g) { return MYGROUPS.some(function (m) { return m.id === g.id; }); }); }
+  function openModal(html) { document.getElementById('modal').innerHTML = html; document.getElementById('back').style.display = 'flex'; }
+  function closeModal() { document.getElementById('back').style.display = 'none'; }
+  document.getElementById('back').onclick = function (e) { if (e.target.id === 'back') closeModal(); };
+  function noAccess() {
+    document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team leads and each group\'s leaders. If you lead a children\'s group, ask a lead to add you to it on the Children\'s register.</div>';
+  }
+
+  /* ---- load: the leads read the site; a group leader reads their groups ---- */
+  function load() {
+    UNSUB.forEach(function (u) { u(); }); UNSUB = []; CKS = {};
+    var site = V.site, mine = MYGROUPS.filter(function (g) { return g.siteId === site; });
+    var kids = LEAD ? db().collection('kidsChildren').where('siteId', '==', site).get().then(all)
+      : Promise.all(mine.map(function (g) { return db().collection('kidsChildren').where('groupId', '==', g.id).get().then(all); }))
+          .then(function (l) { return [].concat.apply([], l); });
+    return Promise.all([db().collection('kidsGroups').where('siteId', '==', site).get(), kids]).then(function (r) {
+      GROUPS = all(r[0]).filter(function (g) { return g.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      CHILDREN = r[1].filter(function (c) { return c.status !== 'left'; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      if (!V.tab) V.tab = LEAD ? 'desk' : 'groups';
+      if (!V.group || !visibleGroups().some(function (g) { return g.id === V.group; })) V.group = (visibleGroups()[0] || {}).id || '';
+      /* Today's check-ins, live: by site for the leads, by group for a leader. */
+      var queries = LEAD ? [db().collection('checkins').where('siteId', '==', site).where('day', '==', DAY)]
+        : mine.map(function (g) { return db().collection('checkins').where('groupId', '==', g.id).where('day', '==', DAY); });
+      queries.forEach(function (q) {
+        UNSUB.push(q.onSnapshot(function (snap) {
+          snap.docChanges().forEach(function (ch) { if (ch.type === 'removed') delete CKS[ch.doc.id]; else CKS[ch.doc.id] = Object.assign({ id: ch.doc.id }, ch.doc.data()); });
+          refresh();
+        }, function (e) { toast('Could not load today\'s check-ins: ' + (e.message || e)); }));
+      });
+      draw();
+    });
+  }
+
+  function draw() {
+    var tabs = LEAD ? [['desk', 'Desk'], ['visitor', 'First time here'], ['groups', 'Groups']] : [['groups', 'Your group' + (MYGROUPS.length > 1 ? 's' : '')]];
+    document.getElementById('main').innerHTML =
+      (SITES.length > 1 ? '<div class="row"><div class="f"><label class="l" for="k-site">Site</label><select id="k-site">' + SITES.map(function (s) {
+        return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div></div>' : '') +
+      '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
+      (LEAD ? '<a class="btn sec" href="kids-admin.html" style="margin-left:auto">Children\'s register</a>' : '') + '</div>' +
+      '<div id="body"></div>';
+    var ks = document.getElementById('k-site'); if (ks) ks.onchange = function () { V.site = this.value; start(); };
+    document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { stopScan(); V.tab = b.dataset.tab; V.labels = null; draw(); }; });
+    var el = document.getElementById('body');
+    if (V.tab === 'visitor') return drawVisitor(el);
+    if (V.tab === 'groups') return drawGroup(el);
+    drawDesk(el);
+  }
+  /* A check-in changed: redraw the part that shows it, not the search box. */
+  function refresh() {
+    if (V.tab === 'desk') drawResults();
+    else if (V.tab === 'groups') drawGroupBody();
+  }
+
+  function pills(c) {
+    var f = c.flags || null;
+    return (f ? (f.allergies ? '<span class="pill no">Allergies</span>' : '') + (f.medical ? '<span class="pill no">Medical</span>' : '') : '<span class="pill wait">Medical not checked</span>') +
+      (c.status === 'visitor' ? '<span class="pill wait">Visitor</span>' : '') +
+      (K.consentOk(c, DAY) ? '' : '<span class="pill no">Consent ' + (c.consentUntil ? 'ran out' : 'missing') + '</span>');
+  }
+
+  /* ================= the desk (the leads) ================= */
+  function drawDesk(el) {
+    el.innerHTML = '<div class="card"><label class="l" for="d-q">Find the family</label>' +
+      '<div class="two"><div style="flex:3 1 200px"><input class="inp big" id="d-q" value="' + esc(V.q) + '" placeholder="A name, the parent\'s phone, or the family code" autocomplete="off"></div>' +
+      '<div style="flex:1 1 150px"><button class="btn sec tall" id="d-scan" style="width:100%">' + (V.scanning ? 'Stop the camera' : 'Scan their code') + '</button></div></div>' +
+      (V.scanning ? '<video id="vid" playsinline muted></video>' : '') +
+      '<div id="d-msg">' + V.msg + '</div></div><div id="d-results"></div><div id="d-labels"></div>';
+    var q = document.getElementById('d-q');
+    q.oninput = function () { V.q = this.value; V.msg = ''; V.labels = null; drawResults(); };
+    /* A hand-held scanner types the code and presses Enter. */
+    q.onkeydown = function (e) { if (e.key === 'Enter') { var code = K.parseFamilyQR(this.value); if (code) { V.q = code; this.value = code; drawResults(); } } };
+    document.getElementById('d-scan').onclick = function () { V.scanning ? stopScan() : startScan(); };
+    if (V.scanning) EGBCScan.start(document.getElementById('vid'), onScan).catch(function (e) { V.scanning = false; toast((e.message || e) + ' Search by name instead.'); drawDesk(el); });
+    if (!V.q) q.focus();
+    drawResults();
+  }
+  function startScan() { V.scanning = true; drawDesk(document.getElementById('body')); }
+  function stopScan() { if (V.scanning) { EGBCScan.stop(); V.scanning = false; if (V.tab === 'desk' && document.getElementById('d-q')) drawDesk(document.getElementById('body')); } }
+  function onScan(text) {
+    var code = K.parseFamilyQR(text);
+    if (!code) { V.msg = '<div class="st wait">That is not a family code from this page.</div>'; document.getElementById('d-msg').innerHTML = V.msg; return; }
+    V.q = code; document.getElementById('d-q').value = code; V.msg = ''; document.getElementById('d-msg').innerHTML = '';
+    drawResults();
+  }
+  window.__kidsScan = onScan;
+
+  function drawResults() {
+    var box = document.getElementById('d-results'); if (!box) return;
+    var fams = K.findFamilies(CHILDREN, V.q);
+    if (!String(V.q).trim()) { box.innerHTML = ''; drawLabels(); return; }
+    box.innerHTML = fams.length ? fams.slice(0, 8).map(function (f) {
+      return '<div class="card" data-fam="' + esc(f.familyId) + '"><h2>' + esc(f.parentName) + ' <span class="hint">' + esc(f.phone) + '</span></h2>' +
+        f.children.map(function (c) {
+          var g = group(c.groupId), ck = ckOf(c), isIn = ck && ck.state === 'in';
+          return '<div class="kid" data-kid="' + esc(c.id) + '">' +
+            (isIn ? '<span class="pill ok">In</span>' : '<input type="checkbox" class="d-tick" value="' + esc(c.id) + '"' + (g ? ' checked' : ' disabled') + ' aria-label="' + esc(c.name) + ' is here">') +
+            '<div class="t"><b>' + esc(c.name) + '</b> <span class="hint">' + esc(g ? g.name : 'not in a group: a lead places them on the Children\'s register') + '</span><br>' + pills(c) +
+            (isIn ? '<br><span class="hint">In since ' + esc(time(ck.inAt)) + ' · collection code <b>' + esc(ck.pickupCode) + '</b></span>' : '') +
+            (ck && ck.state === 'out' ? '<br><span class="hint">Went home ' + esc(time(ck.outAt)) + ' with ' + esc(ck.collectedBy) + '</span>' : '') + '</div>' +
+            (isIn ? '<button class="btn sec" data-out="' + esc(ck.id) + '">Check out</button>' : '') + '</div>';
+        }).join('') +
+        (f.children.some(function (c) { var ck = ckOf(c); return group(c.groupId) && !(ck && ck.state === 'in'); })
+          ? '<div style="margin-top:10px"><button class="btn tall" data-checkin="' + esc(f.familyId) + '">Check in</button></div>' : '') + '</div>';
+    }).join('') : '<div class="card"><p class="hint">Nobody found. New here? Use <b>First time here</b>.</p></div>';
+    box.querySelectorAll('[data-checkin]').forEach(function (b) { b.onclick = function () { checkInFamily(b.dataset.checkin, b); }; });
+    box.querySelectorAll('[data-out]').forEach(function (b) { b.onclick = function () { checkOutBox(b.dataset.out); }; });
+    drawLabels();
+  }
+
+  /* One collection code per family per morning: a brother checked in later
+     gets the same code as his sister. */
+  function familyCodeToday(familyId) {
+    var ck = Object.keys(CKS).map(function (k) { return CKS[k]; }).filter(function (x) { return x.familyId === familyId && x.day === DAY; })[0];
+    return ck ? ck.pickupCode : K.pickupCode();
+  }
+  function checkInFamily(familyId, btn) {
+    var ids = [].slice.call(document.querySelectorAll('[data-fam="' + familyId + '"] .d-tick:checked')).map(function (x) { return x.value; });
+    if (!ids.length) { toast('Tick the children who are here'); return; }
+    btn.disabled = true;
+    var code = familyCodeToday(familyId);
+    Promise.all(ids.map(function (id) {
+      var c = child(id), g = group(c.groupId), ck = ckOf(c);
+      return C.kidsIn(c, g, DAY, ck ? ck.pickupCode : code, ck);
+    })).then(function () {
+      V.labels = { familyId: familyId, ids: ids, code: code };
+      toast('Checked in: ' + ids.length);
+      drawResults();
+    }).catch(function (e) { btn.disabled = false; toast('Could not check in: ' + (e.message || e)); });
+  }
+
+  /* ---- labels: one per child, and the parent's slip ---- */
+  function labelsHtml(lb) {
+    var kids = lb.ids.map(child).filter(Boolean), first = kids[0] || {};
+    var codeFor = function (c) { var ck = ckOf(c); return ck ? ck.pickupCode : lb.code; };
+    return kids.map(function (c) {
+      var g = group(c.groupId);
+      return '<div class="label" data-label="' + esc(c.id) + '"><div class="n">' + esc(c.name) + '</div><div class="g">' + esc(g ? g.name : '') + ' · ' + esc(E.fmtDateShort(DAY + 'T12:00')) + '</div>' +
+        ((c.flags || {}).allergies ? '<div class="flag">ALLERGY: ask a leader</div>' : '') +
+        '<div class="code">' + esc(codeFor(c)) + '</div></div>';
+    }).join('') +
+      '<div class="label slip" data-slip="1"><div class="g">For the parent: show this to collect</div><div class="code">' + esc(codeFor(first)) + '</div>' +
+      '<div class="g">' + esc(kids.map(function (c) { return c.name; }).join(', ')) + '</div>' +
+      (first.familyCode ? '<div class="qr">' + QR.svg(K.familyQR(first.familyCode), 110) + '</div><div class="g">Your family code ' + esc(first.familyCode) + ': show it at the desk next week</div>' : '') + '</div>';
+  }
+  function drawLabels() {
+    var box = document.getElementById('d-labels') || document.getElementById('v-labels'); if (!box) return;
+    if (!V.labels) { box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="card"><h2>Labels</h2><p class="hint">Print them, or show the screen: each child wears theirs; the parent keeps the slip with the code.</p>' +
+      '<div id="labels">' + labelsHtml(V.labels) + '</div><div style="margin-top:10px"><button class="btn sec" id="l-print">Print the labels</button></div></div>';
+    document.getElementById('l-print').onclick = function () { window.print(); };
+  }
+
+  /* ---- check-out: someone on the list, or the code ---- */
+  function checkOutBox(ckId) {
+    var ck = CKS[ckId], c = child(ck.signupKey) || { name: ck.name, collectors: [] };
+    openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">' + esc(c.name) + ' is going home</h2>' +
+      '<p class="hint">With someone on their list, or with the collection code from the parent\'s slip. Nobody else: if a parent has asked for someone new, a lead adds them on the Children\'s register first.</p>' +
+      '<div id="o-list">' + (c.collectors || []).map(function (n, i) {
+        return '<label class="ck"><input type="radio" name="o-who" value="' + esc(n) + '"' + (i === 0 ? '' : '') + '> ' + esc(n) + '</label>'; }).join('') +
+      '<label class="ck"><input type="radio" name="o-who" value="__code"> Someone else, with the collection code</label></div>' +
+      '<div id="o-other" style="display:none"><div class="two"><div><label class="l" for="o-name">Their name</label><input class="inp" id="o-name" maxlength="120"></div>' +
+      '<div><label class="l" for="o-code">The code on their slip</label><input class="inp" id="o-code" maxlength="8" autocomplete="off" style="text-transform:uppercase"></div></div></div>' +
+      '<div id="o-err"></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn" id="o-go">Check out</button><button class="btn sec" id="o-cancel">Cancel</button></div>');
+    document.querySelectorAll('[name="o-who"]').forEach(function (r) { r.onchange = function () { document.getElementById('o-other').style.display = r.value === '__code' && r.checked ? 'block' : 'none'; }; });
+    document.getElementById('o-cancel').onclick = closeModal;
+    document.getElementById('o-go').onclick = function () {
+      var pick = document.querySelector('[name="o-who"]:checked'), err = document.getElementById('o-err');
+      if (!pick) { err.innerHTML = '<div class="st no">Choose who is collecting.</div>'; return; }
+      var o;
+      if (pick.value === '__code') {
+        var name = document.getElementById('o-name').value.trim(), code = K.cleanCode(document.getElementById('o-code').value);
+        if (!name) { err.innerHTML = '<div class="st no">Write their name.</div>'; return; }
+        if (code !== ck.pickupCode) { err.innerHTML = '<div class="st no" id="o-nomatch">That code does not match. Do not let ' + esc(c.name) + ' go: find a lead, and ring the parent.</div>'; return; }
+        o = { collectedBy: name, code: code };
+      } else o = { collectedBy: pick.value, listed: true };
+      this.disabled = true;
+      C.kidsOut(ck, o).then(function () { closeModal(); toast(c.name + ' has gone home with ' + o.collectedBy); })
+        .catch(function (e) { document.getElementById('o-go').disabled = false; err.innerHTML = '<div class="st no">Not allowed: ' + esc(e.message || e) + '</div>'; });
+    };
+  }
+
+  /* ================= first time here (the leads) ================= */
+  function kidRow(i) {
+    return '<div class="v-kid card" style="padding:12px" data-vk="' + i + '"><div class="two"><div><label class="l" for="v-child-' + i + '">Child\'s name</label><input class="inp v-child" id="v-child-' + i + '" maxlength="120"></div>' +
+      '<div><label class="l" for="v-year-' + i + '">School year</label><select class="v-year" id="v-year-' + i + '"><option value="">Choose…</option>' +
+      K.YEARS.map(function (y) { var g = GROUPS.filter(function (x) { return (x.years || []).indexOf(y) >= 0; })[0]; return '<option value="' + esc(y) + '">' + esc(y) + (g ? ' → ' + esc(g.name) : '') + '</option>'; }).join('') + '</select></div></div>' +
+      '<label class="l" for="v-allergy-' + i + '" style="margin-top:8px">Allergies or medical needs (leave empty if none)</label><textarea class="v-allergy" id="v-allergy-' + i + '" maxlength="500"></textarea></div>';
+  }
+  function drawVisitor(el) {
+    el.innerHTML = '<div class="card"><h2>A family who are new</h2><p class="hint">Enough to keep a child safe this morning. If you give their email, they get the full registration form to fill in at home.</p>' +
+      '<div id="v-kids">' + kidRow(0) + '</div><button class="btn sec" id="v-more">Add another child</button>' +
+      '<div class="two" style="margin-top:12px"><div><label class="l" for="v-parent">Parent or guardian</label><input class="inp" id="v-parent" maxlength="120"></div>' +
+      '<div><label class="l" for="v-phone">Their mobile number</label><input class="inp" id="v-phone" type="tel" maxlength="40"></div></div>' +
+      '<div style="margin-top:8px"><label class="l" for="v-email">Their email (for the full form)</label><input class="inp" id="v-email" type="email" maxlength="200"></div>' +
+      '<label class="ck"><input type="checkbox" id="v-consent"> I am their parent or guardian, and agree to them joining the group this morning.</label>' +
+      '<label class="ck"><input type="checkbox" id="v-firstaid"> Leaders may give basic first aid if needed.</label>' +
+      '<div id="v-err"></div><div style="margin-top:10px"><button class="btn tall" id="v-go">Check in</button></div></div><div id="v-labels"></div>';
+    var n = 1;
+    document.getElementById('v-more').onclick = function () { document.getElementById('v-kids').insertAdjacentHTML('beforeend', kidRow(n++)); };
+    document.getElementById('v-go').onclick = function () { addVisitor(this); };
+    drawLabels();
+  }
+  function addVisitor(btn) {
+    var kids = [].slice.call(document.querySelectorAll('.v-kid')).map(function (b) {
+      return { name: b.querySelector('.v-child').value.trim(), year: b.querySelector('.v-year').value, allergies: b.querySelector('.v-allergy').value.trim() };
+    }).filter(function (k, i) { return i === 0 || k.name; });
+    var v = { parentName: document.getElementById('v-parent').value.trim(), phone: document.getElementById('v-phone').value.trim(),
+      email: document.getElementById('v-email').value.trim().toLowerCase(), consent: document.getElementById('v-consent').checked, firstaid: document.getElementById('v-firstaid').checked };
+    var probs = [];
+    kids.forEach(function (k) { K.visitorProblems(Object.assign({}, v, { childName: k.name, year: k.year })).forEach(function (p) { if (probs.indexOf(p) < 0) probs.push(p); }); });
+    var err = document.getElementById('v-err');
+    if (probs.length) { err.innerHTML = '<div class="st no">Still needed: ' + esc(probs.join(', ')) + '.</div>'; return; }
+    err.innerHTML = ''; btn.disabled = true;
+    var now = new Date().toISOString(), famId = 'kf_' + E.key(14), famCode = K.familyCode(), batch = db().batch(), made = [];
+    var collectors = [v.parentName];
+    batch.set(db().collection('kidsFamilies').doc(famId), { siteId: V.site, parentName: v.parentName, phone: v.phone, email: v.email, emergency: '', collectors: collectors,
+      familyCode: famCode, responseIds: [], visitor: true, firstVisit: DAY, createdAt: now, updatedAt: now, updatedBy: uid() });
+    kids.forEach(function (k) {
+      var id = 'kc_' + E.key(14), c = { year: k.year, groupFixed: false };
+      var groupId = K.groupFor(c, GROUPS);
+      var d = { siteId: V.site, familyId: famId, name: k.name.slice(0, 120), dob: '', year: k.year, dietary: '', photo: false, firstaid: v.firstaid, alone: false,
+        flags: { allergies: K.meaningful(k.allergies), medical: false }, consentUntil: DAY, consentKind: 'door', responseId: '', groupId: groupId, groupFixed: false,
+        status: 'visitor', parentName: v.parentName, phone: v.phone, email: v.email, emergency: '', collectors: collectors, familyCode: famCode,
+        createdAt: now, updatedAt: now, updatedBy: uid() };
+      batch.set(db().collection('kidsChildren').doc(id), d);
+      batch.set(db().collection('kidsMedical').doc(id), { siteId: V.site, groupId: groupId, allergies: k.allergies.slice(0, 500), medical: '', medication: '', needs: '',
+        responseId: '', updatedAt: now, updatedBy: uid() });
+      made.push(Object.assign({ id: id }, d));
+    });
+    var code = K.pickupCode();
+    batch.commit().then(function () {
+      CHILDREN = CHILDREN.concat(made);
+      return Promise.all(made.filter(function (c) { return group(c.groupId); }).map(function (c) { return C.kidsIn(c, group(c.groupId), DAY, code, null); }));
+    }).then(function () {
+      V.labels = { familyId: famId, ids: made.map(function (c) { return c.id; }), code: code };
+      var unplaced = made.filter(function (c) { return !group(c.groupId); });
+      toast(unplaced.length ? 'Registered. ' + unplaced.map(function (c) { return c.name; }).join(', ') + ': no group for that school year; a lead places them.' : 'Checked in');
+      return sendFullForm(v, made);
+    }).then(function (sent) {
+      drawVisitor(document.getElementById('body'));
+      if (sent) document.getElementById('v-err').innerHTML = '<div class="st ok" id="v-sent">The full registration form is on its way to ' + esc(v.email) + '.</div>';
+    }).catch(function (e) { btn.disabled = false; err.innerHTML = '<div class="st no">Could not: ' + esc(e.message || e) + '</div>'; });
+  }
+  /* The full form, to fill in at home: the same registration form (E2) the
+     children's team sends from the register. */
+  function sendFullForm(v, kids) {
+    if (!v.email || !SETTINGS.formId) return Promise.resolve(false);
+    var key = E.key(32);
+    var req = { formId: SETTINGS.formId, formTitle: SETTINGS.formTitle || 'Children\'s registration', calEventId: '', eventTitle: '', eventStart: '', signupKey: '',
+      personKind: '', personId: '', name: v.parentName, email: v.email, subjects: kids.map(function (c) { return c.name; }), siteId: V.site, status: 'sent', reuseOf: '',
+      sentAt: new Date().toISOString(), reminders: [], createdBy: uid() };
+    return db().collection('formRequests').doc(key).set(req).then(function () { return EGBCChurch.send(F.requestEmail(Object.assign({ key: key }, req), false)); })
+      .then(function () { return true; }, function (e) { toast('Checked in, but the form could not be sent: ' + (e.message || e)); return false; });
+  }
+
+  /* ================= the leader screen, per group ================= */
+  function drawGroup(el) {
+    var gs = visibleGroups();
+    if (!gs.length) { el.innerHTML = '<div class="card hint">No groups yet.</div>'; return; }
+    el.innerHTML = (gs.length > 1 ? '<div class="row"><div class="f"><label class="l" for="g-pick">Group</label><select id="g-pick">' + gs.map(function (g) {
+      return '<option value="' + esc(g.id) + '"' + (g.id === V.group ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select></div></div>' : '') +
+      '<div id="g-body"></div>';
+    var gp = document.getElementById('g-pick'); if (gp) gp.onchange = function () { V.group = this.value; drawGroupBody(); };
+    drawGroupBody();
+  }
+  function drawGroupBody() {
+    var box = document.getElementById('g-body'); if (!box) return;
+    var g = group(V.group); if (!g) { box.innerHTML = ''; return; }
+    var kids = CHILDREN.filter(function (c) { return c.groupId === g.id; });
+    var ins = kids.filter(function (c) { var ck = ckOf(c); return ck && ck.state === 'in'; }), outs = kids.filter(function (c) { var ck = ckOf(c); return ck && ck.state === 'out'; });
+    var notYet = kids.filter(function (c) { return !ckOf(c); });
+    function row(c, kind) {
+      var ck = ckOf(c);
+      return '<div class="kid" data-gk="' + esc(c.id) + '"><div class="t"><b>' + esc(c.name) + '</b> ' + pills(c) + '<br><span class="hint">' +
+        (kind === 'in' ? 'In since ' + esc(time(ck.inAt)) : kind === 'out' ? 'Went home ' + esc(time(ck.outAt)) + ' with ' + esc(ck.collectedBy) : esc(c.parentName || '')) + '</span></div>' +
+        '<button class="btn sec" data-more="' + esc(c.id) + '">Details</button>' +
+        (kind === 'in' ? '<button class="btn sec" data-gout="' + esc(ck.id) + '">Check out</button>' : '') +
+        (kind === 'not' ? '<button class="btn" data-gin="' + esc(c.id) + '">Check in</button>' : '') + '</div>';
+    }
+    box.innerHTML = '<div class="count"><div><b id="g-in">' + ins.length + '</b><span class="hint">in now</span></div>' +
+      '<div><b>' + K.leadersNeeded(ins.length, g.ratio) + '</b><span class="hint">leaders needed (1 to ' + esc(g.ratio || '?') + ')</span></div>' +
+      '<div><b>' + outs.length + '</b><span class="hint">gone home</span></div></div>' +
+      '<div class="card" id="g-ins"><h2>In now</h2>' + (ins.length ? ins.map(function (c) { return row(c, 'in'); }).join('') : '<p class="hint">Nobody yet.</p>') + '</div>' +
+      '<div class="card" id="g-not"><h2>Not here yet</h2>' + (notYet.length ? notYet.map(function (c) { return row(c, 'not'); }).join('') : '<p class="hint">Everyone has come.</p>') + '</div>' +
+      (outs.length ? '<div class="card" id="g-outs"><h2>Gone home</h2>' + outs.map(function (c) { return row(c, 'out'); }).join('') + '</div>' : '');
+    box.querySelectorAll('[data-more]').forEach(function (b) { b.onclick = function () { details(child(b.dataset.more)); }; });
+    box.querySelectorAll('[data-gout]').forEach(function (b) { b.onclick = function () { checkOutBox(b.dataset.gout); }; });
+    box.querySelectorAll('[data-gin]').forEach(function (b) {
+      b.onclick = function () {
+        var c = child(b.dataset.gin); b.disabled = true;
+        var code = familyCodeToday(c.familyId);
+        C.kidsIn(c, g, DAY, code, null).then(function () {
+          openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">' + esc(c.name) + ' is in</h2><p class="hint">Their collection code is below. Give it to the parent, with the label.</p>' +
+            '<div id="labels">' + labelsHtml({ familyId: c.familyId, ids: [c.id], code: code }) + '</div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn sec" id="m-print">Print</button><button class="btn" id="m-done">Done</button></div>');
+          document.getElementById('m-print').onclick = function () { window.print(); };
+          document.getElementById('m-done').onclick = closeModal;
+        }).catch(function (e) { b.disabled = false; toast('Could not check in: ' + (e.message || e)); });
+      };
+    });
+  }
+  /* A child's details for the leader: medical, and the parent on tap. */
+  function details(c) {
+    openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">' + esc(c.name) + '</h2>' + pills(c) +
+      '<div id="m-med" class="st wait">Loading the medical details…</div>' +
+      '<dl><dt>Parent</dt><dd>' + esc(c.parentName || '') + '</dd><dt>Phone</dt><dd>' + (c.phone ? '<a href="tel:' + esc(tel(c.phone)) + '" style="color:var(--brand)">' + esc(c.phone) + '</a>' : 'none given') + '</dd>' +
+      '<dt>Emergency</dt><dd>' + esc(c.emergency || 'none given') + '</dd><dt>May collect</dt><dd>' + esc((c.collectors || []).join(', ')) + '</dd>' +
+      '<dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No: ring the parent') + '</dd><dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd></dl>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="m-page">Page a parent</button><button class="btn sec" id="m-close">Close</button></div><div id="m-pager"></div>');
+    document.getElementById('m-close').onclick = closeModal;
+    document.getElementById('m-page').onclick = function () {
+      document.getElementById('m-pager').innerHTML = '<div class="st wait" id="pager" style="margin-top:10px"><div class="hint">Call ' + esc(c.parentName || 'the parent') + ' to come to ' + esc((group(c.groupId) || {}).name || 'the group') + ':</div>' +
+        (c.phone ? '<a class="page-call" href="tel:' + esc(tel(c.phone)) + '">' + esc(c.phone) + '</a><div style="margin-top:8px"><a class="btn tall" href="tel:' + esc(tel(c.phone)) + '">Call now</a></div>' : '<div class="page-call">No phone number on their record</div>') +
+        '<div class="hint" style="margin-top:6px">A text message to the parent comes later.</div></div>';
+    };
+    db().collection('kidsMedical').doc(c.id).get().then(function (s) {
+      var m = s.exists ? s.data() : {};
+      document.getElementById('m-med').innerHTML = '<span data-med="' + esc(c.id) + '"><b>Allergies</b>: ' + esc(m.allergies || 'none given') + '<br><b>Medical</b>: ' + esc(m.medical || 'none given') +
+        '<br><b>Medication</b>: ' + esc(m.medication || 'none given') + '<br><b>Additional needs</b>: ' + esc(m.needs || 'none given') + '</span>';
+    }).catch(function () { document.getElementById('m-med').textContent = 'Could not open the medical details.'; });
+  }
+
+  /* ---- who am I, for this site (as the Children's register works it out) ---- */
+  function start() {
+    var s = SITES.filter(function (x) { return x.id === V.site; })[0] || {};
+    SETTINGS = s._settings || {}; LEAD = !!s._lead; V.tab = ''; V.labels = null;
+    return load().catch(function () { noAccess(); });
+  }
+  function begin() {
+    var mid = ME.memberId || '-', adminFor = ME.adminFor || [];
+    return Promise.all([db().collection('sites').get(), db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
+                        db().collection('kidsSettings').get().catch(function () { return { docs: [] }; }),
+                        db().collection('kidsGroups').where('leaderIds', 'array-contains', mid).get().catch(function () { return { docs: [] }; })]).then(function (r) {
+      var bs = {}, ks = {};
+      all(r[1]).forEach(function (s) { bs[s.id] = s; }); all(r[2]).forEach(function (s) { ks[s.id] = s; });
+      MYGROUPS = all(r[3]);
+      SITES = all(r[0]).filter(function (s) { return s.active !== false; }).map(function (s) {
+        s._settings = ks[s.id] || {};
+        var sg = (bs[s.id] || {}).safeguardingLead === mid || (bs[s.id] || {}).safeguardingDeputy === mid;
+        s._lead = !!(ME.masterAdmin || sg || (s._settings.teams || []).some(function (t) { return adminFor.indexOf(t) >= 0; }));
+        s._leader = MYGROUPS.some(function (g) { return g.siteId === s.id; });
+        return s;
+      }).filter(function (s) { return s._lead || s._leader; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      if (!SITES.length) return noAccess();
+      if (!SITES.some(function (s) { return s.id === V.site; })) V.site = SITES[0].id;
+      return start();
+    });
+  }
+
+  EGBCAuth.require().then(function (profile) {
+    ME = profile || {};
+    return begin();
+  }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

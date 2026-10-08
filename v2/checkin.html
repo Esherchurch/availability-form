@@ -15,7 +15,7 @@
 <script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
-<script src="egbc-events-checkin.js?v=202610080900"></script>
+<script src="egbc-events-checkin.js?v=202610082100"></script>
 <script src="egbc-events-safeguarding.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -569,14 +569,14 @@
     var evCache = {};
     function render(cks) {
       var ins = cks.filter(function (c) { return c.state === 'in'; });
-      var need = ins.map(function (c) { return c.calEventId; }).filter(function (id, i, a) { return a.indexOf(id) === i && !evCache[id]; });
+      var need = ins.filter(function (c) { return c.kind !== 'child'; }).map(function (c) { return c.calEventId; }).filter(function (id, i, a) { return a.indexOf(id) === i && !evCache[id]; });
       return Promise.all(need.map(function (id) {
         return db().collection('calEvents').doc(id).get().then(function (s) { evCache[id] = s.exists ? s.data() : { title: 'Event' }; })
           .catch(function () { evCache[id] = { title: 'Event' }; });
       })).then(function () { return lookups; }).then(function (look) {
         var groups = {};
         ins.forEach(function (c) {
-          var ev = evCache[c.calEventId] || {};
+          var ev = c.kind === 'child' ? { title: 'Sunday children\'s groups' } : (evCache[c.calEventId] || {});
           var place = c.roomId && look.rooms[c.roomId] ? look.rooms[c.roomId] : (E.locationText(ev, look) || 'Somewhere else');
           (groups[place] = groups[place] || { people: [], leaders: [], events: {} });
           groups[place][c.kind === 'leader' ? 'leaders' : 'people'].push(c);
@@ -610,11 +610,22 @@
         icons();
       });
     }
-    db().collection('checkins').where('day', '==', C.today()).onSnapshot(function (snap) {
-      render(snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }));
-    }, function (e) {
-      document.getElementById('wrap').innerHTML = '<div class="banner warn">Could not load the roll-call: ' + esc(e.message || e) + '</div>';
-    });
+    /* Event check-ins for every admin. Children in Sunday groups (Chunk 6)
+       share the check-in but not who may see it (need to know, F-087): they
+       are added for the children's leads, site by site, and for nobody else. */
+    var PARTS = {};
+    function listen(key, q) {
+      q.onSnapshot(function (snap) {
+        PARTS[key] = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+        render([].concat.apply([], Object.keys(PARTS).map(function (k) { return PARTS[k]; })));
+      }, function (e) {
+        if (key === 'events') document.getElementById('wrap').innerHTML = '<div class="banner warn">Could not load the roll-call: ' + esc(e.message || e) + '</div>';
+      });
+    }
+    listen('events', db().collection('checkins').where('day', '==', C.today()).where('kind', 'in', ['booked', 'walkin', 'leader']));
+    db().collection('kidsSettings').get().then(function (s) {
+      s.docs.forEach(function (d) { listen('kids_' + d.id, db().collection('checkins').where('siteId', '==', d.id).where('day', '==', C.today())); });
+    }).catch(function () {});
   }
 
   /* ---------- start ---------- */

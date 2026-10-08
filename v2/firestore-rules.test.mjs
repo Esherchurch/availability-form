@@ -1193,6 +1193,56 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
     () => getDocs(query(collection(ctx('u_wes'), 'sensitiveResponses'), where('siteId', '==', 'site_kids'), where('formId', '==', 'form_worship_decl'))));
 }
 
+// ── EVENTS (events window) ── Sunday check-in (Chunk 6, stage 2): E1's check-in, need to know
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const DAY = '2026-10-11';
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'kidsFamilies', 'fam_2'), { siteId: 'site_kids', parentName: 'Parent Two', collectors: ['Parent Two', 'Grandma Invented'], familyCode: 'FAM222' });
+    await setDoc(doc(db, 'kidsChildren', 'kid_cat'), { siteId: 'site_kids', familyId: 'fam_2', name: 'Cat Synthetic', groupId: 'grp_junior', status: 'registered', collectors: ['Parent Two', 'Grandma Invented'] });
+    await setDoc(doc(db, 'kidsChildren', 'kid_dan'), { siteId: 'site_kids', familyId: 'fam_2', name: 'Dan Synthetic', groupId: 'grp_little', status: 'registered', collectors: ['Parent Two', 'Grandma Invented'] });
+    await setDoc(doc(db, 'kidsChildren', 'kid_gone'), { siteId: 'site_kids', familyId: 'fam_2', name: 'Gone Synthetic', groupId: 'grp_junior', status: 'left', collectors: [] });
+  });
+  const CK = (kid, groupId, extra) => ({ calEventId: 'kids_' + groupId + '_' + DAY, signupKey: kid, attendeeIndex: 0, name: 'Synthetic child', kind: 'child', state: 'in',
+    inAt: 'x', inBy: 'x', inByName: 'x', roomId: '', day: DAY, updatedAt: 'x', groupId, siteId: 'site_kids', familyId: 'fam_2', pickupCode: 'K7P2', ...(extra || {}) });
+  const id = (kid, groupId) => 'kids_' + groupId + '_' + DAY + '__' + kid + '__0';
+  const put = (who, kid, groupId, extra) => setDoc(doc(who, 'checkins', id(kid, groupId)), CK(kid, groupId, extra));
+  const out = (who, kid, groupId, o) => updateDoc(doc(who, 'checkins', id(kid, groupId)), { state: 'out', outAt: 'y', outBy: 'y', outByName: 'y', updatedAt: 'y', collectedBy: '', collectorListed: false, codeGiven: '', ...o });
+
+  await check('a lead checks Cat in to Juniors at the desk', 'allow', () => put(ctx('u_kim'), 'kid_cat', 'grp_junior'));
+  await check('Juniors\u2019 leader cannot check in Dan (he is in Little ones)', 'deny', () => put(ctx('u_jo'), 'kid_dan', 'grp_little'));
+  await check('nor by claiming Dan is in Juniors', 'deny', () => put(ctx('u_jo'), 'kid_dan', 'grp_junior'));
+  await check('Little ones\u2019 leader checks Dan in at their door', 'allow', () => put(ctx('u_lou'), 'kid_dan', 'grp_little'));
+  await check('a child who has left the register cannot be checked in', 'deny', () => put(ctx('u_kim'), 'kid_gone', 'grp_junior'));
+  await check('nor checked in twice', 'deny', () => put(ctx('u_kim'), 'kid_cat', 'grp_junior'));
+  await check('a session must be the group\u2019s and the day\u2019s', 'deny', () => setDoc(doc(ctx('u_kim'), 'checkins', 'kids_grp_x_' + DAY + '__kid_cat__0'), CK('kid_cat', 'grp_junior', { calEventId: 'kids_grp_x_' + DAY })));
+  await check('a collection code is needed at check-in', 'deny', () => setDoc(doc(ctx('u_kim'), 'checkins', id('kid_dan', 'grp_junior')), CK('kid_dan', 'grp_junior', { pickupCode: '' })));
+
+  await check('Juniors\u2019 leader sees who is in their group today', 'allow', () => getDocs(query(collection(ctx('u_jo'), 'checkins'), where('groupId', '==', 'grp_junior'), where('day', '==', DAY))));
+  await check('THE LEADER OF LITTLE ONES CANNOT SEE WHO IS IN JUNIORS', 'deny', () => getDocs(query(collection(ctx('u_lou'), 'checkins'), where('groupId', '==', 'grp_junior'), where('day', '==', DAY))));
+  await check('nor open Cat\u2019s check-in (with her collection code)', 'deny', () => getDoc(doc(ctx('u_lou'), 'checkins', id('kid_cat', 'grp_junior'))));
+  await check('A WORSHIP ADMIN SEES NO CHILD\u2019S CHECK-IN', 'deny', () => getDoc(doc(ctx('u_wes'), 'checkins', id('kid_cat', 'grp_junior'))));
+  await check('nor lists the Sunday session', 'deny', () => getDocs(query(collection(ctx('u_wes'), 'checkins'), where('calEventId', '==', 'kids_grp_junior_' + DAY))));
+  await check('nor sees children in a roll-call that asks for the whole day', 'deny', () => getDocs(query(collection(ctx('u_wes'), 'checkins'), where('day', '==', DAY))));
+  await check('but the roll-call of event check-ins still works for admins (by day and kind)', 'allow', () => getDocs(query(collection(ctx('u_wes'), 'checkins'), where('day', '==', DAY), where('kind', 'in', ['booked', 'walkin', 'leader']))));
+  await check('an admin cannot write a Sunday check-in as an event one', 'deny', () => setDoc(doc(ctx('u_wes'), 'checkins', id('kid_cat', 'grp_little')), CK('kid_cat', 'grp_little', { kind: 'booked' })));
+  await check('someone on Kids Church who leads no group cannot check a child in', 'deny', () => put(ctx('u_sid'), 'kid_dan', 'grp_junior'));
+  await check('a lead lists the whole site\u2019s day', 'allow', () => getDocs(query(collection(ctx('u_kim'), 'checkins'), where('siteId', '==', 'site_kids'), where('day', '==', DAY))));
+  await check('so does the safeguarding lead', 'allow', () => getDocs(query(collection(ctx('u_sg'), 'checkins'), where('siteId', '==', 'site_kids'), where('day', '==', DAY))));
+
+  await check('CHECK-OUT: not to someone who is not listed and has no code', 'deny', () => out(ctx('u_jo'), 'kid_cat', 'grp_junior', { collectedBy: 'A Stranger' }));
+  await check('nor by ticking "listed" for someone who is not', 'deny', () => out(ctx('u_jo'), 'kid_cat', 'grp_junior', { collectedBy: 'A Stranger', collectorListed: true }));
+  await check('nor with the wrong code', 'deny', () => out(ctx('u_jo'), 'kid_cat', 'grp_junior', { collectedBy: 'A Stranger', codeGiven: 'ZZZZ' }));
+  await check('nor with a reason instead (no way round it at the door)', 'deny', () => out(ctx('u_jo'), 'kid_cat', 'grp_junior', { collectedBy: 'A Stranger', overrideReason: 'Says she is an aunt' }));
+  await check('nor by changing the code first', 'deny', () => updateDoc(doc(ctx('u_jo'), 'checkins', id('kid_cat', 'grp_junior')), { pickupCode: 'ZZZZ' }));
+  await check('to a listed collector', 'allow', () => out(ctx('u_jo'), 'kid_cat', 'grp_junior', { collectedBy: 'Grandma Invented', collectorListed: true }));
+  await check('back in again later', 'allow', () => updateDoc(doc(ctx('u_kim'), 'checkins', id('kid_cat', 'grp_junior')), { state: 'in', inAt: 'z', updatedAt: 'z' }));
+  await check('and out with the matching code, to someone not on the list', 'allow', () => out(ctx('u_kim'), 'kid_cat', 'grp_junior', { collectedBy: 'Uncle Synthetic', codeGiven: 'K7P2' }));
+  await check('Little ones\u2019 leader cannot check a Junior back in or out', 'deny', () => updateDoc(doc(ctx('u_lou'), 'checkins', id('kid_cat', 'grp_junior')), { state: 'in', inAt: 'z', updatedAt: 'z' }));
+  await check('a Sunday check-in is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'checkins', id('kid_cat', 'grp_junior'))));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

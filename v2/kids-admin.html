@@ -15,9 +15,9 @@
 <script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610072300"></script>
-<script src="egbc-events-checkin.js?v=202610080900"></script>
+<script src="egbc-events-checkin.js?v=202610082100"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610102000"></script>
+<script src="egbc-events-kids.js?v=202610082100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -119,7 +119,8 @@
     document.getElementById('main').innerHTML =
       (SITES.length > 1 ? '<div class="row"><div class="f"><label class="l" for="k-site">Site</label><select id="k-site">' + SITES.map(function (s) {
         return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div></div>' : '') +
-      '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>'; }).join('') + '</div>' +
+      '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>'; }).join('') +
+        '<a class="btn sec" id="k-sunday" href="kids-checkin.html" style="margin-left:auto">Sunday check-in</a></div>' +
       '<div id="body"></div>';
     var ks = document.getElementById('k-site'); if (ks) ks.onchange = function () { V.site = this.value; start(); };
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });
@@ -164,7 +165,9 @@
     return '<div class="card" data-detail="' + esc(c.id) + '" style="margin:6px 0 10px">' +
       '<dl><dt>Date of birth</dt><dd>' + esc(c.dob ? E.fmtDate(c.dob + 'T12:00') : '') + '</dd><dt>Parent</dt><dd>' + esc(c.parentName || '') + (LEAD && c.email ? ' · ' + esc(c.email) : '') + '</dd>' +
       '<dt>Phone</dt><dd>' + (c.phone ? '<a href="tel:' + esc(c.phone.replace(/\s/g, '')) + '" style="color:var(--brand)">' + esc(c.phone) + '</a>' : '') + '</dd>' +
-      '<dt>Emergency</dt><dd>' + esc(c.emergency || '') + '</dd><dt>May collect</dt><dd>' + esc((c.collectors || []).join(', ')) + '</dd>' +
+      '<dt>Emergency</dt><dd>' + esc(c.emergency || '') + '</dd><dt>May collect</dt><dd>' + (LEAD
+        ? '<input class="inp d-coll" value="' + esc((c.collectors || []).join(', ')) + '" aria-label="Who may collect"><span class="hint">Names, with commas. For every child in the family. At the door, nobody else may collect without the code.</span>'
+        : esc((c.collectors || []).join(', '))) + '</dd>' +
       '<dt>Family code</dt><dd>' + esc(c.familyCode || '') + '</dd>' +
       '<dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd><dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No') + '</dd>' +
       (c.dietary ? '<dt>Diet</dt><dd>' + esc(c.dietary) + '</dd>' : '') + '</dl>' +
@@ -194,7 +197,15 @@
       var sv = box.querySelector('.d-save');
       if (sv) sv.onclick = function () {
         var g = box.querySelector('.d-group').value, st = box.querySelector('.d-status').value, b = db().batch();
-        setGroup(b, c, g, { groupFixed: g !== K.groupFor(Object.assign({}, c, { groupFixed: false }), GROUPS), status: st });
+        var coll = K.splitNames(box.querySelector('.d-coll').value).slice(0, 20), was = (c.collectors || []).join('|');
+        setGroup(b, c, g, { groupFixed: g !== K.groupFor(Object.assign({}, c, { groupFixed: false }), GROUPS), status: st, collectors: coll });
+        /* The list is the family's: the brothers and sisters, and the family record, change with it. */
+        if (coll.join('|') !== was) {
+          b.update(db().collection('kidsFamilies').doc(c.familyId), { collectors: coll, updatedAt: new Date().toISOString(), updatedBy: uid() });
+          CHILDREN.filter(function (x) { return x.familyId === c.familyId && x.id !== c.id; }).forEach(function (x) {
+            b.update(db().collection('kidsChildren').doc(x.id), { collectors: coll, updatedAt: new Date().toISOString(), updatedBy: uid() });
+          });
+        }
         b.commit().then(function () { toast('Saved'); return load(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
       };
     });

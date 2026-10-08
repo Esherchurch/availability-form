@@ -1433,3 +1433,79 @@ children's register (its registration form belongs to the children's team).
 
 **Events:** a form for an event is the form's team's, not the event's. An
 event leader still sees the requests for their own event, as before.
+
+### F-093 — what K2 built (Chunk 6, stage 2: Sunday check-in)
+- **A new page, `kids-checkin.html` ("Sunday check-in")**, linked from the
+  Children's register. Three tabs: Desk, First time here, Groups.
+- **It is E1's check-in, not a second one.** Each child is one record in
+  `checkins`, in a session for their group and the day
+  (`kids_<group>_<date>`), with the same "worked out, never random" id, so two
+  tablets cannot check a child in twice.
+- **The desk** (the children's leads): find a family by a name, any part of
+  the parent's phone, or the family code (typed, from a hand scanner, or read
+  by the camera from the parent's slip). Tick who is here, press Check in.
+- **Labels**: one per child with name, group, date, "ALLERGY: ask a leader"
+  when there is one (never the detail), and the family's collection code.
+  The parent's slip has the same code and the family QR code for next week.
+  They can be printed or shown on the screen.
+- **Check-out**, as the rules insist: only to someone on the child's list
+  (picked from the list on their record), or to anyone who gives the code. A
+  wrong code is refused, with "find a lead, and ring the parent".
+- **First time here**: one form at the door with each child's name, school
+  year and allergies; the parent's name and mobile; consent; and first aid.
+  It registers the family as visitors (consent for today only), puts each
+  child in the group for their year, checks them in and gives the labels. If
+  an email address is given, the full registration form (E2) is emailed to
+  fill in at home.
+- **The leader screen**, per group: who is in, not here yet and gone home,
+  live; the count and the leaders needed at the group's ratio; each child's
+  allergy and medical flags, with the details, the parent's number on tap
+  and "Page a parent" (the number shown large, with a Call button; a text
+  message comes later). A leader can check their own group's children in and
+  out at the door.
+- **The Children's register**: a lead can now change who may collect. It
+  applies to the whole family.
+- **The fire roll-call** (`checkin.html?view=rollcall`) now asks for event
+  check-ins by kind, and adds Sunday children for the people who may see
+  them (see F-094 c).
+- Tests: rules ("Sunday check-in", 29 checks), k2-sunday-unit (21),
+  k2-sunday in the browser (38).
+
+### F-094 — DECISIONS for Martin (K2)
+a. **No way round it at the door.** A child goes home only with someone on
+   their list or with the code. If a parent rings to say someone new is
+   coming, a lead adds that person on the Children's register first; a group
+   leader cannot. Is that right, or should a lead be able to let a child go
+   with a written reason, as events do (E1)?
+b. **Consent out of date.** The desk shows "Consent ran out" in red but
+   still lets the child in. Should it stop them instead?
+c. **The fire roll-call.** Children are now in it only for master admins,
+   the safeguarding lead and deputy, and the children's team admins (need to
+   know). Other admins see event check-ins only. In a fire, should whoever
+   holds the roll-call see the children's names too? If so, who?
+d. **Parents checking in on their own phone.** Built: the parent shows the
+   family QR (on their phone or last week's slip) and the desk scans it.
+   Not built: parents ticking their own children in. That would need the
+   children's names to open to anyone holding the code. Say if it is wanted.
+e. **Group leaders on a Sunday** come from each group's leader list (K1),
+   not yet from the rota. Copying that Sunday's rota people in, as E3 does
+   for events, could come in K3. Say if it is needed.
+f. **Visitors** have consent for that day only. The next week they show
+   "Consent ran out" until the full form comes back.
+
+### F-095 — REQUEST for the main window
+- **Menu:** "Sunday check-in" (`kids-checkin.html`), next to "Children's
+  register", for the children's team and admins.
+- **Style check:** add `kids-checkin.html`.
+- **For Martin, on deploying the rules:** the Sunday lists ask by group and
+  day, by site and day, and by day and kind. If the live database asks for an
+  index the first time, its error message includes a link that creates it.
+  Indexes are Martin's to deploy.
+
+### F-096 — an existing page changed: the fire roll-call
+`checkin.html` is E1's page, so it's mine, but it is already live. Its roll-call
+asked for "every check-in today". The rules now refuse that question, because
+children's check-ins are in the same place and other admins may not see them.
+So it now asks for event check-ins by kind, and adds children for the people
+allowed to see them. What admins see for events is unchanged. The E1 tests
+still pass.

@@ -237,6 +237,33 @@
     });
   }
 
+  /* ---- Sunday groups (Chunk 6, stage 2) -------------------------------
+     The same check-in, for a child in a group: the session is the group's
+     day (EGBCKids.sessionId), the record says the group, site and family,
+     and carries the collection code from the parent's slip. The rules
+     check that the child really is in that group, and who may see it. */
+  function kidsIn(child, group, day, code, existing) {
+    var who = me(), at = now();
+    var id = EGBCKids.checkinIdFor(child.id, group.id, day), ref = db().collection('checkins').doc(id);
+    if (existing) return ref.update({ state: 'in', inAt: at, inBy: who.uid, inByName: who.name, updatedAt: at }).then(function () { return id; });
+    return ref.set({
+      calEventId: EGBCKids.sessionId(group.id, day), signupKey: child.id, attendeeIndex: 0,
+      name: child.name, kind: 'child', state: 'in', inAt: at, inBy: who.uid, inByName: who.name,
+      roomId: group.roomId || '', day: day, updatedAt: at,
+      groupId: group.id, siteId: child.siteId, familyId: child.familyId, pickupCode: code
+    }).then(function () { return id; });
+  }
+  /* Out to someone on the child's list (o.listed, the name exactly as the
+     list has it), or to anyone with the code (o.code). Nothing else. */
+  function kidsOut(ck, o) {
+    var who = me(), at = now();
+    return db().collection('checkins').doc(ck.id).update({
+      state: 'out', outAt: at, outBy: who.uid, outByName: who.name,
+      collectedBy: String(o.collectedBy || '').slice(0, 120), collectorListed: !!o.listed, codeGiven: o.listed ? '' : String(o.code || ''),
+      updatedAt: at
+    });
+  }
+
   /* ---- downloads -----------------------------------------------------
      A download that holds a flagged (medical, allergy) column is logged
      BEFORE the file is made. If the log cannot be written, there is no
@@ -274,7 +301,7 @@
     codeFor: codeFor, parseCode: parseCode, checkinId: checkinId,
     people: people, isListedCollector: isListedCollector, splitNames: splitNames,
     meaningful: meaningful, answerText: answerText, headcount: headcount, isMedical: isMedical,
-    checkIn: checkIn, checkOut: checkOut, walkIn: walkIn, today: today,
+    checkIn: checkIn, checkOut: checkOut, walkIn: walkIn, today: today, kidsIn: kidsIn, kidsOut: kidsOut,
     logDownload: logDownload, csvText: csvText, saveFile: saveFile, KEY_PART: KEY_PART
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

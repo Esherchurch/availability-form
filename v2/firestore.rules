@@ -790,12 +790,13 @@ service cloud.firestore {
       return d.keys().hasOnly(['calEventId', 'signupKey', 'attendeeIndex', 'name', 'kind', 'state',
                                'inAt', 'inBy', 'inByName', 'outAt', 'outBy', 'outByName',
                                'collectedBy', 'collectorListed', 'overrideReason',
-                               'roomId', 'day', 'updatedAt'])
+                               'roomId', 'day', 'updatedAt',
+                               'groupId', 'siteId', 'familyId', 'pickupCode', 'codeGiven'])
              && d.calEventId is string && d.calEventId.size() > 0
              && d.signupKey is string && d.signupKey.size() > 0
              && d.attendeeIndex is int && d.attendeeIndex >= 0 && d.attendeeIndex < 20
              && d.name is string && d.name.size() > 0 && d.name.size() <= 120
-             && d.kind in ['booked', 'walkin', 'leader']
+             && d.kind in ['booked', 'walkin', 'leader', 'child']
              && d.state in ['in', 'out']
              && d.get('collectedBy', '') is string && d.get('collectedBy', '').size() <= 120
              && d.get('overrideReason', '') is string && d.get('overrideReason', '').size() <= 300;
@@ -822,12 +823,82 @@ service cloud.firestore {
                      || d.get('overrideReason', '').size() >= 3));
     }
 
+    // SUNDAY GROUPS (Chunk 6, stage 2) use the same check-in: one session
+    // per group per day, its calEventId "kids_<groupId>_<YYYY-MM-DD>", one
+    // record per child (kind "child", signupKey = the child's id). Need to
+    // know (F-087) holds here too: a child's check-in is seen and written
+    // only by the children's leads and that group's own leaders - not by
+    // other admins, who see event check-ins as before. A child goes home
+    // only with a collector listed on their record, or with the collection
+    // code printed for their parent at check-in. There is no way round it
+    // on the page: a lead adds a collector to the child's record first.
+    function kidsCkFields() {
+      return ['groupId', 'siteId', 'familyId', 'pickupCode', 'codeGiven'];
+    }
+    function eventCk(d) {
+      return d.kind != 'child' && !d.calEventId.matches('kids_.*') && !d.keys().hasAny(kidsCkFields());
+    }
+    function kidsChild(childId) {
+      return get(/databases/$(database)/documents/kidsChildren/$(childId)).data;
+    }
+    function kidsCkTeam(d) {
+      return kidsLead(d.get('siteId', '')) || kidsGroupLeader(d.get('groupId', ''));
+    }
+    function kidsCk(d) {
+      return d.kind == 'child'
+             && d.groupId is string && d.siteId is string && d.familyId is string
+             && d.day is string && d.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+             && d.calEventId == 'kids_' + d.groupId + '_' + d.day
+             && d.attendeeIndex == 0
+             && d.pickupCode is string && d.pickupCode.size() >= 4 && d.pickupCode.size() <= 8
+             && d.get('codeGiven', '') is string && d.get('codeGiven', '').size() <= 8
+             && kidsCkTeam(d);
+    }
+    // Who may collect: someone listed on the child's record (as it is
+    // now), or anyone who gives the code from the parent's slip.
+    function kidsMayCollect(before, after) {
+      return after.get('collectedBy', '').size() > 0
+             && ((after.get('codeGiven', '') != '' && after.get('codeGiven', '') == before.pickupCode)
+                 || (after.get('collectorListed', false) == true
+                     && kidsChild(after.signupKey).get('collectors', []).hasAny([after.get('collectedBy', '')])));
+    }
+
     match /checkins/{checkinId} {
-      allow read: if isAdmin() || isEventLeader(resource.data.calEventId);
+      // Event check-ins: admins and the event's leaders. Sunday groups: the
+      // children's leads and the group's leaders, nobody else. (Either half
+      // can be proved from a list that asks by event, by day and kind, or
+      // by group or site.)
+      allow read: if ((isAdmin() || isEventLeader(resource.data.calEventId))
+                      && (resource.data.kind in ['booked', 'walkin', 'leader'] || !resource.data.calEventId.matches('kids_.*')))
+                  || kidsLead(resource.data.get('siteId', ''))
+                  || kidsGroupLeader(resource.data.get('groupId', ''));
+      // A child arrives: their own record says this group, this site, and
+      // they have not left.
+      allow create: if checkinShape() && checkinIdAgrees(checkinId) && request.resource.data.state == 'in'
+                    && kidsCk(request.resource.data)
+                    && exists(/databases/$(database)/documents/kidsChildren/$(request.resource.data.signupKey))
+                    && kidsChild(request.resource.data.signupKey).get('groupId', '') == request.resource.data.groupId
+                    && kidsChild(request.resource.data.signupKey).get('siteId', '') == request.resource.data.siteId
+                    && kidsChild(request.resource.data.signupKey).get('familyId', '') == request.resource.data.familyId
+                    && kidsChild(request.resource.data.signupKey).get('status', 'registered') != 'left';
+      // (Everything that says whose check-in it is cannot change, so the
+      // team is checked once, on the record as it stands.)
+      allow update: if resource.data.kind == 'child' && checkinShape()
+                    && request.resource.data.get('codeGiven', '') is string && request.resource.data.get('codeGiven', '').size() <= 8
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['state', 'inAt', 'inBy', 'inByName', 'outAt', 'outBy', 'outByName',
+                                   'collectedBy', 'collectorListed', 'codeGiven', 'overrideReason', 'updatedAt'])
+                    && ((resource.data.state == 'in' && request.resource.data.state == 'out'
+                         && request.resource.data.get('overrideReason', '') == ''
+                         && kidsMayCollect(resource.data, request.resource.data))
+                        || (resource.data.state == 'out' && request.resource.data.state == 'in'))
+                    && kidsCkTeam(resource.data);
       // You arrive before you leave.
-      allow create: if (isAdmin() || isEventLeader(request.resource.data.calEventId)) && checkinShape() && checkinIdAgrees(checkinId)
+      allow create: if eventCk(request.resource.data)
+                    && (isAdmin() || isEventLeader(request.resource.data.calEventId)) && checkinShape() && checkinIdAgrees(checkinId)
                     && request.resource.data.state == 'in';
-      allow update: if (isAdmin() || isEventLeader(resource.data.calEventId)) && checkinShape()
+      allow update: if eventCk(resource.data) && eventCk(request.resource.data)
+                    && (isAdmin() || isEventLeader(resource.data.calEventId)) && checkinShape()
                     && request.resource.data.calEventId == resource.data.calEventId
                     && request.resource.data.signupKey == resource.data.signupKey
                     && request.resource.data.attendeeIndex == resource.data.attendeeIndex
