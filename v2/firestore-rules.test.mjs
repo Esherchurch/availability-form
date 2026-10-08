@@ -939,6 +939,29 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('never more than 52 dates', 'deny', () => setDoc(doc(as('samy'), 'bookings', 'bk_series_4_0000000000000000000'), S({ series: { id: 's_test', rule: 'week', n: 1, of: 53 } })));
 }
 
+// ── EVENTS (events window) ── an event in a room books it (F-072a)
+{
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  const Z = () => Array(96).fill(0);
+  /* An event's booking, 19:00-21:00 on a January Wednesday (76 to 83). */
+  const EV = (day, extra) => ({ kind: 'event', status: 'confirmed', siteId: 'site_bk', roomId: 'room_band', groupId: '', day, startMin: 1140, endMin: 1260,
+    startLocal: 'x', endLocal: 'x', setupMins: 0, packdownMins: 0, slotFrom: 76, slotTo: 84, title: 'Test harvest supper', people: 20, layout: '',
+    av: { needed: false, what: '' }, refreshments: { needed: false }, resources: [], notes: '', requester: { name: 'Lena', email: 'lena@example.invalid', phone: '', org: '' },
+    memberUid: '', memberName: '', createdAt: 'x', calEventId: 'cev_test', ...(extra || {}) });
+  const held = (sl, n) => { const a = (sl || Z()).slice(); for (let i = 76; i < 84; i++) a[i] = (a[i] || 0) + (n || 1); return a; };
+  const put = (who, key, b, day) => { const x = writeBatch(who); x.set(doc(who, 'bookings', key), b); if (day) x.set(doc(who, 'roomDays', 'room_band_' + b.day), { slots: day, lastBooking: '', roomId: 'room_band', day: b.day, siteId: 'site_bk' }); return x.commit(); };
+  const K = (n) => ('bk_ev_' + n).padEnd(31, '0');
+
+  await check('the office books a free room for an event, holding its time', 'allow', () => put(lena(), K('a'), EV('2027-01-06'), held()));
+  await check('but not without holding the time on the room\u2019s day', 'deny', () => put(lena(), K('b'), EV('2027-01-13')));
+  await check('nor over something already there, without saying so', 'deny', () => put(lena(), K('c'), EV('2027-01-06'), held(held())));
+  await check('nor saying "booked over" with no reason', 'deny', () => put(lena(), K('d'), EV('2027-01-06', { override: true, decisionNote: '' }), held(held())));
+  await check('with a reason, the office books over it (both are counted)', 'allow', () => put(lena(), K('e'), EV('2027-01-06', { override: true, decisionNote: 'Test: agreed with the choir' }), held(held())));
+  await check('a member cannot book for an event', 'deny', () => put(as('samy'), K('f'), EV('2027-01-20', { memberUid: 'u_samy' }), held()));
+  await check('nor can the public', 'deny', () => put(anon(), K('g'), EV('2027-01-20'), held()));
+  await check('a bookings admin cannot book at a site they do not look after', 'deny', () => put(lena(), K('h'), EV('2027-01-20', { siteId: 'site_appr', roomId: 'room_apsite' })));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

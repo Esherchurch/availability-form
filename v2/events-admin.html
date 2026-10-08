@@ -21,6 +21,7 @@
 <script src="egbc-events-checkin.js?v=202610072300"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
+<script src="egbc-events-bookings.js?v=202610101000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -320,10 +321,113 @@
           ROOMS.filter(function (r) { return r.siteId === site || !site; }).map(function (r) {
             return '<option value="' + esc(r.id) + '"' + ((CUR.location.roomIds || []).indexOf(r.id) >= 0 ? ' selected' : '') + '>' + esc(r.name) + '</option>';
           }).join('') +
-        '</select></div></div>';
+        '</select></div></div>' +
+        '<div class="two">' +
+          '<div class="field"><label for="f_setup">Time to set up first</label><select id="f_setup">' + minsOpts(CUR.location.setupMins) + '</select></div>' +
+          '<div class="field"><label for="f_pack">Time to clear away after</label><select id="f_pack">' + minsOpts(CUR.location.packMins) + '</select></div>' +
+        '</div><p class="hint">Saving books the rooms for the event, with these times either side, so nothing else is booked in them.</p>' +
+        '<div id="roomState"></div><div id="roomClash"></div>';
+      roomState();
       var ss = document.getElementById('f_site');
       if (ss) ss.onchange = function () { CUR.location.siteId = ss.value; CUR.location.roomIds = []; whereBox(); };
     }
+  }
+
+  function minsOpts(sel) {
+    return [0, 15, 30, 45, 60, 90, 120].map(function (m) { return '<option value="' + m + '"' + ((+sel || 0) === m ? ' selected' : '') + '>' + (m ? m + ' minutes' : 'None') + '</option>'; }).join('');
+  }
+
+  /* ---- the event's rooms are booked (F-072a) ----
+     Saving an event in rooms books them, under the same rules as any
+     booking: if a room is taken, the page says what is there and offers a
+     free room instead, or booking over it with a reason. Moving the event
+     moves its bookings; cancelling or deleting it gives the rooms back. */
+  var B = window.EGBCBookings, OVER = null;
+  function roomsById() { var m = {}; ROOMS.forEach(function (r) { m[r.id] = r; }); return m; }
+  function siteOf(id) { return SITES.filter(function (s) { return s.id === id; })[0] || {}; }
+  function roomState() {
+    var el = document.getElementById('roomState'); if (!el || !CUR.id) return;
+    B.eventBookings(CUR.id).then(function (l) {
+      if (!document.getElementById('roomState')) return;
+      el.innerHTML = l.length ? '<div class="banner info" id="roomBooked">Booked: ' + l.map(function (b) {
+        return esc(LOOK.rooms[b.roomId] || (roomsById()[b.roomId] || {}).name || 'a room') + ', ' + esc(B.when(b)) +
+          (b.setupMins || b.packdownMins ? ' (held ' + B.hhmm(b.slotFrom * 15) + '–' + B.hhmm(b.slotTo * 15) + ')' : '') + (b.override ? ', booked over something: ' + esc(b.decisionNote || '') : '');
+      }).join('; ') + '</div>' : '';
+    }).catch(function () {});
+  }
+  /* Every event this save will make: this one, and for a new repeating
+     event the dates makeSeries will add (the same sums). */
+  function eventsToBook() {
+    var list = [CUR];
+    var every = parseInt((document.getElementById('f_repeat') || {}).value || '0', 10), until = (document.getElementById('f_until') || {}).value;
+    if (CUR.id || !every || !until) return list;
+    var start = new Date(CUR.startLocal), end = CUR.endLocal ? new Date(CUR.endLocal) : null, stop = new Date(until + 'T23:59'), s = new Date(start);
+    while (list.length < 60) {
+      s = new Date(s.getTime() + every * 24 * 3600 * 1000);
+      if (s > stop) break;
+      var e2 = end ? new Date(s.getTime() + (end - start)) : null;
+      list.push(Object.assign({}, CUR, { id: null, startLocal: isoLocal(s), endLocal: e2 ? isoLocal(e2) : '' }));
+    }
+    return list;
+  }
+  /* Before saving: is every room free? If not, say what is there, and offer
+     the free rooms at the site, or booking over it with a reason. */
+  function checkRooms() {
+    var evs = eventsToBook(), pieces = [];
+    evs.forEach(function (ev) { pieces = pieces.concat(B.eventPieces(ev)); });
+    var box = document.getElementById('roomClash');
+    if (!pieces.length || OVER) { if (box) box.innerHTML = ''; return Promise.resolve(true); }
+    var site = siteOf(CUR.location.siteId), byId = roomsById();
+    return B.eventClashes(CUR.id, pieces, byId, site).then(function (cl) {
+      if (!cl.length) { box.innerHTML = ''; return true; }
+      var taken = {}; cl.forEach(function (c) { taken[c.piece.roomId] = true; });
+      var others = ROOMS.filter(function (r) { return r.siteId === CUR.location.siteId && r.kind !== 'online' && (CUR.location.roomIds || []).indexOf(r.id) < 0; });
+      return Promise.all(others.map(function (r) {
+        var alt = cl.map(function (c) { return Object.assign({}, c.piece, { roomId: r.id }); });
+        return B.eventClashes(CUR.id, alt, byId, site).then(function (x) { return x.length ? null : r; });
+      })).then(function (free) {
+        free = free.filter(Boolean);
+        box.innerHTML = '<div class="banner warn" id="clashSay">' + cl.map(function (c) {
+          return '<div><b>' + esc(c.room.name) + '</b> is taken ' + esc(EGBCEvents.fmtDate(c.piece.day + 'T12:00')) + ', ' + esc(c.piece.start) + '–' + esc(c.piece.end) + ': ' + esc(c.what.join('; ')) + '.</div>';
+        }).join('') + '</div>' +
+          (free.length ? '<p class="hint" style="margin:8px 0 4px">Free then instead:</p><div style="display:flex;gap:8px;flex-wrap:wrap">' + free.map(function (r) {
+            return '<button class="btn sec" data-useroom="' + esc(r.id) + '">Use ' + esc(r.name) + ' instead</button>'; }).join('') + '</div>'
+            : '<p class="hint">No other room at this site is free then.</p>') +
+          (EGBCAuth.isAdmin() ? '<div class="field" style="margin-top:10px"><label for="f_overNote">Or book over it. Why? (kept on the booking)</label>' +
+            '<input class="inp" id="f_overNote" maxlength="500" placeholder="Agreed with the choir: they will use the vestry">' +
+            '<button class="btn danger" id="f_overGo" style="margin-top:8px">Book over it and save</button></div>' : '');
+        box.querySelectorAll('[data-useroom]').forEach(function (b) {
+          b.onclick = function () {
+            CUR.location.roomIds = (CUR.location.roomIds || []).filter(function (id) { return !taken[id]; }).concat([b.dataset.useroom]);
+            var sel = document.getElementById('f_rooms');
+            [].slice.call(sel.options).forEach(function (o) { o.selected = CUR.location.roomIds.indexOf(o.value) >= 0; });
+            box.innerHTML = '';
+            save();
+          };
+        });
+        var og = document.getElementById('f_overGo');
+        if (og) og.onclick = function () {
+          var n = document.getElementById('f_overNote').value.trim();
+          if (!n) { toast('Say why it is booked over.'); return; }
+          OVER = { override: true, note: n };
+          save();
+        };
+        return false;
+      });
+    });
+  }
+  /* After saving: the bookings follow the event. */
+  function syncRooms(ids) {
+    var byId = roomsById(), o = OVER;
+    return ids.reduce(function (p, id) {
+      return p.then(function () { return E.load(id); }).then(function (r) {
+        return B.syncEvent(Object.assign({ id: id }, r.ev, { capacity: r.ev.capacity }), byId, o || {});
+      });
+    }, Promise.resolve()).then(function () { OVER = null; }, function (e) {
+      OVER = null;
+      toast('The event is saved, but its room could not be booked: ' + (e.message || e) + ' Open it and save again.');
+      throw e;
+    });
   }
 
   function teamsBox() {
@@ -721,7 +825,8 @@
       CUR.location = {
         kind: 'room',
         siteId: (document.getElementById('f_site') || {}).value || '',
-        roomIds: [].slice.call((document.getElementById('f_rooms') || { selectedOptions: [] }).selectedOptions || []).map(function (o) { return o.value; })
+        roomIds: [].slice.call((document.getElementById('f_rooms') || { selectedOptions: [] }).selectedOptions || []).map(function (o) { return o.value; }),
+        setupMins: +((document.getElementById('f_setup') || {}).value || 0), packMins: +((document.getElementById('f_pack') || {}).value || 0)
       };
     }
   }
@@ -796,7 +901,14 @@
     if (!CUR.title) { toast('It needs a title.'); return; }
     if (!CUR.startLocal) { toast('It needs a start.'); return; }
     var btn = document.getElementById('save'); btn.disabled = true;
+    checkRooms().then(function (ok) {
+      if (ok) return saveNow(btn);
+      btn.disabled = false;
+      toast('A room is taken. Choose another, or book over it with a reason.');
+    }).catch(function (e) { btn.disabled = false; toast('Could not check the rooms: ' + (e.message || e)); });
+  }
 
+  function saveNow(btn) {
     var isNew = !CUR.id;
     var id = CUR.id || ('cev_' + E.key(14));
     if (isNew) CUR.createdBy = uid();
@@ -830,6 +942,8 @@
       return recordChange(id, isNew ? 'Event created' : 'Event edited');
     }).then(function () {
       return isNew ? makeSeries(id) : null;
+    }).then(function (ids) {
+      return syncRooms([id].concat(ids || []));
     }).then(function () {
       toast('Saved.');
       return refresh().then(function () { open(id); });
@@ -845,7 +959,7 @@
     var every = parseInt((document.getElementById('f_repeat') || {}).value || '0', 10);
     var until = (document.getElementById('f_until') || {}).value;
     if (!every || !until) return Promise.resolve();
-    var seriesId = 'ser_' + E.key(10);
+    var seriesId = 'ser_' + E.key(10), made = [];
     var start = new Date(CUR.startLocal), end = CUR.endLocal ? new Date(CUR.endLocal) : null;
     var stop = new Date(until + 'T23:59');
     var jobs = [db().collection('calEvents').doc(firstId).update({ seriesId: seriesId })];
@@ -860,11 +974,12 @@
       });
       var d = docFor(copy); d.createdBy = uid(); d.createdAt = new Date().toISOString();
       var nid = 'cev_' + E.key(14);
+      made.push(nid);
       jobs.push(db().collection('calEvents').doc(nid).set(d));
       if (CUR.signupOn) jobs.push(db().collection('capacity').doc(nid).set({ calEventId: nid, taken: 0, capacity: CUR.capacity || 0 }));
       n++;
     }
-    return Promise.all(jobs).then(function () { toast('Series made: ' + (n + 1) + ' dates.'); });
+    return Promise.all(jobs).then(function () { toast('Series made: ' + (n + 1) + ' dates.'); return made; });
   }
 
   function duplicate() {
@@ -884,6 +999,8 @@
     var d = docFor(CUR);
     db().collection('calEvents').doc(CUR.id).set(d, { merge: true }).then(function () {
       return recordChange(CUR.id, 'Event cancelled');
+    }).then(function () {
+      return B.freeEvent(CUR.id, roomsById(), 'The event was cancelled.');
     }).then(function () {
       var live = SIGNUPS.filter(function (s) { return s.status !== 'cancelled'; });
       if (!live.length) return { ok: true, none: true };
@@ -1076,6 +1193,10 @@
   function deleteSeries() {
     if (!confirm('Delete every date in this series? Sign-ups are not deleted.')) return;
     db().collection('calEvents').where('seriesId', '==', CUR.seriesId).get().then(function (snap) {
+      /* Their rooms are given back first. */
+      return snap.docs.reduce(function (p, d) { return p.then(function () { return B.freeEvent(d.id, roomsById(), 'The event was deleted.'); }); }, Promise.resolve())
+        .then(function () { return snap; });
+    }).then(function (snap) {
       return Promise.all(snap.docs.map(function (d) { return d.ref.delete(); }));
     }).then(function () {
       toast('Series deleted.');

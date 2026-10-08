@@ -899,13 +899,9 @@ public pages cannot read, which is why it is an address and not a list of
 people.
 
 ### F-072 — what R3 leaves
-- **Reminders** ("your booking is tomorrow") need something that runs on a
-  timer. Nothing in the hub does (the email function only sends when asked), so
-  none are sent. A scheduled function would do it; that is a deploy for Martin.
-- **Events in rooms** (events-admin) still do not book the room. Doing it means
-  changing how an existing page saves an event (NEXT-BRIEF §15), so it waits for
-  a decision: should creating an event in a room book it, and if the room is
-  taken, refuse the event or warn?
+- **Reminders**: decided (Martin) — later, a server step built by the main
+  window. The spec is F-074.
+- **Events in rooms**: decided (Martin) and built — F-075.
 - **The caterer's own view** (mark prepared / served) is not built; the setup
   sheet has the kitchen's list for each day, which prints.
 - **The setup sheet** is on the office's page. A caretaker who is not a bookings
@@ -986,3 +982,71 @@ card as though it were the page behind it — and, the way round that matters,
 scoring a clean 0 on pages they had never opened. If an events check walks
 pages as one account, read that attribute before believing a result. The whole
 story is A-023 in `FINDINGS-app.md`.
+
+### F-074 — SPEC for the main window: reminder emails (Martin, F-072b)
+Built later, as a server step (a scheduled function), by the main window. The
+events pages already hold everything it needs; nothing here sends reminders.
+
+**Who gets one**
+- The person who booked each **confirmed room booking**: `bookings.requester.email`.
+  That covers members (kind `member`) and hirers (kind `hire`).
+- **Not** for: bookings that are waiting, declined or cancelled; an event's own
+  booking (kind `event`: the event has its own people) or one the office made
+  for itself (kind `office`); a booking with no email; any address ending
+  `.invalid` (test data).
+- Each date of a repeating booking is its own booking, so it gets its own
+  reminder.
+
+**When**
+- Once, at **09:00 London time on the day before**: every confirmed booking whose
+  `day` is tomorrow and which has no `reminderSentAt`.
+- A booking made after that day's run (less than a day ahead) gets none: its
+  confirmation has only just gone.
+- After sending, write `reminderSentAt` (an ISO time) on the booking, so a re-run
+  never sends twice. The server writes with its own access; the page rules need
+  no change for that, but the events window should add `reminderSentAt` to the
+  booking fields the rules allow when the server step lands.
+- If the booking changes after the reminder (moved, cancelled), the move or
+  cancellation email already tells them; no second reminder.
+
+**What it says** (through egbc-email.js's function, with the Church details footer)
+- Subject: `Reminder: <room>, tomorrow <start> to <end>`
+- The room and site, with the site's address
+- The time, and when the room is theirs if they asked for setting up and
+  clearing away: "The room is yours from 18:30. Please be clear by 21:15."
+- What it is for (`title`), how many, and the layout
+- Refreshments and kit they asked for, if any
+- The room's house rules (`rooms.houseRules`), for hirers
+- The reference (as on every booking email)
+- "Can't make it?": members, cancel in Book a room; hirers, reply to this email
+- **Reply-to:** the site's bookings address (`sites.bookingsEmail`), or the
+  church's enquiry email when the site has none
+
+**Two smaller ones, if the server step can carry them (Should)**
+- To each site's bookings address at 08:00: requests that have been waiting
+  more than two days ("3 requests are waiting for you"). Nothing if none.
+- To each site's bookings address at 07:00: that day's setup sheet (the same
+  content as the Setup sheet tab). Off unless the site asks for it; a switch on
+  the Places page, Bookings tab, is the events window's to add.
+
+### F-075 — an event in a room books that room (Martin, F-072a: built)
+Saving an event with a room on `events-admin.html` books the room for it, as a
+booking of kind `event` linked to the event (`calEventId`).
+- **The same rules as any booking.** The room's time, with "time to set up
+  first" and "time to clear away after" (new on the event's room choice), is
+  held on the room's day in the same write. The rules now refuse any booking the
+  office makes over something unless it is marked as booked over, with a
+  reason. Before this, the office could do that silently.
+- **A room that is taken:** before anything is saved, the page says what is
+  there ("Test band practice (18:00–19:00)", or the service), offers the rooms
+  at the site that are free then, and, for admins, booking over it with a reason.
+- **Moving the event moves the booking** (the same booking). **Cancelling** the
+  event, setting its status to cancelled, or deleting a series gives the rooms
+  back. Changing the room gives the old room back and books the new one.
+- An event over several days books each day; all day is the whole day.
+- A repeating event books every date; a date that is taken is reported before
+  anything is saved.
+- These bookings send no emails (the event has its own), and show on the
+  calendars, the office page (as "event") and the setup sheet.
+- **Not changed:** an event at an outside venue or online books nothing. Events
+  saved before this change have no booking until they are next saved.

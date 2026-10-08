@@ -17,7 +17,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610091200"></script>
+<script src="egbc-events-bookings.js?v=202610101000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -152,7 +152,7 @@
     var diet = Object.keys(f.dietary || {}).map(function (k) { return f.dietary[k] + ' ' + ({ vegetarian: 'vegetarian', vegan: 'vegan', glutenFree: 'gluten-free', dairyFree: 'dairy-free' }[k] || k); });
     return '<div class="card bk" data-key="' + esc(b.key) + '">' +
       '<div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap"><div><h3>' + esc(b.title || 'Booking') + '</h3>' +
-        '<span class="hint">' + esc(r.name) + ', ' + esc(B.when(b)) + ' · ' + (b.kind === 'hire' ? 'hire request' : b.kind === 'office' ? 'office booking' : 'member') + ' · reference ' + esc(B.ref(b)) + '</span></div>' + pill + '</div>' +
+        '<span class="hint">' + esc(r.name) + ', ' + esc(B.when(b)) + ' · ' + (b.kind === 'hire' ? 'hire request' : b.kind === 'office' ? 'office booking' : b.kind === 'event' ? 'event' : 'member') + ' · reference ' + esc(B.ref(b)) + '</span></div>' + pill + '</div>' +
       (b.status === 'requested' ? '<div class="st wait" data-free="' + esc(b.key) + '">Checking the time…</div>' : '') +
       (b.override ? '<div class="st wait">Booked over something else' + (b.decisionNote ? ': ' + esc(b.decisionNote) : '') + '.</div>' : '') +
       (kit.length ? '<div class="st wait">Kit: ' + esc(kit.join('; ')) + '.</div>' : '') +

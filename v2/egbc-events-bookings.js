@@ -168,12 +168,14 @@
       av: o.av || { needed: false, what: '' }, refreshments: o.refreshments || { needed: false, items: [], dietary: {}, notes: '' },
       resources: o.resources || [], notes: String(o.notes || '').slice(0, 2000),
       requester: o.requester || { name: p.name || '', email: (p.email || u.email || ''), phone: '', org: '' },
-      memberUid: o.kind === 'hire' ? '' : (u.uid || ''), memberName: o.kind === 'hire' ? '' : (p.name || ''),
+      /* A hire and an event's booking belong to nobody's "Your bookings". */
+      memberUid: o.kind === 'hire' || o.kind === 'event' ? '' : (u.uid || ''), memberName: o.kind === 'hire' || o.kind === 'event' ? '' : (p.name || ''),
       createdAt: new Date().toISOString()
     };
     /* A repeating booking: one booking per date, all carrying the same
        series id, which date of how many it is, and the rule. */
     if (o.series) d.series = { id: o.series.id, rule: o.series.rule, n: o.series.n, of: o.series.of };
+    if (o.calEventId) d.calEventId = o.calEventId;
     return d;
   }
 
@@ -316,6 +318,137 @@
         tx.update(bref, patch);
       });
     }).then(function () { return Object.assign({}, b, patch); });
+  }
+
+  /* ---- the office books (events, F-072a) ----
+     One transaction: the room's day counts up by one over the booking's
+     quarter-hours, and the booking is written. Over something already there
+     only with o.override and a reason (o.note), which is kept on the
+     booking; the rules insist on both. */
+  function officeBook(d, room, o) {
+    o = o || {};
+    var key = 'bk_' + EGBCEvents.key(28), bref = db().collection('bookings').doc(key), ref = dayRef(room.id, d.day), over = false, w = who(), out;
+    return db().runTransaction(function (tx) {
+      return tx.get(ref).then(function (s) {
+        var sl = s.exists ? s.data().slots.slice() : base(room, d.day);
+        over = !free(sl, { from: d.slotFrom, to: d.slotTo });
+        if (over && !(o.override && o.note)) throw Clash(room.name + ' is not free then.');
+        for (var i = d.slotFrom; i < d.slotTo; i++) sl[i] = (sl[i] || 0) + 1;
+        tx.set(ref, dayDoc(room, d.day, sl));
+        out = Object.assign({}, d, over ? { override: true, decisionNote: String(o.note).slice(0, 500), decidedBy: w.uid, decidedByName: w.name, decidedAt: new Date().toISOString() } : {});
+        tx.set(bref, out);
+      });
+    }).then(function () { return Object.assign({ key: key }, out); });
+  }
+
+  /* An event in rooms, as bookings: one per room per day. An event over
+     several days takes each day from its start, or to its end; an all-day
+     event takes the whole day. Setting up comes before the first day,
+     clearing away after the last. At most 14 days. */
+  function eventPieces(ev) {
+    var loc = ev.location || {};
+    if (loc.kind !== 'room' || !(loc.roomIds || []).length || !ev.startLocal || ev.status === 'cancelled') return [];
+    var d0 = ev.startLocal.slice(0, 10), d1 = (ev.endLocal || ev.startLocal).slice(0, 10);
+    if (d1 < d0) d1 = d0;
+    var days = [], d = d0;
+    while (d <= d1 && days.length < 14) { days.push(d); d = addDays(d, 1); }
+    var t0 = ev.allDay ? '00:00' : ev.startLocal.slice(11, 16), t1 = ev.allDay || !ev.endLocal ? '' : ev.endLocal.slice(11, 16);
+    var out = [];
+    days.forEach(function (day, i) {
+      var first = i === 0, last = i === days.length - 1;
+      var start = first ? t0 : '00:00';
+      var end = last ? (t1 || (ev.allDay ? '24:00' : hhmm(Math.min(toMin(t0) + 60, 1440)))) : '24:00';
+      var setup = first ? (+loc.setupMins || 0) : 0, pack = last ? (+loc.packMins || 0) : 0;
+      if (toMin(start) - setup < 0) setup = toMin(start);
+      if (toMin(end) + pack > 1440) pack = 1440 - toMin(end);
+      loc.roomIds.forEach(function (roomId) { out.push({ roomId: roomId, day: day, start: start, end: end, setup: setup, pack: pack }); });
+    });
+    return out;
+  }
+
+  function eventBookings(calEventId) {
+    return db().collection('bookings').where('calEventId', '==', calEventId).get().then(function (s) {
+      return s.docs.map(function (x) { return Object.assign({ key: x.id }, x.data()); })
+        .filter(function (b) { return b.status === 'confirmed' || b.status === 'requested'; });
+    });
+  }
+
+  /* What stands in the way of an event's rooms, piece by piece: the
+     services and bookings already there, leaving out the event's own
+     bookings (it is moving out of those). [{ piece, what: [words] }] */
+  function eventClashes(calEventId, pieces, roomsById, site) {
+    return (calEventId ? eventBookings(calEventId) : Promise.resolve([])).then(function (own) {
+      return Promise.all(pieces.map(function (p) {
+        var room = roomsById[p.roomId], s = slots(toMin(p.start), toMin(p.end), p.setup, p.pack);
+        if (!room || !s) return null;
+        return loadDays([room], p.day).then(function (days) {
+          var sl = days[room.id].slice();
+          own.forEach(function (b) { if (b.status === 'confirmed' && b.roomId === p.roomId && b.day === p.day) for (var i = b.slotFrom; i < b.slotTo; i++) sl[i] = Math.max(0, sl[i] - 1); });
+          if (free(sl, s)) return null;
+          var what = [];
+          for (var i = s.from; i < s.to; i++) { var sv = sl[i] ? serviceAt(site, room.id, p.day, i) : ''; if (sv && what.indexOf(sv) < 0) what.push(sv); }
+          return db().collection('bookings').where('roomId', '==', room.id).where('day', '==', p.day).get().then(function (q) {
+            q.docs.forEach(function (x) {
+              var b = x.data();
+              if (b.status !== 'confirmed' || b.calEventId === calEventId || b.slotTo <= s.from || b.slotFrom >= s.to) return;
+              what.push((b.title || 'A booking') + ' (' + hhmm(b.startMin) + '–' + hhmm(b.endMin) + ')');
+            });
+            return { piece: p, room: room, what: what.length ? what : ['something already booked'] };
+          });
+        });
+      })).then(function (l) { return l.filter(Boolean); });
+    });
+  }
+
+  /* Make the event's bookings match the event. A room it keeps is moved to
+     the new time; a room it no longer uses is given back; a new one is
+     booked. o: { override, note } to book over something. */
+  function syncEvent(ev, roomsById, o) {
+    o = o || {};
+    var want = eventPieces(ev), p = (EGBCAuth.profile && EGBCAuth.profile()) || {}, u = (EGBCAuth.user && EGBCAuth.user()) || {};
+    return eventBookings(ev.id).then(function (have) {
+      var used = {}, jobs = [];
+      want.forEach(function (w) {
+        var room = roomsById[w.roomId];
+        var b = have.filter(function (x) { return !used[x.key] && x.roomId === w.roomId && x.day === w.day; })[0] ||
+                have.filter(function (x) { return !used[x.key] && x.roomId === w.roomId; })[0];
+        if (b) {
+          used[b.key] = true;
+          var s = slots(toMin(w.start), toMin(w.end), w.setup, w.pack);
+          if (b.day === w.day && b.startMin === toMin(w.start) && b.endMin === toMin(w.end) && b.slotFrom === s.from && b.slotTo === s.to && b.title === ev.title) return;
+          jobs.push(function () {
+            var after = b.title === ev.title ? Promise.resolve() : db().collection('bookings').doc(b.key).update({ title: String(ev.title || '').slice(0, 120) });
+            return after.then(function () {
+              if (b.day === w.day && b.startMin === toMin(w.start) && b.endMin === toMin(w.end) && b.slotFrom === s.from && b.slotTo === s.to) return;
+              return db().collection('bookings').doc(b.key).update({ setupMins: w.setup, packdownMins: w.pack }).then(function () {
+                return move(Object.assign({}, b, { setupMins: w.setup, packdownMins: w.pack }), room, room, { day: w.day, start: w.start, end: w.end }, o);
+              });
+            });
+          });
+          return;
+        }
+        jobs.push(function () {
+          var d = prepare({ kind: 'event', room: room, day: w.day, start: w.start, end: w.end, setup: w.setup, pack: w.pack, title: ev.title,
+            people: Math.max(1, +ev.capacity || 1), notes: '', calEventId: ev.id,
+            requester: { name: ev.organiserName || p.name || '', email: p.email || u.email || '', phone: '', org: '' } });
+          return officeBook(d, room, o);
+        });
+      });
+      have.forEach(function (b) {
+        if (used[b.key]) return;
+        jobs.push(function () { return cancel(b, roomsById[b.roomId] || { id: b.roomId, siteId: b.siteId }, 'The event no longer uses this room.'); });
+      });
+      return jobs.reduce(function (pr, j) { return pr.then(j); }, Promise.resolve());
+    });
+  }
+
+  /* An event cancelled or deleted gives its rooms back. */
+  function freeEvent(calEventId, roomsById, note) {
+    return eventBookings(calEventId).then(function (have) {
+      return have.reduce(function (pr, b) {
+        return pr.then(function () { return cancel(b, roomsById[b.roomId] || { id: b.roomId, siteId: b.siteId }, note || 'The event was cancelled.'); });
+      }, Promise.resolve());
+    });
   }
 
   /* Kit is a warning, not a rule: the rules cannot add up quantities
@@ -477,7 +610,8 @@
               workingDays: workingDays, lateItems: lateItems, tellOffice: tellOffice, ref: ref,
               bar: bar, axis: axis, key: key, FROM: FROM, TO: TO,
               MAX: MAX, RULES: RULES, repeatDays: repeatDays, seriesWords: seriesWords, canSelfCancel: canSelfCancel, cancelOwn: cancelOwn,
-              emailMany: emailMany, dateList: dateList };
+              emailMany: emailMany, dateList: dateList,
+              officeBook: officeBook, eventPieces: eventPieces, eventBookings: eventBookings, eventClashes: eventClashes, syncEvent: syncEvent, freeEvent: freeEvent };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCBookings = api;
 

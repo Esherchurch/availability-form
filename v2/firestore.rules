@@ -1279,7 +1279,7 @@ service cloud.firestore {
              && d.notes is string && d.notes.size() <= 2000
              && d.people is int && d.people >= 1
              && d.requester is map
-             && d.kind in ['member', 'hire', 'office'] && d.status in ['requested', 'confirmed']
+             && d.kind in ['member', 'hire', 'office', 'event'] && d.status in ['requested', 'confirmed']
              && d.layout is string && d.layout.size() <= 40 && d.groupId is string && d.groupId.size() <= 40
              && d.av is map && d.refreshments is map && d.resources is list && d.resources.size() <= 30
              && bookingTimesOk(d)
@@ -1312,13 +1312,24 @@ service cloud.firestore {
              && slotsFree(d);
     }
 
+    // The office (and an event's booking, F-072a): confirmed, its time held
+    // on the room's day in the same write, and either free beforehand or
+    // marked as booked over something, with the reason.
+    function officeCreate() {
+      let d = request.resource.data;
+      return theOffice(d.siteId) && d.status == 'confirmed'
+             && !getAfter(/databases/$(database)/documents/roomDays/$(d.roomId + '_' + d.day)).data.slots[d.slotFrom:d.slotTo].hasAny([0])
+             && (slotsFree(d)
+                 || (d.get('override', false) == true && d.get('decisionNote', '') is string && d.get('decisionNote', '').size() > 0));
+    }
+
     match /bookings/{key} {
       // The key is the booking's private reference (32 random characters).
       allow get: if true;
       allow list: if theOffice(resource.data.siteId)
                   || (active() && resource.data.get('memberUid', '') == request.auth.uid);
       allow create: if key.size() >= 20 && bookingShape()
-                    && (memberCreate(key) || publicCreate() || theOffice(request.resource.data.siteId));
+                    && (memberCreate(key) || publicCreate() || officeCreate());
       allow update: if (theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId))
                     || memberCancel(key);
       allow delete: if false;
