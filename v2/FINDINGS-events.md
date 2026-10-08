@@ -718,9 +718,12 @@ approved photos only.
   fire-safety maximum.
 - **"From £x per hour"** needs rate cards (Chunk 5). Until then the hire page
   says to ask about prices.
-- **"Ask about hiring this room"** opens an email to office@esherchurch.org
-  (the reply address the email function already uses) until `book.html`
-  arrives in R2. **Martin: is that the right address?**
+- **"Ask about hiring this room"** opened an email to office@esherchurch.org
+  until `book.html` arrived. **Decided (Martin):** the address is right, but it
+  must be a setting, not written into a page, because this will become a
+  product for other churches. Done: **Church details** (`church-settings.html`,
+  admins only) holds the church's name, enquiry email and logo, and every
+  events page reads them from there. See F-063.
 - **Menu prices** are stored now, for Chunk 5's quotes. Nothing is charged, and
   the public pages do not show them yet.
 
@@ -740,7 +743,102 @@ Chunk 1 gave each room an empty `photoUrl`. Room profiles keep a list of
 photos instead, with the first one as the main picture. The old field is left
 in place and unused, so nothing that might read it breaks.
 
-### F-062 — REQUEST for the main window: a way in to "Hire our rooms"
-`hire.html` is public and has no link to it yet. Suggest a link from the hub
-for members, and from the church website for everyone else (the main window's
-pages and Martin's site).
+### F-062 — "Hire our rooms" is a closed set of public pages (decided, built)
+**Decided (Martin):** `hire.html`, `room.html` and `book.html` are a closed set
+the church website links to. Someone arriving from the website sees only those
+three: no hub Menu, no sign-in, nothing from the members' side, and no way into
+it. Each has a plain header with the church's name and logo (from Church
+details) and "Back to all rooms".
+
+**Built:** the three pages load no hub shell and never look at who is signed
+in. `r2-bookings.test.mjs` opens `hire.html` signed out, follows every link on
+every page it reaches, and fails if any leads anywhere else (the one link
+allowed out is the church's enquiry email, as a mailto).
+
+**The links for the church website:**
+- All rooms: `https://esherchurch.github.io/availability-form/v2/hire.html`
+- One room: `https://esherchurch.github.io/availability-form/v2/room.html?id=<room id>`
+- Ask to book one room: `https://esherchurch.github.io/availability-form/v2/book.html?room=<room id>`
+
+A room's id is the last part of the address when its page is open from
+`hire.html`. `room.html?r=<room id>` (the R1 address) still works.
+
+**Still a REQUEST for the main window:** a way in for members from the hub
+(the Menu) to `rooms.html` (Book a room) and, for admins and bookings admins,
+`bookings-admin.html` (Room bookings). See F-067.
+
+### F-063 — nothing about one church is written into the events pages
+Searched every events page and shared file for the church's name, any email
+address and the logo. What was written in, and what reads the setting now:
+
+| Where | What was written in | Now |
+|---|---|---|
+| `room.html` | the enquiry address office@esherchurch.org | Church details' enquiry email |
+| `hire.html` | "Esher Green Baptist Church" in the opening line | Church details' name |
+| `hire.html`, `room.html` | the hub header's logo and name | their own header from Church details |
+| `whatson.html` | church name in the subtitle, the calendar's name, a calendar id at esherchurch.org | the setting; the id uses the site's own address |
+| `egbc-events.js` | calendar ids at esherchurch.org; the email footer | the site's own address; Church details' name |
+| `places-admin.html` | the church's name as the seeded site's name and in examples | the setting, or "Main site" |
+| every events email (events-admin, signup, forms, form, safeguarding) | the footer and reply address, by default | Church details, through `egbc-church.js` |
+| the tab titles of 17 events pages | "— EGBC" | the church's name from the setting |
+| `egbc-ics.js` (calendar files) | "Esher Green Baptist Church" in every file, a calendar id at esherchurch.org | the setting's name; the site's own address |
+
+`egbc-ics.js` is not on my brief's list of files, but it was made for events
+and only events pages use it (the rota feed has its own copy, untouched).
+
+**Outside my pages (for the main window, F-067):** `egbc-email.js` still falls
+back to office@esherchurch.org as the reply address and to "Esher Green Baptist
+Church" as the footer when a page gives neither. Events pages always give both
+now, so this matters only for other pages. `egbc-shell.js` draws the hub's
+logo and "EGBC" name on members' pages; that is the hub's own branding and is
+left alone.
+
+## Chunk 4, stage R2: booking rooms
+
+### F-064 — how a booking can never land on top of another
+A room's day is 96 quarter-hours (`roomDays/<room>_<date>`, readable by anyone,
+saying only which quarter-hours are taken, never by whom). A day nobody has
+booked counts as the room's weekly pattern of rota services, set on the Places
+page (Bookings tab). A confirmed booking marks its quarter-hours, including its
+setup and pack-down, in the same write as the booking, and the rules check every
+one was free, so neither a member nor the public can book over a confirmed
+booking, a service or a buffer, whatever the page does. Two people booking the
+same time at the same moment: the second is refused. Only the office (admins
+and the site's bookings admins, set on Places, "Who approves") can book over
+something, and the page makes them give a reason, which is kept on the booking.
+
+### F-065 — what R2 leaves, and why
+- **A service skipped one week still blocks the room.** The pattern is weekly;
+  if Sunday worship moves for a week, the office books over it with a reason.
+  Linking it to the live rota, week by week, is a later step.
+- **Kit is a warning, not a rule.** The office page flags kit asked for twice at
+  once (one PA, two bookings); the rules cannot add up quantities across
+  bookings.
+- **Members cannot cancel or move their own bookings yet.** They ask the office,
+  who can. R3 adds a page for it.
+- **Catering notice is a warning.** Too little notice for an item is shown on
+  the form; the request still goes in.
+- **Spam on book.html:** a hidden box robots fill in, and a minimum time on the
+  page, stop simple robots. A determined one could still fill the office's
+  list with requests (nothing is booked by them). If that happens, the next step
+  is a check on the server (for example reCAPTCHA), which needs Martin.
+- **Charges and quotes** wait for Chunk 5. Menu prices are shown on the form so
+  people know; nothing is charged.
+- **An event in a room** (events-admin) does not book the room yet; R3, with
+  recurring bookings.
+
+### F-066 — what the office is told
+Every request that waits (a member's at a "wait for approval" room, and every
+public one) emails the enquiry address in Church details. With no address set,
+nobody is emailed and the request still waits on Room bookings.
+
+### F-067 — REQUEST for the main window: hub entries and the style check
+- **Menu:** "Book a room" → `rooms.html` (any signed-in member); "Room bookings"
+  → `bookings-admin.html` (admins and bookings admins; the page itself turns
+  anyone else away politely).
+- **Style check:** please add `rooms.html`, `bookings-admin.html`, `book.html`
+  and `church-settings.html` to `tests/check-style-every-screen.mjs`'s list.
+- **`egbc-email.js`:** when a page gives no reply address or footer, fall back to
+  Church details (or to nothing) rather than this church's address and name
+  (F-063).
+

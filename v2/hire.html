@@ -13,6 +13,8 @@
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-bookings.js?v=202610082200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -71,12 +73,12 @@
 (function () {
   'use strict';
   var R = window.EGBCRooms;
-  var ROOMS = [], SITES = {}, NEED = { people: '', layout: '', facilities: [] };
+  var ROOMS = [], SITES = {}, NEED = { people: '', layout: '', facilities: [], day: '', from: '', to: '' }, FREE = null, B = window.EGBCBookings;
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
 
-  /* The search. Free and busy at a date and time come with bookings (the
-     next stage); this finds the rooms that fit. */
+  /* The search: the rooms that fit, and - given a date and times - the
+     ones free then. */
   function drawSearch() {
     document.getElementById('search').innerHTML =
       '<h2>What do you need?</h2><div class="two">' +
@@ -84,6 +86,10 @@
         '<div><label class="l" for="q-layout">Set out as</label><select id="q-layout"><option value="">Any layout</option>' +
           R.LAYOUTS.map(function (x) { return '<option value="' + x.id + '"' + (NEED.layout === x.id ? ' selected' : '') + '>' + x.label + ' (' + x.hint + ')</option>'; }).join('') +
         '</select></div></div>' +
+      '<div class="two" style="margin-top:12px">' +
+        '<div><label class="l" for="q-day">On (optional)</label><input class="inp" id="q-day" type="date" min="' + B.today() + '" value="' + esc(NEED.day) + '"></div>' +
+        '<div><label class="l" for="q-from">From</label><select id="q-from">' + tOpts(NEED.from) + '</select></div>' +
+        '<div><label class="l" for="q-to">Until</label><select id="q-to">' + tOpts(NEED.to) + '</select></div></div>' +
       '<div class="chips">' + R.FACILITIES.filter(function (x) { return !x.count; }).map(function (x) {
         var on = NEED.facilities.indexOf(x.id) >= 0;
         return '<label class="chip' + (on ? ' on' : '') + '"><input type="checkbox" class="q-fac" value="' + x.id + '"' + (on ? ' checked' : '') + '>' +
@@ -91,6 +97,7 @@
       }).join('') + '</div>';
     document.getElementById('q-people').oninput = function () { NEED.people = this.value; drawResults(); };
     document.getElementById('q-layout').onchange = function () { NEED.layout = this.value; drawResults(); };
+    ['day', 'from', 'to'].forEach(function (k) { document.getElementById('q-' + k).onchange = function () { NEED[k] = this.value; findFree(); }; });
     document.querySelectorAll('.q-fac').forEach(function (c) {
       c.onchange = function () {
         NEED.facilities = [].slice.call(document.querySelectorAll('.q-fac:checked')).map(function (x) { return x.value; });
@@ -101,6 +108,23 @@
     icons();
   }
 
+  function tOpts(sel) {
+    var o = '<option value="">Any time</option>';
+    for (var m = 360; m <= 1425; m += 15) { var t = B.hhmm(m); o += '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>'; }
+    return o;
+  }
+  /* Which rooms have every quarter-hour free between the two times. */
+  function findFree() {
+    var s = NEED.day && NEED.from && NEED.to ? B.slots(B.toMin(NEED.from), B.toMin(NEED.to), 0, 0) : null;
+    if (!s) { FREE = null; drawResults(); return; }
+    var want = NEED.day + NEED.from + NEED.to;
+    B.loadDays(ROOMS, NEED.day).then(function (days) {
+      if (want !== NEED.day + NEED.from + NEED.to) return;
+      FREE = {}; ROOMS.forEach(function (r) { FREE[r.id] = B.free(days[r.id], s); });
+      drawResults();
+    });
+  }
+
   function sizes(r) {
     var bits = R.LAYOUTS.filter(function (x) { return (r.layouts || {})[x.id]; }).map(function (x) { return R.holds(r, x.id) + ' ' + x.label.toLowerCase(); });
     if (!bits.length && R.holds(r)) bits.push('up to ' + R.holds(r));
@@ -109,7 +133,8 @@
 
   function card(r) {
     var ph = R.mainPhoto(r), a = R.area(r);
-    return '<a class="card room" href="room.html?id=' + encodeURIComponent(r.id) + '" data-room="' + esc(r.id) + '">' +
+    var when = FREE ? '&day=' + NEED.day + '&start=' + NEED.from + '&end=' + NEED.to : '';
+    return '<a class="card room" href="' + (FREE ? 'book.html?room=' + encodeURIComponent(r.id) + when : 'room.html?id=' + encodeURIComponent(r.id)) + '" data-room="' + esc(r.id) + '">' +
       '<div class="pic"' + (ph ? ' style="background-image:url(\'' + esc(ph.url) + '\')"' : '') + '>' + (ph ? '' : '<i data-lucide="image" style="width:28px;height:28px"></i>') + '</div>' +
       '<div class="b"><h3>' + esc(r.name) + '</h3>' +
         '<div class="m">' + esc(SITES[r.siteId] || '') + (a ? ' · ' + a + ' m²' : '') + '</div>' +
@@ -122,10 +147,14 @@
   function drawResults() {
     var need = { people: Number(NEED.people) || 0, layout: NEED.layout, facilities: NEED.facilities };
     var fits = [], not = [];
-    ROOMS.forEach(function (r) { var f = R.fit(r, need); (f.ok ? fits : not).push({ r: r, why: f.why }); });
-    var asked = need.people || need.layout || need.facilities.length;
+    ROOMS.forEach(function (r) {
+      var f = R.fit(r, need);
+      if (FREE && !FREE[r.id]) { f = { ok: false, why: f.why.concat(['booked then']) }; }
+      (f.ok ? fits : not).push({ r: r, why: f.why });
+    });
+    var asked = need.people || need.layout || need.facilities.length || FREE;
     document.getElementById('results').innerHTML =
-      (fits.length ? '<p class="hint" id="count">' + (asked ? fits.length + ' room' + (fits.length === 1 ? '' : 's') + ' fit what you need.' : ROOMS.length + ' rooms for hire.') + '</p>' +
+      (fits.length ? '<p class="hint" id="count">' + (asked ? fits.length + ' room' + (fits.length === 1 ? '' : 's') + ' fit what you need' + (FREE ? ' and ' + (fits.length === 1 ? 'is' : 'are') + ' free then. Choose one to ask for it.' : '.') : ROOMS.length + ' rooms for hire.') + '</p>' +
         '<div class="grid">' + fits.map(function (x) { return card(x.r); }).join('') + '</div>'
         : '<div class="card" style="padding:18px"><p style="margin:0" id="count">No room fits all of that. Try fewer things, or ask us: we may be able to help.</p></div>') +
       (asked && not.length ? '<div class="nofit"><p class="hint" style="margin:0">Not shown:</p><ul>' + not.map(function (x) {

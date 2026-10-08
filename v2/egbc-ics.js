@@ -70,6 +70,11 @@
     return out;
   }
 
+  /* The church's name, from Church details (egbc-church.js) where the page
+     has it; nothing about one church is written in here. */
+  function church() { return (global.EGBCChurch && global.EGBCChurch.name && global.EGBCChurch.name()) || 'Church'; }
+  function prodid() { return 'PRODID:-//' + church().replace(/[^A-Za-z0-9 ]/g, '') + '//Team Hub//EN'; }
+
   var ICS = {
 
     build: function (o) {
@@ -79,11 +84,11 @@
       var lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//Esher Green Baptist Church//EGBC Team Hub//EN',
+        prodid(),
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
         'BEGIN:VEVENT',
-        'UID:' + esc(o.uid || ('egbc-' + Date.now() + '@esherchurch.org')),
+        'UID:' + esc(o.uid || ('egbc-' + Date.now() + '@' + (global.location ? global.location.hostname : 'localhost'))),
         'DTSTAMP:' + stamp(new Date())
       ];
       if (start) {
@@ -108,9 +113,9 @@
     buildMany: function (list, name) {
       var head = [
         'BEGIN:VCALENDAR', 'VERSION:2.0',
-        'PRODID:-//Esher Green Baptist Church//EGBC Team Hub//EN',
+        prodid(),
         'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-        'X-WR-CALNAME:' + esc(name || 'Esher Green Baptist Church')
+        'X-WR-CALNAME:' + esc(name || church())
       ].map(fold).join('\r\n');
       var bodies = (list || []).map(function (o) {
         var one = ICS.build(o);

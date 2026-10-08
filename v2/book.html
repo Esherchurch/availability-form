@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ask to book a room</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-ui.js?v=202610062100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610082000"></script>
+<script src="egbc-email.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-rooms.js?v=202610081800"></script>
+<script src="egbc-events-bookings.js?v=202610082200"></script>
+<script src="egbc-events-bookform.js?v=202610082200"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--card:0 1px 2px rgba(16,24,40,.05);
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 6px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 10px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55;cursor:default}
+  .hint{font-size:13px;color:var(--muted)}
+  .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:10px 0}
+  .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  .scroll{overflow-x:auto}.scroll>div{min-width:480px}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+  /* The plain header for the public hire pages: the church's logo and name
+     (from Church details) and a way back to the list. No hub menu, no
+     sign-in - someone arriving from the church website stays in these pages. */
+  .chead{background:#fff;border-bottom:1px solid var(--line)}
+  .ch-in{max-width:1000px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ch-logo{width:32px;height:32px;object-fit:contain;border-radius:6px}
+  .ch-name{font-size:15px;font-weight:600;color:var(--ink);flex:1;min-width:0}
+  .ch-back{font-size:13px;font-weight:500;color:var(--brand);text-decoration:none}
+</style>
+</head>
+<body>
+<header class="chead" id="chead"></header>
+<div class="wrap" id="wrap">
+  <h1>Ask to book a room</h1>
+  <p class="sub">Tell us when, and what for. Nothing is booked until we confirm it by email.</p>
+  <div class="card" id="day"></div>
+  <div class="card"><div id="f"><p class="hint">Loading…</p></div><div id="f-status"></div>
+    <div style="text-align:right;margin-top:10px"><button class="btn" id="f-go" disabled>Send the request</button></div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var B = window.EGBCBookings, R = window.EGBCRooms;
+  var ROOMS = [], SITES = {}, MENUS = [], DAYS = null, OPENED = Date.now();
+  var Q = new URLSearchParams(location.search);
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 4000); }
+  function roomById(id) { return ROOMS.filter(function (r) { return r.id === id; })[0]; }
+  function form() { return document.getElementById('f'); }
+
+  /* The room's day, so people can see when it is free before they ask. */
+  var checking = 0;
+  function check(v) {
+    var go = document.getElementById('f-go'), out = document.getElementById('f-status'), r = roomById(v.rooms[0]), mine = ++checking;
+    go.disabled = true;
+    if (!r) { out.innerHTML = '<div class="st wait">Choose a room.</div>'; return; }
+    var s = B.slots(B.toMin(v.start), B.toMin(v.end), v.setup, v.pack);
+    var day = v.day || B.today();
+    B.loadDays([r], day).then(function (days) {
+      if (mine !== checking) return;
+      DAYS = days;
+      var site = SITES[r.siteId] || {};
+      document.getElementById('day').innerHTML = '<h2>' + esc(r.name) + ', ' + esc(EGBCEvents.fmtDate(day + 'T12:00')) + '</h2>' +
+        '<div class="scroll"><div>' + B.axis() + B.bar(days[r.id], { label: '', service: function (i) { return B.serviceAt(site, r.id, day, i); }, pick: s && v.day ? s : null }) + B.key(false) + '</div></div>' +
+        '<p class="hint" style="margin:8px 0 0"><a href="room.html?id=' + encodeURIComponent(r.id) + '" style="color:var(--brand)">More about this room</a></p>';
+      var msg = [];
+      if (!v.day) msg.push(['wait', 'Choose a date.']);
+      else if (v.day < B.today()) msg.push(['no', 'That date has gone.']);
+      else if (!s) msg.push(['no', 'The finish has to be after the start, and with setting up and clearing away it has to fit within the day.']);
+      else if (!B.free(days[r.id], s)) msg.push(['no', 'The room is not free for all of that time. The day above shows when it is.']);
+      if (r.fireMax && v.people > r.fireMax) msg.push(['no', 'This room can never hold more than ' + r.fireMax + ' people.']);
+      if (!v.title || !(v.people > 0)) msg.push(['wait', 'Say what it is for, and how many people.']);
+      if (!v.requester.name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.requester.email)) msg.push(['wait', 'We need your name and email to reply.']);
+      out.innerHTML = msg.length ? msg.map(function (m) { return '<div class="st ' + m[0] + '">' + esc(m[1]) + '</div>'; }).join('')
+        : '<div class="st ok">The room is free then. We will look at your request and email you.</div>';
+      go.disabled = msg.length > 0;
+    });
+  }
+
+  function submit() {
+    var v = EGBCBookForm.values(form()), go = document.getElementById('f-go'), r = roomById(v.rooms[0]);
+    if (!DAYS || !r) return;
+    /* Robots fill in the hidden box, or send the form within a second or
+       two of opening it. They are thanked and nothing is saved. */
+    if (v.trap || Date.now() - OPENED < 4000) { thanks(null, r); return; }
+    go.disabled = true; go.textContent = 'Sending…';
+    var b;
+    try {
+      b = B.prepare({ kind: 'hire', room: r, site: SITES[r.siteId], day: v.day, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
+        title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: [], notes: v.notes, requester: v.requester });
+    } catch (e) { toast(e.message); go.disabled = false; go.textContent = 'Send the request'; return; }
+    B.write([{ booking: b }], DAYS).then(function (made) {
+      return Promise.all([B.email(made[0], r.name, 'waiting'), B.tellOffice(made[0], r.name)]).then(function () { thanks(made[0], r); });
+    }).catch(function (e) {
+      toast(/permission/i.test(String(e && (e.code || e.message))) ? 'That time has just been taken. Please look again.' : 'Sorry, that could not be sent. Please try again.');
+      go.disabled = false; go.textContent = 'Send the request';
+      check(EGBCBookForm.values(form()));
+    });
+  }
+
+  function thanks(b, r) {
+    document.getElementById('wrap').innerHTML = '<h1>Thank you</h1><div class="card" id="done">' +
+      '<p style="margin:0 0 8px">We have your request for <b>' + esc(r.name) + '</b>' + (b ? ', ' + esc(B.when(b)) : '') + '.</p>' +
+      '<p style="margin:0 0 8px">Nothing is booked yet. We will look at it and email you either way.</p>' +
+      (b ? '<p class="hint" style="margin:0">Your reference is <b id="ref">' + esc(B.ref(b)) + '</b>.</p>' : '') + '</div>' +
+      '<p><a href="room.html?id=' + encodeURIComponent(r.id) + '" style="color:var(--brand)">Back to ' + esc(r.name) + '</a></p>';
+  }
+
+  EGBCChurch.load().then(function () {
+    EGBCChurch.header(document.getElementById('chead'), { back: true });
+    EGBCChurch.title('Ask to book a room');
+    var db = EGBCAuth.db;
+    return Promise.all([db.collection('rooms').where('active', '==', true).get(), db.collection('sites').where('active', '==', true).get(),
+                        db.collection('menus').where('active', '==', true).get().catch(function () { return { docs: [] }; })]);
+  }).then(function (r) {
+    r[1].docs.forEach(function (d) { SITES[d.id] = Object.assign({ id: d.id }, d.data()); });
+    ROOMS = R.hireable(r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    MENUS = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    if (!ROOMS.length) { document.getElementById('wrap').innerHTML = '<div class="card">No rooms are open for hire just now.</div>'; return; }
+    var want = Q.get('room') || Q.get('id') || '';
+    EGBCBookForm.render(form(), { rooms: ROOMS, multi: false, chosen: [roomById(want) ? want : ROOMS[0].id], day: Q.get('day') || '',
+      start: Q.get('start') || '', end: Q.get('end') || '', menus: MENUS, kit: null, contact: true, onChange: check });
+    document.getElementById('f-go').onclick = submit;
+    check(EGBCBookForm.values(form()));
+  }).catch(function () {
+    document.getElementById('wrap').innerHTML = '<div class="card">The booking form could not be loaded. Please try again later.</div>';
+  });
+})();
+</script>
+</body>
+</html>

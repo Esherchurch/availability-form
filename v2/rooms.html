@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book a room</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Book a room"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610082000"></script>
+<script src="egbc-guard.js?v=202610062100"></script>
+<script src="egbc-email.js?v=202610062100"></script>
+<script src="egbc-ics.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events-rooms.js?v=202610081800"></script>
+<script src="egbc-events-bookings.js?v=202610082200"></script>
+<script src="egbc-events-bookform.js?v=202610082200"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 12px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+  .bar .f{min-width:140px}
+  label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .inp,select{height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff;width:100%}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)} .btn.sec:hover{background:#f3f4f6}
+  .btn.sec.on{background:var(--tint);border-color:var(--brand)}
+  .hint{font-size:13px;color:var(--muted)}
+  .bk{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .bk:first-child{border-top:none}
+  .bk .t{flex:1;min-width:200px}.bk .t b{color:var(--ink);font-weight:600}
+  .pill{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.wait{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}
+  .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:10px 0}
+  .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  .back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;z-index:60;overflow:auto;padding:24px 12px}
+  .sheet{background:#fff;border-radius:14px;max-width:640px;margin:0 auto;padding:20px}
+  .sheet h3{font-size:17px;font-weight:600;color:var(--ink);margin:0 0 12px}
+  .scroll{overflow-x:auto}
+  .scroll>div{min-width:560px}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Book a room</h1>
+  <p class="sub">See when rooms are free, and book one: for a band practice, a meeting, anything. Click a free time to start.</p>
+  <div class="card" id="cal"><p class="hint">Loading…</p></div>
+  <div class="card" id="mine"></div>
+  <p class="hint" id="office"></p>
+</div>
+<div class="back" id="back"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var B = window.EGBCBookings;
+  var SITES = [], ROOMS = [], MENUS = [], KIT = [], MINE = [], ME = null;
+  var V = { site: '', view: 'day', day: B.today(), room: '' };
+  function db() { return EGBCAuth.db; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function site() { return SITES.filter(function (s) { return s.id === V.site; })[0] || {}; }
+  function siteRooms() { return ROOMS.filter(function (r) { return r.siteId === V.site; }); }
+  function roomById(id) { return ROOMS.filter(function (r) { return r.id === id; })[0]; }
+  function mineOn(roomId, day) {
+    var m = {};
+    MINE.forEach(function (b) {
+      if (b.roomId !== roomId || b.day !== day || (b.status !== 'confirmed' && b.status !== 'requested')) return;
+      for (var i = b.slotFrom; i < b.slotTo; i++) m[i] = true;
+    });
+    return m;
+  }
+  function svc(roomId, day) { return function (i) { return B.serviceAt(site(), roomId, day, i); }; }
+
+  /* ---- the calendar: a day (every room) or a week (one room) ---- */
+  function drawCal() {
+    var rs = siteRooms();
+    if (!V.room || !roomById(V.room) || roomById(V.room).siteId !== V.site) V.room = rs[0] ? rs[0].id : '';
+    var head = '<div class="bar">' +
+      (SITES.length > 1 ? '<div class="f"><label class="l" for="c-site">Site</label><select id="c-site">' + SITES.map(function (s) {
+        return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div>' : '') +
+      '<div><button class="btn sec' + (V.view === 'day' ? ' on' : '') + '" id="c-day">Day</button> <button class="btn sec' + (V.view === 'week' ? ' on' : '') + '" id="c-week">Week</button></div>' +
+      '<div class="f"><label class="l" for="c-date">' + (V.view === 'day' ? 'Day' : 'Week from') + '</label><input class="inp" type="date" id="c-date" value="' + esc(V.day) + '"></div>' +
+      '<div><button class="btn sec" id="c-prev" aria-label="Earlier">&larr;</button> <button class="btn sec" id="c-next" aria-label="Later">&rarr;</button></div>' +
+      (V.view === 'week' ? '<div class="f"><label class="l" for="c-room">Room</label><select id="c-room">' + rs.map(function (r) {
+        return '<option value="' + esc(r.id) + '"' + (r.id === V.room ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></div>' : '') +
+      '<div style="margin-left:auto"><button class="btn" id="c-book">Book a room</button></div></div>';
+    var el = document.getElementById('cal');
+    el.innerHTML = head + '<div class="scroll"><div id="c-grid"><p class="hint">Loading…</p></div></div>';
+    wireCal();
+    if (!rs.length) { document.getElementById('c-grid').innerHTML = '<p class="hint">No rooms here can be booked by members.</p>'; return; }
+    var job;
+    if (V.view === 'day') {
+      job = B.loadDays(rs, V.day).then(function (days) {
+        return '<p class="hint" style="margin:0 0 6px">' + esc(EGBCEvents.fmtDate(V.day + 'T12:00')) + '</p>' + B.axis() + rs.map(function (r) {
+          return B.bar(days[r.id], { label: r.name, mine: mineOn(r.id, V.day), service: svc(r.id, V.day), click: true, attrs: ' data-room="' + esc(r.id) + '" data-day="' + V.day + '"' });
+        }).join('');
+      });
+    } else {
+      var r = roomById(V.room), list = [0, 1, 2, 3, 4, 5, 6].map(function (n) { return B.addDays(V.day, n); });
+      job = Promise.all(list.map(function (d) { return B.loadDays([r], d); })).then(function (all) {
+        return '<p class="hint" style="margin:0 0 6px">' + esc(r.name) + '</p>' + B.axis() + list.map(function (d, i) {
+          return B.bar(all[i][r.id], { label: EGBCEvents.fmtDateShort(d + 'T12:00'), mine: mineOn(r.id, d), service: svc(r.id, d), click: true, attrs: ' data-room="' + esc(r.id) + '" data-day="' + d + '"' });
+        }).join('');
+      });
+    }
+    job.then(function (html) {
+      document.getElementById('c-grid').innerHTML = html + B.key(true);
+      document.querySelectorAll('#c-grid [data-slot]').forEach(function (c) {
+        c.onclick = function () {
+          var row = c.closest('.bk-row'), s = +c.dataset.slot;
+          openSheet({ room: row.dataset.room, day: row.dataset.day, start: B.hhmm(s * 15), end: B.hhmm(Math.min(s * 15 + 60, 1425)) });
+        };
+      });
+    }).catch(function (e) { document.getElementById('c-grid').innerHTML = '<p class="hint">Could not load: ' + esc(e.message || e) + '</p>'; });
+  }
+  function wireCal() {
+    var g = function (id) { return document.getElementById(id); };
+    if (g('c-site')) g('c-site').onchange = function () { V.site = this.value; drawCal(); };
+    g('c-day').onclick = function () { V.view = 'day'; drawCal(); };
+    g('c-week').onclick = function () { V.view = 'week'; drawCal(); };
+    g('c-date').onchange = function () { if (this.value) { V.day = this.value; drawCal(); } };
+    g('c-prev').onclick = function () { V.day = B.addDays(V.day, V.view === 'day' ? -1 : -7); drawCal(); };
+    g('c-next').onclick = function () { V.day = B.addDays(V.day, V.view === 'day' ? 1 : 7); drawCal(); };
+    if (g('c-room')) g('c-room').onchange = function () { V.room = this.value; drawCal(); };
+    g('c-book').onclick = function () { openSheet({ room: V.view === 'week' ? V.room : '', day: V.day }); };
+  }
+
+  /* ---- your bookings ---- */
+  function drawMine() {
+    var up = MINE.filter(function (b) { return b.day >= B.today(); }).sort(function (a, b) { return (a.day + a.startMin / 10000) < (b.day + b.startMin / 10000) ? -1 : 1; });
+    document.getElementById('mine').innerHTML = '<h2>Your bookings</h2>' + (up.length ? up.map(function (b) {
+      var r = roomById(b.roomId) || { name: 'A room' };
+      var pill = { confirmed: '<span class="pill ok">Confirmed</span>', requested: '<span class="pill wait">Waiting for approval</span>',
+                   declined: '<span class="pill no">Declined</span>', cancelled: '<span class="pill no">Cancelled</span>' }[b.status] || '';
+      return '<div class="bk" data-bk="' + esc(b.key) + '"><div class="t"><b>' + esc(b.title || 'Booking') + '</b><br><span class="hint">' + esc(r.name) + ', ' + esc(B.when(b)) +
+        ' · reference ' + esc(B.ref(b)) + '</span>' + (b.decisionNote && b.status !== 'confirmed' ? '<br><span class="hint">' + esc(b.decisionNote) + '</span>' : '') + '</div>' + pill + '</div>';
+    }).join('') + '<p class="hint" style="margin-top:8px">To change or cancel a booking, ask the office.</p>' : '<p class="hint">Nothing booked yet.</p>');
+  }
+  function loadMine() {
+    return db().collection('bookings').where('memberUid', '==', ME.uid).get().then(function (s) {
+      MINE = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); });
+      drawMine();
+    });
+  }
+
+  /* ---- the booking sheet ---- */
+  var DAYS = null;
+  function openSheet(o) {
+    var rs = siteRooms();
+    var sh = document.getElementById('sheet');
+    sh.innerHTML = '<h3>Book a room</h3><div id="f"></div><div id="f-status"></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn sec" id="f-cancel">Close</button><button class="btn" id="f-go" disabled>Book it</button></div>';
+    EGBCBookForm.render(document.getElementById('f'), {
+      rooms: rs, multi: true, chosen: o.room ? [o.room] : [], day: o.day, start: o.start, end: o.end,
+      menus: MENUS, kit: KIT, contact: false, onChange: check
+    });
+    document.getElementById('back').style.display = 'block';
+    document.getElementById('f-cancel').onclick = closeSheet;
+    document.getElementById('f-go').onclick = submit;
+    check(EGBCBookForm.values(document.getElementById('f')));
+  }
+  function closeSheet() { document.getElementById('back').style.display = 'none'; DAYS = null; }
+
+  /* Free or not, and confirmed straight away or waiting, room by room. */
+  var checking = 0;
+  function check(v) {
+    var go = document.getElementById('f-go'), out = document.getElementById('f-status'), mine = ++checking;
+    go.disabled = true;
+    var s = B.slots(B.toMin(v.start), B.toMin(v.end), v.setup, v.pack);
+    if (!v.rooms.length) { out.innerHTML = '<div class="st wait">Choose a room.</div>'; return; }
+    if (!v.day) { out.innerHTML = '<div class="st wait">Choose a date.</div>'; return; }
+    if (v.day < B.today()) { out.innerHTML = '<div class="st no">That date has gone.</div>'; return; }
+    if (!s) { out.innerHTML = '<div class="st no">The finish has to be after the start, and with setting up and clearing away it has to fit within the day.</div>'; return; }
+    var rooms = v.rooms.map(roomById);
+    B.loadDays(rooms, v.day).then(function (days) {
+      if (mine !== checking) return;
+      DAYS = days;
+      var ok = true, waits = false;
+      out.innerHTML = rooms.map(function (r) {
+        var free = B.free(days[r.id], s), mode = B.memberMode(r, site()), cap = R.holds(r, v.layout || undefined);
+        if (!free) { ok = false; var sv = ''; for (var i = s.from; i < s.to && !sv; i++) sv = days[r.id][i] ? B.serviceAt(site(), r.id, v.day, i) : '';
+          return '<div class="st no"><b>' + esc(r.name) + '</b> is not free then' + (sv ? ' (' + esc(sv) + ')' : '') + '. Pick another time.</div>'; }
+        if (r.fireMax && v.people > r.fireMax) { ok = false; return '<div class="st no"><b>' + esc(r.name) + '</b> can never hold more than ' + r.fireMax + ' people.</div>'; }
+        if (mode === 'approval') waits = true;
+        return '<div class="st ' + (mode === 'approval' ? 'wait' : 'ok') + '"><b>' + esc(r.name) + '</b> is free. ' +
+          (mode === 'approval' ? 'Bookings here wait for the office to approve.' : 'It will be confirmed straight away.') +
+          (cap && v.people > cap ? ' It usually holds ' + cap + ' set out that way.' : '') + '</div>';
+      }).join('');
+      if (!v.title || !(v.people > 0)) { ok = false; out.innerHTML += '<div class="st wait">Say what it is for, and how many people.</div>'; }
+      go.disabled = !ok;
+      go.textContent = waits ? 'Ask for it' : 'Book it';
+    });
+  }
+  var R = window.EGBCRooms;
+
+  function submit() {
+    var v = EGBCBookForm.values(document.getElementById('f')), go = document.getElementById('f-go');
+    if (!DAYS) return;
+    go.disabled = true; go.textContent = 'Booking…';
+    var group = v.rooms.length > 1 ? 'g_' + EGBCEvents.key(12) : '', list;
+    try {
+      list = v.rooms.map(function (id) {
+        return { booking: B.prepare({ kind: 'member', room: roomById(id), site: site(), day: v.day, start: v.start, end: v.end, setup: v.setup, pack: v.pack,
+          title: v.title, people: v.people, layout: v.layout, av: v.av, refreshments: v.refreshments, resources: v.resources, notes: v.notes, groupId: group }) };
+      });
+    } catch (e) { toast(e.message); go.disabled = false; return; }
+    B.write(list, DAYS).then(function (made) {
+      return Promise.all(made.map(function (b) {
+        var name = roomById(b.roomId).name;
+        return b.status === 'confirmed' ? B.email(b, name, 'confirmed')
+          : Promise.all([B.email(b, name, 'waiting'), B.tellOffice(b, name)]);
+      })).then(function () { return made; });
+    }).then(function (made) {
+      var waits = made.some(function (b) { return b.status !== 'confirmed'; });
+      document.getElementById('sheet').innerHTML = '<h3>' + (waits ? 'Asked' : 'Booked') + '</h3>' + made.map(function (b) {
+        return '<div class="st ' + (b.status === 'confirmed' ? 'ok' : 'wait') + '" data-made="' + esc(b.status) + '"><b>' + esc(roomById(b.roomId).name) + '</b>, ' + esc(B.when(b)) + ': ' +
+          (b.status === 'confirmed' ? 'confirmed.' : 'waiting for the office to approve.') + ' Reference ' + esc(B.ref(b)) + '.</div>';
+      }).join('') + '<p class="hint">' + (waits ? 'We have emailed you, and will email again when the office decides.' : 'We have emailed you the details, with a calendar file.') + '</p>' +
+        '<div style="text-align:right"><button class="btn" id="f-done">Done</button></div>';
+      document.getElementById('f-done').onclick = closeSheet;
+      return loadMine().then(drawCal);
+    }).catch(function (e) {
+      var denied = /permission|PERMISSION_DENIED/i.test(String(e && (e.code || e.message)));
+      toast(denied ? 'Someone has just booked some of that time. Look again.' : 'Could not book: ' + (e.message || e));
+      go.disabled = false; go.textContent = 'Book it';
+      check(EGBCBookForm.values(document.getElementById('f')));
+      drawCal();
+    });
+  }
+
+  EGBCAuth.require().then(function (profile) {
+    ME = EGBCAuth.user();
+    return Promise.all([
+      db().collection('sites').where('active', '==', true).get(),
+      db().collection('rooms').where('active', '==', true).get(),
+      db().collection('menus').where('active', '==', true).get().catch(function () { return { docs: [] }; }),
+      db().collection('bookableResources').get().catch(function () { return { docs: [] }; }),
+      db().collection('bookingSettings').get().catch(function () { return { docs: [] }; })
+    ]).then(function (r) {
+      var all = function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); };
+      SITES = all(r[0]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      ROOMS = all(r[1]).filter(function (x) { return x.kind !== 'online' && x.bookableByMembers !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      MENUS = all(r[2]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      KIT = all(r[3]).filter(function (k) { return k.active !== false; });
+      SITES = SITES.filter(function (s) { return ROOMS.some(function (x) { return x.siteId === s.id; }); });
+      V.site = SITES[0] ? SITES[0].id : '';
+      var mid = (profile && profile.memberId) || '-';
+      var office = EGBCAuth.isAdmin() || all(r[4]).some(function (s) { return (s.bookingsAdmins || []).indexOf(mid) >= 0; });
+      if (office) document.getElementById('office').innerHTML = 'You look after bookings: <a href="bookings-admin.html" style="color:var(--brand)">open Room bookings</a> to approve, move or cancel any booking.';
+      if (!SITES.length) { document.getElementById('cal').innerHTML = '<p class="hint">No rooms can be booked yet.</p>'; return; }
+      drawCal();
+      return loadMine();
+    });
+  }).catch(function (e) { document.getElementById('cal').innerHTML = '<p class="hint">' + esc(e.message || e) + '</p>'; });
+})();
+</script>
+</body>
+</html>

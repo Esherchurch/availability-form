@@ -228,6 +228,14 @@ await check('a signed-in person can clear an old one away', 'allow',
 }
 // ── end EVENTS ──
 
+// ── EVENTS (events window) ── the church's logo (Church details, F-058)
+await check('an admin puts the church logo up', 'allow', () => put(as('karen'), 'church/logo-1.jpg', { type: 'image/jpeg' }));
+await check('anyone, with no account, can see it (the public hire pages show it)', 'allow', () => getBytes(ref(anon(), 'church/logo-1.jpg')));
+await check('a member who is not an admin cannot change it', 'deny', () => put(as('samy'), 'church/logo-2.jpg', { type: 'image/jpeg' }));
+await check('only a picture, not a PDF', 'deny', () => put(as('karen'), 'church/logo-3.pdf', { type: 'application/pdf' }));
+await check('and not over 2 MB', 'deny', () => put(as('karen'), 'church/logo-4.jpg', { type: 'image/jpeg', bytes: 2 * 1024 * 1024 + 10 }));
+// ── end EVENTS ──
+
 /* ---- nothing else moved ------------------------------------------- */
 /* Banners are uploaded from the hub by anyone signed in, and were before
    this change. If tightening events had caught them too, this fails. */

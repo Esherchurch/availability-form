@@ -9,6 +9,7 @@
 <script src="egbc-auth.js?v=202610061500"></script>
 <script src="egbc-church.js?v=202610082000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
+<script src="egbc-events-bookings.js?v=202610082200"></script>
 <script src="egbc-guard.js?v=202610061500" data-admin="any"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -92,6 +93,7 @@
     <button class="tab" data-tab="venues">Outside venues</button>
     <button class="tab" data-tab="catering">Catering</button>
     <button class="tab" data-tab="who">Who approves</button>
+    <button class="tab" data-tab="bookings">Bookings</button>
   </div>
 
   <!-- ── SITES ──────────────────────────────────────────────────────── -->
@@ -224,6 +226,21 @@
     </div>
   </section>
 
+  <!-- ── BOOKINGS (Chunk 4, R2) ─────────────────────────────────────── -->
+  <section id="tab-bookings" class="hidden">
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-semibold mb-1">Members' bookings</h2>
+      <p class="hint mb-3">What happens when a member books a free room in the hub, at each site. Each room can say
+        something different in its Profile. Requests from the public always wait for approval.</p>
+      <div id="mb-list"></div>
+    </div>
+    <div class="card p-4 sm:p-5">
+      <h2 class="text-sm font-semibold mb-1">Services on the rota keep rooms busy</h2>
+      <p class="hint mb-3">Each week, these times are taken before anybody books. Only the office can book over them, and it has to give a reason.</p>
+      <div id="rota-list"></div>
+    </div>
+  </section>
+
 </div>
 <div id="toast"></div>
 
@@ -269,7 +286,7 @@
   function oops(e) { console.error(e); toast('Could not save — ' + (e && e.message ? e.message : 'unknown')); }
 
   /* ---- tabs -------------------------------------------------------- */
-  var TABS = ['sites', 'rooms', 'kit', 'venues', 'catering', 'who'];
+  var TABS = ['sites', 'rooms', 'kit', 'venues', 'catering', 'who', 'bookings'];
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
     b.addEventListener('click', function () {
       Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.remove('on'); });
@@ -425,6 +442,7 @@
           ((r.photos || []).length ? ' · ' + r.photos.length + ' photo' + (r.photos.length === 1 ? '' : 's') : '') +
           ' · ' + (r.bookableByMembers === false ? 'members cannot book' : 'members may book') +
           ' · ' + (r.bookableByHirers ? 'hirers may book' : 'not for hire') +
+          (r.memberBookings === 'approval' ? ' · members\' bookings wait for approval' : r.memberBookings === 'instant' ? ' · members\' bookings confirmed straight away' : '') +
           '</p>' +
       '</div>';
     }).join('');
@@ -720,6 +738,14 @@
       '<label class="fac"><input type="checkbox" id="p-cater"' + (p.externalCaterers ? ' checked' : '') + '> Hirers may bring their own caterers</label>' +
       '<p class="hint">Hire rates come with the next stage of room hire.</p>' +
 
+      '<h4>Members\' bookings</h4>' +
+      '<div><label class="lbl" for="p-mb">When a member books this room in the hub</label><select id="p-mb" class="inp">' +
+        [['site', 'As the site says (' + (siteMode(p.siteId) === 'approval' ? 'wait for approval' : 'confirmed straight away') + ')'],
+         ['instant', 'Members\' bookings are confirmed straight away'],
+         ['approval', 'Members\' bookings wait for the office to approve']].map(function (o) {
+          return '<option value="' + o[0] + '"' + ((p.memberBookings || 'site') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') +
+      '</select></div><p class="hint mt-1">Either way, nobody can book over a confirmed booking or a service.</p>' +
+
       '<div class="flex gap-2 mt-4 pt-4" style="border-top:1px solid #e5e7eb;justify-content:flex-end">' +
         '<button class="btn btn-2" id="p-cancel">Cancel</button><button class="btn" id="p-save">Save the profile</button></div>';
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
@@ -738,6 +764,7 @@
       else if ($('p-fac-' + x.id).checked) p.facilities[x.id] = true;
     });
     p.description = $('p-desc').value.trim(); p.houseRules = $('p-rules').value.trim(); p.externalCaterers = $('p-cater').checked;
+    p.memberBookings = $('p-mb').value;
   }
 
   /* Photos are stored straight away, so a long upload is never lost by
@@ -790,7 +817,7 @@
       db.collection('rooms').doc(p.id).update({
         dims: p.dims, floor: p.floor, toilets: p.toilets, kitchenNote: p.kitchenNote, naturalLight: p.naturalLight,
         accessible: p.accessible, layouts: p.layouts, fireMax: p.fireMax, facilities: p.facilities,
-        description: p.description, houseRules: p.houseRules, externalCaterers: p.externalCaterers,
+        description: p.description, houseRules: p.houseRules, externalCaterers: p.externalCaterers, memberBookings: p.memberBookings,
         photos: p.photos || [], floorPlan: p.floorPlan || null
       }).then(function () { toast('Profile saved'); closeProfile(); }).catch(oops);
     };
@@ -834,6 +861,107 @@
     }).then(function () { $('m-name').value = ''; $('m-desc').value = ''; $('m-price').value = ''; $('m-min').value = ''; toast('Added to the menu'); }).catch(oops);
   });
 
+  /* ---- bookings: members' default, and rota services (Chunk 4, R2) ----
+     A site's rota services are kept as site.rotaBusy, and each of its
+     rooms carries the weekly pattern they make (rooms.rotaWeek), which is
+     what the rules read. Days already in the diary are brought up to date
+     when the services change. */
+  var B = window.EGBCBookings, RB = {}, DAYN = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  function siteMode(siteId) { return ((sites.find(function (s) { return s.id === siteId; }) || {}).memberBookings) === 'approval' ? 'approval' : 'instant'; }
+  function siteRooms(siteId) { return rooms.filter(function (r) { return r.siteId === siteId && r.kind !== 'online'; }).sort(byOrder); }
+
+  function drawBookingsTab() {
+    if (!$('mb-list')) return;
+    var list = sites.slice().sort(byOrder);
+    if (!list.length) { $('mb-list').innerHTML = $('rota-list').innerHTML = '<p class="hint py-3">Add a site first.</p>'; return; }
+    $('mb-list').innerHTML = list.map(function (s) {
+      return '<div class="row"><label class="lbl" for="mb-' + s.id + '">' + esc(s.name) + '</label>' +
+        '<select class="inp" id="mb-' + s.id + '" data-mbsite="' + s.id + '">' +
+          '<option value="instant"' + (siteMode(s.id) === 'instant' ? ' selected' : '') + '>Members\' bookings are confirmed straight away</option>' +
+          '<option value="approval"' + (siteMode(s.id) === 'approval' ? ' selected' : '') + '>Members\' bookings wait for the office to approve</option>' +
+        '</select></div>';
+    }).join('');
+    $('rota-list').innerHTML = list.map(function (s) {
+      if (!RB[s.id]) RB[s.id] = JSON.parse(JSON.stringify(s.rotaBusy || []));
+      var rs = siteRooms(s.id);
+      return '<div class="row" data-rotasite="' + s.id + '"><h3 class="text-sm font-semibold mb-2">' + esc(s.name) + '</h3>' +
+        (RB[s.id].length ? '' : '<p class="hint mb-2">No services set yet.</p>') +
+        RB[s.id].map(function (r, i) {
+          return '<div class="card p-3 mb-2" style="box-shadow:none">' +
+            '<div class="grid sm:grid-cols-3 gap-2">' +
+              '<div><label class="lbl">What</label><input class="inp" data-rb="' + s.id + '" data-i="' + i + '" data-f="type" value="' + esc(r.type) + '" placeholder="Sunday morning worship"></div>' +
+              '<div><label class="lbl">From</label><input class="inp" type="time" step="900" data-rb="' + s.id + '" data-i="' + i + '" data-f="from" value="' + esc(r.from) + '"></div>' +
+              '<div><label class="lbl">To</label><input class="inp" type="time" step="900" data-rb="' + s.id + '" data-i="' + i + '" data-f="to" value="' + esc(r.to) + '"></div>' +
+            '</div>' +
+            '<p class="lbl mt-2">On</p><div class="flex flex-wrap gap-3 text-sm">' + [1, 2, 3, 4, 5, 6, 7].map(function (d) {
+              return '<label class="fac"><input type="checkbox" data-rbday="' + s.id + '" data-i="' + i + '" data-d="' + d + '"' + ((r.days || []).indexOf(d) >= 0 ? ' checked' : '') + '> ' + DAYN[d] + '</label>';
+            }).join('') + '</div>' +
+            '<p class="lbl mt-2">Rooms it uses</p><div class="flex flex-wrap gap-3 text-sm">' + rs.map(function (rm) {
+              return '<label class="fac"><input type="checkbox" data-rbroom="' + s.id + '" data-i="' + i + '" data-r="' + rm.id + '"' + ((r.roomIds || []).indexOf(rm.id) >= 0 ? ' checked' : '') + '> ' + esc(rm.name) + '</label>';
+            }).join('') + '</div>' +
+            '<button class="btn btn-x mt-2" data-rbdel="' + s.id + '" data-i="' + i + '">Remove</button></div>';
+        }).join('') +
+        '<div class="flex gap-2 flex-wrap"><button class="btn btn-2" data-rbadd="' + s.id + '">Add a service</button>' +
+        '<button class="btn" data-rbsave="' + s.id + '">Save the services</button></div></div>';
+    }).join('');
+  }
+
+  document.addEventListener('change', function (e) {
+    var d = e.target.dataset || {};
+    if (d.mbsite) db.collection('sites').doc(d.mbsite).update({ memberBookings: e.target.value })
+      .then(function () { toast('Saved'); }).catch(oops);
+    if (d.rb) RB[d.rb][+d.i][d.f] = e.target.value.trim();
+    if (d.rbday || d.rbroom) {
+      var row = RB[d.rbday || d.rbroom][+d.i], key = d.rbday ? 'days' : 'roomIds', v = d.rbday ? +d.d : d.r;
+      row[key] = (row[key] || []).filter(function (x) { return x !== v; });
+      if (e.target.checked) row[key].push(v);
+      row[key].sort();
+    }
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var d = b.dataset || {};
+    if (d.rbadd) { RB[d.rbadd].push({ type: '', from: '09:30', to: '12:30', days: [7], roomIds: [] }); drawBookingsTab(); }
+    if (d.rbdel) { RB[d.rbdel].splice(+d.i, 1); drawBookingsTab(); }
+    if (d.rbsave) saveRota(d.rbsave);
+  });
+
+  function saveRota(siteId) {
+    var list = RB[siteId], bad = list.filter(function (r) {
+      return !r.type || !r.days.length || !r.roomIds.length || !(B.toMin(r.to) > B.toMin(r.from));
+    });
+    if (bad.length) { toast('Each service needs a name, a day, a room, and a finish after its start'); return; }
+    var rs = siteRooms(siteId), before = {}, after = {}, batch = db.batch();
+    rs.forEach(function (r) {
+      before[r.id] = r.rotaWeek || B.rotaWeek([], r.id);
+      after[r.id] = B.rotaWeek(list, r.id);
+      batch.update(db.collection('rooms').doc(r.id), { rotaWeek: after[r.id] });
+    });
+    batch.update(db.collection('sites').doc(siteId), { rotaBusy: list });
+    batch.commit().then(function () {
+      /* Days already in the diary: add or take away the difference. One
+         query on the site; the date is checked here, not in the query. */
+      return db.collection('roomDays').where('siteId', '==', siteId).get();
+    }).then(function (snap) {
+      var up = db.batch(), n = 0, clashes = 0, from = B.today();
+      snap.forEach(function (doc) {
+        var v = doc.data(); if (v.day < from || !after[v.roomId]) return;
+        var k = String(B.dow(v.day)), o = before[v.roomId][k] || [], a = after[v.roomId][k] || [], sl = v.slots.slice(), changed = false;
+        for (var i = 0; i < B.N; i++) {
+          var dlt = (a[i] || 0) - (o[i] || 0);
+          if (dlt) { sl[i] = Math.max(0, (sl[i] || 0) + dlt); changed = true; if (sl[i] > 1) clashes++; }
+        }
+        if (changed) { up.update(doc.ref, { slots: sl }); n++; }
+      });
+      return (n ? up.commit() : Promise.resolve()).then(function () {
+        RB[siteId] = null;
+        toast('Services saved' + (n ? '; ' + n + ' day' + (n === 1 ? '' : 's') + ' in the diary brought up to date' : '') +
+          (clashes ? '. Some bookings now overlap a service: check Room bookings' : ''));
+        drawBookingsTab();
+      });
+    }).catch(oops);
+  }
+
   /* ---- seed --------------------------------------------------------- */
   $('seed').addEventListener('click', function () {
     if (sites.length || rooms.length) { toast('Already set up — nothing seeded'); return; }
@@ -869,8 +997,8 @@
     me = profile;
     db = EGBCAuth.db;
 
-    watch('sites', function (v) { sites = v; }, function () { drawSites(); drawRooms(); });
-    watch('rooms', function (v) { rooms = v; }, function () { drawRooms(); drawKit(); });
+    watch('sites', function (v) { sites = v; }, function () { drawSites(); drawRooms(); drawBookingsTab(); });
+    watch('rooms', function (v) { rooms = v; }, function () { drawRooms(); drawKit(); drawBookingsTab(); });
     watch('bookableResources', function (v) { kit = v; }, drawKit);
     watch('venues', function (v) { venues = v; }, drawVenues);
     watch('menus', function (v) { menus = v; }, drawMenus);

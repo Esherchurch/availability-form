@@ -205,6 +205,29 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'menus', 'menu_old'), { name: 'Test old buffet', unit: 'head', price: 9, active: false, order: 2 });
   await setDoc(doc(db, 'rooms', 'room_hire'), { siteId: 'site_test', name: 'Test Hireable Hall', kind: 'room', active: true, order: 3, bookableByHirers: true,
     dims: { length: 10, width: 8 }, layouts: { cabaret: 40 }, fireMax: 90, facilities: { projector: true } });
+  /* Room bookings (R2). Wednesday 18 Nov 2026 and Sunday 22 Nov 2026.
+     The band room has a Sunday service 08:00-12:30 in its standing pattern,
+     and one confirmed booking on the Wednesday, 19:00-20:00. */
+  const Z = () => Array(96).fill(0);
+  const sunday = Z(); for (let i = 32; i < 50; i++) sunday[i] = 1;
+  const week = { '1': Z(), '2': Z(), '3': Z(), '4': Z(), '5': Z(), '6': Z(), '7': sunday };
+  await setDoc(doc(db, 'sites', 'site_bk'), { name: 'Test Booking Site', active: true, order: 3 });
+  await setDoc(doc(db, 'sites', 'site_appr'), { name: 'Test Careful Site', active: true, order: 4, memberBookings: 'approval' });
+  await setDoc(doc(db, 'rooms', 'room_band'), { siteId: 'site_bk', name: 'Test Band Room', kind: 'room', active: true, order: 1,
+    bookableByMembers: true, bookableByHirers: true, fireMax: 30, rotaWeek: week });
+  await setDoc(doc(db, 'rooms', 'room_hold'), { siteId: 'site_bk', name: 'Test Held Room', kind: 'room', active: true, order: 2,
+    bookableByMembers: true, bookableByHirers: false, memberBookings: 'approval' });
+  await setDoc(doc(db, 'rooms', 'room_apsite'), { siteId: 'site_appr', name: 'Test Careful Room', kind: 'room', active: true, order: 1,
+    bookableByMembers: true, bookableByHirers: true, memberBookings: 'site' });
+  await setDoc(doc(db, 'bookingSettings', 'site_bk'), { bookingsAdmins: ['m_u_lena'], safeguardingLead: '', safeguardingDeputy: '' });
+  const wed = Z(); for (let i = 76; i < 80; i++) wed[i] = 1;
+  await setDoc(doc(db, 'roomDays', 'room_band_2026-11-18'), { slots: wed, lastBooking: 'bk_existing_000000000000000000', roomId: 'room_band', day: '2026-11-18', siteId: 'site_bk' });
+  await setDoc(doc(db, 'bookings', 'bk_existing_000000000000000000'), { kind: 'member', status: 'confirmed', siteId: 'site_bk', roomId: 'room_band',
+    day: '2026-11-18', startMin: 1140, endMin: 1200, setupMins: 0, packdownMins: 0, slotFrom: 76, slotTo: 80, memberUid: 'u_martin', title: 'Test choir' });
+  await setDoc(doc(db, 'bookings', 'bk_requested_00000000000000000'), { kind: 'hire', status: 'requested', siteId: 'site_bk', roomId: 'room_band',
+    day: '2026-11-25', startMin: 600, endMin: 660, setupMins: 0, packdownMins: 0, slotFrom: 40, slotTo: 44, memberUid: '', title: 'Test party' });
+  await setDoc(doc(db, 'bookings', 'bk_careful_000000000000000000'), { kind: 'member', status: 'requested', siteId: 'site_appr', roomId: 'room_apsite',
+    day: '2026-11-25', startMin: 600, endMin: 660, setupMins: 0, packdownMins: 0, slotFrom: 40, slotTo: 44, memberUid: 'u_samy', title: 'Test' });
   await setDoc(doc(db, 'uploadItems', 'up_open__0'), { linkId: 'up_open', slot: 0, calEventId: 'ev_public', path: 'uploads/up_open/0', name: 'a.jpg', status: 'pending' });
   // ── end EVENTS ──
 
@@ -770,6 +793,89 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('an admin approves a photo', 'allow', () => updateDoc(doc(as('karen'), 'uploadItems', 'up_open__0'), { status: 'approved', reviewedBy: 'u_karen', reviewedAt: 'x' }));
   await check('a guest cannot approve one', 'deny', () => updateDoc(doc(anon(), 'uploadItems', 'up_open__0'), { status: 'approved' }));
   await check('a record cannot be deleted, even by a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'uploadItems', 'up_open__0')));
+}
+
+// ── EVENTS (events window) ── room bookings, R2
+{
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  /* A booking as the pages write it, with its quarter-hours worked out. */
+  const B = (day, start, end, extra) => {
+    const o = { setupMins: 0, packdownMins: 0, ...(extra || {}) };
+    const a = start - o.setupMins, b = end + o.packdownMins;
+    return { kind: 'member', status: 'confirmed', siteId: 'site_bk', roomId: 'room_band', groupId: '', day, startMin: start, endMin: end,
+      startLocal: day + 'T00:00', endLocal: day + 'T00:00', slotFrom: Math.floor(a / 15), slotTo: Math.ceil(b / 15),
+      title: 'Test band practice', people: 6, layout: '', av: { needed: false, what: '' }, refreshments: { needed: false },
+      resources: [], notes: '', requester: { name: 'Samy', email: 'samy@example.invalid', phone: '', org: '' },
+      memberUid: 'u_samy', memberName: 'Samy', createdAt: 'x', ...o };
+  };
+  /* Confirmed: the booking and its quarter-hours marked on the day, in one
+     batch. `before` is the day as the page read it. */
+  const book = (dbx, key, b, before, extra) => {
+    const x = writeBatch(dbx);
+    x.set(doc(dbx, 'bookings', key), b);
+    if (!(extra && extra.noDay)) {
+      const sl = (before || Array(96).fill(0)).slice();
+      for (let i = b.slotFrom; i < b.slotTo; i++) sl[i] = 1;
+      if (extra && extra.alsoFree) for (let i = 76; i < 80; i++) sl[i] = 0;
+      x.set(doc(dbx, 'roomDays', b.roomId + '_' + b.day), { slots: sl, lastBooking: key, roomId: b.roomId, day: b.day, siteId: b.siteId });
+    }
+    return x.commit();
+  };
+  const wedBefore = () => { const w = Array(96).fill(0); for (let i = 76; i < 80; i++) w[i] = 1; return w; };
+  const K = (n) => ('bk_' + n).padEnd(31, '0');
+  /* The day exactly as it is now, so a refusal is about the overlap and
+     not about an out-of-date copy. */
+  const now = async (id) => { let sl; await env.withSecurityRulesDisabled(async (c) => { sl = (await getDoc(doc(c.firestore(), 'roomDays', id))).data().slots; }); return sl; };
+
+  await check('a member books a free time, confirmed straight away', 'allow', () => book(as('samy'), K('band_1800'), B('2026-11-18', 1080, 1140), wedBefore()));
+  await check('not over a confirmed booking', 'deny', async () => book(as('samy'), K('band_over'), B('2026-11-18', 1170, 1230), await now('room_band_2026-11-18')));
+  await check('not with a setup time that runs into one', 'deny', async () => book(as('samy'), K('band_setup'), B('2026-11-18', 1200, 1260, { setupMins: 15 }), await now('room_band_2026-11-18')));
+  await check('right after one, with no buffer, is fine', 'allow', () => book(as('samy'), K('band_2000'), B('2026-11-18', 1200, 1260), (() => { const w = wedBefore(); for (let i = 72; i < 76; i++) w[i] = 1; return w; })()));
+  await check('not over a Sunday service on the rota', 'deny', () => book(as('samy'), K('band_sun10'), B('2026-11-22', 600, 660)));
+  await check('a Sunday afternoon, after the service, is fine', 'allow', () => {
+    const sun = Array(96).fill(0); for (let i = 32; i < 50; i++) sun[i] = 1;
+    return book(as('samy'), K('band_sun14'), B('2026-11-22', 840, 900), sun);
+  });
+  await check('a booking cannot say it is confirmed without taking its time', 'deny', () => book(as('samy'), K('band_noday'), B('2026-11-23', 600, 660), null, { noDay: true }));
+  await check('a day cannot be marked with no booking', 'deny', () => setDoc(doc(as('samy'), 'roomDays', 'room_band_2026-11-24'),
+    { slots: Array(96).fill(1), lastBooking: K('ghost'), roomId: 'room_band', day: '2026-11-24', siteId: 'site_bk' }));
+  await check('marking a day cannot free someone else\u2019s time', 'deny', () => book(as('samy'), K('band_free'), B('2026-11-18', 600, 660),
+    (() => { const w = Array(96).fill(0); for (let i = 72; i < 76; i++) w[i] = 1; for (let i = 80; i < 84; i++) w[i] = 1; for (let i = 76; i < 80; i++) w[i] = 1; return w; })(), { alsoFree: true }));
+  await check('the times have to add up: a booking cannot claim fewer quarter-hours', 'deny', () => book(as('samy'), K('band_lie'),
+    { ...B('2026-11-19', 600, 720), slotTo: 41 }));
+  await check('two people, the same time, the same moment: the second is refused', 'deny', () =>
+    book(as('isla'), K('band_race'), { ...B('2026-11-18', 1080, 1140), memberUid: 'u_isla' }, wedBefore()));
+
+  /* "Wait for approval" on the room, and as a site's default. */
+  await check('a room set to "wait for approval": a member cannot confirm their own booking', 'deny', () => book(as('samy'), K('hold_conf'), { ...B('2026-11-18', 600, 660), roomId: 'room_hold' }));
+  await check('they ask instead, and it waits', 'allow', () => setDoc(doc(as('samy'), 'bookings', K('hold_req')), { ...B('2026-11-18', 600, 660), roomId: 'room_hold', status: 'requested' }));
+  await check('a site whose default is "wait for approval": the same', 'deny', () => book(as('samy'), K('apsite_conf'), { ...B('2026-11-18', 600, 660), roomId: 'room_apsite', siteId: 'site_appr' }));
+  await check('and asking is allowed there', 'allow', () => setDoc(doc(as('samy'), 'bookings', K('apsite_req')), { ...B('2026-11-18', 600, 660), roomId: 'room_apsite', siteId: 'site_appr', status: 'requested' }));
+  await check('even asking is refused over a confirmed booking', 'deny', () => setDoc(doc(as('samy'), 'bookings', K('band_req_over')), { ...B('2026-11-18', 1140, 1200), status: 'requested' }));
+
+  /* The public: always waits. */
+  const H = (extra) => ({ ...B('2026-11-26', 600, 720), kind: 'hire', status: 'requested', memberUid: '', memberName: '', people: 20,
+    requester: { name: 'Hirer Synthetic', email: 'hirer@example.invalid', phone: '', org: 'Invented Club' }, ...(extra || {}) });
+  await check('the public asks for a free time, and it waits', 'allow', () => setDoc(doc(anon(), 'bookings', K('pub_req')), H()));
+  await check('the public cannot confirm their own booking', 'deny', () => book(anon(), K('pub_conf'), H({ status: 'confirmed' })));
+  await check('the public cannot ask over a Sunday service', 'deny', () => setDoc(doc(anon(), 'bookings', K('pub_sun')), H({ day: '2026-11-22' })));
+  await check('the public cannot ask for a room not open to them', 'deny', () => setDoc(doc(anon(), 'bookings', K('pub_hold')), H({ roomId: 'room_hold' })));
+  await check('the public must give a real email address', 'deny', () => setDoc(doc(anon(), 'bookings', K('pub_email')), H({ requester: { name: 'X', email: 'nope', phone: '', org: '' } })));
+  await check('never more people than the fire-safety maximum', 'deny', () => setDoc(doc(anon(), 'bookings', K('pub_fire')), H({ people: 31 })));
+
+  /* Who sees and changes bookings. */
+  await check('the public cannot list bookings', 'deny', () => getDocs(collection(anon(), 'bookings')));
+  await check('a member lists their own', 'allow', () => getDocs(query(collection(as('samy'), 'bookings'), where('memberUid', '==', 'u_samy'))));
+  await check('but not anyone else\u2019s', 'deny', () => getDocs(query(collection(as('samy'), 'bookings'), where('memberUid', '==', 'u_martin'))));
+  await check('anyone reads which quarter-hours are taken, never by whom', 'allow', () => getDoc(doc(anon(), 'roomDays', 'room_band_2026-11-18')));
+  await check('the site\u2019s bookings admin, not an admin, lists the site\u2019s bookings', 'allow', () => getDocs(query(collection(lena(), 'bookings'), where('siteId', '==', 'site_bk'))));
+  await check('and approves one', 'allow', () => updateDoc(doc(lena(), 'bookings', 'bk_requested_00000000000000000'), { status: 'confirmed', decidedBy: 'u_lena' }));
+  await check('but not at a site they do not look after', 'deny', () => updateDoc(doc(lena(), 'bookings', 'bk_careful_000000000000000000'), { status: 'confirmed' }));
+  await check('a member cannot approve their own booking', 'deny', () => updateDoc(doc(as('samy'), 'bookings', 'bk_careful_000000000000000000'), { status: 'confirmed' }));
+  await check('an admin moves or cancels any booking', 'allow', () => updateDoc(doc(as('karen'), 'bookings', 'bk_careful_000000000000000000'), { status: 'cancelled' }));
+  await check('the office may book over something, with a reason', 'allow', () => setDoc(doc(lena(), 'roomDays', 'room_band_2026-11-18'),
+    { slots: Array(96).fill(2), lastBooking: '', roomId: 'room_band', day: '2026-11-18', siteId: 'site_bk' }));
+  await check('a booking is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'bookings', 'bk_existing_000000000000000000')));
 }
 
 // ── EVENTS (events window) ── church details (F-058)
