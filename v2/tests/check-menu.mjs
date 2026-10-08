@@ -427,16 +427,13 @@ const READ_MENU = `(() => {
     reference.length + ' names');
 
   const pages = fs.readdirSync(V2).filter(f => /\.html$/i.test(f)).sort();
-  /* Pages that draw the Menu but cannot know who is looking, so they draw the
-     signed-out one. Listed, not excused: each is a decision somebody has to
-     take, and the reason is here so the next person does not work it out
-     again. */
-  const SIGNED_OUT = {
-    'youthserviceplanner.html':
-      "an installable offline app - it loads no Firebase and no egbc-auth.js, so " +
-      "the Menu cannot know who is looking. A personal Menu there means giving " +
-      "the page sign-in, which is a decision for Martin (A-025)."
-  };
+  /* Nothing is in here. youthserviceplanner.html was, on a premise that
+     turned out to be wrong: it is a modular page that signs in through
+     egbc-db.js, not a page with no sign-in, and the shell reads the person
+     from there now. Kept as an empty list because the next page that
+     cannot know who is looking should be named here with its reason,
+     rather than quietly excluded. */
+  const SIGNED_OUT = {};
   const differs = [], noMenu = [], broke = [], signedOut = [];
 
   for (const page of pages) {

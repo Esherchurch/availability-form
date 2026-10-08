@@ -266,75 +266,18 @@ whole `SUMMARY` line.
 
 ---
 
-## 5. Martin's deploy steps, in plain words
+## 5. Deploying it
 
-**Do not run these yet.** They are here so they are written down; Step R stops
-before deploying.
+**The steps are in `SERVER-DEPLOY.md`**, and they are not only about the
+calendar. The same codebase now also holds the two reminder timers, so there
+is one set of steps that puts the whole server side live together rather than
+four separate deploys of the same folder.
 
-**The one thing that must not be got wrong.** `sendEmail` — the function that
-sends the rota emails — lives in the same Google project but belongs to the
-other window and is not in this repository. If you deploy with a bare
-`firebase deploy --only functions`, the Firebase CLI sees a function in the
-project that is not in your folder and **offers to delete it**. Say no if you
-are ever asked, but better: never give it the chance.
+What was here is in that file, unchanged in substance: always
+`firebase deploy --only functions:hub --project egbc-worship-planner`, never
+a bare `--only functions` (`sendEmail` belongs to the other window and lives
+only in the project, so a deploy that does not name the codebase offers to
+delete it), only `rotaFeed` may be opened without signing in, and check your
+own links by hand before telling anybody.
 
-**Always name the codebase:**
-
-```
-firebase deploy --only functions:hub --project egbc-worship-planner
-```
-
-Never `firebase deploy --only functions`, and never `firebase deploy` on its
-own.
-
-Step by step, from the `v2` folder:
-
-1. **Sign in**, as the church account:
-   `firebase login`
-   (`esherbaptistsav@gmail.com` — the account with access to the project.)
-
-2. **Install what the function needs**, once:
-   `cd functions` then `npm install` then `cd ..`
-
-3. **Deploy, naming the codebase:**
-   `firebase deploy --only functions:hub --project egbc-worship-planner`
-
-4. **Say the function may be opened without signing in.** A calendar app cannot
-   sign in, so the feed has to be reachable without an account — the key in the
-   link is what protects it. The CLI normally sets this for you and says so. If
-   the deploy reports that it could not, run:
-   `gcloud functions add-invoker-policy-binding rotaFeed --region=europe-west2 --member=allUsers`
-
-5. **Check it, with your own links.** Open the hub, open the Menu, and press
-   **My rota**. You will see the three choices. Press **Add to my calendar**
-   on "Just me", copy the address and paste it into a browser: you should see
-   a file of text beginning `BEGIN:VCALENDAR` with your own slots in it and
-   nobody else's.
-
-   Then do the same for **My household** and check it holds the rest of your
-   house, and for **The full rota** and check it holds the teams you would see
-   on the read-only rota and no others.
-
-6. **Check a reset does what it says.** Press **Reset this link** on one of
-   them. The old address should stop working at once — paste it in again and
-   you should get "Not found" — and the *other* links should still work. That
-   last part is the one worth checking by hand, because it is the whole reason
-   each feed has its own key.
-
-7. **Only then tell anybody.** Once it is right, My rota is in the Menu for
-   everyone, and the wording there explains the choices and the calendar apps.
-
-**If it goes wrong**, nothing on the site breaks: the feed is a separate
-address, and nothing on any page depends on it. Delete it with
-`firebase functions:delete rotaFeed --region=europe-west2` and the site carries
-on exactly as before. There are three functions in this codebase now -
-`rotaFeed`, `myCalendarLink` and `myCalendarLinks` - so delete all three if
-you are taking the whole thing out.
-
-**What this costs.** The function runs when a calendar app asks, which is
-roughly every few hours per person. For a team of fifty that is a few thousand
-calls a month, inside the free allowance. Somebody with all three feeds is
-three subscriptions rather than one, so the honest figure is a few thousand
-times however many feeds people actually add - still well inside it.
-
-**Nothing here has been deployed.** Step R stops before that, as asked.
+**Nothing has been deployed.**

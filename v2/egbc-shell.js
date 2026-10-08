@@ -299,6 +299,84 @@
     return menuLoading;
   }
 
+  /* ===== WHO IS SIGNED IN, WHICHEVER WAY THE PAGE SIGNED THEM IN =====
+
+     Most pages load egbc-auth.js, which is the compat SDK, and the Menu asks
+     EGBCMenu.who() - which reads EGBCAuth.profile().
+
+     youthserviceplanner.html does not. It is a MODULAR page: it imports
+     egbc-db.js and awaits `ready`, so it signs in like any other page, on the
+     same named app, and the person is just as signed in. It simply has no
+     EGBCAuth for the Menu to read.
+
+     I had this wrong the first time and wrote it up as a page with no
+     sign-in at all (A-025). It is one page with a different SDK, not a page
+     with a different rule, and the Menu should ask the other way round
+     rather than give that person a stranger's Menu.
+
+     Note the import specifier has NO version stamp: the page itself imports
+     './egbc-db.js', and a different URL would be a second copy of the module
+     with its own auth listener. Same URL, same module, same session. */
+
+  var WHO = null;
+
+  function whoFromAuth() {
+    return {
+      isCore: ((EGBCAuth.profile() || {}).teams || []).indexOf('Core Team') !== -1,
+      isAdmin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()),
+      isBookingsAdmin: window.EGBC_BOOKINGS_ADMIN === true
+    };
+  }
+
+  var NOBODY = { isCore: false, isAdmin: false, isBookingsAdmin: false };
+
+  /* The modular side: egbc-db.js for the session, and the same users/{uid}
+     document egbc-auth.js mirrors its profile from. */
+  var modular = null;
+  function loadModular() {
+    if (modular) return modular;
+    modular = import('./egbc-db.js').then(function (m) {
+      return m.ready.then(function (user) { return { m: m, user: user }; });
+    }).catch(function (e) {
+      console.warn('egbc-shell: no modular database either', e && e.message);
+      return { m: null, user: null };
+    });
+    return modular;
+  }
+
+  function loadWho() {
+    if (WHO) return Promise.resolve(WHO);
+    if (window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) {
+      WHO = whoFromAuth();
+      return Promise.resolve(WHO);
+    }
+    if (window.EGBCAuth) { WHO = NOBODY; return Promise.resolve(WHO); }
+
+    return loadModular().then(function (x) {
+      if (!x.m || !x.user) { WHO = NOBODY; return WHO; }
+      return import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js')
+        .then(function (fs) {
+          return fs.getDoc(fs.doc(x.m.db, 'users', x.user.uid));
+        })
+        .then(function (snap) {
+          var p = (snap && snap.exists && snap.exists()) ? snap.data() : {};
+          /* Exactly the test egbc-auth.js makes, so the same person gets the
+             same Menu whichever SDK the page happens to use. */
+          WHO = {
+            isCore: (p.teams || []).indexOf('Core Team') !== -1,
+            isAdmin: p.masterAdmin === true || (p.adminFor || []).length > 0,
+            isBookingsAdmin: window.EGBC_BOOKINGS_ADMIN === true
+          };
+          return WHO;
+        })
+        .catch(function (e) {
+          console.warn('egbc-shell: could not read the profile', e && e.message);
+          WHO = NOBODY;
+          return WHO;
+        });
+    });
+  }
+
   /* The registry, for one question only: has an admin switched this page off?
      It used to decide where every page SAT as well, which is what made the
      Menu different here. */
@@ -312,14 +390,23 @@
        and no egbc-auth.js at all, so EGBCAuth is not there to read with, and
        the Menu sat on "Loading..." for ever. It did that before this rewrite
        too; nothing had looked. */
-    if (!window.EGBCAuth || !EGBCAuth.db) { NAV = []; return Promise.resolve(NAV); }
-    return EGBCAuth.db.collection('hubPages').get().then(function (snap) {
-      NAV = snap.docs.map(function (d) { return d.data(); });
-      return NAV;
-    }).catch(function (e) {
-      console.error('egbc-shell: page list failed', e);
-      NAV = [];
-      return NAV;
+    if (window.EGBCAuth && EGBCAuth.db) {
+      return EGBCAuth.db.collection('hubPages').get().then(function (snap) {
+        NAV = snap.docs.map(function (d) { return d.data(); });
+        return NAV;
+      }).catch(function (e) {
+        console.error('egbc-shell: page list failed', e);
+        NAV = [];
+        return NAV;
+      });
+    }
+    /* A modular page reads it modularly. Same collection, same answer. */
+    return loadModular().then(function (x) {
+      if (!x.m || !x.user) { NAV = []; return NAV; }
+      return import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js')
+        .then(function (fs) { return fs.getDocs(fs.collection(x.m.db, 'hubPages')); })
+        .then(function (snap) { NAV = snap.docs.map(function (d) { return d.data(); }); return NAV; })
+        .catch(function (e) { console.warn('egbc-shell: page list failed', e && e.message); NAV = []; return NAV; });
     });
   }
 
@@ -354,7 +441,7 @@
     if (!list) return;
     if (!window.EGBCMenu) { list.innerHTML = '<div class="en-e">Loading&hellip;</div>'; return; }
     EGBCMenu.paint(list, {
-      who: EGBCMenu.who(),
+      who: WHO || (window.EGBCAuth ? EGBCMenu.who() : NOBODY),
       query: q || '',
       here: (location.pathname.split('/').pop() || '').toLowerCase(),
       switchedOff: switchedOff
@@ -367,7 +454,7 @@
     document.getElementById('egbc-nav').classList.add('on');
     renderNav('');
 
-    Promise.all([loadMenuScript(), loadRegistry(), loadPoweredBy()]).then(function () {
+    Promise.all([loadMenuScript(), loadRegistry(), loadPoweredBy(), loadWho()]).then(function () {
       var q = document.getElementById('egbc-nav-q');
       renderNav(q ? q.value.trim().toLowerCase() : '');
     }).catch(function (e) {

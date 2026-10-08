@@ -541,42 +541,36 @@ page that falls out of that list fails the check.
 Both are the same mistake: deleting a range by its end marker rather than by
 what is in it.
 
-## A-025 — DECISION for Martin: the Youth Service Planner has no sign-in, so its Menu is the signed-out one
+## A-025 — WITHDRAWN. I was wrong about the Youth Service Planner
 
-Found while making every page draw the same Menu (A-024).
+**What I wrote, and what is actually true.** I reported that
+`youthserviceplanner.html` has no sign-in at all, and asked Martin to decide
+whether to give it one. He checked. It imports `egbc-db.js` and awaits
+`ready`, on the same named app as everything else, so it signs in exactly
+like any other page. There is nothing to decide.
 
-`youthserviceplanner.html` loads `egbc-shell.js` and **nothing else** — no
-Firebase, no `egbc-auth.js`. It is an installable app with its own manifest
-(`manifest-youthservice.json`) and it keeps its work locally, so it runs with
-no network and no account.
+**What was really wrong.** It does not load `egbc-auth.js` — the compat-SDK
+file the Menu reads `EGBCAuth.profile()` from. One page with a different
+SDK, not a page with a different rule. The Menu asked the only way it knew
+how, got nothing, and drew a stranger’s Menu.
 
-**What that means for the Menu.** The Menu can only show somebody their own
-teams if it knows who they are. On this one page it does not, so it draws the
-part a stranger would see: Dashboard, Rota, Meetings, What's on, Hire our
-rooms, Book a room, Worship & AV, Youth, Resources — and no Core Team section.
-Every name on it is one of the hub's; there is nothing on it that should not
-be. It is the same Menu, smaller.
+**How I got there.** I grepped the page for `firebase` and `EGBCAuth`, saw
+two matches, read the `<head>`, and concluded. I did not read the module at
+the bottom of the file, which is where the page does all its work. The
+evidence for “no sign-in” was the absence of the thing I had searched for,
+which is not evidence of anything.
 
-**What it also means, which matters more.** The page itself is reachable by
-anyone with the address. That is not something this step changed, and it may
-well be deliberate — a youth leader opening a planner on a phone in a hall
-with no signal is a real thing.
+**Fixed.** `egbc-shell.js` now works out who is signed in either way: from
+`EGBCAuth` where the page has it, and otherwise from `egbc-db.js` and the
+same `users/{uid}` document `egbc-auth.js` mirrors its own profile from — so
+the same person gets the same Menu whichever SDK the page uses. The registry
+read works both ways too. The module is imported as `./egbc-db.js` with no
+version stamp on purpose: the page imports that exact specifier, and a
+different URL would be a second copy of the module with its own auth
+listener.
 
-**The decision.** Giving it a personal Menu means giving it the Firebase SDK
-and `egbc-auth.js`, which means it stops working without a network and starts
-asking people to sign in. That is a change to what the page *is*, so it is
-Martin's to make, not mine.
-
-Until then `check-menu.mjs` names it, says why, and still insists it draws the
-signed-out Menu rather than nothing — so if it ever drew something else, or
-nothing, the check would say so.
-
-**One thing I did fix**: `egbc-shell.js` used to leave the Menu on
-"Loading…" for ever on that page, because it read the registry through
-`EGBCAuth` without checking there was one. The registry only answers "has an
-admin switched this page off", and not knowing is a reason to show the page,
-not a reason to show nothing. It drew nothing there before this step too;
-nobody had looked.
+The “signed out on purpose” list in `check-menu.mjs` is now empty, and that
+page is held to the same name-for-name comparison as the other 54.
 
 ## A-026 — "Powered by Church HQ", and the one switch
 
@@ -620,3 +614,36 @@ the day. It signs out first now.
   something you could press. That is the fault Martin hit from the other side
   when he could not find the charters. Dotted underline at rest, solid on
   hover.
+
+## A-027 — the reminder timers, and the three things worth knowing about them
+
+§18's server step: `bookingReminders` (09:00 London) and
+`documentExpiryReminders` (09:30), both in the `hub` codebase with the
+calendar feeds. The spec is the events window's F-074 and its addendum.
+
+**1. "Tomorrow" has to be a London day, not a UTC one.** A booking's `day` is
+a plain `yyyy-mm-dd` written by somebody looking at a calendar. The server
+runs in UTC, and from late March to late October those differ for an hour
+every evening — and 09:00 London in summer *is* 08:00 UTC, so the run itself
+lands inside that hour. Every day in this file comes from
+`Intl.DateTimeFormat` with `timeZone: 'Europe/London'`, and there is a check
+that 23:30 UTC on 10 June is already the 11th.
+
+**2. A re-run must send nothing.** A scheduled function retries, and a timer
+that sends again every time it is poked is how fifty people get the same email
+four times. Both runs are checked twice in a row, and the second must add
+nothing to the outbox. It is the single most valuable assertion in the file.
+
+**3. Nothing can be sent from the emulator, for two separate reasons.** The
+functions write every message to `emailOutbox` and make no request when
+`FUNCTIONS_EMULATOR` is set; and every invented address ends `.invalid`, which
+`sendableEmail()` refuses. Either alone would do. Both, because this is the
+first thing in the suite that writes to people with nobody watching.
+
+`emailOutbox` is not only a test fixture — it is where the real sends are
+recorded too, and `SERVER-DEPLOY.md` tells Martin to read it on the morning it
+goes live rather than assume.
+
+**What the checks cannot tell him**, and the deploy steps say so plainly: the
+emulator never calls `sendEmail`, so whether email actually arrives is not
+proved by anything here. The first real test is the Force run in step 8.

@@ -1236,3 +1236,51 @@ the main window's shared snippet (`EGBCPoweredBy.mount`). Plain text until the
 snippet's link is switched on; the closed-set test already allows
 churchhq.co.uk. Printing the quote hides it (never on PDFs). Screenshots:
 `r3-poweredby-*-375.png`, `c5-poweredby-my-booking-375.png`.
+
+### F-074 and its addendum — built, on the emulator, nothing deployed
+The two timers are in the main window's `hub` codebase, with the rest of the
+server side. `functions/reminders.js` holds the rules as plain functions of
+their arguments — no Firestore, no clock, no network — so they can be read and
+argued with; `functions/index.js` fetches, calls them and sends.
+
+| Function | When |
+|---|---|
+| `bookingReminders` | 09:00 Europe/London |
+| `documentExpiryReminders` | 09:30 Europe/London |
+
+**`reminderSentAt` needs no rules change**, which is worth saying because
+F-074 asked for one. The server writes with the Admin SDK, which does not go
+through the rules at all; and `memberCancel`'s `affectedKeys().hasOnly([...])`
+is on the **diff**, so a field already sitting on the document is invisible to
+it. I checked `memberCancel`, `hirerAccepts` and `hirerAsksCancel` — all three
+test what changed, not what is there. Nothing to do.
+
+**Decisions the spec left open, and what I did:**
+- **`remindedAt` on a document is a map, not a time**: `{ "30": iso, "0": iso }`.
+  There are two moments and the second has to happen after the first; one
+  timestamp would make the day-of reminder look already sent. A check seeds a
+  document marked at 30 days and expects it still to be chased on the day.
+- **A booking is marked `reminderSentAt` whether or not the send worked.** A
+  failed send is in `emailOutbox` with its error; trying again tomorrow would
+  be a reminder for a day that has already passed, which is worse than none.
+- **09:30 for the expiry run**, so the two do not land together and a log is
+  readable. The spec gave no time for it.
+- **The two "Should" items are not built**: requests waiting more than two
+  days, and the daily setup sheet. The second needs the per-site switch you
+  said you would add on the Places page. Say when it is there and they are a
+  small addition to the same file.
+
+**Nothing is sent from the emulator.** Every message goes to `emailOutbox`
+and no request is made — and every invented address ends `.invalid`, which
+`sendableEmail()` refuses anyway. Two separate reasons nothing could reach
+anybody. `emailOutbox` is also where the real sends are recorded, which is
+what the deploy steps tell Martin to read on the morning it goes live.
+
+`tests/check-reminders.mjs` — **38 checks**, 21 of them on the rules with no
+database at all. Proved by three deliberate breaks: dropping the
+already-sent guard made a second run send everything again; dropping the kind
+filter reminded the event and office bookings; making `remindedAt` one flag
+stopped the day-of chase after the 30-day one.
+
+### F-085 — done
+`egbc-email.js` is `?v=202610081729` on all 11 pages that load it.

@@ -235,3 +235,186 @@ export const myCalendarLinks = onCall(async (request) => {
   Object.keys(FEEDS).forEach(id => { if (feeds[id] && feeds[id].key) out[id] = feeds[id].key; });
   return { feeds: out };
 });
+
+/* ====================== REMINDER EMAILS ==============================
+
+   Two timers, both in this codebase, both deployed with
+   `--only functions:hub` like everything else here.
+
+     bookingReminders         09:00 London - "your room is booked tomorrow"
+     documentExpiryReminders  09:30 London - a hirer's insurance running out
+
+   The spec is the events window's: F-074 and its addendum in
+   FINDINGS-events.md. They own the booking data; this sends about it.
+
+   NOTHING IS SENT FROM THE EMULATOR. sendEmail is a real function in the
+   real project that puts real email in front of real people, so on the
+   emulator every message is written to `emailOutbox` and the POST is not
+   made. That is not a test convenience - it is the only thing standing
+   between a run of these checks and fifty people being told their room is
+   booked tomorrow.                                                       */
+
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import {
+  bookingsDueTomorrow, bookingReminder,
+  documentsDue, expiryReminder, nextBookingFor, londonDay
+} from './reminders.js';
+
+/* The other window's function, in the same Google project and not in this
+   repository. We call it over HTTP exactly as the pages do. */
+const SEND_EMAIL_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
+
+const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
+
+/* Every message, sent or stubbed, lands in emailOutbox. On the emulator that
+   is the whole of it and a check reads it; in the real project it is the
+   record of what went out, which is what somebody will want the morning a
+   hirer says they were never told. */
+async function sendOne(msg, meta) {
+  const row = {
+    to: msg.to || [], subject: msg.subject || '',
+    replyTo: msg.replyTo || '', html: msg.html || msg.body || '',
+    ...meta, at: new Date().toISOString(), stubbed: onEmulator()
+  };
+  if (!row.to.length) {
+    await db.collection('emailOutbox').add({ ...row, ok: false, error: 'no address' });
+    return { ok: false, error: 'no address' };
+  }
+
+  if (onEmulator()) {
+    await db.collection('emailOutbox').add({ ...row, ok: true });
+    console.info('[reminders] emulator: not sent -', row.subject, '->', row.to.join(', '));
+    return { ok: true, stubbed: true };
+  }
+
+  let out;
+  try {
+    const payload = { to: row.to, subject: row.subject, html: row.html };
+    if (row.replyTo) payload.replyTo = row.replyTo;
+    const r = await fetch(SEND_EMAIL_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json().catch(() => null);
+    out = j && j.ok ? { ok: true } : { ok: false, error: (j && j.error) || ('HTTP ' + r.status) };
+  } catch (e) {
+    out = { ok: false, error: e.message || String(e) };
+  }
+  await db.collection('emailOutbox').add({ ...row, ok: out.ok, error: out.error || '' });
+  return out;
+}
+
+/* The church's own details, so nothing here carries one church's name.
+   Empty is fine: the message simply says less. */
+async function churchDetails() {
+  try {
+    const s = await db.collection('churchSettings').doc('details').get();
+    return s.exists ? (s.data() || {}) : {};
+  } catch (e) { return {}; }
+}
+
+const byId = (snap) => {
+  const m = {};
+  snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; });
+  return m;
+};
+
+/* ---- 1. a room booked tomorrow -------------------------------------- */
+
+export const bookingReminders = onSchedule(
+  { schedule: '0 9 * * *', timeZone: 'Europe/London', retryCount: 2 },
+  async () => { await runBookingReminders(new Date()); }
+);
+
+/* Separated so a check can run it against the emulator at a date of its
+   choosing, rather than waiting until nine tomorrow morning. */
+export async function runBookingReminders(runAt) {
+  const [bookingsSnap, roomsSnap, sitesSnap, church] = await Promise.all([
+    db.collection('bookings').where('day', '==', addLondonDay(runAt, 1)).get(),
+    db.collection('rooms').get(),
+    db.collection('sites').get(),
+    churchDetails()
+  ]);
+
+  const bookings = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const due = bookingsDueTomorrow(bookings, runAt);
+  const rooms = byId(roomsSnap), sites = byId(sitesSnap);
+
+  console.info('[reminders] ' + bookings.length + ' bookings tomorrow, ' + due.length + ' to remind');
+
+  let sent = 0;
+  for (const b of due) {
+    const msg = bookingReminder({
+      booking: b, room: rooms[b.roomId], site: sites[b.siteId], church
+    });
+    const r = await sendOne(msg, { kind: 'booking-reminder', bookingKey: b.id });
+    /* Marked whatever happened. A send that failed is in emailOutbox with
+       its error, and trying again tomorrow would be a reminder for a day
+       that has passed - worse than none. */
+    await db.collection('bookings').doc(b.id)
+      .update({ reminderSentAt: new Date().toISOString() })
+      .catch(e => console.error('[reminders] could not mark ' + b.id, e));
+    if (r.ok) sent++;
+  }
+  return { due: due.length, sent };
+}
+
+/* ---- 2. a hirer's document running out ------------------------------ */
+
+export const documentExpiryReminders = onSchedule(
+  { schedule: '30 9 * * *', timeZone: 'Europe/London', retryCount: 2 },
+  async () => { await runExpiryReminders(new Date()); }
+);
+
+export async function runExpiryReminders(runAt) {
+  const today = londonDay(runAt);
+  const [hirersSnap, sitesSnap, bookingsSnap, church] = await Promise.all([
+    db.collection('hirers').get(),
+    db.collection('sites').get(),
+    db.collection('bookings').where('day', '>=', today).get(),
+    churchDetails()
+  ]);
+
+  const hirers = hirersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const sites = byId(sitesSnap);
+  const bookings = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const due = documentsDue(hirers, runAt);
+
+  console.info('[reminders] ' + due.length + ' documents to chase');
+
+  let sent = 0;
+  for (const { hirer, doc, index, stage } of due) {
+    const msg = expiryReminder({
+      hirer, doc, site: sites[hirer.siteId], church,
+      nextBooking: nextBookingFor(hirer, bookings, runAt)
+    });
+    const a = await sendOne(msg.theirs, { kind: 'document-expiry', hirerId: hirer.id, stage });
+    const b = await sendOne(msg.ours, { kind: 'document-expiry-office', hirerId: hirer.id, stage });
+
+    /* Mark the stage on that document, in the array it lives in. Read and
+       write the whole array: a document can be added while this runs, and
+       the array is short. */
+    try {
+      const ref = db.collection('hirers').doc(hirer.id);
+      const fresh = await ref.get();
+      const docs = (fresh.data() || {}).documents || [];
+      if (docs[index]) {
+        docs[index] = { ...docs[index],
+          remindedAt: { ...(docs[index].remindedAt || {}), [stage]: new Date().toISOString() } };
+        await ref.update({ documents: docs });
+      }
+    } catch (e) { console.error('[reminders] could not mark ' + hirer.id, e); }
+
+    if (a.ok || b.ok) sent++;
+  }
+  return { due: due.length, sent };
+}
+
+/* London's tomorrow, as a yyyy-mm-dd, for the query above. */
+function addLondonDay(at, n) {
+  const d = londonDay(at).split('-').map(Number);
+  const t = new Date(Date.UTC(d[0], d[1] - 1, d[2] + n));
+  return [t.getUTCFullYear(),
+          String(t.getUTCMonth() + 1).padStart(2, '0'),
+          String(t.getUTCDate()).padStart(2, '0')].join('-');
+}
