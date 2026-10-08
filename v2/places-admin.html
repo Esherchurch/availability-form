@@ -5,7 +5,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610061500"></script>
+<script src="egbc-events-rooms.js?v=202610081800"></script>
 <script src="egbc-guard.js?v=202610061500" data-admin="any"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -57,6 +59,16 @@
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:90;background:#111827;color:#fff;
          padding:10px 16px;border-radius:8px;font-size:13px;font-weight:400;box-shadow:var(--shadow);display:none}
   @media (max-width:420px){ body{padding:12px!important} .btn{padding:9px 12px} }
+  /* Room profile sheet (Chunk 4, R1) */
+  .sheet-back{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:80;display:none;overflow:auto;padding:24px 12px}
+  .sheet{background:#fff;border-radius:14px;max-width:760px;margin:0 auto;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.15)}
+  .sheet h3{font-size:17px;font-weight:600;margin:0 0 4px}
+  .sheet h4{font-size:14px;font-weight:600;color:var(--ink);margin:18px 0 8px;padding-top:14px;border-top:1px solid #e5e7eb}
+  .ph-grid{display:flex;flex-wrap:wrap;gap:10px}
+  .ph{width:150px}
+  .ph img{width:150px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;display:block}
+  .fac{display:flex;align-items:center;gap:8px;font-size:14px;padding:4px 0}
+  .fac input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand)}
 </style>
 </head>
 <body class="p-4 sm:p-8 min-h-screen">
@@ -76,6 +88,7 @@
     <button class="tab" data-tab="rooms">Rooms</button>
     <button class="tab" data-tab="kit">Kit</button>
     <button class="tab" data-tab="venues">Outside venues</button>
+    <button class="tab" data-tab="catering">Catering</button>
     <button class="tab" data-tab="who">Who approves</button>
   </div>
 
@@ -135,6 +148,26 @@
       </div>
       <div id="rooms-list"></div>
     </div>
+  </section>
+
+  <!-- ── CATERING (Chunk 4, R1) ─────────────────────────────────────── -->
+  <section id="tab-catering" class="hidden">
+    <div class="card p-4 sm:p-5 mb-4">
+      <h2 class="text-sm font-semibold mb-1">Add to the menu</h2>
+      <p class="hint mb-3">What can be asked for with a room: tea and coffee, biscuits, a sandwich lunch. Dietary needs are asked for as numbers on the booking, never names.</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="lbl" for="m-name">Name</label><input id="m-name" class="inp" placeholder="Tea and coffee"></div>
+        <div><label class="lbl" for="m-desc">What it is (optional)</label><input id="m-desc" class="inp" placeholder="With biscuits"></div>
+        <div><label class="lbl" for="m-unit">Charged</label>
+          <select id="m-unit" class="inp"><option value="head">Per person</option><option value="item">Per item</option></select></div>
+        <div><label class="lbl" for="m-price">Price (£)</label><input id="m-price" class="inp" type="number" min="0" step="0.01" placeholder="1.50"></div>
+        <div><label class="lbl" for="m-min">At least</label><input id="m-min" class="inp" type="number" min="0" placeholder="10"></div>
+        <div><label class="lbl" for="m-notice">Notice needed (working days)</label><input id="m-notice" class="inp" type="number" min="0" value="5"></div>
+      </div>
+      <p class="hint mt-2">Prices are used for quotes in the next stage of room hire; nothing is charged yet.</p>
+      <button class="btn mt-3" id="m-add">Add to the menu</button>
+    </div>
+    <div class="card p-4 sm:p-5"><h2 class="text-sm font-semibold mb-1">Menu</h2><div id="menu-list"></div></div>
   </section>
 
   <!-- ── KIT ────────────────────────────────────────────────────────── -->
@@ -234,7 +267,7 @@
   function oops(e) { console.error(e); toast('Could not save — ' + (e && e.message ? e.message : 'unknown')); }
 
   /* ---- tabs -------------------------------------------------------- */
-  var TABS = ['sites', 'rooms', 'kit', 'venues', 'who'];
+  var TABS = ['sites', 'rooms', 'kit', 'venues', 'catering', 'who'];
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
     b.addEventListener('click', function () {
       Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.remove('on'); });
@@ -376,6 +409,7 @@
           '<div class="flex flex-wrap gap-1 items-center">' +
             '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="-1">&uarr;</button>' +
             '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="1">&darr;</button>' +
+            (r.kind === 'online' ? '' : '<button class="btn btn-x" data-prof="' + r.id + '">Profile</button>') +
             '<button class="btn btn-x" data-tog="rooms" data-id="' + r.id + '">' +
               (r.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
             '<span class="pill ' + (r.active === false ? 'off' : 'on') + '">' +
@@ -385,6 +419,8 @@
         '<p class="hint mt-1">' + where +
           (r.capacity ? ' · holds ' + esc(r.capacity) : '') +
           (r.accessible ? ' · step-free' : '') +
+          (R.area(r) ? ' · ' + R.area(r) + ' m²' : '') +
+          ((r.photos || []).length ? ' · ' + r.photos.length + ' photo' + (r.photos.length === 1 ? '' : 's') : '') +
           ' · ' + (r.bookableByMembers === false ? 'members cannot book' : 'members may book') +
           ' · ' + (r.bookableByHirers ? 'hirers may book' : 'not for hire') +
           '</p>' +
@@ -435,6 +471,8 @@
             '<input class="inp" style="width:74px" type="number" min="0" value="' + esc(k.quantity || 0) +
               '" data-qty="' + k.id + '"' + (k.unlimited ? ' disabled' : '') + '>' +
             '<button class="btn btn-x" data-unl="' + k.id + '">' + (k.unlimited ? 'Make countable' : 'Unlimited') + '</button>' +
+            '<label class="flex items-center gap-1 text-xs" style="color:var(--brand)"><input type="checkbox" class="w-4 h-4" data-mov="' + k.id + '"' +
+              (k.movable ? ' checked' : '') + '> Can be moved to another room</label>' +
             '<button class="btn btn-x" data-tog="bookableResources" data-id="' + k.id + '">' +
               (k.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
             '<span class="pill ' + (k.active === false ? 'off' : 'on') + '">' +
@@ -442,7 +480,7 @@
           '</div>' +
         '</div>' +
         '<p class="hint mt-1">' + (k.unlimited ? 'Unlimited' : 'There are ' + esc(k.quantity || 0)) +
-          (home ? ' · lives in ' + esc(home.name) : '') + '</p>' +
+          (home ? ' · lives in ' + esc(home.name) : '') + (k.movable ? ' · can be moved for a booking' : '') + '</p>' +
       '</div>';
     }).join('');
   }
@@ -582,9 +620,9 @@
   document.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     var d = b.dataset || {};
-    if (d.mv) move(d.mv, d.mv === 'sites' ? sites : d.mv === 'rooms' ? rooms : kit, d.id, Number(d.d));
+    if (d.mv) move(d.mv, d.mv === 'sites' ? sites : d.mv === 'rooms' ? rooms : d.mv === 'menus' ? menus : kit, d.id, Number(d.d));
     if (d.tog) {
-      var list = d.tog === 'sites' ? sites : d.tog === 'rooms' ? rooms : d.tog === 'venues' ? venues : kit;
+      var list = d.tog === 'sites' ? sites : d.tog === 'rooms' ? rooms : d.tog === 'venues' ? venues : d.tog === 'menus' ? menus : kit;
       var rec = list.find(function (x) { return x.id === d.id; });
       db.collection(d.tog).doc(d.id).update({ active: rec && rec.active === false }).catch(oops);
     }
@@ -603,6 +641,195 @@
       var now = (settings[d.brm] || {}).bookingsAdmins || [];
       saveSettings(d.brm, { bookingsAdmins: now.filter(function (x) { return x !== d.pid; }) });
     }
+  });
+
+  /* ---- room profiles (Chunk 4, R1) ------------------------------------
+     Photos, floor plan, dimensions, capacities per layout, a fire-safety
+     maximum, facilities, a description and house rules. Pictures are made
+     no bigger than 1600 pixels before they are stored (§6.18), under
+     rooms/<room id>/, which the public pages read. */
+  var R = window.EGBCRooms, PROF = null;
+
+  function profField(label, id, val, type, extra) {
+    return '<div><label class="lbl" for="' + id + '">' + label + '</label><input id="' + id + '" class="inp" type="' + (type || 'text') + '" value="' + esc(val == null ? '' : val) + '"' + (extra || '') + '></div>';
+  }
+
+  function openProfile(id) {
+    PROF = JSON.parse(JSON.stringify(rooms.find(function (r) { return r.id === id; }) || {}));
+    PROF.id = id;
+    drawProfile();
+    $('sheetBack').style.display = 'block';
+  }
+  function closeProfile() { $('sheetBack').style.display = 'none'; PROF = null; }
+
+  function drawProfile() {
+    var p = PROF, d = p.dims || {}, l = p.layouts || {}, fc = p.facilities || {};
+    $('sheet').innerHTML =
+      '<div class="flex items-start justify-between gap-3"><div><h3>' + esc(p.name) + '</h3><p class="hint">Everything a hirer sees about this room.</p></div>' +
+        '<button class="btn btn-x" id="p-close" aria-label="Close">Close</button></div>' +
+
+      '<h4>Photos</h4><p class="hint mb-2">The first is the main picture. Pictures are made smaller before they are stored.</p>' +
+      '<div class="ph-grid" id="p-photos">' + (p.photos || []).map(function (ph, i) {
+        return '<div class="ph"><img src="' + esc(ph.url) + '" alt="">' +
+          '<div class="flex gap-1 mt-1 flex-wrap">' +
+            (i ? '<button class="btn btn-x" data-pmain="' + i + '">Make main</button>' : '<span class="pill on">Main</span>') +
+            (i > 0 ? '<button class="btn btn-x" data-pup="' + i + '">&larr;</button>' : '') +
+            '<button class="btn btn-x" data-pdel="' + i + '">Remove</button></div></div>';
+      }).join('') + '</div>' +
+      '<label class="btn btn-2 mt-2" style="cursor:pointer">Add photos<input type="file" id="p-add" accept="image/*" multiple style="display:none"></label>' +
+      '<span class="hint ml-2" id="p-busy"></span>' +
+
+      '<h4>Floor plan (optional)</h4>' +
+      (p.floorPlan ? '<div class="ph"><img src="' + esc(p.floorPlan.url) + '" alt=""><button class="btn btn-x mt-1" id="p-plandel">Remove</button></div>'
+        : '<label class="btn btn-2" style="cursor:pointer">Add a floor plan<input type="file" id="p-plan" accept="image/*" style="display:none"></label>') +
+
+      '<h4>Size and setting</h4><div class="grid sm:grid-cols-3 gap-3">' +
+        profField('Length (metres)', 'p-len', d.length, 'number', ' min="0" step="0.1"') +
+        profField('Width (metres)', 'p-wid', d.width, 'number', ' min="0" step="0.1"') +
+        profField('Ceiling height (metres)', 'p-hgt', d.height, 'number', ' min="0" step="0.1"') +
+      '</div><p class="hint mt-1" id="p-area">' + (R.area(p) ? 'Floor area ' + R.area(p) + ' m²' : 'The floor area is worked out from the length and width.') + '</p>' +
+      '<div class="grid sm:grid-cols-2 gap-3 mt-2">' +
+        '<div><label class="lbl" for="p-floor">Floor</label><select id="p-floor" class="inp">' + R.FLOORS.map(function (o) {
+          return '<option value="' + o[0] + '"' + ((p.floor || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
+        profField('Nearest toilets', 'p-toilets', p.toilets) +
+        profField('Nearest kitchen', 'p-kitchen', p.kitchenNote) +
+      '</div>' +
+      '<div class="flex flex-wrap gap-4 mt-3 text-sm">' +
+        '<label class="fac"><input type="checkbox" id="p-light"' + (p.naturalLight ? ' checked' : '') + '> Natural light</label>' +
+        '<label class="fac"><input type="checkbox" id="p-acc"' + (p.accessible ? ' checked' : '') + '> Step-free access</label>' +
+      '</div>' +
+
+      '<h4>How many it holds</h4><p class="hint mb-2">Leave a layout empty if the room cannot be set out that way.</p><div class="grid grid-cols-2 sm:grid-cols-3 gap-3">' +
+        R.LAYOUTS.map(function (x) { return profField(x.label, 'p-lay-' + x.id, l[x.id] || '', 'number', ' min="0" title="' + esc(x.hint) + '"'); }).join('') +
+      '</div><div class="grid sm:grid-cols-3 gap-3 mt-3">' +
+        profField('Fire-safety maximum', 'p-fire', p.fireMax || '', 'number', ' min="0"') +
+      '</div><p class="hint mt-1">No booking may ever be for more people than this, whatever the layout.</p>' +
+
+      '<h4>Facilities</h4><div class="grid sm:grid-cols-2 gap-1">' + R.FACILITIES.map(function (x) {
+        return x.count
+          ? '<label class="fac"><i data-lucide="' + x.icon + '" style="width:16px;height:16px;color:var(--brand)"></i>' + x.label +
+            ' <input class="inp" style="width:80px;height:32px" type="number" min="0" id="p-fac-' + x.id + '" value="' + (Number(fc[x.id]) || '') + '"></label>'
+          : '<label class="fac"><input type="checkbox" id="p-fac-' + x.id + '"' + (fc[x.id] ? ' checked' : '') + '><i data-lucide="' + x.icon + '" style="width:16px;height:16px;color:var(--brand)"></i>' + x.label + '</label>';
+      }).join('') + '</div>' +
+
+      '<h4>Words</h4>' +
+      '<div class="mb-3"><label class="lbl" for="p-desc">Short description</label><textarea id="p-desc" class="inp" style="height:80px;padding:10px 12px" maxlength="1200">' + esc(p.description || '') + '</textarea></div>' +
+      '<div class="mb-3"><label class="lbl" for="p-rules">House rules for this room</label><textarea id="p-rules" class="inp" style="height:80px;padding:10px 12px" maxlength="2000">' + esc(p.houseRules || '') + '</textarea></div>' +
+      '<label class="fac"><input type="checkbox" id="p-cater"' + (p.externalCaterers ? ' checked' : '') + '> Hirers may bring their own caterers</label>' +
+      '<p class="hint">Hire rates come with the next stage of room hire.</p>' +
+
+      '<div class="flex gap-2 mt-4 pt-4" style="border-top:1px solid #e5e7eb;justify-content:flex-end">' +
+        '<button class="btn btn-2" id="p-cancel">Cancel</button><button class="btn" id="p-save">Save the profile</button></div>';
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+    wireProfile();
+  }
+
+  function readProfile() {
+    var p = PROF, n = function (id) { var v = Number($(id).value); return isFinite(v) && v > 0 ? v : 0; };
+    p.dims = { length: n('p-len'), width: n('p-wid'), height: n('p-hgt') };
+    p.floor = $('p-floor').value; p.toilets = $('p-toilets').value.trim(); p.kitchenNote = $('p-kitchen').value.trim();
+    p.naturalLight = $('p-light').checked; p.accessible = $('p-acc').checked;
+    p.layouts = {}; R.LAYOUTS.forEach(function (x) { var v = n('p-lay-' + x.id); if (v) p.layouts[x.id] = Math.round(v); });
+    p.fireMax = Math.round(n('p-fire'));
+    p.facilities = {}; R.FACILITIES.forEach(function (x) {
+      if (x.count) { var c = Math.round(n('p-fac-' + x.id)); if (c) p.facilities[x.id] = c; }
+      else if ($('p-fac-' + x.id).checked) p.facilities[x.id] = true;
+    });
+    p.description = $('p-desc').value.trim(); p.houseRules = $('p-rules').value.trim(); p.externalCaterers = $('p-cater').checked;
+  }
+
+  /* Photos are stored straight away, so a long upload is never lost by
+     closing the sheet; the list on the room is saved with them. */
+  function savePhotos() { return db.collection('rooms').doc(PROF.id).update({ photos: PROF.photos || [], floorPlan: PROF.floorPlan || null }); }
+
+  function store(file, folder) {
+    return R.shrink(file, 1600).then(function (img) {
+      var path = 'rooms/' + PROF.id + '/' + folder + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.jpg';
+      var ref = EGBCAuth.storage().ref(path);
+      return ref.put(img.blob, { contentType: 'image/jpeg' }).then(function () { return ref.getDownloadURL(); })
+        .then(function (url) { return { url: url, path: path, width: img.width, height: img.height }; });
+    });
+  }
+  function unstore(ph) { if (ph && ph.path) EGBCAuth.storage().ref(ph.path).delete().catch(function () {}); }
+
+  function wireProfile() {
+    $('p-close').onclick = closeProfile; $('p-cancel').onclick = closeProfile;
+    ['p-len', 'p-wid'].forEach(function (id) { $(id).addEventListener('input', function () {
+      var a = R.area({ dims: { length: $('p-len').value, width: $('p-wid').value } });
+      $('p-area').textContent = a ? 'Floor area ' + a + ' m²' : 'The floor area is worked out from the length and width.';
+    }); });
+    $('p-add').onchange = function () {
+      var files = [].slice.call(this.files);
+      readProfile();
+      $('p-busy').textContent = 'Adding ' + files.length + '…';
+      files.reduce(function (pr, file) {
+        return pr.then(function () { return store(file, 'photo-').then(function (ph) { PROF.photos = (PROF.photos || []).concat([ph]); }); });
+      }, Promise.resolve()).then(savePhotos).then(function () { toast('Photos added'); drawProfile(); })
+        .catch(function (e) { $('p-busy').textContent = ''; toast(e.message || String(e)); });
+    };
+    var plan = $('p-plan');
+    if (plan) plan.onchange = function () {
+      readProfile();
+      store(this.files[0], 'plan-').then(function (ph) { PROF.floorPlan = ph; return savePhotos(); })
+        .then(function () { toast('Floor plan added'); drawProfile(); }).catch(function (e) { toast(e.message || String(e)); });
+    };
+    var pd = $('p-plandel');
+    if (pd) pd.onclick = function () { readProfile(); unstore(PROF.floorPlan); PROF.floorPlan = null; savePhotos().then(drawProfile).catch(oops); };
+    document.querySelectorAll('[data-pmain]').forEach(function (b) { b.onclick = function () {
+      readProfile(); var i = +b.dataset.pmain; PROF.photos.unshift(PROF.photos.splice(i, 1)[0]); savePhotos().then(drawProfile).catch(oops); }; });
+    document.querySelectorAll('[data-pup]').forEach(function (b) { b.onclick = function () {
+      readProfile(); var i = +b.dataset.pup; PROF.photos.splice(i - 1, 0, PROF.photos.splice(i, 1)[0]); savePhotos().then(drawProfile).catch(oops); }; });
+    document.querySelectorAll('[data-pdel]').forEach(function (b) { b.onclick = function () {
+      if (!confirm('Remove this photo?')) return;
+      readProfile(); var gone = PROF.photos.splice(+b.dataset.pdel, 1)[0]; unstore(gone); savePhotos().then(drawProfile).catch(oops); }; });
+    $('p-save').onclick = function () {
+      readProfile();
+      var p = PROF;
+      db.collection('rooms').doc(p.id).update({
+        dims: p.dims, floor: p.floor, toilets: p.toilets, kitchenNote: p.kitchenNote, naturalLight: p.naturalLight,
+        accessible: p.accessible, layouts: p.layouts, fireMax: p.fireMax, facilities: p.facilities,
+        description: p.description, houseRules: p.houseRules, externalCaterers: p.externalCaterers,
+        photos: p.photos || [], floorPlan: p.floorPlan || null
+      }).then(function () { toast('Profile saved'); closeProfile(); }).catch(oops);
+    };
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-prof]');
+    if (b) openProfile(b.dataset.prof);
+  });
+  document.addEventListener('change', function (e) {
+    if (!e.target.dataset || !e.target.dataset.mov) return;
+    db.collection('bookableResources').doc(e.target.dataset.mov).update({ movable: e.target.checked }).catch(oops);
+  });
+
+  /* ---- catering menu (Chunk 4, R1) ----------------------------------- */
+  var menus = [];
+  function money(v) { return '£' + (Number(v) || 0).toFixed(2); }
+  function drawMenus() {
+    var box = $('menu-list');
+    if (!menus.length) { box.innerHTML = '<p class="hint py-3">Nothing on the menu yet.</p>'; return; }
+    box.innerHTML = menus.slice().sort(byOrder).map(function (m) {
+      return '<div class="row"><div class="grid sm:grid-cols-2 gap-2 items-start">' +
+        '<div>' + nameField('menus', m) + '</div>' +
+        '<div class="flex flex-wrap gap-1 items-center">' +
+          '<button class="btn btn-x" data-mv="menus" data-id="' + m.id + '" data-d="-1">&uarr;</button>' +
+          '<button class="btn btn-x" data-mv="menus" data-id="' + m.id + '" data-d="1">&darr;</button>' +
+          '<button class="btn btn-x" data-tog="menus" data-id="' + m.id + '">' + (m.active === false ? 'Bring back' : 'Take off the menu') + '</button>' +
+          '<span class="pill ' + (m.active === false ? 'off' : 'on') + '">' + (m.active === false ? 'Off the menu' : 'On the menu') + '</span>' +
+        '</div></div>' +
+        '<p class="hint mt-1">' + (m.description ? esc(m.description) + ' · ' : '') + money(m.price) + (m.unit === 'item' ? ' each' : ' a person') +
+          (m.minimum ? ' · at least ' + m.minimum : '') + ' · ' + (m.noticeDays || 0) + ' working days\' notice</p></div>';
+    }).join('');
+  }
+  $('m-add').addEventListener('click', function () {
+    var name = $('m-name').value.trim();
+    if (!name) { toast('Give it a name'); return; }
+    db.collection('menus').add({
+      name: name, description: $('m-desc').value.trim(), unit: $('m-unit').value,
+      price: Math.max(0, Number($('m-price').value) || 0), minimum: Math.max(0, parseInt($('m-min').value, 10) || 0),
+      noticeDays: Math.max(0, parseInt($('m-notice').value, 10) || 0), active: true, order: nextOrder(menus)
+    }).then(function () { $('m-name').value = ''; $('m-desc').value = ''; $('m-price').value = ''; $('m-min').value = ''; toast('Added to the menu'); }).catch(oops);
   });
 
   /* ---- seed --------------------------------------------------------- */
@@ -643,6 +870,7 @@
     watch('rooms', function (v) { rooms = v; }, function () { drawRooms(); drawKit(); });
     watch('bookableResources', function (v) { kit = v; }, drawKit);
     watch('venues', function (v) { venues = v; }, drawVenues);
+    watch('menus', function (v) { menus = v; }, drawMenus);
     watch('bookingSettings', function (v) {
       settings = {}; v.forEach(function (s) { settings[s.id] = s; });
     }, drawWho);
@@ -667,5 +895,6 @@
   document.addEventListener('egbc-ready', function (e) { start(e.detail); });
 })();
 </script>
+<div class="sheet-back" id="sheetBack"><div class="sheet" id="sheet"></div></div>
 </body>
 </html>

@@ -435,6 +435,8 @@ needs the screens it should open:
   photos waiting, approved and rejected.
 - `upload.html?k=<link>` (E4, no sign-in): needs a link in the emulator. The
   E4 test shows how to make one.
+- `hire.html` and `room.html?r=<room>` (Chunk 4 R1, no sign-in), and on
+  `places-admin.html` the room **Profile** sheet and the new **Catering** tab.
 
 And for the hub's "Where to?" list, admins only:
 - **Forms**: `forms-admin.html` (icon `file-text`).
@@ -681,17 +683,14 @@ rejected photo, the Photos tab shows where it is kept, for example
 The review record stays, marked rejected, so there is a trace of what was
 removed.
 
-### F-054 — the zip on the live site needs one storage setting (not checked)
-"Download all approved" fetches each photo in the browser. The test storage
-allows that. The live storage bucket allows it only if it has been told the
-hub's address may fetch from it (a CORS setting), and I cannot check that from
-here. If the button says a photo "could not be fetched" on the live site, this
-one-off command sets it (Martin, with Google Cloud's `gsutil`):
+### F-054 — the zip on the live site: closed, not needed
+**Closed (8 Oct 2026).** The reviewing window tested the live storage bucket:
+its download addresses already answer any site
+(`Access-Control-Allow-Origin: *`), and the zip fetches each photo through its
+download address, so it works as it is.
 
-    gsutil cors set cors.json gs://egbc-worship-planner.firebasestorage.app
-
-with `cors.json` holding
-`[{"origin":["https://esherchurch.github.io"],"method":["GET"],"maxAgeSeconds":3600}]`.
+The command this finding first suggested has been removed, and must not be
+used: setting the bucket's CORS replaces whatever is there now.
 
 ### F-055 — where Share to WhatsApp goes
 Each link has "Copy link" and "QR code". Share to WhatsApp is the main window's
@@ -708,3 +707,40 @@ Nothing on any page shows uploaded photos, approved or not. Approving one clears
 it for the church to use: it goes in the zip, for the newsletter or the
 website. A gallery on the event page would be a later step, and it would show
 approved photos only.
+
+
+## Chunk 4, stage R1: room profiles, "Hire our rooms", search by need
+
+### F-058 — what R1 leaves for R2 and Chunk 5
+- **"Free at that time"** and the **day and week grid** need bookings, which
+  arrive in R2. Search by need in R1 finds the rooms that *fit*: how many
+  people, which layout, which facilities, and never more than the
+  fire-safety maximum.
+- **"From £x per hour"** needs rate cards (Chunk 5). Until then the hire page
+  says to ask about prices.
+- **"Ask about hiring this room"** opens an email to office@esherchurch.org
+  (the reply address the email function already uses) until `book.html`
+  arrives in R2. **Martin: is that the right address?**
+- **Menu prices** are stored now, for Chunk 5's quotes. Nothing is charged, and
+  the public pages do not show them yet.
+
+### F-059 — iPhone (HEIC) photos cannot be added to a room on most computers
+Room photos are made smaller in the browser before they are stored (long edge
+1600 pixels), and most browsers other than Safari cannot open a HEIC file. The
+page refuses one and says to save it as a JPEG or PNG first, rather than storing
+it at full size.
+
+### F-060 — not built in R1 (Should items)
+- **Room comparison** side by side.
+- **The caterer's view** of upcoming orders: it needs catering orders, which
+  come with booking requests (R2). It belongs with R2 or R3.
+
+### F-061 — the old `photoUrl` field on rooms is not used
+Chunk 1 gave each room an empty `photoUrl`. Room profiles keep a list of
+photos instead, with the first one as the main picture. The old field is left
+in place and unused, so nothing that might read it breaks.
+
+### F-062 — REQUEST for the main window: a way in to "Hire our rooms"
+`hire.html` is public and has no link to it yet. Suggest a link from the hub
+for members, and from the church website for everyone else (the main window's
+pages and Martin's site).

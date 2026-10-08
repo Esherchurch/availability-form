@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Room — EGBC</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610062100" data-title="Room"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-events-rooms.js?v=202610081800"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:26px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .badge{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .main{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:12px;background:#eef2f2;display:block}
+  .thumbs{display:flex;gap:8px;margin-top:8px;overflow-x:auto}
+  .thumbs button{border:2px solid transparent;border-radius:8px;padding:0;background:none;cursor:pointer;flex:none}
+  .thumbs button.on{border-color:var(--brand)}
+  .thumbs img{width:84px;height:56px;object-fit:cover;border-radius:6px;display:block}
+  .facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+  .fact .k{font-size:12px;color:var(--muted)} .fact .v{font-size:15px;font-weight:600;color:var(--ink)}
+  table{border-collapse:collapse;width:100%}
+  td{padding:9px 0;border-top:1px solid var(--line);font-size:14px} tr:first-child td{border-top:none}
+  td.r{text-align:right;font-weight:600;color:var(--ink)}
+  .fac{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px;color:var(--ink)}
+  .fac i{color:var(--brand)}
+  .facs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:2px 16px}
+  .words{white-space:pre-wrap}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;
+       background:var(--brand);color:#fff;text-decoration:none;border:1px solid transparent}
+  .btn:hover{background:var(--brand-dark)}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .hint{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
+
+<script>
+(function () {
+  'use strict';
+  var R = window.EGBCRooms;
+  var ID = new URLSearchParams(location.search).get('r') || '';
+  var ROOM = null, SITE = null, SHOWN = 0;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
+  function ico(n, px) { return '<i data-lucide="' + n + '" style="width:' + (px || 17) + 'px;height:' + (px || 17) + 'px"></i>'; }
+  function fact(k, v) { return v ? '<div class="fact"><div class="k">' + k + '</div><div class="v">' + esc(v) + '</div></div>' : ''; }
+
+  function draw() {
+    var r = ROOM, d = r.dims || {}, ph = r.photos || [], a = R.area(r);
+    var floor = (R.FLOORS.filter(function (f) { return f[0] === r.floor; })[0] || [])[1];
+    document.title = r.name + ' — EGBC';
+    /* Until booking requests arrive (next stage), asking means an email to
+       the church office. */
+    var ask = 'mailto:office@esherchurch.org?subject=' + encodeURIComponent('Hiring the ' + r.name);
+    document.getElementById('wrap').innerHTML =
+      '<p style="margin:0 0 10px"><a class="hint" href="hire.html" style="color:var(--brand)">&larr; All rooms for hire</a></p>' +
+      '<h1>' + esc(r.name) + '</h1><p class="sub">' + esc(SITE ? SITE.name + (SITE.address ? ', ' + SITE.address : '') : '') + '</p>' +
+      (ph.length ? '<img class="main" id="mainPic" src="' + esc(ph[SHOWN].url) + '" alt="' + esc(r.name) + '">' +
+        (ph.length > 1 ? '<div class="thumbs">' + ph.map(function (p, i) {
+          return '<button data-i="' + i + '" class="' + (i === SHOWN ? 'on' : '') + '" aria-label="Photo ' + (i + 1) + '"><img src="' + esc(p.url) + '" alt=""></button>'; }).join('') + '</div>' : '')
+        : '') +
+      '<div style="margin:16px 0"><a class="btn" id="ask" href="' + ask + '">' + ico('mail', 16) + 'Ask about hiring this room</a></div>' +
+      (r.description ? '<div class="card"><p class="words" style="margin:0">' + esc(r.description) + '</p></div>' : '') +
+      '<div class="card"><h2><span class="badge">' + ico('ruler') + '</span>The room</h2><div class="facts">' +
+        fact('Floor area', a ? a + ' m²' : '') +
+        fact('Size', d.length && d.width ? d.length + ' m by ' + d.width + ' m' : '') +
+        fact('Ceiling height', d.height ? d.height + ' m' : '') +
+        fact('Floor', floor && r.floor ? floor : '') +
+        fact('Natural light', r.naturalLight ? 'Yes' : '') +
+        fact('Step-free access', r.accessible ? 'Yes' : 'No') +
+        fact('Nearest toilets', r.toilets) + fact('Nearest kitchen', r.kitchenNote) +
+      '</div></div>' +
+      '<div class="card"><h2><span class="badge">' + ico('users') + '</span>How many it holds</h2><table>' +
+        R.LAYOUTS.filter(function (x) { return (r.layouts || {})[x.id]; }).map(function (x) {
+          return '<tr><td>' + x.label + ' <span class="hint">· ' + esc(x.hint) + '</span></td><td class="r">' + R.holds(r, x.id) + '</td></tr>'; }).join('') +
+        (r.fireMax ? '<tr><td>Most allowed, for fire safety</td><td class="r" id="fireMax">' + r.fireMax + '</td></tr>' : '') +
+      '</table></div>' +
+      '<div class="card"><h2><span class="badge">' + ico('list-checks') + '</span>Facilities</h2><div class="facs">' +
+        R.FACILITIES.filter(function (x) { return R.has(r, x.id); }).map(function (x) {
+          var n = (r.facilities || {})[x.id];
+          return '<div class="fac">' + ico(x.icon, 18) + x.label + (x.count ? ': ' + n : '') + '</div>'; }).join('') +
+        (r.externalCaterers ? '<div class="fac">' + ico('utensils', 18) + 'You may bring your own caterers</div>' : '') +
+      '</div></div>' +
+      (r.floorPlan ? '<div class="card"><h2><span class="badge">' + ico('map') + '</span>Floor plan</h2><img src="' + esc(r.floorPlan.url) + '" alt="Floor plan" style="max-width:100%;border-radius:8px"></div>' : '') +
+      (r.houseRules ? '<div class="card"><h2><span class="badge">' + ico('scroll-text') + '</span>House rules</h2><p class="words" style="margin:0">' + esc(r.houseRules) + '</p></div>' : '');
+    document.querySelectorAll('.thumbs button').forEach(function (b) { b.onclick = function () { SHOWN = +b.getAttribute('data-i'); draw(); }; });
+    icons();
+  }
+
+  function none() {
+    document.getElementById('wrap').innerHTML = '<div class="card">That room could not be found, or is not for hire. <a href="hire.html" style="color:var(--brand)">See the rooms for hire</a>.</div>';
+  }
+
+  if (!ID) return none();
+  EGBCAuth.optional().then(function () { return EGBCAuth.db.collection('rooms').doc(ID).get(); }).then(function (s) {
+    if (!s.exists) return none();
+    ROOM = Object.assign({ id: s.id }, s.data());
+    if (!R.hireable([ROOM]).length) return none();
+    return EGBCAuth.db.collection('sites').doc(ROOM.siteId).get().then(function (x) { SITE = x.exists ? x.data() : null; }).catch(function () {}).then(draw);
+  }).catch(none);
+})();
+</script>
+</body>
+</html>

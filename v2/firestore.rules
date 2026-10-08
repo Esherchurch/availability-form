@@ -1140,6 +1140,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- room hire (Chunk 4, R1) -------------------------------------
+    // Room profiles live on the room documents (Chunk 1 rules: admins
+    // write, anyone reads a room that is in use). The catering menu is the
+    // same shape: anyone may read what is on the menu - the public booking
+    // form needs it - and a public list has to ask for active == true.
+    match /menus/{menuId} {
+      allow read: if active() || activeRecord();
+      allow write: if isAdmin()
+                   && request.resource.data.name is string && request.resource.data.name.size() > 0
+                   && request.resource.data.name.size() <= 120
+                   && request.resource.data.get('unit', 'head') in ['head', 'item']
+                   && request.resource.data.get('price', 0) is number && request.resource.data.get('price', 0) >= 0;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------

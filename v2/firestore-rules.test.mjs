@@ -201,6 +201,10 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'uploadLinks', 'up_expired'), LINK({ expiresAt: new Date(Date.now() - 864e5) }));
   await setDoc(doc(db, 'uploadLinks', 'up_off'), LINK({ active: false }));
   await setDoc(doc(db, 'uploadLinks', 'up_full'), LINK({ count: 3 }));
+  await setDoc(doc(db, 'menus', 'menu_tea'), { name: 'Test tea and coffee', unit: 'head', price: 1.5, minimum: 10, noticeDays: 5, active: true, order: 1 });
+  await setDoc(doc(db, 'menus', 'menu_old'), { name: 'Test old buffet', unit: 'head', price: 9, active: false, order: 2 });
+  await setDoc(doc(db, 'rooms', 'room_hire'), { siteId: 'site_test', name: 'Test Hireable Hall', kind: 'room', active: true, order: 3, bookableByHirers: true,
+    dims: { length: 10, width: 8 }, layouts: { cabaret: 40 }, fireMax: 90, facilities: { projector: true } });
   await setDoc(doc(db, 'uploadItems', 'up_open__0'), { linkId: 'up_open', slot: 0, calEventId: 'ev_public', path: 'uploads/up_open/0', name: 'a.jpg', status: 'pending' });
   // ── end EVENTS ──
 
@@ -766,6 +770,21 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('an admin approves a photo', 'allow', () => updateDoc(doc(as('karen'), 'uploadItems', 'up_open__0'), { status: 'approved', reviewedBy: 'u_karen', reviewedAt: 'x' }));
   await check('a guest cannot approve one', 'deny', () => updateDoc(doc(anon(), 'uploadItems', 'up_open__0'), { status: 'approved' }));
   await check('a record cannot be deleted, even by a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'uploadItems', 'up_open__0')));
+}
+
+// ── EVENTS (events window) ── room hire, R1
+{
+  await check('anyone reads a room’s profile when it is in use', 'allow', () => getDoc(doc(anon(), 'rooms', 'room_hire')));
+  await check('the public lists the rooms in use, asking for them', 'allow', () => getDocs(query(collection(anon(), 'rooms'), where('active', '==', true))));
+  await check('nobody without an account can change a room’s profile', 'deny', () => updateDoc(doc(anon(), 'rooms', 'room_hire'), { fireMax: 500 }));
+  await check('a member cannot either', 'deny', () => updateDoc(doc(as('samy'), 'rooms', 'room_hire'), { fireMax: 500 }));
+  await check('an admin changes a room’s profile', 'allow', () => updateDoc(doc(as('karen'), 'rooms', 'room_hire'), { fireMax: 85, layouts: { cabaret: 40, theatre: 80 } }));
+  await check('anyone reads what is on the menu', 'allow', () => getDocs(query(collection(anon(), 'menus'), where('active', '==', true))));
+  await check('but not what is off it', 'deny', () => getDoc(doc(anon(), 'menus', 'menu_old')));
+  await check('the public cannot list the whole menu', 'deny', () => getDocs(collection(anon(), 'menus')));
+  await check('an admin adds to the menu', 'allow', () => setDoc(doc(as('karen'), 'menus', 'menu_new'), { name: 'Test biscuits', unit: 'item', price: 2, active: true }));
+  await check('a price cannot be below nothing', 'deny', () => setDoc(doc(as('karen'), 'menus', 'menu_bad'), { name: 'Test free money', unit: 'head', price: -5, active: true }));
+  await check('a member cannot change the menu', 'deny', () => setDoc(doc(as('samy'), 'menus', 'menu_tea'), { name: 'Mine', unit: 'head', price: 0, active: true }));
 }
 // ── end EVENTS ──
 // ── end EVENTS ──
