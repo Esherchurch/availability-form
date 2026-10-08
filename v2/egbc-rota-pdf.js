@@ -99,6 +99,7 @@
     /* ---- the wall planner ------------------------------------------- */
 
     if (type === 'wall') {
+      var WALL_RGB = { worship: [61, 98, 99], av: [74, 95, 122], kids: [122, 95, 74] };
       var wallDoc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'A4' });
       var hIds = householdIds(addressBook, memberId);
 
@@ -151,11 +152,12 @@
                 Object.keys(ev.assignments || {}).forEach(function (role) {
                   peopleIn(ev.assignments[role]).forEach(function (p) {
                     if (hIds.indexOf(p.id) !== -1) {
-                      mine.push(String(p.name || '').split(' ')[0] + ': ' + role);
+                      var team = isKidsRole(role) ? 'kids' : (avRoles.indexOf(role) !== -1 ? 'av' : 'worship');
+                      mine.push('P:' + team + '~' + String(p.name || '').split(' ')[0] + ': ' + role);
                     }
                   });
                 });
-                if (mine.length) cell += '|S:' + ev.type + '|R:' + mine.join(', ');
+                if (mine.length) cell += '|S:' + ev.type + '|' + mine.join('|');
               });
               return cell;
             });
@@ -177,11 +179,24 @@
                 yPos += 12;
               } else if (seg.indexOf('S:') === 0) {
                 wallDoc.setFont('helvetica', 'bold'); wallDoc.setFontSize(7); wallDoc.setTextColor(61, 98, 99);
-                wallDoc.text(wallDoc.splitTextToSize(seg.replace('S:', ''), 100), data.cell.x + 5, yPos);
-                yPos += 18;
-              } else if (seg.indexOf('R:') === 0) {
-                wallDoc.setFont('helvetica', 'normal'); wallDoc.setFontSize(7); wallDoc.setTextColor(0, 0, 0);
-                wallDoc.text(wallDoc.splitTextToSize(seg.replace('R:', ''), 100), data.cell.x + 5, yPos);
+                var sl = wallDoc.splitTextToSize(seg.replace('S:', ''), data.cell.width - 10);
+                wallDoc.text(sl, data.cell.x + 5, yPos);
+                yPos += 4 + sl.length * 8;
+              } else if (seg.indexOf('P:') === 0) {
+                /* A pill in the team's colour behind each name, so the family
+                   can see at a glance who is doing what (Martin, 8 Oct 2026). */
+                var bits = seg.slice(2).split('~');
+                var rgb = WALL_RGB[bits[0]] || WALL_RGB.worship;
+                wallDoc.setFont('helvetica', 'bold'); wallDoc.setFontSize(7);
+                var maxW = data.cell.width - 10;
+                var lines = wallDoc.splitTextToSize(bits[1], maxW - 8);
+                var pw = Math.min(maxW, Math.max.apply(null, lines.map(function (l) { return wallDoc.getTextWidth(l); })) + 8);
+                var ph = 4 + lines.length * 8;
+                wallDoc.setFillColor(rgb[0], rgb[1], rgb[2]);
+                wallDoc.roundedRect(data.cell.x + 4, yPos - 7, pw, ph, ph / 2 > 6 ? 6 : ph / 2, ph / 2 > 6 ? 6 : ph / 2, 'F');
+                wallDoc.setTextColor(255, 255, 255);
+                wallDoc.text(lines, data.cell.x + 8, yPos - 0.5);
+                yPos += ph + 3;
               }
             });
           }
@@ -226,7 +241,8 @@
        is how you know who you are serving with. */
     drawTables(doc, events, {
       avRoles: avRoles,
-      roleFilter: (type === 'full' && opts.roleFilter) ? opts.roleFilter : null
+      roleFilter: (type === 'full' && opts.roleFilter) ? opts.roleFilter : null,
+      memberIds: type === 'individual' ? [memberId] : (type === 'household' ? ids : null)
     });
 
     return doc;
@@ -256,81 +272,137 @@
   }
 
   function drawTables(doc, events, opts) {
+    /* One list in date order. For each date, one row per team that is
+       serving - Worship & AV, Kids Church - and, on a personal or household
+       rota, only the teams that person or household is actually on that day
+       (Martin, 8 Oct 2026: "Don't put in the worship line for that date if
+       they are not on worship"). Each cell is the role, small, with the name
+       under it, so rows from different teams sit in one table. */
     var avRoles = opts.avRoles || [];
-    var raw = [];
-    events.forEach(function (e) {
-      var roles = opts.roleFilter ? opts.roleFilter(e) : (e.roles || []);
-      roles.forEach(function (r) { if (raw.indexOf(r) === -1) raw.push(r); });
-      Object.keys(e.assignments || {}).forEach(function (r) {
-        if (raw.indexOf(r) === -1 && (!opts.roleFilter || opts.roleFilter(e).indexOf(r) !== -1)) raw.push(r);
-      });
-    });
-    var cell = function (e, r) {
-      var p = peopleIn(e.assignments && e.assignments[r]);
-      if (p.length) return p.map(function (x) { return x.name; }).join(', ');
-      return (r === 'Choir' && (e.roles || []).indexOf('Choir') !== -1) ? 'Choir' : '';
-    };
-    var used = function (r) { return events.some(function (e) { return cell(e, r) !== ''; }); };
-
-    var worship = raw.filter(function (r) { return !isKidsRole(r) && avRoles.indexOf(r) === -1 && used(r); });
-    var av = raw.filter(function (r) { return avRoles.indexOf(r) !== -1 && used(r); });
-    var kids = raw.filter(function (r) { return isKidsRole(r) && used(r); });
-
-    /* Each team's own colour, the same ones the app uses (egbc-auth.js TEAMS):
-       on the column headings, and a key under the title. Martin, 8 Oct 2026. */
+    var mine = opts.memberIds || null;
     var TEAM_RGB = { worship: [61, 98, 99], av: [74, 95, 122], kids: [122, 95, 74] };
     var teamOf = function (r) { return isKidsRole(r) ? 'kids' : (avRoles.indexOf(r) !== -1 ? 'av' : 'worship'); };
 
+    var order = [];
+    events.forEach(function (e) {
+      (e.roles || []).concat(Object.keys(e.assignments || {})).forEach(function (r) {
+        if (order.indexOf(r) === -1) order.push(r);
+      });
+    });
+    order = order.filter(function (r) { return teamOf(r) === 'worship'; })
+      .concat(order.filter(function (r) { return teamOf(r) === 'av'; }))
+      .concat(order.filter(function (r) { return teamOf(r) === 'kids'; }));
+
+    var names = function (e, r) {
+      var p = peopleIn(e.assignments && e.assignments[r]);
+      if (p.length) return p;
+      return (r === 'Choir' && (e.roles || []).indexOf('Choir') !== -1) ? [{ name: 'Choir' }] : [];
+    };
+
+    var groups = [];
+    events.forEach(function (e) {
+      var allowed = opts.roleFilter ? opts.roleFilter(e) : null;
+      var lines = [];
+      [['worship', 'Worship & AV', function (r) { return teamOf(r) !== 'kids'; }],
+       ['kids', 'Kids Church', function (r) { return teamOf(r) === 'kids'; }]].forEach(function (t) {
+        var slots = order.filter(t[2]).filter(function (r) {
+          return (!allowed || allowed.indexOf(r) !== -1) && names(e, r).length;
+        }).map(function (r) { return { role: r, people: names(e, r) }; });
+        if (!slots.length) return;
+        if (mine && !slots.some(function (s) {
+          return s.people.some(function (p) { return mine.indexOf(p.id) !== -1; });
+        })) return;
+        lines.push({ e: e, team: t[0], label: t[1], slots: slots });
+      });
+      if (lines.length) groups.push(lines);
+    });
+
+    /* The key, for the teams that appear. */
+    var seen = { worship: false, av: false, kids: false };
+    groups.forEach(function (g) { g.forEach(function (l) { l.slots.forEach(function (s) { seen[teamOf(s.role)] = true; }); }); });
     var keyX = 14;
-    [['worship', 'Worship', worship], ['av', 'AV', av], ['kids', 'Kids Church', kids]].forEach(function (k) {
-      if (!k[2].length) return;
-      doc.setFillColor.apply(doc, TEAM_RGB[k[0]]);
+    [['worship', 'Worship'], ['av', 'AV'], ['kids', 'Kids Church']].forEach(function (k) {
+      if (!seen[k[0]]) return;
+      doc.setFillColor(TEAM_RGB[k[0]][0], TEAM_RGB[k[0]][1], TEAM_RGB[k[0]][2]);
       doc.roundedRect(keyX, 25.2, 3.2, 3.2, 0.6, 0.6, 'F');
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(75, 85, 99);
       doc.text(k[1], keyX + 4.6, 27.8);
       keyX += 4.6 + doc.getTextWidth(k[1]) + 7;
     });
+    if (mine) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(17, 24, 39);
+      doc.text(mine.length > 1 ? 'Names in bold are your household.' : 'Your name is in bold.', keyX + 4, 27.8);
+    }
 
-    var y = 32;
-    var section = function (title, roles) {
-      var rows = events.filter(function (e) { return roles.some(function (r) { return cell(e, r) !== ''; }); });
-      if (!roles.length || !rows.length) return;
-      var allKids = roles.every(function (r) { return teamOf(r) === 'kids'; });
-      if (y > 32) {
-        if (y > 175) { doc.addPage(); y = 15; }
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-        doc.setTextColor.apply(doc, allKids ? TEAM_RGB.kids : TEAM_RGB.worship);
-        doc.text(title, 14, y + 3); y += 6;
-      }
-      doc.autoTable({
-        startY: y,
-        margin: { left: 12, right: 12, bottom: 8 },
-        head: [['When'].concat(roles)],
-        body: rows.map(function (e) {
-          return [whenText(e)].concat(roles.map(function (r) { return cell(e, r) || '—'; }));
-        }),
-        theme: 'grid',
-        headStyles: { fillColor: [61, 98, 99], textColor: 255, fontStyle: 'bold', fontSize: 7.5, valign: 'middle', halign: 'left' },
-        styles: { fontSize: 7.5, cellPadding: 1.8, valign: 'middle', overflow: 'linebreak',
-                  lineColor: [209, 223, 223], lineWidth: 0.25, textColor: [31, 41, 55] },
-        alternateRowStyles: { fillColor: [240, 246, 246] },
-        columnStyles: { 0: { cellWidth: 54, textColor: [17, 24, 39] } },
-        didParseCell: function (data) {
-          if (data.section === 'head' && data.column.index > 0) data.cell.styles.fillColor = TEAM_RGB[teamOf(roles[data.column.index - 1])];
-          if (data.section === 'head' && data.column.index === 0 && allKids) data.cell.styles.fillColor = TEAM_RGB.kids;
-          if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '—') data.cell.styles.textColor = [190, 200, 200];
-          if (data.section === 'body' && data.column.index === 0) data.cell.styles.fontStyle = 'bold';
-        }
-      });
-      y = doc.lastAutoTable.finalY + 7;
-    };
-    var first = worship.concat(av);
-    section('Worship & AV', first);
-    section('Kids Church', kids);
-    if (!first.length && !kids.length) {
+    if (!groups.length) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
       doc.text('Nobody is on the rota for these dates.', 14, 40);
+      return;
     }
+
+    var N = 0;
+    groups.forEach(function (g) { g.forEach(function (l) { N = Math.max(N, l.slots.length); }); });
+
+    var body = [], meta = [];
+    groups.forEach(function (g, gi) {
+      g.forEach(function (l, li) {
+        var row = [];
+        if (li === 0) row.push({ content: whenText(l.e), rowSpan: g.length });
+        row.push(l.label);
+        for (var i = 0; i < N; i++) {
+          var s = l.slots[i];
+          row.push(s ? s.role + '\n' + s.people.map(function (p) { return p.name; }).join('\n') : '');
+        }
+        body.push(row);
+        meta.push({ band: gi % 2, line: l });
+      });
+    });
+
+    var BAND = [[255, 255, 255], [240, 246, 246]];
+    doc.autoTable({
+      startY: 32,
+      margin: { left: 12, right: 12, bottom: 8 },
+      head: [['When', 'Team', { content: 'Who is serving', colSpan: N }]],
+      body: body,
+      theme: 'grid',
+      headStyles: { fillColor: [61, 98, 99], textColor: 255, fontStyle: 'bold', fontSize: 8, valign: 'middle' },
+      styles: { fontSize: 7.5, cellPadding: 1.6, valign: 'top', overflow: 'linebreak',
+                lineColor: [209, 223, 223], lineWidth: 0.25, textColor: [31, 41, 55] },
+      columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 21 } },
+      didParseCell: function (d) {
+        if (d.section !== 'body') return;
+        var m = meta[d.row.index];
+        d.cell.styles.fillColor = BAND[m.band];
+        var col = d.column.index;
+        if (col === 0) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.valign = 'middle'; return; }
+        if (col === 1) {
+          d.cell.styles.fillColor = TEAM_RGB[m.line.team];
+          d.cell.styles.textColor = 255; d.cell.styles.fontStyle = 'bold'; d.cell.styles.valign = 'middle';
+          return;
+        }
+        /* Slot cells are drawn by hand below; the text stays for the height. */
+        d.cell.styles.textColor = BAND[m.band];
+      },
+      didDrawCell: function (d) {
+        if (d.section !== 'body' || d.column.index < 2) return;
+        var s = meta[d.row.index].line.slots[d.column.index - 2];
+        if (!s) return;
+        var x = d.cell.x + 1.6, y = d.cell.y + 1.6, w = d.cell.width - 3.2;
+        var c = TEAM_RGB[teamOf(s.role)];
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(6.3); doc.setTextColor(c[0], c[1], c[2]);
+        var roleLines = doc.splitTextToSize(s.role, w);
+        doc.text(roleLines, x, y + 2.2);
+        y += 2.2 + roleLines.length * 2.6;
+        s.people.forEach(function (p) {
+          var me = mine && mine.indexOf(p.id) !== -1;
+          doc.setFont('helvetica', me ? 'bold' : 'normal'); doc.setFontSize(7.5);
+          if (me) doc.setTextColor(17, 24, 39); else doc.setTextColor(55, 65, 81);
+          var nl = doc.splitTextToSize(p.name, w);
+          doc.text(nl, x, y + 0.8);
+          y += nl.length * 3.1;
+        });
+      }
+    });
   }
 
   global.EGBCRotaPdf = { build: build, drawTables: drawTables, householdIds: householdIds, peopleIn: peopleIn };
