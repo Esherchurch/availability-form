@@ -215,6 +215,10 @@
          A heading that is only opened by what is under it loses its own page:
          that person may reach Room bookings, and must not thereby be handed
          the Core Team charter. */
+      /* A TEAM heading is different: not on the team means nothing under it
+         either. Otherwise Worship & AV's ungated pages kept the heading on
+         screen for Kids Church (Martin, 8 Oct 2026). */
+      if (node.team && !onTeam(node.team, who)) continue;
       const kids = node.children ? prune(node.children, who) : null;
       const hasKids = !!(kids && kids.length);
       const self = visible(node, who);
