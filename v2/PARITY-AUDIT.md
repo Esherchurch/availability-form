@@ -533,3 +533,79 @@ it into noise. Group 1 remains 0 across every screen.
   if it is meant to keep working after switch-over. Several original pages read
   collections that now need an active member and never sign in; against the
   real rules they are refused. v2 is unaffected.
+
+---
+
+# Step N2a — the old dashboard page, feature by feature
+
+`EGBCWorship&AV.html` is the page Martin still posted a notice on, because
+before launch he is the only person who sees v2 at all. §17a's first reading
+was that the hub should therefore read the portal's news; the corrected brief
+says the opposite — the hub keeps its own news, and the hub's news must simply
+be able to do everything the portal's panel can.
+
+So this is the whole page audited, not just its news: every feature it has,
+and where that feature lives in the hub now.
+
+## The news panel
+
+| What the portal's panel does | Where it is in the hub | |
+|---|---|---|
+| Add a notice | Administration → Notices → "+ New notice", and the + beside Latest | was already there |
+| Edit one | Edit on the notice itself in editing mode, and in the Notices list | was already there |
+| Manage the list — see every notice, not just add another | Administration → Notices | was already there |
+| Remove one | Remove in the Notices list, and the bin on the notice | was already there |
+| **"Show until" — a notice takes itself off the page** | **the news editor's "Show until"** | **added in this step** |
+| **A free-text date label** ("Sunday 4 May") | **the news editor's "Date label"** | **added in this step** |
+| Paste an email in, with its `<style>` block stripped | `egbc-editor.js` drops `<style>`, `<meta>` and comments on paste, and `safeHtml()` drops them again when the notice is drawn | already there, and done twice |
+| A failed save says so | `saveNews()` reports the error and leaves the editor open, so the words are not lost | was already there |
+| Source/HTML tab beside the paste area | **not carried across.** The portal needed it because its paste zone was crude; the hub's editor has a toolbar, and HTML is not something to ask a volunteer to edit. Recorded here rather than built. | by choice |
+
+The hub also does four things the portal's panel cannot: aim a notice at
+particular teams, pin it to the top, ask people to confirm they have read it
+and show how many have.
+
+An expired notice is **hidden, not deleted**. It stays in the Notices list
+marked "Expired *date* (hidden)", with Edit and Remove, so it can be given a
+new date instead of being lost.
+
+`tests/check-news-features.mjs` — 29 checks through the browser, on six
+invented notices. "Until today" is deliberately in there: a notice set to show
+until today must still show today and be gone tomorrow, not the other way
+round.
+
+## Everything else on the page
+
+| Feature of `EGBCWorship&AV.html` | Where it is in the hub |
+|---|---|
+| The sidebar menu, with groups that open | The Menu, from `egbc-menu.js`, and the hub's own sidebar — one structure for both (Step N) |
+| Pinning the sidebar open (`toggleSidebarPin`) | The hub's sidebar is always there on a desktop and a drawer on a phone, so there is nothing to pin |
+| Editing the menu itself, stored in the database (`openMenuModal`, `saveMenuToDb`, icon picker) | **Deliberately not carried across.** The Menu is a file Martin approved, not a thing to be rearranged in a dialog — the database-stored menu is how the two arrangements drifted apart in the first place (NAV-AUDIT.md). What *is* editable is which pages exist and who sees them: Administration → Pages |
+| "Reset System" — restore the default menu for everyone | Not carried across, and not wanted: the Menu is the file, so there is nothing to reset. The nearest things are "Add the missing pages" and "Bring across the old menu" in Administration → Pages |
+| The banner: title, subtitle, image, vertical position | The hub's banner editor — and it also does zoom, horizontal position, upload with a progress bar, and a per-team banner so Kids Church do not land on a Worship photo |
+| The welcome words — a free block of rich text on the landing page (`bodyHtml`) | The hub's welcome card (`bodyCard`, Edit in editing mode) |
+| The pages list: add, edit, remove a page | Administration → Pages, with "Check every link" as well |
+| The triple-click "Secure Portal" secret that reveals the admin buttons | The hub's Edit button, which is simply there for an admin. A hidden gesture is not a permission; the hub asks the profile |
+| The logo in its header | The hub's shell header. Both hard-code it — A-021 |
+| The scrolling news ticker | The hub's Latest panel scrolls the same way, same speed, pausing on hover |
+
+Nothing on the page turns out to be missing from the hub except the two
+features added in this step and the two left out on purpose, both noted above.
+
+## Nothing in v2 links to it any more
+
+Its registry entry is gone from `hub-app.js`, with a note in its place saying
+why and that it must not come back. The Menu, the sidebar and "Where to?" all
+read `egbc-menu.js`, which never had it after Step N.
+
+**The file stays where it is.** The phone app still opens it, and no app is
+being retired.
+
+A `hubPages` row for it probably still exists in the live database. It draws
+nothing now — since Step N nothing in the hub builds navigation from the
+registry — and it is Martin's to delete from Administration → Pages.
+
+`tests/check-menu.mjs` now seeds exactly that leftover row and then reads every
+link on the hub, for all three people, and fails if any of them points at the
+old page. Proved by putting the page back into `egbc-menu.js` on purpose: the
+check failed, for all three.

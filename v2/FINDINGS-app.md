@@ -413,3 +413,30 @@ a string. The shell, the hub and the page headings are a handful of constants
 and would take an afternoon. The calendar UIDs should be left alone until
 somebody has decided what happens to calendars people have already added.
 
+
+## A-022 — Step N left four registry renderers with no callers
+
+Found while retiring `EGBCWorship&AV.html`. I added a guard so that a leftover
+`hubPages` row could not draw a tile for a retired page, and removing the guard
+again changed nothing — because the function it was in is never called.
+
+Nothing anywhere calls `isTile`, `visibleOne`, `visibleTools` or `nestTools`.
+They were how the hub turned registry rows into the Menu. Step N replaced that
+with `egbc-menu.js`, and the old renderers were left behind.
+
+**Why it matters.** It is not a fault a user can see; the hub behaves correctly.
+It matters because the code now reads as though the registry still decides what
+appears in the Menu, and it does not. `nestTools` in particular carries a long
+comment about nesting imported menu items that describes behaviour the hub no
+longer has. The next person to ask "why doesn't my registry entry show up?"
+will read all four and be none the wiser.
+
+The registry is still live and still needed: Administration → Pages reads it,
+`SHARED_PAGES` reads it, and the link checker reads it. It is only the four
+renderers that are unreachable.
+
+**What I would do.** Delete the four, with one line where they were saying the
+Menu comes from `egbc-menu.js` now. No test in `v2/tests/` mentions any of
+them, so nothing would have to change with them. I have not done it because
+deleting code is not what this step was for, and it is a tidy-up rather than a
+fix - it should go in with the next piece of work on the hub's tools panel.

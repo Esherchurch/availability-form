@@ -1779,12 +1779,15 @@ const REGISTRY = [
      menu without losing the entry. Turn it back on when the rest is done. */
   { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Core Team', hidden: true,
     description: 'Practice copies of the main tools' },
-  /* Still the only editor for the news feed, so it cannot go yet. */
-  /* Not "(old)" any more (Step N). It is a v2 page, and the word made it read
-     as something left behind rather than the thing that still edits the news.
-     Named for what it does. */
-  { url: 'EGBCWorship&AV.html', title: 'Worship & AV Hub', icon: '\u{1F310}', team: 'Core Team', adminOnly: true,
-    description: 'The dashboard and the news board' },
+  /* EGBCWorship&AV.html was here and is not registered any more (17a). The
+     hub does everything it did - its news (with "show until"), its banner,
+     its welcome words and its team panels - so nothing in v2 should offer a
+     second way in. Do not put it back.
+
+     The file itself stays. The phone app still opens it until that app is
+     updated, and no app is being retired. A hubPages row for it may still
+     exist in the live database from before: it draws nothing now, and it is
+     Martin's to delete from Administration, Pages. */
   { url: 'index.html', title: 'Availability Form', icon: '\u{1F4CB}', team: 'Core Team',
     description: 'The public form - this is the link to send out' },
 

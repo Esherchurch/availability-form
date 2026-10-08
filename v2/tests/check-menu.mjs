@@ -67,6 +67,7 @@ const APPROVED = [
    entry, and searching for the shorter one reported the longer one as a fault. */
 const GONE_HEADINGS = ['Apps'];
 const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & AV Hub (old)',
+  'Worship & AV Hub',
   'sundayplannersonglibrary', 'song-summary.html'];
 
 /* Which of those names are gated, written out here rather than read from the
@@ -193,6 +194,16 @@ const READ_MENU = `(() => {
   const uid = await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).uid || ""');
   if (!uid) { console.error('Could not sign in as ' + ACCOUNT.email); server.close(); chrome.kill(); process.exit(2); }
 
+  /* A stale registry row, on purpose. Taking the retired page out of REGISTRY
+     is not enough: hubPages already holds a row for it in the live database,
+     and a row is what draws a tile. This seeds exactly that row, so the check
+     fails if only the list was tidied and the guard was forgotten. */
+  await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/hubPages/stale_portal_row', {
+    fields: { url: val('EGBCWorship&AV.html'), title: val('Worship & AV Hub'),
+      team: val('Core Team'), order: { integerValue: '900' },
+      description: val('a row left over from before it was retired') }
+  });
+
   const want = flat(APPROVED);
   console.log('the approved structure has ' + want.length + ' names\n');
 
@@ -242,6 +253,16 @@ const READ_MENU = `(() => {
         : 'on screen: ' + seen.join(' > ').slice(0, 150) + '\n          approved : ' + expected.join(' > ').slice(0, 150));
     const stillHere = GONE_HEADINGS.filter(g => seen.includes(g))
       .concat(GONE_ANYWHERE.filter(g => (menu.text || '').toLowerCase().includes(g.toLowerCase())));
+    /* Nothing in v2 links to the old dashboard page any more (17a). The file
+       stays - the phone app still opens it - but every way of getting there
+       from the hub has gone, and a leftover hubPages row must not bring one
+       back. This reads every link on the page, so the Menu, the sidebar and
+       "Where to?" are all covered in one go. */
+    const toOldPortal = String(await ev(
+      "[...document.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'')" +
+      ".filter(h=>/egbcworship(&|%26)av/i.test(h)).join(', ')"));
+    ok('  nothing links to the old dashboard page', !toOldPortal,
+      toOldPortal || 'no link to EGBCWorship&AV.html anywhere on the hub');
     ok('  the things taken out stay out', stillHere.length === 0,
       stillHere.join(', ') || 'the Apps group, the song library quick view, Song Summary and "(old)" are all gone');
     /* One structure, not two: the sidebar's "What you look after" must hold
