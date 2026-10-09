@@ -258,6 +258,20 @@ const READ_MENU = `(() => {
     return r.result && r.result.value;
   };
 
+  /* MAKE THE ACCOUNT RATHER THAN HOPE FOR IT. This check signed in as an
+     account another check happens to create, so on a fresh emulator - after
+     a restart, or on a machine that has never run check-home-fits.mjs - it
+     stopped at "Could not sign in" and measured nothing. A check that cannot
+     run is not a gate. Already-exists is the normal answer and is ignored. */
+  await new Promise((res) => {
+    const d = JSON.stringify({ email: ACCOUNT.email, password: ACCOUNT.pw, returnSecureToken: true });
+    const r = http.request({ host: 'localhost', port: 9099, method: 'POST',
+      path: '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(d) } },
+      s => { s.on('data', () => {}); s.on('end', res); });
+    r.on('error', res); r.end(d);
+  });
+
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' }); await sleep(4000);
   await ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' +
     JSON.stringify(ACCOUNT.email) + ',' + JSON.stringify(ACCOUNT.pw) + ')', true);
@@ -461,6 +475,10 @@ const READ_MENU = `(() => {
     'my-booking.html': 'public hire page (events window) - somebody with a booking reference, not an account',
     'hire.html': 'public hire page (events window)',
     'room.html': 'public hire page (events window)',
+    /* NOT AN OVERSIGHT - the point of it. APP-DESIGN-BRIEF §2 says the phone
+       app has no hidden menu: four tabs along the bottom and nothing tucked
+       behind a hamburger. check-app-shell.mjs asserts the absence. */
+    'app.html': 'the phone app shell - four tabs and deliberately no Menu (APP-DESIGN-BRIEF §2)',
     'CoreTeamApp.html': 'phone app, installed rather than browsed to',
     'Performancenotes.html': 'phone app',
     'youthapp2.html': 'phone app',
