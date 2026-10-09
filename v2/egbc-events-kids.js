@@ -106,6 +106,15 @@
 
   /* Is a child's consent in date on a day? */
   function consentOk(child, day) { return !!child.consentUntil && child.consentUntil >= String(day).slice(0, 10); }
+  /* In date, but running out within `days` (a month by default): time to
+     send the form again ("Renew", the app's Kids Church Children; F-120). */
+  function consentSoon(child, day, days) {
+    if (!consentOk(child, day)) return false;
+    var d = new Date(String(day).slice(0, 10) + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + (days || 31));
+    return child.consentUntil <= d.toISOString().slice(0, 10);
+  }
+  /* What a child's consent says, in a word: 'ok', 'renew' or 'out'. */
+  function consentState(child, day) { return !consentOk(child, day) ? 'out' : consentSoon(child, day) ? 'renew' : 'ok'; }
 
   /* ---- Sunday check-in (stage 2) ----
      A session is one group on one day, and it is E1's check-in: its
@@ -251,7 +260,7 @@
   global.EGBCKids = {
     notSetUpHtml: notSetUpHtml,
     termOf: termOf, termBefore: termBefore, sessionDates: sessionDates, register: register, morningDay: morningDay, YEARS: YEARS, DAYS: DAYS, norm: norm, meaningful: meaningful, splitNames: splitNames, ageOn: ageOn, yearFor: yearFor,
-    groupFor: groupFor, familyCode: familyCode, fromResponse: fromResponse, consentOk: consentOk,
+    groupFor: groupFor, familyCode: familyCode, fromResponse: fromResponse, consentOk: consentOk, consentSoon: consentSoon, consentState: consentState,
     sessionId: sessionId, checkinIdFor: checkinIdFor, pickupCode: pickupCode, cleanCode: cleanCode, familyQR: familyQR, parseFamilyQR: parseFamilyQR,
     digits: digits, findFamilies: findFamilies, listedCollector: listedCollector, leadersNeeded: leadersNeeded, visitorProblems: visitorProblems };
 

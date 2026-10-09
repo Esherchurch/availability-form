@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>App harness (tests only)</title>
+<!-- TEST ONLY. A stand-in for the main window's app shell, built to the
+     contract in FINDINGS-app A-050, so the events window's app screens can
+     be driven before the shell exists. Helpers and styles are the approved
+     mock-up's own (design/app-mockup.html). Not a live page. -->
+<script src="../../egbc-nosend.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../../egbc-auth.js"></script>
+<script src="../../egbc-events.js"></script>
+<script src="../../egbc-events-kids.js"></script>
+<script src="../../egbc-events-checkin.js"></script>
+<script src="../../egbc-app-kids.js"></script>
+<style>
+/* Layout: on a computer, a phone in the middle with the notes beside it; on a phone, the app fills the screen. */
+:root {
+  --brand: #3d6263;        /* EGBC teal, from DESIGN.md */
+  --brand-tint: #eef5f4;
+  --bg: #f3f6f5;           /* page ground, teal-biased grey */
+  --surface: #ffffff;
+  --ink: #111827;
+  --body: #374151;
+  --muted: #6b7280;
+  --line: #e3e8e6;
+  --worship: #3d6263; --worship-tint: #e8f1f0;
+  --av: #4a5f7a;      --av-tint: #e9eef5;
+  --kids: #7a5f4a;    --kids-tint: #f4ede7;
+  --youth: #5a4a7a;   --youth-tint: #efebf6;
+  --welcome: #8a4a5e; --welcome-tint: #f6ebef;
+  --coffee: #6b5a3a;  --coffee-tint: #f2ede4;
+  --maint: #4f5a66;   --maint-tint: #eceff2;
+  --good: #1f7a4d; --good-tint: #e6f4ec;
+  --warn: #9a5b00; --warn-tint: #fdf3e2;
+  --frame: #1b2423;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --brand: #7fb3b1; --brand-tint: #1f3333; --bg: #0f1514; --surface: #182120; --ink: #eef3f2; --body: #cdd8d6; --muted: #93a5a2; --line: #2a3634;
+  --worship: #7fb3b1; --worship-tint: #1f3333; --av: #9db3d1; --av-tint: #1e2733; --kids: #d1b39b; --kids-tint: #2e241d; --youth: #b9a8db; --youth-tint: #261f33; --welcome: #e0a3b6; --welcome-tint: #331d24; --coffee: #d6c39a; --coffee-tint: #2b2416; --maint: #b3bfcc; --maint-tint: #20262d;
+  --good: #6fcf9d; --good-tint: #16301f; --warn: #f0b762; --warn-tint: #33260f; --frame: #000; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --brand: #7fb3b1; --brand-tint: #1f3333; --bg: #0f1514; --surface: #182120; --ink: #eef3f2; --body: #cdd8d6; --muted: #93a5a2; --line: #2a3634;
+  --worship: #7fb3b1; --worship-tint: #1f3333; --av: #9db3d1; --av-tint: #1e2733; --kids: #d1b39b; --kids-tint: #2e241d; --youth: #b9a8db; --youth-tint: #261f33; --welcome: #e0a3b6; --welcome-tint: #331d24; --coffee: #d6c39a; --coffee-tint: #2b2416; --maint: #b3bfcc; --maint-tint: #20262d;
+  --good: #6fcf9d; --good-tint: #16301f; --warn: #f0b762; --warn-tint: #33260f; --frame: #000; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--body); font: 14px/1.5 var(--font); margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+i[data-lucide] { display: inline-flex; }
+svg.lucide { stroke-width: 1.75; }
+
+.stage { min-height: 100%; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding-block: 32px; padding-inline: 16px; }
+.notes { max-width: 340px; display: grid; gap: 18px; padding-top: 12px; }
+.notes h1 { font-size: 24px; font-weight: 700; color: var(--ink); margin: 0; text-wrap: balance; }
+.notes p { margin: 0; color: var(--body); }
+.notes .tag { font-size: 12px; color: var(--muted); }
+.who { display: grid; gap: 8px; }
+.who button { display: flex; gap: 12px; align-items: center; text-align: left; padding: 10px 12px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; }
+.who button[aria-pressed="true"] { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.who b { color: var(--ink); font-weight: 600; display: block; }
+.who small { color: var(--muted); }
+.av-dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 13px; color: #fff; flex: none; }
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+
+.phone { width: 390px; max-width: 100%; height: 820px; border-radius: 46px; background: var(--frame); padding: 12px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.45); flex: none; }
+.screen { height: 100%; border-radius: 36px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; position: relative; }
+
+/* the app itself */
+.top { background: var(--surface); padding: 14px 16px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+.top-row { display: flex; align-items: center; gap: 10px; }
+.logo { width: 30px; height: 30px; border-radius: 8px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 11px; letter-spacing: .02em; }
+.top-title { font-weight: 600; color: var(--ink); font-size: 16px; flex: 1; min-width: 0; }
+.icon-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; position: relative; }
+.badge { position: absolute; top: -4px; right: -4px; background: #c0392b; color: #fff; font-size: 10px; font-weight: 600; min-width: 17px; height: 17px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; }
+.spaces { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.spaces::-webkit-scrollbar { display: none; }
+.space { flex: none; display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--body); }
+.space .dot { width: 8px; height: 8px; border-radius: 50%; }
+.space[aria-pressed="true"] { background: var(--sp, var(--brand)); border-color: var(--sp, var(--brand)); color: #fff; }
+.space[aria-pressed="true"] .dot { background: #fff !important; }
+
+.content { flex: 1; overflow-y: auto; padding: 16px; display: grid; gap: 14px; align-content: start; }
+.hello { font-size: 22px; font-weight: 700; color: var(--ink); margin: 2px 0 0; }
+.sub { color: var(--muted); font-size: 13px; margin: 0; }
+.sec { display: grid; gap: 8px; }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; }
+.sec-h h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.sec-h button { border: 0; background: none; color: var(--brand); font-size: 13px; font-weight: 500; padding: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.next { padding: 14px; display: grid; gap: 12px; border-left: 4px solid var(--c, var(--brand)); }
+.next-top { display: flex; gap: 12px; align-items: center; }
+.date { width: 50px; flex: none; text-align: center; border-radius: 10px; background: var(--ct, var(--brand-tint)); color: var(--c, var(--brand)); padding: 6px 0; }
+.date b { display: block; font-size: 20px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.date span { font-size: 11px; font-weight: 600; }
+.next h4 { margin: 0; font-size: 16px; font-weight: 600; color: var(--ink); }
+.next p { margin: 0; font-size: 13px; color: var(--muted); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.list { display: grid; }
+.row { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 0; background: none; text-align: left; width: 100%; }
+.row + .row { border-top: 1px solid var(--line); }
+.row .ic { width: 36px; height: 36px; border-radius: 10px; background: var(--ct, var(--brand-tint)); color: var(--c, var(--brand)); display: grid; place-items: center; flex: none; }
+.row .tx { flex: 1; min-width: 0; }
+.row b { display: block; font-weight: 600; color: var(--ink); font-size: 14px; }
+.row small { color: var(--muted); font-size: 12.5px; }
+.chev { color: var(--muted); }
+.pill { font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--good-tint); color: var(--good); white-space: nowrap; }
+.pill.warn { background: var(--warn-tint); color: var(--warn); }
+.pill.n { background: var(--brand-tint); color: var(--brand); }
+.notice { padding: 12px 14px; display: grid; gap: 4px; }
+.notice + .notice { border-top: 1px solid var(--line); }
+.notice b { color: var(--ink); font-weight: 600; }
+.notice p { margin: 0; font-size: 13px; }
+.qr { width: 120px; height: 120px; margin: 4px auto; display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; padding: 8px; background: #fff; border-radius: 10px; border: 1px solid var(--line); }
+.qr span { background: #111; border-radius: 1px; }
+.qr span.o { background: transparent; }
+.example { font-size: 11.5px; color: var(--muted); text-align: center; }
+
+.tabs { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); background: var(--surface); border-top: 1px solid var(--line); padding: 6px 4px 14px; }
+.tab { border: 0; background: none; display: grid; justify-items: center; gap: 2px; font-size: 11.5px; font-weight: 500; color: var(--muted); padding: 6px 0; }
+.tab[aria-current="page"] { color: var(--sp, var(--brand)); }
+.tab[aria-current="page"] svg { stroke-width: 2.25; }
+
+.sheet-back { position: absolute; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; }
+.sheet { background: var(--surface); width: 100%; border-radius: 20px 20px 0 0; padding: 18px 16px 22px; display: grid; gap: 12px; max-height: 85%; overflow-y: auto; }
+.sheet h3 { margin: 0; font-size: 18px; color: var(--ink); font-weight: 600; }
+.sheet p { margin: 0; }
+.grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: -6px auto 2px; }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 86px; background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 12px; font-size: 13px; }
+
+@media (max-width: 760px) {
+  .stage { padding: 0; display: block; }
+  .notes { display: none; }
+  .phone { width: 100%; height: 100vh; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+  .screen { border-radius: 0; }
+  .mobile-who { display: flex !important; }
+  /* Keep the tabs clear of the phone's own back/home buttons and gesture bar
+     (Martin: tapping Groups closed the app instead). */
+  .tabs { padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
+  .tab { padding: 10px 0; }
+  .toast { bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+}
+.mobile-who { display: none; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.mobile-who select { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; background: var(--surface); color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .2s ease-out; } @keyframes up { from { transform: translateY(30px); opacity: .6; } } }
+</style>
+</head>
+<body>
+<div class="screen" id="app" style="height:100vh;border-radius:0"></div>
+<script>
+(function () {
+  var V = {};
+  var SPACE = { kids: { label: 'Kids Church', tabs: [['today', 'Today', 'sun'], ['children', 'Children', 'baby']] } };
+  var S = { space: 'kids', tab: new URLSearchParams(location.search).get('tab') || 'today', toast: '' };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function ic(n, sz) { return '<i data-lucide="' + n + '" style="width:' + (sz||18) + 'px;height:' + (sz||18) + 'px"></i>'; }
+function row(icon, title, sub, right, act, c, t) {
+  return '<button class="row" ' + (act ? 'data-act="' + act + '"' : '') + ' style="' + (c ? '--c:' + c + ';--ct:' + t : '') + '"><span class="ic">' + ic(icon) + '</span><span class="tx"><b>' + title + '</b><small>' + sub + '</small></span>' + (right || '<span class="chev">' + ic('chevron-right', 16) + '</span>') + '</button>';
+}
+function next(day, mon, title, sub, c, t, actions) {
+  return '<div class="card next" style="--c:' + c + ';--ct:' + t + '"><div class="next-top"><div class="date"><b>' + day + '</b><span>' + mon + '</span></div><div><h4>' + title + '</h4><p>' + sub + '</p></div></div>' + (actions ? '<div class="actions">' + actions + '</div>' : '') + '</div>';
+}
+function sec(title, more, inner) {
+  return '<section class="sec"><div class="sec-h"><h3>' + title + '</h3>' + (more ? '<button data-act="' + more[1] + '">' + more[0] + '</button>' : '') + '</div>' + inner + '</section>';
+}
+  function draw() {
+    var sp = SPACE[S.space], fn = V[S.space + '_' + S.tab] || V[S.space + '_' + sp.tabs[0][0]];
+    document.getElementById('app').innerHTML = '<header class="top"><b>EGBC Hub</b></header><main class="content" id="content">' + (fn ? fn() : '') + '</main>' +
+      '<nav class="tabs" style="--n:' + sp.tabs.length + '">' + sp.tabs.map(function (t) { return '<button class="tab" data-act="tab:' + t[0] + '" aria-pressed="' + (t[0] === S.tab) + '">' + t[1] + '</button>'; }).join('') + '</nav>' +
+      (S.toast ? '<div class="toast">' + esc(S.toast) + '</div>' : '');
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-act]'); if (!b) return;
+    var a = b.getAttribute('data-act');
+    if (a.indexOf('tab:') === 0) { S.tab = a.slice(4); draw(); }
+    if (a.indexOf('toast:') === 0) { S.toast = a.slice(6); draw(); }
+  });
+  window.__harness = { draw: draw, V: V };
+  EGBCAuth.require().then(function () {
+    EGBCAppKids.register(V, { row: row, sec: sec, next: next, ic: ic, esc: esc, redraw: draw });
+    draw();
+  });
+})();
+</script>
+</body>
+</html>

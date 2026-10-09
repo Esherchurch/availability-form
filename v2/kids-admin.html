@@ -17,7 +17,7 @@
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610082100"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610091000"></script>
+<script src="egbc-events-kids.js?v=202610091800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -143,7 +143,8 @@
     return (f ? (f.allergies ? '<span class="pill no">Allergies</span>' : '') + (f.medical ? '<span class="pill no">Medical</span>' : '') : '<span class="pill wait">Medical not checked</span>') +
       (c.photo === false ? '<span class="pill wait">No photos</span>' : '') +
       (c.status === 'visitor' ? '<span class="pill wait">Visitor</span>' : '') + (c.status === 'left' ? '<span class="pill">Left</span>' : '') +
-      (K.consentOk(c, today()) ? '<span class="pill ok">Consent until ' + esc(E.fmtDate(c.consentUntil + 'T12:00')) + '</span>' : '<span class="pill no">Consent ' + (c.consentUntil ? 'ran out' : 'missing') + '</span>');
+      (K.consentOk(c, today()) ? (K.consentSoon(c, today()) ? '<span class="pill wait" data-renew>Renew: consent runs out ' + esc(E.fmtDate(c.consentUntil + 'T12:00')) + '</span>'
+        : '<span class="pill ok">Consent until ' + esc(E.fmtDate(c.consentUntil + 'T12:00')) + '</span>') : '<span class="pill no">Consent ' + (c.consentUntil ? 'ran out' : 'missing') + '</span>');
   }
   function drawChildren(el) {
     var q = K.norm(V.q), visible = LEAD ? GROUPS : GROUPS.filter(function (g) { return MYGROUPS.some(function (m) { return m.id === g.id; }); });

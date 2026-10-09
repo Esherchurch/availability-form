@@ -156,6 +156,9 @@
     return db().collection('maintJobs').get().then(function (s) {
       JOBS = all(s).sort(function (a, b) { return (b.reportedAt && a.reportedAt) ? b.reportedAt.toMillis() - a.reportedAt.toMillis() : 0; });
       draw();
+      /* A link from the team's email (F-129) names the job after '#'. */
+      var h = decodeURIComponent((location.hash || '').slice(1)), el = h && document.querySelector('[data-job="' + h.replace(/"/g, '') + '"]');
+      if (el) { el.scrollIntoView({ block: 'center' }); el.style.background = 'var(--maint-tint)'; el.style.borderRadius = '10px'; }
     });
   }
 

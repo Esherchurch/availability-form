@@ -1715,6 +1715,34 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a job is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'maintJobs', 'job_1')));
 }
 
+// ── EVENTS (events window) ── leaders check themselves in on a Sunday (the app's Kids Church Today; F-120)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const { Timestamp } = await import('firebase/firestore');
+  /* The morning at site_kids: open it again for these checks (Lou and Jo lead groups; Sam is the rota's Session Leader). */
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'kidsMornings', 'site_kids_' + TODAY), { siteId: 'site_kids', day: TODAY, rotaId: 'rota_today', leaderIds: ['m_lou', 'm_jo', 'm_sid'],
+      sessionLeaderIds: ['m_sam'], expiresAt: Timestamp.fromMillis(Date.now() + 8 * 3600e3), updatedAt: 'x', updatedBy: 'x' });
+  });
+  const IN = (mid, groupId, extra) => ({ siteId: 'site_kids', day: TODAY, memberId: mid, name: mid, groupId: groupId || '', state: 'in', inAt: serverTimestamp(), outAt: null, ...(extra || {}) });
+  const ref = (who, mid) => doc(ctx(who), 'kidsLeaderIns', 'site_kids_' + TODAY + '_' + mid);
+  await check('a group leader checks themselves in for the morning', 'allow', () => setDoc(ref('u_lou', 'm_lou'), IN('m_lou', 'grp_little')));
+  await check('A LEADER CANNOT CHECK SOMEONE ELSE IN', 'deny', () => setDoc(ref('u_lou', 'm_jo'), IN('m_jo', 'grp_junior')));
+  await check('a leader of this morning checks in without naming a group', 'allow', () => setDoc(ref('u_jo', 'm_jo'), IN('m_jo', '')));
+  await check('the rota\u2019s Session Leader checks in', 'allow', () => setDoc(ref('u_sam', 'm_sam'), IN('m_sam')));
+  await check('someone on Kids Church who leads nothing this morning cannot', 'deny', () => setDoc(ref('u_nat', 'm_nat'), IN('m_nat')));
+  await check('nor with a time that is not now', 'deny', () => setDoc(ref('u_kim', 'm_kim'), IN('m_kim', '', { inAt: Timestamp.fromMillis(Date.now() - 3600e3) })));
+  await check('a lead checks in', 'allow', () => setDoc(ref('u_kim', 'm_kim'), IN('m_kim')));
+  const list = (who) => getDocs(query(collection(ctx(who), 'kidsLeaderIns'), where('siteId', '==', 'site_kids'), where('day', '==', TODAY)));
+  await check('the leads see who is leading this morning', 'allow', () => list('u_kim'));
+  await check('so does everyone leading this morning (for the count and the roll-call)', 'allow', () => list('u_lou'));
+  await check('an admin of another team does not', 'deny', () => list('u_wes'));
+  await check('a leader checks out', 'allow', () => updateDoc(ref('u_lou', 'm_lou'), { state: 'out', outAt: serverTimestamp() }));
+  await check('but cannot check someone else out', 'deny', () => updateDoc(ref('u_lou', 'm_kim'), { state: 'out', outAt: serverTimestamp() }));
+  await check('a leader\u2019s check-in is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'kidsLeaderIns', 'site_kids_' + TODAY + '_m_lou')));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

@@ -16,7 +16,7 @@
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610091000"></script>
+<script src="egbc-events-kids.js?v=202610091800"></script>
 <script src="egbc-events-checkin.js?v=202610082300"></script>
 <script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-scan.js?v=202610082100"></script>
@@ -114,7 +114,7 @@
   /* The morning (stage 3, F-094): MORNING is today's record if this person may
      read it; SESSION is true for the rota's Session Leader while it is open;
      ROLLALL when they may see every group's roll-call. */
-  var MORNING = null, SESSION = false, ROLLALL = false, SLNAME = '', ROTASL = false, TERMS = [], ROOMS = [], PAGES = {};
+  var MORNING = null, SESSION = false, ROLLALL = false, SLNAME = '', ROTASL = false, TERMS = [], ROOMS = [], PAGES = {}, LEADERS = {};
   var PAGE_MINUTES = 5;
   var V = { site: '', tab: '', q: '', group: '', labels: null, scanning: false, msg: '' }, UNSUB = [];
   var DAY = C.today();
@@ -161,7 +161,8 @@
         if (V.tab === 'groups') drawPages();
       }, function () {}));
       CHILDREN = r[1].filter(function (c) { return c.status !== 'left'; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
-      if (!V.tab) V.tab = LEAD ? 'desk' : mine.length ? 'groups' : 'roll';
+      var want = new URLSearchParams(location.search).get('tab');
+      if (!V.tab) V.tab = want || (LEAD ? 'desk' : mine.length ? 'groups' : 'roll');
       if (!V.group || !visibleGroups().some(function (g) { return g.id === V.group; })) V.group = (visibleGroups()[0] || {}).id || '';
       /* Today's check-ins, live: by site for the leads, by group for a leader. */
       var queries = LEAD ? [db().collection('checkins').where('siteId', '==', site).where('day', '==', DAY)]
@@ -176,6 +177,11 @@
          leaders; otherwise a group leader's own groups. */
       var rq = LEAD || ROLLALL ? [db().collection('kidsRoll').where('siteId', '==', site).where('day', '==', DAY)]
         : mine.map(function (g) { return db().collection('kidsRoll').where('groupId', '==', g.id).where('day', '==', DAY); });
+      LEADERS = {};
+      if (LEAD || ROLLALL) UNSUB.push(db().collection('kidsLeaderIns').where('siteId', '==', site).where('day', '==', DAY).onSnapshot(function (snap) {
+        snap.docChanges().forEach(function (ch) { if (ch.type === 'removed') delete LEADERS[ch.doc.id]; else LEADERS[ch.doc.id] = ch.doc.data(); });
+        if (V.tab === 'roll') drawRollBody();
+      }, function () {}));
       rq.forEach(function (q) {
         UNSUB.push(q.onSnapshot(function (snap) {
           snap.docChanges().forEach(function (ch) { if (ch.type === 'removed') delete ROLL[ch.doc.id]; else ROLL[ch.doc.id] = Object.assign({ id: ch.doc.id }, ch.doc.data()); });
@@ -191,6 +197,8 @@
     var mine = myGroupsHere();
     var tabs = LEAD ? [['desk', 'Desk'], ['visitor', 'First time here'], ['groups', 'Groups'], ['roll', 'Roll-call'], ['register', 'Registers'], ['visitors', 'Visitors']]
       : (mine.length ? [['groups', 'Your group' + (mine.length > 1 ? 's' : '')]] : []).concat([['roll', 'Roll-call']]).concat(mine.length ? [['register', 'Registers']] : []);
+    /* A tab this person does not have (an old link, the app's buttons): their first one. */
+    if (!tabs.some(function (t) { return t[0] === V.tab; })) V.tab = tabs[0][0];
     document.getElementById('main').innerHTML =
       (SITES.length > 1 ? '<div class="row"><div class="f"><label class="l" for="k-site">Site</label><select id="k-site">' + SITES.map(function (s) {
         return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div></div>' : '') +
@@ -218,7 +226,8 @@
     var f = c.flags || null;
     return (f ? (f.allergies ? '<span class="pill no">Allergies</span>' : '') + (f.medical ? '<span class="pill no">Medical</span>' : '') : '<span class="pill wait">Medical not checked</span>') +
       (c.status === 'visitor' ? '<span class="pill wait">Visitor</span>' : '') +
-      (K.consentOk(c, DAY) ? '' : '<span class="pill no">Consent ' + (c.consentUntil ? 'ran out' : 'missing') + '</span>');
+      (K.consentOk(c, DAY) ? (K.consentSoon(c, DAY) ? '<span class="pill wait">Renew: consent runs out ' + esc(E.fmtDateShort(c.consentUntil + 'T12:00')) + '</span>' : '')
+        : '<span class="pill no">Consent ' + (c.consentUntil ? 'ran out' : 'missing') + '</span>');
   }
 
   /* ================= the desk (the leads) ================= */
@@ -559,7 +568,13 @@
           return '<div class="kid" data-roll="' + esc(x.childId) + '"><div class="t">' + (canMed ? '<button class="rname" data-rmed="' + esc(x.childId) + '">' + esc(x.name) + '</button>' : '<b>' + esc(x.name) + '</b>') +
             ' <span class="hint">in since ' + esc(time(x.inAt)) + '</span></div><span style="font-size:20px;color:var(--muted)">&#9744;</span></div>';
         }).join('') + '</div>';
-      }).join('') : '<p class="hint">Nobody is checked in right now.</p>') + '</div>';
+      }).join('') : '<p class="hint">Nobody is checked in right now.</p>') +
+      (function () {
+        var ls = Object.keys(LEADERS).map(function (k) { return LEADERS[k]; }).filter(function (l) { return l.state === 'in'; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+        return '<div data-rleaders style="margin-top:10px"><h2>Leaders in (' + ls.length + ')</h2>' + (ls.length ? ls.map(function (l) {
+          return '<div class="kid"><div class="t"><b>' + esc(l.name) + '</b> <span class="hint">in since ' + esc(l.inAt && l.inAt.toDate ? E.fmtTime(l.inAt.toDate().toISOString()) : '') + '</span></div><span style="font-size:20px;color:var(--muted)">&#9744;</span></div>';
+        }).join('') : '<p class="hint">No leader has checked in yet (they do it on the app\'s Kids Church "Today").</p>') + '</div>';
+      })() + '</div>';
     box.querySelectorAll('[data-rmed]').forEach(function (b) {
       b.onclick = function () {
         var x = Object.keys(ROLL).map(function (k) { return ROLL[k]; }).filter(function (r) { return r.childId === b.dataset.rmed; })[0];

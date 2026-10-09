@@ -2201,3 +2201,91 @@ data and the rules are mine. Needed:
   office can mark jobs done.
 - Tests: rules (maintenance jobs, 16 checks); storage (the photo, 9);
   maint-jobs in the browser (13).
+
+### F-129 — REQUEST for the main window: email the Maintenance team when a job is reported (Martin, yes)
+The address book is closed, so a page can't find the team's emails. This
+needs a server step. **Please add a function in codebase "hub":**
+- **Trigger:** a new document in `maintJobs` (Firestore "on create"), so
+  the page needn't call anything.
+- **To:** every person on the **Maintenance** team (once A3 exists, from the
+  teams data and their address book emails). Each person gets their own
+  email: no group list, so addresses stay private. If nobody is on the team
+  yet, send to the church's office email (`churchSettings/details.enquiryEmail`)
+  so a job is never lost.
+- **Subject:** `Maintenance: <what>` (for example "Maintenance: Two lights out").
+- **Body, plain words:**
+  - what's wrong, where, and any detail they wrote
+  - who reported it and when
+  - a link to the job:
+    `https://esherchurch.github.io/availability-form/v2/maintenance.html#<jobId>`
+- **No photo in the email**, not attached and not linked straight to the
+  file (Martin, A-M1). The link opens the page, and the page shows the photo
+  only to the team and the office, once they're signed in.
+- Sent through the same email route the other functions use, with no reply
+  address beyond the church's.
+- **The job's fields** (from F-128): `what`, `where`, `details`,
+  `reportedByName`, `reportedAt` (server time), `siteId`, `roomId`,
+  `photoPath` (don't use it in the email), `status` (`todo` when made).
+- **Tests I'd suggest:** a new job sends one email to each team member;
+  nothing is sent when a job is updated or marked done; no team means one
+  email to the office address; the email holds no Storage address.
+
+I'll make `maintenance.html` open the job named after `#` in the link,
+scrolled to it.
+
+### F-130 — what Kids Church "Today" and "Children" built (the app's Kids Church space)
+Built to the main window's shell contract (FINDINGS-app A-050):
+- **`egbc-app-kids.js`** provides the two screens, `kids_today` and
+  `kids_children`. The shell calls `EGBCAppKids.register(V, { row, sec,
+  next, ic, esc, redraw })` once.
+  - The module loads its own data, keeps its state itself (the shell
+    redraws from scratch), and asks for a redraw when check-ins change.
+  - Its buttons that *do* something (check myself in, show on screen,
+    done) use `data-kact`, handled in the module. Navigation stays on the
+    shell's `data-act`.
+- **Today:**
+  - **in · not arrived · leaders**
+  - **"Check myself in" / "Check myself out"** for leaders (new)
+  - **Needs in the room:** the allergies and medical needs of the children
+    in now, as each person may see them. A group leader sees only their own
+    group's; the Session Leader sees every child checked in.
+  - **Call a parent:** "Show on screen" (the code only, F-100), "Ring",
+    "On the screen now" and "Done". Only for those who hold the codes (the
+    leads and group leaders); the Session Leader is told who can.
+  - **Check-in desk** (leads) and **Fire roll-call**, which open those tabs
+    of Sunday check-in (`kids-checkin.html?tab=desk`, `?tab=roll`; that page
+    now honours `?tab=`).
+  - Someone with no part this morning sees a plain note, never an empty
+    screen (A-050).
+- **The rota's Session Leader, first in, opens the morning from the app**,
+  as Sunday check-in does (F-098).
+- **Children:** each of the person's groups, with who is in, not arrived or
+  gone home, and who may collect. **"Renew"** shows when consent runs out
+  within a month, and **"Consent ran out"** after. The Session Leader sees
+  who is in now, by group.
+- **Leaders checking themselves in (new, `kidsLeaderIns`):**
+  - one record per leader per site per day
+  - a leader checks only themselves in or out, and only if they lead this
+    morning (a lead, a group's leader, or anyone on the morning)
+  - the leads and that morning's leaders see them
+  - **the fire roll-call now lists "Leaders in"**
+- **"Renew"** also shows on Sunday check-in and on the Children's register.
+- **Escaping:** the mock-up's `row()` and `sec()` don't escape what they're
+  given, so the module escapes everything from the database first.
+  **For the main window:** worth deciding whether the real shell's helpers
+  escape, and saying so in the contract.
+- **Tested through a stand-in shell** (`screenshots/events/app-harness.html`,
+  test only, not a live page). It's built from the mock-up's own helpers and
+  styles, to A-050.
+- Tests: rules (leaders checking in, 13 checks); kids-today in the browser
+  (17).
+
+### F-131 — for the main window: two things the shell contract doesn't say yet
+1. **A redraw when data arrives.** The screens are drawn at once, but the
+   check-ins arrive later. I've asked for `redraw` among the helpers passed
+   to `register()`. Please confirm the real shell will provide it, or say
+   how a screen should ask to be drawn again.
+2. **Buttons that act rather than navigate.** "Check myself in" and "Show
+   on screen" write to the database. The contract has `data-act` for
+   navigation only. I've used `data-kact` with my own click handler. Please
+   confirm that's fine, or give the shell a way to register an action.
