@@ -2289,3 +2289,141 @@ Built to the main window's shell contract (FINDINGS-app A-050):
    on screen" write to the database. The contract has `data-act` for
    navigation only. I've used `data-kact` with my own click handler. Please
    confirm that's fine, or give the shell a way to register an action.
+
+### F-132 — what the sermons ("Listen") built
+- **Data** (rules in my section, tests 45 in Firestore and 15 in Storage):
+  - `sermons`: title, speaker, date, series, Bible book and passage, notes,
+    audio (path, type, size, length), published, and the **episode ID**
+    (`guid`).
+  - `sermonSeries`: name, a line about it, a square picture.
+  - `sermonShow/show`: the podcast's name, description, author, owner name
+    and email, website, artwork, and the list of Val's old episode IDs.
+  - `sermonShow/access`: the people a master admin names to put sermons up.
+  - `listenProgress/<uid>/sermons/<id>`: each listener's place, theirs
+    alone (not even a master admin reads it).
+- **The rules:**
+  - A sermon is public once published (it's a public podcast). Until then
+    only the uploaders see it, and its audio can't be fetched.
+  - It can't be published until its audio is up and measured.
+  - **An episode's ID never changes.** A new sermon's is
+    `egbc-sermon-<id>`; one brought over from Val's show keeps the show's
+    own. Change it and Spotify shows the episode twice.
+  - Nothing is deleted: unpublish instead.
+  - Audio: MP3, M4A, AAC or WAV, under 300 MB. Artwork: JPEG or PNG,
+    under 10 MB.
+- **`sermons-admin.html`** (the upload page):
+  - **Add a sermon:** the file, title, speaker (it suggests past speakers),
+    date (last Sunday by default), series, Bible book, passage and notes,
+    then "Publish it". The page reads the recording's length itself, and
+    shows a progress bar while uploading.
+  - **The list:** each sermon is marked Published, Not published or Needs
+    its audio, with Change, Publish and Unpublish buttons.
+  - **Series:** add one, with a picture.
+  - **The podcast:** the show's details and artwork.
+  - **Bring over Val's show:** save the show's RSS page and choose the file
+    (or paste it in).
+    - Every episode comes in, not yet published, with **its ID exactly as
+      it was**, its original date and time, and its old audio address kept
+      for the record.
+    - The show's details fill in wherever ours are still empty.
+    - Doing it twice adds nothing twice.
+  - **"Ready to repoint Spotify?"** says what is still missing:
+    - the artwork or the owner email
+    - any old episode without its audio or not published
+    - two sermons with the same ID
+
+    It says "Ready" only when nothing is missing.
+  - **Preview the feed:** builds it with the same file the server will use,
+    and checks that it reads.
+  - **Who can add sermons** (master admins only): add or remove people.
+- **`egbc-app-listen.js`** (the app's Me and my family → Listen, to the A-050
+  contract):
+  - the newest sermon with Play and Whole series
+  - "Carry on listening", with the time left
+  - search by speaker, Bible book, title, series or date ("september 2025",
+    "4 Oct")
+  - the series (each opens its sermons in order) and the recent sermons
+  - **The player outlives the screen:** it isn't part of the screen, so it
+    keeps playing when the person goes to another tab. The lock screen gets
+    play, pause and skip.
+  - **It remembers your place:** on the phone straight away, and in the
+    person's own record every 30 seconds, on pause, and when the app is put
+    away. So another phone carries on from the same point.
+  - It shows published sermons only, and never a draft.
+- **`egbc-sermons-feed.js`** builds the podcast feed (RSS) from the data, and
+  reads Val's old feed. It's a plain function: no database, no network. The
+  upload page uses it for the preview and the readiness check. The feed
+  function should use the same file (F-133).
+- **The stand-in shell** (test only) now opens Me and my family → Listen as
+  well as Kids Church.
+- **Tests:**
+  - rules: 45 (Firestore) and 15 (Storage)
+  - feed builder: 25 (`sermons-feed-unit`)
+  - browser: 32 (`sermons`)
+  - Kids Today still passes 17 of 17 with the updated stand-in shell
+
+### F-133 — REQUEST for the main window: the podcast feed function (Martin, A-L1; your A-050 A6)
+**Please add `podcastFeed` in codebase "hub":**
+- **What:** `onRequest({ cors: false, invoker: 'public' })`, GET (and HEAD),
+  no sign-in. It's a public podcast, like `rotaFeed`.
+- **Reads, with the Admin SDK:**
+  - `sermonShow/show`
+  - every `sermonSeries`
+  - `sermons` where `published == true` (one field, so no new index)
+- **Builds the feed with `egbc-sermons-feed.js`:**
+  ```
+  EGBCSermonsFeed.buildFeed({ show, series: { id: data }, sermons: [{ id, ...data }],
+    bucket: <the default bucket>, feedUrl: <this function's own address>, now: new Date() })
+  ```
+  - The file works in the browser and as CommonJS. The functions folder is
+    ESM, so copy it in as `functions/sermons-feed.cjs` and load it with
+    `createRequire`. Or tell me the shape you'd prefer and I'll provide it.
+  - **A copy can drift.** A small check that the two files are the same
+    (yours) would stop that. My unit test
+    (`screenshots/events/sermons-feed-unit.test.mjs`) is the specification.
+- **Sends:** `Content-Type: application/rss+xml; charset=utf-8`, with
+  `Cache-Control: public, max-age=900` (Spotify checks the feed often; 15
+  minutes is enough).
+- **The address must never change.** Martin gives it to Val once, for
+  Spotify. Keep the name and region (`europe-west2`, as `setGlobalOptions`
+  sets) for good.
+- **The audio addresses in the feed** are plain Storage addresses with no
+  token. The storage rules make a published sermon's audio public and a
+  draft's not. So **Martin must deploy storage.rules before the feed is
+  given to anyone.**
+- **Once live, please check by hand** that a partial download works:
+  `curl -r 0-99 -I <an enclosure address>` should answer `206`. Podcast apps
+  need that to skip ahead. Google Storage does it; this just confirms it.
+- **What it must never do:**
+  - list an unpublished sermon (the builder leaves them out)
+  - change an episode's `<guid>`
+  - invent a guid for an imported sermon
+- **Tests I'd suggest:**
+  - a draft isn't in the feed
+  - an imported sermon's guid comes out exactly as stored
+  - the content type is right
+  - a sermon with no audio isn't in the feed
+
+### F-134 — sermons: open points
+1. **Who puts sermons up (Martin):** master admins always can. Anyone else
+   is named on the upload page by a master admin. There's no Preacher team,
+   and naming people needs no code. Say if it should be a team instead.
+2. **Menu (main window):** `sermons-admin.html` needs a Menu entry
+   (`egbc-menu.js` is yours). Suggested: under Admin, "Sermons", for master
+   admins and the people named in `sermonShow/access`.
+3. **From Val (A-L2, still open):** the show's current RSS address, the
+   3000×3000 artwork, the owner email Spotify checks, and who holds the
+   Spotify for Creators login.
+4. **The old episodes need their audio before the switch.** Otherwise they
+   vanish from Spotify, and the readiness check says so.
+   - Martin has the ChurchSuite downloads.
+   - Each brought-over episode also keeps its old audio address, so any
+     that ChurchSuite doesn't have can be saved from the old show **while it
+     still serves them**.
+5. **The repointing itself is Val's, by hand, and last.** I'll write the
+   steps in plain words once the feed is live and the page says "Ready".
+   Nothing has been touched on Spotify.
+6. **For the shell (main window):** the player keeps playing across tabs,
+   but its buttons are only on Listen (and the lock screen). Does the shell
+   want a small "now playing" strip above the tab bar?
+   `EGBCAppListen.nowPlaying()` says what's playing.

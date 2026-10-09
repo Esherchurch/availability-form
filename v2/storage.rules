@@ -319,6 +319,46 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // Sermons (the phone app's "Listen"; F-132). A published sermon's audio
+    // is public: podcast apps and Spotify fetch it with no sign-in, through
+    // the plain address (no token) that the feed gives, so this rule is what
+    // stands between the world and an unpublished one. The sermon admins
+    // (master admins, and the people named in sermonShow/access) upload it.
+    // Replaced by a new upload, never deleted from a page.
+    function sermonDoc(id) {
+      return firestore.get(/databases/(default)/documents/sermons/$(id)).data;
+    }
+    function sermonAdminHere() {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && storageMe().status == 'active'
+             && (storageMe().get('masterAdmin', false) == true
+                 || (firestore.exists(/databases/(default)/documents/sermonShow/access)
+                     && storageMe().get('memberId', '-') in firestore.get(/databases/(default)/documents/sermonShow/access).data.get('memberIds', [])));
+    }
+    match /sermons/{sermonId}/audio {
+      allow read: if (firestore.exists(/databases/(default)/documents/sermons/$(sermonId)) && sermonDoc(sermonId).published == true)
+                  || sermonAdminHere();
+      allow create, update: if sermonAdminHere()
+                    && firestore.exists(/databases/(default)/documents/sermons/$(sermonId))
+                    && request.resource.size < 300 * 1024 * 1024
+                    && request.resource.contentType.matches('audio/(mpeg|mp3|mp4|x-m4a|m4a|aac|wav|x-wav)');
+      allow delete: if false;
+    }
+    // The show's artwork and each series' picture: public, like the feed.
+    match /podcast/artwork {
+      allow read: if true;
+      allow create, update: if sermonAdminHere() && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/(jpeg|png)');
+      allow delete: if false;
+    }
+    match /sermonSeries/{seriesId}/artwork {
+      allow read: if true;
+      allow create, update: if sermonAdminHere() && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/(jpeg|png)');
+      allow delete: if false;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────

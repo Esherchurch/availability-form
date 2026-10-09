@@ -281,6 +281,31 @@ await check('so does the office: a bookings admin of the job\'s site', 'allow', 
 await check('and an admin', 'allow', () => getBytes(ref(as('karen'), 'maintJobs/job_s1/photo')));
 await check('A MEMBER WHO IS NEITHER DOES NOT, not even the one who reported it', 'deny', () => getBytes(ref(st('u_oth'), 'maintJobs/job_s1/photo')));
 await check('nor the public', 'deny', () => getBytes(ref(anon(), 'maintJobs/job_s1/photo')));
+
+// ── EVENTS (events window) ── sermons (F-124, F-132)
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 'users', 'u_prc'), { memberId: 'm_prc', teams: [], adminFor: [], masterAdmin: false, status: 'active' });
+  await setDoc(doc(db, 'users', 'u_lst'), { memberId: 'm_lst', teams: [], adminFor: [], masterAdmin: false, status: 'active' });
+  await setDoc(doc(db, 'sermonShow', 'access'), { memberIds: ['m_prc'] });
+  await setDoc(doc(db, 'sermons', 'srm_pub'), { title: 'Out', published: true });
+  await setDoc(doc(db, 'sermons', 'srm_new'), { title: 'Not yet', published: false });
+});
+await check('the person named uploads a sermon’s audio', 'allow', () => put(st('u_prc'), 'sermons/srm_new/audio', { type: 'audio/mpeg' }));
+await check('and a published one’s (for the anyone-plays check below)', 'allow', () => put(st('u_prc'), 'sermons/srm_pub/audio', { type: 'audio/mpeg' }));
+await check('a master admin does too', 'allow', () => put(as('martin'), 'sermons/srm_new/audio', { type: 'audio/x-m4a' }));
+await check('SOMEONE NOT NAMED CANNOT, not even an admin of another area', 'deny', () => put(as('karen'), 'sermons/srm_new/audio', { type: 'audio/mpeg' }));
+await check('only audio', 'deny', () => put(st('u_prc'), 'sermons/srm_new/audio', { type: 'video/mp4' }));
+await check('only for a sermon that exists', 'deny', () => put(st('u_prc'), 'sermons/srm_none/audio', { type: 'audio/mpeg' }));
+await check('ANYONE, WITH NO ACCOUNT, PLAYS A PUBLISHED SERMON (Spotify and podcast apps)', 'allow', () => getBytes(ref(anon(), 'sermons/srm_pub/audio')));
+await check('NOBODY HEARS ONE NOT YET PUBLISHED: not the public', 'deny', () => getBytes(ref(anon(), 'sermons/srm_new/audio')));
+await check('nor a signed-in listener', 'deny', () => getBytes(ref(st('u_lst'), 'sermons/srm_new/audio')));
+await check('the uploader does, to check it', 'allow', () => getBytes(ref(st('u_prc'), 'sermons/srm_new/audio')));
+await check('a sermon’s audio is never deleted from a page', 'deny', () => deleteObject(ref(as('martin'), 'sermons/srm_pub/audio')));
+await check('the uploader puts up the show’s artwork', 'allow', () => put(st('u_prc'), 'podcast/artwork', { type: 'image/jpeg' }));
+await check('a listener cannot', 'deny', () => put(st('u_lst'), 'podcast/artwork', { type: 'image/jpeg' }));
+await check('anyone sees the artwork', 'allow', () => getBytes(ref(anon(), 'podcast/artwork')));
+await check('the uploader puts up a series picture', 'allow', () => put(st('u_prc'), 'sermonSeries/ser_neh/artwork', { type: 'image/png' }));
 // ── end EVENTS ──
 // ── end EVENTS ──
 
