@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The phone-app design Martin approved on 9 Oct 2026 (artifact version 5). Reference only: not part of the live site. -->
+<title>EGBC Hub app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+/* Layout: on a computer, a phone in the middle with the notes beside it; on a phone, the app fills the screen. */
+:root {
+  --brand: #3d6263;        /* EGBC teal, from DESIGN.md */
+  --brand-tint: #eef5f4;
+  --bg: #f3f6f5;           /* page ground, teal-biased grey */
+  --surface: #ffffff;
+  --ink: #111827;
+  --body: #374151;
+  --muted: #6b7280;
+  --line: #e3e8e6;
+  --worship: #3d6263; --worship-tint: #e8f1f0;
+  --av: #4a5f7a;      --av-tint: #e9eef5;
+  --kids: #7a5f4a;    --kids-tint: #f4ede7;
+  --youth: #5a4a7a;   --youth-tint: #efebf6;
+  --welcome: #8a4a5e; --welcome-tint: #f6ebef;
+  --coffee: #6b5a3a;  --coffee-tint: #f2ede4;
+  --maint: #4f5a66;   --maint-tint: #eceff2;
+  --good: #1f7a4d; --good-tint: #e6f4ec;
+  --warn: #9a5b00; --warn-tint: #fdf3e2;
+  --frame: #1b2423;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --brand: #7fb3b1; --brand-tint: #1f3333; --bg: #0f1514; --surface: #182120; --ink: #eef3f2; --body: #cdd8d6; --muted: #93a5a2; --line: #2a3634;
+  --worship: #7fb3b1; --worship-tint: #1f3333; --av: #9db3d1; --av-tint: #1e2733; --kids: #d1b39b; --kids-tint: #2e241d; --youth: #b9a8db; --youth-tint: #261f33; --welcome: #e0a3b6; --welcome-tint: #331d24; --coffee: #d6c39a; --coffee-tint: #2b2416; --maint: #b3bfcc; --maint-tint: #20262d;
+  --good: #6fcf9d; --good-tint: #16301f; --warn: #f0b762; --warn-tint: #33260f; --frame: #000; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --brand: #7fb3b1; --brand-tint: #1f3333; --bg: #0f1514; --surface: #182120; --ink: #eef3f2; --body: #cdd8d6; --muted: #93a5a2; --line: #2a3634;
+  --worship: #7fb3b1; --worship-tint: #1f3333; --av: #9db3d1; --av-tint: #1e2733; --kids: #d1b39b; --kids-tint: #2e241d; --youth: #b9a8db; --youth-tint: #261f33; --welcome: #e0a3b6; --welcome-tint: #331d24; --coffee: #d6c39a; --coffee-tint: #2b2416; --maint: #b3bfcc; --maint-tint: #20262d;
+  --good: #6fcf9d; --good-tint: #16301f; --warn: #f0b762; --warn-tint: #33260f; --frame: #000; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--body); font: 14px/1.5 var(--font); margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+i[data-lucide] { display: inline-flex; }
+svg.lucide { stroke-width: 1.75; }
+
+.stage { min-height: 100%; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding-block: 32px; padding-inline: 16px; }
+.notes { max-width: 340px; display: grid; gap: 18px; padding-top: 12px; }
+.notes h1 { font-size: 24px; font-weight: 700; color: var(--ink); margin: 0; text-wrap: balance; }
+.notes p { margin: 0; color: var(--body); }
+.notes .tag { font-size: 12px; color: var(--muted); }
+.who { display: grid; gap: 8px; }
+.who button { display: flex; gap: 12px; align-items: center; text-align: left; padding: 10px 12px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; }
+.who button[aria-pressed="true"] { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.who b { color: var(--ink); font-weight: 600; display: block; }
+.who small { color: var(--muted); }
+.av-dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 13px; color: #fff; flex: none; }
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+
+.phone { width: 390px; max-width: 100%; height: 820px; border-radius: 46px; background: var(--frame); padding: 12px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.45); flex: none; }
+.screen { height: 100%; border-radius: 36px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; position: relative; }
+
+/* the app itself */
+.top { background: var(--surface); padding: 14px 16px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+.top-row { display: flex; align-items: center; gap: 10px; }
+.logo { width: 30px; height: 30px; border-radius: 8px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 11px; letter-spacing: .02em; }
+.top-title { font-weight: 600; color: var(--ink); font-size: 16px; flex: 1; min-width: 0; }
+.icon-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; position: relative; }
+.badge { position: absolute; top: -4px; right: -4px; background: #c0392b; color: #fff; font-size: 10px; font-weight: 600; min-width: 17px; height: 17px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; }
+.spaces { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.spaces::-webkit-scrollbar { display: none; }
+.space { flex: none; display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--body); }
+.space .dot { width: 8px; height: 8px; border-radius: 50%; }
+.space[aria-pressed="true"] { background: var(--sp, var(--brand)); border-color: var(--sp, var(--brand)); color: #fff; }
+.space[aria-pressed="true"] .dot { background: #fff !important; }
+
+.content { flex: 1; overflow-y: auto; padding: 16px; display: grid; gap: 14px; align-content: start; }
+.hello { font-size: 22px; font-weight: 700; color: var(--ink); margin: 2px 0 0; }
+.sub { color: var(--muted); font-size: 13px; margin: 0; }
+.sec { display: grid; gap: 8px; }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; }
+.sec-h h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.sec-h button { border: 0; background: none; color: var(--brand); font-size: 13px; font-weight: 500; padding: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.next { padding: 14px; display: grid; gap: 12px; border-left: 4px solid var(--c, var(--brand)); }
+.next-top { display: flex; gap: 12px; align-items: center; }
+.date { width: 50px; flex: none; text-align: center; border-radius: 10px; background: var(--ct, var(--brand-tint)); color: var(--c, var(--brand)); padding: 6px 0; }
+.date b { display: block; font-size: 20px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.date span { font-size: 11px; font-weight: 600; }
+.next h4 { margin: 0; font-size: 16px; font-weight: 600; color: var(--ink); }
+.next p { margin: 0; font-size: 13px; color: var(--muted); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.list { display: grid; }
+.row { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 0; background: none; text-align: left; width: 100%; }
+.row + .row { border-top: 1px solid var(--line); }
+.row .ic { width: 36px; height: 36px; border-radius: 10px; background: var(--ct, var(--brand-tint)); color: var(--c, var(--brand)); display: grid; place-items: center; flex: none; }
+.row .tx { flex: 1; min-width: 0; }
+.row b { display: block; font-weight: 600; color: var(--ink); font-size: 14px; }
+.row small { color: var(--muted); font-size: 12.5px; }
+.chev { color: var(--muted); }
+.pill { font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--good-tint); color: var(--good); white-space: nowrap; }
+.pill.warn { background: var(--warn-tint); color: var(--warn); }
+.pill.n { background: var(--brand-tint); color: var(--brand); }
+.notice { padding: 12px 14px; display: grid; gap: 4px; }
+.notice + .notice { border-top: 1px solid var(--line); }
+.notice b { color: var(--ink); font-weight: 600; }
+.notice p { margin: 0; font-size: 13px; }
+.qr { width: 120px; height: 120px; margin: 4px auto; display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; padding: 8px; background: #fff; border-radius: 10px; border: 1px solid var(--line); }
+.qr span { background: #111; border-radius: 1px; }
+.qr span.o { background: transparent; }
+.example { font-size: 11.5px; color: var(--muted); text-align: center; }
+
+.tabs { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); background: var(--surface); border-top: 1px solid var(--line); padding: 6px 4px 14px; }
+.tab { border: 0; background: none; display: grid; justify-items: center; gap: 2px; font-size: 11.5px; font-weight: 500; color: var(--muted); padding: 6px 0; }
+.tab[aria-current="page"] { color: var(--sp, var(--brand)); }
+.tab[aria-current="page"] svg { stroke-width: 2.25; }
+
+.sheet-back { position: absolute; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; }
+.sheet { background: var(--surface); width: 100%; border-radius: 20px 20px 0 0; padding: 18px 16px 22px; display: grid; gap: 12px; max-height: 85%; overflow-y: auto; }
+.sheet h3 { margin: 0; font-size: 18px; color: var(--ink); font-weight: 600; }
+.sheet p { margin: 0; }
+.grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: -6px auto 2px; }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 86px; background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 12px; font-size: 13px; }
+
+@media (max-width: 760px) {
+  .stage { padding: 0; display: block; }
+  .notes { display: none; }
+  .phone { width: 100%; height: 100vh; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+  .screen { border-radius: 0; }
+  .mobile-who { display: flex !important; }
+  /* Keep the tabs clear of the phone's own back/home buttons and gesture bar
+     (Martin: tapping Groups closed the app instead). */
+  .tabs { padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
+  .tab { padding: 10px 0; }
+  .toast { bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+}
+.mobile-who { display: none; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.mobile-who select { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; background: var(--surface); color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .2s ease-out; } @keyframes up { from { transform: translateY(30px); opacity: .6; } } }
+</style>
+
+<div class="stage">
+  <aside class="notes" aria-label="About this mock-up">
+    <div>
+      <div class="tag">Mock-up 2 · example data, nothing real</div>
+      <h1>EGBC Hub on your phone</h1>
+    </div>
+    <p>One app for everyone. Your own space comes first. If you serve on a team or lead something, that team gets its own space, one tap away along the top.</p>
+    <div class="who" role="group" aria-label="See the app as">
+      <div class="tag">See it as</div>
+      <button id="p-martin" data-p="martin"><span class="av-dot" style="background:var(--av)">MP</span><span><b>Martin</b><small>Volunteer on Sound, Core Team</small></span></button>
+      <button id="p-sarah" data-p="sarah"><span class="av-dot" style="background:var(--brand)">SG</span><span><b>Sarah</b><small>Attender and parent, on no team</small></span></button>
+      <button id="p-jo" data-p="jo"><span class="av-dot" style="background:var(--welcome)">JW</span><span><b>Jo</b><small>On Welcome, Tea &amp; Coffee and Maintenance</small></span></button>
+      <button id="p-karen" data-p="karen"><span class="av-dot" style="background:var(--kids)">KL</span><span><b>Karen</b><small>Leads Kids Church, son Oliver plays drums</small></span></button>
+    </div>
+    <ul>
+      <li>Four tabs at the bottom, never more, and no hidden menus.</li><li>Every team gets its own space, coloured its own way. People only see the teams they are on.</li>
+      <li>Home answers "what do I need to know this week?"</li>
+      <li>The rows along the top switch between your spaces.</li>
+      <li>No jargon, and no "…" menus hiding actions.</li>
+    </ul>
+    <p class="tag">Tap around the phone. Tell Claude what to move, remove or add.</p>
+  </aside>
+
+  <div class="phone"><div class="screen" id="app"></div></div>
+</div>
+
+<script>
+(function () {
+'use strict';
+var PEOPLE = {
+  martin: { first: 'Martin', initials: 'MP', spaces: ['me', 'worship', 'office'] },
+  sarah:  { first: 'Sarah',  initials: 'SG', spaces: ['me'] },
+  karen:  { first: 'Karen',  initials: 'KL', spaces: ['me', 'kids'] },
+  jo:     { first: 'Jo',     initials: 'JW', spaces: ['me', 'welcome', 'coffee', 'maint'] }
+};
+var SPACES = {
+  me:      { label: 'Me and my family', color: 'var(--brand)',   tint: 'var(--brand-tint)',   tabs: [['home','Home','house'], ['whatson',"What's on",'calendar-days'], ['listen','Listen','headphones'], ['me','Me','circle-user']] },
+  worship: { label: 'Worship & AV',     color: 'var(--av)',      tint: 'var(--av-tint)',      tabs: [['rota','Rota','calendar-check'], ['sunday','Sunday','list-music'], ['learn','Learn','graduation-cap'], ['team','Team','users']] },
+  kids:    { label: 'Kids Church',      color: 'var(--kids)',    tint: 'var(--kids-tint)',    tabs: [['today','Today','sun'], ['children','Children','baby'], ['rota','Rota','calendar-check'], ['team','Team','users']] },
+  welcome: { label: 'Welcome',     color: 'var(--welcome)', tint: 'var(--welcome-tint)', tabs: [['rota','Rota','calendar-check'], ['sunday','This Sunday','sun'], ['team','Team','users']] },
+  coffee:  { label: 'Tea & Coffee', color: 'var(--coffee)',  tint: 'var(--coffee-tint)',  tabs: [['rota','Rota','calendar-check'], ['sunday','This Sunday','sun'], ['team','Team','users']] },
+  maint:   { label: 'Maintenance', color: 'var(--maint)',   tint: 'var(--maint-tint)',   tabs: [['jobs','Jobs','wrench'], ['rooms','Rooms','door-closed'], ['team','Team','users']] },
+  office:  { label: 'Running things',   color: 'var(--ink)',     tint: 'var(--line)',         tabs: [['today','Today','layout-dashboard'], ['people','People','contact'], ['bookings','Bookings','door-open'], ['send','Send','send']] }
+};
+var S = { p: 'martin', space: 'me', tab: 'home', sheet: null, toast: '' };
+try { var saved = JSON.parse(localStorage.getItem('egbc-mock') || '{}'); if (saved.p && PEOPLE[saved.p]) { S.p = saved.p; } } catch (e) {}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); }
+function ic(n, sz) { return '<i data-lucide="' + n + '" style="width:' + (sz||18) + 'px;height:' + (sz||18) + 'px"></i>'; }
+function sp() { return SPACES[S.space]; }
+function row(icon, title, sub, right, act, c, t) {
+  return '<button class="row" ' + (act ? 'data-act="' + act + '"' : '') + ' style="' + (c ? '--c:' + c + ';--ct:' + t : '') + '"><span class="ic">' + ic(icon) + '</span><span class="tx"><b>' + title + '</b><small>' + sub + '</small></span>' + (right || '<span class="chev">' + ic('chevron-right', 16) + '</span>') + '</button>';
+}
+function next(day, mon, title, sub, c, t, actions) {
+  return '<div class="card next" style="--c:' + c + ';--ct:' + t + '"><div class="next-top"><div class="date"><b>' + day + '</b><span>' + mon + '</span></div><div><h4>' + title + '</h4><p>' + sub + '</p></div></div>' + (actions ? '<div class="actions">' + actions + '</div>' : '') + '</div>';
+}
+function sec(title, more, inner) {
+  return '<section class="sec"><div class="sec-h"><h3>' + title + '</h3>' + (more ? '<button data-act="' + more[1] + '">' + more[0] + '</button>' : '') + '</div>' + inner + '</section>';
+}
+
+/* ---------------- screens ---------------- */
+var V = {};
+V.me_home = function () {
+  var p = S.p, out = '<div><p class="hello">Morning, ' + PEOPLE[p].first + '</p><p class="sub">Sunday 11 October · here is your week</p></div>';
+  if (p === 'martin') out += sec('You are serving', ['Whole rota', 'go:worship:rota'], next('15', 'Nov', 'Sound', 'Sunday Morning Worship · arrive 08:00', 'var(--av)', 'var(--av-tint)', '<button class="btn" data-act="go:worship:sunday">' + ic('list-music', 15) + ' See the plan</button>'));
+  if (p === 'karen') out += sec('You and Oliver are serving', ['Whole rota', 'go:kids:rota'], next('11', 'Oct', 'Session leader, Kids Church', 'Today · 10:30', 'var(--kids)', 'var(--kids-tint)', '<button class="btn primary" data-act="go:kids:today">' + ic('sun', 15) + ' Open today\'s session</button>'));
+  if (p === 'jo') out += sec('You are serving', ['Whole rota', 'go:welcome:rota'], next('11', 'Oct', 'Welcome', 'Today · front door · arrive 10:00', 'var(--welcome)', 'var(--welcome-tint)', '<button class="btn" data-act="go:welcome:sunday">' + ic('sun', 15) + ' Today\'s notes</button>') + next('25', 'Oct', 'Tea & Coffee', 'After the service · arrive 11:45', 'var(--coffee)', 'var(--coffee-tint)', ''));
+  if (p === 'sarah') out += sec('This Sunday', null, '<div class="card notice"><b>Ada and Ben are booked into Kids Church</b><p>Show this at the desk, or tap Check in when you arrive.</p><div class="qr" aria-label="Family check-in code">' + qr() + '</div><div class="actions" style="justify-content:center"><button class="btn primary" data-act="toast:Ada and Ben are checked in. Your collection code is K7P2.">' + ic('log-in', 15) + ' Check in Ada and Ben</button></div></div>');
+  /* Family: what your children do shows here, without the team's tools. */
+  if (p === 'sarah') out += sec('Your family this week', null, '<div class="card list">' +
+    row('sparkles', 'Lazers · Ben', 'Fri 16 Oct · 6.30pm · Hall · bring a torch', '<span class="pill n">Going</span>', null, 'var(--youth)', 'var(--youth-tint)') +
+    row('baby', 'Kids Church · Ada and Ben', 'Every Sunday · 10.30am · forms all up to date', '<span class="pill">All set</span>', null, 'var(--kids)', 'var(--kids-tint)') + '</div>');
+  if (p === 'karen') out += sec('Your family this week', null, '<div class="card list">' +
+    row('drum', 'Oliver · drums', 'Sun 15 Nov · Morning worship · arrive 9.30', '<span class="pill">On</span>', null, 'var(--worship)', 'var(--worship-tint)') +
+    row('flame', 'ReNu · Oliver', 'Sun 11 Oct · 7pm · Upper room', '<span class="pill n">Tonight</span>', null, 'var(--youth)', 'var(--youth-tint)') + '</div>');
+  out += sec('Your events', ['All events', 'tab:whatson'],
+    '<div class="card list">' +
+      row('utensils', 'Harvest supper', 'Sat 17 Oct · 6pm · Hall · you + 2 booked', '<span class="pill">Booked</span>', 'sheet:event') +
+      row('heart-handshake', p === 'sarah' ? 'Parenting course, week 3' : 'Prayer evening', p === 'sarah' ? 'Tue 20 Oct · 7.30pm · Vestry' : 'Wed 21 Oct · 7.30pm · online', '<span class="pill n">Signed up</span>', 'sheet:event') +
+    '</div>');
+  out += sec('Notices', null,
+    '<div class="card"><div class="notice"><b>Gift day next Sunday</b><p>For the roof appeal. Give online or on the day.</p></div><div class="notice"><b>New Alpha course starts 3 Nov</b><p>Bring a friend. Sign up in What\'s on.</p></div></div>');
+  out += sec('Your groups', ['All groups', 'tab:groups'], '<div class="card list">' + row('home', 'Tuesday home group', 'Next: Tue 13 Oct, 7.45pm · Romans 8', null, 'tab:groups') + '</div>');
+  return out;
+};
+V.me_whatson = function () {
+  return '<div><p class="hello">What\'s on</p><p class="sub">Everything you can come to</p></div>' +
+    '<div class="actions"><button class="btn primary">' + ic('calendar-days', 15) + ' This month</button><button class="btn">For families</button><button class="btn">Courses</button></div>' +
+    '<div class="card list">' +
+      row('utensils', 'Harvest supper', 'Sat 17 Oct · 6pm · Hall · £5', '<span class="pill">Booked</span>', 'sheet:event') +
+      row('book-open', 'Alpha', 'Starts Mon 3 Nov · 7pm · 10 weeks', '<span class="pill n">Sign up</span>', 'sheet:event') +
+      row('sparkles', 'Light party', 'Sat 31 Oct · 4pm · for children', '<span class="pill n">Sign up</span>', 'sheet:event') +
+      row('users-round', 'Church members\' meeting', 'Sun 25 Oct · 12.30pm · Church members only', '<span class="pill warn">Members</span>', 'sheet:event') +
+    '</div>' +
+    sec('Rooms', null, '<div class="card list">' + row('door-open', 'Book a room', 'See what is free and book it. No need to ask the office.', null, 'sheet:room') + '</div>') +
+    '<p class="example">Calendar: add your rota and events to your phone\'s calendar from Me.</p>';
+};
+V.me_groups = function () {
+  return '<div><p class="hello">Groups</p></div>' +
+    sec('Your groups', null, '<div class="card next" style="--c:var(--brand)"><div class="next-top"><div class="date"><b>13</b><span>Oct</span></div><div><h4>Tuesday home group</h4><p>7.45pm · 12 Elm Road, Esher · study: Romans 8</p></div></div><div class="actions"><button class="btn">' + ic('message-circle', 15) + ' Message the group</button><button class="btn">' + ic('book-open', 15) + ' This week\'s notes</button></div></div>') +
+    sec('Find a group', null, '<div class="card list">' + row('coffee', 'Thursday morning group', 'Thu 10am · in a home in Claygate · 3 spaces', '<span class="pill n">Ask to join</span>', null) + row('laptop', 'Young adults online', 'Sun 8pm · online · 6 spaces', '<span class="pill n">Ask to join</span>', null) + '</div>');
+};
+V.me_me = function () {
+  var p = S.p;
+  return '<div style="display:flex;gap:12px;align-items:center"><span class="av-dot" style="width:52px;height:52px;font-size:17px;background:var(--brand)">' + PEOPLE[p].initials + '</span><div><p class="hello" style="margin:0">' + PEOPLE[p].first + '</p><p class="sub">' + (p === 'sarah' ? 'Attender' : 'Church member') + '</p></div></div>' +
+    '<div class="card list">' +
+      row('user-pen', 'My details', 'Name, phone, address, who can see them') +
+      row('house', 'My household', p === 'sarah' ? 'You, Ada (6), Ben (9)' : p === 'karen' ? 'You, Matei, Oliver' : 'You and your family') +
+      row('users', 'My groups', 'Tuesday home group · find a group', null, 'tab:groups') +
+      row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota') +
+      row('bell', 'Notifications', 'Choose what buzzes your phone') +
+      (p !== 'sarah' ? row('calendar-check-2', 'My availability', 'Opens the availability form you already use') : '') +
+      row('heart', 'Giving', 'Set up or change how you give') +
+    '</div>' +
+    '<div class="card list">' + row('log-out', 'Sign out', 'You stay signed in until you do') + '</div>';
+};
+V.me_listen = function () {
+  return '<div><p class="hello">Listen</p><p class="sub">Sundays' + "\'" + ' sermons, here and on Spotify</p></div>' +
+    '<div class="card next" style="--c:var(--brand)"><div class="next-top"><div class="date"><b>4</b><span>Oct</span></div><div><h4>Ask boldly, plan wisely</h4><p>Nehemiah, part 2 · Ryan · 34 min</p></div></div><div class="actions"><button class="btn primary" data-act="toast:Playing. It keeps your place if you stop.">' + ic('play', 15) + ' Play</button><button class="btn">' + ic('list', 15) + ' Whole series</button></div></div>' +
+    sec('Carry on listening', null, '<div class="card list">' + row('circle-play', 'The scandal of grace', 'Jeanette · 12 min left') + '</div>') +
+    sec('Series', null, '<div class="card list">' + row('layers', 'Nehemiah: rebuilding what matters', '2 sermons · autumn 2026') + row('layers', 'Journey', '13 sermons · spring and summer 2026') + '</div>') +
+    '<p class="example">Search by speaker, Bible book or date.</p>';
+};
+function teamRota(key, role) {
+  var c = 'var(--' + key + ')', t = 'var(--' + key + '-tint)';
+  return '<div><p class="hello">Your rota</p><p class="sub">' + SPACES[key].label + '</p></div><div class="card list">' +
+    row('calendar-check', 'Sun 11 Oct · ' + role, 'Today', '<span class="pill">On</span>', null, c, t) +
+    row('calendar-check', 'Sun 8 Nov · ' + role, 'Morning worship', '<span class="pill">On</span>', null, c, t) + '</div>' +
+    sec('Next term', null, '<div class="card notice"><p>Say which Sundays you can do on the availability form.</p><div class="actions"><button class="btn primary">Open the availability form</button></div></div>');
+}
+function teamSunday(key, notes) {
+  return '<div><p class="hello">This Sunday</p><p class="sub">Sun 11 Oct · ' + SPACES[key].label + '</p></div>' +
+    '<div class="card notice"><b>Notes from the team leader</b><p>' + notes + '</p></div>' +
+    sec('On with you', null, '<div class="card list">' + row('user', 'Pat', 'Team leader', '') + row('user', 'Sam', 'Team member', '') + '</div>');
+}
+function teamTeam(key) {
+  return '<div><p class="hello">' + SPACES[key].label + '</p></div><div class="card list">' +
+    row('scroll-text', 'How we do it', 'A short guide for the team') +
+    row('message-circle', 'Message the team', 'One email to everyone on it') +
+    row('folder-open', 'Team resources', 'Documents and links') + '</div>';
+}
+V.welcome_rota = function () { return teamRota('welcome', 'Front door'); };
+V.welcome_sunday = function () { return teamSunday('welcome', 'Communion today. Two families are visiting for a baptism: please look out for them and show them to Kids Church.'); };
+V.welcome_team = function () { return teamTeam('welcome'); };
+V.coffee_rota = function () { return teamRota('coffee', 'Tea & Coffee'); };
+V.coffee_sunday = function () { return teamSunday('coffee', 'Harvest Sunday, about 120 expected. Extra milk is in the hall fridge, oat milk on the left.'); };
+V.coffee_team = function () { return teamTeam('coffee'); };
+V.maint_jobs = function () {
+  return '<div><p class="hello">Maintenance</p><p class="sub">Jobs reported by the church</p></div><div class="card list">' +
+    row('lightbulb', 'Hall: two lights out', 'Reported by the office · Tue', '<span class="pill warn">To do</span>', null, 'var(--maint)', 'var(--maint-tint)') +
+    row('droplets', 'Vestry radiator dripping', 'Reported by Pat · Sun', '<span class="pill warn">To do</span>', null, 'var(--maint)', 'var(--maint-tint)') +
+    row('check', 'Garden gate latch', 'Fixed by you · 2 Oct', '<span class="pill">Done</span>', null, 'var(--maint)', 'var(--maint-tint)') + '</div>' +
+    '<div class="actions"><button class="btn primary">' + ic('plus', 15) + ' Report a job</button></div>';
+};
+V.maint_rooms = function () {
+  return '<div><p class="hello">Close a room</p><p class="sub">Block a room for maintenance so nobody can book it</p></div><div class="card list">' +
+    row('door-closed', 'Hall', 'Free all week', '<span class="pill">Open</span>', 'sheet:closeroom') +
+    row('door-closed', 'Vestry', 'Closed Mon 12 to Wed 14 Oct · radiator', '<span class="pill warn">Closed</span>', null) +
+    row('door-closed', 'Band room', 'Free all week', '<span class="pill">Open</span>', 'sheet:closeroom') + '</div>' +
+    '<p class="example">The office is told, and anyone already booked is warned.</p>';
+};
+V.maint_team = function () { return teamTeam('maint'); };
+V.worship_rota = function () {
+  return '<div><p class="hello">Your rota</p><p class="sub">Worship & AV · autumn 2026</p></div>' +
+    '<div class="card list">' +
+      row('volume-2', 'Sun 15 Nov · Sound', 'Morning worship · 08:00', '<span class="pill">On</span>', null, 'var(--av)', 'var(--av-tint)') +
+      row('volume-2', 'Sun 29 Nov · Sound', 'Morning worship · 08:00', '<span class="pill">On</span>', null, 'var(--av)', 'var(--av-tint)') +
+      row('volume-2', 'Sun 20 Dec · Sound', 'Carol service · 18:00', '<span class="pill">On</span>', null, 'var(--av)', 'var(--av-tint)') +
+    '</div>' +
+    '<div class="actions"><button class="btn">' + ic('table', 15) + ' Whole rota</button></div>' +
+    sec('Next term', null, '<div class="card notice"><b>Spring availability is open</b><p>Tick the Sundays you can do by 30 November, on the availability form.</p><div class="actions"><button class="btn primary">Open the availability form</button></div></div>');
+};
+V.worship_sunday = function () {
+  return '<div><p class="hello">This Sunday</p><p class="sub">Sun 11 Oct · Morning worship · Communion</p></div>' +
+    sec('Running order', null, '<div class="card list">' +
+      row('music', 'This Is Amazing Grace', 'Key D · YouTube · chord sheet', null, null, 'var(--worship)', 'var(--worship-tint)') +
+      row('music', 'Way Maker', 'Key E', null, null, 'var(--worship)', 'var(--worship-tint)') +
+      row('megaphone', 'Welcome and notices', 'Will', null, null) +
+      row('book-open', 'Message: Romans 8', 'James', null, null) + '</div>') +
+    sec('Who\'s on', null, '<div class="card list">' + row('mic', 'Worship leader', 'Samy', '', null, 'var(--worship)', 'var(--worship-tint)') + row('volume-2', 'Sound', 'Val', '', null, 'var(--av)', 'var(--av-tint)') + row('video', 'Cameras', 'Colin', '', null, 'var(--av)', 'var(--av-tint)') + '</div>');
+};
+V.worship_learn = function () {
+  return '<div><p class="hello">Learn</p><p class="sub">Videos and how-tos for the team</p></div><div class="card list">' +
+    row('circle-play', 'How to: the sound desk', '12 short videos', null, null, 'var(--av)', 'var(--av-tint)') +
+    row('wrench', 'Something not working?', 'Troubleshooting, step by step', null, null, 'var(--av)', 'var(--av-tint)') +
+    row('headphones', 'Play-through', 'Listen to Sunday\'s songs before you come', null, null, 'var(--worship)', 'var(--worship-tint)') +
+    row('graduation-cap', 'Worship training', 'How we lead worship here', null, null, 'var(--worship)', 'var(--worship-tint)') + '</div>';
+};
+V.worship_team = function () {
+  return '<div><p class="hello">Worship & AV team</p></div><div class="card list">' +
+    row('scroll-text', 'Our team charter', 'What we\'re for, and how we work') +
+    row('sticky-note', 'Ideas pin board', '3 new ideas this week', '<span class="pill n">3 new</span>') +
+    row('video', 'Team meeting room', 'Join a video call') +
+    row('folder-open', 'Team resources', 'Documents and links') + '</div>';
+};
+V.kids_today = function () {
+  return '<div><p class="hello">Kids Church today</p><p class="sub">Sun 11 Oct · session open · you are session leader</p></div>' +
+    '<div class="card" style="padding:14px;display:grid;grid-template-columns:repeat(3,1fr);text-align:center;gap:6px">' +
+      '<div><b style="font-size:22px;color:var(--ink);display:block">14</b><small>in</small></div><div><b style="font-size:22px;color:var(--ink);display:block">3</b><small>not arrived</small></div><div><b style="font-size:22px;color:var(--ink);display:block">4</b><small>leaders</small></div></div>' +
+    sec('Needs in the room', null, '<div class="card list">' + row('triangle-alert', 'Ada · Little ones', 'Peanut allergy · carries an EpiPen', '<span class="pill warn">Allergy</span>', null, 'var(--warn)', 'var(--warn-tint)') + row('wind', 'Ben · Juniors', 'Asthma · inhaler in bag', '<span class="pill warn">Medical</span>', null, 'var(--warn)', 'var(--warn-tint)') + '</div>') +
+    sec('Call a parent', null, '<div class="card notice"><p>Shows the family code on the screen in church, and buzzes the parent\'s phone. Never the child\'s name.</p><div class="actions"><button class="btn primary" data-act="toast:K7P2, please come to Little ones. On screen and sent to the parent\'s phone.">' + ic('monitor', 15) + ' Call Ada\'s parent</button><button class="btn">' + ic('phone', 15) + ' Ring instead</button></div></div>') +
+    '<div class="actions"><button class="btn">' + ic('scan-line', 15) + ' Check-in desk</button><button class="btn">' + ic('flame', 15) + ' Fire roll-call</button></div>';
+};
+V.kids_children = function () {
+  return '<div><p class="hello">Children</p><p class="sub">Little ones · your group</p></div><div class="card list">' +
+    row('baby', 'Ada', 'Year 1 · in at 10:24 · collect: Sarah, Grandma', '<span class="pill">In</span>', null, 'var(--kids)', 'var(--kids-tint)') +
+    row('baby', 'Eve', 'Reception · not arrived', '<span class="pill n">Due</span>', null, 'var(--kids)', 'var(--kids-tint)') +
+    row('baby', 'Sam', 'Year 1 · consent runs out 2 Nov', '<span class="pill warn">Renew</span>', null, 'var(--kids)', 'var(--kids-tint)') + '</div>' +
+    '<p class="example">Leaders see only their own group. Medical details stay private.</p>';
+};
+V.kids_rota = function () {
+  return '<div><p class="hello">Kids Church rota</p></div><div class="card list">' +
+    row('calendar-check', 'Sun 11 Oct · Session leader', 'You · helpers: Maya, Matei', '<span class="pill">On</span>', null, 'var(--kids)', 'var(--kids-tint)') +
+    row('calendar-check', 'Sun 18 Oct · Helper', 'Session leader: Simon', '<span class="pill">On</span>', null, 'var(--kids)', 'var(--kids-tint)') + '</div>';
+};
+V.kids_team = function () {
+  return '<div><p class="hello">Kids Church team</p></div><div class="card list">' +
+    row('scroll-text', 'Safeguarding', 'Report a concern, our policy, your training') +
+    row('clipboard-list', 'Registers', 'Who came, by group and term') +
+    row('user-plus', 'New families to welcome', '2 this month', '<span class="pill n">2</span>') +
+    row('folder-open', 'Lesson plans and resources', 'This term\'s material') + '</div>';
+};
+V.office_today = function () {
+  return '<div><p class="hello">Running things</p><p class="sub">What needs you today</p></div>' +
+    '<div class="card list">' +
+      row('door-open', '2 room requests waiting', 'Birthday party, Sat 24 Oct · Yoga, weekly', '<span class="pill warn">Waiting</span>') +
+      row('calendar-x', 'A gap on the rota', 'Sun 25 Oct · no one on Words', '<span class="pill warn">Gap</span>') +
+      row('file-check', '3 forms not back', 'Light party consent', '<span class="pill n">Chase</span>') + '</div>' +
+    '<p class="example">Only for people who run things. The full tools still open on a computer.</p>';
+};
+V.office_people = function () { return '<div><p class="hello">People</p></div><div class="card list">' + row('search', 'Find someone', 'Address book') + row('user-plus', 'Add a person or family', 'They can sign in once added') + row('badge-check', 'Church members', 'Who has formally joined') + '</div>'; };
+V.office_bookings = function () { return '<div><p class="hello">Room bookings</p></div><div class="card list">' + row('door-open', 'Birthday party · Hall', 'Sat 24 Oct · 2–5pm · £85 quoted', '<span class="pill warn">Approve?</span>') + row('repeat', 'Yoga · Vestry', 'Weekly from 5 Nov · 10 dates', '<span class="pill warn">Approve?</span>') + '</div>'; };
+V.office_send = function () { return '<div><p class="hello">Send something</p></div><div class="card list">' + row('megaphone', 'A notice', 'Shows on everyone\'s Home') + row('mail', 'An email', 'To a team, a group or everyone') + row('bell-ring', 'A phone notification', 'For anything urgent') + '</div>'; };
+
+function qr() {
+  var on = '1111111001000101111111100110011011000101111111010110100011011101011010011000111100111010101101111101011110100011011011101011100011';
+  var out = ''; for (var i = 0; i < 81; i++) out += '<span class="' + (on[i % on.length] === '1' ? '' : 'o') + '"></span>'; return out;
+}
+
+var SHEETS = {
+  closeroom: '<h3>Close the Hall</h3><p>Pick the days and say why. The Hall disappears from Book a room for those days.</p><div class="card list">' + row('calendar', 'Mon 19 to Tue 20 Oct', 'All day', '') + row('pencil', 'Reason', 'Repainting', '') + '</div><div class="actions"><button class="btn primary" data-act="toast:Hall closed 19 to 20 Oct. The office has been told.">Close the Hall</button><button class="btn" data-act="close">Cancel</button></div>',
+  event: '<h3>Harvest supper</h3><p class="sub">Sat 17 Oct · 6pm · Hall</p><p>A shared meal to celebrate harvest. Bring a dish if you can. £5 per adult, children free.</p><div class="card list">' + row('users', 'You + 2 booked', 'Change numbers or cancel', null) + row('calendar-plus', 'Add to my calendar', 'Google, iPhone or Outlook', null) + row('share-2', 'Share on WhatsApp', 'Invite a friend', null) + '</div>',
+  room: '<h3>Book a room</h3><p>Pick a room and a time. Free slots are in white. Band practice in the Hall is confirmed straight away.</p><div class="card list">' + row('door-open', 'Hall', 'Free from 6pm today', '<span class="pill">Free</span>') + row('door-open', 'Vestry', 'Booked until 8pm', '<span class="pill warn">Busy</span>') + row('door-open', 'Band room', 'Free all evening', '<span class="pill">Free</span>') + '</div>'
+};
+
+/* ---------------- drawing ---------------- */
+function draw() {
+  var person = PEOPLE[S.p];
+  if (person.spaces.indexOf(S.space) === -1) { S.space = 'me'; S.tab = 'home'; }
+  var s = sp();
+  if (!V[S.space + '_' + S.tab]) S.tab = s.tabs[0][0];
+  var html = '<div class="top" style="--sp:' + s.color + '"><div class="top-row"><span class="logo">EGBC</span><span class="top-title">EGBC Hub</span>' +
+    '<span class="mobile-who"><label for="mw">As</label><select id="mw">' + Object.keys(PEOPLE).map(function (k) { return '<option value="' + k + '"' + (k === S.p ? ' selected' : '') + '>' + PEOPLE[k].first + '</option>'; }).join('') + '</select></span>' +
+    '<button class="icon-btn" aria-label="Latest">' + ic('bell', 18) + '<span class="badge">2</span></button></div>';
+  if (person.spaces.length > 1) {
+    html += '<div class="spaces" role="group" aria-label="Your spaces">' + person.spaces.map(function (k) {
+      var x = SPACES[k]; return '<button class="space" style="--sp:' + x.color + '" data-space="' + k + '" aria-pressed="' + (k === S.space) + '"><span class="dot" style="background:' + x.color + '"></span>' + esc(x.label) + '</button>';
+    }).join('') + '</div>';
+  }
+  html += '</div><main class="content" id="content">' + (V[S.space + '_' + S.tab] || V.me_home)() + '</main>';
+  html += '<nav class="tabs" style="--n:' + s.tabs.length + ';--sp:' + s.color + '" aria-label="' + esc(s.label) + '">' + s.tabs.map(function (t) {
+    return '<button class="tab" data-tab="' + t[0] + '"' + (t[0] === S.tab ? ' aria-current="page"' : '') + '>' + ic(t[2], 22) + '<span>' + t[1] + '</span></button>';
+  }).join('') + '</nav>';
+  if (S.sheet) html += '<div class="sheet-back" data-act="close"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>' + SHEETS[S.sheet] + '</div></div>';
+  if (S.toast) html += '<div class="toast" role="status">' + esc(S.toast) + '</div>';
+  var app = document.getElementById('app'); app.innerHTML = html;
+  document.querySelectorAll('.who button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.p === S.p)); });
+  if (window.lucide) lucide.createIcons();
+  var mw = document.getElementById('mw'); if (mw) mw.onchange = function () { setP(mw.value); };
+}
+function setP(p) { S.p = p; S.space = 'me'; S.tab = 'home'; S.sheet = null; try { localStorage.setItem('egbc-mock', JSON.stringify({ p: p })); } catch (e) {} draw(); }
+var toastTimer;
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-p],[data-space],[data-tab],[data-act]'); if (!b) return;
+  if (b.dataset.p) return setP(b.dataset.p);
+  if (b.dataset.space) { S.space = b.dataset.space; S.tab = SPACES[S.space].tabs[0][0]; S.sheet = null; return draw(); }
+  if (b.dataset.tab) { S.tab = b.dataset.tab; S.sheet = null; draw(); var c = document.getElementById('content'); if (c) c.scrollTop = 0; return; }
+  var a = b.dataset.act;
+  if (a === 'close') { if (e.target.closest('.sheet') && b.classList.contains('sheet-back')) return; S.sheet = null; return draw(); }
+  if (a.indexOf('sheet:') === 0) { S.sheet = a.slice(6); return draw(); }
+  if (a.indexOf('tab:') === 0) { S.tab = a.slice(4); return draw(); }
+  if (a.indexOf('go:') === 0) { var g = a.split(':'); if (PEOPLE[S.p].spaces.indexOf(g[1]) !== -1) { S.space = g[1]; S.tab = g[2]; } return draw(); }
+  if (a.indexOf('toast:') === 0) { S.sheet = null; S.toast = a.slice(6); draw(); clearTimeout(toastTimer); toastTimer = setTimeout(function () { S.toast = ''; draw(); }, 3200); }
+});
+draw();
+})();
+</script>
+
+</html>
