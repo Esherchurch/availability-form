@@ -59,7 +59,7 @@ Answers "what do I need to know this week?" In this order, each section shown on
 
 ## 6. New things the design adds
 
-- **Listen** (sermons and podcast): see the plan in my notes and NEXT-BRIEF.
+- **Listen** (sermons and podcast).
   - Sermons are stored in the hub, with series, speaker, date and Bible passage.
   - A player that remembers your place, and "carry on listening".
   - An admin upload page.
