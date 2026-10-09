@@ -200,3 +200,14 @@ hold a phone. On the emulator: rules tests (a person reads or writes only
 their own tokens and switches; nobody else reads tokens), with a deliberate
 break caught; and browser tests of the page and the button, with the
 function's reply mocked.
+
+## N-6 — decided (Martin, 9 October 2026), for when step K is built
+a. **A parent's phone is linked by the email on the registration form**
+   matching the email they sign in to the hub with.
+b. **Yes:** parents not in the address book ("pending") may get "call a
+   parent" notifications, and nothing else.
+c. **Yes:** the registration form gets an **optional second parent's email**,
+   so a second parent or carer can be linked too.
+
+**On hold:** notifications aren't to be built yet. Martin is designing the
+phone app first, and notifications will be built to that design.
