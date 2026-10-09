@@ -1951,3 +1951,205 @@ five that already timed out (MonitorStageMap, Planner,
 SundayServicePlanner, view-only-rota, youthserviceplanner). It's not my
 page and I haven't changed it. It may simply be waiting for sign-in, as the
 others do. Worth a look.
+
+---
+
+## THE PHONE APP: the events window's part, established (APP-DESIGN-BRIEF §6, §8; NEXT-BRIEF §22)
+
+Read 9 October 2026, with the agreed mock-up (`design/app-mockup.html`)
+opened at phone size as Sarah, Karen and Jo. **Nothing is built yet.** This
+covers what each of my screens needs, what already exists, what's missing,
+and what I need from the main window.
+
+### F-119 — how my screens fit the app (needs agreeing with the main window first)
+The main window builds the shell: spaces, the pill row, bottom tabs, Home,
+Me and Running things. My screens sit **inside** it. I propose:
+- each of my screens is its **own v2 page** with a compact phone layout
+  (`?app=1`: no page header, no Menu; the shell gives those)
+- the shell opens it in the tab's place
+- the shell passes the space colour, and my page uses it for highlights
+
+That keeps each feature in one page: the full page on a computer, the same
+page in the app (§5 "don't double up"). The other way would be a JS module
+per screen that the shell draws into its own page. **Request A1:** the main
+window chooses one, and tells me the size of the bottom bar and the safe
+areas the page must leave clear (§7: `viewport-fit=cover`,
+`env(safe-area-inset-bottom)`, 48px targets).
+
+### F-120 — Kids Church space: "Today" and "Children"
+**Today** (session leader, group leaders, leads):
+- **Counts: in · not arrived · leaders.**
+  - "In" and "not arrived" exist (K2/K3).
+  - **"Leaders" is missing:** leaders don't check in to a Sunday session
+    today. E1 has leader check-in for events (`kind: 'leader'`), so I'd reuse
+    it for the kids' morning, with a "Check myself in" button on Today.
+- **Needs in the room:** exists ("Allergies and medical needs in the room
+  now", K3). The app shows it at the top. Who sees the detail stays as the
+  rules have it: the leads, that group's leaders, and the Session Leader for
+  checked-in children.
+- **Call a parent:** "Show on screen" (ChurchShow, F-100) and "Ring" exist.
+  **"Buzz the parent's phone" waits for notifications** (FINDINGS-notify,
+  hooks only for now). One button does all the parent's ways at once, as
+  in the mock-up.
+- **Check-in desk** and **fire roll-call**: exist (Sunday check-in, Desk
+  and Roll-call tabs). The app opens them.
+
+**Children** (the leader's group): exists as the leader screen and the
+Children's register. Missing: the **"Renew"** pill a month before consent
+runs out (today it only turns red when it has run out). Small.
+
+### F-121 — Home, "This Sunday, for parents": the family QR and "Check in Ada and Ben"
+Martin put this on Home, so **parents checking in on their own phone**
+(F-094d, "later") is now in the design. Home is the main window's, but the
+data and the rules are mine. Needed:
+1. **A parent can read their own family's code and children's names**, and
+   nothing else. They're matched by the email on the registration form, or
+   the optional second parent's email (N-6). New rules in my section, with
+   tests.
+2. **"Check in Ada and Ben"** writes the same check-ins as the desk (E1/K2).
+   **DECISION for Martin (A-K1):**
+   - When a parent checks in on their phone, who prints or gives the labels
+     and the collection code?
+   - Recommended: the phone shows the collection code and each child's
+     label on screen, the child goes to their group's door, and the group
+     leader sees them arrive on "Today".
+   - The other way: the phone check-in only tells the desk they're coming,
+     and the desk still prints labels.
+3. A helper for Home, `myFamilyThisSunday()`, which the main window calls.
+
+### F-122 — What's on, Your events, Book a room
+- **What's on** exists, with "Who can come" (F-114). The app tab opens it.
+  The mock-up's quick filters ("This month", "For families", "Courses") are
+  the event categories already there; a small change.
+- **The event sheet:**
+  - "You + 2 booked, change or cancel" exists (`my-signup.html`).
+  - "Add to my calendar" exists (ICS).
+  - "Share on WhatsApp" exists on the events admin page; it needs adding to
+    the member's view. Small.
+- **"Your events" on Home** (main window's Home, my data): a helper
+  `myEvents()` that lists the person's own sign-ups. The rules already
+  allow exactly that list (signups where `memberUid` is them).
+- **Book a room:**
+  - Exists (`rooms.html`, `book.html`), including members' bookings that
+    confirm straight away where the room or site says so.
+  - Missing for the app's quick view, "Free from 6pm today" per room: a
+    small helper from the day's slots.
+
+### F-123 — Maintenance space (new)
+**Jobs:**
+- A new collection, `maintJobs`:
+  - fields: what, where (room), photo (optional), reported by and when,
+    status (to do, done), done by and when
+  - **anyone signed in** may report a job
+  - the **Maintenance team** (and admins) mark jobs done; everyone sees the
+    list
+- A photo of the problem would use the E4 upload pattern (approved before
+  it shows), or no photos at first. **Decision for Martin (A-M1).**
+
+**Rooms, "Close a room":**
+- **Built on my bookings**, as the brief says: a new booking kind,
+  `closure`.
+  - It holds the room's slots for the chosen days, with a reason (required).
+  - The Maintenance team, the office and admins may make one.
+- A closure **may cover times already booked** (the rules' override with a
+  reason already exists for the office). Anyone already booked is
+  **emailed a warning**, and the office is told. Their booking isn't
+  cancelled automatically: the office decides.
+- On **Book a room**, a closed room shows "Closed for maintenance" with
+  the reason on those days, and can't be picked. **Decision for Martin
+  (A-M2):** hide it completely for those days (the brief says it
+  "disappears"), or show it as closed? Recommended: "disappears" on Book a
+  room, and "Closed" on the office's bookings calendar.
+- **Needs the main window:** a **Maintenance team** must exist as a team
+  (§6 "teams are data"), so its members get the space and the rules can
+  test `'Maintenance' in teams`.
+
+### F-124 — Listen (sermons and the podcast)
+- **Data:**
+  - `sermons`: title, speaker, date, series, Bible passage (book, chapter,
+    verses), length, audio, size, and published or not
+  - `sermonSeries`: name, artwork, order
+- **Audio** goes in Firebase Storage (`sermons/<id>.mp3`), public to read
+  (it's a public podcast), uploaded only by sermon admins. Storage supports
+  the "range" requests podcast apps need. Size: about 30 MB a sermon, so
+  48 past sermons is about 1.5 GB. Storage costs pennies; downloads are
+  about 12p a GB.
+- **The player:**
+  - an ordinary audio player, with lock-screen controls (the Media
+    Session API, which Android and iPhone both show)
+  - **it remembers your place**: on the phone, and for a signed-in person
+    also in `listenProgress/<uid>`, so "Carry on listening" works on any
+    device
+  - search by speaker, Bible book or date
+- **Admin upload page**, `sermons-admin.html`:
+  - pick the file, fill in the details, publish
+  - who: master admins, and the admins of a team Martin names (for
+    example, Preacher / Service Leader)
+  - the 25–48 ChurchSuite sermons Martin downloads go in through the same
+    page, with their original dates
+- **The podcast feed (RSS):** one public, permanent address that Spotify
+  reads. **Two ways:**
+  1. **A file in Storage** (`podcast/feed.xml`), rewritten by the admin page
+     each time a sermon is published. No server code. The address is a
+     long Storage address, but it never changes.
+  2. **A small Cloud Function** (`podcastFeed`, codebase "hub", the main
+     window's) that builds the feed from `sermons` whenever it's asked.
+     Cleaner, and it can't be out of date. It needs the main window and a
+     deploy.
+
+  **Recommended: 2.** **Decision for Martin (A-L1).**
+- **Repointing Val's Spotify show, never a new one:**
+  - The new feed must carry **the same show name, artwork, description and
+    owner email** as the current show.
+  - It must carry **every existing episode with the same episode ID
+    (`guid`)**, or Spotify shows them all twice.
+  - Then, in **Spotify for Creators**, Val uses the show's "move / redirect
+    to a new host" setting and gives the new feed address. The old feed
+    sends listeners on, and followers stay.
+  - **Needed from Martin or Val (A-L2):**
+    - the show's **current RSS address** (I import the existing episodes'
+      IDs and dates from it)
+    - who holds the Spotify for Creators login (Val)
+    - the artwork (3000×3000)
+    - the **owner email** to put in the feed (Spotify sends a check code
+      there)
+  - The repointing itself is done **by Val, by hand**. I'll write the steps
+    in plain words when the feed exists. Nothing is touched on Spotify
+    before that.
+
+### F-125 — REQUESTS for the main window (the app)
+- **A1:** how my screens sit in the shell (F-119), and the bottom bar size
+  and safe areas.
+- **A2:** the spaces and tabs that open my screens:
+  - Kids Church: **Today** and **Children**
+  - Me and my family: **What's on** and **Listen**
+  - Maintenance: **Jobs** and **Rooms**
+  - Running things: **Bookings**, which opens Room bookings, with
+    "Approve?" from my `bookings` data
+- **A3:** a **Maintenance** team in the teams data, and teams as data
+  generally (§6), so my rules can name `'Maintenance'`.
+- **A4:** Home calls my helpers:
+  - `myFamilyThisSunday()` (F-121)
+  - `myEvents()` (F-122)
+  - `myGroupsNext()`: the next meeting of each of my groups, from
+    `smallGroupMeetings` and the group's day (exists in pieces)
+
+  These go in a small `egbc-events-home.js`. The main window draws them.
+- **A5:** **the family rule:** "Your family this week" needs the household
+  (`EGBCRotaPdf.householdIds`). Children's Sunday groups are in `kids*`,
+  matched to a family by the registration email, not the address book
+  household. I'll join them by the parent's sign-in email, so Home shows
+  "Kids Church · Ada and Ben" for that parent. Youth groups (Lazers and so
+  on) via the household are the main window's (YOUTH-ACCESS).
+- **A6 (if Listen is built with a function):** `podcastFeed` in codebase
+  "hub", from my spec (F-124).
+- **A7:** F-115 (sign-ups check "Who can come"), still open.
+
+### F-126 — the order I'd suggest
+1. Kids Church Today and Children (mostly there already), with leaders
+   checking in.
+2. Parents' Sunday on Home (F-121), once Martin decides A-K1.
+3. Close a room and Jobs (needs the Maintenance team, A3).
+4. Listen: the upload page and the player first; the feed and the Spotify
+   repointing last (needs A-L1 and A-L2).
+5. The small What's on and Book a room additions, alongside.
