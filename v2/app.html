@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- viewport-fit=cover, because the tab bar has to be able to pad itself past
+     the phone's own navigation. Martin tapped Groups in the mock-up and closed
+     the app instead (APP-DESIGN-BRIEF §7). -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EGBC Hub</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610091200"></script>
+<!-- No team on the door: everyone in the address book has this app. Somebody
+     signed in who is not in the book is turned away by the guard with the
+     "we do not recognise that address" card, which is right. -->
+<script src="egbc-guard.js?v=202610091200"></script>
+<script src="egbc-ui.js?v=202610091200"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --card:0 1px 2px rgba(16,24,40,.05);--sp:var(--brand);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+
+  /* The three rows: chrome, the scrolling middle, the tabs. The middle is the
+     only thing that scrolls, so the tab bar never leaves the screen. */
+  #egbc-app{display:grid;grid-template-rows:auto 1fr auto;height:100%;max-width:520px;margin:0 auto;background:#fff}
+
+  .top{background:#fff;border-bottom:1px solid var(--line);padding:env(safe-area-inset-top) 0 0}
+  .top-row{display:flex;align-items:center;gap:10px;padding:12px 16px 10px}
+  .logo{font-size:11px;font-weight:600;letter-spacing:.14em;color:var(--sp)}
+  .top-title{font-size:13px;font-weight:500;color:var(--muted);flex:1}
+
+  /* The spaces, as a scrolling row of pills under the header. Not a menu. */
+  .spaces{display:flex;gap:6px;overflow-x:auto;padding:0 12px 10px;scrollbar-width:none}
+  .spaces::-webkit-scrollbar{display:none}
+  .space{flex:none;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;
+         border:1px solid var(--line-2);border-radius:8px;background:#fff;color:var(--body);
+         font:500 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+  .space[aria-pressed="true"]{border-color:var(--sp);color:var(--ink);background:#fff;box-shadow:inset 0 0 0 1px var(--sp)}
+  .space .dot{width:8px;height:8px;border-radius:50%;flex:none}
+
+  .content{overflow-y:auto;padding:16px 16px 20px;display:grid;gap:14px;align-content:start}
+  .hello{font-size:22px;font-weight:700;color:var(--ink);margin:0}
+  .sub{font-size:13px;color:var(--muted);margin:2px 0 0}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card)}
+  .card.list{display:grid}
+  .row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;
+       border:0;border-bottom:1px solid var(--line);padding:12px 14px;cursor:pointer;
+       font:400 14px Inter,sans-serif;color:var(--body);min-height:56px}
+  .card.list .row:last-child{border-bottom:0}
+  .row:active{background:#f3f4f6}
+  .row .ic{width:36px;height:36px;border-radius:8px;background:var(--tint);color:var(--c,var(--sp));
+           display:grid;place-items:center;flex:none}
+  .row .tx{flex:1;min-width:0;display:grid;gap:1px}
+  .row .tx b{font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+  .row .tx small{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+  .row .chev{color:var(--faint);flex:none}
+
+  .sec{display:grid;gap:8px}
+  .sec-h{display:flex;align-items:baseline;gap:10px}
+  .sec-h h3{font-size:15px;font-weight:600;color:var(--ink);margin:0;flex:1}
+  .sec-h button{background:none;border:0;color:var(--sp);font:500 13px Inter,sans-serif;cursor:pointer;padding:4px}
+
+  .next{padding:14px}
+  .next-top{display:flex;gap:12px;align-items:flex-start}
+  .date{width:48px;text-align:center;flex:none}
+  .date b{display:block;font-size:20px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
+  .date span{font-size:11px;color:var(--muted)}
+  .next h4{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
+  .next p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;
+       padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;
+       border:1px solid var(--line-2);background:#fff;color:var(--ink)}
+  .btn.primary{background:var(--sp);border-color:var(--sp);color:#fff}
+
+  .empty{display:grid;justify-items:center;gap:8px;text-align:center;color:var(--muted);
+         font-size:13px;padding:26px 8px;margin:0}
+  .empty i{color:var(--faint)}
+
+  /* THE TAB BAR, and the numbers are APP-DESIGN-BRIEF §7's.
+       - a 22px icon, a 2px gap and an 11.5px label inside 10px of padding
+         comes to about 58px a tab, against the 48px asked for
+       - below it, 26px plus whatever the phone says its own navigation
+         needs: nothing on Android 3-button, about 24px on gesture
+         navigation, about 34px on an iPhone with a home indicator */
+  .tabs{display:grid;grid-template-columns:repeat(var(--n,4),1fr);background:#fff;
+        border-top:1px solid var(--line);padding:6px 4px calc(26px + env(safe-area-inset-bottom,0px))}
+  .tab{border:0;background:none;display:grid;justify-items:center;gap:2px;padding:10px 0;
+       font:500 11.5px Inter,sans-serif;color:var(--muted);cursor:pointer}
+  .tab[aria-current="page"]{color:var(--sp)}
+  .tab[aria-current="page"] svg{stroke-width:2.25}
+
+  .sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;z-index:60}
+  .sheet{background:#fff;width:100%;max-width:520px;margin:0 auto;border-radius:20px 20px 0 0;
+         padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;
+         max-height:85%;overflow-y:auto}
+  .sheet h3{margin:0;font-size:17px;font-weight:600;color:var(--ink)}
+  .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:-6px auto 2px}
+
+  /* Clear of the tab bar as well as the phone's own navigation. */
+  .toast{position:fixed;left:16px;right:16px;max-width:488px;margin:0 auto;
+         bottom:calc(96px + env(safe-area-inset-bottom,0px));background:var(--ink);color:#fff;
+         padding:10px 14px;border-radius:8px;font-size:13px;z-index:70;text-align:center}
+</style>
+</head>
+<body>
+<div id="egbc-app"></div>
+
+<script src="egbc-app.js?v=202610101200"></script>
+<script>
+/* ---- the screens that open a page which already does the job -------
+   APP-DESIGN-BRIEF §5, and A1 counted 11 of the mock-up's 24 this way.
+   None of these is a new screen: each is a short list of real links, so
+   the app is useful from this stage rather than after the last one.
+
+   Home, Me with My details, the family rule, Running things and Give are
+   later stages. A tab with no screen behind it is not drawn at all. */
+
+const A = EGBCApp, row = A.row, sec = A.sec, card = A.card, head = A.head, ic = A.ic;
+
+/* ---- Me and my family ---------------------------------------------- */
+
+A.screen('me', 'home', function (me) {
+  return head('Morning, ' + me.first, 'Here is your week')
+    + card(
+        row('calendar-days', "What's on", 'Church events, and signing up', null, 'tab:whatson') +
+        row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
+        row('circle-user', 'Me', 'Your details, household and calendar', null, 'tab:me'))
+    /* NO LISTEN ROW IN THIS STAGE. There is no Listen screen registered
+       yet - the player is the events window's - and a row pointing at a tab
+       that does not exist is a row that does nothing. The check caught it:
+       the Me space draws three tabs, not four. */
+    + A.empty('hammer', 'Your rota, your family, your notices and Listen arrive in the next stages.');
+});
+
+A.screen('me', 'whatson', function () {
+  return head("What's on", 'Everything you can come to')
+    + card(
+        row('calendar-heart', 'Church events', 'What is coming up, and signing up', null, 'open:whatson.html') +
+        row('door-open', 'Book a room', 'See what is free and book it', null, 'open:rooms.html') +
+        row('users', 'Small groups', 'Your groups, and finding one', null, 'open:groups.html'));
+});
+
+A.screen('me', 'me', function (me) {
+  return head(me.first, me.churchMember ? 'Church member' : 'Attender')
+    + card(
+        row('users', 'My groups', 'Your groups, and finding one', null, 'open:groups.html') +
+        row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
+        row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota', null, 'open:hub.html'))
+    + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'))
+    + A.empty('hammer', 'My details, my household and Give arrive in the next stages.');
+});
+
+/* ---- a team space -------------------------------------------------- */
+
+function teamRota(label) {
+  return head('Your rota', label)
+    + sec('Next term', '<div class="card" style="padding:14px">'
+        + '<p style="margin:0 0 10px;font-size:14px">Say which Sundays you can do on the availability form.</p>'
+        + '<div class="actions"><button class="btn primary" data-act="open:index.html">'
+        + ic('calendar-check-2', 15) + ' Open the availability form</button></div></div>')
+    + sec('The whole rota', card(
+        row('table', 'Everyone, week by week', 'The rota as it stands', null, 'open:view-only-rota.html')));
+}
+
+function teamTeam(space, extra) {
+  return head(A.SPACES[space].label) + card(extra);
+}
+
+['youth', 'lazers', 'renu'].forEach(function (k) {
+  A.screen(k, 'rota', function () { return teamRota(A.SPACES[k].label); });
+  A.screen(k, 'team', function () {
+    return teamTeam(k,
+      row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html') +
+      row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html') +
+      (k === 'youth'
+        ? row('scroll-text', 'Our charter', 'What we are for, and how we work', null, 'open:Youthcharter.html')
+        : '') +
+      row('sticky-note', 'Ideas pin board', 'Suggestions and ideas', null,
+          k === 'youth' ? 'open:stickynotes.html?board=youth' : 'open:stickynotes.html?board=' + k));
+  });
+});
+
+/* ---- Worship & AV --------------------------------------------------- */
+
+A.screen('worship', 'rota', function () { return teamRota('Worship & AV'); });
+
+A.screen('worship', 'learn', function () {
+  return head('Learn', 'Videos and how-tos for the team')
+    + card(
+        row('circle-play', 'How to: AV', 'Short videos for the desk', null, 'open:EGBC-HowTo-AV.html') +
+        row('wrench', 'Something not working?', 'Troubleshooting, step by step', null, 'open:EGBC-Troubleshoot-AV.html') +
+        row('headphones', 'Play-through', "Listen to Sunday's songs before you come", null, 'open:EGBC-PlayThrough.html') +
+        row('graduation-cap', 'Worship training', 'How we lead worship here', null, 'open:EGBC-Training-Worship.html'));
+});
+
+A.screen('worship', 'team', function () {
+  return teamTeam('worship',
+    row('scroll-text', 'Our team charter', 'What we are for, and how we work', null, 'open:Worshipteamcharter.html') +
+    row('sticky-note', 'Ideas pin board', 'Suggestions and ideas', null, 'open:stickynotes.html?board=worship') +
+    row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html') +
+    row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html') +
+    row('list-music', 'Song library', 'Every song we have', null, 'open:Library.html'));
+});
+
+/* ---- Kids Church ----------------------------------------------------- */
+
+A.screen('kids', 'rota', function () { return teamRota('Kids Church'); });
+
+A.screen('kids', 'team', function () {
+  return teamTeam('kids',
+    row('shield-check', 'Safeguarding', 'Report a concern, the policy, your training', null, 'open:safeguarding.html') +
+    row('clipboard-list', "Children's register", 'Who came, by group and term', null, 'open:kids-admin.html') +
+    row('scan-line', 'Sunday check-in', 'The desk on a Sunday morning', null, 'open:kids-checkin.html') +
+    row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:resources.html'));
+});
+
+/* ---- Maintenance ------------------------------------------------------ */
+
+A.screen('maint', 'jobs', function () {
+  return head('Maintenance', 'Jobs reported by the church')
+    + card(row('wrench', 'Jobs, and reporting one', 'What needs fixing, and marking it done', null, 'open:maintenance.html'));
+});
+
+A.screen('maint', 'team', function () {
+  return teamTeam('maint',
+    row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html'));
+});
+
+/* ---- Running things --------------------------------------------------- */
+
+A.screen('office', 'people', function () {
+  return head('People')
+    + card(
+        row('search', 'Address book', 'Find someone, add a person or a family', null, 'open:addressbook.html') +
+        row('badge-check', 'Church members', 'Who has formally joined', null, 'open:addressbook.html'));
+});
+
+A.screen('office', 'send', function () {
+  return head('Send something')
+    + card(
+        row('mail', 'An email', 'To a team, a group or everyone', null, 'open:EmailBuilder2.html') +
+        row('megaphone', 'A notice', "Shows on everyone's home page", null, 'open:hub.html'));
+});
+
+A.screen('office', 'bookings', function () {
+  return head('Room bookings')
+    + card(row('door-open', 'Requests and the diary', 'What is waiting, and what is booked', null, 'open:bookings-admin.html'));
+});
+
+/* Nothing starts until the guard says who this is. */
+document.addEventListener('egbc-ready', function () { EGBCApp.start(); });
+</script>
+</body>
+</html>

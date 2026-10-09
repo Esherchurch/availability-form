@@ -37,6 +37,13 @@ const NOT_YET = {
      SIX OF THE FIRST VERSION OF THIS LIST WERE WRONG - pages I excused
      that the style check already covers - and the "no page is both" check
      below is what said so. */
+  /* Not unchecked - checked by something else. The phone app's shell is
+     held to APP-DESIGN-BRIEF, which is a different design from the desktop
+     restyle the style check measures: four tabs, no menu, 48px targets,
+     safe-area padding. tests/check-app-shell.mjs measures all of that on a
+     phone-sized screen as five different people, which is more than the
+     style sweep would ask of it. */
+  "app.html": "the phone app's shell - measured by tests/check-app-shell.mjs, to APP-DESIGN-BRIEF rather than the desktop restyle",
   "attendance.html": "the events window's",
   "events-admin.html": "the events window's",
   "form.html": "the events window's",

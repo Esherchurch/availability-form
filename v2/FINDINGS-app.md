@@ -1856,3 +1856,121 @@ Their own click handlers are fine. The caveat worth stating is the one that
 has caught me three times in my own checks (A-033, A-044, A-049): **the DOM is
 rebuilt on every render**, so `getElementById('save').onclick = …` once at
 load is lost. Delegate, or re-attach each render.
+
+## A-062 — the shell is built, and the check that kept failing was the check
+
+**Stage 1 of the app shell**: `egbc-app.js` (the spaces and tabs registry and
+the display helpers), `app.html` (the shell page), and
+`tests/check-app-shell.mjs` (36 assertions, five synthetic people, on a
+phone-sized screen).
+
+The shell worked early. The check took the rest of the day, and every hour of
+it was one lesson repeated: **a wait that can fall through is a gate that
+cannot fail.**
+
+In order, what it did and what gave it away:
+
+1. **A 7-second sleep.** One person passed, four reported "no spaces at all".
+   The app was right and the check was early.
+2. **A wait for `.tab` to exist.** Between a navigate and its commit the
+   previous page's DOM is still on screen, so `.tab` was the last person's.
+3. **A wait for `EGBCApp.who().name`.** It went green 31/31 - *because the
+   `name` field had never been added to the people table, so the comparison
+   was against `undefined`, never matched, and fell through to its full
+   20-second sleep*. A pass for the wrong reason, which is this file's
+   subject. Fixing the name dropped it to 29/31.
+4. **A wait for `who().name` that worked.** Still wrong: the profile is live
+   in the page before `draw()` has run with it.
+
+What it waits for now is `#egbc-app`'s `data-drawn` attribute, which `draw()`
+writes with the uid it drew for. **Only a render can produce it**, so it
+cannot be answered by a stale page, by a profile that has arrived, or by
+nothing at all. And a wait that times out now **fails and says where the page
+was**, because "data-drawn: (none)" is equally true of an app that did not
+draw and of a page that is not the app - and it turned out to be the second.
+
+Three more gates of mine that could not fail, all found by that one change:
+
+- **"gets in"** - `data-egbc-blocked` is empty on the sign-in harness too, so
+  it passed on a page with no app on it. The check now asserts the page *is*
+  `app.html` before measuring anything on it.
+- **The sign-in was never checked.** Every other browser check in `tests/`
+  asserts `currentUser` after signing in; this one navigated on the strength
+  of an unchecked promise. Five fixed sleeps on the sign-in path are now five
+  waits for a condition, including one for a working ID token.
+- **Only `console.error` was collected**, so an uncaught exception - the
+  loudest failure there is, and the one that leaves a promise pending for
+  ever - was invisible. `Runtime.exceptionThrown` is collected now.
+
+### The rules error in the emulator's log was my seeding
+
+`firestore-debug.log` showed an evaluation error against `users/{uid}` on
+every run, at the four `allow update` rules. It read like a launch blocker:
+the mirror never updating means a person added to a team stays off it.
+
+It was the check. `mirrorsBook` compares the mirror with the book field by
+field, and the seeding put `churchMember` on the mirror and not in the book,
+so every page load attempted an update the rules must refuse - and the app
+swallows that failure (`.catch(function () {})`), so nothing said so. With
+the book carrying `churchMember`, `archived` and `isMinor`, the run logs
+**zero** evaluation errors and zero denials. **No rules change was needed, and
+none was made.**
+
+### Open, not fixed: A-064
+
+One of the five, the Attender, still ends a run with no `lastSeen`, with no
+denial in the log - so the write is not refused, it is not arriving. The
+likely reason is a pending write lost when the check navigates away from the
+first page it loads, before the connection is warm. That is a harness
+artefact if so and nothing at all if not, and I have not established which,
+so it is a number rather than a claim.
+
+### Deliberate breaks
+
+| Break | Caught by |
+|---|---|
+| `spacesFor` gives every space to everyone | 6 FAILs: all four "sees exactly", "no row of spaces at all", and "a space this person is NOT in is refused" |
+| `draw()` never renders the spaces row (`mine.length > 99`) | 4 FAILs, **and no retry fired** - the reload below stayed out of the way |
+
+### The one proof that matters
+
+**Ten consecutive runs, 36/36, with the reload firing twice and saying so.**
+Not one green run: ten. The flake this chased was 6 failures in 8 runs, and a
+single pass would have proved nothing.
+
+## A-063 — the app never recovers from a failed first profile read
+
+Found while chasing A-062, in the app rather than the check, and **not fixed**
+because it is `egbc-auth.js`, which every page shares and which the standing
+constraints say to pull before touching.
+
+The Firestore emulator intermittently leaves a new browser client unable to
+open a stream. The page's first read then fails in one of two ways:
+
+- **Loudly** - "Could not reach Cloud Firestore backend", then "client is
+  offline", and `loadProfile`'s `.catch` shows **"Something went wrong"**.
+- **Silently** - the read neither resolves nor rejects, so the guard's splash
+  stays up **for ever**, with a quiet console and no way forward.
+
+Either way **nothing in the page retries**, which the check proved from the
+outside: a probe read issued from the same page a moment later *succeeded*
+while the page stayed stuck, and a reload fixed it every time.
+
+An emulator dropping a connection is a test-machine problem. **A phone on a
+patchy signal is not.** This is the app's own front door, on every page in
+v2, and what it does on a dropped first read is hang on a splash screen with
+nothing said and nothing to press.
+
+What it should do, for a later stage with its own deliberate break: retry the
+profile read a few times, and if it still cannot, say so with a "Try again"
+rather than an eternal splash. Rule Zero: no change may lock a user out -
+and this locks a user out without any change at all.
+
+The check does **not** paper over it. It reloads only on the exact
+fingerprint of a dropped connection - splash still up, signed in, no profile
+- and anything else fails at once, which deliberate break B above confirms.
+
+## A-064 — the Attender's mirror write does not arrive (open)
+
+See A-062. Not established, not fixed, and recorded so it is not rediscovered
+from scratch.

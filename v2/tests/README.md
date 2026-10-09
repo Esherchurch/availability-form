@@ -200,3 +200,40 @@ page could not see it (A-024 in `FINDINGS-app.md`).
 
 Pages with no Menu are listed in the check with the reason — public pages,
 phone apps, the out-of-scope apps — and a page falling out of that list fails.
+
+## The phone app's shell, and why its check reloads
+
+`check-app-shell.mjs` signs in as **five** synthetic people on a 390x844
+screen and measures what the shell draws: which spaces each person sees, that
+no space has more than four tabs, that a tab is at least 48px, that the bar
+pads itself clear of the phone's own navigation, and the escaping contract
+given to the events window.
+
+Two things about it are worth knowing before changing it.
+
+**It waits for `data-drawn`, not for a sleep and not for an element.**
+`draw()` stamps `#egbc-app` with the uid it drew for. Only a render can write
+that, so the wait cannot be satisfied by the previous page's DOM, by a profile
+that has arrived before the redraw, or by a comparison against `undefined`.
+All three happened, and the third went green 31/31 for the wrong reason.
+**If you change the wait, change `draw()`'s stamp with it.**
+
+**It reloads the page, up to three times, on one exact fingerprint**: the
+guard's splash still up, signed in, no profile. That is the Firestore
+emulator intermittently refusing a new browser client, which the page itself
+never recovers from (A-063). Every other failure to draw fails the check
+immediately — deliberate break B in A-062 confirms it, and a run that reloads
+**says so** in a `note` line rather than passing quietly.
+
+**It pauses only `https://` requests** through CDP. Pausing everything pauses
+Firestore's own stream to the emulator on `http://localhost`, which stops the
+stream establishing and produces exactly the failure above. Off-machine
+traffic is all https, so https is the whole of what the blocking is for;
+plain-http traffic is still watched through `Network.requestWillBeSent`.
+
+**Its seeding writes both sides.** `mirrorsBook` compares `users/{uid}` with
+the address book record field by field, so a field seeded on one side only
+makes every page load attempt an update the rules must refuse — silently,
+because the app swallows that failure. Seed the book with `churchMember`,
+`archived` and `isMinor` or the emulator's log fills with rules evaluation
+errors that look like a fault in the rules.
