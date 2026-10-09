@@ -2557,3 +2557,99 @@ Built to the main window's shell contract (FINDINGS-app A-050):
    I also swapped maintenance.html's ✓ and ⚙ before the sweep found them.
    Please add `maintenance.html`, `sermons-admin.html` and `bookings-admin.html`
    to the sweep's list if they aren't on it.
+
+### F-138 — Sermons, Martin's option 3: the hub reads Val's podcast (replaces the repointing plan)
+**Martin's decision:**
+- Val keeps uploading to Spotify for Creators (Anchor), as now.
+- The hub reads that show's public RSS feed automatically.
+- Nothing moves, and **Spotify is not repointed**.
+
+**Built:**
+- **`egbc-sermons-feed.js`** is rewritten. It reads the feed, and decides
+  what to write for each episode (create, update or leave alone), matched
+  by the episode's guid.
+  - The sermon's document id is made from the guid and nothing else
+    (`idForGuid`), so **reading the feed again can never make a second
+    copy**.
+  - A read refreshes only the feed's own fields: title, date, words, audio
+    address, length.
+  - It **never touches what the hub adds**: series, Bible book and passage,
+    speaker, and shown or hidden.
+  - A new episode arrives shown.
+  - A feed that won't read changes nothing, and says why.
+- **Rules** (my section; 40 sermon checks):
+  - **No page can make a "feed" episode.** Only the function writes them,
+    with the Admin SDK.
+  - On a feed episode, the hub may change only the speaker, series, book,
+    passage and shown or hidden. **The title, words and audio stay the
+    feed's.**
+  - The feed's address (`sermonShow/feed`) is a setting the sermon people
+    set. It must be `https://`.
+  - `sermonShow/feedStatus` (what the last read found) is the function's
+    alone to write.
+  - An upload made by hand (the backup way) works as before.
+- **The upload page (sermons-admin.html):**
+  - every episode is marked "From Spotify" (or "Uploaded here"), with "Add
+    series and passage", and Hide or Show
+  - the podcast's RSS address, and what the last read found
+  - "Upload a sermon by hand" is kept as the backup
+  - series, and who may look after sermons
+  - **Removed:** "Ready to repoint Spotify", bringing over the old show, the
+    show's details and artwork, and the feed preview
+- **The player (Listen):** plays a feed episode from **the feed's own audio
+  address**, and an upload from Storage. Everything else is unchanged:
+  - series, search and "Carry on listening"
+  - it keeps playing across tabs
+  - the "Now playing" bar hooks (F-137)
+
+  "Also on Spotify: search for …" now takes the show's name from the last
+  read.
+- **Tests, with an invented feed and audio served from this machine:**
+  - feed unit test: 15
+  - sermons browser test: 27 (it plays the function's part itself, with the
+    same file, against the emulator)
+  - Both prove that a second read makes no second copy, and that the hub's
+    additions and a hidden episode survive reads.
+
+### F-139 — REQUEST for the main window: `sermonFeedSync` (and F-133 is no longer needed)
+**F-133 (the hub-hosted podcast feed, `podcastFeed`) is no longer needed.
+Please don't build it.** Martin chose option 3: Spotify isn't repointed.
+
+**Please build instead, in codebase "hub":**
+- **`sermonFeedSync`**, `onSchedule('every 60 minutes')`, in the hub's
+  region (`europe-west2`).
+- **Read the address** from `sermonShow/feed.url`. If it's empty, do
+  nothing.
+- **Fetch it:**
+  - time out after 20 seconds
+  - read at most 10 MB
+  - follow redirects
+  - send a plain `User-Agent` naming the church hub
+- **Hand the text to `EGBCSermonsFeed.sync(store, text, new Date())`** from
+  `egbc-sermons-feed.js`. Copy it in as `functions/sermons-feed.cjs`
+  (CommonJS; it uses the global `btoa`, which Node 16+ has). The store:
+  ```
+  get(id)          -> (await db.doc('sermons/' + id).get()).data() || null
+  create(id, data) -> db.doc('sermons/' + id).create(data)   // create(), not set(): it fails rather than overwrite
+  update(id, data) -> db.doc('sermons/' + id).update(data)
+  status(data)     -> db.doc('sermonShow/feedStatus').set(data)
+  ```
+- **If the fetch itself fails** (network, a 404), write only
+  `sermonShow/feedStatus` with `{ lastReadAt, ok: false, error }` (the error
+  in plain words), and change no sermon.
+- **Never delete a sermon**, even if an episode leaves the feed.
+- **My tests are the specification:**
+  - `screenshots/events/sermons-feed-unit.test.mjs`
+  - the store part of `screenshots/events/sermons.test.mjs`
+
+  Tests I'd suggest on your side:
+  - two runs on the same feed make no new documents
+  - a hub-set `seriesId` survives a run
+  - a fetch error writes the status only
+
+**Where the address comes from:** Martin will get it from Val (in Spotify
+for Creators, under Settings, the RSS feed), and it goes in on the Sermons
+page. Until then nothing comes in, and the page says so.
+
+**The CORS point:** a page can't fetch the feed itself; the podcast host
+doesn't allow it. That's why this is a server step.

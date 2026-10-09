@@ -319,12 +319,11 @@ service firebase.storage {
       allow delete: if false;
     }
 
-    // Sermons (the phone app's "Listen"; F-132). A published sermon's audio
-    // is public: podcast apps and Spotify fetch it with no sign-in, through
-    // the plain address (no token) that the feed gives, so this rule is what
-    // stands between the world and an unpublished one. The sermon admins
-    // (master admins, and the people named in sermonShow/access) upload it.
-    // Replaced by a new upload, never deleted from a page.
+    // Sermons uploaded in the hub (the backup way; F-132, F-138). Sermons
+    // from Val's feed play from the feed's own addresses and have nothing
+    // here. A shown sermon's audio may be played by anyone; one not shown
+    // only by the sermon admins (master admins, and the people named in
+    // sermonShow/access), who upload it. Replaced, never deleted from a page.
     function sermonDoc(id) {
       return firestore.get(/databases/(default)/documents/sermons/$(id)).data;
     }
@@ -345,13 +344,7 @@ service firebase.storage {
                     && request.resource.contentType.matches('audio/(mpeg|mp3|mp4|x-m4a|m4a|aac|wav|x-wav)');
       allow delete: if false;
     }
-    // The show's artwork and each series' picture: public, like the feed.
-    match /podcast/artwork {
-      allow read: if true;
-      allow create, update: if sermonAdminHere() && request.resource.size < 10 * 1024 * 1024
-                    && request.resource.contentType.matches('image/(jpeg|png)');
-      allow delete: if false;
-    }
+    // Each series' picture: public, like the sermons.
     match /sermonSeries/{seriesId}/artwork {
       allow read: if true;
       allow create, update: if sermonAdminHere() && request.resource.size < 10 * 1024 * 1024

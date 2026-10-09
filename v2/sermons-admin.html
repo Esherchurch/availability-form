@@ -14,7 +14,6 @@
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-events.js?v=202610091400"></script>
-<script src="egbc-sermons-feed.js?v=202610091900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -27,6 +26,7 @@
   body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto;padding:20px 16px calc(72px + env(safe-area-inset-bottom))}
   h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  h2{font-weight:600}
   .sub{color:var(--muted);margin:0 0 16px}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
   .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
@@ -45,12 +45,10 @@
   .srm:first-child{border-top:none}
   .srm .t{flex:1;min-width:0}.srm .t b{color:var(--ink)}
   .pill{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
-  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.draft{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.draft{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}.pill.feed{background:var(--tint);color:var(--brand)}
   .hint{font-size:13px;color:var(--muted)}
   .st{border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0}.st.ok{background:var(--ok-bg);color:var(--ok)}.st.no{background:var(--danger-bg);color:var(--danger)}.st.warn{background:var(--gold-bg);color:var(--gold)}
   progress{width:100%;height:10px;margin-top:8px}
-  pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:var(--canvas);border-radius:10px;padding:10px;max-height:320px;overflow:auto}
-  img.art{width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;margin-top:8px}
   details summary{cursor:pointer;font-weight:600;color:var(--ink);min-height:40px;display:flex;align-items:center}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
 </style>
@@ -58,7 +56,7 @@
 <body>
 <div class="wrap">
   <h1>Sermons</h1>
-  <p class="sub">Put Sunday's sermon up. It plays in the app and goes out on the podcast.</p>
+  <p class="sub">Sunday's sermons come in from Val's podcast on Spotify by themselves. Add the series and the Bible passage here.</p>
   <div id="main"><div class="card hint">Loading…</div></div>
 </div>
 <div id="toast"></div>
@@ -66,19 +64,26 @@
 <script>
 (function () {
   'use strict';
-  /* WHO DOES WHAT (the rules enforce it; F-124, F-132):
-     master admins, and the people a master admin names below, add sermons,
-     series and the show's details. A sermon is public once published; until
-     then only they see it. Nothing is deleted: unpublish instead.
-     THE EPISODE ID (guid) of a sermon brought over from Val's show is the
-     show's own and never changes, or Spotify shows the episode twice. */
-  var E = window.EGBCEvents, FEED = window.EGBCSermonsFeed, esc = E.esc;
+  /* MARTIN'S OPTION 3 (F-138). Val keeps uploading to Spotify for Creators.
+     Every hour the function sermonFeedSync (codebase "hub") reads the
+     show's feed - its address is set below - and adds or refreshes one
+     sermon per episode, never two. Audio plays from the feed's own address.
+
+     WHAT THIS PAGE DOES:
+       - a feed episode: add its series, Bible book and passage, and speaker,
+         or hide it. Its title, words and audio are the feed's, refreshed on
+         every read; the rules let nobody change them here;
+       - the backup way: upload a sermon by hand (its audio in the hub);
+       - the feed's address, and what the last read found;
+       - series; and (master admins) who may do all this.
+     The rules enforce every part of it. Nothing is deleted: hide instead. */
+  var E = window.EGBCEvents, esc = E.esc;
   var BOOKS = ['Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth','1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles',
     'Ezra','Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Songs','Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos',
     'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians',
     '2 Corinthians','Galatians','Ephesians','Philippians','Colossians','1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon','Hebrews',
     'James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'];
-  var ME = {}, MASTER = false, MAY = false, SERMONS = [], SERIES = [], SHOW = null, ACCESS = { memberIds: [] }, PEOPLE = {}, EDIT = null, BUSY = false;
+  var ME = {}, MASTER = false, MAY = false, SERMONS = [], SERIES = [], FEEDSET = null, STATUS = null, ACCESS = { memberIds: [] }, PEOPLE = {}, EDIT = null, BUSY = false;
   function db() { return EGBCAuth.db; }
   function st() { return EGBCAuth.storage(); }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
@@ -87,10 +92,10 @@
   function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
   function $(id) { return document.getElementById(id); }
   function val(id) { var e = $(id); return e ? String(e.value || '').trim() : ''; }
-  function bucket() { return firebase.app('egbc').options.storageBucket; }
   function seriesMap() { var m = {}; SERIES.forEach(function (s) { m[s.id] = s; }); return m; }
   function lastSunday() { var d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function mins(sec) { return sec ? Math.round(sec / 60) + ' min' : ''; }
+  function isFeed(s) { return s && s.source === 'feed'; }
   function audioType(file) {
     if (file.type && /^audio\//.test(file.type)) return file.type;
     var ext = (file.name.split('.').pop() || '').toLowerCase();
@@ -110,56 +115,65 @@
   }
   /* Every write carries who and when (the rules check both). */
   function stamp(o) { o.updatedAt = now(); o.updatedBy = uid(); return o; }
+  function when(ts) { var d = ts && ts.toDate ? ts.toDate() : ts ? new Date(ts) : null; return d && !isNaN(d) ? E.fmtDateShort(d.toISOString()) + ' ' + E.fmtTime(d.toISOString()) : ''; }
 
   /* ---------------- drawing ---------------- */
 
   function draw() {
     if (!MAY) {
-      $('main').innerHTML = '<div class="card"><h2>Only the people named can add sermons</h2><p>A master admin names who puts the sermons up. Ask the office if it should be you.</p></div>';
+      $('main').innerHTML = '<div class="card"><h2>Only the people named can look after sermons</h2><p>A master admin names who adds the series and passages. Ask the office if it should be you.</p></div>';
       return;
     }
-    var chk = FEED.checkSwitchOver(SHOW || {}, SERMONS);
-    $('main').innerHTML =
-      formCard() +
-      '<div class="card" id="list"><h2>Sermons</h2>' + (SERMONS.length ? SERMONS.map(row).join('') : '<p class="hint">None yet. Add the first one above.</p>') + '</div>' +
-      seriesCard() + showCard(chk) + (MASTER ? accessCard() : '');
+    $('main').innerHTML = formCard() +
+      '<div class="card" id="list"><h2>Sermons</h2>' + (SERMONS.length ? SERMONS.map(row).join('') : '<p class="hint">None yet. They arrive from Val\'s podcast once its address is set (below).</p>') + '</div>' +
+      seriesCard() + feedCard() + (MASTER ? accessCard() : '');
     wire();
   }
 
+  /* A feed episode: the hub's part only. An upload (the backup way): all of it. */
   function formCard() {
-    var s = EDIT || {};
+    var s = EDIT || {}, feed = isFeed(EDIT);
     var speakers = {}; SERMONS.forEach(function (x) { if (x.speaker) speakers[x.speaker] = 1; });
-    return '<div class="card" id="add"><h2>' + (EDIT ? 'Change “' + esc(s.title) + '”' : 'Add a sermon') + '</h2>' +
-      (EDIT && EDIT.imported ? '<p class="st warn">Brought over from Val\'s show. Its episode ID stays the same, so Spotify does not show it twice.</p>' : '') +
-      '<label class="l" for="f-file">' + (EDIT ? 'New audio (only if it needs replacing)' : 'The recording') + '</label>' +
-      '<input class="inp" id="f-file" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,.mp3,.m4a,.wav" style="padding:10px">' +
-      '<p class="hint">An MP3 is best: it plays everywhere. Up to 300 MB.</p>' +
-      '<label class="l" for="f-title">Title</label><input class="inp" id="f-title" maxlength="200" value="' + esc(s.title || '') + '" placeholder="e.g. Ask boldly, plan wisely">' +
+    var hubPart =
       '<div class="two"><div><label class="l" for="f-speaker">Speaker</label><input class="inp" id="f-speaker" maxlength="120" list="f-speakers" value="' + esc(s.speaker || '') + '">' +
         '<datalist id="f-speakers">' + Object.keys(speakers).sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist></div>' +
-      '<div><label class="l" for="f-date">Date</label><input class="inp" id="f-date" type="date" value="' + esc(s.date || lastSunday()) + '"></div></div>' +
+      (feed ? '' : '<div><label class="l" for="f-date">Date</label><input class="inp" id="f-date" type="date" value="' + esc(s.date || lastSunday()) + '"></div>') + '</div>' +
       '<label class="l" for="f-series">Series</label><select id="f-series"><option value="">Not part of a series</option>' +
         SERIES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (s.seriesId === x.id ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' +
       '<div class="two"><div><label class="l" for="f-book">Bible book</label><select id="f-book"><option value="">None</option>' +
         BOOKS.map(function (b) { return '<option' + (s.book === b ? ' selected' : '') + '>' + esc(b) + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="l" for="f-passage">Passage</label><input class="inp" id="f-passage" maxlength="120" value="' + esc(s.passage || '') + '" placeholder="e.g. 1:1-11"></div></div>' +
-      '<label class="l" for="f-notes">Notes (optional; they show under the episode)</label><textarea id="f-notes" maxlength="4000">' + esc(s.description || '') + '</textarea>' +
-      '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;min-height:40px"><input type="checkbox" id="f-pub"' + (EDIT ? (s.published ? ' checked' : '') : ' checked') + '> Publish it (in the app and on the podcast)</label>' +
+      '<div><label class="l" for="f-passage">Passage</label><input class="inp" id="f-passage" maxlength="120" value="' + esc(s.passage || '') + '" placeholder="e.g. 1:1-11"></div></div>';
+    if (feed) {
+      return '<div class="card" id="add"><h2>“' + esc(s.title) + '”</h2>' +
+        '<p class="st ok">From Val\'s podcast. Its title, words and recording come from Spotify and stay as they are there; add the rest here. Nothing you add is lost when the podcast is read again.</p>' +
+        hubPart +
+        '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;min-height:40px"><input type="checkbox" id="f-pub"' + (s.published ? ' checked' : '') + '> Show it in the app</label>' +
+        '<div id="f-err"></div><div class="acts"><button class="btn" id="f-go">Save</button><button class="btn sec" id="f-cancel">Cancel</button></div></div>';
+    }
+    return '<details class="card" id="add"' + (EDIT ? ' open' : '') + '><summary>' + (EDIT ? 'Change “' + esc(s.title) + '”' : '+ Upload a sermon by hand (if one is not on the podcast)') + '</summary>' +
+      '<label class="l" for="f-file">' + (EDIT ? 'New audio (only if it needs replacing)' : 'The recording') + '</label>' +
+      '<input class="inp" id="f-file" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,.mp3,.m4a,.wav" style="padding:10px">' +
+      '<p class="hint">An MP3 is best: it plays everywhere. Up to 300 MB. This is the backup way; sermons on Val\'s podcast arrive by themselves.</p>' +
+      '<label class="l" for="f-title">Title</label><input class="inp" id="f-title" maxlength="200" value="' + esc(s.title || '') + '" placeholder="e.g. Ask boldly, plan wisely">' +
+      hubPart +
+      '<label class="l" for="f-notes">Notes (optional)</label><textarea id="f-notes" maxlength="4000">' + esc(s.description || '') + '</textarea>' +
+      '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;min-height:40px"><input type="checkbox" id="f-pub"' + (EDIT ? (s.published ? ' checked' : '') : ' checked') + '> Show it in the app</label>' +
       '<div id="f-err"></div><progress id="f-prog" max="100" value="0" style="display:none"></progress>' +
-      '<div class="acts"><button class="btn" id="f-go">' + (EDIT ? 'Save' : 'Upload') + '</button>' + (EDIT ? '<button class="btn sec" id="f-cancel">Cancel</button>' : '') + '</div></div>';
+      '<div class="acts"><button class="btn" id="f-go">' + (EDIT ? 'Save' : 'Upload') + '</button>' + (EDIT ? '<button class="btn sec" id="f-cancel">Cancel</button>' : '') + '</div></details>';
   }
 
   function state(s) {
-    if (!s.audioPath || !s.audioSize) return '<span class="pill no">Needs its audio</span>';
-    return s.published ? '<span class="pill ok">Published</span>' : '<span class="pill draft">Not published</span>';
+    if (!isFeed(s) && (!s.audioPath || !s.audioSize)) return '<span class="pill no">Needs its audio</span>';
+    return s.published ? '<span class="pill ok">Shown</span>' : '<span class="pill draft">Hidden</span>';
   }
   function row(s) {
-    var ser = s.seriesId ? seriesMap()[s.seriesId] : null;
-    return '<div class="srm" data-srm="' + esc(s.id) + '"><div class="t"><b>' + esc(s.title) + '</b> ' + state(s) + '<br>' +
-      '<span class="hint">' + esc([E.fmtDateShort(s.date), s.speaker, s.book ? s.book + (s.passage ? ' ' + s.passage : '') : '', ser ? ser.name : '', mins(s.durationSec)].filter(Boolean).join(' · ')) +
-      (s.imported ? ' · from Val\'s show' : '') + '</span>' +
-      '<div class="acts"><button class="btn sec small" data-edit="' + esc(s.id) + '">' + (s.audioPath ? 'Change' : 'Add its audio') + '</button>' +
-      (s.audioPath && s.audioSize ? (s.published ? '<button class="btn sec small" data-unpub="' + esc(s.id) + '">Unpublish</button>' : '<button class="btn small" data-pub="' + esc(s.id) + '">Publish</button>') : '') +
+    var ser = s.seriesId ? seriesMap()[s.seriesId] : null, feed = isFeed(s);
+    var needs = feed && (!s.seriesId && !s.book) ? ' · <b>add its series or passage</b>' : '';
+    return '<div class="srm" data-srm="' + esc(s.id) + '"><div class="t"><b>' + esc(s.title) + '</b> ' + state(s) + (feed ? ' <span class="pill feed">From Spotify</span>' : ' <span class="pill feed">Uploaded here</span>') + '<br>' +
+      '<span class="hint">' + esc([E.fmtDateShort(s.date + 'T12:00'), s.speaker, s.book ? s.book + (s.passage ? ' ' + s.passage : '') : '', ser ? ser.name : '', mins(s.durationSec)].filter(Boolean).join(' · ')) + '</span>' +
+      '<span class="hint">' + needs + '</span>' +
+      '<div class="acts"><button class="btn sec small" data-edit="' + esc(s.id) + '">' + (feed ? 'Add series and passage' : s.audioPath ? 'Change' : 'Add its audio') + '</button>' +
+      (feed || (s.audioPath && s.audioSize) ? (s.published ? '<button class="btn sec small" data-unpub="' + esc(s.id) + '">Hide</button>' : '<button class="btn small" data-pub="' + esc(s.id) + '">Show</button>') : '') +
       '</div></div></div>';
   }
 
@@ -176,37 +190,22 @@
       '<div class="acts"><button class="btn" id="ns-go">Add the series</button></div></details></div>';
   }
 
-  function showCard(chk) {
-    var s = SHOW || {};
-    var ready = chk.ready ? '<p class="st ok" id="ready">Ready. Every episode of Val\'s show is here with its own ID, and the show\'s details are in. Val can repoint Spotify once the feed is live.</p>'
-      : '<div class="st warn" id="ready"><b>Not ready to repoint Spotify yet.</b>' +
-        (chk.missingShow.length ? '<br>Still needed: ' + esc(chk.missingShow.join(', ')) + '.' : '') +
-        (chk.oldMissing.length ? '<br>' + chk.oldMissing.length + ' episode' + (chk.oldMissing.length === 1 ? '' : 's') + ' from Val\'s show still need their audio, or are not published. Without them, they would vanish from Spotify.' : '') +
-        (chk.dupes.length ? '<br>Two sermons carry the same episode ID: ' + esc(chk.dupes.join(', ')) + '.' : '') +
-        ((SHOW && (SHOW.oldGuids || []).length) ? '' : '<br>Val\'s show has not been brought over yet (below).') + '</div>';
-    return '<div class="card" id="show"><h2>The podcast</h2>' +
-      '<p class="hint">These must match Val\'s show exactly, so Spotify moves the same show and its followers. Never start a new show.</p>' + ready +
-      '<label class="l" for="sh-title">Show name</label><input class="inp" id="sh-title" maxlength="200" value="' + esc(s.title || '') + '">' +
-      '<label class="l" for="sh-desc">Description</label><textarea id="sh-desc" maxlength="4000">' + esc(s.description || '') + '</textarea>' +
-      '<div class="two"><div><label class="l" for="sh-author">Author</label><input class="inp" id="sh-author" maxlength="200" value="' + esc(s.author || '') + '"></div>' +
-      '<div><label class="l" for="sh-link">Website</label><input class="inp" id="sh-link" maxlength="300" value="' + esc(s.link || '') + '"></div></div>' +
-      '<div class="two"><div><label class="l" for="sh-oname">Owner\'s name</label><input class="inp" id="sh-oname" maxlength="200" value="' + esc(s.ownerName || '') + '"></div>' +
-      '<div><label class="l" for="sh-oemail">Owner email</label><input class="inp" id="sh-oemail" type="email" maxlength="200" value="' + esc(s.ownerEmail || '') + '"></div></div>' +
-      '<p class="hint">Spotify sends a check code to the owner email when the show moves, so it must be one Val can open.</p>' +
-      '<label class="l" for="sh-art">Artwork (square, 3000 by 3000, JPEG or PNG)</label><input class="inp" id="sh-art" type="file" accept="image/jpeg,image/png" style="padding:10px">' +
-      '<div id="sh-art-now"></div>' +
-      '<div class="acts"><button class="btn" id="sh-go">Save the show</button><button class="btn sec" id="sh-preview">Preview the feed</button></div><div id="sh-out"></div>' +
-      '<details style="margin-top:12px" id="import"><summary>Bring over Val\'s show</summary>' +
-      '<p>Open the show\'s RSS address in a browser, save the page, and choose the file here (or paste it in). Each episode comes in with its own ID, ready for its audio.</p>' +
-      '<label class="l" for="im-file">The saved feed</label><input class="inp" id="im-file" type="file" accept=".xml,.rss,text/xml,application/rss+xml,application/xml" style="padding:10px">' +
-      '<label class="l" for="im-text">Or paste it</label><textarea id="im-text" placeholder="&lt;?xml …"></textarea>' +
-      '<label class="l" for="im-url">The show\'s RSS address (kept for the record)</label><input class="inp" id="im-url" maxlength="500" value="' + esc(s.oldFeedUrl || '') + '">' +
-      '<div class="acts"><button class="btn" id="im-go">Read it</button></div><div id="im-out"></div></details></div>';
+  /* The feed's address, and what the last read found. */
+  function feedCard() {
+    var u = (FEEDSET && FEEDSET.url) || '', s = STATUS;
+    var said = !u ? '<p class="st warn" id="feed-state">No address yet, so nothing comes in. Val finds it in Spotify for Creators, under Settings, as the RSS feed.</p>'
+      : !s ? '<p class="st warn" id="feed-state">Saved. The podcast is read every hour; the first read has not happened yet.</p>'
+      : s.ok ? '<p class="st ok" id="feed-state">Last read ' + esc(when(s.lastReadAt)) + ': ' + (s.episodes || 0) + ' episode' + (s.episodes === 1 ? '' : 's') + (s.showTitle ? ' of “' + esc(s.showTitle) + '”' : '') +
+          (s.created ? ', ' + s.created + ' new' : '') + '.</p>'
+      : '<p class="st no" id="feed-state">The last read, ' + esc(when(s.lastReadAt)) + ', did not work: ' + esc(s.error || 'no reason given') + ' Check the address.</p>';
+    return '<div class="card" id="feed"><h2>Val\'s podcast</h2><p class="hint" style="margin:0 0 6px">New episodes come in by themselves within the hour, and play from Spotify\'s own recordings. Nothing on Spotify changes.</p>' + said +
+      '<label class="l" for="fd-url">The podcast\'s RSS address</label><input class="inp" id="fd-url" maxlength="500" placeholder="https://anchor.fm/s/…/podcast/rss" value="' + esc(u) + '">' +
+      '<div class="acts"><button class="btn" id="fd-go">Save the address</button></div></div>';
   }
 
   function accessCard() {
     var names = Object.keys(PEOPLE).map(function (k) { return { id: k, name: PEOPLE[k] }; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
-    return '<div class="card" id="access"><h2>Who can add sermons</h2><p class="hint">Master admins always can. Add anyone else who puts the sermons up.</p>' +
+    return '<div class="card" id="access"><h2>Who can look after sermons</h2><p class="hint">Master admins always can. Add anyone else, such as Val. (A "Sermons" tick in the address book will replace this list.)</p>' +
       ((ACCESS.memberIds || []).length ? (ACCESS.memberIds || []).map(function (m) {
         return '<div class="srm"><div class="t"><b>' + esc(PEOPLE[m] || m) + '</b></div><button class="btn sec small" data-unname="' + esc(m) + '" style="min-height:40px">Remove</button></div>';
       }).join('') : '<p class="hint">Nobody else yet.</p>') +
@@ -222,21 +221,19 @@
     document.querySelectorAll('[data-pub]').forEach(function (b) { b.onclick = function () { setPub(b.dataset.pub, true, b); }; });
     document.querySelectorAll('[data-unpub]').forEach(function (b) { b.onclick = function () { setPub(b.dataset.unpub, false, b); }; });
     $('ns-go').onclick = addSeries;
-    $('sh-go').onclick = saveShow;
-    $('sh-preview').onclick = preview;
-    $('im-go').onclick = importFeed;
-    if (SHOW && SHOW.artworkPath) st().ref(SHOW.artworkPath).getDownloadURL().then(function (u) { if ($('sh-art-now')) $('sh-art-now').innerHTML = '<img class="art" alt="The show\'s artwork" src="' + esc(u) + '">'; }).catch(function () {});
+    $('fd-go').onclick = saveFeed;
     if ($('ac-go')) $('ac-go').onclick = addPerson;
     document.querySelectorAll('[data-unname]').forEach(function (b) { b.onclick = function () { setAccess((ACCESS.memberIds || []).filter(function (m) { return m !== b.dataset.unname; })); }; });
   }
 
   /* ---------------- a sermon ---------------- */
 
-  /* New: the sermon first (not published), then its audio, then its size,
-     length and - if asked - published. The rules will not publish a
-     sermon whose audio is not up and measured. */
+  function hubFields() {
+    return { speaker: val('f-speaker').slice(0, 120), seriesId: val('f-series'), book: val('f-book'), passage: val('f-passage').slice(0, 120) };
+  }
   function save() {
     if (BUSY) return;
+    if (isFeed(EDIT)) return saveFeedEpisode();
     var file = ($('f-file').files || [])[0], err = $('f-err'), title = val('f-title'), date = val('f-date');
     err.innerHTML = '';
     if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { err.innerHTML = '<p class="st no">Give it a title and a date.</p>'; return; }
@@ -245,11 +242,10 @@
     if (file && !type) { err.innerHTML = '<p class="st no">That file is not a recording this can play. Use an MP3.</p>'; return; }
     if (file && file.size >= 300 * 1024 * 1024) { err.innerHTML = '<p class="st no">That file is over 300 MB. Save it as an MP3 first.</p>'; return; }
     var id = EDIT ? EDIT.id : 'srm_' + E.key(12), ref = db().collection('sermons').doc(id), pub = $('f-pub').checked;
-    var base = { title: title.slice(0, 200), speaker: val('f-speaker').slice(0, 120), date: date, seriesId: val('f-series'), book: val('f-book'),
-      passage: val('f-passage').slice(0, 120), description: val('f-notes').slice(0, 4000) };
+    var base = Object.assign({ title: title.slice(0, 200), date: date, description: val('f-notes').slice(0, 4000) }, hubFields());
     BUSY = true; $('f-go').disabled = true;
-    var first = EDIT ? Promise.resolve() : ref.set(stamp(Object.assign({}, base, { audioPath: '', audioType: '', audioSize: 0, durationSec: 0, published: false,
-      guid: 'egbc-sermon-' + id, imported: false, createdAt: now(), createdBy: uid() })));
+    var first = EDIT ? Promise.resolve() : ref.set(stamp(Object.assign({}, base, { audioPath: '', audioType: '', audioSize: 0, durationSec: 0, audioUrl: '', published: false,
+      guid: 'egbc-sermon-' + id, source: 'upload', createdAt: now(), createdBy: uid() })));
     first.then(function () {
       if (!file) return null;
       return measure(file).then(function (secs) {
@@ -261,20 +257,26 @@
     }).then(function (audio) {
       var has = audio || (EDIT ? { audioPath: EDIT.audioPath, audioType: EDIT.audioType, audioSize: EDIT.audioSize, durationSec: EDIT.durationSec } : {});
       var ok = has.audioPath && has.audioSize > 0 && has.durationSec > 0;
-      var upd = stamp(Object.assign({}, base, audio || {}, { published: !!(pub && ok) }));
-      return ref.update(upd).then(function () { return { pub: pub, ok: ok }; });
+      return ref.update(stamp(Object.assign({}, base, audio || {}, { published: !!(pub && ok) }))).then(function () { return { pub: pub, ok: ok }; });
     }).then(function (r) {
-      toast(r.pub && !r.ok ? 'Saved, but not published: the recording\'s length could not be read. Try the MP3 again.' : r.pub ? 'Published. It is in the app, and on the podcast within the hour.' : 'Saved. Not published yet.');
+      toast(r.pub && !r.ok ? 'Saved, but not shown: the recording\'s length could not be read. Try the MP3 again.' : r.pub ? 'Shown in the app.' : 'Saved. Hidden for now.');
       EDIT = null; BUSY = false; return load();
     }).catch(function (e) {
       BUSY = false; $('f-go').disabled = false;
-      err.innerHTML = '<p class="st no">Could not save it: ' + esc(e.message || e) + (EDIT ? '' : ' It is kept as not published; use “Add its audio” to try again.') + '</p>';
+      err.innerHTML = '<p class="st no">Could not save it: ' + esc(e.message || e) + (EDIT ? '' : ' It is kept, hidden; use “Add its audio” to try again.') + '</p>';
       if (!EDIT) load();
     });
   }
+  /* A feed episode: only the hub's own fields (the rules allow no more). */
+  function saveFeedEpisode() {
+    BUSY = true; $('f-go').disabled = true;
+    db().collection('sermons').doc(EDIT.id).update(stamp(Object.assign(hubFields(), { published: $('f-pub').checked }))).then(function () {
+      toast('Saved. It stays when the podcast is read again.'); EDIT = null; BUSY = false; return load();
+    }).catch(function (e) { BUSY = false; $('f-go').disabled = false; $('f-err').innerHTML = '<p class="st no">Could not save it: ' + esc(e.message || e) + '</p>'; });
+  }
   function setPub(id, on, btn) {
     btn.disabled = true;
-    db().collection('sermons').doc(id).update(stamp({ published: on })).then(function () { toast(on ? 'Published' : 'Unpublished. It leaves the app and the podcast.'); return load(); })
+    db().collection('sermons').doc(id).update(stamp({ published: on })).then(function () { toast(on ? 'Shown in the app' : 'Hidden. It stays hidden when the podcast is read again.'); return load(); })
       .catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
   }
 
@@ -292,85 +294,18 @@
     }).then(function () { toast('Series added'); return load(); }).catch(function (e) { $('ns-go').disabled = false; toast('Could not: ' + (e.message || e)); });
   }
 
-  /* ---------------- the show ---------------- */
+  /* ---------------- the feed's address ---------------- */
 
-  function showFromForm() {
-    return Object.assign({}, SHOW || {}, { title: val('sh-title').slice(0, 200), description: val('sh-desc').slice(0, 4000), author: val('sh-author').slice(0, 200),
-      link: val('sh-link').slice(0, 300), ownerName: val('sh-oname').slice(0, 200), ownerEmail: val('sh-oemail').slice(0, 200) });
-  }
-  function cleanShow(s) {
-    var o = {};
-    ['title', 'description', 'author', 'ownerName', 'ownerEmail', 'link', 'language', 'category', 'subcategory', 'explicit', 'artworkPath', 'oldFeedUrl', 'oldGuids']
-      .forEach(function (k) { if (s[k] !== undefined) o[k] = s[k]; });
-    o.language = o.language || 'en-gb'; o.category = o.category || 'Religion & Spirituality';
-    if (o.subcategory === undefined) o.subcategory = 'Christianity';
-    o.explicit = !!o.explicit;
-    return stamp(o);
-  }
-  function saveShow() {
-    var s = showFromForm(), file = ($('sh-art').files || [])[0];
-    if (!s.title) { toast('Give the show its name (the same as on Spotify)'); return; }
-    if (s.ownerEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.ownerEmail)) { toast('The owner email does not look like an email address'); return; }
-    $('sh-go').disabled = true;
-    (file ? st().ref('podcast/artwork').put(file, { contentType: file.type || 'image/jpeg' }).then(function () { s.artworkPath = 'podcast/artwork'; }) : Promise.resolve())
-      .then(function () { return db().collection('sermonShow').doc('show').set(cleanShow(s)); })
-      .then(function () { toast('The show is saved'); return load(); })
-      .catch(function (e) { $('sh-go').disabled = false; toast('Could not: ' + (e.message || e)); });
+  function saveFeed() {
+    var u = val('fd-url');
+    if (u && !/^https:\/\/\S+$/.test(u)) { toast('The address starts https:// and has no spaces'); return; }
+    $('fd-go').disabled = true;
+    db().collection('sermonShow').doc('feed').set({ url: u.slice(0, 500), updatedAt: now(), updatedBy: uid() })
+      .then(function () { toast(u ? 'Saved. Episodes come in within the hour.' : 'Cleared. Nothing new comes in.'); return load(); })
+      .catch(function (e) { $('fd-go').disabled = false; toast('Could not: ' + (e.message || e)); });
   }
 
-  /* The same builder the feed function uses (egbc-sermons-feed.js), and
-     the browser's own XML reader to prove podcast apps can read it. */
-  function preview() {
-    var xml = FEED.buildFeed({ show: showFromForm(), series: seriesMap(), sermons: SERMONS, bucket: bucket(), feedUrl: '', now: new Date() });
-    var bad = new DOMParser().parseFromString(xml, 'application/xml').getElementsByTagName('parsererror').length > 0;
-    var n = FEED.episodes(SERMONS).length;
-    $('sh-out').innerHTML = (bad ? '<p class="st no">The feed would not read. Please tell the events window.</p>'
-      : '<p class="st ok" id="feed-ok">The feed reads correctly: ' + n + ' episode' + (n === 1 ? '' : 's') + '. Only published sermons with their audio are in it.</p>') +
-      '<pre id="feed-xml">' + esc(xml) + '</pre>';
-  }
-
-  /* Val's show: its details (only where ours are still empty) and each
-     episode as a sermon not yet published, with the show's own ID. An
-     episode already here (same ID) is left alone. Its audio is added from
-     the list, the ChurchSuite download Martin has, or the show's own file. */
-  function importFeed() {
-    var file = ($('im-file').files || [])[0], out = $('im-out');
-    (file ? file.text() : Promise.resolve(val('im-text'))).then(function (text) {
-      var got = FEED.parseOldFeed(text);
-      if (!got.show.title || !got.items.length) { out.innerHTML = '<p class="st no">That does not look like a podcast feed. Save the RSS address\'s page and choose that file.</p>'; return; }
-      var have = {}; SERMONS.forEach(function (s) { have[s.guid] = 1; });
-      var fresh = got.items.filter(function (i) { return !have[i.guid]; });
-      var cur = SHOW || {}, s = Object.assign({}, cur);
-      ['title', 'description', 'author', 'ownerName', 'ownerEmail', 'link', 'language', 'category', 'subcategory'].forEach(function (k) { if (!cur[k] && got.show[k]) s[k] = got.show[k]; });
-      if (cur.explicit === undefined) s.explicit = got.show.explicit;
-      var guids = (cur.oldGuids || []).slice(); got.items.forEach(function (i) { if (guids.indexOf(i.guid) < 0) guids.push(i.guid); });
-      s.oldGuids = guids.slice(0, 2000);
-      s.oldFeedUrl = (val('im-url') || cur.oldFeedUrl || '').slice(0, 500);
-      if (s.ownerEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.ownerEmail)) s.ownerEmail = '';
-      if (!s.title) s.title = got.show.title;
-      var batches = [], b = db().batch(), n = 0;
-      fresh.forEach(function (i) {
-        var id = 'srm_' + E.key(12);
-        b.set(db().collection('sermons').doc(id), stamp({ title: (i.title || 'Untitled').slice(0, 200), speaker: '', date: i.date || '1970-01-01', seriesId: '', book: '', passage: '',
-          description: (i.description || '').slice(0, 4000), audioPath: '', audioType: '', audioSize: 0, durationSec: 0, published: false,
-          guid: i.guid.slice(0, 300), imported: true, pubDate: (i.pubDate || '').slice(0, 60), oldAudioUrl: (i.audioUrl || '').slice(0, 1000), createdAt: now(), createdBy: uid() }));
-        if (++n % 400 === 0) { batches.push(b); b = db().batch(); }
-      });
-      batches.push(b);
-      b.set(db().collection('sermonShow').doc('show'), cleanShow(s));
-      $('im-go').disabled = true;
-      return batches.reduce(function (p, x) { return p.then(function () { return x.commit(); }); }, Promise.resolve()).then(function () {
-        toast(fresh.length + ' episode' + (fresh.length === 1 ? '' : 's') + ' brought over');
-        return load().then(function () {
-          $('im-out') && ($('im-out').innerHTML = '<p class="st ok">Brought over ' + fresh.length + ' of ' + got.items.length + ' episodes, each with its own ID' +
-            (got.items.length > fresh.length ? ' (the rest were here already)' : '') + '. Each now needs its audio: “Add its audio” in the list. Then publish them.</p>');
-          if ($('import')) $('import').open = true;
-        });
-      });
-    }).catch(function (e) { $('im-go') && ($('im-go').disabled = false); out.innerHTML = '<p class="st no">Could not bring it over: ' + esc(e.message || e) + '</p>'; });
-  }
-
-  /* ---------------- who may add sermons (master admins) ---------------- */
+  /* ---------------- who may look after sermons (master admins) ---------------- */
 
   function addPerson() {
     var name = val('ac-who'), id = Object.keys(PEOPLE).filter(function (k) { return PEOPLE[k] === name; })[0];
@@ -389,11 +324,13 @@
     return Promise.all([
       db().collection('sermons').get(),
       db().collection('sermonSeries').get(),
-      db().collection('sermonShow').doc('show').get()
+      db().collection('sermonShow').doc('feed').get().catch(function () { return null; }),
+      db().collection('sermonShow').doc('feedStatus').get().catch(function () { return null; })
     ]).then(function (r) {
       SERMONS = all(r[0]).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)) || String(a.title).localeCompare(String(b.title)); });
       SERIES = all(r[1]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-      SHOW = r[2].exists ? r[2].data() : null;
+      FEEDSET = r[2] && r[2].exists ? r[2].data() : null;
+      STATUS = r[3] && r[3].exists ? r[3].data() : null;
       draw();
     });
   }

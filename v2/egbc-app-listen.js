@@ -24,8 +24,10 @@
    the app is put away), so "Carry on listening" works on another phone.
    Only the person themselves can read it (the rules).
 
-   WHAT IT SHOWS: published sermons only (the rules let nobody else see
-   the rest). Search by speaker, Bible book, title, series or date.
+   WHAT IT SHOWS: the sermons that are shown (the rules let nobody else see
+   the rest): those from Val's podcast (Martin's option 3, F-138), which
+   play from the podcast's own addresses, and any uploaded in the hub.
+   Search by speaker, Bible book, title, series or date.
 
    Needs (loaded before it): egbc-auth.js (with Storage), egbc-events.js.
    =================================================================== */
@@ -117,7 +119,10 @@
     global.document.addEventListener('visibilitychange', function () { if (global.document.visibilityState === 'hidden') saveNow(true); });
     return A;
   }
+  /* A sermon from Val's podcast plays from the feed's own address; one
+     uploaded in the hub, from Storage. */
   function urlOf(s) {
+    if (s.audioUrl) return Promise.resolve(s.audioUrl);
     if (URLS[s.id]) return Promise.resolve(URLS[s.id]);
     return EGBCAuth.storage().ref(s.audioPath).getDownloadURL().then(function (u) { URLS[s.id] = u; return u; });
   }
@@ -148,7 +153,7 @@
     var ms = global.navigator && global.navigator.mediaSession;
     if (!ms || !global.MediaMetadata) return;
     var ser = seriesOf(s), art = [];
-    ms.metadata = new global.MediaMetadata({ title: s.title, artist: s.speaker || '', album: ser ? ser.name : (D.show && D.show.title) || 'Sermons', artwork: art });
+    ms.metadata = new global.MediaMetadata({ title: s.title, artist: s.speaker || '', album: ser ? ser.name : (D.show && D.show.showTitle) || 'Sermons', artwork: art });
     var set = function (k, f) { try { ms.setActionHandler(k, f); } catch (e) { /* not on this phone */ } };
     set('play', function () { audio().play(); });
     set('pause', function () { audio().pause(); });
@@ -196,10 +201,10 @@
     Promise.all([
       db().collection('sermons').where('published', '==', true).get(),
       db().collection('sermonSeries').get().catch(function () { return { docs: [] }; }),
-      db().collection('sermonShow').doc('show').get().catch(function () { return null; }),
+      db().collection('sermonShow').doc('feedStatus').get().catch(function () { return null; }),
       uid() ? db().collection('listenProgress').doc(uid()).collection('sermons').get().catch(function () { return { docs: [] }; }) : Promise.resolve({ docs: [] })
     ]).then(function (r) {
-      D.sermons = all(r[0]).filter(function (s) { return s.audioPath && s.durationSec > 0; })
+      D.sermons = all(r[0]).filter(function (s) { return s.audioUrl || (s.audioPath && s.durationSec > 0); })
         .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)) || String(a.title).localeCompare(String(b.title)); });
       D.series = {}; all(r[1]).forEach(function (s) { D.series[s.id] = s; });
       D.show = r[2] && r[2].exists ? r[2].data() : null;
@@ -292,7 +297,7 @@
       (recent.length ? H.sec('Recent', null, '<div class="card list lis-list" data-l="recent">' + recent.map(function (s) {
         return rowAct('play:' + s.id, 'circle-play', s.title, said(s.date) + ' · ' + subOf(s));
       }).join('') + '</div>') : '') +
-      (D.show && D.show.title ? '<p class="example">Also on Spotify and other podcast apps: search for “' + esc(D.show.title) + '”.</p>' : '');
+      (D.show && D.show.showTitle ? '<p class="example">Also on Spotify and other podcast apps: search for “' + esc(D.show.showTitle) + '”.</p>' : '');
   }
 
   /* ---------------- actions (data-lact) ---------------- */

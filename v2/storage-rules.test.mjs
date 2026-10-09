@@ -302,9 +302,6 @@ await check('NOBODY HEARS ONE NOT YET PUBLISHED: not the public', 'deny', () => 
 await check('nor a signed-in listener', 'deny', () => getBytes(ref(st('u_lst'), 'sermons/srm_new/audio')));
 await check('the uploader does, to check it', 'allow', () => getBytes(ref(st('u_prc'), 'sermons/srm_new/audio')));
 await check('a sermon’s audio is never deleted from a page', 'deny', () => deleteObject(ref(as('martin'), 'sermons/srm_pub/audio')));
-await check('the uploader puts up the show’s artwork', 'allow', () => put(st('u_prc'), 'podcast/artwork', { type: 'image/jpeg' }));
-await check('a listener cannot', 'deny', () => put(st('u_lst'), 'podcast/artwork', { type: 'image/jpeg' }));
-await check('anyone sees the artwork', 'allow', () => getBytes(ref(anon(), 'podcast/artwork')));
 await check('the uploader puts up a series picture', 'allow', () => put(st('u_prc'), 'sermonSeries/ser_neh/artwork', { type: 'image/png' }));
 // ── end EVENTS ──
 // ── end EVENTS ──

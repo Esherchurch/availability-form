@@ -2807,17 +2807,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ---- SERMONS (the phone app's "Listen"; F-124, F-132) -------------
-    // A sermon is public once published: it is a public podcast, and the
-    // feed function (codebase "hub", F-133) reads the same documents. Until
-    // it is published only the sermon admins see it.
-    // WHO UPLOADS: master admins, and the people a master admin names in
-    // sermonShow/access (memberIds). Not a team: no Preacher team exists
-    // yet, and naming people needs no code (§6, teams as data).
-    // THE EPISODE ID (guid) NEVER CHANGES. Spotify knows an episode by it;
-    // change it and the episode shows twice. A new sermon's is
-    // 'egbc-sermon-' + its id; one brought over from Val's show keeps the
-    // show's own. Nothing here is ever deleted: unpublish instead.
+    // ---- SERMONS (the phone app's "Listen"; F-124, F-132, F-138) -------
+    // MARTIN'S OPTION 3: Val keeps uploading to Spotify for Creators. The
+    // hub READS that show's public feed: the function sermonFeedSync
+    // (codebase "hub", F-138) writes one sermon per episode, its id made
+    // from the episode's guid (egbc-sermons-feed.js), so a second read
+    // never makes a second copy. It writes with the Admin SDK, so these
+    // rules never see it - and NO PAGE MAY CREATE A FEED EPISODE.
+    // A feed episode's own fields (title, date, words, audio) are the
+    // feed's. The hub adds only the series, the Bible book and passage,
+    // the speaker, and whether it is shown; the function never touches
+    // those. The upload page stays as a backup: an uploaded sermon is the
+    // hub's own (source 'upload'), with its audio in Storage.
+    // A sermon is public once shown; until then only the sermon admins see
+    // it. WHO: master admins, and the people a master admin names in
+    // sermonShow/access (a "Sermons" tick in the address book replaces
+    // that once the main window adds it, F-137). Nothing is deleted.
     function sermonAdmin() {
       return isMaster()
              || (active() && exists(/databases/$(database)/documents/sermonShow/access)
@@ -2826,7 +2831,7 @@ service cloud.firestore {
     function sermonShape(id) {
       let d = request.resource.data;
       return d.keys().hasOnly(['title', 'speaker', 'date', 'seriesId', 'book', 'passage', 'description', 'audioPath', 'audioType',
-                               'audioSize', 'durationSec', 'published', 'guid', 'imported', 'pubDate', 'oldAudioUrl',
+                               'audioSize', 'durationSec', 'audioUrl', 'imageUrl', 'published', 'guid', 'source', 'pubDate', 'feedSeenAt',
                                'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
              && d.title is string && d.title.size() > 0 && d.title.size() <= 200
              && d.speaker is string && d.speaker.size() <= 120
@@ -2836,24 +2841,31 @@ service cloud.firestore {
              && d.get('description', '') is string && d.get('description', '').size() <= 4000
              && d.audioPath in ['', 'sermons/' + id + '/audio']
              && d.audioSize is int && d.audioSize >= 0 && d.durationSec is int && d.durationSec >= 0
-             && d.published is bool && d.imported is bool
-             && d.guid is string && d.guid.size() > 0 && d.guid.size() <= 300
-             && (d.imported || d.guid == 'egbc-sermon-' + id)
-             && d.get('pubDate', '') is string && d.get('pubDate', '').size() <= 60
-             && d.get('oldAudioUrl', '') is string && d.get('oldAudioUrl', '').size() <= 1000
-             // Published means listenable: its audio is up and measured.
-             && (!d.published || (d.audioPath != '' && d.audioSize > 0 && d.durationSec > 0))
+             && d.published is bool && d.source in ['feed', 'upload']
+             && d.guid is string && d.guid.size() > 0 && d.guid.size() <= 1000
+             && d.get('audioUrl', '') is string && d.get('audioUrl', '').size() <= 1000
+             // Shown means listenable: an upload's audio is up and measured;
+             // a feed episode has the feed's own address.
+             && (!d.published
+                 || (d.source == 'upload' && d.audioPath != '' && d.audioSize > 0 && d.durationSec > 0)
+                 || (d.source == 'feed' && d.get('audioUrl', '').matches('^https?://.+')))
              && d.updatedBy == request.auth.uid && d.updatedAt == request.time;
     }
     match /sermons/{id} {
       allow read: if resource.data.published == true || sermonAdmin();
-      allow create: if sermonAdmin() && sermonShape(id)
+      // Only an upload, from a page: its own episode id, no feed address.
+      allow create: if sermonAdmin() && sermonShape(id) && request.resource.data.source == 'upload'
+                    && request.resource.data.guid == 'egbc-sermon-' + id
+                    && request.resource.data.get('audioUrl', '') == ''
                     && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
       allow update: if sermonAdmin() && sermonShape(id)
                     && request.resource.data.guid == resource.data.guid
-                    && request.resource.data.imported == resource.data.imported
+                    && request.resource.data.source == resource.data.source
                     && request.resource.data.createdBy == resource.data.createdBy
-                    && request.resource.data.createdAt == resource.data.createdAt;
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && (resource.data.source == 'upload'
+                        || request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['speaker', 'seriesId', 'book', 'passage', 'published', 'updatedAt', 'updatedBy']));
       allow delete: if false;
     }
     match /sermonSeries/{id} {
@@ -2867,20 +2879,20 @@ service cloud.firestore {
                     && request.resource.data.updatedBy == request.auth.uid;
       allow delete: if false;
     }
-    // The show itself (name, artwork, owner email: the same as Val's show,
-    // so Spotify switches over), and who may upload.
-    match /sermonShow/show {
-      allow read: if true;
+    // The feed's address (from Val's Spotify for Creators settings), set by
+    // the sermon admins; the function reads it. And what the last read
+    // found, which only the function writes.
+    match /sermonShow/feed {
+      allow read: if active();
       allow write: if sermonAdmin()
-                   && request.resource.data.keys().hasOnly(['title', 'description', 'author', 'ownerName', 'ownerEmail', 'link', 'language',
-                                                            'category', 'subcategory', 'explicit', 'artworkPath', 'oldFeedUrl', 'oldGuids',
-                                                            'updatedAt', 'updatedBy'])
-                   && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
-                   && request.resource.data.get('ownerEmail', '') is string
-                   && (request.resource.data.get('ownerEmail', '') == '' || request.resource.data.ownerEmail.matches('[^@ ]+@[^@ ]+[.][^@ ]+'))
-                   && request.resource.data.get('artworkPath', '') in ['', 'podcast/artwork']
-                   && request.resource.data.get('oldGuids', []) is list && request.resource.data.get('oldGuids', []).size() <= 2000
-                   && request.resource.data.updatedBy == request.auth.uid;
+                   && request.resource.data.keys().hasOnly(['url', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.url is string && request.resource.data.url.size() <= 500
+                   && (request.resource.data.url == '' || request.resource.data.url.matches('^https://[^ ]+$'))
+                   && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
+    }
+    match /sermonShow/feedStatus {
+      allow read: if active();
+      allow write: if false;
     }
     match /sermonShow/access {
       allow read: if active();

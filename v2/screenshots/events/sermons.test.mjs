@@ -1,39 +1,46 @@
-/* Sermons and "Listen" (F-124, F-132): the upload page, Val's show brought
-   over, and the app's player, drawn through the stand-in shell
-   (screenshots/events/app-harness.html, built to A-050).
-   Events window. Invented people and an invented show only, events
-   emulators only, network guard, no email leaves the machine. No real
-   feed is fetched: the "old show" is pasted in.
+/* Sermons and "Listen" (F-124, F-132, F-138; Martin's option 3): Val keeps
+   uploading to Spotify for Creators, the hub reads the show's feed, and the
+   app's player plays from the feed's own addresses.
+   Events window. Invented people and an invented feed only, events
+   emulators only, network guard, no email leaves the machine. No real feed
+   is fetched: the "podcast" is a feed written below, its audio two minutes
+   of silence served from this machine.
+
+   THE FUNCTION IS PLAYED HERE. The hourly read (sermonFeedSync) is the
+   main window's to build (F-138); it hands the feed to
+   EGBCSermonsFeed.sync() with a store. This test does exactly that, with
+   a store on the emulator, so what the function will do is what is tested.
 
      npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage \
        --project egbc-worship-planner "node screenshots/events/sermons.test.mjs"
 
    What it proves:
-     1. only master admins and the people they name can add sermons
-     2. Val's show comes over with every episode's ID exactly as it was
-     3. a sermon goes up: its length is read, its audio stored, it is
-        published; a draft stays hidden
-     4. the feed preview reads, and is "ready" only when every old episode
-        has its audio
-     5. the player plays, keeps playing when you leave the tab, and
-        remembers your place - on another phone too
-     6. search by speaker, Bible book or date
-     7. a published sermon's audio is public (podcast apps); a draft's is not */
+     1. only master admins and the people they name look after sermons
+     2. the feed's address is a setting; each read is reported
+     3. READING THE FEED AGAIN NEVER MAKES A SECOND COPY
+     4. the series, passage and speaker added in the hub, and a hidden
+        episode, survive every read; the feed's own fields can't be changed
+        in the hub
+     5. the backup: a sermon uploaded by hand
+     6. the player plays from the feed, keeps playing when you leave the
+        tab, remembers your place on another phone; the Now playing bar is
+        told; search by speaker, book or date; a series */
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, updateDoc, collection } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
 const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const V2 = path.resolve(HERE, '..', '..');
-const PROJECT = 'egbc-worship-planner', BUCKET = PROJECT + '.firebasestorage.app';
+const PROJECT = 'egbc-worship-planner';
 const cfg = JSON.parse(fs.readFileSync(path.join(V2, 'firebase.events.json'), 'utf8'));
 if (cfg.emulators.firestore.port !== 8182 || cfg.emulators.auth.port !== 9098 || cfg.emulators.storage.port !== 9198) throw new Error('Not the events emulators - refusing to write.');
 const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -46,38 +53,42 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 20000) { const end = Date.now() + ms; let last; while (Date.now() < end) { try { last = await fn(); if (last) return last; } catch (e) { last = null; } await sleep(200); } return last; }
 const J = (x) => JSON.stringify(x);
 
-/* Files to upload: two minutes of silence (a WAV the browser can measure
-   and play) and a tiny picture. Nothing recorded, nobody's voice. */
+/* Two minutes of silence (a WAV the browser can measure and play). */
 function wav(seconds) {
   const rate = 8000, n = rate * seconds, b = Buffer.alloc(44 + n);
   b.write('RIFF', 0); b.writeUInt32LE(36 + n, 4); b.write('WAVE', 8); b.write('fmt ', 12); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
   b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34); b.write('data', 36); b.writeUInt32LE(n, 40); b.fill(128, 44);
   return b;
 }
-const AUDIO = path.join(TMP, 'sermon-silence.wav'); fs.writeFileSync(AUDIO, wav(120));
-const ART = path.join(TMP, 'artwork.png'); fs.writeFileSync(ART, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
+const AUDIO_BYTES = wav(120);
+const AUDIO = path.join(TMP, 'sermon-silence.wav'); fs.writeFileSync(AUDIO, AUDIO_BYTES);
 
-/* The "old show", invented, shaped like a Spotify for Creators feed. */
-const OLD_FEED = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
-<channel>
-<title><![CDATA[Test Green Sermons (invented)]]></title>
-<description><![CDATA[<p>Invented Sunday talks.</p>]]></description>
-<link>https://example.invalid/sermons</link>
-<language>en-gb</language>
-<itunes:author>Test Green Church</itunes:author>
-<itunes:owner><itunes:name>Val Synthetic</itunes:name><itunes:email>val.synthetic@example.invalid</itunes:email></itunes:owner>
-<itunes:image href="https://example.invalid/art.jpg"/>
-<itunes:category text="Religion &amp; Spirituality"><itunes:category text="Christianity"/></itunes:category>
-<item><title>Grace that scandalises (invented)</title><guid isPermaLink="false">old-guid-0001-invented</guid><pubDate>Sun, 07 Sep 2025 10:45:00 GMT</pubDate>
-<enclosure url="https://example.invalid/ep1.mp3" length="31000000" type="audio/mpeg"/><itunes:duration>00:34:10</itunes:duration><description>Luke 15 (invented)</description></item>
-<item><title>Ask and plan (invented)</title><guid isPermaLink="false"><![CDATA[old-guid-0002-invented]]></guid><pubDate>Sun, 14 Sep 2025 10:45:00 GMT</pubDate>
-<enclosure url="https://example.invalid/ep2.mp3" length="29000000" type="audio/mpeg"/><itunes:duration>1980</itunes:duration></item>
-</channel></rss>`;
+/* The podcast, invented, shaped like a Spotify for Creators feed. Its
+   audio is served from this machine (/__audio/...), with byte ranges, as a
+   podcast host serves it, so the player can skip about. */
+const A = (n) => 'http://localhost:5601/__audio/ep' + n + '.wav';
+const ITEM = (o) => `<item><title><![CDATA[${o.title}]]></title><description><![CDATA[<p>${o.words || 'Invented notes.'}</p>]]></description>` +
+  `<guid isPermaLink="false">${o.guid}</guid><pubDate>${o.date}</pubDate><enclosure url="${o.audio}" length="${AUDIO_BYTES.length}" type="audio/wav"/>` +
+  `<itunes:duration>00:02:00</itunes:duration></item>`;
+const FEED = (items) => `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel>
+<title><![CDATA[Test Green Sermons (invented)]]></title><itunes:image href="https://example.invalid/art.jpg"/>${items.map(ITEM).join('')}</channel></rss>`;
+const EP1 = { title: 'Grace that scandalises (invented)', guid: 'anchor-ep-0001-invented', date: 'Sun, 07 Sep 2025 10:45:00 GMT', audio: A(1), words: 'Luke 15 (invented).' };
+const EP2 = { title: 'Ask and plan (invented)', guid: 'anchor-ep-0002-invented', date: 'Sun, 14 Sep 2025 10:45:00 GMT', audio: A(2) };
+const EP3 = { title: 'Rebuilding the walls (invented)', guid: 'anchor-ep-0003-invented', date: 'Sun, 04 Oct 2026 10:45:00 GMT', audio: A(3) };
+const EP4 = { title: 'A new one (invented)', guid: 'anchor-ep-0004-invented', date: 'Sun, 05 Oct 2026 18:30:00 GMT', audio: A(4) };
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.css': 'text/css', '.svg': 'image/svg+xml' };
 const server = http.createServer((req, res) => {
   const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (/^\/__audio\/ep\d+\.wav$/.test(p)) {
+    const size = AUDIO_BYTES.length, m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+    if (m) {
+      const start = m[1] ? +m[1] : 0, end = m[2] ? Math.min(+m[2], size - 1) : size - 1;
+      res.writeHead(206, { 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': end - start + 1 });
+      res.end(AUDIO_BYTES.subarray(start, end + 1)); return;
+    }
+    res.writeHead(200, { 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Length': size }); res.end(AUDIO_BYTES); return;
+  }
   const f = path.join(V2, p === '/' ? 'index.html' : p);
   if (!f.startsWith(V2) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
@@ -113,7 +124,22 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(async (c) => { out = await fn(c.firestore()); }); return out; };
 const get = (col, id) => readDb(async (db) => { const s = await getDoc(doc(db, col, id)); return s.exists() ? s.data() : null; });
 const list = (col) => readDb(async (db) => (await getDocs(collection(db, col))).docs.map(d => ({ id: d.id, ...d.data() })));
-const plainFetch = (p) => fetch(`http://127.0.0.1:9198/v0/b/${BUCKET}/o/${encodeURIComponent(p)}?alt=media`).then(r => r.status);
+
+/* The function's part: the shared builder, and a store on the emulator
+   with the Admin SDK's powers (rules off), as sermonFeedSync will have. */
+const fctx = { window: {}, btoa: globalThis.btoa, unescape: globalThis.unescape, encodeURIComponent, Promise }; fctx.self = fctx.window; vm.createContext(fctx);
+vm.runInContext(fs.readFileSync(path.join(V2, 'egbc-sermons-feed.js'), 'utf8'), fctx);
+const FEEDJS = fctx.window.EGBCSermonsFeed;
+/* (Objects from the sandbox are copied into plain ones for the library.) */
+const plain = (d) => JSON.parse(JSON.stringify(d));
+const store = {
+  get: (id) => get('sermons', id),
+  create: (id, d) => readDb((db) => setDoc(doc(db, 'sermons', id), plain(d))),
+  update: (id, d) => readDb((db) => updateDoc(doc(db, 'sermons', id), plain(d))),
+  status: (d) => readDb((db) => setDoc(doc(db, 'sermonShow', 'feedStatus'), plain(d)))
+};
+const readFeed = (items) => FEEDJS.sync(store, FEED(items), new Date());
+const sermonsNow = async () => (await list('sermons')).filter(s => s.source === 'feed');
 
 const errors = [], PAGES = [];
 async function launch(label) {
@@ -148,167 +174,135 @@ const listen = 'screenshots/events/app-harness.html?space=me&tab=listen';
 const browsers = [];
 
 try {
-  /* 1. who may add sermons */
+  /* 1. who looks after sermons */
   const kB = await as('kim'); browsers.push(kB); const K = kB.page;
   await go(K, 'sermons-admin.html', '#main .card');
-  await until(async () => /Only the people named can add sermons/.test(await text(K, '#main')));
-  ok('1. an admin of another area is told only the people named can add sermons', /Only the people named can add sermons/.test(await text(K, '#main')) && !(await K.$('#f-go')));
-  const kSneak = await K.evaluate(() => EGBCAuth.db.collection('sermons').doc('srm_sneak').set({ title: 'x' }).then(() => 'written', e => e.code));
-  ok('   and the rules refuse them too', kSneak === 'permission-denied', kSneak);
-
+  await until(async () => /Only the people named can look after sermons/.test(await text(K, '#main')));
+  ok('1. an admin of another area is told only the people named look after sermons', /Only the people named/.test(await text(K, '#main')) && !(await K.$('#f-go')));
   const mB = await as('mia'); browsers.push(mB); const M = mB.page;
   await go(M, 'sermons-admin.html', '#access');
   await type(M, '#ac-who', 'Pat Preacher'); await tap(M, '#ac-go');
   const access = await until(async () => { const a = await get('sermonShow', 'access'); return a && a.memberIds.includes('m_pat') ? a : null; });
-  ok('   a master admin names Pat to put the sermons up', access && J(access.memberIds) === J(['m_pat']), J(access));
-  await until(async () => /Pat Preacher/.test(await text(M, '#access')));
+  ok('   a master admin names Pat (as Val would be)', access && J(access.memberIds) === J(['m_pat']), J(access));
 
-  /* 2. Val's show comes over */
+  /* 2. the feed's address */
   const pB = await as('pat'); browsers.push(pB); const Pp = pB.page;
-  await go(Pp, 'sermons-admin.html', '#add');
-  ok('   Pat now sees the upload page', !!(await Pp.$('#f-go')) && !(await Pp.$('#access')));
-  await Pp.$eval('#import', e => { e.open = true; });
-  await Pp.$eval('#im-text', (e, v) => { e.value = v; }, OLD_FEED);
-  await type(Pp, '#im-url', 'https://example.invalid/old-feed.rss');
-  await tap(Pp, '#im-go');
-  const imported = await until(async () => { const l = (await list('sermons')).filter(s => s.imported); return l.length === 2 ? l : null; });
-  const show1 = await get('sermonShow', 'show');
-  ok('2. VAL\'S SHOW COMES OVER: both episodes, each with its ID exactly as it was', imported && J(imported.map(s => s.guid).sort()) === J(['old-guid-0001-invented', 'old-guid-0002-invented'])
-    && imported.every(s => s.published === false && s.audioPath === ''), J(imported));
-  ok('   with the show\'s name, owner and owner email, and the old IDs kept for the check', show1 && show1.title === 'Test Green Sermons (invented)' && show1.ownerEmail === 'val.synthetic@example.invalid'
-    && show1.ownerName === 'Val Synthetic' && J(show1.oldGuids) === J(['old-guid-0001-invented', 'old-guid-0002-invented']) && show1.oldFeedUrl === 'https://example.invalid/old-feed.rss', J(show1));
-  ok('   and the dates and times they had', imported.find(s => s.guid === 'old-guid-0001-invented').pubDate === 'Sun, 07 Sep 2025 10:45:00 GMT' && imported.find(s => s.guid === 'old-guid-0001-invented').date === '2025-09-07');
-  await until(async () => /Not ready to repoint Spotify yet/.test(await text(Pp, '#ready')));
-  const notReady = await text(Pp, '#ready');
-  ok('   NOT READY: the artwork, and both episodes\' audio, are still needed', /Not ready/.test(notReady) && /the artwork/.test(notReady) && /2 episodes from Val's show still need their audio/.test(notReady), notReady);
-  await Pp.$eval('#im-text', (e, v) => { e.value = v; }, OLD_FEED);
-  await Pp.$eval('#import', e => { e.open = true; });
-  await tap(Pp, '#im-go');
-  await until(async () => /Brought over 0 of 2/.test(await text(Pp, '#im-out')));
-  ok('   bringing it over twice adds nothing twice', (await list('sermons')).length === 2);
+  await go(Pp, 'sermons-admin.html', '#feed');
+  ok('2. with no address yet, the page says nothing comes in, and where to find it', /No address yet.*Spotify for Creators, under Settings/.test(await text(Pp, '#feed')));
+  ok('   NOTHING ABOUT REPOINTING SPOTIFY IS LEFT ON THE PAGE', !/repoint|Bring over|Preview the feed|owner email/i.test(await text(Pp, 'body')));
+  await type(Pp, '#fd-url', 'https://anchor.example.invalid/s/test/podcast/rss');
+  await tap(Pp, '#fd-go');
+  const fs1 = await until(async () => { const f = await get('sermonShow', 'feed'); return f && f.url ? f : null; });
+  ok('   Pat sets the podcast\'s RSS address', fs1 && fs1.url === 'https://anchor.example.invalid/s/test/podcast/rss' && fs1.updatedBy === P.pat.uid, J(fs1));
+  await until(async () => /first read has not happened yet/.test(await text(Pp, '#feed')));
 
-  /* 3. a series, then a sermon */
+  /* 3. the hourly read, twice */
+  const r1 = await readFeed([EP2, EP1, EP3]);
+  const after1 = await sermonsNow();
+  ok('3. THE FIRST READ BRINGS IN EACH EPISODE ONCE, shown, playing from the feed\'s own address', r1.created === 3 && after1.length === 3
+    && after1.every(s => s.published === true && /^http:\/\/localhost:5601\/__audio\/ep\d\.wav$/.test(s.audioUrl) && s.audioPath === '' && s.durationSec === 120), J(r1));
+  const r2 = await readFeed([EP2, EP1, EP3]);
+  ok('   READ AGAIN: STILL THREE, NOTHING WRITTEN TWICE', (await sermonsNow()).length === 3 && r2.created === 0 && r2.updated === 0, J(r2));
+  await go(Pp, 'sermons-admin.html', '#feed');
+  await until(async () => /Last read .*3 episodes of “Test Green Sermons \(invented\)”/.test(await text(Pp, '#feed')));
+  ok('   the page says what the last read found', /Last read .*: 3 episodes of “Test Green Sermons \(invented\)”/.test(await text(Pp, '#feed')), await text(Pp, '#feed'));
+  ok('   each episode is listed "From Spotify", and asks for its series or passage', ((await text(Pp, '#list')).match(/From Spotify/g) || []).length === 3 && /add its series or passage/.test(await text(Pp, '#list')));
+
+  /* 4. the hub adds its part; the feed changes; the hub's part stays */
   await Pp.$eval('#series details', e => { e.open = true; });
-  await type(Pp, '#ns-name', 'Nehemiah: rebuilding (invented)');
+  await type(Pp, '#ns-name', 'Luke: the lost found (invented)');
   await tap(Pp, '#ns-go');
   const series = await until(async () => { const l = await list('sermonSeries'); return l.length ? l[0] : null; });
-  ok('3. Pat adds a series', series && series.name === 'Nehemiah: rebuilding (invented)');
-  await until(async () => (await Pp.$$eval('#f-series option', o => o.length)) === 2);
-  await (await Pp.$('#f-file')).uploadFile(AUDIO);
-  await type(Pp, '#f-title', 'Ask boldly, plan wisely (invented)');
-  await type(Pp, '#f-speaker', 'Ryan Synthetic');
-  await Pp.$eval('#f-date', e => { e.value = '2026-10-04'; });
+  const id1 = FEEDJS.idForGuid(EP1.guid), id2 = FEEDJS.idForGuid(EP2.guid), id3 = FEEDJS.idForGuid(EP3.guid);
+  await until(async () => (await Pp.$$eval('#f-series option', o => o.length)) === 2 || !!(await Pp.$('[data-edit="' + id1 + '"]')));
+  await tap(Pp, '[data-edit="' + id1 + '"]');
+  await until(async () => /From Val's podcast/.test(await text(Pp, '#add')));
+  ok('4. a feed episode\'s form offers only what the hub adds (no title, words or file)', !(await Pp.$('#f-title')) && !(await Pp.$('#f-file')) && !(await Pp.$('#f-notes')) && !!(await Pp.$('#f-passage')));
+  await type(Pp, '#f-speaker', 'Jeanette (invented)');
   await Pp.select('#f-series', series.id);
-  await Pp.select('#f-book', 'Nehemiah');
-  await type(Pp, '#f-passage', '2:1-8');
+  await Pp.select('#f-book', 'Luke');
+  await type(Pp, '#f-passage', '15:1-32');
   await tap(Pp, '#f-go');
-  const fresh = await until(async () => (await list('sermons')).find(s => s.title === 'Ask boldly, plan wisely (invented)' && s.published) || null, 30000);
-  ok('   A SERMON GOES UP: published, its length read from the file (2 minutes), its own episode ID', fresh && fresh.durationSec === 120 && fresh.audioSize === fs.statSync(AUDIO).size
-    && fresh.guid === 'egbc-sermon-' + fresh.id && fresh.audioPath === 'sermons/' + fresh.id + '/audio' && fresh.book === 'Nehemiah' && fresh.seriesId === series.id, J(fresh));
-  ok('   its audio is stored', (await plainFetch('sermons/' + fresh.id + '/audio')) === 200);
+  await until(async () => { const s = await get('sermons', id1); return s && s.book === 'Luke' ? s : null; });
+  await until(() => Pp.$('[data-unpub="' + id2 + '"]'));
+  await tap(Pp, '[data-unpub="' + id2 + '"]');
+  await until(async () => (await get('sermons', id2)).published === false);
+  const sneak = await Pp.evaluate((id) => EGBCAuth.db.collection('sermons').doc(id).update({ title: 'Changed in the hub', updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: EGBCAuth.user().uid })
+    .then(() => 'written', e => e.code), id1);
+  ok('   THE FEED\'S OWN TITLE CANNOT BE CHANGED IN THE HUB (the rules)', sneak === 'permission-denied', sneak);
+  const fake = await Pp.evaluate(() => EGBCAuth.db.collection('sermons').doc('feed_fake').set({ title: 'x', speaker: '', date: '2026-10-01', seriesId: '', book: '', passage: '', description: '', audioPath: '',
+    audioType: '', audioSize: 0, durationSec: 0, audioUrl: 'https://example.invalid/x.mp3', published: true, guid: 'fake', source: 'feed', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    createdBy: EGBCAuth.user().uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: EGBCAuth.user().uid }).then(() => 'written', e => e.code));
+  ok('   nor can a page make up a feed episode', fake === 'permission-denied', fake);
+  const r3 = await readFeed([EP4, { ...EP1, title: 'Grace that scandalises (corrected, invented)' }, EP2, EP3]);
+  const s1 = await get('sermons', id1), s2 = await get('sermons', id2);
+  ok('   the next read: the new episode comes in once, the corrected title comes through', r3.created === 1 && (await sermonsNow()).length === 4 && s1.title === 'Grace that scandalises (corrected, invented)', J(r3));
+  ok('   THE SERIES, PASSAGE AND SPEAKER ADDED IN THE HUB ARE KEPT', s1.seriesId === series.id && s1.book === 'Luke' && s1.passage === '15:1-32' && s1.speaker === 'Jeanette (invented)', J(s1));
+  ok('   AND THE EPISODE PAT HID STAYS HIDDEN', s2.published === false);
+  await readFeed([EP4, { ...EP1, title: 'Grace that scandalises (corrected, invented)' }, EP2, EP3]);
+  ok('   and one more read changes nothing: still four', (await sermonsNow()).length === 4);
 
-  /* a draft */
-  await until(async () => !(await Pp.$eval('#f-go', e => e.disabled)));
+  /* 5. the backup: one uploaded by hand */
+  await go(Pp, 'sermons-admin.html', '#add');
+  await Pp.$eval('#add', e => { e.open = true; });
   await (await Pp.$('#f-file')).uploadFile(AUDIO);
-  await type(Pp, '#f-title', 'Draft talk (invented)');
-  await Pp.$eval('#f-date', e => { e.value = '2026-10-11'; });
-  await Pp.$eval('#f-pub', e => { e.checked = false; });
+  await type(Pp, '#f-title', 'A talk not on the podcast (invented)');
+  await Pp.$eval('#f-date', e => { e.value = '2026-09-27'; });
   await tap(Pp, '#f-go');
-  const draft = await until(async () => { const d = (await list('sermons')).find(s => s.title === 'Draft talk (invented)'); return d && d.audioSize ? d : null; }, 30000);
-  ok('   a sermon saved without publishing stays unpublished', draft && draft.published === false, J(draft));
-
-  /* 4. the old episodes get their audio; the artwork; ready */
-  for (const g of ['old-guid-0001-invented', 'old-guid-0002-invented']) {
-    const s = (await list('sermons')).find(x => x.guid === g);
-    await until(async () => !!(await Pp.$('[data-edit="' + s.id + '"]')));
-    await tap(Pp, '[data-edit="' + s.id + '"]');
-    await until(async () => /Brought over from Val's show/.test(await text(Pp, '#add')));
-    await (await Pp.$('#f-file')).uploadFile(AUDIO);
-    await Pp.$eval('#f-pub', e => { e.checked = true; });
-    await tap(Pp, '#f-go');
-    await until(async () => { const d = await get('sermons', s.id); return d && d.published ? d : null; }, 30000);
-  }
-  const olds = (await list('sermons')).filter(s => s.imported);
-  ok('4. THE OLD EPISODES, NOW WITH AUDIO AND PUBLISHED, KEEP THEIR IDs', olds.length === 2 && olds.every(s => s.published && s.audioSize > 0) && J(olds.map(s => s.guid).sort()) === J(['old-guid-0001-invented', 'old-guid-0002-invented']), J(olds.map(s => [s.guid, s.published])));
-  await until(async () => !!(await Pp.$('#sh-art')));
-  await (await Pp.$('#sh-art')).uploadFile(ART);
-  await tap(Pp, '#sh-go');
-  await until(async () => (await get('sermonShow', 'show')).artworkPath === 'podcast/artwork');
-  await until(async () => /Ready\. Every episode of Val's show is here/.test(await text(Pp, '#ready')));
-  ok('   READY TO REPOINT SPOTIFY once every old episode has its audio and the show has its artwork', /Ready\. Every episode/.test(await text(Pp, '#ready')));
-  await tap(Pp, '#sh-preview');
-  await until(async () => !!(await Pp.$('#feed-ok')));
-  const feedOk = await text(Pp, '#feed-ok'), xml = await Pp.$eval('#feed-xml', e => e.textContent);
-  ok('   the feed preview reads in the browser: 3 episodes, the draft left out', /reads correctly: 3 episodes/.test(feedOk) && !/Draft talk/.test(xml), feedOk);
-  ok('   the feed carries the old IDs and the show\'s owner email', /<guid isPermaLink="false">old-guid-0001-invented<\/guid>/.test(xml) && /<guid isPermaLink="false">old-guid-0002-invented<\/guid>/.test(xml)
-    && /<itunes:email>val\.synthetic@example\.invalid<\/itunes:email>/.test(xml) && /<guid isPermaLink="false">egbc-sermon-/.test(xml));
+  const up = await until(async () => (await list('sermons')).find(s => s.source === 'upload' && s.published) || null, 30000);
+  ok('5. THE BACKUP: a sermon uploaded by hand is shown, with its own audio', up && up.durationSec === 120 && up.audioPath === 'sermons/' + up.id + '/audio' && up.guid === 'egbc-sermon-' + up.id && up.audioUrl === '', J(up));
   await Pp.screenshot({ path: path.join(HERE, 'sermons-admin-375.png'), fullPage: true });
 
-  /* 7. who can hear the files with no account (podcast apps) */
-  ok('7. A PUBLISHED SERMON\'S AUDIO PLAYS WITH NO ACCOUNT (as Spotify fetches it)', (await plainFetch('sermons/' + fresh.id + '/audio')) === 200);
-  ok('   A DRAFT\'S DOES NOT', (await plainFetch('sermons/' + draft.id + '/audio')) === 403);
-
-  /* 5. the player */
+  /* 6. the player */
   const lB = await as('lee', 'lee-phone1'); browsers.push(lB); const L = lB.page;
   await go(L, listen, '.hello');
-  await until(async () => /Ask boldly, plan wisely/.test(await text(L, '#content')));
+  await until(async () => /A new one \(invented\)/.test(await text(L, '#content')));
   const lt = await text(L, '#content');
-  ok('5. Listen: the latest sermon first, the series, the recent ones; never the draft', /Listen.*Ask boldly, plan wisely \(invented\).*Nehemiah: rebuilding \(invented\) · Ryan Synthetic · 2 min/.test(lt)
-    && /Series.*Nehemiah: rebuilding \(invented\) 1 sermon/.test(lt) && /Recent.*Ask and plan \(invented\).*Grace that scandalises/.test(lt) && !/Draft talk/.test(lt)
-    && /search for “Test Green Sermons \(invented\)”/.test(lt), lt.slice(0, 600));
-  const sneakDraft = await L.evaluate((id) => EGBCAuth.db.collection('sermons').doc(id).get().then(() => 'read', e => e.code), draft.id);
-  ok('   a listener cannot read the draft, even by asking for it', sneakDraft === 'permission-denied', sneakDraft);
+  ok('6. Listen: the newest from the podcast first, the series, the recent ones; never the hidden one', /Listen.*A new one \(invented\)/.test(lt)
+    && /Series.*Luke: the lost found \(invented\) 1 sermon/.test(lt) && /Recent.*Rebuilding the walls/.test(lt) && /A talk not on the podcast/.test(lt) && !/Ask and plan/.test(lt)
+    && /search for “Test Green Sermons \(invented\)”/.test(lt), lt.slice(0, 700));
   await L.evaluate(() => { window.__np = []; EGBCAppListen.onChange((n) => window.__np.push(n)); });
-  await tap(L, '[data-lact="play:' + fresh.id + '"]');
+  await tap(L, '[data-lact="series:' + series.id + '"]');
+  await until(() => L.$('[data-l="series-list"]'));
+  await tap(L, '[data-lact="play:' + id1 + '"]');
   const playing = await until(() => L.evaluate(() => { const n = EGBCAppListen.nowPlaying(); return n && !n.paused && n.pos > 0 ? n : null; }), 20000);
-  ok('   Play: it plays, and "Now playing" shows it', playing && playing.id === fresh.id && /Now playing Ask boldly/.test(await text(L, '[data-l="now"]')), J(playing));
-  const told = await until(() => L.evaluate(() => (window.__np || []).filter((n) => n && n.title === 'Ask boldly, plan wisely (invented)' && n.speaker === 'Ryan Synthetic' && !n.paused && n.dur === 120).length));
+  const src = await L.evaluate(() => document.getElementById('egbc-listen-audio').src);
+  ok('   PLAY: IT PLAYS FROM THE PODCAST\'S OWN ADDRESS', playing && playing.id === id1 && src === 'http://localhost:5601/__audio/ep1.wav', src);
+  const told = await until(() => L.evaluate(() => (window.__np || []).filter((n) => n && n.title === 'Grace that scandalises (corrected, invented)' && n.speaker === 'Jeanette (invented)' && n.series === 'Luke: the lost found (invented)' && !n.paused).length));
   ok('   the shell\'s "Now playing" bar is told what is playing (F-137)', told > 0, String(told));
-  await L.screenshot({ path: path.join(HERE, 'listen-375.png'), fullPage: true });
+  await L.screenshot({ path: path.join(HERE, 'listen-series-375.png'), fullPage: true });
   await tap(L, '[data-act="tab:home"]');
   await sleep(600);
   const still = await L.evaluate(() => { const a = document.getElementById('egbc-listen-audio'); return a && !a.paused && !document.getElementById('content').contains(a); });
-  ok('   IT KEEPS PLAYING when you go to another tab (the player is not part of the screen)', still);
+  ok('   IT KEEPS PLAYING when you go to another tab', still);
   await tap(L, '[data-act="tab:listen"]');
   await L.waitForSelector('#lis-pp');
   await L.evaluate(() => { document.getElementById('egbc-listen-audio').currentTime = 50; });
   await tap(L, '#lis-pp');
-  const saved = await until(async () => { const s = await readDb(async (db) => (await getDoc(doc(db, 'listenProgress', P.lee.uid, 'sermons', fresh.id))).data()); return s && s.pos >= 49 ? s : null; });
-  ok('   PAUSE: ITS PLACE IS KEPT for Lee (0:50 of 2:00)', saved && saved.pos >= 49 && saved.pos < 53 && saved.dur === 120 && saved.done === false, J(saved));
-  const local = await L.evaluate((id) => (JSON.parse(localStorage.getItem('egbc.listen.v1') || '{}')[id] || {}).pos, fresh.id);
-  ok('   and on this phone', local >= 49 && local < 53, local);
+  const saved = await until(async () => { const s = await readDb(async (db) => (await getDoc(doc(db, 'listenProgress', P.lee.uid, 'sermons', id1))).data()); return s && s.pos >= 49 ? s : null; });
+  ok('   PAUSE: ITS PLACE IS KEPT (0:50 of 2:00)', saved && saved.pos >= 49 && saved.pos < 53 && saved.dur === 120 && saved.done === false, J(saved));
+  await L.screenshot({ path: path.join(HERE, 'listen-375.png'), fullPage: true });
 
-  /* another phone */
   const l2B = await as('lee', 'lee-phone2'); browsers.push(l2B); const L2 = l2B.page;
   await go(L2, listen, '.hello');
   await until(async () => /Carry on listening/.test(await text(L2, '#content')));
   const carry = await text(L2, '[data-l="carry"]');
-  ok('   ON ANOTHER PHONE: "Carry on listening", with the time left', /Ask boldly, plan wisely \(invented\) Ryan Synthetic · 1 min left/.test(carry), carry);
-  await tap(L2, '[data-l="carry"] [data-lact="play:' + fresh.id + '"]');
+  ok('   ON ANOTHER PHONE: "Carry on listening", with the time left', /Grace that scandalises \(corrected, invented\) Jeanette \(invented\) · 1 min left/.test(carry), carry);
+  await tap(L2, '[data-l="carry"] [data-lact="play:' + id1 + '"]');
   const resumed = await until(() => L2.evaluate(() => { const n = EGBCAppListen.nowPlaying(); return n && !n.paused && n.pos >= 49 ? n : null; }), 20000);
   ok('   and it carries on from 0:50, not the start', resumed && resumed.pos >= 49 && resumed.pos < 60, J(resumed));
   await tap(L2, '#lis-pp');
-
-  /* 6. search */
-  await type(L2, '#lis-q', 'nehemiah');
-  const s1 = await text(L2, '#lis-res');
-  await type(L2, '#lis-q', 'ryan');
-  const s2 = await text(L2, '#lis-res');
-  await type(L2, '#lis-q', 'september 2025');
-  const s3 = await text(L2, '#lis-res');
+  await type(L2, '#lis-q', 'luke');
+  const q1 = await text(L2, '#lis-res');
+  await type(L2, '#lis-q', 'jeanette');
+  const q2 = await text(L2, '#lis-res');
+  await type(L2, '#lis-q', 'october 2026');
+  const q3 = await text(L2, '#lis-res');
   await type(L2, '#lis-q', 'zzz');
-  const s4 = await text(L2, '#lis-res');
-  ok('6. search by Bible book, speaker and date', /Ask boldly/.test(s1) && !/Grace/.test(s1) && /Ask boldly/.test(s2) && /Grace that scandalises/.test(s3) && /Ask and plan/.test(s3) && !/Ask boldly/.test(s3)
-    && /Nothing found for “zzz”/.test(s4), [s1, s2, s3, s4].join(' || '));
-  ok('   typing does not redraw the screen (the box keeps its place)', await L2.evaluate(() => document.activeElement !== null && document.getElementById('lis-q').value === 'zzz'));
-  await type(L2, '#lis-q', '');
-  await tap(L2, '[data-lact="series:' + series.id + '"]');
-  await until(async () => !!(await L2.$('[data-l="series-list"]')));
-  const sv = await text(L2, '#content');
-  ok('   a series, in order', /All sermons.*Nehemiah: rebuilding \(invented\).*1\. Ask boldly, plan wisely \(invented\)/.test(sv), sv.slice(0, 300));
-  await L2.screenshot({ path: path.join(HERE, 'listen-series-375.png'), fullPage: true });
+  const q4 = await text(L2, '#lis-res');
+  ok('   search by Bible book, speaker and date (what the hub added is searchable)', /Grace that scandalises/.test(q1) && !/Rebuilding/.test(q1) && /Grace that scandalises/.test(q2)
+    && /Rebuilding the walls/.test(q3) && /A new one/.test(q3) && !/Grace/.test(q3) && /Nothing found for “zzz”/.test(q4), [q1, q2, q3, q4].join(' || '));
 
-  /* nothing published yet: words, not an empty screen (a fresh church) */
   ok('errors on the pages', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

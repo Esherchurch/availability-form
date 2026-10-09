@@ -1864,56 +1864,66 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a member cannot change the menu', 'deny', () => setDoc(doc(as('samy'), 'menus', 'menu_tea'), { name: 'Mine', unit: 'head', price: 0, active: true }));
 }
 
-// ── EVENTS (events window) ── sermons and "Listen" (F-124, F-132)
+// ── EVENTS (events window) ── sermons and "Listen" (F-124, F-132, F-138; Martin's option 3: read Val's feed)
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();
   const guest = () => env.unauthenticatedContext().firestore();
+  /* A feed episode exactly as the function (Admin SDK) writes it. */
+  const FEEDEP = { title: 'Grace that scandalises (invented)', description: 'Invented notes.', date: '2025-09-07', pubDate: 'Sun, 07 Sep 2025 10:45:00 GMT',
+    audioUrl: 'https://example.invalid/ep1.mp3', audioType: 'audio/mpeg', audioSize: 31000000, durationSec: 2050, imageUrl: '', guid: 'a1b2c3d4-0001-invented',
+    source: 'feed', speaker: '', seriesId: '', book: '', passage: '', published: true, audioPath: '', feedSeenAt: 'x', createdAt: 'x', createdBy: 'feed', updatedAt: 'x', updatedBy: 'feed' };
   await env.withSecurityRulesDisabled(async (c) => {
     const db = c.firestore();
     await setDoc(doc(db, 'users', 'u_preach'), { uid: 'u_preach', memberId: 'm_preach', status: 'active', name: 'Pat Preacher', teams: [], adminFor: [], masterAdmin: false, attender: true });
     await setDoc(doc(db, 'users', 'u_listen'), { uid: 'u_listen', memberId: 'm_listen', status: 'active', name: 'Lee Listener', teams: [], adminFor: [], masterAdmin: false, attender: true });
-    await setDoc(doc(db, 'sermons', 'srm_draft'), { title: 'Draft (invented)', published: false, guid: 'egbc-sermon-srm_draft' });
+    await setDoc(doc(db, 'sermons', 'srm_draft'), { title: 'Draft (invented)', published: false, guid: 'egbc-sermon-srm_draft', source: 'upload' });
+    await setDoc(doc(db, 'sermons', 'feed_ep1'), FEEDEP);
+    await setDoc(doc(db, 'sermonShow', 'feedStatus'), { lastReadAt: 'x', ok: true, episodes: 1 });
   });
   const S = (id, who, extra) => ({ title: 'Ask boldly (invented)', speaker: 'Test Speaker', date: '2026-10-04', seriesId: '', book: 'Nehemiah', passage: '1:1-11',
-    description: '', audioPath: '', audioType: '', audioSize: 0, durationSec: 0, published: false, guid: 'egbc-sermon-' + id, imported: false,
+    description: '', audioPath: '', audioType: '', audioSize: 0, durationSec: 0, audioUrl: '', published: false, guid: 'egbc-sermon-' + id, source: 'upload',
     createdAt: serverTimestamp(), createdBy: who, updatedAt: serverTimestamp(), updatedBy: who, ...(extra || {}) });
   const UP = (who, extra) => ({ updatedAt: serverTimestamp(), updatedBy: who, ...(extra || {}) });
-  await check('a master admin adds a sermon', 'allow', () => setDoc(doc(as('martin'), 'sermons', 'srm_1'), S('srm_1', 'u_martin')));
-  await check('SOMEONE NOT NAMED CANNOT ADD ONE, not even an admin of another area', 'deny', () => setDoc(doc(as('karen'), 'sermons', 'srm_2'), S('srm_2', 'u_karen')));
-  await check('a master admin names who may upload', 'allow', () => setDoc(doc(as('martin'), 'sermonShow', 'access'), { memberIds: ['m_preach'], updatedAt: serverTimestamp(), updatedBy: 'u_martin' }));
+  await check('a master admin uploads a sermon (the backup way)', 'allow', () => setDoc(doc(as('martin'), 'sermons', 'srm_1'), S('srm_1', 'u_martin')));
+  await check('SOMEONE NOT NAMED CANNOT, not even an admin of another area', 'deny', () => setDoc(doc(as('karen'), 'sermons', 'srm_2'), S('srm_2', 'u_karen')));
+  await check('a master admin names who may look after sermons', 'allow', () => setDoc(doc(as('martin'), 'sermonShow', 'access'), { memberIds: ['m_preach'], updatedAt: serverTimestamp(), updatedBy: 'u_martin' }));
   await check('nobody else can name themselves', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermonShow', 'access'), { memberIds: ['m_preach', 'm_listen'], updatedAt: serverTimestamp(), updatedBy: 'u_preach' }));
-  await check('the person named adds a sermon', 'allow', () => setDoc(doc(ctx('u_preach'), 'sermons', 'srm_2'), S('srm_2', 'u_preach')));
-  await check('a new sermon’s episode ID is its own (egbc-sermon-<id>)', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermons', 'srm_3'), S('srm_3', 'u_preach', { guid: 'egbc-sermon-srm_1' })));
-  await check('one brought over from Val’s show keeps the show’s own ID', 'allow', () => setDoc(doc(ctx('u_preach'), 'sermons', 'srm_old1'),
-    S('srm_old1', 'u_preach', { imported: true, guid: 'b7e1c2d4-old-show-guid-1', pubDate: 'Sun, 05 Jan 2025 11:00:00 GMT' })));
-  await check('NOT PUBLISHED WITHOUT ITS AUDIO', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'srm_2'), UP('u_preach', { published: true })));
-  await check('published once the audio is up and measured', 'allow', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'srm_2'),
+  await check('the person named uploads one', 'allow', () => setDoc(doc(ctx('u_preach'), 'sermons', 'srm_2'), S('srm_2', 'u_preach')));
+  await check('an upload’s episode id is its own', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermons', 'srm_3'), S('srm_3', 'u_preach', { guid: 'egbc-sermon-srm_1' })));
+  await check('NO PAGE CAN MAKE A FEED EPISODE (only the function reads the feed)', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermons', 'feed_fake'), { ...FEEDEP, guid: 'fake-guid',
+    createdAt: serverTimestamp(), createdBy: 'u_preach', updatedAt: serverTimestamp(), updatedBy: 'u_preach' }));
+  await check('nor an upload that plays from somewhere else', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermons', 'srm_4'), S('srm_4', 'u_preach', { audioUrl: 'https://example.invalid/x.mp3' })));
+  await check('an upload is not shown without its audio', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'srm_2'), UP('u_preach', { published: true })));
+  await check('it is, once the audio is up and measured', 'allow', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'srm_2'),
     UP('u_preach', { published: true, audioPath: 'sermons/srm_2/audio', audioType: 'audio/mpeg', audioSize: 31000000, durationSec: 2040 })));
-  await check('not pointing at another sermon’s audio', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'srm_1'),
-    UP('u_preach', { audioPath: 'sermons/srm_2/audio', audioSize: 1, durationSec: 1 })));
-  await check('THE EPISODE ID NEVER CHANGES (or Spotify shows it twice)', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'srm_old1'), UP('u_preach', { guid: 'something-new' })));
-  await check('nor can an imported one pretend to be new', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'srm_old1'), UP('u_preach', { imported: false })));
-  await check('ANYONE, SIGNED IN OR NOT, READS A PUBLISHED SERMON (it is a public podcast)', 'allow', () => getDoc(doc(guest(), 'sermons', 'srm_2')));
-  await check('and lists the published ones, asking for them', 'allow', () => getDocs(query(collection(ctx('u_listen'), 'sermons'), where('published', '==', true))));
-  await check('A SERMON NOT YET PUBLISHED IS NOT SEEN by a listener', 'deny', () => getDoc(doc(ctx('u_listen'), 'sermons', 'srm_draft')));
+  await check('VAL OR AN ADMIN ADDS THE SERIES, PASSAGE AND SPEAKER TO A FEED EPISODE', 'allow', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'feed_ep1'),
+    UP('u_preach', { seriesId: 'ser_luke', book: 'Luke', passage: '15:1-32', speaker: 'Jeanette (invented)' })));
+  await check('and can hide one', 'allow', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'feed_ep1'), UP('u_preach', { published: false })));
+  await check('BUT NOT CHANGE WHAT THE FEED OWNS: its title', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'feed_ep1'), UP('u_preach', { title: 'Something else' })));
+  await check('or its audio', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'feed_ep1'), UP('u_preach', { audioUrl: 'https://example.invalid/other.mp3' })));
+  await check('THE EPISODE ID NEVER CHANGES', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'feed_ep1'), UP('u_preach', { guid: 'something-new' })));
+  await check('nor can a feed episode be turned into an upload', 'deny', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'feed_ep1'), UP('u_preach', { source: 'upload' })));
+  await check('shown again', 'allow', () => updateDoc(doc(ctx('u_preach'), 'sermons', 'feed_ep1'), UP('u_preach', { published: true })));
+  await check('ANYONE, SIGNED IN OR NOT, READS A SHOWN SERMON', 'allow', () => getDoc(doc(guest(), 'sermons', 'feed_ep1')));
+  await check('and lists the shown ones, asking for them', 'allow', () => getDocs(query(collection(ctx('u_listen'), 'sermons'), where('published', '==', true))));
+  await check('A SERMON NOT SHOWN IS NOT SEEN by a listener', 'deny', () => getDoc(doc(ctx('u_listen'), 'sermons', 'srm_draft')));
   await check('nor by the public', 'deny', () => getDoc(doc(guest(), 'sermons', 'srm_draft')));
-  await check('the uploader sees it', 'allow', () => getDoc(doc(ctx('u_preach'), 'sermons', 'srm_draft')));
-  await check('a listener cannot change a sermon', 'deny', () => updateDoc(doc(ctx('u_listen'), 'sermons', 'srm_2'), UP('u_listen', { title: 'Mine' })));
-  await check('a sermon is never deleted (unpublish instead)', 'deny', () => deleteDoc(doc(as('martin'), 'sermons', 'srm_1')));
-  const SHOW = (who, extra) => ({ title: 'Test Church Sermons', description: 'Invented', author: 'Test Church', ownerName: 'Test Owner', ownerEmail: 'owner@example.invalid',
-    link: 'https://example.invalid', language: 'en-gb', category: 'Religion & Spirituality', subcategory: 'Christianity', explicit: false, artworkPath: 'podcast/artwork',
-    oldFeedUrl: '', oldGuids: ['b7e1c2d4-old-show-guid-1'], updatedAt: serverTimestamp(), updatedBy: who, ...(extra || {}) });
-  await check('the uploader keeps the show’s details (Val’s name, artwork, owner email)', 'allow', () => setDoc(doc(ctx('u_preach'), 'sermonShow', 'show'), SHOW('u_preach')));
-  await check('the owner email has to look like one', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermonShow', 'show'), SHOW('u_preach', { ownerEmail: 'not an address' })));
-  await check('a listener cannot change the show', 'deny', () => setDoc(doc(ctx('u_listen'), 'sermonShow', 'show'), SHOW('u_listen')));
-  await check('anyone reads the show', 'allow', () => getDoc(doc(guest(), 'sermonShow', 'show')));
-  await check('the uploader adds a series', 'allow', () => setDoc(doc(ctx('u_preach'), 'sermonSeries', 'ser_neh'), { name: 'Nehemiah (invented)', description: '', artworkPath: 'sermonSeries/ser_neh/artwork', order: 1, updatedAt: serverTimestamp(), updatedBy: 'u_preach' }));
+  await check('the person named sees it', 'allow', () => getDoc(doc(ctx('u_preach'), 'sermons', 'srm_draft')));
+  await check('a listener cannot change a sermon', 'deny', () => updateDoc(doc(ctx('u_listen'), 'sermons', 'feed_ep1'), UP('u_listen', { seriesId: 'x' })));
+  await check('a sermon is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'sermons', 'feed_ep1')));
+  const FEEDSET = (who, url) => ({ url, updatedAt: serverTimestamp(), updatedBy: who });
+  await check('the person named sets the feed address (from Val’s Spotify for Creators settings)', 'allow', () => setDoc(doc(ctx('u_preach'), 'sermonShow', 'feed'), FEEDSET('u_preach', 'https://anchor.example.invalid/s/abc123/podcast/rss')));
+  await check('only a secure web address', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermonShow', 'feed'), FEEDSET('u_preach', 'http://anchor.example.invalid/rss')));
+  await check('a listener cannot change it', 'deny', () => setDoc(doc(ctx('u_listen'), 'sermonShow', 'feed'), FEEDSET('u_listen', 'https://elsewhere.example.invalid/rss')));
+  await check('the last read is shown to the uploaders', 'allow', () => getDoc(doc(ctx('u_preach'), 'sermonShow', 'feedStatus')));
+  await check('but only the function writes it', 'deny', () => setDoc(doc(ctx('u_preach'), 'sermonShow', 'feedStatus'), { ok: true }));
+  await check('the person named adds a series', 'allow', () => setDoc(doc(ctx('u_preach'), 'sermonSeries', 'ser_luke'), { name: 'Luke (invented)', description: '', artworkPath: '', order: 1, updatedAt: serverTimestamp(), updatedBy: 'u_preach' }));
   await check('anyone reads the series', 'allow', () => getDocs(collection(guest(), 'sermonSeries')));
   const P = (extra) => ({ pos: 812.4, dur: 2040, done: false, at: serverTimestamp(), ...(extra || {}) });
-  await check('A LISTENER’S PLACE IS KEPT for them', 'allow', () => setDoc(doc(ctx('u_listen'), 'listenProgress', 'u_listen', 'sermons', 'srm_2'), P()));
-  await check('and read back on another phone', 'allow', () => getDoc(doc(ctx('u_listen'), 'listenProgress', 'u_listen', 'sermons', 'srm_2')));
-  await check('NOBODY ELSE READS WHAT SOMEONE LISTENS TO, not even a master admin', 'deny', () => getDoc(doc(as('martin'), 'listenProgress', 'u_listen', 'sermons', 'srm_2')));
-  await check('nor writes it', 'deny', () => setDoc(doc(ctx('u_preach'), 'listenProgress', 'u_listen', 'sermons', 'srm_2'), P()));
+  await check('A LISTENER’S PLACE IS KEPT for them', 'allow', () => setDoc(doc(ctx('u_listen'), 'listenProgress', 'u_listen', 'sermons', 'feed_ep1'), P()));
+  await check('and read back on another phone', 'allow', () => getDoc(doc(ctx('u_listen'), 'listenProgress', 'u_listen', 'sermons', 'feed_ep1')));
+  await check('NOBODY ELSE READS WHAT SOMEONE LISTENS TO, not even a master admin', 'deny', () => getDoc(doc(as('martin'), 'listenProgress', 'u_listen', 'sermons', 'feed_ep1')));
+  await check('nor writes it', 'deny', () => setDoc(doc(ctx('u_preach'), 'listenProgress', 'u_listen', 'sermons', 'feed_ep1'), P()));
   await check('the place has its own shape', 'deny', () => setDoc(doc(ctx('u_listen'), 'listenProgress', 'u_listen', 'sermons', 'srm_1'), P({ pos: -3 })));
 }
 // ── end EVENTS ──
